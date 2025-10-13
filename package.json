@@ -1,0 +1,24 @@
+{
+  "name": "gantt-planification",
+  "version": "1.0.0",
+  "description": "Gestionnaire de ressources et planification GANTT",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": ["gantt", "planification", "ressources"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "body-parser": "^1.20.2",
+    "sqlite3": "^5.1.6",
+    "sqlite": "^5.0.1"
+  },
+  "engines": {
+    "node": "18.x"
+  }
+}
