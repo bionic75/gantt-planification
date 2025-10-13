@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestionnaire de Ressources et Planification</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            padding: 10px;
+        }
+        
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .tabs {
+            display: flex;
+            background-color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+        }
+        
+        .tab-btn {
+            flex: 1;
+            padding: 15px;
+            background-color: #2c3e50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        
+        .tab-btn:hover {
+            background-color: #34495e;
+        }
+        
+        .tab-btn.active {
+            background-color: #3498db;
+            border-bottom: 4px solid #2980b9;
+        }
+        
+        .tab-content {
+            display: none;
+            padding: 20px;
+            animation: fadeIn 0.3s;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        
+        h3 {
+            color: #2c3e50;
+            margin-top: 15px;
+            margin-bottom: 10px;
+            font-size: 14px;
+            border-left: 3px solid #3498db;
+            padding-left: 10px;
+        }
+        
+        .form-section {
+            background-color: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 12px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #2c3e50;
+            font-weight: bold;
+            font-size: 13px;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+            font-size: 13px;
+            font-family: Arial, sans-serif;
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+            gap: 10px;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            padding: 10px 20px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #2980b9;
+        }
+        
+        button.delete {
+            background-color: #e74c3c;
+        }
+        
+        button.delete:hover {
+            background-color: #c0392b;
+        }
+        
+        .export-btn {
+            background-color: #27ae60;
+        }
+        
+        .export-btn:hover {
+            background-color: #229954;
+        }
+        
+        .sync-status {
+            padding: 10px 15px;
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 4px;
+            color: #155724;
+            font-size: 12px;
+            margin-bottom: 15px;
+        }
+        
+        .sync-status.syncing {
+            background-color: #fff3cd;
+            border-color: #ffc107;
+            color: #856404;
+        }
+        
+        .sync-status.error {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        
+        .table-container {
+            overflow-x: auto;
+            margin-top: 20px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        
+        th {
+            background-color: #34495e;
+            color: white;
+            padding: 10px;
+            text-align: left;
+            font-weight: bold;
+        }
+        
+        td {
+            padding: 10px;
+            border-bottom: 1px solid #ecf0f1;
+        }
+        
+        tr:hover {
+            background-color: #f9f9f9;
+        }
+        
+        .gantt-container {
+            overflow-x: auto;
+            margin-top: 20px;
+            border: 1px solid #bdc3c7;
+            border-radius: 5px;
+        }
+        
+        .gantt-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        
+        .gantt-table th, .gantt-table td {
+            border: 1px solid #bdc3c7;
+            padding: 8px;
+            text-align: center;
+        }
+        
+        .gantt-table th {
+            background-color: #34495e;
+            color: white;
+            font-weight: bold;
+            padding: 6px 4px;
+        }
+        
+        .resource-name {
+            background-color: #ecf0f1;
+            font-weight: bold;
+            text-align: left;
+            min-width: 200px;
+        }
+        
+        .counter-cell {
+            background-color: #ecf0f1;
+            font-weight: bold;
+            text-align: center;
+            min-width: 80px;
+        }
+        
+        .day-cell {
+            background-color: white;
+            min-width: 60px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .day-cell:hover {
+            background-color: #e8f4f8;
+        }
+        
+        .day-header {
+            font-weight: bold;
+            background-color: #3498db;
+            color: white;
+            padding: 8px 4px;
+        }
+        
+        .day-header.weekend {
+            background-color: #ffc107;
+            color: #333;
+        }
+        
+        .weekend {
+            background-color: #ffe8b6;
+        }
+        
+        .unavailable { background-color: #95a5a6; color: white; }
+        .available { background-color: #27ae60; color: white; }
+        .waiting { background-color: #9b59b6; color: white; }
+        .samu-deploy { background-color: #e67e22; color: white; }
+        .samu-dev { background-color: #d35400; color: white; }
+        .ans-deploy { background-color: #3498db; color: white; }
+        .ans-dev { background-color: #2980b9; color: white; }
+        .qualification { background-color: #e74c3c; color: white; }
+        .misc { background-color: #16a085; color: white; }
+        
+        .color-code {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            margin-right: 8px;
+            border-radius: 3px;
+            vertical-align: middle;
+        }
+        
+        .legend {
+            background-color: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .legend-section {
+            margin-bottom: 15px;
+        }
+        
+        .legend-section-title {
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 8px;
+            font-size: 13px;
+            border-bottom: 1px solid #bdc3c7;
+            padding-bottom: 5px;
+        }
+        
+        .legend-items {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            font-size: 12px;
+        }
+        
+        .planif-controls {
+            background-color: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .control-group label {
+            margin-bottom: 0;
+        }
+        
+        .control-group select {
+            width: 150px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('resources')">📋 Ressources</button>
+            <button class="tab-btn" onclick="switchTab('planning')">📅 Planification</button>
+        </div>
+        
+        <div id="resources" class="tab-content active">
+            <h2>Gestion des Ressources</h2>
+            
+            <div id="syncStatus" class="sync-status" style="display:none;">
+                ✓ Données synchronisées avec le serveur
+            </div>
+            
+            <div class="form-section">
+                <h3>Ajouter une nouvelle ressource</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Nom</label>
+                        <input type="text" id="nom" placeholder="Nom">
+                    </div>
+                    <div class="form-group">
+                        <label>Prénom</label>
+                        <input type="text" id="prenom" placeholder="Prénom">
+                    </div>
+                    <div class="form-group">
+                        <label>Trigramme</label>
+                        <input type="text" id="trigramme" placeholder="XXX" maxlength="3">
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="email" placeholder="email@example.com">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Taux de MAD (%)</label>
+                        <input type="number" id="taux" placeholder="100" min="0" max="100">
+                    </div>
+                    <div class="form-group">
+                        <label>SAMU de rattachement</label>
+                        <input type="text" id="samu" placeholder="Ex: SAMU 75, SAMU Est...">
+                    </div>
+                </div>
+                <div class="button-group">
+                    <button onclick="addResource()">Ajouter la ressource</button>
+                    <button class="export-btn" onclick="exportResources()">📥 Exporter les ressources</button>
+                </div>
+            </div>
+            
+            <div class="table-container">
+                <table id="resourcesTable">
+                    <thead>
+                        <tr>
+                            <th>Nom</th>
+                            <th>Prénom</th>
+                            <th>Trigramme</th>
+                            <th>Email</th>
+                            <th>Taux MAD</th>
+                            <th>SAMU</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resourcesList">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div id="planning" class="tab-content">
+            <h2>Planification - Vue GANTT</h2>
+            
+            <div class="planif-controls">
+                <div class="control-group">
+                    <label>Année</label>
+                    <select id="yearSelect" onchange="updateGantt()">
+                        <option value="2024">2024</option>
+                        <option value="2025" selected>2025</option>
+                        <option value="2026">2026</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>Mois</label>
+                    <select id="monthSelect" onchange="updateGantt()">
+                        <option value="0">Janvier</option>
+                        <option value="1">Février</option>
+                        <option value="2">Mars</option>
+                        <option value="3">Avril</option>
+                        <option value="4">Mai</option>
+                        <option value="5">Juin</option>
+                        <option value="6">Juillet</option>
+                        <option value="7">Août</option>
+                        <option value="8">Septembre</option>
+                        <option value="9" selected>Octobre</option>
+                        <option value="10">Novembre</option>
+                        <option value="11">Décembre</option>
+                    </select>
+                </div>
+                <button onclick="updateGantt()" style="height: fit-content;">Afficher le calendrier</button>
+                <button class="export-btn" onclick="exportGantt()" style="height: fit-content;">📥 Exporter le calendrier</button>
+            </div>
+            
+            <div class="legend">
+                <div class="legend-section">
+                    <div class="legend-section-title">DISPONIBILITÉ</div>
+                    <div class="legend-items">
+                        <div class="legend-item"><span class="color-code unavailable"></span> 1 - Indisponible</div>
+                        <div class="legend-item"><span class="color-code available"></span> 2 - Disponible pour l'ANS</div>
+                    </div>
+                </div>
+                
+                <div class="legend-section">
+                    <div class="legend-section-title">AFFECTATION</div>
+                    <div class="legend-items">
+                        <div class="legend-item"><span class="color-code waiting"></span> 1 - En attente d'affectation</div>
+                        <div class="legend-item"><span class="color-code samu-deploy"></span> 2 - SAMU (Déploiement)</div>
+                        <div class="legend-item"><span class="color-code samu-dev"></span> 3 - SAMU (Dev. usages)</div>
+                        <div class="legend-item"><span class="color-code ans-deploy"></span> 4 - ANS (Déploiement)</div>
+                        <div class="legend-item"><span class="color-code ans-dev"></span> 5 - ANS (Dev. usages)</div>
+                        <div class="legend-item"><span class="color-code qualification"></span> 6 - Qualification</div>
+                        <div class="legend-item"><span class="color-code misc"></span> 7 - Divers</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="gantt-container" id="ganttContainer">
+                <p style="text-align: center; padding: 20px; color: #7f8c8d;">Veuillez ajouter des ressources et cliquer sur "Afficher le calendrier"</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = '/api';
+        let resources = [];
+        let scheduleData = {};
+
+        window.addEventListener('load', async function() {
+            await loadResources();
+            await loadSchedule();
+            setCurrentMonth();
+        });
+
+        async function loadResources() {
+            try {
+                const response = await fetch(`${API_URL}/resources`);
+                resources = await response.json();
+                displayResources();
+            } catch (error) {
+                console.error('Erreur chargement ressources:', error);
+            }
+        }
+
+        async function loadSchedule() {
+            try {
+                const response = await fetch(`${API_URL}/schedule`);
+                scheduleData = await response.json();
+            } catch (error) {
+                console.error('Erreur chargement planification:', error);
+            }
+        }
+
+        async function addResource() {
+            const nom = document.getElementById('nom').value.trim();
+            const prenom = document.getElementById('prenom').value.trim();
+            const trigramme = document.getElementById('trigramme').value.trim().toUpperCase();
+            const email = document.getElementById('email').value.trim();
+            const taux = document.getElementById('taux').value;
+            const samu = document.getElementById('samu').value.trim();
+
+            if (!nom || !prenom || !trigramme || !email || !taux || !samu) {
+                alert('Veuillez remplir tous les champs');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/resources`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nom, prenom, trigramme, email, taux: parseFloat(taux), samu })
+                });
+                
+                if (response.ok) {
+                    showSyncStatus();
+                    await loadResources();
+                    clearResourceForm();
+                }
+            } catch (error) {
+                console.error('Erreur ajout ressource:', error);
+                alert('Erreur lors de l\'ajout de la ressource');
+            }
+        }
+
+        async function deleteResource(id) {
+            if (!confirm('Êtes-vous sûr de vouloir supprimer cette ressource ?')) return;
+
+            try {
+                const response = await fetch(`${API_URL}/resources/${id}`, { method: 'DELETE' });
+                if (response.ok) {
+                    showSyncStatus();
+                    await loadResources();
+                    updateGantt();
+                }
+            } catch (error) {
+                console.error('Erreur suppression:', error);
+            }
+        }
+
+        function displayResources() {
+            const tbody = document.getElementById('resourcesList');
+            tbody.innerHTML = '';
+            resources.forEach(r => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${r.nom}</td>
+                    <td>${r.prenom}</td>
+                    <td>${r.trigramme}</td>
+                    <td>${r.email}</td>
+                    <td>${r.taux}%</td>
+                    <td>${r.samu}</td>
+                    <td><button class="delete" onclick="deleteResource(${r.id})">Supprimer</button></td>
+                `;
+            });
+        }
+
+        function clearResourceForm() {
+            document.getElementById('nom').value = '';
+            document.getElementById('prenom').value = '';
+            document.getElementById('trigramme').value = '';
+            document.getElementById('email').value = '';
+            document.getElementById('taux').value = '';
+            document.getElementById('samu').value = '';
+        }
+
+        function setCurrentMonth() {
+            const now = new Date();
+            document.getElementById('monthSelect').value = now.getMonth();
+            document.getElementById('yearSelect').value = now.getFullYear();
+        }
+
+        function countWorkDays(year, month) {
+            const lastDay = new Date(year, month + 1, 0).getDate();
+            let workDays = 0;
+            for (let day = 1; day <= lastDay; day++) {
+                const date = new Date(year, month, day);
+                if (date.getDay() !== 0 && date.getDay() !== 6) workDays++;
+            }
+            return workDays;
+        }
+
+        function countDaysForResource(resourceId, year, month) {
+            const lastDay = new Date(year, month + 1, 0).getDate();
+            let count = 0;
+            for (let day = 1; day <= lastDay; day++) {
+                const dateKey = `${year}-${month}-${day}`;
+                const key = `${resourceId}_available_${dateKey}`;
+                if (scheduleData[key] === '2') count++;
+            }
+            return count;
+        }
+
+        function calculateExpectedWorkDays(resourceId, year, month) {
+            const resource = resources.find(r => r.id === resourceId);
+            if (!resource) return 0;
+            const totalWorkDays = countWorkDays(year, month);
+            return ((totalWorkDays * resource.taux) / 100).toFixed(1);
+        }
+
+        function cycleActivity(resourceId, dateKey, availability) {
+            if (availability === '1') {
+                alert('La ressource est indisponible ce jour.');
+                return;
+            }
+            const key = `${resourceId}_activity_${dateKey}`;
+            const currentValue = parseInt(scheduleData[key] || '1');
+            const nextValue = currentValue === 7 ? 1 : currentValue + 1;
+            scheduleData[key] = String(nextValue);
+            saveSchedule();
+            updateGantt();
+        }
+
+        function toggleAvailability(resourceId, dateKey) {
+            const key = `${resourceId}_available_${dateKey}`;
+            const currentValue = scheduleData[key] || '1';
+            const newValue = currentValue === '1' ? '2' : '1';
+            scheduleData[key] = newValue;
+            
+            if (newValue === '2') {
+                scheduleData[`${resourceId}_activity_${dateKey}`] = '1';
+            } else {
+                scheduleData[`${resourceId}_activity_${dateKey}`] = '1';
+            }
+            saveSchedule();
+            updateGantt();
+        }
+
+        async function saveSchedule() {
+            try {
+                await fetch(`${API_URL}/schedule`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(scheduleData)
+                });
+                showSyncStatus();
+            } catch (error) {
+                console.error('Erreur sauvegarde:', error);
+            }
+        }
+
+        function updateGantt() {
+            const year = parseInt(document.getElementById('yearSelect').value);
+            const month = parseInt(document.getElementById('monthSelect').value);
+            const lastDay = new Date(year, month + 1, 0).getDate();
+
+            let html = '<table class="gantt-table"><thead><tr><th class="resource-name">Ressource</th><th class="counter-cell">Nb jours Dispo</th><th class="counter-cell">Jours MAD<br>attendus</th>';
+
+            for (let day = 1; day <= lastDay; day++) {
+                const date = new Date(year, month, day);
+                const dayName = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'][date.getDay()];
+                const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                const headerClass = isWeekend ? 'day-header weekend' : 'day-header';
+                html += `<th class="${headerClass}">${dayName}<br>${day}</th>`;
+            }
+
+            html += '</tr></thead><tbody>';
+
+            resources.forEach(resource => {
+                const dispoCount = countDaysForResource(resource.id, year, month);
+
+                html += `<tr>
+                    <td class="resource-name">${resource.prenom} ${resource.nom}<br><small>${resource.trigramme}</small><br><small style="color:#7f8c8d;">Disponibilité</small></td>
+                    <td class="counter-cell">${dispoCount}</td>
+                    <td class="counter-cell">${calculateExpectedWorkDays(resource.id, year, month)}</td>`;
+
+                for (let day = 1; day <= lastDay; day++) {
+                    const dateKey = `${year}-${month}-${day}`;
+                    const key = `${resource.id}_available_${dateKey}`;
+                    const value = scheduleData[key] || '1';
+                    const classes = value === '1' ? 'unavailable' : 'available';
+                    const text = value === '1' ? '1' : '2';
+                    const date = new Date(year, month, day);
+                    const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                    const cellClass = isWeekend ? `day-cell ${classes} weekend` : `day-cell ${classes}`;
+                    
+                    html += `<td class="${cellClass}" onclick="toggleAvailability(${resource.id}, '${dateKey}')" title="Cliquez pour changer">${text}</td>`;
+                }
+                html += '</tr>';
+
+                html += `<tr>
+                    <td class="resource-name"><small style="color:#7f8c8d;">Activités</small></td>
+                    <td class="counter-cell">-</td>
+                    <td class="counter-cell">-</td>`;
+
+                for (let day = 1; day <= lastDay; day++) {
+                    const dateKey = `${year}-${month}-${day}`;
+                    const key = `${resource.id}_activity_${dateKey}`;
+                    const value = scheduleData[key] || '1';
+                    const availability = scheduleData[`${resource.id}_available_${dateKey}`] || '1';
+                    
+                    let classes = '';
+                    let text = '';
+                    
+                    if (availability === '1') {
+                        classes = 'unavailable';
+                        text = '1';
+                    } else {
+                        const activities = {
+                            '1': { class: 'waiting', text: '1' },
+                            '2': { class: 'samu-deploy', text: '2' },
+                            '3': { class: 'samu-dev', text: '3' },
+                            '4': { class: 'ans-deploy', text: '4' },
+                            '5': { class: 'ans-dev', text: '5' },
+                            '6': { class: 'qualification', text: '6' },
+                            '7': { class: 'misc', text: '7' }
+                        };
+                        classes = activities[value].class;
+                        text = activities[value].text;
+                    }
+                    
+                    const date = new Date(year, month, day);
+                    const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                    const cellClass = isWeekend ? `day-cell ${classes} weekend` : `day-cell ${classes}`;
+                    
+                    html += `<td class="${cellClass}" onclick="cycleActivity(${resource.id}, '${dateKey}', '${availability}')" title="Cliquez pour faire défiler">${text}</td>`;
+                }
+                html += '</tr>';
+            });
+
+            html += '</tbody></table>';
+            document.getElementById('ganttContainer').innerHTML = html;
+        }
+
+        function exportResources() {
+            window.location.href = `${API_URL}/export/resources`;
+        }
+
+        function exportGantt() {
+            const year = document.getElementById('yearSelect').value;
+            const month = document.getElementById('monthSelect').value;
+            window.location.href = `${API_URL}/export/gantt?year=${year}&month=${month}`;
+        }
+
+        function showSyncStatus() {
+            const status = document.getElementById('syncStatus');
+            status.style.display = 'block';
+            status.className = 'sync-status';
+            setTimeout(() => { status.style.display = 'none'; }, 3000);
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
+</html>
