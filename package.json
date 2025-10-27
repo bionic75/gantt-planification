@@ -8,15 +8,22 @@
     "start": "node server.js",
     "dev": "node server.js"
   },
-  "keywords": ["gantt", "planification", "ressources"],
+  "keywords": [
+    "gantt",
+    "planification",
+    "ressources"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "express": "^4.18.2",
-    "cors": "^2.8.5",
     "body-parser": "^1.20.2",
-    "sqlite3": "^5.1.6",
-    "sqlite": "^5.0.1"
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "nodemailer": "^7.0.9",
+    "sqlite": "^5.0.1",
+    "sqlite3": "^5.1.6"
   },
   "engines": {
     "node": "18.x"
