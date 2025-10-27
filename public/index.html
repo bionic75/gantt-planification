@@ -5,355 +5,81 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestionnaire de Ressources et Planification</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f5f5f5;
-            padding: 10px;
-        }
-        
-        .container {
-            max-width: 1600px;
-            margin: 0 auto;
-            background-color: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
-        
-        .tabs {
-            display: flex;
-            background-color: #2c3e50;
-            border-bottom: 3px solid #3498db;
-        }
-        
-        .tab-btn {
-            flex: 1;
-            padding: 15px;
-            background-color: #2c3e50;
-            color: white;
-            border: none;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: bold;
-            transition: all 0.3s;
-        }
-        
-        .tab-btn:hover {
-            background-color: #34495e;
-        }
-        
-        .tab-btn.active {
-            background-color: #3498db;
-            border-bottom: 4px solid #2980b9;
-        }
-        
-        .tab-content {
-            display: none;
-            padding: 20px;
-            animation: fadeIn 0.3s;
-        }
-        
-        .tab-content.active {
-            display: block;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        
-        h2 {
-            color: #2c3e50;
-            margin-bottom: 20px;
-            border-bottom: 2px solid #3498db;
-            padding-bottom: 10px;
-        }
-        
-        h3 {
-            color: #2c3e50;
-            margin-top: 15px;
-            margin-bottom: 10px;
-            font-size: 14px;
-            border-left: 3px solid #3498db;
-            padding-left: 10px;
-        }
-        
-        .form-section {
-            background-color: #ecf0f1;
-            padding: 15px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-        }
-        
-        .form-group {
-            margin-bottom: 12px;
-        }
-        
-        label {
-            display: block;
-            margin-bottom: 5px;
-            color: #2c3e50;
-            font-weight: bold;
-            font-size: 13px;
-        }
-        
-        input, select {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #bdc3c7;
-            border-radius: 4px;
-            font-size: 13px;
-            font-family: Arial, sans-serif;
-        }
-        
-        input:focus, select:focus {
-            outline: none;
-            border-color: #3498db;
-            box-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
-        }
-        
-        .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr 1fr;
-            gap: 10px;
-        }
-        
-        .button-group {
-            display: flex;
-            gap: 10px;
-            margin-top: 15px;
-            flex-wrap: wrap;
-        }
-        
-        button {
-            padding: 10px 20px;
-            background-color: #3498db;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: background-color 0.3s;
-        }
-        
-        button:hover {
-            background-color: #2980b9;
-        }
-        
-        button.delete {
-            background-color: #e74c3c;
-        }
-        
-        button.delete:hover {
-            background-color: #c0392b;
-        }
-        
-        .export-btn {
-            background-color: #27ae60;
-        }
-        
-        .export-btn:hover {
-            background-color: #229954;
-        }
-        
-        .sync-status {
-            padding: 10px 15px;
-            background-color: #d4edda;
-            border: 1px solid #c3e6cb;
-            border-radius: 4px;
-            color: #155724;
-            font-size: 12px;
-            margin-bottom: 15px;
-        }
-        
-        .sync-status.syncing {
-            background-color: #fff3cd;
-            border-color: #ffc107;
-            color: #856404;
-        }
-        
-        .sync-status.error {
-            background-color: #f8d7da;
-            border-color: #f5c6cb;
-            color: #721c24;
-        }
-        
-        .table-container {
-            overflow-x: auto;
-            margin-top: 20px;
-        }
-        
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 13px;
-        }
-        
-        th {
-            background-color: #34495e;
-            color: white;
-            padding: 10px;
-            text-align: left;
-            font-weight: bold;
-        }
-        
-        td {
-            padding: 10px;
-            border-bottom: 1px solid #ecf0f1;
-        }
-        
-        tr:hover {
-            background-color: #f9f9f9;
-        }
-        
-        .gantt-container {
-            overflow-x: auto;
-            margin-top: 20px;
-            border: 1px solid #bdc3c7;
-            border-radius: 5px;
-        }
-        
-        .gantt-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 12px;
-        }
-        
-        .gantt-table th, .gantt-table td {
-            border: 1px solid #bdc3c7;
-            padding: 8px;
-            text-align: center;
-        }
-        
-        .gantt-table th {
-            background-color: #34495e;
-            color: white;
-            font-weight: bold;
-            padding: 6px 4px;
-        }
-        
-        .resource-name {
-            background-color: #ecf0f1;
-            font-weight: bold;
-            text-align: left;
-            min-width: 200px;
-        }
-        
-        .counter-cell {
-            background-color: #ecf0f1;
-            font-weight: bold;
-            text-align: center;
-            min-width: 80px;
-        }
-        
-        .day-cell {
-            background-color: white;
-            min-width: 60px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-        
-        .day-cell:hover {
-            background-color: #e8f4f8;
-        }
-        
-        .day-header {
-            font-weight: bold;
-            background-color: #3498db;
-            color: white;
-            padding: 8px 4px;
-        }
-        
-        .day-header.weekend {
-            background-color: #ffc107;
-            color: #333;
-        }
-        
-        .weekend {
-            background-color: #ffe8b6;
-        }
-        
-        .unavailable { background-color: #95a5a6; color: white; }
-        .available { background-color: #27ae60; color: white; }
-        .waiting { background-color: #9b59b6; color: white; }
-        .samu-deploy { background-color: #e67e22; color: white; }
-        .samu-dev { background-color: #d35400; color: white; }
-        .ans-deploy { background-color: #3498db; color: white; }
-        .ans-dev { background-color: #2980b9; color: white; }
-        .qualification { background-color: #e74c3c; color: white; }
-        .misc { background-color: #16a085; color: white; }
-        
-        .color-code {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            margin-right: 8px;
-            border-radius: 3px;
-            vertical-align: middle;
-        }
-        
-        .legend {
-            background-color: #ecf0f1;
-            padding: 15px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-        }
-        
-        .legend-section {
-            margin-bottom: 15px;
-        }
-        
-        .legend-section-title {
-            font-weight: bold;
-            color: #2c3e50;
-            margin-bottom: 8px;
-            font-size: 13px;
-            border-bottom: 1px solid #bdc3c7;
-            padding-bottom: 5px;
-        }
-        
-        .legend-items {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 10px;
-        }
-        
-        .legend-item {
-            display: flex;
-            align-items: center;
-            font-size: 12px;
-        }
-        
-        .planif-controls {
-            background-color: #ecf0f1;
-            padding: 15px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-            display: flex;
-            gap: 15px;
-            align-items: flex-end;
-            flex-wrap: wrap;
-        }
-        
-        .control-group {
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-        }
-        
-        .control-group label {
-            margin-bottom: 0;
-        }
-        
-        .control-group select {
-            width: 150px;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background-color: #f5f5f5; padding: 10px; }
+        .container { max-width: 1800px; margin: 0 auto; background-color: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden; display: none; }
+        .tabs { display: flex; background-color: #2c3e50; border-bottom: 3px solid #3498db; }
+        .tab-btn { flex: 1; padding: 15px; background-color: #2c3e50; color: white; border: none; cursor: pointer; font-size: 14px; font-weight: bold; transition: all 0.3s; }
+        .tab-btn:hover { background-color: #34495e; }
+        .tab-btn.active { background-color: #3498db; border-bottom: 4px solid #2980b9; }
+        .tab-content { display: none; padding: 20px; animation: fadeIn 0.3s; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        h2 { color: #2c3e50; margin-bottom: 20px; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+        h3 { color: #2c3e50; margin-top: 15px; margin-bottom: 10px; font-size: 14px; border-left: 3px solid #3498db; padding-left: 10px; }
+        .form-section { background-color: #ecf0f1; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+        .form-group { margin-bottom: 12px; }
+        label { display: block; margin-bottom: 5px; color: #2c3e50; font-weight: bold; font-size: 13px; }
+        input, select { width: 100%; padding: 8px; border: 1px solid #bdc3c7; border-radius: 4px; font-size: 13px; font-family: Arial, sans-serif; }
+        input:focus, select:focus { outline: none; border-color: #3498db; box-shadow: 0 0 5px rgba(52, 152, 219, 0.3); }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; }
+        .button-group { display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap; }
+        button { padding: 10px 20px; background-color: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: background-color 0.3s; }
+        button:hover { background-color: #2980b9; }
+        button.delete { background-color: #e74c3c; padding: 5px 10px; font-size: 12px; }
+        button.delete:hover { background-color: #c0392b; }
+        button.edit { background-color: #f39c12; padding: 5px 10px; font-size: 12px; }
+        button.edit:hover { background-color: #e67e22; }
+        button.export-btn { background-color: #27ae60; }
+        button.export-btn:hover { background-color: #229954; }
+        .table-container { overflow-x: auto; margin-top: 20px; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { background-color: #34495e; color: white; padding: 10px; text-align: left; font-weight: bold; cursor: pointer; user-select: none; }
+        th:hover { background-color: #2c3e50; }
+        th::after { content: " ↕"; font-size: 11px; }
+        td { padding: 10px; border-bottom: 1px solid #ecf0f1; }
+        tr:hover { background-color: #f9f9f9; }
+        .toggle-switch { position: relative; display: inline-block; width: 50px; height: 24px; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 24px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #27ae60; }
+        input:checked + .slider:before { transform: translateX(26px); }
+        .gantt-wrapper { overflow-x: auto; margin-top: 20px; border: 1px solid #bdc3c7; border-radius: 5px; }
+        .gantt-table { width: max-content; border-collapse: collapse; font-size: 12px; background-color: white; }
+        .gantt-table th { background-color: #34495e; color: white; padding: 8px; text-align: center; font-weight: bold; border: 1px solid #bdc3c7; vertical-align: middle; }
+        .gantt-table td { border: 1px solid #bdc3c7; padding: 6px; text-align: center; vertical-align: middle; }
+        .resource-header { background-color: #2c3e50; color: white; text-align: left; font-weight: bold; min-width: 200px; max-width: 200px; width: 200px; position: sticky; left: 0; z-index: 10; padding: 10px; }
+        .resource-label { background-color: #ecf0f1; text-align: center; font-size: 11px; font-weight: bold; color: #7f8c8d; min-width: 120px; max-width: 120px; width: 120px; position: sticky; left: 200px; z-index: 9; padding: 10px; line-height: 1.4; }
+        .day-header { background-color: #3498db; color: white; min-width: 100px; max-width: 100px; width: 100px; cursor: default; }
+        .day-header::after { content: none; }
+        .day-header.weekend { background-color: #ffc107; color: #333; }
+        .gantt-cell { padding: 4px; background-color: white; min-width: 100px; max-width: 100px; width: 100px; height: 90px; vertical-align: middle; }
+        .gantt-cell-content { display: flex; flex-direction: column; height: 100%; gap: 2px; }
+        .gantt-cell-row { flex: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 3px; font-weight: bold; transition: all 0.2s; font-size: 13px; min-height: 28px; }
+        .gantt-cell-row:hover { filter: brightness(0.85); transform: scale(1.02); }
+        .weekend-cell { background-color: #fff8e1; }
+        .total-row { background-color: #34495e; color: white; font-weight: bold; }
+        .total-cell { background-color: #34495e; color: white; font-weight: bold; padding: 10px; text-align: center; border: 1px solid #2c3e50; }
+        .total-label { background-color: #2c3e50; color: white; font-weight: bold; text-align: left; padding: 10px; position: sticky; left: 0; z-index: 10; }
+        .total-sublabel { background-color: #34495e; color: white; font-weight: bold; text-align: center; padding: 10px; position: sticky; left: 200px; z-index: 9; }
+        .color-code { display: inline-block; width: 20px; height: 20px; margin-right: 8px; border-radius: 3px; vertical-align: middle; }
+        .legend { background-color: #ecf0f1; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+        .legend-section { margin-bottom: 15px; }
+        .legend-section-title { font-weight: bold; color: #2c3e50; margin-bottom: 8px; font-size: 13px; border-bottom: 1px solid #bdc3c7; padding-bottom: 5px; }
+        .legend-items { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+        .legend-item { display: flex; align-items: center; font-size: 12px; }
+        .planif-controls { background-color: #ecf0f1; padding: 15px; border-radius: 5px; margin-bottom: 20px; display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap; }
+        .control-group { display: flex; flex-direction: column; gap: 5px; }
+        .control-group label { margin-bottom: 0; }
+        .control-group select { width: 150px; }
+        .sync-status { padding: 10px 15px; background-color: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; color: #155724; font-size: 12px; margin-bottom: 15px; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); }
+        .modal.active { display: flex; align-items: center; justify-content: center; }
+        .modal-content { background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); max-width: 500px; width: 90%; }
+        .modal-content h3 { margin-bottom: 20px; color: #2c3e50; }
+        .modal-button-group { display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end; }
+        @media print { body { background: white; } .container { box-shadow: none; } .tabs, .button-group, .planif-controls { display: none; } .gantt-wrapper { overflow: visible; } .gantt-table { font-size: 10px; } }
     </style>
 </head>
 <body>
@@ -361,48 +87,30 @@
         <div class="tabs">
             <button class="tab-btn active" onclick="switchTab('resources')">📋 Ressources</button>
             <button class="tab-btn" onclick="switchTab('planning')">📅 Planification</button>
+            <button class="tab-btn" id="adminTab" onclick="switchTab('admin')" style="display:none;">⚙️ Administration</button>
+            <button class="tab-btn" onclick="logout()" style="margin-left: auto; background-color: #e74c3c;">🚪 Déconnexion</button>
         </div>
         
         <div id="resources" class="tab-content active">
             <h2>Gestion des Ressources</h2>
-            
-            <div id="syncStatus" class="sync-status" style="display:none;">
-                ✓ Données synchronisées avec le serveur
-            </div>
+            <div id="syncStatus" class="sync-status" style="display:none;">✓ Données synchronisées</div>
             
             <div class="form-section">
                 <h3>Ajouter une nouvelle ressource</h3>
                 <div class="form-row">
-                    <div class="form-group">
-                        <label>Nom</label>
-                        <input type="text" id="nom" placeholder="Nom">
-                    </div>
-                    <div class="form-group">
-                        <label>Prénom</label>
-                        <input type="text" id="prenom" placeholder="Prénom">
-                    </div>
-                    <div class="form-group">
-                        <label>Trigramme</label>
-                        <input type="text" id="trigramme" placeholder="XXX" maxlength="3">
-                    </div>
-                    <div class="form-group">
-                        <label>Email</label>
-                        <input type="email" id="email" placeholder="email@example.com">
-                    </div>
+                    <div class="form-group"><label>Nom *</label><input type="text" id="nom" placeholder="Nom"></div>
+                    <div class="form-group"><label>Prénom *</label><input type="text" id="prenom" placeholder="Prénom"></div>
+                    <div class="form-group"><label>Trigramme *</label><input type="text" id="trigramme" placeholder="XXX" maxlength="3"></div>
+                    <div class="form-group"><label>Email *</label><input type="email" id="email" placeholder="email@example.com"></div>
                 </div>
                 <div class="form-row">
-                    <div class="form-group">
-                        <label>Taux de MAD (%)</label>
-                        <input type="number" id="taux" placeholder="100" min="0" max="100">
-                    </div>
-                    <div class="form-group">
-                        <label>SAMU de rattachement</label>
-                        <input type="text" id="samu" placeholder="Ex: SAMU 75, SAMU Est...">
-                    </div>
+                    <div class="form-group"><label>Téléphone</label><input type="tel" id="telephone" placeholder="+33 6 XX XX XX XX"></div>
+                    <div class="form-group"><label>Taux de MAD (%) *</label><input type="number" id="taux" placeholder="100" min="0" max="100"></div>
+                    <div class="form-group"><label>SAMU de rattachement *</label><input type="text" id="samu" placeholder="Ex: SAMU 75"></div>
                 </div>
                 <div class="button-group">
-                    <button onclick="addResource()">Ajouter la ressource</button>
-                    <button class="export-btn" onclick="exportResources()">📥 Exporter les ressources</button>
+                    <button onclick="addResource()">✅ Ajouter la ressource</button>
+                    <button class="export-btn" onclick="exportResourcesToExcel()">📥 Exporter (Excel)</button>
                 </div>
             </div>
             
@@ -410,17 +118,18 @@
                 <table id="resourcesTable">
                     <thead>
                         <tr>
-                            <th>Nom</th>
-                            <th>Prénom</th>
-                            <th>Trigramme</th>
-                            <th>Email</th>
-                            <th>Taux MAD</th>
-                            <th>SAMU</th>
+                            <th onclick="sortTable('resources', 0)">Nom</th>
+                            <th onclick="sortTable('resources', 1)">Prénom</th>
+                            <th onclick="sortTable('resources', 2)">Trigramme</th>
+                            <th onclick="sortTable('resources', 3)">Email</th>
+                            <th onclick="sortTable('resources', 4)">Téléphone</th>
+                            <th onclick="sortTable('resources', 5)">Taux MAD</th>
+                            <th onclick="sortTable('resources', 6)">SAMU</th>
+                            <th onclick="sortTable('resources', 7)">Actif</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
-                    <tbody id="resourcesList">
-                    </tbody>
+                    <tbody id="resourcesList"></tbody>
                 </table>
             </div>
         </div>
@@ -432,9 +141,10 @@
                 <div class="control-group">
                     <label>Année</label>
                     <select id="yearSelect" onchange="updateGantt()">
-                        <option value="2024">2024</option>
                         <option value="2025" selected>2025</option>
                         <option value="2026">2026</option>
+                        <option value="2027">2027</option>
+                        <option value="2028">2028</option>
                     </select>
                 </div>
                 <div class="control-group">
@@ -454,35 +164,181 @@
                         <option value="11">Décembre</option>
                     </select>
                 </div>
-                <button onclick="updateGantt()" style="height: fit-content;">Afficher le calendrier</button>
-                <button class="export-btn" onclick="exportGantt()" style="height: fit-content;">📥 Exporter le calendrier</button>
+                <div class="control-group">
+                    <label>Filtrer ressource</label>
+                    <select id="resourceFilter" onchange="updateGantt()">
+                        <option value="">Toutes les ressources</option>
+                    </select>
+                </div>
+                <button onclick="updateGantt()">📅 Afficher</button>
+                <button class="export-btn" onclick="exportGanttToExcel()">📥 Excel</button>
+                <button class="export-btn" onclick="window.print()">🖨️ Imprimer A4</button>
             </div>
             
             <div class="legend">
                 <div class="legend-section">
                     <div class="legend-section-title">DISPONIBILITÉ</div>
                     <div class="legend-items">
-                        <div class="legend-item"><span class="color-code unavailable"></span> 1 - Indisponible</div>
-                        <div class="legend-item"><span class="color-code available"></span> 2 - Disponible pour l'ANS</div>
+                        <div class="legend-item"><span class="color-code" style="background-color: #95a5a6;"></span> 1 - Indisponible</div>
+                        <div class="legend-item"><span class="color-code" style="background-color: #27ae60;"></span> 2 - Disponible pour l'ANS</div>
                     </div>
                 </div>
-                
                 <div class="legend-section">
                     <div class="legend-section-title">AFFECTATION</div>
                     <div class="legend-items">
-                        <div class="legend-item"><span class="color-code waiting"></span> 1 - En attente d'affectation</div>
-                        <div class="legend-item"><span class="color-code samu-deploy"></span> 2 - SAMU (Déploiement)</div>
-                        <div class="legend-item"><span class="color-code samu-dev"></span> 3 - SAMU (Dev. usages)</div>
-                        <div class="legend-item"><span class="color-code ans-deploy"></span> 4 - ANS (Déploiement)</div>
-                        <div class="legend-item"><span class="color-code ans-dev"></span> 5 - ANS (Dev. usages)</div>
-                        <div class="legend-item"><span class="color-code qualification"></span> 6 - Qualification</div>
-                        <div class="legend-item"><span class="color-code misc"></span> 7 - Divers</div>
+                        <div class="legend-item"><span class="color-code" style="background-color: #95a5a6;"></span> 1 - Indisponible</div>
+                        <div class="legend-item"><span class="color-code" style="background-color: #9b59b6;"></span> 2 - En attente d'affectation</div>
+                        <div class="legend-item"><span class="color-code" style="background-color: #e67e22;"></span> 3 - SAMU (Déploiement)</div>
+                        <div class="legend-item"><span class="color-code" style="background-color: #d35400;"></span> 4 - SAMU (Dev. usages)</div>
+                        <div class="legend-item"><span class="color-code" style="background-color: #3498db;"></span> 5 - ANS (Déploiement)</div>
+                        <div class="legend-item"><span class="color-code" style="background-color: #2980b9;"></span> 6 - ANS (Dev. usages)</div>
+                        <div class="legend-item"><span class="color-code" style="background-color: #e74c3c;"></span> 7 - Qualification</div>
+                        <div class="legend-item"><span class="color-code" style="background-color: #16a085;"></span> 8 - Divers</div>
                     </div>
                 </div>
             </div>
             
-            <div class="gantt-container" id="ganttContainer">
-                <p style="text-align: center; padding: 20px; color: #7f8c8d;">Veuillez ajouter des ressources et cliquer sur "Afficher le calendrier"</p>
+            <div class="gantt-wrapper" id="ganttWrapper">
+                <p style="text-align: center; padding: 20px; color: #7f8c8d;">Veuillez ajouter des ressources</p>
+            </div>
+        </div>
+        
+        <div id="admin" class="tab-content">
+            <h2>⚙️ Administration - Gestion des utilisateurs</h2>
+            
+            <div class="form-section" style="background-color: #fff3cd; border-left: 4px solid #ffc107;">
+                <h3 style="color: #856404; border-left: none;">📧 Configuration Email (Outlook/SMTP)</h3>
+                <div class="form-row">
+                    <div class="form-group"><label>Serveur SMTP</label><input type="text" id="smtpHost" placeholder="smtp.office365.com" value="smtp.office365.com"></div>
+                    <div class="form-group"><label>Port SMTP</label><input type="number" id="smtpPort" placeholder="587" value="587"></div>
+                    <div class="form-group"><label>Email expéditeur</label><input type="email" id="smtpUser" placeholder="votre-email@outlook.com"></div>
+                    <div class="form-group"><label>Mot de passe email</label><input type="password" id="smtpPassword" placeholder="Mot de passe"></div>
+                </div>
+                <div class="button-group">
+                    <button onclick="saveEmailConfig()">💾 Sauvegarder la config email</button>
+                    <button onclick="testEmail()" style="background-color: #f39c12;">📧 Tester l'envoi</button>
+                </div>
+            </div>
+            
+            <div class="form-section" style="background-color: #d1ecf1; border-left: 4px solid #17a2b8;">
+                <h3 style="color: #0c5460; border-left: none;">💾 Sauvegarde de la base de données</h3>
+                <div class="button-group">
+                    <button class="export-btn" onclick="backupFullDatabase()">📥 Télécharger backup complet (CSV)</button>
+                    <button class="export-btn" onclick="backupDatabaseSQL()" style="background-color: #6c757d;">📥 Télécharger backup (SQL)</button>
+                </div>
+                <p style="margin-top: 10px; font-size: 12px; color: #0c5460;">ℹ️ Le backup CSV contient toutes les tables en format lisible. Le backup SQL permet une restauration complète.</p>
+            </div>
+            
+            <div class="form-section">
+                <h3>Ajouter un nouvel utilisateur</h3>
+                <div class="form-row">
+                    <div class="form-group"><label>Nom *</label><input type="text" id="adminUserNom" placeholder="Nom"></div>
+                    <div class="form-group"><label>Prénom *</label><input type="text" id="adminUserPrenom" placeholder="Prénom"></div>
+                    <div class="form-group"><label>Login (prenom.nom) *</label><input type="text" id="adminUserUsername" placeholder="prenom.nom"></div>
+                    <div class="form-group"><label>Email *</label><input type="email" id="adminUserEmail" placeholder="email@example.com"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>Mot de passe *</label><input type="password" id="adminUserPassword" placeholder="Mot de passe"></div>
+                    <div class="form-group">
+                        <label>Rôle *</label>
+                        <select id="adminUserRole">
+                            <option value="user">Utilisateur</option>
+                            <option value="admin">Administrateur</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label style="opacity: 0;">Spacer</label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: normal;">
+                            <input type="checkbox" id="adminSendPasswordEmail" style="width: auto;">
+                            <span>Envoyer le mot de passe par email</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="button-group">
+                    <button onclick="addUser()">✅ Créer l'utilisateur</button>
+                </div>
+            </div>
+            
+            <div class="table-container">
+                <table id="usersTable">
+                    <thead>
+                        <tr>
+                            <th onclick="sortTable('users', 0)">Nom</th>
+                            <th onclick="sortTable('users', 1)">Prénom</th>
+                            <th onclick="sortTable('users', 2)">Login</th>
+                            <th onclick="sortTable('users', 3)">Email</th>
+                            <th onclick="sortTable('users', 4)">Rôle</th>
+                            <th onclick="sortTable('users', 5)">Actif</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersList"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="loginPage" class="modal active" style="background-color: rgba(44, 62, 80, 0.95);">
+        <div class="modal-content" style="max-width: 400px;">
+            <h2 style="text-align: center; color: #2c3e50; margin-bottom: 30px;">🔒 Connexion</h2>
+            <div class="form-group">
+                <label>Identifiant</label>
+                <input type="text" id="loginUsername" placeholder="Votre login" onkeypress="if(event.key==='Enter') login()">
+            </div>
+            <div class="form-group">
+                <label>Mot de passe</label>
+                <input type="password" id="loginPassword" placeholder="Votre mot de passe" onkeypress="if(event.key==='Enter') login()">
+            </div>
+            <div class="button-group" style="margin-top: 20px;">
+                <button onclick="login()" style="width: 100%;">🔓 Se connecter</button>
+            </div>
+            <p style="text-align: center; margin-top: 20px; font-size: 12px; color: #7f8c8d;">
+                Compte par défaut: <strong>admin</strong> / <strong>Admin2025!</strong>
+            </p>
+        </div>
+    </div>
+    
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <h3>Modifier la ressource</h3>
+            <div class="form-group"><label>Nom</label><input type="text" id="editNom"></div>
+            <div class="form-group"><label>Prénom</label><input type="text" id="editPrenom"></div>
+            <div class="form-group"><label>Email</label><input type="email" id="editEmail"></div>
+            <div class="form-group"><label>Téléphone</label><input type="tel" id="editTelephone"></div>
+            <div class="form-group"><label>Taux MAD (%)</label><input type="number" id="editTaux" min="0" max="100"></div>
+            <div class="form-group"><label>SAMU</label><input type="text" id="editSamu"></div>
+            <div class="modal-button-group">
+                <button onclick="closeEditModal()" style="background-color: #95a5a6;">Annuler</button>
+                <button onclick="saveResourceEdit()">✅ Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="localisationModal" class="modal">
+        <div class="modal-content">
+            <h3>Choisir la localisation</h3>
+            <div style="display: grid; gap: 10px;">
+                <button onclick="setLocalisation('Télétravail')" style="background-color: #3498db; padding: 15px;">🏠 Télétravail</button>
+                <button onclick="setLocalisation('SAMU')" style="background-color: #e67e22; padding: 15px;">🏥 SAMU</button>
+                <button onclick="setLocalisation('PSC')" style="background-color: #9b59b6; padding: 15px;">🏢 PSC</button>
+                <button onclick="setLocalisation('Autres')" style="background-color: #16a085; padding: 15px;">🏛 Autres (Congrès, CFARM, EHESP...)</button>
+            </div>
+            <div class="modal-button-group">
+                <button onclick="closeLocalisationModal()" style="background-color: #95a5a6; margin-top: 20px;">Annuler</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="resetPasswordModal" class="modal">
+        <div class="modal-content">
+            <h3>Réinitialiser le mot de passe</h3>
+            <div class="form-group">
+                <label>Nouveau mot de passe</label>
+                <input type="password" id="newPassword" placeholder="Nouveau mot de passe">
+            </div>
+            <div class="modal-button-group">
+                <button onclick="closeResetPasswordModal()" style="background-color: #95a5a6;">Annuler</button>
+                <button onclick="saveNewPassword()">✅ Réinitialiser</button>
             </div>
         </div>
     </div>
@@ -491,29 +347,147 @@
         const API_URL = '/api';
         let resources = [];
         let scheduleData = {};
+        let users = [];
+        let currentEditId = null;
+        let currentLocalisationCell = null;
+        let currentResetUserId = null;
+        let sortDirection = {};
+        let currentUser = null;
 
-        window.addEventListener('load', async function() {
-            await loadResources();
-            await loadSchedule();
-            setCurrentMonth();
-        });
+        const availabilityLabels = {
+            '1': 'Indisponible',
+            '2': 'Disponible pour l\'ANS'
+        };
 
-        async function loadResources() {
+        const activityLabels = {
+            '1': 'Indisponible',
+            '2': 'En attente d\'affectation',
+            '3': 'SAMU (Déploiement)',
+            '4': 'SAMU (Dev. usages)',
+            '5': 'ANS (Déploiement)',
+            '6': 'ANS (Dev. usages)',
+            '7': 'Qualification',
+            '8': 'Divers'
+        };
+
+        window.addEventListener('load', async () => { await checkSession(); });
+
+        async function checkSession() {
             try {
-                const response = await fetch(`${API_URL}/resources`);
-                resources = await response.json();
-                displayResources();
+                const response = await fetch(`${API_URL}/session`, { credentials: 'include' });
+                const data = await response.json();
+                
+                if (data.authenticated) {
+                    currentUser = data.user;
+                    document.getElementById('loginPage').classList.remove('active');
+                    document.querySelector('.container').style.display = 'block';
+                    
+                    if (currentUser.role === 'admin') {
+                        document.getElementById('adminTab').style.display = 'block';
+                    }
+                    
+                    await loadResources();
+                    await loadSchedule();
+                    setCurrentMonth();
+                } else {
+                    document.getElementById('loginPage').classList.add('active');
+                    document.querySelector('.container').style.display = 'none';
+                }
             } catch (error) {
-                console.error('Erreur chargement ressources:', error);
+                console.error('Erreur session:', error);
+                document.getElementById('loginPage').classList.add('active');
+                document.querySelector('.container').style.display = 'none';
             }
         }
 
-        async function loadSchedule() {
+        async function login() {
+            const username= document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value;
+
+            if (!username || !password) {
+                alert('Veuillez remplir tous les champs');
+                return;
+            }
+
             try {
-                const response = await fetch(`${API_URL}/schedule`);
-                scheduleData = await response.json();
+                const response = await fetch(`${API_URL}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    currentUser = data.user;
+                    document.getElementById('loginPage').classList.remove('active');
+                    document.querySelector('.container').style.display = 'block';
+                    
+                    if (currentUser.role === 'admin') {
+                        document.getElementById('adminTab').style.display = 'block';
+                    }
+                    
+                    await loadResources();
+                    await loadSchedule();
+                    setCurrentMonth();
+                    
+                    document.getElementById('loginUsername').value = '';
+                    document.getElementById('loginPassword').value = '';
+                } else {
+                    alert(data.error || 'Identifiants incorrects');
+                }
             } catch (error) {
-                console.error('Erreur chargement planification:', error);
+                console.error('Erreur login:', error);
+                alert('Erreur de connexion');
+            }
+        }
+
+        async function logout() {
+            if (!confirm('Voulez-vous vraiment vous déconnecter ?')) return;
+            try {
+                await fetch(`${API_URL}/logout`, { method: 'POST', credentials: 'include' });
+                currentUser = null;
+                document.getElementById('loginPage').classList.add('active');
+                document.querySelector('.container').style.display = 'none';
+                document.getElementById('adminTab').style.display = 'none';
+            } catch (error) {
+                console.error('Erreur logout:', error);
+            }
+        }
+
+        async function loadResources() {
+            try {
+                const response = await fetch(`${API_URL}/resources`, { credentials: 'include' });
+                if (!response.ok) throw new Error('Erreur chargement ressources');
+                resources = await response.json();
+                displayResources();
+                updateResourceFilter();
+            } catch (error) {
+                console.error('Erreur:', error);
+            }
+        }
+
+        function updateResourceFilter() {
+            const filterSelect = document.getElementById('resourceFilter');
+            const currentValue = filterSelect.value;
+            filterSelect.innerHTML = '<option value="">Toutes les ressources</option>';
+            
+            const activeResources = resources.filter(r => r.actif).sort((a, b) => {
+                const nameA = `${a.nom} ${a.prenom}`.toLowerCase();
+                const nameB = `${b.nom} ${b.prenom}`.toLowerCase();
+                return nameA.localeCompare(nameB);
+            });
+            
+            activeResources.forEach(r => {
+                const option = document.createElement('option');
+                option.value = r.id;
+                option.textContent = `${r.nom.toUpperCase()} ${r.prenom} (${r.trigramme})`;
+                filterSelect.appendChild(option);
+            });
+            
+            if (currentValue) {
+                filterSelect.value = currentValue;
             }
         }
 
@@ -522,11 +496,12 @@
             const prenom = document.getElementById('prenom').value.trim();
             const trigramme = document.getElementById('trigramme').value.trim().toUpperCase();
             const email = document.getElementById('email').value.trim();
+            const telephone = document.getElementById('telephone').value.trim();
             const taux = document.getElementById('taux').value;
             const samu = document.getElementById('samu').value.trim();
 
             if (!nom || !prenom || !trigramme || !email || !taux || !samu) {
-                alert('Veuillez remplir tous les champs');
+                alert('Remplissez tous les champs obligatoires (*)');
                 return;
             }
 
@@ -534,32 +509,19 @@
                 const response = await fetch(`${API_URL}/resources`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nom, prenom, trigramme, email, taux: parseFloat(taux), samu })
+                    credentials: 'include',
+                    body: JSON.stringify({ nom, prenom, trigramme, email, telephone, taux: parseFloat(taux), samu, actif: 1 })
                 });
                 
-                if (response.ok) {
-                    showSyncStatus();
-                    await loadResources();
-                    clearResourceForm();
-                }
+                if (!response.ok) throw new Error('Erreur ajout ressource');
+                
+                showSyncStatus();
+                await loadResources();
+                ['nom','prenom','trigramme','email','telephone','taux','samu'].forEach(id => document.getElementById(id).value = '');
+                updateGantt();
             } catch (error) {
-                console.error('Erreur ajout ressource:', error);
+                console.error('Erreur:', error);
                 alert('Erreur lors de l\'ajout de la ressource');
-            }
-        }
-
-        async function deleteResource(id) {
-            if (!confirm('Êtes-vous sûr de vouloir supprimer cette ressource ?')) return;
-
-            try {
-                const response = await fetch(`${API_URL}/resources/${id}`, { method: 'DELETE' });
-                if (response.ok) {
-                    showSyncStatus();
-                    await loadResources();
-                    updateGantt();
-                }
-            } catch (error) {
-                console.error('Erreur suppression:', error);
             }
         }
 
@@ -569,24 +531,107 @@
             resources.forEach(r => {
                 const row = tbody.insertRow();
                 row.innerHTML = `
-                    <td>${r.nom}</td>
-                    <td>${r.prenom}</td>
-                    <td>${r.trigramme}</td>
-                    <td>${r.email}</td>
-                    <td>${r.taux}%</td>
-                    <td>${r.samu}</td>
-                    <td><button class="delete" onclick="deleteResource(${r.id})">Supprimer</button></td>
+                    <td>${r.nom}</td><td>${r.prenom}</td><td>${r.trigramme}</td><td>${r.email}</td><td>${r.telephone || '-'}</td>
+                    <td>${r.taux}%</td><td>${r.samu}</td>
+                    <td><label class="toggle-switch"><input type="checkbox" ${r.actif ? 'checked' : ''} onchange="toggleActive(${r.id})"><span class="slider"></span></label></td>
+                    <td><button class="edit" onclick="openEditModal(${r.id})">✏️ Modifier</button><button class="delete" onclick="deleteResource(${r.id})">🗑️ Supprimer</button></td>
                 `;
             });
         }
 
-        function clearResourceForm() {
-            document.getElementById('nom').value = '';
-            document.getElementById('prenom').value = '';
-            document.getElementById('trigramme').value = '';
-            document.getElementById('email').value = '';
-            document.getElementById('taux').value = '';
-            document.getElementById('samu').value = '';
+        function openEditModal(id) {
+            const resource = resources.find(r => r.id === id);
+            if (!resource) return;
+            currentEditId = id;
+            document.getElementById('editNom').value = resource.nom;
+            document.getElementById('editPrenom').value = resource.prenom;
+            document.getElementById('editEmail').value = resource.email;
+            document.getElementById('editTelephone').value = resource.telephone || '';
+            document.getElementById('editTaux').value = resource.taux;
+            document.getElementById('editSamu').value = resource.samu;
+            document.getElementById('editModal').classList.add('active');
+        }
+
+        async function saveResourceEdit() {
+            try {
+                const response = await fetch(`${API_URL}/resources/${currentEditId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        nom: document.getElementById('editNom').value,
+                        prenom: document.getElementById('editPrenom').value,
+                        email: document.getElementById('editEmail').value,
+                        telephone: document.getElementById('editTelephone').value,
+                        taux: parseFloat(document.getElementById('editTaux').value),
+                        samu: document.getElementById('editSamu').value
+                    })
+                });
+                if (!response.ok) throw new Error('Erreur modification');
+                showSyncStatus();
+                await loadResources();
+                closeEditModal();
+                updateGantt();
+            } catch (error) {
+                console.error('Erreur:', error);
+                alert('Erreur lors de la modification');
+            }
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').classList.remove('active');
+            currentEditId = null;
+        }
+
+        async function toggleActive(id) {
+            try {
+                const response = await fetch(`${API_URL}/resources/${id}/toggle`, { method: 'POST', credentials: 'include' });
+                if (!response.ok) throw new Error('Erreur toggle');
+                await loadResources();
+                updateGantt();
+                showSyncStatus();
+            } catch (error) {
+                console.error('Erreur:', error);
+            }
+        }
+
+        async function deleteResource(id) {
+            if (!confirm('Confirmer la suppression ?')) return;
+            try {
+                const response = await fetch(`${API_URL}/resources/${id}`, { method: 'DELETE', credentials: 'include' });
+                if (!response.ok) throw new Error('Erreur suppression');
+                await loadResources();
+                updateGantt();
+                showSyncStatus();
+            } catch (error) {
+                console.error('Erreur:', error);
+                alert('Erreur lors de la suppression');
+            }
+        }
+
+        async function loadSchedule() {
+            try {
+                const response = await fetch(`${API_URL}/schedule`, { credentials: 'include' });
+                if (!response.ok) throw new Error('Erreur chargement planification');
+                scheduleData = await response.json();
+            } catch (error) {
+                console.error('Erreur:', error);
+            }
+        }
+
+        async function saveSchedule() {
+            try {
+                const response = await fetch(`${API_URL}/schedule`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(scheduleData)
+                });
+                if (!response.ok) throw new Error('Erreur sauvegarde');
+                showSyncStatus();
+            } catch (error) {
+                console.error('Erreur:', error);
+            }
         }
 
         function setCurrentMonth() {
@@ -623,19 +668,6 @@
             return ((totalWorkDays * resource.taux) / 100).toFixed(1);
         }
 
-        function cycleActivity(resourceId, dateKey, availability) {
-            if (availability === '1') {
-                alert('La ressource est indisponible ce jour.');
-                return;
-            }
-            const key = `${resourceId}_activity_${dateKey}`;
-            const currentValue = parseInt(scheduleData[key] || '1');
-            const nextValue = currentValue === 7 ? 1 : currentValue + 1;
-            scheduleData[key] = String(nextValue);
-            saveSchedule();
-            updateGantt();
-        }
-
         function toggleAvailability(resourceId, dateKey) {
             const key = `${resourceId}_available_${dateKey}`;
             const currentValue = scheduleData[key] || '1';
@@ -643,34 +675,71 @@
             scheduleData[key] = newValue;
             
             if (newValue === '2') {
-                scheduleData[`${resourceId}_activity_${dateKey}`] = '1';
+                scheduleData[`${resourceId}_activity_${dateKey}`] = '2';
+                scheduleData[`${resourceId}_localisation_${dateKey}`] = 'Télétravail';
             } else {
                 scheduleData[`${resourceId}_activity_${dateKey}`] = '1';
+                delete scheduleData[`${resourceId}_localisation_${dateKey}`];
             }
             saveSchedule();
             updateGantt();
         }
 
-        async function saveSchedule() {
-            try {
-                await fetch(`${API_URL}/schedule`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(scheduleData)
-                });
-                showSyncStatus();
-            } catch (error) {
-                console.error('Erreur sauvegarde:', error);
+        function cycleActivity(resourceId, dateKey, availability) {
+            if (availability === '1') {
+                alert('La ressource est indisponible ce jour.');
+                return;
             }
+            const key = `${resourceId}_activity_${dateKey}`;
+            const currentValue = parseInt(scheduleData[key] || '2');
+            let nextValue = currentValue + 1;
+            if (nextValue > 8) nextValue = 2;
+            scheduleData[key] = String(nextValue);
+            saveSchedule();
+            updateGantt();
+        }
+
+        function openLocalisationModal(resourceId, dateKey, availability) {
+            if (availability !== '2') {
+                alert('Choisissez d\'abord "Disponible pour l\'ANS"');
+                return;
+            }
+            currentLocalisationCell = { resourceId, dateKey };
+            document.getElementById('localisationModal').classList.add('active');
+        }
+
+        function setLocalisation(localisation) {
+            if (!currentLocalisationCell) return;
+            const key = `${currentLocalisationCell.resourceId}_localisation_${currentLocalisationCell.dateKey}`;
+            scheduleData[key] = localisation;
+            saveSchedule();
+            closeLocalisationModal();
+            updateGantt();
+        }
+
+        function closeLocalisationModal() {
+            document.getElementById('localisationModal').classList.remove('active');
+            currentLocalisationCell = null;
         }
 
         function updateGantt() {
             const year = parseInt(document.getElementById('yearSelect').value);
             const month = parseInt(document.getElementById('monthSelect').value);
+            const filterResourceId = document.getElementById('resourceFilter').value;
             const lastDay = new Date(year, month + 1, 0).getDate();
 
-            let html = '<table class="gantt-table"><thead><tr><th class="resource-name">Ressource</th><th class="counter-cell">Nb jours Dispo</th><th class="counter-cell">Jours MAD<br>attendus</th>';
+            let filteredResources = resources.filter(r => r.actif);
+            if (filterResourceId) {
+                filteredResources = filteredResources.filter(r => r.id === parseInt(filterResourceId));
+            }
 
+            let dailyDispo = Array(lastDay).fill(0);
+            let dailyAffect = Array(lastDay).fill(0);
+
+            let html = '<table class="gantt-table"><thead><tr>';
+            html += '<th class="resource-header" style="cursor: pointer;" onclick="sortGanttResources()">Ressource ↕</th>';
+            html += '<th class="resource-label">Disponibilité /<br>Affectation /<br>Localisation</th>';
+            
             for (let day = 1; day <= lastDay; day++) {
                 const date = new Date(year, month, day);
                 const dayName = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'][date.getDay()];
@@ -678,103 +747,329 @@
                 const headerClass = isWeekend ? 'day-header weekend' : 'day-header';
                 html += `<th class="${headerClass}">${dayName}<br>${day}</th>`;
             }
+            html += '</tr></thead><tbody id="ganttBody">';
 
-            html += '</tr></thead><tbody>';
-
-            resources.forEach(resource => {
+            filteredResources.forEach(resource => {
                 const dispoCount = countDaysForResource(resource.id, year, month);
+                const expectedDays = calculateExpectedWorkDays(resource.id, year, month);
 
-                html += `<tr>
-                    <td class="resource-name">${resource.prenom} ${resource.nom}<br><small>${resource.trigramme}</small><br><small style="color:#7f8c8d;">Disponibilité</small></td>
-                    <td class="counter-cell">${dispoCount}</td>
-                    <td class="counter-cell">${calculateExpectedWorkDays(resource.id, year, month)}</td>`;
+                html += `<tr data-resource-name="${resource.nom} ${resource.prenom}">
+                    <td class="resource-header"><strong>${resource.nom.toUpperCase()} ${resource.prenom}</strong><br><small>${resource.trigramme}</small><br><small style="font-size: 10px; color: #bdc3c7;">Jours: ${dispoCount}/${expectedDays}</small></td>
+                    <td class="resource-label">Disponibilité<br>Affectation<br>Localisation</td>`;
 
                 for (let day = 1; day <= lastDay; day++) {
                     const dateKey = `${year}-${month}-${day}`;
-                    const key = `${resource.id}_available_${dateKey}`;
-                    const value = scheduleData[key] || '1';
-                    const classes = value === '1' ? 'unavailable' : 'available';
-                    const text = value === '1' ? '1' : '2';
                     const date = new Date(year, month, day);
                     const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-                    const cellClass = isWeekend ? `day-cell ${classes} weekend` : `day-cell ${classes}`;
                     
-                    html += `<td class="${cellClass}" onclick="toggleAvailability(${resource.id}, '${dateKey}')" title="Cliquez pour changer">${text}</td>`;
-                }
-                html += '</tr>';
-
-                html += `<tr>
-                    <td class="resource-name"><small style="color:#7f8c8d;">Activités</small></td>
-                    <td class="counter-cell">-</td>
-                    <td class="counter-cell">-</td>`;
-
-                for (let day = 1; day <= lastDay; day++) {
-                    const dateKey = `${year}-${month}-${day}`;
-                    const key = `${resource.id}_activity_${dateKey}`;
-                    const value = scheduleData[key] || '1';
-                    const availability = scheduleData[`${resource.id}_available_${dateKey}`] || '1';
+                    const availKey = `${resource.id}_available_${dateKey}`;
+                    const availValue = scheduleData[availKey] || '1';
+                    const availBg = availValue === '1' ? '#95a5a6' : '#27ae60';
                     
-                    let classes = '';
-                    let text = '';
-                    
-                    if (availability === '1') {
-                        classes = 'unavailable';
-                        text = '1';
+                    const actKey = `${resource.id}_activity_${dateKey}`;
+                    const actValue = scheduleData[actKey] || '1';
+                    let actBg = '#95a5a6';
+                    if (availValue === '1') {
+                        actBg = '#95a5a6';
                     } else {
-                        const activities = {
-                            '1': { class: 'waiting', text: '1' },
-                            '2': { class: 'samu-deploy', text: '2' },
-                            '3': { class: 'samu-dev', text: '3' },
-                            '4': { class: 'ans-deploy', text: '4' },
-                            '5': { class: 'ans-dev', text: '5' },
-                            '6': { class: 'qualification', text: '6' },
-                            '7': { class: 'misc', text: '7' }
-                        };
-                        classes = activities[value].class;
-                        text = activities[value].text;
+                        const colorMap = { '1': '#95a5a6', '2': '#9b59b6', '3': '#e67e22', '4': '#d35400', '5': '#3498db', '6': '#2980b9', '7': '#e74c3c', '8': '#16a085' };
+                        actBg = colorMap[actValue] || '#95a5a6';
                     }
                     
-                    const date = new Date(year, month, day);
-                    const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-                    const cellClass = isWeekend ? `day-cell ${classes} weekend` : `day-cell ${classes}`;
+                    const locKey = `${resource.id}_localisation_${dateKey}`;
+                    const locValue = scheduleData[locKey] || '-';
+                    const locDisplay = availValue === '2' ? locValue : '-';
                     
-                    html += `<td class="${cellClass}" onclick="cycleActivity(${resource.id}, '${dateKey}', '${availability}')" title="Cliquez pour faire défiler">${text}</td>`;
+                    const cellClass = isWeekend ? 'gantt-cell weekend-cell' : 'gantt-cell';
+                    
+                    if (availValue === '2') {
+                        dailyDispo[day - 1]++;
+                    }
+                    if (actValue !== '1' && actValue !== '2' && availValue === '2') {
+                        dailyAffect[day - 1]++;
+                    }
+                    
+                    const availTooltip = availabilityLabels[availValue] || '';
+                    const actTooltip = activityLabels[actValue] || '';
+                    
+                    html += `<td class="${cellClass}">
+                        <div class="gantt-cell-content">
+                            <div class="gantt-cell-row" style="background-color: ${availBg}; color: white;" onclick="toggleAvailability(${resource.id}, '${dateKey}')" title="${availTooltip}">${availValue}</div>
+                            <div class="gantt-cell-row" style="background-color: ${actBg}; color: white;" onclick="cycleActivity(${resource.id}, '${dateKey}', '${availValue}')" title="${actTooltip}">${actValue}</div>
+                            <div class="gantt-cell-row" style="background-color: #f0f0f0; color: #333; font-size: 10px; font-weight: normal;" onclick="openLocalisationModal(${resource.id}, '${dateKey}', '${availValue}')" title="Localisation: ${locDisplay}">${locDisplay}</div>
+                        </div>
+                    </td>`;
                 }
                 html += '</tr>';
             });
 
-            html += '</tbody></table>';
-            document.getElementById('ganttContainer').innerHTML = html;
+            const totalDispoMonth = dailyDispo.reduce((a, b) => a + b, 0);
+            const totalAffectMonth = dailyAffect.reduce((a, b) => a + b, 0);
+
+            html += `<tr class="total-row">
+                <td class="total-label">TOTAL</td>
+                <td class="total-sublabel">Dispo: ${totalDispoMonth}<br>Affect: ${totalAffectMonth}</td>`;
+            
+            for (let day = 0; day < lastDay; day++) {
+                const date = new Date(year, month, day + 1);
+                const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                const cellClass = isWeekend ? 'total-cell weekend' : 'total-cell';
+                html += `<td class="${cellClass}" style="font-size: 11px;">D:${dailyDispo[day]}<br>A:${dailyAffect[day]}</td>`;
+            }
+            html += '</tr></tbody></table>';
+
+            document.getElementById('ganttWrapper').innerHTML = html;
         }
 
-        function exportResources() {
+        function sortGanttResources() {
+            const tbody = document.getElementById('ganttBody');
+            if (!tbody) return;
+            const totalRow = tbody.querySelector('.total-row');
+            const rows = Array.from(tbody.querySelectorAll('tr:not(.total-row)'));
+            const isAscending = !sortDirection['gantt_resources'];
+            sortDirection['gantt_resources'] = isAscending;
+            rows.sort((a, b) => {
+                const aName = a.getAttribute('data-resource-name') || '';
+                const bName = b.getAttribute('data-resource-name') || '';
+                return isAscending ? aName.localeCompare(bName) : bName.localeCompare(aName);
+            });
+            tbody.innerHTML = '';
+            rows.forEach(row => tbody.appendChild(row));
+            if (totalRow) tbody.appendChild(totalRow);
+        }
+
+        function sortTable(tableId, columnIndex) {
+            const table = document.getElementById(tableId + 'Table');
+            const tbody = table.tBodies[0];
+            const rows = Array.from(tbody.rows);
+            const isAscending = !sortDirection[columnIndex];
+            sortDirection[columnIndex] = isAscending;
+            rows.sort((a, b) => {
+                let aVal = a.cells[columnIndex].textContent.toLowerCase().trim();
+                let bVal = b.cells[columnIndex].textContent.toLowerCase().trim();
+                if (!isNaN(aVal) && !isNaN(bVal)) {
+                    aVal = parseFloat(aVal);
+                    bVal = parseFloat(bVal);
+                    return isAscending ? aVal - bVal : bVal - aVal;
+                }
+                return isAscending ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+            });
+            rows.forEach(row => tbody.appendChild(row));
+        }
+
+        function exportResourcesToExcel() {
             window.location.href = `${API_URL}/export/resources`;
         }
 
-        function exportGantt() {
+        function exportGanttToExcel() {
             const year = document.getElementById('yearSelect').value;
             const month = document.getElementById('monthSelect').value;
             window.location.href = `${API_URL}/export/gantt?year=${year}&month=${month}`;
         }
 
+        async function loadUsers() {
+            try {
+                const response = await fetch(`${API_URL}/users`, { credentials: 'include' });
+                if (!response.ok) throw new Error('Erreur chargement utilisateurs');
+                users = await response.json();
+                displayUsers();
+            } catch (error) {
+                console.error('Erreur:', error);
+            }
+        }
+
+        async function addUser() {
+            const nom = document.getElementById('adminUserNom').value.trim();
+            const prenom = document.getElementById('adminUserPrenom').value.trim();
+            const username = document.getElementById('adminUserUsername').value.trim();
+            const email = document.getElementById('adminUserEmail').value.trim();
+            const password = document.getElementById('adminUserPassword').value;
+            const role = document.getElementById('adminUserRole').value;
+            const sendEmail = document.getElementById('adminSendPasswordEmail').checked;
+
+            if (!nom || !prenom || !username || !email || !password) {
+                alert('Remplissez tous les champs obligatoires (*)');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/users`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ nom, prenom, username, email, password, role, sendEmail })
+                });
+                
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.error || 'Erreur ajout utilisateur');
+                }
+                
+                const data = await response.json();
+                
+                if (data.emailSent) {
+                    alert('✅ Utilisateur créé et email envoyé avec succès !');
+                } else if (data.emailError) {
+                    alert(`⚠️ Utilisateur créé mais erreur d'envoi email: ${data.emailError}`);
+                } else {
+                    alert('✅ Utilisateur créé avec succès !');
+                }
+                
+                showSyncStatus();
+                await loadUsers();
+                
+                ['adminUserNom','adminUserPrenom','adminUserUsername','adminUserEmail','adminUserPassword'].forEach(id => document.getElementById(id).value = '');
+                document.getElementById('adminUserRole').value = 'user';
+                document.getElementById('adminSendPasswordEmail').checked = false;
+            } catch (error) {
+                console.error('Erreur:', error);
+                alert(error.message);
+            }
+        }
+
+        function displayUsers() {
+            const tbody = document.getElementById('usersList');
+            tbody.innerHTML = '';
+            users.forEach(u => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${u.nom}</td><td>${u.prenom}</td><td>${u.username}</td><td>${u.email}</td>
+                    <td><span style="background-color: ${u.role === 'admin' ? '#e74c3c' : '#3498db'}; color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px;">${u.role === 'admin' ? 'Admin' : 'User'}</span></td>
+                    <td><label class="toggle-switch"><input type="checkbox" ${u.actif ? 'checked' : ''} onchange="toggleUserActive(${u.id})"><span class="slider"></span></label></td>
+                    <td><button class="edit" onclick="openResetPasswordModal(${u.id})">🔑 Reset MDP</button><button class="delete" onclick="deleteUser(${u.id})">🗑️ Supprimer</button></td>
+                `;
+            });
+        }
+
+        async function toggleUserActive(id) {
+            try {
+                const response = await fetch(`${API_URL}/users/${id}/toggle`, { method: 'POST', credentials: 'include' });
+                if (!response.ok) throw new Error('Erreur toggle');
+                await loadUsers();
+                showSyncStatus();
+            } catch (error) {
+                console.error('Erreur:', error);
+            }
+        }
+
+        async function deleteUser(id) {
+            if (!confirm('Confirmer la suppression ?')) return;
+            try {
+                const response = await fetch(`${API_URL}/users/${id}`, { method: 'DELETE', credentials: 'include' });
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.error);
+                }
+                await loadUsers();
+                showSyncStatus();
+            } catch (error) {
+                console.error('Erreur:', error);
+                alert(error.message);
+            }
+        }
+
+        function openResetPasswordModal(id) {
+            currentResetUserId = id;
+            document.getElementById('resetPasswordModal').classList.add('active');
+        }
+
+        function closeResetPasswordModal() {
+            document.getElementById('resetPasswordModal').classList.remove('active');
+            currentResetUserId = null;
+            document.getElementById('newPassword').value = '';
+        }
+
+        async function saveNewPassword() {
+            const newPassword = document.getElementById('newPassword').value;
+            if (!newPassword || newPassword.length < 6) {
+                alert('Le mot de passe doit contenir au moins 6 caractères');
+                return;
+            }
+            try {
+                const response = await fetch(`${API_URL}/users/${currentResetUserId}/reset-password`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ newPassword })
+                });
+                if (!response.ok) throw new Error('Erreur réinitialisation');
+                alert('Mot de passe réinitialisé avec succès');
+                closeResetPasswordModal();
+                showSyncStatus();
+            } catch (error) {
+                console.error('Erreur:', error);
+                alert('Erreur lors de la réinitialisation');
+            }
+        }
+
+        async function saveEmailConfig() {
+            const config = {
+                host: document.getElementById('smtpHost').value,
+                port: document.getElementById('smtpPort').value,
+                user: document.getElementById('smtpUser').value,
+                password: document.getElementById('smtpPassword').value
+            };
+            try {
+                const response = await fetch(`${API_URL}/email/config`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(config)
+                });
+                if (!response.ok) throw new Error('Erreur sauvegarde config');
+                alert('✅ Configuration email sauvegardée !');
+                showSyncStatus();
+            } catch (error) {
+                console.error('Erreur:', error);
+                alert('Erreur lors de la sauvegarde');
+            }
+        }
+
+        async function testEmail() {
+            try {
+                const response = await fetch(`${API_URL}/email/test`, { method: 'POST', credentials: 'include' });
+                const data = await response.json();
+                if (data.success) {
+                    alert('✅ Email de test envoyé avec succès ! Vérifiez votre boîte mail.');
+                } else {
+                    alert(`❌ Erreur: ${data.error}`);
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+                alert('Erreur lors du test d\'envoi');
+            }
+        }
+
+        function backupFullDatabase() {
+            window.location.href = `${API_URL}/backup/csv`;
+        }
+
+        function backupDatabaseSQL() {
+            window.location.href = `${API_URL}/backup/sql`;
+        }
+
         function showSyncStatus() {
             const status = document.getElementById('syncStatus');
             status.style.display = 'block';
-            status.className = 'sync-status';
             setTimeout(() => { status.style.display = 'none'; }, 3000);
         }
 
         function switchTab(tabName) {
-            document.querySelectorAll('.tab-content').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
             document.getElementById(tabName).classList.add('active');
             event.target.classList.add('active');
+            if (tabName === 'admin') loadUsers();
         }
+
+        document.addEventListener('click', function(event) {
+            const editModal = document.getElementById('editModal');
+            const locModal = document.getElementById('localisationModal');
+            const resetModal = document.getElementById('resetPasswordModal');
+            if (event.target === editModal) closeEditModal();
+            if (event.target === locModal) closeLocalisationModal();
+            if (event.target === resetModal) closeResetPasswordModal();
+        });
     </script>
 </body>
 </html>
