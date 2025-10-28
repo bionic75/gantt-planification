@@ -45,25 +45,20 @@
         .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
         input:checked + .slider { background-color: #27ae60; }
         input:checked + .slider:before { transform: translateX(26px); }
-        
-        /* Styles pour la planification avec volets figés */
-.planning-sticky-header { position: sticky; top: 0; background: white; z-index: 100; padding-bottom: 10px; }
-}        
         .gantt-wrapper { overflow-x: auto; margin-top: 20px; border: 1px solid #bdc3c7; border-radius: 5px; }
         .gantt-table { width: max-content; border-collapse: collapse; font-size: 12px; background-color: white; }
         .gantt-table th { background-color: #34495e; color: white; padding: 8px; text-align: center; font-weight: bold; border: 1px solid #bdc3c7; vertical-align: middle; }
         .gantt-table td { border: 1px solid #bdc3c7; padding: 6px; text-align: center; vertical-align: middle; }
         .resource-header { background-color: #2c3e50; color: white; text-align: left; font-weight: bold; min-width: 200px; max-width: 200px; width: 200px; position: sticky; left: 0; z-index: 10; padding: 10px; }
         .resource-label { background-color: #ecf0f1; text-align: center; font-size: 11px; font-weight: bold; color: #7f8c8d; min-width: 120px; max-width: 120px; width: 120px; position: sticky; left: 200px; z-index: 9; padding: 10px; line-height: 1.4; }
-        .day-header { background-color: #3498db; color: white; min-width: 100px; max-width: 100px; width: 100px; cursor: default; }
-        .day-header::after { content: none; }
+        .day-header { background-color: #3498db; color: white; min-width: 100px; max-width: 100px; width: 100px; }
         .day-header.weekend { background-color: #ffc107; color: #333; }
         .gantt-cell { padding: 4px; background-color: white; min-width: 100px; max-width: 100px; width: 100px; height: 90px; vertical-align: middle; }
         .gantt-cell-content { display: flex; flex-direction: column; height: 100%; gap: 2px; }
         .gantt-cell-row { flex: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 3px; font-weight: bold; transition: all 0.2s; font-size: 13px; min-height: 28px; }
         .gantt-cell-row:hover { filter: brightness(0.85); transform: scale(1.02); }
         .weekend-cell { background-color: #fff8e1; }
-        .total-row { background-color: #34495e; color: white; font-weight: bold; }
+        .total-row { background-color: #34495e; color: white; font-weight: bold; position: sticky; bottom: 0; z-index: 5; }
         .total-cell { background-color: #34495e; color: white; font-weight: bold; padding: 10px; text-align: center; border: 1px solid #2c3e50; }
         .total-label { background-color: #2c3e50; color: white; font-weight: bold; text-align: left; padding: 10px; position: sticky; left: 0; z-index: 10; }
         .total-sublabel { background-color: #34495e; color: white; font-weight: bold; text-align: center; padding: 10px; position: sticky; left: 200px; z-index: 9; }
@@ -83,79 +78,7 @@
         .modal-content { background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); max-width: 500px; width: 90%; }
         .modal-content h3 { margin-bottom: 20px; color: #2c3e50; }
         .modal-button-group { display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end; }
-        
-        /* Styles pour l'impression en paysage */
-        @page { size: landscape; margin: 0.5cm; }
-        @media print {
-            body { background: white; margin: 0; padding: 0; }
-            .container { box-shadow: none; max-width: 100%; border-radius: 0; }
-            .tabs, .button-group, .planif-controls, .sync-status { display: none !important; }
-            h2 { font-size: 14px; margin-bottom: 5px; padding-bottom: 5px; page-break-after: avoid; }
-            
-            .planning-sticky-header { position: static; }
-            .legend { 
-                padding: 8px; 
-                margin-bottom: 8px; 
-                page-break-inside: avoid;
-                font-size: 9px;
-            }
-            .legend-section { margin-bottom: 5px; }
-            .legend-section-title { font-size: 10px; margin-bottom: 3px; padding-bottom: 2px; }
-            .legend-items { gap: 5px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
-            .legend-item { font-size: 9px; }
-            .color-code { width: 12px; height: 12px; margin-right: 4px; }
-            
-            .gantt-wrapper { 
-                overflow: visible !important; 
-                border: none;
-                transform: scale(0.65);
-                transform-origin: top left;
-                width: 153.85%;
-                margin: 0;
-            }
-            .gantt-table { 
-                font-size: 7px !important;
-                page-break-inside: avoid;
-            }
-            .gantt-table th, .gantt-table td {
-                padding: 2px !important;
-                border: 1px solid #999;
-            }
-            .resource-header {
-                min-width: 130px !important;
-                max-width: 130px !important;
-                font-size: 8px !important;
-                padding: 4px !important;
-            }
-            .resource-label {
-                min-width: 80px !important;
-                max-width: 80px !important;
-                font-size: 7px !important;
-                padding: 4px !important;
-                line-height: 1.2;
-            }
-            .day-header {
-                min-width: 50px !important;
-                max-width: 50px !important;
-                font-size: 7px !important;
-                padding: 2px !important;
-            }
-            .gantt-cell {
-                min-width: 50px !important;
-                max-width: 50px !important;
-                height: 40px !important;
-                padding: 1px !important;
-            }
-            .gantt-cell-content { gap: 1px; }
-            .gantt-cell-row {
-                font-size: 8px !important;
-                min-height: 12px !important;
-            }
-            .total-cell, .total-label, .total-sublabel {
-                font-size: 7px !important;
-                padding: 2px !important;
-            }
-        }
+        @media print { body { background: white; } .container { box-shadow: none; } .tabs, .button-group, .planif-controls { display: none; } .gantt-wrapper { overflow: visible; } .gantt-table { font-size: 10px; } }
     </style>
 </head>
 <body>
@@ -167,6 +90,7 @@
             <button class="tab-btn" onclick="logout()" style="margin-left: auto; background-color: #e74c3c;">🚪 Déconnexion</button>
         </div>
         
+        <!-- ONGLET RESSOURCES -->
         <div id="resources" class="tab-content active">
             <h2>Gestion des Ressources</h2>
             <div id="syncStatus" class="sync-status" style="display:none;">✓ Données synchronisées</div>
@@ -210,68 +134,61 @@
             </div>
         </div>
         
+        <!-- ONGLET PLANIFICATION -->
         <div id="planning" class="tab-content">
             <h2>Planification - Vue GANTT</h2>
             
-            <div class="planning-sticky-header">
-                <div class="planif-controls">
-                    <div class="control-group">
-                        <label>Année</label>
-                        <select id="yearSelect" onchange="updateGantt()">
-                            <option value="2025" selected>2025</option>
-                            <option value="2026">2026</option>
-                            <option value="2027">2027</option>
-                            <option value="2028">2028</option>
-                        </select>
-                    </div>
-                    <div class="control-group">
-                        <label>Mois</label>
-                        <select id="monthSelect" onchange="updateGantt()">
-                            <option value="0">Janvier</option>
-                            <option value="1">Février</option>
-                            <option value="2">Mars</option>
-                            <option value="3">Avril</option>
-                            <option value="4">Mai</option>
-                            <option value="5">Juin</option>
-                            <option value="6">Juillet</option>
-                            <option value="7">Août</option>
-                            <option value="8">Septembre</option>
-                            <option value="9" selected>Octobre</option>
-                            <option value="10">Novembre</option>
-                            <option value="11">Décembre</option>
-                        </select>
-                    </div>
-                    <div class="control-group">
-                        <label>Filtrer ressource</label>
-                        <select id="resourceFilter" onchange="updateGantt()">
-                            <option value="">Toutes les ressources</option>
-                        </select>
-                    </div>
-                    <button onclick="updateGantt()">📅 Afficher</button>
-                    <button class="export-btn" onclick="exportGanttToExcel()">📥 Excel</button>
-                    <button class="export-btn" onclick="window.print()">🖨️ Imprimer A4</button>
+            <div class="planif-controls">
+                <div class="control-group">
+                    <label>Année</label>
+                    <select id="yearSelect" onchange="updateGantt()">
+                        <option value="2025" selected>2025</option>
+                        <option value="2026">2026</option>
+                        <option value="2027">2027</option>
+                        <option value="2028">2028</option>
+                    </select>
                 </div>
-                
-                <div class="legend">
-                    <div class="legend-section">
-                        <div class="legend-section-title">DISPONIBILITÉ</div>
-                        <div class="legend-items">
-                            <div class="legend-item"><span class="color-code" style="background-color: #95a5a6;"></span> 1 - Indisponible</div>
-                            <div class="legend-item"><span class="color-code" style="background-color: #27ae60;"></span> 2 - Disponible pour l'ANS</div>
-                        </div>
+                <div class="control-group">
+                    <label>Mois</label>
+                    <select id="monthSelect" onchange="updateGantt()">
+                        <option value="0">Janvier</option>
+                        <option value="1">Février</option>
+                        <option value="2">Mars</option>
+                        <option value="3">Avril</option>
+                        <option value="4">Mai</option>
+                        <option value="5">Juin</option>
+                        <option value="6">Juillet</option>
+                        <option value="7">Août</option>
+                        <option value="8">Septembre</option>
+                        <option value="9" selected>Octobre</option>
+                        <option value="10">Novembre</option>
+                        <option value="11">Décembre</option>
+                    </select>
+                </div>
+                <button onclick="updateGantt()">📅 Afficher</button>
+                <button class="export-btn" onclick="exportGanttToExcel()">📥 Excel</button>
+                <button class="export-btn" onclick="window.print()">🖨️ Imprimer A4</button>
+            </div>
+            
+            <div class="legend">
+                <div class="legend-section">
+                    <div class="legend-section-title">DISPONIBILITÉ</div>
+                    <div class="legend-items">
+                        <div class="legend-item"><span class="color-code" style="background-color: #95a5a6;"></span> 1 - Indisponible</div>
+                        <div class="legend-item"><span class="color-code" style="background-color: #27ae60;"></span> 2 - Disponible pour l'ANS</div>
                     </div>
-                    <div class="legend-section">
-                        <div class="legend-section-title">AFFECTATION</div>
-                        <div class="legend-items">
-                            <div class="legend-item"><span class="color-code" style="background-color: #95a5a6;"></span> 1 - Indisponible</div>
-                            <div class="legend-item"><span class="color-code" style="background-color: #9b59b6;"></span> 2 - En attente d'affectation</div>
-                            <div class="legend-item"><span class="color-code" style="background-color: #e67e22;"></span> 3 - SAMU (Déploiement)</div>
-                            <div class="legend-item"><span class="color-code" style="background-color: #d35400;"></span> 4 - SAMU (Dev. usages)</div>
-                            <div class="legend-item"><span class="color-code" style="background-color: #3498db;"></span> 5 - ANS (Déploiement)</div>
-                            <div class="legend-item"><span class="color-code" style="background-color: #2980b9;"></span> 6 - ANS (Dev. usages)</div>
-                            <div class="legend-item"><span class="color-code" style="background-color: #e74c3c;"></span> 7 - Qualification</div>
-                            <div class="legend-item"><span class="color-code" style="background-color: #16a085;"></span> 8 - Divers</div>
-                        </div>
+                </div>
+                <div class="legend-section">
+                    <div class="legend-section-title">AFFECTATION</div>
+                    <div class="legend-items">
+                        <div class="legend-item"><span class="color-code" style="background-color: #95a5a6;"></span> 1 - Indisponible</div>
+                        <div class="legend-item"><span class="color-code" style="background-color: #9b59b6;"></span> 2 - En attente d'affectation</div>
+                        <div class="legend-item"><span class="color-code" style="background-color: #e67e22;"></span> 3 - SAMU (Déploiement)</div>
+                        <div class="legend-item"><span class="color-code" style="background-color: #d35400;"></span> 4 - SAMU (Dev. usages)</div>
+                        <div class="legend-item"><span class="color-code" style="background-color: #3498db;"></span> 5 - ANS (Déploiement)</div>
+                        <div class="legend-item"><span class="color-code" style="background-color: #2980b9;"></span> 6 - ANS (Dev. usages)</div>
+                        <div class="legend-item"><span class="color-code" style="background-color: #e74c3c;"></span> 7 - Qualification</div>
+                        <div class="legend-item"><span class="color-code" style="background-color: #16a085;"></span> 8 - Divers</div>
                     </div>
                 </div>
             </div>
@@ -281,20 +198,17 @@
             </div>
         </div>
         
+        <!-- ONGLET ADMINISTRATION -->
         <div id="admin" class="tab-content">
             <h2>⚙️ Administration - Gestion des utilisateurs</h2>
             
             <div class="form-section" style="background-color: #fff3cd; border-left: 4px solid #ffc107;">
-                <h3 style="color: #856404; border-left: none;">📧 Configuration Email (Gmail/SMTP)</h3>
-                <p style="margin-bottom: 10px; font-size: 12px; color: #856404;">
-                    ℹ️ Pour Gmail, utilisez un "Mot de passe d'application" (2FA requis). 
-                    <a href="https://support.google.com/accounts/answer/185833" target="_blank" style="color: #856404;">Guide Google</a>
-                </p>
+                <h3 style="color: #856404; border-left: none;">📧 Configuration Email (Outlook/SMTP)</h3>
                 <div class="form-row">
-                    <div class="form-group"><label>Serveur SMTP</label><input type="text" id="smtpHost" placeholder="smtp.gmail.com" value="smtp.gmail.com"></div>
+                    <div class="form-group"><label>Serveur SMTP</label><input type="text" id="smtpHost" placeholder="smtp.office365.com" value="smtp.office365.com"></div>
                     <div class="form-group"><label>Port SMTP</label><input type="number" id="smtpPort" placeholder="587" value="587"></div>
-                    <div class="form-group"><label>Email expéditeur</label><input type="email" id="smtpUser" placeholder="votre-email@gmail.com"></div>
-                    <div class="form-group"><label>Mot de passe (App Password)</label><input type="password" id="smtpPassword" placeholder="Mot de passe d'application"></div>
+                    <div class="form-group"><label>Email expéditeur</label><input type="email" id="smtpUser" placeholder="votre-email@outlook.com"></div>
+                    <div class="form-group"><label>Mot de passe email</label><input type="password" id="smtpPassword" placeholder="Mot de passe"></div>
                 </div>
                 <div class="button-group">
                     <button onclick="saveEmailConfig()">💾 Sauvegarder la config email</button>
@@ -360,9 +274,10 @@
         </div>
     </div>
 
+    <!-- PAGE DE CONNEXION -->
     <div id="loginPage" class="modal active" style="background-color: rgba(44, 62, 80, 0.95);">
         <div class="modal-content" style="max-width: 400px;">
-            <h2 style="text-align: center; color: #2c3e50; margin-bottom: 30px;">🔒 Connexion</h2>
+            <h2 style="text-align: center; color: #2c3e50; margin-bottom: 30px;">🔐 Connexion</h2>
             <div class="form-group">
                 <label>Identifiant</label>
                 <input type="text" id="loginUsername" placeholder="Votre login" onkeypress="if(event.key==='Enter') login()">
@@ -380,6 +295,7 @@
         </div>
     </div>
     
+    <!-- MODAL MODIFIER RESSOURCE -->
     <div id="editModal" class="modal">
         <div class="modal-content">
             <h3>Modifier la ressource</h3>
@@ -396,14 +312,15 @@
         </div>
     </div>
 
+    <!-- MODAL LOCALISATION -->
     <div id="localisationModal" class="modal">
         <div class="modal-content">
             <h3>Choisir la localisation</h3>
             <div style="display: grid; gap: 10px;">
-                <button onclick="setLocalisation('Télétravail')" style="background-color: #3498db; padding: 15px;">🏠Télétravail</button>
+                <button onclick="setLocalisation('Télétravail')" style="background-color: #3498db; padding: 15px;">🏠 Télétravail</button>
                 <button onclick="setLocalisation('SAMU')" style="background-color: #e67e22; padding: 15px;">🏥 SAMU</button>
                 <button onclick="setLocalisation('PSC')" style="background-color: #9b59b6; padding: 15px;">🏢 PSC</button>
-                <button onclick="setLocalisation('Autres')" style="background-color: #16a085; padding: 15px;">🏛 Autres (Congrès, CFARM, EHESP...)</button>
+                <button onclick="setLocalisation('Autres')" style="background-color: #16a085; padding: 15px;">📍 Autres (Congrès, CFARM, EHESP...)</button>
             </div>
             <div class="modal-button-group">
                 <button onclick="closeLocalisationModal()" style="background-color: #95a5a6; margin-top: 20px;">Annuler</button>
@@ -411,6 +328,7 @@
         </div>
     </div>
     
+    <!-- MODAL RÉINITIALISER MOT DE PASSE -->
     <div id="resetPasswordModal" class="modal">
         <div class="modal-content">
             <h3>Réinitialiser le mot de passe</h3>
@@ -435,22 +353,6 @@
         let currentResetUserId = null;
         let sortDirection = {};
         let currentUser = null;
-
-        const availabilityLabels = {
-            '1': 'Indisponible',
-            '2': 'Disponible pour l\'ANS'
-        };
-
-        const activityLabels = {
-            '1': 'Indisponible',
-            '2': 'En attente d\'affectation',
-            '3': 'SAMU (Déploiement)',
-            '4': 'SAMU (Dev. usages)',
-            '5': 'ANS (Déploiement)',
-            '6': 'ANS (Dev. usages)',
-            '7': 'Qualification',
-            '8': 'Divers'
-        };
 
         window.addEventListener('load', async () => { await checkSession(); });
 
@@ -544,32 +446,8 @@
                 if (!response.ok) throw new Error('Erreur chargement ressources');
                 resources = await response.json();
                 displayResources();
-                updateResourceFilter();
             } catch (error) {
                 console.error('Erreur:', error);
-            }
-        }
-
-        function updateResourceFilter() {
-            const filterSelect = document.getElementById('resourceFilter');
-            const currentValue = filterSelect.value;
-            filterSelect.innerHTML = '<option value="">Toutes les ressources</option>';
-            
-            const activeResources = resources.filter(r => r.actif).sort((a, b) => {
-                const nameA = `${a.nom} ${a.prenom}`.toLowerCase();
-                const nameB = `${b.nom} ${b.prenom}`.toLowerCase();
-                return nameA.localeCompare(nameB);
-            });
-            
-            activeResources.forEach(r => {
-                const option = document.createElement('option');
-                option.value = r.id;
-                option.textContent = `${r.nom.toUpperCase()} ${r.prenom} (${r.trigramme})`;
-                filterSelect.appendChild(option);
-            });
-            
-            if (currentValue) {
-                filterSelect.value = currentValue;
             }
         }
 
@@ -804,56 +682,13 @@
             currentLocalisationCell = null;
         }
 
-        async function resetResourceMonth(resourceId) {
-    const year = parseInt(document.getElementById('yearSelect').value);
-    const month = parseInt(document.getElementById('monthSelect').value);
-    const lastDay = new Date(year, month + 1, 0).getDate();
-    
-    const resource = resources.find(r => r.id === resourceId);
-    const resourceName = resource ? `${resource.nom.toUpperCase()} ${resource.prenom}` : 'cette ressource';
-    
-    if (!confirm(`Voulez-vous vraiment remettre à zéro tous les compteurs de ${resourceName} pour ce mois ?\n\nCela supprimera :\n- Toutes les disponibilités\n- Toutes les affectations\n- Toutes les localisations`)) {
-        return;
-    }
-    
-    let modified = false;
-    
-    for (let day = 1; day <= lastDay; day++) {
-        const dateKey = `${year}-${month}-${day}`;
-        
-        const availKey = `${resourceId}_available_${dateKey}`;
-        const actKey = `${resourceId}_activity_${dateKey}`;
-        const locKey = `${resourceId}_localisation_${dateKey}`;
-        
-        if (scheduleData[availKey] || scheduleData[actKey] || scheduleData[locKey]) {
-            modified = true;
-        }
-        
-        scheduleData[availKey] = '1';
-        scheduleData[actKey] = '1';
-        delete scheduleData[locKey];
-    }
-    
-    if (modified) {
-        await saveSchedule();
-        updateGantt();
-        alert(`✅ Réinitialisation effectuée pour ${resourceName}`);
-    } else {
-        alert('ℹ️ Aucune donnée à réinitialiser pour ce mois.');
-    }
-}
-
         function updateGantt() {
             const year = parseInt(document.getElementById('yearSelect').value);
             const month = parseInt(document.getElementById('monthSelect').value);
-            const filterResourceId = document.getElementById('resourceFilter').value;
             const lastDay = new Date(year, month + 1, 0).getDate();
 
-            let filteredResources = resources.filter(r => r.actif);
-            if (filterResourceId) {
-                filteredResources = filteredResources.filter(r => r.id === parseInt(filterResourceId));
-            }
-
+            let totalDispoMonth = 0;
+            let totalAffectMonth = 0;
             let dailyDispo = Array(lastDay).fill(0);
             let dailyAffect = Array(lastDay).fill(0);
 
@@ -870,21 +705,12 @@
             }
             html += '</tr></thead><tbody id="ganttBody">';
 
-            filteredResources.forEach(resource => {
+            resources.filter(r => r.actif).forEach(resource => {
                 const dispoCount = countDaysForResource(resource.id, year, month);
                 const expectedDays = calculateExpectedWorkDays(resource.id, year, month);
 
                 html += `<tr data-resource-name="${resource.nom} ${resource.prenom}">
-    <td class="resource-header">
-        <div style="display: flex; justify-content: space-between; align-items: start;">
-            <div>
-                <strong>${resource.nom.toUpperCase()} ${resource.prenom}</strong><br>
-                <small>${resource.trigramme}</small><br>
-                <small style="font-size: 10px; color: #bdc3c7;">Jours: ${dispoCount}/${expectedDays}</small>
-            </div>
-            <button onclick="resetResourceMonth(${resource.id})" style="padding: 4px 8px; font-size: 10px; background-color: #e74c3c; margin-left: 5px;" title="Remettre à zéro ce mois">🔄 RAZ</button>
-        </div>
-    </td>
+                    <td class="resource-header"><strong>${resource.nom.toUpperCase()} ${resource.prenom}</strong><br><small>${resource.trigramme}</small><br><small style="font-size: 10px; color: #bdc3c7;">Jours: ${dispoCount}/${expectedDays}</small></td>
                     <td class="resource-label">Disponibilité<br>Affectation<br>Localisation</td>`;
 
                 for (let day = 1; day <= lastDay; day++) {
@@ -913,28 +739,24 @@
                     const cellClass = isWeekend ? 'gantt-cell weekend-cell' : 'gantt-cell';
                     
                     if (availValue === '2') {
+                        totalDispoMonth++;
                         dailyDispo[day - 1]++;
                     }
                     if (actValue !== '1' && actValue !== '2' && availValue === '2') {
+                        totalAffectMonth++;
                         dailyAffect[day - 1]++;
                     }
                     
-                    const availTooltip = availabilityLabels[availValue] || '';
-                    const actTooltip = activityLabels[actValue] || '';
-                    
                     html += `<td class="${cellClass}">
                         <div class="gantt-cell-content">
-                            <div class="gantt-cell-row" style="background-color: ${availBg}; color: white;" onclick="toggleAvailability(${resource.id}, '${dateKey}')" title="${availTooltip}">${availValue}</div>
-                            <div class="gantt-cell-row" style="background-color: ${actBg}; color: white;" onclick="cycleActivity(${resource.id}, '${dateKey}', '${availValue}')" title="${actTooltip}">${actValue}</div>
-                            <div class="gantt-cell-row" style="background-color: #f0f0f0; color: #333; font-size: 10px; font-weight: normal;" onclick="openLocalisationModal(${resource.id}, '${dateKey}', '${availValue}')" title="Localisation: ${locDisplay}">${locDisplay}</div>
+                            <div class="gantt-cell-row" style="background-color: ${availBg}; color: white;" onclick="toggleAvailability(${resource.id}, '${dateKey}')" title="Disponibilité: Cliquez pour changer">${availValue}</div>
+                            <div class="gantt-cell-row" style="background-color: ${actBg}; color: white;" onclick="cycleActivity(${resource.id}, '${dateKey}', '${availValue}')" title="Affectation: Cliquez pour défiler">${actValue}</div>
+                            <div class="gantt-cell-row" style="background-color: #f0f0f0; color: #333; font-size: 10px; font-weight: normal;" onclick="openLocalisationModal(${resource.id}, '${dateKey}', '${availValue}')" title="Localisation: Cliquez pour choisir">${locDisplay}</div>
                         </div>
                     </td>`;
                 }
                 html += '</tr>';
             });
-
-            const totalDispoMonth = dailyDispo.reduce((a, b) => a + b, 0);
-            const totalAffectMonth = dailyAffect.reduce((a, b) => a + b, 0);
 
             html += `<tr class="total-row">
                 <td class="total-label">TOTAL</td>
@@ -954,7 +776,6 @@
         function sortGanttResources() {
             const tbody = document.getElementById('ganttBody');
             if (!tbody) return;
-            const totalRow = tbody.querySelector('.total-row');
             const rows = Array.from(tbody.querySelectorAll('tr:not(.total-row)'));
             const isAscending = !sortDirection['gantt_resources'];
             sortDirection['gantt_resources'] = isAscending;
@@ -963,13 +784,11 @@
                 const bName = b.getAttribute('data-resource-name') || '';
                 return isAscending ? aName.localeCompare(bName) : bName.localeCompare(aName);
             });
-            tbody.innerHTML = '';
             rows.forEach(row => tbody.appendChild(row));
-            if (totalRow) tbody.appendChild(totalRow);
         }
 
         function sortTable(tableId, columnIndex) {
-            const table = document.getElementById(tableId + 'Table');
+            const table = document.getElementById(tableId);
             const tbody = table.tBodies[0];
             const rows = Array.from(tbody.rows);
             const isAscending = !sortDirection[columnIndex];
