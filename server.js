@@ -57,7 +57,7 @@ let emailConfig = {
     password: ''
 };
 
-// Créer transporteur email
+// Créer transporteur email avec options pour Render.com
 function createEmailTransporter() {
     if (!emailConfig.user || !emailConfig.password) {
         return null;
@@ -70,19 +70,39 @@ function createEmailTransporter() {
         auth: {
             user: emailConfig.user,
             pass: emailConfig.password
+        },
+        // Options pour résoudre les problèmes sur Render.com
+        connectionTimeout: 10000, // 10 secondes
+        greetingTimeout: 10000,
+        socketTimeout: 10000,
+        // Tenter avec TLS
+        requireTLS: true,
+        tls: {
+            ciphers: 'SSLv3',
+            rejectUnauthorized: false
         }
     });
 }
 
 // Envoyer un email
 async function sendEmail(to, subject, html) {
+    console.log('📧 sendEmail appelé:');
+    console.log('   - Destinataire:', to);
+    console.log('   - Sujet:', subject);
+    console.log('   - Config user:', emailConfig.user ? 'Défini' : 'NON DÉFINI');
+    console.log('   - Config password:', emailConfig.password ? 'Défini' : 'NON DÉFINI');
+    console.log('   - Config host:', emailConfig.host);
+    console.log('   - Config port:', emailConfig.port);
+    
     const transporter = createEmailTransporter();
     
     if (!transporter) {
-        throw new Error('Configuration email non définie');
+        console.error('❌ Transporteur email null - configuration manquante');
+        throw new Error('Configuration email non définie. Veuillez configurer les paramètres SMTP dans l\'onglet Administration.');
     }
 
     try {
+        console.log('🔄 Tentative d\'envoi email...');
         const info = await transporter.sendMail({
             from: `"Planification GANTT" <${emailConfig.user}>`,
             to: to,
@@ -90,9 +110,14 @@ async function sendEmail(to, subject, html) {
             html: html
         });
         
+        console.log('✅ Email envoyé avec succès! Message ID:', info.messageId);
         return { success: true, messageId: info.messageId };
     } catch (error) {
-        console.error('Erreur envoi email:', error);
+        console.error('❌ Erreur détaillée envoi email:');
+        console.error('   - Message:', error.message);
+        console.error('   - Code:', error.code);
+        console.error('   - Command:', error.command);
+        console.error('   - Stack:', error.stack);
         throw error;
     }
 }
@@ -105,7 +130,7 @@ function initDB() {
         nom TEXT NOT NULL,
         prenom TEXT NOT NULL,
         trigramme TEXT NOT NULL,
-        email TEXT NOT NULL,
+        email TEXT,
         telephone TEXT,
         taux REAL NOT NULL,
         samu TEXT NOT NULL,
@@ -115,7 +140,41 @@ function initDB() {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
 `, (err) => {
-    if (err) console.error('Erreur création table resources:', err);
+    if (err) {
+        console.error('Erreur création table resources:', err);
+    } else {
+        // Vérifier et migrer la colonne email si nécessaire
+        database.all(`PRAGMA table_info(resources)`, [], (pragmaErr, columns) => {
+            if (!pragmaErr && columns) {
+                const emailCol = columns.find(col => col.name === 'email');
+                // Si email existe et est NOT NULL, on doit recréer la table
+                if (emailCol && emailCol.notnull === 1) {
+                    console.log('Migration: Rendre email nullable dans resources...');
+                    database.serialize(() => {
+                        database.run(`CREATE TABLE resources_new (
+                            id INTEGER PRIMARY KEY,
+                            nom TEXT NOT NULL,
+                            prenom TEXT NOT NULL,
+                            trigramme TEXT NOT NULL,
+                            email TEXT,
+                            telephone TEXT,
+                            taux REAL NOT NULL,
+                            samu TEXT NOT NULL,
+                            actif INTEGER DEFAULT 1,
+                            date_debut TEXT,
+                            date_fin TEXT,
+                            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                        )`);
+                        
+                        database.run(`INSERT INTO resources_new SELECT * FROM resources`);
+                        database.run(`DROP TABLE resources`);
+                        database.run(`ALTER TABLE resources_new RENAME TO resources`);
+                        console.log('✅ Migration terminée: email est maintenant nullable');
+                    });
+                }
+            }
+        });
+    }
 });
 
     database.run(`
@@ -357,6 +416,138 @@ app.post('/api/logout', (req, res) => {
     });
 });
 
+// Stockage en mémoire des demandes de reset (username -> timestamp)
+const resetPasswordRequests = new Map();
+
+app.post('/api/forgot-password', async (req, res) => {
+    const { username } = req.body;
+    
+    if (!username) {
+        return res.status(400).json({ error: 'Nom d\'utilisateur requis' });
+    }
+    
+    // Vérifier la temporisation de 30 secondes
+    const lastRequest = resetPasswordRequests.get(username);
+    const now = Date.now();
+    
+    if (lastRequest && (now - lastRequest) < 30000) {
+        const remainingSeconds = Math.ceil((30000 - (now - lastRequest)) / 1000);
+        return res.status(429).json({ 
+            error: `Veuillez attendre ${remainingSeconds} secondes avant de redemander un nouveau mot de passe`,
+            remainingSeconds 
+        });
+    }
+    
+    // Rechercher l'utilisateur
+    database.get('SELECT * FROM users WHERE username = ? AND actif = 1', [username], async (err, user) => {
+        if (err) {
+            console.error('Erreur recherche user:', err);
+            // On renvoie un message générique pour la sécurité
+            return res.json({ success: true, message: 'Si cet utilisateur existe, un email a été envoyé' });
+        }
+        
+        if (!user || !user.email) {
+            // On renvoie un message générique pour ne pas révéler si l'utilisateur existe
+            return res.json({ success: true, message: 'Si cet utilisateur existe, un email a été envoyé' });
+        }
+        
+        // Générer un nouveau mot de passe
+        const newPassword = generateRandomPassword();
+        const hashedPassword = hashPassword(newPassword);
+        
+        // Mettre à jour le mot de passe
+        database.run('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, user.id], async (err) => {
+            if (err) {
+                console.error('Erreur update password:', err);
+                return res.status(500).json({ error: 'Erreur lors de la réinitialisation' });
+            }
+            
+            // Enregistrer la demande avec timestamp
+            resetPasswordRequests.set(username, now);
+            
+            // Nettoyer les anciennes demandes (plus de 5 minutes)
+            for (const [key, timestamp] of resetPasswordRequests.entries()) {
+                if (now - timestamp > 300000) {
+                    resetPasswordRequests.delete(key);
+                }
+            }
+            
+            // Envoyer l'email
+            let emailSent = false;
+            let emailError = null;
+            
+            console.log(`🔄 Tentative d'envoi email pour reset password à: ${user.email}`);
+            
+            try {
+                await sendEmail(
+                    user.email,
+                    'Réinitialisation de votre mot de passe - Planification GANTT',
+                    `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                        <h2 style="color: #2c3e50;">Réinitialisation de mot de passe</h2>
+                        <p>Bonjour ${user.prenom} ${user.nom},</p>
+                        <p>Vous avez demandé la réinitialisation de votre mot de passe.</p>
+                        <div style="background-color: #ecf0f1; padding: 20px; border-radius: 5px; margin: 20px 0;">
+                            <p style="margin: 5px 0;"><strong>Nom d'utilisateur :</strong> ${user.username}</p>
+                            <p style="margin: 5px 0;"><strong>Nouveau mot de passe :</strong> <code style="background-color: #fff; padding: 5px 10px; border-radius: 3px; font-size: 16px;">${newPassword}</code></p>
+                        </div>
+                        <p style="color: #e74c3c; font-weight: bold;">⚠️ Pour des raisons de sécurité, veuillez changer ce mot de passe dès votre première connexion.</p>
+                        <p style="color: #7f8c8d; font-size: 12px; margin-top: 30px;">Si vous n'avez pas demandé cette réinitialisation, veuillez contacter un administrateur immédiatement.</p>
+                    </div>
+                    `
+                );
+                emailSent = true;
+                console.log(`✅ Email envoyé avec succès pour reset password`);
+            } catch (error) {
+                emailSent = false;
+                emailError = error.message || 'Erreur inconnue';
+                console.error('❌ Erreur envoi email forgot password:', error);
+                console.error('Détails erreur:', emailError);
+            }
+            
+            if (emailSent) {
+                res.json({ 
+                    success: true, 
+                    message: 'Un nouveau mot de passe a été envoyé à votre adresse email',
+                    emailSent: true 
+                });
+            } else {
+                // Si l'email échoue, on renvoie le mot de passe dans la réponse (temporaire pour debug)
+                console.log(`⚠️ Mot de passe généré mais email non envoyé: ${newPassword}`);
+                res.json({ 
+                    success: true, 
+                    message: `Mot de passe réinitialisé mais l'email n'a pas pu être envoyé. Votre nouveau mot de passe est : ${newPassword}`,
+                    emailSent: false,
+                    tempPassword: newPassword,  // ATTENTION: À retirer en production
+                    emailError: emailError
+                });
+            }
+        });
+    });
+});
+
+// Fonction pour générer un mot de passe aléatoire
+function generateRandomPassword() {
+    const length = 12;
+    const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+    const numbers = '0123456789';
+    const symbols = '!@#$%&*';
+    const allChars = uppercase + lowercase + numbers + symbols;
+    
+    let password = '';
+    password += uppercase[Math.floor(Math.random() * uppercase.length)];
+    password += lowercase[Math.floor(Math.random() * lowercase.length)];
+    password += numbers[Math.floor(Math.random() * numbers.length)];
+    password += symbols[Math.floor(Math.random() * symbols.length)];
+    
+    for (let i = password.length; i < length; i++) {
+        password += allChars[Math.floor(Math.random() * allChars.length)];
+    }
+    
+    return password.split('').sort(() => Math.random() - 0.5).join('');
+}
+
 app.get('/api/session', requireAuth, (req, res) => {
     res.json({
         userId: req.session.userId,
@@ -384,39 +575,65 @@ app.get('/api/resources', requireAuth, (req, res) => {
 app.post('/api/resources', requireAdmin, (req, res) => {
     const { nom, prenom, trigramme, email, telephone, taux, samu, date_debut, date_fin } = req.body;
     
-    database.run(
-        `INSERT INTO resources (nom, prenom, trigramme, email, telephone, taux, samu, date_debut, date_fin) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [nom, prenom, trigramme, email, telephone, taux, samu, date_debut, date_fin],
-        function(err) {
-            if (err) {
-                console.error('Erreur ajout resource:', err);
-                res.status(500).json({ error: err.message });
-            } else {
-                res.json({ id: this.lastID, success: true });
-            }
+    // Vérifier si le trigramme existe déjà
+    database.get('SELECT id FROM resources WHERE trigramme = ? AND actif = 1', [trigramme], (err, existing) => {
+        if (err) {
+            console.error('Erreur vérification trigramme:', err);
+            return res.status(500).json({ error: 'Erreur lors de la vérification du trigramme' });
         }
-    );
+        
+        if (existing) {
+            return res.status(400).json({ error: `Le trigramme "${trigramme}" est déjà utilisé par une ressource active` });
+        }
+        
+        // Si le trigramme est libre, on peut insérer
+        database.run(
+            `INSERT INTO resources (nom, prenom, trigramme, email, telephone, taux, samu, date_debut, date_fin) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [nom, prenom, trigramme, email, telephone, taux, samu, date_debut, date_fin],
+            function(err) {
+                if (err) {
+                    console.error('Erreur ajout resource:', err);
+                    res.status(500).json({ error: err.message });
+                } else {
+                    res.json({ id: this.lastID, success: true });
+                }
+            }
+        );
+    });
 });
 
 app.put('/api/resources/:id', requireAdmin, (req, res) => {
     const { nom, prenom, trigramme, email, telephone, taux, samu, date_debut, date_fin } = req.body;
     const { id } = req.params;
     
-    database.run(
-        `UPDATE resources 
-         SET nom = ?, prenom = ?, trigramme = ?, email = ?, telephone = ?, taux = ?, samu = ?, date_debut = ?, date_fin = ?
-         WHERE id = ?`,
-        [nom, prenom, trigramme, email, telephone, taux, samu, date_debut, date_fin, id],
-        (err) => {
-            if (err) {
-                console.error('Erreur update resource:', err);
-                res.status(500).json({ error: err.message });
-            } else {
-                res.json({ success: true });
-            }
+    // Vérifier si le trigramme existe déjà (sauf pour cette ressource)
+    database.get('SELECT id FROM resources WHERE trigramme = ? AND actif = 1 AND id != ?', [trigramme, id], (err, existing) => {
+        if (err) {
+            console.error('Erreur vérification trigramme:', err);
+            return res.status(500).json({ error: 'Erreur lors de la vérification du trigramme' });
         }
-    );
+        
+        if (existing) {
+            return res.status(400).json({ error: `Le trigramme "${trigramme}" est déjà utilisé par une autre ressource` });
+        }
+        
+        // Si le trigramme est libre, on peut mettre à jour
+        database.run(
+            `UPDATE resources 
+             SET nom = ?, prenom = ?, trigramme = ?, email = ?, telephone = ?, taux = ?, samu = ?, date_debut = ?, date_fin = ?
+             WHERE id = ?`,
+            [nom, prenom, trigramme, email, telephone, taux, samu, date_debut, date_fin, id],
+            (err) => {
+                if (err) {
+                    console.error('Erreur update resource:', err);
+                    res.status(500).json({ error: err.message });
+                } else {
+                    res.json({ success: true });
+                }
+            }
+        );
+    });
 });
 
 app.post('/api/resources/:id/toggle', requireAdmin, (req, res) => {
