@@ -99,22 +99,24 @@ async function sendEmail(to, subject, html) {
 
 // Initialiser les tables
 function initDB() {
-    database.run(`
-        CREATE TABLE IF NOT EXISTS resources (
-            id INTEGER PRIMARY KEY,
-            nom TEXT NOT NULL,
-            prenom TEXT NOT NULL,
-            trigramme TEXT NOT NULL,
-            email TEXT NOT NULL,
-            telephone TEXT,
-            taux REAL NOT NULL,
-            samu TEXT NOT NULL,
-            actif INTEGER DEFAULT 1,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    `, (err) => {
-        if (err) console.error('Erreur création table resources:', err);
-    });
+ database.run(`
+    CREATE TABLE IF NOT EXISTS resources (
+        id INTEGER PRIMARY KEY,
+        nom TEXT NOT NULL,
+        prenom TEXT NOT NULL,
+        trigramme TEXT NOT NULL,
+        email TEXT NOT NULL,
+        telephone TEXT,
+        taux REAL NOT NULL,
+        samu TEXT NOT NULL,
+        actif INTEGER DEFAULT 1,
+        date_debut TEXT,
+        date_fin TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+`, (err) => {
+    if (err) console.error('Erreur création table resources:', err);
+});
 
     database.run(`
         CREATE TABLE IF NOT EXISTS schedule_data (
@@ -138,28 +140,92 @@ function initDB() {
             nom TEXT NOT NULL,
             prenom TEXT NOT NULL,
             email TEXT NOT NULL,
-            role TEXT DEFAULT 'user',
+            telephone TEXT,
+            is_admin INTEGER DEFAULT 0,
+            is_expert INTEGER DEFAULT 0,
+            is_user INTEGER DEFAULT 0,
+            resource_id INTEGER,
             actif INTEGER DEFAULT 1,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (resource_id) REFERENCES resources(id)
         )
     `, (err) => {
         if (err) {
             console.error('Erreur création table users:', err);
         } else {
-            database.get('SELECT * FROM users WHERE role = ?', ['admin'], (err, row) => {
-                if (!row) {
-                    database.run(`
-                        INSERT INTO users (username, password, nom, prenom, email, role)
-                        VALUES (?, ?, ?, ?, ?, ?)
-                    `, ['admin', hashPassword('Admin2025!'), 'Administrateur', 'Système', 'admin@example.com', 'admin'], (err) => {
-                        if (err) {
-                            console.error('Erreur création admin:', err);
+            // Vérifier si la colonne telephone existe
+            database.get(`PRAGMA table_info(users)`, [], (err, rows) => {
+                if (!err) {
+                    database.all(`PRAGMA table_info(users)`, [], (err, columns) => {
+                        const hasTelephone = columns.some(col => col.name === 'telephone');
+                        
+                        if (!hasTelephone) {
+                            console.log('⚠️  Migration: Ajout de la colonne telephone à la table users...');
+                            database.run(`ALTER TABLE users ADD COLUMN telephone TEXT`, (err) => {
+                                if (err) {
+                                    console.error('❌ Erreur ajout colonne telephone:', err.message);
+                                } else {
+                                    console.log('✅ Colonne telephone ajoutée avec succès');
+                                }
+                            });
                         } else {
-                            console.log('✅ Compte admin créé: admin / Admin2025!');
+                            console.log('✅ Colonne telephone déjà présente');
                         }
                     });
                 }
             });
+            
+            database.get('SELECT * FROM users WHERE is_admin = 1', [], (err, row) => {
+                if (!row) {
+                    database.run(`
+                        INSERT INTO users (username, password, nom, prenom, email, is_admin, is_expert, is_user)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    `, ['admin', hashPassword('Admin2025!'), 'Administrateur', 'Système', 'admin@example.com', 1, 0, 0], (err) => {
+                        if (err) {
+                            console.error('Erreur création admin:', err);
+                        } else {
+                            console.log('Compte admin créé: admin / Admin2025!');
+                        }
+                    });
+                }
+            });
+        }
+    });
+
+    database.run(`
+        CREATE TABLE IF NOT EXISTS email_config (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            host TEXT NOT NULL,
+            port INTEGER NOT NULL,
+            secure INTEGER DEFAULT 0,
+            user TEXT NOT NULL,
+            password TEXT NOT NULL,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    `, (err) => {
+        if (err) {
+            console.error('Erreur création table email_config:', err);
+        } else {
+            // Charger la configuration email existante
+            loadEmailConfig();
+        }
+    });
+}
+
+// Charger la configuration email depuis la base de données
+function loadEmailConfig() {
+    database.get('SELECT * FROM email_config WHERE id = 1', [], (err, row) => {
+        if (err) {
+            console.error('Erreur chargement config email:', err);
+        } else if (row) {
+            emailConfig = {
+                host: row.host,
+                port: row.port,
+                secure: row.secure === 1,
+                user: row.user,
+                password: row.password
+            };
+            console.log('Configuration email chargée depuis la base de données');
         }
     });
 }
@@ -174,7 +240,7 @@ function requireAuth(req, res, next) {
 }
 
 function requireAdmin(req, res, next) {
-    if (req.session && req.session.userId && req.session.role === 'admin') {
+    if (req.session && req.session.userId && req.session.activeProfile === 'admin') {
         next();
     } else {
         res.status(403).json({ error: 'Accès refusé - Admin uniquement' });
@@ -184,10 +250,10 @@ function requireAdmin(req, res, next) {
 // ==================== API AUTHENTIFICATION ====================
 
 app.post('/api/login', (req, res) => {
-    const { username, password } = req.body;
+    const { username, password, profile } = req.body;
     
-    if (!username || !password) {
-        return res.status(400).json({ error: 'Username et password requis' });
+    if (!username || !password || !profile) {
+        return res.status(400).json({ error: 'Username, password et profil requis' });
     }
 
     const hashedPassword = hashPassword(password);
@@ -204,11 +270,39 @@ app.post('/api/login', (req, res) => {
                 return res.status(401).json({ error: 'Identifiants incorrects' });
             }
             
+            // Vérifier si l'utilisateur a le droit d'utiliser ce profil
+            let hasProfile = false;
+            let profileField = '';
+            
+            switch(profile) {
+                case 'admin':
+                    hasProfile = user.is_admin === 1;
+                    profileField = 'is_admin';
+                    break;
+                case 'expert':
+                    hasProfile = user.is_expert === 1;
+                    profileField = 'is_expert';
+                    break;
+                case 'user':
+                    hasProfile = user.is_user === 1;
+                    profileField = 'is_user';
+                    break;
+                default:
+                    return res.status(400).json({ error: 'Profil invalide' });
+            }
+            
+            if (!hasProfile) {
+                return res.status(403).json({ 
+                    error: `Vous n'êtes pas autorisé à utiliser le profil "${profile === 'admin' ? 'Administrateur' : profile === 'expert' ? 'Expert métier' : 'Utilisateur'}". Veuillez sélectionner un profil pour lequel vous avez les droits.` 
+                });
+            }
+            
             req.session.userId = user.id;
             req.session.username = user.username;
-            req.session.role = user.role;
+            req.session.activeProfile = profile;
             req.session.nom = user.nom;
             req.session.prenom = user.prenom;
+            req.session.resourceId = user.resource_id;
             
             res.json({ 
                 success: true, 
@@ -217,9 +311,39 @@ app.post('/api/login', (req, res) => {
                     username: user.username,
                     nom: user.nom,
                     prenom: user.prenom,
-                    role: user.role
+                    activeProfile: profile,
+                    resourceId: user.resource_id
                 }
             });
+        }
+    );
+});
+
+app.get('/api/user/profiles', (req, res) => {
+    const { username } = req.query;
+    
+    if (!username) {
+        return res.status(400).json({ error: 'Username requis' });
+    }
+    
+    database.get('SELECT is_admin, is_expert, is_user FROM users WHERE username = ? AND actif = 1', 
+        [username], 
+        (err, user) => {
+            if (err) {
+                console.error('Erreur récupération profils:', err);
+                return res.status(500).json({ error: 'Erreur serveur' });
+            }
+            
+            if (!user) {
+                return res.json({ profiles: [] });
+            }
+            
+            const profiles = [];
+            if (user.is_admin === 1) profiles.push('admin');
+            if (user.is_expert === 1) profiles.push('expert');
+            if (user.is_user === 1) profiles.push('user');
+            
+            res.json({ profiles });
         }
     );
 });
@@ -227,178 +351,20 @@ app.post('/api/login', (req, res) => {
 app.post('/api/logout', (req, res) => {
     req.session.destroy((err) => {
         if (err) {
-            return res.status(500).json({ error: 'Erreur déconnexion' });
+            return res.status(500).json({ error: 'Erreur logout' });
         }
         res.json({ success: true });
     });
 });
 
-app.get('/api/session', (req, res) => {
-    if (req.session && req.session.userId) {
-        res.json({ 
-            authenticated: true,
-            user: {
-                id: req.session.userId,
-                username: req.session.username,
-                nom: req.session.nom,
-                prenom: req.session.prenom,
-                role: req.session.role
-            }
-        });
-    } else {
-        res.json({ authenticated: false });
-    }
-});
-
-// ==================== API UTILISATEURS (ADMIN) ====================
-
-app.get('/api/users', requireAdmin, (req, res) => {
-    database.all('SELECT id, username, nom, prenom, email, role, actif, created_at FROM users ORDER BY nom', (err, rows) => {
-        if (err) {
-            console.error('Erreur GET users:', err);
-            res.status(500).json({ error: err.message });
-        } else {
-            res.json(rows || []);
-        }
-    });
-});
-
-app.post('/api/users', requireAdmin, async (req, res) => {
-    const { username, password, nom, prenom, email, role, sendEmail: shouldSendEmail } = req.body;
-    
-    if (!username || !password || !nom || !prenom || !email) {
-        return res.status(400).json({ error: 'Champs obligatoires manquants' });
-    }
-
-    const hashedPassword = hashPassword(password);
-
-    database.run(
-        `INSERT INTO users (username, password, nom, prenom, email, role, actif)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [username, hashedPassword, nom, prenom, email, role || 'user', 1],
-        async function(err) {
-            if (err) {
-                console.error('Erreur INSERT user:', err);
-                if (err.message.includes('UNIQUE')) {
-                    res.status(400).json({ error: 'Ce username existe déjà' });
-                } else {
-                    res.status(500).json({ error: err.message });
-                }
-            } else {
-                const response = { 
-                    success: true,
-                    id: this.lastID
-                };
-
-                if (shouldSendEmail) {
-                    try {
-                        await sendEmail(
-                            email,
-                            'Vos identifiants de connexion - Planification GANTT',
-                            `
-                            <h2>Bienvenue ${prenom} ${nom} !</h2>
-                            <p>Votre compte a été créé sur la plateforme de planification GANTT.</p>
-                            <p><strong>Vos identifiants de connexion :</strong></p>
-                            <ul>
-                                <li><strong>Login :</strong> ${username}</li>
-                                <li><strong>Mot de passe :</strong> ${password}</li>
-                            </ul>
-                            <p>Vous pouvez vous connecter à l'application.</p>
-                            <p><em>Pour des raisons de sécurité, nous vous recommandons de changer votre mot de passe dès votre première connexion.</em></p>
-                            `
-                        );
-                        response.emailSent = true;
-                    } catch (emailError) {
-                        console.error('Erreur envoi email:', emailError);
-                        response.emailError = emailError.message;
-                    }
-                }
-
-                res.json(response);
-            }
-        }
-    );
-});
-
-app.put('/api/users/:id', requireAdmin, (req, res) => {
-    const id = req.params.id;
-    const { nom, prenom, email, role } = req.body;
-    
-    database.run(
-        `UPDATE users 
-         SET nom = ?, prenom = ?, email = ?, role = ?
-         WHERE id = ?`,
-        [nom, prenom, email, role, id],
-        function(err) {
-            if (err) {
-                console.error('Erreur UPDATE user:', err);
-                res.status(500).json({ error: err.message });
-            } else {
-                res.json({ success: true });
-            }
-        }
-    );
-});
-
-app.post('/api/users/:id/reset-password', requireAdmin, (req, res) => {
-    const id = req.params.id;
-    const { newPassword } = req.body;
-    
-    if (!newPassword) {
-        return res.status(400).json({ error: 'Nouveau mot de passe requis' });
-    }
-
-    const hashedPassword = hashPassword(newPassword);
-    
-    database.run(
-        `UPDATE users SET password = ? WHERE id = ?`,
-        [hashedPassword, id],
-        function(err) {
-            if (err) {
-                console.error('Erreur reset password:', err);
-                res.status(500).json({ error: err.message });
-            } else {
-                res.json({ success: true });
-            }
-        }
-    );
-});
-
-app.post('/api/users/:id/toggle', requireAdmin, (req, res) => {
-    const id = req.params.id;
-    
-    database.run(
-        `UPDATE users 
-         SET actif = CASE WHEN actif = 1 THEN 0 ELSE 1 END
-         WHERE id = ?`,
-        [id],
-        function(err) {
-            if (err) {
-                console.error('Erreur toggle user:', err);
-                res.status(500).json({ error: err.message });
-            } else {
-                res.json({ success: true });
-            }
-        }
-    );
-});
-
-app.delete('/api/users/:id', requireAdmin, (req, res) => {
-    const id = req.params.id;
-    
-    database.get('SELECT COUNT(*) as count FROM users WHERE role = ? AND actif = 1', ['admin'], (err, result) => {
-        if (err || result.count <= 1) {
-            return res.status(400).json({ error: 'Impossible de supprimer le dernier administrateur' });
-        }
-        
-        database.run('DELETE FROM users WHERE id = ?', [id], function(err) {
-            if (err) {
-                console.error('Erreur DELETE user:', err);
-                res.status(500).json({ error: err.message });
-            } else {
-                res.json({ success: true });
-            }
-        });
+app.get('/api/session', requireAuth, (req, res) => {
+    res.json({
+        userId: req.session.userId,
+        username: req.session.username,
+        activeProfile: req.session.activeProfile,
+        nom: req.session.nom,
+        prenom: req.session.prenom,
+        resourceId: req.session.resourceId
     });
 });
 
@@ -407,7 +373,7 @@ app.delete('/api/users/:id', requireAdmin, (req, res) => {
 app.get('/api/resources', requireAuth, (req, res) => {
     database.all('SELECT * FROM resources ORDER BY prenom', (err, rows) => {
         if (err) {
-            console.error('Erreur GET resources:', err);
+            console.error('Erreur récup resources:', err);
             res.status(500).json({ error: err.message });
         } else {
             res.json(rows || []);
@@ -415,44 +381,36 @@ app.get('/api/resources', requireAuth, (req, res) => {
     });
 });
 
-app.post('/api/resources', requireAuth, (req, res) => {
-    const { nom, prenom, trigramme, email, telephone, taux, samu, actif } = req.body;
+app.post('/api/resources', requireAdmin, (req, res) => {
+    const { nom, prenom, trigramme, email, telephone, taux, samu, date_debut, date_fin } = req.body;
     
-    if (!nom || !prenom || !trigramme || !email || !taux || !samu) {
-        return res.status(400).json({ error: 'Champs obligatoires manquants' });
-    }
-
     database.run(
-        `INSERT INTO resources (nom, prenom, trigramme, email, telephone, taux, samu, actif)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [nom, prenom, trigramme, email, telephone || null, taux, samu, actif || 1],
+        `INSERT INTO resources (nom, prenom, trigramme, email, telephone, taux, samu, date_debut, date_fin) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [nom, prenom, trigramme, email, telephone, taux, samu, date_debut, date_fin],
         function(err) {
             if (err) {
-                console.error('Erreur INSERT resources:', err);
+                console.error('Erreur ajout resource:', err);
                 res.status(500).json({ error: err.message });
             } else {
-                res.json({ 
-                    id: this.lastID, 
-                    nom, prenom, trigramme, email, telephone, taux, samu, 
-                    actif: actif || 1 
-                });
+                res.json({ id: this.lastID, success: true });
             }
         }
     );
 });
 
-app.put('/api/resources/:id', requireAuth, (req, res) => {
-    const id = req.params.id;
-    const { nom, prenom, email, telephone, taux, samu } = req.body;
+app.put('/api/resources/:id', requireAdmin, (req, res) => {
+    const { nom, prenom, trigramme, email, telephone, taux, samu, date_debut, date_fin } = req.body;
+    const { id } = req.params;
     
     database.run(
         `UPDATE resources 
-         SET nom = ?, prenom = ?, email = ?, telephone = ?, taux = ?, samu = ?
+         SET nom = ?, prenom = ?, trigramme = ?, email = ?, telephone = ?, taux = ?, samu = ?, date_debut = ?, date_fin = ?
          WHERE id = ?`,
-        [nom, prenom, email, telephone || null, taux, samu, id],
-        function(err) {
+        [nom, prenom, trigramme, email, telephone, taux, samu, date_debut, date_fin, id],
+        (err) => {
             if (err) {
-                console.error('Erreur UPDATE resources:', err);
+                console.error('Erreur update resource:', err);
                 res.status(500).json({ error: err.message });
             } else {
                 res.json({ success: true });
@@ -461,42 +419,52 @@ app.put('/api/resources/:id', requireAuth, (req, res) => {
     );
 });
 
-app.post('/api/resources/:id/toggle', requireAuth, (req, res) => {
-    const id = req.params.id;
+app.post('/api/resources/:id/toggle', requireAdmin, (req, res) => {
+    const { id } = req.params;
     
-    database.run(
-        `UPDATE resources 
-         SET actif = CASE WHEN actif = 1 THEN 0 ELSE 1 END
-         WHERE id = ?`,
-        [id],
-        function(err) {
-            if (err) {
-                console.error('Erreur toggle actif:', err);
-                res.status(500).json({ error: err.message });
-            } else {
-                res.json({ success: true });
-            }
-        }
-    );
-});
-
-app.delete('/api/resources/:id', requireAuth, (req, res) => {
-    const id = req.params.id;
-    
-    database.run('DELETE FROM resources WHERE id = ?', [id], function(err) {
+    database.get('SELECT actif FROM resources WHERE id = ?', [id], (err, row) => {
         if (err) {
-            console.error('Erreur DELETE resources:', err);
+            console.error('Erreur get resource:', err);
             res.status(500).json({ error: err.message });
-        } else {
-            database.run('DELETE FROM schedule_data WHERE resource_id = ?', [id], function(err) {
-                if (err) {
-                    console.error('Erreur DELETE schedule_data:', err);
-                    res.status(500).json({ error: err.message });
-                } else {
-                    res.json({ success: true });
-                }
-            });
+            return;
         }
+        
+        const newActif = row.actif === 1 ? 0 : 1;
+        
+        database.run('UPDATE resources SET actif = ? WHERE id = ?', [newActif, id], (err) => {
+            if (err) {
+                console.error('Erreur toggle resource:', err);
+                res.status(500).json({ error: err.message });
+            } else {
+                res.json({ success: true, actif: newActif });
+            }
+        });
+    });
+});
+
+app.delete('/api/resources/:id', requireAdmin, (req, res) => {
+    const { id } = req.params;
+    
+    database.get('SELECT COUNT(*) as count FROM schedule_data WHERE resource_id = ?', [id], (err, row) => {
+        if (err) {
+            console.error('Erreur vérification:', err);
+            res.status(500).json({ error: err.message });
+            return;
+        }
+        
+        if (row.count > 0) {
+            res.status(400).json({ error: 'Impossible de supprimer : des données de planification existent pour cette ressource' });
+            return;
+        }
+        
+        database.run('DELETE FROM resources WHERE id = ?', [id], (err) => {
+            if (err) {
+                console.error('Erreur suppression resource:', err);
+                res.status(500).json({ error: err.message });
+            } else {
+                res.json({ success: true });
+            }
+        });
     });
 });
 
@@ -505,9 +473,10 @@ app.delete('/api/resources/:id', requireAuth, (req, res) => {
 app.get('/api/schedule', requireAuth, (req, res) => {
     database.all('SELECT * FROM schedule_data', (err, rows) => {
         if (err) {
-            console.error('Erreur GET schedule:', err);
+            console.error('Erreur récup schedule:', err);
             res.status(500).json({ error: err.message });
         } else {
+            // Transformer les lignes en objet avec clés composées
             const scheduleData = {};
             (rows || []).forEach(row => {
                 const key = `${row.resource_id}_${row.type}_${row.date_key}`;
@@ -521,20 +490,48 @@ app.get('/api/schedule', requireAuth, (req, res) => {
 app.post('/api/schedule', requireAuth, (req, res) => {
     const scheduleData = req.body;
     
-    let completed = 0;
-    let total = Object.keys(scheduleData).length;
-
-    if (total === 0) {
+    if (!scheduleData || typeof scheduleData !== 'object') {
         return res.json({ success: true, saved: 0 });
     }
 
-    for (const [key, value] of Object.entries(scheduleData)) {
-        const parts = key.split('_');
-        if (parts.length < 3) continue;
+    const updates = Object.entries(scheduleData).map(([key, value]) => ({ key, value }));
+    
+    if (updates.length === 0) {
+        return res.json({ success: true, saved: 0 });
+    }
 
+    let completed = 0;
+    const total = updates.length;
+
+    updates.forEach(({ key, value }) => {
+        const parts = key.split('_');
         const resourceId = parts[0];
         const type = parts[1];
-        const dateKey = parts.slice(2).join('_');
+        const dateKey = parts.slice(2).join('-');
+        
+        // Vérification des droits pour Expert métier
+        if (req.session.activeProfile === 'expert') {
+            // L'expert ne peut modifier que sa propre ligne
+            if (parseInt(resourceId) !== req.session.resourceId) {
+                completed++;
+                if (completed === total) {
+                    res.json({ success: true, saved: total });
+                }
+                return;
+            }
+        }
+        
+        // Vérification des droits pour Utilisateur
+        if (req.session.activeProfile === 'user') {
+            // L'utilisateur ne peut pas modifier la disponibilité
+            if (type === 'available') {
+                completed++;
+                if (completed === total) {
+                    res.json({ success: true, saved: total });
+                }
+                return;
+            }
+        }
         
         database.run(
             `INSERT INTO schedule_data (resource_id, date_key, type, value)
@@ -550,7 +547,312 @@ app.post('/api/schedule', requireAuth, (req, res) => {
                 }
             }
         );
+    });
+});
+
+app.post('/api/schedule/save', requireAuth, (req, res) => {
+    const { updates } = req.body;
+    
+    if (!updates || updates.length === 0) {
+        return res.json({ success: true, saved: 0 });
     }
+
+    let completed = 0;
+    const total = updates.length;
+
+    updates.forEach(({ key, value }) => {
+        const parts = key.split('_');
+        const resourceId = parts[0];
+        const type = parts[1];
+        const dateKey = parts.slice(2).join('_');
+        
+        // Vérification des droits pour Expert métier
+        if (req.session.activeProfile === 'expert') {
+            // L'expert ne peut modifier que sa propre ligne
+            if (parseInt(resourceId) !== req.session.resourceId) {
+                completed++;
+                if (completed === total) {
+                    res.json({ success: true, saved: total });
+                }
+                return;
+            }
+        }
+        
+        database.run(
+            `INSERT INTO schedule_data (resource_id, date_key, type, value)
+             VALUES (?, ?, ?, ?)
+             ON CONFLICT(resource_id, date_key, type) 
+             DO UPDATE SET value = excluded.value`,
+            [resourceId, dateKey, type, value],
+            (err) => {
+                if (err) console.error('Erreur insert schedule:', err);
+                completed++;
+                if (completed === total) {
+                    res.json({ success: true, saved: total });
+                }
+            }
+        );
+    });
+});
+
+// ==================== API UTILISATEURS ====================
+
+app.get('/api/users', requireAdmin, (req, res) => {
+    database.all(`
+        SELECT u.*, r.trigramme as resource_trigramme 
+        FROM users u 
+        LEFT JOIN resources r ON u.resource_id = r.id
+        ORDER BY u.username
+    `, (err, rows) => {
+        if (err) {
+            console.error('Erreur récup users:', err);
+            res.status(500).json({ error: err.message });
+        } else {
+            res.json(rows || []);
+        }
+    });
+});
+
+app.post('/api/users', requireAdmin, async (req, res) => {
+    const { username, password, nom, prenom, email, telephone, is_admin, is_expert, is_user, resource_id, sendEmail: shouldSendEmail } = req.body;
+    
+    if (!username || !password) {
+        return res.status(400).json({ error: 'Username et password requis' });
+    }
+
+    const hashedPassword = hashPassword(password);
+    
+    database.run(
+        `INSERT INTO users (username, password, nom, prenom, email, telephone, is_admin, is_expert, is_user, resource_id) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [username, hashedPassword, nom, prenom, email, telephone || null, is_admin ? 1 : 0, is_expert ? 1 : 0, is_user ? 1 : 0, resource_id || null],
+        async function(err) {
+            if (err) {
+                console.error('Erreur ajout user:', err);
+                if (err.message.includes('UNIQUE')) {
+                    res.status(400).json({ error: 'Ce nom d\'utilisateur existe déjà' });
+                } else {
+                    res.status(500).json({ error: err.message });
+                }
+            } else {
+                let emailSent = false;
+                
+                // Envoyer l'email si demandé
+                if (shouldSendEmail) {
+                    try {
+                        const roles = [];
+                        if (is_admin) roles.push('Administrateur');
+                        if (is_expert) roles.push('Expert Métier');
+                        if (is_user) roles.push('Utilisateur');
+                        const roleText = roles.join(', ');
+                        
+                        await sendEmail(
+                            email,
+                            'Création de votre compte - Planification GANTT',
+                            `
+                            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                                <h2 style="color: #2c3e50;">Bienvenue ${prenom} ${nom} !</h2>
+                                <p>Votre compte a été créé avec succès sur la plateforme de Planification GANTT.</p>
+                                <div style="background-color: #ecf0f1; padding: 20px; border-radius: 5px; margin: 20px 0;">
+                                    <p style="margin: 5px 0;"><strong>Nom d'utilisateur :</strong> ${username}</p>
+                                    <p style="margin: 5px 0;"><strong>Mot de passe :</strong> ${password}</p>
+                                    <p style="margin: 5px 0;"><strong>Profil(s) :</strong> ${roleText}</p>
+                                </div>
+                                <p style="color: #e74c3c; font-weight: bold;">⚠️ Pour des raisons de sécurité, veuillez changer votre mot de passe lors de votre première connexion.</p>
+                                <p>Vous pouvez vous connecter à l'adresse : <a href="${req.protocol}://${req.get('host')}">${req.protocol}://${req.get('host')}</a></p>
+                                <p style="color: #7f8c8d; font-size: 12px; margin-top: 30px;">Si vous n'êtes pas à l'origine de cette demande, veuillez ignorer cet email.</p>
+                            </div>
+                            `
+                        );
+                        emailSent = true;
+                    } catch (emailError) {
+                        console.error('Erreur envoi email:', emailError);
+                    }
+                }
+                
+                res.json({ id: this.lastID, success: true, emailSent });
+            }
+        }
+    );
+});
+
+app.put('/api/users/:id', requireAdmin, (req, res) => {
+    const { nom, prenom, email, is_admin, is_expert, is_user, resource_id } = req.body;
+    const { id } = req.params;
+    
+    database.run(
+        `UPDATE users 
+         SET nom = ?, prenom = ?, email = ?, is_admin = ?, is_expert = ?, is_user = ?, resource_id = ?
+         WHERE id = ?`,
+        [nom, prenom, email, is_admin ? 1 : 0, is_expert ? 1 : 0, is_user ? 1 : 0, resource_id || null, id],
+        (err) => {
+            if (err) {
+                console.error('Erreur update user:', err);
+                res.status(500).json({ error: err.message });
+            } else {
+                res.json({ success: true });
+            }
+        }
+    );
+});
+
+app.delete('/api/users/:id', requireAdmin, (req, res) => {
+    const { id } = req.params;
+    
+    database.get('SELECT is_admin FROM users WHERE id = ?', [id], (err, row) => {
+        if (err) {
+            console.error('Erreur get user:', err);
+            res.status(500).json({ error: err.message });
+            return;
+        }
+        
+        if (row && row.is_admin === 1) {
+            database.get('SELECT COUNT(*) as count FROM users WHERE is_admin = 1', [], (err2, countRow) => {
+                if (err2 || countRow.count <= 1) {
+                    res.status(400).json({ error: 'Impossible de supprimer le dernier administrateur' });
+                    return;
+                }
+                
+                deleteUserRecord(id, res);
+            });
+        } else {
+            deleteUserRecord(id, res);
+        }
+    });
+});
+
+function deleteUserRecord(id, res) {
+    database.run('DELETE FROM users WHERE id = ?', [id], (err) => {
+        if (err) {
+            console.error('Erreur suppression user:', err);
+            res.status(500).json({ error: err.message });
+        } else {
+            res.json({ success: true });
+        }
+    });
+}
+
+app.post('/api/users/:id/toggle', requireAdmin, (req, res) => {
+    const { id } = req.params;
+    
+    database.get('SELECT actif FROM users WHERE id = ?', [id], (err, row) => {
+        if (err) {
+            console.error('Erreur get user:', err);
+            res.status(500).json({ error: err.message });
+            return;
+        }
+        
+        const newActif = row.actif === 1 ? 0 : 1;
+        
+        database.run('UPDATE users SET actif = ? WHERE id = ?', [newActif, id], (err) => {
+            if (err) {
+                console.error('Erreur toggle user:', err);
+                res.status(500).json({ error: err.message });
+            } else {
+                res.json({ success: true, actif: newActif });
+            }
+        });
+    });
+});
+
+app.post('/api/users/:id/reset-password', requireAdmin, async (req, res) => {
+    const { newPassword, sendEmail: shouldSendEmail } = req.body;
+    const { id } = req.params;
+    
+    if (!newPassword || newPassword.length < 6) {
+        return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 6 caractères' });
+    }
+    
+    const hashedPassword = hashPassword(newPassword);
+    
+    database.get('SELECT * FROM users WHERE id = ?', [id], async (err, user) => {
+        if (err) {
+            console.error('Erreur récupération user:', err);
+            return res.status(500).json({ error: err.message });
+        }
+        
+        if (!user) {
+            return res.status(404).json({ error: 'Utilisateur non trouvé' });
+        }
+        
+        database.run('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, id], async (err) => {
+            if (err) {
+                console.error('Erreur reset password:', err);
+                return res.status(500).json({ error: err.message });
+            }
+            
+            let emailSent = false;
+            
+            // Envoyer l'email si demandé
+            if (shouldSendEmail) {
+                try {
+                    await sendEmail(
+                        user.email,
+                        'Réinitialisation de votre mot de passe - Planification GANTT',
+                        `
+                        <h2>Réinitialisation de votre mot de passe</h2>
+                        <p>Bonjour ${user.prenom} ${user.nom},</p>
+                        <p>Votre mot de passe a été réinitialisé par un administrateur.</p>
+                        <p><strong>Nouveau mot de passe :</strong> <code style="background-color: #f0f0f0; padding: 5px 10px; border-radius: 3px; font-size: 16px;">${newPassword}</code></p>
+                        <p>Nom d'utilisateur : <strong>${user.username}</strong></p>
+                        <p>Nous vous recommandons de changer ce mot de passe lors de votre première connexion.</p>
+                        <hr>
+                        <p style="color: #7f8c8d; font-size: 12px;">Ceci est un email automatique, merci de ne pas y répondre.</p>
+                        `
+                    );
+                    emailSent = true;
+                } catch (emailError) {
+                    console.error('Erreur envoi email reset:', emailError);
+                    // On continue même si l'email échoue
+                }
+            }
+            
+            res.json({ success: true, emailSent });
+        });
+    });
+});
+
+app.put('/api/users/:id', requireAdmin, (req, res) => {
+    const { id } = req.params;
+    const { username, nom, prenom, email, resource_id, is_admin, is_expert, is_user, actif } = req.body;
+    
+    if (!username || !nom || !prenom || !email) {
+        return res.status(400).json({ error: 'Tous les champs requis doivent être remplis' });
+    }
+    
+    // Vérifier qu'au moins un profil est sélectionné
+    if (!is_admin && !is_expert && !is_user) {
+        return res.status(400).json({ error: 'Au moins un profil doit être sélectionné' });
+    }
+    
+    // Vérifier si le username existe déjà pour un autre utilisateur
+    database.get('SELECT id FROM users WHERE username = ? AND id != ?', [username, id], (err, row) => {
+        if (err) {
+            console.error('Erreur check username:', err);
+            return res.status(500).json({ error: err.message });
+        }
+        
+        if (row) {
+            return res.status(400).json({ error: 'Ce nom d\'utilisateur existe déjà' });
+        }
+        
+        // Mettre à jour l'utilisateur
+        database.run(
+            `UPDATE users 
+             SET username = ?, nom = ?, prenom = ?, email = ?, resource_id = ?, 
+                 is_admin = ?, is_expert = ?, is_user = ?, actif = ?
+             WHERE id = ?`,
+            [username, nom, prenom, email, resource_id, is_admin ? 1 : 0, is_expert ? 1 : 0, is_user ? 1 : 0, actif ? 1 : 0, id],
+            (err) => {
+                if (err) {
+                    console.error('Erreur update user:', err);
+                    res.status(500).json({ error: err.message });
+                } else {
+                    res.json({ success: true });
+                }
+            }
+        );
+    });
 });
 
 // ==================== API EXPORT ====================
@@ -672,7 +974,40 @@ app.post('/api/email/config', requireAdmin, (req, res) => {
         password: password
     };
     
-    res.json({ success: true });
+    // Sauvegarder dans la base de données
+    database.run(
+        `INSERT INTO email_config (id, host, port, secure, user, password, updated_at)
+         VALUES (1, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+         ON CONFLICT(id) DO UPDATE SET 
+            host = excluded.host,
+            port = excluded.port,
+            secure = excluded.secure,
+            user = excluded.user,
+            password = excluded.password,
+            updated_at = CURRENT_TIMESTAMP`,
+        [emailConfig.host, emailConfig.port, emailConfig.secure ? 1 : 0, emailConfig.user, emailConfig.password],
+        (err) => {
+            if (err) {
+                console.error('Erreur sauvegarde config email:', err);
+                res.status(500).json({ success: false, error: err.message });
+            } else {
+                res.json({ success: true });
+            }
+        }
+    );
+});
+
+app.get('/api/email/config', requireAdmin, (req, res) => {
+    database.get('SELECT host, port, user, password FROM email_config WHERE id = 1', [], (err, row) => {
+        if (err) {
+            console.error('Erreur récup config email:', err);
+            res.status(500).json({ error: err.message });
+        } else if (row) {
+            res.json(row);
+        } else {
+            res.json({ host: 'smtp.office365.com', port: 587, user: '', password: '' });
+        }
+    });
 });
 
 app.post('/api/email/test', requireAdmin, async (req, res) => {
@@ -708,12 +1043,12 @@ app.get('/api/backup/csv', requireAdmin, (req, res) => {
                 return res.status(500).json({ error: err2.message });
             }
 
-            database.all('SELECT id, username, nom, prenom, email, role, actif, created_at FROM users ORDER BY id', (err3, users) => {
+            database.all('SELECT id, username, nom, prenom, email, is_admin, is_expert, is_user, resource_id, actif, created_at FROM users ORDER BY id', (err3, users) => {
                 if (err3) {
                     return res.status(500).json({ error: err3.message });
                 }
 
-                let csv = `BACKUP COMPLET BASE DE DONNÉES - ${new Date().toLocaleString('fr-FR')}\n\n`;
+                let csv = `BACKUP COMPLET BASE DE DONNEES - ${new Date().toLocaleString('fr-FR')}\n\n`;
                 
                 csv += '=== TABLE: RESOURCES ===\n';
                 csv += 'id,nom,prenom,trigramme,email,telephone,taux,samu,actif,created_at\n';
@@ -728,9 +1063,9 @@ app.get('/api/backup/csv', requireAdmin, (req, res) => {
                 });
                 
                 csv += '\n\n=== TABLE: USERS ===\n';
-                csv += 'id,username,nom,prenom,email,role,actif,created_at\n';
+                csv += 'id,username,nom,prenom,email,is_admin,is_expert,is_user,resource_id,actif,created_at\n';
                 users.forEach(u => {
-                    csv += `${u.id},"${u.username}","${u.nom}","${u.prenom}","${u.email}","${u.role}",${u.actif},"${u.created_at}"\n`;
+                    csv += `${u.id},"${u.username}","${u.nom}","${u.prenom}","${u.email}",${u.is_admin},${u.is_expert},${u.is_user},${u.resource_id || ''},${u.actif},"${u.created_at}"\n`;
                 });
 
                 res.setHeader('Content-Type', 'text/csv; charset=utf-8');
@@ -759,8 +1094,8 @@ app.get('/api/backup/sql', requireAdmin, (req, res) => {
     }
 });
 
-// Serveur écoute
+// Serveur Ecoute
 app.listen(PORT, () => {
-    console.log(`✅ Serveur démarré sur le port ${PORT}`);
-    console.log(`🔐 Compte admin: admin / Admin2025!`);
+    console.log(`Serveur démarré sur le port ${PORT}`);
+    console.log(`Compte admin: admin / Admin2025!`);
 });
