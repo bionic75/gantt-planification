@@ -475,6 +475,9 @@
             <div class="form-group">
                 <label>Mot de passe</label>
                 <input type="password" id="loginPassword" placeholder="Votre mot de passe">
+                <div style="text-align: right; margin-top: 5px;">
+                    <a href="#" onclick="showForgotPassword(); return false;" style="color: #3498db; font-size: 12px; text-decoration: none;">Mot de passe oublié ?</a>
+                </div>
             </div>
             <div class="form-group" id="profileSelectGroup" style="display:none;">
                 <label>Sélectionnez votre profil</label>
@@ -495,11 +498,30 @@
         </div>
     </div>
     
+    <div id="forgotPasswordModal" class="modal">
+        <div class="modal-content" style="max-width: 450px;">
+            <h3>Mot de passe oublié</h3>
+            <p style="font-size: 13px; color: #7f8c8d; margin-bottom: 15px;">
+                Entrez votre identifiant. Un nouveau mot de passe sera envoyé à l'adresse email associée à votre compte.
+            </p>
+            <div class="form-group">
+                <label>Identifiant</label>
+                <input type="text" id="forgotUsername" placeholder="Votre login">
+            </div>
+            <div id="forgotPasswordMessage" style="display: none; padding: 10px; border-radius: 4px; margin-top: 10px; font-size: 13px;"></div>
+            <div class="modal-button-group">
+                <button onclick="closeForgotPasswordModal()" style="background-color: #95a5a6;">Annuler</button>
+                <button onclick="requestPasswordReset()" id="forgotPasswordButton">Envoyer</button>
+            </div>
+        </div>
+    </div>
+    
     <div id="editModal" class="modal">
         <div class="modal-content">
             <h3>Modifier la ressource</h3>
             <div class="form-group"><label>Nom</label><input type="text" id="editNom"></div>
             <div class="form-group"><label>Prénom</label><input type="text" id="editPrenom"></div>
+            <div class="form-group"><label>Trigramme</label><input type="text" id="editTrigramme" maxlength="3"></div>
             <div class="form-group"><label>Taux MAD (%)</label><input type="number" id="editTaux" min="0" max="100"></div>
             <div class="form-group"><label>SAMU</label><input type="text" id="editSamu"></div>
             <div class="form-group"><label>Date début MAD</label><input type="date" id="editDateDebut"></div>
@@ -873,6 +895,145 @@
             }
         }
 
+        // Variables pour gérer la temporisation du mot de passe oublié
+        let resetPasswordTimer = null;
+        let resetPasswordRemainingSeconds = 0;
+
+        function showForgotPassword() {
+            document.getElementById('forgotPasswordModal').classList.add('active');
+            document.getElementById('forgotUsername').value = document.getElementById('loginUsername').value;
+            document.getElementById('forgotPasswordMessage').style.display = 'none';
+        }
+
+        function closeForgotPasswordModal() {
+            document.getElementById('forgotPasswordModal').classList.remove('active');
+            document.getElementById('forgotUsername').value = '';
+            document.getElementById('forgotPasswordMessage').style.display = 'none';
+            if (resetPasswordTimer) {
+                clearInterval(resetPasswordTimer);
+                resetPasswordTimer = null;
+            }
+            document.getElementById('forgotPasswordButton').disabled = false;
+            document.getElementById('forgotPasswordButton').textContent = 'Envoyer';
+        }
+
+        async function requestPasswordReset() {
+            const username = document.getElementById('forgotUsername').value;
+            const messageDiv = document.getElementById('forgotPasswordMessage');
+            const button = document.getElementById('forgotPasswordButton');
+            
+            if (!username) {
+                messageDiv.style.display = 'block';
+                messageDiv.style.backgroundColor = '#f8d7da';
+                messageDiv.style.color = '#721c24';
+                messageDiv.textContent = 'Veuillez entrer votre identifiant';
+                return;
+            }
+
+            button.disabled = true;
+            button.textContent = 'Envoi en cours...';
+
+            try {
+                const response = await fetch(`${API_URL}/forgot-password`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ username })
+                });
+
+                const data = await response.json();
+
+                if (response.status === 429) {
+                    // Temporisation active
+                    messageDiv.style.display = 'block';
+                    messageDiv.style.backgroundColor = '#fff3cd';
+                    messageDiv.style.color = '#856404';
+                    messageDiv.textContent = data.error;
+                    
+                    // Démarrer le compte à rebours
+                    startResetPasswordTimer(data.remainingSeconds);
+                } else if (data.success) {
+                    messageDiv.style.display = 'block';
+                    if (data.emailSent) {
+                        messageDiv.style.backgroundColor = '#d4edda';
+                        messageDiv.style.color = '#155724';
+                        messageDiv.textContent = '✅ ' + data.message;
+                        
+                        // Fermer la modale après 5 secondes si succès complet
+                        setTimeout(() => {
+                            closeForgotPasswordModal();
+                        }, 5000);
+                    } else {
+                        // Email non envoyé - afficher le mot de passe et l'erreur
+                        messageDiv.style.backgroundColor = '#fff3cd';
+                        messageDiv.style.color = '#856404';
+                        
+                        let messageHTML = '⚠️ ' + data.message;
+                        
+                        // Afficher le mot de passe temporaire si disponible
+                        if (data.tempPassword) {
+                            messageHTML += '<br><br><strong>Votre nouveau mot de passe :</strong><br>';
+                            messageHTML += `<code style="background-color: #fff; padding: 8px 12px; border-radius: 3px; font-size: 14px; display: inline-block; margin-top: 5px; color: #333; border: 1px solid #ddd;">${data.tempPassword}</code>`;
+                            messageHTML += '<br><small style="font-size: 11px;">Copiez ce mot de passe avant de fermer cette fenêtre.</small>';
+                        }
+                        
+                        // Afficher l'erreur email si disponible
+                        if (data.emailError) {
+                            messageHTML += `<br><br><small style="font-size: 11px;">Erreur technique : ${data.emailError}</small>`;
+                        }
+                        
+                        messageDiv.innerHTML = messageHTML;
+                    }
+                    
+                    // Démarrer le compte à rebours de 30 secondes
+                    startResetPasswordTimer(30);
+                } else {
+                    messageDiv.style.display = 'block';
+                    messageDiv.style.backgroundColor = '#f8d7da';
+                    messageDiv.style.color = '#721c24';
+                    messageDiv.textContent = '❌ ' + (data.error || 'Erreur lors de la réinitialisation');
+                    button.disabled = false;
+                    button.textContent = 'Envoyer';
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+                messageDiv.style.display = 'block';
+                messageDiv.style.backgroundColor = '#f8d7da';
+                messageDiv.style.color = '#721c24';
+                messageDiv.textContent = '❌ Erreur de connexion au serveur';
+                button.disabled = false;
+                button.textContent = 'Envoyer';
+            }
+        }
+
+        function startResetPasswordTimer(seconds) {
+            resetPasswordRemainingSeconds = seconds;
+            const button = document.getElementById('forgotPasswordButton');
+            
+            // Nettoyer le timer précédent si existant
+            if (resetPasswordTimer) {
+                clearInterval(resetPasswordTimer);
+            }
+            
+            // Mettre à jour l'affichage immédiatement
+            button.textContent = `Réessayer dans ${resetPasswordRemainingSeconds}s`;
+            button.disabled = true;
+            
+            // Démarrer le compte à rebours
+            resetPasswordTimer = setInterval(() => {
+                resetPasswordRemainingSeconds--;
+                
+                if (resetPasswordRemainingSeconds <= 0) {
+                    clearInterval(resetPasswordTimer);
+                    resetPasswordTimer = null;
+                    button.disabled = false;
+                    button.textContent = 'Envoyer';
+                } else {
+                    button.textContent = `Réessayer dans ${resetPasswordRemainingSeconds}s`;
+                }
+            }, 1000);
+        }
+
         async function loadResources() {
             try {
                 const response = await fetch(`${API_URL}/resources`, { credentials: 'include' });
@@ -997,13 +1158,18 @@
                     credentials: 'include',
                     body: JSON.stringify({ 
                         nom, prenom, trigramme,
+                        email: null,  // Ajout des champs manquants
+                        telephone: null,  // Ajout des champs manquants
                         taux: parseFloat(taux), samu, actif: 1,
                         date_debut: dateDebut || null,
                         date_fin: dateFin || null
                     })
                 });
                 
-                if (!response.ok) throw new Error('Erreur ajout ressource');
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Erreur ajout ressource');
+                }
                 
                 showSyncStatus();
                 await loadResources();
@@ -1011,7 +1177,7 @@
                 updateGantt();
             } catch (error) {
                 console.error('Erreur:', error);
-                alert('Erreur lors de l\'ajout de la ressource');
+                alert('Erreur lors de l\'ajout de la ressource: ' + error.message);
             }
         }
 
@@ -1053,6 +1219,7 @@
             currentEditId = id;
             document.getElementById('editNom').value = resource.nom;
             document.getElementById('editPrenom').value = resource.prenom;
+            document.getElementById('editTrigramme').value = resource.trigramme || '';
             document.getElementById('editTaux').value = resource.taux;
             document.getElementById('editSamu').value = resource.samu;
             document.getElementById('editDateDebut').value = resource.date_debut || '';
@@ -1077,20 +1244,26 @@
                     body: JSON.stringify({
                         nom: document.getElementById('editNom').value,
                         prenom: document.getElementById('editPrenom').value,
+                        trigramme: document.getElementById('editTrigramme').value,
+                        email: null,  // Champs non modifiables pour l'instant
+                        telephone: null,  // Champs non modifiables pour l'instant
                         taux: parseFloat(document.getElementById('editTaux').value),
                         samu: document.getElementById('editSamu').value,
                         date_debut: dateDebut || null,
                         date_fin: dateFin || null
                     })
                 });
-                if (!response.ok) throw new Error('Erreur modification');
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Erreur modification');
+                }
                 showSyncStatus();
                 await loadResources();
                 closeEditModal();
                 updateGantt();
             } catch (error) {
                 console.error('Erreur:', error);
-                alert('Erreur lors de la modification');
+                alert('Erreur lors de la modification: ' + error.message);
             }
         }
 
@@ -1980,10 +2153,12 @@
             const locModal = document.getElementById('localisationModal');
             const resetModal = document.getElementById('resetPasswordModal');
             const editUserModal = document.getElementById('editUserModal');
+            const forgotModal = document.getElementById('forgotPasswordModal');
             if (event.target === editModal) closeEditModal();
             if (event.target === locModal) closeLocalisationModal();
             if (event.target === resetModal) closeResetPasswordModal();
             if (event.target === editUserModal) closeEditUserModal();
+            if (event.target === forgotModal) closeForgotPasswordModal();
         });
 
         // Fonction pour mettre automatiquement les noms en majuscules
