@@ -1,0 +1,33 @@
+name: Deploy manually
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Docker image version'
+        required: true
+        default: x.y.z
+
+jobs:
+  deploy:
+    name: Deploy Docker image
+    runs-on: ubuntu-latest
+
+    steps:
+      # Deploy docker image to CSP
+      - name: Deploy image to SAMU Tools VM
+        id: deploy-docker-image
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SAMU_TOOLS_HOST }}
+          username: ${{ secrets.SAMU_TOOLS_USERNAME }}
+          key: ${{ secrets.SAMU_TOOLS_PRIVATE_KEY }}
+          port: 22
+          passphrase: ${{ secrets.SAMU_TOOLS_PASSPHRASE }}
+          script: |
+            SAMU_TOOLS="planif-ressources"
+            cd samu/$SAMU_TOOLS
+            echo "VERSION_PLANIF_RESSOURCES=${{ inputs.version }}" > .env
+            docker container stop $SAMU_TOOLS
+            docker container rm $SAMU_TOOLS
+            docker compose up -d
