@@ -8,7 +8,6 @@ import crypto from 'crypto';
 import session from 'express-session';
 import nodemailer from 'nodemailer';
 import fs from 'fs';
-import config from './config/config.json' with { type: "json" };
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -35,7 +34,7 @@ app.use(session({
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Initialiser la base de données SQLite
-const database = new sqlite3.Database(config.DB_PATH + '/data.db', (err) => {
+const database = new sqlite3.Database('data.db', (err) => {
     if (err) {
         console.error('Erreur connexion DB:', err);
     } else {
