@@ -8,6 +8,7 @@ import crypto from 'crypto';
 import session from 'express-session';
 import nodemailer from 'nodemailer';
 import fs from 'fs';
+
 import config from './config/config.json' with { type: "json" };
 
 const __filename = fileURLToPath(import.meta.url);
@@ -35,7 +36,8 @@ app.use(session({
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Initialiser la base de données SQLite
-const database = new sqlite3.Database(config.DB_PATH + '/data.db', (err) => {
+const database = new sqlite3.Database(config.DB_PATH + '/data.db', (err) => 
+ {
     if (err) {
         console.error('Erreur connexion DB:', err);
     } else {
@@ -1119,9 +1121,10 @@ app.get('/api/export/gantt', requireAuth, (req, res) => {
             const lastDay = new Date(year, parseInt(month) + 1, 0).getDate();
             let csv = `Calendrier de Planification - ${monthNames[month]} ${year}\n\n`;
             
+            // En-tête avec jours et demi-journées
             csv += 'Ressource,Nb jours Dispo,Jours MAD attendus';
             for (let day = 1; day <= lastDay; day++) {
-                csv += `,${day}`;
+                csv += `,${day} AM,${day} PM`;
             }
             csv += '\n';
 
@@ -1129,33 +1132,71 @@ app.get('/api/export/gantt', requireAuth, (req, res) => {
                 let dispoCount = 0;
                 let workDays = 0;
                 
+                // Compter les jours ouvrés et les disponibilités (avec demi-journées)
                 for (let day = 1; day <= lastDay; day++) {
                     const date = new Date(year, parseInt(month), day);
                     if (date.getDay() !== 0 && date.getDay() !== 6) {
                         workDays++;
                     }
                     const dateKey = `${year}-${month}-${day}`;
-                    const key = `${resource.id}_available_${dateKey}`;
-                    if (scheduleData[key] === '2') dispoCount++;
+                    
+                    // Vérifier les disponibilités AM et PM
+                    ['AM', 'PM'].forEach(period => {
+                        const key = `${resource.id}_available_${dateKey}_${period}`;
+                        if (scheduleData[key] === '2') {
+                            dispoCount += 0.5; // Demi-journée
+                        }
+                    });
+                    
+                    // Compatibilité avec l'ancien format (journée complète)
+                    const oldKey = `${resource.id}_available_${dateKey}`;
+                    if (scheduleData[oldKey] === '2' && !scheduleData[`${resource.id}_available_${dateKey}_AM`]) {
+                        dispoCount++;
+                    }
                 }
 
                 const expectedDays = (workDays * resource.taux / 100).toFixed(1);
 
-                csv += `"${resource.prenom} ${resource.nom} (${resource.trigramme}) - Disponibilité",${dispoCount},${expectedDays}`;
+                // Ligne Disponibilité
+                csv += `"${resource.prenom} ${resource.nom} (${resource.trigramme}) - Disponibilité",${dispoCount.toFixed(1)},${expectedDays}`;
                 
                 for (let day = 1; day <= lastDay; day++) {
                     const dateKey = `${year}-${month}-${day}`;
-                    const key = `${resource.id}_available_${dateKey}`;
-                    csv += `,${scheduleData[key] || '1'}`;
+                    ['AM', 'PM'].forEach(period => {
+                        const key = `${resource.id}_available_${dateKey}_${period}`;
+                        const oldKey = `${resource.id}_available_${dateKey}`;
+                        // Priorité au format AM/PM, sinon utiliser l'ancien format
+                        const value = scheduleData[key] || scheduleData[oldKey] || '1';
+                        csv += `,${value}`;
+                    });
                 }
                 csv += '\n';
 
+                // Ligne Activités
                 csv += `"${resource.prenom} ${resource.nom} (${resource.trigramme}) - Activités",,`;
                 
                 for (let day = 1; day <= lastDay; day++) {
                     const dateKey = `${year}-${month}-${day}`;
-                    const key = `${resource.id}_activity_${dateKey}`;
-                    csv += `,${scheduleData[key] || '1'}`;
+                    ['AM', 'PM'].forEach(period => {
+                        const key = `${resource.id}_activity_${dateKey}_${period}`;
+                        const oldKey = `${resource.id}_activity_${dateKey}`;
+                        const value = scheduleData[key] || scheduleData[oldKey] || '1';
+                        csv += `,${value}`;
+                    });
+                }
+                csv += '\n';
+
+                // Ligne Localisations
+                csv += `"${resource.prenom} ${resource.nom} (${resource.trigramme}) - Localisation",,`;
+                
+                for (let day = 1; day <= lastDay; day++) {
+                    const dateKey = `${year}-${month}-${day}`;
+                    ['AM', 'PM'].forEach(period => {
+                        const key = `${resource.id}_localisation_${dateKey}_${period}`;
+                        const oldKey = `${resource.id}_localisation_${dateKey}`;
+                        const value = scheduleData[key] || scheduleData[oldKey] || '-';
+                        csv += `,"${value}"`;
+                    });
                 }
                 csv += '\n';
             });
@@ -1171,6 +1212,13 @@ app.get('/api/export/gantt', requireAuth, (req, res) => {
             csv += 'AFFECTATION,6,ANS (Dev. usages)\n';
             csv += 'AFFECTATION,7,Qualification\n';
             csv += 'AFFECTATION,8,Divers\n';
+            csv += 'LOCALISATION,-,Non définie\n';
+            csv += 'LOCALISATION,🏠 Télétravail,Télétravail\n';
+            csv += 'LOCALISATION,🗼 PSC,Paris Saclay\n';
+            csv += 'LOCALISATION,🚗 Déplacement,En déplacement\n';
+            csv += 'LOCALISATION,📞 Télétravail,Télétravail (ancien format)\n';
+            csv += 'LOCALISATION,🚨 SAMU XX,SAMU spécifique\n';
+            csv += 'LOCALISATION,🎤 Autres,Autres (Congrès CFARM EHESP etc.)\n';
 
             res.setHeader('Content-Type', 'text/csv; charset=utf-8');
             res.setHeader('Content-Disposition', `attachment; filename=gantt_${monthNames[month]}_${year}.csv`);
