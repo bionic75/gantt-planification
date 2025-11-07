@@ -38,6 +38,9 @@
         th { background-color: #34495e; color: white; padding: 10px; text-align: left; font-weight: bold; cursor: pointer; user-select: none; }
         th:hover { background-color: #2c3e50; }
         th::after { content: " ▲▼"; font-size: 11px; }
+        th.resource-label { cursor: default; }
+        th.resource-label:hover { background-color: #34495e; }
+        th.resource-label::after { content: none; }
         td { padding: 10px; border-bottom: 1px solid #ecf0f1; }
         tr:hover { background-color: #f9f9f9; }
         .toggle-switch { position: relative; display: inline-block; width: 50px; height: 24px; }
@@ -74,6 +77,16 @@
         .gantt-table { width: max-content; border-collapse: collapse; font-size: 12px; background-color: white; }
         .gantt-table th { background-color: #1D70B7; color: white; padding: 8px; text-align: center; font-weight: bold; border: 1px solid #bdc3c7; vertical-align: middle; position: sticky; top: 0; z-index: 20; }
         .gantt-table td { border: 1px solid #bdc3c7; padding: 6px; text-align: center; vertical-align: middle; }
+        .gantt-table td.day-separator { border-right: 3px solid #2c3e50; }
+        .gantt-table th.day-separator { border-right: 3px solid #2c3e50; }
+        
+        /* Bordure plus épaisse pour séparer les journées (cellules PM) */
+        .gantt-table td.day-separator { border-right: 2px solid #7f8c8d; }
+        .gantt-table th.day-separator { border-right: 2px solid #34495e; }
+        
+        /* Bordure fine pour séparer AM/PM au sein d'une même journée */
+        .gantt-table td.half-day-separator { border-right: 1px solid #d0d0d0; }
+        .gantt-table th.half-day-separator { border-right: 1px solid #34495e; }
         .resource-header { background-color: #2c3e50; color: white; text-align: left; font-weight: bold; min-width: 200px; max-width: 200px; width: 200px; position: sticky; left: 0; z-index: 10; padding: 10px; }
         .resource-label { background-color: #ecf0f1; text-align: center; font-size: 11px; font-weight: bold; color: #7f8c8d; min-width: 120px; max-width: 120px; width: 120px; position: sticky; left: 200px; z-index: 9; padding: 10px; line-height: 1.4; }
         .day-header { background-color: #1D70B7; color: white; min-width: 100px; max-width: 100px; width: 100px; cursor: default; }
@@ -97,10 +110,11 @@
         .legend-section-title { font-weight: bold; color: #2c3e50; margin-bottom: 8px; font-size: 13px; border-bottom: 1px solid #bdc3c7; padding-bottom: 5px; }
         .legend-items { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
         .legend-item { display: flex; align-items: center; font-size: 12px; }
-        .planif-controls { background-color: #ecf0f1; padding: 15px; border-radius: 5px; margin-bottom: 20px; display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap; }
+        .planif-controls { background-color: #ecf0f1; padding: 15px; border-radius: 5px; margin-bottom: 20px; display: flex; gap: 15px; align-items: flex-start; flex-wrap: wrap; }
         .control-group { display: flex; flex-direction: column; gap: 5px; }
         .control-group label { margin-bottom: 0; }
         .control-group select { width: 150px; }
+        .control-group.resource-filter select { width: 250px !important; height: 130px !important; }
         .sync-status { padding: 10px 15px; background-color: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; color: #155724; font-size: 12px; margin-bottom: 15px; }
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); }
         .modal.active { display: flex; align-items: center; justify-content: center; }
@@ -161,7 +175,10 @@
         .date-badge.inactive { background-color: #95a5a6; color: white; }
         .date-badge.pending { background-color: #f39c12; color: white; }
         
-        @page { size: landscape; margin: 0.5cm; }
+        @page { 
+            size: A3 landscape; 
+            margin: 10mm; 
+        }
         @media print {
             body { background: white; margin: 0; padding: 0; }
             .container { box-shadow: none; max-width: 100%; border-radius: 0; }
@@ -181,55 +198,67 @@
             .legend-item { font-size: 9px; }
             .color-code { width: 12px; height: 12px; margin-right: 4px; }
             
+            /* Titre d'impression */
+            #planning::before {
+                content: "Planification du mois de " attr(data-month) " " attr(data-year);
+                display: block;
+                font-size: 18px;
+                font-weight: bold;
+                text-align: center;
+                margin-bottom: 15px;
+                padding: 10px;
+                border-bottom: 2px solid #2c3e50;
+            }
+            
             .gantt-wrapper { 
                 overflow: visible !important; 
                 border: none;
-                transform: scale(0.65);
+                transform: scale(0.55);
                 transform-origin: top left;
-                width: 153.85%;
+                width: 181.8%;
                 margin: 0;
             }
             .gantt-table { 
-                font-size: 7px !important;
+                font-size: 6px !important;
                 page-break-inside: avoid;
             }
             .gantt-table th, .gantt-table td {
-                padding: 2px !important;
-                border: 1px solid #999;
+                padding: 1px !important;
+                border: 0.5px solid #999;
             }
             .resource-header {
-                min-width: 130px !important;
-                max-width: 130px !important;
-                font-size: 8px !important;
-                padding: 4px !important;
+                min-width: 100px !important;
+                max-width: 100px !important;
+                font-size: 7px !important;
+                padding: 3px !important;
             }
             .resource-label {
-                min-width: 80px !important;
-                max-width: 80px !important;
-                font-size: 7px !important;
-                padding: 4px !important;
-                line-height: 1.2;
+                min-width: 60px !important;
+                max-width: 60px !important;
+                font-size: 6px !important;
+                padding: 2px !important;
+                line-height: 1.1;
             }
             .day-header {
-                min-width: 50px !important;
-                max-width: 50px !important;
-                font-size: 7px !important;
-                padding: 2px !important;
-            }
-            .gantt-cell {
-                min-width: 50px !important;
-                max-width: 50px !important;
-                height: 40px !important;
+                min-width: 30px !important;
+                max-width: 30px !important;
+                font-size: 6px !important;
                 padding: 1px !important;
             }
-            .gantt-cell-content { gap: 1px; }
+            .gantt-cell {
+                min-width: 30px !important;
+                max-width: 30px !important;
+                height: 30px !important;
+                padding: 0.5px !important;
+            }
+            .gantt-cell-content { gap: 0.5px; }
             .gantt-cell-row {
-                font-size: 8px !important;
-                min-height: 12px !important;
+                font-size: 6px !important;
+                min-height: 9px !important;
             }
             .total-cell, .total-label, .total-sublabel {
-                font-size: 7px !important;
-                padding: 2px !important;
+                font-size: 6px !important;
+                padding: 1px !important;
             }
             button { display: none !important; }
         }
@@ -331,15 +360,17 @@
                             <option value="11">Décembre</option>
                         </select>
                     </div>
-                    <div class="control-group">
-                        <label>Filtrer ressource</label>
-                        <select id="resourceFilter" onchange="updateGantt()">
-                            <option value="">Toutes les ressources</option>
+                    <div class="control-group resource-filter">
+                        <label>Filtrer ressource(s)</label>
+                        <select id="resourceFilter" multiple size="6" onchange="updateGantt()" style="height: auto;">
+                            <option value="" selected>Toutes les ressources</option>
                         </select>
                     </div>
-                    <button onclick="updateGantt()">Afficher</button>
-                    <button class="export-btn" onclick="exportGanttToExcel()">Excel</button>
-                    <button class="export-btn" onclick="window.print()">Imprimer A4</button>
+                    <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
+                        <button onclick="updateGantt()">Afficher</button>
+                        <button class="export-btn" onclick="exportGanttToExcel()">Excel</button>
+                        <button class="export-btn" onclick="window.print()">Imprimer A4</button>
+                    </div>
                 </div>
                 
                 <div class="legend" id="planningLegendSection">
@@ -550,6 +581,121 @@
             </div>
             <div class="modal-button-group">
                 <button onclick="closeLocalisationModal()" style="background-color: #95a5a6; margin-top: 20px;">Annuler</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="samuModal" class="modal">
+        <div class="modal-content" style="max-width: 400px;">
+            <h3>Sélectionner le SAMU</h3>
+            <div class="form-group">
+                <label>SAMU concerné</label>
+                <select id="samuSelect" style="width: 100%; padding: 10px; font-size: 14px;">
+                    <option value="">-- Choisir un SAMU --</option>
+                    <option value="SAMU 01">SAMU 01</option>
+                    <option value="SAMU 02">SAMU 02</option>
+                    <option value="SAMU 03">SAMU 03</option>
+                    <option value="SAMU 04">SAMU 04</option>
+                    <option value="SAMU 05">SAMU 05</option>
+                    <option value="SAMU 06">SAMU 06</option>
+                    <option value="SAMU 07">SAMU 07</option>
+                    <option value="SAMU 08">SAMU 08</option>
+                    <option value="SAMU 09">SAMU 09</option>
+                    <option value="SAMU 10">SAMU 10</option>
+                    <option value="SAMU 11">SAMU 11</option>
+                    <option value="SAMU 12">SAMU 12</option>
+                    <option value="SAMU 13">SAMU 13</option>
+                    <option value="SAMU 14">SAMU 14</option>
+                    <option value="SAMU 15">SAMU 15</option>
+                    <option value="SAMU 16">SAMU 16</option>
+                    <option value="SAMU 17">SAMU 17</option>
+                    <option value="SAMU 18">SAMU 18</option>
+                    <option value="SAMU 19">SAMU 19</option>
+                    <option value="SAMU 21">SAMU 21</option>
+                    <option value="SAMU 22">SAMU 22</option>
+                    <option value="SAMU 23">SAMU 23</option>
+                    <option value="SAMU 24">SAMU 24</option>
+                    <option value="SAMU 25">SAMU 25</option>
+                    <option value="SAMU 26">SAMU 26</option>
+                    <option value="SAMU 27">SAMU 27</option>
+                    <option value="SAMU 28">SAMU 28</option>
+                    <option value="SAMU 29">SAMU 29</option>
+                    <option value="SAMU 30">SAMU 30</option>
+                    <option value="SAMU 31">SAMU 31</option>
+                    <option value="SAMU 32">SAMU 32</option>
+                    <option value="SAMU 33">SAMU 33</option>
+                    <option value="SAMU 34">SAMU 34</option>
+                    <option value="SAMU 35">SAMU 35</option>
+                    <option value="SAMU 36">SAMU 36</option>
+                    <option value="SAMU 37">SAMU 37</option>
+                    <option value="SAMU 38">SAMU 38</option>
+                    <option value="SAMU 40">SAMU 40</option>
+                    <option value="SAMU 41">SAMU 41</option>
+                    <option value="SAMU 42">SAMU 42</option>
+                    <option value="SAMU 43">SAMU 43</option>
+                    <option value="SAMU 44">SAMU 44</option>
+                    <option value="SAMU 45">SAMU 45</option>
+                    <option value="SAMU 46">SAMU 46</option>
+                    <option value="SAMU 47">SAMU 47</option>
+                    <option value="SAMU 48">SAMU 48</option>
+                    <option value="SAMU 49">SAMU 49</option>
+                    <option value="SAMU 50">SAMU 50</option>
+                    <option value="SAMU 51">SAMU 51</option>
+                    <option value="SAMU 52">SAMU 52</option>
+                    <option value="SAMU 53">SAMU 53</option>
+                    <option value="SAMU 54">SAMU 54</option>
+                    <option value="SAMU 55">SAMU 55</option>
+                    <option value="SAMU 56">SAMU 56</option>
+                    <option value="SAMU 57">SAMU 57</option>
+                    <option value="SAMU 59">SAMU 59</option>
+                    <option value="SAMU 60">SAMU 60</option>
+                    <option value="SAMU 61">SAMU 61</option>
+                    <option value="SAMU 62">SAMU 62</option>
+                    <option value="SAMU 63">SAMU 63</option>
+                    <option value="SAMU 64A">SAMU 64A</option>
+                    <option value="SAMU 64B">SAMU 64B</option>
+                    <option value="SAMU 65">SAMU 65</option>
+                    <option value="SAMU 66">SAMU 66</option>
+                    <option value="SAMU 67">SAMU 67</option>
+                    <option value="SAMU 68">SAMU 68</option>
+                    <option value="SAMU 69">SAMU 69</option>
+                    <option value="SAMU 71">SAMU 71</option>
+                    <option value="SAMU 72">SAMU 72</option>
+                    <option value="SAMU 73">SAMU 73</option>
+                    <option value="SAMU 74">SAMU 74</option>
+                    <option value="SAMU 75">SAMU 75</option>
+                    <option value="SAMU 76A">SAMU 76A</option>
+                    <option value="SAMU 76B">SAMU 76B</option>
+                    <option value="SAMU 77">SAMU 77</option>
+                    <option value="SAMU 78">SAMU 78</option>
+                    <option value="SAMU 79">SAMU 79</option>
+                    <option value="SAMU 80">SAMU 80</option>
+                    <option value="SAMU 81">SAMU 81</option>
+                    <option value="SAMU 82">SAMU 82</option>
+                    <option value="SAMU 83">SAMU 83</option>
+                    <option value="SAMU 84">SAMU 84</option>
+                    <option value="SAMU 85">SAMU 85</option>
+                    <option value="SAMU 86">SAMU 86</option>
+                    <option value="SAMU 87">SAMU 87</option>
+                    <option value="SAMU 88">SAMU 88</option>
+                    <option value="SAMU 89">SAMU 89</option>
+                    <option value="SAMU 91">SAMU 91</option>
+                    <option value="SAMU 92">SAMU 92</option>
+                    <option value="SAMU 93">SAMU 93</option>
+                    <option value="SAMU 94">SAMU 94</option>
+                    <option value="SAMU 95">SAMU 95</option>
+                    <option value="SAMU 971">SAMU 971</option>
+                    <option value="SAMU 972">SAMU 972</option>
+                    <option value="SAMU 973">SAMU 973</option>
+                    <option value="SAMU 974">SAMU 974</option>
+                    <option value="SAMU 976">SAMU 976</option>
+                    <option value="SAMU 2A">SAMU 2A</option>
+                    <option value="SAMU 2B">SAMU 2B</option>
+                </select>
+            </div>
+            <div class="modal-button-group">
+                <button onclick="closeSamuModal()" style="background-color: #95a5a6;">Annuler</button>
+                <button onclick="saveSamuSelection()">Valider</button>
             </div>
         </div>
     </div>
@@ -1366,8 +1512,16 @@
             let count = 0;
             for (let day = 1; day <= lastDay; day++) {
                 const dateKey = `${year}-${month}-${day}`;
-                const key = `${resourceId}_available_${dateKey}`;
-                if (scheduleData[key] === '2') count++;
+                // Compter les demi-journées
+                ['AM', 'PM'].forEach(period => {
+                    const key = `${resourceId}_available_${dateKey}_${period}`;
+                    if (scheduleData[key] === '2') count += 0.5;
+                });
+                // Compatibilité avec l'ancien format (sans AM/PM)
+                const oldKey = `${resourceId}_available_${dateKey}`;
+                if (scheduleData[oldKey] === '2' && !scheduleData[`${resourceId}_available_${dateKey}_AM`]) {
+                    count++;
+                }
             }
             return count;
         }
@@ -1379,18 +1533,11 @@
             return ((totalWorkDays * resource.taux) / 100).toFixed(1);
         }
 
-        function toggleAvailability(resourceId, dateKey) {
+        function toggleAvailability(resourceId, dateKey, period = '') {
             // Vérifier les droits : seuls Admin et Expert peuvent modifier la disponibilité
             if (currentUser && currentUser.activeProfile === 'user') {
                 alert('Vous n\'avez pas les droits pour modifier la disponibilité. Seuls Admin et Expert peuvent le faire.');
                 return;
-            }
-            
-            // Vérifier les droits pour Expert Métier
-            if (currentUser && currentUser.activeProfile === 'expert') {
-                if (parseInt(resourceId) !== currentUser.resourceId) {
-                    return; // Bloquer la modification
-                }
             }
             
             const resource = resources.find(r => r.id === resourceId);
@@ -1402,23 +1549,27 @@
                 return;
             }
             
-            const key = `${resourceId}_available_${dateKey}`;
+            const key = period ? `${resourceId}_available_${dateKey}_${period}` : `${resourceId}_available_${dateKey}`;
             const currentValue = scheduleData[key] || '1';
-            const newValue = currentValue === '1' ? '2' : '1';
-            scheduleData[key] = newValue;
+            scheduleData[key] = currentValue === '1' ? '2' : '1';
             
-            if (newValue === '2') {
-                scheduleData[`${resourceId}_activity_${dateKey}`] = '2';
-                scheduleData[`${resourceId}_localisation_${dateKey}`] = 'Télétravail';
+            const actKey = period ? `${resourceId}_activity_${dateKey}_${period}` : `${resourceId}_activity_${dateKey}`;
+            const locKey = period ? `${resourceId}_localisation_${dateKey}_${period}` : `${resourceId}_localisation_${dateKey}`;
+            
+            if (scheduleData[key] === '1') {
+                // Si on passe à indisponible, remettre à 1
+                scheduleData[actKey] = '1';
+                delete scheduleData[locKey];
             } else {
-                scheduleData[`${resourceId}_activity_${dateKey}`] = '1';
-                delete scheduleData[`${resourceId}_localisation_${dateKey}`];
+                // Si on passe à disponible (2), mettre l'affectation à "2 - En attente d'affectation" par défaut
+                scheduleData[actKey] = '2';
             }
+            
             saveSchedule();
             updateGantt();
         }
 
-        function cycleActivity(resourceId, dateKey, availability) {
+        function cycleActivity(resourceId, dateKey, availability, period = '') {
             // Vérifier les droits pour Expert Métier
             if (currentUser && currentUser.activeProfile === 'expert') {
                 if (parseInt(resourceId) !== currentUser.resourceId) {
@@ -1440,7 +1591,7 @@
                 return;
             }
             
-            const key = `${resourceId}_activity_${dateKey}`;
+            const key = period ? `${resourceId}_activity_${dateKey}_${period}` : `${resourceId}_activity_${dateKey}`;
             const currentValue = parseInt(scheduleData[key] || '2');
             let nextValue = currentValue + 1;
             if (nextValue > 8) nextValue = 2;
@@ -1449,7 +1600,7 @@
             updateGantt();
         }
 
-        function openLocalisationModal(resourceId, dateKey, availability, activityValue) {
+        function openLocalisationModal(resourceId, dateKey, availability, activityValue, period = '') {
             const resource = resources.find(r => r.id === resourceId);
             const [year, month, day] = dateKey.split('-').map(Number);
             const checkDate = new Date(year, month, day);
@@ -1465,7 +1616,13 @@
                 return;
             }
             
-            currentLocalisationCell = { resourceId, dateKey };
+            // Si l'activité est "Indisponible" (1), ne pas permettre de définir une localisation
+            if (activityValue === '1') {
+                alert('Vous ne pouvez pas définir une localisation pour une activité "Indisponible"');
+                return;
+            }
+            
+            currentLocalisationCell = { resourceId, dateKey, period };
             
             // Déterminer si on est en mode "disponibilité" ou "affectation"
             const isAvailabilityMode = activityValue === '2'; // 2 = En attente d'affectation
@@ -1475,9 +1632,11 @@
             // Vider le conteneur
             container.innerHTML = '';
             
+            const periodLabel = period ? ` (${period})` : '';
+            
             if (isAvailabilityMode) {
                 // Mode disponibilité : afficher les 3 options de localisation pour experts
-                title.textContent = 'Où êtes-vous disponible ?';
+                title.textContent = `Où êtes-vous disponible ?${periodLabel}`;
                 
                 const availabilityOptions = [
                     { label: '🏠 Je suis en télétravail', value: '🏠 Télétravail', color: '#3498db' },
@@ -1495,21 +1654,32 @@
                 });
             } else {
                 // Mode affectation : afficher les options de localisation pour les activités
-                title.textContent = 'Choisir la localisation de l\'activité';
+                title.textContent = `Choisir la localisation de l'activité${periodLabel}`;
+                
+                // Vérifier si on est sur une affectation SAMU (3 ou 4)
+                const isSamuActivity = activityValue === '3' || activityValue === '4';
                 
                 const activityOptions = [
                     { label: '📞 Télétravail', value: '📞 Télétravail', color: '#3498db' },
-                    { label: '🚨 SAMU', value: '🚨 SAMU', color: '#e67e22' },
                     { label: '🗼 PSC', value: '🗼 PSC', color: '#9b59b6' },
                     { label: '🎤 Autres (Congrès, CFARM, EHESP...)', value: '🎤 Autres', color: '#16a085' }
                 ];
+                
+                // Ajouter l'option SAMU seulement si c'est une affectation SAMU
+                if (isSamuActivity) {
+                    activityOptions.splice(1, 0, { label: '🚨 SAMU (cliquer pour sélectionner)', value: 'SAMU_SELECT', color: '#e67e22' });
+                }
                 
                 activityOptions.forEach(opt => {
                     const btn = document.createElement('button');
                     btn.textContent = opt.label;
                     btn.style.backgroundColor = opt.color;
                     btn.style.padding = '15px';
-                    btn.onclick = () => setLocalisation(opt.value);
+                    if (opt.value === 'SAMU_SELECT') {
+                        btn.onclick = () => openSamuSelectionFromLocalisation();
+                    } else {
+                        btn.onclick = () => setLocalisation(opt.value);
+                    }
                     container.appendChild(btn);
                 });
             }
@@ -1517,9 +1687,41 @@
             document.getElementById('localisationModal').classList.add('active');
         }
 
+        function openSamuSelectionFromLocalisation() {
+            // Fermer le modal de localisation temporairement
+            document.getElementById('localisationModal').classList.remove('active');
+            // Ouvrir le modal de sélection SAMU
+            document.getElementById('samuModal').classList.add('active');
+        }
+
+        function closeSamuModal() {
+            document.getElementById('samuModal').classList.remove('active');
+            // Réouvrir le modal de localisation si on annule
+            if (currentLocalisationCell) {
+                document.getElementById('localisationModal').classList.add('active');
+            }
+        }
+
+        function saveSamuSelection() {
+            const samuSelect = document.getElementById('samuSelect');
+            const selectedSamu = samuSelect.value;
+            
+            if (!selectedSamu) {
+                alert('Veuillez sélectionner un SAMU');
+                return;
+            }
+            
+            // Enregistrer la localisation avec le SAMU sélectionné
+            setLocalisation(`🚨 ${selectedSamu}`);
+            document.getElementById('samuModal').classList.remove('active');
+        }
+
         function setLocalisation(localisation) {
             if (!currentLocalisationCell) return;
-            const key = `${currentLocalisationCell.resourceId}_localisation_${currentLocalisationCell.dateKey}`;
+            const { resourceId, dateKey, period } = currentLocalisationCell;
+            const key = period 
+                ? `${resourceId}_localisation_${dateKey}_${period}` 
+                : `${resourceId}_localisation_${dateKey}`;
             scheduleData[key] = localisation;
             saveSchedule();
             closeLocalisationModal();
@@ -1580,6 +1782,7 @@
             for (let day = 1; day <= lastDay; day++) {
                 const dateKey = `${year}-${month}-${day}`;
                 
+                // Gérer les anciennes clés sans période (pour la compatibilité)
                 const availKey = `${resourceId}_available_${dateKey}`;
                 const actKey = `${resourceId}_activity_${dateKey}`;
                 const locKey = `${resourceId}_localisation_${dateKey}`;
@@ -1591,6 +1794,21 @@
                 scheduleData[availKey] = '1';
                 scheduleData[actKey] = '1';
                 delete scheduleData[locKey];
+                
+                // Gérer les nouvelles clés avec AM/PM
+                ['AM', 'PM'].forEach(period => {
+                    const availKeyPeriod = `${resourceId}_available_${dateKey}_${period}`;
+                    const actKeyPeriod = `${resourceId}_activity_${dateKey}_${period}`;
+                    const locKeyPeriod = `${resourceId}_localisation_${dateKey}_${period}`;
+                    
+                    if (scheduleData[availKeyPeriod] || scheduleData[actKeyPeriod] || scheduleData[locKeyPeriod]) {
+                        modified = true;
+                    }
+                    
+                    scheduleData[availKeyPeriod] = '1';
+                    scheduleData[actKeyPeriod] = '1';
+                    delete scheduleData[locKeyPeriod];
+                });
             }
             
             if (modified) {
@@ -1605,27 +1823,50 @@
         function updateGantt() {
             const year = parseInt(document.getElementById('yearSelect').value);
             const month = parseInt(document.getElementById('monthSelect').value);
-            const filterResourceId = document.getElementById('resourceFilter').value;
+            const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+            const filterSelect = document.getElementById('resourceFilter');
+            const selectedOptions = Array.from(filterSelect.selectedOptions).map(opt => opt.value);
             const lastDay = new Date(year, month + 1, 0).getDate();
+            
+            // Définir les attributs pour le titre d'impression
+            document.getElementById('planning').setAttribute('data-month', monthNames[month]);
+            document.getElementById('planning').setAttribute('data-year', year);
 
             let filteredResources = resources.filter(r => r.actif);
-            if (filterResourceId) {
-                filteredResources = filteredResources.filter(r => r.id === parseInt(filterResourceId));
+            
+            // Si "Toutes les ressources" n'est pas sélectionné et qu'il y a des sélections
+            if (!selectedOptions.includes('') && selectedOptions.length > 0) {
+                const selectedIds = selectedOptions.map(id => parseInt(id));
+                filteredResources = filteredResources.filter(r => selectedIds.includes(r.id));
             }
 
-            let dailyDispo = Array(lastDay).fill(0);
-            let dailyAffect = Array(lastDay).fill(0);
+            let dailyDispo = Array(lastDay * 2).fill(0); // x2 pour AM/PM
+            let dailyAffect = Array(lastDay * 2).fill(0); // x2 pour AM/PM
 
             let html = '<table class="gantt-table"><thead><tr>';
-            html += '<th class="resource-header" style="cursor: pointer; z-index: 50;" onclick="sortGanttResources()">Ressource</th>';
-            html += '<th class="resource-label" style="z-index: 49;">Disponibilité /<br>Affectation /<br>Localisation</th>';
+            html += '<th class="resource-header" style="z-index: 50;" rowspan="2" onclick="sortGanttResources()" style="cursor: pointer;">Ressource</th>';
+            html += '<th class="resource-label" style="z-index: 49;" rowspan="2">Disponibilité /<br>Affectation /<br>Localisation</th>';
             
+            // En-têtes avec AM/PM pour chaque jour
             for (let day = 1; day <= lastDay; day++) {
                 const date = new Date(year, month, day);
                 const dayName = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'][date.getDay()];
                 const isWeekend = date.getDay() === 0 || date.getDay() === 6;
                 const headerClass = isWeekend ? 'day-header weekend' : 'day-header';
-                html += `<th class="${headerClass}">${dayName}<br>${day}</th>`;
+                // Afficher 2 colonnes par jour : AM et PM
+                html += `<th class="${headerClass}" colspan="2" style="text-align: center;">${dayName}<br>${day}</th>`;
+            }
+            html += '</tr>';
+            
+            // Sous-en-tête AM/PM
+            html += '<tr>';
+            // Plus besoin des cellules vides pour les 2 premières colonnes car rowspan="2"
+            for (let day = 1; day <= lastDay; day++) {
+                const date = new Date(year, month, day);
+                const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                const headerClass = isWeekend ? 'day-header weekend' : 'day-header';
+                html += `<th class="${headerClass}" style="font-size: 10px; padding: 4px;">AM</th>`;
+                html += `<th class="${headerClass} day-separator" style="font-size: 10px; padding: 4px;">PM</th>`;
             }
             html += '</tr></thead><tbody id="ganttBody">';
 
@@ -1646,6 +1887,7 @@
                     </td>
                     <td class="resource-label">Disponibilité<br>Affectation<br>Localisation</td>`;
 
+                // Boucle sur les jours avec AM et PM
                 for (let day = 1; day <= lastDay; day++) {
                     const dateKey = `${year}-${month}-${day}`;
                     const date = new Date(year, month, day);
@@ -1653,62 +1895,89 @@
                     const checkDate = new Date(year, month, day);
                     const isAccessible = isDateAccessible(resource, checkDate);
                     
-                    const availKey = `${resource.id}_available_${dateKey}`;
-                    const availValue = scheduleData[availKey] || '1';
-                    const availBg = availValue === '1' ? '#95a5a6' : '#27ae60';
-                    
-                    const actKey = `${resource.id}_activity_${dateKey}`;
-                    const actValue = scheduleData[actKey] || '1';
-                    let actBg = '#95a5a6';
-                    if (availValue === '1') {
-                        actBg = '#95a5a6';
-                    } else {
-                        const colorMap = { '1': '#95a5a6', '2': '#9b59b6', '3': '#e67e22', '4': '#d35400', '5': '#3498db', '6': '#2980b9', '7': '#e74c3c', '8': '#16a085' };
-                        actBg = colorMap[actValue] || '#95a5a6';
-                    }
-                    
-                    const locKey = `${resource.id}_localisation_${dateKey}`;
-                    const locValue = scheduleData[locKey] || '-';
-                    
-                    // Afficher la localisation uniquement si disponible (2) et en attente d'affectation (2)
-                    let locDisplay = '-';
-                    if (availValue === '2' && actValue === '2') {
-                        // Mapper les valeurs sauvegardées vers l'affichage court
-                        const locDisplayMap = {
-                            '🏠 Télétravail': '🏠 Télétravail',
-                            '🗼 PSC': '🗼 PSC',
-                            '🚗 Déplacement': '🚗 Déplacement',
-                            // Anciennes valeurs pour compatibilité
-                            '📞 Télétravail': '🏠 Télétravail',
-                            '🚨 SAMU': '🚨 SAMU',
-                            '🎤 Autres': '🎤 Autres'
-                        };
-                        locDisplay = locDisplayMap[locValue] || locValue;
-                    }
-                    
-                    let cellClass = isWeekend ? 'gantt-cell weekend-cell' : 'gantt-cell';
-                    if (!isAccessible) {
-                        cellClass += ' disabled';
-                    }
-                    
-                    if (availValue === '2' && isAccessible) {
-                        dailyDispo[day - 1]++;
-                    }
-                    if (actValue !== '1' && actValue !== '2' && availValue === '2' && isAccessible) {
-                        dailyAffect[day - 1]++;
-                    }
-                    
-                    const availTooltip = isAccessible ? availabilityLabels[availValue] : 'Hors période MAD';
-                    const actTooltip = isAccessible ? activityLabels[actValue] : 'Hors période MAD';
-                    const rowDisabledClass = isAccessible ? '' : ' disabled';
-                    
-                    html += `<td class="${cellClass}">
-                        <div class="gantt-cell-content">
-                            <div class="gantt-cell-row${rowDisabledClass}" style="background-color: ${isAccessible ? availBg : '#d0d0d0'}; color: white;" onclick="${isAccessible ? `toggleAvailability(${resource.id}, '${dateKey}')` : 'return false;'}" title="${availTooltip}">${availValue}</div>
-                            <div class="gantt-cell-row${rowDisabledClass}" style="background-color: ${isAccessible ? actBg : '#d0d0d0'}; color: white;" onclick="${isAccessible ? `cycleActivity(${resource.id}, '${dateKey}', '${availValue}')` : 'return false;'}" title="${actTooltip}">${actValue}</div>
-                            <div class="gantt-cell-row${rowDisabledClass}" style="background-color: ${isAccessible ? '#f0f0f0' : '#d0d0d0'}; color: #333; font-size: 10px; font-weight: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" onclick="${isAccessible ? `openLocalisationModal(${resource.id}, '${dateKey}', '${availValue}', '${actValue}')` : 'return false;'}" title="${isAccessible ? (locDisplay !== '-' ? 'Localisation: ' + locDisplay + ' (cliquez pour modifier)' : 'Cliquez pour définir la localisation') : 'Hors période MAD'}">${locDisplay}</div>
-                        </div>
-                    </td>`;
+                    // Gérer AM et PM séparément
+                    ['AM', 'PM'].forEach((period, periodIndex) => {
+                        const availKey = `${resource.id}_available_${dateKey}_${period}`;
+                        const availValue = scheduleData[availKey] || '1';
+                        const availBg = availValue === '1' ? '#95a5a6' : '#27ae60';
+                        
+                        const actKey = `${resource.id}_activity_${dateKey}_${period}`;
+                        const actValue = scheduleData[actKey] || '1';
+                        let actBg = '#95a5a6';
+                        if (availValue === '1') {
+                            actBg = '#95a5a6';
+                        } else {
+                            const colorMap = { '1': '#95a5a6', '2': '#9b59b6', '3': '#e67e22', '4': '#d35400', '5': '#3498db', '6': '#2980b9', '7': '#e74c3c', '8': '#16a085' };
+                            actBg = colorMap[actValue] || '#95a5a6';
+                        }
+                        
+                        const locKey = `${resource.id}_localisation_${dateKey}_${period}`;
+                        const locValue = scheduleData[locKey] || '-';
+                        
+                        // Afficher la localisation pour:
+                        // - En attente d'affectation (2)
+                        // - SAMU Déploiement (3)
+                        // - SAMU Dev. usages (4)
+                        // - ANS Déploiement (5)
+                        // - ANS Dev. usages (6)
+                        // - Qualification (7)
+                        // - Divers (8)
+                        let locDisplay = '-';
+                        if (availValue === '2' && actValue !== '1') {
+                            const locDisplayMap = {
+                                '🏠 Télétravail': '🏠 TT',
+                                '🗼 PSC': '🗼 PSC',
+                                '🚗 Déplacement': '🚗 Dép',
+                                '📞 Télétravail': '🏠 TT',
+                                '🚨 SAMU': '🚨 SAMU',
+                                '🎤 Autres': '🎤 Aut'
+                            };
+                            
+                            // Gérer les SAMU avec numéro (format "🚨 SAMU XX")
+                            if (locValue.startsWith('🚨 SAMU')) {
+                                const samuMatch = locValue.match(/SAMU (\w+)/);
+                                if (samuMatch) {
+                                    locDisplay = `🚨 ${samuMatch[1]}`;
+                                } else {
+                                    locDisplay = '🚨 SAMU';
+                                }
+                            } else {
+                                locDisplay = locDisplayMap[locValue] || (locValue.substring(0, 8) + (locValue.length > 8 ? '...' : ''));
+                            }
+                        }
+                        
+                        let cellClass = isWeekend ? 'gantt-cell weekend-cell' : 'gantt-cell';
+                        if (!isAccessible) {
+                            cellClass += ' disabled';
+                        }
+                        // Ajouter la classe day-separator sur les cellules PM pour avoir une bordure épaisse APRÈS chaque jour
+                        if (period === 'PM') {
+                            cellClass += ' day-separator';
+                        }
+                        
+                        // Calculer les totaux par demi-journée
+                        if (availValue === '2' && isAccessible) {
+                            dailyDispo[(day - 1) * 2 + periodIndex]++;
+                        }
+                        if (actValue !== '1' && actValue !== '2' && availValue === '2' && isAccessible) {
+                            dailyAffect[(day - 1) * 2 + periodIndex]++;
+                        }
+                        
+                        const availTooltip = isAccessible ? availabilityLabels[availValue] : 'Hors période MAD';
+                        const actTooltip = isAccessible ? activityLabels[actValue] : 'Hors période MAD';
+                        const rowDisabledClass = isAccessible ? '' : ' disabled';
+                        
+                        // Ajouter la classe pour différencier AM (bordure fine) et PM (bordure épaisse)
+                        const borderClass = period === 'AM' ? 'half-day-separator' : 'day-separator';
+                        
+                        html += `<td class="${cellClass} ${borderClass}" style="min-width: 50px; max-width: 50px; width: 50px;">
+                            <div class="gantt-cell-content">
+                                <div class="gantt-cell-row${rowDisabledClass}" style="background-color: ${isAccessible ? availBg : '#d0d0d0'}; color: white; font-size: 11px; min-height: 20px;" onclick="${isAccessible ? `toggleAvailability(${resource.id}, '${dateKey}', '${period}')` : 'return false;'}" title="${availTooltip} (${period})">${availValue}</div>
+                                <div class="gantt-cell-row${rowDisabledClass}" style="background-color: ${isAccessible ? actBg : '#d0d0d0'}; color: white; font-size: 11px; min-height: 20px;" onclick="${isAccessible ? `cycleActivity(${resource.id}, '${dateKey}', '${availValue}', '${period}')` : 'return false;'}" title="${actTooltip} (${period})">${actValue}</div>
+                                <div class="gantt-cell-row${rowDisabledClass}" style="background-color: ${isAccessible ? '#f0f0f0' : '#d0d0d0'}; color: #333; font-size: 8px; font-weight: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-height: 20px;" onclick="${isAccessible ? `openLocalisationModal(${resource.id}, '${dateKey}', '${availValue}', '${actValue}', '${period}')` : 'return false;'}" title="${isAccessible ? (locDisplay !== '-' ? 'Localisation ' + period + ': ' + locValue + ' (cliquez pour modifier)' : 'Cliquez pour définir la localisation ' + period) : 'Hors période MAD'}">${locDisplay}</div>
+                            </div>
+                        </td>`;
+                    });
                 }
                 html += '</tr>';
             });
@@ -1718,13 +1987,18 @@
 
             html += `<tr class="total-row">
                 <td class="total-label">TOTAL</td>
-                <td class="total-sublabel">Dispo: ${totalDispoMonth}<br>Affect: ${totalAffectMonth}</td>`;
+                <td class="total-sublabel">Dispo: ${(totalDispoMonth / 2).toFixed(1)}j<br>Affect: ${(totalAffectMonth / 2).toFixed(1)}j</td>`;
             
+            // Totaux par demi-journée
             for (let day = 0; day < lastDay; day++) {
                 const date = new Date(year, month, day + 1);
                 const isWeekend = date.getDay() === 0 || date.getDay() === 6;
                 const cellClass = isWeekend ? 'total-cell weekend' : 'total-cell';
-                html += `<td class="${cellClass}" style="font-size: 11px;">D:${dailyDispo[day]}<br>A:${dailyAffect[day]}</td>`;
+                // Somme AM + PM pour afficher en jours
+                const dayDispo = (dailyDispo[day * 2] + dailyDispo[day * 2 + 1]) / 2;
+                const dayAffect = (dailyAffect[day * 2] + dailyAffect[day * 2 + 1]) / 2;
+                // AM - bordure épaisse pour séparer les jours
+                html += `<td class="${cellClass} day-separator" colspan="2" style="font-size: 9px; padding: 3px;">D:${dayDispo.toFixed(1)}<br>A:${dayAffect.toFixed(1)}</td>`;
             }
             html += '</tr></tbody></table>';
 
@@ -2267,6 +2541,20 @@
                     // Déclencher la mise en majuscule pendant la saisie
                     field.addEventListener('input', autoUppercaseNom);
                     // Également lors de la perte de focus (au cas où)
+                    field.addEventListener('blur', autoUppercaseNom);
+                }
+            });
+            
+            // Appliquer également aux champs SAMU
+            const samuFields = [
+                'samu',      // Création ressource
+                'editSamu'   // Édition ressource
+            ];
+            
+            samuFields.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (field) {
+                    field.addEventListener('input', autoUppercaseNom);
                     field.addEventListener('blur', autoUppercaseNom);
                 }
             });
