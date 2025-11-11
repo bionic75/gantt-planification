@@ -88,10 +88,11 @@ function createEmailTransporter() {
 }
 
 // Envoyer un email
-async function sendEmail(to, subject, html) {
+async function sendEmail(to, subject, html, attachments = []) {
     console.log('📧 sendEmail appelé:');
     console.log('   - Destinataire:', to);
     console.log('   - Sujet:', subject);
+    console.log('   - Pièces jointes:', attachments.length);
     console.log('   - Config user:', emailConfig.user ? 'Défini' : 'NON DÉFINI');
     console.log('   - Config password:', emailConfig.password ? 'Défini' : 'NON DÉFINI');
     console.log('   - Config host:', emailConfig.host);
@@ -106,12 +107,18 @@ async function sendEmail(to, subject, html) {
 
     try {
         console.log('🔄 Tentative d\'envoi email...');
-        const info = await transporter.sendMail({
+        const mailOptions = {
             from: `"Planification GANTT" <${emailConfig.user}>`,
             to: to,
             subject: subject,
             html: html
-        });
+        };
+        
+        if (attachments.length > 0) {
+            mailOptions.attachments = attachments;
+        }
+        
+        const info = await transporter.sendMail(mailOptions);
         
         console.log('✅ Email envoyé avec succès! Message ID:', info.messageId);
         return { success: true, messageId: info.messageId };
@@ -272,6 +279,47 @@ function initDB() {
             loadEmailConfig();
         }
     });
+
+    // Table pour la configuration système (numéro de version)
+    database.run(`
+        CREATE TABLE IF NOT EXISTS system_config (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            version TEXT NOT NULL DEFAULT '1.0.0',
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    `, (err) => {
+        if (err) {
+            console.error('Erreur création table system_config:', err);
+        } else {
+            // Initialiser la version par défaut si elle n'existe pas
+            database.get('SELECT * FROM system_config WHERE id = 1', [], (err, row) => {
+                if (!row) {
+                    database.run('INSERT INTO system_config (id, version) VALUES (1, ?)', ['1.0.0'], (err) => {
+                        if (err) console.error('Erreur init version:', err);
+                        else console.log('✅ Version initiale configurée: 1.0.0');
+                    });
+                }
+            });
+        }
+    });
+
+    // Table pour les logs de connexion
+    database.run(`
+        CREATE TABLE IF NOT EXISTS connection_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            username TEXT NOT NULL,
+            nom TEXT NOT NULL,
+            prenom TEXT NOT NULL,
+            profile TEXT,
+            login_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+            modifications TEXT,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    `, (err) => {
+        if (err) console.error('Erreur création table connection_logs:', err);
+        else console.log('✅ Table connection_logs créée');
+    });
 }
 
 // Charger la configuration email depuis la base de données
@@ -365,6 +413,16 @@ app.post('/api/login', (req, res) => {
             req.session.nom = user.nom;
             req.session.prenom = user.prenom;
             req.session.resourceId = user.resource_id;
+            
+            // Logger la connexion
+            database.run(
+                `INSERT INTO connection_logs (user_id, username, nom, prenom, profile) 
+                 VALUES (?, ?, ?, ?, ?)`,
+                [user.id, user.username, user.nom, user.prenom, profile],
+                (err) => {
+                    if (err) console.error('Erreur log connexion:', err);
+                }
+            );
             
             res.json({ 
                 success: true, 
@@ -1295,6 +1353,147 @@ app.post('/api/email/test', requireAdmin, async (req, res) => {
 });
 
 // ==================== API BACKUP ====================
+
+// Configuration et récupération de la version
+app.post('/api/system/version', requireAdmin, (req, res) => {
+    const { version } = req.body;
+    
+    if (!version) {
+        return res.status(400).json({ error: 'Version requise' });
+    }
+    
+    database.run(
+        `INSERT INTO system_config (id, version, updated_at)
+         VALUES (1, ?, CURRENT_TIMESTAMP)
+         ON CONFLICT(id) DO UPDATE SET 
+            version = excluded.version,
+            updated_at = CURRENT_TIMESTAMP`,
+        [version],
+        (err) => {
+            if (err) {
+                console.error('Erreur sauvegarde version:', err);
+                res.status(500).json({ success: false, error: err.message });
+            } else {
+                console.log('✅ Version mise à jour:', version);
+                res.json({ success: true });
+            }
+        }
+    );
+});
+
+app.get('/api/system/version', (req, res) => {
+    database.get('SELECT version FROM system_config WHERE id = 1', [], (err, row) => {
+        if (err) {
+            console.error('Erreur récup version:', err);
+            res.status(500).json({ error: err.message });
+        } else if (row) {
+            res.json({ version: row.version });
+        } else {
+            res.json({ version: '1.0.0' });
+        }
+    });
+});
+
+// Récupération des logs de connexion (20 derniers)
+app.get('/api/logs/connections', requireAdmin, (req, res) => {
+    database.all(
+        `SELECT id, username, nom, prenom, profile, login_time, modifications 
+         FROM connection_logs 
+         ORDER BY login_time DESC 
+         LIMIT 20`,
+        [],
+        (err, logs) => {
+            if (err) {
+                console.error('Erreur récupération logs:', err);
+                res.status(500).json({ error: err.message });
+            } else {
+                res.json({ logs });
+            }
+        }
+    );
+});
+
+// Envoi du backup par email
+app.post('/api/backup/send-email', requireAdmin, async (req, res) => {
+    const { email } = req.body;
+    
+    if (!email) {
+        return res.status(400).json({ success: false, error: 'Email requis' });
+    }
+    
+    if (!emailConfig.user) {
+        return res.status(400).json({ success: false, error: 'Configuration email non définie' });
+    }
+    
+    try {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        
+        // Générer le CSV de backup
+        const resources = await new Promise((resolve, reject) => {
+            database.all('SELECT * FROM resources ORDER BY id', (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows);
+            });
+        });
+        
+        const schedule = await new Promise((resolve, reject) => {
+            database.all('SELECT * FROM schedule_data ORDER BY resource_id, date_key', (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows);
+            });
+        });
+        
+        const users = await new Promise((resolve, reject) => {
+            database.all('SELECT id, username, nom, prenom, email, is_admin, is_expert, is_user, resource_id, actif, created_at FROM users ORDER BY id', (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows);
+            });
+        });
+        
+        let csv = `BACKUP COMPLET BASE DE DONNEES - ${new Date().toLocaleString('fr-FR')}\n\n`;
+        
+        csv += '=== TABLE: RESOURCES ===\n';
+        csv += 'id,nom,prenom,trigramme,email,telephone,taux,samu,actif,created_at\n';
+        resources.forEach(r => {
+            csv += `${r.id},"${r.nom}","${r.prenom}","${r.trigramme}","${r.email || ''}","${r.telephone || ''}",${r.taux},"${r.samu}",${r.actif},"${r.created_at}"\n`;
+        });
+        
+        csv += '\n\n=== TABLE: SCHEDULE_DATA ===\n';
+        csv += 'id,resource_id,date_key,type,value,created_at\n';
+        schedule.forEach(s => {
+            csv += `${s.id},${s.resource_id},"${s.date_key}","${s.type}","${s.value}","${s.created_at}"\n`;
+        });
+        
+        csv += '\n\n=== TABLE: USERS ===\n';
+        csv += 'id,username,nom,prenom,email,is_admin,is_expert,is_user,resource_id,actif,created_at\n';
+        users.forEach(u => {
+            csv += `${u.id},"${u.username}","${u.nom}","${u.prenom}","${u.email}",${u.is_admin},${u.is_expert},${u.is_user},${u.resource_id || ''},${u.actif},"${u.created_at}"\n`;
+        });
+        
+        // Envoyer l'email avec le CSV en pièce jointe
+        await sendEmail(
+            email,
+            `Sauvegarde de la base de données - ${new Date().toLocaleDateString('fr-FR')}`,
+            `<h2>Sauvegarde de la base de données</h2>
+             <p>Veuillez trouver ci-joint la sauvegarde complète de la base de données du ${new Date().toLocaleString('fr-FR')}.</p>
+             <p><strong>Contenu du backup :</strong></p>
+             <ul>
+                <li>Ressources : ${resources.length} entrées</li>
+                <li>Données de planning : ${schedule.length} entrées</li>
+                <li>Utilisateurs : ${users.length} entrées</li>
+             </ul>`,
+            [{
+                filename: `backup_complet_${timestamp}.csv`,
+                content: Buffer.from('\ufeff' + csv, 'utf-8')
+            }]
+        );
+        
+        res.json({ success: true, message: 'Backup envoyé par email avec succès' });
+    } catch (error) {
+        console.error('Erreur envoi backup par email:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
 
 app.get('/api/backup/csv', requireAdmin, (req, res) => {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');

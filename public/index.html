@@ -110,7 +110,7 @@
         .legend-section-title { font-weight: bold; color: #2c3e50; margin-bottom: 8px; font-size: 13px; border-bottom: 1px solid #bdc3c7; padding-bottom: 5px; }
         .legend-items { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
         .legend-item { display: flex; align-items: center; font-size: 12px; }
-        .planif-controls { background-color: #ecf0f1; padding: 15px; border-radius: 5px; margin-bottom: 20px; display: flex; gap: 15px; align-items: flex-start; flex-wrap: wrap; }
+        .planif-controls { padding: 15px; border-radius: 5px; display: flex; gap: 15px; align-items: flex-start; flex-wrap: wrap; }
         .control-group { display: flex; flex-direction: column; gap: 5px; }
         .control-group label { margin-bottom: 0; }
         .control-group select { width: 150px; }
@@ -324,56 +324,64 @@
         <div id="planning" class="tab-content">
             <h2>Planification des ressources</h2>
             
-            <div class="planning-sticky-header">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                    <h3 style="margin: 0;">Options d'affichage</h3>
-                    <button onclick="togglePlanningControls()" style="background-color: #34495e; padding: 8px 15px;">
-                        <span id="toggleControlsIcon">▼</span> Masquer/Afficher
-                    </button>
+            <!-- SECTION 1: Options d'affichage (repliable) -->
+            <div class="form-section" style="background-color: #e8f5e9; border-left: 4px solid #4caf50;">
+                <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="togglePlanningSection('planningControlsSection')">
+                    <h3 style="color: #2e7d32; border-left: none; margin: 0;">
+                        <span id="planningControlsSectionIcon">▼</span> Options d'affichage
+                    </h3>
                 </div>
-                
-                <div id="planningControlsSection">
+                <div id="planningControlsSection" style="margin-top: 15px;">
                     <div class="planif-controls">
-                    <div class="control-group">
-                        <label>Année</label>
-                        <select id="yearSelect" onchange="updateGantt()">
-                            <option value="2025" selected>2025</option>
-                            <option value="2026">2026</option>
-                            <option value="2027">2027</option>
-                            <option value="2028">2028</option>
-                        </select>
-                    </div>
-                    <div class="control-group">
-                        <label>Mois</label>
-                        <select id="monthSelect" onchange="updateGantt()">
-                            <option value="0">Janvier</option>
-                            <option value="1">Février</option>
-                            <option value="2">Mars</option>
-                            <option value="3">Avril</option>
-                            <option value="4">Mai</option>
-                            <option value="5">Juin</option>
-                            <option value="6">Juillet</option>
-                            <option value="7">Août</option>
-                            <option value="8">Septembre</option>
-                            <option value="9" selected>Octobre</option>
-                            <option value="10">Novembre</option>
-                            <option value="11">Décembre</option>
-                        </select>
-                    </div>
-                    <div class="control-group resource-filter">
-                        <label>Filtrer ressource(s)</label>
-                        <select id="resourceFilter" multiple size="6" onchange="updateGantt()" style="height: auto;">
-                            <option value="" selected>Toutes les ressources</option>
-                        </select>
-                    </div>
-                    <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
-                        <button onclick="updateGantt()">Afficher</button>
-                        <button class="export-btn" onclick="exportGanttToExcel()">Excel</button>
-                        <button class="export-btn" onclick="window.print()">Imprimer A4</button>
+                        <div class="control-group">
+                            <label>Année</label>
+                            <select id="yearSelect" onchange="updateGantt()">
+                                <option value="2025" selected>2025</option>
+                                <option value="2026">2026</option>
+                                <option value="2027">2027</option>
+                                <option value="2028">2028</option>
+                            </select>
+                        </div>
+                        <div class="control-group">
+                            <label>Mois</label>
+                            <select id="monthSelect" onchange="updateGantt()">
+                                <option value="0">Janvier</option>
+                                <option value="1">Février</option>
+                                <option value="2">Mars</option>
+                                <option value="3">Avril</option>
+                                <option value="4">Mai</option>
+                                <option value="5">Juin</option>
+                                <option value="6">Juillet</option>
+                                <option value="7">Août</option>
+                                <option value="8">Septembre</option>
+                                <option value="9" selected>Octobre</option>
+                                <option value="10">Novembre</option>
+                                <option value="11">Décembre</option>
+                            </select>
+                        </div>
+                        <div class="control-group resource-filter">
+                            <label>Filtrer ressource(s)</label>
+                            <select id="resourceFilter" multiple size="6" onchange="updateGantt()" style="height: auto;">
+                                <option value="" selected>Toutes les ressources</option>
+                            </select>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
+                            <button onclick="updateGantt()">Afficher</button>
+                            <button class="export-btn" onclick="exportGanttToExcel()">Excel</button>
+                            <button class="export-btn" onclick="window.print()">Imprimer A4</button>
+                        </div>
                     </div>
                 </div>
-                
-                <div class="legend" id="planningLegendSection">
+            </div>
+            
+            <!-- SECTION 2: Légende (repliable) -->
+            <div class="form-section" style="background-color: #fff3cd; border-left: 4px solid #ffc107; margin-top: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="togglePlanningSection('planningLegendSection')">
+                    <h3 style="color: #856404; border-left: none; margin: 0;">
+                        <span id="planningLegendSectionIcon">▼</span> Légende
+                    </h3>
+                </div>
+                <div id="planningLegendSection" style="margin-top: 15px;">
                     <div class="legend-section">
                         <div class="legend-section-title">DISPONIBILITE</div>
                         <div class="legend-items">
@@ -381,7 +389,7 @@
                             <div class="legend-item"><span class="color-code" style="background-color: #27ae60;"></span> 2 - Disponible pour l'ANS</div>
                         </div>
                     </div>
-                    <div class="legend-section">
+                    <div class="legend-section" style="margin-top: 15px;">
                         <div class="legend-section-title">AFFECTATION</div>
                         <div class="legend-items">
                             <div class="legend-item"><span class="color-code" style="background-color: #95a5a6;"></span> 1 - Indisponible</div>
@@ -396,89 +404,195 @@
                     </div>
                 </div>
             </div>
-            </div>
             
-            <div class="gantt-wrapper" id="ganttWrapper">
-                <p style="text-align: center; padding: 20px; color: #7f8c8d;">Veuillez ajouter des ressources</p>
+            <!-- SECTION 3: Planification (repliable) -->
+            <div class="form-section" style="background-color: #e3f2fd; border-left: 4px solid #2196f3; margin-top: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="togglePlanningSection('ganttDisplaySection')">
+                    <h3 style="color: #1565c0; border-left: none; margin: 0;">
+                        <span id="ganttDisplaySectionIcon">▼</span> Planification
+                    </h3>
+                </div>
+                <div id="ganttDisplaySection" style="margin-top: 15px;">
+                    <div class="gantt-wrapper" id="ganttWrapper">
+                        <p style="text-align: center; padding: 20px; color: #7f8c8d;">Veuillez ajouter des ressources</p>
+                    </div>
+                </div>
             </div>
         </div>
         
-        <div id="admin" class="tab-content">
-            <h2>Administration - Gestion des utilisateurs</h2>
-            
-            <div class="form-section" style="background-color: #fff3cd; border-left: 4px solid #ffc107;">
-                <h3 style="color: #856404; border-left: none;">Configuration Email (SMTP)</h3>
-                <p style="margin-bottom: 10px; font-size: 12px; color: #856404;">
-                    Recommandé : Office 365 (smtp.office365.com:587) ou Gmail avec mot de passe d'application. 
-                    <a href="https://support.microsoft.com/fr-fr/office/param%C3%A8tres-pop-imap-et-smtp-pour-outlook-com-d088b986-291d-42b8-9564-9c414e2aa040" target="_blank" style="color: #856404;">Guide Office 365</a>
-                </p>
-                <div class="form-row">
-                    <div class="form-group"><label>Serveur SMTP</label><input type="text" id="smtpHost" placeholder="smtp.office365.com" value="smtp.office365.com"></div>
-                    <div class="form-group"><label>Port SMTP</label><input type="number" id="smtpPort" placeholder="587" value="587"></div>
-                    <div class="form-group"><label>Email expéditeur</label><input type="email" id="smtpUser" placeholder="votre-email@votredomaine.com"></div>
-                    <div class="form-group"><label>Mot de passe</label><input type="password" id="smtpPassword" placeholder="Mot de passe email"></div>
-                </div>
-                <div class="button-group">
-                    <button onclick="saveEmailConfig()">Sauvegarder la config email</button>
-                    <button onclick="testEmail()" style="background-color: #f39c12;">Tester l'envoi</button>
+
+<div id="admin" class="tab-content">
+    <h2>Administration</h2>
+    
+    <!-- SECTION 1: Configuration de la version -->
+    <div class="form-section" style="background-color: #e8f5e9; border-left: 4px solid #4caf50;">
+        <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleAdminSection('versionSection')">
+            <h3 style="color: #2e7d32; border-left: none; margin: 0;">
+                <span id="versionSectionIcon">▼</span> Configuration de la version
+            </h3>
+        </div>
+        <div id="versionSection" style="margin-top: 15px;">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Numéro de version</label>
+                    <input type="text" id="adminVersion" placeholder="Ex: 1.0.0" value="1.0.0">
                 </div>
             </div>
-            
-            <div class="form-section" style="background-color: #d1ecf1; border-left: 4px solid #17a2b8;">
-                <h3 style="color: #0c5460; border-left: none;">Sauvegarde de la base de données</h3>
-                <div class="button-group">
-                    <button class="export-btn" onclick="backupFullDatabase()">Télécharger backup complet (CSV)</button>
-                    <button class="export-btn" onclick="backupDatabaseSQL()" style="background-color: #6c757d;">Télécharger backup (SQL)</button>
-                </div>
-                <p style="margin-top: 10px; font-size: 12px; color: #0c5460;">Le backup CSV contient toutes les tables en format lisible. Le backup SQL permet une restauration complète.</p>
+            <div class="button-group">
+                <button onclick="saveAppVersion()">Sauvegarder la version</button>
             </div>
-            
-            <div class="form-section">
-                <h3>Ajouter un nouvel utilisateur</h3>
+            <p style="margin-top: 10px; font-size: 12px; color: #2e7d32;">
+                La version apparaîtra sur la mire de connexion pour tous les utilisateurs.
+            </p>
+        </div>
+    </div>
+    
+    <!-- SECTION 2: Configuration Email (repliable) -->
+    <div class="form-section" style="background-color: #fff3cd; border-left: 4px solid #ffc107;">
+        <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleAdminSection('emailSection')">
+            <h3 style="color: #856404; border-left: none; margin: 0;">
+                <span id="emailSectionIcon">▼</span> Configuration Email (SMTP)
+            </h3>
+        </div>
+        <div id="emailSection" style="margin-top: 15px;">
+            <p style="margin-bottom: 10px; font-size: 12px; color: #856404;">
+                Recommandé : Office 365 (smtp.office365.com:587) ou Gmail avec mot de passe d'application. 
+                <a href="https://support.microsoft.com/fr-fr/office" target="_blank" style="color: #856404;">Guide Office 365</a>
+            </p>
+            <div class="form-row">
+                <div class="form-group"><label>Serveur SMTP</label><input type="text" id="smtpHost" placeholder="smtp.office365.com" value="smtp.office365.com"></div>
+                <div class="form-group"><label>Port SMTP</label><input type="number" id="smtpPort" placeholder="587" value="587"></div>
+                <div class="form-group"><label>Email expéditeur</label><input type="email" id="smtpUser" placeholder="votre-email@votredomaine.com"></div>
+                <div class="form-group"><label>Mot de passe</label><input type="password" id="smtpPassword" placeholder="Mot de passe email"></div>
+            </div>
+            <div class="button-group">
+                <button onclick="saveEmailConfig()">Sauvegarder la config email</button>
+                <button onclick="testEmail()" style="background-color: #f39c12;">Tester l'envoi</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- SECTION 3: Sauvegarde de la base de données (repliable) -->
+    <div class="form-section" style="background-color: #d1ecf1; border-left: 4px solid #17a2b8;">
+        <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleAdminSection('backupSection')">
+            <h3 style="color: #0c5460; border-left: none; margin: 0;">
+                <span id="backupSectionIcon">▼</span> Sauvegarde de la base de données
+            </h3>
+        </div>
+        <div id="backupSection" style="margin-top: 15px;">
+            <div class="button-group">
+                <button class="export-btn" onclick="backupFullDatabase()">📥 Télécharger backup (CSV)</button>
+                <button class="export-btn" onclick="backupDatabaseSQL()" style="background-color: #6c757d;">📥 Télécharger backup (SQL)</button>
+            </div>
+            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #bee5eb;">
+                <h4 style="color: #0c5460; font-size: 13px; margin-bottom: 10px;">Envoyer le backup par email</h4>
                 <div class="form-row">
-                    <div class="form-group"><label>Nom *</label><input type="text" id="adminUserNom" placeholder="Nom"></div>
-                    <div class="form-group"><label>Prénom *</label><input type="text" id="adminUserPrenom" placeholder="Prénom"></div>
-                    <div class="form-group"><label>Login (prenom.nom) *</label><input type="text" id="adminUserUsername" placeholder="prenom.nom"></div>
-                    <div class="form-group"><label>Email *</label><input type="email" id="adminUserEmail" placeholder="email@example.com"></div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group"><label>Téléphone</label><input type="tel" id="adminUserTelephone" placeholder="+33 6 XX XX XX XX"></div>
                     <div class="form-group">
-                        <label>Mot de passe *</label>
-                        <div style="display: flex; gap: 5px;">
-                            <input type="password" id="adminUserPassword" placeholder="Mot de passe" style="flex: 1;">
-                            <button type="button" onclick="generatePassword()" style="padding: 8px 12px; background-color: #9b59b6;" title="Générer un mot de passe">🔑</button>
+                        <label>Adresse email de destination</label>
+                        <input type="email" id="backupEmail" placeholder="destinataire@example.com">
+                    </div>
+                </div>
+                <div class="button-group">
+                    <button class="export-btn" onclick="sendBackupByEmail()" style="background-color: #17a2b8;">
+                        📧 Envoyer par email
+                    </button>
+                </div>
+            </div>
+            <p style="margin-top: 10px; font-size: 12px; color: #0c5460;">
+                Le backup CSV contient toutes les tables en format lisible. Le backup SQL permet une restauration complète.
+            </p>
+        </div>
+    </div>
+    
+    <!-- SECTION 4: Ajouter un nouvel utilisateur (repliable) -->
+    <div class="form-section" style="background-color: #e3f2fd; border-left: 4px solid #2196f3;">
+        <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleAdminSection('addUserSection')">
+            <h3 style="color: #1565c0; border-left: none; margin: 0;">
+                <span id="addUserSectionIcon">▼</span> Ajouter un nouvel utilisateur
+            </h3>
+        </div>
+        <div id="addUserSection" style="margin-top: 15px;">
+            <div class="form-row">
+                <div class="form-group"><label>Nom *</label><input type="text" id="adminUserNom" placeholder="Nom"></div>
+                <div class="form-group"><label>Prénom *</label><input type="text" id="adminUserPrenom" placeholder="Prénom"></div>
+                <div class="form-group"><label>Login (prenom.nom) *</label><input type="text" id="adminUserUsername" placeholder="prenom.nom"></div>
+                <div class="form-group"><label>Email *</label><input type="email" id="adminUserEmail" placeholder="email@example.com"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Téléphone</label><input type="tel" id="adminUserTelephone" placeholder="+33 6 XX XX XX XX"></div>
+                <div class="form-group">
+                    <label>Mot de passe *</label>
+                    <div style="display: flex; gap: 5px;">
+                        <input type="password" id="adminUserPassword" placeholder="Mot de passe" style="flex: 1;">
+                        <button type="button" onclick="generatePassword()" style="padding: 8px 12px; background-color: #9b59b6;" title="Générer un mot de passe">🔑</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Profils * (au moins un requis)</label>
+                    <div class="checkbox-group">
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="adminProfileAdmin">
+                            <label for="adminProfileAdmin">Administrateur</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="adminProfileExpert">
+                            <label for="adminProfileExpert">Expert Métier</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="adminProfileUser">
+                            <label for="adminProfileUser">Utilisateur</label>
                         </div>
                     </div>
-                    <div class="form-group">
-                        <label>Profils * (au moins un requis)</label>
-                        <div class="checkbox-group">
-                            <div class="checkbox-item">
-                                <input type="checkbox" id="adminProfileAdmin">
-                                <label for="adminProfileAdmin">Administrateur</label>
-                            </div>
-                            <div class="checkbox-item">
-                                <input type="checkbox" id="adminProfileExpert">
-                                <label for="adminProfileExpert">Expert Métier</label>
-                            </div>
-                            <div class="checkbox-item">
-                                <input type="checkbox" id="adminProfileUser">
-                                <label for="adminProfileUser">Utilisateur</label>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="form-group" id="expertResourceGroup" style="display:none;">
-                        <label>Ressource associée (pour Expert Métier)</label>
-                        <select id="adminUserResource">
-                            <option value="">-- Sélectionner une ressource --</option>
-                        </select>
-                    </div>
                 </div>
-                <div class="button-group">
-                    <button onclick="addUser()">Créer l'utilisateur</button>
+                <div class="form-group" id="expertResourceGroup" style="display:none;">
+                    <label>Ressource associée (pour Expert Métier)</label>
+                    <select id="adminUserResource">
+                        <option value="">-- Sélectionner une ressource --</option>
+                    </select>
                 </div>
             </div>
-            
+            <div class="button-group">
+                <button onclick="addUser()">Créer l'utilisateur</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- SECTION 5: Logs de connexion (nouveau) -->
+    <div class="form-section" style="background-color: #f3e5f5; border-left: 4px solid #9c27b0;">
+        <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleAdminSection('logsSection')">
+            <h3 style="color: #6a1b9a; border-left: none; margin: 0;">
+                <span id="logsSectionIcon">▼</span> Logs de connexion (20 dernières)
+            </h3>
+        </div>
+        <div id="logsSection" style="margin-top: 15px;">
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Identifiant</th>
+                            <th>Nom</th>
+                            <th>Prénom</th>
+                            <th>Profil</th>
+                            <th>Date et heure</th>
+                            <th>Détails</th>
+                        </tr>
+                    </thead>
+                    <tbody id="connectionLogsList">
+                        <tr><td colspan="6" style="text-align:center; color: #7f8c8d;">Chargement...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- SECTION 6: Liste des utilisateurs (repliable) -->
+    <div class="form-section" style="margin-top: 20px; background-color: #fce4ec; border-left: 4px solid #e91e63;">
+        <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleAdminSection('usersListSection')">
+            <h3 style="color: #880e4f; border-left: none; margin: 0;">
+                <span id="usersListSectionIcon">▼</span> Liste des utilisateurs
+            </h3>
+        </div>
+        <div id="usersListSection" style="margin-top: 15px;">
             <div class="table-container">
                 <table id="usersTable">
                     <thead>
@@ -497,6 +611,24 @@
                 </table>
             </div>
         </div>
+    </div>
+</div>
+
+<!-- MODAL pour afficher les détails des logs -->
+<div id="logDetailsModal" class="modal">
+    <div class="modal-content" style="max-width: 600px;">
+        <h3>Détails de la connexion</h3>
+        <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 15px 0;">
+            <p style="margin-bottom: 10px;"><strong>Utilisateur:</strong> <span id="logDetailsUsername"></span></p>
+            <p style="margin-bottom: 10px;"><strong>Date et heure:</strong> <span id="logDetailsDate"></span></p>
+            <p style="margin-bottom: 10px;"><strong>Modifications:</strong></p>
+            <pre id="logDetailsContent" style="background-color: white; padding: 10px; border: 1px solid #ddd; border-radius: 3px; max-height: 300px; overflow-y: auto; font-size: 12px; white-space: pre-wrap;"></pre>
+        </div>
+        <div class="modal-button-group">
+            <button onclick="closeLogDetailsModal()">Fermer</button>
+        </div>
+    </div>
+</div>        </div>
     </div>
 
     <div id="loginPage" class="modal active" style="background: linear-gradient(135deg, #1D70B7 0%, #2980b9 100%);">
@@ -533,6 +665,9 @@
                 <div id="loginError" class="error-message"></div>
                 <div class="button-group" style="margin-top: 25px;">
                     <button onclick="handleLogin()" style="width: 100%; background: linear-gradient(135deg, #1D70B7 0%, #2980b9 100%); padding: 14px; font-size: 15px; font-weight: 600; border-radius: 8px; transition: all 0.3s; box-shadow: 0 4px 12px rgba(0, 0, 145, 0.3);" id="loginButton" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(0, 0, 145, 0.4)';" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(0, 0, 145, 0.3)';">Continuer</button>
+                </div>
+                <div style="text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+                    <span style="color: #95a5a6; font-size: 12px;">Version <span id="appVersion">1.0.0</span></span>
                 </div>
             </div>
         </div>
@@ -884,6 +1019,7 @@
                     
                     await loadResources();
                     await loadSchedule();
+                    loadAppVersion();  // NOUVEAU
                     setCurrentMonth();
                 } else {
                     document.getElementById('loginPage').classList.add('active');
@@ -1752,19 +1888,6 @@
         }
 
         // Fonction pour masquer/afficher les contrôles de planification
-        function togglePlanningControls() {
-            const section = document.getElementById('planningControlsSection');
-            const icon = document.getElementById('toggleControlsIcon');
-            
-            if (section.style.display === 'none') {
-                section.style.display = 'block';
-                icon.textContent = '▼';
-            } else {
-                section.style.display = 'none';
-                icon.textContent = '▶';
-            }
-        }
-
         async function resetResourceMonth(resourceId) {
             const year = parseInt(document.getElementById('yearSelect').value);
             const month = parseInt(document.getElementById('monthSelect').value);
@@ -1970,7 +2093,7 @@
                         // Ajouter la classe pour différencier AM (bordure fine) et PM (bordure épaisse)
                         const borderClass = period === 'AM' ? 'half-day-separator' : 'day-separator';
                         
-                        html += `<td class="${cellClass} ${borderClass}" style="min-width: 50px; max-width: 50px; width: 50px;">
+                        html += `<td class="${cellClass} ${borderClass}" data-date="${year}-${month+1}-${day}" style="min-width: 50px; max-width: 50px; width: 50px;">
                             <div class="gantt-cell-content">
                                 <div class="gantt-cell-row${rowDisabledClass}" style="background-color: ${isAccessible ? availBg : '#d0d0d0'}; color: white; font-size: 11px; min-height: 20px;" onclick="${isAccessible ? `toggleAvailability(${resource.id}, '${dateKey}', '${period}')` : 'return false;'}" title="${availTooltip} (${period})">${availValue}</div>
                                 <div class="gantt-cell-row${rowDisabledClass}" style="background-color: ${isAccessible ? actBg : '#d0d0d0'}; color: white; font-size: 11px; min-height: 20px;" onclick="${isAccessible ? `cycleActivity(${resource.id}, '${dateKey}', '${availValue}', '${period}')` : 'return false;'}" title="${actTooltip} (${period})">${actValue}</div>
@@ -2483,6 +2606,8 @@
             if (tabName === 'admin') {
                 loadUsers();
                 loadEmailConfig();
+                loadConnectionLogs();  // NOUVEAU
+                loadAppVersion();      // NOUVEAU
             }
             
             if (tabName === 'planning') {
@@ -2491,6 +2616,7 @@
                     updateResourceFilter();
                     updateGantt();
                 }
+                highlightToday();  // NOUVEAU
             }
         }
 
@@ -2559,6 +2685,251 @@
                 }
             });
         });
+
+        // ==================== NOUVELLES FONCTIONS ====================
+
+        // ========== GESTION DE LA VERSION ==========
+
+        async function loadAppVersion() {
+            try {
+                const response = await fetch(`${API_URL}/system/version`);
+                if (response.ok) {
+                    const data = await response.json();
+                    const versionElement = document.getElementById('appVersion');
+                    if (versionElement) {
+                        versionElement.textContent = data.version || '1.0.0';
+                    }
+                    const adminVersionInput = document.getElementById('adminVersion');
+                    if (adminVersionInput) {
+                        adminVersionInput.value = data.version || '1.0.0';
+                    }
+                }
+            } catch (error) {
+                console.error('Erreur chargement version:', error);
+            }
+        }
+
+        async function saveAppVersion() {
+            const version = document.getElementById('adminVersion').value.trim();
+            
+            if (!version) {
+                alert('Veuillez saisir un numéro de version');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/system/version`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ version })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    alert('✅ Version mise à jour avec succès');
+                    loadAppVersion();
+                } else {
+                    alert('❌ Erreur: ' + (data.error || 'Erreur inconnue'));
+                }
+            } catch (error) {
+                console.error('Erreur sauvegarde version:', error);
+                alert('Erreur lors de la sauvegarde');
+            }
+        }
+
+        // ========== GESTION DES LOGS DE CONNEXION ==========
+
+        async function loadConnectionLogs() {
+            try {
+                const response = await fetch(`${API_URL}/logs/connections`, { credentials: 'include' });
+                if (!response.ok) return;
+                
+                const data = await response.json();
+                const tbody = document.getElementById('connectionLogsList');
+                if (!tbody) return;
+                
+                tbody.innerHTML = '';
+                
+                if (!data.logs || data.logs.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color: #7f8c8d;">Aucun log de connexion</td></tr>';
+                    return;
+                }
+                
+                data.logs.forEach(log => {
+                    const tr = document.createElement('tr');
+                    const loginDate = new Date(log.login_time);
+                    const profileLabel = log.profile === 'admin' ? 'Administrateur' : 
+                                         log.profile === 'expert' ? 'Expert Métier' : 'Utilisateur';
+                    
+                    tr.innerHTML = `
+                        <td>${log.username}</td>
+                        <td>${log.nom}</td>
+                        <td>${log.prenom}</td>
+                        <td>${profileLabel}</td>
+                        <td>${loginDate.toLocaleString('fr-FR')}</td>
+                        <td>
+                            <button class="edit" onclick="showLogDetails(${log.id}, '${log.username.replace(/'/g, "\\'")}', '${loginDate.toLocaleString('fr-FR')}', '${(log.modifications || 'Aucune modification').replace(/'/g, "\\'")}')">
+                                Voir détails
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (error) {
+                console.error('Erreur chargement logs:', error);
+            }
+        }
+
+        function showLogDetails(logId, username, date, modifications) {
+            const modal = document.getElementById('logDetailsModal');
+            if (!modal) return;
+            document.getElementById('logDetailsUsername').textContent = username;
+            document.getElementById('logDetailsDate').textContent = date;
+            document.getElementById('logDetailsContent').textContent = modifications;
+            modal.classList.add('active');
+        }
+
+        function closeLogDetailsModal() {
+            const modal = document.getElementById('logDetailsModal');
+            if (modal) modal.classList.remove('active');
+        }
+
+        // ========== ENVOI DE BACKUP PAR EMAIL ==========
+
+        async function sendBackupByEmail() {
+            const email = document.getElementById('backupEmail').value.trim();
+            
+            if (!email) {
+                alert('Veuillez saisir une adresse email');
+                return;
+            }
+            
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                alert('Veuillez saisir une adresse email valide');
+                return;
+            }
+            
+            const confirmSend = confirm(`Envoyer le backup complet à l'adresse ${email} ?`);
+            if (!confirmSend) return;
+            
+            try {
+                const button = event.target;
+                button.disabled = true;
+                button.textContent = 'Envoi en cours...';
+                
+                const response = await fetch(`${API_URL}/backup/send-email`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ email })
+                });
+                
+                const data = await response.json();
+                
+                button.disabled = false;
+                button.textContent = 'Envoyer par email';
+                
+                if (data.success) {
+                    alert('✅ Backup envoyé par email avec succès !');
+                    document.getElementById('backupEmail').value = '';
+                } else {
+                    alert('❌ Erreur: ' + (data.error || 'Erreur inconnue'));
+                }
+            } catch (error) {
+                console.error('Erreur envoi backup:', error);
+                alert('Erreur lors de l\'envoi du backup');
+                event.target.disabled = false;
+                event.target.textContent = 'Envoyer par email';
+            }
+        }
+
+        // ========== GESTION DES SECTIONS REPLIABLES ==========
+
+        function toggleAdminSection(sectionId) {
+            const section = document.getElementById(sectionId);
+            const icon = document.getElementById(sectionId + 'Icon');
+            
+            if (!section || !icon) return;
+            
+            if (section.style.display === 'none') {
+                section.style.display = 'block';
+                icon.textContent = '▼';
+            } else {
+                section.style.display = 'none';
+                icon.textContent = '▶';
+            }
+        }
+
+        function togglePlanningSection(sectionId) {
+            const section = document.getElementById(sectionId);
+            const icon = document.getElementById(sectionId + 'Icon');
+            
+            if (!section || !icon) return;
+            
+            if (section.style.display === 'none') {
+                section.style.display = 'block';
+                icon.textContent = '▼';
+            } else {
+                section.style.display = 'none';
+                icon.textContent = '▶';
+            }
+        }
+
+        // ========== MISE EN ÉVIDENCE DU JOUR ACTUEL ==========
+
+        function highlightToday() {
+            const today = new Date();
+            const currentYear = today.getFullYear();
+            const currentMonth = today.getMonth();
+            const currentDay = today.getDate();
+            
+            const yearSelect = document.getElementById('yearSelect');
+            const monthSelect = document.getElementById('monthSelect');
+            
+            // Sélectionner le mois et l'année actuels
+            if (yearSelect && monthSelect) {
+                yearSelect.value = currentYear;
+                monthSelect.value = currentMonth;
+                
+                // Régénérer le planning avec le mois actuel
+                updateGantt();
+            }
+            
+            // Attendre que le Gantt soit généré, puis mettre en évidence aujourd'hui
+            setTimeout(() => {
+                // Mettre en évidence les cellules du jour actuel
+                const allCells = document.querySelectorAll('.gantt-cell');
+                allCells.forEach(cell => {
+                    const cellDate = cell.getAttribute('data-date');
+                    if (cellDate) {
+                        const [year, month, day] = cellDate.split('-').map(Number);
+                        if (year === currentYear && month === (currentMonth + 1) && day === currentDay) {
+                            cell.style.backgroundColor = '#fff9c4';
+                            // Supprimé: cell.style.border = '3px solid #000';
+                            cell.style.boxShadow = '0 0 10px rgba(251, 192, 45, 0.5)';
+                        }
+                    }
+                });
+                
+                // Mettre en évidence les en-têtes de colonne pour aujourd'hui
+                const headers = document.querySelectorAll('.day-header');
+                headers.forEach(header => {
+                    const headerText = header.textContent.trim();
+                    // Extraire le numéro du jour (ex: "Lun 5" -> 5)
+                    const dayMatch = headerText.match(/\d+/);
+                    if (dayMatch && parseInt(dayMatch[0]) === currentDay) {
+                        header.style.backgroundColor = '#fbc02d';
+                        header.style.fontWeight = 'bold';
+                        // Supprimé: header.style.border = '3px solid #000';
+                    }
+                });
+            }, 500);
+        }
+
+        // Charger la version au démarrage de la page
+        loadAppVersion();
     </script>
 </body>
 </html>
