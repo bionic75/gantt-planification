@@ -33,7 +33,8 @@ app.use(session({
         maxAge: 24 * 60 * 60 * 1000
     }
 }));
-app.use(express.static(path.join(__dirname, 'public')));
+
+// NOTE: express.static sera défini APRÈS les routes API pour éviter les conflits
 
 // Initialiser la base de données SQLite
 const database = new sqlite3.Database(config.DB_PATH + '/data.db', (err) => 
@@ -215,47 +216,21 @@ function initDB() {
             is_user INTEGER DEFAULT 0,
             resource_id INTEGER,
             actif INTEGER DEFAULT 1,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (resource_id) REFERENCES resources(id)
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     `, (err) => {
         if (err) {
             console.error('Erreur création table users:', err);
         } else {
-            // Vérifier si la colonne telephone existe
-            database.get(`PRAGMA table_info(users)`, [], (err, rows) => {
-                if (!err) {
-                    database.all(`PRAGMA table_info(users)`, [], (err, columns) => {
-                        const hasTelephone = columns.some(col => col.name === 'telephone');
-                        
-                        if (!hasTelephone) {
-                            console.log('⚠️  Migration: Ajout de la colonne telephone à la table users...');
-                            database.run(`ALTER TABLE users ADD COLUMN telephone TEXT`, (err) => {
-                                if (err) {
-                                    console.error('❌ Erreur ajout colonne telephone:', err.message);
-                                } else {
-                                    console.log('✅ Colonne telephone ajoutée avec succès');
-                                }
-                            });
-                        } else {
-                            console.log('✅ Colonne telephone déjà présente');
-                        }
-                    });
-                }
-            });
-            
-            database.get('SELECT * FROM users WHERE is_admin = 1', [], (err, row) => {
+            database.get('SELECT * FROM users WHERE username = ?', ['admin'], (err, row) => {
                 if (!row) {
-                    database.run(`
-                        INSERT INTO users (username, password, nom, prenom, email, is_admin, is_expert, is_user)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    `, ['admin', hashPassword('Admin2025!'), 'Administrateur', 'Système', 'admin@example.com', 1, 0, 0], (err) => {
-                        if (err) {
-                            console.error('Erreur création admin:', err);
-                        } else {
-                            console.log('Compte admin créé: admin / Admin2025!');
-                        }
-                    });
+                    const hashedPwd = hashPassword('Admin2025!');
+                    database.run(
+                        `INSERT INTO users (username, password, nom, prenom, email, is_admin) 
+                         VALUES (?, ?, ?, ?, ?, ?)`,
+                        ['admin', hashedPwd, 'Admin', 'Système', 'admin@example.com', 1],
+                        () => console.log('Compte admin créé')
+                    );
                 }
             });
         }
@@ -263,7 +238,7 @@ function initDB() {
 
     database.run(`
         CREATE TABLE IF NOT EXISTS email_config (
-            id INTEGER PRIMARY KEY CHECK (id = 1),
+            id INTEGER PRIMARY KEY,
             host TEXT NOT NULL,
             port INTEGER NOT NULL,
             secure INTEGER DEFAULT 0,
@@ -275,89 +250,107 @@ function initDB() {
         if (err) {
             console.error('Erreur création table email_config:', err);
         } else {
-            // Charger la configuration email existante
-            loadEmailConfig();
-        }
-    });
-
-    // Table pour la configuration système (numéro de version)
-    database.run(`
-        CREATE TABLE IF NOT EXISTS system_config (
-            id INTEGER PRIMARY KEY CHECK (id = 1),
-            version TEXT NOT NULL DEFAULT '1.0.0',
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    `, (err) => {
-        if (err) {
-            console.error('Erreur création table system_config:', err);
-        } else {
-            // Initialiser la version par défaut si elle n'existe pas
-            database.get('SELECT * FROM system_config WHERE id = 1', [], (err, row) => {
-                if (!row) {
-                    database.run('INSERT INTO system_config (id, version) VALUES (1, ?)', ['1.0.0'], (err) => {
-                        if (err) console.error('Erreur init version:', err);
-                        else console.log('✅ Version initiale configurée: 1.0.0');
-                    });
+            database.get('SELECT * FROM email_config WHERE id = 1', [], (err, row) => {
+                if (row) {
+                    emailConfig = {
+                        host: row.host,
+                        port: row.port,
+                        secure: row.secure === 1,
+                        user: row.user,
+                        password: row.password
+                    };
+                    console.log('✅ Configuration email chargée depuis DB');
                 }
             });
         }
     });
 
-    // Table pour les logs de connexion
+    database.run(`
+        CREATE TABLE IF NOT EXISTS system_config (
+            id INTEGER PRIMARY KEY,
+            version TEXT NOT NULL,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    `, (err) => {
+        if (err) console.error('Erreur création table system_config:', err);
+    });
+
     database.run(`
         CREATE TABLE IF NOT EXISTS connection_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
             username TEXT NOT NULL,
             nom TEXT NOT NULL,
             prenom TEXT NOT NULL,
-            profile TEXT,
+            profile TEXT NOT NULL,
             login_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-            modifications TEXT,
-            FOREIGN KEY (user_id) REFERENCES users(id)
+            modifications TEXT DEFAULT ''
         )
     `, (err) => {
         if (err) console.error('Erreur création table connection_logs:', err);
-        else console.log('✅ Table connection_logs créée');
     });
 }
 
-// Charger la configuration email depuis la base de données
-function loadEmailConfig() {
-    database.get('SELECT * FROM email_config WHERE id = 1', [], (err, row) => {
-        if (err) {
-            console.error('Erreur chargement config email:', err);
-        } else if (row) {
-            emailConfig = {
-                host: row.host,
-                port: row.port,
-                secure: row.secure === 1,
-                user: row.user,
-                password: row.password
-            };
-            console.log('Configuration email chargée depuis la base de données');
-        }
-    });
-}
+// ==================== MIDDLEWARE AUTH ====================
 
-// Middleware d'authentification
-function requireAuth(req, res, next) {
-    if (req.session && req.session.userId) {
-        next();
-    } else {
-        res.status(401).json({ error: 'Non authentifié' });
+function logUserAction(req, action, details = {}) {
+    if (!req.session || !req.session.logId) {
+        return;
     }
+    
+    const timestamp = new Date().toISOString();
+    const actionLog = {
+        timestamp,
+        action,
+        details,
+        profile: req.session.activeProfile
+    };
+    
+    database.get(
+        'SELECT modifications FROM connection_logs WHERE id = ?',
+        [req.session.logId],
+        (err, row) => {
+            if (err) {
+                console.error('Erreur lecture log:', err);
+                return;
+            }
+            
+            let modifications = [];
+            if (row && row.modifications) {
+                try {
+                    modifications = JSON.parse(row.modifications);
+                } catch (e) {
+                    modifications = [];
+                }
+            }
+            
+            modifications.push(actionLog);
+            
+            database.run(
+                'UPDATE connection_logs SET modifications = ? WHERE id = ?',
+                [JSON.stringify(modifications), req.session.logId],
+                (err) => {
+                    if (err) console.error('Erreur update log:', err);
+                }
+            );
+        }
+    );
+}
+
+function requireAuth(req, res, next) {
+    if (!req.session || !req.session.userId) {
+        return res.status(401).json({ error: 'Non authentifié' });
+    }
+    next();
 }
 
 function requireAdmin(req, res, next) {
-    if (req.session && req.session.userId && req.session.activeProfile === 'admin') {
-        next();
-    } else {
-        res.status(403).json({ error: 'Accès refusé - Admin uniquement' });
+    if (!req.session || !req.session.userId || req.session.activeProfile !== 'admin') {
+        return res.status(403).json({ error: 'Accès réservé aux administrateurs' });
     }
+    next();
 }
 
-// ==================== API AUTHENTIFICATION ====================
+// ==================== API CONNEXION ====================
 
 app.post('/api/login', (req, res) => {
     const { username, password, profile } = req.body;
@@ -368,77 +361,191 @@ app.post('/api/login', (req, res) => {
 
     const hashedPassword = hashPassword(password);
     
-    database.get('SELECT * FROM users WHERE username = ? AND password = ? AND actif = 1', 
-        [username, hashedPassword], 
+    database.get(
+        'SELECT * FROM users WHERE username = ? AND password = ? AND actif = 1',
+        [username, hashedPassword],
         (err, user) => {
             if (err) {
                 console.error('Erreur login:', err);
-                return res.status(500).json({ error: 'Erreur serveur' });
+                return res.status(500).json({ error: err.message });
             }
             
             if (!user) {
                 return res.status(401).json({ error: 'Identifiants incorrects' });
             }
             
-            // Vérifier si l'utilisateur a le droit d'utiliser ce profil
-            let hasProfile = false;
-            let profileField = '';
+            let profileValid = false;
+            if (profile === 'admin' && user.is_admin === 1) profileValid = true;
+            if (profile === 'expert' && user.is_expert === 1) profileValid = true;
+            if (profile === 'user' && user.is_user === 1) profileValid = true;
             
-            switch(profile) {
-                case 'admin':
-                    hasProfile = user.is_admin === 1;
-                    profileField = 'is_admin';
-                    break;
-                case 'expert':
-                    hasProfile = user.is_expert === 1;
-                    profileField = 'is_expert';
-                    break;
-                case 'user':
-                    hasProfile = user.is_user === 1;
-                    profileField = 'is_user';
-                    break;
-                default:
-                    return res.status(400).json({ error: 'Profil invalide' });
-            }
-            
-            if (!hasProfile) {
-                return res.status(403).json({ 
-                    error: `Vous n'êtes pas autorisé à utiliser le profil "${profile === 'admin' ? 'Administrateur' : profile === 'expert' ? 'Expert métier' : 'Utilisateur'}". Veuillez sélectionner un profil pour lequel vous avez les droits.` 
-                });
+            if (!profileValid) {
+                return res.status(403).json({ error: 'Profil non autorisé' });
             }
             
             req.session.userId = user.id;
             req.session.username = user.username;
-            req.session.activeProfile = profile;
             req.session.nom = user.nom;
             req.session.prenom = user.prenom;
+            req.session.activeProfile = profile;
             req.session.resourceId = user.resource_id;
             
             // Logger la connexion
+            console.log(`📝 Tentative de log connexion pour: ${user.username} (${profile})`);
             database.run(
-                `INSERT INTO connection_logs (user_id, username, nom, prenom, profile) 
-                 VALUES (?, ?, ?, ?, ?)`,
-                [user.id, user.username, user.nom, user.prenom, profile],
-                (err) => {
-                    if (err) console.error('Erreur log connexion:', err);
+                `INSERT INTO connection_logs (username, nom, prenom, profile) VALUES (?, ?, ?, ?)`,
+                [user.username, user.nom, user.prenom, profile],
+                function(err) {
+                    if (err) {
+                        console.error('❌ Erreur log connexion:', err);
+                    } else {
+                        console.log(`✅ Log connexion créé avec ID: ${this.lastID}`);
+                        // Sauvegarder l'ID du log dans la session
+                        req.session.logId = this.lastID;
+                    }
+                    
+                    // Répondre APRÈS avoir tenté d'insérer le log
+                    res.json({ 
+                        success: true,
+                        user: {
+                            id: user.id,
+                            username: user.username,
+                            nom: user.nom,
+                            prenom: user.prenom,
+                            activeProfile: profile,
+                            resourceId: user.resource_id
+                        }
+                    });
                 }
             );
-            
-            res.json({ 
-                success: true, 
-                user: { 
-                    id: user.id,
-                    username: user.username,
-                    nom: user.nom,
-                    prenom: user.prenom,
-                    activeProfile: profile,
-                    resourceId: user.resource_id
-                }
-            });
         }
     );
 });
 
+app.post('/api/logout', (req, res) => {
+    req.session.destroy();
+    res.json({ success: true });
+});
+
+// Route pour mot de passe oublié
+app.post('/api/forgot-password', async (req, res) => {
+    const { username } = req.body;
+    
+    if (!username) {
+        return res.status(400).json({ error: 'Identifiant requis' });
+    }
+    
+    database.get(
+        'SELECT id, nom, prenom, email FROM users WHERE username = ? AND actif = 1',
+        [username],
+        async (err, user) => {
+            if (err) {
+                console.error('Erreur récup user:', err);
+                return res.status(500).json({ error: err.message });
+            }
+            
+            if (!user) {
+                return res.status(404).json({ error: 'Utilisateur non trouvé ou compte désactivé' });
+            }
+            
+            // Générer un mot de passe temporaire
+            const tempPassword = crypto.randomBytes(4).toString('hex').toUpperCase();
+            const hashedPassword = hashPassword(tempPassword);
+            
+            // Mettre à jour le mot de passe
+            database.run(
+                'UPDATE users SET password = ? WHERE id = ?',
+                [hashedPassword, user.id],
+                async (err) => {
+                    if (err) {
+                        console.error('Erreur update password:', err);
+                        return res.status(500).json({ error: err.message });
+                    }
+                    
+                    // Logger la réinitialisation (sans session, on crée un log simple)
+                    database.run(
+                        `INSERT INTO connection_logs (username, nom, prenom, profile, modifications) 
+                         VALUES (?, ?, ?, 'system', ?)`,
+                        [
+                            username, 
+                            user.nom, 
+                            user.prenom, 
+                            JSON.stringify([{
+                                timestamp: new Date().toISOString(),
+                                action: 'Réinitialisation mot de passe',
+                                details: { userId: user.id }
+                            }])
+                        ]
+                    );
+                    
+                    let emailSent = false;
+                    let emailError = null;
+                    
+                    // Tenter d'envoyer l'email si configuré
+                    if (emailConfig.user && user.email) {
+                        try {
+                            await sendEmail(
+                                user.email,
+                                'Réinitialisation de votre mot de passe',
+                                `
+                                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                                    <h2 style="color: #2c3e50;">Réinitialisation de mot de passe</h2>
+                                    <p>Bonjour ${user.prenom} ${user.nom},</p>
+                                    <p>Votre mot de passe a été réinitialisé avec succès.</p>
+                                    <div style="background-color: #ecf0f1; padding: 20px; border-radius: 5px; margin: 20px 0;">
+                                        <p style="margin: 5px 0;"><strong>Identifiant :</strong> ${username}</p>
+                                        <p style="margin: 5px 0;"><strong>Nouveau mot de passe temporaire :</strong> ${tempPassword}</p>
+                                    </div>
+                                    <p style="color: #e74c3c; font-weight: bold;">⚠️ Veuillez changer ce mot de passe lors de votre prochaine connexion.</p>
+                                    <p style="color: #7f8c8d; font-size: 12px; margin-top: 30px;">Si vous n'êtes pas à l'origine de cette demande, veuillez contacter un administrateur immédiatement.</p>
+                                </div>
+                                `
+                            );
+                            emailSent = true;
+                        } catch (error) {
+                            console.error('Erreur envoi email:', error);
+                            emailError = error.message;
+                        }
+                    }
+                    
+                    if (emailSent) {
+                        res.json({
+                            success: true,
+                            emailSent: true,
+                            message: 'Un email avec votre nouveau mot de passe a été envoyé à votre adresse email.'
+                        });
+                    } else {
+                        res.json({
+                            success: true,
+                            emailSent: false,
+                            tempPassword: tempPassword,
+                            message: user.email 
+                                ? `Impossible d'envoyer l'email. Votre nouveau mot de passe temporaire est : ${tempPassword}`
+                                : `Aucun email configuré. Votre nouveau mot de passe temporaire est : ${tempPassword}`
+                        });
+                    }
+                }
+            );
+        }
+    );
+});
+
+app.get('/api/check-session', (req, res) => {
+    if (req.session && req.session.userId) {
+        res.json({
+            userId: req.session.userId,
+            username: req.session.username,
+            nom: req.session.nom,
+            prenom: req.session.prenom,
+            activeProfile: req.session.activeProfile,
+            resourceId: req.session.resourceId
+        });
+    } else {
+        res.status(401).json({ authenticated: false });
+    }
+});
+
+// Route pour obtenir les profils disponibles d'un utilisateur
 app.get('/api/user/profiles', (req, res) => {
     const { username } = req.query;
     
@@ -446,16 +553,21 @@ app.get('/api/user/profiles', (req, res) => {
         return res.status(400).json({ error: 'Username requis' });
     }
     
-    database.get('SELECT is_admin, is_expert, is_user FROM users WHERE username = ? AND actif = 1', 
-        [username], 
+    database.get(
+        'SELECT is_admin, is_expert, is_user, actif FROM users WHERE username = ?',
+        [username],
         (err, user) => {
             if (err) {
-                console.error('Erreur récupération profils:', err);
-                return res.status(500).json({ error: 'Erreur serveur' });
+                console.error('Erreur récup profils:', err);
+                return res.status(500).json({ error: err.message });
             }
             
             if (!user) {
                 return res.json({ profiles: [] });
+            }
+            
+            if (user.actif !== 1) {
+                return res.json({ profiles: [], error: 'Compte désactivé' });
             }
             
             const profiles = [];
@@ -468,162 +580,32 @@ app.get('/api/user/profiles', (req, res) => {
     );
 });
 
-app.post('/api/logout', (req, res) => {
-    req.session.destroy((err) => {
-        if (err) {
-            return res.status(500).json({ error: 'Erreur logout' });
-        }
-        res.json({ success: true });
-    });
-});
-
-// Stockage en mémoire des demandes de reset (username -> timestamp)
-const resetPasswordRequests = new Map();
-
-app.post('/api/forgot-password', async (req, res) => {
-    const { username } = req.body;
+// Route pour obtenir l'email d'un utilisateur associé à une ressource
+app.get('/api/user/email-by-resource/:resourceId', requireAuth, (req, res) => {
+    const { resourceId } = req.params;
     
-    if (!username) {
-        return res.status(400).json({ error: 'Nom d\'utilisateur requis' });
-    }
-    
-    // Vérifier la temporisation de 30 secondes
-    const lastRequest = resetPasswordRequests.get(username);
-    const now = Date.now();
-    
-    if (lastRequest && (now - lastRequest) < 30000) {
-        const remainingSeconds = Math.ceil((30000 - (now - lastRequest)) / 1000);
-        return res.status(429).json({ 
-            error: `Veuillez attendre ${remainingSeconds} secondes avant de redemander un nouveau mot de passe`,
-            remainingSeconds 
-        });
-    }
-    
-    // Rechercher l'utilisateur
-    database.get('SELECT * FROM users WHERE username = ? AND actif = 1', [username], async (err, user) => {
-        if (err) {
-            console.error('Erreur recherche user:', err);
-            // On renvoie un message générique pour la sécurité
-            return res.json({ success: true, message: 'Si cet utilisateur existe, un email a été envoyé' });
-        }
-        
-        if (!user || !user.email) {
-            // On renvoie un message générique pour ne pas révéler si l'utilisateur existe
-            return res.json({ success: true, message: 'Si cet utilisateur existe, un email a été envoyé' });
-        }
-        
-        // Générer un nouveau mot de passe
-        const newPassword = generateRandomPassword();
-        const hashedPassword = hashPassword(newPassword);
-        
-        // Mettre à jour le mot de passe
-        database.run('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, user.id], async (err) => {
+    database.get(
+        'SELECT email, nom, prenom FROM users WHERE resource_id = ? AND actif = 1 LIMIT 1',
+        [resourceId],
+        (err, user) => {
             if (err) {
-                console.error('Erreur update password:', err);
-                return res.status(500).json({ error: 'Erreur lors de la réinitialisation' });
+                console.error('Erreur récup email user:', err);
+                return res.status(500).json({ error: err.message });
             }
             
-            // Enregistrer la demande avec timestamp
-            resetPasswordRequests.set(username, now);
-            
-            // Nettoyer les anciennes demandes (plus de 5 minutes)
-            for (const [key, timestamp] of resetPasswordRequests.entries()) {
-                if (now - timestamp > 300000) {
-                    resetPasswordRequests.delete(key);
-                }
-            }
-            
-            // Envoyer l'email
-            let emailSent = false;
-            let emailError = null;
-            
-            console.log(`🔄 Tentative d'envoi email pour reset password à: ${user.email}`);
-            
-            try {
-                await sendEmail(
-                    user.email,
-                    'Réinitialisation de votre mot de passe - Planification GANTT',
-                    `
-                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                        <h2 style="color: #2c3e50;">Réinitialisation de mot de passe</h2>
-                        <p>Bonjour ${user.prenom} ${user.nom},</p>
-                        <p>Vous avez demandé la réinitialisation de votre mot de passe.</p>
-                        <div style="background-color: #ecf0f1; padding: 20px; border-radius: 5px; margin: 20px 0;">
-                            <p style="margin: 5px 0;"><strong>Nom d'utilisateur :</strong> ${user.username}</p>
-                            <p style="margin: 5px 0;"><strong>Nouveau mot de passe :</strong> <code style="background-color: #fff; padding: 5px 10px; border-radius: 3px; font-size: 16px;">${newPassword}</code></p>
-                        </div>
-                        <p style="color: #e74c3c; font-weight: bold;">⚠️ Pour des raisons de sécurité, veuillez changer ce mot de passe dès votre première connexion.</p>
-                        <p style="color: #7f8c8d; font-size: 12px; margin-top: 30px;">Si vous n'avez pas demandé cette réinitialisation, veuillez contacter un administrateur immédiatement.</p>
-                    </div>
-                    `
-                );
-                emailSent = true;
-                console.log(`✅ Email envoyé avec succès pour reset password`);
-            } catch (error) {
-                emailSent = false;
-                emailError = error.message || 'Erreur inconnue';
-                console.error('❌ Erreur envoi email forgot password:', error);
-                console.error('Détails erreur:', emailError);
-            }
-            
-            if (emailSent) {
-                res.json({ 
-                    success: true, 
-                    message: 'Un nouveau mot de passe a été envoyé à votre adresse email',
-                    emailSent: true 
-                });
+            if (user && user.email) {
+                res.json({ email: user.email, nom: user.nom, prenom: user.prenom });
             } else {
-                // Si l'email échoue, on renvoie le mot de passe dans la réponse (temporaire pour debug)
-                console.log(`⚠️ Mot de passe généré mais email non envoyé: ${newPassword}`);
-                res.json({ 
-                    success: true, 
-                    message: `Mot de passe réinitialisé mais l'email n'a pas pu être envoyé. Votre nouveau mot de passe est : ${newPassword}`,
-                    emailSent: false,
-                    tempPassword: newPassword,  // ATTENTION: À retirer en production
-                    emailError: emailError
-                });
+                res.json({ email: null });
             }
-        });
-    });
-});
-
-// Fonction pour générer un mot de passe aléatoire
-function generateRandomPassword() {
-    const length = 12;
-    const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    const lowercase = 'abcdefghijklmnopqrstuvwxyz';
-    const numbers = '0123456789';
-    const symbols = '!@#$%&*';
-    const allChars = uppercase + lowercase + numbers + symbols;
-    
-    let password = '';
-    password += uppercase[Math.floor(Math.random() * uppercase.length)];
-    password += lowercase[Math.floor(Math.random() * lowercase.length)];
-    password += numbers[Math.floor(Math.random() * numbers.length)];
-    password += symbols[Math.floor(Math.random() * symbols.length)];
-    
-    for (let i = password.length; i < length; i++) {
-        password += allChars[Math.floor(Math.random() * allChars.length)];
-    }
-    
-    return password.split('').sort(() => Math.random() - 0.5).join('');
-}
-
-app.get('/api/session', requireAuth, (req, res) => {
-    res.json({
-        userId: req.session.userId,
-        username: req.session.username,
-        activeProfile: req.session.activeProfile,
-        nom: req.session.nom,
-        prenom: req.session.prenom,
-        resourceId: req.session.resourceId
-    });
+        }
+    );
 });
 
 // ==================== API RESSOURCES ====================
 
 app.get('/api/resources', requireAuth, (req, res) => {
-    database.all('SELECT * FROM resources ORDER BY prenom', (err, rows) => {
+    database.all('SELECT * FROM resources ORDER BY nom, prenom', (err, rows) => {
         if (err) {
             console.error('Erreur récup resources:', err);
             res.status(500).json({ error: err.message });
@@ -636,64 +618,71 @@ app.get('/api/resources', requireAuth, (req, res) => {
 app.post('/api/resources', requireAdmin, (req, res) => {
     const { nom, prenom, trigramme, email, telephone, taux, samu, date_debut, date_fin } = req.body;
     
-    // Vérifier si le trigramme existe déjà
-    database.get('SELECT id FROM resources WHERE trigramme = ? AND actif = 1', [trigramme], (err, existing) => {
-        if (err) {
-            console.error('Erreur vérification trigramme:', err);
-            return res.status(500).json({ error: 'Erreur lors de la vérification du trigramme' });
-        }
-        
-        if (existing) {
-            return res.status(400).json({ error: `Le trigramme "${trigramme}" est déjà utilisé par une ressource active` });
-        }
-        
-        // Si le trigramme est libre, on peut insérer
-        database.run(
-            `INSERT INTO resources (nom, prenom, trigramme, email, telephone, taux, samu, date_debut, date_fin) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [nom, prenom, trigramme, email, telephone, taux, samu, date_debut, date_fin],
-            function(err) {
-                if (err) {
-                    console.error('Erreur ajout resource:', err);
-                    res.status(500).json({ error: err.message });
-                } else {
-                    res.json({ id: this.lastID, success: true });
-                }
+    if (!nom || !prenom || !trigramme || !taux || !samu) {
+        return res.status(400).json({ error: 'Champs obligatoires manquants' });
+    }
+
+    database.run(
+        `INSERT INTO resources (nom, prenom, trigramme, email, telephone, taux, samu, date_debut, date_fin) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [nom, prenom, trigramme, email || null, telephone || null, taux, samu, date_debut || null, date_fin || null],
+        function(err) {
+            if (err) {
+                console.error('Erreur ajout resource:', err);
+                res.status(500).json({ error: err.message });
+            } else {
+                logUserAction(req, 'Création ressource', { 
+                    resourceId: this.lastID, 
+                    nom, 
+                    prenom, 
+                    trigramme 
+                });
+                res.json({ id: this.lastID, success: true });
             }
-        );
-    });
+        }
+    );
 });
 
 app.put('/api/resources/:id', requireAdmin, (req, res) => {
     const { nom, prenom, trigramme, email, telephone, taux, samu, date_debut, date_fin } = req.body;
     const { id } = req.params;
     
-    // Vérifier si le trigramme existe déjà (sauf pour cette ressource)
-    database.get('SELECT id FROM resources WHERE trigramme = ? AND actif = 1 AND id != ?', [trigramme, id], (err, existing) => {
-        if (err) {
-            console.error('Erreur vérification trigramme:', err);
-            return res.status(500).json({ error: 'Erreur lors de la vérification du trigramme' });
-        }
-        
-        if (existing) {
-            return res.status(400).json({ error: `Le trigramme "${trigramme}" est déjà utilisé par une autre ressource` });
-        }
-        
-        // Si le trigramme est libre, on peut mettre à jour
-        database.run(
-            `UPDATE resources 
-             SET nom = ?, prenom = ?, trigramme = ?, email = ?, telephone = ?, taux = ?, samu = ?, date_debut = ?, date_fin = ?
-             WHERE id = ?`,
-            [nom, prenom, trigramme, email, telephone, taux, samu, date_debut, date_fin, id],
-            (err) => {
-                if (err) {
-                    console.error('Erreur update resource:', err);
-                    res.status(500).json({ error: err.message });
-                } else {
-                    res.json({ success: true });
-                }
+    database.run(
+        `UPDATE resources 
+         SET nom = ?, prenom = ?, trigramme = ?, email = ?, telephone = ?, taux = ?, samu = ?, date_debut = ?, date_fin = ?
+         WHERE id = ?`,
+        [nom, prenom, trigramme, email || null, telephone || null, taux, samu, date_debut || null, date_fin || null, id],
+        (err) => {
+            if (err) {
+                console.error('Erreur update resource:', err);
+                res.status(500).json({ error: err.message });
+            } else {
+                logUserAction(req, 'Modification ressource', { 
+                    resourceId: id, 
+                    nom, 
+                    prenom, 
+                    trigramme 
+                });
+                res.json({ success: true });
             }
-        );
+        }
+    );
+});
+
+app.delete('/api/resources/:id', requireAdmin, (req, res) => {
+    const { id } = req.params;
+    
+    database.run('DELETE FROM resources WHERE id = ?', [id], (err) => {
+        if (err) {
+            console.error('Erreur suppression resource:', err);
+            res.status(500).json({ error: err.message });
+        } else {
+            logUserAction(req, 'Suppression ressource', { resourceId: id });
+            database.run('DELETE FROM schedule_data WHERE resource_id = ?', [id], (err2) => {
+                if (err2) console.error('Erreur suppression schedule:', err2);
+                res.json({ success: true });
+            });
+        }
     });
 });
 
@@ -720,33 +709,7 @@ app.post('/api/resources/:id/toggle', requireAdmin, (req, res) => {
     });
 });
 
-app.delete('/api/resources/:id', requireAdmin, (req, res) => {
-    const { id } = req.params;
-    
-    database.get('SELECT COUNT(*) as count FROM schedule_data WHERE resource_id = ?', [id], (err, row) => {
-        if (err) {
-            console.error('Erreur vérification:', err);
-            res.status(500).json({ error: err.message });
-            return;
-        }
-        
-        if (row.count > 0) {
-            res.status(400).json({ error: 'Impossible de supprimer : des données de planification existent pour cette ressource' });
-            return;
-        }
-        
-        database.run('DELETE FROM resources WHERE id = ?', [id], (err) => {
-            if (err) {
-                console.error('Erreur suppression resource:', err);
-                res.status(500).json({ error: err.message });
-            } else {
-                res.json({ success: true });
-            }
-        });
-    });
-});
-
-// ==================== API PLANIFICATION ====================
+// ==================== API PLANNING ====================
 
 app.get('/api/schedule', requireAuth, (req, res) => {
     database.all('SELECT * FROM schedule_data', (err, rows) => {
@@ -785,7 +748,8 @@ app.post('/api/schedule', requireAuth, (req, res) => {
         const parts = key.split('_');
         const resourceId = parts[0];
         const type = parts[1];
-        const dateKey = parts.slice(2).join('-');
+        // FIX MAJEUR : Utiliser join('_') au lieu de join('-') pour préserver le format des clés
+        const dateKey = parts.slice(2).join('_');
         
         // Vérification des droits pour Expert métier
         if (req.session.activeProfile === 'expert') {
@@ -793,6 +757,10 @@ app.post('/api/schedule', requireAuth, (req, res) => {
             if (parseInt(resourceId) !== req.session.resourceId) {
                 completed++;
                 if (completed === total) {
+                    logUserAction(req, 'Sauvegarde planning', { 
+                        modificationsCount: total - (updates.length - completed),
+                        profile: req.session.activeProfile
+                    });
                     res.json({ success: true, saved: total });
                 }
                 return;
@@ -805,6 +773,10 @@ app.post('/api/schedule', requireAuth, (req, res) => {
             if (type === 'available') {
                 completed++;
                 if (completed === total) {
+                    logUserAction(req, 'Sauvegarde planning', { 
+                        modificationsCount: total - (updates.length - completed),
+                        profile: req.session.activeProfile
+                    });
                     res.json({ success: true, saved: total });
                 }
                 return;
@@ -821,6 +793,10 @@ app.post('/api/schedule', requireAuth, (req, res) => {
                 if (err) console.error('Erreur insert schedule:', err);
                 completed++;
                 if (completed === total) {
+                    logUserAction(req, 'Sauvegarde planning', { 
+                        modificationsCount: total,
+                        profile: req.session.activeProfile
+                    });
                     res.json({ success: true, saved: total });
                 }
             }
@@ -842,6 +818,7 @@ app.post('/api/schedule/save', requireAuth, (req, res) => {
         const parts = key.split('_');
         const resourceId = parts[0];
         const type = parts[1];
+        // FIX MAJEUR : Utiliser join('_') au lieu de join('-') pour préserver le format des clés
         const dateKey = parts.slice(2).join('_');
         
         // Vérification des droits pour Expert métier
@@ -850,6 +827,10 @@ app.post('/api/schedule/save', requireAuth, (req, res) => {
             if (parseInt(resourceId) !== req.session.resourceId) {
                 completed++;
                 if (completed === total) {
+                    logUserAction(req, 'Sauvegarde planning rapide', { 
+                        modificationsCount: completed,
+                        profile: req.session.activeProfile
+                    });
                     res.json({ success: true, saved: total });
                 }
                 return;
@@ -866,11 +847,35 @@ app.post('/api/schedule/save', requireAuth, (req, res) => {
                 if (err) console.error('Erreur insert schedule:', err);
                 completed++;
                 if (completed === total) {
+                    logUserAction(req, 'Sauvegarde planning rapide', { 
+                        modificationsCount: total,
+                        profile: req.session.activeProfile
+                    });
                     res.json({ success: true, saved: total });
                 }
             }
         );
     });
+});
+
+// Nouvel endpoint pour nettoyer les anciennes données (sans AM/PM)
+app.post('/api/schedule/cleanup-old-format', requireAdmin, (req, res) => {
+    // Supprimer toutes les entrées qui n'ont PAS de période (AM/PM) dans la date_key
+    database.run(
+        `DELETE FROM schedule_data 
+         WHERE date_key NOT LIKE '%_AM' 
+         AND date_key NOT LIKE '%_PM'`,
+        [],
+        function(err) {
+            if (err) {
+                console.error('Erreur nettoyage anciennes données:', err);
+                res.status(500).json({ error: err.message });
+            } else {
+                console.log(`✅ ${this.changes} anciennes entrées supprimées`);
+                res.json({ success: true, deleted: this.changes });
+            }
+        }
+    );
 });
 
 // ==================== API UTILISATEURS ====================
@@ -948,6 +953,13 @@ app.post('/api/users', requireAdmin, async (req, res) => {
                     }
                 }
                 
+                logUserAction(req, 'Création utilisateur', { 
+                    userId: this.lastID, 
+                    username, 
+                    nom, 
+                    prenom,
+                    roles: { is_admin, is_expert, is_user }
+                });
                 res.json({ id: this.lastID, success: true, emailSent });
             }
         }
@@ -968,6 +980,12 @@ app.put('/api/users/:id', requireAdmin, (req, res) => {
                 console.error('Erreur update user:', err);
                 res.status(500).json({ error: err.message });
             } else {
+                logUserAction(req, 'Modification utilisateur', { 
+                    userId: id, 
+                    nom, 
+                    prenom,
+                    roles: { is_admin, is_expert, is_user }
+                });
                 res.json({ success: true });
             }
         }
@@ -991,20 +1009,23 @@ app.delete('/api/users/:id', requireAdmin, (req, res) => {
                     return;
                 }
                 
-                deleteUserRecord(id, res);
+                deleteUserRecord(id, res, req);
             });
         } else {
-            deleteUserRecord(id, res);
+            deleteUserRecord(id, res, req);
         }
     });
 });
 
-function deleteUserRecord(id, res) {
+function deleteUserRecord(id, res, req) {
     database.run('DELETE FROM users WHERE id = ?', [id], (err) => {
         if (err) {
             console.error('Erreur suppression user:', err);
             res.status(500).json({ error: err.message });
         } else {
+            if (req) {
+                logUserAction(req, 'Suppression utilisateur', { userId: id });
+            }
             res.json({ success: true });
         }
     });
@@ -1053,255 +1074,114 @@ app.post('/api/users/:id/reset-password', requireAdmin, async (req, res) => {
             return res.status(404).json({ error: 'Utilisateur non trouvé' });
         }
         
-        database.run('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, id], async (err) => {
-            if (err) {
-                console.error('Erreur reset password:', err);
-                return res.status(500).json({ error: err.message });
-            }
-            
-            let emailSent = false;
-            
-            // Envoyer l'email si demandé
-            if (shouldSendEmail) {
-                try {
-                    await sendEmail(
-                        user.email,
-                        'Réinitialisation de votre mot de passe - Planification GANTT',
-                        `
-                        <h2>Réinitialisation de votre mot de passe</h2>
-                        <p>Bonjour ${user.prenom} ${user.nom},</p>
-                        <p>Votre mot de passe a été réinitialisé par un administrateur.</p>
-                        <p><strong>Nouveau mot de passe :</strong> <code style="background-color: #f0f0f0; padding: 5px 10px; border-radius: 3px; font-size: 16px;">${newPassword}</code></p>
-                        <p>Nom d'utilisateur : <strong>${user.username}</strong></p>
-                        <p>Nous vous recommandons de changer ce mot de passe lors de votre première connexion.</p>
-                        <hr>
-                        <p style="color: #7f8c8d; font-size: 12px;">Ceci est un email automatique, merci de ne pas y répondre.</p>
-                        `
-                    );
-                    emailSent = true;
-                } catch (emailError) {
-                    console.error('Erreur envoi email reset:', emailError);
-                    // On continue même si l'email échoue
-                }
-            }
-            
-            res.json({ success: true, emailSent });
-        });
-    });
-});
-
-app.put('/api/users/:id', requireAdmin, (req, res) => {
-    const { id } = req.params;
-    const { username, nom, prenom, email, resource_id, is_admin, is_expert, is_user, actif } = req.body;
-    
-    if (!username || !nom || !prenom || !email) {
-        return res.status(400).json({ error: 'Tous les champs requis doivent être remplis' });
-    }
-    
-    // Vérifier qu'au moins un profil est sélectionné
-    if (!is_admin && !is_expert && !is_user) {
-        return res.status(400).json({ error: 'Au moins un profil doit être sélectionné' });
-    }
-    
-    // Vérifier si le username existe déjà pour un autre utilisateur
-    database.get('SELECT id FROM users WHERE username = ? AND id != ?', [username, id], (err, row) => {
-        if (err) {
-            console.error('Erreur check username:', err);
-            return res.status(500).json({ error: err.message });
-        }
-        
-        if (row) {
-            return res.status(400).json({ error: 'Ce nom d\'utilisateur existe déjà' });
-        }
-        
-        // Mettre à jour l'utilisateur
         database.run(
-            `UPDATE users 
-             SET username = ?, nom = ?, prenom = ?, email = ?, resource_id = ?, 
-                 is_admin = ?, is_expert = ?, is_user = ?, actif = ?
-             WHERE id = ?`,
-            [username, nom, prenom, email, resource_id, is_admin ? 1 : 0, is_expert ? 1 : 0, is_user ? 1 : 0, actif ? 1 : 0, id],
-            (err) => {
+            'UPDATE users SET password = ? WHERE id = ?',
+            [hashedPassword, id],
+            async (err) => {
                 if (err) {
-                    console.error('Erreur update user:', err);
-                    res.status(500).json({ error: err.message });
-                } else {
-                    res.json({ success: true });
+                    console.error('Erreur reset password:', err);
+                    return res.status(500).json({ error: err.message });
                 }
+                
+                let emailSent = false;
+                
+                if (shouldSendEmail) {
+                    try {
+                        await sendEmail(
+                            user.email,
+                            'Réinitialisation de votre mot de passe - Planification GANTT',
+                            `
+                            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                                <h2 style="color: #2c3e50;">Réinitialisation de mot de passe</h2>
+                                <p>Bonjour ${user.prenom} ${user.nom},</p>
+                                <p>Votre mot de passe a été réinitialisé par un administrateur.</p>
+                                <div style="background-color: #ecf0f1; padding: 20px; border-radius: 5px; margin: 20px 0;">
+                                    <p style="margin: 5px 0;"><strong>Nom d'utilisateur :</strong> ${user.username}</p>
+                                    <p style="margin: 5px 0;"><strong>Nouveau mot de passe :</strong> ${newPassword}</p>
+                                </div>
+                                <p style="color: #e74c3c; font-weight: bold;">⚠️ Pour des raisons de sécurité, veuillez changer ce mot de passe lors de votre prochaine connexion.</p>
+                                <p>Vous pouvez vous connecter à l'adresse : <a href="${req.protocol}://${req.get('host')}">${req.protocol}://${req.get('host')}</a></p>
+                            </div>
+                            `
+                        );
+                        emailSent = true;
+                    } catch (emailError) {
+                        console.error('Erreur envoi email:', emailError);
+                    }
+                }
+                
+                res.json({ success: true, emailSent });
             }
         );
     });
 });
 
-// ==================== API EXPORT ====================
+app.post('/api/users/change-password', requireAuth, (req, res) => {
+    const { oldPassword, newPassword } = req.body;
+    
+    if (!oldPassword || !newPassword) {
+        return res.status(400).json({ error: 'Ancien et nouveau mot de passe requis' });
+    }
+    
+    if (newPassword.length < 6) {
+        return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 6 caractères' });
+    }
+    
+    const hashedOldPassword = hashPassword(oldPassword);
+    const hashedNewPassword = hashPassword(newPassword);
+    
+    database.get(
+        'SELECT * FROM users WHERE id = ? AND password = ?',
+        [req.session.userId, hashedOldPassword],
+        (err, user) => {
+            if (err) {
+                console.error('Erreur vérification password:', err);
+                return res.status(500).json({ error: err.message });
+            }
+            
+            if (!user) {
+                return res.status(401).json({ error: 'Ancien mot de passe incorrect' });
+            }
+            
+            database.run(
+                'UPDATE users SET password = ? WHERE id = ?',
+                [hashedNewPassword, req.session.userId],
+                (err) => {
+                    if (err) {
+                        console.error('Erreur changement password:', err);
+                        return res.status(500).json({ error: err.message });
+                    }
+                    
+                    res.json({ success: true });
+                }
+            );
+        }
+    );
+});
 
-app.get('/api/export/resources', requireAuth, (req, res) => {
-    database.all('SELECT * FROM resources ORDER BY prenom', (err, rows) => {
+// ==================== API EMAIL CONFIG ====================
+
+app.get('/api/email-config', requireAdmin, (req, res) => {
+    database.get('SELECT * FROM email_config WHERE id = 1', [], (err, row) => {
         if (err) {
-            console.error('Erreur export resources:', err);
+            console.error('Erreur récup config:', err);
             res.status(500).json({ error: err.message });
         } else {
-            let csv = 'Nom,Prénom,Trigramme,Email,Téléphone,Taux MAD (%),SAMU,Actif\n';
-            (rows || []).forEach(r => {
-                csv += `"${r.nom}","${r.prenom}","${r.trigramme}","${r.email}","${r.telephone || ''}",${r.taux},"${r.samu}","${r.actif ? 'Oui' : 'Non'}"\n`;
-            });
-            res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-            res.setHeader('Content-Disposition', 'attachment; filename=ressources.csv');
-            res.send(csv);
+            res.json(row || { host: '', port: 587, secure: 0, user: '', password: '' });
         }
     });
 });
 
-app.get('/api/export/gantt', requireAuth, (req, res) => {
-    const { year, month } = req.query;
-    const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+app.post('/api/email-config', requireAdmin, (req, res) => {
+    const { host, port, secure, user, password } = req.body;
     
-    database.all('SELECT * FROM resources WHERE actif = 1 ORDER BY prenom', (err, resources) => {
-        if (err) {
-            console.error('Erreur export gantt resources:', err);
-            res.status(500).json({ error: err.message });
-            return;
-        }
-
-        database.all('SELECT * FROM schedule_data', (err, scheduleRows) => {
-            if (err) {
-                console.error('Erreur export gantt schedule:', err);
-                res.status(500).json({ error: err.message });
-                return;
-            }
-
-            const scheduleData = {};
-            (scheduleRows || []).forEach(row => {
-                const key = `${row.resource_id}_${row.type}_${row.date_key}`;
-                scheduleData[key] = row.value;
-            });
-
-            const lastDay = new Date(year, parseInt(month) + 1, 0).getDate();
-            let csv = `Calendrier de Planification - ${monthNames[month]} ${year}\n\n`;
-            
-            // En-tête avec jours et demi-journées
-            csv += 'Ressource,Nb jours Dispo,Jours MAD attendus';
-            for (let day = 1; day <= lastDay; day++) {
-                csv += `,${day} AM,${day} PM`;
-            }
-            csv += '\n';
-
-            resources.forEach(resource => {
-                let dispoCount = 0;
-                let workDays = 0;
-                
-                // Compter les jours ouvrés et les disponibilités (avec demi-journées)
-                for (let day = 1; day <= lastDay; day++) {
-                    const date = new Date(year, parseInt(month), day);
-                    if (date.getDay() !== 0 && date.getDay() !== 6) {
-                        workDays++;
-                    }
-                    const dateKey = `${year}-${month}-${day}`;
-                    
-                    // Vérifier les disponibilités AM et PM
-                    ['AM', 'PM'].forEach(period => {
-                        const key = `${resource.id}_available_${dateKey}_${period}`;
-                        if (scheduleData[key] === '2') {
-                            dispoCount += 0.5; // Demi-journée
-                        }
-                    });
-                    
-                    // Compatibilité avec l'ancien format (journée complète)
-                    const oldKey = `${resource.id}_available_${dateKey}`;
-                    if (scheduleData[oldKey] === '2' && !scheduleData[`${resource.id}_available_${dateKey}_AM`]) {
-                        dispoCount++;
-                    }
-                }
-
-                const expectedDays = (workDays * resource.taux / 100).toFixed(1);
-
-                // Ligne Disponibilité
-                csv += `"${resource.prenom} ${resource.nom} (${resource.trigramme}) - Disponibilité",${dispoCount.toFixed(1)},${expectedDays}`;
-                
-                for (let day = 1; day <= lastDay; day++) {
-                    const dateKey = `${year}-${month}-${day}`;
-                    ['AM', 'PM'].forEach(period => {
-                        const key = `${resource.id}_available_${dateKey}_${period}`;
-                        const oldKey = `${resource.id}_available_${dateKey}`;
-                        // Priorité au format AM/PM, sinon utiliser l'ancien format
-                        const value = scheduleData[key] || scheduleData[oldKey] || '1';
-                        csv += `,${value}`;
-                    });
-                }
-                csv += '\n';
-
-                // Ligne Activités
-                csv += `"${resource.prenom} ${resource.nom} (${resource.trigramme}) - Activités",,`;
-                
-                for (let day = 1; day <= lastDay; day++) {
-                    const dateKey = `${year}-${month}-${day}`;
-                    ['AM', 'PM'].forEach(period => {
-                        const key = `${resource.id}_activity_${dateKey}_${period}`;
-                        const oldKey = `${resource.id}_activity_${dateKey}`;
-                        const value = scheduleData[key] || scheduleData[oldKey] || '1';
-                        csv += `,${value}`;
-                    });
-                }
-                csv += '\n';
-
-                // Ligne Localisations
-                csv += `"${resource.prenom} ${resource.nom} (${resource.trigramme}) - Localisation",,`;
-                
-                for (let day = 1; day <= lastDay; day++) {
-                    const dateKey = `${year}-${month}-${day}`;
-                    ['AM', 'PM'].forEach(period => {
-                        const key = `${resource.id}_localisation_${dateKey}_${period}`;
-                        const oldKey = `${resource.id}_localisation_${dateKey}`;
-                        const value = scheduleData[key] || scheduleData[oldKey] || '-';
-                        csv += `,"${value}"`;
-                    });
-                }
-                csv += '\n';
-            });
-
-            csv += '\n\nLÉGENDE\n';
-            csv += 'DISPONIBILITÉ,1,Indisponible\n';
-            csv += 'DISPONIBILITÉ,2,Disponible pour l\'ANS\n';
-            csv += 'AFFECTATION,1,Indisponible\n';
-            csv += 'AFFECTATION,2,En attente d\'affectation\n';
-            csv += 'AFFECTATION,3,SAMU (Déploiement)\n';
-            csv += 'AFFECTATION,4,SAMU (Dev. usages)\n';
-            csv += 'AFFECTATION,5,ANS (Déploiement)\n';
-            csv += 'AFFECTATION,6,ANS (Dev. usages)\n';
-            csv += 'AFFECTATION,7,Qualification\n';
-            csv += 'AFFECTATION,8,Divers\n';
-            csv += 'LOCALISATION,-,Non définie\n';
-            csv += 'LOCALISATION,🏠 Télétravail,Télétravail\n';
-            csv += 'LOCALISATION,🗼 PSC,Paris Saclay\n';
-            csv += 'LOCALISATION,🚗 Déplacement,En déplacement\n';
-            csv += 'LOCALISATION,📞 Télétravail,Télétravail (ancien format)\n';
-            csv += 'LOCALISATION,🚨 SAMU XX,SAMU spécifique\n';
-            csv += 'LOCALISATION,🎤 Autres,Autres (Congrès CFARM EHESP etc.)\n';
-
-            res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-            res.setHeader('Content-Disposition', `attachment; filename=gantt_${monthNames[month]}_${year}.csv`);
-            res.send(csv);
-        });
-    });
-});
-
-// ==================== API EMAIL ====================
-
-app.post('/api/email/config', requireAdmin, (req, res) => {
-    const { host, port, user, password } = req.body;
+    if (!host || !port || !user || !password) {
+        return res.status(400).json({ error: 'Tous les champs sont requis' });
+    }
     
-    emailConfig = {
-        host: host || 'smtp.office365.com',
-        port: parseInt(port) || 587,
-        secure: false,
-        user: user,
-        password: password
-    };
-    
-    // Sauvegarder dans la base de données
     database.run(
-        `INSERT INTO email_config (id, host, port, secure, user, password, updated_at)
-         VALUES (1, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        `INSERT INTO email_config (id, host, port, secure, user, password)
+         VALUES (1, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET 
             host = excluded.host,
             port = excluded.port,
@@ -1309,44 +1189,32 @@ app.post('/api/email/config', requireAdmin, (req, res) => {
             user = excluded.user,
             password = excluded.password,
             updated_at = CURRENT_TIMESTAMP`,
-        [emailConfig.host, emailConfig.port, emailConfig.secure ? 1 : 0, emailConfig.user, emailConfig.password],
+        [host, port, secure ? 1 : 0, user, password],
         (err) => {
             if (err) {
                 console.error('Erreur sauvegarde config email:', err);
-                res.status(500).json({ success: false, error: err.message });
+                res.status(500).json({ error: err.message });
             } else {
+                emailConfig = { host, port, secure, user, password };
+                logUserAction(req, 'Configuration email', { 
+                    host, 
+                    port, 
+                    user 
+                });
                 res.json({ success: true });
             }
         }
     );
 });
 
-app.get('/api/email/config', requireAdmin, (req, res) => {
-    database.get('SELECT host, port, user, password FROM email_config WHERE id = 1', [], (err, row) => {
-        if (err) {
-            console.error('Erreur récup config email:', err);
-            res.status(500).json({ error: err.message });
-        } else if (row) {
-            res.json(row);
-        } else {
-            res.json({ host: 'smtp.office365.com', port: 587, user: '', password: '' });
-        }
-    });
-});
-
-app.post('/api/email/test', requireAdmin, async (req, res) => {
+app.post('/api/email-config/test', requireAdmin, async (req, res) => {
     try {
-        if (!emailConfig.user) {
-            return res.json({ success: false, error: 'Configuration email non définie' });
-        }
-
         await sendEmail(
             emailConfig.user,
-            'Test d\'envoi - Planification GANTT',
-            '<h2>Test réussi !</h2><p>Votre configuration email fonctionne correctement.</p>'
+            'Test de configuration SMTP',
+            '<p>Ceci est un email de test. Si vous recevez ce message, votre configuration SMTP est correcte !</p>'
         );
-        
-        res.json({ success: true });
+        res.json({ success: true, message: 'Email de test envoyé avec succès' });
     } catch (error) {
         res.json({ success: false, error: error.message });
     }
@@ -1409,6 +1277,67 @@ app.get('/api/logs/connections', requireAdmin, (req, res) => {
             } else {
                 res.json({ logs });
             }
+        }
+    );
+});
+
+// Récupération d'un log spécifique par ID
+app.get('/api/connection-logs/:id', requireAdmin, (req, res) => {
+    const { id } = req.params;
+    
+    database.get(
+        `SELECT id, username, nom, prenom, profile, login_time, modifications 
+         FROM connection_logs 
+         WHERE id = ?`,
+        [id],
+        (err, log) => {
+            if (err) {
+                console.error('Erreur récupération log:', err);
+                res.status(500).json({ error: err.message });
+            } else if (!log) {
+                res.status(404).json({ error: 'Log non trouvé' });
+            } else {
+                res.json(log);
+            }
+        }
+    );
+});
+
+// Mise à jour des modifications dans le log
+app.post('/api/logs/add-modification', requireAuth, (req, res) => {
+    const { modification } = req.body;
+    
+    if (!req.session.logId) {
+        return res.json({ success: false, error: 'Aucun log actif' });
+    }
+    
+    // Récupérer les modifications actuelles
+    database.get(
+        'SELECT modifications FROM connection_logs WHERE id = ?',
+        [req.session.logId],
+        (err, row) => {
+            if (err) {
+                console.error('Erreur récup modifications:', err);
+                return res.status(500).json({ error: err.message });
+            }
+            
+            const currentMods = row && row.modifications ? row.modifications : '';
+            const timestamp = new Date().toLocaleString('fr-FR');
+            const newMod = `${timestamp} - ${modification}`;
+            const updatedMods = currentMods ? `${currentMods}\n${newMod}` : newMod;
+            
+            // Mettre à jour les modifications
+            database.run(
+                'UPDATE connection_logs SET modifications = ? WHERE id = ?',
+                [updatedMods, req.session.logId],
+                (err) => {
+                    if (err) {
+                        console.error('Erreur update modifications:', err);
+                        return res.status(500).json({ error: err.message });
+                    }
+                    res.json({ success: true });
+                }
+            );
         }
     );
 });
@@ -1488,6 +1417,12 @@ app.post('/api/backup/send-email', requireAdmin, async (req, res) => {
             }]
         );
         
+        logUserAction(req, 'Envoi backup par email', { 
+            destinataire: email,
+            resources: resources.length,
+            schedule: schedule.length,
+            users: users.length
+        });
         res.json({ success: true, message: 'Backup envoyé par email avec succès' });
     } catch (error) {
         console.error('Erreur envoi backup par email:', error);
@@ -1535,6 +1470,11 @@ app.get('/api/backup/csv', requireAdmin, (req, res) => {
 
                 res.setHeader('Content-Type', 'text/csv; charset=utf-8');
                 res.setHeader('Content-Disposition', `attachment; filename=backup_complet_${timestamp}.csv`);
+                logUserAction(req, 'Téléchargement backup CSV', { 
+                    resources: resources.length,
+                    schedule: schedule.length,
+                    users: users.length
+                });
                 res.send(csv);
             });
         });
@@ -1548,6 +1488,7 @@ app.get('/api/backup/sql', requireAdmin, (req, res) => {
     
     try {
         fs.copyFileSync(sourcePath, destPath);
+        logUserAction(req, 'Téléchargement backup SQLite', { timestamp });
         res.download(destPath, `backup_${timestamp}.db`, (err) => {
             if (fs.existsSync(destPath)) {
                 fs.unlinkSync(destPath);
@@ -1557,6 +1498,41 @@ app.get('/api/backup/sql', requireAdmin, (req, res) => {
         console.error('Erreur backup SQL:', error);
         res.status(500).json({ error: 'Erreur lors du backup' });
     }
+});
+
+// Envoi du calendrier par email
+app.post('/api/send-calendar-email', requireAuth, async (req, res) => {
+    const { resourceId, email, html, subject } = req.body;
+    
+    if (!email || !html || !subject) {
+        return res.status(400).json({ success: false, error: 'Paramètres manquants' });
+    }
+    
+    if (!emailConfig.user) {
+        return res.status(400).json({ success: false, error: 'Configuration email non définie' });
+    }
+    
+    try {
+        await sendEmail(email, subject, html);
+        
+        logUserAction(req, 'Envoi calendrier par email', { 
+            resourceId, 
+            destinataire: email 
+        });
+        
+        res.json({ success: true, message: 'Calendrier envoyé par email avec succès' });
+    } catch (error) {
+        console.error('Erreur envoi calendrier par email:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Servir les fichiers statiques APRÈS les routes API pour éviter les conflits
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Route catch-all pour servir index.html (doit être la dernière route)
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // Serveur Ecoute
