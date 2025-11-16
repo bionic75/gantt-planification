@@ -54,7 +54,7 @@ function hashPassword(password) {
 
 // Configuration email
 let emailConfig = {
-    host: 'smtp.office365.com',
+    host: 'smtp.gmail.com',
     port: 587,
     secure: false,
     user: '',
