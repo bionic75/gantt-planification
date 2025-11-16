@@ -41,6 +41,7 @@
         th.resource-label { cursor: default; }
         th.resource-label:hover { background-color: #34495e; }
         th.resource-label::after { content: none; }
+        th.day-header::after { content: none; }
         td { padding: 10px; border-bottom: 1px solid #ecf0f1; }
         tr:hover { background-color: #f9f9f9; }
         .toggle-switch { position: relative; display: inline-block; width: 50px; height: 24px; }
@@ -92,7 +93,9 @@
         .day-header { background-color: #1D70B7; color: white; min-width: 100px; max-width: 100px; width: 100px; cursor: default; }
         .day-header::after { content: none; }
         .day-header.weekend { background-color: #ffc107; color: #333; }
+        .day-header.today { background-color: #5EAA55 !important; color: white !important; }
         .gantt-cell { padding: 4px; background-color: white; min-width: 100px; max-width: 100px; width: 100px; height: 90px; vertical-align: middle; }
+        .gantt-cell.today { background-color: #5EAA55 !important; }
         .gantt-cell.disabled { background-color: #e0e0e0; opacity: 0.5; }
         .gantt-cell-content { display: flex; flex-direction: column; height: 100%; gap: 2px; }
         .gantt-cell-row { flex: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 3px; font-weight: bold; transition: all 0.2s; font-size: 13px; min-height: 28px; }
@@ -101,6 +104,7 @@
         .gantt-cell-row.disabled:hover { filter: none; transform: none; }
         .weekend-cell { background-color: #fff8e1; }
         .total-row { background-color: #34495e; color: white; font-weight: bold; }
+        .total-cell.today { background-color: #5EAA55 !important; color: white !important; }
         .total-cell { background-color: #34495e; color: white; font-weight: bold; padding: 10px; text-align: center; border: 1px solid #2c3e50; }
         .total-label { background-color: #2c3e50; color: white; font-weight: bold; text-align: left; padding: 10px; position: sticky; left: 0; z-index: 10; }
         .total-sublabel { background-color: #34495e; color: white; font-weight: bold; text-align: center; padding: 10px; position: sticky; left: 200px; z-index: 9; }
@@ -179,6 +183,22 @@
             size: A3 landscape; 
             margin: 10mm; 
         }
+        /* Supprimer les flèches de tri dans l'aperçu calendrier individuel */
+        #printCalendarContent table th::after {
+            content: none !important;
+        }
+        #printCalendarContent table th {
+            cursor: default !important;
+        }
+        
+        /* Supprimer les flèches de tri dans le calendrier mensuel collectif */
+        #monthlyCalendarContent table th::after {
+            content: none !important;
+        }
+        #monthlyCalendarContent table th {
+            cursor: default !important;
+        }
+        
         @media print {
             body { background: white; margin: 0; padding: 0; }
             .container { box-shadow: none; max-width: 100%; border-radius: 0; }
@@ -244,6 +264,9 @@
                 max-width: 30px !important;
                 font-size: 6px !important;
                 padding: 1px !important;
+            }
+            .day-header::after {
+                content: none !important;
             }
             .gantt-cell {
                 min-width: 30px !important;
@@ -410,6 +433,11 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="togglePlanningSection('ganttDisplaySection')">
                     <h3 style="color: #1565c0; border-left: none; margin: 0;">
                         <span id="ganttDisplaySectionIcon">▼</span> Planification
+                        <button onclick="event.stopPropagation(); openMonthlyCalendarView();" 
+                                style="margin-left: 15px; padding: 5px 12px; background-color: #2196f3; border: none; border-radius: 4px; cursor: pointer; font-size: 16px;" 
+                                title="Vue calendrier mensuel">
+                            📅
+                        </button>
                     </h3>
                 </div>
                 <div id="ganttDisplaySection" style="margin-top: 15px;">
@@ -563,6 +591,9 @@
             <h3 style="color: #6a1b9a; border-left: none; margin: 0;">
                 <span id="logsSectionIcon">▼</span> Logs de connexion (20 dernières)
             </h3>
+            <button onclick="event.stopPropagation(); loadConnectionLogs();" style="padding: 8px 15px; background-color: #9c27b0; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px;">
+                🔄 Rafraîchir
+            </button>
         </div>
         <div id="logsSection" style="margin-top: 15px;">
             <div class="table-container">
@@ -989,7 +1020,7 @@
 
         async function checkSession() {
             try {
-                const response = await fetch(`${API_URL}/session`, { credentials: 'include' });
+                const response = await fetch(`${API_URL}/check-session`, { credentials: 'include' });
                 
                 // Si la réponse n'est pas OK (401, 403, etc.), on redirige vers login sans erreur
                 if (!response.ok) {
@@ -1245,6 +1276,12 @@
                     body: JSON.stringify({ username })
                 });
 
+                // Vérifier si la réponse est en JSON
+                const contentType = response.headers.get("content-type");
+                if (!contentType || !contentType.includes("application/json")) {
+                    throw new Error("La réponse du serveur n'est pas au format JSON");
+                }
+
                 const data = await response.json();
 
                 if (response.status === 429) {
@@ -1476,6 +1513,7 @@
                 }
                 
                 showSyncStatus();
+                logModification("Modification du planning");
                 await loadResources();
                 ['nom','prenom','trigramme','taux','samu','dateDebut','dateFin'].forEach(id => document.getElementById(id).value = '');
                 updateGantt();
@@ -1562,6 +1600,7 @@
                     throw new Error(errorData.error || 'Erreur modification');
                 }
                 showSyncStatus();
+                logModification("Modification du planning");
                 await loadResources();
                 closeEditModal();
                 updateGantt();
@@ -1583,6 +1622,7 @@
                 await loadResources();
                 updateGantt();
                 showSyncStatus();
+                logModification("Modification du planning");
             } catch (error) {
                 console.error('Erreur:', error);
             }
@@ -1596,6 +1636,7 @@
                 await loadResources();
                 updateGantt();
                 showSyncStatus();
+                logModification("Modification du planning");
             } catch (error) {
                 console.error('Erreur:', error);
                 alert('Erreur lors de la suppression');
@@ -1622,6 +1663,7 @@
                 });
                 if (!response.ok) throw new Error('Erreur sauvegarde');
                 showSyncStatus();
+                logModification("Modification du planning");
             } catch (error) {
                 console.error('Erreur:', error);
             }
@@ -1968,14 +2010,27 @@
 
             let html = '<table class="gantt-table"><thead><tr>';
             html += '<th class="resource-header" style="z-index: 50;" rowspan="2" onclick="sortGanttResources()" style="cursor: pointer;">Ressource</th>';
-            html += '<th class="resource-label" style="z-index: 49;" rowspan="2">Disponibilité /<br>Affectation /<br>Localisation</th>';
+            html += '<th class="resource-label" style="z-index: 49; vertical-align: middle; line-height: 1.6;" rowspan="2">Disponibilité<br>Affectation<br>Localisation</th>';
             
             // En-têtes avec AM/PM pour chaque jour
+            const today = new Date();
             for (let day = 1; day <= lastDay; day++) {
                 const date = new Date(year, month, day);
                 const dayName = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'][date.getDay()];
                 const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-                const headerClass = isWeekend ? 'day-header weekend' : 'day-header';
+                const isToday = date.getDate() === today.getDate() && 
+                               date.getMonth() === today.getMonth() && 
+                               date.getFullYear() === today.getFullYear();
+                
+                let headerClass = 'day-header';
+                
+                if (isToday) {
+                    // Jour actuel : utiliser la classe 'today'
+                    headerClass += ' today';
+                } else if (isWeekend) {
+                    headerClass += ' weekend';
+                }
+                
                 // Afficher 2 colonnes par jour : AM et PM
                 html += `<th class="${headerClass}" colspan="2" style="text-align: center;">${dayName}<br>${day}</th>`;
             }
@@ -1987,7 +2042,18 @@
             for (let day = 1; day <= lastDay; day++) {
                 const date = new Date(year, month, day);
                 const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-                const headerClass = isWeekend ? 'day-header weekend' : 'day-header';
+                const isToday = date.getDate() === today.getDate() && 
+                               date.getMonth() === today.getMonth() && 
+                               date.getFullYear() === today.getFullYear();
+                
+                let headerClass = 'day-header';
+                
+                if (isToday) {
+                    headerClass += ' today';
+                } else if (isWeekend) {
+                    headerClass += ' weekend';
+                }
+                
                 html += `<th class="${headerClass}" style="font-size: 10px; padding: 4px;">AM</th>`;
                 html += `<th class="${headerClass} day-separator" style="font-size: 10px; padding: 4px;">PM</th>`;
             }
@@ -2000,20 +2066,39 @@
                 html += `<tr data-resource-name="${resource.nom} ${resource.prenom}">
                     <td class="resource-header">
                         <div style="display: flex; justify-content: space-between; align-items: start;">
-                            <div>
+                            <div style="flex: 1;">
                                 <strong>${resource.nom.toUpperCase()} ${resource.prenom}</strong><br>
                                 <small>${resource.trigramme}</small><br>
                                 <small style="font-size: 10px; color: #bdc3c7;">Jours: ${dispoCount}/${expectedDays}</small>
                             </div>
-                            ${canShowRAZ(resource.id) ? `<button onclick="resetResourceMonth(${resource.id})" style="padding: 4px 8px; font-size: 10px; background-color: #e74c3c; margin-left: 5px;" title="Remettre à zéro ce mois">RAZ</button>` : ''}
+                            <div style="display: flex; flex-direction: column; gap: 5px; margin-left: 10px;">
+                                <button onclick="printResourceCalendar(${resource.id})" 
+                                        style="padding: 4px 8px; font-size: 10px; background-color: #3498db; border: none; border-radius: 3px; cursor: pointer;" 
+                                        title="Imprimer le calendrier">
+                                    🖨️
+                                </button>
+                                <button onclick="sendResourceCalendarByEmail(${resource.id})" 
+                                        style="padding: 4px 8px; font-size: 10px; background-color: #27ae60; border: none; border-radius: 3px; cursor: pointer;" 
+                                        title="Envoyer par email">
+                                    ✉️
+                                </button>
+                                ${canShowRAZ(resource.id) ? `<button onclick="resetResourceMonth(${resource.id})" style="padding: 4px 8px; font-size: 10px; background-color: #e74c3c; border: none; border-radius: 3px; cursor: pointer;" title="Remettre à zéro ce mois">RAZ</button>` : ''}
+                            </div>
                         </div>
                     </td>
-                    <td class="resource-label">Disponibilité<br>Affectation<br>Localisation</td>`;
+                    <td class="resource-label" style="vertical-align: middle; line-height: 1.6;">Disponibilité<br>Affectation<br>Localisation</td>`;
 
                 // Boucle sur les jours avec AM et PM
                 for (let day = 1; day <= lastDay; day++) {
                     const dateKey = `${year}-${month}-${day}`;
                     const date = new Date(year, month, day);
+                    
+                    // Vérifier si c'est le jour actuel (à faire AVANT isWeekend)
+                    const today = new Date();
+                    const isToday = date.getDate() === today.getDate() && 
+                                   date.getMonth() === today.getMonth() && 
+                                   date.getFullYear() === today.getFullYear();
+                    
                     const isWeekend = date.getDay() === 0 || date.getDay() === 6;
                     const checkDate = new Date(year, month, day);
                     const isAccessible = isDateAccessible(resource, checkDate);
@@ -2069,7 +2154,21 @@
                             }
                         }
                         
-                        let cellClass = isWeekend ? 'gantt-cell weekend-cell' : 'gantt-cell';
+                        // Vérifier si c'est le jour actuel
+                        const today = new Date();
+                        const isToday = date.getDate() === today.getDate() && 
+                                       date.getMonth() === today.getMonth() && 
+                                       date.getFullYear() === today.getFullYear();
+                        
+                        // Le jour actuel a la priorité sur le week-end
+                        let cellClass = 'gantt-cell';
+                        if (isToday) {
+                            // Jour actuel : ajouter la classe today
+                            cellClass += ' today';
+                        } else if (isWeekend) {
+                            cellClass += ' weekend-cell';
+                        }
+                        
                         if (!isAccessible) {
                             cellClass += ' disabled';
                         }
@@ -2093,7 +2192,7 @@
                         // Ajouter la classe pour différencier AM (bordure fine) et PM (bordure épaisse)
                         const borderClass = period === 'AM' ? 'half-day-separator' : 'day-separator';
                         
-                        html += `<td class="${cellClass} ${borderClass}" data-date="${year}-${month+1}-${day}" style="min-width: 50px; max-width: 50px; width: 50px;">
+                        html += `<td class="${cellClass} ${borderClass}" data-date="${year}-${month+1}-${day}" style="min-width: 50px; max-width: 50px; width: 50px; ">
                             <div class="gantt-cell-content">
                                 <div class="gantt-cell-row${rowDisabledClass}" style="background-color: ${isAccessible ? availBg : '#d0d0d0'}; color: white; font-size: 11px; min-height: 20px;" onclick="${isAccessible ? `toggleAvailability(${resource.id}, '${dateKey}', '${period}')` : 'return false;'}" title="${availTooltip} (${period})">${availValue}</div>
                                 <div class="gantt-cell-row${rowDisabledClass}" style="background-color: ${isAccessible ? actBg : '#d0d0d0'}; color: white; font-size: 11px; min-height: 20px;" onclick="${isAccessible ? `cycleActivity(${resource.id}, '${dateKey}', '${availValue}', '${period}')` : 'return false;'}" title="${actTooltip} (${period})">${actValue}</div>
@@ -2116,7 +2215,18 @@
             for (let day = 0; day < lastDay; day++) {
                 const date = new Date(year, month, day + 1);
                 const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-                const cellClass = isWeekend ? 'total-cell weekend' : 'total-cell';
+                const isToday = date.getDate() === today.getDate() && 
+                               date.getMonth() === today.getMonth() && 
+                               date.getFullYear() === today.getFullYear();
+                
+                let cellClass = 'total-cell';
+                
+                if (isToday) {
+                    cellClass += ' today';
+                } else if (isWeekend) {
+                    cellClass += ' weekend';
+                }
+                
                 // Somme AM + PM pour afficher en jours
                 const dayDispo = (dailyDispo[day * 2] + dailyDispo[day * 2 + 1]) / 2;
                 const dayAffect = (dailyAffect[day * 2] + dailyAffect[day * 2 + 1]) / 2;
@@ -2218,6 +2328,102 @@
             }, 3000);
         }
 
+        // Fonction pour retirer les accents
+        function removeAccents(str) {
+            return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        }
+
+        // Fonction pour capitaliser la première lettre
+        function capitalizeFirstLetter(str) {
+            if (!str) return str;
+            return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+        }
+
+        // Fonction pour générer le login à partir du nom et prénom
+        function generateUsername() {
+            const nom = document.getElementById('adminUserNom').value.trim();
+            const prenom = document.getElementById('adminUserPrenom').value.trim();
+            
+            if (!nom || !prenom) return;
+            
+            // Retirer les accents, espaces et tirets, puis mettre en minuscule
+            const nomClean = removeAccents(nom).replace(/[\s\-]/g, '').toLowerCase();
+            const prenomClean = removeAccents(prenom).replace(/[\s\-]/g, '').toLowerCase();
+            
+            // Générer le login: prenom.nom
+            const username = `${prenomClean}.${nomClean}`;
+            
+            document.getElementById('adminUserUsername').value = username;
+        }
+
+        // Event listeners pour automatiser la saisie
+        document.addEventListener('DOMContentLoaded', function() {
+            // ========== AUTOMATISATION UTILISATEURS ==========
+            
+            // Capitaliser automatiquement le prénom
+            const prenomInput = document.getElementById('adminUserPrenom');
+            if (prenomInput) {
+                prenomInput.addEventListener('blur', function() {
+                    this.value = capitalizeFirstLetter(this.value);
+                    generateUsername();
+                });
+            }
+            
+            // Régénérer le login quand le nom change
+            const nomInput = document.getElementById('adminUserNom');
+            if (nomInput) {
+                nomInput.addEventListener('blur', function() {
+                    generateUsername();
+                });
+            }
+            
+            // ========== AUTOMATISATION RESSOURCES ==========
+            
+            // Capitaliser automatiquement le prénom de la ressource
+            const resourcePrenomInput = document.getElementById('prenom');
+            if (resourcePrenomInput) {
+                resourcePrenomInput.addEventListener('blur', function() {
+                    this.value = capitalizeFirstLetter(this.value);
+                    generateTrigramme();
+                });
+            }
+            
+            // Régénérer le trigramme quand le nom change
+            const resourceNomInput = document.getElementById('nom');
+            if (resourceNomInput) {
+                resourceNomInput.addEventListener('blur', function() {
+                    generateTrigramme();
+                });
+            }
+            
+            // Pré-remplir SAMU avec "SAMU " si vide
+            const samuInput = document.getElementById('samu');
+            if (samuInput) {
+                samuInput.addEventListener('focus', function() {
+                    if (!this.value || this.value.trim() === '') {
+                        this.value = 'SAMU ';
+                    }
+                });
+            }
+        });
+
+        // Fonction pour générer le trigramme à partir du nom et prénom
+        function generateTrigramme() {
+            const nom = document.getElementById('nom').value.trim();
+            const prenom = document.getElementById('prenom').value.trim();
+            
+            if (!nom || !prenom) return;
+            
+            // Retirer les accents et espaces
+            const nomClean = removeAccents(nom).replace(/[\s\-]/g, '');
+            const prenomClean = removeAccents(prenom).replace(/[\s\-]/g, '');
+            
+            // Prendre la 1ère lettre du prénom + 2 premières lettres du nom
+            const trigramme = (prenomClean.charAt(0) + nomClean.substring(0, 2)).toUpperCase();
+            
+            document.getElementById('trigramme').value = trigramme;
+        }
+
         async function addUser() {
             const username = document.getElementById('adminUserUsername').value.trim();
             const password = document.getElementById('adminUserPassword').value;
@@ -2286,6 +2492,7 @@
                 await loadUsers();
                 await loadResources();
                 showSyncStatus();
+                logModification("Modification du planning");
             } catch (error) {
                 console.error('Erreur:', error);
                 alert(error.message);
@@ -2337,6 +2544,7 @@
                 if (!response.ok) throw new Error('Erreur toggle');
                 await loadUsers();
                 showSyncStatus();
+                logModification("Modification du planning");
             } catch (error) {
                 console.error('Erreur:', error);
             }
@@ -2352,6 +2560,7 @@
                 }
                 await loadUsers();
                 showSyncStatus();
+                logModification("Modification du planning");
             } catch (error) {
                 console.error('Erreur:', error);
                 alert(error.message);
@@ -2404,6 +2613,7 @@
                 
                 closeResetPasswordModal();
                 showSyncStatus();
+                logModification("Modification du planning");
             } catch (error) {
                 console.error('Erreur:', error);
                 alert('Erreur lors de la réinitialisation : ' + error.message);
@@ -2527,6 +2737,7 @@
                 closeEditUserModal();
                 await loadUsers();
                 showSyncStatus();
+                logModification("Modification du planning");
             } catch (error) {
                 console.error('Erreur:', error);
                 alert(error.message);
@@ -2536,29 +2747,42 @@
         async function saveEmailConfig() {
             const config = {
                 host: document.getElementById('smtpHost').value,
-                port: document.getElementById('smtpPort').value,
+                port: parseInt(document.getElementById('smtpPort').value),
+                secure: false, // Par défaut false pour STARTTLS (port 587)
                 user: document.getElementById('smtpUser').value,
                 password: document.getElementById('smtpPassword').value
             };
+            
+            if (!config.host || !config.port || !config.user || !config.password) {
+                alert('❌ Tous les champs sont requis');
+                return;
+            }
+            
             try {
-                const response = await fetch(`${API_URL}/email/config`, {
+                const response = await fetch(`${API_URL}/email-config`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
                     body: JSON.stringify(config)
                 });
-                if (!response.ok) throw new Error('Erreur sauvegarde config');
-                alert('✅ Configuration email sauvegardée !');
-                showSyncStatus();
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('✅ Configuration email sauvegardée !');
+                    logModification("Modification configuration email SMTP");
+                } else {
+                    throw new Error(data.error || 'Erreur sauvegarde config');
+                }
             } catch (error) {
                 console.error('Erreur:', error);
-                alert('Erreur lors de la sauvegarde');
+                alert('❌ Erreur lors de la sauvegarde: ' + error.message);
             }
         }
 
         async function testEmail() {
             try {
-                const response = await fetch(`${API_URL}/email/test`, { method: 'POST', credentials: 'include' });
+                const response = await fetch(`${API_URL}/email-config/test`, { method: 'POST', credentials: 'include' });
                 const data = await response.json();
                 if (data.success) {
                     alert('✅ Email de test envoyé avec succès ! Vérifiez votre boîte mail.');
@@ -2743,22 +2967,48 @@
         async function loadConnectionLogs() {
             try {
                 const response = await fetch(`${API_URL}/logs/connections`, { credentials: 'include' });
-                if (!response.ok) return;
+                if (!response.ok) {
+                    console.error('Erreur réponse logs:', response.status);
+                    return;
+                }
                 
                 const data = await response.json();
+                console.log('Logs reçus:', data);
+                
                 const tbody = document.getElementById('connectionLogsList');
-                if (!tbody) return;
+                if (!tbody) {
+                    console.error('Élément connectionLogsList non trouvé');
+                    return;
+                }
                 
                 tbody.innerHTML = '';
                 
                 if (!data.logs || data.logs.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color: #7f8c8d;">Aucun log de connexion</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color: #7f8c8d;">Aucun log de connexion enregistré</td></tr>';
                     return;
                 }
                 
+                console.log(`${data.logs.length} logs trouvés`);
+                
                 data.logs.forEach(log => {
                     const tr = document.createElement('tr');
-                    const loginDate = new Date(log.login_time);
+                    
+                    // Corriger le décalage horaire
+                    let loginTime = log.login_time;
+                    if (!loginTime.endsWith('Z') && !loginTime.includes('+')) {
+                        loginTime += 'Z';
+                    }
+                    
+                    const loginDate = new Date(loginTime).toLocaleString('fr-FR', {
+                        timeZone: 'Europe/Paris',
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                    });
+                    
                     const profileLabel = log.profile === 'admin' ? 'Administrateur' : 
                                          log.profile === 'expert' ? 'Expert Métier' : 'Utilisateur';
                     
@@ -2767,9 +3017,9 @@
                         <td>${log.nom}</td>
                         <td>${log.prenom}</td>
                         <td>${profileLabel}</td>
-                        <td>${loginDate.toLocaleString('fr-FR')}</td>
+                        <td>${loginDate}</td>
                         <td>
-                            <button class="edit" onclick="showLogDetails(${log.id}, '${log.username.replace(/'/g, "\\'")}', '${loginDate.toLocaleString('fr-FR')}', '${(log.modifications || 'Aucune modification').replace(/'/g, "\\'")}')">
+                            <button class="edit" onclick="showLogDetails(${log.id})">
                                 Voir détails
                             </button>
                         </td>
@@ -2778,16 +3028,127 @@
                 });
             } catch (error) {
                 console.error('Erreur chargement logs:', error);
+                const tbody = document.getElementById('connectionLogsList');
+                if (tbody) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color: #e74c3c;">Erreur lors du chargement des logs</td></tr>';
+                }
             }
         }
 
-        function showLogDetails(logId, username, date, modifications) {
+        async function showLogDetails(logId) {
             const modal = document.getElementById('logDetailsModal');
             if (!modal) return;
-            document.getElementById('logDetailsUsername').textContent = username;
-            document.getElementById('logDetailsDate').textContent = date;
-            document.getElementById('logDetailsContent').textContent = modifications;
-            modal.classList.add('active');
+            
+            try {
+                const response = await fetch(`${API_URL}/connection-logs/${logId}`, {
+                    credentials: 'include'
+                });
+                
+                const log = await response.json();
+                
+                if (!log) {
+                    alert('Log non trouvé');
+                    return;
+                }
+                
+                // Corriger le décalage horaire : ajouter 'Z' pour indiquer UTC si pas déjà présent
+                let loginTime = log.login_time;
+                if (!loginTime.endsWith('Z') && !loginTime.includes('+')) {
+                    loginTime += 'Z';
+                }
+                
+                document.getElementById('logDetailsUsername').textContent = log.username;
+                document.getElementById('logDetailsDate').textContent = new Date(loginTime).toLocaleString('fr-FR', {
+                    timeZone: 'Europe/Paris',
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+                
+                const contentDiv = document.getElementById('logDetailsContent');
+                
+                if (!log.modifications || log.modifications === '') {
+                    contentDiv.innerHTML = '<p style="color: #7f8c8d; font-style: italic;">Aucune action enregistrée pour cette session</p>';
+                } else {
+                    try {
+                        const actions = JSON.parse(log.modifications);
+                        if (actions.length === 0) {
+                            contentDiv.innerHTML = '<p style="color: #7f8c8d; font-style: italic;">Aucune action enregistrée pour cette session</p>';
+                        } else {
+                            // Format tableau : Horodatage | Action réalisée
+                            let html = `
+                                <div style="max-height: 500px; overflow-y: auto;">
+                                    <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                                        <thead>
+                                            <tr style="background-color: #1D70B7; color: white;">
+                                                <th style="padding: 8px; text-align: left; border: 1px solid #bdc3c7; width: 180px;">Horodatage</th>
+                                                <th style="padding: 8px; text-align: left; border: 1px solid #bdc3c7;">Action réalisée</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                            `;
+                            
+                            actions.forEach((action, index) => {
+                                // Corriger le décalage horaire
+                                let timestamp = action.timestamp;
+                                if (!timestamp.endsWith('Z') && !timestamp.includes('+')) {
+                                    timestamp += 'Z';
+                                }
+                                
+                                const dateTime = new Date(timestamp).toLocaleString('fr-FR', {
+                                    timeZone: 'Europe/Paris',
+                                    year: 'numeric',
+                                    month: '2-digit',
+                                    day: '2-digit',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    second: '2-digit'
+                                });
+                                
+                                // Construire la description de l'action
+                                let actionDescription = action.action;
+                                if (action.details && Object.keys(action.details).length > 0) {
+                                    const detailsText = Object.entries(action.details)
+                                        .map(([key, value]) => {
+                                            if (typeof value === 'object') {
+                                                return `${key}: ${JSON.stringify(value)}`;
+                                            }
+                                            return `${key}: ${value}`;
+                                        })
+                                        .join(', ');
+                                    actionDescription += ` (${detailsText})`;
+                                }
+                                
+                                const bgColor = index % 2 === 0 ? '#f8f9fa' : 'white';
+                                html += `
+                                    <tr style="background-color: ${bgColor};">
+                                        <td style="padding: 8px; border: 1px solid #e0e0e0; font-family: monospace; white-space: nowrap;">${dateTime}</td>
+                                        <td style="padding: 8px; border: 1px solid #e0e0e0;">${actionDescription}</td>
+                                    </tr>
+                                `;
+                            });
+                            
+                            html += `
+                                        </tbody>
+                                    </table>
+                                </div>
+                            `;
+                            contentDiv.innerHTML = html;
+                        }
+                    } catch (e) {
+                        // Si ce n'est pas du JSON, afficher comme texte brut (ancien format)
+                        contentDiv.innerHTML = `<pre style="white-space: pre-wrap; font-size: 12px;">${log.modifications}</pre>`;
+                    }
+                }
+                
+                modal.classList.add('active');
+            } catch (error) {
+                console.error('Erreur chargement détail log:', error);
+                alert('Erreur lors du chargement des détails');
+            }
         }
 
         function closeLogDetailsModal() {
@@ -2928,8 +3289,535 @@
             }, 500);
         }
 
+        
+        // ========== NETTOYAGE BASE DE DONNÉES ==========
+
+        async function cleanupOldFormatData() {
+            if (!confirm('⚠️ ATTENTION !\n\nCette action va supprimer toutes les anciennes données de planification au format journée (sans AM/PM).\n\nIl est fortement recommandé de faire un backup avant de continuer.\n\nVoulez-vous continuer ?')) {
+                return;
+            }
+            
+            if (!confirm('Êtes-vous vraiment sûr ? Cette action est IRRÉVERSIBLE.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/schedule/cleanup-old-format`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert(`✅ Nettoyage terminé !\n\n${data.deleted} entrée(s) supprimée(s)`);
+                    await loadSchedule();
+                    updateGantt();
+                } else {
+                    alert('❌ Erreur: ' + (data.error || 'Erreur inconnue'));
+                }
+            } catch (error) {
+                console.error('Erreur nettoyage:', error);
+                alert('Erreur lors du nettoyage de la base de données');
+            }
+        }
+
+        // ========== LOGS DE MODIFICATIONS ==========
+
+        async function logModification(description) {
+            try {
+                await fetch(`${API_URL}/logs/add-modification`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ modification: description })
+                });
+            } catch (error) {
+                console.error('Erreur log modification:', error);
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // ========== IMPRESSION CALENDRIER RESSOURCE ==========
+
+        function printResourceCalendar(resourceId) {
+            const resource = resources.find(r => r.id === resourceId);
+            if (!resource) return;
+            
+            const year = parseInt(document.getElementById('yearSelect').value);
+            const month = parseInt(document.getElementById('monthSelect').value);
+            const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 
+                                'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+            
+            const calendarHTML = generateResourceCalendarHTML(resourceId, year, month);
+            
+            const modal = document.getElementById('printCalendarModal');
+            const content = document.getElementById('printCalendarContent');
+            
+            content.innerHTML = `
+                <div id="calendarToPrint">
+                    <div style="text-align: center; margin-bottom: 20px; page-break-after: avoid;">
+                        <h2 style="margin: 0; color: #2c3e50;">Planning - ${resource.nom.toUpperCase()} ${resource.prenom}</h2>
+                        <h3 style="margin: 5px 0; color: #7f8c8d;">${monthNames[month]} ${year}</h3>
+                        <p style="margin: 5px 0; font-size: 13px; color: #95a5a6;">Trigramme: ${resource.trigramme}</p>
+                    </div>
+                    ${calendarHTML}
+                </div>
+            `;
+            
+            modal.classList.add('active');
+        }
+
+        function generateResourceCalendarHTML(resourceId, year, month) {
+            const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 
+                                'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+            const dayNames = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+            
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0).getDate();
+            const startDayOfWeek = firstDay.getDay();
+            
+            let html = '<table style="width: 100%; border-collapse: collapse; font-size: 12px;">';
+            
+            html += '<thead><tr>';
+            dayNames.forEach((day, index) => {
+                const isWeekend = index === 0 || index === 6;
+                html += `<th style="padding: 10px; background-color: ${isWeekend ? '#ffc107' : '#1D70B7'}; color: ${isWeekend ? '#333' : 'white'}; border: 1px solid #bdc3c7;">${day}</th>`;
+            });
+            html += '</tr></thead><tbody>';
+            
+            let day = 1;
+            const totalDays = startDayOfWeek + lastDay;
+            const numWeeks = Math.ceil(totalDays / 7);
+            
+            for (let week = 0; week < numWeeks; week++) {
+                html += '<tr>';
+                
+                for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {
+                    if ((week === 0 && dayOfWeek < startDayOfWeek) || day > lastDay) {
+                        html += '<td style="padding: 15px; border: 1px solid #bdc3c7; background-color: #f5f5f5;"></td>';
+                    } else {
+                        const dateKey = `${year}-${month}-${day}`;
+                        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                        
+                        const amAvailKey = `${resourceId}_available_${dateKey}_AM`;
+                        const amActKey = `${resourceId}_activity_${dateKey}_AM`;
+                        const amLocKey = `${resourceId}_localisation_${dateKey}_AM`;
+                        
+                        const pmAvailKey = `${resourceId}_available_${dateKey}_PM`;
+                        const pmActKey = `${resourceId}_activity_${dateKey}_PM`;
+                        const pmLocKey = `${resourceId}_localisation_${dateKey}_PM`;
+                        
+                        const amAvail = scheduleData[amAvailKey] || '1';
+                        const amAct = scheduleData[amActKey] || '1';
+                        const amLoc = scheduleData[amLocKey] || '-';
+                        
+                        const pmAvail = scheduleData[pmAvailKey] || '1';
+                        const pmAct = scheduleData[pmActKey] || '1';
+                        const pmLoc = scheduleData[pmLocKey] || '-';
+                        
+                        const amStatus = getActivityLabel(amAvail, amAct, amLoc);
+                        const pmStatus = getActivityLabel(pmAvail, pmAct, pmLoc);
+                        
+                        html += `<td style="padding: 5px; border: 1px solid #bdc3c7; ${isWeekend ? 'background-color: #fff8e1;' : ''} vertical-align: top;">
+                            <div style="font-weight: bold; text-align: center; margin-bottom: 5px; padding: 3px; background-color: #34495e; color: white; border-radius: 3px;">${day}</div>
+                            <div style="font-size: 10px; margin-bottom: 3px; padding: 5px; background-color: ${amStatus.color}; color: white; border-radius: 3px;">
+                                <strong>AM:</strong> ${amStatus.label}
+                            </div>
+                            <div style="font-size: 10px; padding: 5px; background-color: ${pmStatus.color}; color: white; border-radius: 3px;">
+                                <strong>PM:</strong> ${pmStatus.label}
+                            </div>
+                        </td>`;
+                        
+                        day++;
+                    }
+                }
+                
+                html += '</tr>';
+            }
+            
+            html += '</tbody></table>';
+            return html;
+        }
+
+        function getActivityLabel(avail, act, loc) {
+            if (avail === '1') {
+                return { label: 'Indisponible', color: '#95a5a6' };
+            }
+            
+            const colorMap = {
+                '1': { label: 'Indisponible', color: '#95a5a6' },
+                '2': { label: 'En attente', color: '#9b59b6' },
+                '3': { label: 'SAMU Dép.', color: '#e67e22' },
+                '4': { label: 'SAMU Dev.', color: '#d35400' },
+                '5': { label: 'ANS Dép.', color: '#3498db' },
+                '6': { label: 'ANS Dev.', color: '#2980b9' },
+                '7': { label: 'Qualification', color: '#e74c3c' },
+                '8': { label: 'Divers', color: '#16a085' }
+            };
+            
+            const result = colorMap[act] || colorMap['2'];
+            
+            if (loc && loc !== '-') {
+                result.label += ` (${loc})`;
+            }
+            
+            return result;
+        }
+
+        function actualPrintCalendar() {
+            window.print();
+        }
+
+        function closePrintModal() {
+            const modal = document.getElementById('printCalendarModal');
+            modal.classList.remove('active');
+        }
+
+        // ========== ENVOI CALENDRIER PAR EMAIL ==========
+
+        async function sendResourceCalendarByEmail(resourceId) {
+            const resource = resources.find(r => r.id === resourceId);
+            if (!resource) return;
+            
+            try {
+                // Récupérer l'email depuis la table users
+                const response = await fetch(`${API_URL}/user/email-by-resource/${resourceId}`, {
+                    credentials: 'include'
+                });
+                const userData = await response.json();
+                
+                if (!userData.email) {
+                    alert(`❌ Aucun utilisateur avec email n'est associé à ${resource.nom} ${resource.prenom}.\n\nVeuillez d'abord créer un compte utilisateur (Expert Métier) pour cette ressource dans l'onglet "Utilisateurs".`);
+                    return;
+                }
+                
+                const confirmSend = confirm(`Envoyer le calendrier par email à ${userData.email} ?\n\nRessource : ${resource.nom} ${resource.prenom}`);
+                if (!confirmSend) return;
+                
+                const year = parseInt(document.getElementById('yearSelect').value);
+                const month = parseInt(document.getElementById('monthSelect').value);
+                const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 
+                                    'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+                
+                const calendarHTML = generateResourceCalendarHTML(resourceId, year, month);
+                
+                const fullHTML = `
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <meta charset="UTF-8">
+                        <title>Planning ${resource.nom} ${resource.prenom} - ${monthNames[month]} ${year}</title>
+                    </head>
+                    <body style="font-family: Arial, sans-serif; padding: 20px;">
+                        <div style="text-align: center; margin-bottom: 20px;">
+                            <h2 style="margin: 0; color: #2c3e50;">Planning - ${resource.nom.toUpperCase()} ${resource.prenom}</h2>
+                            <h3 style="margin: 5px 0; color: #7f8c8d;">${monthNames[month]} ${year}</h3>
+                            <p style="margin: 5px 0; font-size: 13px; color: #95a5a6;">Trigramme: ${resource.trigramme}</p>
+                        </div>
+                        ${calendarHTML}
+                    </body>
+                    </html>
+                `;
+                
+                const sendResponse = await fetch(`${API_URL}/send-calendar-email`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        resourceId: resourceId,
+                        email: userData.email,
+                        html: fullHTML,
+                        subject: `Planning ${resource.nom} ${resource.prenom} - ${monthNames[month]} ${year}`
+                    })
+                });
+                
+                const data = await sendResponse.json();
+                
+                if (data.success) {
+                    alert('✅ Calendrier envoyé par email avec succès !');
+                } else {
+                    alert('❌ Erreur: ' + (data.error || 'Erreur inconnue'));
+                }
+            } catch (error) {
+                console.error('Erreur envoi calendrier:', error);
+                alert('❌ Erreur lors de l\'envoi du calendrier par email');
+            }
+        }
+
+
         // Charger la version au démarrage de la page
         loadAppVersion();
+
+        // ========== VUE CALENDRIER MENSUEL ==========
+        
+        function openMonthlyCalendarView() {
+            const year = parseInt(document.getElementById('yearSelect').value);
+            const month = parseInt(document.getElementById('monthSelect').value);
+            const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 
+                                'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+            
+            const modal = document.getElementById('monthlyCalendarModal');
+            const content = document.getElementById('monthlyCalendarContent');
+            
+            // Générer le calendrier
+            const calendarHTML = generateMonthlyCalendarView(year, month);
+            
+            content.innerHTML = `
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <h2 style="margin: 0; color: #2c3e50;">${monthNames[month]} ${year}</h2>
+                    <p style="color: #7f8c8d; font-size: 13px; margin-top: 5px;">Vue d'ensemble des disponibilités par demi-journée</p>
+                </div>
+                ${calendarHTML}
+            `;
+            
+            modal.classList.add('active');
+        }
+        
+        function generateMonthlyCalendarView(year, month) {
+            const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0).getDate();
+            const startDayOfWeek = firstDay.getDay();
+            
+            // Filtrer les ressources actives et disponibles
+            const filterSelect = document.getElementById('resourceFilter');
+            const selectedOptions = Array.from(filterSelect.selectedOptions).map(opt => opt.value);
+            let filteredResources = resources.filter(r => r.actif);
+            
+            if (!selectedOptions.includes('') && selectedOptions.length > 0) {
+                const selectedIds = selectedOptions.map(id => parseInt(id));
+                filteredResources = filteredResources.filter(r => selectedIds.includes(r.id));
+            }
+            
+            // Générer des couleurs distinctes pour chaque expert
+            const expertColors = {};
+            const baseColors = [
+                '#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', 
+                '#1abc9c', '#e67e22', '#34495e', '#16a085', '#27ae60',
+                '#2980b9', '#8e44ad', '#c0392b', '#d35400', '#7f8c8d'
+            ];
+            filteredResources.forEach((resource, index) => {
+                expertColors[resource.id] = baseColors[index % baseColors.length];
+            });
+            
+            let html = '<table style="width: 100%; border-collapse: collapse; font-size: 12px;">';
+            
+            // En-tête des jours de la semaine
+            html += '<thead><tr>';
+            dayNames.forEach((day, index) => {
+                const isWeekend = index === 0 || index === 6;
+                html += `<th style="padding: 10px; background-color: ${isWeekend ? '#ffc107' : '#1D70B7'}; color: ${isWeekend ? '#333' : 'white'}; border: 1px solid #bdc3c7; font-weight: bold;">${day}</th>`;
+            });
+            html += '</tr></thead><tbody>';
+            
+            let day = 1;
+            const totalDays = startDayOfWeek + lastDay;
+            const numWeeks = Math.ceil(totalDays / 7);
+            
+            for (let week = 0; week < numWeeks; week++) {
+                html += '<tr>';
+                
+                for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {
+                    if ((week === 0 && dayOfWeek < startDayOfWeek) || day > lastDay) {
+                        html += '<td style="padding: 10px; border: 1px solid #bdc3c7; background-color: #f5f5f5; min-height: 100px;"></td>';
+                    } else {
+                        const dateKey = `${year}-${month}-${day}`;
+                        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                        const date = new Date(year, month, day);
+                        
+                        // Vérifier si c'est le jour actuel
+                        const today = new Date();
+                        const isToday = date.getDate() === today.getDate() && 
+                                       date.getMonth() === today.getMonth() && 
+                                       date.getFullYear() === today.getFullYear();
+                        
+                        // Collecter les experts disponibles pour AM et PM
+                        const amExperts = [];
+                        const pmExperts = [];
+                        
+                        filteredResources.forEach(resource => {
+                            const checkDate = new Date(year, month, day);
+                            const isAccessible = isDateAccessible(resource, checkDate);
+                            
+                            if (isAccessible) {
+                                // Vérifier AM
+                                const amAvailKey = `${resource.id}_available_${dateKey}_AM`;
+                                const amAvailValue = scheduleData[amAvailKey] || '1';
+                                if (amAvailValue === '2') {
+                                    amExperts.push({
+                                        trigramme: resource.trigramme,
+                                        color: expertColors[resource.id]
+                                    });
+                                }
+                                
+                                // Vérifier PM
+                                const pmAvailKey = `${resource.id}_available_${dateKey}_PM`;
+                                const pmAvailValue = scheduleData[pmAvailKey] || '1';
+                                if (pmAvailValue === '2') {
+                                    pmExperts.push({
+                                        trigramme: resource.trigramme,
+                                        color: expertColors[resource.id]
+                                    });
+                                }
+                            }
+                        });
+                        
+                        html += `<td style="padding: 5px; border: 1px solid #bdc3c7; ${isWeekend ? 'background-color: #fff8e1;' : isToday ? 'background-color: #d4edda;' : ''} vertical-align: top; min-height: 100px;">
+                            <div style="font-weight: bold; text-align: center; margin-bottom: 8px; padding: 4px; background-color: ${isToday ? '#28a745' : '#34495e'}; color: white; border-radius: 3px; font-size: 13px;">${day}</div>
+                            
+                            <div style="margin-bottom: 5px;">
+                                <div style="font-size: 10px; font-weight: bold; color: #2c3e50; margin-bottom: 3px;">☀️ Matin:</div>
+                                <div style="display: flex; flex-wrap: wrap; gap: 3px;">
+                                    ${amExperts.length > 0 
+                                        ? amExperts.map(expert => 
+                                            `<span style="font-size: 9px; padding: 2px 5px; background-color: ${expert.color}; color: white; border-radius: 3px; font-weight: bold;">${expert.trigramme}</span>`
+                                          ).join('')
+                                        : '<span style="font-size: 9px; color: #95a5a6; font-style: italic;">Aucun</span>'}
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <div style="font-size: 10px; font-weight: bold; color: #2c3e50; margin-bottom: 3px;">🌙 A-midi:</div>
+                                <div style="display: flex; flex-wrap: wrap; gap: 3px;">
+                                    ${pmExperts.length > 0 
+                                        ? pmExperts.map(expert => 
+                                            `<span style="font-size: 9px; padding: 2px 5px; background-color: ${expert.color}; color: white; border-radius: 3px; font-weight: bold;">${expert.trigramme}</span>`
+                                          ).join('')
+                                        : '<span style="font-size: 9px; color: #95a5a6; font-style: italic;">Aucun</span>'}
+                                </div>
+                            </div>
+                        </td>`;
+                        
+                        day++;
+                    }
+                }
+                
+                html += '</tr>';
+            }
+            
+            html += '</tbody></table>';
+            
+            // Ajouter la légende des couleurs
+            html += '<div style="margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 5px;">';
+            html += '<div style="font-weight: bold; margin-bottom: 10px; color: #2c3e50;">Légende des experts:</div>';
+            html += '<div style="display: flex; flex-wrap: wrap; gap: 10px;">';
+            filteredResources.forEach(resource => {
+                html += `<div style="display: flex; align-items: center; gap: 5px;">
+                    <span style="width: 20px; height: 20px; background-color: ${expertColors[resource.id]}; border-radius: 3px; display: inline-block;"></span>
+                    <span style="font-size: 12px;">${resource.trigramme} - ${resource.nom} ${resource.prenom}</span>
+                </div>`;
+            });
+            html += '</div></div>';
+            
+            return html;
+        }
+        
+        function printMonthlyCalendar() {
+            window.print();
+        }
+        
+        function closeMonthlyCalendarModal() {
+            const modal = document.getElementById('monthlyCalendarModal');
+            modal.classList.remove('active');
+        }
     </script>
+
+    <!-- MODALE VUE CALENDRIER MENSUEL -->
+    <div id="monthlyCalendarModal" class="modal">
+        <div class="modal-content" id="monthlyCalendarToPrint" style="max-width: 1200px; width: 95%;">
+            <h3>Vue Calendrier Mensuel</h3>
+            <div id="monthlyCalendarContent" style="max-height: 70vh; overflow-y: auto; margin: 20px 0;">
+                <!-- Le contenu sera généré dynamiquement -->
+            </div>
+            <div class="modal-button-group">
+                <button onclick="printMonthlyCalendar()" style="background-color: #3498db;">
+                    🖨️ Imprimer
+                </button>
+                <button onclick="closeMonthlyCalendarModal()" style="background-color: #95a5a6;">
+                    Fermer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALE IMPRESSION CALENDRIER -->
+    <div id="printCalendarModal" class="modal">
+        <div class="modal-content" style="max-width: 900px; width: 95%;">
+            <h3>Aperçu avant impression</h3>
+            <div id="printCalendarContent" style="max-height: 600px; overflow-y: auto; margin: 20px 0;">
+                <!-- Le contenu sera généré dynamiquement -->
+            </div>
+            <div class="modal-button-group">
+                <button onclick="actualPrintCalendar()" style="background-color: #3498db;">
+                    🖨️ Imprimer
+                </button>
+                <button onclick="closePrintModal()" style="background-color: #95a5a6;">
+                    Fermer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- STYLE POUR L'IMPRESSION -->
+    <style>
+    @media print {
+        body * {
+            visibility: hidden;
+        }
+        #calendarToPrint, #calendarToPrint * {
+            visibility: visible;
+        }
+        #calendarToPrint {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+        }
+        /* Supprimer les flèches de tri dans le calendrier d'impression */
+        #calendarToPrint th::after {
+            content: none !important;
+        }
+        .modal {
+            position: static !important;
+            background: none !important;
+        }
+        .modal-content {
+            box-shadow: none !important;
+            max-width: 100% !important;
+        }
+        .modal-button-group {
+            display: none !important;
+        }
+        
+        /* Styles pour l'impression du calendrier mensuel */
+        #monthlyCalendarToPrint, #monthlyCalendarToPrint * {
+            visibility: visible;
+        }
+        #monthlyCalendarToPrint {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+        }
+        #monthlyCalendarToPrint h3 {
+            page-break-after: avoid;
+        }
+        #monthlyCalendarContent table {
+            page-break-inside: auto;
+        }
+        #monthlyCalendarContent tr {
+            page-break-inside: avoid;
+            page-break-after: auto;
+        }
+    }
+    </style>
+
 </body>
 </html>
