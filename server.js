@@ -1527,6 +1527,154 @@ app.post('/api/send-calendar-email', requireAuth, async (req, res) => {
     }
 });
 
+// Routes d'export Excel
+app.get('/api/export/resources', requireAuth, (req, res) => {
+    database.all('SELECT * FROM resources ORDER BY nom, prenom', (err, resources) => {
+        if (err) {
+            console.error('Erreur export resources:', err);
+            return res.status(500).json({ error: err.message });
+        }
+        
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        
+        // Générer CSV
+        let csv = '\ufeff'; // BOM UTF-8
+        csv += 'ID,Nom,Prénom,Trigramme,Email,Téléphone,Taux MAD (%),SAMU,Début MAD,Fin MAD,Actif,Date création\n';
+        
+        resources.forEach(r => {
+            csv += `${r.id},"${r.nom}","${r.prenom}","${r.trigramme}","${r.email || ''}","${r.telephone || ''}",${r.taux},"${r.samu}","${r.date_debut || ''}","${r.date_fin || ''}",${r.actif ? 'Oui' : 'Non'},"${r.created_at}"\n`;
+        });
+        
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename=resources_${timestamp}.csv`);
+        
+        logUserAction(req, 'Export ressources Excel', { count: resources.length });
+        res.send(csv);
+    });
+});
+
+app.get('/api/export/gantt', requireAuth, (req, res) => {
+    const { year, month } = req.query;
+    
+    if (!year || !month) {
+        return res.status(400).json({ error: 'Année et mois requis' });
+    }
+    
+    database.all('SELECT * FROM resources WHERE actif = 1 ORDER BY nom, prenom', (err, resources) => {
+        if (err) {
+            console.error('Erreur export gantt:', err);
+            return res.status(500).json({ error: err.message });
+        }
+        
+        database.all('SELECT * FROM schedule_data', (err2, scheduleData) => {
+            if (err2) {
+                console.error('Erreur export schedule:', err2);
+                return res.status(500).json({ error: err2.message });
+            }
+            
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 
+                              'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+            
+            // Générer CSV
+            let csv = '\ufeff'; // BOM UTF-8
+            csv += `Planning - ${monthNames[parseInt(month)]} ${year}\n\n`;
+            
+            // En-tête
+            csv += 'Ressource,Trigramme,SAMU';
+            
+            const lastDay = new Date(parseInt(year), parseInt(month) + 1, 0).getDate();
+            for (let day = 1; day <= lastDay; day++) {
+                const date = new Date(parseInt(year), parseInt(month), day);
+                const dayName = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'][date.getDay()];
+                csv += `,${dayName} ${day} AM,${dayName} ${day} PM`;
+            }
+            csv += '\n';
+            
+            // Données par ressource
+            resources.forEach(resource => {
+                csv += `"${resource.nom} ${resource.prenom}","${resource.trigramme}","${resource.samu}"`;
+                
+                for (let day = 1; day <= lastDay; day++) {
+                    const dateKeyBase = `${year}-${month}-${day}`;
+                    
+                    // AM
+                    const dateKeyAM = `${dateKeyBase}_AM`;
+                    const availAM = scheduleData.find(s => 
+                        s.resource_id === resource.id && 
+                        s.date_key === dateKeyAM && 
+                        s.type === 'available'
+                    );
+                    const actAM = scheduleData.find(s => 
+                        s.resource_id === resource.id && 
+                        s.date_key === dateKeyAM && 
+                        s.type === 'activity'
+                    );
+                    const locAM = scheduleData.find(s => 
+                        s.resource_id === resource.id && 
+                        s.date_key === dateKeyAM && 
+                        s.type === 'localisation'
+                    );
+                    
+                    // PM
+                    const dateKeyPM = `${dateKeyBase}_PM`;
+                    const availPM = scheduleData.find(s => 
+                        s.resource_id === resource.id && 
+                        s.date_key === dateKeyPM && 
+                        s.type === 'available'
+                    );
+                    const actPM = scheduleData.find(s => 
+                        s.resource_id === resource.id && 
+                        s.date_key === dateKeyPM && 
+                        s.type === 'activity'
+                    );
+                    const locPM = scheduleData.find(s => 
+                        s.resource_id === resource.id && 
+                        s.date_key === dateKeyPM && 
+                        s.type === 'localisation'
+                    );
+                    
+                    const availLabelAM = availAM ? (availAM.value === '1' ? 'Indispo' : 'Dispo') : '-';
+                    const actLabelAM = actAM ? getActivityLabel(actAM.value) : '-';
+                    const locLabelAM = locAM ? locAM.value : '-';
+                    
+                    const availLabelPM = availPM ? (availPM.value === '1' ? 'Indispo' : 'Dispo') : '-';
+                    const actLabelPM = actPM ? getActivityLabel(actPM.value) : '-';
+                    const locLabelPM = locPM ? locPM.value : '-';
+                    
+                    csv += `,"${availLabelAM} / ${actLabelAM} / ${locLabelAM}","${availLabelPM} / ${actLabelPM} / ${locLabelPM}"`;
+                }
+                
+                csv += '\n';
+            });
+            
+            res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+            res.setHeader('Content-Disposition', `attachment; filename=planning_${monthNames[parseInt(month)]}_${year}_${timestamp}.csv`);
+            
+            logUserAction(req, 'Export planning Excel', { 
+                year, 
+                month: monthNames[parseInt(month)],
+                resources: resources.length 
+            });
+            res.send(csv);
+        });
+    });
+});
+
+function getActivityLabel(value) {
+    const labels = {
+        '1': 'Indisponible',
+        '2': 'En attente',
+        '3': 'SAMU Dép.',
+        '4': 'SAMU Dev.',
+        '5': 'ANS Dép.',
+        '6': 'ANS Dev.',
+        '7': 'Qualification',
+        '8': 'Divers'
+    };
+    return labels[value] || '-';
+}
+
 // Servir les fichiers statiques APRÈS les routes API pour éviter les conflits
 app.use(express.static(path.join(__dirname, 'public')));
 
