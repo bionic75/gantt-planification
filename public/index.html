@@ -389,9 +389,9 @@
                             </select>
                         </div>
                         <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
-                            <button onclick="updateGantt()">Afficher</button>
-                            <button class="export-btn" onclick="exportGanttToExcel()">Excel</button>
-                            <button class="export-btn" onclick="window.print()">Imprimer A4</button>
+                            <button type="button" onclick="updateGantt()">Afficher</button>
+                            <button type="button" class="export-btn" onclick="exportGanttToExcel()">Excel</button>
+                            <button type="button" class="export-btn" onclick="printGanttPlanning()">Imprimer A4</button>
                         </div>
                     </div>
                 </div>
@@ -3480,6 +3480,10 @@
             modal.classList.remove('active');
         }
 
+        function printGanttPlanning() {
+            window.print();
+        }
+
         // ========== ENVOI CALENDRIER PAR EMAIL ==========
 
         async function sendResourceCalendarByEmail(resourceId) {
@@ -3771,6 +3775,49 @@
         body * {
             visibility: hidden;
         }
+        
+        /* Impression du planning principal */
+        #planning, #planning * {
+            visibility: visible;
+        }
+        #planning {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+        }
+        
+        /* Cacher les contrôles et légendes lors de l'impression */
+        #planning .form-section:not(#ganttDisplaySection):not(:has(#ganttDisplaySection)) {
+            display: none !important;
+        }
+        
+        #planningControlsSection,
+        #planningLegendSection,
+        .planif-controls,
+        .legend {
+            display: none !important;
+        }
+        
+        /* Afficher uniquement le tableau gantt */
+        #ganttDisplaySection {
+            display: block !important;
+        }
+        
+        .gantt-wrapper {
+            overflow: visible !important;
+            border: none !important;
+        }
+        
+        .gantt-table {
+            width: 100% !important;
+        }
+        
+        .gantt-table th::after {
+            content: none !important;
+        }
+        
+        /* Impression du calendrier individuel */
         #calendarToPrint, #calendarToPrint * {
             visibility: visible;
         }
@@ -3780,10 +3827,10 @@
             top: 0;
             width: 100%;
         }
-        /* Supprimer les flèches de tri dans le calendrier d'impression */
         #calendarToPrint th::after {
             content: none !important;
         }
+        
         .modal {
             position: static !important;
             background: none !important;
