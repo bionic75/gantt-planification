@@ -25,19 +25,34 @@ app.use(cors({
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 app.use(session({
-    secret: 'gantt-secret-key-2025',
+    secret: process.env.SESSION_SECRET || 'gantt-secret-key-2025',
     resave: false,
     saveUninitialized: false,
     cookie: { 
-        secure: false,
-        maxAge: 24 * 60 * 60 * 1000
-    }
+        secure: process.env.NODE_ENV === 'production' ? false : false, // Mettre true si HTTPS
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000,
+        sameSite: 'lax'
+    },
+    name: 'gantt.sid' // Nom personnalisé pour éviter les conflits
 }));
 
 // NOTE: express.static sera défini APRÈS les routes API pour éviter les conflits
 
+// Déterminer le chemin de la base de données
+const DB_DIR = config.DB_PATH || __dirname;
+const DB_FILE = path.join(DB_DIR, 'data.db');
+
+// Créer le répertoire s'il n'existe pas
+if (!fs.existsSync(DB_DIR)) {
+    console.log('📁 Création du répertoire DB:', DB_DIR);
+    fs.mkdirSync(DB_DIR, { recursive: true });
+}
+
+console.log('📊 Chemin base de données:', DB_FILE);
+
 // Initialiser la base de données SQLite
-const database = new sqlite3.Database(config.DB_PATH + '/data.db', (err) => 
+const database = new sqlite3.Database(DB_FILE, (err) => 
  {
     if (err) {
         console.error('Erreur connexion DB:', err);
@@ -135,6 +150,15 @@ async function sendEmail(to, subject, html, attachments = []) {
 
 // Initialiser les tables
 function initDB() {
+    // Vérifier les permissions d'écriture
+    try {
+        fs.accessSync(DB_DIR, fs.constants.W_OK);
+        console.log('✅ Permissions d\'écriture OK sur:', DB_DIR);
+    } catch (err) {
+        console.error('❌ ERREUR: Pas de permissions d\'écriture sur:', DB_DIR);
+        console.error('   Erreur:', err.message);
+    }
+    
  database.run(`
     CREATE TABLE IF NOT EXISTS resources (
         id INTEGER PRIMARY KEY,
@@ -294,8 +318,11 @@ function initDB() {
 
 function logUserAction(req, action, details = {}) {
     if (!req.session || !req.session.logId) {
+        console.log('⚠️ logUserAction: pas de session ou logId manquant');
         return;
     }
+    
+    console.log('📝 logUserAction appelé:', { action, logId: req.session.logId, userId: req.session.userId });
     
     const timestamp = new Date().toISOString();
     const actionLog = {
@@ -310,7 +337,12 @@ function logUserAction(req, action, details = {}) {
         [req.session.logId],
         (err, row) => {
             if (err) {
-                console.error('Erreur lecture log:', err);
+                console.error('❌ Erreur lecture log:', err);
+                return;
+            }
+            
+            if (!row) {
+                console.error('❌ Aucune ligne trouvée pour logId:', req.session.logId);
                 return;
             }
             
@@ -329,7 +361,11 @@ function logUserAction(req, action, details = {}) {
                 'UPDATE connection_logs SET modifications = ? WHERE id = ?',
                 [JSON.stringify(modifications), req.session.logId],
                 (err) => {
-                    if (err) console.error('Erreur update log:', err);
+                    if (err) {
+                        console.error('❌ Erreur update log:', err);
+                    } else {
+                        console.log('✅ Log mis à jour avec succès');
+                    }
                 }
             );
         }
@@ -584,19 +620,29 @@ app.get('/api/user/profiles', (req, res) => {
 app.get('/api/user/email-by-resource/:resourceId', requireAuth, (req, res) => {
     const { resourceId } = req.params;
     
+    console.log('🔍 Recherche email pour resource_id:', resourceId);
+    
     database.get(
-        'SELECT email, nom, prenom FROM users WHERE resource_id = ? AND actif = 1 LIMIT 1',
+        'SELECT id, username, email, nom, prenom, is_expert, resource_id FROM users WHERE resource_id = ? AND is_expert = 1 LIMIT 1',
         [resourceId],
         (err, user) => {
             if (err) {
-                console.error('Erreur récup email user:', err);
+                console.error('❌ Erreur récup email user:', err);
                 return res.status(500).json({ error: err.message });
             }
             
+            console.log('📊 Résultat requête user:', user);
+            
             if (user && user.email) {
+                console.log('✅ Email trouvé:', user.email);
                 res.json({ email: user.email, nom: user.nom, prenom: user.prenom });
             } else {
-                res.json({ email: null });
+                console.log('⚠️ Aucun email trouvé pour resource_id:', resourceId);
+                // Vérifier tous les users experts pour debug
+                database.all('SELECT id, username, email, nom, prenom, resource_id FROM users WHERE is_expert = 1', [], (err2, allExperts) => {
+                    console.log('👥 Tous les experts en base:', allExperts);
+                    res.json({ email: null });
+                });
             }
         }
     );
@@ -1483,8 +1529,8 @@ app.get('/api/backup/csv', requireAdmin, (req, res) => {
 
 app.get('/api/backup/sql', requireAdmin, (req, res) => {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const sourcePath = path.join(__dirname, 'data.db');
-    const destPath = path.join(__dirname, `backup_${timestamp}.db`);
+    const sourcePath = DB_FILE;
+    const destPath = path.join(DB_DIR, `backup_${timestamp}.db`);
     
     try {
         fs.copyFileSync(sourcePath, destPath);
