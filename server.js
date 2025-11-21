@@ -302,15 +302,36 @@ function initDB() {
     database.run(`
         CREATE TABLE IF NOT EXISTS connection_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
             username TEXT NOT NULL,
             nom TEXT NOT NULL,
             prenom TEXT NOT NULL,
             profile TEXT NOT NULL,
             login_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-            modifications TEXT DEFAULT ''
+            modifications TEXT DEFAULT '',
+            FOREIGN KEY (user_id) REFERENCES users(id)
         )
     `, (err) => {
-        if (err) console.error('Erreur création table connection_logs:', err);
+        if (err) {
+            console.error('Erreur création table connection_logs:', err);
+        } else {
+            // Migration: ajouter user_id si elle n'existe pas
+            database.all(`PRAGMA table_info(connection_logs)`, [], (pragmaErr, columns) => {
+                if (!pragmaErr && columns) {
+                    const userIdCol = columns.find(col => col.name === 'user_id');
+                    if (!userIdCol) {
+                        console.log('Migration: Ajout colonne user_id à connection_logs...');
+                        database.run(`ALTER TABLE connection_logs ADD COLUMN user_id INTEGER`, (alterErr) => {
+                            if (alterErr) {
+                                console.error('Erreur migration user_id:', alterErr);
+                            } else {
+                                console.log('✅ Migration terminée: user_id ajouté');
+                            }
+                        });
+                    }
+                }
+            });
+        }
     });
 }
 
@@ -429,8 +450,8 @@ app.post('/api/login', (req, res) => {
             // Logger la connexion
             console.log(`📝 Tentative de log connexion pour: ${user.username} (${profile})`);
             database.run(
-                `INSERT INTO connection_logs (username, nom, prenom, profile) VALUES (?, ?, ?, ?)`,
-                [user.username, user.nom, user.prenom, profile],
+                `INSERT INTO connection_logs (user_id, username, nom, prenom, profile) VALUES (?, ?, ?, ?, ?)`,
+                [user.id, user.username, user.nom, user.prenom, profile],
                 function(err) {
                     if (err) {
                         console.error('❌ Erreur log connexion:', err);
@@ -500,9 +521,10 @@ app.post('/api/forgot-password', async (req, res) => {
                     
                     // Logger la réinitialisation (sans session, on crée un log simple)
                     database.run(
-                        `INSERT INTO connection_logs (username, nom, prenom, profile, modifications) 
-                         VALUES (?, ?, ?, 'system', ?)`,
+                        `INSERT INTO connection_logs (user_id, username, nom, prenom, profile, modifications) 
+                         VALUES (?, ?, ?, ?, 'system', ?)`,
                         [
+                            user.id,
                             username, 
                             user.nom, 
                             user.prenom, 
@@ -1311,7 +1333,7 @@ app.get('/api/system/version', (req, res) => {
 // Récupération des logs de connexion (20 derniers)
 app.get('/api/logs/connections', requireAdmin, (req, res) => {
     database.all(
-        `SELECT id, username, nom, prenom, profile, login_time, modifications 
+        `SELECT id, user_id, username, nom, prenom, profile, login_time, modifications 
          FROM connection_logs 
          ORDER BY login_time DESC 
          LIMIT 20`,
@@ -1332,7 +1354,7 @@ app.get('/api/connection-logs/:id', requireAdmin, (req, res) => {
     const { id } = req.params;
     
     database.get(
-        `SELECT id, username, nom, prenom, profile, login_time, modifications 
+        `SELECT id, user_id, username, nom, prenom, profile, login_time, modifications 
          FROM connection_logs 
          WHERE id = ?`,
         [id],
