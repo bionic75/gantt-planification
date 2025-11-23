@@ -333,6 +333,44 @@ function initDB() {
             });
         }
     });
+
+    database.run(`
+        CREATE TABLE IF NOT EXISTS settings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            key TEXT UNIQUE NOT NULL,
+            value TEXT NOT NULL
+        )
+    `, (err) => {
+        if (err) {
+            console.error('Erreur création table settings:', err);
+        } else {
+            // Initialiser les paramètres par défaut
+            database.run(`INSERT OR IGNORE INTO settings (key, value) VALUES ('inactivity_enabled', 'false')`);
+            database.run(`INSERT OR IGNORE INTO settings (key, value) VALUES ('inactivity_timeout', '15')`);
+            console.log('✅ Table settings initialisée');
+        }
+    });
+
+    database.run(`
+        CREATE TABLE IF NOT EXISTS pending_notifications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT NOT NULL,
+            resource_id INTEGER NOT NULL,
+            expert_id INTEGER NOT NULL,
+            assignment_data TEXT NOT NULL,
+            created_by INTEGER NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (resource_id) REFERENCES resources(id),
+            FOREIGN KEY (expert_id) REFERENCES users(id),
+            FOREIGN KEY (created_by) REFERENCES users(id)
+        )
+    `, (err) => {
+        if (err) {
+            console.error('Erreur création table pending_notifications:', err);
+        } else {
+            console.log('✅ Table pending_notifications créée');
+        }
+    });
 }
 
 // ==================== MIDDLEWARE AUTH ====================
@@ -1742,6 +1780,149 @@ function getActivityLabel(value) {
     };
     return labels[value] || '-';
 }
+
+// ==================== ROUTES SETTINGS ====================
+
+app.get('/api/settings', requireAuth, (req, res) => {
+    database.all('SELECT * FROM settings', [], (err, rows) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        const settings = {};
+        rows.forEach(row => {
+            settings[row.key] = row.value;
+        });
+        res.json(settings);
+    });
+});
+
+app.put('/api/settings', requireAuth, requireAdmin, (req, res) => {
+    const { key, value } = req.body;
+    
+    database.run(
+        'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+        [key, value],
+        function(err) {
+            if (err) {
+                return res.status(500).json({ error: err.message });
+            }
+            logUserAction(req, 'Mise à jour paramètre', { key, value });
+            res.json({ success: true, key, value });
+        }
+    );
+});
+
+// ==================== ROUTES NOTIFICATIONS ====================
+
+app.post('/api/pending-notifications', requireAuth, (req, res) => {
+    const { sessionId, resourceId, expertId, assignmentData } = req.body;
+    
+    database.run(
+        `INSERT INTO pending_notifications (session_id, resource_id, expert_id, assignment_data, created_by)
+         VALUES (?, ?, ?, ?, ?)`,
+        [sessionId, resourceId, expertId, JSON.stringify(assignmentData), req.session.userId],
+        function(err) {
+            if (err) {
+                return res.status(500).json({ error: err.message });
+            }
+            res.json({ success: true, id: this.lastID });
+        }
+    );
+});
+
+app.get('/api/pending-notifications/:sessionId', requireAuth, (req, res) => {
+    const { sessionId } = req.params;
+    
+    database.all(
+        `SELECT pn.*, u.email, u.nom, u.prenom, r.nom as resource_nom, r.prenom as resource_prenom
+         FROM pending_notifications pn
+         JOIN users u ON pn.expert_id = u.id
+         JOIN resources r ON pn.resource_id = r.id
+         WHERE pn.session_id = ?`,
+        [sessionId],
+        (err, rows) => {
+            if (err) {
+                return res.status(500).json({ error: err.message });
+            }
+            res.json(rows);
+        }
+    );
+});
+
+app.delete('/api/pending-notifications/:sessionId', requireAuth, (req, res) => {
+    const { sessionId } = req.params;
+    
+    database.run(
+        'DELETE FROM pending_notifications WHERE session_id = ?',
+        [sessionId],
+        function(err) {
+            if (err) {
+                return res.status(500).json({ error: err.message });
+            }
+            res.json({ success: true, deleted: this.changes });
+        }
+    );
+});
+
+app.post('/api/send-assignment-notifications', requireAuth, async (req, res) => {
+    const { sessionId } = req.body;
+    
+    try {
+        const notifications = await new Promise((resolve, reject) => {
+            database.all(
+                `SELECT pn.*, u.email, u.nom, u.prenom, r.nom as resource_nom, r.prenom as resource_prenom,
+                        creator.nom as creator_nom, creator.prenom as creator_prenom
+                 FROM pending_notifications pn
+                 JOIN users u ON pn.expert_id = u.id
+                 JOIN resources r ON pn.resource_id = r.id
+                 JOIN users creator ON pn.created_by = creator.id
+                 WHERE pn.session_id = ?`,
+                [sessionId],
+                (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows);
+                }
+            );
+        });
+        
+        const results = [];
+        for (const notif of notifications) {
+            const assignmentData = JSON.parse(notif.assignment_data);
+            
+            const emailBody = `
+                <h2>Nouvelle affectation - Planification GANTT</h2>
+                <p>Bonjour ${notif.prenom} ${notif.nom},</p>
+                <p><strong>${notif.creator_prenom} ${notif.creator_nom}</strong> vous a affecté une nouvelle activité :</p>
+                <ul>
+                    <li><strong>Période :</strong> ${assignmentData.dates}</li>
+                    <li><strong>Activité :</strong> ${assignmentData.activity}</li>
+                    <li><strong>Localisation :</strong> ${assignmentData.location}</li>
+                </ul>
+                <p>Cordialement,<br>Le système de planification</p>
+            `;
+            
+            try {
+                await sendEmail(notif.email, 'Nouvelle affectation', emailBody);
+                results.push({ success: true, expert: `${notif.prenom} ${notif.nom}` });
+            } catch (error) {
+                results.push({ success: false, expert: `${notif.prenom} ${notif.nom}`, error: error.message });
+            }
+        }
+        
+        // Supprimer les notifications envoyées
+        database.run('DELETE FROM pending_notifications WHERE session_id = ?', [sessionId]);
+        
+        logUserAction(req, 'Envoi notifications affectations', { 
+            sessionId,
+            count: notifications.length,
+            results 
+        });
+        
+        res.json({ success: true, results });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
 
 // Servir les fichiers statiques APRÈS les routes API pour éviter les conflits
 app.use(express.static(path.join(__dirname, 'public')));

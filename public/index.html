@@ -289,6 +289,9 @@
 </head>
 <body>
     <div class="container">
+        <div class="inactivity-timer" id="inactivityTimerDisplay" style="display: none; position: fixed; top: 10px; right: 10px; background: #fff; padding: 8px 15px; border-radius: 5px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 1000; font-size: 14px; font-weight: bold; color: #2c3e50;">
+            ⏱️ <span id="timerMinutes">00</span>:<span id="timerSeconds">00</span>
+        </div>
         <div class="user-info" id="userInfo" style="display: none;">
             <span class="user-info-name" id="userDisplayName"></span>
             <span class="user-info-role" id="userDisplayRole"></span>
@@ -456,10 +459,10 @@
     <div class="form-section" style="background-color: #e8f5e9; border-left: 4px solid #4caf50;">
         <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleAdminSection('versionSection')">
             <h3 style="color: #2e7d32; border-left: none; margin: 0;">
-                <span id="versionSectionIcon">▼</span> Configuration de la version
+                <span id="versionSectionIcon">▶</span> Configuration de la version
             </h3>
         </div>
-        <div id="versionSection" style="margin-top: 15px;">
+        <div id="versionSection" style="margin-top: 15px; display: none;">
             <div class="form-row">
                 <div class="form-group">
                     <label>Numéro de version</label>
@@ -475,14 +478,53 @@
         </div>
     </div>
     
-    <!-- SECTION 2: Configuration Email (repliable) -->
+    <!-- SECTION 2: Paramétrages divers -->
+    <div class="form-section" style="background-color: #f0f4ff; border-left: 4px solid #5c6bc0;">
+        <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleAdminSection('settingsSection')">
+            <h3 style="color: #3949ab; border-left: none; margin: 0;">
+                <span id="settingsSectionIcon">▶</span> Paramétrages divers
+            </h3>
+        </div>
+        <div id="settingsSection" style="margin-top: 15px; display: none;">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="inactivityEnabled" onchange="toggleInactivityTimeout()">
+                        Activer le compteur d'inactivité
+                    </label>
+                </div>
+            </div>
+            <div id="inactivityTimeoutGroup" style="display: none; margin-top: 10px;">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Durée d'inactivité (minutes)</label>
+                        <select id="inactivityTimeout">
+                            <option value="5">5 minutes</option>
+                            <option value="10">10 minutes</option>
+                            <option value="15" selected>15 minutes</option>
+                            <option value="30">30 minutes</option>
+                            <option value="60">60 minutes</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="button-group">
+                <button onclick="saveSettings()">Sauvegarder les paramètres</button>
+            </div>
+            <p style="margin-top: 10px; font-size: 12px; color: #3949ab;">
+                Le compteur d'inactivité proposera automatiquement la déconnexion après la durée définie.
+            </p>
+        </div>
+    </div>
+    
+    <!-- SECTION 3: Configuration Email (repliable) -->
     <div class="form-section" style="background-color: #fff3cd; border-left: 4px solid #ffc107;">
         <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleAdminSection('emailSection')">
             <h3 style="color: #856404; border-left: none; margin: 0;">
-                <span id="emailSectionIcon">▼</span> Configuration Email (SMTP)
+                <span id="emailSectionIcon">▶</span> Configuration Email (SMTP)
             </h3>
         </div>
-        <div id="emailSection" style="margin-top: 15px;">
+        <div id="emailSection" style="margin-top: 15px; display: none;">
             <p style="margin-bottom: 10px; font-size: 12px; color: #856404;">
                 Recommandé : Office 365 (smtp.office365.com:587) ou Gmail avec mot de passe d'application. 
                 <a href="https://support.microsoft.com/fr-fr/office" target="_blank" style="color: #856404;">Guide Office 365</a>
@@ -500,14 +542,14 @@
         </div>
     </div>
     
-    <!-- SECTION 3: Sauvegarde de la base de données (repliable) -->
+    <!-- SECTION 4: Sauvegarde de la base de données (repliable) -->
     <div class="form-section" style="background-color: #d1ecf1; border-left: 4px solid #17a2b8;">
         <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleAdminSection('backupSection')">
             <h3 style="color: #0c5460; border-left: none; margin: 0;">
-                <span id="backupSectionIcon">▼</span> Sauvegarde de la base de données
+                <span id="backupSectionIcon">▶</span> Sauvegarde de la base de données
             </h3>
         </div>
-        <div id="backupSection" style="margin-top: 15px;">
+        <div id="backupSection" style="margin-top: 15px; display: none;">
             <div class="button-group">
                 <button class="export-btn" onclick="backupFullDatabase()">📥 Télécharger backup (CSV)</button>
                 <button class="export-btn" onclick="backupDatabaseSQL()" style="background-color: #6c757d;">📥 Télécharger backup (SQL)</button>
@@ -532,14 +574,14 @@
         </div>
     </div>
     
-    <!-- SECTION 4: Ajouter un nouvel utilisateur (repliable) -->
+    <!-- SECTION 5: Ajouter un nouvel utilisateur (repliable) -->
     <div class="form-section" style="background-color: #e3f2fd; border-left: 4px solid #2196f3;">
         <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleAdminSection('addUserSection')">
             <h3 style="color: #1565c0; border-left: none; margin: 0;">
-                <span id="addUserSectionIcon">▼</span> Ajouter un nouvel utilisateur
+                <span id="addUserSectionIcon">▶</span> Ajouter un nouvel utilisateur
             </h3>
         </div>
-        <div id="addUserSection" style="margin-top: 15px;">
+        <div id="addUserSection" style="margin-top: 15px; display: none;">
             <div class="form-row">
                 <div class="form-group"><label>Nom *</label><input type="text" id="adminUserNom" placeholder="Nom"></div>
                 <div class="form-group"><label>Prénom *</label><input type="text" id="adminUserPrenom" placeholder="Prénom"></div>
@@ -585,17 +627,17 @@
         </div>
     </div>
     
-    <!-- SECTION 5: Logs de connexion (nouveau) -->
+    <!-- SECTION 6: Logs de connexion (nouveau) -->
     <div class="form-section" style="background-color: #f3e5f5; border-left: 4px solid #9c27b0;">
         <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleAdminSection('logsSection')">
             <h3 style="color: #6a1b9a; border-left: none; margin: 0;">
-                <span id="logsSectionIcon">▼</span> Logs de connexion (20 dernières)
+                <span id="logsSectionIcon">▶</span> Logs de connexion (20 dernières)
             </h3>
             <button onclick="event.stopPropagation(); loadConnectionLogs();" style="padding: 8px 15px; background-color: #9c27b0; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px;">
                 🔄 Rafraîchir
             </button>
         </div>
-        <div id="logsSection" style="margin-top: 15px;">
+        <div id="logsSection" style="margin-top: 15px; display: none;">
             <div class="table-container">
                 <table>
                     <thead>
@@ -953,6 +995,7 @@
         const API_URL = '/api';
         let resources = [];
         let scheduleData = {};
+        let oldScheduleData = {}; // Pour comparer les changements
         let users = [];
         let currentEditId = null;
         let currentLocalisationCell = null;
@@ -962,6 +1005,8 @@
         let currentUser = null;
         let availableProfiles = [];
         let loginStep = 'credentials';
+        let pendingAssignments = {}; // {resourceId: {expertId, assignments: [{date, period, activity, location}]}}
+        let sessionId = null; // ID de session pour grouper les notifications
 
         const availabilityLabels = {
             '1': 'Indisponible',
@@ -1139,6 +1184,7 @@
 
                 if (response.ok) {
                     currentUser = data.user;
+                    sessionId = generateSessionId(); // Générer un ID de session unique
                     
                     document.getElementById('loginPage').classList.remove('active');
                     document.querySelector('.container').style.display = 'block';
@@ -1148,6 +1194,8 @@
                     
                     await loadResources();
                     await loadSchedule();
+                    await loadSettings(); // Charger les paramètres d'inactivité
+                    await loadUsers(); // Charger les utilisateurs pour les notifications
                     setCurrentMonth();
                     
                     document.getElementById('loginUsername').value = '';
@@ -1215,10 +1263,18 @@
         }
 
         async function logout() {
+            // Vérifier d'abord les affectations en attente
+            await checkPendingNotifications();
+            
             if (!confirm('Voulez-vous vraiment vous déconnecter ?')) return;
             try {
                 await fetch(`${API_URL}/logout`, { method: 'POST', credentials: 'include' });
+                
+                // Arrêter le timer d'inactivité
+                stopInactivityTimer();
+                
                 currentUser = null;
+                pendingAssignments = {}; // Réinitialiser les affectations en attente
                 document.getElementById('loginPage').classList.add('active');
                 document.querySelector('.container').style.display = 'none';
                 document.getElementById('adminTab').style.display = 'none';
@@ -1648,6 +1704,8 @@
                 const response = await fetch(`${API_URL}/schedule`, { credentials: 'include' });
                 if (!response.ok) throw new Error('Erreur chargement planification');
                 scheduleData = await response.json();
+                // Sauvegarder une copie pour détecter les changements
+                oldScheduleData = JSON.parse(JSON.stringify(scheduleData));
             } catch (error) {
                 console.error('Erreur:', error);
             }
@@ -1662,6 +1720,10 @@
                     body: JSON.stringify(scheduleData)
                 });
                 if (!response.ok) throw new Error('Erreur sauvegarde');
+                
+                // Mettre à jour l'ancien état après sauvegarde réussie
+                oldScheduleData = JSON.parse(JSON.stringify(scheduleData));
+                
                 showSyncStatus();
                 logModification("Modification du planning");
             } catch (error) {
@@ -1770,10 +1832,27 @@
             }
             
             const key = period ? `${resourceId}_activity_${dateKey}_${period}` : `${resourceId}_activity_${dateKey}`;
+            const locKey = period ? `${resourceId}_localisation_${dateKey}_${period}` : `${resourceId}_localisation_${dateKey}`;
+            const authorKey = period ? `${resourceId}_author_${dateKey}_${period}` : `${resourceId}_author_${dateKey}`;
+            
             const currentValue = parseInt(scheduleData[key] || '2');
             let nextValue = currentValue + 1;
             if (nextValue > 8) nextValue = 2;
+            
+            // Tracker l'affectation AVANT de modifier scheduleData (pour bien comparer avec oldScheduleData)
+            if (currentUser && (currentUser.activeProfile === 'admin' || currentUser.activeProfile === 'user') && nextValue >= 3) {
+                const location = scheduleData[locKey] || '-';
+                trackAssignment(resourceId, dateKey, period, String(nextValue), location);
+            }
+            
+            // Maintenant on modifie scheduleData
             scheduleData[key] = String(nextValue);
+            
+            // Stocker l'auteur de la modification si on a un currentUser
+            if (currentUser) {
+                scheduleData[authorKey] = `${currentUser.prenom}.${currentUser.nom}`;
+            }
+            
             saveSchedule();
             updateGantt();
         }
@@ -2121,6 +2200,8 @@
                         
                         const locKey = `${resource.id}_localisation_${dateKey}_${period}`;
                         const locValue = scheduleData[locKey] || '-';
+                        const authorKey = `${resource.id}_author_${dateKey}_${period}`;
+                        const authorValue = scheduleData[authorKey] || '';
                         
                         // Afficher la localisation pour:
                         // - En attente d'affectation (2)
@@ -2186,7 +2267,11 @@
                         }
                         
                         const availTooltip = isAccessible ? availabilityLabels[availValue] : 'Hors période MAD';
-                        const actTooltip = isAccessible ? activityLabels[actValue] : 'Hors période MAD';
+                        // Ajouter l'auteur au tooltip de l'activité si disponible
+                        let actTooltip = isAccessible ? activityLabels[actValue] : 'Hors période MAD';
+                        if (authorValue && actValue !== '1' && actValue !== '2') {
+                            actTooltip += ` - Affecté par: ${authorValue}`;
+                        }
                         const rowDisabledClass = isAccessible ? '' : ' disabled';
                         
                         // Ajouter la classe pour différencier AM (bordure fine) et PM (bordure épaisse)
@@ -2960,6 +3045,412 @@
                 console.error('Erreur sauvegarde version:', error);
                 alert('Erreur lors de la sauvegarde');
             }
+        }
+
+        // ========== GESTION DES PARAMÈTRES DIVERS ==========
+
+        async function loadSettings() {
+            try {
+                const response = await fetch(`${API_URL}/settings`, {
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const settings = await response.json();
+                    
+                    // Charger les paramètres d'inactivité (uniquement si les éléments existent - admin)
+                    const inactivityEnabledEl = document.getElementById('inactivityEnabled');
+                    const inactivityTimeoutEl = document.getElementById('inactivityTimeout');
+                    
+                    if (inactivityEnabledEl && settings.inactivity_enabled) {
+                        inactivityEnabledEl.checked = settings.inactivity_enabled === 'true';
+                        toggleInactivityTimeout();
+                    }
+                    
+                    if (inactivityTimeoutEl && settings.inactivity_timeout) {
+                        inactivityTimeoutEl.value = settings.inactivity_timeout;
+                    }
+                    
+                    // Démarrer le compteur d'inactivité si activé (pour tous les utilisateurs)
+                    if (settings.inactivity_enabled === 'true') {
+                        const timeout = parseInt(settings.inactivity_timeout) || 15;
+                        console.log(`Démarrage du timer d'inactivité: ${timeout} minutes`);
+                        startInactivityTimer(timeout);
+                    } else {
+                        console.log('Timer d\'inactivité désactivé dans les paramètres');
+                    }
+                }
+            } catch (error) {
+                console.error('Erreur chargement settings:', error);
+            }
+        }
+
+        function toggleInactivityTimeout() {
+            const enabled = document.getElementById('inactivityEnabled').checked;
+            const timeoutGroup = document.getElementById('inactivityTimeoutGroup');
+            
+            if (enabled) {
+                timeoutGroup.style.display = 'block';
+            } else {
+                timeoutGroup.style.display = 'none';
+            }
+        }
+
+        async function saveSettings() {
+            const enabled = document.getElementById('inactivityEnabled').checked;
+            const timeout = document.getElementById('inactivityTimeout').value;
+            
+            try {
+                // Sauvegarder l'activation
+                await fetch(`${API_URL}/settings`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        key: 'inactivity_enabled',
+                        value: enabled.toString()
+                    })
+                });
+                
+                // Sauvegarder le timeout
+                await fetch(`${API_URL}/settings`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        key: 'inactivity_timeout',
+                        value: timeout
+                    })
+                });
+                
+                alert('✅ Paramètres sauvegardés');
+                
+                // Redémarrer le timer si activé
+                if (enabled) {
+                    startInactivityTimer(parseInt(timeout));
+                } else {
+                    stopInactivityTimer();
+                }
+            } catch (error) {
+                console.error('Erreur sauvegarde settings:', error);
+                alert('Erreur lors de la sauvegarde');
+            }
+        }
+
+        // Variables globales pour le timer d'inactivité
+        let inactivityTimer = null;
+        let inactivityCountdownInterval = null;
+        let inactivityTimeout = 15; // minutes par défaut
+        let inactivityTimeRemaining = 0; // secondes restantes
+        let lastActivityTime = Date.now();
+
+        function startInactivityTimer(timeoutMinutes) {
+            stopInactivityTimer(); // Arrêter le timer existant
+            
+            inactivityTimeout = timeoutMinutes;
+            inactivityTimeRemaining = timeoutMinutes * 60; // Convertir en secondes
+            lastActivityTime = Date.now();
+            
+            console.log(`Timer d'inactivité démarré: ${timeoutMinutes} minutes`);
+            
+            // Afficher le timer
+            const timerDisplay = document.getElementById('inactivityTimerDisplay');
+            if (timerDisplay) {
+                timerDisplay.style.display = 'block';
+                updateTimerDisplay();
+            }
+            
+            // Mettre à jour l'affichage chaque seconde
+            inactivityCountdownInterval = setInterval(() => {
+                const elapsedSeconds = Math.floor((Date.now() - lastActivityTime) / 1000);
+                inactivityTimeRemaining = (timeoutMinutes * 60) - elapsedSeconds;
+                
+                if (inactivityTimeRemaining <= 0) {
+                    console.log('⏰ Timer d\'inactivité terminé! Affichage de la popup...');
+                    clearInterval(inactivityCountdownInterval);
+                    inactivityCountdownInterval = null;
+                    showInactivityModal();
+                } else {
+                    updateTimerDisplay();
+                    
+                    // Changer la couleur si moins de 1 minute restante
+                    if (timerDisplay) {
+                        if (inactivityTimeRemaining <= 60) {
+                            timerDisplay.style.color = '#e74c3c';
+                            timerDisplay.style.fontWeight = 'bold';
+                        } else if (inactivityTimeRemaining <= 120) {
+                            timerDisplay.style.color = '#f39c12';
+                        } else {
+                            timerDisplay.style.color = '#2c3e50';
+                        }
+                    }
+                }
+            }, 1000);
+            
+            // Réinitialiser le timer UNIQUEMENT sur clic de souris
+            const resetTimer = () => {
+                lastActivityTime = Date.now();
+                inactivityTimeRemaining = timeoutMinutes * 60;
+                
+                // Réinitialiser la couleur
+                const timerDisplay = document.getElementById('inactivityTimerDisplay');
+                if (timerDisplay) {
+                    timerDisplay.style.color = '#2c3e50';
+                    timerDisplay.style.fontWeight = 'bold';
+                }
+            };
+            
+            // Surveiller uniquement les clics de souris (mousedown) et les touches clavier
+            document.addEventListener('mousedown', resetTimer, true);
+            document.addEventListener('keypress', resetTimer, true);
+        }
+
+        function updateTimerDisplay() {
+            const minutes = Math.floor(inactivityTimeRemaining / 60);
+            const seconds = inactivityTimeRemaining % 60;
+            
+            const minutesStr = String(minutes).padStart(2, '0');
+            const secondsStr = String(seconds).padStart(2, '0');
+            
+            const minutesEl = document.getElementById('timerMinutes');
+            const secondsEl = document.getElementById('timerSeconds');
+            
+            if (minutesEl) minutesEl.textContent = minutesStr;
+            if (secondsEl) secondsEl.textContent = secondsStr;
+        }
+
+        function stopInactivityTimer() {
+            if (inactivityTimer) {
+                clearTimeout(inactivityTimer);
+                inactivityTimer = null;
+            }
+            
+            if (inactivityCountdownInterval) {
+                clearInterval(inactivityCountdownInterval);
+                inactivityCountdownInterval = null;
+            }
+            
+            // Cacher le timer
+            const timerDisplay = document.getElementById('inactivityTimerDisplay');
+            if (timerDisplay) {
+                timerDisplay.style.display = 'none';
+            }
+            
+            console.log('Timer d\'inactivité arrêté');
+        }
+
+        async function showInactivityModal() {
+            console.log('🔔 showInactivityModal appelé');
+            
+            // Arrêter le timer
+            if (inactivityCountdownInterval) {
+                clearInterval(inactivityCountdownInterval);
+                inactivityCountdownInterval = null;
+            }
+            
+            console.log(`⏱️ Timer d'inactivité expiré après ${inactivityTimeout} minutes`);
+            
+            const wantsToStay = confirm(`Vous êtes inactif depuis ${inactivityTimeout} minutes.\n\nVoulez-vous rester connecté ?`);
+            console.log(`👤 Choix utilisateur: ${wantsToStay ? 'Rester connecté' : 'Se déconnecter'}`);
+            
+            if (wantsToStay) {
+                // Redémarrer le timer
+                console.log('🔄 Redémarrage du timer');
+                startInactivityTimer(inactivityTimeout);
+            } else {
+                // L'utilisateur a choisi de se déconnecter
+                console.log('👋 Déconnexion en cours...');
+                stopInactivityTimer();
+                
+                // Vérifier s'il y a des notifications en attente avant de se déconnecter
+                const expertCount = Object.keys(pendingAssignments).length;
+                console.log(`📧 ${expertCount} expert(s) avec affectations en attente`);
+                
+                if (expertCount > 0) {
+                    // Il y a des affectations en attente
+                    await checkPendingNotifications();
+                }
+                
+                // Déconnexion sans re-demander confirmation
+                try {
+                    await fetch(`${API_URL}/logout`, { method: 'POST', credentials: 'include' });
+                    currentUser = null;
+                    pendingAssignments = {};
+                    document.getElementById('loginPage').classList.add('active');
+                    document.querySelector('.container').style.display = 'none';
+                    document.getElementById('adminTab').style.display = 'none';
+                    document.getElementById('userInfo').style.display = 'none';
+                    loginStep = 'credentials';
+                    availableProfiles = [];
+                    console.log('✅ Déconnexion réussie');
+                } catch (error) {
+                    console.error('❌ Erreur logout:', error);
+                }
+            }
+        }
+
+        // ========== GESTION DES NOTIFICATIONS D'AFFECTATION ==========
+
+        // Générer un ID de session unique pour cette connexion
+        function generateSessionId() {
+            return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        }
+
+        // Tracker une nouvelle affectation
+        function trackAssignment(resourceId, dateKey, period, activity, location) {
+            console.log(`🔍 trackAssignment appelé:`, { resourceId, dateKey, period, activity, location });
+            
+            // Trouver l'expert associé à cette ressource
+            const resource = resources.find(r => r.id === resourceId);
+            if (!resource) {
+                console.log(`⚠️ Ressource non trouvée pour ID ${resourceId}`);
+                return;
+            }
+            
+            // Trouver l'utilisateur expert correspondant à cette ressource
+            const expert = users.find(u => u.resource_id === resourceId && u.is_expert);
+            if (!expert) {
+                console.log(`⚠️ Aucun expert trouvé pour ressource ID ${resourceId}`);
+                return;
+            }
+            
+            console.log(`✅ Expert trouvé: ${expert.prenom} ${expert.nom} (${expert.email})`);
+            
+            // Vérifier si c'est un changement d'affectation (pas juste une dispo)
+            const oldActivityKey = `${resourceId}_activity_${dateKey}_${period}`;
+            const oldActivity = oldScheduleData[oldActivityKey] || '1';
+            const newActivity = activity;
+            
+            console.log(`📊 Comparaison activité: ancien="${oldActivity}" → nouveau="${newActivity}"`);
+            
+            // Si l'activité est passée de "1" ou "2" à une vraie affectation (3-8)
+            if ((oldActivity === '1' || oldActivity === '2') && parseInt(newActivity) >= 3) {
+                console.log(`✅ Nouvelle affectation détectée!`);
+                
+                if (!pendingAssignments[resourceId]) {
+                    pendingAssignments[resourceId] = {
+                        expertId: expert.id,
+                        expertEmail: expert.email,
+                        expertNom: expert.nom,
+                        expertPrenom: expert.prenom,
+                        resourceNom: resource.nom,
+                        resourcePrenom: resource.prenom,
+                        assignments: []
+                    };
+                }
+                
+                pendingAssignments[resourceId].assignments.push({
+                    date: dateKey,
+                    period: period,
+                    activity: activityLabels[newActivity] || newActivity,
+                    location: location || '-'
+                });
+                
+                console.log(`📝 Affectation ajoutée. Total pour cette ressource: ${pendingAssignments[resourceId].assignments.length}`);
+                console.log(`📋 Affectations en attente:`, pendingAssignments);
+            } else {
+                console.log(`⏭️ Pas une nouvelle affectation (changement entre affectations existantes ou retour à dispo)`);
+            }
+        }
+
+        // Vérifier et proposer l'envoi des notifications
+        async function checkPendingNotifications() {
+            const expertCount = Object.keys(pendingAssignments).length;
+            
+            if (expertCount === 0) {
+                console.log('⏭️ Aucune affectation en attente, pas de notification à envoyer');
+                return; // Pas de nouvelles affectations
+            }
+            
+            console.log(`📧 ${expertCount} expert(s) avec affectations en attente`, pendingAssignments);
+            console.log(`📋 Détail des affectations:`, JSON.stringify(pendingAssignments, null, 2));
+            
+            const entries = Object.entries(pendingAssignments);
+            console.log(`🔄 Nombre d'entrées à traiter: ${entries.length}`);
+            
+            // Demander confirmation pour chaque expert
+            for (const [resourceId, data] of entries) {
+                console.log(`\n👤 Traitement de l'expert ${resourceId}:`, data);
+                
+                const assignmentCount = data.assignments.length;
+                const message = `Voulez-vous notifier ${data.expertPrenom} ${data.expertNom} (${data.expertEmail}) ?\n\n${assignmentCount} nouvelle(s) affectation(s) ont été créées.`;
+                
+                console.log(`❓ Affichage de la popup de confirmation pour ${data.expertPrenom} ${data.expertNom}`);
+                const shouldSend = confirm(message);
+                console.log(`👤 Réponse utilisateur pour ${data.expertPrenom} ${data.expertNom}: ${shouldSend ? 'OUI' : 'NON'}`);
+                
+                if (shouldSend) {
+                    console.log(`📤 Envoi de l'email à ${data.expertPrenom} ${data.expertNom}...`);
+                    
+                    try {
+                        // Créer une liste HTML avec une ligne par affectation
+                        const assignmentsList = data.assignments.map(a => {
+                            const [year, month, day] = a.date.split('-');
+                            const dateStr = `${day}/${parseInt(month)+1}/${year}`;
+                            const periodLabel = a.period === 'AM' ? 'Matin' : 'Apres-midi';
+                            
+                            // Garder la localisation avec ses emojis
+                            let locationText = '';
+                            if (a.location && a.location !== '-') {
+                                locationText = ` - ${a.location}`;
+                            }
+                            
+                            return `<li><strong>${dateStr} (${periodLabel})</strong> - ${a.activity}${locationText}</li>`;
+                        }).join('');
+                        
+                        // Créer le corps de l'email
+                        const emailBody = [
+                            '<h2>Nouvelle affectation - Planification GANTT</h2>',
+                            `<p>Bonjour ${data.expertPrenom} ${data.expertNom},</p>`,
+                            `<p><strong>${currentUser.prenom} ${currentUser.nom}</strong> vous a affecte ${data.assignments.length} nouvelle(s) activite(s) :</p>`,
+                            `<ul>${assignmentsList}</ul>`,
+                            '<p>Cordialement,<br>Le systeme de planification</p>'
+                        ].join('');
+                        
+                        console.log('📧 Préparation de l\'email:', {
+                            to: data.expertEmail,
+                            subject: 'Nouvelle affectation - Planification GANTT',
+                            bodyLength: emailBody.length,
+                            assignmentsCount: data.assignments.length
+                        });
+                        
+                        // Envoyer l'email via l'API send-calendar-email
+                        const response = await fetch(`${API_URL}/send-calendar-email`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({
+                                email: data.expertEmail,
+                                subject: 'Nouvelle affectation - Planification GANTT',
+                                html: emailBody,
+                                resourceId: resourceId
+                            })
+                        });
+                        
+                        console.log('📡 Réponse serveur status:', response.status);
+                        
+                        const result = await response.json();
+                        console.log('📡 Réponse serveur body:', result);
+                        
+                        if (response.ok && result.success) {
+                            console.log(`✅ Email envoyé avec succès à ${data.expertPrenom} ${data.expertNom}`);
+                        } else {
+                            throw new Error(result.error || 'Erreur inconnue');
+                        }
+                    } catch (error) {
+                        console.error(`❌ Erreur envoi notification à ${data.expertPrenom} ${data.expertNom}:`, error);
+                        alert(`❌ Erreur lors de l'envoi de l'email à ${data.expertPrenom} ${data.expertNom}: ${error.message}`);
+                    }
+                } else {
+                    console.log(`⏭️ Envoi d'email refusé pour ${data.expertPrenom} ${data.expertNom}`);
+                }
+            }
+            
+            console.log('✅ Traitement des notifications terminé');
+            
+            // Réinitialiser les affectations en attente
+            pendingAssignments = {};
+            console.log('🗑️ Affectations en attente réinitialisées');
         }
 
         // ========== GESTION DES LOGS DE CONNEXION ==========
