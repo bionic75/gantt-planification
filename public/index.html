@@ -20,8 +20,8 @@
         .form-section { background-color: #ecf0f1; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
         .form-group { margin-bottom: 12px; }
         label { display: block; margin-bottom: 5px; color: #2c3e50; font-weight: bold; font-size: 13px; }
-        input, select { width: 100%; padding: 8px; border: 1px solid #bdc3c7; border-radius: 4px; font-size: 13px; font-family: Arial, sans-serif; }
-        input:focus, select:focus { outline: none; border-color: #1D70B7; box-shadow: 0 0 8px rgba(0, 0, 145, 0.3); }
+        input, select, textarea { width: 100%; padding: 8px; border: 1px solid #bdc3c7; border-radius: 4px; font-size: 13px; font-family: Arial, sans-serif; }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: #1D70B7; box-shadow: 0 0 8px rgba(0, 0, 145, 0.3); }
         #loginUsername:focus, #loginPassword:focus, #loginProfile:focus { border-color: #1D70B7 !important; box-shadow: 0 0 8px rgba(0, 0, 145, 0.3) !important; }
         .form-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; }
         .button-group { display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap; }
@@ -440,6 +440,11 @@
                                 style="margin-left: 15px; padding: 5px 12px; background-color: #2196f3; border: none; border-radius: 4px; cursor: pointer; font-size: 16px;" 
                                 title="Vue calendrier mensuel">
                             📅
+                        </button>
+                        <button id="requestBtn" onclick="event.stopPropagation(); openRequestModal();" 
+                                style="margin-left: 10px; padding: 5px 12px; background-color: #27ae60; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; display: none;" 
+                                title="Faire une demande d'affectation">
+                            ✉️ Faire une demande
                         </button>
                     </h3>
                 </div>
@@ -1232,6 +1237,8 @@
                 return;
             }
             
+            console.log('👤 Current user:', currentUser);
+            
             const userName = `${currentUser.nom.toUpperCase()} ${currentUser.prenom}`;
             const roleMap = {
                 'admin': 'Administrateur',
@@ -1243,6 +1250,24 @@
             document.getElementById('userDisplayName').textContent = userName;
             document.getElementById('userDisplayRole').textContent = roleName;
             document.getElementById('userInfo').style.display = 'flex';
+            
+            // Stocker les infos utilisateur pour la modal de demande
+            currentUserInfo = {
+                prenom: currentUser.prenom,
+                nom: currentUser.nom.toUpperCase(),
+                email: currentUser.email,
+                profile: currentUser.activeProfile
+            };
+            
+            console.log('✅ Current user info stocké:', currentUserInfo);
+            
+            // Afficher le bouton "Faire une demande" pour admin et user
+            const requestBtn = document.getElementById('requestBtn');
+            if (currentUser.activeProfile === 'admin' || currentUser.activeProfile === 'user') {
+                requestBtn.style.display = 'inline-block';
+            } else {
+                requestBtn.style.display = 'none';
+            }
         }
 
         function updateTabsVisibility() {
@@ -4222,6 +4247,191 @@
             const modal = document.getElementById('monthlyCalendarModal');
             modal.classList.remove('active');
         }
+
+        // ========== GESTION DEMANDE D'AFFECTATION ==========
+        
+        let currentUserInfo = null;
+
+        function openRequestModal() {
+            // Remplir le champ expéditeur (affiche le nom mais on enverra l'email)
+            if (currentUserInfo) {
+                console.log('👤 Infos utilisateur:', currentUserInfo);
+                
+                if (!currentUserInfo.email) {
+                    alert('Erreur: Votre compte utilisateur n\'a pas d\'adresse email configurée. Veuillez contacter l\'administrateur pour ajouter votre email.');
+                    return;
+                }
+                
+                document.getElementById('requestFrom').value = `${currentUserInfo.prenom} ${currentUserInfo.nom}`;
+                document.getElementById('requestSubject').value = `De la part de ${currentUserInfo.prenom} ${currentUserInfo.nom}: demande d'affectation`;
+                
+                // Message préformaté
+                document.getElementById('requestMessage').value = `Bonjour,
+
+j'aurais besoin que tu sois disponible pour une mission.
+
+Pourrais-tu te rendre disponible pour les dates demandées ?
+
+En te remerciant par avance,
+${currentUserInfo.prenom} ${currentUserInfo.nom}`;
+            } else {
+                alert('Erreur: Informations utilisateur non disponibles');
+                return;
+            }
+
+            // Charger la liste des experts
+            loadExpertsForRequest();
+            
+            // Réinitialiser les dates
+            document.getElementById('requestStartDate').value = '';
+            document.getElementById('requestEndDate').value = '';
+            document.getElementById('requestStartPeriod').value = 'Matin';
+            document.getElementById('requestEndPeriod').value = 'Après-midi';
+            document.getElementById('dateError').style.display = 'none';
+
+            document.getElementById('requestModal').style.display = 'block';
+        }
+
+        function closeRequestModal() {
+            document.getElementById('requestModal').style.display = 'none';
+        }
+
+        function loadExpertsForRequest() {
+            fetch('/api/resources')
+                .then(response => response.json())
+                .then(data => {
+                    const expertsList = document.getElementById('requestExpertsList');
+                    expertsList.innerHTML = '';
+                    
+                    // Filtrer uniquement les ressources actives
+                    const activeExperts = data.filter(r => r.actif === 1);
+                    
+                    if (activeExperts.length === 0) {
+                        expertsList.innerHTML = '<p style="color: #7f8c8d;">Aucun expert disponible</p>';
+                        return;
+                    }
+
+                    activeExperts.forEach(expert => {
+                        const div = document.createElement('div');
+                        div.style.padding = '8px';
+                        div.style.marginBottom = '5px';
+                        div.style.backgroundColor = 'white';
+                        div.style.borderRadius = '4px';
+                        
+                        const emailDisplay = expert.email ? 
+                            `<span style="color: #27ae60; font-size: 11px;">✓ ${expert.email}</span>` : 
+                            `<span style="color: #e74c3c; font-size: 11px;">✗ Pas d'email</span>`;
+                        
+                        div.innerHTML = `
+                            <label style="display: flex; align-items: center; cursor: pointer; margin: 0;">
+                                <input type="checkbox" value="${expert.id}" style="width: auto; margin-right: 10px;" ${!expert.email ? 'disabled' : ''}>
+                                <div style="flex: 1;">
+                                    <div style="font-weight: normal;">${expert.prenom} ${expert.nom} (${expert.trigramme})</div>
+                                    ${emailDisplay}
+                                </div>
+                            </label>
+                        `;
+                        expertsList.appendChild(div);
+                    });
+                })
+                .catch(error => {
+                    console.error('Erreur chargement experts:', error);
+                    alert('Erreur lors du chargement des experts');
+                });
+        }
+
+        function validateDates() {
+            const startDate = document.getElementById('requestStartDate').value;
+            const endDate = document.getElementById('requestEndDate').value;
+            const dateError = document.getElementById('dateError');
+
+            if (startDate && endDate) {
+                if (new Date(endDate) < new Date(startDate)) {
+                    dateError.textContent = 'La date de fin doit être postérieure ou égale à la date de début';
+                    dateError.style.display = 'block';
+                    return false;
+                } else {
+                    dateError.style.display = 'none';
+                    return true;
+                }
+            }
+            return true;
+        }
+
+        function submitRequestForm(event) {
+            event.preventDefault();
+
+            if (!validateDates()) {
+                return;
+            }
+
+            // Récupérer les experts sélectionnés
+            const checkedBoxes = document.querySelectorAll('#requestExpertsList input[type="checkbox"]:checked');
+            
+            if (checkedBoxes.length === 0) {
+                alert('Veuillez sélectionner au moins un expert.');
+                return;
+            }
+
+            const selectedExperts = Array.from(checkedBoxes).map(cb => parseInt(cb.value));
+
+            const requestData = {
+                fromName: document.getElementById('requestFrom').value,
+                fromEmail: currentUserInfo.email, // Envoyer l'email de l'utilisateur
+                expertIds: selectedExperts,
+                subject: document.getElementById('requestSubject').value,
+                startDate: document.getElementById('requestStartDate').value,
+                startPeriod: document.getElementById('requestStartPeriod').value,
+                endDate: document.getElementById('requestEndDate').value,
+                endPeriod: document.getElementById('requestEndPeriod').value,
+                message: document.getElementById('requestMessage').value
+            };
+
+            console.log('📧 Envoi de la demande:', requestData);
+
+            // Envoyer la demande
+            fetch('/api/request-assignment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestData)
+            })
+            .then(response => {
+                console.log('📨 Réponse serveur status:', response.status);
+                return response.json();
+            })
+            .then(data => {
+                console.log('📨 Réponse serveur data:', data);
+                if (data.success) {
+                    closeRequestModal();
+                    showConfirmationModal(data.emails);
+                } else {
+                    alert('Erreur lors de l\'envoi de la demande:\n\n' + (data.error || 'Erreur inconnue') + 
+                          '\n\nVérifiez:\n- Que les experts ont une adresse email configurée\n- Que la configuration SMTP est correcte dans les paramètres');
+                }
+            })
+            .catch(error => {
+                console.error('❌ Erreur:', error);
+                alert('Erreur lors de l\'envoi de la demande: ' + error.message);
+            });
+        }
+
+        function showConfirmationModal(emails) {
+            const emailList = document.getElementById('confirmationEmailList');
+            emailList.innerHTML = '';
+            
+            emails.forEach(email => {
+                const li = document.createElement('li');
+                li.textContent = email;
+                li.style.marginBottom = '5px';
+                emailList.appendChild(li);
+            });
+
+            document.getElementById('confirmationModal').style.display = 'block';
+        }
+
+        function closeConfirmationModal() {
+            document.getElementById('confirmationModal').style.display = 'none';
+        }
     </script>
 
     <!-- MODALE VUE CALENDRIER MENSUEL -->
@@ -4356,6 +4566,74 @@
         }
     }
     </style>
+
+    <!-- Modal Demande d'affectation -->
+    <div id="requestModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10000; overflow-y: auto;">
+        <div style="background-color: white; max-width: 700px; margin: 50px auto; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #1D70B7; padding-bottom: 10px;">
+                <h2 style="color: #2c3e50; margin: 0;">Faire une demande d'affectation</h2>
+                <span onclick="closeRequestModal()" style="cursor: pointer; font-size: 28px; color: #7f8c8d;">&times;</span>
+            </div>
+            <form id="requestForm" onsubmit="submitRequestForm(event)">
+                <div class="form-group">
+                    <label>De (Expéditeur)</label>
+                    <input type="text" id="requestFrom" readonly style="background-color: #ecf0f1;">
+                </div>
+                <div class="form-group">
+                    <label>Destinataires (Experts) *</label>
+                    <div id="requestExpertsList" style="max-height: 200px; overflow-y: auto; border: 1px solid #bdc3c7; border-radius: 4px; padding: 10px; background-color: #f9f9f9;">
+                        <!-- Les checkboxes seront ajoutées dynamiquement -->
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Sujet *</label>
+                    <input type="text" id="requestSubject" required>
+                </div>
+                <div class="form-group">
+                    <label>Dates demandées *</label>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div>
+                            <label style="font-size: 12px; color: #7f8c8d;">Début</label>
+                            <input type="date" id="requestStartDate" required onchange="validateDates()">
+                            <select id="requestStartPeriod" style="margin-top: 5px;" required>
+                                <option value="Matin">Matin</option>
+                                <option value="Après-midi">Après-midi</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size: 12px; color: #7f8c8d;">Fin</label>
+                            <input type="date" id="requestEndDate" required onchange="validateDates()">
+                            <select id="requestEndPeriod" style="margin-top: 5px;" required>
+                                <option value="Matin">Matin</option>
+                                <option value="Après-midi">Après-midi</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="dateError" style="color: #e74c3c; font-size: 12px; margin-top: 5px; display: none;"></div>
+                </div>
+                <div class="form-group">
+                    <label>Message *</label>
+                    <textarea id="requestMessage" required style="min-height: 150px; resize: vertical; width: 100%;"></textarea>
+                </div>
+                <div class="button-group">
+                    <button type="submit" style="background-color: #27ae60;">✉️ Envoyer la demande</button>
+                    <button type="button" onclick="closeRequestModal()" style="background-color: #7f8c8d;">Annuler</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal de confirmation d'envoi -->
+    <div id="confirmationModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10001;">
+        <div style="background-color: white; max-width: 500px; margin: 150px auto; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+            <h3 style="color: #27ae60; margin-bottom: 15px;">✓ Demande envoyée avec succès</h3>
+            <p style="margin-bottom: 10px;">Votre demande a été envoyée aux experts suivants :</p>
+            <ul id="confirmationEmailList" style="margin: 15px 0; padding-left: 20px; color: #2c3e50;">
+                <!-- La liste des emails sera ajoutée dynamiquement -->
+            </ul>
+            <button onclick="closeConfirmationModal()" style="background-color: #1D70B7; width: 100%; margin-top: 15px;">Fermer</button>
+        </div>
+    </div>
 
 </body>
 </html>
