@@ -507,6 +507,7 @@ app.post('/api/login', (req, res) => {
                             username: user.username,
                             nom: user.nom,
                             prenom: user.prenom,
+                            email: user.email,
                             activeProfile: profile,
                             resourceId: user.resource_id
                         }
@@ -711,12 +712,24 @@ app.get('/api/user/email-by-resource/:resourceId', requireAuth, (req, res) => {
 // ==================== API RESSOURCES ====================
 
 app.get('/api/resources', requireAuth, (req, res) => {
-    database.all('SELECT * FROM resources ORDER BY nom, prenom', (err, rows) => {
+    database.all(`
+        SELECT 
+            r.*,
+            u.email as user_email
+        FROM resources r
+        LEFT JOIN users u ON u.resource_id = r.id
+        ORDER BY r.nom, r.prenom
+    `, (err, rows) => {
         if (err) {
             console.error('Erreur récup resources:', err);
             res.status(500).json({ error: err.message });
         } else {
-            res.json(rows || []);
+            // Utiliser user_email si disponible, sinon garder l'email de resources
+            const rowsWithEmail = rows.map(row => ({
+                ...row,
+                email: row.user_email || row.email
+            }));
+            res.json(rowsWithEmail || []);
         }
     });
 });
@@ -1921,6 +1934,178 @@ app.post('/api/send-assignment-notifications', requireAuth, async (req, res) => 
         res.json({ success: true, results });
     } catch (error) {
         res.status(500).json({ error: error.message });
+    }
+});
+
+// ========== DEMANDE D'AFFECTATION PAR EMAIL ==========
+app.post('/api/request-assignment', requireAuth, async (req, res) => {
+    try {
+        const { fromName, fromEmail, expertIds, subject, startDate, startPeriod, endDate, endPeriod, message } = req.body;
+
+        console.log('📧 Demande d\'affectation reçue:', { fromName, fromEmail, expertIds, subject, startDate, endDate });
+
+        if (!expertIds || expertIds.length === 0) {
+            return res.status(400).json({ success: false, error: 'Aucun expert sélectionné' });
+        }
+
+        if (!fromEmail) {
+            return res.status(400).json({ success: false, error: 'Email de l\'expéditeur manquant' });
+        }
+
+        // Récupérer les informations des experts avec leurs emails depuis la table users
+        const placeholders = expertIds.map(() => '?').join(',');
+        const experts = await new Promise((resolve, reject) => {
+            database.all(
+                `SELECT 
+                    r.id, 
+                    r.nom, 
+                    r.prenom, 
+                    u.email
+                FROM resources r
+                LEFT JOIN users u ON u.resource_id = r.id
+                WHERE r.id IN (${placeholders}) AND r.actif = 1`,
+                expertIds,
+                (err, rows) => {
+                    if (err) {
+                        console.error('❌ Erreur DB:', err);
+                        reject(err);
+                    } else {
+                        console.log('✅ Experts trouvés:', rows);
+                        resolve(rows);
+                    }
+                }
+            );
+        });
+
+        if (experts.length === 0) {
+            console.log('⚠️ Aucun expert trouvé dans la base de données');
+            return res.status(404).json({ success: false, error: 'Aucun expert trouvé' });
+        }
+
+        // Vérifier que les experts ont des emails
+        const expertsWithEmail = experts.filter(e => e.email && e.email.trim() !== '');
+        const expertsWithoutEmail = experts.filter(e => !e.email || e.email.trim() === '');
+
+        if (expertsWithoutEmail.length > 0) {
+            console.log('⚠️ Experts sans email:', expertsWithoutEmail.map(e => `${e.prenom} ${e.nom}`));
+        }
+
+        if (expertsWithEmail.length === 0) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Aucun des experts sélectionnés n\'a d\'adresse email configurée. Veuillez ajouter leur email dans la gestion des utilisateurs.' 
+            });
+        }
+
+        // Formater les dates pour l'affichage
+        const formatDate = (dateStr) => {
+            const date = new Date(dateStr + 'T00:00:00');
+            return date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        };
+
+        const startDateFormatted = `${formatDate(startDate)} - ${startPeriod}`;
+        const endDateFormatted = `${formatDate(endDate)} - ${endPeriod}`;
+
+        // Récupérer le transporteur email
+        const transporter = createEmailTransporter();
+        
+        if (!transporter) {
+            console.log('⚠️ Configuration email non disponible');
+            return res.status(500).json({ 
+                success: false, 
+                error: 'Configuration email non disponible. Veuillez configurer SMTP dans les paramètres.' 
+            });
+        }
+
+        console.log('📧 Envoi d\'emails à:', expertsWithEmail.map(e => e.email));
+
+        // Envoyer un email à chaque expert
+        const emailPromises = expertsWithEmail.map(expert => {
+            const personalizedMessage = message.replace(/\[Prénom de l'utilisateur\]/g, expert.prenom);
+
+            const mailOptions = {
+                from: emailConfig.user,
+                replyTo: fromEmail,
+                to: expert.email,
+                subject: subject,
+                html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
+                        <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                            <h2 style="color: #1D70B7; border-bottom: 2px solid #1D70B7; padding-bottom: 10px;">
+                                Demande d'affectation
+                            </h2>
+                            
+                            <div style="margin: 20px 0; padding: 15px; background-color: #e3f2fd; border-left: 4px solid #2196f3; border-radius: 4px;">
+                                <p style="margin: 5px 0;"><strong>De:</strong> ${fromName} (${fromEmail})</p>
+                                <p style="margin: 5px 0;"><strong>Début:</strong> ${startDateFormatted}</p>
+                                <p style="margin: 5px 0;"><strong>Fin:</strong> ${endDateFormatted}</p>
+                            </div>
+                            
+                            <div style="margin: 20px 0; padding: 15px; background-color: #f9f9f9; border-radius: 4px; line-height: 1.8;">
+                                ${personalizedMessage.split('\n').map(line => 
+                                    line.trim() === '' ? '<br>' : `<p style="margin: 0 0 10px 0;">${line}</p>`
+                                ).join('')}
+                            </div>
+                            
+                            <div style="text-align: center; margin: 25px 0;">
+                                <a href="mailto:${fromEmail}?subject=${encodeURIComponent('Re: ' + subject)}" 
+                                   style="display: inline-block; padding: 12px 30px; background-color: #27ae60; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">
+                                    📧 Répondre à ${fromName}
+                                </a>
+                            </div>
+                            
+                            <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
+                            
+                            <p style="color: #7f8c8d; font-size: 12px; text-align: center; margin: 0;">
+                                Cet email a été envoyé depuis le système SI-SAMU de planification des ressources.
+                            </p>
+                        </div>
+                    </div>
+                `
+            };
+
+            console.log(`📧 Envoi email à ${expert.email} (${expert.prenom} ${expert.nom})...`);
+
+            return transporter.sendMail(mailOptions)
+                .then(() => {
+                    console.log(`✅ Email envoyé avec succès à ${expert.email}`);
+                    return expert.email;
+                })
+                .catch(error => {
+                    console.error(`❌ Erreur envoi email à ${expert.email}:`, error.message);
+                    return null;
+                });
+        });
+
+        const results = await Promise.all(emailPromises);
+        const successfulEmails = results.filter(email => email !== null);
+
+        console.log('📊 Résultats envoi:', { 
+            total: emailPromises.length, 
+            succès: successfulEmails.length,
+            échecs: emailPromises.length - successfulEmails.length 
+        });
+
+        if (successfulEmails.length > 0) {
+            let responseMessage = `${successfulEmails.length} email(s) envoyé(s) avec succès`;
+            if (expertsWithoutEmail.length > 0) {
+                responseMessage += ` (${expertsWithoutEmail.length} expert(s) sans email configuré)`;
+            }
+            res.json({
+                success: true,
+                message: responseMessage,
+                emails: successfulEmails
+            });
+        } else {
+            res.status(500).json({
+                success: false,
+                error: 'Échec de l\'envoi de tous les emails. Vérifiez la configuration SMTP dans les paramètres.'
+            });
+        }
+
+    } catch (error) {
+        console.error('❌ Erreur demande d\'affectation:', error);
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 
