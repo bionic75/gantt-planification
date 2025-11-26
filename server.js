@@ -124,7 +124,7 @@ async function sendEmail(to, subject, html, attachments = []) {
     try {
         console.log('🔄 Tentative d\'envoi email...');
         const mailOptions = {
-            from: `"Planification GANTT" <${emailConfig.user}>`,
+            from: `"Domaine des Urgences - Planification des ressources" <${emailConfig.user}>`,
             to: to,
             subject: subject,
             html: html
@@ -2024,7 +2024,7 @@ app.post('/api/request-assignment', requireAuth, async (req, res) => {
             const personalizedMessage = message.replace(/\[Prénom de l'utilisateur\]/g, expert.prenom);
 
             const mailOptions = {
-                from: emailConfig.user,
+                from: `"Domaine des Urgences - Planification des ressources" <${emailConfig.user}>`,
                 replyTo: fromEmail,
                 to: expert.email,
                 subject: subject,
@@ -2048,7 +2048,16 @@ app.post('/api/request-assignment', requireAuth, async (req, res) => {
                             </div>
                             
                             <div style="text-align: center; margin: 25px 0;">
-                                <a href="mailto:${fromEmail}?subject=${encodeURIComponent('Re: ' + subject)}" 
+                                <a href="mailto:${fromEmail}?subject=${encodeURIComponent('Re: ' + subject)}&body=${encodeURIComponent(`Bonjour ${fromName.split(' ')[0]},
+
+[Votre réponse ici]
+
+---
+Contexte de la demande :
+De : ${fromName} (${fromEmail})
+Début : ${startDateFormatted}
+Fin : ${endDateFormatted}
+`)}" 
                                    style="display: inline-block; padding: 12px 30px; background-color: #27ae60; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">
                                     📧 Répondre à ${fromName}
                                 </a>
@@ -2091,6 +2100,27 @@ app.post('/api/request-assignment', requireAuth, async (req, res) => {
             if (expertsWithoutEmail.length > 0) {
                 responseMessage += ` (${expertsWithoutEmail.length} expert(s) sans email configuré)`;
             }
+            
+            // Logger l'action dans connection_logs
+            if (req.session.logId) {
+                const expertNames = expertsWithEmail.map(e => `${e.prenom} ${e.nom}`).join(', ');
+                const logMessage = `Demande d'affectation envoyée à: ${expertNames} (${startDate} ${startPeriod} - ${endDate} ${endPeriod})`;
+                
+                database.run(
+                    `UPDATE connection_logs 
+                     SET modifications = modifications || ? 
+                     WHERE id = ?`,
+                    [`${new Date().toLocaleString('fr-FR')}: ${logMessage}\n`, req.session.logId],
+                    (err) => {
+                        if (err) {
+                            console.error('❌ Erreur log action:', err);
+                        } else {
+                            console.log('✅ Action loggée dans connection_logs');
+                        }
+                    }
+                );
+            }
+            
             res.json({
                 success: true,
                 message: responseMessage,

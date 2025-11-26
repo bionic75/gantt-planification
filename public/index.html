@@ -433,20 +433,37 @@
             
             <!-- SECTION 3: Planification (repliable) -->
             <div class="form-section" style="background-color: #e3f2fd; border-left: 4px solid #2196f3; margin-top: 20px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="togglePlanningSection('ganttDisplaySection')">
-                    <h3 style="color: #1565c0; border-left: none; margin: 0;">
-                        <span id="ganttDisplaySectionIcon">▼</span> Planification
+                <div style="cursor: pointer;" onclick="togglePlanningSection('ganttDisplaySection')">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="color: #1565c0; border-left: none; margin: 0;">
+                            <span id="ganttDisplaySectionIcon">▼</span> Planification
+                        </h3>
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap;">
+                        <button onclick="event.stopPropagation(); navigateMonth(-1);" 
+                                style="padding: 8px 15px; background-color: #1565c0; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold;" 
+                                title="Mois précédent">
+                            &lt;&lt; Mois précédent
+                        </button>
+                        <button onclick="event.stopPropagation(); navigateMonth(1);" 
+                                style="padding: 8px 15px; background-color: #1565c0; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold;" 
+                                title="Mois suivant">
+                            Mois suivant &gt;&gt;
+                        </button>
                         <button onclick="event.stopPropagation(); openMonthlyCalendarView();" 
-                                style="margin-left: 15px; padding: 5px 12px; background-color: #2196f3; border: none; border-radius: 4px; cursor: pointer; font-size: 16px;" 
+                                style="padding: 8px 15px; background-color: #2196f3; border: none; border-radius: 4px; cursor: pointer; font-size: 16px;" 
                                 title="Vue calendrier mensuel">
                             📅
                         </button>
                         <button id="requestBtn" onclick="event.stopPropagation(); openRequestModal();" 
-                                style="margin-left: 10px; padding: 5px 12px; background-color: #27ae60; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; display: none;" 
+                                style="padding: 8px 15px; background-color: #27ae60; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; display: none;" 
                                 title="Faire une demande d'affectation">
                             ✉️ Faire une demande
                         </button>
-                    </h3>
+                        <div id="currentMonthDisplay" onclick="event.stopPropagation();" style="margin-left: 20px; padding: 8px 15px; font-weight: bold; color: #1565c0; font-size: 16px; cursor: default;">
+                            <!-- Le mois et l'année seront affichés ici -->
+                        </div>
+                    </div>
                 </div>
                 <div id="ganttDisplaySection" style="margin-top: 15px;">
                     <div class="gantt-wrapper" id="ganttWrapper">
@@ -493,9 +510,9 @@
         <div id="settingsSection" style="margin-top: 15px; display: none;">
             <div class="form-row">
                 <div class="form-group">
-                    <label>
-                        <input type="checkbox" id="inactivityEnabled" onchange="toggleInactivityTimeout()">
-                        Activer le compteur d'inactivité
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" id="inactivityEnabled" onchange="toggleInactivityTimeout()" style="width: auto; margin: 0;">
+                        <span>Activer le compteur d'inactivité</span>
                     </label>
                 </div>
             </div>
@@ -2096,6 +2113,12 @@
             const filterSelect = document.getElementById('resourceFilter');
             const selectedOptions = Array.from(filterSelect.selectedOptions).map(opt => opt.value);
             const lastDay = new Date(year, month + 1, 0).getDate();
+            
+            // Mettre à jour l'affichage du mois et de l'année
+            const displayDiv = document.getElementById('currentMonthDisplay');
+            if (displayDiv) {
+                displayDiv.textContent = `${monthNames[month]} ${year}`;
+            }
             
             // Définir les attributs pour le titre d'impression
             document.getElementById('planning').setAttribute('data-month', monthNames[month]);
@@ -4431,6 +4454,35 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
 
         function closeConfirmationModal() {
             document.getElementById('confirmationModal').style.display = 'none';
+        }
+
+        // ========== NAVIGATION MOIS PRÉCÉDENT/SUIVANT ==========
+        
+        function navigateMonth(direction) {
+            const yearSelect = document.getElementById('yearSelect');
+            const monthSelect = document.getElementById('monthSelect');
+            
+            let currentYear = parseInt(yearSelect.value);
+            let currentMonth = parseInt(monthSelect.value);
+            
+            // Ajouter la direction (-1 pour mois précédent, +1 pour mois suivant)
+            currentMonth += direction;
+            
+            // Gérer les changements d'année
+            if (currentMonth < 0) {
+                currentMonth = 11;
+                currentYear--;
+            } else if (currentMonth > 11) {
+                currentMonth = 0;
+                currentYear++;
+            }
+            
+            // Mettre à jour les selects
+            yearSelect.value = currentYear;
+            monthSelect.value = currentMonth;
+            
+            // Rafraîchir le planning
+            updateGantt();
         }
     </script>
 
