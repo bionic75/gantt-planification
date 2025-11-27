@@ -82,24 +82,33 @@ function createEmailTransporter() {
         return null;
     }
     
-    return nodemailer.createTransport({
+    console.log('🔧 Création transporter SMTP:', {
         host: emailConfig.host,
         port: emailConfig.port,
         secure: emailConfig.secure,
+        user: emailConfig.user
+    });
+    
+    return nodemailer.createTransport({
+        host: emailConfig.host,
+        port: emailConfig.port,
+        secure: emailConfig.secure, // true pour port 465, false pour les autres ports
         auth: {
             user: emailConfig.user,
             pass: emailConfig.password
         },
-        // Options pour résoudre les problèmes sur Render.com
-        connectionTimeout: 10000, // 10 secondes
-        greetingTimeout: 10000,
-        socketTimeout: 10000,
-        // Tenter avec TLS
-        requireTLS: true,
+        // Timeouts généreux
+        connectionTimeout: 60000, // 60 secondes
+        greetingTimeout: 60000,
+        socketTimeout: 60000,
+        // Configuration TLS moins stricte
         tls: {
-            ciphers: 'SSLv3',
-            rejectUnauthorized: false
-        }
+            rejectUnauthorized: false,
+            minVersion: 'TLSv1'
+        },
+        // Logs de débogage
+        debug: true,
+        logger: true
     });
 }
 
@@ -123,6 +132,17 @@ async function sendEmail(to, subject, html, attachments = []) {
 
     try {
         console.log('🔄 Tentative d\'envoi email...');
+        
+        // Test de connexion au serveur SMTP
+        console.log('🔌 Test de connexion au serveur SMTP...');
+        try {
+            await transporter.verify();
+            console.log('✅ Connexion SMTP OK');
+        } catch (verifyError) {
+            console.error('❌ Échec de vérification SMTP:', verifyError.message);
+            throw new Error(`Impossible de se connecter au serveur SMTP ${emailConfig.host}:${emailConfig.port}. Vérifiez votre configuration réseau et les paramètres SMTP.`);
+        }
+        
         const mailOptions = {
             from: `"Domaine des Urgences - Planification des ressources" <${emailConfig.user}>`,
             to: to,
@@ -144,7 +164,20 @@ async function sendEmail(to, subject, html, attachments = []) {
         console.error('   - Code:', error.code);
         console.error('   - Command:', error.command);
         console.error('   - Stack:', error.stack);
-        throw error;
+        
+        // Messages d'erreur plus clairs pour l'utilisateur
+        let userMessage = error.message;
+        if (error.code === 'ETIMEDOUT' || error.message.includes('timeout')) {
+            userMessage = `Le serveur SMTP ne répond pas (timeout). Vérifiez :\n- L'adresse du serveur SMTP (${emailConfig.host}:${emailConfig.port})\n- Votre connexion internet\n- Que le serveur SMTP autorise les connexions depuis cette IP`;
+        } else if (error.code === 'EAUTH' || error.message.includes('authentication')) {
+            userMessage = `Erreur d'authentification. Vérifiez vos identifiants SMTP (email et mot de passe).`;
+        } else if (error.code === 'ECONNREFUSED') {
+            userMessage = `Connexion refusée par le serveur SMTP. Vérifiez l'adresse et le port.`;
+        }
+        
+        const enhancedError = new Error(userMessage);
+        enhancedError.code = error.code;
+        throw enhancedError;
     }
 }
 
@@ -246,6 +279,23 @@ function initDB() {
         if (err) {
             console.error('Erreur création table users:', err);
         } else {
+            // Migration: ajouter profile_photo si elle n'existe pas
+            database.all(`PRAGMA table_info(users)`, [], (pragmaErr, columns) => {
+                if (!pragmaErr && columns) {
+                    const photoCol = columns.find(col => col.name === 'profile_photo');
+                    if (!photoCol) {
+                        console.log('Migration: Ajout colonne profile_photo à users...');
+                        database.run(`ALTER TABLE users ADD COLUMN profile_photo TEXT`, (alterErr) => {
+                            if (alterErr) {
+                                console.error('Erreur migration profile_photo:', alterErr);
+                            } else {
+                                console.log('✅ Migration terminée: profile_photo ajouté');
+                            }
+                        });
+                    }
+                }
+            });
+            
             database.get('SELECT * FROM users WHERE username = ?', ['admin'], (err, row) => {
                 if (!row) {
                     const hashedPwd = hashPassword('Admin2025!');
@@ -331,6 +381,28 @@ function initDB() {
                     }
                 }
             });
+        }
+    });
+
+    // Table des notifications pour les experts
+    database.run(`
+        CREATE TABLE IF NOT EXISTS expert_notifications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            expert_id INTEGER NOT NULL,
+            date DATE NOT NULL,
+            period TEXT NOT NULL,
+            activity_name TEXT NOT NULL,
+            requester_name TEXT NOT NULL,
+            action_type TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            is_read INTEGER DEFAULT 0,
+            FOREIGN KEY (expert_id) REFERENCES users(id)
+        )
+    `, (err) => {
+        if (err) {
+            console.error('Erreur création table expert_notifications:', err);
+        } else {
+            console.log('✅ Table expert_notifications créée');
         }
     });
 
@@ -439,9 +511,19 @@ function requireAuth(req, res, next) {
 }
 
 function requireAdmin(req, res, next) {
+    console.log('🔒 requireAdmin - Vérification:', {
+        hasSession: !!req.session,
+        userId: req.session?.userId,
+        activeProfile: req.session?.activeProfile,
+        isAdmin: req.session?.activeProfile === 'admin'
+    });
+    
     if (!req.session || !req.session.userId || req.session.activeProfile !== 'admin') {
+        console.log('❌ Accès refusé - Pas admin');
         return res.status(403).json({ error: 'Accès réservé aux administrateurs' });
     }
+    
+    console.log('✅ Accès autorisé - Admin confirmé');
     next();
 }
 
@@ -457,7 +539,10 @@ app.post('/api/login', (req, res) => {
     const hashedPassword = hashPassword(password);
     
     database.get(
-        'SELECT * FROM users WHERE username = ? AND password = ? AND actif = 1',
+        `SELECT u.*, r.trigramme 
+         FROM users u 
+         LEFT JOIN resources r ON r.id = u.resource_id 
+         WHERE u.username = ? AND u.password = ? AND u.actif = 1`,
         [username, hashedPassword],
         (err, user) => {
             if (err) {
@@ -500,17 +585,28 @@ app.post('/api/login', (req, res) => {
                     }
                     
                     // Répondre APRÈS avoir tenté d'insérer le log
+                    const userResponse = {
+                        id: user.id,
+                        username: user.username,
+                        nom: user.nom,
+                        prenom: user.prenom,
+                        email: user.email,
+                        trigramme: user.trigramme || null,
+                        profilePhoto: user.profile_photo || null,
+                        activeProfile: profile,
+                        resourceId: user.resource_id
+                    };
+                    
+                    console.log('📤 Données utilisateur retournées:', {
+                        username: userResponse.username,
+                        trigramme: userResponse.trigramme,
+                        hasPhoto: !!userResponse.profilePhoto,
+                        resourceId: userResponse.resourceId
+                    });
+                    
                     res.json({ 
                         success: true,
-                        user: {
-                            id: user.id,
-                            username: user.username,
-                            nom: user.nom,
-                            prenom: user.prenom,
-                            email: user.email,
-                            activeProfile: profile,
-                            resourceId: user.resource_id
-                        }
+                        user: userResponse
                     });
                 }
             );
@@ -629,14 +725,31 @@ app.post('/api/forgot-password', async (req, res) => {
 
 app.get('/api/check-session', (req, res) => {
     if (req.session && req.session.userId) {
-        res.json({
-            userId: req.session.userId,
-            username: req.session.username,
-            nom: req.session.nom,
-            prenom: req.session.prenom,
-            activeProfile: req.session.activeProfile,
-            resourceId: req.session.resourceId
-        });
+        // Récupérer le trigramme, la photo et l'email depuis la base
+        database.get(
+            `SELECT u.email, u.profile_photo, r.trigramme 
+             FROM users u 
+             LEFT JOIN resources r ON r.id = u.resource_id 
+             WHERE u.id = ?`,
+            [req.session.userId],
+            (err, userData) => {
+                if (err) {
+                    console.error('Erreur récupération données session:', err);
+                }
+                
+                res.json({
+                    userId: req.session.userId,
+                    username: req.session.username,
+                    nom: req.session.nom,
+                    prenom: req.session.prenom,
+                    email: userData?.email || null,
+                    activeProfile: req.session.activeProfile,
+                    resourceId: req.session.resourceId,
+                    trigramme: userData?.trigramme || null,
+                    profilePhoto: userData?.profile_photo || null
+                });
+            }
+        );
     } else {
         res.status(401).json({ authenticated: false });
     }
@@ -850,6 +963,9 @@ app.get('/api/schedule', requireAuth, (req, res) => {
 app.post('/api/schedule', requireAuth, (req, res) => {
     const scheduleData = req.body;
     
+    console.log('📝 Sauvegarde planning - Profile:', req.session.activeProfile, 'User:', req.session.prenom, req.session.nom);
+    console.log('📊 Nombre de clés reçues:', Object.keys(scheduleData).length);
+    
     if (!scheduleData || typeof scheduleData !== 'object') {
         return res.json({ success: true, saved: 0 });
     }
@@ -869,6 +985,8 @@ app.post('/api/schedule', requireAuth, (req, res) => {
         const type = parts[1];
         // FIX MAJEUR : Utiliser join('_') au lieu de join('-') pour préserver le format des clés
         const dateKey = parts.slice(2).join('_');
+        
+        console.log('🔍 Processing key:', key, '| type:', type, '| resourceId:', resourceId, '| value:', value);
         
         // Vérification des droits pour Expert métier
         if (req.session.activeProfile === 'expert') {
@@ -906,10 +1024,92 @@ app.post('/api/schedule', requireAuth, (req, res) => {
             `INSERT INTO schedule_data (resource_id, date_key, type, value)
              VALUES (?, ?, ?, ?)
              ON CONFLICT(resource_id, date_key, type) 
-             DO UPDATE SET value = excluded.value`,
+             DO UPDATE SET value = excluded.value
+             WHERE value != excluded.value`,
             [resourceId, dateKey, type, value],
-            (err) => {
+            function(err) {
                 if (err) console.error('Erreur insert schedule:', err);
+                
+                // Ne créer une notification que si une ligne a été modifiée (pas juste réinsérée)
+                const hasChanged = this.changes > 0;
+                
+                console.log('🔔 Check notification - type:', type, 'value:', value, 'profile:', req.session.activeProfile, 'changed:', hasChanged);
+                
+                if (!err && hasChanged && (type === 'activity' || type === 'localisation') && value && value.trim() !== '' && req.session.activeProfile !== 'expert') {
+                    console.log('✅ Conditions remplies pour créer notification');
+                    
+                    // Extraire date et période depuis dateKey (format: YYYY-MM-DD_AM ou YYYY-MM-DD_PM)
+                    const dateKeyParts = dateKey.split('_');
+                    
+                    // Vérifier que le format est correct
+                    if (dateKeyParts.length >= 2 && dateKeyParts[0].match(/^\d{4}-\d{1,2}-\d{1,2}$/)) {
+                        const date = dateKeyParts[0];
+                        const period = dateKeyParts[1] === 'AM' ? 'Matin' : 'Après-midi';
+                        const requesterName = `${req.session.prenom} ${req.session.nom}`;
+                        
+                        console.log('📅 Date:', date, 'Period:', period, 'Requester:', requesterName);
+                        
+                        // Récupérer le nom de l'activité (si c'est une localisation)
+                        let activityName = value;
+                        if (type === 'localisation') {
+                            // Si c'est une localisation, récupérer l'affectation correspondante
+                            const activityKey = `${resourceId}_activity_${dateKey}`;
+                            const activityValue = scheduleData[activityKey];
+                            if (activityValue) {
+                                const activityMap = {
+                                    '1': 'Indisponible',
+                                    '2': 'En attente d\'affectation',
+                                    '3': '🚨 SAMU (Déploiement)',
+                                    '4': '🚨 SAMU (Dev. usages)',
+                                    '5': 'ANS (Déploiement)',
+                                    '6': 'ANS (Dev. usages)',
+                                    '7': 'Qualification',
+                                    '8': 'Divers'
+                                };
+                                activityName = `${activityMap[activityValue] || activityValue} - ${value}`;
+                            } else {
+                                activityName = `Localisation: ${value}`;
+                            }
+                        } else if (type === 'activity') {
+                            const activityMap = {
+                                '1': 'Indisponible',
+                                '2': 'En attente d\'affectation',
+                                '3': '🚨 SAMU (Déploiement)',
+                                '4': '🚨 SAMU (Dev. usages)',
+                                '5': 'ANS (Déploiement)',
+                                '6': 'ANS (Dev. usages)',
+                                '7': 'Qualification',
+                                '8': 'Divers'
+                            };
+                            activityName = activityMap[value] || value;
+                            
+                            const locKey = `${resourceId}_localisation_${dateKey}`;
+                            const locValue = scheduleData[locKey];
+                            if (locValue) {
+                                activityName += ` - ${locValue}`;
+                            }
+                        }
+                        
+                        console.log('🎯 Activity:', activityName, 'ResourceId:', resourceId);
+                        
+                        createNotification(resourceId, date, period, activityName, requesterName, 'Modification', (notifErr) => {
+                            if (notifErr) {
+                                console.error('❌ Erreur création notification:', notifErr);
+                            }
+                        });
+                    } else {
+                        console.log('⚠️ Format de dateKey invalide:', dateKey);
+                    }
+                } else {
+                    console.log('❌ Conditions NON remplies:', {
+                        hasError: !!err,
+                        hasChanged: hasChanged,
+                        typeOk: type === 'activity' || type === 'localisation',
+                        hasValue: !!(value && value.trim() !== ''),
+                        notExpert: req.session.activeProfile !== 'expert'
+                    });
+                }
+                
                 completed++;
                 if (completed === total) {
                     logUserAction(req, 'Sauvegarde planning', { 
@@ -920,6 +1120,56 @@ app.post('/api/schedule', requireAuth, (req, res) => {
                 }
             }
         );
+    });
+});
+
+// Endpoint pour RAZ complète d'un mois pour une ressource
+app.post('/api/schedule/reset-month', requireAuth, (req, res) => {
+    const { resourceId, year, month } = req.body;
+    
+    if (!resourceId || year === undefined || month === undefined) {
+        return res.status(400).json({ error: 'Paramètres manquants' });
+    }
+    
+    // Vérifier les droits
+    if (req.session.activeProfile === 'expert') {
+        if (parseInt(resourceId) !== req.session.resourceId) {
+            return res.status(403).json({ error: 'Non autorisé' });
+        }
+    }
+    
+    console.log(`🗑️ RAZ planning - Resource: ${resourceId}, Mois: ${month+1}/${year}, User: ${req.session.prenom} ${req.session.nom}`);
+    
+    // Construire les patterns de date_key pour ce mois
+    // Format: YYYY-M-D ou YYYY-M-D_AM ou YYYY-M-D_PM
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    const datePatterns = [];
+    
+    for (let day = 1; day <= lastDay; day++) {
+        datePatterns.push(`${year}-${month}-${day}`);
+        datePatterns.push(`${year}-${month}-${day}_AM`);
+        datePatterns.push(`${year}-${month}-${day}_PM`);
+    }
+    
+    // Supprimer toutes les données pour cette ressource et ce mois
+    const placeholders = datePatterns.map(() => '?').join(',');
+    const query = `DELETE FROM schedule_data WHERE resource_id = ? AND date_key IN (${placeholders})`;
+    const params = [resourceId, ...datePatterns];
+    
+    database.run(query, params, function(err) {
+        if (err) {
+            console.error('Erreur RAZ planning:', err);
+            return res.status(500).json({ error: err.message });
+        }
+        
+        console.log(`✅ ${this.changes} lignes supprimées`);
+        
+        logUserAction(req, `RAZ planning mois ${month+1}/${year}`, {
+            resourceId: resourceId,
+            lignesSupprimees: this.changes
+        });
+        
+        res.json({ success: true, deleted: this.changes });
     });
 });
 
@@ -964,6 +1214,18 @@ app.post('/api/schedule/save', requireAuth, (req, res) => {
             [resourceId, dateKey, type, value],
             (err) => {
                 if (err) console.error('Erreur insert schedule:', err);
+                
+                // Créer une notification si c'est une affectation (type = 'affect') et que l'utilisateur n'est pas un expert
+                if (!err && type === 'affect' && value && value.trim() !== '' && req.session.activeProfile !== 'expert') {
+                    // Extraire date et période depuis dateKey (format: YYYY-MM-DD_AM ou YYYY-MM-DD_PM)
+                    const dateKeyParts = dateKey.split('_');
+                    const date = dateKeyParts[0];
+                    const period = dateKeyParts[1] === 'AM' ? 'Matin' : 'Après-midi';
+                    const requesterName = `${req.session.prenom} ${req.session.nom}`;
+                    
+                    createNotification(resourceId, date, period, value, requesterName, 'Nouvelle affectation');
+                }
+                
                 completed++;
                 if (completed === total) {
                     logUserAction(req, 'Sauvegarde planning rapide', { 
@@ -1008,6 +1270,38 @@ app.get('/api/users', requireAdmin, (req, res) => {
     `, (err, rows) => {
         if (err) {
             console.error('Erreur récup users:', err);
+            res.status(500).json({ error: err.message });
+        } else {
+            console.log('👥 Users retournés:', rows.map(u => ({ 
+                id: u.id, 
+                username: u.username, 
+                resource_id: u.resource_id,
+                is_expert: u.is_expert 
+            })));
+            res.json(rows || []);
+        }
+    });
+});
+
+// Endpoint public pour récupérer les infos de base des users (pour affichage dans le Gantt)
+app.get('/api/users/public', requireAuth, (req, res) => {
+    database.all(`
+        SELECT 
+            u.id,
+            u.nom,
+            u.prenom,
+            u.email,
+            u.resource_id,
+            u.profile_photo,
+            u.is_expert,
+            r.trigramme
+        FROM users u 
+        LEFT JOIN resources r ON u.resource_id = r.id
+        WHERE u.actif = 1
+        ORDER BY u.nom, u.prenom
+    `, (err, rows) => {
+        if (err) {
+            console.error('Erreur récup users publics:', err);
             res.status(500).json({ error: err.message });
         } else {
             res.json(rows || []);
@@ -1089,21 +1383,41 @@ app.put('/api/users/:id', requireAdmin, (req, res) => {
     const { nom, prenom, email, is_admin, is_expert, is_user, resource_id } = req.body;
     const { id } = req.params;
     
+    // Convertir resource_id en integer ou null
+    let finalResourceId = null;
+    if (resource_id) {
+        const parsed = parseInt(resource_id);
+        if (!isNaN(parsed)) {
+            finalResourceId = parsed;
+        }
+    }
+    
+    console.log('💾 Modification utilisateur ID', id, ':', {
+        nom,
+        prenom,
+        is_expert,
+        resource_id_recu: resource_id,
+        resource_id_type: typeof resource_id,
+        resource_id_final: finalResourceId
+    });
+    
     database.run(
         `UPDATE users 
          SET nom = ?, prenom = ?, email = ?, is_admin = ?, is_expert = ?, is_user = ?, resource_id = ?
          WHERE id = ?`,
-        [nom, prenom, email, is_admin ? 1 : 0, is_expert ? 1 : 0, is_user ? 1 : 0, resource_id || null, id],
+        [nom, prenom, email, is_admin ? 1 : 0, is_expert ? 1 : 0, is_user ? 1 : 0, finalResourceId, id],
         (err) => {
             if (err) {
                 console.error('Erreur update user:', err);
                 res.status(500).json({ error: err.message });
             } else {
+                console.log('✅ Utilisateur modifié, resource_id final:', finalResourceId);
                 logUserAction(req, 'Modification utilisateur', { 
                     userId: id, 
                     nom, 
                     prenom,
-                    roles: { is_admin, is_expert, is_user }
+                    roles: { is_admin, is_expert, is_user },
+                    resource_id: finalResourceId
                 });
                 res.json({ success: true });
             }
@@ -2138,6 +2452,202 @@ Fin : ${endDateFormatted}
         res.status(500).json({ success: false, error: error.message });
     }
 });
+
+// ========== PHOTO DE PROFIL ==========
+
+// Récupérer la photo de profil de l'utilisateur connecté
+app.get('/api/profile/photo', requireAuth, (req, res) => {
+    database.get(
+        `SELECT profile_photo FROM users WHERE id = ?`,
+        [req.session.userId],
+        (err, row) => {
+            if (err) {
+                console.error('Erreur récupération photo:', err);
+                return res.status(500).json({ error: err.message });
+            }
+            res.json({ photo: row?.profile_photo || null });
+        }
+    );
+});
+
+// Upload de la photo de profil (base64)
+app.post('/api/profile/photo', requireAuth, (req, res) => {
+    const { photo } = req.body;
+    
+    if (!photo) {
+        return res.status(400).json({ error: 'Photo manquante' });
+    }
+    
+    // Vérifier que c'est bien une image base64
+    if (!photo.startsWith('data:image/')) {
+        return res.status(400).json({ error: 'Format invalide' });
+    }
+    
+    database.run(
+        `UPDATE users SET profile_photo = ? WHERE id = ?`,
+        [photo, req.session.userId],
+        (err) => {
+            if (err) {
+                console.error('Erreur upload photo:', err);
+                return res.status(500).json({ error: err.message });
+            }
+            console.log('✅ Photo de profil mise à jour pour user', req.session.userId);
+            res.json({ success: true });
+        }
+    );
+});
+
+// ========== NOTIFICATIONS EXPERTS ==========
+
+// Récupérer le nombre de notifications non lues
+app.get('/api/notifications/count', requireAuth, (req, res) => {
+    console.log('📊 Count notifications - userId:', req.session.userId, 'resourceId:', req.session.resourceId, 'profile:', req.session.activeProfile);
+    
+    if (!req.session.userId) {
+        console.log('⚠️ Pas de userId dans la session');
+        return res.json({ count: 0 });
+    }
+
+    database.get(
+        `SELECT COUNT(*) as count FROM expert_notifications 
+         WHERE expert_id = ? AND is_read = 0`,
+        [req.session.userId],
+        (err, row) => {
+            if (err) {
+                console.error('Erreur count notifications:', err);
+                return res.status(500).json({ error: err.message });
+            }
+            console.log('✅ Notifications non lues:', row.count);
+            res.json({ count: row.count });
+        }
+    );
+});
+
+// Récupérer la liste des notifications
+app.get('/api/notifications/list', requireAuth, (req, res) => {
+    if (!req.session.userId) {
+        return res.json({ notifications: [] });
+    }
+
+    database.all(
+        `SELECT * FROM expert_notifications 
+         WHERE expert_id = ? AND is_read = 0
+         ORDER BY created_at DESC`,
+        [req.session.userId],
+        (err, rows) => {
+            if (err) {
+                console.error('Erreur list notifications:', err);
+                return res.status(500).json({ error: err.message });
+            }
+            res.json({ notifications: rows });
+        }
+    );
+});
+
+// Marquer les notifications comme lues
+app.post('/api/notifications/mark-read', requireAuth, (req, res) => {
+    if (!req.session.userId) {
+        return res.json({ success: true });
+    }
+
+    database.run(
+        `UPDATE expert_notifications 
+         SET is_read = 1 
+         WHERE expert_id = ? AND is_read = 0`,
+        [req.session.userId],
+        (err) => {
+            if (err) {
+                console.error('Erreur mark notifications read:', err);
+                return res.status(500).json({ error: err.message });
+            }
+            res.json({ success: true });
+        }
+    );
+});
+
+// Supprimer toutes les notifications (pour nettoyer)
+app.post('/api/notifications/clear-all', requireAdmin, (req, res) => {
+    database.run(
+        `DELETE FROM expert_notifications`,
+        (err) => {
+            if (err) {
+                console.error('Erreur clear notifications:', err);
+                return res.status(500).json({ error: err.message });
+            }
+            console.log('✅ Toutes les notifications ont été supprimées');
+            res.json({ success: true, message: 'Toutes les notifications ont été supprimées' });
+        }
+    );
+});
+
+// Fonction helper pour créer une notification
+function createNotification(expertResourceId, date, period, activityName, requesterName, actionType, callback) {
+    console.log('🔔 Tentative création notification pour resource_id:', expertResourceId, 'activité:', activityName);
+    
+    // Récupérer l'user_id de l'expert à partir de resource_id
+    database.get(
+        `SELECT id FROM users WHERE resource_id = ? AND is_expert = 1`,
+        [expertResourceId],
+        (err, user) => {
+            if (err || !user) {
+                console.error('❌ Expert non trouvé pour resource_id:', expertResourceId, 'erreur:', err);
+                if (callback) callback(err);
+                return;
+            }
+
+            console.log('✅ Expert trouvé - user_id:', user.id);
+
+            // Vérifier si une notification existe déjà pour cette demi-journée
+            database.get(
+                `SELECT id FROM expert_notifications 
+                 WHERE expert_id = ? AND date = ? AND period = ? AND is_read = 0`,
+                [user.id, date, period],
+                (errCheck, existingNotif) => {
+                    if (errCheck) {
+                        console.error('❌ Erreur vérification notification existante:', errCheck);
+                        if (callback) callback(errCheck);
+                        return;
+                    }
+
+                    if (existingNotif) {
+                        // Une notification existe déjà pour cette demi-journée → UPDATE
+                        console.log('🔄 Notification existante trouvée, mise à jour...');
+                        database.run(
+                            `UPDATE expert_notifications 
+                             SET activity_name = ?, requester_name = ?, action_type = ?, created_at = CURRENT_TIMESTAMP
+                             WHERE id = ?`,
+                            [activityName, requesterName, actionType, existingNotif.id],
+                            (errUpdate) => {
+                                if (errUpdate) {
+                                    console.error('❌ Erreur mise à jour notification:', errUpdate);
+                                } else {
+                                    console.log(`✅ Notification mise à jour pour expert resource_id=${expertResourceId} user_id=${user.id}`);
+                                }
+                                if (callback) callback(errUpdate);
+                            }
+                        );
+                    } else {
+                        // Pas de notification existante → INSERT
+                        console.log('➕ Nouvelle notification...');
+                        database.run(
+                            `INSERT INTO expert_notifications (expert_id, date, period, activity_name, requester_name, action_type)
+                             VALUES (?, ?, ?, ?, ?, ?)`,
+                            [user.id, date, period, activityName, requesterName, actionType],
+                            (errInsert) => {
+                                if (errInsert) {
+                                    console.error('❌ Erreur création notification:', errInsert);
+                                } else {
+                                    console.log(`✅ Notification créée pour expert resource_id=${expertResourceId} user_id=${user.id}`);
+                                }
+                                if (callback) callback(errInsert);
+                            }
+                        );
+                    }
+                }
+            );
+        }
+    );
+}
 
 // Servir les fichiers statiques APRÈS les routes API pour éviter les conflits
 app.use(express.static(path.join(__dirname, 'public')));
