@@ -2498,6 +2498,47 @@ app.post('/api/profile/photo', requireAuth, (req, res) => {
     );
 });
 
+// Changer le mot de passe de l'utilisateur connecté
+app.post('/api/profile/change-password', requireAuth, (req, res) => {
+    const { newPassword } = req.body;
+    
+    if (!newPassword) {
+        return res.status(400).json({ error: 'Nouveau mot de passe requis' });
+    }
+    
+    // Validation du mot de passe
+    if (newPassword.length < 8) {
+        return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 8 caractères' });
+    }
+    
+    // Vérifier qu'il contient au moins un caractère spécial
+    const specialCharRegex = /[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\\/]/;
+    if (!specialCharRegex.test(newPassword)) {
+        return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 1 caractère spécial' });
+    }
+    
+    // Hasher le nouveau mot de passe
+    const hashedPassword = hashPassword(newPassword);
+    
+    database.run(
+        `UPDATE users SET password = ? WHERE id = ?`,
+        [hashedPassword, req.session.userId],
+        (err) => {
+            if (err) {
+                console.error('Erreur changement mot de passe:', err);
+                return res.status(500).json({ error: err.message });
+            }
+            
+            console.log('✅ Mot de passe changé pour user', req.session.userId);
+            
+            // Logger l'action
+            logUserAction(req, 'Changement de mot de passe', { userId: req.session.userId });
+            
+            res.json({ success: true });
+        }
+    );
+});
+
 // ========== NOTIFICATIONS EXPERTS ==========
 
 // Récupérer le nombre de notifications non lues
