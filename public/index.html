@@ -560,6 +560,17 @@
                     </div>
                 </div>
             </div>
+            <div class="form-row" style="margin-top: 20px;">
+                <div class="form-group">
+                    <label>Icône de l'application (favicon)</label>
+                    <select id="faviconSelect" onchange="previewFavicon()">
+                        <option value="calendrier">📅 Calendrier</option>
+                        <option value="gantt">📊 Gantt</option>
+                        <option value="grille">⊞ Grille</option>
+                        <option value="timeline">⏱️ Timeline</option>
+                    </select>
+                </div>
+            </div>
             <div class="button-group">
                 <button onclick="saveSettings()">Sauvegarder les paramètres</button>
             </div>
@@ -3372,6 +3383,17 @@
                         inactivityTimeoutEl.value = settings.inactivity_timeout;
                     }
                     
+                    // Charger le favicon sélectionné
+                    const faviconSelect = document.getElementById('faviconSelect');
+                    if (faviconSelect && settings.favicon) {
+                        faviconSelect.value = settings.favicon;
+                    }
+                    
+                    // Appliquer le favicon actuel
+                    if (settings.favicon) {
+                        applyFavicon(settings.favicon);
+                    }
+                    
                     // Démarrer le compteur d'inactivité si activé (pour tous les utilisateurs)
                     if (settings.inactivity_enabled === 'true') {
                         const timeout = parseInt(settings.inactivity_timeout) || 15;
@@ -3397,9 +3419,31 @@
             }
         }
 
+        function applyFavicon(faviconName) {
+            // Supprimer les anciens favicons
+            const oldFavicons = document.querySelectorAll('link[rel="icon"]');
+            oldFavicons.forEach(el => el.remove());
+            
+            // Ajouter le nouveau favicon
+            const link = document.createElement('link');
+            link.rel = 'icon';
+            link.type = 'image/svg+xml';
+            link.href = `favicon-${faviconName}.svg`;
+            document.head.appendChild(link);
+            
+            console.log(`✅ Favicon appliqué: ${faviconName}`);
+        }
+
+        function previewFavicon() {
+            const faviconName = document.getElementById('faviconSelect').value;
+            // Ne pas appliquer directement, juste un aperçu visuel si nécessaire
+            console.log(`📋 Favicon sélectionné: ${faviconName} (sauvegardez pour appliquer)`);
+        }
+
         async function saveSettings() {
             const enabled = document.getElementById('inactivityEnabled').checked;
             const timeout = document.getElementById('inactivityTimeout').value;
+            const favicon = document.getElementById('faviconSelect').value;
             
             try {
                 // Sauvegarder l'activation
@@ -3423,6 +3467,20 @@
                         value: timeout
                     })
                 });
+                
+                // Sauvegarder le favicon
+                await fetch(`${API_URL}/settings`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        key: 'favicon',
+                        value: favicon
+                    })
+                });
+                
+                // Appliquer le nouveau favicon
+                applyFavicon(favicon);
                 
                 alert('✅ Paramètres sauvegardés');
                 

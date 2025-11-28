@@ -1,0 +1,27 @@
+<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+  <!-- Fond -->
+  <rect width="32" height="32" fill="#f1f5f9"/>
+  
+  <!-- Timeline horizontale -->
+  <line x1="4" y1="26" x2="28" y2="26" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"/>
+  
+  <!-- Marqueurs de temps -->
+  <circle cx="8" cy="26" r="1.5" fill="#3b82f6"/>
+  <circle cx="16" cy="26" r="1.5" fill="#3b82f6"/>
+  <circle cx="24" cy="26" r="1.5" fill="#3b82f6"/>
+  
+  <!-- Silhouette expert 1 -->
+  <circle cx="8" cy="14" r="3" fill="#8b5cf6"/>
+  <path d="M 5 20 Q 5 17 8 17 Q 11 17 11 20" fill="#8b5cf6"/>
+  <line x1="8" y1="20" x2="8" y2="24" stroke="#8b5cf6" stroke-width="1.5"/>
+  
+  <!-- Silhouette expert 2 -->
+  <circle cx="16" cy="10" r="3" fill="#ec4899"/>
+  <path d="M 13 16 Q 13 13 16 13 Q 19 13 19 16" fill="#ec4899"/>
+  <line x1="16" y1="16" x2="16" y2="24" stroke="#ec4899" stroke-width="1.5"/>
+  
+  <!-- Silhouette expert 3 -->
+  <circle cx="24" cy="12" r="3" fill="#10b981"/>
+  <path d="M 21 18 Q 21 15 24 15 Q 27 15 27 18" fill="#10b981"/>
+  <line x1="24" y1="18" x2="24" y2="24" stroke="#10b981" stroke-width="1.5"/>
+</svg>

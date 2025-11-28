@@ -419,6 +419,7 @@ function initDB() {
             // Initialiser les paramètres par défaut
             database.run(`INSERT OR IGNORE INTO settings (key, value) VALUES ('inactivity_enabled', 'false')`);
             database.run(`INSERT OR IGNORE INTO settings (key, value) VALUES ('inactivity_timeout', '15')`);
+            database.run(`INSERT OR IGNORE INTO settings (key, value) VALUES ('favicon', 'calendrier')`);
             console.log('✅ Table settings initialisée');
         }
     });
