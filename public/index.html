@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestionnaire de Ressources et Planification des Experts Métier</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon-calendrier.svg" id="favicon">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: Arial, sans-serif; background-color: #f5f5f5; padding: 10px; }
@@ -977,7 +978,7 @@
             <div class="form-group">
                 <label>Nouveau mot de passe</label>
                 <div style="display: flex; gap: 10px;">
-                    <input type="text" id="newPassword" placeholder="Nouveau mot de passe" style="flex: 1;">
+                    <input type="text" id="adminResetPassword" placeholder="Nouveau mot de passe" style="flex: 1;">
                     <button onclick="generateAndFillPassword()" style="background-color: #9b59b6; padding: 8px 15px;">🎲 Générer</button>
                 </div>
             </div>
@@ -2951,11 +2952,11 @@
         function closeResetPasswordModal() {
             document.getElementById('resetPasswordModal').classList.remove('active');
             currentResetUserId = null;
-            document.getElementById('newPassword').value = '';
+            document.getElementById('adminResetPassword').value = '';
         }
 
         async function saveNewPassword() {
-            const newPassword = document.getElementById('newPassword').value;
+            const newPassword = document.getElementById('adminResetPassword').value;
             const sendEmail = document.getElementById('sendPasswordEmail').checked;
             
             if (!newPassword || newPassword.length < 6) {
@@ -3020,7 +3021,7 @@
             password = password.split('').sort(() => Math.random() - 0.5).join('');
             
             // Afficher dans le champ de la modale de reset
-            document.getElementById('newPassword').value = password;
+            document.getElementById('adminResetPassword').value = password;
         }
 
         async function openEditUserModal(id) {
@@ -3420,18 +3421,20 @@
         }
 
         function applyFavicon(faviconName) {
-            // Supprimer les anciens favicons
-            const oldFavicons = document.querySelectorAll('link[rel="icon"]');
-            oldFavicons.forEach(el => el.remove());
+            // Récupérer ou créer le lien favicon
+            let faviconLink = document.querySelector('link[rel="icon"]');
             
-            // Ajouter le nouveau favicon
-            const link = document.createElement('link');
-            link.rel = 'icon';
-            link.type = 'image/svg+xml';
-            link.href = `favicon-${faviconName}.svg`;
-            document.head.appendChild(link);
+            if (!faviconLink) {
+                faviconLink = document.createElement('link');
+                faviconLink.rel = 'icon';
+                faviconLink.type = 'image/svg+xml';
+                document.head.appendChild(faviconLink);
+            }
             
-            console.log(`✅ Favicon appliqué: ${faviconName}`);
+            // Mettre à jour le href avec le bon chemin
+            faviconLink.href = `/favicon-${faviconName}.svg?t=${Date.now()}`;
+            
+            console.log(`✅ Favicon appliqué: ${faviconName}, href: ${faviconLink.href}`);
         }
 
         function previewFavicon() {
@@ -4960,6 +4963,12 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             document.getElementById('profilePhotoModal').style.display = 'none';
             selectedPhotoData = null;
             document.getElementById('uploadPhotoBtn').style.display = 'none';
+            
+            // Réinitialiser les champs de mot de passe
+            document.getElementById('newPassword').value = '';
+            document.getElementById('confirmPassword').value = '';
+            document.getElementById('passwordStrength').textContent = '';
+            document.getElementById('passwordMatch').textContent = '';
         }
         
         function handlePhotoSelect(event) {
@@ -5045,6 +5054,119 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 console.error('Erreur upload photo:', error);
                 alert('Erreur lors de l\'upload de la photo');
             });
+        }
+        
+        // Validation du mot de passe en temps réel
+        
+        function validatePasswordStrength() {
+            const password = document.getElementById('newPassword').value;
+            const strengthEl = document.getElementById('passwordStrength');
+            
+            if (!password) {
+                strengthEl.textContent = '';
+                strengthEl.style.color = '#7f8c8d';
+                return false;
+            }
+            
+            const hasMinLength = password.length >= 8;
+            const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\\/]/.test(password);
+            
+            if (hasMinLength && hasSpecialChar) {
+                strengthEl.textContent = '✓ Mot de passe valide';
+                strengthEl.style.color = '#27ae60';
+                return true;
+            } else {
+                const errors = [];
+                if (!hasMinLength) errors.push('8 caractères minimum');
+                if (!hasSpecialChar) errors.push('1 caractère spécial requis');
+                strengthEl.textContent = '✗ ' + errors.join(', ');
+                strengthEl.style.color = '#e74c3c';
+                return false;
+            }
+        }
+        
+        function checkPasswordMatch() {
+            const password = document.getElementById('newPassword').value;
+            const confirm = document.getElementById('confirmPassword').value;
+            const matchEl = document.getElementById('passwordMatch');
+            
+            if (!confirm) {
+                matchEl.textContent = '';
+                return false;
+            }
+            
+            if (password === confirm) {
+                matchEl.textContent = '✓ Les mots de passe correspondent';
+                matchEl.style.color = '#27ae60';
+                return true;
+            } else {
+                matchEl.textContent = '✗ Les mots de passe ne correspondent pas';
+                matchEl.style.color = '#e74c3c';
+                return false;
+            }
+        }
+        
+        async function changePassword() {
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            
+            console.log('🔐 changePassword appelé');
+            console.log('Nouveau mot de passe:', newPassword ? `${newPassword.length} caractères` : 'vide');
+            console.log('Confirmation:', confirmPassword ? `${confirmPassword.length} caractères` : 'vide');
+            
+            // Validation
+            if (!newPassword || !confirmPassword) {
+                console.log('❌ Champs vides détectés');
+                alert('Veuillez remplir tous les champs');
+                return;
+            }
+            
+            console.log('✅ Champs remplis, validation de la force...');
+            if (!validatePasswordStrength()) {
+                console.log('❌ Mot de passe pas assez fort');
+                alert('Le mot de passe doit contenir au moins 8 caractères et 1 caractère spécial');
+                return;
+            }
+            
+            console.log('✅ Force validée, vérification correspondance...');
+            if (!checkPasswordMatch()) {
+                console.log('❌ Mots de passe ne correspondent pas');
+                alert('Les mots de passe ne correspondent pas');
+                return;
+            }
+            
+            console.log('✅ Tout validé, demande de confirmation...');
+            if (!confirm('Êtes-vous sûr de vouloir changer votre mot de passe ?')) {
+                console.log('❌ Annulé par l\'utilisateur');
+                return;
+            }
+            
+            console.log('📡 Envoi de la requête au serveur...');
+            try {
+                const response = await fetch('/api/profile/change-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ newPassword })
+                });
+                
+                const data = await response.json();
+                console.log('📥 Réponse serveur:', data);
+                
+                if (response.ok && data.success) {
+                    alert('✅ Mot de passe changé avec succès !');
+                    // Réinitialiser les champs
+                    document.getElementById('newPassword').value = '';
+                    document.getElementById('confirmPassword').value = '';
+                    document.getElementById('passwordStrength').textContent = '';
+                    document.getElementById('passwordMatch').textContent = '';
+                } else {
+                    alert('Erreur : ' + (data.error || 'Impossible de changer le mot de passe'));
+                }
+            } catch (error) {
+                console.error('Erreur changement mot de passe:', error);
+                alert('Erreur lors du changement de mot de passe');
+            }
         }
         
         function updateProfileDisplay() {
@@ -5305,14 +5427,16 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
         </div>
     </div>
 
-    <!-- Modal de photo de profil -->
-    <div id="profilePhotoModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10002;">
-        <div style="background-color: white; max-width: 500px; margin: 100px auto; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+    <!-- Modal de photo de profil et mot de passe -->
+    <div id="profilePhotoModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10002; overflow-y: auto;">
+        <div style="background-color: white; max-width: 550px; margin: 50px auto; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2 style="color: #2c3e50; margin: 0; border-bottom: 2px solid #1D70B7; padding-bottom: 10px; display: inline-block;">📷 Photo de profil</h2>
+                <h2 style="color: #2c3e50; margin: 0; border-bottom: 2px solid #1D70B7; padding-bottom: 10px; display: inline-block;">👤 Mon profil</h2>
                 <span onclick="closeProfilePhotoModal()" style="cursor: pointer; font-size: 28px; color: #7f8c8d;">&times;</span>
             </div>
             
+            <!-- Section Photo de profil -->
+            <h3 style="color: #2c3e50; font-size: 16px; margin: 20px 0 10px 0; border-left: 3px solid #1D70B7; padding-left: 10px;">📷 Photo de profil</h3>
             <div style="text-align: center; margin: 20px 0;">
                 <div id="previewCircle" style="width: 150px; height: 150px; border-radius: 50%; border: 4px solid #1D70B7; background-color: #7f8c8d; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px auto; overflow: hidden;">
                     <span id="previewTrigramme" style="color: white; font-weight: bold; font-size: 48px;">?</span>
@@ -5321,16 +5445,36 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 
                 <input type="file" id="photoInput" accept="image/*" style="display: none;" onchange="handlePhotoSelect(event)">
                 
-                <button onclick="document.getElementById('photoInput').click()" style="background-color: #1D70B7; padding: 10px 20px; margin: 10px;">
+                <button onclick="document.getElementById('photoInput').click()" style="background-color: #1D70B7; padding: 10px 20px; margin: 10px; border: none; border-radius: 5px; color: white; cursor: pointer;">
                     📁 Choisir une photo
                 </button>
                 
-                <button id="uploadPhotoBtn" onclick="uploadPhoto()" style="background-color: #27ae60; padding: 10px 20px; margin: 10px; display: none;">
+                <button id="uploadPhotoBtn" onclick="uploadPhoto()" style="background-color: #27ae60; padding: 10px 20px; margin: 10px; display: none; border: none; border-radius: 5px; color: white; cursor: pointer;">
                     ✓ Valider la photo
                 </button>
             </div>
             
-            <button onclick="closeProfilePhotoModal()" style="background-color: #95a5a6; width: 100%;">Fermer</button>
+            <!-- Section Changement de mot de passe -->
+            <h3 style="color: #2c3e50; font-size: 16px; margin: 30px 0 10px 0; border-left: 3px solid #e74c3c; padding-left: 10px;">🔒 Changer mon mot de passe</h3>
+            <div style="margin: 20px 0;">
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; color: #2c3e50; font-weight: bold;">Nouveau mot de passe</label>
+                    <input type="password" id="newPassword" name="new-password" autocomplete="new-password" oninput="validatePasswordStrength()" placeholder="Minimum 8 caractères avec 1 caractère spécial" style="width: 100%; padding: 10px; border: 1px solid #bdc3c7; border-radius: 5px; font-size: 14px;">
+                    <small id="passwordStrength" style="display: block; margin-top: 5px; color: #7f8c8d;"></small>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; color: #2c3e50; font-weight: bold;">Confirmer le mot de passe</label>
+                    <input type="password" id="confirmPassword" name="confirm-password" autocomplete="new-password" oninput="checkPasswordMatch()" placeholder="Resaisir le mot de passe" style="width: 100%; padding: 10px; border: 1px solid #bdc3c7; border-radius: 5px; font-size: 14px;">
+                    <small id="passwordMatch" style="display: block; margin-top: 5px;"></small>
+                </div>
+                
+                <button type="button" onclick="changePassword()" style="background-color: #e74c3c; width: 100%; padding: 12px; border: none; border-radius: 5px; color: white; font-weight: bold; cursor: pointer; font-size: 14px;">
+                    🔐 Changer le mot de passe
+                </button>
+            </div>
+            
+            <button onclick="closeProfilePhotoModal()" style="background-color: #95a5a6; width: 100%; padding: 12px; border: none; border-radius: 5px; color: white; cursor: pointer; margin-top: 20px;">Fermer</button>
         </div>
     </div>
 
