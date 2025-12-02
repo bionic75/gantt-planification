@@ -3218,7 +3218,7 @@
                                                         <td style="padding: 8px; border: 1px solid #a5d6a7;">
                                                             <strong>${dayName} ${dateStr} ${d.period}</strong><br>
                                                             Affectation: ${decodeActivity(d.activity)}<br>
-                                                            Localisation: ${d.location || '-'}
+                                                            Localisation: ${d.activity === '1' ? '-' : (d.location || '-')}
                                                         </td>
                                                         <td style="padding: 8px; border: 1px solid #a5d6a7; white-space: nowrap;">
                                                             ${modifDateStr}<br>
@@ -3357,7 +3357,7 @@
                                                             <strong>${dayName} ${dateStr} ${d.period}</strong><br>
                                                             Expert: ${expertName}<br>
                                                             Affectation: ${decodeActivity(d.activity)}<br>
-                                                            Localisation: ${d.location || '-'}
+                                                            Localisation: ${d.activity === '1' ? '-' : (d.location || '-')}
                                                         </td>
                                                         <td style="padding: 8px; border: 1px solid #a5d6a7; white-space: nowrap;">
                                                             ${modifDateStr}<br>
@@ -3487,7 +3487,8 @@
                         const resourceId = details.resourceId || '-';
                         const availability = details.availability || '-';
                         const activity = details.activity || '-';
-                        const location = details.location || '-';
+                        // Si activité = "1" (Indisponible), forcer localisation à "-"
+                        const location = (activity === '1' || activity === 'Indisponible') ? '-' : (details.location || '-');
                         const modifDate = new Date(log.created_at).toLocaleString('fr-FR');
                         
                         // Échapper les guillemets et virgules pour CSV
@@ -5183,7 +5184,8 @@
                     if ((week === 0 && dayOfWeek < startDayOfWeek) || day > lastDay) {
                         html += '<td style="padding: 15px; border: 1px solid #bdc3c7; background-color: #f5f5f5;"></td>';
                     } else {
-                        const dateKey = `${year}-${month}-${day}`;
+                        // CORRECTION : Format correct YYYY-MM-DD avec padding et month+1
+                        const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                         const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
                         
                         const amAvailKey = `${resourceId}_available_${dateKey}_AM`;
@@ -5412,7 +5414,8 @@
                     if ((week === 0 && dayOfWeek < startDayOfWeek) || day > lastDay) {
                         html += '<td style="padding: 10px; border: 1px solid #bdc3c7; background-color: #f5f5f5; min-height: 100px;"></td>';
                     } else {
-                        const dateKey = `${year}-${month}-${day}`;
+                        // CORRECTION : Format correct YYYY-MM-DD avec padding et month+1
+                        const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                         const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
                         const date = new Date(year, month, day);
                         
