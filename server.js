@@ -133,15 +133,8 @@ async function sendEmail(to, subject, html, attachments = []) {
     try {
         console.log('🔄 Tentative d\'envoi email...');
         
-        // Test de connexion au serveur SMTP
-        console.log('🔌 Test de connexion au serveur SMTP...');
-        try {
-            await transporter.verify();
-            console.log('✅ Connexion SMTP OK');
-        } catch (verifyError) {
-            console.error('❌ Échec de vérification SMTP:', verifyError.message);
-            throw new Error(`Impossible de se connecter au serveur SMTP ${emailConfig.host}:${emailConfig.port}. Vérifiez votre configuration réseau et les paramètres SMTP.`);
-        }
+        // Note: La vérification SMTP est désactivée pour accélérer l'envoi
+        // Si un problème survient, il sera détecté lors de l'envoi réel
         
         const mailOptions = {
             from: `"Domaine des Urgences - Planification des ressources" <${emailConfig.user}>`,
@@ -442,6 +435,23 @@ function initDB() {
             console.error('Erreur création table pending_notifications:', err);
         } else {
             console.log('✅ Table pending_notifications créée');
+        }
+    });
+
+    database.run(`
+        CREATE TABLE IF NOT EXISTS action_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            action_type TEXT NOT NULL,
+            details TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    `, (err) => {
+        if (err) {
+            console.error('Erreur création table action_logs:', err);
+        } else {
+            console.log('✅ Table action_logs créée');
         }
     });
 }
@@ -1175,7 +1185,22 @@ app.post('/api/schedule/reset-month', requireAuth, (req, res) => {
 });
 
 app.post('/api/schedule/save', requireAuth, (req, res) => {
-    const { updates } = req.body;
+    console.log('🟢🟢🟢 API /api/schedule/save APPELÉE - VERSION AVEC LOGGING ACTION_LOGS 🟢🟢🟢');
+    
+    // Supporter les deux formats : { updates: [...] } OU scheduleData direct
+    let updates;
+    if (req.body.updates) {
+        // Format avec updates explicite
+        updates = req.body.updates;
+    } else {
+        // Format scheduleData direct - le convertir en updates
+        const scheduleData = req.body;
+        updates = Object.entries(scheduleData).map(([key, value]) => ({ key, value }));
+    }
+    
+    console.log('   Nombre de modifications:', updates ? updates.length : 0);
+    console.log('   User ID:', req.session.userId);
+    console.log('   Active Profile:', req.session.activeProfile);
     
     if (!updates || updates.length === 0) {
         return res.json({ success: true, saved: 0 });
@@ -1215,6 +1240,12 @@ app.post('/api/schedule/save', requireAuth, (req, res) => {
             [resourceId, dateKey, type, value],
             (err) => {
                 if (err) console.error('Erreur insert schedule:', err);
+                
+                // ========== LOGGING DÉSACTIVÉ ==========
+                // Les logs de planning sont maintenant créés UNIQUEMENT lors de la déconnexion
+                // basés sur les données du popup d'envoi d'emails (pendingAssignments)
+                // Voir la fonction checkPendingNotifications() côté client
+                // ========== FIN LOGGING DÉSACTIVÉ ==========
                 
                 // Créer une notification si c'est une affectation (type = 'affect') et que l'utilisateur n'est pas un expert
                 if (!err && type === 'affect' && value && value.trim() !== '' && req.session.activeProfile !== 'expert') {
@@ -1737,6 +1768,38 @@ app.get('/api/connection-logs/:id', requireAdmin, (req, res) => {
     );
 });
 
+// Récupération des logs d'actions filtrés par utilisateur
+app.get('/api/logs/actions', requireAdmin, (req, res) => {
+    const { userId } = req.query;
+    
+    console.log('📊 GET /api/logs/actions - userId:', userId);
+    
+    if (!userId) {
+        return res.status(400).json({ error: 'userId requis' });
+    }
+    
+    database.all(
+        `SELECT id, user_id, action_type, details, created_at 
+         FROM action_logs 
+         WHERE user_id = ?
+         ORDER BY created_at DESC 
+         LIMIT 100`,
+        [userId],
+        (err, logs) => {
+            if (err) {
+                console.error('❌ Erreur récupération action logs:', err);
+                res.status(500).json({ error: err.message });
+            } else {
+                console.log(`✅ ${logs.length} action logs trouvés pour userId ${userId}`);
+                if (logs.length > 0) {
+                    console.log('📋 Premier log:', logs[0]);
+                }
+                res.json({ logs });
+            }
+        }
+    );
+});
+
 // Mise à jour des modifications dans le log
 app.post('/api/logs/add-modification', requireAuth, (req, res) => {
     const { modification } = req.body;
@@ -1957,6 +2020,188 @@ app.post('/api/send-calendar-email', requireAuth, async (req, res) => {
         res.json({ success: true, message: 'Calendrier envoyé par email avec succès' });
     } catch (error) {
         console.error('Erreur envoi calendrier par email:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Endpoint pour envoyer une demande d'affectation à des experts
+app.post('/api/request-assignment', requireAuth, async (req, res) => {
+    const { fromName, fromEmail, expertIds, subject, startDate, startPeriod, endDate, endPeriod, message } = req.body;
+    
+    console.log('📧 === DEMANDE D\'AFFECTATION ===');
+    console.log('From:', fromName, fromEmail);
+    console.log('Experts IDs:', expertIds);
+    console.log('Subject:', subject);
+    console.log('Période:', startDate, startPeriod, 'au', endDate, endPeriod);
+    console.log('Message:', message);
+    
+    if (!expertIds || expertIds.length === 0) {
+        console.log('❌ Aucun expert sélectionné');
+        return res.status(400).json({ success: false, error: 'Aucun expert sélectionné' });
+    }
+    
+    console.log('📧 Config email:', {
+        host: emailConfig.host,
+        port: emailConfig.port,
+        user: emailConfig.user,
+        hasPassword: !!emailConfig.password
+    });
+    
+    if (!emailConfig.user) {
+        console.log('❌ Configuration email non définie');
+        return res.status(400).json({ success: false, error: 'Configuration email non définie' });
+    }
+    
+    try {
+        const sentEmails = [];
+        
+        console.log(`🔄 Traitement de ${expertIds.length} experts...`);
+        
+        // Récupérer les infos des experts sélectionnés
+        for (const resourceId of expertIds) {
+            console.log(`\n👤 Traitement expert ID (resource): ${resourceId}`);
+            
+            // D'abord récupérer le nom depuis resources
+            const resource = await new Promise((resolve, reject) => {
+                database.get(
+                    'SELECT * FROM resources WHERE id = ?',
+                    [resourceId],
+                    (err, row) => {
+                        if (err) reject(err);
+                        else resolve(row);
+                    }
+                );
+            });
+            
+            if (!resource) {
+                console.warn(`⚠️ Ressource ${resourceId} non trouvée en base`);
+                continue;
+            }
+            
+            console.log(`   Nom resource: ${resource.prenom} ${resource.nom}`);
+            
+            // Ensuite récupérer l'email depuis users (qui est lié via resource_id)
+            const user = await new Promise((resolve, reject) => {
+                database.get(
+                    'SELECT * FROM users WHERE resource_id = ? AND is_expert = 1',
+                    [resourceId],
+                    (err, row) => {
+                        if (err) reject(err);
+                        else resolve(row);
+                    }
+                );
+            });
+            
+            if (!user) {
+                console.warn(`⚠️ Aucun utilisateur expert trouvé pour resource_id ${resourceId}`);
+                continue;
+            }
+            
+            console.log(`   User trouvé: ${user.prenom} ${user.nom}`);
+            console.log(`   Email: ${user.email}`);
+            
+            if (!user.email) {
+                console.warn(`⚠️ Expert ${resourceId} (${user.prenom} ${user.nom}) n'a pas d'email configuré`);
+                continue;
+            }
+            
+            // Utiliser les infos de resource pour le nom (plus fiable) et l'email de user
+            const expertName = `${resource.prenom} ${resource.nom}`;
+            const expertEmail = user.email;
+            
+            // Construire le corps de l'email
+            const emailBody = `
+                <html>
+                <head>
+                    <style>
+                        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                        .header { background-color: #1D70B7; color: white; padding: 20px; text-align: center; }
+                        .content { padding: 20px; background-color: #f9f9f9; }
+                        .info-box { background-color: white; border-left: 4px solid #1D70B7; padding: 15px; margin: 15px 0; }
+                        .footer { padding: 20px; text-align: center; color: #7f8c8d; font-size: 12px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <h2>${subject}</h2>
+                    </div>
+                    <div class="content">
+                        <p>Bonjour ${expertName},</p>
+                        <p>Vous avez reçu une nouvelle demande d'affectation de <strong>${fromName}</strong>:</p>
+                        
+                        <div class="info-box">
+                            <p><strong>📅 Période demandée:</strong></p>
+                            <p>Du ${new Date(startDate).toLocaleDateString('fr-FR')} (${startPeriod}) au ${new Date(endDate).toLocaleDateString('fr-FR')} (${endPeriod})</p>
+                        </div>
+                        
+                        <div class="info-box">
+                            <p><strong>✉️ Message:</strong></p>
+                            <p>${message.replace(/\n/g, '<br>')}</p>
+                        </div>
+                        
+                        <p>Pour toute question, vous pouvez répondre directement à <a href="mailto:${fromEmail}">${fromEmail}</a>.</p>
+                    </div>
+                    <div class="footer">
+                        <p>Cet email a été envoyé depuis le système de planification SI-SAMU</p>
+                    </div>
+                </body>
+                </html>
+            `;
+            
+            console.log(`   📧 Envoi email à ${expertEmail}...`);
+            
+            // Envoyer l'email
+            try {
+                await sendEmail(expertEmail, subject, emailBody);
+                console.log(`   ✅ Email envoyé avec succès à ${expertEmail}`);
+                sentEmails.push(expertEmail);
+                
+                // Logger l'action pour cet expert
+                if (req.session.userId) {
+                    database.run(
+                        `INSERT INTO action_logs (user_id, action_type, details) VALUES (?, ?, ?)`,
+                        [
+                            req.session.userId, 
+                            'email_request', 
+                            JSON.stringify({
+                                resourceId: resourceId,
+                                expertName: expertName,
+                                expertEmail: expertEmail,
+                                date: startDate,
+                                subject: subject
+                            })
+                        ],
+                        (err) => {
+                            if (err) console.error('   ❌ Erreur log email request:', err);
+                            else console.log('   ✅ Action loggée');
+                        }
+                    );
+                }
+            } catch (emailError) {
+                console.error(`   ❌ Erreur envoi email à ${expertEmail}:`, emailError.message);
+                throw emailError; // Propager l'erreur pour l'arrêter
+            }
+        }
+        
+        console.log(`\n✅ === FIN TRAITEMENT ===`);
+        console.log(`   Total emails envoyés: ${sentEmails.length}`);
+        
+        if (sentEmails.length === 0) {
+            console.log('❌ Aucun email envoyé');
+            return res.status(400).json({ success: false, error: 'Aucun email n\'a pu être envoyé. Vérifiez que les experts ont des adresses email configurées.' });
+        }
+        
+        logUserAction(req, 'Envoi demande d\'affectation', { 
+            expertsCount: sentEmails.length,
+            emails: sentEmails
+        });
+        
+        console.log('✅ Réponse success envoyée au client');
+        res.json({ success: true, emails: sentEmails });
+    } catch (error) {
+        console.error('❌ ERREUR GLOBALE envoi demandes:', error);
+        console.error('   Message:', error.message);
+        console.error('   Stack:', error.stack);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -2452,6 +2697,254 @@ Fin : ${endDateFormatted}
         console.error('❌ Erreur demande d\'affectation:', error);
         res.status(500).json({ success: false, error: error.message });
     }
+});
+
+// ========== RAZ (REMISE À ZÉRO) DES LOGS ==========
+
+// Endpoint de diagnostic pour les logs de planning (temporaire)
+app.get('/api/logs/planning-debug', requireAdmin, (req, res) => {
+    // Compter les logs de planning par user_id
+    database.all(
+        `SELECT 
+            user_id,
+            COUNT(*) as count
+         FROM action_logs 
+         WHERE action_type = 'planning_modification'
+         GROUP BY user_id
+         ORDER BY count DESC`,
+        [],
+        (err, stats) => {
+            if (err) {
+                return res.status(500).json({ error: err.message });
+            }
+            
+            // Récupérer quelques exemples de logs avec user_id NULL
+            database.all(
+                `SELECT id, user_id, created_at, details
+                 FROM action_logs
+                 WHERE action_type = 'planning_modification' AND user_id IS NULL
+                 LIMIT 10`,
+                [],
+                (err2, nullLogs) => {
+                    if (err2) {
+                        return res.status(500).json({ error: err2.message });
+                    }
+                    
+                    res.json({
+                        stats: stats,
+                        nullLogsCount: nullLogs.length,
+                        nullLogsExamples: nullLogs,
+                        message: stats.find(s => s.user_id === null) ? 
+                            '⚠️ Des logs de planning ont user_id NULL' : 
+                            '✅ Tous les logs de planning ont un user_id'
+                    });
+                }
+            );
+        }
+    );
+});
+
+// Endpoint pour enregistrer les logs de planning lors de la déconnexion
+app.post('/api/logs/save-planning-modifications', requireAuth, (req, res) => {
+    const { modifications } = req.body;
+    
+    if (!modifications || !Array.isArray(modifications) || modifications.length === 0) {
+        return res.json({ success: true, logged: 0, message: 'Aucune modification à logger' });
+    }
+    
+    let loggedCount = 0;
+    let errors = 0;
+    
+    // Traiter chaque modification
+    modifications.forEach((modif, index) => {
+        const logDetails = {
+            resourceId: modif.resourceId,
+            resourceName: modif.resourceName,
+            date: modif.date,
+            period: modif.period,
+            activity: modif.activity,
+            location: modif.location || '-',
+            emailSent: modif.emailSent || false
+        };
+        
+        database.run(
+            `INSERT INTO action_logs (user_id, action_type, details) VALUES (?, ?, ?)`,
+            [req.session.userId, 'planning_modification', JSON.stringify(logDetails)],
+            function(err) {
+                if (err) {
+                    console.error(`   ❌ Erreur log ${index + 1}:`, err);
+                    errors++;
+                } else {
+                    loggedCount++;
+                }
+                
+                // Si c'est le dernier, envoyer la réponse
+                if (index === modifications.length - 1) {
+                    res.json({ 
+                        success: true, 
+                        logged: loggedCount,
+                        errors: errors,
+                        message: `${loggedCount} modification(s) enregistrée(s)` 
+                    });
+                }
+            }
+        );
+    });
+});
+
+app.delete('/api/logs/raz', requireAdmin, (req, res) => {
+    const { type, userId } = req.body;
+    
+    console.log(`🗑️ RAZ logs demandée: type=${type}, userId=${userId}`);
+    
+    if (!type || !userId) {
+        return res.status(400).json({ error: 'Paramètres manquants' });
+    }
+    
+    // Récupérer d'abord le username de l'utilisateur
+    database.get(
+        `SELECT username FROM users WHERE id = ?`,
+        [userId],
+        (errUser, user) => {
+            if (errUser || !user) {
+                console.error('❌ Utilisateur non trouvé:', userId);
+                return res.status(404).json({ error: 'Utilisateur non trouvé' });
+            }
+            
+            console.log(`👤 Username trouvé: ${user.username}`);
+            
+            let query;
+            let params;
+            
+            switch (type) {
+                case 'connexions':
+                    // Supprimer par username au lieu de user_id pour gérer les logs avec user_id NULL
+                    query = 'DELETE FROM connection_logs WHERE username = ?';
+                    params = [user.username];
+                    break;
+                    
+                case 'planning':
+                    // Supprimer par username pour cohérence (les anciens logs peuvent avoir user_id NULL)
+                    query = `DELETE FROM action_logs WHERE user_id = ? AND action_type = ?`;
+                    params = [userId, 'planning_modification'];
+                    // Note: Les logs de planning n'ont pas de champ username, on utilise user_id
+                    // Si des logs anciens ont user_id NULL, ils ne seront pas supprimés
+                    // mais ce n'est normalement pas le cas pour les logs de planning
+                    break;
+                    
+                case 'emails':
+                    // Supprimer par user_id (les logs d'emails ont toujours un user_id valide)
+                    query = 'DELETE FROM action_logs WHERE user_id = ? AND action_type = ?';
+                    params = [userId, 'email_request'];
+                    break;
+                    
+                default:
+                    return res.status(400).json({ error: 'Type de log inconnu' });
+            }
+            
+            console.log(`📝 Query SQL: ${query}`);
+            console.log(`📝 Params: ${JSON.stringify(params)}`);
+            
+            // Avant suppression, compter les logs existants
+            const countQuery = query.replace('DELETE', 'SELECT COUNT(*) as count');
+            database.get(countQuery, params, (errCount, rowCount) => {
+                if (!errCount) {
+                    console.log(`📊 Logs trouvés avant suppression: ${rowCount.count}`);
+                }
+                
+                // Maintenant faire la suppression
+                database.run(query, params, function(err) {
+                    if (err) {
+                        console.error('❌ Erreur suppression logs:', err);
+                        return res.status(500).json({ error: err.message });
+                    }
+                    
+                    console.log(`✅ ${this.changes} log(s) supprimé(s)`);
+                    
+                    // Logger cette action
+                    const actionDescription = {
+                        'connexions': 'Suppression connexions',
+                        'planning': 'Suppression modifications planning',
+                        'emails': 'Suppression demandes affectation'
+                    };
+                    
+                    logUserAction(req, actionDescription[type], { 
+                        targetUserId: userId,
+                        targetUsername: user.username,
+                        deletedCount: this.changes 
+                    });
+                    
+                    res.json({ 
+                        success: true, 
+                        deleted: this.changes,
+                        message: `${this.changes} enregistrement(s) supprimé(s)` 
+                    });
+                });
+            });
+        }
+    );
+});
+
+// Endpoint de purge complète des logs (pour tous les utilisateurs)
+app.delete('/api/logs/purge-all', requireAdmin, (req, res) => {
+    const { table, type } = req.body;
+    
+    console.log(`🗑️ PURGE COMPLÈTE demandée: table=${table}, type=${type}`);
+    
+    if (!table) {
+        return res.status(400).json({ error: 'Paramètre table manquant' });
+    }
+    
+    let query;
+    let params = [];
+    
+    if (table === 'connection_logs') {
+        query = 'DELETE FROM connection_logs';
+    } else if (table === 'action_logs') {
+        if (type) {
+            query = 'DELETE FROM action_logs WHERE action_type = ?';
+            params = [type];
+        } else {
+            query = 'DELETE FROM action_logs';
+        }
+    } else {
+        return res.status(400).json({ error: 'Table invalide' });
+    }
+    
+    console.log(`📝 Query SQL: ${query}`);
+    console.log(`📝 Params: ${JSON.stringify(params)}`);
+    
+    // Compter avant suppression
+    const countQuery = `SELECT COUNT(*) as count FROM ${table}${type ? ' WHERE action_type = ?' : ''}`;
+    database.get(countQuery, params, (errCount, rowCount) => {
+        if (!errCount) {
+            console.log(`📊 Logs trouvés avant purge: ${rowCount.count}`);
+        }
+        
+        // Faire la suppression
+        database.run(query, params, function(err) {
+            if (err) {
+                console.error('❌ Erreur purge logs:', err);
+                return res.status(500).json({ error: err.message });
+            }
+            
+            console.log(`✅ ${this.changes} log(s) purgé(s) de ${table}`);
+            
+            // Logger cette action critique
+            logUserAction(req, 'Purge complète logs', { 
+                table,
+                type: type || 'all',
+                deletedCount: this.changes 
+            });
+            
+            res.json({ 
+                success: true, 
+                deleted: this.changes,
+                table,
+                message: `${this.changes} enregistrement(s) supprimé(s) de ${table}` 
+            });
+        });
+    });
 });
 
 // ========== PHOTO DE PROFIL ==========
