@@ -528,7 +528,7 @@
             <div style="display: flex; align-items: flex-end; gap: 10px; margin-bottom: 15px;">
                 <div style="flex: 1;">
                     <label>Version de l'application</label>
-                    <input type="text" id="appVersion" placeholder="Ex: v1.0.0">
+                    <input type="text" id="appVersionInput" placeholder="Ex: v1.0.0">
                 </div>
                 <button onclick="saveAppVersion()" style="white-space: nowrap;">💾 Sauvegarder</button>
             </div>
@@ -4077,45 +4077,41 @@
             }
         }
 
-        async function saveAppVersion() {
-            const version = document.getElementById('adminVersion').value.trim();
-            
-            if (!version) {
-                alert('Veuillez saisir un numéro de version');
-                return;
-            }
-            
-            try {
-                const response = await fetch(`${API_URL}/system/version`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({ version })
-                });
-                
-                const data = await response.json();
-                if (data.success) {
-                    alert('✅ Version mise à jour avec succès');
-                    loadAppVersion();
-                } else {
-                    alert('❌ Erreur: ' + (data.error || 'Erreur inconnue'));
-                }
-            } catch (error) {
-                console.error('Erreur sauvegarde version:', error);
-                alert('Erreur lors de la sauvegarde');
-            }
-        }
-
         // ========== GESTION DES PARAMÈTRES DIVERS ==========
 
         async function loadSettings() {
+            console.log('🔄 loadSettings() appelé');
             try {
                 const response = await fetch(`${API_URL}/settings`, {
                     credentials: 'include'
                 });
                 
+                console.log('📥 GET /api/settings - Status:', response.status);
+                
                 if (response.ok) {
                     const settings = await response.json();
+                    console.log('📥 Settings reçus:', settings);
+                    
+                    // Charger la version de l'application (uniquement si l'élément existe - admin)
+                    const appVersionInput = document.getElementById('appVersionInput');
+                    console.log('🔍 Element appVersionInput:', appVersionInput);
+                    
+                    if (appVersionInput && settings.app_version) {
+                        console.log('✅ Chargement version dans input:', settings.app_version);
+                        appVersionInput.value = settings.app_version;
+                    } else {
+                        console.log('⚠️ Pas de chargement version:', {
+                            inputExists: !!appVersionInput,
+                            hasVersion: !!settings.app_version
+                        });
+                    }
+                    
+                    // Mettre à jour le span d'affichage de la version (visible par tous)
+                    const appVersionDisplay = document.getElementById('appVersion');
+                    if (appVersionDisplay && settings.app_version) {
+                        console.log('✅ Mise à jour affichage version:', settings.app_version);
+                        appVersionDisplay.textContent = settings.app_version;
+                    }
                     
                     // Charger les paramètres d'inactivité (uniquement si les éléments existent - admin)
                     const inactivityEnabledEl = document.getElementById('inactivityEnabled');
@@ -4156,10 +4152,15 @@
         }
 
         function toggleInactivityTimeout() {
-            const enabled = document.getElementById('inactivityEnabled').checked;
+            const enabled = document.getElementById('inactivityEnabled');
             const timeoutGroup = document.getElementById('inactivityTimeoutGroup');
             
-            if (enabled) {
+            // Vérifier que les éléments existent avant de les manipuler
+            if (!enabled || !timeoutGroup) {
+                return;
+            }
+            
+            if (enabled.checked) {
                 timeoutGroup.style.display = 'block';
             } else {
                 timeoutGroup.style.display = 'none';
@@ -4247,14 +4248,20 @@
 
         // Nouvelles fonctions de sauvegarde individuelles
         async function saveAppVersion() {
-            const version = document.getElementById('appVersion').value;
+            const input = document.getElementById('appVersionInput');
+            console.log('🔍 Element appVersionInput:', input);
+            console.log('🔍 Value:', input ? input.value : 'ELEMENT NOT FOUND');
+            
+            const version = input ? input.value : null;
             if (!version) {
                 alert('⚠️ Veuillez saisir une version');
                 return;
             }
             
+            console.log('📤 Envoi requête PUT /api/settings avec:', { key: 'app_version', value: version });
+            
             try {
-                await fetch(`${API_URL}/settings`, {
+                const response = await fetch(`${API_URL}/settings`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -4263,9 +4270,23 @@
                         value: version
                     })
                 });
-                alert('✅ Version sauvegardée');
+                
+                console.log('📥 Response status:', response.status);
+                console.log('📥 Response ok:', response.ok);
+                
+                const data = await response.json();
+                console.log('📥 Response data:', data);
+                
+                if (data.success) {
+                    alert('✅ Version sauvegardée');
+                    console.log('🔄 Appel loadSettings()...');
+                    loadSettings(); // Recharger pour mettre à jour l'affichage
+                } else {
+                    alert('❌ Erreur lors de la sauvegarde');
+                    console.error('❌ Erreur:', data);
+                }
             } catch (error) {
-                console.error('Erreur sauvegarde version:', error);
+                console.error('❌ Exception:', error);
                 alert('❌ Erreur lors de la sauvegarde');
             }
         }
@@ -4275,7 +4296,7 @@
             const timeout = document.getElementById('inactivityTimeout').value;
             
             try {
-                await fetch(`${API_URL}/settings`, {
+                const response1 = await fetch(`${API_URL}/settings`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -4285,7 +4306,7 @@
                     })
                 });
                 
-                await fetch(`${API_URL}/settings`, {
+                const response2 = await fetch(`${API_URL}/settings`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -4295,12 +4316,19 @@
                     })
                 });
                 
-                alert('✅ Configuration d\'inactivité sauvegardée');
+                const data1 = await response1.json();
+                const data2 = await response2.json();
                 
-                if (enabled) {
-                    startInactivityTimer(parseInt(timeout));
+                if (data1.success && data2.success) {
+                    alert('✅ Configuration d\'inactivité sauvegardée');
+                    
+                    if (enabled) {
+                        startInactivityTimer(parseInt(timeout));
+                    } else {
+                        stopInactivityTimer();
+                    }
                 } else {
-                    stopInactivityTimer();
+                    alert('❌ Erreur lors de la sauvegarde');
                 }
             } catch (error) {
                 console.error('Erreur sauvegarde inactivité:', error);
