@@ -49,7 +49,7 @@ if (!fs.existsSync(DB_DIR)) {
     fs.mkdirSync(DB_DIR, { recursive: true });
 }
 
-console.log('📊 Chemin de la base de données:', DB_FILE);
+console.log('📊 Chemin base de données:', DB_FILE);
 
 // Initialiser la base de données SQLite
 const database = new sqlite3.Database(DB_FILE, (err) => 
