@@ -2862,14 +2862,13 @@ app.delete('/api/logs/purge-all', requireAdmin, (req, res) => {
             table,
             type: type || 'all',
             deletedCount: this.changes 
-            });
-            
-            res.json({ 
-                success: true, 
-                deleted: this.changes,
-                table,
-                message: `${this.changes} enregistrement(s) supprimé(s) de ${table}` 
-            });
+        });
+        
+        res.json({ 
+            success: true, 
+            deleted: this.changes,
+            table,
+            message: `${this.changes} enregistrement(s) supprimé(s) de ${table}` 
         });
     });
 });
