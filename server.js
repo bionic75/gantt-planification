@@ -57,7 +57,6 @@ const database = new sqlite3.Database(DB_FILE, (err) =>
     if (err) {
         console.error('Erreur connexion DB:', err);
     } else {
-        console.log('Connecté à SQLite');
         initDB();
     }
 });
@@ -82,13 +81,6 @@ function createEmailTransporter() {
         return null;
     }
     
-    console.log('🔧 Création transporter SMTP:', {
-        host: emailConfig.host,
-        port: emailConfig.port,
-        secure: emailConfig.secure,
-        user: emailConfig.user
-    });
-    
     return nodemailer.createTransport({
         host: emailConfig.host,
         port: emailConfig.port,
@@ -106,32 +98,19 @@ function createEmailTransporter() {
             rejectUnauthorized: false,
             minVersion: 'TLSv1'
         },
-        // Logs de débogage
-        debug: true,
-        logger: true
+        // Logs de débogage désactivés
+        debug: false,
+        logger: false
     });
 }
 
 // Envoyer un email
 async function sendEmail(to, subject, html, attachments = []) {
-    console.log('📧 sendEmail appelé:');
-    console.log('   - Destinataire:', to);
-    console.log('   - Sujet:', subject);
-    console.log('   - Pièces jointes:', attachments.length);
-    console.log('   - Config user:', emailConfig.user ? 'Défini' : 'NON DÉFINI');
-    console.log('   - Config password:', emailConfig.password ? 'Défini' : 'NON DÉFINI');
-    console.log('   - Config host:', emailConfig.host);
-    console.log('   - Config port:', emailConfig.port);
-    
     const transporter = createEmailTransporter();
-    
     if (!transporter) {
-        console.error('❌ Transporteur email null - configuration manquante');
-        throw new Error('Configuration email non définie. Veuillez configurer les paramètres SMTP dans l\'onglet Administration.');
+        throw new Error('Configuration email non définie');
     }
-
     try {
-        console.log('🔄 Tentative d\'envoi email...');
         
         // Note: La vérification SMTP est désactivée pour accélérer l'envoi
         // Si un problème survient, il sera détecté lors de l'envoi réel
@@ -149,14 +128,9 @@ async function sendEmail(to, subject, html, attachments = []) {
         
         const info = await transporter.sendMail(mailOptions);
         
-        console.log('✅ Email envoyé avec succès! Message ID:', info.messageId);
+        return { success: true, messageId: info.messageId };
         return { success: true, messageId: info.messageId };
     } catch (error) {
-        console.error('❌ Erreur détaillée envoi email:');
-        console.error('   - Message:', error.message);
-        console.error('   - Code:', error.code);
-        console.error('   - Command:', error.command);
-        console.error('   - Stack:', error.stack);
         
         // Messages d'erreur plus clairs pour l'utilisateur
         let userMessage = error.message;
@@ -245,11 +219,23 @@ function initDB() {
             date_key TEXT NOT NULL,
             type TEXT NOT NULL,
             value TEXT NOT NULL,
+            notification TEXT DEFAULT '0',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(resource_id, date_key, type)
         )
     `, (err) => {
         if (err) console.error('Erreur création table schedule_data:', err);
+    });
+    
+    // Ajouter la colonne notification si elle n'existe pas (migration)
+    database.run(`
+        ALTER TABLE schedule_data ADD COLUMN notification TEXT DEFAULT '0'
+    `, (err) => {
+        if (err && !err.message.includes('duplicate column')) {
+            console.error('Erreur ajout colonne notification:', err);
+        } else if (!err) {
+            console.log('✅ Colonne notification ajoutée à schedule_data');
+        }
     });
 
     database.run(`
@@ -499,6 +485,12 @@ function logUserAction(req, action, details = {}) {
             
             modifications.push(actionLog);
             
+            // Vérifier que la session existe avant d'accéder à logId
+            if (!req.session || !req.session.logId) {
+                console.warn('⚠️ Session invalide, impossible de mettre à jour le log');
+                return;
+            }
+            
             database.run(
                 'UPDATE connection_logs SET modifications = ? WHERE id = ?',
                 [JSON.stringify(modifications), req.session.logId],
@@ -506,7 +498,6 @@ function logUserAction(req, action, details = {}) {
                     if (err) {
                         console.error('❌ Erreur update log:', err);
                     } else {
-                        console.log('✅ Log mis à jour avec succès');
                     }
                 }
             );
@@ -582,7 +573,6 @@ app.post('/api/login', (req, res) => {
             req.session.resourceId = user.resource_id;
             
             // Logger la connexion
-            console.log(`📝 Tentative de log connexion pour: ${user.username} (${profile})`);
             database.run(
                 `INSERT INTO connection_logs (user_id, username, nom, prenom, profile) VALUES (?, ?, ?, ?, ?)`,
                 [user.id, user.username, user.nom, user.prenom, profile],
@@ -590,7 +580,6 @@ app.post('/api/login', (req, res) => {
                     if (err) {
                         console.error('❌ Erreur log connexion:', err);
                     } else {
-                        console.log(`✅ Log connexion créé avec ID: ${this.lastID}`);
                         // Sauvegarder l'ID du log dans la session
                         req.session.logId = this.lastID;
                     }
@@ -626,6 +615,98 @@ app.post('/api/login', (req, res) => {
 });
 
 app.post('/api/logout', (req, res) => {
+    const userId = req.session.userId;
+    const username = req.session.username;
+    
+    // Afficher l'état de la base de données avant déconnexion
+    if (userId) {
+        // Récupérer le resource_id de l'utilisateur
+        database.get(
+            `SELECT resource_id FROM users WHERE id = ?`,
+            [userId],
+            (err, user) => {
+                if (err || !user) {
+                    console.error('❌ Erreur récupération resource_id:', err);
+                } else if (user.resource_id) {
+                    const resourceId = user.resource_id;
+                    
+                    console.log(`\n${'='.repeat(70)}`);
+                    console.log(`📊 ÉTAT BDD AVANT DÉCONNEXION - ${username} (ID: ${userId}, Resource: ${resourceId})`);
+                    console.log('='.repeat(70));
+                    
+                    // Structure EAV : grouper par date_key
+                    const query = `
+                        SELECT date_key, type, value, notification, created_at
+                        FROM schedule_data
+                        WHERE resource_id = ? AND notification = '1'
+                        ORDER BY date_key, type
+                    `;
+                    
+                    database.all(query, [resourceId], (err, rows) => {
+                        if (err) {
+                            console.error('❌ Erreur lecture schedule_data:', err);
+                        } else if (rows.length === 0) {
+                            console.log('⚠️  AUCUNE LIGNE avec notification="1" pour cet expert');
+                            console.log('   → Soit aucune nouvelle affectation, soit le flag n\'est pas mis à "1"');
+                        } else {
+                            console.log(`✅ ${rows.length} lignes avec notification="1" trouvées\n`);
+                            
+                            // Grouper par date_key
+                            const byPeriod = {};
+                            rows.forEach(row => {
+                                if (!byPeriod[row.date_key]) {
+                                    byPeriod[row.date_key] = {};
+                                }
+                                byPeriod[row.date_key][row.type] = {
+                                    value: row.value,
+                                    notification: row.notification,
+                                    created_at: row.created_at
+                                };
+                            });
+                            
+                            let periodNum = 1;
+                            Object.keys(byPeriod).sort().forEach(dateKey => {
+                                const period = byPeriod[dateKey];
+                                console.log(`📅 Période ${periodNum}: ${dateKey}`);
+                                
+                                if (period.available) {
+                                    console.log(`  ✅ Available: ${period.available.value} (notif: "${period.available.notification}")`);
+                                }
+                                if (period.activity) {
+                                    console.log(`  🎯 Activity: ${period.activity.value} (notif: "${period.activity.notification}")`);
+                                }
+                                if (period.localisation) {
+                                    console.log(`  📍 Localisation: ${period.localisation.value} (notif: "${period.localisation.notification}")`);
+                                }
+                                if (period.author) {
+                                    console.log(`  👤 Author: ${period.author.value} (notif: "${period.author.notification}")`);
+                                }
+                                
+                                console.log('');
+                                periodNum++;
+                            });
+                        }
+                        console.log('='.repeat(70) + '\n');
+                    });
+                }
+            }
+        );
+        
+        // Logger la déconnexion dans action_logs
+        const timestamp = new Date().toISOString();
+        
+        database.run(
+            `INSERT INTO action_logs (user_id, action_type, details, created_at) VALUES (?, ?, ?, ?)`,
+            [userId, 'deconnexion', JSON.stringify({ username }), timestamp],
+            function(err) {
+                if (err) {
+                    console.error('❌ Erreur log déconnexion:', err);
+                } else {
+                }
+            }
+        );
+    }
+    
     req.session.destroy();
     res.json({ success: true });
 });
@@ -1031,94 +1112,25 @@ app.post('/api/schedule', requireAuth, (req, res) => {
             }
         }
         
+        //Déterminer si c'est un expert qui modifie sa propre ligne
+        const isExpertSelfEdit = req.session.activeProfile === 'expert';
+        
         database.run(
-            `INSERT INTO schedule_data (resource_id, date_key, type, value)
-             VALUES (?, ?, ?, ?)
+            `INSERT INTO schedule_data (resource_id, date_key, type, value, notification)
+             VALUES (?, ?, ?, ?, ?)
              ON CONFLICT(resource_id, date_key, type) 
-             DO UPDATE SET value = excluded.value
-             WHERE value != excluded.value`,
-            [resourceId, dateKey, type, value],
+             DO UPDATE SET 
+                value = excluded.value,
+                notification = ?`,
+            [resourceId, dateKey, type, value, isExpertSelfEdit ? '0' : '1', isExpertSelfEdit ? '0' : '1'],
             function(err) {
                 if (err) console.error('Erreur insert schedule:', err);
                 
                 // Ne créer une notification que si une ligne a été modifiée (pas juste réinsérée)
                 const hasChanged = this.changes > 0;
                 
-                console.log('🔔 Check notification - type:', type, 'value:', value, 'profile:', req.session.activeProfile, 'changed:', hasChanged);
-                
-                if (!err && hasChanged && (type === 'activity' || type === 'localisation') && value && value.trim() !== '' && req.session.activeProfile !== 'expert') {
-                    console.log('✅ Conditions remplies pour créer notification');
-                    
-                    // Extraire date et période depuis dateKey (format: YYYY-MM-DD_AM ou YYYY-MM-DD_PM)
-                    const dateKeyParts = dateKey.split('_');
-                    
-                    // Vérifier que le format est correct
-                    if (dateKeyParts.length >= 2 && dateKeyParts[0].match(/^\d{4}-\d{1,2}-\d{1,2}$/)) {
-                        const date = dateKeyParts[0];
-                        const period = dateKeyParts[1] === 'AM' ? 'Matin' : 'Après-midi';
-                        const requesterName = `${req.session.prenom} ${req.session.nom}`;
-                        
-                        console.log('📅 Date:', date, 'Period:', period, 'Requester:', requesterName);
-                        
-                        // Récupérer le nom de l'activité (si c'est une localisation)
-                        let activityName = value;
-                        if (type === 'localisation') {
-                            // Si c'est une localisation, récupérer l'affectation correspondante
-                            const activityKey = `${resourceId}_activity_${dateKey}`;
-                            const activityValue = scheduleData[activityKey];
-                            if (activityValue) {
-                                const activityMap = {
-                                    '1': 'Indisponible',
-                                    '2': 'En attente d\'affectation',
-                                    '3': '🚨 SAMU (Déploiement)',
-                                    '4': '🚨 SAMU (Dev. usages)',
-                                    '5': 'ANS (Déploiement)',
-                                    '6': 'ANS (Dev. usages)',
-                                    '7': 'Qualification',
-                                    '8': 'Divers'
-                                };
-                                activityName = `${activityMap[activityValue] || activityValue} - ${value}`;
-                            } else {
-                                activityName = `Localisation: ${value}`;
-                            }
-                        } else if (type === 'activity') {
-                            const activityMap = {
-                                '1': 'Indisponible',
-                                '2': 'En attente d\'affectation',
-                                '3': '🚨 SAMU (Déploiement)',
-                                '4': '🚨 SAMU (Dev. usages)',
-                                '5': 'ANS (Déploiement)',
-                                '6': 'ANS (Dev. usages)',
-                                '7': 'Qualification',
-                                '8': 'Divers'
-                            };
-                            activityName = activityMap[value] || value;
-                            
-                            const locKey = `${resourceId}_localisation_${dateKey}`;
-                            const locValue = scheduleData[locKey];
-                            if (locValue) {
-                                activityName += ` - ${locValue}`;
-                            }
-                        }
-                        
-                        console.log('🎯 Activity:', activityName, 'ResourceId:', resourceId);
-                        
-                        createNotification(resourceId, date, period, activityName, requesterName, 'Modification', (notifErr) => {
-                            if (notifErr) {
-                                console.error('❌ Erreur création notification:', notifErr);
-                            }
-                        });
-                    } else {
-                        console.log('⚠️ Format de dateKey invalide:', dateKey);
-                    }
-                } else {
-                    console.log('❌ Conditions NON remplies:', {
-                        hasError: !!err,
-                        hasChanged: hasChanged,
-                        typeOk: type === 'activity' || type === 'localisation',
-                        hasValue: !!(value && value.trim() !== ''),
-                        notExpert: req.session.activeProfile !== 'expert'
-                    });
+                if (!err && hasChanged && !isExpertSelfEdit) {
+                    console.log(`✅ Notification='1' pour resource_id=${resourceId}, type=${type}, value=${value}`);
                 }
                 
                 completed++;
@@ -1135,6 +1147,99 @@ app.post('/api/schedule', requireAuth, (req, res) => {
 });
 
 // Endpoint pour RAZ complète d'un mois pour une ressource
+// Preview des données qui seront supprimées par RAZ
+app.post('/api/schedule/preview-reset-month', requireAuth, (req, res) => {
+    const { resourceId, year, month } = req.body;
+    
+    if (!resourceId || year === undefined || month === undefined) {
+        return res.status(400).json({ error: 'Paramètres manquants' });
+    }
+    
+    // Vérifier les droits
+    if (req.session.activeProfile === 'expert') {
+        if (parseInt(resourceId) !== req.session.resourceId) {
+            return res.status(403).json({ error: 'Non autorisé' });
+        }
+    }
+    
+    // Pattern pour matcher toutes les dates de ce mois : YYYY-MM-%
+    const monthPattern = `${year}-${String(month + 1).padStart(2, '0')}-%`;
+    
+    console.log(`👁️ Preview RAZ - Resource: ${resourceId}, Pattern: ${monthPattern}`);
+    
+    // Récupérer les données qui vont être supprimées
+    const query = `SELECT * FROM schedule_data WHERE resource_id = ? AND date_key LIKE ? ORDER BY date_key`;
+    const params = [resourceId, monthPattern];
+    
+    database.all(query, params, (err, rows) => {
+        if (err) {
+            console.error('Erreur preview RAZ:', err);
+            return res.status(500).json({ error: err.message });
+        }
+        
+        console.log(`📊 ${rows.length} entrée(s) trouvée(s)`);
+        
+        // Grouper les données par date_key
+        const grouped = {};
+        rows.forEach(row => {
+            console.log(`  Row: date_key="${row.date_key}" type="${row.type}" value="${row.value}"`);
+            
+            if (!grouped[row.date_key]) {
+                grouped[row.date_key] = {
+                    date_key: row.date_key,
+                    available: '-',
+                    activity: '-',
+                    localisation: '-',
+                    author: '-'
+                };
+            }
+            grouped[row.date_key][row.type] = row.value;
+        });
+        
+        console.log('📦 Données groupées:', JSON.stringify(grouped, null, 2));
+        
+        // Convertir en tableau trié et filtrer les données "fantômes" et corrompues
+        const entries = Object.values(grouped)
+            .filter(entry => {
+                // Règles de cohérence :
+                // 1. Si disponibilité définie, l'affectation DOIT être définie
+                if ((entry.available && entry.available !== '-') && (!entry.activity || entry.activity === '-')) {
+                    console.log(`  ⚠️ Donnée corrompue (dispo sans activity): ${entry.date_key}`);
+                    return false;
+                }
+                
+                // 2. Si affectation définie, la disponibilité DOIT être définie
+                if ((entry.activity && entry.activity !== '-') && (!entry.available || entry.available === '-')) {
+                    console.log(`  ⚠️ Donnée corrompue (activity sans dispo): ${entry.date_key}`);
+                    return false;
+                }
+                
+                // 3. Disponible (activity=2) sans localisation = donnée fantôme
+                if (entry.activity === '2' && (entry.localisation === '-' || !entry.localisation)) {
+                    console.log(`  ⚠️ Donnée fantôme (disponible sans lieu): ${entry.date_key}`);
+                    return false;
+                }
+                
+                // 4. Pas d'activité du tout
+                if (entry.activity === '-' && entry.available === '-') {
+                    console.log(`  ⚠️ Donnée vide: ${entry.date_key}`);
+                    return false;
+                }
+                
+                return true; // Donnée valide
+            })
+            .sort((a, b) => a.date_key.localeCompare(b.date_key));
+        
+        console.log(`✅ Données valides après filtrage: ${entries.length}`);
+        
+        res.json({ 
+            success: true, 
+            count: entries.length,
+            entries: entries
+        });
+    });
+});
+
 app.post('/api/schedule/reset-month', requireAuth, (req, res) => {
     const { resourceId, year, month } = req.body;
     
@@ -1151,21 +1256,15 @@ app.post('/api/schedule/reset-month', requireAuth, (req, res) => {
     
     console.log(`🗑️ RAZ planning - Resource: ${resourceId}, Mois: ${month+1}/${year}, User: ${req.session.prenom} ${req.session.nom}`);
     
-    // Construire les patterns de date_key pour ce mois
-    // Format: YYYY-M-D ou YYYY-M-D_AM ou YYYY-M-D_PM
-    const lastDay = new Date(year, month + 1, 0).getDate();
-    const datePatterns = [];
+    // Pattern pour matcher toutes les dates de ce mois : YYYY-MM-%
+    const monthPattern = `${year}-${String(month + 1).padStart(2, '0')}-%`;
     
-    for (let day = 1; day <= lastDay; day++) {
-        datePatterns.push(`${year}-${month}-${day}`);
-        datePatterns.push(`${year}-${month}-${day}_AM`);
-        datePatterns.push(`${year}-${month}-${day}_PM`);
-    }
+    console.log(`🔍 Pattern de suppression: ${monthPattern}`);
     
     // Supprimer toutes les données pour cette ressource et ce mois
-    const placeholders = datePatterns.map(() => '?').join(',');
-    const query = `DELETE FROM schedule_data WHERE resource_id = ? AND date_key IN (${placeholders})`;
-    const params = [resourceId, ...datePatterns];
+    // (pas de filtre sur activity car on veut tout nettoyer, y compris les données "fantômes")
+    const query = `DELETE FROM schedule_data WHERE resource_id = ? AND date_key LIKE ?`;
+    const params = [resourceId, monthPattern];
     
     database.run(query, params, function(err) {
         if (err) {
@@ -1177,6 +1276,7 @@ app.post('/api/schedule/reset-month', requireAuth, (req, res) => {
         
         logUserAction(req, `RAZ planning mois ${month+1}/${year}`, {
             resourceId: resourceId,
+            pattern: monthPattern,
             lignesSupprimees: this.changes
         });
         
@@ -1208,6 +1308,9 @@ app.post('/api/schedule/save', requireAuth, (req, res) => {
 
     let completed = 0;
     const total = updates.length;
+    
+    // Collecter les activités modifiées pour créer les notifications une seule fois par demi-journée
+    const notificationsToCreate = new Map(); // Clé: "resourceId_date_period", Valeur: {resourceId, date, period, activity}
 
     updates.forEach(({ key, value }) => {
         const parts = key.split('_');
@@ -1232,34 +1335,120 @@ app.post('/api/schedule/save', requireAuth, (req, res) => {
             }
         }
         
-        database.run(
-            `INSERT INTO schedule_data (resource_id, date_key, type, value)
-             VALUES (?, ?, ?, ?)
-             ON CONFLICT(resource_id, date_key, type) 
-             DO UPDATE SET value = excluded.value`,
-            [resourceId, dateKey, type, value],
-            (err) => {
-                if (err) console.error('Erreur insert schedule:', err);
+        // ===== VÉRIFIER AVANT L'INSERT SI C'EST UNE VRAIE MODIFICATION (ASYNCHRONE) =====
+        database.get(
+            'SELECT value FROM schedule_data WHERE resource_id = ? AND date_key = ? AND type = ?',
+            [resourceId, dateKey, type],
+            (errCheck, existingRow) => {
+                const oldValue = existingRow ? existingRow.value : null;
+                const hasReallyChanged = (oldValue !== value);
                 
-                // ========== LOGGING DÉSACTIVÉ ==========
-                // Les logs de planning sont maintenant créés UNIQUEMENT lors de la déconnexion
-                // basés sur les données du popup d'envoi d'emails (pendingAssignments)
-                // Voir la fonction checkPendingNotifications() côté client
-                // ========== FIN LOGGING DÉSACTIVÉ ==========
-                
-                // Créer une notification si c'est une affectation (type = 'affect') et que l'utilisateur n'est pas un expert
-                if (!err && type === 'affect' && value && value.trim() !== '' && req.session.activeProfile !== 'expert') {
-                    // Extraire date et période depuis dateKey (format: YYYY-MM-DD_AM ou YYYY-MM-DD_PM)
-                    const dateKeyParts = dateKey.split('_');
-                    const date = dateKeyParts[0];
-                    const period = dateKeyParts[1] === 'AM' ? 'Matin' : 'Après-midi';
-                    const requesterName = `${req.session.prenom} ${req.session.nom}`;
-                    
-                    createNotification(resourceId, date, period, value, requesterName, 'Nouvelle affectation');
-                }
+                database.run(
+                    `INSERT INTO schedule_data (resource_id, date_key, type, value)
+                     VALUES (?, ?, ?, ?)
+                     ON CONFLICT(resource_id, date_key, type) 
+                     DO UPDATE SET value = excluded.value`,
+                    [resourceId, dateKey, type, value],
+                    (err) => {
+                        if (err) console.error('Erreur insert schedule:', err);
+                        
+                        // Log uniquement si valeur a vraiment changé
+                        if (hasReallyChanged) {
+                            console.log(`🔍 Save CHANGED - type: ${type}, value: ${value} (was: ${oldValue}), resourceId: ${resourceId}`);
+                        }
+                        
+                        // Collecter les activités pour notifications (une seule par demi-journée)
+                        if (!err && type === 'activity' && value !== '1' && value !== '2' && req.session.activeProfile !== 'expert' && hasReallyChanged) {
+                            // C'est une vraie affectation SAMU/ANS qui a VRAIMENT changé
+                            const dateKeyParts = dateKey.split('_');
+                            const date = dateKeyParts[0];
+                            const period = dateKeyParts[1];
+                            const notifKey = `${resourceId}_${date}_${period}`;
+                            
+                            console.log(`📌 Notification à créer: ${notifKey} (activity ${value})`);
+                            
+                            // N'ajouter que si pas déjà présent
+                            if (!notificationsToCreate.has(notifKey)) {
+                                notificationsToCreate.set(notifKey, {
+                                    resourceId,
+                                    date,
+                                    period,
+                                    activityValue: value
+                                });
+                            }
+                        }
+                        
+                        // NOUVEAU: Créer le log planning_modification quand la LOCALISATION est modifiée
+                        // (car la localisation arrive après l'activité dans le workflow utilisateur)
+                        if (!err && type === 'localisation' && req.session.activeProfile !== 'expert' && hasReallyChanged) {
+                            const dateKeyParts = dateKey.split('_');
+                            const date = dateKeyParts[0];
+                            const period = dateKeyParts[1];
+                            const resId = parseInt(resourceId);
+                            
+                            // Vérifier s'il y a une activité affectable (3-8) pour cette demi-journée
+                            database.get(
+                                'SELECT value FROM schedule_data WHERE resource_id = ? AND date_key = ? AND type = ?',
+                                [resId, dateKey, 'activity'],
+                                (errAct, actRow) => {
+                                    if (!errAct && actRow && ['3','4','5','6','7','8'].includes(actRow.value)) {
+                                        // Il y a une affectation, créer le log avec la localisation
+                                        const activityLabelsLocal = {
+                                            '3': '🚨 SAMU (Déploiement)',
+                                            '4': '🚨 SAMU (Dev. usages)',
+                                            '5': 'ANS (Déploiement)',
+                                            '6': 'ANS (Dev. usages)',
+                                            '7': 'Qualification',
+                                            '8': 'Autre mission'
+                                        };
+                                        
+                                        database.get('SELECT nom, prenom FROM resources WHERE id = ?', [resId], (errRes, resource) => {
+                                            if (!errRes && resource) {
+                                                const logDetails = {
+                                                    resourceId: resId,
+                                                    resourceName: `${resource.prenom} ${resource.nom}`,
+                                                    date: date,
+                                                    period: period === 'AM' ? 'Matin' : 'Après-midi',
+                                                    activity: activityLabelsLocal[actRow.value] || actRow.value,
+                                                    location: value  // La nouvelle localisation
+                                                };
+                                                
+                                                console.log(`📝 Log créé (via localisation): ${resource.prenom} ${resource.nom}, ${date} ${period}, localisation: ${value}`);
+                                                
+                                                database.run(
+                                                    `INSERT INTO action_logs (user_id, action_type, details) VALUES (?, ?, ?)`,
+                                                    [req.session.userId, 'planning_modification', JSON.stringify(logDetails)]
+                                                );
+                                            }
+                                        });
+                                    }
+                                }
+                            );
+                        }
                 
                 completed++;
                 if (completed === total) {
+                    // Créer les notifications (une seule par demi-journée)
+                    const requesterName = `${req.session.prenom || 'Admin'} ${req.session.nom || 'Système'}`;
+                    const activityLabels = {
+                        '3': '🚨 SAMU (Déploiement)',
+                        '4': '🚨 SAMU (Dev. usages)',
+                        '5': 'ANS (Déploiement)',
+                        '6': 'ANS (Dev. usages)',
+                        '7': 'Qualification',
+                        '8': 'Autre mission'
+                    };
+                    
+                    console.log(`📧 Création de ${notificationsToCreate.size} notifications groupées`);
+                    notificationsToCreate.forEach(({ resourceId, date, period, activityValue }) => {
+                        const activityLabel = activityLabels[activityValue] || `Activité ${activityValue}`;
+                        const periodLabel = period === 'AM' ? 'Matin' : 'Après-midi';
+                        createNotification(resourceId, date, periodLabel, activityLabel, requesterName, 'Nouvelle affectation');
+                    });
+                    
+                    // Note: Les logs planning_modification sont maintenant créés quand la LOCALISATION est modifiée
+                    // (voir le bloc "NOUVEAU" plus haut qui gère type === 'localisation')
+                    
                     logUserAction(req, 'Sauvegarde planning rapide', { 
                         modificationsCount: total,
                         profile: req.session.activeProfile
@@ -1268,6 +1457,7 @@ app.post('/api/schedule/save', requireAuth, (req, res) => {
                 }
             }
         );
+        }); // Fermeture du callback database.get
     });
 });
 
@@ -2369,6 +2559,16 @@ app.get('/api/settings', requireAuth, (req, res) => {
     });
 });
 
+// Endpoint PUBLIC pour récupérer la version (accessible sans authentification)
+app.get('/api/version', (req, res) => {
+    database.get('SELECT value FROM settings WHERE key = ?', ['app_version'], (err, row) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        res.json({ version: row ? row.value : '1.0.0' });
+    });
+});
+
 app.put('/api/settings', requireAuth, requireAdmin, (req, res) => {
     const { key, value } = req.body;
     
@@ -2744,53 +2944,13 @@ app.get('/api/logs/planning-debug', requireAdmin, (req, res) => {
     );
 });
 
-// Endpoint pour enregistrer les logs de planning lors de la déconnexion
-app.post('/api/logs/save-planning-modifications', requireAuth, (req, res) => {
-    const { modifications } = req.body;
-    
-    if (!modifications || !Array.isArray(modifications) || modifications.length === 0) {
-        return res.json({ success: true, logged: 0, message: 'Aucune modification à logger' });
-    }
-    
-    let loggedCount = 0;
-    let errors = 0;
-    
-    // Traiter chaque modification
-    modifications.forEach((modif, index) => {
-        const logDetails = {
-            resourceId: modif.resourceId,
-            resourceName: modif.resourceName,
-            date: modif.date,
-            period: modif.period,
-            activity: modif.activity,
-            location: modif.location || '-',
-            emailSent: modif.emailSent || false
-        };
-        
-        database.run(
-            `INSERT INTO action_logs (user_id, action_type, details) VALUES (?, ?, ?)`,
-            [req.session.userId, 'planning_modification', JSON.stringify(logDetails)],
-            function(err) {
-                if (err) {
-                    console.error(`   ❌ Erreur log ${index + 1}:`, err);
-                    errors++;
-                } else {
-                    loggedCount++;
-                }
-                
-                // Si c'est le dernier, envoyer la réponse
-                if (index === modifications.length - 1) {
-                    res.json({ 
-                        success: true, 
-                        logged: loggedCount,
-                        errors: errors,
-                        message: `${loggedCount} modification(s) enregistrée(s)` 
-                    });
-                }
-            }
-        );
-    });
-});
+// Endpoint pour récupérer les nouvelles affectations depuis la dernière connexion
+
+// ==================== NOUVEAUX ENDPOINTS NOTIFICATIONS v12.0 ====================
+
+// Endpoint pour compter les notifications d'un expert
+
+// ========== RAZ LOGS ==========
 
 app.delete('/api/logs/raz', requireAdmin, (req, res) => {
     const { type, userId } = req.body;
@@ -3064,17 +3224,51 @@ app.get('/api/notifications/list', requireAuth, (req, res) => {
         return res.json({ notifications: [] });
     }
 
-    database.all(
-        `SELECT * FROM expert_notifications 
-         WHERE expert_id = ? AND is_read = 0
-         ORDER BY created_at DESC`,
+    // Récupérer d'abord les notifications et le resource_id de l'expert
+    database.get(
+        `SELECT resource_id FROM users WHERE id = ?`,
         [req.session.userId],
-        (err, rows) => {
-            if (err) {
-                console.error('Erreur list notifications:', err);
-                return res.status(500).json({ error: err.message });
+        (err, user) => {
+            if (err || !user) {
+                console.error('Erreur récupération user:', err);
+                return res.json({ notifications: [] });
             }
-            res.json({ notifications: rows });
+            
+            const resourceId = user.resource_id;
+            console.log(`📋 Récupération notifications pour user ${req.session.userId}, resource_id: ${resourceId}`);
+            
+            // Récupérer les notifications avec la localisation en temps réel
+            database.all(
+                `SELECT 
+                    en.id,
+                    en.expert_id,
+                    en.date,
+                    en.period,
+                    en.activity_name,
+                    en.requester_name,
+                    en.action_type,
+                    en.created_at,
+                    en.is_read,
+                    sd.value as localisation
+                 FROM expert_notifications en
+                 LEFT JOIN schedule_data sd ON sd.resource_id = ? 
+                    AND sd.date_key = en.date || '_' || CASE WHEN en.period = 'Matin' THEN 'AM' ELSE 'PM' END
+                    AND sd.type = 'localisation'
+                 WHERE en.expert_id = ? AND en.is_read = 0
+                 ORDER BY en.created_at DESC`,
+                [resourceId, req.session.userId],
+                (err, rows) => {
+                    if (err) {
+                        console.error('Erreur list notifications:', err);
+                        return res.status(500).json({ error: err.message });
+                    }
+                    console.log(`✅ ${rows.length} notifications trouvées`);
+                    if (rows.length > 0) {
+                        console.log('Exemple notification:', JSON.stringify(rows[0]));
+                    }
+                    res.json({ notifications: rows });
+                }
+            );
         }
     );
 });
@@ -3102,22 +3296,51 @@ app.post('/api/notifications/mark-read', requireAuth, (req, res) => {
 
 // Supprimer toutes les notifications (pour nettoyer)
 app.post('/api/notifications/clear-all', requireAdmin, (req, res) => {
-    database.run(
-        `DELETE FROM expert_notifications`,
-        (err) => {
+    // D'abord, obtenir les statistiques par expert avant suppression
+    database.all(
+        `SELECT 
+            en.expert_id,
+            u.username,
+            COUNT(*) as count
+         FROM expert_notifications en
+         LEFT JOIN users u ON en.expert_id = u.id
+         GROUP BY en.expert_id, u.username
+         ORDER BY u.username`,
+        (err, stats) => {
             if (err) {
-                console.error('Erreur clear notifications:', err);
+                console.error('Erreur récupération stats:', err);
                 return res.status(500).json({ error: err.message });
             }
-            console.log('✅ Toutes les notifications ont été supprimées');
-            res.json({ success: true, message: 'Toutes les notifications ont été supprimées' });
+            
+            // Calculer le total
+            const totalNotifications = stats.reduce((sum, stat) => sum + stat.count, 0);
+            
+            // Maintenant supprimer toutes les notifications
+            database.run(
+                `DELETE FROM expert_notifications`,
+                function(deleteErr) {
+                    if (deleteErr) {
+                        console.error('Erreur clear notifications:', deleteErr);
+                        return res.status(500).json({ error: deleteErr.message });
+                    }
+                    
+                    console.log(`✅ ${this.changes} notifications supprimées`);
+                    console.log('📊 Détail par expert:', stats);
+                    
+                    res.json({ 
+                        success: true, 
+                        message: 'Toutes les notifications ont été supprimées',
+                        totalDeleted: this.changes,
+                        statsByExpert: stats
+                    });
+                }
+            );
         }
     );
 });
 
 // Fonction helper pour créer une notification
 function createNotification(expertResourceId, date, period, activityName, requesterName, actionType, callback) {
-    console.log('🔔 Tentative création notification pour resource_id:', expertResourceId, 'activité:', activityName);
     
     // Récupérer l'user_id de l'expert à partir de resource_id
     database.get(
@@ -3130,7 +3353,6 @@ function createNotification(expertResourceId, date, period, activityName, reques
                 return;
             }
 
-            console.log('✅ Expert trouvé - user_id:', user.id);
 
             // Vérifier si une notification existe déjà pour cette demi-journée
             database.get(
@@ -3146,7 +3368,6 @@ function createNotification(expertResourceId, date, period, activityName, reques
 
                     if (existingNotif) {
                         // Une notification existe déjà pour cette demi-journée → UPDATE
-                        console.log('🔄 Notification existante trouvée, mise à jour...');
                         database.run(
                             `UPDATE expert_notifications 
                              SET activity_name = ?, requester_name = ?, action_type = ?, created_at = CURRENT_TIMESTAMP
