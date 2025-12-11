@@ -308,6 +308,44 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        
+        /* Style de la scrollbar pour la liste des notifications */
+        #notificationsList::-webkit-scrollbar {
+            width: 10px;
+        }
+        
+        #notificationsList::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 5px;
+        }
+        
+        #notificationsList::-webkit-scrollbar-thumb {
+            background: #1D70B7;
+            border-radius: 5px;
+        }
+        
+        #notificationsList::-webkit-scrollbar-thumb:hover {
+            background: #2980b9;
+        }
+        
+        /* Style de la scrollbar pour la liste de détails du nettoyage */
+        #cleanupDetailsList::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        #cleanupDetailsList::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        
+        #cleanupDetailsList::-webkit-scrollbar-thumb {
+            background: #27ae60;
+            border-radius: 4px;
+        }
+        
+        #cleanupDetailsList::-webkit-scrollbar-thumb:hover {
+            background: #229954;
+        }
     </style>
 </head>
 <body>
@@ -319,20 +357,38 @@
         <!-- Header fixe -->
         <div class="fixed-header">
             <div class="user-info" id="userInfo" style="display: none;">
-                <div id="profileCircle" onclick="openProfilePhotoModal()" style="width: 50px; height: 50px; border-radius: 50%; border: 3px solid #1D70B7; background-color: #7f8c8d; display: flex; align-items: center; justify-content: center; cursor: pointer; margin-right: 15px; overflow: hidden;" title="Cliquer pour changer la photo">
-                    <span id="profileTrigramme" style="color: white; font-weight: bold; font-size: 16px;">?</span>
-                    <img id="profilePhoto" style="width: 100%; height: 100%; object-fit: cover; display: none;" />
+                <!-- Conteneur pour cercle utilisateur et badge -->
+                <div style="position: relative; display: flex; align-items: center;">
+                    <div id="profileCircle" onclick="openProfilePhotoModal()" style="width: 50px; height: 50px; border-radius: 50%; border: 3px solid #1D70B7; background-color: #7f8c8d; display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden;" title="Cliquer pour changer la photo">
+                        <span id="profileTrigramme" style="color: white; font-weight: bold; font-size: 16px;">?</span>
+                        <img id="profilePhoto" style="width: 100%; height: 100%; object-fit: cover; display: none;" />
+                    </div>
+                    <!-- Badge de notifications nouvelles affectations -->
+                    <div id="notificationBadge" style="display: none; position: absolute; top: -8px; left: -8px; cursor: pointer;" onclick="openNewAssignmentsModal()" title="Nouvelles affectations">
+                        <span id="notificationCount" style="
+                            background-color: #e74c3c;
+                            color: white;
+                            border-radius: 50%;
+                            width: 24px;
+                            height: 24px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font-size: 12px;
+                            font-weight: bold;
+                            border: 2px solid #34495e;
+                            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                        ">0</span>
+                    </div>
                 </div>
-                <span class="user-info-name" id="userDisplayName"></span>
+                <span class="user-info-name" id="userDisplayName" style="margin-left: 15px;"></span>
                 <span class="user-info-role" id="userDisplayRole"></span>
-                <div id="notificationBadge" onclick="openNotificationsModal()" style="position: relative; margin-left: 15px; cursor: pointer; background-color: #e74c3c; color: white; border-radius: 50%; width: 28px; height: 28px; display: none; align-items: center; justify-content: center; font-weight: bold; font-size: 12px;" title="Nouvelles affectations">
-                    <span id="notificationCount">0</span>
-                </div>
             </div>
             <div class="tabs">
                 <button class="tab-btn active" onclick="switchTab('resources', event)">Ressources</button>
                 <button class="tab-btn" onclick="switchTab('planning', event)">Planification</button>
                 <button class="tab-btn" id="adminTab" onclick="switchTab('admin', event)" style="display:none;">Administration</button>
+                
                 <button class="logout-icon" onclick="logout()" title="Déconnexion"></button>
             </div>
         </div>
@@ -593,6 +649,18 @@
                         ⚠️ PURGER TOUT
                     </button>
                 </div>
+            </div>
+            
+            <!-- Purge des notifications -->
+            <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #d0d0d0; background-color: #ffebee; padding: 15px; border-radius: 5px;">
+                <label style="color: #c62828; font-weight: bold;">🔔 Nettoyage des notifications</label>
+                <p style="font-size: 12px; color: #c62828; margin: 10px 0;">
+                    Supprime <strong>TOUTES</strong> les notifications de tous les experts. 
+                    Utile pour nettoyer les anciennes notifications obsolètes.
+                </p>
+                <button onclick="clearAllNotifications()" style="background-color: #e53935; color: white; width: 100%;" onmouseover="this.style.backgroundColor='#c62828'" onmouseout="this.style.backgroundColor='#e53935'">
+                    🗑️ Supprimer toutes les notifications
+                </button>
             </div>
         </div>
     </div>
@@ -1202,6 +1270,20 @@
                 if (data.profiles && data.profiles.length > 0) {
                     availableProfiles = data.profiles;
                     
+                    // Si un seul profil, connexion directe sans sélection
+                    if (data.profiles.length === 1) {
+                        console.log('✅ Un seul profil disponible, connexion directe:', data.profiles[0]);
+                        
+                        // Sélectionner automatiquement le profil unique
+                        const uniqueProfile = data.profiles[0];
+                        document.getElementById('loginProfile').value = uniqueProfile;
+                        
+                        // Se connecter directement
+                        await loginWithProfile();
+                        return;
+                    }
+                    
+                    // Plusieurs profils : afficher le menu déroulant
                     const profileSelect = document.getElementById('loginProfile');
                     profileSelect.innerHTML = '<option value="">-- Choisir un profil --</option>';
                     
@@ -1264,7 +1346,25 @@
                     await loadSchedule();
                     await loadSettings(); // Charger les paramètres d'inactivité
                     await loadUsers(); // Charger les utilisateurs pour les notifications
+                    
+                    // Charger les nouvelles affectations uniquement pour les experts
+                    console.log('🔍 CurrentUser:', currentUser);
+                    console.log('🔍 ActiveProfile:', currentUser.activeProfile);
+                    console.log('🔍 Est expert?', currentUser.activeProfile === 'expert');
+                    
+                    if (currentUser.activeProfile === 'expert') {
+                        console.log('✅ Profil expert détecté, chargement des notifications...');
+                        await loadNewAssignments();
+                    } else {
+                        console.log('⏭️ Pas un expert, pas de notifications');
+                    }
+                    
                     setCurrentMonth();
+                    
+                    // Si expert, forcer l'affichage de sa ressource
+                    if (currentUser.activeProfile === 'expert') {
+                        updateGantt();
+                    }
                     
                     document.getElementById('loginUsername').value = '';
                     document.getElementById('loginPassword').value = '';
@@ -1334,12 +1434,14 @@
             
             // Démarrer la vérification des notifications pour les experts
             if (currentUser.activeProfile === 'expert') {
-                checkNotifications(); // Vérification immédiate
+                // Pour les experts : utiliser le système de notifications d'affectations
+                loadNewAssignments(); // Vérification immédiate
+                
                 // Vérifier toutes les 30 secondes
                 if (notificationCheckInterval) {
                     clearInterval(notificationCheckInterval);
                 }
-                notificationCheckInterval = setInterval(checkNotifications, 30000);
+                notificationCheckInterval = setInterval(loadNewAssignments, 30000);
             }
             
             // Mettre à jour l'affichage de la photo de profil
@@ -1636,15 +1738,14 @@
                 const option = document.createElement('option');
                 option.value = r.id;
                 option.textContent = `${r.nom.toUpperCase()} ${r.prenom} (${r.trigramme})`;
+                
+                // Si expert métier, présélectionner automatiquement sa ressource
+                if (currentUser && currentUser.activeProfile === 'expert' && currentUser.resourceId && r.id === currentUser.resourceId) {
+                    option.selected = true;
+                }
+                
                 filterSelect.appendChild(option);
             });
-            
-            // Si expert métier, filtrer automatiquement sur sa ressource
-            if (currentUser && currentUser.activeProfile === 'expert' && currentUser.resourceId) {
-                filterSelect.value = currentUser.resourceId;
-            } else if (currentValue) {
-                filterSelect.value = currentValue;
-            }
         }
 
         function getResourceStatus(resource) {
@@ -2307,17 +2408,75 @@
 
         // Fonction pour masquer/afficher les contrôles de planification
         async function resetResourceMonth(resourceId) {
+            console.log('🔧 VERSION 11.33 - resetResourceMonth appelé');
+            
             const year = parseInt(document.getElementById('yearSelect').value);
             const month = parseInt(document.getElementById('monthSelect').value);
             
             const resource = resources.find(r => r.id === resourceId);
             const resourceName = resource ? `${resource.nom.toUpperCase()} ${resource.prenom}` : 'cette ressource';
             
-            if (!confirm(`Voulez-vous vraiment remettre à zéro tous les compteurs de ${resourceName} pour ce mois ?\n\nCela supprimera :\n- Toutes les disponibilités\n- Toutes les affectations\n- Toutes les localisations\n- Tous les auteurs`)) {
-                return;
-            }
-            
             try {
+                console.log('📊 Appel preview pour resource:', resourceId, 'mois:', month + 1, 'année:', year);
+                
+                // Récupérer d'abord les données qui vont être supprimées
+                const previewResponse = await fetch(`${API_URL}/schedule/preview-reset-month`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ resourceId, year, month })
+                });
+                
+                const previewData = await previewResponse.json();
+                console.log('📦 Données preview reçues:', previewData);
+                
+                if (!previewResponse.ok) {
+                    throw new Error(previewData.error || 'Erreur serveur');
+                }
+                
+                // Construire le message de confirmation avec les détails
+                let confirmMessage = `Voulez-vous vraiment remettre à zéro le planning de ${resourceName} pour ${month + 1}/${year} ?\n\n`;
+                confirmMessage += `${previewData.count} entrée(s) seront supprimées :\n\n`;
+                
+                if (previewData.entries && previewData.entries.length > 0) {
+                    // Mapper les valeurs pour un affichage lisible
+                    const availableLabels = { '1': 'Indisponible', '2': 'Disponible ANS', '3': 'Disponible SAMU' };
+                    const activityLabels = {
+                        '1': 'Indisponible',
+                        '2': 'Disponible', 
+                        '3': '🚨 SAMU (Déploiement)',
+                        '4': '🚨 SAMU (Dev. usages)',
+                        '5': 'ANS (Déploiement)',
+                        '6': 'ANS (Dev. usages)'
+                    };
+                    
+                    previewData.entries.forEach(entry => {
+                        const dateParts = entry.date_key.split('_')[0].split('-');
+                        const date = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
+                        const period = entry.date_key.includes('_AM') ? 'Matin' : entry.date_key.includes('_PM') ? 'Après-midi' : 'Journée';
+                        
+                        const availableText = availableLabels[entry.available] || entry.available || '-';
+                        const activityText = activityLabels[entry.activity] || entry.activity || '-';
+                        const locText = entry.localisation || '-';
+                        const authorText = entry.author && entry.author !== '-' ? entry.author : 'Non défini';
+                        
+                        confirmMessage += `• ${date.toLocaleDateString('fr-FR')} (${period})\n`;
+                        confirmMessage += `  ${availableText} → ${activityText} (${locText})\n`;
+                        confirmMessage += `  Par: ${authorText}\n`;
+                    });
+                } else {
+                    confirmMessage += 'Aucune donnée à supprimer pour ce mois.';
+                }
+                
+                console.log('💬 Message de confirmation:', confirmMessage);
+                
+                if (!confirm(confirmMessage)) {
+                    console.log('❌ RAZ annulé par l\'utilisateur');
+                    return;
+                }
+                
+                console.log('✅ RAZ confirmé, suppression en cours...');
+                
                 // Appeler l'endpoint de RAZ côté serveur
                 const response = await fetch(`${API_URL}/schedule/reset-month`, {
                     method: 'POST',
@@ -2355,7 +2514,10 @@
                     });
                 }
                 
-                // Mettre à jour oldScheduleData pour éviter les faux positifs de changement
+                // Recharger TOUTES les données depuis la base pour être synchronisé
+                await loadSchedule();
+                
+                // Maintenant synchroniser oldScheduleData avec les données fraîches
                 oldScheduleData = JSON.parse(JSON.stringify(scheduleData));
                 
                 updateGantt();
@@ -2812,6 +2974,12 @@
 
         // Event listeners pour automatiser la saisie
         document.addEventListener('DOMContentLoaded', function() {
+            // Charger la version dès le chargement (endpoint public, pas besoin d'auth)
+            loadVersion();
+            
+            // Charger tous les paramètres si connecté (pour admin)
+            loadSettings();
+            
             // ========== AUTOMATISATION UTILISATEURS ==========
             
             // Capitaliser automatiquement le prénom
@@ -3318,9 +3486,12 @@
                                                 const dayName = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'][modDate.getDay()];
                                                 const dateStr = modDate.toLocaleDateString('fr-FR');
                                                 
-                                                // Trouver le nom de l'expert
-                                                const resource = resources.find(r => r.id === d.resourceId);
-                                                const expertName = resource ? `${resource.prenom} ${resource.nom}` : 'Expert inconnu';
+                                                // Utiliser resourceName du log, sinon chercher dans resources
+                                                let expertName = d.resourceName;
+                                                if (!expertName) {
+                                                    const resource = resources.find(r => r.id === parseInt(d.resourceId));
+                                                    expertName = resource ? `${resource.prenom} ${resource.nom}` : 'Expert inconnu';
+                                                }
                                                 
                                                 // Fonction pour décoder les activités
                                                 function decodeActivity(rawValue) {
@@ -3332,13 +3503,8 @@
                                                         '4': '🚨 SAMU (Dev. usages)',
                                                         '5': 'ANS (Déploiement)',
                                                         '6': 'ANS (Dev. usages)',
-                                                        '7': '📋 Support SI-SAMU',
-                                                        '8': '🎓 Formation',
-                                                        '9': '📊 Analyse',
-                                                        '10': '🔧 MCO',
-                                                        '11': '📞 Astreinte',
-                                                        '12': '🎯 Missions ponctuelles',
-                                                        '13': '📝 Documentation'
+                                                        '7': 'Qualification',
+                                                        '8': 'Autre mission'
                                                     };
                                                     return activityMap[rawValue] || rawValue;
                                                 }
@@ -3357,7 +3523,7 @@
                                                             <strong>${dayName} ${dateStr} ${d.period}</strong><br>
                                                             Expert: ${expertName}<br>
                                                             Affectation: ${decodeActivity(d.activity)}<br>
-                                                            Localisation: ${d.activity === '1' ? '-' : (d.location || '-')}
+                                                            Localisation: ${d.activity === '1' || d.activity === 1 ? '-' : (d.location || '-')}
                                                         </td>
                                                         <td style="padding: 8px; border: 1px solid #a5d6a7; white-space: nowrap;">
                                                             ${modifDateStr}<br>
@@ -3402,9 +3568,12 @@
                                             const dayName = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'][reqDate.getDay()];
                                             const dateStr = reqDate.toLocaleDateString('fr-FR');
                                             
-                                            // Trouver le nom de l'expert
-                                            const resource = resources.find(r => r.id === details.resourceId);
-                                            const expertName = resource ? `${resource.prenom} ${resource.nom}` : 'Expert inconnu';
+                                            // Utiliser resourceName du log, sinon chercher dans resources
+                                            let expertName = details.resourceName;
+                                            if (!expertName) {
+                                                const resource = resources.find(r => r.id === parseInt(details.resourceId));
+                                                expertName = resource ? `${resource.prenom} ${resource.nom}` : 'Expert inconnu';
+                                            }
                                             
                                             return `
                                                 <tr>
@@ -3688,6 +3857,67 @@
                 console.error('Erreur purge complète:', error);
                 alert('❌ Erreur : ' + error.message);
             }
+        }
+
+        async function clearAllNotifications() {
+            if (!confirm('⚠️ Attention !\n\nVous êtes sur le point de supprimer TOUTES les notifications de TOUS les experts.\n\nCette action est IRRÉVERSIBLE !\n\nContinuer ?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/notifications/clear-all`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    showCleanupResult(data);
+                } else {
+                    const data = await response.json();
+                    alert('❌ Erreur : ' + (data.error || 'Erreur inconnue'));
+                }
+            } catch (error) {
+                console.error('Erreur suppression notifications:', error);
+                alert('❌ Erreur : ' + error.message);
+            }
+        }
+        
+        function showCleanupResult(data) {
+            // Afficher le total
+            document.getElementById('cleanupTotalCount').textContent = data.totalDeleted || 0;
+            
+            // Construire la liste des détails par expert
+            const detailsList = document.getElementById('cleanupDetailsList');
+            detailsList.innerHTML = '';
+            
+            if (data.statsByExpert && data.statsByExpert.length > 0) {
+                data.statsByExpert.forEach(stat => {
+                    const expertDiv = document.createElement('div');
+                    expertDiv.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; margin-bottom: 8px; background-color: #f8f9fa; border-radius: 6px; border-left: 3px solid #27ae60;';
+                    
+                    const expertName = document.createElement('div');
+                    expertName.style.cssText = 'font-weight: 500; color: #2c3e50;';
+                    expertName.textContent = stat.username || `Expert ID ${stat.expert_id}`;
+                    
+                    const expertCount = document.createElement('div');
+                    expertCount.style.cssText = 'font-weight: bold; color: #27ae60; font-size: 18px;';
+                    expertCount.textContent = stat.count;
+                    
+                    expertDiv.appendChild(expertName);
+                    expertDiv.appendChild(expertCount);
+                    detailsList.appendChild(expertDiv);
+                });
+            } else {
+                detailsList.innerHTML = '<p style="text-align: center; color: #7f8c8d; padding: 20px;">Aucune notification n\'a été trouvée</p>';
+            }
+            
+            // Afficher la modal
+            document.getElementById('cleanupResultModal').style.display = 'block';
+        }
+        
+        function closeCleanupResultModal() {
+            document.getElementById('cleanupResultModal').style.display = 'none';
         }
 
         function openResetPasswordModal(id) {
@@ -4079,6 +4309,26 @@
 
         // ========== GESTION DES PARAMÈTRES DIVERS ==========
 
+        // ========== CHARGEMENT VERSION (PUBLIC) ==========
+        
+        async function loadVersion() {
+            try {
+                const response = await fetch(`${API_URL}/version`);
+                if (response.ok) {
+                    const data = await response.json();
+                    const appVersionDisplay = document.getElementById('appVersion');
+                    if (appVersionDisplay && data.version) {
+                        appVersionDisplay.textContent = data.version;
+                        console.log('✅ Version chargée (public):', data.version);
+                    }
+                }
+            } catch (error) {
+                console.error('Erreur chargement version:', error);
+            }
+        }
+
+        // ========== CHARGEMENT PARAMÈTRES (AUTHENTIFIÉ) ==========
+        
         async function loadSettings() {
             console.log('🔄 loadSettings() appelé');
             try {
@@ -5369,6 +5619,114 @@
         // Charger la version au démarrage de la page
         loadAppVersion();
 
+        // ========== NOTIFICATIONS NOUVELLES AFFECTATIONS v12.0 ==========
+        
+        async function loadNewAssignments() {
+            console.log('🔔 Vérification des notifications...');
+            try {
+                const response = await fetch(`${API_URL}/notifications/count`, {
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('📊 Notifications:', data.count);
+                    
+                    const badge = document.getElementById('notificationBadge');
+                    const count = document.getElementById('notificationCount');
+                    
+                    if (data.count > 0) {
+                        console.log('✅ Badge affiché avec count:', data.count);
+                        badge.style.display = 'flex';
+                        count.textContent = data.count;
+                    } else {
+                        console.log('⚪ Badge caché, pas de notifications');
+                        badge.style.display = 'none';
+                    }
+                }
+            } catch (error) {
+                console.error('Erreur chargement notifications:', error);
+            }
+        }
+        
+        async function openNewAssignmentsModal() {
+            try {
+                const response = await fetch(`${API_URL}/notifications/list`, {
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('🔍 Notifications reçues:', data);
+                    
+                    // Marquer les notifications comme lues dès l'ouverture de la modal
+                    await markNotificationsAsRead();
+                    
+                    const content = document.getElementById('newAssignmentsContent');
+                    
+                    if (data.notifications.length === 0) {
+                        content.innerHTML = '<p style="text-align: center; color: #7f8c8d;">Aucune nouvelle affectation</p>';
+                    } else {
+                        let html = '<table style="width: 100%; border-collapse: collapse;">';
+                        html += `<thead>
+                            <tr style="background-color: #34495e; color: white;">
+                                <th style="padding: 10px; border: 1px solid #bdc3c7;">Date</th>
+                                <th style="padding: 10px; border: 1px solid #bdc3c7;">Période</th>
+                                <th style="padding: 10px; border: 1px solid #bdc3c7;">Affectation</th>
+                                <th style="padding: 10px; border: 1px solid #bdc3c7;">Localisation</th>
+                                <th style="padding: 10px; border: 1px solid #bdc3c7;">Auteur</th>
+                            </tr>
+                        </thead><tbody>`;
+                        
+                        data.notifications.forEach(notif => {
+                            // Parser la date correctement (format YYYY-MM-DD)
+                            const [year, month, day] = notif.date.split('-').map(Number);
+                            const notifDate = new Date(year, month - 1, day);
+                            
+                            html += `<tr style="background-color: white;">
+                                <td style="padding: 8px; border: 1px solid #bdc3c7;">${notifDate.toLocaleDateString('fr-FR')}</td>
+                                <td style="padding: 8px; border: 1px solid #bdc3c7;">${notif.period}</td>
+                                <td style="padding: 8px; border: 1px solid #bdc3c7;">${notif.activity_name || 'Non défini'}</td>
+                                <td style="padding: 8px; border: 1px solid #bdc3c7;">${notif.localisation || '-'}</td>
+                                <td style="padding: 8px; border: 1px solid #bdc3c7;">${notif.requester_name || 'Système'}</td>
+                            </tr>`;
+                        });
+                        
+                        html += '</tbody></table>';
+                        content.innerHTML = html;
+                    }
+                    
+                    document.getElementById('newAssignmentsModal').classList.add('active');
+                    
+                    // Marquer les notifications comme lues
+                    await markNotificationsAsRead();
+                }
+            } catch (error) {
+                console.error('Erreur ouverture modal notifications:', error);
+            }
+        }
+        
+        async function markNotificationsAsRead() {
+            try {
+                const response = await fetch(`${API_URL}/notifications/mark-read`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    console.log('✅ Notifications marquées comme lues');
+                }
+            } catch (error) {
+                console.error('Erreur marquage notifications:', error);
+            }
+        }
+        
+        function closeNewAssignmentsModal() {
+            document.getElementById('newAssignmentsModal').classList.remove('active');
+            // Recharger le badge pour refléter qu'il n'y a plus de notifications
+            loadNewAssignments();
+        }
+
         // ========== VUE CALENDRIER MENSUEL ==========
         
         function openMonthlyCalendarView() {
@@ -5830,7 +6188,10 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                         html += '</tr></thead><tbody>';
                         
                         data.notifications.forEach(notif => {
-                            const date = new Date(notif.date + 'T00:00:00').toLocaleDateString('fr-FR');
+                            // Parser correctement la date au format YYYY-MM-DD
+                            const dateParts = notif.date.split('-');
+                            const dateObj = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
+                            const date = dateObj.toLocaleDateString('fr-FR');
                             html += '<tr style="border-bottom: 1px solid #ecf0f1;">';
                             html += `<td style="padding: 10px;">${date}</td>`;
                             html += `<td style="padding: 10px;">${notif.period}</td>`;
@@ -5845,17 +6206,8 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     
                     document.getElementById('notificationsModal').style.display = 'block';
                     
-                    // Marquer comme lues
-                    fetch('/api/notifications/mark-read', {
-                        method: 'POST'
-                    })
-                    .then(() => {
-                        // Réinitialiser le badge
-                        document.getElementById('notificationBadge').style.display = 'none';
-                    })
-                    .catch(error => {
-                        console.error('Erreur marquage notifications:', error);
-                    });
+                    // Marquer comme lues après un court délai pour laisser l'utilisateur voir
+                    markNotificationsAsRead();
                 })
                 .catch(error => {
                     console.error('Erreur chargement notifications:', error);
@@ -6350,13 +6702,47 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
 
     <!-- Modal des notifications expert -->
     <div id="notificationsModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10001;">
-        <div style="background-color: white; max-width: 700px; margin: 50px auto; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <div style="background-color: white; max-width: 700px; margin: 50px auto; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); max-height: 80vh; overflow: hidden; display: flex; flex-direction: column;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
                 <h2 style="color: #2c3e50; margin: 0; border-bottom: 2px solid #1D70B7; padding-bottom: 10px; display: inline-block;">🔔 Notifications</h2>
                 <span onclick="closeNotificationsModal()" style="cursor: pointer; font-size: 28px; color: #7f8c8d;">&times;</span>
             </div>
-            <div id="notificationsList" style="margin-top: 20px;">
+            <div id="notificationsList" style="margin-top: 20px; max-height: calc(80vh - 150px); overflow-y: auto; padding-right: 10px;">
                 <!-- Le tableau des notifications sera ajouté ici -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de résultat de nettoyage des notifications -->
+    <div id="cleanupResultModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); z-index: 10002;">
+        <div style="background-color: white; max-width: 600px; margin: 80px auto; padding: 0; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); overflow: hidden;">
+            <!-- En-tête -->
+            <div style="background: linear-gradient(135deg, #27ae60 0%, #229954 100%); padding: 25px; text-align: center;">
+                <div style="font-size: 64px; margin-bottom: 10px;">✅</div>
+                <h2 style="color: white; margin: 0; font-size: 24px; font-weight: 600;">Nettoyage réussi !</h2>
+            </div>
+            
+            <!-- Contenu -->
+            <div style="padding: 30px;">
+                <!-- Total -->
+                <div style="text-align: center; margin-bottom: 30px; padding: 20px; background-color: #f8f9fa; border-radius: 8px;">
+                    <div style="font-size: 14px; color: #7f8c8d; margin-bottom: 5px;">Total supprimé</div>
+                    <div id="cleanupTotalCount" style="font-size: 48px; font-weight: bold; color: #27ae60;">0</div>
+                    <div style="font-size: 14px; color: #7f8c8d;">notifications</div>
+                </div>
+                
+                <!-- Détail par expert -->
+                <h3 style="color: #2c3e50; font-size: 16px; margin-bottom: 15px; border-left: 3px solid #27ae60; padding-left: 10px;">
+                    📊 Détail par expert
+                </h3>
+                <div id="cleanupDetailsList" style="max-height: 300px; overflow-y: auto; padding-right: 10px;">
+                    <!-- Les détails seront ajoutés ici -->
+                </div>
+                
+                <!-- Bouton fermer -->
+                <button onclick="closeCleanupResultModal()" style="width: 100%; margin-top: 25px; padding: 12px; background-color: #27ae60; color: white; border: none; border-radius: 6px; font-size: 16px; font-weight: 600; cursor: pointer; transition: background-color 0.3s;" onmouseover="this.style.backgroundColor='#229954'" onmouseout="this.style.backgroundColor='#27ae60'">
+                    Fermer
+                </button>
             </div>
         </div>
     </div>
@@ -6435,3 +6821,24 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
 
 </body>
 </html>
+    <!-- Modal nouvelles affectations -->
+    <div id="newAssignmentsModal" class="modal">
+        <div class="modal-content" style="max-width: 900px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="color: #2c3e50; margin: 0;">
+                    🔔 Nouvelles affectations depuis votre dernière connexion
+                </h2>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <button onclick="markNotificationsAsRead(); closeNewAssignmentsModal();" style="padding: 8px 16px; background-color: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                        ✓ Marquer comme lu
+                    </button>
+                    <span class="close" onclick="closeNewAssignmentsModal()">&times;</span>
+                </div>
+            </div>
+            
+            <div id="newAssignmentsContent" style="margin-top: 20px;">
+                <!-- Le contenu sera chargé dynamiquement -->
+            </div>
+        </div>
+    </div>
+

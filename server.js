@@ -446,11 +446,8 @@ function initDB() {
 
 function logUserAction(req, action, details = {}) {
     if (!req.session || !req.session.logId) {
-        console.log('⚠️ logUserAction: pas de session ou logId manquant');
         return;
     }
-    
-    console.log('📝 logUserAction appelé:', { action, logId: req.session.logId, userId: req.session.userId });
     
     const timestamp = new Date().toISOString();
     const actionLog = {
@@ -513,19 +510,9 @@ function requireAuth(req, res, next) {
 }
 
 function requireAdmin(req, res, next) {
-    console.log('🔒 requireAdmin - Vérification:', {
-        hasSession: !!req.session,
-        userId: req.session?.userId,
-        activeProfile: req.session?.activeProfile,
-        isAdmin: req.session?.activeProfile === 'admin'
-    });
-    
     if (!req.session || !req.session.userId || req.session.activeProfile !== 'admin') {
-        console.log('❌ Accès refusé - Pas admin');
         return res.status(403).json({ error: 'Accès réservé aux administrateurs' });
     }
-    
-    console.log('✅ Accès autorisé - Admin confirmé');
     next();
 }
 
@@ -597,13 +584,6 @@ app.post('/api/login', (req, res) => {
                         resourceId: user.resource_id
                     };
                     
-                    console.log('📤 Données utilisateur retournées:', {
-                        username: userResponse.username,
-                        trigramme: userResponse.trigramme,
-                        hasPhoto: !!userResponse.profilePhoto,
-                        resourceId: userResponse.resourceId
-                    });
-                    
                     res.json({ 
                         success: true,
                         user: userResponse
@@ -626,68 +606,7 @@ app.post('/api/logout', (req, res) => {
             [userId],
             (err, user) => {
                 if (err || !user) {
-                    console.error('❌ Erreur récupération resource_id:', err);
-                } else if (user.resource_id) {
-                    const resourceId = user.resource_id;
-                    
-                    console.log(`\n${'='.repeat(70)}`);
-                    console.log(`📊 ÉTAT BDD AVANT DÉCONNEXION - ${username} (ID: ${userId}, Resource: ${resourceId})`);
-                    console.log('='.repeat(70));
-                    
-                    // Structure EAV : grouper par date_key
-                    const query = `
-                        SELECT date_key, type, value, notification, created_at
-                        FROM schedule_data
-                        WHERE resource_id = ? AND notification = '1'
-                        ORDER BY date_key, type
-                    `;
-                    
-                    database.all(query, [resourceId], (err, rows) => {
-                        if (err) {
-                            console.error('❌ Erreur lecture schedule_data:', err);
-                        } else if (rows.length === 0) {
-                            console.log('⚠️  AUCUNE LIGNE avec notification="1" pour cet expert');
-                            console.log('   → Soit aucune nouvelle affectation, soit le flag n\'est pas mis à "1"');
-                        } else {
-                            console.log(`✅ ${rows.length} lignes avec notification="1" trouvées\n`);
-                            
-                            // Grouper par date_key
-                            const byPeriod = {};
-                            rows.forEach(row => {
-                                if (!byPeriod[row.date_key]) {
-                                    byPeriod[row.date_key] = {};
-                                }
-                                byPeriod[row.date_key][row.type] = {
-                                    value: row.value,
-                                    notification: row.notification,
-                                    created_at: row.created_at
-                                };
-                            });
-                            
-                            let periodNum = 1;
-                            Object.keys(byPeriod).sort().forEach(dateKey => {
-                                const period = byPeriod[dateKey];
-                                console.log(`📅 Période ${periodNum}: ${dateKey}`);
-                                
-                                if (period.available) {
-                                    console.log(`  ✅ Available: ${period.available.value} (notif: "${period.available.notification}")`);
-                                }
-                                if (period.activity) {
-                                    console.log(`  🎯 Activity: ${period.activity.value} (notif: "${period.activity.notification}")`);
-                                }
-                                if (period.localisation) {
-                                    console.log(`  📍 Localisation: ${period.localisation.value} (notif: "${period.localisation.notification}")`);
-                                }
-                                if (period.author) {
-                                    console.log(`  👤 Author: ${period.author.value} (notif: "${period.author.notification}")`);
-                                }
-                                
-                                console.log('');
-                                periodNum++;
-                            });
-                        }
-                        console.log('='.repeat(70) + '\n');
-                    });
+                    // Erreur silencieuse - pas critique
                 }
             }
         );
@@ -886,29 +805,19 @@ app.get('/api/user/profiles', (req, res) => {
 app.get('/api/user/email-by-resource/:resourceId', requireAuth, (req, res) => {
     const { resourceId } = req.params;
     
-    console.log('🔍 Recherche email pour resource_id:', resourceId);
-    
     database.get(
         'SELECT id, username, email, nom, prenom, is_expert, resource_id FROM users WHERE resource_id = ? AND is_expert = 1 LIMIT 1',
         [resourceId],
         (err, user) => {
             if (err) {
-                console.error('❌ Erreur récup email user:', err);
+                console.error('Erreur récup email user:', err);
                 return res.status(500).json({ error: err.message });
             }
             
-            console.log('📊 Résultat requête user:', user);
-            
             if (user && user.email) {
-                console.log('✅ Email trouvé:', user.email);
                 res.json({ email: user.email, nom: user.nom, prenom: user.prenom });
             } else {
-                console.log('⚠️ Aucun email trouvé pour resource_id:', resourceId);
-                // Vérifier tous les users experts pour debug
-                database.all('SELECT id, username, email, nom, prenom, resource_id FROM users WHERE is_expert = 1', [], (err2, allExperts) => {
-                    console.log('👥 Tous les experts en base:', allExperts);
-                    res.json({ email: null });
-                });
+                res.json({ email: null });
             }
         }
     );
@@ -1055,9 +964,6 @@ app.get('/api/schedule', requireAuth, (req, res) => {
 app.post('/api/schedule', requireAuth, (req, res) => {
     const scheduleData = req.body;
     
-    console.log('📝 Sauvegarde planning - Profile:', req.session.activeProfile, 'User:', req.session.prenom, req.session.nom);
-    console.log('📊 Nombre de clés reçues:', Object.keys(scheduleData).length);
-    
     if (!scheduleData || typeof scheduleData !== 'object') {
         return res.json({ success: true, saved: 0 });
     }
@@ -1077,8 +983,6 @@ app.post('/api/schedule', requireAuth, (req, res) => {
         const type = parts[1];
         // FIX MAJEUR : Utiliser join('_') au lieu de join('-') pour préserver le format des clés
         const dateKey = parts.slice(2).join('_');
-        
-        console.log('🔍 Processing key:', key, '| type:', type, '| resourceId:', resourceId, '| value:', value);
         
         // Vérification des droits pour Expert métier
         if (req.session.activeProfile === 'expert') {
@@ -1126,13 +1030,6 @@ app.post('/api/schedule', requireAuth, (req, res) => {
             function(err) {
                 if (err) console.error('Erreur insert schedule:', err);
                 
-                // Ne créer une notification que si une ligne a été modifiée (pas juste réinsérée)
-                const hasChanged = this.changes > 0;
-                
-                if (!err && hasChanged && !isExpertSelfEdit) {
-                    console.log(`✅ Notification='1' pour resource_id=${resourceId}, type=${type}, value=${value}`);
-                }
-                
                 completed++;
                 if (completed === total) {
                     logUserAction(req, 'Sauvegarde planning', { 
@@ -1165,8 +1062,6 @@ app.post('/api/schedule/preview-reset-month', requireAuth, (req, res) => {
     // Pattern pour matcher toutes les dates de ce mois : YYYY-MM-%
     const monthPattern = `${year}-${String(month + 1).padStart(2, '0')}-%`;
     
-    console.log(`👁️ Preview RAZ - Resource: ${resourceId}, Pattern: ${monthPattern}`);
-    
     // Récupérer les données qui vont être supprimées
     const query = `SELECT * FROM schedule_data WHERE resource_id = ? AND date_key LIKE ? ORDER BY date_key`;
     const params = [resourceId, monthPattern];
@@ -1177,13 +1072,9 @@ app.post('/api/schedule/preview-reset-month', requireAuth, (req, res) => {
             return res.status(500).json({ error: err.message });
         }
         
-        console.log(`📊 ${rows.length} entrée(s) trouvée(s)`);
-        
         // Grouper les données par date_key
         const grouped = {};
         rows.forEach(row => {
-            console.log(`  Row: date_key="${row.date_key}" type="${row.type}" value="${row.value}"`);
-            
             if (!grouped[row.date_key]) {
                 grouped[row.date_key] = {
                     date_key: row.date_key,
@@ -1196,41 +1087,25 @@ app.post('/api/schedule/preview-reset-month', requireAuth, (req, res) => {
             grouped[row.date_key][row.type] = row.value;
         });
         
-        console.log('📦 Données groupées:', JSON.stringify(grouped, null, 2));
-        
         // Convertir en tableau trié et filtrer les données "fantômes" et corrompues
         const entries = Object.values(grouped)
             .filter(entry => {
-                // Règles de cohérence :
-                // 1. Si disponibilité définie, l'affectation DOIT être définie
+                // Règles de cohérence
                 if ((entry.available && entry.available !== '-') && (!entry.activity || entry.activity === '-')) {
-                    console.log(`  ⚠️ Donnée corrompue (dispo sans activity): ${entry.date_key}`);
                     return false;
                 }
-                
-                // 2. Si affectation définie, la disponibilité DOIT être définie
                 if ((entry.activity && entry.activity !== '-') && (!entry.available || entry.available === '-')) {
-                    console.log(`  ⚠️ Donnée corrompue (activity sans dispo): ${entry.date_key}`);
                     return false;
                 }
-                
-                // 3. Disponible (activity=2) sans localisation = donnée fantôme
                 if (entry.activity === '2' && (entry.localisation === '-' || !entry.localisation)) {
-                    console.log(`  ⚠️ Donnée fantôme (disponible sans lieu): ${entry.date_key}`);
                     return false;
                 }
-                
-                // 4. Pas d'activité du tout
                 if (entry.activity === '-' && entry.available === '-') {
-                    console.log(`  ⚠️ Donnée vide: ${entry.date_key}`);
                     return false;
                 }
-                
-                return true; // Donnée valide
+                return true;
             })
             .sort((a, b) => a.date_key.localeCompare(b.date_key));
-        
-        console.log(`✅ Données valides après filtrage: ${entries.length}`);
         
         res.json({ 
             success: true, 
@@ -1254,15 +1129,10 @@ app.post('/api/schedule/reset-month', requireAuth, (req, res) => {
         }
     }
     
-    console.log(`🗑️ RAZ planning - Resource: ${resourceId}, Mois: ${month+1}/${year}, User: ${req.session.prenom} ${req.session.nom}`);
-    
     // Pattern pour matcher toutes les dates de ce mois : YYYY-MM-%
     const monthPattern = `${year}-${String(month + 1).padStart(2, '0')}-%`;
     
-    console.log(`🔍 Pattern de suppression: ${monthPattern}`);
-    
     // Supprimer toutes les données pour cette ressource et ce mois
-    // (pas de filtre sur activity car on veut tout nettoyer, y compris les données "fantômes")
     const query = `DELETE FROM schedule_data WHERE resource_id = ? AND date_key LIKE ?`;
     const params = [resourceId, monthPattern];
     
@@ -1271,8 +1141,6 @@ app.post('/api/schedule/reset-month', requireAuth, (req, res) => {
             console.error('Erreur RAZ planning:', err);
             return res.status(500).json({ error: err.message });
         }
-        
-        console.log(`✅ ${this.changes} lignes supprimées`);
         
         logUserAction(req, `RAZ planning mois ${month+1}/${year}`, {
             resourceId: resourceId,
@@ -1285,22 +1153,14 @@ app.post('/api/schedule/reset-month', requireAuth, (req, res) => {
 });
 
 app.post('/api/schedule/save', requireAuth, (req, res) => {
-    console.log('🟢🟢🟢 API /api/schedule/save APPELÉE - VERSION AVEC LOGGING ACTION_LOGS 🟢🟢🟢');
-    
     // Supporter les deux formats : { updates: [...] } OU scheduleData direct
     let updates;
     if (req.body.updates) {
-        // Format avec updates explicite
         updates = req.body.updates;
     } else {
-        // Format scheduleData direct - le convertir en updates
         const scheduleData = req.body;
         updates = Object.entries(scheduleData).map(([key, value]) => ({ key, value }));
     }
-    
-    console.log('   Nombre de modifications:', updates ? updates.length : 0);
-    console.log('   User ID:', req.session.userId);
-    console.log('   Active Profile:', req.session.activeProfile);
     
     if (!updates || updates.length === 0) {
         return res.json({ success: true, saved: 0 });
@@ -1352,11 +1212,6 @@ app.post('/api/schedule/save', requireAuth, (req, res) => {
                     (err) => {
                         if (err) console.error('Erreur insert schedule:', err);
                         
-                        // Log uniquement si valeur a vraiment changé
-                        if (hasReallyChanged) {
-                            console.log(`🔍 Save CHANGED - type: ${type}, value: ${value} (was: ${oldValue}), resourceId: ${resourceId}`);
-                        }
-                        
                         // Collecter les activités pour notifications (une seule par demi-journée)
                         if (!err && type === 'activity' && value !== '1' && value !== '2' && req.session.activeProfile !== 'expert' && hasReallyChanged) {
                             // C'est une vraie affectation SAMU/ANS qui a VRAIMENT changé
@@ -1364,8 +1219,6 @@ app.post('/api/schedule/save', requireAuth, (req, res) => {
                             const date = dateKeyParts[0];
                             const period = dateKeyParts[1];
                             const notifKey = `${resourceId}_${date}_${period}`;
-                            
-                            console.log(`📌 Notification à créer: ${notifKey} (activity ${value})`);
                             
                             // N'ajouter que si pas déjà présent
                             if (!notificationsToCreate.has(notifKey)) {
@@ -1410,10 +1263,8 @@ app.post('/api/schedule/save', requireAuth, (req, res) => {
                                                     date: date,
                                                     period: period === 'AM' ? 'Matin' : 'Après-midi',
                                                     activity: activityLabelsLocal[actRow.value] || actRow.value,
-                                                    location: value  // La nouvelle localisation
+                                                    location: value
                                                 };
-                                                
-                                                console.log(`📝 Log créé (via localisation): ${resource.prenom} ${resource.nom}, ${date} ${period}, localisation: ${value}`);
                                                 
                                                 database.run(
                                                     `INSERT INTO action_logs (user_id, action_type, details) VALUES (?, ?, ?)`,
@@ -1439,7 +1290,6 @@ app.post('/api/schedule/save', requireAuth, (req, res) => {
                         '8': 'Autre mission'
                     };
                     
-                    console.log(`📧 Création de ${notificationsToCreate.size} notifications groupées`);
                     notificationsToCreate.forEach(({ resourceId, date, period, activityValue }) => {
                         const activityLabel = activityLabels[activityValue] || `Activité ${activityValue}`;
                         const periodLabel = period === 'AM' ? 'Matin' : 'Après-midi';
@@ -1494,12 +1344,6 @@ app.get('/api/users', requireAdmin, (req, res) => {
             console.error('Erreur récup users:', err);
             res.status(500).json({ error: err.message });
         } else {
-            console.log('👥 Users retournés:', rows.map(u => ({ 
-                id: u.id, 
-                username: u.username, 
-                resource_id: u.resource_id,
-                is_expert: u.is_expert 
-            })));
             res.json(rows || []);
         }
     });
@@ -1962,8 +1806,6 @@ app.get('/api/connection-logs/:id', requireAdmin, (req, res) => {
 app.get('/api/logs/actions', requireAdmin, (req, res) => {
     const { userId } = req.query;
     
-    console.log('📊 GET /api/logs/actions - userId:', userId);
-    
     if (!userId) {
         return res.status(400).json({ error: 'userId requis' });
     }
@@ -1977,13 +1819,9 @@ app.get('/api/logs/actions', requireAdmin, (req, res) => {
         [userId],
         (err, logs) => {
             if (err) {
-                console.error('❌ Erreur récupération action logs:', err);
+                console.error('Erreur récupération action logs:', err);
                 res.status(500).json({ error: err.message });
             } else {
-                console.log(`✅ ${logs.length} action logs trouvés pour userId ${userId}`);
-                if (logs.length > 0) {
-                    console.log('📋 Premier log:', logs[0]);
-                }
                 res.json({ logs });
             }
         }
@@ -2218,39 +2056,19 @@ app.post('/api/send-calendar-email', requireAuth, async (req, res) => {
 app.post('/api/request-assignment', requireAuth, async (req, res) => {
     const { fromName, fromEmail, expertIds, subject, startDate, startPeriod, endDate, endPeriod, message } = req.body;
     
-    console.log('📧 === DEMANDE D\'AFFECTATION ===');
-    console.log('From:', fromName, fromEmail);
-    console.log('Experts IDs:', expertIds);
-    console.log('Subject:', subject);
-    console.log('Période:', startDate, startPeriod, 'au', endDate, endPeriod);
-    console.log('Message:', message);
-    
     if (!expertIds || expertIds.length === 0) {
-        console.log('❌ Aucun expert sélectionné');
         return res.status(400).json({ success: false, error: 'Aucun expert sélectionné' });
     }
     
-    console.log('📧 Config email:', {
-        host: emailConfig.host,
-        port: emailConfig.port,
-        user: emailConfig.user,
-        hasPassword: !!emailConfig.password
-    });
-    
     if (!emailConfig.user) {
-        console.log('❌ Configuration email non définie');
         return res.status(400).json({ success: false, error: 'Configuration email non définie' });
     }
     
     try {
         const sentEmails = [];
         
-        console.log(`🔄 Traitement de ${expertIds.length} experts...`);
-        
         // Récupérer les infos des experts sélectionnés
         for (const resourceId of expertIds) {
-            console.log(`\n👤 Traitement expert ID (resource): ${resourceId}`);
-            
             // D'abord récupérer le nom depuis resources
             const resource = await new Promise((resolve, reject) => {
                 database.get(
@@ -2264,11 +2082,8 @@ app.post('/api/request-assignment', requireAuth, async (req, res) => {
             });
             
             if (!resource) {
-                console.warn(`⚠️ Ressource ${resourceId} non trouvée en base`);
                 continue;
             }
-            
-            console.log(`   Nom resource: ${resource.prenom} ${resource.nom}`);
             
             // Ensuite récupérer l'email depuis users (qui est lié via resource_id)
             const user = await new Promise((resolve, reject) => {
@@ -2282,16 +2097,7 @@ app.post('/api/request-assignment', requireAuth, async (req, res) => {
                 );
             });
             
-            if (!user) {
-                console.warn(`⚠️ Aucun utilisateur expert trouvé pour resource_id ${resourceId}`);
-                continue;
-            }
-            
-            console.log(`   User trouvé: ${user.prenom} ${user.nom}`);
-            console.log(`   Email: ${user.email}`);
-            
-            if (!user.email) {
-                console.warn(`⚠️ Expert ${resourceId} (${user.prenom} ${user.nom}) n'a pas d'email configuré`);
+            if (!user || !user.email) {
                 continue;
             }
             
@@ -2338,12 +2144,9 @@ app.post('/api/request-assignment', requireAuth, async (req, res) => {
                 </html>
             `;
             
-            console.log(`   📧 Envoi email à ${expertEmail}...`);
-            
             // Envoyer l'email
             try {
                 await sendEmail(expertEmail, subject, emailBody);
-                console.log(`   ✅ Email envoyé avec succès à ${expertEmail}`);
                 sentEmails.push(expertEmail);
                 
                 // Logger l'action pour cet expert
@@ -2360,24 +2163,16 @@ app.post('/api/request-assignment', requireAuth, async (req, res) => {
                                 date: startDate,
                                 subject: subject
                             })
-                        ],
-                        (err) => {
-                            if (err) console.error('   ❌ Erreur log email request:', err);
-                            else console.log('   ✅ Action loggée');
-                        }
+                        ]
                     );
                 }
             } catch (emailError) {
-                console.error(`   ❌ Erreur envoi email à ${expertEmail}:`, emailError.message);
-                throw emailError; // Propager l'erreur pour l'arrêter
+                console.error('Erreur envoi email:', emailError.message);
+                throw emailError;
             }
         }
         
-        console.log(`\n✅ === FIN TRAITEMENT ===`);
-        console.log(`   Total emails envoyés: ${sentEmails.length}`);
-        
         if (sentEmails.length === 0) {
-            console.log('❌ Aucun email envoyé');
             return res.status(400).json({ success: false, error: 'Aucun email n\'a pu être envoyé. Vérifiez que les experts ont des adresses email configurées.' });
         }
         
@@ -2386,10 +2181,9 @@ app.post('/api/request-assignment', requireAuth, async (req, res) => {
             emails: sentEmails
         });
         
-        console.log('✅ Réponse success envoyée au client');
         res.json({ success: true, emails: sentEmails });
     } catch (error) {
-        console.error('❌ ERREUR GLOBALE envoi demandes:', error);
+        console.error('Erreur envoi demandes:', error);
         console.error('   Message:', error.message);
         console.error('   Stack:', error.stack);
         res.status(500).json({ success: false, error: error.message });
@@ -3002,43 +2796,30 @@ app.delete('/api/logs/raz', requireAdmin, (req, res) => {
                     return res.status(400).json({ error: 'Type de log inconnu' });
             }
             
-            console.log(`📝 Query SQL: ${query}`);
-            console.log(`📝 Params: ${JSON.stringify(params)}`);
-            
-            // Avant suppression, compter les logs existants
-            const countQuery = query.replace('DELETE', 'SELECT COUNT(*) as count');
-            database.get(countQuery, params, (errCount, rowCount) => {
-                if (!errCount) {
-                    console.log(`📊 Logs trouvés avant suppression: ${rowCount.count}`);
+            // Faire la suppression
+            database.run(query, params, function(err) {
+                if (err) {
+                    console.error('Erreur suppression logs:', err);
+                    return res.status(500).json({ error: err.message });
                 }
                 
-                // Maintenant faire la suppression
-                database.run(query, params, function(err) {
-                    if (err) {
-                        console.error('❌ Erreur suppression logs:', err);
-                        return res.status(500).json({ error: err.message });
-                    }
-                    
-                    console.log(`✅ ${this.changes} log(s) supprimé(s)`);
-                    
-                    // Logger cette action
-                    const actionDescription = {
-                        'connexions': 'Suppression connexions',
-                        'planning': 'Suppression modifications planning',
-                        'emails': 'Suppression demandes affectation'
-                    };
-                    
-                    logUserAction(req, actionDescription[type], { 
-                        targetUserId: userId,
-                        targetUsername: user.username,
-                        deletedCount: this.changes 
-                    });
-                    
-                    res.json({ 
-                        success: true, 
-                        deleted: this.changes,
-                        message: `${this.changes} enregistrement(s) supprimé(s)` 
-                    });
+                // Logger cette action
+                const actionDescription = {
+                    'connexions': 'Suppression connexions',
+                    'planning': 'Suppression modifications planning',
+                    'emails': 'Suppression demandes affectation'
+                };
+                
+                logUserAction(req, actionDescription[type], { 
+                    targetUserId: userId,
+                    targetUsername: user.username,
+                    deletedCount: this.changes 
+                });
+                
+                res.json({ 
+                    success: true, 
+                    deleted: this.changes,
+                    message: `${this.changes} enregistrement(s) supprimé(s)` 
                 });
             });
         }
@@ -3048,8 +2829,6 @@ app.delete('/api/logs/raz', requireAdmin, (req, res) => {
 // Endpoint de purge complète des logs (pour tous les utilisateurs)
 app.delete('/api/logs/purge-all', requireAdmin, (req, res) => {
     const { table, type } = req.body;
-    
-    console.log(`🗑️ PURGE COMPLÈTE demandée: table=${table}, type=${type}`);
     
     if (!table) {
         return res.status(400).json({ error: 'Paramètre table manquant' });
@@ -3071,30 +2850,18 @@ app.delete('/api/logs/purge-all', requireAdmin, (req, res) => {
         return res.status(400).json({ error: 'Table invalide' });
     }
     
-    console.log(`📝 Query SQL: ${query}`);
-    console.log(`📝 Params: ${JSON.stringify(params)}`);
-    
-    // Compter avant suppression
-    const countQuery = `SELECT COUNT(*) as count FROM ${table}${type ? ' WHERE action_type = ?' : ''}`;
-    database.get(countQuery, params, (errCount, rowCount) => {
-        if (!errCount) {
-            console.log(`📊 Logs trouvés avant purge: ${rowCount.count}`);
+    // Faire la suppression
+    database.run(query, params, function(err) {
+        if (err) {
+            console.error('Erreur purge logs:', err);
+            return res.status(500).json({ error: err.message });
         }
         
-        // Faire la suppression
-        database.run(query, params, function(err) {
-            if (err) {
-                console.error('❌ Erreur purge logs:', err);
-                return res.status(500).json({ error: err.message });
-            }
-            
-            console.log(`✅ ${this.changes} log(s) purgé(s) de ${table}`);
-            
-            // Logger cette action critique
-            logUserAction(req, 'Purge complète logs', { 
-                table,
-                type: type || 'all',
-                deletedCount: this.changes 
+        // Logger cette action critique
+        logUserAction(req, 'Purge complète logs', { 
+            table,
+            type: type || 'all',
+            deletedCount: this.changes 
             });
             
             res.json({ 
@@ -3196,10 +2963,7 @@ app.post('/api/profile/change-password', requireAuth, (req, res) => {
 
 // Récupérer le nombre de notifications non lues
 app.get('/api/notifications/count', requireAuth, (req, res) => {
-    console.log('📊 Count notifications - userId:', req.session.userId, 'resourceId:', req.session.resourceId, 'profile:', req.session.activeProfile);
-    
     if (!req.session.userId) {
-        console.log('⚠️ Pas de userId dans la session');
         return res.json({ count: 0 });
     }
 
@@ -3212,7 +2976,6 @@ app.get('/api/notifications/count', requireAuth, (req, res) => {
                 console.error('Erreur count notifications:', err);
                 return res.status(500).json({ error: err.message });
             }
-            console.log('✅ Notifications non lues:', row.count);
             res.json({ count: row.count });
         }
     );
@@ -3230,12 +2993,10 @@ app.get('/api/notifications/list', requireAuth, (req, res) => {
         [req.session.userId],
         (err, user) => {
             if (err || !user) {
-                console.error('Erreur récupération user:', err);
                 return res.json({ notifications: [] });
             }
             
             const resourceId = user.resource_id;
-            console.log(`📋 Récupération notifications pour user ${req.session.userId}, resource_id: ${resourceId}`);
             
             // Récupérer les notifications avec la localisation en temps réel
             database.all(
@@ -3261,10 +3022,6 @@ app.get('/api/notifications/list', requireAuth, (req, res) => {
                     if (err) {
                         console.error('Erreur list notifications:', err);
                         return res.status(500).json({ error: err.message });
-                    }
-                    console.log(`✅ ${rows.length} notifications trouvées`);
-                    if (rows.length > 0) {
-                        console.log('Exemple notification:', JSON.stringify(rows[0]));
                     }
                     res.json({ notifications: rows });
                 }
@@ -3324,9 +3081,6 @@ app.post('/api/notifications/clear-all', requireAdmin, (req, res) => {
                         return res.status(500).json({ error: deleteErr.message });
                     }
                     
-                    console.log(`✅ ${this.changes} notifications supprimées`);
-                    console.log('📊 Détail par expert:', stats);
-                    
                     res.json({ 
                         success: true, 
                         message: 'Toutes les notifications ont été supprimées',
@@ -3348,11 +3102,9 @@ function createNotification(expertResourceId, date, period, activityName, reques
         [expertResourceId],
         (err, user) => {
             if (err || !user) {
-                console.error('❌ Expert non trouvé pour resource_id:', expertResourceId, 'erreur:', err);
                 if (callback) callback(err);
                 return;
             }
-
 
             // Vérifier si une notification existe déjà pour cette demi-journée
             database.get(
@@ -3361,7 +3113,6 @@ function createNotification(expertResourceId, date, period, activityName, reques
                 [user.id, date, period],
                 (errCheck, existingNotif) => {
                     if (errCheck) {
-                        console.error('❌ Erreur vérification notification existante:', errCheck);
                         if (callback) callback(errCheck);
                         return;
                     }
@@ -3374,27 +3125,16 @@ function createNotification(expertResourceId, date, period, activityName, reques
                              WHERE id = ?`,
                             [activityName, requesterName, actionType, existingNotif.id],
                             (errUpdate) => {
-                                if (errUpdate) {
-                                    console.error('❌ Erreur mise à jour notification:', errUpdate);
-                                } else {
-                                    console.log(`✅ Notification mise à jour pour expert resource_id=${expertResourceId} user_id=${user.id}`);
-                                }
                                 if (callback) callback(errUpdate);
                             }
                         );
                     } else {
                         // Pas de notification existante → INSERT
-                        console.log('➕ Nouvelle notification...');
                         database.run(
                             `INSERT INTO expert_notifications (expert_id, date, period, activity_name, requester_name, action_type)
                              VALUES (?, ?, ?, ?, ?, ?)`,
                             [user.id, date, period, activityName, requesterName, actionType],
                             (errInsert) => {
-                                if (errInsert) {
-                                    console.error('❌ Erreur création notification:', errInsert);
-                                } else {
-                                    console.log(`✅ Notification créée pour expert resource_id=${expertResourceId} user_id=${user.id}`);
-                                }
                                 if (callback) callback(errInsert);
                             }
                         );
