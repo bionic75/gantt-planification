@@ -129,7 +129,6 @@ async function sendEmail(to, subject, html, attachments = []) {
         const info = await transporter.sendMail(mailOptions);
         
         return { success: true, messageId: info.messageId };
-        return { success: true, messageId: info.messageId };
     } catch (error) {
         
         // Messages d'erreur plus clairs pour l'utilisateur
