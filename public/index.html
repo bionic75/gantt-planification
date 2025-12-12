@@ -486,7 +486,7 @@
                         </div>
                         <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
                             <button type="button" onclick="updateGantt()">Afficher</button>
-                            <button type="button" class="export-btn" onclick="openDownloadModal()">Télécharger</button>
+                            <button type="button" class="export-btn" onclick="openDownloadModal()">📥 Télécharger</button>
                             <button type="button" class="export-btn" onclick="printGanttPlanning()">Imprimer A4</button>
                         </div>
                     </div>
@@ -5773,7 +5773,6 @@
                             <tr style="background-color: #34495e; color: white;">
                                 <th style="padding: 10px; border: 1px solid #bdc3c7;">Date</th>
                                 <th style="padding: 10px; border: 1px solid #bdc3c7;">Période</th>
-                                <th style="padding: 10px; border: 1px solid #bdc3c7;">Disponibilité</th>
                                 <th style="padding: 10px; border: 1px solid #bdc3c7;">Affectation</th>
                                 <th style="padding: 10px; border: 1px solid #bdc3c7;">Localisation</th>
                                 <th style="padding: 10px; border: 1px solid #bdc3c7;">Auteur</th>
@@ -5785,12 +5784,14 @@
                             const [year, month, day] = notif.date.split('-').map(Number);
                             const notifDate = new Date(year, month - 1, day);
                             
+                            // Afficher la localisation si disponible
+                            const localisationDisplay = notif.localisation || '-';
+                            
                             html += `<tr style="background-color: white;">
                                 <td style="padding: 8px; border: 1px solid #bdc3c7;">${notifDate.toLocaleDateString('fr-FR')}</td>
                                 <td style="padding: 8px; border: 1px solid #bdc3c7;">${notif.period}</td>
-                                <td style="padding: 8px; border: 1px solid #bdc3c7;">-</td>
                                 <td style="padding: 8px; border: 1px solid #bdc3c7;">${notif.activity_name || 'Non défini'}</td>
-                                <td style="padding: 8px; border: 1px solid #bdc3c7;">-</td>
+                                <td style="padding: 8px; border: 1px solid #bdc3c7;">${localisationDisplay}</td>
                                 <td style="padding: 8px; border: 1px solid #bdc3c7;">${notif.requester_name || 'Système'}</td>
                             </tr>`;
                         });
@@ -6950,17 +6951,12 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
 
     <!-- Modal nouvelles affectations -->
     <div id="newAssignmentsModal" class="modal">
-        <div class="modal-content" style="max-width: 900px;">
+        <div class="modal-content" style="max-width: 800px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <h2 style="color: #2c3e50; margin: 0;">
                     🔔 Nouvelles affectations depuis votre dernière connexion
                 </h2>
-                <div style="display: flex; gap: 10px; align-items: center;">
-                    <button onclick="markNotificationsAsRead(); closeNewAssignmentsModal();" style="padding: 8px 16px; background-color: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                        ✓ Marquer comme lu
-                    </button>
-                    <span class="close" onclick="closeNewAssignmentsModal()">&times;</span>
-                </div>
+                <span class="close" onclick="closeNewAssignmentsModal()" style="cursor: pointer; font-size: 28px; color: #7f8c8d;">&times;</span>
             </div>
             
             <div id="newAssignmentsContent" style="margin-top: 20px;">
