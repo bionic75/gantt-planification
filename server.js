@@ -34,7 +34,7 @@ app.use(session({
         maxAge: 24 * 60 * 60 * 1000,
         sameSite: 'lax'
     },
-    name: 'gantt.sid' // Nom personnalisé pour éviter les conflits
+    name: 'gantt.sid' // Nom personnalisé pour éviter les conflits de sid
 }));
 
 // NOTE: express.static sera défini APRÈS les routes API pour éviter les conflits
