@@ -2217,11 +2217,13 @@ app.get('/api/export/resources', requireAuth, (req, res) => {
 });
 
 app.get('/api/export/gantt', requireAuth, (req, res) => {
-    const { year, month } = req.query;
+    const { year, month, filename } = req.query;
     
-    if (!year || !month) {
+    if (!year || month === undefined) {
         return res.status(400).json({ error: 'Année et mois requis' });
     }
+    
+    const monthInt = parseInt(month);
     
     database.all('SELECT * FROM resources WHERE actif = 1 ORDER BY nom, prenom', (err, resources) => {
         if (err) {
@@ -2235,20 +2237,22 @@ app.get('/api/export/gantt', requireAuth, (req, res) => {
                 return res.status(500).json({ error: err2.message });
             }
             
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
             const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 
                               'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
             
+            // Format du mois pour la clé de date (avec zéro devant si nécessaire)
+            const monthStr = String(monthInt + 1).padStart(2, '0');
+            
             // Générer CSV
             let csv = '\ufeff'; // BOM UTF-8
-            csv += `Planning - ${monthNames[parseInt(month)]} ${year}\n\n`;
+            csv += `Planning - ${monthNames[monthInt]} ${year}\n\n`;
             
             // En-tête
             csv += 'Ressource,Trigramme,SAMU';
             
-            const lastDay = new Date(parseInt(year), parseInt(month) + 1, 0).getDate();
+            const lastDay = new Date(parseInt(year), monthInt + 1, 0).getDate();
             for (let day = 1; day <= lastDay; day++) {
-                const date = new Date(parseInt(year), parseInt(month), day);
+                const date = new Date(parseInt(year), monthInt, day);
                 const dayName = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'][date.getDay()];
                 csv += `,${dayName} ${day} AM,${dayName} ${day} PM`;
             }
@@ -2259,7 +2263,8 @@ app.get('/api/export/gantt', requireAuth, (req, res) => {
                 csv += `"${resource.nom} ${resource.prenom}","${resource.trigramme}","${resource.samu}"`;
                 
                 for (let day = 1; day <= lastDay; day++) {
-                    const dateKeyBase = `${year}-${month}-${day}`;
+                    const dayStr = String(day).padStart(2, '0');
+                    const dateKeyBase = `${year}-${monthStr}-${dayStr}`;
                     
                     // AM
                     const dateKeyAM = `${dateKeyBase}_AM`;
@@ -2311,12 +2316,15 @@ app.get('/api/export/gantt', requireAuth, (req, res) => {
                 csv += '\n';
             });
             
-            res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-            res.setHeader('Content-Disposition', `attachment; filename=planning_${monthNames[parseInt(month)]}_${year}_${timestamp}.csv`);
+            // Utiliser le nom de fichier personnalisé si fourni, sinon générer un nom par défaut
+            const finalFilename = filename || `planning_${monthNames[monthInt]}_${year}.csv`;
             
-            logUserAction(req, 'Export planning Excel', { 
+            res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+            res.setHeader('Content-Disposition', `attachment; filename="${finalFilename}"`);
+            
+            logUserAction(req, 'Export planning CSV', { 
                 year, 
-                month: monthNames[parseInt(month)],
+                month: monthNames[monthInt],
                 resources: resources.length 
             });
             res.send(csv);

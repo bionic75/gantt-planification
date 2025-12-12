@@ -486,7 +486,7 @@
                         </div>
                         <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
                             <button type="button" onclick="updateGantt()">Afficher</button>
-                            <button type="button" class="export-btn" onclick="exportGanttToExcel()">Excel</button>
+                            <button type="button" class="export-btn" onclick="openDownloadModal()">Télécharger</button>
                             <button type="button" class="export-btn" onclick="printGanttPlanning()">Imprimer A4</button>
                         </div>
                     </div>
@@ -2879,10 +2879,112 @@
             window.location.href = `${API_URL}/export/resources`;
         }
 
+        // Ouvrir la modal de téléchargement
+        function openDownloadModal() {
+            const select = document.getElementById('downloadMonthSelect');
+            select.innerHTML = '';
+            
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            const currentMonth = now.getMonth();
+            
+            // Générer les options : 12 mois dans le passé + mois courant + 3 mois dans le futur
+            const options = [];
+            
+            // 12 mois dans le passé
+            for (let i = 12; i >= 1; i--) {
+                const date = new Date(currentYear, currentMonth - i, 1);
+                options.push({
+                    year: date.getFullYear(),
+                    month: date.getMonth(),
+                    label: date.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+                });
+            }
+            
+            // Mois courant
+            options.push({
+                year: currentYear,
+                month: currentMonth,
+                label: now.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
+                current: true
+            });
+            
+            // 3 mois dans le futur
+            for (let i = 1; i <= 3; i++) {
+                const date = new Date(currentYear, currentMonth + i, 1);
+                options.push({
+                    year: date.getFullYear(),
+                    month: date.getMonth(),
+                    label: date.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+                });
+            }
+            
+            // Créer les options du select
+            options.forEach(opt => {
+                const option = document.createElement('option');
+                option.value = `${opt.year}-${String(opt.month + 1).padStart(2, '0')}`;
+                option.textContent = opt.label.charAt(0).toUpperCase() + opt.label.slice(1);
+                if (opt.current) {
+                    option.selected = true;
+                }
+                select.appendChild(option);
+            });
+            
+            document.getElementById('downloadPlanningModal').style.display = 'block';
+        }
+        
+        // Fermer la modal de téléchargement
+        function closeDownloadModal() {
+            document.getElementById('downloadPlanningModal').style.display = 'none';
+        }
+        
+        // Télécharger le planning au format CSV
+        function downloadPlanningCSV() {
+            const selectedValue = document.getElementById('downloadMonthSelect').value;
+            const [year, month] = selectedValue.split('-');
+            
+            // Générer l'horodatage au format AAAA-MM-JJ_HH-MM
+            const now = new Date();
+            const horodatage = now.getFullYear() + '-' +
+                String(now.getMonth() + 1).padStart(2, '0') + '-' +
+                String(now.getDate()).padStart(2, '0') + '_' +
+                String(now.getHours()).padStart(2, '0') + '-' +
+                String(now.getMinutes()).padStart(2, '0');
+            
+            // Format du nom de fichier : Expert_Planning_AAAAMM_Sauvegarde_de_Horodatage
+            const filename = `Expert_Planning_${year}${month}_Sauvegarde_de_${horodatage}.csv`;
+            
+            // Appeler l'API d'export avec le nom de fichier personnalisé
+            fetch(`${API_URL}/export/gantt?year=${year}&month=${parseInt(month) - 1}&format=csv&filename=${encodeURIComponent(filename)}`, {
+                credentials: 'include'
+            })
+            .then(response => {
+                if (!response.ok) throw new Error('Erreur lors du téléchargement');
+                return response.blob();
+            })
+            .then(blob => {
+                // Créer un lien de téléchargement
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                
+                // Fermer la modal
+                closeDownloadModal();
+            })
+            .catch(error => {
+                console.error('Erreur téléchargement:', error);
+                alert('Erreur lors du téléchargement du fichier');
+            });
+        }
+        
+        // Ancienne fonction conservée pour compatibilité
         function exportGanttToExcel() {
-            const year = document.getElementById('yearSelect').value;
-            const month = document.getElementById('monthSelect').value;
-            window.location.href = `${API_URL}/export/gantt?year=${year}&month=${month}`;
+            openDownloadModal();
         }
 
         async function loadUsers() {
@@ -3486,12 +3588,9 @@
                                                 const dayName = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'][modDate.getDay()];
                                                 const dateStr = modDate.toLocaleDateString('fr-FR');
                                                 
-                                                // Utiliser resourceName du log, sinon chercher dans resources
-                                                let expertName = d.resourceName;
-                                                if (!expertName) {
-                                                    const resource = resources.find(r => r.id === parseInt(d.resourceId));
-                                                    expertName = resource ? `${resource.prenom} ${resource.nom}` : 'Expert inconnu';
-                                                }
+                                                // Trouver le nom de l'expert
+                                                const resource = resources.find(r => r.id === d.resourceId);
+                                                const expertName = resource ? `${resource.prenom} ${resource.nom}` : 'Expert inconnu';
                                                 
                                                 // Fonction pour décoder les activités
                                                 function decodeActivity(rawValue) {
@@ -3503,8 +3602,13 @@
                                                         '4': '🚨 SAMU (Dev. usages)',
                                                         '5': 'ANS (Déploiement)',
                                                         '6': 'ANS (Dev. usages)',
-                                                        '7': 'Qualification',
-                                                        '8': 'Autre mission'
+                                                        '7': '📋 Support SI-SAMU',
+                                                        '8': '🎓 Formation',
+                                                        '9': '📊 Analyse',
+                                                        '10': '🔧 MCO',
+                                                        '11': '📞 Astreinte',
+                                                        '12': '🎯 Missions ponctuelles',
+                                                        '13': '📝 Documentation'
                                                     };
                                                     return activityMap[rawValue] || rawValue;
                                                 }
@@ -3523,7 +3627,7 @@
                                                             <strong>${dayName} ${dateStr} ${d.period}</strong><br>
                                                             Expert: ${expertName}<br>
                                                             Affectation: ${decodeActivity(d.activity)}<br>
-                                                            Localisation: ${d.activity === '1' || d.activity === 1 ? '-' : (d.location || '-')}
+                                                            Localisation: ${d.activity === '1' ? '-' : (d.location || '-')}
                                                         </td>
                                                         <td style="padding: 8px; border: 1px solid #a5d6a7; white-space: nowrap;">
                                                             ${modifDateStr}<br>
@@ -3568,12 +3672,9 @@
                                             const dayName = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'][reqDate.getDay()];
                                             const dateStr = reqDate.toLocaleDateString('fr-FR');
                                             
-                                            // Utiliser resourceName du log, sinon chercher dans resources
-                                            let expertName = details.resourceName;
-                                            if (!expertName) {
-                                                const resource = resources.find(r => r.id === parseInt(details.resourceId));
-                                                expertName = resource ? `${resource.prenom} ${resource.nom}` : 'Expert inconnu';
-                                            }
+                                            // Trouver le nom de l'expert
+                                            const resource = resources.find(r => r.id === details.resourceId);
+                                            const expertName = resource ? `${resource.prenom} ${resource.nom}` : 'Expert inconnu';
                                             
                                             return `
                                                 <tr>
@@ -5672,6 +5773,7 @@
                             <tr style="background-color: #34495e; color: white;">
                                 <th style="padding: 10px; border: 1px solid #bdc3c7;">Date</th>
                                 <th style="padding: 10px; border: 1px solid #bdc3c7;">Période</th>
+                                <th style="padding: 10px; border: 1px solid #bdc3c7;">Disponibilité</th>
                                 <th style="padding: 10px; border: 1px solid #bdc3c7;">Affectation</th>
                                 <th style="padding: 10px; border: 1px solid #bdc3c7;">Localisation</th>
                                 <th style="padding: 10px; border: 1px solid #bdc3c7;">Auteur</th>
@@ -5686,8 +5788,9 @@
                             html += `<tr style="background-color: white;">
                                 <td style="padding: 8px; border: 1px solid #bdc3c7;">${notifDate.toLocaleDateString('fr-FR')}</td>
                                 <td style="padding: 8px; border: 1px solid #bdc3c7;">${notif.period}</td>
+                                <td style="padding: 8px; border: 1px solid #bdc3c7;">-</td>
                                 <td style="padding: 8px; border: 1px solid #bdc3c7;">${notif.activity_name || 'Non défini'}</td>
-                                <td style="padding: 8px; border: 1px solid #bdc3c7;">${notif.localisation || '-'}</td>
+                                <td style="padding: 8px; border: 1px solid #bdc3c7;">-</td>
                                 <td style="padding: 8px; border: 1px solid #bdc3c7;">${notif.requester_name || 'Système'}</td>
                             </tr>`;
                         });
@@ -6819,8 +6922,32 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
         </div>
     </div>
 
-</body>
-</html>
+    <!-- Modal téléchargement planning -->
+    <div id="downloadPlanningModal" class="modal">
+        <div class="modal-content" style="max-width: 450px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="color: #2c3e50; margin: 0;">📥 Télécharger le planning</h3>
+                <span class="close" onclick="closeDownloadModal()">&times;</span>
+            </div>
+            
+            <div class="form-group">
+                <label>Sélectionner le mois à exporter</label>
+                <select id="downloadMonthSelect" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+                    <!-- Options générées dynamiquement -->
+                </select>
+            </div>
+            
+            <div style="margin-top: 25px; display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" onclick="closeDownloadModal()" style="padding: 10px 20px; background-color: #95a5a6; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                    Annuler
+                </button>
+                <button type="button" onclick="downloadPlanningCSV()" style="padding: 10px 20px; background-color: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                    📥 Télécharger au format CSV
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal nouvelles affectations -->
     <div id="newAssignmentsModal" class="modal">
         <div class="modal-content" style="max-width: 900px;">
@@ -6842,3 +6969,5 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
         </div>
     </div>
 
+</body>
+</html>
