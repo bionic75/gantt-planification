@@ -5075,7 +5075,7 @@
                         
                         // Envoyer l'email via l'API send-calendar-email avec timeout
                         const controller = new AbortController();
-                        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 secondes timeout
+                        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 secondes timeout
                         
                         const response = await fetch(`${API_URL}/send-calendar-email`, {
                             method: 'POST',
