@@ -104,7 +104,7 @@ function createEmailTransporter() {
     });
 }
 
-// Envoyer un mail
+// Envoyer un email
 async function sendEmail(to, subject, html, attachments = []) {
     const transporter = createEmailTransporter();
     if (!transporter) {
@@ -112,7 +112,7 @@ async function sendEmail(to, subject, html, attachments = []) {
     }
     try {
         
-        // Note: La vérification SMTP est désactivée pour accélérer l'envoi des emails
+        // Note: La vérification SMTP est désactivée pour accélérer l'envoi
         // Si un problème survient, il sera détecté lors de l'envoi réel
         
         const mailOptions = {
