@@ -34,7 +34,7 @@ app.use(session({
         maxAge: 24 * 60 * 60 * 1000,
         sameSite: 'lax'
     },
-    name: 'gantt.sid' // Nom personnalisé pour éviter les conflits de sid
+    name: 'gantt.sid' // Nom personnalisé pour éviter les conflits
 }));
 
 // NOTE: express.static sera défini APRÈS les routes API pour éviter les conflits
@@ -1278,24 +1278,11 @@ app.post('/api/schedule/save', requireAuth, (req, res) => {
                 
                 completed++;
                 if (completed === total) {
-                    // Créer les notifications (une seule par demi-journée)
-                    const requesterName = `${req.session.prenom || 'Admin'} ${req.session.nom || 'Système'}`;
-                    const activityLabels = {
-                        '3': '🚨 SAMU (Déploiement)',
-                        '4': '🚨 SAMU (Dev. usages)',
-                        '5': 'ANS (Déploiement)',
-                        '6': 'ANS (Dev. usages)',
-                        '7': 'Qualification',
-                        '8': 'Autre mission'
-                    };
+                    // NOTE: Les notifications ne sont plus créées ici mais à la déconnexion
+                    // via l'endpoint /api/notifications/create-batch appelé par le client
+                    // après l'envoi des emails récapitulatifs aux experts
                     
-                    notificationsToCreate.forEach(({ resourceId, date, period, activityValue }) => {
-                        const activityLabel = activityLabels[activityValue] || `Activité ${activityValue}`;
-                        const periodLabel = period === 'AM' ? 'Matin' : 'Après-midi';
-                        createNotification(resourceId, date, periodLabel, activityLabel, requesterName, 'Nouvelle affectation');
-                    });
-                    
-                    // Note: Les logs planning_modification sont maintenant créés quand la LOCALISATION est modifiée
+                    // Note: Les logs planning_modification sont créés quand la LOCALISATION est modifiée
                     // (voir le bloc "NOUVEAU" plus haut qui gère type === 'localisation')
                     
                     logUserAction(req, 'Sauvegarde planning rapide', { 
@@ -2047,144 +2034,6 @@ app.post('/api/send-calendar-email', requireAuth, async (req, res) => {
         res.json({ success: true, message: 'Calendrier envoyé par email avec succès' });
     } catch (error) {
         console.error('Erreur envoi calendrier par email:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// Endpoint pour envoyer une demande d'affectation à des experts
-app.post('/api/request-assignment', requireAuth, async (req, res) => {
-    const { fromName, fromEmail, expertIds, subject, startDate, startPeriod, endDate, endPeriod, message } = req.body;
-    
-    if (!expertIds || expertIds.length === 0) {
-        return res.status(400).json({ success: false, error: 'Aucun expert sélectionné' });
-    }
-    
-    if (!emailConfig.user) {
-        return res.status(400).json({ success: false, error: 'Configuration email non définie' });
-    }
-    
-    try {
-        const sentEmails = [];
-        
-        // Récupérer les infos des experts sélectionnés
-        for (const resourceId of expertIds) {
-            // D'abord récupérer le nom depuis resources
-            const resource = await new Promise((resolve, reject) => {
-                database.get(
-                    'SELECT * FROM resources WHERE id = ?',
-                    [resourceId],
-                    (err, row) => {
-                        if (err) reject(err);
-                        else resolve(row);
-                    }
-                );
-            });
-            
-            if (!resource) {
-                continue;
-            }
-            
-            // Ensuite récupérer l'email depuis users (qui est lié via resource_id)
-            const user = await new Promise((resolve, reject) => {
-                database.get(
-                    'SELECT * FROM users WHERE resource_id = ? AND is_expert = 1',
-                    [resourceId],
-                    (err, row) => {
-                        if (err) reject(err);
-                        else resolve(row);
-                    }
-                );
-            });
-            
-            if (!user || !user.email) {
-                continue;
-            }
-            
-            // Utiliser les infos de resource pour le nom (plus fiable) et l'email de user
-            const expertName = `${resource.prenom} ${resource.nom}`;
-            const expertEmail = user.email;
-            
-            // Construire le corps de l'email
-            const emailBody = `
-                <html>
-                <head>
-                    <style>
-                        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-                        .header { background-color: #1D70B7; color: white; padding: 20px; text-align: center; }
-                        .content { padding: 20px; background-color: #f9f9f9; }
-                        .info-box { background-color: white; border-left: 4px solid #1D70B7; padding: 15px; margin: 15px 0; }
-                        .footer { padding: 20px; text-align: center; color: #7f8c8d; font-size: 12px; }
-                    </style>
-                </head>
-                <body>
-                    <div class="header">
-                        <h2>${subject}</h2>
-                    </div>
-                    <div class="content">
-                        <p>Bonjour ${expertName},</p>
-                        <p>Vous avez reçu une nouvelle demande d'affectation de <strong>${fromName}</strong>:</p>
-                        
-                        <div class="info-box">
-                            <p><strong>📅 Période demandée:</strong></p>
-                            <p>Du ${new Date(startDate).toLocaleDateString('fr-FR')} (${startPeriod}) au ${new Date(endDate).toLocaleDateString('fr-FR')} (${endPeriod})</p>
-                        </div>
-                        
-                        <div class="info-box">
-                            <p><strong>✉️ Message:</strong></p>
-                            <p>${message.replace(/\n/g, '<br>')}</p>
-                        </div>
-                        
-                        <p>Pour toute question, vous pouvez répondre directement à <a href="mailto:${fromEmail}">${fromEmail}</a>.</p>
-                    </div>
-                    <div class="footer">
-                        <p>Cet email a été envoyé depuis le système de planification SI-SAMU</p>
-                    </div>
-                </body>
-                </html>
-            `;
-            
-            // Envoyer l'email
-            try {
-                await sendEmail(expertEmail, subject, emailBody);
-                sentEmails.push(expertEmail);
-                
-                // Logger l'action pour cet expert
-                if (req.session.userId) {
-                    database.run(
-                        `INSERT INTO action_logs (user_id, action_type, details) VALUES (?, ?, ?)`,
-                        [
-                            req.session.userId, 
-                            'email_request', 
-                            JSON.stringify({
-                                resourceId: resourceId,
-                                expertName: expertName,
-                                expertEmail: expertEmail,
-                                date: startDate,
-                                subject: subject
-                            })
-                        ]
-                    );
-                }
-            } catch (emailError) {
-                console.error('Erreur envoi email:', emailError.message);
-                throw emailError;
-            }
-        }
-        
-        if (sentEmails.length === 0) {
-            return res.status(400).json({ success: false, error: 'Aucun email n\'a pu être envoyé. Vérifiez que les experts ont des adresses email configurées.' });
-        }
-        
-        logUserAction(req, 'Envoi demande d\'affectation', { 
-            expertsCount: sentEmails.length,
-            emails: sentEmails
-        });
-        
-        res.json({ success: true, emails: sentEmails });
-    } catch (error) {
-        console.error('Erreur envoi demandes:', error);
-        console.error('   Message:', error.message);
-        console.error('   Stack:', error.stack);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -3055,6 +2904,103 @@ app.post('/api/notifications/mark-read', requireAuth, (req, res) => {
             res.json({ success: true });
         }
     );
+});
+
+// Créer les notifications en batch (appelé à la déconnexion après envoi des emails)
+app.post('/api/notifications/create-batch', requireAuth, async (req, res) => {
+    const { notifications } = req.body;
+    
+    if (!notifications || !Array.isArray(notifications) || notifications.length === 0) {
+        return res.json({ success: true, created: 0 });
+    }
+    
+    const requesterName = `${req.session.prenom || 'Admin'} ${req.session.nom || 'Système'}`;
+    let created = 0;
+    let errors = 0;
+    
+    console.log(`📝 Création de ${notifications.length} notification(s) en batch par ${requesterName}`);
+    
+    for (const notif of notifications) {
+        const { resourceId, date, period, activity, location } = notif;
+        
+        try {
+            // Récupérer l'user_id de l'expert à partir de resource_id
+            const user = await new Promise((resolve, reject) => {
+                database.get(
+                    `SELECT id FROM users WHERE resource_id = ? AND is_expert = 1`,
+                    [resourceId],
+                    (err, row) => {
+                        if (err) reject(err);
+                        else resolve(row);
+                    }
+                );
+            });
+            
+            if (!user) {
+                console.log(`⚠️ Pas d'utilisateur expert trouvé pour resource_id ${resourceId}`);
+                continue;
+            }
+            
+            // Construire le nom de l'activité avec la localisation si présente
+            let activityName = activity;
+            if (location && location !== '-') {
+                activityName = `${activity} (${location})`;
+            }
+            
+            // Vérifier si une notification existe déjà pour cette demi-journée
+            const existingNotif = await new Promise((resolve, reject) => {
+                database.get(
+                    `SELECT id FROM expert_notifications 
+                     WHERE expert_id = ? AND date = ? AND period = ? AND is_read = 0`,
+                    [user.id, date, period],
+                    (err, row) => {
+                        if (err) reject(err);
+                        else resolve(row);
+                    }
+                );
+            });
+            
+            if (existingNotif) {
+                // Une notification existe déjà pour cette demi-journée → UPDATE
+                await new Promise((resolve, reject) => {
+                    database.run(
+                        `UPDATE expert_notifications 
+                         SET activity_name = ?, requester_name = ?, action_type = ?, created_at = CURRENT_TIMESTAMP
+                         WHERE id = ?`,
+                        [activityName, requesterName, 'Nouvelle affectation', existingNotif.id],
+                        (err) => {
+                            if (err) reject(err);
+                            else resolve();
+                        }
+                    );
+                });
+                console.log(`🔄 Notification mise à jour pour expert_id ${user.id}, date ${date} ${period}`);
+            } else {
+                // Pas de notification existante → INSERT
+                await new Promise((resolve, reject) => {
+                    database.run(
+                        `INSERT INTO expert_notifications (expert_id, date, period, activity_name, requester_name, action_type)
+                         VALUES (?, ?, ?, ?, ?, ?)`,
+                        [user.id, date, period, activityName, requesterName, 'Nouvelle affectation'],
+                        (err) => {
+                            if (err) reject(err);
+                            else resolve();
+                        }
+                    );
+                });
+                console.log(`✅ Notification créée pour expert_id ${user.id}, date ${date} ${period}`);
+            }
+            
+            created++;
+        } catch (error) {
+            console.error(`❌ Erreur création notification pour resource ${resourceId}:`, error);
+            errors++;
+        }
+    }
+    
+    console.log(`📊 Résultat batch: ${created} créée(s), ${errors} erreur(s)`);
+    
+    res.json({ success: true, created, errors });
 });
 
 // Supprimer toutes les notifications (pour nettoyer)

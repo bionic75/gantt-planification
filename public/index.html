@@ -5145,6 +5145,47 @@
                 if (overlayElement) overlayElement.remove();
             }
             
+            // ========== CRÉER LES NOTIFICATIONS EN BASE ==========
+            // Créer les notifications pour TOUS les experts qui ont reçu un email
+            // (pour qu'ils voient le badge à leur prochaine connexion)
+            if (emailsToSend.length > 0) {
+                const notificationsToCreate = [];
+                
+                for (const { resourceId, data } of emailsToSend) {
+                    data.assignments.forEach(assignment => {
+                        notificationsToCreate.push({
+                            resourceId: parseInt(resourceId),
+                            date: assignment.date,
+                            period: assignment.period === 'AM' ? 'Matin' : 'Après-midi',
+                            activity: assignment.activity,
+                            location: assignment.location || '-'
+                        });
+                    });
+                }
+                
+                if (notificationsToCreate.length > 0) {
+                    try {
+                        console.log(`📝 Création de ${notificationsToCreate.length} notification(s) en base...`);
+                        const notifResponse = await fetch(`${API_URL}/notifications/create-batch`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({ notifications: notificationsToCreate })
+                        });
+                        
+                        if (notifResponse.ok) {
+                            const notifResult = await notifResponse.json();
+                            console.log(`✅ Notifications créées en base: ${notifResult.created}`);
+                        } else {
+                            console.error('❌ Erreur création notifications:', notifResponse.status);
+                        }
+                    } catch (error) {
+                        console.error('❌ Erreur appel API notifications:', error);
+                    }
+                }
+            }
+            // ========== FIN CRÉATION NOTIFICATIONS ==========
+            
             // ========== ENREGISTRER LES LOGS DE PLANNING ==========
             // Créer les logs pour TOUTES les modifications (même si email refusé)
             const allModifications = [];
