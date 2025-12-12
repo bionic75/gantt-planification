@@ -1471,17 +1471,25 @@
             console.log('📋 Affectations en attente:', pendingAssignments);
             console.log('📊 Nombre d\'experts avec affectations:', Object.keys(pendingAssignments).length);
             
-            // Vérifier s'il y a des emails à envoyer AVANT de demander la déconnexion
+            // Vérifier s'il y a des emails à envoyer
             const emailCount = Object.keys(pendingAssignments).length;
             
             if (emailCount > 0) {
-                // Traiter les notifications d'abord
+                // Traiter les notifications d'abord et attendre la fin complète
                 try {
                     await checkPendingNotifications();
+                    // Attendre un petit délai supplémentaire pour s'assurer que tout est terminé
+                    await new Promise(resolve => setTimeout(resolve, 500));
                 } catch (error) {
                     console.error('❌ Erreur lors de l\'envoi des notifications:', error);
                 }
             }
+            
+            // S'assurer que tous les overlays sont bien retirés
+            const waitingElement = document.getElementById('emailWaitingMessage');
+            const overlayElement = document.getElementById('emailWaitingOverlay');
+            if (waitingElement) waitingElement.remove();
+            if (overlayElement) overlayElement.remove();
             
             // Maintenant demander la confirmation de déconnexion
             if (!confirm('Voulez-vous vraiment vous déconnecter ?')) {
@@ -1489,6 +1497,12 @@
                 return;
             }
             
+            // Procéder à la déconnexion
+            await performLogout();
+        }
+        
+        // Fonction séparée pour effectuer la déconnexion
+        async function performLogout() {
             // Afficher un indicateur de déconnexion en cours
             const loadingIndicator = document.createElement('div');
             loadingIndicator.id = 'logout-loading';
@@ -4846,23 +4860,18 @@
                 if (expertCount > 0) {
                     // Il y a des affectations en attente
                     await checkPendingNotifications();
+                    // Attendre un petit délai pour s'assurer que tout est terminé
+                    await new Promise(resolve => setTimeout(resolve, 500));
                 }
                 
-                // Déconnexion sans re-demander confirmation
-                try {
-                    await fetch(`${API_URL}/logout`, { method: 'POST', credentials: 'include' });
-                    currentUser = null;
-                    pendingAssignments = {};
-                    document.getElementById('loginPage').classList.add('active');
-                    document.querySelector('.container').style.display = 'none';
-                    document.getElementById('adminTab').style.display = 'none';
-                    document.getElementById('userInfo').style.display = 'none';
-                    loginStep = 'credentials';
-                    availableProfiles = [];
-                    console.log('✅ Déconnexion réussie');
-                } catch (error) {
-                    console.error('❌ Erreur logout:', error);
-                }
+                // S'assurer que tous les overlays sont bien retirés
+                const waitingElement = document.getElementById('emailWaitingMessage');
+                const overlayElement = document.getElementById('emailWaitingOverlay');
+                if (waitingElement) waitingElement.remove();
+                if (overlayElement) overlayElement.remove();
+                
+                // Déconnexion
+                await performLogout();
             }
         }
 
@@ -5123,20 +5132,46 @@
                 console.log('✅ Traitement des notifications terminé');
                 console.log(`📊 Résultat: ${emailsSent} envoyé(s), ${emailsFailed} échec(s)`);
                 
-                // Afficher le résultat final
+                // Afficher le résultat final avec un bouton Continuer
                 const statusEl = document.getElementById('emailCurrentStatus');
                 if (statusEl) {
+                    let resultMessage = '';
                     if (emailsFailed === 0 && emailsSent > 0) {
-                        statusEl.innerHTML = `<span style="color: #4CAF50;">✅ ${emailsSent} email(s) envoyé(s) avec succès</span>`;
+                        resultMessage = `<span style="color: #4CAF50;">✅ ${emailsSent} email(s) envoyé(s) avec succès</span>`;
                     } else if (emailsFailed > 0 && emailsSent > 0) {
-                        statusEl.innerHTML = `<span style="color: #f39c12;">⚠️ ${emailsSent} envoyé(s), ${emailsFailed} non envoyé(s) (timeout ou erreur)</span>`;
+                        resultMessage = `<span style="color: #f39c12;">⚠️ ${emailsSent} envoyé(s), ${emailsFailed} non envoyé(s) (timeout ou erreur)</span>`;
                     } else if (emailsFailed > 0 && emailsSent === 0) {
-                        statusEl.innerHTML = `<span style="color: #e74c3c;">❌ Aucun email envoyé - ${emailsFailed} échec(s) (timeout ou erreur serveur)</span>`;
+                        resultMessage = `<span style="color: #e74c3c;">❌ Aucun email envoyé - ${emailsFailed} échec(s) (timeout ou erreur serveur)</span>`;
                     }
+                    
+                    statusEl.innerHTML = `
+                        ${resultMessage}
+                        <br><br>
+                        <button id="emailContinueBtn" style="
+                            padding: 12px 30px;
+                            background-color: #4CAF50;
+                            color: white;
+                            border: none;
+                            border-radius: 5px;
+                            font-size: 16px;
+                            font-weight: bold;
+                            cursor: pointer;
+                        ">Continuer</button>
+                    `;
                 }
                 
-                // Attendre un peu pour que l'utilisateur voie le résultat
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                // Attendre que l'utilisateur clique sur Continuer
+                await new Promise(resolve => {
+                    const continueBtn = document.getElementById('emailContinueBtn');
+                    if (continueBtn) {
+                        continueBtn.addEventListener('click', () => {
+                            resolve();
+                        });
+                    } else {
+                        // Fallback si le bouton n'existe pas
+                        setTimeout(resolve, 2000);
+                    }
+                });
                 
                 // Masquer le message d'attente
                 const waitingElement = document.getElementById('emailWaitingMessage');
