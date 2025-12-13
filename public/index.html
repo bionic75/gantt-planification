@@ -5056,17 +5056,28 @@
             const entries = Object.entries(pendingAssignments);
             
             // Demander confirmation pour chaque expert
-            let emailsToSend = [];
+            let assignmentsToSend = [];
             for (const [resourceId, data] of entries) {
                 const assignmentCount = data.assignments.length;
                 const message = `Voulez-vous notifier ${data.expertPrenom} ${data.expertNom} (${data.expertEmail}) ?\n\n${assignmentCount} nouvelle(s) affectation(s).`;
                 
                 if (confirm(message)) {
-                    emailsToSend.push({ resourceId, data });
+                    assignmentsToSend.push({
+                        resourceId: parseInt(resourceId),
+                        email: data.expertEmail,
+                        expertName: `${data.expertPrenom} ${data.expertNom}`,
+                        expertPrenom: data.expertPrenom,
+                        assignments: data.assignments.map(a => ({
+                            date: a.date,
+                            period: a.period === 'AM' ? 'Matin' : 'Après-midi',
+                            activity: a.activity,
+                            location: a.location
+                        }))
+                    });
                 }
             }
             
-            if (emailsToSend.length === 0) {
+            if (assignmentsToSend.length === 0) {
                 console.log('⏭️ Aucun email à envoyer (tous refusés)');
                 return;
             }
@@ -5102,116 +5113,70 @@
             waitingDiv.innerHTML = `
                 <div style="font-size: 48px; margin-bottom: 20px;">📧</div>
                 <h3 style="margin: 0 0 15px 0; color: #333;">Envoi des emails en cours...</h3>
-                <p style="margin: 0 0 20px 0; color: #666; font-size: 14px;">Merci de patienter</p>
-                <div style="font-size: 20px; font-weight: bold; color: #4CAF50;">
-                    <span id="emailProgress">0</span> / <span id="emailTotal">${emailsToSend.length}</span>
-                </div>
+                <p style="margin: 0 0 20px 0; color: #666; font-size: 14px;">Envoi de ${assignmentsToSend.length} email(s), merci de patienter</p>
                 <div style="margin-top: 15px; height: 4px; background: #e0e0e0; border-radius: 2px; overflow: hidden;">
-                    <div id="emailProgressBar" style="height: 100%; width: 0%; background: #4CAF50; transition: width 0.3s;"></div>
+                    <div id="emailProgressBar" style="height: 100%; width: 0%; background: #4CAF50; animation: progressPulse 1.5s ease-in-out infinite;"></div>
                 </div>
-                <p id="emailCurrentStatus" style="margin-top: 15px; color: #888; font-size: 12px;">Initialisation...</p>
+                <style>
+                    @keyframes progressPulse {
+                        0%, 100% { width: 20%; margin-left: 0%; }
+                        50% { width: 60%; margin-left: 20%; }
+                    }
+                </style>
+                <p id="emailCurrentStatus" style="margin-top: 15px; color: #888; font-size: 12px;">Connexion au serveur...</p>
             `;
             
             document.body.appendChild(overlay);
             document.body.appendChild(waitingDiv);
             
-            let emailsSent = 0;
-            let emailsFailed = 0;
-            
-            // Envoyer les emails
-            for (const { resourceId, data } of emailsToSend) {
+            try {
+                // Un seul appel API qui envoie tous les emails
+                console.log('📤 Appel API send-assignment-emails...');
+                const senderName = `${currentUser.prenom} ${currentUser.nom}`;
+                const response = await fetch(`${API_URL}/send-assignment-emails`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ 
+                        assignments: assignmentsToSend,
+                        senderName: senderName
+                    })
+                });
+                
+                const result = await response.json();
+                console.log('📥 Réponse serveur:', result);
+                
+                // Mettre à jour le statut
                 const statusEl = document.getElementById('emailCurrentStatus');
-                if (statusEl) {
-                    statusEl.textContent = `Envoi à ${data.expertPrenom} ${data.expertNom}...`;
+                const progressBar = document.getElementById('emailProgressBar');
+                
+                if (progressBar) {
+                    progressBar.style.animation = 'none';
+                    progressBar.style.width = '100%';
+                    progressBar.style.marginLeft = '0';
                 }
                 
-                try {
-                    const assignmentsList = data.assignments.map(a => {
-                        const [year, month, day] = a.date.split('-');
-                        const dateStr = `${day}/${month}/${year}`;
-                        const periodLabel = a.period === 'AM' ? 'Matin' : 'Après-midi';
-                        let locationText = '';
-                        if (a.location && a.location !== '-') {
-                            locationText = ` - ${a.location}`;
-                        }
-                        return `<li><strong>${dateStr} (${periodLabel})</strong> - ${a.activity}${locationText}</li>`;
-                    }).join('');
-                    
-                    const emailBody = [
-                        '<h2>Nouvelle affectation - Planification GANTT</h2>',
-                        `<p>Bonjour ${data.expertPrenom} ${data.expertNom},</p>`,
-                        `<p><strong>${currentUser.prenom} ${currentUser.nom}</strong> vous a affecté ${data.assignments.length} nouvelle(s) activité(s) :</p>`,
-                        `<ul>${assignmentsList}</ul>`,
-                        '<p>Cordialement,<br>Le système de planification</p>'
-                    ].join('');
-                    
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 30000);
-                    
-                    const response = await fetch(`${API_URL}/send-calendar-email`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        credentials: 'include',
-                        signal: controller.signal,
-                        body: JSON.stringify({
-                            email: data.expertEmail,
-                            subject: 'Nouvelle affectation - Planification GANTT',
-                            html: emailBody,
-                            resourceId: resourceId
-                        })
+                // Traiter les résultats
+                const successResults = result.results ? result.results.filter(r => r.success) : [];
+                const failedResults = result.results ? result.results.filter(r => !r.success) : [];
+                
+                if (result.success && successResults.length > 0) {
+                    // Supprimer les experts dont l'email a été envoyé
+                    successResults.forEach(r => {
+                        delete pendingAssignments[r.resourceId];
                     });
                     
-                    clearTimeout(timeoutId);
-                    
-                    const result = await response.json();
-                    
-                    if (response.ok && result.success) {
-                        console.log(`✅ Email envoyé à ${data.expertPrenom} ${data.expertNom}`);
-                        emailsSent++;
-                        
-                        // Supprimer cet expert des affectations en attente
-                        delete pendingAssignments[resourceId];
+                    if (failedResults.length > 0) {
+                        statusEl.innerHTML = `<span style="color: #f39c12;">⚠️ ${successResults.length} envoyé(s), ${failedResults.length} échec(s)</span>`;
                     } else {
-                        throw new Error(result.error || 'Erreur inconnue');
+                        statusEl.innerHTML = `<span style="color: #4CAF50;">✅ ${successResults.length} email(s) envoyé(s) avec succès</span>`;
                     }
-                } catch (error) {
-                    console.error(`❌ Erreur envoi à ${data.expertPrenom} ${data.expertNom}:`, error);
-                    emailsFailed++;
-                    
-                    if (error.name === 'AbortError') {
-                        const statusEl = document.getElementById('emailCurrentStatus');
-                        if (statusEl) {
-                            statusEl.innerHTML = `<span style="color: #e74c3c;">⏱️ Timeout - Email non envoyé</span>`;
-                        }
-                    }
+                } else {
+                    statusEl.innerHTML = `<span style="color: #e74c3c;">❌ ${result.error || 'Erreur lors de l\'envoi'}</span>`;
                 }
                 
-                // Mettre à jour la progression
-                const progressEl = document.getElementById('emailProgress');
-                if (progressEl) {
-                    progressEl.textContent = emailsSent + emailsFailed;
-                }
-                const progressPercent = ((emailsSent + emailsFailed) / emailsToSend.length) * 100;
-                const progressBar = document.getElementById('emailProgressBar');
-                if (progressBar) {
-                    progressBar.style.width = progressPercent + '%';
-                }
-            }
-            
-            // Afficher le résultat final
-            const statusEl = document.getElementById('emailCurrentStatus');
-            if (statusEl) {
-                let resultMessage = '';
-                if (emailsFailed === 0 && emailsSent > 0) {
-                    resultMessage = `<span style="color: #4CAF50;">✅ ${emailsSent} email(s) envoyé(s) avec succès</span>`;
-                } else if (emailsFailed > 0 && emailsSent > 0) {
-                    resultMessage = `<span style="color: #f39c12;">⚠️ ${emailsSent} envoyé(s), ${emailsFailed} échec(s)</span>`;
-                } else if (emailsFailed > 0 && emailsSent === 0) {
-                    resultMessage = `<span style="color: #e74c3c;">❌ Aucun email envoyé - ${emailsFailed} échec(s)</span>`;
-                }
-                
-                statusEl.innerHTML = `
-                    ${resultMessage}
+                // Ajouter le bouton Fermer
+                statusEl.innerHTML += `
                     <br><br>
                     <button id="emailContinueBtn" style="
                         padding: 12px 30px;
@@ -5224,57 +5189,86 @@
                         cursor: pointer;
                     ">Fermer</button>
                 `;
-            }
-            
-            // Attendre le clic sur Fermer
-            await new Promise(resolve => {
-                const continueBtn = document.getElementById('emailContinueBtn');
-                if (continueBtn) {
-                    continueBtn.addEventListener('click', resolve);
-                } else {
-                    setTimeout(resolve, 2000);
+                
+                // Attendre le clic sur Fermer
+                await new Promise(resolve => {
+                    const continueBtn = document.getElementById('emailContinueBtn');
+                    if (continueBtn) {
+                        continueBtn.addEventListener('click', resolve);
+                    } else {
+                        setTimeout(resolve, 2000);
+                    }
+                });
+                
+                // Créer les notifications en base pour les emails envoyés
+                if (successResults.length > 0) {
+                    const notificationsToCreate = [];
+                    
+                    for (const assignment of assignmentsToSend) {
+                        const wasSuccess = successResults.some(r => r.resourceId === assignment.resourceId);
+                        if (wasSuccess) {
+                            assignment.assignments.forEach(item => {
+                                notificationsToCreate.push({
+                                    resourceId: assignment.resourceId,
+                                    date: item.date,
+                                    period: item.period,
+                                    activity: item.activity,
+                                    location: item.location || '-'
+                                });
+                            });
+                        }
+                    }
+                    
+                    if (notificationsToCreate.length > 0) {
+                        try {
+                            await fetch(`${API_URL}/notifications/create-batch`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                credentials: 'include',
+                                body: JSON.stringify({ notifications: notificationsToCreate })
+                            });
+                            console.log('✅ Notifications créées en base');
+                        } catch (error) {
+                            console.error('❌ Erreur création notifications:', error);
+                        }
+                    }
                 }
-            });
+                
+            } catch (error) {
+                console.error('❌ Erreur envoi emails:', error);
+                const statusEl = document.getElementById('emailCurrentStatus');
+                if (statusEl) {
+                    statusEl.innerHTML = `
+                        <span style="color: #e74c3c;">❌ Erreur: ${error.message}</span>
+                        <br><br>
+                        <button id="emailContinueBtn" style="
+                            padding: 12px 30px;
+                            background-color: #4CAF50;
+                            color: white;
+                            border: none;
+                            border-radius: 5px;
+                            font-size: 16px;
+                            font-weight: bold;
+                            cursor: pointer;
+                        ">Fermer</button>
+                    `;
+                    
+                    await new Promise(resolve => {
+                        const continueBtn = document.getElementById('emailContinueBtn');
+                        if (continueBtn) {
+                            continueBtn.addEventListener('click', resolve);
+                        } else {
+                            setTimeout(resolve, 2000);
+                        }
+                    });
+                }
+            }
             
             // Fermer la popup
             const waitingElement = document.getElementById('emailWaitingMessage');
             const overlayElement = document.getElementById('emailWaitingOverlay');
             if (waitingElement) waitingElement.remove();
             if (overlayElement) overlayElement.remove();
-            
-            // Créer les notifications en base pour les emails envoyés
-            if (emailsSent > 0) {
-                const notificationsToCreate = [];
-                
-                for (const { resourceId, data } of emailsToSend) {
-                    // Ne créer que pour ceux qui ont été envoyés (supprimés de pendingAssignments)
-                    if (!pendingAssignments[resourceId]) {
-                        data.assignments.forEach(assignment => {
-                            notificationsToCreate.push({
-                                resourceId: parseInt(resourceId),
-                                date: assignment.date,
-                                period: assignment.period === 'AM' ? 'Matin' : 'Après-midi',
-                                activity: assignment.activity,
-                                location: assignment.location || '-'
-                            });
-                        });
-                    }
-                }
-                
-                if (notificationsToCreate.length > 0) {
-                    try {
-                        await fetch(`${API_URL}/notifications/create-batch`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            credentials: 'include',
-                            body: JSON.stringify({ notifications: notificationsToCreate })
-                        });
-                        console.log('✅ Notifications créées en base');
-                    } catch (error) {
-                        console.error('❌ Erreur création notifications:', error);
-                    }
-                }
-            }
             
             // Mettre à jour le badge
             updatePendingEmailBadge();

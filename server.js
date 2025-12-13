@@ -34,7 +34,7 @@ app.use(session({
         maxAge: 24 * 60 * 60 * 1000,
         sameSite: 'lax'
     },
-    name: 'gantt.sid' // Nom personnalisé pour éviter les conflits!
+    name: 'gantt.sid' // Nom personnalisé pour éviter les conflits
 }));
 
 // NOTE: express.static sera défini APRÈS les routes API pour éviter les conflits
@@ -2038,6 +2038,112 @@ app.post('/api/send-calendar-email', requireAuth, async (req, res) => {
     }
 });
 
+// Endpoint optimisé pour envoyer les emails d'affectation (utilise Promise.all comme request-assignment)
+app.post('/api/send-assignment-emails', requireAuth, async (req, res) => {
+    const { assignments, senderName } = req.body;
+    
+    // assignments = [{ resourceId, email, expertName, assignments: [{date, period, activity, location}] }]
+    
+    if (!assignments || !Array.isArray(assignments) || assignments.length === 0) {
+        return res.status(400).json({ success: false, error: 'Aucune affectation à envoyer' });
+    }
+    
+    const transporter = createEmailTransporter();
+    if (!transporter) {
+        return res.status(500).json({ success: false, error: 'Configuration email non disponible' });
+    }
+    
+    console.log(`📧 Envoi de ${assignments.length} email(s) d'affectation par ${senderName}`);
+    
+    // Envoyer tous les emails en parallèle (comme request-assignment)
+    const emailPromises = assignments.map(async (item) => {
+        const { resourceId, email, expertName, expertPrenom, assignments: expertAssignments } = item;
+        
+        if (!email) {
+            console.log(`⚠️ Pas d'email pour ${expertName}`);
+            return { resourceId, success: false, error: 'Pas d\'email' };
+        }
+        
+        // Construire le contenu de l'email
+        const assignmentsList = expertAssignments.map(a => {
+            const [year, month, day] = a.date.split('-');
+            const dateStr = `${day}/${month}/${year}`;
+            let locationText = '';
+            if (a.location && a.location !== '-') {
+                locationText = ` - <em>${a.location}</em>`;
+            }
+            return `<li><strong>${dateStr} (${a.period})</strong> - ${a.activity}${locationText}</li>`;
+        }).join('');
+        
+        const mailOptions = {
+            from: `"Domaine des Urgences - Planification des ressources" <${emailConfig.user}>`,
+            to: email,
+            subject: 'Nouvelle affectation - Planification GANTT',
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
+                    <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                        <h2 style="color: #1D70B7; border-bottom: 2px solid #1D70B7; padding-bottom: 10px;">
+                            Nouvelle affectation
+                        </h2>
+                        
+                        <p>Bonjour ${expertPrenom || expertName},</p>
+                        
+                        <p><strong>${senderName}</strong> vous a affecté ${expertAssignments.length} nouvelle(s) activité(s) :</p>
+                        
+                        <ul style="background-color: #e3f2fd; padding: 15px 15px 15px 35px; border-left: 4px solid #2196f3; border-radius: 4px; list-style-type: disc;">
+                            ${assignmentsList}
+                        </ul>
+                        
+                        <p style="margin-top: 20px;">Cordialement,<br>Le système de planification SI-SAMU</p>
+                        
+                        <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
+                        
+                        <p style="color: #7f8c8d; font-size: 12px; text-align: center;">
+                            Cet email a été envoyé depuis le système SI-SAMU de planification des ressources.
+                        </p>
+                    </div>
+                </div>
+            `
+        };
+        
+        try {
+            console.log(`📧 Envoi à ${email} (${expertName})...`);
+            await transporter.sendMail(mailOptions);
+            console.log(`✅ Email envoyé à ${email}`);
+            return { resourceId, success: true, email };
+        } catch (error) {
+            console.error(`❌ Erreur envoi à ${email}:`, error.message);
+            return { resourceId, success: false, error: error.message };
+        }
+    });
+    
+    // Attendre tous les envois
+    const results = await Promise.all(emailPromises);
+    
+    const successCount = results.filter(r => r.success).length;
+    const failedCount = results.filter(r => !r.success).length;
+    
+    console.log(`📊 Résultat: ${successCount} envoyé(s), ${failedCount} échec(s)`);
+    
+    // Logger l'action
+    if (successCount > 0 && req.session.logId) {
+        const successEmails = results.filter(r => r.success).map(r => r.email).join(', ');
+        database.run(
+            `UPDATE connection_logs 
+             SET modifications = modifications || ? 
+             WHERE id = ?`,
+            [`${new Date().toLocaleString('fr-FR')}: Emails d'affectation envoyés à: ${successEmails}\n`, req.session.logId]
+        );
+    }
+    
+    res.json({
+        success: successCount > 0,
+        results,
+        sent: successCount,
+        failed: failedCount
+    });
+});
+
 // Routes d'export Excel
 app.get('/api/export/resources', requireAuth, (req, res) => {
     database.all('SELECT * FROM resources ORDER BY nom, prenom', (err, resources) => {
@@ -2550,6 +2656,117 @@ Fin : ${endDateFormatted}
 });
 
 // ========== RAZ (REMISE À ZÉRO) DES LOGS ==========
+
+// Endpoint pour envoyer les emails d'affectation (utilise la même méthode que request-assignment)
+app.post('/api/send-assignment-emails', requireAuth, async (req, res) => {
+    try {
+        const { assignments } = req.body;
+        // assignments = [{ resourceId, expertEmail, expertNom, expertPrenom, items: [{date, period, activity, location}] }]
+        
+        console.log('📧 Envoi emails d\'affectation reçu:', assignments?.length, 'expert(s)');
+        
+        if (!assignments || assignments.length === 0) {
+            return res.status(400).json({ success: false, error: 'Aucune affectation à envoyer' });
+        }
+        
+        // Récupérer le transporteur email
+        const transporter = createEmailTransporter();
+        
+        if (!transporter) {
+            console.log('⚠️ Configuration email non disponible');
+            return res.status(500).json({ 
+                success: false, 
+                error: 'Configuration email non disponible. Veuillez configurer SMTP dans les paramètres.' 
+            });
+        }
+        
+        const senderName = `${req.session.prenom || 'Admin'} ${req.session.nom || 'Système'}`;
+        
+        // Préparer les emails
+        const emailPromises = assignments.map(assignment => {
+            const { resourceId, expertEmail, expertNom, expertPrenom, items } = assignment;
+            
+            if (!expertEmail) {
+                console.log(`⚠️ Pas d'email pour ${expertPrenom} ${expertNom}`);
+                return Promise.resolve({ resourceId, success: false, error: 'Pas d\'email' });
+            }
+            
+            // Construire la liste des affectations
+            const assignmentsList = items.map(a => {
+                const [year, month, day] = a.date.split('-');
+                const dateStr = `${day}/${month}/${year}`;
+                const periodLabel = a.period === 'AM' ? 'Matin' : 'Après-midi';
+                let locationText = '';
+                if (a.location && a.location !== '-') {
+                    locationText = ` - ${a.location}`;
+                }
+                return `<li><strong>${dateStr} (${periodLabel})</strong> - ${a.activity}${locationText}</li>`;
+            }).join('');
+            
+            const mailOptions = {
+                from: `"Domaine des Urgences - Planification des ressources" <${emailConfig.user}>`,
+                to: expertEmail,
+                subject: 'Nouvelle affectation - Planification GANTT',
+                html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
+                        <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                            <h2 style="color: #1D70B7; border-bottom: 2px solid #1D70B7; padding-bottom: 10px;">
+                                Nouvelle affectation - Planification GANTT
+                            </h2>
+                            
+                            <p>Bonjour ${expertPrenom} ${expertNom},</p>
+                            
+                            <p><strong>${senderName}</strong> vous a affecté ${items.length} nouvelle(s) activité(s) :</p>
+                            
+                            <ul style="line-height: 1.8;">
+                                ${assignmentsList}
+                            </ul>
+                            
+                            <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
+                            
+                            <p style="color: #7f8c8d; font-size: 12px; text-align: center; margin: 0;">
+                                Cet email a été envoyé depuis le système SI-SAMU de planification des ressources.
+                            </p>
+                        </div>
+                    </div>
+                `
+            };
+            
+            console.log(`📧 Envoi email à ${expertEmail} (${expertPrenom} ${expertNom})...`);
+            
+            return transporter.sendMail(mailOptions)
+                .then(() => {
+                    console.log(`✅ Email envoyé avec succès à ${expertEmail}`);
+                    return { resourceId, success: true, email: expertEmail };
+                })
+                .catch(error => {
+                    console.error(`❌ Erreur envoi email à ${expertEmail}:`, error.message);
+                    return { resourceId, success: false, error: error.message };
+                });
+        });
+        
+        const results = await Promise.all(emailPromises);
+        const successfulResults = results.filter(r => r.success);
+        const failedResults = results.filter(r => !r.success);
+        
+        console.log('📊 Résultats envoi:', { 
+            total: results.length, 
+            succès: successfulResults.length,
+            échecs: failedResults.length 
+        });
+        
+        res.json({
+            success: successfulResults.length > 0,
+            sent: successfulResults.map(r => r.resourceId),
+            failed: failedResults.map(r => r.resourceId),
+            message: `${successfulResults.length} email(s) envoyé(s), ${failedResults.length} échec(s)`
+        });
+        
+    } catch (error) {
+        console.error('❌ Erreur envoi emails d\'affectation:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
 
 // Endpoint de diagnostic pour les logs de planning (temporaire)
 app.get('/api/logs/planning-debug', requireAdmin, (req, res) => {
