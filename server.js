@@ -2144,6 +2144,60 @@ app.post('/api/send-assignment-emails', requireAuth, async (req, res) => {
     });
 });
 
+// ========== GESTION DES CONGÉS SCOLAIRES ==========
+
+// Sauvegarder les congés scolaires
+app.post('/api/school-holidays', requireAdmin, (req, res) => {
+    const { holidays } = req.body;
+    
+    if (!holidays) {
+        return res.status(400).json({ success: false, error: 'Données manquantes' });
+    }
+    
+    // Sauvegarder dans la table settings
+    const holidaysJson = JSON.stringify(holidays);
+    
+    database.run(
+        `INSERT OR REPLACE INTO settings (key, value) VALUES ('school_holidays', ?)`,
+        [holidaysJson],
+        (err) => {
+            if (err) {
+                console.error('Erreur sauvegarde congés scolaires:', err);
+                return res.status(500).json({ success: false, error: err.message });
+            }
+            
+            console.log('📅 Congés scolaires sauvegardés');
+            res.json({ success: true });
+        }
+    );
+});
+
+// Récupérer les congés scolaires
+app.get('/api/school-holidays', requireAuth, (req, res) => {
+    database.get(
+        `SELECT value FROM settings WHERE key = 'school_holidays'`,
+        (err, row) => {
+            if (err) {
+                console.error('Erreur lecture congés scolaires:', err);
+                return res.status(500).json({ success: false, error: err.message });
+            }
+            
+            if (row && row.value) {
+                try {
+                    const holidays = JSON.parse(row.value);
+                    res.json({ success: true, holidays });
+                } catch (e) {
+                    res.json({ success: true, holidays: { zoneA: [], zoneB: [], zoneC: [] } });
+                }
+            } else {
+                res.json({ success: true, holidays: { zoneA: [], zoneB: [], zoneC: [] } });
+            }
+        }
+    );
+});
+
+// ========== FIN GESTION DES CONGÉS SCOLAIRES ==========
+
 // Routes d'export Excel
 app.get('/api/export/resources', requireAuth, (req, res) => {
     database.all('SELECT * FROM resources ORDER BY nom, prenom', (err, resources) => {
