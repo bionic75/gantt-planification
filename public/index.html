@@ -389,6 +389,38 @@
                 <button class="tab-btn" onclick="switchTab('planning', event)">Planification</button>
                 <button class="tab-btn" id="adminTab" onclick="switchTab('admin', event)" style="display:none;">Administration</button>
                 
+                <!-- Bouton d'envoi des notifications par email (visible uniquement pour admin/user) -->
+                <button id="sendEmailBtn" onclick="openSendEmailModal()" title="Envoyer les affectations par email" style="
+                    display: none;
+                    padding: 8px 15px;
+                    background-color: #27ae60;
+                    color: white;
+                    border: none;
+                    cursor: pointer;
+                    font-size: 18px;
+                    transition: all 0.3s;
+                    border-radius: 4px;
+                    margin-right: 10px;
+                    position: relative;
+                ">
+                    <span style="font-size: 20px;">✉️</span>
+                    <span id="pendingEmailBadge" style="
+                        display: none;
+                        position: absolute;
+                        top: -8px;
+                        right: -8px;
+                        background-color: #e74c3c;
+                        color: white;
+                        border-radius: 50%;
+                        width: 20px;
+                        height: 20px;
+                        font-size: 11px;
+                        font-weight: bold;
+                        align-items: center;
+                        justify-content: center;
+                    ">0</span>
+                </button>
+                
                 <button class="logout-icon" onclick="logout()" title="Déconnexion"></button>
             </div>
         </div>
@@ -1432,6 +1464,15 @@
                 requestBtn.style.display = 'none';
             }
             
+            // Afficher le bouton d'envoi d'email pour admin et user
+            const sendEmailBtn = document.getElementById('sendEmailBtn');
+            if (currentUser.activeProfile === 'admin' || currentUser.activeProfile === 'user') {
+                sendEmailBtn.style.display = 'inline-block';
+                updatePendingEmailBadge(); // Mettre à jour le badge
+            } else {
+                sendEmailBtn.style.display = 'none';
+            }
+            
             // Démarrer la vérification des notifications pour les experts
             if (currentUser.activeProfile === 'expert') {
                 // Pour les experts : utiliser le système de notifications d'affectations
@@ -1467,38 +1508,68 @@
 
         async function logout() {
             console.log('🚪 Début de la déconnexion');
-            console.log('👤 Profil actuel:', currentUser?.activeProfile);
-            console.log('📋 Affectations en attente:', pendingAssignments);
-            console.log('📊 Nombre d\'experts avec affectations:', Object.keys(pendingAssignments).length);
             
-            // Vérifier s'il y a des emails à envoyer
-            const emailCount = Object.keys(pendingAssignments).length;
-            
-            if (emailCount > 0) {
-                // Traiter les notifications d'abord et attendre la fin complète
-                try {
-                    await checkPendingNotifications();
-                    // Attendre un petit délai supplémentaire pour s'assurer que tout est terminé
-                    await new Promise(resolve => setTimeout(resolve, 500));
-                } catch (error) {
-                    console.error('❌ Erreur lors de l\'envoi des notifications:', error);
-                }
-            }
-            
-            // S'assurer que tous les overlays sont bien retirés
-            const waitingElement = document.getElementById('emailWaitingMessage');
-            const overlayElement = document.getElementById('emailWaitingOverlay');
-            if (waitingElement) waitingElement.remove();
-            if (overlayElement) overlayElement.remove();
-            
-            // Maintenant demander la confirmation de déconnexion
+            // Demander la confirmation de déconnexion
             if (!confirm('Voulez-vous vraiment vous déconnecter ?')) {
                 console.log('❌ Déconnexion annulée par l\'utilisateur');
                 return;
             }
             
+            // Enregistrer les logs des affectations en attente (sans envoyer d'email)
+            await saveAssignmentLogs();
+            
             // Procéder à la déconnexion
             await performLogout();
+        }
+        
+        // Fonction pour sauvegarder les logs des affectations sans envoyer d'email
+        async function saveAssignmentLogs() {
+            const expertCount = Object.keys(pendingAssignments).length;
+            
+            if (expertCount === 0) {
+                console.log('⏭️ Aucune affectation en attente');
+                return;
+            }
+            
+            console.log(`📝 Enregistrement des logs pour ${expertCount} expert(s)`);
+            
+            // Créer les logs pour toutes les modifications
+            const allModifications = [];
+            
+            for (const [resourceId, data] of Object.entries(pendingAssignments)) {
+                data.assignments.forEach(assignment => {
+                    allModifications.push({
+                        resourceId: parseInt(resourceId),
+                        resourceName: `${data.expertPrenom} ${data.expertNom}`,
+                        date: assignment.date,
+                        period: assignment.period === 'AM' ? 'Matin' : 'Après-midi',
+                        activity: assignment.activity,
+                        location: assignment.location || '-',
+                        emailSent: false
+                    });
+                });
+            }
+            
+            if (allModifications.length > 0) {
+                try {
+                    const logResponse = await fetch(`${API_URL}/logs/save-planning-modifications`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({ modifications: allModifications })
+                    });
+                    
+                    if (logResponse.ok) {
+                        console.log('✅ Logs enregistrés');
+                    } else {
+                        console.error('❌ Erreur enregistrement logs:', logResponse.status);
+                    }
+                } catch (error) {
+                    console.error('❌ Erreur appel API logs:', error);
+                }
+            }
+            
+            // Ne PAS réinitialiser pendingAssignments ici car l'utilisateur peut vouloir envoyer les emails avant
         }
         
         // Fonction séparée pour effectuer la déconnexion
@@ -4853,22 +4924,8 @@
                 console.log('👋 Déconnexion en cours...');
                 stopInactivityTimer();
                 
-                // Vérifier s'il y a des notifications en attente avant de se déconnecter
-                const expertCount = Object.keys(pendingAssignments).length;
-                console.log(`📧 ${expertCount} expert(s) avec affectations en attente`);
-                
-                if (expertCount > 0) {
-                    // Il y a des affectations en attente
-                    await checkPendingNotifications();
-                    // Attendre un petit délai pour s'assurer que tout est terminé
-                    await new Promise(resolve => setTimeout(resolve, 500));
-                }
-                
-                // S'assurer que tous les overlays sont bien retirés
-                const waitingElement = document.getElementById('emailWaitingMessage');
-                const overlayElement = document.getElementById('emailWaitingOverlay');
-                if (waitingElement) waitingElement.remove();
-                if (overlayElement) overlayElement.remove();
+                // Enregistrer les logs des affectations en attente (sans envoyer d'email)
+                await saveAssignmentLogs();
                 
                 // Déconnexion
                 await performLogout();
@@ -4945,325 +5002,284 @@
                     // Ajouter une nouvelle affectation
                     pendingAssignments[resourceId].assignments.push(newAssignment);
                 }
+                
+                // Mettre à jour le badge du bouton d'envoi d'email
+                updatePendingEmailBadge();
             }
         }
-
-        // Vérifier et proposer l'envoi des notifications
-        async function checkPendingNotifications() {
+        
+        // Mettre à jour le badge du bouton d'envoi d'email
+        function updatePendingEmailBadge() {
+            const badge = document.getElementById('pendingEmailBadge');
+            const btn = document.getElementById('sendEmailBtn');
+            
+            if (!badge || !btn) return;
+            
+            // Compter le nombre total d'affectations en attente
+            let totalAssignments = 0;
+            for (const data of Object.values(pendingAssignments)) {
+                totalAssignments += data.assignments.length;
+            }
+            
+            if (totalAssignments > 0) {
+                badge.textContent = totalAssignments;
+                badge.style.display = 'flex';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+        
+        // Ouvrir la modal d'envoi d'email
+        function openSendEmailModal() {
             const expertCount = Object.keys(pendingAssignments).length;
             
             if (expertCount === 0) {
-                console.log('⏭️ Aucune affectation en attente, pas de notification à envoyer');
-                return; // Pas de nouvelles affectations
+                alert('Aucune nouvelle affectation à envoyer.');
+                return;
+            }
+            
+            // Lancer l'envoi des emails
+            sendPendingEmails();
+        }
+        
+        // Envoyer les emails en attente
+        async function sendPendingEmails() {
+            const expertCount = Object.keys(pendingAssignments).length;
+            
+            if (expertCount === 0) {
+                console.log('⏭️ Aucune affectation en attente');
+                return;
             }
             
             console.log(`📧 ${expertCount} expert(s) avec affectations en attente`, pendingAssignments);
-            console.log(`📋 Détail des affectations:`, JSON.stringify(pendingAssignments, null, 2));
             
             const entries = Object.entries(pendingAssignments);
-            console.log(`🔄 Nombre d'entrées à traiter: ${entries.length}`);
             
             // Demander confirmation pour chaque expert
             let emailsToSend = [];
             for (const [resourceId, data] of entries) {
-                console.log(`\n👤 Traitement de l'expert ${resourceId}:`, data);
-                
                 const assignmentCount = data.assignments.length;
-                const message = `Voulez-vous notifier ${data.expertPrenom} ${data.expertNom} (${data.expertEmail}) ?\n\n${assignmentCount} nouvelle(s) affectation(s) ont été créées.`;
+                const message = `Voulez-vous notifier ${data.expertPrenom} ${data.expertNom} (${data.expertEmail}) ?\n\n${assignmentCount} nouvelle(s) affectation(s).`;
                 
-                console.log(`❓ Affichage de la popup de confirmation pour ${data.expertPrenom} ${data.expertNom}`);
-                const shouldSend = confirm(message);
-                console.log(`👤 Réponse utilisateur pour ${data.expertPrenom} ${data.expertNom}: ${shouldSend ? 'OUI' : 'NON'}`);
-                
-                if (shouldSend) {
+                if (confirm(message)) {
                     emailsToSend.push({ resourceId, data });
-                } else {
-                    console.log(`⏭️ Envoi d'email refusé pour ${data.expertPrenom} ${data.expertNom}`);
                 }
             }
             
-            // Si des emails doivent être envoyés
-            if (emailsToSend.length > 0) {
-                // Créer le message d'attente
-                const waitingDiv = document.createElement('div');
-                waitingDiv.id = 'emailWaitingMessage';
-                waitingDiv.style.cssText = `
-                    position: fixed;
-                    top: 50%;
-                    left: 50%;
-                    transform: translate(-50%, -50%);
-                    background: white;
-                    padding: 30px 40px;
-                    border-radius: 10px;
-                    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-                    z-index: 10001;
-                    text-align: center;
-                    min-width: 400px;
-                `;
-                waitingDiv.innerHTML = `
-                    <div style="font-size: 48px; margin-bottom: 20px;">📧</div>
-                    <h3 style="margin: 0 0 15px 0; color: #333;">Envoi des emails en cours...</h3>
-                    <p style="margin: 0 0 20px 0; color: #666; font-size: 14px;">Merci de patienter, cela peut prendre quelques secondes</p>
-                    <div style="font-size: 20px; font-weight: bold; color: #4CAF50;">
-                        <span id="emailProgress">0</span> / <span id="emailTotal">${emailsToSend.length}</span>
-                    </div>
-                    <div style="margin-top: 15px; height: 4px; background: #e0e0e0; border-radius: 2px; overflow: hidden;">
-                        <div id="emailProgressBar" style="height: 100%; width: 0%; background: #4CAF50; transition: width 0.3s;"></div>
-                    </div>
-                    <p id="emailCurrentStatus" style="margin-top: 15px; color: #888; font-size: 12px;">Initialisation...</p>
-                `;
-                
-                // Overlay sombre derrière
-                const overlay = document.createElement('div');
-                overlay.id = 'emailWaitingOverlay';
-                overlay.style.cssText = `
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    width: 100%;
-                    height: 100%;
-                    background: rgba(0, 0, 0, 0.5);
-                    z-index: 10000;
-                `;
-                
-                document.body.appendChild(overlay);
-                document.body.appendChild(waitingDiv);
-                
-                let emailsSent = 0;
-                let emailsFailed = 0;
-                
-                // Envoyer les emails un par un
-                for (const { resourceId, data } of emailsToSend) {
-                    const statusEl = document.getElementById('emailCurrentStatus');
-                    if (statusEl) {
-                        statusEl.textContent = `Envoi à ${data.expertPrenom} ${data.expertNom}...`;
-                    }
-                    
-                    console.log(`📤 Envoi de l'email à ${data.expertPrenom} ${data.expertNom}...`);
-                    
-                    try {
-                        // Créer une liste HTML avec une ligne par affectation
-                        const assignmentsList = data.assignments.map(a => {
-                            const [year, month, day] = a.date.split('-');
-                            const dateStr = `${day}/${month}/${year}`;
-                            const periodLabel = a.period === 'AM' ? 'Matin' : 'Apres-midi';
-                            
-                            // Garder la localisation avec ses emojis
-                            let locationText = '';
-                            if (a.location && a.location !== '-') {
-                                locationText = ` - ${a.location}`;
-                            }
-                            
-                            return `<li><strong>${dateStr} (${periodLabel})</strong> - ${a.activity}${locationText}</li>`;
-                        }).join('');
-                        
-                        // Créer le corps de l'email
-                        const emailBody = [
-                            '<h2>Nouvelle affectation - Planification GANTT</h2>',
-                            `<p>Bonjour ${data.expertPrenom} ${data.expertNom},</p>`,
-                            `<p><strong>${currentUser.prenom} ${currentUser.nom}</strong> vous a affecte ${data.assignments.length} nouvelle(s) activite(s) :</p>`,
-                            `<ul>${assignmentsList}</ul>`,
-                            '<p>Cordialement,<br>Le systeme de planification</p>'
-                        ].join('');
-                        
-                        console.log('📧 Préparation de l\'email:', {
-                            to: data.expertEmail,
-                            subject: 'Nouvelle affectation - Planification GANTT',
-                            bodyLength: emailBody.length,
-                            assignmentsCount: data.assignments.length
-                        });
-                        
-                        // Envoyer l'email via l'API send-calendar-email avec timeout
-                        const controller = new AbortController();
-                        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 secondes timeout
-                        
-                        const response = await fetch(`${API_URL}/send-calendar-email`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            credentials: 'include',
-                            signal: controller.signal,
-                            body: JSON.stringify({
-                                email: data.expertEmail,
-                                subject: 'Nouvelle affectation - Planification GANTT',
-                                html: emailBody,
-                                resourceId: resourceId
-                            })
-                        });
-                        
-                        clearTimeout(timeoutId);
-                        
-                        console.log('📡 Réponse serveur status:', response.status);
-                        
-                        const result = await response.json();
-                        console.log('📡 Réponse serveur body:', result);
-                        
-                        if (response.ok && result.success) {
-                            console.log(`✅ Email envoyé avec succès à ${data.expertPrenom} ${data.expertNom}`);
-                            emailsSent++;
-                        } else {
-                            throw new Error(result.error || 'Erreur inconnue');
-                        }
-                    } catch (error) {
-                        console.error(`❌ Erreur envoi notification à ${data.expertPrenom} ${data.expertNom}:`, error);
-                        emailsFailed++;
-                        
-                        if (error.name === 'AbortError') {
-                            console.error('⏱️ Timeout lors de l\'envoi de l\'email');
-                            // Afficher un message d'erreur spécifique pour le timeout
-                            const statusEl = document.getElementById('emailCurrentStatus');
-                            if (statusEl) {
-                                statusEl.innerHTML = `<span style="color: #e74c3c;">⏱️ Timeout - Email non envoyé à ${data.expertPrenom} ${data.expertNom}</span>`;
-                            }
-                        }
-                    }
-                    
-                    // Mettre à jour le compteur
-                    const progressEl = document.getElementById('emailProgress');
-                    if (progressEl) {
-                        progressEl.textContent = emailsSent + emailsFailed;
-                    }
-                    const progressPercent = ((emailsSent + emailsFailed) / emailsToSend.length) * 100;
-                    const progressBar = document.getElementById('emailProgressBar');
-                    if (progressBar) {
-                        progressBar.style.width = progressPercent + '%';
-                    }
-                }
-                
-                console.log('✅ Traitement des notifications terminé');
-                console.log(`📊 Résultat: ${emailsSent} envoyé(s), ${emailsFailed} échec(s)`);
-                
-                // Afficher le résultat final avec un bouton Continuer
+            if (emailsToSend.length === 0) {
+                console.log('⏭️ Aucun email à envoyer (tous refusés)');
+                return;
+            }
+            
+            // Créer le message d'attente
+            const overlay = document.createElement('div');
+            overlay.id = 'emailWaitingOverlay';
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 10000;
+            `;
+            
+            const waitingDiv = document.createElement('div');
+            waitingDiv.id = 'emailWaitingMessage';
+            waitingDiv.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: white;
+                padding: 30px 40px;
+                border-radius: 10px;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+                z-index: 10001;
+                text-align: center;
+                min-width: 400px;
+            `;
+            waitingDiv.innerHTML = `
+                <div style="font-size: 48px; margin-bottom: 20px;">📧</div>
+                <h3 style="margin: 0 0 15px 0; color: #333;">Envoi des emails en cours...</h3>
+                <p style="margin: 0 0 20px 0; color: #666; font-size: 14px;">Merci de patienter</p>
+                <div style="font-size: 20px; font-weight: bold; color: #4CAF50;">
+                    <span id="emailProgress">0</span> / <span id="emailTotal">${emailsToSend.length}</span>
+                </div>
+                <div style="margin-top: 15px; height: 4px; background: #e0e0e0; border-radius: 2px; overflow: hidden;">
+                    <div id="emailProgressBar" style="height: 100%; width: 0%; background: #4CAF50; transition: width 0.3s;"></div>
+                </div>
+                <p id="emailCurrentStatus" style="margin-top: 15px; color: #888; font-size: 12px;">Initialisation...</p>
+            `;
+            
+            document.body.appendChild(overlay);
+            document.body.appendChild(waitingDiv);
+            
+            let emailsSent = 0;
+            let emailsFailed = 0;
+            
+            // Envoyer les emails
+            for (const { resourceId, data } of emailsToSend) {
                 const statusEl = document.getElementById('emailCurrentStatus');
                 if (statusEl) {
-                    let resultMessage = '';
-                    if (emailsFailed === 0 && emailsSent > 0) {
-                        resultMessage = `<span style="color: #4CAF50;">✅ ${emailsSent} email(s) envoyé(s) avec succès</span>`;
-                    } else if (emailsFailed > 0 && emailsSent > 0) {
-                        resultMessage = `<span style="color: #f39c12;">⚠️ ${emailsSent} envoyé(s), ${emailsFailed} non envoyé(s) (timeout ou erreur)</span>`;
-                    } else if (emailsFailed > 0 && emailsSent === 0) {
-                        resultMessage = `<span style="color: #e74c3c;">❌ Aucun email envoyé - ${emailsFailed} échec(s) (timeout ou erreur serveur)</span>`;
-                    }
-                    
-                    statusEl.innerHTML = `
-                        ${resultMessage}
-                        <br><br>
-                        <button id="emailContinueBtn" style="
-                            padding: 12px 30px;
-                            background-color: #4CAF50;
-                            color: white;
-                            border: none;
-                            border-radius: 5px;
-                            font-size: 16px;
-                            font-weight: bold;
-                            cursor: pointer;
-                        ">Continuer</button>
-                    `;
+                    statusEl.textContent = `Envoi à ${data.expertPrenom} ${data.expertNom}...`;
                 }
                 
-                // Attendre que l'utilisateur clique sur Continuer
-                await new Promise(resolve => {
-                    const continueBtn = document.getElementById('emailContinueBtn');
-                    if (continueBtn) {
-                        continueBtn.addEventListener('click', () => {
-                            resolve();
-                        });
+                try {
+                    const assignmentsList = data.assignments.map(a => {
+                        const [year, month, day] = a.date.split('-');
+                        const dateStr = `${day}/${month}/${year}`;
+                        const periodLabel = a.period === 'AM' ? 'Matin' : 'Après-midi';
+                        let locationText = '';
+                        if (a.location && a.location !== '-') {
+                            locationText = ` - ${a.location}`;
+                        }
+                        return `<li><strong>${dateStr} (${periodLabel})</strong> - ${a.activity}${locationText}</li>`;
+                    }).join('');
+                    
+                    const emailBody = [
+                        '<h2>Nouvelle affectation - Planification GANTT</h2>',
+                        `<p>Bonjour ${data.expertPrenom} ${data.expertNom},</p>`,
+                        `<p><strong>${currentUser.prenom} ${currentUser.nom}</strong> vous a affecté ${data.assignments.length} nouvelle(s) activité(s) :</p>`,
+                        `<ul>${assignmentsList}</ul>`,
+                        '<p>Cordialement,<br>Le système de planification</p>'
+                    ].join('');
+                    
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 30000);
+                    
+                    const response = await fetch(`${API_URL}/send-calendar-email`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        signal: controller.signal,
+                        body: JSON.stringify({
+                            email: data.expertEmail,
+                            subject: 'Nouvelle affectation - Planification GANTT',
+                            html: emailBody,
+                            resourceId: resourceId
+                        })
+                    });
+                    
+                    clearTimeout(timeoutId);
+                    
+                    const result = await response.json();
+                    
+                    if (response.ok && result.success) {
+                        console.log(`✅ Email envoyé à ${data.expertPrenom} ${data.expertNom}`);
+                        emailsSent++;
+                        
+                        // Supprimer cet expert des affectations en attente
+                        delete pendingAssignments[resourceId];
                     } else {
-                        // Fallback si le bouton n'existe pas
-                        setTimeout(resolve, 2000);
+                        throw new Error(result.error || 'Erreur inconnue');
                     }
-                });
+                } catch (error) {
+                    console.error(`❌ Erreur envoi à ${data.expertPrenom} ${data.expertNom}:`, error);
+                    emailsFailed++;
+                    
+                    if (error.name === 'AbortError') {
+                        const statusEl = document.getElementById('emailCurrentStatus');
+                        if (statusEl) {
+                            statusEl.innerHTML = `<span style="color: #e74c3c;">⏱️ Timeout - Email non envoyé</span>`;
+                        }
+                    }
+                }
                 
-                // Masquer le message d'attente
-                const waitingElement = document.getElementById('emailWaitingMessage');
-                const overlayElement = document.getElementById('emailWaitingOverlay');
-                if (waitingElement) waitingElement.remove();
-                if (overlayElement) overlayElement.remove();
+                // Mettre à jour la progression
+                const progressEl = document.getElementById('emailProgress');
+                if (progressEl) {
+                    progressEl.textContent = emailsSent + emailsFailed;
+                }
+                const progressPercent = ((emailsSent + emailsFailed) / emailsToSend.length) * 100;
+                const progressBar = document.getElementById('emailProgressBar');
+                if (progressBar) {
+                    progressBar.style.width = progressPercent + '%';
+                }
             }
             
-            // ========== CRÉER LES NOTIFICATIONS EN BASE ==========
-            // Créer les notifications pour TOUS les experts qui ont reçu un email
-            // (pour qu'ils voient le badge à leur prochaine connexion)
-            if (emailsToSend.length > 0) {
+            // Afficher le résultat final
+            const statusEl = document.getElementById('emailCurrentStatus');
+            if (statusEl) {
+                let resultMessage = '';
+                if (emailsFailed === 0 && emailsSent > 0) {
+                    resultMessage = `<span style="color: #4CAF50;">✅ ${emailsSent} email(s) envoyé(s) avec succès</span>`;
+                } else if (emailsFailed > 0 && emailsSent > 0) {
+                    resultMessage = `<span style="color: #f39c12;">⚠️ ${emailsSent} envoyé(s), ${emailsFailed} échec(s)</span>`;
+                } else if (emailsFailed > 0 && emailsSent === 0) {
+                    resultMessage = `<span style="color: #e74c3c;">❌ Aucun email envoyé - ${emailsFailed} échec(s)</span>`;
+                }
+                
+                statusEl.innerHTML = `
+                    ${resultMessage}
+                    <br><br>
+                    <button id="emailContinueBtn" style="
+                        padding: 12px 30px;
+                        background-color: #4CAF50;
+                        color: white;
+                        border: none;
+                        border-radius: 5px;
+                        font-size: 16px;
+                        font-weight: bold;
+                        cursor: pointer;
+                    ">Fermer</button>
+                `;
+            }
+            
+            // Attendre le clic sur Fermer
+            await new Promise(resolve => {
+                const continueBtn = document.getElementById('emailContinueBtn');
+                if (continueBtn) {
+                    continueBtn.addEventListener('click', resolve);
+                } else {
+                    setTimeout(resolve, 2000);
+                }
+            });
+            
+            // Fermer la popup
+            const waitingElement = document.getElementById('emailWaitingMessage');
+            const overlayElement = document.getElementById('emailWaitingOverlay');
+            if (waitingElement) waitingElement.remove();
+            if (overlayElement) overlayElement.remove();
+            
+            // Créer les notifications en base pour les emails envoyés
+            if (emailsSent > 0) {
                 const notificationsToCreate = [];
                 
                 for (const { resourceId, data } of emailsToSend) {
-                    data.assignments.forEach(assignment => {
-                        notificationsToCreate.push({
-                            resourceId: parseInt(resourceId),
-                            date: assignment.date,
-                            period: assignment.period === 'AM' ? 'Matin' : 'Après-midi',
-                            activity: assignment.activity,
-                            location: assignment.location || '-'
+                    // Ne créer que pour ceux qui ont été envoyés (supprimés de pendingAssignments)
+                    if (!pendingAssignments[resourceId]) {
+                        data.assignments.forEach(assignment => {
+                            notificationsToCreate.push({
+                                resourceId: parseInt(resourceId),
+                                date: assignment.date,
+                                period: assignment.period === 'AM' ? 'Matin' : 'Après-midi',
+                                activity: assignment.activity,
+                                location: assignment.location || '-'
+                            });
                         });
-                    });
+                    }
                 }
                 
                 if (notificationsToCreate.length > 0) {
                     try {
-                        console.log(`📝 Création de ${notificationsToCreate.length} notification(s) en base...`);
-                        const notifResponse = await fetch(`${API_URL}/notifications/create-batch`, {
+                        await fetch(`${API_URL}/notifications/create-batch`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             credentials: 'include',
                             body: JSON.stringify({ notifications: notificationsToCreate })
                         });
-                        
-                        if (notifResponse.ok) {
-                            const notifResult = await notifResponse.json();
-                            console.log(`✅ Notifications créées en base: ${notifResult.created}`);
-                        } else {
-                            console.error('❌ Erreur création notifications:', notifResponse.status);
-                        }
+                        console.log('✅ Notifications créées en base');
                     } catch (error) {
-                        console.error('❌ Erreur appel API notifications:', error);
+                        console.error('❌ Erreur création notifications:', error);
                     }
                 }
             }
-            // ========== FIN CRÉATION NOTIFICATIONS ==========
             
-            // ========== ENREGISTRER LES LOGS DE PLANNING ==========
-            // Créer les logs pour TOUTES les modifications (même si email refusé)
-            const allModifications = [];
-            
-            for (const [resourceId, data] of Object.entries(pendingAssignments)) {
-                const emailWasSent = emailsToSend.some(e => e.resourceId === resourceId);
-                
-                data.assignments.forEach(assignment => {
-                    allModifications.push({
-                        resourceId: parseInt(resourceId),
-                        resourceName: `${data.expertPrenom} ${data.expertNom}`,
-                        date: assignment.date,
-                        period: assignment.period === 'AM' ? 'Matin' : 'Après-midi',
-                        activity: assignment.activity,
-                        location: assignment.location || '-',
-                        emailSent: emailWasSent
-                    });
-                });
-            }
-            
-            if (allModifications.length > 0) {
-                try {
-                    const logResponse = await fetch(`${API_URL}/logs/save-planning-modifications`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        credentials: 'include',
-                        body: JSON.stringify({ modifications: allModifications })
-                    });
-                    
-                    if (logResponse.ok) {
-                        const logResult = await logResponse.json();
-                    } else {
-                        console.error('❌ Erreur enregistrement logs:', logResponse.status);
-                    }
-                } catch (error) {
-                    console.error('❌ Erreur appel API logs:', error);
-                }
-            }
-            // ========== FIN ENREGISTREMENT LOGS ==========
-            
-            // Réinitialiser les affectations en attente
-            pendingAssignments = {};
+            // Mettre à jour le badge
+            updatePendingEmailBadge();
         }
+
 
         // ========== GESTION DES LOGS DE CONNEXION ==========
 
