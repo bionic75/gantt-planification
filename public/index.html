@@ -4949,16 +4949,36 @@
             const expert = users.find(u => u.resource_id === resourceId && u.is_expert);
             if (!expert) return;
             
-            // Vérifier si c'est un changement d'affectation
-            const oldActivityKey = `${resourceId}_activity_${dateKey}_${period}`;
-            const oldActivity = oldScheduleData[oldActivityKey] || '1';
-            const newActivity = activity;
+            const newActivityInt = parseInt(activity);
+            const isRealAssignment = newActivityInt >= 3; // Activités 3-8 sont des vraies affectations
             
-            const isActivityChange = oldActivity !== newActivity;
-            const isExistingAffectation = parseInt(newActivity) >= 3;
-            const shouldUpdate = isActivityChange || isExistingAffectation;
+            // Si c'est un retour à l'état 1 (Indisponible) ou 2 (En attente), retirer de la liste
+            if (newActivityInt <= 2) {
+                if (pendingAssignments[resourceId]) {
+                    // Chercher et retirer cette demi-journée
+                    const existingIndex = pendingAssignments[resourceId].assignments.findIndex(
+                        a => a.date === dateKey && a.period === period
+                    );
+                    
+                    if (existingIndex >= 0) {
+                        pendingAssignments[resourceId].assignments.splice(existingIndex, 1);
+                        console.log(`🗑️ Affectation retirée: ${dateKey} ${period} pour ${resource.prenom} ${resource.nom}`);
+                        
+                        // Si plus aucune affectation pour cet expert, supprimer l'entrée
+                        if (pendingAssignments[resourceId].assignments.length === 0) {
+                            delete pendingAssignments[resourceId];
+                            console.log(`🗑️ Expert retiré de la liste: ${resource.prenom} ${resource.nom}`);
+                        }
+                        
+                        // Mettre à jour le badge
+                        updatePendingEmailBadge();
+                    }
+                }
+                return; // Ne pas ajouter d'affectation pour les états 1 et 2
+            }
             
-            if (shouldUpdate) {
+            // C'est une vraie affectation (>= 3)
+            if (isRealAssignment) {
                 if (!pendingAssignments[resourceId]) {
                     pendingAssignments[resourceId] = {
                         expertId: expert.id,
@@ -4973,8 +4993,6 @@
                 
                 // Déterminer le label de l'activité
                 const activityLabels = {
-                    '1': 'Indisponible',
-                    '2': 'En attente d\'affectation',
                     '3': '🚨 SAMU (Déploiement)',
                     '4': '🚨 SAMU (Dev. usages)',
                     '5': 'ANS (Déploiement)',
@@ -4991,7 +5009,7 @@
                 const newAssignment = {
                     date: dateKey,
                     period: period,
-                    activity: activityLabels[newActivity] || newActivity,
+                    activity: activityLabels[activity] || activity,
                     location: location || '-'
                 };
                 
