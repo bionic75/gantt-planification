@@ -8,6 +8,7 @@ import crypto from 'crypto';
 import session from 'express-session';
 import nodemailer from 'nodemailer';
 import fs from 'fs';
+import cron from 'node-cron';
 
 import config from './config/config.json' with { type: "json" };
 
@@ -437,6 +438,25 @@ function initDB() {
             console.error('Erreur création table action_logs:', err);
         } else {
             console.log('✅ Table action_logs créée');
+        }
+    });
+    
+    // Table pour les logs d'automatisation
+    database.run(`
+        CREATE TABLE IF NOT EXISTS automation_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            automation_id INTEGER NOT NULL,
+            expert_id INTEGER,
+            expert_name TEXT,
+            expert_email TEXT,
+            target_month TEXT,
+            sent_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    `, (err) => {
+        if (err) {
+            console.error('Erreur création table automation_logs:', err);
+        } else {
+            console.log('✅ Table automation_logs créée');
         }
     });
 }
@@ -2198,6 +2218,277 @@ app.get('/api/school-holidays', requireAuth, (req, res) => {
 
 // ========== FIN GESTION DES CONGÉS SCOLAIRES ==========
 
+// ========== GESTION DES AUTOMATISATIONS ==========
+
+// Récupérer la configuration d'une automatisation
+app.get('/api/automation/config/:id', requireAdmin, (req, res) => {
+    const { id } = req.params;
+    
+    database.get(
+        `SELECT value FROM settings WHERE key = ?`,
+        [`automation_${id}_config`],
+        (err, row) => {
+            if (err) {
+                console.error('Erreur lecture config automation:', err);
+                return res.status(500).json({ error: err.message });
+            }
+            
+            if (row && row.value) {
+                try {
+                    const config = JSON.parse(row.value);
+                    res.json({ success: true, config });
+                } catch (e) {
+                    res.json({ success: true, config: {} });
+                }
+            } else {
+                res.json({ success: true, config: {} });
+            }
+        }
+    );
+});
+
+// Sauvegarder la configuration d'une automatisation
+app.post('/api/automation/config/:id', requireAdmin, (req, res) => {
+    const { id } = req.params;
+    const { config } = req.body;
+    
+    const configJson = JSON.stringify(config);
+    
+    database.run(
+        `INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)`,
+        [`automation_${id}_config`, configJson],
+        (err) => {
+            if (err) {
+                console.error('Erreur sauvegarde config automation:', err);
+                return res.status(500).json({ error: err.message });
+            }
+            
+            console.log(`📧 Configuration automatisation ${id} sauvegardée:`, config);
+            res.json({ success: true });
+        }
+    );
+});
+
+// Récupérer les logs d'une automatisation
+app.get('/api/automation/logs/:id', requireAdmin, (req, res) => {
+    const { id } = req.params;
+    
+    database.all(
+        `SELECT * FROM automation_logs WHERE automation_id = ? ORDER BY sent_at DESC LIMIT 100`,
+        [id],
+        (err, rows) => {
+            if (err) {
+                // Table n'existe peut-être pas encore
+                console.error('Erreur lecture logs automation:', err);
+                return res.json({ success: true, logs: [] });
+            }
+            
+            res.json({ success: true, logs: rows || [] });
+        }
+    );
+});
+
+// Supprimer les logs d'une automatisation
+app.delete('/api/automation/logs/:id', requireAdmin, (req, res) => {
+    const { id } = req.params;
+    
+    database.run(
+        `DELETE FROM automation_logs WHERE automation_id = ?`,
+        [id],
+        (err) => {
+            if (err) {
+                console.error('Erreur suppression logs automation:', err);
+                return res.status(500).json({ error: err.message });
+            }
+            
+            res.json({ success: true });
+        }
+    );
+});
+
+// Tester l'automatisation n°1 : trouver les experts sans disponibilités pour M+1
+app.get('/api/automation/test/1', requireAdmin, async (req, res) => {
+    try {
+        // Calculer le mois M+1
+        const now = new Date();
+        const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        const year = nextMonth.getFullYear();
+        const month = nextMonth.getMonth(); // 0-indexed
+        const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+        const targetMonth = `${monthNames[month]} ${year}`;
+        
+        // Récupérer tous les experts actifs
+        const experts = await new Promise((resolve, reject) => {
+            database.all(
+                `SELECT u.id, u.nom, u.prenom, u.email, u.resource_id 
+                 FROM users u 
+                 WHERE u.is_expert = 1 AND u.email IS NOT NULL AND u.email != ''`,
+                (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows || []);
+                }
+            );
+        });
+        
+        // Pour chaque expert, vérifier s'il a des disponibilités pour le mois M+1
+        const expertsWithoutAvailability = [];
+        
+        for (const expert of experts) {
+            if (!expert.resource_id) continue;
+            
+            // Chercher des entrées de disponibilité (availability = 2) pour ce mois
+            const hasAvailability = await new Promise((resolve, reject) => {
+                const monthStr = String(month + 1).padStart(2, '0');
+                const pattern = `${year}-${monthStr}%`;
+                
+                database.get(
+                    `SELECT COUNT(*) as count FROM schedule_data 
+                     WHERE resource_id = ? 
+                     AND date_key LIKE ? 
+                     AND type = 'availability' 
+                     AND value = '2'`,
+                    [expert.resource_id, pattern],
+                    (err, row) => {
+                        if (err) reject(err);
+                        else resolve(row && row.count > 0);
+                    }
+                );
+            });
+            
+            if (!hasAvailability) {
+                expertsWithoutAvailability.push({
+                    id: expert.id,
+                    nom: expert.nom,
+                    prenom: expert.prenom,
+                    email: expert.email,
+                    resource_id: expert.resource_id
+                });
+            }
+        }
+        
+        res.json({
+            success: true,
+            targetMonth,
+            year,
+            month: month + 1,
+            expertsWithoutAvailability
+        });
+        
+    } catch (error) {
+        console.error('Erreur test automation 1:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Envoyer des rappels aux experts
+app.post('/api/automation/send-reminder', requireAdmin, async (req, res) => {
+    const { experts, targetMonth } = req.body;
+    
+    if (!experts || experts.length === 0) {
+        return res.status(400).json({ error: 'Aucun expert sélectionné' });
+    }
+    
+    const transporter = createEmailTransporter();
+    if (!transporter) {
+        return res.status(500).json({ error: 'Configuration email non disponible' });
+    }
+    
+    const senderName = `${req.session.prenom || 'Admin'} ${req.session.nom || 'Système'}`;
+    let sent = 0;
+    let failed = 0;
+    
+    // Récupérer l'email de copie si configuré
+    let copyEmail = null;
+    try {
+        const configRow = await new Promise((resolve, reject) => {
+            database.get(
+                `SELECT value FROM settings WHERE key = 'automation_1_config'`,
+                (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row);
+                }
+            );
+        });
+        
+        if (configRow && configRow.value) {
+            const config = JSON.parse(configRow.value);
+            if (config.copyUserId) {
+                const copyUser = await new Promise((resolve, reject) => {
+                    database.get(
+                        `SELECT email FROM users WHERE id = ?`,
+                        [config.copyUserId],
+                        (err, row) => {
+                            if (err) reject(err);
+                            else resolve(row);
+                        }
+                    );
+                });
+                if (copyUser) copyEmail = copyUser.email;
+            }
+        }
+    } catch (e) {
+        console.error('Erreur récupération email copie:', e);
+    }
+    
+    console.log(`📧 Envoi de rappels à ${experts.length} expert(s) pour ${targetMonth}`);
+    
+    for (const expert of experts) {
+        const mailOptions = {
+            from: `"Domaine des Urgences - Planification des ressources" <${emailConfig.user}>`,
+            to: expert.email,
+            cc: copyEmail || undefined,
+            subject: `Rappel : Saisie des disponibilités pour ${targetMonth}`,
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
+                    <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                        <h2 style="color: #ff9800; border-bottom: 2px solid #ff9800; padding-bottom: 10px;">
+                            📅 Rappel de saisie des disponibilités
+                        </h2>
+                        
+                        <p>Bonjour ${expert.prenom} ${expert.nom},</p>
+                        
+                        <p>Nous vous rappelons que vos disponibilités pour le mois de <strong>${targetMonth}</strong> n'ont pas encore été renseignées dans l'application de planification.</p>
+                        
+                        <div style="margin: 20px 0; padding: 15px; background-color: #fff3e0; border-left: 4px solid #ff9800; border-radius: 4px;">
+                            <p style="margin: 0;"><strong>Action requise :</strong></p>
+                            <p style="margin: 5px 0 0 0;">Merci de vous connecter à l'application et de saisir vos disponibilités pour le mois à venir.</p>
+                        </div>
+                        
+                        <p>Cordialement,<br>${senderName}<br>Système de planification SI-SAMU</p>
+                        
+                        <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
+                        
+                        <p style="color: #7f8c8d; font-size: 12px; text-align: center;">
+                            Cet email a été envoyé automatiquement depuis le système SI-SAMU de planification des ressources.
+                        </p>
+                    </div>
+                </div>
+            `
+        };
+        
+        try {
+            await transporter.sendMail(mailOptions);
+            console.log(`✅ Rappel envoyé à ${expert.email}`);
+            sent++;
+            
+            // Enregistrer dans les logs
+            database.run(
+                `INSERT INTO automation_logs (automation_id, expert_id, expert_name, expert_email, target_month, sent_at)
+                 VALUES (?, ?, ?, ?, ?, datetime('now'))`,
+                [1, expert.id, `${expert.prenom} ${expert.nom}`, expert.email, targetMonth]
+            );
+            
+        } catch (error) {
+            console.error(`❌ Erreur envoi à ${expert.email}:`, error.message);
+            failed++;
+        }
+    }
+    
+    res.json({ success: true, sent, failed });
+});
+
+// ========== FIN GESTION DES AUTOMATISATIONS ==========
+
 // Routes d'export Excel
 app.get('/api/export/resources', requireAuth, (req, res) => {
     database.all('SELECT * FROM resources ORDER BY nom, prenom', (err, resources) => {
@@ -3376,8 +3667,228 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// ========== SYSTÈME DE CRON POUR LES AUTOMATISATIONS ==========
+
+// Fonction pour exécuter l'automatisation n°1 (rappel disponibilités)
+async function runAutomation1() {
+    console.log('⏰ [CRON] Vérification automatisation n°1...');
+    
+    try {
+        // Récupérer la configuration
+        const configRow = await new Promise((resolve, reject) => {
+            database.get(
+                `SELECT value FROM settings WHERE key = 'automation_1_config'`,
+                (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row);
+                }
+            );
+        });
+        
+        if (!configRow || !configRow.value) {
+            console.log('⏰ [CRON] Automatisation n°1 non configurée');
+            return;
+        }
+        
+        const config = JSON.parse(configRow.value);
+        
+        if (!config.enabled) {
+            console.log('⏰ [CRON] Automatisation n°1 désactivée');
+            return;
+        }
+        
+        // Vérifier si on est à J-X de la fin du mois
+        const now = new Date();
+        const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        const currentDay = now.getDate();
+        const daysUntilEndOfMonth = lastDayOfMonth - currentDay;
+        
+        console.log(`⏰ [CRON] Jours avant fin du mois: ${daysUntilEndOfMonth}, Config: ${config.days} jours`);
+        
+        if (daysUntilEndOfMonth !== config.days) {
+            console.log(`⏰ [CRON] Pas le bon jour pour l'envoi (J-${daysUntilEndOfMonth} vs J-${config.days})`);
+            return;
+        }
+        
+        console.log('⏰ [CRON] Déclenchement de l\'automatisation n°1...');
+        
+        // Calculer le mois M+1
+        const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        const year = nextMonth.getFullYear();
+        const month = nextMonth.getMonth();
+        const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+        const targetMonth = `${monthNames[month]} ${year}`;
+        
+        // Récupérer tous les experts actifs
+        const experts = await new Promise((resolve, reject) => {
+            database.all(
+                `SELECT u.id, u.nom, u.prenom, u.email, u.resource_id 
+                 FROM users u 
+                 WHERE u.is_expert = 1 AND u.email IS NOT NULL AND u.email != ''`,
+                (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows || []);
+                }
+            );
+        });
+        
+        // Trouver les experts sans disponibilités pour M+1
+        const expertsToNotify = [];
+        
+        for (const expert of experts) {
+            if (!expert.resource_id) continue;
+            
+            const hasAvailability = await new Promise((resolve, reject) => {
+                const monthStr = String(month + 1).padStart(2, '0');
+                const pattern = `${year}-${monthStr}%`;
+                
+                database.get(
+                    `SELECT COUNT(*) as count FROM schedule_data 
+                     WHERE resource_id = ? 
+                     AND date_key LIKE ? 
+                     AND type = 'availability' 
+                     AND value = '2'`,
+                    [expert.resource_id, pattern],
+                    (err, row) => {
+                        if (err) reject(err);
+                        else resolve(row && row.count > 0);
+                    }
+                );
+            });
+            
+            if (!hasAvailability) {
+                // Vérifier si on n'a pas déjà envoyé un rappel ce mois-ci pour ce mois cible
+                const alreadySent = await new Promise((resolve, reject) => {
+                    const startOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+                    database.get(
+                        `SELECT COUNT(*) as count FROM automation_logs 
+                         WHERE automation_id = 1 
+                         AND expert_id = ? 
+                         AND target_month = ?
+                         AND sent_at >= ?`,
+                        [expert.id, targetMonth, startOfMonth],
+                        (err, row) => {
+                            if (err) reject(err);
+                            else resolve(row && row.count > 0);
+                        }
+                    );
+                });
+                
+                if (!alreadySent) {
+                    expertsToNotify.push(expert);
+                } else {
+                    console.log(`⏰ [CRON] Rappel déjà envoyé ce mois-ci à ${expert.prenom} ${expert.nom}`);
+                }
+            }
+        }
+        
+        if (expertsToNotify.length === 0) {
+            console.log('⏰ [CRON] Aucun expert à notifier');
+            return;
+        }
+        
+        console.log(`⏰ [CRON] ${expertsToNotify.length} expert(s) à notifier pour ${targetMonth}`);
+        
+        // Envoyer les emails
+        const transporter = createEmailTransporter();
+        if (!transporter) {
+            console.error('⏰ [CRON] Configuration email non disponible');
+            return;
+        }
+        
+        // Récupérer l'email de copie si configuré
+        let copyEmail = null;
+        if (config.copyUserId) {
+            const copyUser = await new Promise((resolve, reject) => {
+                database.get(
+                    `SELECT email FROM users WHERE id = ?`,
+                    [config.copyUserId],
+                    (err, row) => {
+                        if (err) reject(err);
+                        else resolve(row);
+                    }
+                );
+            });
+            if (copyUser) copyEmail = copyUser.email;
+        }
+        
+        let sent = 0;
+        let failed = 0;
+        
+        for (const expert of expertsToNotify) {
+            const mailOptions = {
+                from: `"Domaine des Urgences - Planification des ressources" <${emailConfig.user}>`,
+                to: expert.email,
+                cc: copyEmail || undefined,
+                subject: `Rappel : Saisie des disponibilités pour ${targetMonth}`,
+                html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
+                        <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                            <h2 style="color: #ff9800; border-bottom: 2px solid #ff9800; padding-bottom: 10px;">
+                                📅 Rappel de saisie des disponibilités
+                            </h2>
+                            
+                            <p>Bonjour ${expert.prenom} ${expert.nom},</p>
+                            
+                            <p>Nous vous rappelons que vos disponibilités pour le mois de <strong>${targetMonth}</strong> n'ont pas encore été renseignées dans l'application de planification.</p>
+                            
+                            <div style="margin: 20px 0; padding: 15px; background-color: #fff3e0; border-left: 4px solid #ff9800; border-radius: 4px;">
+                                <p style="margin: 0;"><strong>Action requise :</strong></p>
+                                <p style="margin: 5px 0 0 0;">Merci de vous connecter à l'application et de saisir vos disponibilités pour le mois à venir.</p>
+                            </div>
+                            
+                            <p>Cordialement,<br>Système de planification SI-SAMU</p>
+                            
+                            <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
+                            
+                            <p style="color: #7f8c8d; font-size: 12px; text-align: center;">
+                                Cet email a été envoyé automatiquement depuis le système SI-SAMU de planification des ressources.
+                            </p>
+                        </div>
+                    </div>
+                `
+            };
+            
+            try {
+                await transporter.sendMail(mailOptions);
+                console.log(`⏰ [CRON] ✅ Rappel envoyé à ${expert.email}`);
+                sent++;
+                
+                // Enregistrer dans les logs
+                database.run(
+                    `INSERT INTO automation_logs (automation_id, expert_id, expert_name, expert_email, target_month, sent_at)
+                     VALUES (?, ?, ?, ?, ?, datetime('now'))`,
+                    [1, expert.id, `${expert.prenom} ${expert.nom}`, expert.email, targetMonth]
+                );
+                
+            } catch (error) {
+                console.error(`⏰ [CRON] ❌ Erreur envoi à ${expert.email}:`, error.message);
+                failed++;
+            }
+        }
+        
+        console.log(`⏰ [CRON] Automatisation n°1 terminée: ${sent} envoyé(s), ${failed} échec(s)`);
+        
+    } catch (error) {
+        console.error('⏰ [CRON] Erreur automatisation n°1:', error);
+    }
+}
+
+// Planifier le cron pour s'exécuter tous les jours à 8h00
+cron.schedule('0 8 * * *', () => {
+    console.log('⏰ [CRON] Exécution des automatisations programmées - ' + new Date().toLocaleString('fr-FR'));
+    runAutomation1();
+}, {
+    timezone: "Europe/Paris"
+});
+
+console.log('⏰ Cron configuré: vérification quotidienne à 8h00 (Europe/Paris)');
+
+// ========== FIN SYSTÈME DE CRON ==========
+
 // Serveur Ecoute
 app.listen(PORT, () => {
-    console.log(`Serveur démarré sur le port ${PORT}`);
-    console.log(`Compte admin: admin / Admin2025!`);
+    console.log(`🚀 Serveur démarré sur le port ${PORT}`);
+    console.log(`👤 Compte admin: admin / Admin2025!`);
+    console.log(`⏰ Automatisations programmées actives`);
 });

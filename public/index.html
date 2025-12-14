@@ -773,7 +773,59 @@
             </h3>
         </div>
         <div id="automationSection" style="margin-top: 15px; display: none;">
-            <p style="color: #e65100; font-size: 13px;">Cette section sera complétée ultérieurement.</p>
+            
+            <!-- Automatisation n°1: Rappel disponibilités -->
+            <div style="background-color: white; border: 1px solid #ffcc80; border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0;">
+                        <input type="checkbox" id="automation1Enabled" onchange="saveAutomation1Config()" style="width: 18px; height: 18px; margin: 0;">
+                        <span style="font-weight: bold; color: #e65100; font-size: 14px;">📧 Automatisation n°1 : Rappel de saisie des disponibilités</span>
+                    </label>
+                </div>
+                
+                <p style="font-size: 12px; color: #666; margin: 0 0 15px 0; padding-left: 26px;">
+                    Envoie automatiquement un email aux experts qui n'ont pas renseigné leurs disponibilités pour le mois M+1, 
+                    X jours avant la fin du mois en cours.
+                </p>
+                
+                <div style="display: flex; flex-wrap: wrap; gap: 15px; padding-left: 26px; align-items: flex-end;">
+                    <div style="flex: 0 0 150px;">
+                        <label style="font-size: 12px; color: #555;">Jours avant fin du mois</label>
+                        <select id="automation1Days" onchange="saveAutomation1Config()" style="width: 100%;">
+                            <option value="3">3 jours</option>
+                            <option value="5" selected>5 jours</option>
+                            <option value="7">7 jours</option>
+                            <option value="10">10 jours</option>
+                            <option value="15">15 jours</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1; min-width: 200px;">
+                        <label style="font-size: 12px; color: #555;">Mettre en copie (optionnel)</label>
+                        <select id="automation1CopyUser" onchange="saveAutomation1Config()" style="width: 100%;">
+                            <option value="">-- Aucun --</option>
+                            <!-- Options remplies dynamiquement -->
+                        </select>
+                    </div>
+                    <div style="flex: 0 0 auto;">
+                        <button onclick="openAutomation1Logs()" style="background-color: #ff9800; color: white; white-space: nowrap;">
+                            📋 Historique des envois
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Section de test -->
+                <div style="margin-top: 20px; padding: 15px; background-color: #fff8e1; border-radius: 5px; border: 1px dashed #ffcc80;">
+                    <label style="font-size: 12px; font-weight: bold; color: #e65100;">🧪 Test de l'automatisation</label>
+                    <p style="font-size: 11px; color: #666; margin: 5px 0 10px 0;">
+                        Recherche les experts sans disponibilités sur le mois M+1 et propose d'envoyer un email de rappel.
+                    </p>
+                    <button onclick="testAutomation1()" style="background-color: #4CAF50; color: white;">
+                        🔍 Tester maintenant
+                    </button>
+                    <div id="automation1TestResult" style="margin-top: 10px; font-size: 12px;"></div>
+                </div>
+            </div>
+            
         </div>
     </div>
     
@@ -3216,6 +3268,9 @@
                 })));
                 if (currentUser?.activeProfile === 'admin') {
                     displayUsers();
+                    // Charger les configurations d'automatisation
+                    populateAutomation1CopyUsers();
+                    loadAutomation1Config();
                 }
             } catch (error) {
                 console.error('Erreur:', error);
@@ -4449,6 +4504,283 @@
                 infoDiv.innerHTML = '<em>Aucun congé scolaire chargé</em>';
             }
         }
+        
+        // ========== GESTION DES AUTOMATISATIONS ==========
+        
+        // Charger la configuration de l'automatisation n°1
+        async function loadAutomation1Config() {
+            try {
+                const response = await fetch(`${API_URL}/automation/config/1`, { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.config) {
+                        document.getElementById('automation1Enabled').checked = data.config.enabled || false;
+                        document.getElementById('automation1Days').value = data.config.days || '5';
+                        document.getElementById('automation1CopyUser').value = data.config.copyUserId || '';
+                    }
+                }
+            } catch (error) {
+                console.error('Erreur chargement config automation 1:', error);
+            }
+        }
+        
+        // Sauvegarder la configuration de l'automatisation n°1
+        async function saveAutomation1Config() {
+            const config = {
+                enabled: document.getElementById('automation1Enabled').checked,
+                days: parseInt(document.getElementById('automation1Days').value),
+                copyUserId: document.getElementById('automation1CopyUser').value || null
+            };
+            
+            try {
+                const response = await fetch(`${API_URL}/automation/config/1`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ config })
+                });
+                
+                if (response.ok) {
+                    console.log('✅ Configuration automatisation 1 sauvegardée');
+                }
+            } catch (error) {
+                console.error('Erreur sauvegarde config automation 1:', error);
+            }
+        }
+        
+        // Remplir la liste des utilisateurs pour la copie
+        function populateAutomation1CopyUsers() {
+            const select = document.getElementById('automation1CopyUser');
+            if (!select) return;
+            
+            // Garder l'option par défaut
+            select.innerHTML = '<option value="">-- Aucun --</option>';
+            
+            // Ajouter tous les utilisateurs
+            users.forEach(user => {
+                if (user.email) {
+                    const option = document.createElement('option');
+                    option.value = user.id;
+                    option.textContent = `${user.prenom} ${user.nom} (${user.email})`;
+                    select.appendChild(option);
+                }
+            });
+        }
+        
+        // Ouvrir la modal d'historique des envois
+        async function openAutomation1Logs() {
+            const modal = document.getElementById('automationLogsModal');
+            const content = document.getElementById('automationLogsContent');
+            
+            content.innerHTML = '<p style="text-align: center; color: #666;">Chargement...</p>';
+            modal.style.display = 'block';
+            
+            try {
+                const response = await fetch(`${API_URL}/automation/logs/1`, { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    if (data.logs && data.logs.length > 0) {
+                        let html = `
+                            <table style="width: 100%; border-collapse: collapse;">
+                                <thead>
+                                    <tr style="background-color: #ff9800; color: white;">
+                                        <th style="padding: 10px; text-align: left;">Date d'envoi</th>
+                                        <th style="padding: 10px; text-align: left;">Expert</th>
+                                        <th style="padding: 10px; text-align: left;">Email</th>
+                                        <th style="padding: 10px; text-align: left;">Mois concerné</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                        `;
+                        
+                        data.logs.forEach(log => {
+                            const date = new Date(log.sent_at);
+                            const formattedDate = date.toLocaleString('fr-FR');
+                            
+                            html += `
+                                <tr style="border-bottom: 1px solid #ddd;">
+                                    <td style="padding: 10px;">${formattedDate}</td>
+                                    <td style="padding: 10px;">${log.expert_name}</td>
+                                    <td style="padding: 10px;">${log.expert_email}</td>
+                                    <td style="padding: 10px;">${log.target_month}</td>
+                                </tr>
+                            `;
+                        });
+                        
+                        html += '</tbody></table>';
+                        content.innerHTML = html;
+                    } else {
+                        content.innerHTML = '<p style="text-align: center; color: #666;">Aucun envoi enregistré</p>';
+                    }
+                }
+            } catch (error) {
+                console.error('Erreur chargement logs:', error);
+                content.innerHTML = '<p style="color: #e74c3c;">Erreur lors du chargement</p>';
+            }
+        }
+        
+        function closeAutomationLogsModal() {
+            document.getElementById('automationLogsModal').style.display = 'none';
+        }
+        
+        // Vider l'historique des envois
+        async function clearAutomationLogs() {
+            if (!confirm('Voulez-vous vraiment supprimer tout l\'historique des envois automatiques ?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/automation/logs/1`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    document.getElementById('automationLogsContent').innerHTML = '<p style="text-align: center; color: #666;">Historique vidé</p>';
+                }
+            } catch (error) {
+                console.error('Erreur suppression logs:', error);
+            }
+        }
+        
+        // Tester l'automatisation n°1
+        async function testAutomation1() {
+            const resultDiv = document.getElementById('automation1TestResult');
+            resultDiv.innerHTML = '<span style="color: #2196f3;">🔍 Recherche en cours...</span>';
+            
+            try {
+                const response = await fetch(`${API_URL}/automation/test/1`, { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    if (data.expertsWithoutAvailability && data.expertsWithoutAvailability.length > 0) {
+                        // Ouvrir la modal avec les résultats
+                        openAutomationTestModal(data);
+                        resultDiv.innerHTML = `<span style="color: #f39c12;">⚠️ ${data.expertsWithoutAvailability.length} expert(s) sans disponibilités sur ${data.targetMonth}</span>`;
+                    } else {
+                        resultDiv.innerHTML = `<span style="color: #4CAF50;">✅ Tous les experts ont renseigné leurs disponibilités pour ${data.targetMonth}</span>`;
+                    }
+                }
+            } catch (error) {
+                console.error('Erreur test automation 1:', error);
+                resultDiv.innerHTML = '<span style="color: #e74c3c;">❌ Erreur lors du test</span>';
+            }
+        }
+        
+        // Variable pour stocker les experts détectés
+        let expertsToRemind = [];
+        let targetMonthForReminder = '';
+        
+        // Ouvrir la modal de test avec les résultats
+        function openAutomationTestModal(data) {
+            const modal = document.getElementById('automationTestModal');
+            const content = document.getElementById('automationTestContent');
+            const actions = document.getElementById('automationTestActions');
+            
+            expertsToRemind = data.expertsWithoutAvailability;
+            targetMonthForReminder = data.targetMonth;
+            
+            let html = `
+                <p style="margin-bottom: 15px;">
+                    <strong>${data.expertsWithoutAvailability.length} expert(s)</strong> n'ont pas renseigné leurs disponibilités pour <strong>${data.targetMonth}</strong> :
+                </p>
+                <div style="max-height: 300px; overflow-y: auto;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background-color: #f5f5f5;">
+                                <th style="padding: 10px; text-align: left; position: sticky; top: 0; background: #f5f5f5;">
+                                    <label style="cursor: pointer;">
+                                        <input type="checkbox" id="selectAllExperts" onchange="toggleAllExperts(this)" checked> Sélectionner
+                                    </label>
+                                </th>
+                                <th style="padding: 10px; text-align: left; position: sticky; top: 0; background: #f5f5f5;">Expert</th>
+                                <th style="padding: 10px; text-align: left; position: sticky; top: 0; background: #f5f5f5;">Email</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            data.expertsWithoutAvailability.forEach((expert, index) => {
+                html += `
+                    <tr style="border-bottom: 1px solid #ddd;">
+                        <td style="padding: 10px;">
+                            <input type="checkbox" class="expertCheckbox" data-index="${index}" checked>
+                        </td>
+                        <td style="padding: 10px;">${expert.prenom} ${expert.nom}</td>
+                        <td style="padding: 10px;">${expert.email}</td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table></div>';
+            content.innerHTML = html;
+            actions.style.display = 'block';
+            modal.style.display = 'block';
+        }
+        
+        function closeAutomationTestModal() {
+            document.getElementById('automationTestModal').style.display = 'none';
+            document.getElementById('automationTestActions').style.display = 'none';
+        }
+        
+        // Sélectionner/Désélectionner tous les experts
+        function toggleAllExperts(checkbox) {
+            const checkboxes = document.querySelectorAll('.expertCheckbox');
+            checkboxes.forEach(cb => cb.checked = checkbox.checked);
+        }
+        
+        // Envoyer un rappel à tous les experts sélectionnés
+        async function sendReminderToAllExperts() {
+            const checkboxes = document.querySelectorAll('.expertCheckbox:checked');
+            const selectedIndices = Array.from(checkboxes).map(cb => parseInt(cb.dataset.index));
+            const selectedExperts = selectedIndices.map(i => expertsToRemind[i]);
+            
+            if (selectedExperts.length === 0) {
+                alert('Veuillez sélectionner au moins un expert');
+                return;
+            }
+            
+            if (!confirm(`Envoyer un email de rappel à ${selectedExperts.length} expert(s) ?`)) {
+                return;
+            }
+            
+            const content = document.getElementById('automationTestContent');
+            content.innerHTML = '<p style="text-align: center; color: #2196f3;">📧 Envoi des emails en cours...</p>';
+            
+            try {
+                const response = await fetch(`${API_URL}/automation/send-reminder`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        experts: selectedExperts,
+                        targetMonth: targetMonthForReminder
+                    })
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    content.innerHTML = `
+                        <div style="text-align: center; padding: 20px;">
+                            <span style="font-size: 48px;">✅</span>
+                            <p style="color: #4CAF50; font-weight: bold; margin-top: 15px;">
+                                ${result.sent} email(s) envoyé(s) avec succès
+                            </p>
+                            ${result.failed > 0 ? `<p style="color: #f39c12;">${result.failed} échec(s)</p>` : ''}
+                        </div>
+                    `;
+                    document.getElementById('automationTestActions').style.display = 'none';
+                } else {
+                    throw new Error('Erreur serveur');
+                }
+            } catch (error) {
+                console.error('Erreur envoi rappels:', error);
+                content.innerHTML = '<p style="color: #e74c3c; text-align: center;">❌ Erreur lors de l\'envoi</p>';
+            }
+        }
+        
+        // ========== FIN GESTION DES AUTOMATISATIONS ==========
         
         // Supprimer les congés scolaires
         async function clearSchoolHolidays() {
@@ -7532,6 +7864,52 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             
             <div id="newAssignmentsContent" style="margin-top: 20px;">
                 <!-- Le contenu sera chargé dynamiquement -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Historique des automatisations -->
+    <div id="automationLogsModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); z-index: 10002;">
+        <div style="position: relative; background-color: white; margin: 5% auto; padding: 30px; width: 90%; max-width: 800px; border-radius: 12px; max-height: 80vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="color: #e65100; margin: 0;">📋 Historique des envois automatiques</h2>
+                <span onclick="closeAutomationLogsModal()" style="cursor: pointer; font-size: 28px; color: #7f8c8d;">&times;</span>
+            </div>
+            
+            <div id="automationLogsContent" style="margin-top: 20px;">
+                <!-- Le contenu sera chargé dynamiquement -->
+            </div>
+            
+            <div style="margin-top: 20px; text-align: right;">
+                <button onclick="clearAutomationLogs()" style="background-color: #e74c3c; color: white; margin-right: 10px;">
+                    🗑️ Vider l'historique
+                </button>
+                <button onclick="closeAutomationLogsModal()" style="background-color: #95a5a6; color: white;">
+                    Fermer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Test Automatisation -->
+    <div id="automationTestModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); z-index: 10002;">
+        <div style="position: relative; background-color: white; margin: 5% auto; padding: 30px; width: 90%; max-width: 700px; border-radius: 12px; max-height: 80vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="color: #4CAF50; margin: 0;">🧪 Test - Experts sans disponibilités M+1</h2>
+                <span onclick="closeAutomationTestModal()" style="cursor: pointer; font-size: 28px; color: #7f8c8d;">&times;</span>
+            </div>
+            
+            <div id="automationTestContent" style="margin-top: 20px;">
+                <!-- Le contenu sera chargé dynamiquement -->
+            </div>
+            
+            <div id="automationTestActions" style="margin-top: 20px; text-align: right; display: none;">
+                <button onclick="sendReminderToAllExperts()" style="background-color: #4CAF50; color: white; margin-right: 10px;">
+                    📧 Envoyer un rappel à tous
+                </button>
+                <button onclick="closeAutomationTestModal()" style="background-color: #95a5a6; color: white;">
+                    Fermer
+                </button>
             </div>
         </div>
     </div>

@@ -1,6 +1,6 @@
 {
   "name": "gantt-planification",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Gestionnaire de ressources et planification GANTT",
   "main": "server.js",
   "type": "module",
@@ -21,11 +21,12 @@
     "dotenv": "^17.2.3",
     "express": "^4.18.2",
     "express-session": "^1.17.3",
+    "node-cron": "^3.0.3",
     "nodemailer": "^7.0.9",
     "sqlite": "^5.0.1",
     "sqlite3": "^5.1.6"
   },
   "engines": {
-    "node": "18.x"
+    "node": ">=18.x"
   }
 }
