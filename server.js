@@ -2336,21 +2336,27 @@ app.get('/api/automation/test/1', requireAdmin, async (req, res) => {
         for (const expert of experts) {
             if (!expert.resource_id) continue;
             
-            // Chercher des entrées de disponibilité (availability = 2) pour ce mois
+            // Chercher des entrées de disponibilité (type='available', value='2') pour ce mois
+            // Format date_key: YYYY-MM-DD_AM ou YYYY-MM-DD_PM
             const hasAvailability = await new Promise((resolve, reject) => {
                 const monthStr = String(month + 1).padStart(2, '0');
-                const pattern = `${year}-${monthStr}%`;
+                const pattern = `${year}-${monthStr}-%`;
                 
                 database.get(
                     `SELECT COUNT(*) as count FROM schedule_data 
                      WHERE resource_id = ? 
                      AND date_key LIKE ? 
-                     AND type = 'availability' 
+                     AND type = 'available' 
                      AND value = '2'`,
                     [expert.resource_id, pattern],
                     (err, row) => {
-                        if (err) reject(err);
-                        else resolve(row && row.count > 0);
+                        if (err) {
+                            console.error('Erreur requête disponibilités:', err);
+                            reject(err);
+                        } else {
+                            console.log(`🔍 Expert ${expert.prenom} ${expert.nom} (resource_id=${expert.resource_id}): ${row?.count || 0} disponibilités pour ${year}-${monthStr}`);
+                            resolve(row && row.count > 0);
+                        }
                     }
                 );
             });
@@ -3740,13 +3746,13 @@ async function runAutomation1() {
             
             const hasAvailability = await new Promise((resolve, reject) => {
                 const monthStr = String(month + 1).padStart(2, '0');
-                const pattern = `${year}-${monthStr}%`;
+                const pattern = `${year}-${monthStr}-%`;
                 
                 database.get(
                     `SELECT COUNT(*) as count FROM schedule_data 
                      WHERE resource_id = ? 
                      AND date_key LIKE ? 
-                     AND type = 'availability' 
+                     AND type = 'available' 
                      AND value = '2'`,
                     [expert.resource_id, pattern],
                     (err, row) => {
