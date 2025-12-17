@@ -1250,9 +1250,58 @@ app.post('/api/schedule/save', requireAuth, (req, res) => {
                             }
                         }
                         
-                        // NOUVEAU: Créer le log planning_modification quand la LOCALISATION est modifiée
-                        // (car la localisation arrive après l'activité dans le workflow utilisateur)
-                        if (!err && type === 'localisation' && req.session.activeProfile !== 'expert' && hasReallyChanged) {
+                        // Créer le log planning_modification quand une ACTIVITÉ affectable est modifiée
+                        if (!err && type === 'activity' && ['3','4','5','6','7','8'].includes(value) && hasReallyChanged) {
+                            const dateKeyParts = dateKey.split('_');
+                            const date = dateKeyParts[0];
+                            const period = dateKeyParts[1];
+                            const resId = parseInt(resourceId);
+                            
+                            const activityLabelsLocal = {
+                                '3': '🚨 SAMU (Déploiement)',
+                                '4': '🚨 SAMU (Dev. usages)',
+                                '5': 'ANS (Déploiement)',
+                                '6': 'ANS (Dev. usages)',
+                                '7': 'Qualification',
+                                '8': 'Autre mission'
+                            };
+                            
+                            // Récupérer la localisation existante (si présente)
+                            database.get(
+                                'SELECT value FROM schedule_data WHERE resource_id = ? AND date_key = ? AND type = ?',
+                                [resId, dateKey, 'localisation'],
+                                (errLoc, locRow) => {
+                                    database.get('SELECT nom, prenom FROM resources WHERE id = ?', [resId], (errRes, resource) => {
+                                        if (!errRes && resource) {
+                                            const logDetails = {
+                                                resourceId: resId,
+                                                resourceName: `${resource.prenom} ${resource.nom}`,
+                                                date: date,
+                                                period: period === 'AM' ? 'Matin' : 'Après-midi',
+                                                activity: activityLabelsLocal[value] || value,
+                                                location: (locRow && locRow.value) ? locRow.value : '-',
+                                                modifiedBy: req.session.activeProfile
+                                            };
+                                            
+                                            database.run(
+                                                `INSERT INTO action_logs (user_id, action_type, details) VALUES (?, ?, ?)`,
+                                                [req.session.userId, 'planning_modification', JSON.stringify(logDetails)],
+                                                (errLog) => {
+                                                    if (errLog) {
+                                                        console.error('❌ Erreur création log planning_modification (activity):', errLog);
+                                                    } else {
+                                                        console.log(`✅ Log planning_modification créé pour ${resource.prenom} ${resource.nom} - ${date} ${period} - ${activityLabelsLocal[value]} (par ${req.session.activeProfile})`);
+                                                    }
+                                                }
+                                            );
+                                        }
+                                    });
+                                }
+                            );
+                        }
+                        
+                        // Créer/Mettre à jour le log planning_modification quand la LOCALISATION est modifiée
+                        if (!err && type === 'localisation' && hasReallyChanged) {
                             const dateKeyParts = dateKey.split('_');
                             const date = dateKeyParts[0];
                             const period = dateKeyParts[1];
@@ -1282,12 +1331,20 @@ app.post('/api/schedule/save', requireAuth, (req, res) => {
                                                     date: date,
                                                     period: period === 'AM' ? 'Matin' : 'Après-midi',
                                                     activity: activityLabelsLocal[actRow.value] || actRow.value,
-                                                    location: value
+                                                    location: value,
+                                                    modifiedBy: req.session.activeProfile
                                                 };
                                                 
                                                 database.run(
                                                     `INSERT INTO action_logs (user_id, action_type, details) VALUES (?, ?, ?)`,
-                                                    [req.session.userId, 'planning_modification', JSON.stringify(logDetails)]
+                                                    [req.session.userId, 'planning_modification', JSON.stringify(logDetails)],
+                                                    (errLog) => {
+                                                        if (errLog) {
+                                                            console.error('❌ Erreur création log planning_modification (localisation):', errLog);
+                                                        } else {
+                                                            console.log(`✅ Log planning_modification créé pour ${resource.prenom} ${resource.nom} - ${date} ${period} - localisation: ${value} (par ${req.session.activeProfile})`);
+                                                        }
+                                                    }
                                                 );
                                             }
                                         });
