@@ -40,6 +40,21 @@ app.use(session({
 
 // NOTE: express.static sera défini APRÈS les routes API pour éviter les conflits
 
+// Map pour tracker les utilisateurs connectés (userId -> { lastActivity, profile })
+const activeSessions = new Map();
+
+// Nettoyer les sessions inactives toutes les minutes (timeout 15 min)
+setInterval(() => {
+    const now = Date.now();
+    const timeout = 15 * 60 * 1000; // 15 minutes
+    for (const [userId, session] of activeSessions) {
+        if (now - session.lastActivity > timeout) {
+            activeSessions.delete(userId);
+            console.log(`🔴 Session expirée pour userId: ${userId}`);
+        }
+    }
+}, 60 * 1000);
+
 // Déterminer le chemin de la base de données
 const DB_DIR = config.DB_PATH || __dirname;
 const DB_FILE = path.join(DB_DIR, 'data.db');
@@ -525,12 +540,20 @@ function requireAuth(req, res, next) {
     if (!req.session || !req.session.userId) {
         return res.status(401).json({ error: 'Non authentifié' });
     }
+    // Mettre à jour l'activité de la session
+    if (activeSessions.has(req.session.userId)) {
+        activeSessions.get(req.session.userId).lastActivity = Date.now();
+    }
     next();
 }
 
 function requireAdmin(req, res, next) {
     if (!req.session || !req.session.userId || req.session.activeProfile !== 'admin') {
         return res.status(403).json({ error: 'Accès réservé aux administrateurs' });
+    }
+    // Mettre à jour l'activité de la session
+    if (activeSessions.has(req.session.userId)) {
+        activeSessions.get(req.session.userId).lastActivity = Date.now();
     }
     next();
 }
@@ -577,6 +600,14 @@ app.post('/api/login', (req, res) => {
             req.session.prenom = user.prenom;
             req.session.activeProfile = profile;
             req.session.resourceId = user.resource_id;
+            
+            // Tracker la session active
+            activeSessions.set(user.id, {
+                lastActivity: Date.now(),
+                profile: profile,
+                username: user.username
+            });
+            console.log(`🟢 Session active pour ${user.username} (userId: ${user.id})`);
             
             // Logger la connexion
             database.run(
@@ -629,6 +660,10 @@ app.post('/api/logout', (req, res) => {
                 }
             }
         );
+        
+        // Supprimer de la Map des sessions actives
+        activeSessions.delete(userId);
+        console.log(`🔴 Session terminée pour ${username} (userId: ${userId})`);
         
         // Logger la déconnexion dans action_logs
         const timestamp = new Date().toISOString();
@@ -1822,6 +1857,27 @@ app.get('/api/system/version', (req, res) => {
             res.json({ version: '1.0.0' });
         }
     });
+});
+
+// Endpoint pour récupérer les sessions actives (utilisateurs connectés)
+app.get('/api/active-sessions', requireAdmin, (req, res) => {
+    const activeUsers = [];
+    const now = Date.now();
+    const timeout = 15 * 60 * 1000; // 15 minutes
+    
+    for (const [userId, session] of activeSessions) {
+        // Vérifier si la session est encore active (moins de 15 min d'inactivité)
+        if (now - session.lastActivity <= timeout) {
+            activeUsers.push({
+                userId: userId,
+                profile: session.profile,
+                username: session.username,
+                lastActivity: session.lastActivity
+            });
+        }
+    }
+    
+    res.json({ activeUsers });
 });
 
 // Récupération des logs de connexion (20 derniers)

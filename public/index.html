@@ -3267,7 +3267,7 @@
                     photo_length: u.profile_photo?.length 
                 })));
                 if (currentUser?.activeProfile === 'admin') {
-                    displayUsers();
+                    await displayUsers();
                     // Charger les configurations d'automatisation
                     populateAutomation1CopyUsers();
                     loadAutomation1Config();
@@ -3490,9 +3490,21 @@
             }
         }
 
-        function displayUsers() {
+        async function displayUsers() {
             const tbody = document.getElementById('usersList');
             tbody.innerHTML = '';
+            
+            // Récupérer les sessions actives
+            let activeUserIds = [];
+            try {
+                const response = await fetch(`${API_URL}/active-sessions`, { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    activeUserIds = data.activeUsers.map(u => u.userId);
+                }
+            } catch (e) {
+                console.log('Erreur récupération sessions actives:', e);
+            }
             
             // Trier les utilisateurs par ordre alphabétique (nom, puis prénom)
             const sortedUsers = [...users].sort((a, b) => {
@@ -3515,9 +3527,15 @@
                 if (u.is_admin === 1) badgeColor = '#e74c3c'; // Rouge pour admin
                 else if (u.is_expert === 1) badgeColor = '#f39c12'; // Orange pour expert
                 
+                // Pastille de connexion
+                const isOnline = activeUserIds.includes(u.id);
+                const statusDot = isOnline 
+                    ? `<span title="Connecté" style="display: inline-block; width: 10px; height: 10px; background-color: #27ae60; border-radius: 50%; margin-right: 8px; box-shadow: 0 0 4px #27ae60;"></span>`
+                    : `<span title="Hors ligne" style="display: inline-block; width: 10px; height: 10px; background-color: #bdc3c7; border-radius: 50%; margin-right: 8px;"></span>`;
+                
                 const row = tbody.insertRow();
                 row.innerHTML = `
-                    <td style="cursor: pointer; color: #1D70B7; font-weight: bold;" onclick="showUserDetails(${u.id})">${u.nom}</td>
+                    <td style="cursor: pointer; color: #1D70B7; font-weight: bold;" onclick="showUserDetails(${u.id})">${statusDot}${u.nom}</td>
                     <td>${u.prenom}</td><td>${u.username}</td><td>${u.email}</td><td>${u.telephone || '-'}</td>
                     <td><span style="background-color: ${badgeColor}; color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px;">${roleText}</span></td>
                     <td><label class="toggle-switch"><input type="checkbox" ${u.actif ? 'checked' : ''} onchange="toggleUserActive(${u.id})"><span class="slider"></span></label></td>
@@ -5108,6 +5126,9 @@
             setTimeout(() => { status.style.display = 'none'; }, 3000);
         }
 
+        // Variable pour stocker l'intervalle de rafraîchissement des statuts
+        let activeSessionsRefreshInterval = null;
+        
         function switchTab(tabName, event) {
             document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -5126,11 +5147,22 @@
                 });
             }
             
+            // Arrêter le rafraîchissement automatique si on quitte l'onglet admin
+            if (activeSessionsRefreshInterval) {
+                clearInterval(activeSessionsRefreshInterval);
+                activeSessionsRefreshInterval = null;
+            }
+            
             if (tabName === 'admin') {
                 loadUsers();
                 loadEmailConfig();
                 loadConnectionLogs();  // NOUVEAU
                 loadAppVersion();      // NOUVEAU
+                
+                // Rafraîchir les statuts de connexion toutes les 30 secondes
+                activeSessionsRefreshInterval = setInterval(() => {
+                    displayUsers();
+                }, 30000);
             }
             
             if (tabName === 'planning') {
