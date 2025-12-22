@@ -1464,6 +1464,12 @@
                     console.log('📛 Trigramme:', currentUser.trigramme);
                     console.log('📷 Photo:', currentUser.profilePhoto ? 'Oui' : 'Non');
                     
+                    // Purger les anciennes données en mémoire pour éviter les problèmes de cache
+                    scheduleData = {};
+                    resources = [];
+                    users = [];
+                    schoolHolidays = { zoneA: [], zoneB: [], zoneC: [] };
+                    
                     sessionId = generateSessionId(); // Générer un ID de session unique
                     
                     document.getElementById('loginPage').classList.remove('active');
@@ -1476,6 +1482,7 @@
                     await loadSchedule();
                     await loadSettings(); // Charger les paramètres d'inactivité
                     await loadUsers(); // Charger les utilisateurs pour les notifications
+                    await loadSchoolHolidays(); // Charger les congés scolaires pour tous les profils
                     
                     // Charger les nouvelles affectations uniquement pour les experts
                     console.log('🔍 CurrentUser:', currentUser);
@@ -3380,8 +3387,34 @@
             document.getElementById('adminUserUsername').value = username;
         }
 
+        // Fonction pour purger les cookies du site
+        function clearSiteCookies() {
+            const cookies = document.cookie.split(";");
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i];
+                const eqPos = cookie.indexOf("=");
+                const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
+                document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+            }
+            console.log('🧹 Cookies du site purgés');
+        }
+        
+        // Fonction pour réinitialiser toutes les données en mémoire
+        function clearMemoryData() {
+            scheduleData = {};
+            resources = [];
+            users = [];
+            schoolHolidays = { zoneA: [], zoneB: [], zoneC: [] };
+            currentUser = null;
+            console.log('🧹 Données en mémoire réinitialisées');
+        }
+
         // Event listeners pour automatiser la saisie
         document.addEventListener('DOMContentLoaded', function() {
+            // Purger les cookies et données au chargement de la page de connexion
+            clearSiteCookies();
+            clearMemoryData();
+            
             // Charger la version dès le chargement (endpoint public, pas besoin d'auth)
             loadVersion();
             
