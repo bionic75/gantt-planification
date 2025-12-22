@@ -2430,12 +2430,26 @@ app.get('/api/automation/test/1', requireAdmin, async (req, res) => {
         const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
         const targetMonth = `${monthNames[month]} ${year}`;
         
-        // Récupérer tous les experts actifs
+        // Calculer le premier et dernier jour du mois M+1 pour vérifier la période MAD
+        const firstDayNextMonth = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+        const lastDayNextMonth = new Date(year, month + 1, 0); // Dernier jour du mois
+        const lastDayNextMonthStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDayNextMonth.getDate()).padStart(2, '0')}`;
+        
+        // Récupérer tous les experts actifs avec leur ressource active et dont la période MAD couvre le mois M+1
         const experts = await new Promise((resolve, reject) => {
             database.all(
-                `SELECT u.id, u.nom, u.prenom, u.email, u.resource_id 
+                `SELECT u.id, u.nom, u.prenom, u.email, u.resource_id, r.date_debut, r.date_fin
                  FROM users u 
-                 WHERE u.is_expert = 1 AND u.email IS NOT NULL AND u.email != ''`,
+                 LEFT JOIN resources r ON u.resource_id = r.id
+                 WHERE u.is_expert = 1 
+                 AND u.actif = 1
+                 AND u.email IS NOT NULL 
+                 AND u.email != ''
+                 AND u.resource_id IS NOT NULL
+                 AND r.actif = 1
+                 AND (r.date_debut IS NULL OR r.date_debut <= ?)
+                 AND (r.date_fin IS NULL OR r.date_fin >= ?)`,
+                [lastDayNextMonthStr, firstDayNextMonth],
                 (err, rows) => {
                     if (err) reject(err);
                     else resolve(rows || []);
@@ -2443,12 +2457,12 @@ app.get('/api/automation/test/1', requireAdmin, async (req, res) => {
             );
         });
         
+        console.log(`🔍 ${experts.length} expert(s) actif(s) avec MAD couvrant ${targetMonth}`);
+        
         // Pour chaque expert, vérifier s'il a des disponibilités pour le mois M+1
         const expertsWithoutAvailability = [];
         
         for (const expert of experts) {
-            if (!expert.resource_id) continue;
-            
             // Chercher des entrées de disponibilité (type='available', value='2') pour ce mois
             // Format date_key: YYYY-MM-DD_AM ou YYYY-MM-DD_PM
             const hasAvailability = await new Promise((resolve, reject) => {
@@ -3838,12 +3852,26 @@ async function runAutomation1() {
         const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
         const targetMonth = `${monthNames[month]} ${year}`;
         
-        // Récupérer tous les experts actifs
+        // Calculer le premier et dernier jour du mois M+1 pour vérifier la période MAD
+        const firstDayNextMonth = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+        const lastDayNextMonth = new Date(year, month + 1, 0); // Dernier jour du mois
+        const lastDayNextMonthStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDayNextMonth.getDate()).padStart(2, '0')}`;
+        
+        // Récupérer tous les experts actifs avec leur ressource active et dont la période MAD couvre le mois M+1
         const experts = await new Promise((resolve, reject) => {
             database.all(
-                `SELECT u.id, u.nom, u.prenom, u.email, u.resource_id 
+                `SELECT u.id, u.nom, u.prenom, u.email, u.resource_id, r.date_debut, r.date_fin
                  FROM users u 
-                 WHERE u.is_expert = 1 AND u.email IS NOT NULL AND u.email != ''`,
+                 LEFT JOIN resources r ON u.resource_id = r.id
+                 WHERE u.is_expert = 1 
+                 AND u.actif = 1
+                 AND u.email IS NOT NULL 
+                 AND u.email != ''
+                 AND u.resource_id IS NOT NULL
+                 AND r.actif = 1
+                 AND (r.date_debut IS NULL OR r.date_debut <= ?)
+                 AND (r.date_fin IS NULL OR r.date_fin >= ?)`,
+                [lastDayNextMonthStr, firstDayNextMonth],
                 (err, rows) => {
                     if (err) reject(err);
                     else resolve(rows || []);
@@ -3851,12 +3879,12 @@ async function runAutomation1() {
             );
         });
         
+        console.log(`⏰ [CRON] ${experts.length} expert(s) actif(s) avec MAD couvrant ${targetMonth}`);
+        
         // Trouver les experts sans disponibilités pour M+1
         const expertsToNotify = [];
         
         for (const expert of experts) {
-            if (!expert.resource_id) continue;
-            
             const hasAvailability = await new Promise((resolve, reject) => {
                 const monthStr = String(month + 1).padStart(2, '0');
                 const pattern = `${year}-${monthStr}-%`;

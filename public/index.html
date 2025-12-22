@@ -538,6 +538,7 @@
                         <div class="legend-items">
                             <div class="legend-item"><span class="color-code" style="background-color: #95a5a6;"></span> 1 - Indisponible</div>
                             <div class="legend-item"><span class="color-code" style="background-color: #27ae60;"></span> 2 - Disponible pour l'ANS</div>
+                            <div class="legend-item"><span class="color-code" style="background-color: #00bcd4;"></span> 3 - 🏖️ Congés</div>
                         </div>
                     </div>
                     <div class="legend-section" style="margin-top: 15px;">
@@ -1266,7 +1267,8 @@
 
         const availabilityLabels = {
             '1': 'Indisponible',
-            '2': 'Disponible pour l\'ANS'
+            '2': 'Disponible pour l\'ANS',
+            '3': '🏖️ Congés'
         };
 
         const activityLabels = {
@@ -2328,19 +2330,37 @@
             
             const currentValue = scheduleData[key] || '1';
             
-            // Basculer entre 1 et 2 uniquement
-            if (currentValue === '1') {
-                // Passer à Disponible (2)
-                scheduleData[key] = '2';
-                // Mettre l'affectation à "2 - En attente d'affectation" par défaut
-                scheduleData[actKey] = '2';
+            // Cycle pour Expert : 1 -> 2 -> 3 -> 1 (Indisponible -> Disponible -> Congés -> Indisponible)
+            // Cycle pour Admin : 1 -> 2 -> 1 (pas d'accès aux Congés qui sont réservés aux experts)
+            if (currentUser && currentUser.activeProfile === 'expert') {
+                // Expert : cycle 1 -> 2 -> 3 -> 1
+                if (currentValue === '1') {
+                    scheduleData[key] = '2';
+                    scheduleData[actKey] = '2';
+                } else if (currentValue === '2') {
+                    scheduleData[key] = '3'; // Congés
+                    scheduleData[actKey] = '1'; // Pas d'affectation possible
+                    scheduleData[locKey] = '🏖️'; // Icône plage
+                } else {
+                    // Retour à Indisponible
+                    scheduleData[key] = '1';
+                    scheduleData[actKey] = '1';
+                    delete scheduleData[locKey];
+                }
             } else {
-                // Passer à Indisponible (1)
-                scheduleData[key] = '1';
-                // Remettre l'affectation à 1
-                scheduleData[actKey] = '1';
-                // Vider la localisation
-                delete scheduleData[locKey];
+                // Admin : cycle 1 -> 2 -> 1 (ne peut pas toucher aux Congés posés par expert)
+                if (currentValue === '3') {
+                    alert('Cette période est en Congés (posée par l\'expert). Seul l\'expert peut modifier ce statut.');
+                    return;
+                }
+                if (currentValue === '1') {
+                    scheduleData[key] = '2';
+                    scheduleData[actKey] = '2';
+                } else {
+                    scheduleData[key] = '1';
+                    scheduleData[actKey] = '1';
+                    delete scheduleData[locKey];
+                }
             }
             
             saveSchedule();
@@ -2355,9 +2375,15 @@
                 }
             }
             
-            // Bloquer si la disponibilité est à 1
+            // Bloquer si la disponibilité est à 1 (Indisponible)
             if (availability === '1') {
                 alert('La ressource est indisponible ce jour. Vous devez d\'abord mettre la disponibilité à 2.');
+                return;
+            }
+            
+            // Bloquer si la disponibilité est à 3 (Congés)
+            if (availability === '3') {
+                alert('La ressource est en congés ce jour. Aucune affectation possible.');
                 return;
             }
             
@@ -2421,6 +2447,12 @@
             
             if (!isDateAccessible(resource, checkDate)) {
                 alert('Cette date est hors de la période de MAD de cette ressource');
+                return;
+            }
+            
+            // Bloquer si la disponibilité est "Congés"
+            if (availability === '3') {
+                alert('La ressource est en congés ce jour. Aucune modification de localisation possible.');
                 return;
             }
             
@@ -2940,13 +2972,15 @@
                     ['AM', 'PM'].forEach((period, periodIndex) => {
                         const availKey = `${resource.id}_available_${dateKey}_${period}`;
                         const availValue = scheduleData[availKey] || '1';
-                        const availBg = availValue === '1' ? '#95a5a6' : '#27ae60';
+                        // Couleurs : 1=gris (indispo), 2=vert (dispo), 3=bleu ciel (congés)
+                        const availBg = availValue === '1' ? '#95a5a6' : (availValue === '3' ? '#00bcd4' : '#27ae60');
                         
                         const actKey = `${resource.id}_activity_${dateKey}_${period}`;
                         const actValue = scheduleData[actKey] || '1';
                         let actBg = '#95a5a6';
-                        if (availValue === '1') {
-                            actBg = '#95a5a6';
+                        if (availValue === '1' || availValue === '3') {
+                            // Indisponible ou Congés : pas d'affectation visible
+                            actBg = availValue === '3' ? '#00bcd4' : '#95a5a6';
                         } else {
                             const colorMap = { '1': '#95a5a6', '2': '#9b59b6', '3': '#e67e22', '4': '#d35400', '5': '#3498db', '6': '#2980b9', '7': '#e74c3c', '8': '#16a085' };
                             actBg = colorMap[actValue] || '#95a5a6';
@@ -2965,8 +2999,12 @@
                         // - ANS Dev. usages (6)
                         // - Qualification (7)
                         // - Divers (8)
+                        // - Congés (availValue === '3') : afficher 🏖️
                         let locDisplay = '-';
-                        if (availValue === '2' && actValue !== '1') {
+                        if (availValue === '3') {
+                            // Congés : afficher l'icône plage
+                            locDisplay = '🏖️';
+                        } else if (availValue === '2' && actValue !== '1') {
                             const locDisplayMap = {
                                 '🏠 Télétravail': '🏠 TT',
                                 '🗼 PSC': '🗼 PSC',
@@ -3031,11 +3069,15 @@
                         // Ajouter la classe pour différencier AM (bordure fine) et PM (bordure épaisse)
                         const borderClass = period === 'AM' ? 'half-day-separator' : 'day-separator';
                         
+                        // Affichage spécial pour les congés
+                        const actDisplayValue = availValue === '3' ? '🏖️' : actValue;
+                        const actDisplayTooltip = availValue === '3' ? '🏖️ Congés - Aucune affectation possible' : actTooltip;
+                        
                         html += `<td class="${cellClass} ${borderClass}" data-date="${year}-${month+1}-${day}" style="min-width: 50px; max-width: 50px; width: 50px; ">
                             <div class="gantt-cell-content">
-                                <div class="gantt-cell-row${rowDisabledClass}" style="background-color: ${isAccessible ? availBg : '#d0d0d0'}; color: white; font-size: 11px; min-height: 20px;" onclick="${isAccessible ? `toggleAvailability(${resource.id}, '${dateKey}', '${period}')` : 'return false;'}" title="${availTooltip} (${period})">${availValue}</div>
-                                <div class="gantt-cell-row${rowDisabledClass}" style="background-color: ${isAccessible ? actBg : '#d0d0d0'}; color: white; font-size: 11px; min-height: 20px;" onclick="${isAccessible ? `cycleActivity(${resource.id}, '${dateKey}', '${availValue}', '${period}')` : 'return false;'}" title="${actTooltip} (${period})">${actValue}</div>
-                                <div class="gantt-cell-row${rowDisabledClass}" style="background-color: ${isAccessible ? '#f0f0f0' : '#d0d0d0'}; color: #333; font-size: 8px; font-weight: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-height: 20px;" onclick="${isAccessible ? `openLocalisationModal(${resource.id}, '${dateKey}', '${availValue}', '${actValue}', '${period}')` : 'return false;'}" title="${isAccessible ? (locDisplay !== '-' ? 'Localisation ' + period + ': ' + locValue + ' (cliquez pour modifier)' : 'Cliquez pour définir la localisation ' + period) : 'Hors période MAD'}">${locDisplay}</div>
+                                <div class="gantt-cell-row${rowDisabledClass}" style="background-color: ${isAccessible ? availBg : '#d0d0d0'}; color: white; font-size: 11px; min-height: 20px;" onclick="${isAccessible ? `toggleAvailability(${resource.id}, '${dateKey}', '${period}')` : 'return false;'}" title="${availTooltip} (${period})">${availValue === '3' ? '🏖️' : availValue}</div>
+                                <div class="gantt-cell-row${rowDisabledClass}" style="background-color: ${isAccessible ? actBg : '#d0d0d0'}; color: white; font-size: 11px; min-height: 20px;" onclick="${isAccessible ? `cycleActivity(${resource.id}, '${dateKey}', '${availValue}', '${period}')` : 'return false;'}" title="${actDisplayTooltip} (${period})">${actDisplayValue}</div>
+                                <div class="gantt-cell-row${rowDisabledClass}" style="background-color: ${isAccessible ? (availValue === '3' ? '#e0f7fa' : '#f0f0f0') : '#d0d0d0'}; color: #333; font-size: 8px; font-weight: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-height: 20px;" onclick="${isAccessible && availValue !== '3' ? `openLocalisationModal(${resource.id}, '${dateKey}', '${availValue}', '${actValue}', '${period}')` : 'return false;'}" title="${availValue === '3' ? '🏖️ Congés' : (isAccessible ? (locDisplay !== '-' ? 'Localisation ' + period + ': ' + locValue + ' (cliquez pour modifier)' : 'Cliquez pour définir la localisation ' + period) : 'Hors période MAD')}">${locDisplay}</div>
                             </div>
                         </td>`;
                     });
