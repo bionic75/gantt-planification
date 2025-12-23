@@ -827,6 +827,159 @@
                 </div>
             </div>
             
+            <!-- Automatisation n°2: Sauvegarde des plannings mensuels -->
+            <div style="background-color: white; border: 1px solid #ffcc80; border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0;">
+                        <input type="checkbox" id="automation2Enabled" onchange="saveAutomation2Config()" style="width: 18px; height: 18px; margin: 0;">
+                        <span style="font-weight: bold; color: #e65100; font-size: 14px;">📊 Automatisation n°2 : Sauvegarde des plannings mensuels</span>
+                    </label>
+                </div>
+                
+                <p style="font-size: 12px; color: #666; margin: 0 0 15px 0; padding-left: 26px;">
+                    Envoie automatiquement un fichier de sauvegarde du planning aux destinataires sélectionnés selon la fréquence choisie.
+                </p>
+                
+                <!-- Ligne 1: Destinataires -->
+                <div style="padding-left: 26px; margin-bottom: 15px;">
+                    <label style="font-size: 12px; color: #555; font-weight: bold; display: block; margin-bottom: 8px;">📬 Destinataires</label>
+                    <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-start;">
+                        <div style="flex: 1; min-width: 250px;">
+                            <label style="font-size: 11px; color: #777;">Groupes de destinataires</label>
+                            <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 5px;">
+                                <label style="display: flex; align-items: center; gap: 5px; font-size: 12px; cursor: pointer;">
+                                    <input type="checkbox" id="automation2GroupAdmin" onchange="saveAutomation2Config()"> Administrateurs
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 5px; font-size: 12px; cursor: pointer;">
+                                    <input type="checkbox" id="automation2GroupUser" onchange="saveAutomation2Config()"> Utilisateurs
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 5px; font-size: 12px; cursor: pointer;">
+                                    <input type="checkbox" id="automation2GroupExpert" onchange="saveAutomation2Config()"> Experts
+                                </label>
+                            </div>
+                        </div>
+                        <div style="flex: 1; min-width: 250px;">
+                            <label style="font-size: 11px; color: #777;">Destinataires individuels (optionnel)</label>
+                            <select id="automation2Recipients" multiple onchange="saveAutomation2Config()" style="width: 100%; height: 80px; font-size: 12px;">
+                                <!-- Options remplies dynamiquement -->
+                            </select>
+                            <small style="color: #999; font-size: 10px;">Ctrl+clic pour sélection multiple</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Ligne 2: Fréquence -->
+                <div style="padding-left: 26px; margin-bottom: 15px;">
+                    <label style="font-size: 12px; color: #555; font-weight: bold; display: block; margin-bottom: 8px;">⏰ Fréquence d'envoi</label>
+                    <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end;">
+                        <div style="flex: 0 0 150px;">
+                            <select id="automation2Frequency" onchange="updateAutomation2FrequencyOptions(); saveAutomation2Config()" style="width: 100%;">
+                                <option value="daily">Tous les jours</option>
+                                <option value="weekly">Toutes les semaines</option>
+                                <option value="monthly">Une fois par mois</option>
+                            </select>
+                        </div>
+                        <div id="automation2WeeklyOptions" style="flex: 0 0 150px; display: none;">
+                            <label style="font-size: 11px; color: #777;">Jour de la semaine</label>
+                            <select id="automation2WeekDay" onchange="saveAutomation2Config()" style="width: 100%;">
+                                <option value="1">Lundi</option>
+                                <option value="2">Mardi</option>
+                                <option value="3">Mercredi</option>
+                                <option value="4">Jeudi</option>
+                                <option value="5">Vendredi</option>
+                                <option value="6">Samedi</option>
+                                <option value="0">Dimanche</option>
+                            </select>
+                        </div>
+                        <div id="automation2MonthlyOptions" style="flex: 0 0 150px; display: none;">
+                            <label style="font-size: 11px; color: #777;">Jour du mois</label>
+                            <select id="automation2MonthDay" onchange="saveAutomation2Config()" style="width: 100%;">
+                                <!-- Options 1-31 générées dynamiquement -->
+                            </select>
+                        </div>
+                        <div style="flex: 0 0 100px;">
+                            <label style="font-size: 11px; color: #777;">Heure d'envoi</label>
+                            <select id="automation2Hour" onchange="saveAutomation2Config()" style="width: 100%;">
+                                <option value="6">06:00</option>
+                                <option value="7">07:00</option>
+                                <option value="8" selected>08:00</option>
+                                <option value="9">09:00</option>
+                                <option value="12">12:00</option>
+                                <option value="18">18:00</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Ligne 3: Contenu du fichier -->
+                <div style="padding-left: 26px; margin-bottom: 15px;">
+                    <label style="font-size: 12px; color: #555; font-weight: bold; display: block; margin-bottom: 8px;">📁 Contenu du fichier</label>
+                    <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-start;">
+                        <div style="flex: 1; min-width: 200px;">
+                            <label style="font-size: 11px; color: #777;">Mois à inclure</label>
+                            <select id="automation2Months" multiple onchange="saveAutomation2Config()" style="width: 100%; height: 100px; font-size: 12px;">
+                                <option value="-12">M-12</option>
+                                <option value="-11">M-11</option>
+                                <option value="-10">M-10</option>
+                                <option value="-9">M-9</option>
+                                <option value="-8">M-8</option>
+                                <option value="-7">M-7</option>
+                                <option value="-6">M-6</option>
+                                <option value="-5">M-5</option>
+                                <option value="-4">M-4</option>
+                                <option value="-3">M-3</option>
+                                <option value="-2">M-2</option>
+                                <option value="-1">M-1</option>
+                                <option value="0" selected>M (mois en cours)</option>
+                                <option value="1" selected>M+1</option>
+                                <option value="2">M+2</option>
+                                <option value="3">M+3</option>
+                            </select>
+                            <small style="color: #999; font-size: 10px;">Ctrl+clic pour sélection multiple</small>
+                        </div>
+                        <div style="flex: 1; min-width: 200px;">
+                            <label style="font-size: 11px; color: #777;">Experts à inclure</label>
+                            <div style="margin-bottom: 5px;">
+                                <label style="display: flex; align-items: center; gap: 5px; font-size: 12px; cursor: pointer;">
+                                    <input type="checkbox" id="automation2AllExperts" onchange="toggleAutomation2AllExperts()" checked> 
+                                    <strong>Tous les experts</strong>
+                                </label>
+                            </div>
+                            <select id="automation2ExpertsList" multiple onchange="saveAutomation2Config()" style="width: 100%; height: 100px; font-size: 12px;" disabled>
+                                <!-- Options remplies dynamiquement -->
+                            </select>
+                            <small style="color: #999; font-size: 10px;">Décochez "Tous" pour sélectionner individuellement</small>
+                        </div>
+                        <div style="flex: 0 0 120px;">
+                            <label style="font-size: 11px; color: #777;">Format du fichier</label>
+                            <select id="automation2Format" onchange="saveAutomation2Config()" style="width: 100%;">
+                                <option value="csv">CSV</option>
+                                <option value="xlsx">XLSX (Excel)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Ligne 4: Boutons -->
+                <div style="display: flex; flex-wrap: wrap; gap: 10px; padding-left: 26px; align-items: center;">
+                    <button onclick="openAutomation2Logs()" style="background-color: #ff9800; color: white; white-space: nowrap;">
+                        📋 Historique des envois
+                    </button>
+                </div>
+                
+                <!-- Section de test -->
+                <div style="margin-top: 20px; padding: 15px; background-color: #fff8e1; border-radius: 5px; border: 1px dashed #ffcc80;">
+                    <label style="font-size: 12px; font-weight: bold; color: #e65100;">🧪 Test de l'automatisation</label>
+                    <p style="font-size: 11px; color: #666; margin: 5px 0 10px 0;">
+                        Génère et envoie le fichier de sauvegarde avec la configuration actuelle.
+                    </p>
+                    <button onclick="testAutomation2()" style="background-color: #4CAF50; color: white;">
+                        🔍 Tester maintenant
+                    </button>
+                    <div id="automation2TestResult" style="margin-top: 10px; font-size: 12px;"></div>
+                </div>
+            </div>
+            
         </div>
     </div>
     
@@ -3320,6 +3473,9 @@
                     // Charger les configurations d'automatisation
                     populateAutomation1CopyUsers();
                     loadAutomation1Config();
+                    // Automatisation 2
+                    initAutomation2Options();
+                    loadAutomation2Config();
                 }
             } catch (error) {
                 console.error('Erreur:', error);
@@ -4660,10 +4816,17 @@
             });
         }
         
-        // Ouvrir la modal d'historique des envois
+        // Variable pour suivre quelle automatisation est affichée dans la modal des logs
+        let currentAutomationLogsId = 1;
+        
+        // Ouvrir la modal d'historique des envois pour l'automatisation 1
         async function openAutomation1Logs() {
+            currentAutomationLogsId = 1;
             const modal = document.getElementById('automationLogsModal');
             const content = document.getElementById('automationLogsContent');
+            
+            // Remettre le titre par défaut
+            modal.querySelector('h2').textContent = '📋 Historique des envois de rappels';
             
             content.innerHTML = '<p style="text-align: center; color: #666;">Chargement...</p>';
             modal.style.display = 'block';
@@ -4717,23 +4880,25 @@
             document.getElementById('automationLogsModal').style.display = 'none';
         }
         
-        // Vider l'historique des envois
+        // Vider l'historique des envois de l'automatisation courante
         async function clearAutomationLogs() {
-            if (!confirm('Voulez-vous vraiment supprimer tout l\'historique des envois automatiques ?')) {
+            const automationName = currentAutomationLogsId === 1 ? 'rappels de disponibilités' : 'sauvegardes de planning';
+            if (!confirm(`Voulez-vous vraiment supprimer tout l'historique des ${automationName} ?`)) {
                 return;
             }
             
             try {
-                const response = await fetch(`${API_URL}/automation/logs/1`, {
+                const response = await fetch(`${API_URL}/automation/logs/${currentAutomationLogsId}`, {
                     method: 'DELETE',
                     credentials: 'include'
                 });
                 
                 if (response.ok) {
-                    document.getElementById('automationLogsContent').innerHTML = '<p style="text-align: center; color: #666;">Historique vidé</p>';
+                    document.getElementById('automationLogsContent').innerHTML = '<p style="text-align: center; color: #4CAF50;">✅ Historique vidé avec succès</p>';
                 }
             } catch (error) {
                 console.error('Erreur suppression logs:', error);
+                document.getElementById('automationLogsContent').innerHTML = '<p style="text-align: center; color: #e74c3c;">❌ Erreur lors de la suppression</p>';
             }
         }
         
@@ -4872,6 +5037,465 @@
                 content.innerHTML = '<p style="color: #e74c3c; text-align: center;">❌ Erreur lors de l\'envoi</p>';
             }
         }
+        
+        // ========== AUTOMATISATION N°2 : SAUVEGARDE PLANNINGS ==========
+        
+        // Initialiser les options de l'automatisation 2
+        function initAutomation2Options() {
+            // Remplir les jours du mois (1-31)
+            const monthDaySelect = document.getElementById('automation2MonthDay');
+            if (monthDaySelect && monthDaySelect.options.length === 0) {
+                for (let i = 1; i <= 31; i++) {
+                    const option = document.createElement('option');
+                    option.value = i;
+                    option.textContent = i;
+                    monthDaySelect.appendChild(option);
+                }
+            }
+            
+            // Remplir les destinataires individuels
+            populateAutomation2Recipients();
+            
+            // Remplir la liste des experts
+            populateAutomation2ExpertsList();
+        }
+        
+        // Remplir la liste des destinataires pour l'automatisation 2
+        function populateAutomation2Recipients() {
+            const select = document.getElementById('automation2Recipients');
+            if (!select) return;
+            
+            select.innerHTML = '';
+            
+            users.forEach(user => {
+                if (user.email) {
+                    const option = document.createElement('option');
+                    option.value = user.id;
+                    option.textContent = `${user.prenom} ${user.nom} (${user.email})`;
+                    select.appendChild(option);
+                }
+            });
+        }
+        
+        // Remplir la liste des experts pour l'automatisation 2
+        function populateAutomation2ExpertsList() {
+            const select = document.getElementById('automation2ExpertsList');
+            if (!select) return;
+            
+            select.innerHTML = '';
+            
+            // Récupérer les ressources (experts)
+            resources.forEach(resource => {
+                const option = document.createElement('option');
+                option.value = resource.id;
+                option.textContent = `${resource.prenom} ${resource.nom}${resource.actif ? '' : ' (inactif)'}`;
+                if (!resource.actif) {
+                    option.style.color = '#999';
+                }
+                select.appendChild(option);
+            });
+        }
+        
+        // Toggle pour "Tous les experts"
+        function toggleAutomation2AllExperts() {
+            const allChecked = document.getElementById('automation2AllExperts').checked;
+            const select = document.getElementById('automation2ExpertsList');
+            select.disabled = allChecked;
+            
+            if (allChecked) {
+                // Désélectionner tous les éléments
+                Array.from(select.options).forEach(opt => opt.selected = false);
+            }
+            
+            saveAutomation2Config();
+        }
+        
+        // Mettre à jour les options de fréquence
+        function updateAutomation2FrequencyOptions() {
+            const frequency = document.getElementById('automation2Frequency').value;
+            document.getElementById('automation2WeeklyOptions').style.display = frequency === 'weekly' ? 'block' : 'none';
+            document.getElementById('automation2MonthlyOptions').style.display = frequency === 'monthly' ? 'block' : 'none';
+        }
+        
+        // Charger la configuration de l'automatisation 2
+        async function loadAutomation2Config() {
+            try {
+                const response = await fetch(`${API_URL}/automation/config/2`, { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.config) {
+                        const c = data.config;
+                        document.getElementById('automation2Enabled').checked = c.enabled || false;
+                        document.getElementById('automation2GroupAdmin').checked = c.groupAdmin || false;
+                        document.getElementById('automation2GroupUser').checked = c.groupUser || false;
+                        document.getElementById('automation2GroupExpert').checked = c.groupExpert || false;
+                        document.getElementById('automation2Frequency').value = c.frequency || 'daily';
+                        document.getElementById('automation2WeekDay').value = c.weekDay || '1';
+                        document.getElementById('automation2MonthDay').value = c.monthDay || '1';
+                        document.getElementById('automation2Hour').value = c.hour || '8';
+                        document.getElementById('automation2Format').value = c.format || 'csv';
+                        
+                        // Gérer la sélection des experts
+                        const allExperts = c.allExperts !== false; // Par défaut true
+                        document.getElementById('automation2AllExperts').checked = allExperts;
+                        document.getElementById('automation2ExpertsList').disabled = allExperts;
+                        
+                        // Sélectionner les experts individuels si pas "tous"
+                        if (!allExperts && c.expertsList && Array.isArray(c.expertsList)) {
+                            const expertsSelect = document.getElementById('automation2ExpertsList');
+                            Array.from(expertsSelect.options).forEach(opt => {
+                                opt.selected = c.expertsList.includes(parseInt(opt.value));
+                            });
+                        }
+                        
+                        // Sélectionner les mois
+                        const monthsSelect = document.getElementById('automation2Months');
+                        if (c.months && Array.isArray(c.months)) {
+                            Array.from(monthsSelect.options).forEach(opt => {
+                                opt.selected = c.months.includes(parseInt(opt.value));
+                            });
+                        }
+                        
+                        // Sélectionner les destinataires individuels
+                        const recipientsSelect = document.getElementById('automation2Recipients');
+                        if (c.recipients && Array.isArray(c.recipients)) {
+                            Array.from(recipientsSelect.options).forEach(opt => {
+                                opt.selected = c.recipients.includes(parseInt(opt.value));
+                            });
+                        }
+                        
+                        updateAutomation2FrequencyOptions();
+                    }
+                }
+            } catch (error) {
+                console.error('Erreur chargement config automation 2:', error);
+            }
+        }
+        
+        // Sauvegarder la configuration de l'automatisation 2
+        async function saveAutomation2Config() {
+            const monthsSelect = document.getElementById('automation2Months');
+            const recipientsSelect = document.getElementById('automation2Recipients');
+            
+            const config = {
+                enabled: document.getElementById('automation2Enabled').checked,
+                groupAdmin: document.getElementById('automation2GroupAdmin').checked,
+                groupUser: document.getElementById('automation2GroupUser').checked,
+                groupExpert: document.getElementById('automation2GroupExpert').checked,
+                recipients: Array.from(recipientsSelect.selectedOptions).map(opt => parseInt(opt.value)),
+                frequency: document.getElementById('automation2Frequency').value,
+                weekDay: document.getElementById('automation2WeekDay').value,
+                monthDay: document.getElementById('automation2MonthDay').value,
+                hour: document.getElementById('automation2Hour').value,
+                months: Array.from(monthsSelect.selectedOptions).map(opt => parseInt(opt.value)),
+                allExperts: document.getElementById('automation2AllExperts').checked,
+                expertsList: Array.from(document.getElementById('automation2ExpertsList').selectedOptions).map(opt => parseInt(opt.value)),
+                format: document.getElementById('automation2Format').value
+            };
+            
+            try {
+                const response = await fetch(`${API_URL}/automation/config/2`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ config })
+                });
+                
+                if (response.ok) {
+                    console.log('✅ Configuration automatisation 2 sauvegardée');
+                }
+            } catch (error) {
+                console.error('Erreur sauvegarde config automation 2:', error);
+            }
+        }
+        
+        // Ouvrir l'historique des envois de l'automatisation 2
+        async function openAutomation2Logs() {
+            currentAutomationLogsId = 2;
+            const modal = document.getElementById('automationLogsModal');
+            const content = document.getElementById('automationLogsContent');
+            
+            content.innerHTML = '<p style="text-align: center; color: #666;">Chargement...</p>';
+            modal.style.display = 'block';
+            
+            // Modifier le titre
+            modal.querySelector('h2').textContent = '📋 Historique des sauvegardes de planning';
+            
+            try {
+                const response = await fetch(`${API_URL}/automation/logs/2`, { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    if (data.logs && data.logs.length > 0) {
+                        let html = `
+                            <table style="width: 100%; border-collapse: collapse;">
+                                <thead>
+                                    <tr style="background-color: #ff9800; color: white;">
+                                        <th style="padding: 10px; text-align: left;">Date d'envoi</th>
+                                        <th style="padding: 10px; text-align: left;">Destinataires</th>
+                                        <th style="padding: 10px; text-align: left;">Fichier</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                        `;
+                        
+                        data.logs.forEach(log => {
+                            const date = new Date(log.sent_at);
+                            const formattedDate = date.toLocaleString('fr-FR');
+                            
+                            // Parser les destinataires si disponibles
+                            let recipientsDisplay = log.recipients_count ? `${log.recipients_count} destinataire(s)` : '-';
+                            if (log.recipients_list) {
+                                try {
+                                    const recipientsList = JSON.parse(log.recipients_list);
+                                    if (recipientsList.length > 0) {
+                                        recipientsDisplay = `<details style="cursor: pointer;">
+                                            <summary style="color: #1565c0;">${recipientsList.length} destinataire(s)</summary>
+                                            <ul style="margin: 5px 0; padding-left: 20px; font-size: 11px;">
+                                                ${recipientsList.map(r => `<li>${r}</li>`).join('')}
+                                            </ul>
+                                        </details>`;
+                                    }
+                                } catch (e) {}
+                            }
+                            
+                            // Lien de téléchargement du fichier
+                            const fileLink = log.file_id 
+                                ? `<a href="#" onclick="downloadAutomation2File(${log.id}); return false;" style="color: #1565c0; text-decoration: underline;">${log.filename || 'Télécharger'}</a>`
+                                : (log.filename || '-');
+                            
+                            html += `
+                                <tr style="border-bottom: 1px solid #ddd;">
+                                    <td style="padding: 10px;">${formattedDate}</td>
+                                    <td style="padding: 10px;">${recipientsDisplay}</td>
+                                    <td style="padding: 10px; font-size: 11px;">${fileLink}</td>
+                                </tr>
+                            `;
+                        });
+                        
+                        html += '</tbody></table>';
+                        content.innerHTML = html;
+                    } else {
+                        content.innerHTML = '<p style="text-align: center; color: #666;">Aucun envoi enregistré</p>';
+                    }
+                }
+            } catch (error) {
+                console.error('Erreur chargement logs:', error);
+                content.innerHTML = '<p style="color: #e74c3c;">Erreur lors du chargement</p>';
+            }
+        }
+        
+        // Télécharger un fichier de sauvegarde depuis l'historique
+        async function downloadAutomation2File(logId) {
+            try {
+                const response = await fetch(`${API_URL}/automation/download/2/${logId}`, {
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const contentDisposition = response.headers.get('Content-Disposition');
+                    let filename = 'Expert_Planning_Sauvegarde.csv';
+                    if (contentDisposition) {
+                        const match = contentDisposition.match(/filename="?([^"]+)"?/);
+                        if (match) filename = match[1];
+                    }
+                    
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                } else {
+                    alert('Fichier non disponible');
+                }
+            } catch (error) {
+                console.error('Erreur téléchargement:', error);
+                alert('Erreur lors du téléchargement');
+            }
+        }
+        
+        // Tester l'automatisation 2
+        async function testAutomation2() {
+            const resultDiv = document.getElementById('automation2TestResult');
+            resultDiv.innerHTML = '<span style="color: #2196f3;">🔍 Préparation du récapitulatif...</span>';
+            
+            try {
+                // Récupérer la configuration actuelle
+                const monthsSelect = document.getElementById('automation2Months');
+                const recipientsSelect = document.getElementById('automation2Recipients');
+                const expertsListSelect = document.getElementById('automation2ExpertsList');
+                
+                const config = {
+                    groupAdmin: document.getElementById('automation2GroupAdmin').checked,
+                    groupUser: document.getElementById('automation2GroupUser').checked,
+                    groupExpert: document.getElementById('automation2GroupExpert').checked,
+                    recipients: Array.from(recipientsSelect.selectedOptions).map(opt => parseInt(opt.value)),
+                    months: Array.from(monthsSelect.selectedOptions).map(opt => parseInt(opt.value)),
+                    allExperts: document.getElementById('automation2AllExperts').checked,
+                    expertsList: Array.from(expertsListSelect.selectedOptions).map(opt => parseInt(opt.value)),
+                    format: document.getElementById('automation2Format').value
+                };
+                
+                console.log('📧 Config automation 2:', config);
+                console.log('📧 Recipients sélectionnés:', config.recipients);
+                
+                // Vérifier qu'il y a des destinataires
+                const hasRecipients = config.groupAdmin || config.groupUser || config.groupExpert || config.recipients.length > 0;
+                if (!hasRecipients) {
+                    resultDiv.innerHTML = '<span style="color: #e74c3c;">❌ Veuillez sélectionner au moins un destinataire</span>';
+                    return;
+                }
+                
+                // Vérifier qu'il y a des mois sélectionnés
+                if (config.months.length === 0) {
+                    resultDiv.innerHTML = '<span style="color: #e74c3c;">❌ Veuillez sélectionner au moins un mois</span>';
+                    return;
+                }
+                
+                // Vérifier qu'il y a des experts sélectionnés
+                if (!config.allExperts && config.expertsList.length === 0) {
+                    resultDiv.innerHTML = '<span style="color: #e74c3c;">❌ Veuillez sélectionner au moins un expert ou cocher "Tous les experts"</span>';
+                    return;
+                }
+                
+                // Appeler l'API de prévisualisation
+                const response = await fetch(`${API_URL}/automation/preview/2`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(config)
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    openAutomation2PreviewModal(data, config);
+                    resultDiv.innerHTML = '';
+                } else {
+                    throw new Error('Erreur serveur');
+                }
+            } catch (error) {
+                console.error('Erreur test automation 2:', error);
+                resultDiv.innerHTML = '<span style="color: #e74c3c;">❌ Erreur lors du test</span>';
+            }
+        }
+        
+        // Ouvrir la modal de prévisualisation de l'automatisation 2
+        function openAutomation2PreviewModal(data, config) {
+            const modal = document.getElementById('automation2PreviewModal');
+            const content = document.getElementById('automation2PreviewContent');
+            
+            const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+            const now = new Date();
+            
+            // Formater les mois sélectionnés
+            const monthsLabels = config.months.map(offset => {
+                const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+                return `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
+            }).join(', ');
+            
+            // Afficher le label pour les experts
+            const expertsLabel = config.allExperts ? 'Tous les experts' : 'Sélection personnalisée';
+            
+            // Afficher le nombre de personnes et d'emails
+            const emailsInfo = data.emailsCount !== data.recipientsCount 
+                ? ` <span style="color: #666; font-size: 11px;">(${data.emailsCount} email(s) unique(s))</span>` 
+                : '';
+            
+            let html = `
+                <div style="margin-bottom: 20px;">
+                    <h4 style="color: #e65100; margin: 0 0 15px 0;">📋 Récapitulatif de l'envoi</h4>
+                    
+                    <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                        <tr>
+                            <td style="padding: 8px; border: 1px solid #ddd; background-color: #fff3e0; font-weight: bold; width: 150px;">Destinataires</td>
+                            <td style="padding: 8px; border: 1px solid #ddd;">${data.recipientsCount} personne(s)${emailsInfo}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px; border: 1px solid #ddd; background-color: #fff3e0; font-weight: bold;">Mois inclus</td>
+                            <td style="padding: 8px; border: 1px solid #ddd;">${monthsLabels}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px; border: 1px solid #ddd; background-color: #fff3e0; font-weight: bold;">Experts</td>
+                            <td style="padding: 8px; border: 1px solid #ddd;">${data.expertsCount} expert(s) (${expertsLabel})</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px; border: 1px solid #ddd; background-color: #fff3e0; font-weight: bold;">Format</td>
+                            <td style="padding: 8px; border: 1px solid #ddd;">${config.format.toUpperCase()}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px; border: 1px solid #ddd; background-color: #fff3e0; font-weight: bold;">Nom du fichier</td>
+                            <td style="padding: 8px; border: 1px solid #ddd; font-family: monospace; font-size: 11px;">${data.filename}</td>
+                        </tr>
+                    </table>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <h5 style="color: #555; margin: 0 0 10px 0;">📬 Liste des destinataires :</h5>
+                    <div style="max-height: 150px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 10px; font-size: 12px;">
+                        ${data.recipientsList.map(r => `<div style="padding: 3px 0;">• ${r}</div>`).join('')}
+                    </div>
+                </div>
+            `;
+            
+            content.innerHTML = html;
+            
+            // Stocker la config pour l'envoi
+            window.automation2TestConfig = config;
+            
+            modal.style.display = 'block';
+        }
+        
+        function closeAutomation2PreviewModal() {
+            document.getElementById('automation2PreviewModal').style.display = 'none';
+        }
+        
+        // Confirmer et envoyer la sauvegarde de test
+        async function confirmAutomation2Send() {
+            console.log('🔴 confirmAutomation2Send() appelé - Bouton cliqué !');
+            alert('Vous avez cliqué sur Confirmer et envoyer !'); // Alert pour être sûr
+            const modal = document.getElementById('automation2PreviewModal');
+            const content = document.getElementById('automation2PreviewContent');
+            
+            content.innerHTML = '<p style="text-align: center; color: #2196f3;">📧 Envoi en cours...</p>';
+            
+            try {
+                const response = await fetch(`${API_URL}/automation/send/2`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(window.automation2TestConfig)
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    const emailsInfo = result.emailsSent !== result.sent 
+                        ? `<p style="color: #666; font-size: 12px;">(${result.emailsSent} adresse(s) email unique(s))</p>` 
+                        : '';
+                    content.innerHTML = `
+                        <div style="text-align: center; padding: 20px;">
+                            <span style="font-size: 48px;">✅</span>
+                            <p style="color: #4CAF50; font-weight: bold; margin-top: 15px;">
+                                Email envoyé avec succès à ${result.sent} personne(s)
+                            </p>
+                            ${emailsInfo}
+                            ${result.failed > 0 ? `<p style="color: #f39c12;">${result.failed} échec(s)</p>` : ''}
+                        </div>
+                    `;
+                    document.getElementById('automation2PreviewActions').style.display = 'none';
+                } else {
+                    throw new Error('Erreur serveur');
+                }
+            } catch (error) {
+                console.error('Erreur envoi automation 2:', error);
+                content.innerHTML = '<p style="color: #e74c3c; text-align: center;">❌ Erreur lors de l\'envoi</p>';
+            }
+        }
+        
+        // ========== FIN AUTOMATISATION N°2 ==========
         
         // ========== FIN GESTION DES AUTOMATISATIONS ==========
         
@@ -8016,6 +8640,29 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 </button>
                 <button onclick="closeAutomationTestModal()" style="background-color: #95a5a6; color: white;">
                     Fermer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Prévisualisation Automatisation 2 -->
+    <div id="automation2PreviewModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); z-index: 10002;">
+        <div style="position: relative; background-color: white; margin: 5% auto; padding: 30px; width: 90%; max-width: 700px; border-radius: 12px; max-height: 80vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="color: #e65100; margin: 0;">📊 Test - Sauvegarde du planning</h2>
+                <span onclick="closeAutomation2PreviewModal()" style="cursor: pointer; font-size: 28px; color: #7f8c8d;">&times;</span>
+            </div>
+            
+            <div id="automation2PreviewContent" style="margin-top: 20px;">
+                <!-- Le contenu sera chargé dynamiquement -->
+            </div>
+            
+            <div id="automation2PreviewActions" style="margin-top: 20px; text-align: right;">
+                <button onclick="confirmAutomation2Send()" style="background-color: #4CAF50; color: white; margin-right: 10px;">
+                    ✅ Confirmer et envoyer
+                </button>
+                <button onclick="closeAutomation2PreviewModal()" style="background-color: #95a5a6; color: white;">
+                    Annuler
                 </button>
             </div>
         </div>

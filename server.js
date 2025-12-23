@@ -465,13 +465,36 @@ function initDB() {
             expert_name TEXT,
             expert_email TEXT,
             target_month TEXT,
-            sent_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            sent_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            recipients_list TEXT,
+            file_content TEXT,
+            filename TEXT
         )
     `, (err) => {
         if (err) {
             console.error('Erreur création table automation_logs:', err);
         } else {
             console.log('✅ Table automation_logs créée');
+            
+            // Migration: ajouter les nouvelles colonnes si elles n'existent pas
+            database.all(`PRAGMA table_info(automation_logs)`, [], (pragmaErr, columns) => {
+                if (!pragmaErr && columns) {
+                    const columnNames = columns.map(c => c.name);
+                    
+                    if (!columnNames.includes('recipients_list')) {
+                        database.run(`ALTER TABLE automation_logs ADD COLUMN recipients_list TEXT`);
+                        console.log('Migration: Ajout colonne recipients_list à automation_logs');
+                    }
+                    if (!columnNames.includes('file_content')) {
+                        database.run(`ALTER TABLE automation_logs ADD COLUMN file_content TEXT`);
+                        console.log('Migration: Ajout colonne file_content à automation_logs');
+                    }
+                    if (!columnNames.includes('filename')) {
+                        database.run(`ALTER TABLE automation_logs ADD COLUMN filename TEXT`);
+                        console.log('Migration: Ajout colonne filename à automation_logs');
+                    }
+                }
+            });
         }
     });
 }
@@ -2387,7 +2410,7 @@ app.get('/api/automation/logs/:id', requireAdmin, (req, res) => {
     const { id } = req.params;
     
     database.all(
-        `SELECT * FROM automation_logs WHERE automation_id = ? ORDER BY sent_at DESC LIMIT 100`,
+        `SELECT id, automation_id, expert_id, expert_name, expert_email, target_month, sent_at, recipients_list, filename FROM automation_logs WHERE automation_id = ? ORDER BY sent_at DESC LIMIT 100`,
         [id],
         (err, rows) => {
             if (err) {
@@ -2396,7 +2419,40 @@ app.get('/api/automation/logs/:id', requireAdmin, (req, res) => {
                 return res.json({ success: true, logs: [] });
             }
             
-            res.json({ success: true, logs: rows || [] });
+            // Ajouter file_id pour savoir si le fichier est téléchargeable
+            const logsWithFileId = (rows || []).map(row => ({
+                ...row,
+                file_id: row.id, // On utilise l'ID comme file_id
+                recipients_count: row.recipients_list ? JSON.parse(row.recipients_list).length : 0
+            }));
+            
+            res.json({ success: true, logs: logsWithFileId });
+        }
+    );
+});
+
+// Télécharger un fichier de sauvegarde depuis les logs
+app.get('/api/automation/download/2/:logId', requireAdmin, (req, res) => {
+    const { logId } = req.params;
+    
+    database.get(
+        `SELECT filename, file_content FROM automation_logs WHERE id = ? AND automation_id = 2`,
+        [logId],
+        (err, row) => {
+            if (err) {
+                console.error('Erreur récupération fichier:', err);
+                return res.status(500).json({ error: err.message });
+            }
+            
+            if (!row || !row.file_content) {
+                return res.status(404).json({ error: 'Fichier non trouvé' });
+            }
+            
+            const filename = row.filename || 'Expert_Planning_Sauvegarde.csv';
+            
+            res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+            res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+            res.send(row.file_content);
         }
     );
 });
@@ -2619,6 +2675,402 @@ app.post('/api/automation/send-reminder', requireAdmin, async (req, res) => {
     
     res.json({ success: true, sent, failed });
 });
+
+// ========== AUTOMATISATION N°2 : SAUVEGARDE PLANNINGS ==========
+
+// Prévisualisation de l'automatisation 2
+app.post('/api/automation/preview/2', requireAdmin, async (req, res) => {
+    console.log('👁️ PREVIEW/2 APPELÉ - Affichage du récapitulatif (pas d\'envoi)');
+    const { groupAdmin, groupUser, groupExpert, recipients, months, allExperts, expertsList, format } = req.body;
+    
+    try {
+        // Construire la liste des destinataires
+        let recipientIds = []; // Pour éviter les doublons d'utilisateurs
+        let recipientEmails = []; // Les emails uniques pour l'envoi
+        let recipientNames = []; // Les noms pour l'affichage
+        
+        // Groupes
+        if (groupAdmin) {
+            const admins = await new Promise((resolve, reject) => {
+                database.all(`SELECT id, nom, prenom, email FROM users WHERE is_admin = 1 AND actif = 1 AND email IS NOT NULL AND email != ''`, (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows || []);
+                });
+            });
+            admins.forEach(u => {
+                if (!recipientIds.includes(u.id)) {
+                    recipientIds.push(u.id);
+                    if (!recipientEmails.includes(u.email)) {
+                        recipientEmails.push(u.email);
+                    }
+                    recipientNames.push(`${u.prenom} ${u.nom} (Admin)`);
+                }
+            });
+        }
+        
+        if (groupUser) {
+            const users = await new Promise((resolve, reject) => {
+                database.all(`SELECT id, nom, prenom, email FROM users WHERE is_user = 1 AND actif = 1 AND email IS NOT NULL AND email != ''`, (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows || []);
+                });
+            });
+            users.forEach(u => {
+                if (!recipientIds.includes(u.id)) {
+                    recipientIds.push(u.id);
+                    if (!recipientEmails.includes(u.email)) {
+                        recipientEmails.push(u.email);
+                    }
+                    recipientNames.push(`${u.prenom} ${u.nom} (Utilisateur)`);
+                }
+            });
+        }
+        
+        if (groupExpert) {
+            const expertsUsers = await new Promise((resolve, reject) => {
+                database.all(`SELECT id, nom, prenom, email FROM users WHERE is_expert = 1 AND actif = 1 AND email IS NOT NULL AND email != ''`, (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows || []);
+                });
+            });
+            expertsUsers.forEach(u => {
+                if (!recipientIds.includes(u.id)) {
+                    recipientIds.push(u.id);
+                    if (!recipientEmails.includes(u.email)) {
+                        recipientEmails.push(u.email);
+                    }
+                    recipientNames.push(`${u.prenom} ${u.nom} (Expert)`);
+                }
+            });
+        }
+        
+        // Destinataires individuels
+        if (recipients && recipients.length > 0) {
+            console.log('📧 Recipients individuels reçus:', recipients);
+            const individualUsers = await new Promise((resolve, reject) => {
+                const query = `SELECT id, nom, prenom, email FROM users WHERE id IN (${recipients.join(',')}) AND email IS NOT NULL AND email != ''`;
+                database.all(query, (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows || []);
+                });
+            });
+            individualUsers.forEach(u => {
+                if (!recipientIds.includes(u.id)) {
+                    recipientIds.push(u.id);
+                    if (!recipientEmails.includes(u.email)) {
+                        recipientEmails.push(u.email);
+                    }
+                    recipientNames.push(`${u.prenom} ${u.nom} (Individuel)`);
+                }
+            });
+        }
+        
+        console.log('📧 Total destinataires:', recipientNames.length, 'personnes,', recipientEmails.length, 'emails uniques');
+        console.log('📧 Liste:', recipientNames);
+        
+        // Compter les experts selon la sélection
+        let expertsCount = 0;
+        let expertsNamesList = [];
+        
+        if (allExperts) {
+            const resourcesData = await new Promise((resolve, reject) => {
+                database.all(`SELECT id, nom, prenom FROM resources ORDER BY nom, prenom`, (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows || []);
+                });
+            });
+            expertsCount = resourcesData.length;
+            expertsNamesList = resourcesData.map(r => `${r.prenom} ${r.nom}`);
+        } else if (expertsList && expertsList.length > 0) {
+            const resourcesData = await new Promise((resolve, reject) => {
+                database.all(`SELECT id, nom, prenom FROM resources WHERE id IN (${expertsList.join(',')}) ORDER BY nom, prenom`, (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows || []);
+                });
+            });
+            expertsCount = resourcesData.length;
+            expertsNamesList = resourcesData.map(r => `${r.prenom} ${r.nom}`);
+        }
+        
+        // Générer le nom du fichier
+        const now = new Date();
+        const timestamp = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}-${String(now.getMinutes()).padStart(2,'0')}`;
+        const filename = `Expert_Planning_Sauvegarde_de_${timestamp}.${format}`;
+        
+        res.json({
+            success: true,
+            recipientsCount: recipientNames.length, // Nombre de personnes
+            emailsCount: recipientEmails.length, // Nombre d'emails uniques
+            recipientsList: recipientNames,
+            expertsCount,
+            expertsNamesList,
+            filename
+        });
+        
+    } catch (error) {
+        console.error('Erreur preview automation 2:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Envoyer la sauvegarde du planning (automatisation 2)
+app.post('/api/automation/send/2', requireAdmin, async (req, res) => {
+    console.log('🚨 SEND/2 APPELÉ - Vérifiez que vous avez cliqué sur Confirmer et envoyer !');
+    const { groupAdmin, groupUser, groupExpert, recipients, months, allExperts, expertsList, format } = req.body;
+    
+    try {
+        const transporter = createEmailTransporter();
+        if (!transporter) {
+            return res.status(500).json({ error: 'Configuration email non disponible' });
+        }
+        
+        // Construire la liste des destinataires
+        let recipientIds = []; // Pour éviter les doublons d'utilisateurs
+        let recipientEmails = []; // Les emails uniques pour l'envoi
+        let recipientNames = []; // Les noms pour l'affichage
+        
+        if (groupAdmin) {
+            const admins = await new Promise((resolve, reject) => {
+                database.all(`SELECT id, nom, prenom, email FROM users WHERE is_admin = 1 AND actif = 1 AND email IS NOT NULL AND email != ''`, (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows || []);
+                });
+            });
+            admins.forEach(u => { 
+                if (!recipientIds.includes(u.id)) {
+                    recipientIds.push(u.id);
+                    if (!recipientEmails.includes(u.email)) {
+                        recipientEmails.push(u.email);
+                    }
+                    recipientNames.push(`${u.prenom} ${u.nom}`);
+                }
+            });
+        }
+        
+        if (groupUser) {
+            const usersData = await new Promise((resolve, reject) => {
+                database.all(`SELECT id, nom, prenom, email FROM users WHERE is_user = 1 AND actif = 1 AND email IS NOT NULL AND email != ''`, (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows || []);
+                });
+            });
+            usersData.forEach(u => { 
+                if (!recipientIds.includes(u.id)) {
+                    recipientIds.push(u.id);
+                    if (!recipientEmails.includes(u.email)) {
+                        recipientEmails.push(u.email);
+                    }
+                    recipientNames.push(`${u.prenom} ${u.nom}`);
+                }
+            });
+        }
+        
+        if (groupExpert) {
+            const expertsUsers = await new Promise((resolve, reject) => {
+                database.all(`SELECT id, nom, prenom, email FROM users WHERE is_expert = 1 AND actif = 1 AND email IS NOT NULL AND email != ''`, (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows || []);
+                });
+            });
+            expertsUsers.forEach(u => { 
+                if (!recipientIds.includes(u.id)) {
+                    recipientIds.push(u.id);
+                    if (!recipientEmails.includes(u.email)) {
+                        recipientEmails.push(u.email);
+                    }
+                    recipientNames.push(`${u.prenom} ${u.nom}`);
+                }
+            });
+        }
+        
+        if (recipients && recipients.length > 0) {
+            const individualUsers = await new Promise((resolve, reject) => {
+                database.all(`SELECT id, nom, prenom, email FROM users WHERE id IN (${recipients.join(',')}) AND email IS NOT NULL AND email != ''`, (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows || []);
+                });
+            });
+            individualUsers.forEach(u => { 
+                if (!recipientIds.includes(u.id)) {
+                    recipientIds.push(u.id);
+                    if (!recipientEmails.includes(u.email)) {
+                        recipientEmails.push(u.email);
+                    }
+                    recipientNames.push(`${u.prenom} ${u.nom}`);
+                }
+            });
+        }
+        
+        if (recipientEmails.length === 0) {
+            return res.status(400).json({ error: 'Aucun destinataire' });
+        }
+        
+        console.log(`📧 Envoi à ${recipientNames.length} personnes (${recipientEmails.length} emails uniques)`);
+        
+        // Récupérer les ressources selon la sélection
+        let resourcesList = [];
+        if (allExperts) {
+            resourcesList = await new Promise((resolve, reject) => {
+                database.all(`SELECT * FROM resources ORDER BY nom, prenom`, (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows || []);
+                });
+            });
+        } else if (expertsList && expertsList.length > 0) {
+            resourcesList = await new Promise((resolve, reject) => {
+                database.all(`SELECT * FROM resources WHERE id IN (${expertsList.join(',')}) ORDER BY nom, prenom`, (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows || []);
+                });
+            });
+        }
+        
+        // Récupérer les données de planning pour les mois sélectionnés
+        const now = new Date();
+        let allPatterns = [];
+        const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+        let monthsLabels = [];
+        
+        months.forEach(offset => {
+            const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+            const pattern = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-%`;
+            allPatterns.push(pattern);
+            monthsLabels.push(`${monthNames[d.getMonth()]} ${d.getFullYear()}`);
+        });
+        
+        // Construire les conditions LIKE
+        const likeConditions = allPatterns.map(() => `date_key LIKE ?`).join(' OR ');
+        
+        const scheduleData = await new Promise((resolve, reject) => {
+            database.all(
+                `SELECT * FROM schedule_data WHERE ${likeConditions} ORDER BY resource_id, date_key`,
+                allPatterns,
+                (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows || []);
+                }
+            );
+        });
+        
+        // Organiser les données par ressource et date
+        const dataByResource = {};
+        scheduleData.forEach(row => {
+            if (!dataByResource[row.resource_id]) {
+                dataByResource[row.resource_id] = {};
+            }
+            if (!dataByResource[row.resource_id][row.date_key]) {
+                dataByResource[row.resource_id][row.date_key] = {};
+            }
+            dataByResource[row.resource_id][row.date_key][row.type] = row.value;
+        });
+        
+        // Générer le fichier CSV
+        const timestamp = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}-${String(now.getMinutes()).padStart(2,'0')}`;
+        const filename = `Expert_Planning_Sauvegarde_de_${timestamp}.${format}`;
+        
+        const availLabels = { '1': 'Indisponible', '2': 'Disponible', '3': 'Congés' };
+        const actLabels = { '1': 'Indisponible', '2': 'En attente', '3': 'SAMU Déploiement', '4': 'SAMU Dev', '5': 'ANS Déploiement', '6': 'ANS Dev', '7': 'Qualification', '8': 'Divers' };
+        
+        let csvContent = '\ufeff'; // BOM UTF-8
+        csvContent += 'Expert,Date,Période,Disponibilité,Affectation,Localisation\n';
+        
+        resourcesList.forEach(resource => {
+            const resData = dataByResource[resource.id] || {};
+            
+            // Parcourir tous les jours des mois sélectionnés
+            months.forEach(offset => {
+                const monthDate = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+                const daysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
+                
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const dateKey = `${monthDate.getFullYear()}-${String(monthDate.getMonth()+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+                    
+                    ['AM', 'PM'].forEach(period => {
+                        const key = `${dateKey}_${period}`;
+                        const data = resData[key] || {};
+                        
+                        const avail = data.available || '1';
+                        const act = data.activity || '1';
+                        const loc = data.localisation || '-';
+                        
+                        csvContent += `"${resource.prenom} ${resource.nom}","${dateKey}","${period}","${availLabels[avail] || avail}","${actLabels[act] || act}","${loc}"\n`;
+                    });
+                }
+            });
+        });
+        
+        // Envoyer l'email avec pièce jointe
+        const mailOptions = {
+            from: `"Domaine des Urgences - Planification des ressources" <${emailConfig.user}>`,
+            to: recipientEmails.join(', '),
+            subject: `📊 Sauvegarde du planning - ${monthsLabels.join(', ')}`,
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
+                    <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                        <h2 style="color: #e65100; border-bottom: 2px solid #ff9800; padding-bottom: 10px;">
+                            📊 Sauvegarde automatique du planning
+                        </h2>
+                        
+                        <p>Bonjour,</p>
+                        
+                        <p>Veuillez trouver ci-joint la sauvegarde du planning pour les mois suivants :</p>
+                        
+                        <ul>
+                            ${monthsLabels.map(m => `<li>${m}</li>`).join('')}
+                        </ul>
+                        
+                        <div style="margin: 20px 0; padding: 15px; background-color: #fff3e0; border-left: 4px solid #ff9800; border-radius: 4px;">
+                            <p style="margin: 0;"><strong>Informations :</strong></p>
+                            <p style="margin: 5px 0 0 0;">
+                                • ${resourcesList.length} expert(s) inclus<br>
+                                • Format : ${format.toUpperCase()}<br>
+                                • Date de génération : ${new Date().toLocaleString('fr-FR')}
+                            </p>
+                        </div>
+                        
+                        <p>Cordialement,<br>Système de planification SI-SAMU</p>
+                        
+                        <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
+                        
+                        <p style="color: #7f8c8d; font-size: 12px; text-align: center;">
+                            Cet email a été envoyé automatiquement depuis le système SI-SAMU de planification des ressources.
+                        </p>
+                    </div>
+                </div>
+            `,
+            attachments: [
+                {
+                    filename: filename,
+                    content: csvContent,
+                    contentType: 'text/csv; charset=utf-8'
+                }
+            ]
+        };
+        
+        await transporter.sendMail(mailOptions);
+        console.log(`✅ Sauvegarde planning envoyée à ${recipientEmails.length} destinataire(s)`);
+        
+        // Enregistrer dans les logs avec le contenu du fichier et la liste des destinataires
+        database.run(
+            `INSERT INTO automation_logs (automation_id, expert_name, expert_email, target_month, sent_at, recipients_list, file_content, filename)
+             VALUES (?, ?, ?, ?, datetime('now'), ?, ?, ?)`,
+            [2, `${recipientNames.length} personnes`, recipientEmails.join(', '), monthsLabels.join(', '), JSON.stringify(recipientNames), csvContent, filename]
+        );
+        
+        res.json({ 
+            success: true, 
+            sent: recipientNames.length, // Nombre de personnes
+            emailsSent: recipientEmails.length, // Nombre d'emails uniques
+            failed: 0 
+        });
+        
+    } catch (error) {
+        console.error('Erreur envoi automation 2:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ========== FIN AUTOMATISATION N°2 ==========
 
 // ========== FIN GESTION DES AUTOMATISATIONS ==========
 
@@ -4021,15 +4473,241 @@ async function runAutomation1() {
     }
 }
 
-// Planifier le cron pour s'exécuter tous les jours à 8h00
+// Fonction pour exécuter l'automatisation n°2 (sauvegarde plannings)
+async function runAutomation2() {
+    console.log('⏰ [CRON] Vérification automatisation n°2...');
+    
+    try {
+        // Récupérer la configuration
+        const configRow = await new Promise((resolve, reject) => {
+            database.get(
+                `SELECT value FROM settings WHERE key = 'automation_2_config'`,
+                (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row);
+                }
+            );
+        });
+        
+        if (!configRow || !configRow.value) {
+            console.log('⏰ [CRON] Automatisation n°2 non configurée');
+            return;
+        }
+        
+        const config = JSON.parse(configRow.value);
+        
+        if (!config.enabled) {
+            console.log('⏰ [CRON] Automatisation n°2 désactivée');
+            return;
+        }
+        
+        const now = new Date();
+        const currentDay = now.getDate();
+        const currentDayOfWeek = now.getDay(); // 0=Dimanche, 1=Lundi, etc.
+        const currentHour = now.getHours();
+        
+        // Vérifier si c'est le bon moment pour envoyer
+        let shouldSend = false;
+        
+        if (config.frequency === 'daily') {
+            shouldSend = (currentHour === parseInt(config.hour));
+        } else if (config.frequency === 'weekly') {
+            shouldSend = (currentDayOfWeek === parseInt(config.weekDay) && currentHour === parseInt(config.hour));
+        } else if (config.frequency === 'monthly') {
+            shouldSend = (currentDay === parseInt(config.monthDay) && currentHour === parseInt(config.hour));
+        }
+        
+        if (!shouldSend) {
+            console.log(`⏰ [CRON] Pas le bon moment pour l'automatisation n°2`);
+            return;
+        }
+        
+        console.log('⏰ [CRON] Déclenchement de l\'automatisation n°2...');
+        
+        const transporter = createEmailTransporter();
+        if (!transporter) {
+            console.error('⏰ [CRON] Configuration email non disponible');
+            return;
+        }
+        
+        // Construire la liste des destinataires
+        let recipientEmails = [];
+        
+        if (config.groupAdmin) {
+            const admins = await new Promise((resolve, reject) => {
+                database.all(`SELECT email FROM users WHERE is_admin = 1 AND actif = 1 AND email IS NOT NULL AND email != ''`, (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows || []);
+                });
+            });
+            admins.forEach(u => { if (!recipientEmails.includes(u.email)) recipientEmails.push(u.email); });
+        }
+        
+        if (config.groupUser) {
+            const usersData = await new Promise((resolve, reject) => {
+                database.all(`SELECT email FROM users WHERE is_user = 1 AND actif = 1 AND email IS NOT NULL AND email != ''`, (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows || []);
+                });
+            });
+            usersData.forEach(u => { if (!recipientEmails.includes(u.email)) recipientEmails.push(u.email); });
+        }
+        
+        if (config.groupExpert) {
+            const expertsUsers = await new Promise((resolve, reject) => {
+                database.all(`SELECT email FROM users WHERE is_expert = 1 AND actif = 1 AND email IS NOT NULL AND email != ''`, (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows || []);
+                });
+            });
+            expertsUsers.forEach(u => { if (!recipientEmails.includes(u.email)) recipientEmails.push(u.email); });
+        }
+        
+        if (config.recipients && config.recipients.length > 0) {
+            const individualUsers = await new Promise((resolve, reject) => {
+                database.all(`SELECT email FROM users WHERE id IN (${config.recipients.join(',')}) AND email IS NOT NULL AND email != ''`, (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows || []);
+                });
+            });
+            individualUsers.forEach(u => { if (!recipientEmails.includes(u.email)) recipientEmails.push(u.email); });
+        }
+        
+        if (recipientEmails.length === 0) {
+            console.log('⏰ [CRON] Automatisation n°2: aucun destinataire');
+            return;
+        }
+        
+        // Récupérer les ressources selon la sélection
+        let resourcesList = [];
+        if (config.allExperts !== false) { // Par défaut tous les experts
+            resourcesList = await new Promise((resolve, reject) => {
+                database.all(`SELECT * FROM resources ORDER BY nom, prenom`, (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows || []);
+                });
+            });
+        } else if (config.expertsList && config.expertsList.length > 0) {
+            resourcesList = await new Promise((resolve, reject) => {
+                database.all(`SELECT * FROM resources WHERE id IN (${config.expertsList.join(',')}) ORDER BY nom, prenom`, (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows || []);
+                });
+            });
+        }
+        
+        // Récupérer les données de planning
+        const months = config.months || [0, 1];
+        let allPatterns = [];
+        const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+        let monthsLabels = [];
+        
+        months.forEach(offset => {
+            const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+            const pattern = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-%`;
+            allPatterns.push(pattern);
+            monthsLabels.push(`${monthNames[d.getMonth()]} ${d.getFullYear()}`);
+        });
+        
+        const likeConditions = allPatterns.map(() => `date_key LIKE ?`).join(' OR ');
+        
+        const scheduleData = await new Promise((resolve, reject) => {
+            database.all(
+                `SELECT * FROM schedule_data WHERE ${likeConditions} ORDER BY resource_id, date_key`,
+                allPatterns,
+                (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows || []);
+                }
+            );
+        });
+        
+        // Organiser les données
+        const dataByResource = {};
+        scheduleData.forEach(row => {
+            if (!dataByResource[row.resource_id]) dataByResource[row.resource_id] = {};
+            if (!dataByResource[row.resource_id][row.date_key]) dataByResource[row.resource_id][row.date_key] = {};
+            dataByResource[row.resource_id][row.date_key][row.type] = row.value;
+        });
+        
+        // Générer le fichier
+        const format = config.format || 'csv';
+        const timestamp = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}-${String(now.getMinutes()).padStart(2,'0')}`;
+        const filename = `Expert_Planning_Sauvegarde_de_${timestamp}.${format}`;
+        
+        const availLabels = { '1': 'Indisponible', '2': 'Disponible', '3': 'Congés' };
+        const actLabels = { '1': 'Indisponible', '2': 'En attente', '3': 'SAMU Déploiement', '4': 'SAMU Dev', '5': 'ANS Déploiement', '6': 'ANS Dev', '7': 'Qualification', '8': 'Divers' };
+        
+        let csvContent = '\ufeff';
+        csvContent += 'Expert,Date,Période,Disponibilité,Affectation,Localisation\n';
+        
+        resourcesList.forEach(resource => {
+            const resData = dataByResource[resource.id] || {};
+            months.forEach(offset => {
+                const monthDate = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+                const daysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
+                
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const dateKey = `${monthDate.getFullYear()}-${String(monthDate.getMonth()+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+                    ['AM', 'PM'].forEach(period => {
+                        const key = `${dateKey}_${period}`;
+                        const data = resData[key] || {};
+                        const avail = data.available || '1';
+                        const act = data.activity || '1';
+                        const loc = data.localisation || '-';
+                        csvContent += `"${resource.prenom} ${resource.nom}","${dateKey}","${period}","${availLabels[avail] || avail}","${actLabels[act] || act}","${loc}"\n`;
+                    });
+                }
+            });
+        });
+        
+        // Envoyer l'email
+        const mailOptions = {
+            from: `"Domaine des Urgences - Planification des ressources" <${emailConfig.user}>`,
+            to: recipientEmails.join(', '),
+            subject: `📊 Sauvegarde automatique du planning - ${monthsLabels.join(', ')}`,
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <h2 style="color: #e65100;">📊 Sauvegarde automatique du planning</h2>
+                    <p>Veuillez trouver ci-joint la sauvegarde du planning pour : ${monthsLabels.join(', ')}</p>
+                    <p>• ${resourcesList.length} expert(s) inclus<br>• Format : ${format.toUpperCase()}</p>
+                    <hr><p style="color: #999; font-size: 12px;">Email automatique - Système SI-SAMU</p>
+                </div>
+            `,
+            attachments: [{ filename, content: csvContent, contentType: 'text/csv; charset=utf-8' }]
+        };
+        
+        await transporter.sendMail(mailOptions);
+        console.log(`⏰ [CRON] ✅ Automatisation n°2: sauvegarde envoyée à ${recipientEmails.length} destinataire(s)`);
+        
+        database.run(
+            `INSERT INTO automation_logs (automation_id, expert_name, expert_email, target_month, sent_at) VALUES (?, ?, ?, ?, datetime('now'))`,
+            [2, `${recipientEmails.length} destinataires`, filename, monthsLabels.join(', ')]
+        );
+        
+    } catch (error) {
+        console.error('⏰ [CRON] Erreur automatisation n°2:', error);
+    }
+}
+
+// Planifier les crons
+// Cron pour vérification toutes les heures (pour automation 2 avec différentes fréquences)
+cron.schedule('0 * * * *', () => {
+    console.log('⏰ [CRON] Vérification horaire - ' + new Date().toLocaleString('fr-FR'));
+    runAutomation2();
+}, {
+    timezone: "Europe/Paris"
+});
+
+// Cron spécifique pour automation 1 à 8h00
 cron.schedule('0 8 * * *', () => {
-    console.log('⏰ [CRON] Exécution des automatisations programmées - ' + new Date().toLocaleString('fr-FR'));
+    console.log('⏰ [CRON] Exécution automatisation n°1 - ' + new Date().toLocaleString('fr-FR'));
     runAutomation1();
 }, {
     timezone: "Europe/Paris"
 });
 
-console.log('⏰ Cron configuré: vérification quotidienne à 8h00 (Europe/Paris)');
+console.log('⏰ Crons configurés: vérification horaire + automatisation n°1 à 8h00 (Europe/Paris)');
 
 // ========== FIN SYSTÈME DE CRON ==========
 
