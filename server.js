@@ -2837,6 +2837,180 @@ app.get('/api/automation/diagnose-months', requireAdmin, async (req, res) => {
     }
 });
 
+// Prévisualisation du nettoyage des dates (sans modification)
+app.post('/api/automation/cleanup-dates-preview', requireAdmin, async (req, res) => {
+    try {
+        console.log('🔍 Prévisualisation du nettoyage des dates...');
+        
+        // 1. Trouver les données avec mois = 0 (à supprimer)
+        const toDelete = await new Promise((resolve, reject) => {
+            database.all(`
+                SELECT date_key, type, value, resource_id 
+                FROM schedule_data 
+                WHERE date_key LIKE '%-0-%'
+                ORDER BY date_key
+            `, (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows || []);
+            });
+        });
+        
+        console.log(`🗑️ Lignes à supprimer (mois=0): ${toDelete.length}`);
+        
+        // 2. Trouver les dates mal formatées (à normaliser)
+        const badDates = await new Promise((resolve, reject) => {
+            database.all(`
+                SELECT DISTINCT date_key, COUNT(*) as row_count
+                FROM schedule_data 
+                WHERE date_key NOT LIKE '____-__-__%'
+                  AND date_key NOT LIKE '%-0-%'
+                GROUP BY date_key
+                ORDER BY date_key
+            `, (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows || []);
+            });
+        });
+        
+        console.log(`✏️ Dates mal formatées: ${badDates.length}`);
+        
+        // 3. Pour chaque date mal formatée, vérifier s'il y a conflit
+        const toNormalize = [];
+        let conflictCount = 0;
+        
+        for (const row of badDates) {
+            const oldKey = row.date_key;
+            
+            // Parser la date (format: 2025-9-1 ou 2026-2-18)
+            const match = oldKey.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+            if (match) {
+                const [, year, month, day] = match;
+                const newKey = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}_AM`;
+                
+                // Vérifier si la nouvelle clé existe déjà
+                const existingCount = await new Promise((resolve, reject) => {
+                    database.get(`SELECT COUNT(*) as count FROM schedule_data WHERE date_key = ?`, [newKey], (err, row) => {
+                        if (err) reject(err);
+                        else resolve(row ? row.count : 0);
+                    });
+                });
+                
+                const hasConflict = existingCount > 0;
+                if (hasConflict) conflictCount++;
+                
+                toNormalize.push({
+                    oldKey,
+                    newKey,
+                    rowCount: row.row_count,
+                    hasConflict,
+                    existingCount
+                });
+            }
+        }
+        
+        res.json({
+            success: true,
+            toDelete,
+            toNormalize,
+            conflictCount
+        });
+        
+    } catch (error) {
+        console.error('Erreur prévisualisation nettoyage:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Exécuter le nettoyage des dates (avec modification)
+app.post('/api/automation/cleanup-dates-execute', requireAdmin, async (req, res) => {
+    try {
+        console.log('🧹 Exécution du nettoyage des dates...');
+        
+        let deleted = 0;
+        let normalized = 0;
+        let duplicatesRemoved = 0;
+        
+        // 1. Supprimer les données avec mois = 0
+        const deleteResult = await new Promise((resolve, reject) => {
+            database.run(`DELETE FROM schedule_data WHERE date_key LIKE '%-0-%'`, function(err) {
+                if (err) reject(err);
+                else resolve(this.changes);
+            });
+        });
+        deleted = deleteResult;
+        console.log(`🗑️ Supprimé ${deleted} lignes avec mois=0`);
+        
+        // 2. Normaliser les dates mal formatées
+        const badDates = await new Promise((resolve, reject) => {
+            database.all(`
+                SELECT DISTINCT date_key
+                FROM schedule_data 
+                WHERE date_key NOT LIKE '____-__-__%'
+            `, (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows || []);
+            });
+        });
+        
+        for (const row of badDates) {
+            const oldKey = row.date_key;
+            
+            // Parser la date
+            const match = oldKey.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+            if (match) {
+                const [, year, month, day] = match;
+                const newKey = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}_AM`;
+                
+                // Vérifier si la nouvelle clé existe déjà
+                const existingCount = await new Promise((resolve, reject) => {
+                    database.get(`SELECT COUNT(*) as count FROM schedule_data WHERE date_key = ?`, [newKey], (err, row) => {
+                        if (err) reject(err);
+                        else resolve(row ? row.count : 0);
+                    });
+                });
+                
+                if (existingCount === 0) {
+                    // Pas de conflit : renommer
+                    await new Promise((resolve, reject) => {
+                        database.run(`UPDATE schedule_data SET date_key = ? WHERE date_key = ?`, [newKey, oldKey], function(err) {
+                            if (err) reject(err);
+                            else resolve(this.changes);
+                        });
+                    });
+                    normalized++;
+                    console.log(`✏️ Renommé: ${oldKey} → ${newKey}`);
+                } else {
+                    // Conflit : supprimer l'ancien (doublon)
+                    const deletedDup = await new Promise((resolve, reject) => {
+                        database.run(`DELETE FROM schedule_data WHERE date_key = ?`, [oldKey], function(err) {
+                            if (err) reject(err);
+                            else resolve(this.changes);
+                        });
+                    });
+                    duplicatesRemoved += deletedDup;
+                    console.log(`🗑️ Doublon supprimé: ${oldKey} (${deletedDup} lignes)`);
+                }
+            }
+        }
+        
+        // Logger l'action
+        logUserAction(req, 'Nettoyage dates invalides exécuté', { deleted, normalized, duplicatesRemoved });
+        
+        console.log(`✅ Nettoyage terminé: ${deleted} supprimés, ${normalized} normalisés, ${duplicatesRemoved} doublons supprimés`);
+        
+        res.json({
+            success: true,
+            deleted,
+            normalized,
+            duplicatesRemoved
+        });
+        
+    } catch (error) {
+        console.error('Erreur exécution nettoyage:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Prévisualisation de l'automatisation 2
 app.post('/api/automation/preview/2', requireAdmin, async (req, res) => {
     console.log('👁️ PREVIEW/2 APPELÉ - Affichage du récapitulatif (pas d\'envoi)');

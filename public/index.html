@@ -1003,6 +1003,9 @@
                     <button onclick="diagnoseMoisData()" style="background-color: #9c27b0; color: white; white-space: nowrap;">
                         🔍 Diagnostic mois
                     </button>
+                    <button onclick="cleanupInvalidDates()" style="background-color: #f44336; color: white; white-space: nowrap;">
+                        🧹 Nettoyer données invalides
+                    </button>
                 </div>
                 
                 <!-- Section de test -->
@@ -5631,7 +5634,7 @@
                             const hasRealData = m.availableNot1 > 0 || m.activityNot1 > 0;
                             const rowStyle = hasRealData ? '' : 'background: #ffebee;';
                             html += `<tr style="${rowStyle}">`;
-                            html += `<td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">${m.label}</td>`;
+                            html += `<td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">${m.label} <span style="color:#999; font-size:10px;">(${m.raw})</span></td>`;
                             html += `<td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${m.totalRows}</td>`;
                             html += `<td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${m.availableNot1}</td>`;
                             html += `<td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${m.activityNot1}</td>`;
@@ -5651,7 +5654,7 @@
                         if (data.orphanData && data.orphanData.length > 0) {
                             html += '<h4 style="margin-top: 20px; color: #e65100;">⚠️ Données orphelines détectées</h4>';
                             html += '<p style="font-size: 11px;">Ces données ont un format de date incorrect :</p>';
-                            html += '<pre style="background: #f5f5f5; padding: 10px; font-size: 10px; overflow-x: auto;">';
+                            html += '<pre style="background: #f5f5f5; padding: 10px; font-size: 10px; overflow-x: auto; max-height: 200px;">';
                             html += JSON.stringify(data.orphanData, null, 2);
                             html += '</pre>';
                         }
@@ -5670,6 +5673,134 @@
                 }
             } catch (error) {
                 console.error('Erreur diagnostic:', error);
+                alert('Erreur: ' + error.message);
+            }
+        }
+        
+        // Nettoyer les données invalides (mois 0, formats incorrects)
+        async function cleanupInvalidDates() {
+            // D'abord, afficher la prévisualisation
+            try {
+                const response = await fetch(`${API_URL}/automation/cleanup-dates-preview`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    const err = await response.json();
+                    alert('Erreur: ' + (err.error || 'Erreur inconnue'));
+                    return;
+                }
+                
+                const data = await response.json();
+                
+                // Afficher la prévisualisation dans une modal
+                let html = '<h3>🔍 Prévisualisation du nettoyage</h3>';
+                html += '<p style="font-size: 12px; color: #666; margin-bottom: 15px;">Voici ce qui sera modifié. <strong>Aucune modification n\'a encore été faite.</strong></p>';
+                
+                // Section 1: Suppressions
+                html += '<div style="background: #ffebee; padding: 10px; border-radius: 4px; margin-bottom: 15px;">';
+                html += `<h4 style="color: #c62828; margin: 0 0 10px 0;">🗑️ Suppressions prévues : ${data.toDelete.length} lignes</h4>`;
+                if (data.toDelete.length > 0) {
+                    html += '<p style="font-size: 11px; margin-bottom: 5px;">Données avec mois invalide (mois=0) qui seront supprimées :</p>';
+                    html += '<div style="max-height: 150px; overflow-y: auto; background: white; padding: 8px; border-radius: 4px; font-size: 10px; font-family: monospace;">';
+                    data.toDelete.slice(0, 50).forEach(item => {
+                        html += `<div>${item.date_key} | ${item.type}=${item.value} | expert=${item.resource_id}</div>`;
+                    });
+                    if (data.toDelete.length > 50) {
+                        html += `<div style="color: #999;">... et ${data.toDelete.length - 50} autres lignes</div>`;
+                    }
+                    html += '</div>';
+                } else {
+                    html += '<p style="font-size: 11px; color: #666;">Aucune donnée à supprimer.</p>';
+                }
+                html += '</div>';
+                
+                // Section 2: Normalisations
+                html += '<div style="background: #fff3e0; padding: 10px; border-radius: 4px; margin-bottom: 15px;">';
+                html += `<h4 style="color: #e65100; margin: 0 0 10px 0;">✏️ Normalisations prévues : ${data.toNormalize.length} dates</h4>`;
+                if (data.toNormalize.length > 0) {
+                    html += '<p style="font-size: 11px; margin-bottom: 5px;">Dates qui seront renommées (format YYYY-M-D → YYYY-MM-DD_AM) :</p>';
+                    html += '<table style="width: 100%; font-size: 10px; border-collapse: collapse; background: white;">';
+                    html += '<thead><tr style="background: #f5f5f5;"><th style="padding: 4px; border: 1px solid #ddd;">Ancien</th><th style="padding: 4px; border: 1px solid #ddd;">Nouveau</th><th style="padding: 4px; border: 1px solid #ddd;">Lignes</th><th style="padding: 4px; border: 1px solid #ddd;">Conflit?</th></tr></thead><tbody>';
+                    data.toNormalize.slice(0, 30).forEach(item => {
+                        const conflictStyle = item.hasConflict ? 'background: #ffcdd2;' : '';
+                        const conflictText = item.hasConflict ? '⚠️ OUI - sera supprimé' : '✅ Non';
+                        html += `<tr style="${conflictStyle}"><td style="padding: 4px; border: 1px solid #ddd;">${item.oldKey}</td><td style="padding: 4px; border: 1px solid #ddd;">${item.newKey}</td><td style="padding: 4px; border: 1px solid #ddd; text-align: center;">${item.rowCount}</td><td style="padding: 4px; border: 1px solid #ddd;">${conflictText}</td></tr>`;
+                    });
+                    if (data.toNormalize.length > 30) {
+                        html += `<tr><td colspan="4" style="padding: 4px; border: 1px solid #ddd; color: #999;">... et ${data.toNormalize.length - 30} autres dates</td></tr>`;
+                    }
+                    html += '</tbody></table>';
+                    
+                    if (data.conflictCount > 0) {
+                        html += `<p style="font-size: 11px; color: #c62828; margin-top: 10px;">⚠️ <strong>${data.conflictCount} dates en conflit</strong> seront supprimées car elles existent déjà au nouveau format.</p>`;
+                    }
+                } else {
+                    html += '<p style="font-size: 11px; color: #666;">Aucune date à normaliser.</p>';
+                }
+                html += '</div>';
+                
+                // Section 3: Résumé
+                html += '<div style="background: #e3f2fd; padding: 10px; border-radius: 4px; margin-bottom: 15px;">';
+                html += '<h4 style="color: #1565c0; margin: 0 0 10px 0;">📊 Résumé</h4>';
+                html += `<ul style="font-size: 12px; margin: 0; padding-left: 20px;">`;
+                html += `<li><strong>${data.toDelete.length}</strong> lignes seront supprimées (données corrompues)</li>`;
+                html += `<li><strong>${data.toNormalize.length - data.conflictCount}</strong> dates seront renommées</li>`;
+                html += `<li><strong>${data.conflictCount}</strong> dates en doublon seront supprimées</li>`;
+                html += `</ul>`;
+                html += '</div>';
+                
+                // Boutons d'action
+                html += '<div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">';
+                html += '<button onclick="executeCleanup()" style="background: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">✅ Confirmer et exécuter</button>';
+                html += '<button onclick="document.getElementById(\'automationLogsModal\').style.display=\'none\'" style="background: #9e9e9e; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;">Annuler</button>';
+                html += '</div>';
+                
+                // Afficher dans la modal
+                const modal = document.getElementById('automationLogsModal');
+                const content = document.getElementById('automationLogsContent');
+                modal.querySelector('h2').textContent = '🧹 Nettoyage des données';
+                content.innerHTML = html;
+                modal.style.display = 'block';
+                
+            } catch (error) {
+                console.error('Erreur prévisualisation nettoyage:', error);
+                alert('Erreur: ' + error.message);
+            }
+        }
+        
+        // Exécuter le nettoyage après confirmation
+        async function executeCleanup() {
+            if (!confirm('⚠️ ATTENTION ⚠️\n\nVous êtes sur le point de modifier la base de données.\n\nCette action est IRRÉVERSIBLE.\n\nÊtes-vous absolument sûr de vouloir continuer ?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/automation/cleanup-dates-execute`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    let message = '✅ Nettoyage terminé avec succès !\n\n';
+                    message += `• Lignes supprimées : ${data.deleted}\n`;
+                    message += `• Dates normalisées : ${data.normalized}\n`;
+                    message += `• Doublons supprimés : ${data.duplicatesRemoved}\n`;
+                    
+                    alert(message);
+                    
+                    // Fermer la modal et recharger la liste des mois
+                    document.getElementById('automationLogsModal').style.display = 'none';
+                    await populateAutomation2MonthsList();
+                } else {
+                    const err = await response.json();
+                    alert('Erreur: ' + (err.error || 'Erreur inconnue'));
+                }
+            } catch (error) {
+                console.error('Erreur exécution nettoyage:', error);
                 alert('Erreur: ' + error.message);
             }
         }
