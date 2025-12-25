@@ -2682,31 +2682,65 @@ app.post('/api/automation/send-reminder', requireAdmin, async (req, res) => {
 app.get('/api/automation/available-months', requireAdmin, async (req, res) => {
     try {
         // Récupérer les mois distincts où il y a des données NON vides
+        // On ne compte que les lignes où available != '1' OU activity != '1'
         const monthsData = await new Promise((resolve, reject) => {
             database.all(`
                 SELECT DISTINCT substr(date_key, 1, 7) as month 
                 FROM schedule_data 
-                WHERE value != '1'
+                WHERE (type = 'available' AND value != '1')
+                   OR (type = 'activity' AND value != '1')
             `, (err, rows) => {
                 if (err) reject(err);
                 else resolve(rows || []);
             });
         });
         
-        // Trier les mois chronologiquement en JavaScript
-        const sortedMonths = monthsData
-            .map(row => row.month)
-            .sort((a, b) => a.localeCompare(b)); // "2025-01" < "2025-02" < "2025-12" < "2026-01"
+        console.log('📅 Mois bruts trouvés:', monthsData.map(r => r.month));
         
-        // Formater les mois pour l'affichage
+        // Filtrer, normaliser et trier les mois chronologiquement
         const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
-        const formattedMonths = sortedMonths.map(monthStr => {
-            const [year, month] = monthStr.split('-');
-            return {
-                value: monthStr, // "2025-01"
-                label: `${monthNames[parseInt(month) - 1]} ${year}` // "Janvier 2025"
-            };
-        });
+        
+        const formattedMonths = monthsData
+            .map(row => {
+                // Normaliser le format du mois (gérer "2025-9-" -> "2025-09")
+                let monthStr = row.month;
+                if (!monthStr) return null;
+                
+                // Nettoyer les caractères en trop
+                monthStr = monthStr.replace(/-$/, ''); // Enlever le tiret final s'il existe
+                
+                // Parser année et mois
+                const parts = monthStr.split('-');
+                if (parts.length < 2) return null;
+                
+                const year = parseInt(parts[0]);
+                const month = parseInt(parts[1]);
+                
+                // Vérifier la validité
+                if (isNaN(year) || isNaN(month) || month < 1 || month > 12) return null;
+                
+                // Retourner le format normalisé
+                return `${year}-${String(month).padStart(2, '0')}`;
+            })
+            .filter(m => m !== null)
+            // Supprimer les doublons après normalisation
+            .filter((value, index, self) => self.indexOf(value) === index)
+            .sort((a, b) => {
+                // Tri chronologique: comparer année puis mois
+                const [yearA, monthA] = a.split('-').map(Number);
+                const [yearB, monthB] = b.split('-').map(Number);
+                if (yearA !== yearB) return yearA - yearB;
+                return monthA - monthB;
+            })
+            .map(monthStr => {
+                const [year, month] = monthStr.split('-');
+                return {
+                    value: monthStr, // "2025-01"
+                    label: `${monthNames[parseInt(month) - 1]} ${year}` // "Janvier 2025"
+                };
+            });
+        
+        console.log('📅 Mois formatés:', formattedMonths.map(m => `${m.value} -> ${m.label}`));
         
         res.json({ success: true, months: formattedMonths });
     } catch (error) {
@@ -2842,11 +2876,16 @@ app.post('/api/automation/preview/2', requireAdmin, async (req, res) => {
             });
             monthsLabel = monthsData.length > 0 ? `Toutes les données (${monthsData.length} mois)` : 'Toutes les données';
         } else if (selectedMonths && selectedMonths.length > 0) {
-            // selectedMonths contient des valeurs comme "2025-01"
+            // selectedMonths contient des valeurs comme "2025-01" ou "2025-09"
             const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
             const monthsLabels = selectedMonths.map(monthStr => {
-                const [year, month] = monthStr.split('-');
-                return `${monthNames[parseInt(month) - 1]} ${year}`;
+                // Nettoyer et parser le mois
+                const cleanMonth = monthStr.replace(/-$/, '');
+                const parts = cleanMonth.split('-');
+                const year = parts[0];
+                const month = parseInt(parts[1]);
+                if (isNaN(month) || month < 1 || month > 12) return monthStr;
+                return `${monthNames[month - 1]} ${year}`;
             });
             monthsLabel = monthsLabels.join(', ');
         } else {
@@ -3006,14 +3045,35 @@ app.post('/api/automation/send/2', requireAdmin, async (req, res) => {
             monthsLabels = ['Toutes les données'];
             console.log(`📊 Toutes les données: ${scheduleData.length} lignes`);
         } else if (selectedMonths && selectedMonths.length > 0) {
-            // selectedMonths contient des valeurs comme "2025-01"
+            // selectedMonths contient des valeurs comme "2025-01" ou "2025-09"
             let allPatterns = [];
             selectedMonths.forEach(monthStr => {
-                const pattern = `${monthStr}-%`; // "2025-01-%"
-                allPatterns.push(pattern);
-                const [year, month] = monthStr.split('-');
-                monthsLabels.push(`${monthNames[parseInt(month) - 1]} ${year}`);
+                // Nettoyer le mois et créer les patterns
+                const cleanMonth = monthStr.replace(/-$/, '');
+                const parts = cleanMonth.split('-');
+                const year = parts[0];
+                const month = parseInt(parts[1]);
+                
+                if (!isNaN(month) && month >= 1 && month <= 12) {
+                    // Créer deux patterns pour gérer les deux formats possibles dans la DB
+                    // Format avec zéro: "2025-09-%"
+                    const patternWithZero = `${year}-${String(month).padStart(2, '0')}-%`;
+                    // Format sans zéro: "2025-9-%"
+                    const patternWithoutZero = `${year}-${month}-%`;
+                    
+                    allPatterns.push(patternWithZero);
+                    if (patternWithZero !== patternWithoutZero) {
+                        allPatterns.push(patternWithoutZero);
+                    }
+                    
+                    monthsLabels.push(`${monthNames[month - 1]} ${year}`);
+                }
             });
+            
+            if (allPatterns.length === 0) {
+                console.log('📊 Aucun pattern valide!');
+                return res.status(400).json({ error: 'Format de mois invalide' });
+            }
             
             const likeConditions = allPatterns.map(() => `date_key LIKE ?`).join(' OR ');
             console.log('📊 Requête mois:', likeConditions, allPatterns);

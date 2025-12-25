@@ -5472,11 +5472,12 @@
                     openAutomation2PreviewModal(data, config);
                     resultDiv.innerHTML = '';
                 } else {
-                    throw new Error('Erreur serveur');
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || `Erreur serveur (${response.status})`);
                 }
             } catch (error) {
                 console.error('Erreur test automation 2:', error);
-                resultDiv.innerHTML = '<span style="color: #e74c3c;">❌ Erreur lors du test</span>';
+                resultDiv.innerHTML = `<span style="color: #e74c3c;">❌ ${error.message || 'Erreur lors du test'}</span>`;
             }
         }
         
@@ -5489,13 +5490,15 @@
             let monthsLabel = '';
             if (config.allMonths) {
                 monthsLabel = data.monthsLabel || 'Toutes les données';
-            } else {
+            } else if (config.selectedMonths && config.selectedMonths.length > 0) {
+                // selectedMonths contient des valeurs comme "2025-01"
                 const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
-                const now = new Date();
-                monthsLabel = config.months.map(offset => {
-                    const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
-                    return `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
+                monthsLabel = config.selectedMonths.map(monthStr => {
+                    const [year, month] = monthStr.split('-');
+                    return `${monthNames[parseInt(month) - 1]} ${year}`;
                 }).join(', ');
+            } else {
+                monthsLabel = data.monthsLabel || 'Aucun mois';
             }
             
             // Afficher le label pour les experts
