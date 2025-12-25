@@ -3523,6 +3523,288 @@ app.post('/api/automation/send/2', requireAdmin, async (req, res) => {
 
 // ========== FIN AUTOMATISATION N°2 ==========
 
+// ========== REPORTING ==========
+
+// Endpoint pour le rapport de disponibilités/affectations
+app.post('/api/reporting/availability', requireAdmin, async (req, res) => {
+    try {
+        const { startMonth, startYear, endMonth, endYear, expertIds, includeLeave } = req.body;
+        
+        console.log('📊 Génération rapport:', { startMonth, startYear, endMonth, endYear, expertIds: expertIds?.length, includeLeave });
+        
+        // Vérification de sécurité
+        if (!expertIds || !Array.isArray(expertIds) || expertIds.length === 0) {
+            return res.status(400).json({ error: 'Aucun expert sélectionné' });
+        }
+        
+        // Générer la liste des mois (avec protection contre boucle infinie)
+        const months = [];
+        let currentDate = new Date(startYear, startMonth, 1);
+        const endDate = new Date(endYear, endMonth + 1, 0);
+        const maxMonths = 60; // Maximum 5 ans
+        
+        while (currentDate <= endDate && months.length < maxMonths) {
+            months.push({
+                year: currentDate.getFullYear(),
+                month: currentDate.getMonth()
+            });
+            currentDate.setMonth(currentDate.getMonth() + 1);
+        }
+        
+        if (months.length === 0) {
+            return res.status(400).json({ error: 'Période invalide' });
+        }
+        
+        // Récupérer les experts sélectionnés
+        const placeholders = expertIds.map(() => '?').join(',');
+        const experts = await new Promise((resolve, reject) => {
+            database.all(
+                `SELECT * FROM resources WHERE id IN (${placeholders}) ORDER BY nom, prenom`,
+                expertIds,
+                (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows || []);
+                }
+            );
+        });
+        
+        // Calculer le nombre moyen de jours ouvrés par mois (sur la période)
+        let totalWorkingDays = 0;
+        for (const month of months) {
+            const daysInMonth = new Date(month.year, month.month + 1, 0).getDate();
+            for (let day = 1; day <= daysInMonth; day++) {
+                const date = new Date(month.year, month.month, day);
+                const dayOfWeek = date.getDay();
+                if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                    totalWorkingDays++;
+                }
+            }
+        }
+        const avgWorkingDaysPerMonth = months.length > 0 ? totalWorkingDays / months.length : 22;
+        
+        // Pour chaque expert, calculer les stats mensuelles
+        const expertsWithStats = await Promise.all(experts.map(async (expert) => {
+            const monthlyStats = {};
+            
+            for (const month of months) {
+                const monthKey = `${month.year}-${String(month.month + 1).padStart(2, '0')}`;
+                
+                // Calculer le nombre de jours ouvrés dans le mois
+                const daysInMonth = new Date(month.year, month.month + 1, 0).getDate();
+                let workingDays = 0;
+                let leaveDays = 0;
+                
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const date = new Date(month.year, month.month, day);
+                    const dayOfWeek = date.getDay();
+                    // Exclure samedi (6) et dimanche (0)
+                    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                        workingDays++;
+                    }
+                }
+                
+                // Récupérer les données de disponibilité et d'affectation pour ce mois
+                // Chercher avec les deux formats possibles: 2025-12-% et 2025-12-%
+                const monthPattern1 = `${monthKey}-%`;
+                const monthPattern2 = `${month.year}-${month.month + 1}-%`; // Format sans zéro
+                
+                const scheduleData = await new Promise((resolve, reject) => {
+                    database.all(
+                        `SELECT date_key, type, value FROM schedule_data 
+                         WHERE resource_id = ? AND (date_key LIKE ? OR date_key LIKE ?)`,
+                        [expert.id, monthPattern1, monthPattern2],
+                        (err, rows) => {
+                            if (err) reject(err);
+                            else resolve(rows || []);
+                        }
+                    );
+                });
+                
+                // Organiser les données par date et période
+                // Gérer les formats: 2025-12-15_AM, 2025-12-15_PM, 2025-12-15 (ancien format = journée complète)
+                const dataByDatePeriod = {};
+                scheduleData.forEach(row => {
+                    let dateKey = row.date_key;
+                    
+                    // Si le format n'a pas _AM ou _PM, c'est l'ancien format (journée complète)
+                    // On le compte comme AM et PM
+                    if (!dateKey.includes('_AM') && !dateKey.includes('_PM')) {
+                        // Normaliser la date d'abord (ex: 2025-9-15 -> 2025-09-15)
+                        const parts = dateKey.split('-');
+                        if (parts.length >= 3) {
+                            const normalizedDate = `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+                            // Ajouter pour AM
+                            const amKey = `${normalizedDate}_AM`;
+                            if (!dataByDatePeriod[amKey]) dataByDatePeriod[amKey] = {};
+                            dataByDatePeriod[amKey][row.type] = row.value;
+                            // Ajouter pour PM
+                            const pmKey = `${normalizedDate}_PM`;
+                            if (!dataByDatePeriod[pmKey]) dataByDatePeriod[pmKey] = {};
+                            dataByDatePeriod[pmKey][row.type] = row.value;
+                        }
+                    } else {
+                        // Format moderne avec _AM ou _PM
+                        // Normaliser la partie date si nécessaire
+                        const [datePart, period] = dateKey.split('_');
+                        const parts = datePart.split('-');
+                        if (parts.length >= 3) {
+                            const normalizedDate = `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+                            const normalizedKey = `${normalizedDate}_${period}`;
+                            if (!dataByDatePeriod[normalizedKey]) dataByDatePeriod[normalizedKey] = {};
+                            dataByDatePeriod[normalizedKey][row.type] = row.value;
+                        }
+                    }
+                });
+                
+                // Compter les jours disponibles, affectés et congés
+                // Disponible = disponibilité = "2"
+                // Affecté = activité = "3", "4", "5", "6", "7" ou "8"
+                // Congés = disponibilité = "3"
+                let availableDays = 0;
+                let assignedDays = 0;
+                
+                // Parcourir toutes les demi-journées du mois (y compris week-ends)
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const dateStr = `${month.year}-${String(month.month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    
+                    // Vérifier AM
+                    const amKey = `${dateStr}_AM`;
+                    const amData = dataByDatePeriod[amKey] || {};
+                    
+                    // Disponible = valeur 2
+                    if (amData.available === '2') {
+                        availableDays += 0.5;
+                    }
+                    // Congés = valeur 3
+                    if (amData.available === '3') {
+                        leaveDays += 0.5;
+                    }
+                    // Affecté = activité 3, 4, 5, 6, 7 ou 8
+                    const amActivity = amData.activity;
+                    if (amActivity && ['3', '4', '5', '6', '7', '8'].includes(amActivity)) {
+                        assignedDays += 0.5;
+                    }
+                    
+                    // Vérifier PM
+                    const pmKey = `${dateStr}_PM`;
+                    const pmData = dataByDatePeriod[pmKey] || {};
+                    
+                    if (pmData.available === '2') {
+                        availableDays += 0.5;
+                    }
+                    if (pmData.available === '3') {
+                        leaveDays += 0.5;
+                    }
+                    const pmActivity = pmData.activity;
+                    if (pmActivity && ['3', '4', '5', '6', '7', '8'].includes(pmActivity)) {
+                        assignedDays += 0.5;
+                    }
+                }
+                
+                // Calculer le taux : Affecté / Disponible
+                // Si "Prendre en compte les congés" est coché, on ajuste le taux
+                // mais on affiche toujours les vrais chiffres bruts
+                let effectiveAvailable = availableDays;
+                let rateBase = availableDays;
+                
+                if (includeLeave && leaveDays > 0) {
+                    // Le taux est calculé sur la capacité réelle (disponible - congés ne fait pas sens car congés != disponible)
+                    // En fait, on garde availableDays tel quel car les congés sont déjà exclus de availableDays
+                    // (available=3 n'est pas compté dans availableDays)
+                    rateBase = availableDays;
+                }
+                
+                // Calculer le taux : Affecté / Disponible
+                const rate = rateBase > 0 ? (assignedDays / rateBase) * 100 : 0;
+                
+                monthlyStats[monthKey] = {
+                    workingDays,
+                    available: Math.round(availableDays * 10) / 10,
+                    assigned: Math.round(assignedDays * 10) / 10,
+                    leave: Math.round(leaveDays * 10) / 10,
+                    rate: Math.round(rate * 10) / 10
+                };
+            }
+            
+            return {
+                id: expert.id,
+                name: `${expert.prenom} ${expert.nom}`,
+                tauxMad: expert.taux || 100,
+                avgWorkingDaysPerMonth: Math.round(avgWorkingDaysPerMonth * 10) / 10,
+                monthlyStats
+            };
+        }));
+        
+        res.json({
+            success: true,
+            months,
+            experts: expertsWithStats
+        });
+        
+    } catch (error) {
+        console.error('Erreur génération rapport:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Endpoint de diagnostic pour voir les données brutes d'un expert sur un mois
+app.get('/api/reporting/diagnose/:expertId/:year/:month', requireAdmin, async (req, res) => {
+    try {
+        const { expertId, year, month } = req.params;
+        const monthKey = `${year}-${String(parseInt(month)).padStart(2, '0')}`;
+        const monthPattern1 = `${monthKey}-%`;
+        const monthPattern2 = `${year}-${parseInt(month)}-%`; // Format sans zéro
+        
+        // Récupérer toutes les données brutes
+        const rawData = await new Promise((resolve, reject) => {
+            database.all(
+                `SELECT date_key, type, value FROM schedule_data 
+                 WHERE resource_id = ? AND (date_key LIKE ? OR date_key LIKE ?)
+                 ORDER BY date_key, type`,
+                [expertId, monthPattern1, monthPattern2],
+                (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows || []);
+                }
+            );
+        });
+        
+        // Compter
+        let availableCount = 0;
+        let assignedCount = 0;
+        let leaveCount = 0;
+        
+        rawData.forEach(row => {
+            if (row.type === 'available' && row.value === '2') availableCount++;
+            if (row.type === 'available' && row.value === '3') leaveCount++;
+            if (row.type === 'activity' && ['3','4','5','6','7','8'].includes(row.value)) assignedCount++;
+        });
+        
+        res.json({
+            success: true,
+            expertId,
+            monthKey,
+            patterns: [monthPattern1, monthPattern2],
+            totalRows: rawData.length,
+            summary: {
+                availableSlots: availableCount,
+                assignedSlots: assignedCount,
+                leaveSlots: leaveCount,
+                availableDays: availableCount / 2,
+                assignedDays: assignedCount / 2,
+                leaveDays: leaveCount / 2
+            },
+            rawData: rawData.slice(0, 100) // Limiter à 100 lignes
+        });
+        
+    } catch (error) {
+        console.error('Erreur diagnostic reporting:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ========== FIN REPORTING ==========
+
 // ========== FIN GESTION DES AUTOMATISATIONS ==========
 
 // Routes d'export Excel
