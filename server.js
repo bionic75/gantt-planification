@@ -2858,12 +2858,17 @@ app.post('/api/automation/cleanup-dates-preview', requireAdmin, async (req, res)
         console.log(`🗑️ Lignes à supprimer (mois=0): ${toDelete.length}`);
         
         // 2. Trouver les dates mal formatées (à normaliser)
+        // Inclut: 2025-9-1, 2025-9-1_AM, 2026-2-18_AM, etc.
         const badDates = await new Promise((resolve, reject) => {
             database.all(`
                 SELECT DISTINCT date_key, COUNT(*) as row_count
                 FROM schedule_data 
-                WHERE date_key NOT LIKE '____-__-__%'
-                  AND date_key NOT LIKE '%-0-%'
+                WHERE (
+                    -- Format sans zéro pour le mois: 2025-9-XX ou 2026-2-XX
+                    date_key GLOB '[0-9][0-9][0-9][0-9]-[0-9]-*'
+                    -- Exclure les mois = 0
+                    AND date_key NOT LIKE '%-0-%'
+                )
                 GROUP BY date_key
                 ORDER BY date_key
             `, (err, rows) => {
@@ -2881,11 +2886,13 @@ app.post('/api/automation/cleanup-dates-preview', requireAdmin, async (req, res)
         for (const row of badDates) {
             const oldKey = row.date_key;
             
-            // Parser la date (format: 2025-9-1 ou 2026-2-18)
-            const match = oldKey.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+            // Parser la date - formats possibles:
+            // 2025-9-1, 2025-9-1_AM, 2026-2-18_AM, 2026-2-18_PM
+            const match = oldKey.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:_([AP]M))?$/);
             if (match) {
-                const [, year, month, day] = match;
-                const newKey = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}_AM`;
+                const [, year, month, day, period] = match;
+                const normalizedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+                const newKey = period ? `${normalizedDate}_${period}` : `${normalizedDate}_AM`;
                 
                 // Vérifier si la nouvelle clé existe déjà
                 const existingCount = await new Promise((resolve, reject) => {
@@ -2945,7 +2952,7 @@ app.post('/api/automation/cleanup-dates-execute', requireAdmin, async (req, res)
             database.all(`
                 SELECT DISTINCT date_key
                 FROM schedule_data 
-                WHERE date_key NOT LIKE '____-__-__%'
+                WHERE date_key GLOB '[0-9][0-9][0-9][0-9]-[0-9]-*'
             `, (err, rows) => {
                 if (err) reject(err);
                 else resolve(rows || []);
@@ -2955,11 +2962,13 @@ app.post('/api/automation/cleanup-dates-execute', requireAdmin, async (req, res)
         for (const row of badDates) {
             const oldKey = row.date_key;
             
-            // Parser la date
-            const match = oldKey.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+            // Parser la date - formats possibles:
+            // 2025-9-1, 2025-9-1_AM, 2026-2-18_AM, 2026-2-18_PM
+            const match = oldKey.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:_([AP]M))?$/);
             if (match) {
-                const [, year, month, day] = match;
-                const newKey = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}_AM`;
+                const [, year, month, day, period] = match;
+                const normalizedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+                const newKey = period ? `${normalizedDate}_${period}` : `${normalizedDate}_AM`;
                 
                 // Vérifier si la nouvelle clé existe déjà
                 const existingCount = await new Promise((resolve, reject) => {
