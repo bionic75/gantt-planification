@@ -1000,6 +1000,9 @@
                     <button onclick="openAutomation2Logs()" style="background-color: #ff9800; color: white; white-space: nowrap;">
                         📋 Historique des envois
                     </button>
+                    <button onclick="diagnoseMoisData()" style="background-color: #9c27b0; color: white; white-space: nowrap;">
+                        🔍 Diagnostic mois
+                    </button>
                 </div>
                 
                 <!-- Section de test -->
@@ -5601,6 +5604,73 @@
             } catch (error) {
                 console.error('Erreur envoi automation 2:', error);
                 content.innerHTML = '<p style="color: #e74c3c; text-align: center;">❌ Erreur lors de l\'envoi</p>';
+            }
+        }
+        
+        // Diagnostic des mois - pour comprendre pourquoi certains mois apparaissent
+        async function diagnoseMoisData() {
+            try {
+                const response = await fetch(`${API_URL}/automation/diagnose-months`, { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    let html = '<h3>🔍 Diagnostic des mois avec données</h3>';
+                    html += '<p style="font-size: 12px; color: #666;">Ce diagnostic montre les données brutes trouvées dans la base pour chaque mois.</p>';
+                    
+                    if (data.months && data.months.length > 0) {
+                        html += '<table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px;">';
+                        html += '<thead><tr style="background: #f5f5f5;">';
+                        html += '<th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Mois</th>';
+                        html += '<th style="padding: 8px; border: 1px solid #ddd; text-align: center;">Lignes totales</th>';
+                        html += '<th style="padding: 8px; border: 1px solid #ddd; text-align: center;">Dispo ≠ 1</th>';
+                        html += '<th style="padding: 8px; border: 1px solid #ddd; text-align: center;">Activ ≠ 1</th>';
+                        html += '<th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Exemples de données</th>';
+                        html += '</tr></thead><tbody>';
+                        
+                        data.months.forEach(m => {
+                            const hasRealData = m.availableNot1 > 0 || m.activityNot1 > 0;
+                            const rowStyle = hasRealData ? '' : 'background: #ffebee;';
+                            html += `<tr style="${rowStyle}">`;
+                            html += `<td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">${m.label}</td>`;
+                            html += `<td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${m.totalRows}</td>`;
+                            html += `<td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${m.availableNot1}</td>`;
+                            html += `<td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${m.activityNot1}</td>`;
+                            html += `<td style="padding: 8px; border: 1px solid #ddd; font-size: 10px;">${m.samples || '-'}</td>`;
+                            html += '</tr>';
+                        });
+                        
+                        html += '</tbody></table>';
+                        
+                        html += '<div style="margin-top: 15px; padding: 10px; background: #e3f2fd; border-radius: 4px; font-size: 11px;">';
+                        html += '<strong>Légende :</strong><br>';
+                        html += '• <strong>Dispo ≠ 1</strong> : Nombre de lignes où disponibilité n\'est pas "Indisponible"<br>';
+                        html += '• <strong>Activ ≠ 1</strong> : Nombre de lignes où activité n\'est pas "Indisponible"<br>';
+                        html += '• Les lignes en <span style="background: #ffebee; padding: 2px 4px;">rouge</span> ne devraient pas apparaître dans la liste';
+                        html += '</div>';
+                        
+                        if (data.orphanData && data.orphanData.length > 0) {
+                            html += '<h4 style="margin-top: 20px; color: #e65100;">⚠️ Données orphelines détectées</h4>';
+                            html += '<p style="font-size: 11px;">Ces données ont un format de date incorrect :</p>';
+                            html += '<pre style="background: #f5f5f5; padding: 10px; font-size: 10px; overflow-x: auto;">';
+                            html += JSON.stringify(data.orphanData, null, 2);
+                            html += '</pre>';
+                        }
+                    } else {
+                        html += '<p>Aucune donnée trouvée.</p>';
+                    }
+                    
+                    // Afficher dans une modal
+                    const modal = document.getElementById('automationLogsModal');
+                    const content = document.getElementById('automationLogsContent');
+                    modal.querySelector('h2').textContent = '🔍 Diagnostic des données';
+                    content.innerHTML = html;
+                    modal.style.display = 'block';
+                } else {
+                    alert('Erreur lors du diagnostic');
+                }
+            } catch (error) {
+                console.error('Erreur diagnostic:', error);
+                alert('Erreur: ' + error.message);
             }
         }
         

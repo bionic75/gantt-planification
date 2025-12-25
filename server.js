@@ -2749,6 +2749,94 @@ app.get('/api/automation/available-months', requireAdmin, async (req, res) => {
     }
 });
 
+// Diagnostic des mois - pour comprendre les données
+app.get('/api/automation/diagnose-months', requireAdmin, async (req, res) => {
+    try {
+        // Récupérer tous les mois distincts avec leurs statistiques
+        const allMonthsData = await new Promise((resolve, reject) => {
+            database.all(`
+                SELECT 
+                    substr(date_key, 1, 7) as month,
+                    COUNT(*) as total_rows,
+                    SUM(CASE WHEN type = 'available' AND value != '1' THEN 1 ELSE 0 END) as available_not_1,
+                    SUM(CASE WHEN type = 'activity' AND value != '1' THEN 1 ELSE 0 END) as activity_not_1,
+                    GROUP_CONCAT(DISTINCT type || '=' || value) as unique_values
+                FROM schedule_data
+                GROUP BY substr(date_key, 1, 7)
+                ORDER BY month
+            `, (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows || []);
+            });
+        });
+        
+        // Récupérer quelques exemples de données pour chaque mois
+        const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+        
+        const monthsWithDetails = await Promise.all(allMonthsData.map(async (m) => {
+            // Récupérer des exemples de données non-vides pour ce mois
+            const samples = await new Promise((resolve, reject) => {
+                database.all(`
+                    SELECT date_key, type, value, resource_id
+                    FROM schedule_data 
+                    WHERE substr(date_key, 1, 7) = ?
+                      AND ((type = 'available' AND value != '1') OR (type = 'activity' AND value != '1'))
+                    LIMIT 5
+                `, [m.month], (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows || []);
+                });
+            });
+            
+            // Parser le mois pour l'affichage
+            let label = m.month;
+            if (m.month) {
+                const cleanMonth = m.month.replace(/-$/, '');
+                const parts = cleanMonth.split('-');
+                if (parts.length >= 2) {
+                    const year = parts[0];
+                    const month = parseInt(parts[1]);
+                    if (!isNaN(month) && month >= 1 && month <= 12) {
+                        label = `${monthNames[month - 1]} ${year}`;
+                    }
+                }
+            }
+            
+            return {
+                raw: m.month,
+                label: label,
+                totalRows: m.total_rows,
+                availableNot1: m.available_not_1,
+                activityNot1: m.activity_not_1,
+                uniqueValues: m.unique_values,
+                samples: samples.map(s => `${s.date_key}: ${s.type}=${s.value} (res:${s.resource_id})`).join(', ')
+            };
+        }));
+        
+        // Chercher des données avec des date_key mal formatées
+        const orphanData = await new Promise((resolve, reject) => {
+            database.all(`
+                SELECT DISTINCT date_key, type, value
+                FROM schedule_data 
+                WHERE date_key NOT LIKE '____-__-__%'
+                LIMIT 20
+            `, (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows || []);
+            });
+        });
+        
+        res.json({ 
+            success: true, 
+            months: monthsWithDetails,
+            orphanData: orphanData
+        });
+    } catch (error) {
+        console.error('Erreur diagnostic mois:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Prévisualisation de l'automatisation 2
 app.post('/api/automation/preview/2', requireAdmin, async (req, res) => {
     console.log('👁️ PREVIEW/2 APPELÉ - Affichage du récapitulatif (pas d\'envoi)');
