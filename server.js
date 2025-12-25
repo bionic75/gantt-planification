@@ -2867,14 +2867,36 @@ app.post('/api/automation/preview/2', requireAdmin, async (req, res) => {
         // Déterminer les mois à inclure
         let monthsLabel = '';
         if (allMonths) {
-            // Récupérer tous les mois distincts où il y a des données
+            // Récupérer tous les mois distincts où il y a des données NON vides
             const monthsData = await new Promise((resolve, reject) => {
-                database.all(`SELECT DISTINCT substr(date_key, 1, 7) as month FROM schedule_data ORDER BY month`, (err, rows) => {
+                database.all(`
+                    SELECT DISTINCT substr(date_key, 1, 7) as month 
+                    FROM schedule_data 
+                    WHERE (type = 'available' AND value != '1')
+                       OR (type = 'activity' AND value != '1')
+                `, (err, rows) => {
                     if (err) reject(err);
                     else resolve(rows || []);
                 });
             });
-            monthsLabel = monthsData.length > 0 ? `Toutes les données (${monthsData.length} mois)` : 'Toutes les données';
+            
+            // Filtrer et compter les mois valides
+            const validMonths = monthsData
+                .map(row => {
+                    let monthStr = row.month;
+                    if (!monthStr) return null;
+                    monthStr = monthStr.replace(/-$/, '');
+                    const parts = monthStr.split('-');
+                    if (parts.length < 2) return null;
+                    const year = parseInt(parts[0]);
+                    const month = parseInt(parts[1]);
+                    if (isNaN(year) || isNaN(month) || month < 1 || month > 12) return null;
+                    return `${year}-${String(month).padStart(2, '0')}`;
+                })
+                .filter(m => m !== null)
+                .filter((value, index, self) => self.indexOf(value) === index);
+            
+            monthsLabel = validMonths.length > 0 ? `Toutes les données (${validMonths.length} mois)` : 'Toutes les données';
         } else if (selectedMonths && selectedMonths.length > 0) {
             // selectedMonths contient des valeurs comme "2025-01" ou "2025-09"
             const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
@@ -2897,6 +2919,14 @@ app.post('/api/automation/preview/2', requireAdmin, async (req, res) => {
         const timestamp = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}-${String(now.getMinutes()).padStart(2,'0')}`;
         const filename = `Expert_Planning_Sauvegarde_de_${timestamp}.${format}`;
         
+        console.log('👁️ Preview/2 réponse:', {
+            recipientsCount: recipientNames.length,
+            emailsCount: recipientEmails.length,
+            expertsCount,
+            monthsLabel,
+            filename
+        });
+        
         res.json({
             success: true,
             recipientsCount: recipientNames.length, // Nombre de personnes
@@ -2910,7 +2940,8 @@ app.post('/api/automation/preview/2', requireAdmin, async (req, res) => {
         });
         
     } catch (error) {
-        console.error('Erreur preview automation 2:', error);
+        console.error('❌ Erreur preview automation 2:', error);
+        console.error('❌ Stack:', error.stack);
         res.status(500).json({ error: error.message });
     }
 });
