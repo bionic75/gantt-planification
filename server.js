@@ -2678,10 +2678,48 @@ app.post('/api/automation/send-reminder', requireAdmin, async (req, res) => {
 
 // ========== AUTOMATISATION N°2 : SAUVEGARDE PLANNINGS ==========
 
+// Récupérer les mois qui ont des données (hors lignes vides 1-1)
+app.get('/api/automation/available-months', requireAdmin, async (req, res) => {
+    try {
+        // Récupérer les mois distincts où il y a des données NON vides
+        const monthsData = await new Promise((resolve, reject) => {
+            database.all(`
+                SELECT DISTINCT substr(date_key, 1, 7) as month 
+                FROM schedule_data 
+                WHERE value != '1'
+            `, (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows || []);
+            });
+        });
+        
+        // Trier les mois chronologiquement en JavaScript
+        const sortedMonths = monthsData
+            .map(row => row.month)
+            .sort((a, b) => a.localeCompare(b)); // "2025-01" < "2025-02" < "2025-12" < "2026-01"
+        
+        // Formater les mois pour l'affichage
+        const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+        const formattedMonths = sortedMonths.map(monthStr => {
+            const [year, month] = monthStr.split('-');
+            return {
+                value: monthStr, // "2025-01"
+                label: `${monthNames[parseInt(month) - 1]} ${year}` // "Janvier 2025"
+            };
+        });
+        
+        res.json({ success: true, months: formattedMonths });
+    } catch (error) {
+        console.error('Erreur récupération mois disponibles:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Prévisualisation de l'automatisation 2
 app.post('/api/automation/preview/2', requireAdmin, async (req, res) => {
     console.log('👁️ PREVIEW/2 APPELÉ - Affichage du récapitulatif (pas d\'envoi)');
-    const { groupAdmin, groupUser, groupExpert, recipients, months, allExperts, expertsList, format } = req.body;
+    console.log('👁️ Body reçu:', JSON.stringify(req.body, null, 2));
+    const { groupAdmin, groupUser, groupExpert, recipients, allMonths, selectedMonths, allExperts, expertsList, excludeEmpty, format } = req.body;
     
     try {
         // Construire la liste des destinataires
@@ -2792,6 +2830,29 @@ app.post('/api/automation/preview/2', requireAdmin, async (req, res) => {
             expertsNamesList = resourcesData.map(r => `${r.prenom} ${r.nom}`);
         }
         
+        // Déterminer les mois à inclure
+        let monthsLabel = '';
+        if (allMonths) {
+            // Récupérer tous les mois distincts où il y a des données
+            const monthsData = await new Promise((resolve, reject) => {
+                database.all(`SELECT DISTINCT substr(date_key, 1, 7) as month FROM schedule_data ORDER BY month`, (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows || []);
+                });
+            });
+            monthsLabel = monthsData.length > 0 ? `Toutes les données (${monthsData.length} mois)` : 'Toutes les données';
+        } else if (selectedMonths && selectedMonths.length > 0) {
+            // selectedMonths contient des valeurs comme "2025-01"
+            const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+            const monthsLabels = selectedMonths.map(monthStr => {
+                const [year, month] = monthStr.split('-');
+                return `${monthNames[parseInt(month) - 1]} ${year}`;
+            });
+            monthsLabel = monthsLabels.join(', ');
+        } else {
+            monthsLabel = 'Aucun mois sélectionné';
+        }
+        
         // Générer le nom du fichier
         const now = new Date();
         const timestamp = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}-${String(now.getMinutes()).padStart(2,'0')}`;
@@ -2804,6 +2865,8 @@ app.post('/api/automation/preview/2', requireAdmin, async (req, res) => {
             recipientsList: recipientNames,
             expertsCount,
             expertsNamesList,
+            monthsLabel,
+            excludeEmpty: excludeEmpty !== false,
             filename
         });
         
@@ -2816,7 +2879,7 @@ app.post('/api/automation/preview/2', requireAdmin, async (req, res) => {
 // Envoyer la sauvegarde du planning (automatisation 2)
 app.post('/api/automation/send/2', requireAdmin, async (req, res) => {
     console.log('🚨 SEND/2 APPELÉ - Vérifiez que vous avez cliqué sur Confirmer et envoyer !');
-    const { groupAdmin, groupUser, groupExpert, recipients, months, allExperts, expertsList, format } = req.body;
+    const { groupAdmin, groupUser, groupExpert, recipients, allMonths, selectedMonths, allExperts, expertsList, excludeEmpty, format } = req.body;
     
     try {
         const transporter = createEmailTransporter();
@@ -2925,32 +2988,51 @@ app.post('/api/automation/send/2', requireAdmin, async (req, res) => {
             });
         }
         
-        // Récupérer les données de planning pour les mois sélectionnés
         const now = new Date();
-        let allPatterns = [];
         const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
         let monthsLabels = [];
+        let scheduleData = [];
         
-        months.forEach(offset => {
-            const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
-            const pattern = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-%`;
-            allPatterns.push(pattern);
-            monthsLabels.push(`${monthNames[d.getMonth()]} ${d.getFullYear()}`);
-        });
+        console.log('📊 Config send/2:', { allMonths, selectedMonths, allExperts, expertsList: expertsList?.length, excludeEmpty });
         
-        // Construire les conditions LIKE
-        const likeConditions = allPatterns.map(() => `date_key LIKE ?`).join(' OR ');
-        
-        const scheduleData = await new Promise((resolve, reject) => {
-            database.all(
-                `SELECT * FROM schedule_data WHERE ${likeConditions} ORDER BY resource_id, date_key`,
-                allPatterns,
-                (err, rows) => {
+        if (allMonths) {
+            // Récupérer TOUTES les données de schedule_data
+            scheduleData = await new Promise((resolve, reject) => {
+                database.all(`SELECT * FROM schedule_data ORDER BY resource_id, date_key`, (err, rows) => {
                     if (err) reject(err);
                     else resolve(rows || []);
-                }
-            );
-        });
+                });
+            });
+            monthsLabels = ['Toutes les données'];
+            console.log(`📊 Toutes les données: ${scheduleData.length} lignes`);
+        } else if (selectedMonths && selectedMonths.length > 0) {
+            // selectedMonths contient des valeurs comme "2025-01"
+            let allPatterns = [];
+            selectedMonths.forEach(monthStr => {
+                const pattern = `${monthStr}-%`; // "2025-01-%"
+                allPatterns.push(pattern);
+                const [year, month] = monthStr.split('-');
+                monthsLabels.push(`${monthNames[parseInt(month) - 1]} ${year}`);
+            });
+            
+            const likeConditions = allPatterns.map(() => `date_key LIKE ?`).join(' OR ');
+            console.log('📊 Requête mois:', likeConditions, allPatterns);
+            
+            scheduleData = await new Promise((resolve, reject) => {
+                database.all(
+                    `SELECT * FROM schedule_data WHERE ${likeConditions} ORDER BY resource_id, date_key`,
+                    allPatterns,
+                    (err, rows) => {
+                        if (err) reject(err);
+                        else resolve(rows || []);
+                    }
+                );
+            });
+            console.log(`📊 Mois sélectionnés: ${scheduleData.length} lignes`);
+        } else {
+            console.log('📊 Aucun mois sélectionné!');
+            return res.status(400).json({ error: 'Aucun mois sélectionné' });
+        }
         
         // Organiser les données par ressource et date
         const dataByResource = {};
@@ -2974,27 +3056,35 @@ app.post('/api/automation/send/2', requireAdmin, async (req, res) => {
         let csvContent = '\ufeff'; // BOM UTF-8
         csvContent += 'Expert,Date,Période,Disponibilité,Affectation,Localisation\n';
         
+        // Récupérer toutes les date_key uniques (format: 2025-01-15_AM)
+        const allDateKeys = new Set();
+        Object.values(dataByResource).forEach(resData => {
+            Object.keys(resData).forEach(dateKey => allDateKeys.add(dateKey));
+        });
+        const sortedDateKeys = Array.from(allDateKeys).sort();
+        
         resourcesList.forEach(resource => {
             const resData = dataByResource[resource.id] || {};
             
-            // Parcourir tous les jours des mois sélectionnés
-            months.forEach(offset => {
-                const monthDate = new Date(now.getFullYear(), now.getMonth() + offset, 1);
-                const daysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
+            sortedDateKeys.forEach(dateKey => {
+                // dateKey est au format "2025-01-15_AM"
+                const data = resData[dateKey] || {};
                 
-                for (let day = 1; day <= daysInMonth; day++) {
-                    const dateKey = `${monthDate.getFullYear()}-${String(monthDate.getMonth()+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-                    
-                    ['AM', 'PM'].forEach(period => {
-                        const key = `${dateKey}_${period}`;
-                        const data = resData[key] || {};
-                        
-                        const avail = data.available || '1';
-                        const act = data.activity || '1';
-                        const loc = data.localisation || '-';
-                        
-                        csvContent += `"${resource.prenom} ${resource.nom}","${dateKey}","${period}","${availLabels[avail] || avail}","${actLabels[act] || act}","${loc}"\n`;
-                    });
+                // Extraire la date et la période
+                const parts = dateKey.split('_');
+                const datePart = parts[0]; // "2025-01-15"
+                const period = parts[1] || 'AM'; // "AM" ou "PM"
+                
+                const avail = data.available || '1';
+                const act = data.activity || '1';
+                const loc = data.localisation || '-';
+                
+                // Exclure les lignes vides si l'option est cochée (1-1 = Indisponible-Indisponible)
+                const isEmpty = avail === '1' && act === '1';
+                const shouldExclude = excludeEmpty && isEmpty;
+                
+                if (!shouldExclude) {
+                    csvContent += `"${resource.prenom} ${resource.nom}","${datePart}","${period}","${availLabels[avail] || avail}","${actLabels[act] || act}","${loc}"\n`;
                 }
             });
         });
@@ -3013,17 +3103,16 @@ app.post('/api/automation/send/2', requireAdmin, async (req, res) => {
                         
                         <p>Bonjour,</p>
                         
-                        <p>Veuillez trouver ci-joint la sauvegarde du planning pour les mois suivants :</p>
+                        <p>Veuillez trouver ci-joint la sauvegarde du planning${allMonths ? ' (toutes les données)' : ' pour les mois suivants :'}</p>
                         
-                        <ul>
-                            ${monthsLabels.map(m => `<li>${m}</li>`).join('')}
-                        </ul>
+                        ${!allMonths ? `<ul>${monthsLabels.map(m => `<li>${m}</li>`).join('')}</ul>` : ''}
                         
                         <div style="margin: 20px 0; padding: 15px; background-color: #fff3e0; border-left: 4px solid #ff9800; border-radius: 4px;">
                             <p style="margin: 0;"><strong>Informations :</strong></p>
                             <p style="margin: 5px 0 0 0;">
                                 • ${resourcesList.length} expert(s) inclus<br>
                                 • Format : ${format.toUpperCase()}<br>
+                                ${excludeEmpty ? '• Lignes vides exclues<br>' : ''}
                                 • Date de génération : ${new Date().toLocaleString('fr-FR')}
                             </p>
                         </div>
@@ -4501,10 +4590,14 @@ async function runAutomation2() {
             return;
         }
         
+        // Utiliser l'heure de Paris pour la vérification
         const now = new Date();
-        const currentDay = now.getDate();
-        const currentDayOfWeek = now.getDay(); // 0=Dimanche, 1=Lundi, etc.
-        const currentHour = now.getHours();
+        const parisTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
+        const currentDay = parisTime.getDate();
+        const currentDayOfWeek = parisTime.getDay(); // 0=Dimanche, 1=Lundi, etc.
+        const currentHour = parisTime.getHours();
+        
+        console.log(`⏰ [CRON] Heure Paris: ${currentHour}h, Config: ${config.hour}h, Fréquence: ${config.frequency}`);
         
         // Vérifier si c'est le bon moment pour envoyer
         let shouldSend = false;
@@ -4630,9 +4723,10 @@ async function runAutomation2() {
             dataByResource[row.resource_id][row.date_key][row.type] = row.value;
         });
         
-        // Générer le fichier
+        // Générer le fichier avec l'heure de Paris
         const format = config.format || 'csv';
-        const timestamp = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}-${String(now.getMinutes()).padStart(2,'0')}`;
+        const parisTimeForFile = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
+        const timestamp = `${parisTimeForFile.getFullYear()}-${String(parisTimeForFile.getMonth()+1).padStart(2,'0')}-${String(parisTimeForFile.getDate()).padStart(2,'0')}_${String(parisTimeForFile.getHours()).padStart(2,'0')}-${String(parisTimeForFile.getMinutes()).padStart(2,'0')}`;
         const filename = `Expert_Planning_Sauvegarde_de_${timestamp}.${format}`;
         
         const availLabels = { '1': 'Indisponible', '2': 'Disponible', '3': 'Congés' };
@@ -4661,6 +4755,22 @@ async function runAutomation2() {
             });
         });
         
+        // Construire la liste des noms des destinataires pour les logs
+        let recipientNames = [];
+        if (config.groupAdmin) recipientNames.push('Groupe Administrateurs');
+        if (config.groupUser) recipientNames.push('Groupe Utilisateurs');
+        if (config.groupExpert) recipientNames.push('Groupe Experts');
+        // Récupérer les noms des destinataires individuels
+        if (config.recipients && config.recipients.length > 0) {
+            const individualUsers = await new Promise((resolve, reject) => {
+                database.all(`SELECT nom, prenom FROM users WHERE id IN (${config.recipients.join(',')})`, (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows || []);
+                });
+            });
+            individualUsers.forEach(u => recipientNames.push(`${u.prenom} ${u.nom}`));
+        }
+        
         // Envoyer l'email
         const mailOptions = {
             from: `"Domaine des Urgences - Planification des ressources" <${emailConfig.user}>`,
@@ -4680,9 +4790,11 @@ async function runAutomation2() {
         await transporter.sendMail(mailOptions);
         console.log(`⏰ [CRON] ✅ Automatisation n°2: sauvegarde envoyée à ${recipientEmails.length} destinataire(s)`);
         
+        // Enregistrer dans les logs avec toutes les informations
         database.run(
-            `INSERT INTO automation_logs (automation_id, expert_name, expert_email, target_month, sent_at) VALUES (?, ?, ?, ?, datetime('now'))`,
-            [2, `${recipientEmails.length} destinataires`, filename, monthsLabels.join(', ')]
+            `INSERT INTO automation_logs (automation_id, expert_name, expert_email, target_month, sent_at, recipients_list, file_content, filename) 
+             VALUES (?, ?, ?, ?, datetime('now'), ?, ?, ?)`,
+            [2, `${recipientNames.length} personnes`, recipientEmails.join(', '), monthsLabels.join(', '), JSON.stringify(recipientNames), csvContent, filename]
         );
         
     } catch (error) {

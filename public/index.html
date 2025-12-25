@@ -900,12 +900,30 @@
                         <div style="flex: 0 0 100px;">
                             <label style="font-size: 11px; color: #777;">Heure d'envoi</label>
                             <select id="automation2Hour" onchange="saveAutomation2Config()" style="width: 100%;">
+                                <option value="0">00:00</option>
+                                <option value="1">01:00</option>
+                                <option value="2">02:00</option>
+                                <option value="3">03:00</option>
+                                <option value="4">04:00</option>
+                                <option value="5">05:00</option>
                                 <option value="6">06:00</option>
                                 <option value="7">07:00</option>
                                 <option value="8" selected>08:00</option>
                                 <option value="9">09:00</option>
+                                <option value="10">10:00</option>
+                                <option value="11">11:00</option>
                                 <option value="12">12:00</option>
+                                <option value="13">13:00</option>
+                                <option value="14">14:00</option>
+                                <option value="15">15:00</option>
+                                <option value="16">16:00</option>
+                                <option value="17">17:00</option>
                                 <option value="18">18:00</option>
+                                <option value="19">19:00</option>
+                                <option value="20">20:00</option>
+                                <option value="21">21:00</option>
+                                <option value="22">22:00</option>
+                                <option value="23">23:00</option>
                             </select>
                         </div>
                     </div>
@@ -914,50 +932,67 @@
                 <!-- Ligne 3: Contenu du fichier -->
                 <div style="padding-left: 26px; margin-bottom: 15px;">
                     <label style="font-size: 12px; color: #555; font-weight: bold; display: block; margin-bottom: 8px;">📁 Contenu du fichier</label>
-                    <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-start;">
-                        <div style="flex: 1; min-width: 200px;">
-                            <label style="font-size: 11px; color: #777;">Mois à inclure</label>
-                            <select id="automation2Months" multiple onchange="saveAutomation2Config()" style="width: 100%; height: 100px; font-size: 12px;">
-                                <option value="-12">M-12</option>
-                                <option value="-11">M-11</option>
-                                <option value="-10">M-10</option>
-                                <option value="-9">M-9</option>
-                                <option value="-8">M-8</option>
-                                <option value="-7">M-7</option>
-                                <option value="-6">M-6</option>
-                                <option value="-5">M-5</option>
-                                <option value="-4">M-4</option>
-                                <option value="-3">M-3</option>
-                                <option value="-2">M-2</option>
-                                <option value="-1">M-1</option>
-                                <option value="0" selected>M (mois en cours)</option>
-                                <option value="1" selected>M+1</option>
-                                <option value="2">M+2</option>
-                                <option value="3">M+3</option>
-                            </select>
-                            <small style="color: #999; font-size: 10px;">Ctrl+clic pour sélection multiple</small>
-                        </div>
-                        <div style="flex: 1; min-width: 200px;">
-                            <label style="font-size: 11px; color: #777;">Experts à inclure</label>
-                            <div style="margin-bottom: 5px;">
-                                <label style="display: flex; align-items: center; gap: 5px; font-size: 12px; cursor: pointer;">
-                                    <input type="checkbox" id="automation2AllExperts" onchange="toggleAutomation2AllExperts()" checked> 
-                                    <strong>Tous les experts</strong>
-                                </label>
-                            </div>
-                            <select id="automation2ExpertsList" multiple onchange="saveAutomation2Config()" style="width: 100%; height: 100px; font-size: 12px;" disabled>
-                                <!-- Options remplies dynamiquement -->
-                            </select>
-                            <small style="color: #999; font-size: 10px;">Décochez "Tous" pour sélectionner individuellement</small>
-                        </div>
-                        <div style="flex: 0 0 120px;">
-                            <label style="font-size: 11px; color: #777;">Format du fichier</label>
-                            <select id="automation2Format" onchange="saveAutomation2Config()" style="width: 100%;">
-                                <option value="csv">CSV</option>
-                                <option value="xlsx">XLSX (Excel)</option>
-                            </select>
-                        </div>
-                    </div>
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr>
+                            <!-- Mois à inclure -->
+                            <td style="vertical-align: top; padding-right: 15px; width: 33%;">
+                                <div style="font-size: 11px; color: #777; margin-bottom: 5px;">Mois à inclure</div>
+                                <table style="border-collapse: collapse; margin-bottom: 5px;">
+                                    <tr>
+                                        <td style="padding: 0; vertical-align: middle; width: 20px;">
+                                            <input type="checkbox" id="automation2AllMonths" onchange="toggleAutomation2AllMonths()" checked style="margin: 0;">
+                                        </td>
+                                        <td style="padding: 0 0 0 6px; vertical-align: middle;">
+                                            <label for="automation2AllMonths" style="font-size: 12px; cursor: pointer; white-space: nowrap;"><strong>Toutes les données</strong></label>
+                                        </td>
+                                    </tr>
+                                </table>
+                                <select id="automation2Months" multiple onchange="saveAutomation2Config()" style="width: 100%; height: 100px; font-size: 12px;" disabled>
+                                    <!-- Options remplies dynamiquement -->
+                                </select>
+                                <div style="color: #999; font-size: 10px;">Décochez "Toutes" pour sélection manuelle</div>
+                            </td>
+                            
+                            <!-- Experts à inclure -->
+                            <td style="vertical-align: top; padding-right: 15px; width: 33%;">
+                                <div style="font-size: 11px; color: #777; margin-bottom: 5px;">Experts à inclure</div>
+                                <table style="border-collapse: collapse; margin-bottom: 5px;">
+                                    <tr>
+                                        <td style="padding: 0; vertical-align: middle; width: 20px;">
+                                            <input type="checkbox" id="automation2AllExperts" onchange="toggleAutomation2AllExperts()" checked style="margin: 0;">
+                                        </td>
+                                        <td style="padding: 0 0 0 6px; vertical-align: middle;">
+                                            <label for="automation2AllExperts" style="font-size: 12px; cursor: pointer; white-space: nowrap;"><strong>Tous les experts</strong></label>
+                                        </td>
+                                    </tr>
+                                </table>
+                                <select id="automation2ExpertsList" multiple onchange="saveAutomation2Config()" style="width: 100%; height: 100px; font-size: 12px;" disabled>
+                                    <!-- Options remplies dynamiquement -->
+                                </select>
+                                <div style="color: #999; font-size: 10px;">Décochez "Tous" pour sélection manuelle</div>
+                            </td>
+                            
+                            <!-- Options d'export -->
+                            <td style="vertical-align: top; width: 200px;">
+                                <div style="font-size: 11px; color: #777; margin-bottom: 5px;">Options d'export</div>
+                                <table style="border-collapse: collapse; margin-bottom: 12px;">
+                                    <tr>
+                                        <td style="padding: 0; vertical-align: middle; width: 20px;">
+                                            <input type="checkbox" id="automation2ExcludeEmpty" onchange="saveAutomation2Config()" checked style="margin: 0;">
+                                        </td>
+                                        <td style="padding: 0 0 0 6px; vertical-align: middle;">
+                                            <label for="automation2ExcludeEmpty" style="font-size: 12px; cursor: pointer; white-space: nowrap;">Exclure lignes vides</label>
+                                        </td>
+                                    </tr>
+                                </table>
+                                <div style="font-size: 11px; color: #777; margin-bottom: 3px;">Format du fichier</div>
+                                <select id="automation2Format" onchange="saveAutomation2Config()" style="width: 100%;">
+                                    <option value="csv">CSV</option>
+                                    <option value="xlsx">XLSX (Excel)</option>
+                                </select>
+                            </td>
+                        </tr>
+                    </table>
                 </div>
                 
                 <!-- Ligne 4: Boutons -->
@@ -5096,10 +5131,55 @@
             });
         }
         
+        // Remplir la liste des mois disponibles pour l'automatisation 2
+        async function populateAutomation2MonthsList() {
+            const select = document.getElementById('automation2Months');
+            if (!select) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/automation/available-months`, { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    select.innerHTML = '';
+                    
+                    if (data.months && data.months.length > 0) {
+                        data.months.forEach(month => {
+                            const option = document.createElement('option');
+                            option.value = month.value; // "2025-01"
+                            option.textContent = month.label; // "Janvier 2025"
+                            select.appendChild(option);
+                        });
+                    } else {
+                        const option = document.createElement('option');
+                        option.value = '';
+                        option.textContent = 'Aucune donnée disponible';
+                        option.disabled = true;
+                        select.appendChild(option);
+                    }
+                }
+            } catch (error) {
+                console.error('Erreur chargement mois disponibles:', error);
+            }
+        }
+        
         // Toggle pour "Tous les experts"
         function toggleAutomation2AllExperts() {
             const allChecked = document.getElementById('automation2AllExperts').checked;
             const select = document.getElementById('automation2ExpertsList');
+            select.disabled = allChecked;
+            
+            if (allChecked) {
+                // Désélectionner tous les éléments
+                Array.from(select.options).forEach(opt => opt.selected = false);
+            }
+            
+            saveAutomation2Config();
+        }
+        
+        // Toggle pour "Toutes les données" (mois)
+        function toggleAutomation2AllMonths() {
+            const allChecked = document.getElementById('automation2AllMonths').checked;
+            const select = document.getElementById('automation2Months');
             select.disabled = allChecked;
             
             if (allChecked) {
@@ -5119,6 +5199,9 @@
         
         // Charger la configuration de l'automatisation 2
         async function loadAutomation2Config() {
+            // D'abord charger les mois disponibles
+            await populateAutomation2MonthsList();
+            
             try {
                 const response = await fetch(`${API_URL}/automation/config/2`, { credentials: 'include' });
                 if (response.ok) {
@@ -5148,13 +5231,21 @@
                             });
                         }
                         
-                        // Sélectionner les mois
-                        const monthsSelect = document.getElementById('automation2Months');
-                        if (c.months && Array.isArray(c.months)) {
+                        // Gérer "Toutes les données" (mois) - Par défaut true maintenant
+                        const allMonths = c.allMonths !== false; // Par défaut true
+                        document.getElementById('automation2AllMonths').checked = allMonths;
+                        document.getElementById('automation2Months').disabled = allMonths;
+                        
+                        // Sélectionner les mois si pas "tous"
+                        if (!allMonths && c.selectedMonths && Array.isArray(c.selectedMonths)) {
+                            const monthsSelect = document.getElementById('automation2Months');
                             Array.from(monthsSelect.options).forEach(opt => {
-                                opt.selected = c.months.includes(parseInt(opt.value));
+                                opt.selected = c.selectedMonths.includes(opt.value);
                             });
                         }
+                        
+                        // Exclure lignes vides
+                        document.getElementById('automation2ExcludeEmpty').checked = c.excludeEmpty !== false; // Par défaut true
                         
                         // Sélectionner les destinataires individuels
                         const recipientsSelect = document.getElementById('automation2Recipients');
@@ -5187,9 +5278,11 @@
                 weekDay: document.getElementById('automation2WeekDay').value,
                 monthDay: document.getElementById('automation2MonthDay').value,
                 hour: document.getElementById('automation2Hour').value,
-                months: Array.from(monthsSelect.selectedOptions).map(opt => parseInt(opt.value)),
+                allMonths: document.getElementById('automation2AllMonths').checked,
+                selectedMonths: Array.from(monthsSelect.selectedOptions).map(opt => opt.value), // "2025-01" format
                 allExperts: document.getElementById('automation2AllExperts').checked,
                 expertsList: Array.from(document.getElementById('automation2ExpertsList').selectedOptions).map(opt => parseInt(opt.value)),
+                excludeEmpty: document.getElementById('automation2ExcludeEmpty').checked,
                 format: document.getElementById('automation2Format').value
             };
             
@@ -5329,19 +5422,23 @@
                 const recipientsSelect = document.getElementById('automation2Recipients');
                 const expertsListSelect = document.getElementById('automation2ExpertsList');
                 
+                const allMonths = document.getElementById('automation2AllMonths').checked;
+                const allExperts = document.getElementById('automation2AllExperts').checked;
+                
                 const config = {
                     groupAdmin: document.getElementById('automation2GroupAdmin').checked,
                     groupUser: document.getElementById('automation2GroupUser').checked,
                     groupExpert: document.getElementById('automation2GroupExpert').checked,
                     recipients: Array.from(recipientsSelect.selectedOptions).map(opt => parseInt(opt.value)),
-                    months: Array.from(monthsSelect.selectedOptions).map(opt => parseInt(opt.value)),
-                    allExperts: document.getElementById('automation2AllExperts').checked,
+                    allMonths: allMonths,
+                    selectedMonths: Array.from(monthsSelect.selectedOptions).map(opt => opt.value),
+                    allExperts: allExperts,
                     expertsList: Array.from(expertsListSelect.selectedOptions).map(opt => parseInt(opt.value)),
+                    excludeEmpty: document.getElementById('automation2ExcludeEmpty').checked,
                     format: document.getElementById('automation2Format').value
                 };
                 
                 console.log('📧 Config automation 2:', config);
-                console.log('📧 Recipients sélectionnés:', config.recipients);
                 
                 // Vérifier qu'il y a des destinataires
                 const hasRecipients = config.groupAdmin || config.groupUser || config.groupExpert || config.recipients.length > 0;
@@ -5350,14 +5447,14 @@
                     return;
                 }
                 
-                // Vérifier qu'il y a des mois sélectionnés
-                if (config.months.length === 0) {
-                    resultDiv.innerHTML = '<span style="color: #e74c3c;">❌ Veuillez sélectionner au moins un mois</span>';
+                // Vérifier qu'il y a des mois sélectionnés (sauf si "toutes les données")
+                if (!allMonths && config.selectedMonths.length === 0) {
+                    resultDiv.innerHTML = '<span style="color: #e74c3c;">❌ Veuillez sélectionner au moins un mois ou cocher "Toutes les données"</span>';
                     return;
                 }
                 
                 // Vérifier qu'il y a des experts sélectionnés
-                if (!config.allExperts && config.expertsList.length === 0) {
+                if (!allExperts && config.expertsList.length === 0) {
                     resultDiv.innerHTML = '<span style="color: #e74c3c;">❌ Veuillez sélectionner au moins un expert ou cocher "Tous les experts"</span>';
                     return;
                 }
@@ -5388,14 +5485,18 @@
             const modal = document.getElementById('automation2PreviewModal');
             const content = document.getElementById('automation2PreviewContent');
             
-            const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
-            const now = new Date();
-            
-            // Formater les mois sélectionnés
-            const monthsLabels = config.months.map(offset => {
-                const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
-                return `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
-            }).join(', ');
+            // Afficher le label pour les mois
+            let monthsLabel = '';
+            if (config.allMonths) {
+                monthsLabel = data.monthsLabel || 'Toutes les données';
+            } else {
+                const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+                const now = new Date();
+                monthsLabel = config.months.map(offset => {
+                    const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+                    return `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
+                }).join(', ');
+            }
             
             // Afficher le label pour les experts
             const expertsLabel = config.allExperts ? 'Tous les experts' : 'Sélection personnalisée';
@@ -5404,6 +5505,9 @@
             const emailsInfo = data.emailsCount !== data.recipientsCount 
                 ? ` <span style="color: #666; font-size: 11px;">(${data.emailsCount} email(s) unique(s))</span>` 
                 : '';
+            
+            // Option lignes vides
+            const excludeEmptyLabel = config.excludeEmpty ? 'Oui' : 'Non';
             
             let html = `
                 <div style="margin-bottom: 20px;">
@@ -5415,12 +5519,16 @@
                             <td style="padding: 8px; border: 1px solid #ddd;">${data.recipientsCount} personne(s)${emailsInfo}</td>
                         </tr>
                         <tr>
-                            <td style="padding: 8px; border: 1px solid #ddd; background-color: #fff3e0; font-weight: bold;">Mois inclus</td>
-                            <td style="padding: 8px; border: 1px solid #ddd;">${monthsLabels}</td>
+                            <td style="padding: 8px; border: 1px solid #ddd; background-color: #fff3e0; font-weight: bold;">Données incluses</td>
+                            <td style="padding: 8px; border: 1px solid #ddd;">${monthsLabel}</td>
                         </tr>
                         <tr>
                             <td style="padding: 8px; border: 1px solid #ddd; background-color: #fff3e0; font-weight: bold;">Experts</td>
                             <td style="padding: 8px; border: 1px solid #ddd;">${data.expertsCount} expert(s) (${expertsLabel})</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px; border: 1px solid #ddd; background-color: #fff3e0; font-weight: bold;">Exclure lignes vides</td>
+                            <td style="padding: 8px; border: 1px solid #ddd;">${excludeEmptyLabel}</td>
                         </tr>
                         <tr>
                             <td style="padding: 8px; border: 1px solid #ddd; background-color: #fff3e0; font-weight: bold;">Format</td>
@@ -5455,8 +5563,6 @@
         
         // Confirmer et envoyer la sauvegarde de test
         async function confirmAutomation2Send() {
-            console.log('🔴 confirmAutomation2Send() appelé - Bouton cliqué !');
-            alert('Vous avez cliqué sur Confirmer et envoyer !'); // Alert pour être sûr
             const modal = document.getElementById('automation2PreviewModal');
             const content = document.getElementById('automation2PreviewContent');
             
