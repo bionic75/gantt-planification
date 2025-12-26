@@ -5334,17 +5334,65 @@ async function runAutomation2() {
         }
         
         // Récupérer les données de planning
-        const months = config.months || [0, 1];
-        let allPatterns = [];
+        // Utiliser selectedMonths (format "2025-01") si pas allMonths
         const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+        let allPatterns = [];
         let monthsLabels = [];
+        let selectedMonthsList = [];
         
-        months.forEach(offset => {
-            const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
-            const pattern = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-%`;
-            allPatterns.push(pattern);
-            monthsLabels.push(`${monthNames[d.getMonth()]} ${d.getFullYear()}`);
+        if (config.allMonths) {
+            // Récupérer tous les mois disponibles depuis la base
+            const availableMonths = await new Promise((resolve, reject) => {
+                database.all(`
+                    SELECT DISTINCT substr(date_key, 1, 7) as month
+                    FROM schedule_data 
+                    WHERE (type = 'available' AND value != '1')
+                       OR (type = 'activity' AND value != '1')
+                `, (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows || []);
+                });
+            });
+            selectedMonthsList = availableMonths.map(r => r.month).filter(m => m && m.length >= 7);
+        } else if (config.selectedMonths && config.selectedMonths.length > 0) {
+            selectedMonthsList = config.selectedMonths;
+        } else {
+            // Fallback: mois courant et suivant
+            const d1 = new Date();
+            const d2 = new Date(d1.getFullYear(), d1.getMonth() + 1, 1);
+            selectedMonthsList = [
+                `${d1.getFullYear()}-${String(d1.getMonth()+1).padStart(2,'0')}`,
+                `${d2.getFullYear()}-${String(d2.getMonth()+1).padStart(2,'0')}`
+            ];
+        }
+        
+        console.log(`⏰ [CRON] Mois sélectionnés: ${selectedMonthsList.join(', ')}`);
+        
+        selectedMonthsList.forEach(monthStr => {
+            // Format: "2025-01" ou "2025-1-"
+            const cleanMonth = monthStr.replace(/-$/, '');
+            const parts = cleanMonth.split('-');
+            if (parts.length >= 2) {
+                const year = parseInt(parts[0]);
+                const month = parseInt(parts[1]);
+                if (!isNaN(year) && !isNaN(month) && month >= 1 && month <= 12) {
+                    // Pattern avec zéro
+                    const patternWithZero = `${year}-${String(month).padStart(2, '0')}-%`;
+                    allPatterns.push(patternWithZero);
+                    // Pattern sans zéro (pour les anciennes données)
+                    const patternWithoutZero = `${year}-${month}-%`;
+                    if (patternWithZero !== patternWithoutZero) {
+                        allPatterns.push(patternWithoutZero);
+                    }
+                    monthsLabels.push(`${monthNames[month - 1]} ${year}`);
+                }
+            }
         });
+        
+        if (allPatterns.length === 0) {
+            console.log('⏰ [CRON] Automatisation n°2: aucun mois sélectionné');
+            return;
+        }
         
         const likeConditions = allPatterns.map(() => `date_key LIKE ?`).join(' OR ');
         
@@ -5376,28 +5424,58 @@ async function runAutomation2() {
         const availLabels = { '1': 'Indisponible', '2': 'Disponible', '3': 'Congés' };
         const actLabels = { '1': 'Indisponible', '2': 'En attente', '3': 'SAMU Déploiement', '4': 'SAMU Dev', '5': 'ANS Déploiement', '6': 'ANS Dev', '7': 'Qualification', '8': 'Divers' };
         
+        // Option excludeEmpty
+        const excludeEmpty = config.excludeEmpty !== false; // Par défaut true
+        console.log(`⏰ [CRON] Exclure lignes vides: ${excludeEmpty}`);
+        
         let csvContent = '\ufeff';
         csvContent += 'Expert,Date,Période,Disponibilité,Affectation,Localisation\n';
+        let totalRows = 0;
+        let excludedRows = 0;
         
         resourcesList.forEach(resource => {
             const resData = dataByResource[resource.id] || {};
-            months.forEach(offset => {
-                const monthDate = new Date(now.getFullYear(), now.getMonth() + offset, 1);
-                const daysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
-                
-                for (let day = 1; day <= daysInMonth; day++) {
-                    const dateKey = `${monthDate.getFullYear()}-${String(monthDate.getMonth()+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-                    ['AM', 'PM'].forEach(period => {
-                        const key = `${dateKey}_${period}`;
-                        const data = resData[key] || {};
-                        const avail = data.available || '1';
-                        const act = data.activity || '1';
-                        const loc = data.localisation || '-';
-                        csvContent += `"${resource.prenom} ${resource.nom}","${dateKey}","${period}","${availLabels[avail] || avail}","${actLabels[act] || act}","${loc}"\n`;
-                    });
+            
+            // Parcourir tous les mois sélectionnés
+            selectedMonthsList.forEach(monthStr => {
+                const cleanMonth = monthStr.replace(/-$/, '');
+                const parts = cleanMonth.split('-');
+                if (parts.length >= 2) {
+                    const year = parseInt(parts[0]);
+                    const month = parseInt(parts[1]);
+                    if (!isNaN(year) && !isNaN(month) && month >= 1 && month <= 12) {
+                        const daysInMonth = new Date(year, month, 0).getDate();
+                        
+                        for (let day = 1; day <= daysInMonth; day++) {
+                            const dateKey = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+                            ['AM', 'PM'].forEach(period => {
+                                const key = `${dateKey}_${period}`;
+                                // Aussi chercher avec l'ancien format sans zéro
+                                const keyAlt = `${year}-${month}-${day}_${period}`;
+                                const data = resData[key] || resData[keyAlt] || {};
+                                
+                                const avail = data.available || '1';
+                                const act = data.activity || '1';
+                                const loc = data.localisation || '-';
+                                
+                                // Vérifier si on doit exclure cette ligne
+                                const isEmpty = (avail === '1' && act === '1');
+                                
+                                if (excludeEmpty && isEmpty) {
+                                    excludedRows++;
+                                    return; // Sauter cette ligne
+                                }
+                                
+                                totalRows++;
+                                csvContent += `"${resource.prenom} ${resource.nom}","${dateKey}","${period}","${availLabels[avail] || avail}","${actLabels[act] || act}","${loc}"\n`;
+                            });
+                        }
+                    }
                 }
             });
         });
+        
+        console.log(`⏰ [CRON] CSV généré: ${totalRows} lignes (${excludedRows} exclues car vides)`);
         
         // Construire la liste des noms des destinataires pour les logs
         let recipientNames = [];
