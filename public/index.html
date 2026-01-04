@@ -59,6 +59,12 @@
         th.resource-label:hover { background-color: #34495e; }
         th.resource-label::after { content: none; }
         th.day-header::after { content: none; }
+        /* Tableau reporting - pas de flèches par défaut */
+        #reportingTable th { cursor: default; }
+        #reportingTable th::after { content: none; }
+        #reportingTable th:hover { background-color: #34495e; }
+        #reportingTable th.sortable { cursor: pointer; }
+        #reportingTable th.sortable:hover { background-color: #2c3e50; }
         td { padding: 10px; border-bottom: 1px solid #ecf0f1; }
         tr:hover { background-color: #f9f9f9; }
         .toggle-switch { position: relative; display: inline-block; width: 50px; height: 24px; }
@@ -611,7 +617,7 @@
                 </h3>
                 
                 <!-- Filtres -->
-                <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end; margin-bottom: 20px;">
+                <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; margin-bottom: 20px;">
                     <!-- Période de début -->
                     <div>
                         <label style="font-size: 12px; color: #555; display: block; margin-bottom: 5px;">Période de début</label>
@@ -632,7 +638,7 @@
                             </select>
                             <select id="reportingStartYear" style="width: 80px;">
                                 <option value="2024">2024</option>
-                                <option value="2025" selected>2025</option>
+                                <option value="2025">2025</option>
                                 <option value="2026">2026</option>
                                 <option value="2027">2027</option>
                                 <option value="2028">2028</option>
@@ -656,11 +662,11 @@
                                 <option value="8">Septembre</option>
                                 <option value="9">Octobre</option>
                                 <option value="10">Novembre</option>
-                                <option value="11" selected>Décembre</option>
+                                <option value="11">Décembre</option>
                             </select>
                             <select id="reportingEndYear" style="width: 80px;">
                                 <option value="2024">2024</option>
-                                <option value="2025" selected>2025</option>
+                                <option value="2025">2025</option>
                                 <option value="2026">2026</option>
                                 <option value="2027">2027</option>
                                 <option value="2028">2028</option>
@@ -678,7 +684,8 @@
                     </div>
                     
                     <!-- Option congés -->
-                    <div style="display: flex; flex-direction: column; justify-content: flex-end;">
+                    <div>
+                        <label style="font-size: 12px; color: #555; display: block; margin-bottom: 5px;">&nbsp;</label>
                         <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
                             <input type="checkbox" id="reportingIncludeLeave" checked style="width: auto;">
                             <span style="font-size: 12px;">Prendre en compte les congés</span>
@@ -687,6 +694,7 @@
                     
                     <!-- Bouton générer -->
                     <div>
+                        <label style="font-size: 12px; color: #555; display: block; margin-bottom: 5px;">&nbsp;</label>
                         <button onclick="generateReporting()" style="background-color: #4caf50; padding: 10px 25px;">
                             📊 Générer le rapport
                         </button>
@@ -694,6 +702,7 @@
                     
                     <!-- Bouton diagnostic -->
                     <div>
+                        <label style="font-size: 12px; color: #555; display: block; margin-bottom: 5px;">&nbsp;</label>
                         <button onclick="diagnoseReportingData()" style="background-color: #9c27b0; padding: 10px 15px;">
                             🔍 Diagnostic
                         </button>
@@ -821,22 +830,37 @@
                     🗑️ Supprimer toutes les notifications
                 </button>
             </div>
+        </div>
+    </div>
+    
+    <!-- SECTION 2: Administration des jours ou événements spéciaux -->
+    <div class="form-section" style="background-color: #e8f5e9; border-left: 4px solid #4caf50;">
+        <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleAdminSection('specialEventsSection')">
+            <h3 style="color: #2e7d32; border-left: none; margin: 0;">
+                <span id="specialEventsSectionIcon">▶</span> Administration des jours ou événements spéciaux
+            </h3>
+        </div>
+        <div id="specialEventsSection" style="margin-top: 15px; display: none;">
             
             <!-- Injection des périodes de congés scolaires -->
-            <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #d0d0d0; background-color: #e8f5e9; padding: 15px; border-radius: 5px;">
-                <label style="color: #2e7d32; font-weight: bold;">🏖️ Injection des périodes de congés scolaires</label>
+            <div style="background-color: #c8e6c9; padding: 15px; border-radius: 5px; margin-bottom: 15px;">
+                <label style="color: #1b5e20; font-weight: bold; font-size: 14px;">🏖️ Injection des périodes de congés scolaires</label>
                 <p style="font-size: 12px; color: #2e7d32; margin: 10px 0;">
-                    Importez un fichier <strong>.ics</strong> contenant les vacances scolaires des zones A, B et C. 
-                    Les périodes seront affichées sur le planning mensuel.
+                    Importez des fichiers <strong>.ics</strong> contenant les vacances scolaires des zones A, B et C. 
+                    Chaque fichier importé est conservé dans l'historique et peut être supprimé individuellement.
                 </p>
                 <div style="display: flex; gap: 10px; align-items: center; margin-top: 10px;">
                     <input type="file" id="schoolHolidaysFile" accept=".ics" style="flex: 1;">
-                    <button onclick="uploadSchoolHolidays()" style="background-color: #43a047; color: white; white-space: nowrap;" onmouseover="this.style.backgroundColor='#2e7d32'" onmouseout="this.style.backgroundColor='#43a047'">
+                    <button onclick="uploadSchoolHolidaysWithHistory()" style="background-color: #43a047; color: white; white-space: nowrap;" onmouseover="this.style.backgroundColor='#2e7d32'" onmouseout="this.style.backgroundColor='#43a047'">
                         📤 Importer
                     </button>
                 </div>
                 <div id="schoolHolidaysStatus" style="margin-top: 10px; font-size: 12px;"></div>
-                <div id="schoolHolidaysInfo" style="margin-top: 10px; font-size: 11px; color: #666;"></div>
+                
+                <!-- Liste des fichiers importés -->
+                <div id="schoolHolidaysFilesList" style="margin-top: 15px;">
+                    <!-- Rempli dynamiquement -->
+                </div>
                 
                 <!-- Légende des zones -->
                 <div style="margin-top: 15px; padding-top: 10px; border-top: 1px dashed #a5d6a7;">
@@ -856,12 +880,78 @@
                         </div>
                     </div>
                 </div>
-                
-                <!-- Bouton pour supprimer les congés -->
-                <div style="margin-top: 15px;">
-                    <button onclick="clearSchoolHolidays()" style="background-color: #ff7043; color: white; width: 100%;" onmouseover="this.style.backgroundColor='#f4511e'" onmouseout="this.style.backgroundColor='#ff7043'">
-                        🗑️ Supprimer les congés scolaires
+            </div>
+            
+            <!-- Injection de dates particulières (jours fériés, etc.) -->
+            <div style="background-color: #fff3e0; padding: 15px; border-radius: 5px; margin-bottom: 15px;">
+                <label style="color: #e65100; font-weight: bold; font-size: 14px;">📅 Injection de dates particulières (jours fériés, ...)</label>
+                <p style="font-size: 12px; color: #e65100; margin: 10px 0;">
+                    Importez des fichiers <strong>.ics</strong> contenant des dates particulières (jours fériés, événements...). 
+                    Personnalisez l'affichage de chaque fichier avec un libellé et des couleurs.
+                </p>
+                <div style="display: flex; gap: 10px; align-items: center; margin-top: 10px;">
+                    <input type="file" id="specialDatesFile" accept=".ics" style="flex: 1;">
+                    <button onclick="openSpecialDatesConfigModal()" style="background-color: #ff9800; color: white; white-space: nowrap;" onmouseover="this.style.backgroundColor='#f57c00'" onmouseout="this.style.backgroundColor='#ff9800'">
+                        📤 Importer et configurer
                     </button>
+                </div>
+                <div id="specialDatesStatus" style="margin-top: 10px; font-size: 12px;"></div>
+                
+                <!-- Liste des fichiers de dates particulières -->
+                <div id="specialDatesFilesList" style="margin-top: 15px;">
+                    <!-- Rempli dynamiquement -->
+                </div>
+            </div>
+            
+            <!-- Administrer des jours ou événements particuliers -->
+            <div style="background-color: #e3f2fd; padding: 15px; border-radius: 5px;">
+                <label style="color: #1565c0; font-weight: bold; font-size: 14px;">✏️ Administrer des jours ou événements particuliers</label>
+                <p style="font-size: 12px; color: #1565c0; margin: 10px 0;">
+                    Créez manuellement des événements avec dates, libellé et apparence personnalisée.
+                </p>
+                
+                <!-- Formulaire d'ajout -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr auto auto auto auto; gap: 10px; align-items: end; margin-bottom: 15px; background: #bbdefb; padding: 15px; border-radius: 5px;">
+                    <div>
+                        <label style="font-size: 11px; color: #1565c0; display: block; margin-bottom: 3px;">Date de début</label>
+                        <input type="date" id="customEventStartDate" style="width: 100%; padding: 6px;">
+                    </div>
+                    <div>
+                        <label style="font-size: 11px; color: #1565c0; display: block; margin-bottom: 3px;">Date de fin</label>
+                        <input type="date" id="customEventEndDate" style="width: 100%; padding: 6px;">
+                    </div>
+                    <div>
+                        <label style="font-size: 11px; color: #1565c0; display: block; margin-bottom: 3px;">Libellé</label>
+                        <input type="text" id="customEventLabel" placeholder="Ex: FÉRIÉ, Congé, ..." style="width: 100%; padding: 6px;">
+                    </div>
+                    <div>
+                        <label style="font-size: 11px; color: #1565c0; display: block; margin-bottom: 3px;">Fond</label>
+                        <input type="color" id="customEventBgColor" value="#ffeb3b" style="width: 40px; height: 32px; padding: 0; border: 1px solid #ccc; cursor: pointer;">
+                    </div>
+                    <div>
+                        <label style="font-size: 11px; color: #1565c0; display: block; margin-bottom: 3px;">Texte</label>
+                        <input type="color" id="customEventTextColor" value="#000000" style="width: 40px; height: 32px; padding: 0; border: 1px solid #ccc; cursor: pointer;">
+                    </div>
+                    <div>
+                        <label style="font-size: 11px; color: #1565c0; display: block; margin-bottom: 3px;">Bordure</label>
+                        <input type="color" id="customEventBorderColor" value="#fbc02d" style="width: 40px; height: 32px; padding: 0; border: 1px solid #ccc; cursor: pointer;">
+                    </div>
+                    <div>
+                        <button onclick="addCustomEvent()" style="background-color: #1e88e5; color: white; padding: 6px 15px; white-space: nowrap;">
+                            ➕ Ajouter
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Prévisualisation -->
+                <div style="margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 12px; color: #666;">Prévisualisation :</span>
+                    <span id="customEventPreview" style="display: inline-block; padding: 3px 8px; border-radius: 8px; font-size: 11px; font-weight: bold; background-color: #ffeb3b; color: #000; border: 2px solid #fbc02d;">FÉRIÉ</span>
+                </div>
+                
+                <!-- Tableau des événements -->
+                <div id="customEventsTableContainer" style="margin-top: 15px;">
+                    <p style="color: #999; font-size: 12px; font-style: italic;">Aucun événement personnalisé</p>
                 </div>
             </div>
         </div>
@@ -1584,6 +1674,7 @@
         let sessionId = null; // ID de session pour grouper les notifications
         let isFirstPlanningLoad = true; // Flag pour le scroll initial vers aujourd'hui
         let schoolHolidays = { zoneA: [], zoneB: [], zoneC: [] }; // Périodes de congés scolaires
+        let specialDates = []; // Dates particulières (jours fériés, etc.)
 
         const availabilityLabels = {
             '1': 'Indisponible',
@@ -1803,6 +1894,7 @@
                     await loadSettings(); // Charger les paramètres d'inactivité
                     await loadUsers(); // Charger les utilisateurs pour les notifications
                     await loadSchoolHolidays(); // Charger les congés scolaires pour tous les profils
+                    await loadSpecialDates(); // Charger les dates particulières pour tous les profils
                     
                     // Charger les nouvelles affectations uniquement pour les experts
                     console.log('🔍 CurrentUser:', currentUser);
@@ -1927,6 +2019,10 @@
                 adminTab.style.display = 'block';
                 // Charger les experts pour le reporting
                 loadReportingExperts();
+                // Charger les fichiers ICS
+                loadSchoolHolidaysFiles();
+                loadSpecialDatesFiles();
+                loadCustomEvents();
             } else if (currentUser.activeProfile === 'expert' || currentUser.activeProfile === 'user') {
                 resourcesTab.style.display = 'none';
                 planningTab.style.display = 'block';
@@ -3160,38 +3256,42 @@
             }
             html += '</tr></thead><tbody id="ganttBody">';
             
-            // ========== LIGNE DES CONGÉS SCOLAIRES ==========
+            // ========== LIGNE CONGÉS SCOLAIRES, JOURS FÉRIÉS, ÉVÉNEMENTS ==========
             const hasHolidays = (schoolHolidays.zoneA?.length > 0) || 
                                (schoolHolidays.zoneB?.length > 0) || 
                                (schoolHolidays.zoneC?.length > 0);
+            const hasSpecialDates = specialDates && specialDates.length > 0;
             
-            console.log('📅 updateGantt - hasHolidays:', hasHolidays, schoolHolidays);
+            console.log('📅 updateGantt - hasHolidays:', hasHolidays, 'hasSpecialDates:', hasSpecialDates);
             
-            if (hasHolidays) {
+            // Afficher la ligne si on a des congés OU des dates particulières
+            if (hasHolidays || hasSpecialDates) {
                 html += `<tr class="school-holidays-row" style="background-color: #f5f5f5;">
                     <td class="resource-header" style="background-color: #9EA158; vertical-align: middle;">
                         <div style="display: flex; align-items: center; gap: 10px;">
-                            <span style="font-size: 24px;">🏖️</span>
+                            <span style="font-size: 24px;">📅</span>
                             <div style="color: white;">
-                                <strong>Congés scolaires</strong><br>
-                                <small style="font-size: 10px; color: #f0f0f0;">Zones A, B, C</small>
+                                <strong style="font-size: 11px;">Congés scolaires, jours fériés, événements particuliers, ...</strong>
                             </div>
                         </div>
                     </td>
-                    <td style="background-color: #9EA158; vertical-align: middle; text-align: center; font-size: 10px;">
-                        <div style="display: flex; flex-direction: column; gap: 2px; align-items: flex-start; padding-left: 5px;">
-                            <div style="display: flex; align-items: center; gap: 3px;">
-                                <span style="display: inline-block; width: 12px; height: 3px; background-color: #e91e63; border-radius: 1px;"></span>
+                    <td style="background-color: #9EA158; vertical-align: middle; text-align: center; font-size: 9px;">
+                        <div style="display: flex; flex-direction: column; gap: 1px; align-items: flex-start; padding-left: 3px;">`;
+                
+                // Légende zones scolaires si présentes
+                if (hasHolidays) {
+                    html += `
+                            <div style="display: flex; align-items: center; gap: 2px;">
+                                <span style="display: inline-block; width: 10px; height: 3px; background-color: #e91e63; border-radius: 1px;"></span>
                                 <span style="color: white;">A</span>
-                            </div>
-                            <div style="display: flex; align-items: center; gap: 3px;">
-                                <span style="display: inline-block; width: 12px; height: 3px; background-color: #2196f3; border-radius: 1px;"></span>
+                                <span style="display: inline-block; width: 10px; height: 3px; background-color: #2196f3; border-radius: 1px; margin-left: 3px;"></span>
                                 <span style="color: white;">B</span>
-                            </div>
-                            <div style="display: flex; align-items: center; gap: 3px;">
-                                <span style="display: inline-block; width: 12px; height: 3px; background-color: #ff9800; border-radius: 1px;"></span>
+                                <span style="display: inline-block; width: 10px; height: 3px; background-color: #ff9800; border-radius: 1px; margin-left: 3px;"></span>
                                 <span style="color: white;">C</span>
-                            </div>
+                            </div>`;
+                }
+                
+                html += `
                         </div>
                     </td>`;
                 
@@ -3201,26 +3301,41 @@
                     const date = new Date(year, month, day);
                     const isWeekend = date.getDay() === 0 || date.getDay() === 6;
                     
+                    // Vérifier les congés scolaires
                     const inZoneA = isDateInHoliday(dateStr, 'zoneA');
                     const inZoneB = isDateInHoliday(dateStr, 'zoneB');
                     const inZoneC = isDateInHoliday(dateStr, 'zoneC');
                     
-                    // Debug pour le premier jour du mois
-                    if (day === 1) {
-                        console.log(`📅 Date test: ${dateStr}, ZoneA: ${inZoneA}, ZoneB: ${inZoneB}, ZoneC: ${inZoneC}`);
-                        if (schoolHolidays.zoneA?.length > 0) {
-                            console.log('📅 Première période Zone A:', schoolHolidays.zoneA[0]);
-                        }
+                    // Vérifier les dates particulières
+                    const specialDateInfo = getSpecialDateInfo(dateStr);
+                    
+                    // Générer le contenu de la cellule
+                    let cellContent = '<div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100%; gap: 2px;">';
+                    let hasContent = false;
+                    
+                    // Ajouter les barres de congés scolaires
+                    if (inZoneA || inZoneB || inZoneC) {
+                        hasContent = true;
+                        if (inZoneA) cellContent += '<div style="width: 85%; height: 4px; background-color: #e91e63; border-radius: 2px;"></div>';
+                        if (inZoneB) cellContent += '<div style="width: 85%; height: 4px; background-color: #2196f3; border-radius: 2px;"></div>';
+                        if (inZoneC) cellContent += '<div style="width: 85%; height: 4px; background-color: #ff9800; border-radius: 2px;"></div>';
                     }
                     
-                    // Générer le contenu de la cellule avec les barres de couleur
-                    let cellContent = '';
-                    if (inZoneA || inZoneB || inZoneC) {
-                        cellContent = '<div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100%; gap: 3px;">';
-                        if (inZoneA) cellContent += '<div style="width: 85%; height: 6px; background-color: #e91e63; border-radius: 3px;"></div>';
-                        if (inZoneB) cellContent += '<div style="width: 85%; height: 6px; background-color: #2196f3; border-radius: 3px;"></div>';
-                        if (inZoneC) cellContent += '<div style="width: 85%; height: 6px; background-color: #ff9800; border-radius: 3px;"></div>';
-                        cellContent += '</div>';
+                    // Ajouter le cartouche des dates particulières
+                    if (specialDateInfo && specialDateInfo.config) {
+                        hasContent = true;
+                        const cfg = specialDateInfo.config;
+                        const displayLabel = cfg.label || specialDateInfo.summary || 'JF';
+                        cellContent += `<span style="display: inline-block; padding: 1px 3px; border-radius: 6px; font-size: 8px; font-weight: bold; 
+                            background-color: ${cfg.bgColor || '#ffeb3b'}; 
+                            color: ${cfg.textColor || '#000'}; 
+                            border: 1px solid ${cfg.borderColor || '#fbc02d'};">${displayLabel}</span>`;
+                    }
+                    
+                    cellContent += '</div>';
+                    
+                    if (!hasContent) {
+                        cellContent = '';
                     }
                     
                     const bgColor = isWeekend ? '#e8e8e8' : '#f5f5f5';
@@ -3233,7 +3348,7 @@
                 
                 html += '</tr>';
             }
-            // ========== FIN LIGNE CONGÉS SCOLAIRES ==========
+            // ========== FIN LIGNE CONGÉS/ÉVÉNEMENTS ==========
 
             filteredResources.forEach(resource => {
                 const dispoCount = countDaysForResource(resource.id, year, month);
@@ -4695,7 +4810,15 @@
                     inEvent = true;
                     currentEvent = {};
                 } else if (line.startsWith('END:VEVENT')) {
-                    if (currentEvent && currentEvent.summary && currentEvent.dtstart && currentEvent.dtend) {
+                    if (currentEvent && currentEvent.start) {
+                        // Si pas de end, utiliser start
+                        if (!currentEvent.end) {
+                            currentEvent.end = currentEvent.start;
+                        }
+                        // Si pas de summary, mettre un placeholder
+                        if (!currentEvent.summary) {
+                            currentEvent.summary = 'Événement';
+                        }
                         events.push(currentEvent);
                     }
                     inEvent = false;
@@ -4706,14 +4829,19 @@
                         currentEvent.summary = line.substring(colonIndex + 1).trim();
                     } else if (line.startsWith('DTSTART')) {
                         const colonIndex = line.indexOf(':');
-                        currentEvent.dtstart = parseICSDate(line.substring(colonIndex + 1).trim());
+                        const dateStr = line.substring(colonIndex + 1).trim();
+                        currentEvent.start = parseICSDate(dateStr);
+                        currentEvent.dtstart = currentEvent.start; // Compatibilité
                     } else if (line.startsWith('DTEND')) {
                         const colonIndex = line.indexOf(':');
-                        currentEvent.dtend = parseICSDate(line.substring(colonIndex + 1).trim());
+                        const dateStr = line.substring(colonIndex + 1).trim();
+                        currentEvent.end = parseICSDate(dateStr);
+                        currentEvent.dtend = currentEvent.end; // Compatibilité
                     }
                 }
             }
             
+            console.log(`📅 parseICSFile: ${events.length} événements parsés`);
             return events;
         }
         
@@ -4924,6 +5052,41 @@
             } else {
                 infoDiv.innerHTML = '<em>Aucun congé scolaire chargé</em>';
             }
+        }
+        
+        // Charger les dates particulières depuis le serveur
+        async function loadSpecialDates() {
+            try {
+                const response = await fetch(`${API_URL}/ics-files/special-dates/all`, {
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    specialDates = data.dates || [];
+                    console.log('📅 Dates particulières chargées:', specialDates.length);
+                    
+                    // Rafraîchir le Gantt si déjà affiché
+                    if (document.getElementById('ganttBody')) {
+                        updateGantt();
+                    }
+                }
+            } catch (error) {
+                console.error('Erreur chargement dates particulières:', error);
+            }
+        }
+        
+        // Vérifier si une date est une date particulière
+        function getSpecialDateInfo(dateStr) {
+            // dateStr au format "YYYY-MM-DD"
+            for (const sd of specialDates) {
+                const start = sd.date;
+                const end = sd.endDate || sd.date;
+                if (dateStr >= start && dateStr <= end) {
+                    return sd;
+                }
+            }
+            return null;
         }
         
         // ========== GESTION DES AUTOMATISATIONS ==========
@@ -5940,17 +6103,40 @@
         
         // ========== REPORTING ==========
         
+        // Initialiser les dates par défaut du reporting (mois courant à mois+3)
+        function initReportingDates() {
+            const now = new Date();
+            const currentMonth = now.getMonth();
+            const currentYear = now.getFullYear();
+            
+            // Période de début: mois et année en cours
+            document.getElementById('reportingStartMonth').value = currentMonth;
+            document.getElementById('reportingStartYear').value = currentYear;
+            
+            // Période de fin: mois+3
+            const endDate = new Date(currentYear, currentMonth + 3, 1);
+            document.getElementById('reportingEndMonth').value = endDate.getMonth();
+            document.getElementById('reportingEndYear').value = endDate.getFullYear();
+        }
+        
         // Charger les experts dans la liste déroulante du reporting
         async function loadReportingExperts() {
             try {
+                // Initialiser les dates par défaut
+                initReportingDates();
+                
                 const response = await fetch(`${API_URL}/resources`, { credentials: 'include' });
                 if (response.ok) {
                     const data = await response.json();
                     const select = document.getElementById('reportingExperts');
                     select.innerHTML = '';
                     
-                    // Filtrer les experts actifs
-                    const activeExperts = data.filter(r => r.actif);
+                    // Filtrer les experts actifs et trier par nom
+                    const activeExperts = data.filter(r => r.actif).sort((a, b) => {
+                        const nameA = `${a.nom} ${a.prenom}`.toLowerCase();
+                        const nameB = `${b.nom} ${b.prenom}`.toLowerCase();
+                        return nameA.localeCompare(nameB);
+                    });
                     
                     activeExperts.forEach(expert => {
                         const option = document.createElement('option');
@@ -6030,25 +6216,84 @@
                 return;
             }
             
-            const monthNames = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
+            // Stocker les données pour le tri
+            window.reportingData = data;
+            window.reportingSortColumn = null;
+            window.reportingSortAsc = true;
             
-            let html = '<table style="width: 100%; border-collapse: collapse; font-size: 12px;">';
+            renderReportingTable(data);
+        }
+        
+        // Fonction de tri du tableau reporting
+        function sortReportingTable(column) {
+            if (!window.reportingData) return;
+            
+            // Toggle le sens du tri si même colonne
+            if (window.reportingSortColumn === column) {
+                window.reportingSortAsc = !window.reportingSortAsc;
+            } else {
+                window.reportingSortColumn = column;
+                window.reportingSortAsc = true;
+            }
+            
+            // Trier les experts
+            window.reportingData.experts.sort((a, b) => {
+                let valA, valB;
+                
+                if (column === 'name') {
+                    valA = a.name.toLowerCase();
+                    valB = b.name.toLowerCase();
+                    return window.reportingSortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                }
+                
+                return 0; // Pas de tri pour les autres colonnes
+            });
+            
+            renderReportingTable(window.reportingData);
+        }
+        
+        // Rendu du tableau reporting
+        function renderReportingTable(data) {
+            const resultsDiv = document.getElementById('reportingResults');
+            const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+            const monthNamesShort = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
+            
+            let html = '<table id="reportingTable" style="width: 100%; border-collapse: collapse; font-size: 12px;">';
             
             // En-tête avec les mois
             html += '<thead><tr style="background: #34495e; color: white;">';
-            html += '<th style="padding: 10px; border: 1px solid #bdc3c7; text-align: left; min-width: 150px;">Expert</th>';
+            
+            // Colonne Expert (triable)
+            const expertSortIcon = window.reportingSortColumn === 'name' ? (window.reportingSortAsc ? ' ▲' : ' ▼') : ' ▲▼';
+            html += `<th class="sortable" onclick="sortReportingTable('name')" style="padding: 10px; border: 1px solid #bdc3c7; text-align: left; min-width: 150px;">Expert${expertSortIcon}</th>`;
+            
+            // Colonne Taux MAD (non triable)
             html += '<th style="padding: 10px; border: 1px solid #bdc3c7; text-align: center; min-width: 100px; background: #5d6d7e;">Taux MAD<br><span style="font-size: 10px; font-weight: normal;">Jours/mois</span></th>';
             
+            // Colonnes mois (non triables)
             data.months.forEach(month => {
-                html += `<th style="padding: 10px; border: 1px solid #bdc3c7; text-align: center; min-width: 100px;">${monthNames[month.month]} ${month.year}</th>`;
+                html += `<th style="padding: 10px; border: 1px solid #bdc3c7; text-align: center; min-width: 100px;">`;
+                html += `${monthNames[month.month]} ${month.year}`;
+                html += `<br><span style="font-size: 9px; font-weight: normal;">Dispo | Affecté</span>`;
+                html += `</th>`;
             });
             
-            // Colonne Total
-            html += '<th style="padding: 10px; border: 1px solid #bdc3c7; text-align: center; min-width: 100px; background: #2c3e50;">TOTAL</th>';
+            // Colonne Total (non triable)
+            html += '<th style="padding: 10px; border: 1px solid #bdc3c7; text-align: center; min-width: 100px; background: #2c3e50;">TOTAL<br><span style="font-size: 9px; font-weight: normal;">Dispo | Affecté</span></th>';
             html += '</tr></thead>';
             
             // Corps du tableau
             html += '<tbody>';
+            
+            // Totaux globaux par mois
+            const globalTotalsByMonth = {};
+            let globalTotalAvailable = 0;
+            let globalTotalAssigned = 0;
+            
+            data.months.forEach(month => {
+                const monthKey = `${month.year}-${String(month.month + 1).padStart(2, '0')}`;
+                globalTotalsByMonth[monthKey] = { available: 0, assigned: 0 };
+            });
             
             data.experts.forEach(expert => {
                 html += '<tr>';
@@ -6071,6 +6316,10 @@
                     
                     totalAvailable += stats.available;
                     totalAssigned += stats.assigned;
+                    
+                    // Accumuler pour les totaux globaux
+                    globalTotalsByMonth[monthKey].available += stats.available;
+                    globalTotalsByMonth[monthKey].assigned += stats.assigned;
                     
                     // Couleur selon le taux
                     let bgColor = '#ffcdd2'; // Rouge < 50%
@@ -6098,7 +6347,11 @@
                     html += '</td>';
                 });
                 
-                // Colonne Total
+                // Accumuler pour les totaux globaux
+                globalTotalAvailable += totalAvailable;
+                globalTotalAssigned += totalAssigned;
+                
+                // Colonne Total expert
                 const totalRate = totalAvailable > 0 ? (totalAssigned / totalAvailable) * 100 : 0;
                 let totalBgColor = '#ffcdd2';
                 let totalBorderColor = '#ef9a9a';
@@ -6117,6 +6370,25 @@
                 
                 html += '</tr>';
             });
+            
+            // Ligne de total global
+            html += '<tr style="background: #2c3e50; color: white; font-weight: bold;">';
+            html += '<td style="padding: 10px; border: 1px solid #bdc3c7;">TOTAL</td>';
+            html += '<td style="padding: 8px; border: 1px solid #bdc3c7; text-align: center;">-</td>';
+            
+            data.months.forEach(month => {
+                const monthKey = `${month.year}-${String(month.month + 1).padStart(2, '0')}`;
+                const monthTotals = globalTotalsByMonth[monthKey];
+                html += `<td style="padding: 8px; border: 1px solid #bdc3c7; text-align: center;">`;
+                html += `<span style="color: #85c1e9;">${monthTotals.available}</span> | <span style="color: #82e0aa;">${monthTotals.assigned}</span>`;
+                html += '</td>';
+            });
+            
+            // Total global
+            html += `<td style="padding: 8px; border: 1px solid #bdc3c7; text-align: center; background: #1a252f;">`;
+            html += `<span style="color: #85c1e9;">${globalTotalAvailable}</span> | <span style="color: #82e0aa;">${globalTotalAssigned}</span>`;
+            html += '</td>';
+            html += '</tr>';
             
             html += '</tbody></table>';
             
@@ -6212,7 +6484,701 @@
         
         // ========== FIN GESTION DES AUTOMATISATIONS ==========
         
-        // Supprimer les congés scolaires
+        // ========== GESTION DES FICHIERS ICS ==========
+        
+        // Variables globales pour les dates particulières
+        let specialDatesFiles = [];
+        let pendingSpecialDatesFile = null;
+        
+        // Charger les fichiers de congés scolaires avec historique
+        async function loadSchoolHolidaysFiles() {
+            try {
+                const response = await fetch(`${API_URL}/ics-files/school-holidays`, { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    renderSchoolHolidaysFilesList(data.files || []);
+                }
+            } catch (error) {
+                console.error('Erreur chargement fichiers congés scolaires:', error);
+            }
+        }
+        
+        // Afficher la liste des fichiers de congés scolaires
+        function renderSchoolHolidaysFilesList(files) {
+            const container = document.getElementById('schoolHolidaysFilesList');
+            if (!container) return;
+            
+            if (files.length === 0) {
+                container.innerHTML = '<p style="color: #999; font-size: 12px; font-style: italic;">Aucun fichier importé</p>';
+                return;
+            }
+            
+            let html = '<div style="border: 1px solid #a5d6a7; border-radius: 4px; overflow: hidden;">';
+            html += '<table style="width: 100%; border-collapse: collapse; font-size: 12px;">';
+            html += '<thead><tr style="background: #c8e6c9;">';
+            html += '<th style="padding: 8px; text-align: left; border: none;">Fichier</th>';
+            html += '<th style="padding: 8px; text-align: center; border: none;">Importé le</th>';
+            html += '<th style="padding: 8px; text-align: center; border: none;">Périodes</th>';
+            html += '<th style="padding: 8px; text-align: center; border: none;">Actions</th>';
+            html += '</tr></thead><tbody>';
+            
+            files.forEach(file => {
+                const importDate = new Date(file.imported_at).toLocaleDateString('fr-FR');
+                html += `<tr style="border-top: 1px solid #a5d6a7;">`;
+                html += `<td style="padding: 8px;">${file.filename}</td>`;
+                html += `<td style="padding: 8px; text-align: center;">${importDate}</td>`;
+                html += `<td style="padding: 8px; text-align: center;">${file.periods_count || 0}</td>`;
+                html += `<td style="padding: 8px; text-align: center;">`;
+                html += `<button onclick="deleteSchoolHolidaysFile(${file.id})" style="background: #e53935; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 11px;">🗑️</button>`;
+                html += `</td></tr>`;
+            });
+            
+            html += '</tbody></table></div>';
+            container.innerHTML = html;
+        }
+        
+        // Uploader un fichier de congés scolaires avec historique
+        async function uploadSchoolHolidaysWithHistory() {
+            const fileInput = document.getElementById('schoolHolidaysFile');
+            const statusDiv = document.getElementById('schoolHolidaysStatus');
+            
+            if (!fileInput.files || fileInput.files.length === 0) {
+                statusDiv.innerHTML = '<span style="color: #e53935;">❌ Veuillez sélectionner un fichier .ics</span>';
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            statusDiv.innerHTML = '<span style="color: #1565c0;">⏳ Importation en cours...</span>';
+            
+            try {
+                const content = await file.text();
+                const events = parseICSFile(content);
+                
+                // Parser les zones
+                const zoneAEvents = events.filter(e => e.summary && e.summary.toLowerCase().includes('zone a'));
+                const zoneBEvents = events.filter(e => e.summary && e.summary.toLowerCase().includes('zone b'));
+                const zoneCEvents = events.filter(e => e.summary && e.summary.toLowerCase().includes('zone c'));
+                
+                const periodsCount = zoneAEvents.length + zoneBEvents.length + zoneCEvents.length;
+                
+                if (periodsCount === 0) {
+                    statusDiv.innerHTML = '<span style="color: #e53935;">❌ Aucune période de vacances trouvée dans le fichier</span>';
+                    return;
+                }
+                
+                // Envoyer au serveur
+                const response = await fetch(`${API_URL}/ics-files/school-holidays`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        filename: file.name,
+                        content: content,
+                        zoneA: zoneAEvents,
+                        zoneB: zoneBEvents,
+                        zoneC: zoneCEvents
+                    })
+                });
+                
+                if (response.ok) {
+                    statusDiv.innerHTML = `<span style="color: #4CAF50;">✅ ${periodsCount} période(s) importée(s) depuis ${file.name}</span>`;
+                    fileInput.value = '';
+                    loadSchoolHolidaysFiles();
+                    await reloadAllSchoolHolidays();
+                    updateGantt();
+                } else {
+                    const err = await response.json();
+                    statusDiv.innerHTML = `<span style="color: #e53935;">❌ Erreur: ${err.error}</span>`;
+                }
+            } catch (error) {
+                console.error('Erreur upload:', error);
+                statusDiv.innerHTML = `<span style="color: #e53935;">❌ Erreur: ${error.message}</span>`;
+            }
+        }
+        
+        // Supprimer un fichier de congés scolaires
+        async function deleteSchoolHolidaysFile(fileId) {
+            if (!confirm('Voulez-vous vraiment supprimer ce fichier de congés scolaires ?')) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/ics-files/school-holidays/${fileId}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    loadSchoolHolidaysFiles();
+                    await reloadAllSchoolHolidays();
+                    updateGantt();
+                } else {
+                    alert('Erreur lors de la suppression');
+                }
+            } catch (error) {
+                console.error('Erreur suppression:', error);
+                alert('Erreur: ' + error.message);
+            }
+        }
+        
+        // Recharger tous les congés scolaires depuis tous les fichiers
+        async function reloadAllSchoolHolidays() {
+            try {
+                const response = await fetch(`${API_URL}/ics-files/school-holidays/all-periods`, { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    schoolHolidays = data.periods || { zoneA: [], zoneB: [], zoneC: [] };
+                }
+            } catch (error) {
+                console.error('Erreur rechargement congés:', error);
+            }
+        }
+        
+        // ========== DATES PARTICULIERES ==========
+        
+        // Charger les fichiers de dates particulières
+        async function loadSpecialDatesFiles() {
+            try {
+                const response = await fetch(`${API_URL}/ics-files/special-dates`, { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    specialDatesFiles = data.files || [];
+                    renderSpecialDatesFilesList(specialDatesFiles);
+                }
+            } catch (error) {
+                console.error('Erreur chargement fichiers dates particulières:', error);
+            }
+        }
+        
+        // Afficher la liste des fichiers de dates particulières
+        function renderSpecialDatesFilesList(files) {
+            const container = document.getElementById('specialDatesFilesList');
+            if (!container) return;
+            
+            if (files.length === 0) {
+                container.innerHTML = '<p style="color: #999; font-size: 12px; font-style: italic;">Aucun fichier importé</p>';
+                return;
+            }
+            
+            let html = '<div style="border: 1px solid #ffcc80; border-radius: 4px; overflow: hidden;">';
+            html += '<table style="width: 100%; border-collapse: collapse; font-size: 12px;">';
+            html += '<thead><tr style="background: #ffe0b2;">';
+            html += '<th style="padding: 8px; text-align: left; border: none;">Fichier</th>';
+            html += '<th style="padding: 8px; text-align: center; border: none;">Apparence</th>';
+            html += '<th style="padding: 8px; text-align: center; border: none;">Dates</th>';
+            html += '<th style="padding: 8px; text-align: center; border: none;">Actions</th>';
+            html += '</tr></thead><tbody>';
+            
+            files.forEach(file => {
+                const config = file.config || {};
+                html += `<tr style="border-top: 1px solid #ffcc80;">`;
+                html += `<td style="padding: 8px;">${file.filename}</td>`;
+                html += `<td style="padding: 8px; text-align: center;">`;
+                html += `<span style="display: inline-block; padding: 2px 6px; border-radius: 8px; font-size: 10px; font-weight: bold; background-color: ${config.bgColor || '#ffeb3b'}; color: ${config.textColor || '#000'}; border: 2px solid ${config.borderColor || '#fbc02d'};">${config.label || 'JF'}</span>`;
+                html += `</td>`;
+                html += `<td style="padding: 8px; text-align: center;">${file.dates_count || 0}</td>`;
+                html += `<td style="padding: 8px; text-align: center;">`;
+                html += `<button onclick="openEditSpecialDatesModal(${file.id})" style="background: #1e88e5; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 11px; margin-right: 5px;">✏️</button>`;
+                html += `<button onclick="deleteSpecialDatesFile(${file.id})" style="background: #e53935; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 11px;">🗑️</button>`;
+                html += `</td></tr>`;
+            });
+            
+            html += '</tbody></table></div>';
+            container.innerHTML = html;
+        }
+        
+        // Ouvrir la modal de configuration pour un nouveau fichier
+        function openSpecialDatesConfigModal() {
+            const fileInput = document.getElementById('specialDatesFile');
+            const statusDiv = document.getElementById('specialDatesStatus');
+            
+            if (!fileInput.files || fileInput.files.length === 0) {
+                statusDiv.innerHTML = '<span style="color: #e53935;">❌ Veuillez sélectionner un fichier .ics</span>';
+                return;
+            }
+            
+            pendingSpecialDatesFile = fileInput.files[0];
+            document.getElementById('specialDatesFileName').textContent = pendingSpecialDatesFile.name;
+            document.getElementById('specialDatesLabel').value = 'JF';
+            document.getElementById('specialDatesBgColor').value = '#ffeb3b';
+            document.getElementById('specialDatesTextColor').value = '#000000';
+            document.getElementById('specialDatesBorderColor').value = '#fbc02d';
+            updateSpecialDatesPreview();
+            
+            document.getElementById('specialDatesConfigModal').style.display = 'block';
+        }
+        
+        // Fermer la modal de configuration
+        function closeSpecialDatesConfigModal() {
+            document.getElementById('specialDatesConfigModal').style.display = 'none';
+            pendingSpecialDatesFile = null;
+        }
+        
+        // Appliquer un préset de couleurs
+        function applySpecialDatesPreset(bgColor, textColor, borderColor) {
+            document.getElementById('specialDatesBgColor').value = bgColor;
+            document.getElementById('specialDatesTextColor').value = textColor;
+            document.getElementById('specialDatesBorderColor').value = borderColor;
+            updateSpecialDatesPreview();
+        }
+        
+        // Mettre à jour la prévisualisation
+        function updateSpecialDatesPreview() {
+            const label = document.getElementById('specialDatesLabel').value || 'JF';
+            const bgColor = document.getElementById('specialDatesBgColor').value;
+            const textColor = document.getElementById('specialDatesTextColor').value;
+            const borderColor = document.getElementById('specialDatesBorderColor').value;
+            
+            const preview = document.getElementById('specialDatesPreview');
+            preview.textContent = label;
+            preview.style.backgroundColor = bgColor;
+            preview.style.color = textColor;
+            preview.style.borderColor = borderColor;
+        }
+        
+        // Confirmer l'upload du fichier de dates particulières
+        async function confirmSpecialDatesUpload() {
+            if (!pendingSpecialDatesFile) return;
+            
+            const label = document.getElementById('specialDatesLabel').value || 'JF';
+            const bgColor = document.getElementById('specialDatesBgColor').value;
+            const textColor = document.getElementById('specialDatesTextColor').value;
+            const borderColor = document.getElementById('specialDatesBorderColor').value;
+            
+            try {
+                const content = await pendingSpecialDatesFile.text();
+                const events = parseICSFile(content);
+                
+                if (events.length === 0) {
+                    alert('Aucun événement trouvé dans le fichier');
+                    return;
+                }
+                
+                const response = await fetch(`${API_URL}/ics-files/special-dates`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        filename: pendingSpecialDatesFile.name,
+                        content: content,
+                        events: events,
+                        config: { label, bgColor, textColor, borderColor }
+                    })
+                });
+                
+                if (response.ok) {
+                    document.getElementById('specialDatesStatus').innerHTML = `<span style="color: #4CAF50;">✅ ${events.length} date(s) importée(s)</span>`;
+                    document.getElementById('specialDatesFile').value = '';
+                    closeSpecialDatesConfigModal();
+                    loadSpecialDatesFiles();
+                    await loadSpecialDates(); // Recharger pour le Gantt
+                    updateGantt();
+                } else {
+                    const err = await response.json();
+                    alert('Erreur: ' + err.error);
+                }
+            } catch (error) {
+                console.error('Erreur upload:', error);
+                alert('Erreur: ' + error.message);
+            }
+        }
+        
+        // Ouvrir la modal d'édition d'un fichier existant
+        function openEditSpecialDatesModal(fileId) {
+            const file = specialDatesFiles.find(f => f.id === fileId);
+            if (!file) return;
+            
+            const config = file.config || {};
+            document.getElementById('editSpecialDatesId').value = fileId;
+            document.getElementById('editSpecialDatesLabel').value = config.label || 'JF';
+            document.getElementById('editSpecialDatesBgColor').value = config.bgColor || '#ffeb3b';
+            document.getElementById('editSpecialDatesTextColor').value = config.textColor || '#000000';
+            document.getElementById('editSpecialDatesBorderColor').value = config.borderColor || '#fbc02d';
+            updateEditSpecialDatesPreview();
+            
+            document.getElementById('editSpecialDatesModal').style.display = 'block';
+        }
+        
+        // Fermer la modal d'édition
+        function closeEditSpecialDatesModal() {
+            document.getElementById('editSpecialDatesModal').style.display = 'none';
+        }
+        
+        // Mettre à jour la prévisualisation d'édition
+        function updateEditSpecialDatesPreview() {
+            const label = document.getElementById('editSpecialDatesLabel').value || 'JF';
+            const bgColor = document.getElementById('editSpecialDatesBgColor').value;
+            const textColor = document.getElementById('editSpecialDatesTextColor').value;
+            const borderColor = document.getElementById('editSpecialDatesBorderColor').value;
+            
+            const preview = document.getElementById('editSpecialDatesPreview');
+            preview.textContent = label;
+            preview.style.backgroundColor = bgColor;
+            preview.style.color = textColor;
+            preview.style.border = `2px solid ${borderColor}`;
+        }
+        
+        // Sauvegarder les modifications d'un fichier
+        async function saveEditSpecialDates() {
+            const fileId = document.getElementById('editSpecialDatesId').value;
+            const label = document.getElementById('editSpecialDatesLabel').value || 'JF';
+            const bgColor = document.getElementById('editSpecialDatesBgColor').value;
+            const textColor = document.getElementById('editSpecialDatesTextColor').value;
+            const borderColor = document.getElementById('editSpecialDatesBorderColor').value;
+            
+            try {
+                const response = await fetch(`${API_URL}/ics-files/special-dates/${fileId}/config`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ config: { label, bgColor, textColor, borderColor } })
+                });
+                
+                if (response.ok) {
+                    closeEditSpecialDatesModal();
+                    loadSpecialDatesFiles();
+                    await loadSpecialDates(); // Recharger pour le Gantt
+                    updateGantt();
+                } else {
+                    const err = await response.json();
+                    alert('Erreur: ' + err.error);
+                }
+            } catch (error) {
+                console.error('Erreur sauvegarde:', error);
+                alert('Erreur: ' + error.message);
+            }
+        }
+        
+        // Supprimer un fichier de dates particulières
+        async function deleteSpecialDatesFile(fileId) {
+            if (!confirm('Voulez-vous vraiment supprimer ce fichier de dates particulières ?')) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/ics-files/special-dates/${fileId}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    loadSpecialDatesFiles();
+                    await loadSpecialDates(); // Recharger pour le Gantt
+                    updateGantt();
+                } else {
+                    alert('Erreur lors de la suppression');
+                }
+            } catch (error) {
+                console.error('Erreur suppression:', error);
+                alert('Erreur: ' + error.message);
+            }
+        }
+        
+        // Ajouter les event listeners pour la prévisualisation en temps réel
+        document.addEventListener('DOMContentLoaded', function() {
+            // Prévisualisation nouvelle config
+            ['specialDatesLabel', 'specialDatesBgColor', 'specialDatesTextColor', 'specialDatesBorderColor'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.addEventListener('input', updateSpecialDatesPreview);
+            });
+            // Prévisualisation édition
+            ['editSpecialDatesLabel', 'editSpecialDatesBgColor', 'editSpecialDatesTextColor', 'editSpecialDatesBorderColor'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.addEventListener('input', updateEditSpecialDatesPreview);
+            });
+            // Prévisualisation événements personnalisés
+            ['customEventLabel', 'customEventBgColor', 'customEventTextColor', 'customEventBorderColor'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.addEventListener('input', updateCustomEventPreview);
+            });
+        });
+        
+        // ========== ÉVÉNEMENTS PERSONNALISÉS ==========
+        
+        let customEvents = [];
+        let customEventsSortColumn = 'startDate';
+        let customEventsSortAsc = true;
+        
+        // Charger les événements personnalisés
+        async function loadCustomEvents() {
+            try {
+                const response = await fetch(`${API_URL}/custom-events`, { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    customEvents = data.events || [];
+                    renderCustomEventsTable();
+                }
+            } catch (error) {
+                console.error('Erreur chargement événements personnalisés:', error);
+            }
+        }
+        
+        // Mettre à jour la prévisualisation
+        function updateCustomEventPreview() {
+            const label = document.getElementById('customEventLabel').value || 'FÉRIÉ';
+            const bgColor = document.getElementById('customEventBgColor').value;
+            const textColor = document.getElementById('customEventTextColor').value;
+            const borderColor = document.getElementById('customEventBorderColor').value;
+            
+            const preview = document.getElementById('customEventPreview');
+            if (preview) {
+                preview.textContent = label;
+                preview.style.backgroundColor = bgColor;
+                preview.style.color = textColor;
+                preview.style.borderColor = borderColor;
+            }
+        }
+        
+        // Ajouter un événement personnalisé
+        async function addCustomEvent() {
+            const startDate = document.getElementById('customEventStartDate').value;
+            const endDate = document.getElementById('customEventEndDate').value;
+            const label = document.getElementById('customEventLabel').value.trim();
+            const bgColor = document.getElementById('customEventBgColor').value;
+            const textColor = document.getElementById('customEventTextColor').value;
+            const borderColor = document.getElementById('customEventBorderColor').value;
+            
+            if (!startDate) {
+                alert('Veuillez sélectionner une date de début');
+                return;
+            }
+            if (!label) {
+                alert('Veuillez saisir un libellé');
+                return;
+            }
+            
+            const finalEndDate = endDate || startDate;
+            
+            try {
+                const response = await fetch(`${API_URL}/custom-events`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        startDate,
+                        endDate: finalEndDate,
+                        label,
+                        config: { bgColor, textColor, borderColor }
+                    })
+                });
+                
+                if (response.ok) {
+                    // Réinitialiser le formulaire
+                    document.getElementById('customEventStartDate').value = '';
+                    document.getElementById('customEventEndDate').value = '';
+                    document.getElementById('customEventLabel').value = '';
+                    
+                    await loadCustomEvents();
+                    await loadSpecialDates();
+                    updateGantt();
+                } else {
+                    const err = await response.json();
+                    alert('Erreur: ' + err.error);
+                }
+            } catch (error) {
+                console.error('Erreur ajout événement:', error);
+                alert('Erreur: ' + error.message);
+            }
+        }
+        
+        // Trier les événements personnalisés
+        function sortCustomEvents(column) {
+            if (customEventsSortColumn === column) {
+                customEventsSortAsc = !customEventsSortAsc;
+            } else {
+                customEventsSortColumn = column;
+                customEventsSortAsc = true;
+            }
+            renderCustomEventsTable();
+        }
+        
+        // Afficher le tableau des événements personnalisés
+        function renderCustomEventsTable() {
+            const container = document.getElementById('customEventsTableContainer');
+            if (!container) return;
+            
+            if (customEvents.length === 0) {
+                container.innerHTML = '<p style="color: #999; font-size: 12px; font-style: italic;">Aucun événement personnalisé</p>';
+                return;
+            }
+            
+            // Trier
+            const sorted = [...customEvents].sort((a, b) => {
+                let valA, valB;
+                if (customEventsSortColumn === 'label') {
+                    valA = a.label.toLowerCase();
+                    valB = b.label.toLowerCase();
+                    return customEventsSortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                } else if (customEventsSortColumn === 'startDate') {
+                    valA = a.start_date;
+                    valB = b.start_date;
+                } else if (customEventsSortColumn === 'endDate') {
+                    valA = a.end_date;
+                    valB = b.end_date;
+                }
+                if (customEventsSortAsc) {
+                    return valA < valB ? -1 : valA > valB ? 1 : 0;
+                } else {
+                    return valA > valB ? -1 : valA < valB ? 1 : 0;
+                }
+            });
+            
+            const getSortIcon = (col) => {
+                if (customEventsSortColumn === col) {
+                    return customEventsSortAsc ? ' ▲' : ' ▼';
+                }
+                return ' ▲▼';
+            };
+            
+            let html = '<table style="width: 100%; border-collapse: collapse; font-size: 12px;">';
+            html += '<thead><tr style="background: #1565c0; color: white;">';
+            html += `<th onclick="sortCustomEvents('label')" style="padding: 8px; text-align: left; cursor: pointer; border: none;">Nom${getSortIcon('label')}</th>`;
+            html += '<th style="padding: 8px; text-align: center; border: none;">Apparence</th>';
+            html += `<th onclick="sortCustomEvents('startDate')" style="padding: 8px; text-align: center; cursor: pointer; border: none;">Date début${getSortIcon('startDate')}</th>`;
+            html += `<th onclick="sortCustomEvents('endDate')" style="padding: 8px; text-align: center; cursor: pointer; border: none;">Date fin${getSortIcon('endDate')}</th>`;
+            html += '<th style="padding: 8px; text-align: center; border: none;">Durée</th>';
+            html += '<th style="padding: 8px; text-align: center; border: none;">Actions</th>';
+            html += '</tr></thead><tbody>';
+            
+            sorted.forEach(event => {
+                const config = event.config ? (typeof event.config === 'string' ? JSON.parse(event.config) : event.config) : {};
+                const startDate = new Date(event.start_date);
+                const endDate = new Date(event.end_date);
+                const diffTime = Math.abs(endDate - startDate);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+                
+                const startStr = startDate.toLocaleDateString('fr-FR');
+                const endStr = endDate.toLocaleDateString('fr-FR');
+                
+                html += '<tr style="border-bottom: 1px solid #ddd;">';
+                html += `<td style="padding: 8px;">${event.label}</td>`;
+                html += `<td style="padding: 8px; text-align: center;">
+                    <span style="display: inline-block; padding: 2px 6px; border-radius: 8px; font-size: 10px; font-weight: bold; 
+                        background-color: ${config.bgColor || '#ffeb3b'}; 
+                        color: ${config.textColor || '#000'}; 
+                        border: 2px solid ${config.borderColor || '#fbc02d'};">${event.label}</span>
+                </td>`;
+                html += `<td style="padding: 8px; text-align: center;">${startStr}</td>`;
+                html += `<td style="padding: 8px; text-align: center;">${endStr}</td>`;
+                html += `<td style="padding: 8px; text-align: center;">${diffDays} jour${diffDays > 1 ? 's' : ''}</td>`;
+                html += `<td style="padding: 8px; text-align: center;">
+                    <button onclick="editCustomEvent(${event.id})" style="background: #1e88e5; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 11px; margin-right: 5px;">✏️</button>
+                    <button onclick="deleteCustomEvent(${event.id})" style="background: #e53935; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 11px;">🗑️</button>
+                </td>`;
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+        
+        // Supprimer un événement personnalisé
+        async function deleteCustomEvent(eventId) {
+            if (!confirm('Voulez-vous vraiment supprimer cet événement ?')) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/custom-events/${eventId}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    await loadCustomEvents();
+                    await loadSpecialDates();
+                    updateGantt();
+                } else {
+                    alert('Erreur lors de la suppression');
+                }
+            } catch (error) {
+                console.error('Erreur suppression:', error);
+                alert('Erreur: ' + error.message);
+            }
+        }
+        
+        // Éditer un événement personnalisé
+        function editCustomEvent(eventId) {
+            const event = customEvents.find(e => e.id === eventId);
+            if (!event) return;
+            
+            const config = event.config ? (typeof event.config === 'string' ? JSON.parse(event.config) : event.config) : {};
+            
+            document.getElementById('editCustomEventId').value = eventId;
+            document.getElementById('editCustomEventStartDate').value = event.start_date;
+            document.getElementById('editCustomEventEndDate').value = event.end_date;
+            document.getElementById('editCustomEventLabel').value = event.label;
+            document.getElementById('editCustomEventBgColor').value = config.bgColor || '#ffeb3b';
+            document.getElementById('editCustomEventTextColor').value = config.textColor || '#000000';
+            document.getElementById('editCustomEventBorderColor').value = config.borderColor || '#fbc02d';
+            updateEditCustomEventPreview();
+            
+            document.getElementById('editCustomEventModal').style.display = 'block';
+        }
+        
+        // Fermer la modal d'édition
+        function closeEditCustomEventModal() {
+            document.getElementById('editCustomEventModal').style.display = 'none';
+        }
+        
+        // Prévisualisation édition événement
+        function updateEditCustomEventPreview() {
+            const label = document.getElementById('editCustomEventLabel').value || 'FÉRIÉ';
+            const bgColor = document.getElementById('editCustomEventBgColor').value;
+            const textColor = document.getElementById('editCustomEventTextColor').value;
+            const borderColor = document.getElementById('editCustomEventBorderColor').value;
+            
+            const preview = document.getElementById('editCustomEventPreview');
+            if (preview) {
+                preview.textContent = label;
+                preview.style.backgroundColor = bgColor;
+                preview.style.color = textColor;
+                preview.style.border = `2px solid ${borderColor}`;
+            }
+        }
+        
+        // Sauvegarder les modifications d'un événement
+        async function saveEditCustomEvent() {
+            const eventId = document.getElementById('editCustomEventId').value;
+            const startDate = document.getElementById('editCustomEventStartDate').value;
+            const endDate = document.getElementById('editCustomEventEndDate').value;
+            const label = document.getElementById('editCustomEventLabel').value.trim();
+            const bgColor = document.getElementById('editCustomEventBgColor').value;
+            const textColor = document.getElementById('editCustomEventTextColor').value;
+            const borderColor = document.getElementById('editCustomEventBorderColor').value;
+            
+            if (!startDate || !label) {
+                alert('Veuillez remplir tous les champs obligatoires');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/custom-events/${eventId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        startDate,
+                        endDate: endDate || startDate,
+                        label,
+                        config: { bgColor, textColor, borderColor }
+                    })
+                });
+                
+                if (response.ok) {
+                    closeEditCustomEventModal();
+                    await loadCustomEvents();
+                    await loadSpecialDates();
+                    updateGantt();
+                } else {
+                    const err = await response.json();
+                    alert('Erreur: ' + err.error);
+                }
+            } catch (error) {
+                console.error('Erreur sauvegarde:', error);
+                alert('Erreur: ' + error.message);
+            }
+        }
+        
+        // ========== FIN ÉVÉNEMENTS PERSONNALISÉS ==========
+        
+        // ========== FIN GESTION DES FICHIERS ICS ==========
+        
+        // Supprimer les congés scolaires (ancienne fonction - gardée pour compatibilité)
         async function clearSchoolHolidays() {
             if (!confirm('Voulez-vous vraiment supprimer tous les congés scolaires ?')) {
                 return;
@@ -9375,6 +10341,199 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     ✅ Confirmer et envoyer
                 </button>
                 <button onclick="closeAutomation2PreviewModal()" style="background-color: #95a5a6; color: white;">
+                    Annuler
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Configuration Dates Particulières -->
+    <div id="specialDatesConfigModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); z-index: 10002;">
+        <div style="position: relative; background-color: white; margin: 5% auto; padding: 30px; width: 90%; max-width: 500px; border-radius: 12px; max-height: 80vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="color: #e65100; margin: 0;">📅 Configuration du fichier ICS</h2>
+                <span onclick="closeSpecialDatesConfigModal()" style="cursor: pointer; font-size: 28px; color: #7f8c8d;">&times;</span>
+            </div>
+            
+            <div id="specialDatesConfigContent">
+                <p style="font-size: 12px; color: #666; margin-bottom: 15px;">
+                    Configurez l'apparence des dates de ce fichier sur le planning.
+                </p>
+                
+                <!-- Nom du fichier -->
+                <div style="margin-bottom: 15px;">
+                    <label style="font-size: 12px; font-weight: bold; color: #333;">Fichier sélectionné :</label>
+                    <div id="specialDatesFileName" style="font-size: 14px; color: #e65100; margin-top: 5px;">-</div>
+                </div>
+                
+                <!-- Libellé court -->
+                <div style="margin-bottom: 15px;">
+                    <label style="font-size: 12px; font-weight: bold; color: #333;">Libellé :</label>
+                    <input type="text" id="specialDatesLabel" placeholder="Ex: JF, Férié, Événement" style="width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px;">
+                    <div style="font-size: 10px; color: #999; margin-top: 2px;">Ce texte sera affiché dans le cartouche sur le planning</div>
+                </div>
+                
+                <!-- Couleurs -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                    <div>
+                        <label style="font-size: 12px; font-weight: bold; color: #333;">Couleur de fond :</label>
+                        <input type="color" id="specialDatesBgColor" value="#ffeb3b" style="width: 100%; height: 40px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
+                    </div>
+                    <div>
+                        <label style="font-size: 12px; font-weight: bold; color: #333;">Couleur du texte :</label>
+                        <input type="color" id="specialDatesTextColor" value="#000000" style="width: 100%; height: 40px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
+                    </div>
+                    <div>
+                        <label style="font-size: 12px; font-weight: bold; color: #333;">Couleur bordure :</label>
+                        <input type="color" id="specialDatesBorderColor" value="#fbc02d" style="width: 100%; height: 40px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
+                    </div>
+                </div>
+                
+                <!-- Prévisualisation -->
+                <div style="margin-bottom: 20px;">
+                    <label style="font-size: 12px; font-weight: bold; color: #333;">Prévisualisation :</label>
+                    <div style="margin-top: 10px; padding: 20px; background: #f5f5f5; border-radius: 4px; text-align: center;">
+                        <span id="specialDatesPreview" style="display: inline-block; padding: 4px 8px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: #ffeb3b; color: #000000; border: 2px solid #fbc02d;">JF</span>
+                    </div>
+                </div>
+                
+                <!-- Présets de couleurs -->
+                <div style="margin-bottom: 20px;">
+                    <label style="font-size: 12px; font-weight: bold; color: #333;">Présets rapides :</label>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px;">
+                        <button type="button" onclick="applySpecialDatesPreset('#ffeb3b', '#000000', '#fbc02d')" style="padding: 5px 10px; background: #ffeb3b; color: #000; border: 2px solid #fbc02d; border-radius: 4px; cursor: pointer; font-size: 11px;">Jaune</button>
+                        <button type="button" onclick="applySpecialDatesPreset('#e53935', '#ffffff', '#b71c1c')" style="padding: 5px 10px; background: #e53935; color: #fff; border: 2px solid #b71c1c; border-radius: 4px; cursor: pointer; font-size: 11px;">Rouge</button>
+                        <button type="button" onclick="applySpecialDatesPreset('#43a047', '#ffffff', '#2e7d32')" style="padding: 5px 10px; background: #43a047; color: #fff; border: 2px solid #2e7d32; border-radius: 4px; cursor: pointer; font-size: 11px;">Vert</button>
+                        <button type="button" onclick="applySpecialDatesPreset('#1e88e5', '#ffffff', '#1565c0')" style="padding: 5px 10px; background: #1e88e5; color: #fff; border: 2px solid #1565c0; border-radius: 4px; cursor: pointer; font-size: 11px;">Bleu</button>
+                        <button type="button" onclick="applySpecialDatesPreset('#8e24aa', '#ffffff', '#6a1b9a')" style="padding: 5px 10px; background: #8e24aa; color: #fff; border: 2px solid #6a1b9a; border-radius: 4px; cursor: pointer; font-size: 11px;">Violet</button>
+                        <button type="button" onclick="applySpecialDatesPreset('#ff9800', '#000000', '#ef6c00')" style="padding: 5px 10px; background: #ff9800; color: #000; border: 2px solid #ef6c00; border-radius: 4px; cursor: pointer; font-size: 11px;">Orange</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="margin-top: 20px; text-align: right; border-top: 1px solid #eee; padding-top: 15px;">
+                <button onclick="confirmSpecialDatesUpload()" style="background-color: #4CAF50; color: white; margin-right: 10px; padding: 10px 20px;">
+                    ✅ Importer avec cette configuration
+                </button>
+                <button onclick="closeSpecialDatesConfigModal()" style="background-color: #95a5a6; color: white; padding: 10px 20px;">
+                    Annuler
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Édition Dates Particulières -->
+    <div id="editSpecialDatesModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); z-index: 10002;">
+        <div style="position: relative; background-color: white; margin: 5% auto; padding: 30px; width: 90%; max-width: 500px; border-radius: 12px; max-height: 80vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="color: #e65100; margin: 0;">✏️ Modifier l'apparence</h2>
+                <span onclick="closeEditSpecialDatesModal()" style="cursor: pointer; font-size: 28px; color: #7f8c8d;">&times;</span>
+            </div>
+            
+            <input type="hidden" id="editSpecialDatesId">
+            
+            <div id="editSpecialDatesContent">
+                <!-- Libellé court -->
+                <div style="margin-bottom: 15px;">
+                    <label style="font-size: 12px; font-weight: bold; color: #333;">Libellé :</label>
+                    <input type="text" id="editSpecialDatesLabel" style="width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+                
+                <!-- Couleurs -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                    <div>
+                        <label style="font-size: 12px; font-weight: bold; color: #333;">Couleur de fond :</label>
+                        <input type="color" id="editSpecialDatesBgColor" style="width: 100%; height: 40px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
+                    </div>
+                    <div>
+                        <label style="font-size: 12px; font-weight: bold; color: #333;">Couleur du texte :</label>
+                        <input type="color" id="editSpecialDatesTextColor" style="width: 100%; height: 40px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
+                    </div>
+                    <div>
+                        <label style="font-size: 12px; font-weight: bold; color: #333;">Couleur bordure :</label>
+                        <input type="color" id="editSpecialDatesBorderColor" style="width: 100%; height: 40px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
+                    </div>
+                </div>
+                
+                <!-- Prévisualisation -->
+                <div style="margin-bottom: 20px;">
+                    <label style="font-size: 12px; font-weight: bold; color: #333;">Prévisualisation :</label>
+                    <div style="margin-top: 10px; padding: 20px; background: #f5f5f5; border-radius: 4px; text-align: center;">
+                        <span id="editSpecialDatesPreview" style="display: inline-block; padding: 4px 8px; border-radius: 10px; font-size: 11px; font-weight: bold;">JF</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="margin-top: 20px; text-align: right; border-top: 1px solid #eee; padding-top: 15px;">
+                <button onclick="saveEditSpecialDates()" style="background-color: #4CAF50; color: white; margin-right: 10px; padding: 10px 20px;">
+                    💾 Enregistrer
+                </button>
+                <button onclick="closeEditSpecialDatesModal()" style="background-color: #95a5a6; color: white; padding: 10px 20px;">
+                    Annuler
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Édition Événement Personnalisé -->
+    <div id="editCustomEventModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); z-index: 10002;">
+        <div style="position: relative; background-color: white; margin: 5% auto; padding: 30px; width: 90%; max-width: 500px; border-radius: 12px; max-height: 80vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="color: #1565c0; margin: 0;">✏️ Modifier l'événement</h2>
+                <span onclick="closeEditCustomEventModal()" style="cursor: pointer; font-size: 28px; color: #7f8c8d;">&times;</span>
+            </div>
+            
+            <input type="hidden" id="editCustomEventId">
+            
+            <div id="editCustomEventContent">
+                <!-- Date de début -->
+                <div style="margin-bottom: 15px;">
+                    <label style="font-size: 12px; font-weight: bold; color: #333;">Date de début :</label>
+                    <input type="date" id="editCustomEventStartDate" style="width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+                
+                <!-- Date de fin -->
+                <div style="margin-bottom: 15px;">
+                    <label style="font-size: 12px; font-weight: bold; color: #333;">Date de fin :</label>
+                    <input type="date" id="editCustomEventEndDate" style="width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+                
+                <!-- Libellé -->
+                <div style="margin-bottom: 15px;">
+                    <label style="font-size: 12px; font-weight: bold; color: #333;">Libellé :</label>
+                    <input type="text" id="editCustomEventLabel" style="width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+                
+                <!-- Couleurs -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                    <div>
+                        <label style="font-size: 12px; font-weight: bold; color: #333;">Couleur de fond :</label>
+                        <input type="color" id="editCustomEventBgColor" style="width: 100%; height: 40px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
+                    </div>
+                    <div>
+                        <label style="font-size: 12px; font-weight: bold; color: #333;">Couleur du texte :</label>
+                        <input type="color" id="editCustomEventTextColor" style="width: 100%; height: 40px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
+                    </div>
+                    <div>
+                        <label style="font-size: 12px; font-weight: bold; color: #333;">Couleur bordure :</label>
+                        <input type="color" id="editCustomEventBorderColor" style="width: 100%; height: 40px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
+                    </div>
+                </div>
+                
+                <!-- Prévisualisation -->
+                <div style="margin-bottom: 20px;">
+                    <label style="font-size: 12px; font-weight: bold; color: #333;">Prévisualisation :</label>
+                    <div style="margin-top: 10px; padding: 20px; background: #f5f5f5; border-radius: 4px; text-align: center;">
+                        <span id="editCustomEventPreview" style="display: inline-block; padding: 4px 8px; border-radius: 10px; font-size: 11px; font-weight: bold;">FÉRIÉ</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="margin-top: 20px; text-align: right; border-top: 1px solid #eee; padding-top: 15px;">
+                <button onclick="saveEditCustomEvent()" style="background-color: #4CAF50; color: white; margin-right: 10px; padding: 10px 20px;">
+                    💾 Enregistrer
+                </button>
+                <button onclick="closeEditCustomEventModal()" style="background-color: #95a5a6; color: white; padding: 10px 20px;">
                     Annuler
                 </button>
             </div>

@@ -1,16 +1,25 @@
 import express from 'express';
+console.log('✅ Express importé');
 import cors from 'cors';
+console.log('✅ CORS importé');
 import bodyParser from 'body-parser';
+console.log('✅ Body-parser importé');
 import sqlite3 from 'sqlite3';
+console.log('✅ SQLite3 importé');
 import path from 'path';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 import session from 'express-session';
+console.log('✅ Session importé');
 import nodemailer from 'nodemailer';
+console.log('✅ Nodemailer importé');
 import fs from 'fs';
 import cron from 'node-cron';
+console.log('✅ Cron importé');
 
+console.log('📂 Chargement config.json...');
 import config from './config/config.json' with { type: "json" };
+console.log('✅ Config chargé');
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -35,7 +44,7 @@ app.use(session({
         maxAge: 24 * 60 * 60 * 1000,
         sameSite: 'lax'
     },
-    name: 'gantt.sid' // Nom personnalisé pour éviter les conflits de sid
+    name: 'gantt.sid' // Nom personnalisé pour éviter les conflits
 }));
 
 // NOTE: express.static sera défini APRÈS les routes API pour éviter les conflits
@@ -3804,6 +3813,467 @@ app.get('/api/reporting/diagnose/:expertId/:year/:month', requireAdmin, async (r
 });
 
 // ========== FIN REPORTING ==========
+
+// ========== GESTION DES FICHIERS ICS ==========
+
+// Créer les tables pour les fichiers ICS si elles n'existent pas
+database.serialize(() => {
+    database.run(`
+        CREATE TABLE IF NOT EXISTS ics_files (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            type TEXT NOT NULL,
+            filename TEXT NOT NULL,
+            content TEXT,
+            config TEXT,
+            imported_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    `, (err) => {
+        if (!err) console.log('✅ Table ics_files créée ou existante');
+    });
+    
+    database.run(`
+        CREATE TABLE IF NOT EXISTS ics_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            file_id INTEGER NOT NULL,
+            event_date TEXT NOT NULL,
+            event_end_date TEXT,
+            summary TEXT,
+            zone TEXT,
+            FOREIGN KEY (file_id) REFERENCES ics_files(id) ON DELETE CASCADE
+        )
+    `, (err) => {
+        if (!err) console.log('✅ Table ics_events créée ou existante');
+    });
+});
+
+// Lister les fichiers de congés scolaires
+app.get('/api/ics-files/school-holidays', requireAdmin, async (req, res) => {
+    try {
+        const files = await new Promise((resolve, reject) => {
+            database.all(`
+                SELECT f.id, f.filename, f.imported_at,
+                       (SELECT COUNT(*) FROM ics_events WHERE file_id = f.id) as periods_count
+                FROM ics_files f
+                WHERE f.type = 'school-holidays'
+                ORDER BY f.imported_at DESC
+            `, (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows || []);
+            });
+        });
+        res.json({ files });
+    } catch (error) {
+        console.error('Erreur liste fichiers congés:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Importer un fichier de congés scolaires
+app.post('/api/ics-files/school-holidays', requireAdmin, async (req, res) => {
+    try {
+        const { filename, content, zoneA, zoneB, zoneC } = req.body;
+        
+        // Insérer le fichier
+        const fileId = await new Promise((resolve, reject) => {
+            database.run(
+                `INSERT INTO ics_files (type, filename, content) VALUES (?, ?, ?)`,
+                ['school-holidays', filename, content],
+                function(err) {
+                    if (err) reject(err);
+                    else resolve(this.lastID);
+                }
+            );
+        });
+        
+        // Insérer les événements
+        const insertEvent = (event, zone) => {
+            return new Promise((resolve, reject) => {
+                database.run(
+                    `INSERT INTO ics_events (file_id, event_date, event_end_date, summary, zone) VALUES (?, ?, ?, ?, ?)`,
+                    [fileId, event.start, event.end, event.summary, zone],
+                    (err) => {
+                        if (err) reject(err);
+                        else resolve();
+                    }
+                );
+            });
+        };
+        
+        for (const event of zoneA) await insertEvent(event, 'zoneA');
+        for (const event of zoneB) await insertEvent(event, 'zoneB');
+        for (const event of zoneC) await insertEvent(event, 'zoneC');
+        
+        res.json({ success: true, fileId });
+    } catch (error) {
+        console.error('Erreur import fichier congés:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Supprimer un fichier de congés scolaires
+app.delete('/api/ics-files/school-holidays/:id', requireAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        await new Promise((resolve, reject) => {
+            database.run(`DELETE FROM ics_events WHERE file_id = ?`, [id], (err) => {
+                if (err) reject(err);
+                else resolve();
+            });
+        });
+        
+        await new Promise((resolve, reject) => {
+            database.run(`DELETE FROM ics_files WHERE id = ? AND type = 'school-holidays'`, [id], (err) => {
+                if (err) reject(err);
+                else resolve();
+            });
+        });
+        
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Erreur suppression fichier congés:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Récupérer toutes les périodes de congés scolaires (tous les fichiers combinés)
+app.get('/api/ics-files/school-holidays/all-periods', requireAuth, async (req, res) => {
+    try {
+        const events = await new Promise((resolve, reject) => {
+            database.all(`
+                SELECT event_date, event_end_date, summary, zone
+                FROM ics_events e
+                JOIN ics_files f ON e.file_id = f.id
+                WHERE f.type = 'school-holidays'
+                ORDER BY event_date
+            `, (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows || []);
+            });
+        });
+        
+        const periods = { zoneA: [], zoneB: [], zoneC: [] };
+        events.forEach(e => {
+            if (periods[e.zone]) {
+                periods[e.zone].push({ start: e.event_date, end: e.event_end_date, name: e.summary });
+            }
+        });
+        
+        res.json({ periods });
+    } catch (error) {
+        console.error('Erreur récupération périodes:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Lister les fichiers de dates particulières
+app.get('/api/ics-files/special-dates', requireAdmin, async (req, res) => {
+    try {
+        const files = await new Promise((resolve, reject) => {
+            database.all(`
+                SELECT f.id, f.filename, f.config, f.imported_at,
+                       (SELECT COUNT(*) FROM ics_events WHERE file_id = f.id) as dates_count
+                FROM ics_files f
+                WHERE f.type = 'special-dates'
+                ORDER BY f.imported_at DESC
+            `, (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows || []);
+            });
+        });
+        
+        // Parser la config JSON
+        files.forEach(f => {
+            try {
+                f.config = f.config ? JSON.parse(f.config) : {};
+            } catch (e) {
+                f.config = {};
+            }
+        });
+        
+        res.json({ files });
+    } catch (error) {
+        console.error('Erreur liste fichiers dates particulières:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Importer un fichier de dates particulières
+app.post('/api/ics-files/special-dates', requireAdmin, async (req, res) => {
+    try {
+        const { filename, content, events, config } = req.body;
+        
+        console.log(`📅 Import special-dates: ${filename}, ${events ? events.length : 0} événements`);
+        
+        // Filtrer les événements sans date
+        const validEvents = (events || []).filter(e => e && e.start);
+        console.log(`📅 Événements valides: ${validEvents.length}`);
+        
+        if (validEvents.length === 0) {
+            return res.status(400).json({ error: 'Aucun événement valide trouvé dans le fichier' });
+        }
+        
+        // Insérer le fichier
+        const fileId = await new Promise((resolve, reject) => {
+            database.run(
+                `INSERT INTO ics_files (type, filename, content, config) VALUES (?, ?, ?, ?)`,
+                ['special-dates', filename, content, JSON.stringify(config)],
+                function(err) {
+                    if (err) reject(err);
+                    else resolve(this.lastID);
+                }
+            );
+        });
+        
+        // Insérer les événements
+        for (const event of validEvents) {
+            await new Promise((resolve, reject) => {
+                database.run(
+                    `INSERT INTO ics_events (file_id, event_date, event_end_date, summary) VALUES (?, ?, ?, ?)`,
+                    [fileId, event.start, event.end || event.start, event.summary || 'Événement'],
+                    (err) => {
+                        if (err) {
+                            console.error('Erreur insertion événement:', err, event);
+                            reject(err);
+                        }
+                        else resolve();
+                    }
+                );
+            });
+        }
+        
+        console.log(`📅 Import réussi: ${validEvents.length} événements insérés`);
+        res.json({ success: true, fileId, count: validEvents.length });
+    } catch (error) {
+        console.error('Erreur import fichier dates particulières:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Modifier la config d'un fichier de dates particulières
+app.put('/api/ics-files/special-dates/:id/config', requireAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { config } = req.body;
+        
+        await new Promise((resolve, reject) => {
+            database.run(
+                `UPDATE ics_files SET config = ? WHERE id = ? AND type = 'special-dates'`,
+                [JSON.stringify(config), id],
+                (err) => {
+                    if (err) reject(err);
+                    else resolve();
+                }
+            );
+        });
+        
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Erreur modification config:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Supprimer un fichier de dates particulières
+app.delete('/api/ics-files/special-dates/:id', requireAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        await new Promise((resolve, reject) => {
+            database.run(`DELETE FROM ics_events WHERE file_id = ?`, [id], (err) => {
+                if (err) reject(err);
+                else resolve();
+            });
+        });
+        
+        await new Promise((resolve, reject) => {
+            database.run(`DELETE FROM ics_files WHERE id = ? AND type = 'special-dates'`, [id], (err) => {
+                if (err) reject(err);
+                else resolve();
+            });
+        });
+        
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Erreur suppression fichier dates particulières:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Récupérer toutes les dates particulières (pour l'affichage Gantt)
+// Inclut les fichiers ICS ET les événements personnalisés
+app.get('/api/ics-files/special-dates/all', requireAuth, async (req, res) => {
+    try {
+        const result = [];
+        
+        // 1. Récupérer les dates des fichiers ICS
+        const files = await new Promise((resolve, reject) => {
+            database.all(`
+                SELECT f.id, f.config
+                FROM ics_files f
+                WHERE f.type = 'special-dates'
+            `, (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows || []);
+            });
+        });
+        
+        for (const file of files) {
+            const config = file.config ? JSON.parse(file.config) : {};
+            const events = await new Promise((resolve, reject) => {
+                database.all(`
+                    SELECT event_date, event_end_date, summary
+                    FROM ics_events
+                    WHERE file_id = ?
+                `, [file.id], (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows || []);
+                });
+            });
+            
+            events.forEach(e => {
+                result.push({
+                    date: e.event_date,
+                    endDate: e.event_end_date,
+                    summary: e.summary,
+                    config: config
+                });
+            });
+        }
+        
+        // 2. Récupérer les événements personnalisés
+        const customEvents = await new Promise((resolve, reject) => {
+            database.all(`SELECT * FROM custom_events`, (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows || []);
+            });
+        });
+        
+        customEvents.forEach(e => {
+            const config = e.config ? JSON.parse(e.config) : {};
+            // Ajouter le label dans le config pour l'affichage sur le Gantt
+            config.label = e.label;
+            result.push({
+                date: e.start_date,
+                endDate: e.end_date,
+                summary: e.label,
+                config: config
+            });
+        });
+        
+        console.log(`📅 Dates particulières chargées: ${result.length} (ICS + personnalisés)`);
+        res.json({ dates: result });
+    } catch (error) {
+        console.error('Erreur récupération dates particulières:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ========== FIN GESTION DES FICHIERS ICS ==========
+
+// ========== ÉVÉNEMENTS PERSONNALISÉS ==========
+
+// Créer la table des événements personnalisés si elle n'existe pas
+database.run(`
+    CREATE TABLE IF NOT EXISTS custom_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        label TEXT NOT NULL,
+        start_date TEXT NOT NULL,
+        end_date TEXT NOT NULL,
+        config TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+`, (err) => {
+    if (!err) console.log('✅ Table custom_events créée ou existante');
+});
+
+// Lister les événements personnalisés
+app.get('/api/custom-events', requireAdmin, async (req, res) => {
+    try {
+        const events = await new Promise((resolve, reject) => {
+            database.all(`SELECT * FROM custom_events ORDER BY start_date`, (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows || []);
+            });
+        });
+        res.json({ events });
+    } catch (error) {
+        console.error('Erreur liste événements personnalisés:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Ajouter un événement personnalisé
+app.post('/api/custom-events', requireAdmin, async (req, res) => {
+    try {
+        const { startDate, endDate, label, config } = req.body;
+        
+        if (!startDate || !label) {
+            return res.status(400).json({ error: 'Date de début et libellé requis' });
+        }
+        
+        const eventId = await new Promise((resolve, reject) => {
+            database.run(
+                `INSERT INTO custom_events (label, start_date, end_date, config) VALUES (?, ?, ?, ?)`,
+                [label, startDate, endDate || startDate, JSON.stringify(config)],
+                function(err) {
+                    if (err) reject(err);
+                    else resolve(this.lastID);
+                }
+            );
+        });
+        
+        res.json({ success: true, eventId });
+    } catch (error) {
+        console.error('Erreur ajout événement personnalisé:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Modifier un événement personnalisé
+app.put('/api/custom-events/:id', requireAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { startDate, endDate, label, config } = req.body;
+        
+        await new Promise((resolve, reject) => {
+            database.run(
+                `UPDATE custom_events SET label = ?, start_date = ?, end_date = ?, config = ? WHERE id = ?`,
+                [label, startDate, endDate || startDate, JSON.stringify(config), id],
+                (err) => {
+                    if (err) reject(err);
+                    else resolve();
+                }
+            );
+        });
+        
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Erreur modification événement personnalisé:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Supprimer un événement personnalisé
+app.delete('/api/custom-events/:id', requireAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        await new Promise((resolve, reject) => {
+            database.run(`DELETE FROM custom_events WHERE id = ?`, [id], (err) => {
+                if (err) reject(err);
+                else resolve();
+            });
+        });
+        
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Erreur suppression événement personnalisé:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ========== FIN ÉVÉNEMENTS PERSONNALISÉS ==========
 
 // ========== FIN GESTION DES AUTOMATISATIONS ==========
 
