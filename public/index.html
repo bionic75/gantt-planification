@@ -396,6 +396,21 @@
                 <button class="tab-btn" id="reportingTab" onclick="switchTab('reporting', event)" style="display:none;">Reporting</button>
                 <button class="tab-btn" id="adminTab" onclick="switchTab('admin', event)" style="display:none;">Administration</button>
                 
+                <!-- Bouton de recherche avancée (visible pour tous les profils) -->
+                <button id="searchBtn" onclick="openSearchModal()" title="Recherche avancée" style="
+                    padding: 8px 15px;
+                    background-color: #3498db;
+                    color: white;
+                    border: none;
+                    cursor: pointer;
+                    font-size: 18px;
+                    transition: all 0.3s;
+                    border-radius: 4px;
+                    margin-right: 5px;
+                ">
+                    <span style="font-size: 20px;">🔍</span>
+                </button>
+                
                 <!-- Bouton d'envoi des notifications par email (visible uniquement pour admin/user) -->
                 <button id="sendEmailBtn" onclick="openSendEmailModal()" title="Envoyer les affectations par email" style="
                     display: none;
@@ -1671,6 +1686,7 @@
         let availableProfiles = [];
         let loginStep = 'credentials';
         let pendingAssignments = {}; // {resourceId: {expertId, assignments: [{date, period, activity, location}]}}
+        let initialScheduleState = {}; // État initial du planning au chargement (pour comparer les changements)
         let sessionId = null; // ID de session pour grouper les notifications
         let isFirstPlanningLoad = true; // Flag pour le scroll initial vers aujourd'hui
         let schoolHolidays = { zoneA: [], zoneB: [], zoneC: [] }; // Périodes de congés scolaires
@@ -2601,6 +2617,11 @@
                 scheduleData = await response.json();
                 // Sauvegarder une copie pour détecter les changements
                 oldScheduleData = JSON.parse(JSON.stringify(scheduleData));
+                
+                // Sauvegarder l'état initial des affectations pour la session
+                // Cela permet de comparer les changements et d'éviter les notifications pour des retours à l'état initial
+                initialScheduleState = JSON.parse(JSON.stringify(scheduleData));
+                console.log('📋 État initial du planning sauvegardé pour la session');
             } catch (error) {
                 console.error('Erreur:', error);
             }
@@ -2757,6 +2778,7 @@
             const locKey = period ? `${resourceId}_localisation_${dateKey}_${period}` : `${resourceId}_localisation_${dateKey}`;
             
             const currentValue = scheduleData[key] || '1';
+            let newActivityValue = '1';
             
             // Cycle pour Expert : 1 -> 2 -> 3 -> 1 (Indisponible -> Disponible -> Congés -> Indisponible)
             // Cycle pour Admin : 1 -> 2 -> 1 (pas d'accès aux Congés qui sont réservés aux experts)
@@ -2765,15 +2787,18 @@
                 if (currentValue === '1') {
                     scheduleData[key] = '2';
                     scheduleData[actKey] = '2';
+                    newActivityValue = '2';
                 } else if (currentValue === '2') {
                     scheduleData[key] = '3'; // Congés
                     scheduleData[actKey] = '1'; // Pas d'affectation possible
                     scheduleData[locKey] = '🏖️'; // Icône plage
+                    newActivityValue = '1';
                 } else {
                     // Retour à Indisponible
                     scheduleData[key] = '1';
                     scheduleData[actKey] = '1';
                     delete scheduleData[locKey];
+                    newActivityValue = '1';
                 }
             } else {
                 // Admin : cycle 1 -> 2 -> 1 (ne peut pas toucher aux Congés posés par expert)
@@ -2784,11 +2809,19 @@
                 if (currentValue === '1') {
                     scheduleData[key] = '2';
                     scheduleData[actKey] = '2';
+                    newActivityValue = '2';
                 } else {
                     scheduleData[key] = '1';
                     scheduleData[actKey] = '1';
                     delete scheduleData[locKey];
+                    newActivityValue = '1';
                 }
+            }
+            
+            // Tracker le changement pour les notifications (Admin/User seulement)
+            if (currentUser && (currentUser.activeProfile === 'admin' || currentUser.activeProfile === 'user')) {
+                const location = scheduleData[locKey] || '-';
+                trackAssignment(resourceId, dateKey, period, newActivityValue, location);
             }
             
             saveSchedule();
@@ -3207,7 +3240,13 @@
 
             let html = '<table class="gantt-table"><thead><tr>';
             html += '<th class="resource-header" style="z-index: 50;" rowspan="2" onclick="sortGanttResources()" style="cursor: pointer;">Ressource</th>';
-            html += '<th class="resource-label" style="z-index: 49; vertical-align: middle; line-height: 1.6;" rowspan="2">Disponibilité<br>Affectation<br>Localisation</th>';
+            html += `<th class="resource-label" style="z-index: 49; vertical-align: middle; padding: 4px;" rowspan="2">
+                <div style="display: flex; flex-direction: column; height: 60px; justify-content: space-between;">
+                    <div style="flex: 1; display: flex; align-items: center; justify-content: center;">Disponibilité</div>
+                    <div style="flex: 1; display: flex; align-items: center; justify-content: center;">Affectation</div>
+                    <div style="flex: 1; display: flex; align-items: center; justify-content: center;">Localisation</div>
+                </div>
+            </th>`;
             
             // En-têtes avec AM/PM pour chaque jour
             const today = new Date();
@@ -3267,7 +3306,7 @@
             // Afficher la ligne si on a des congés OU des dates particulières
             if (hasHolidays || hasSpecialDates) {
                 html += `<tr class="school-holidays-row" style="background-color: #f5f5f5;">
-                    <td class="resource-header" style="background-color: #9EA158; vertical-align: middle;">
+                    <td class="resource-header" style="background-color: #9EA158; vertical-align: top; padding-top: 8px;">
                         <div style="display: flex; align-items: center; gap: 10px;">
                             <span style="font-size: 24px;">📅</span>
                             <div style="color: white;">
@@ -3275,8 +3314,8 @@
                             </div>
                         </div>
                     </td>
-                    <td style="background-color: #9EA158; vertical-align: middle; text-align: center; font-size: 9px;">
-                        <div style="display: flex; flex-direction: column; gap: 1px; align-items: flex-start; padding-left: 3px;">`;
+                    <td class="resource-label" style="background-color: #9EA158; vertical-align: top; text-align: center; font-size: 9px; padding-top: 8px;">
+                        <div style="display: flex; flex-direction: column; gap: 1px; align-items: center;">`;
                 
                 // Légende zones scolaires si présentes
                 if (hasHolidays) {
@@ -3309,8 +3348,8 @@
                     // Vérifier les dates particulières
                     const specialDateInfo = getSpecialDateInfo(dateStr);
                     
-                    // Générer le contenu de la cellule
-                    let cellContent = '<div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100%; gap: 2px;">';
+                    // Générer le contenu de la cellule - aligné en haut
+                    let cellContent = '<div style="display: flex; flex-direction: column; justify-content: flex-start; align-items: center; height: 100%; gap: 2px; padding-top: 4px;">';
                     let hasContent = false;
                     
                     // Ajouter les barres de congés scolaires
@@ -3341,9 +3380,9 @@
                     const bgColor = isWeekend ? '#e8e8e8' : '#f5f5f5';
                     
                     // AM
-                    html += `<td style="background-color: ${bgColor}; padding: 2px; min-height: 30px;">${cellContent}</td>`;
+                    html += `<td style="background-color: ${bgColor}; padding: 2px; min-height: 30px; vertical-align: top;">${cellContent}</td>`;
                     // PM
-                    html += `<td class="day-separator" style="background-color: ${bgColor}; padding: 2px; min-height: 30px;">${cellContent}</td>`;
+                    html += `<td class="day-separator" style="background-color: ${bgColor}; padding: 2px; min-height: 30px; vertical-align: top;">${cellContent}</td>`;
                 }
                 
                 html += '</tr>';
@@ -3398,7 +3437,13 @@
                             </div>
                         </div>
                     </td>
-                    <td class="resource-label" style="vertical-align: middle; line-height: 1.6;">Disponibilité<br>Affectation<br>Localisation</td>`;
+                    <td class="resource-label" style="vertical-align: middle; padding: 4px;">
+                        <div style="display: flex; flex-direction: column; height: 90px; justify-content: space-between;">
+                            <div style="flex: 1; display: flex; align-items: center; justify-content: center; min-height: 28px;">Disponibilité</div>
+                            <div style="flex: 1; display: flex; align-items: center; justify-content: center; min-height: 28px;">Affectation</div>
+                            <div style="flex: 1; display: flex; align-items: center; justify-content: center; min-height: 28px;">Localisation</div>
+                        </div>
+                    </td>`;
 
                 // Boucle sur les jours avec AM et PM
                 for (let day = 1; day <= lastDay; day++) {
@@ -7176,6 +7221,210 @@
         
         // ========== FIN ÉVÉNEMENTS PERSONNALISÉS ==========
         
+        // ========== RECHERCHE AVANCÉE ==========
+        
+        // Ouvrir la modal de recherche
+        function openSearchModal() {
+            // Remplir la liste des experts actifs
+            const expertsSelect = document.getElementById('searchExperts');
+            expertsSelect.innerHTML = '';
+            
+            const activeResources = resources.filter(r => r.actif);
+            activeResources.sort((a, b) => `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`));
+            
+            activeResources.forEach(r => {
+                const option = document.createElement('option');
+                option.value = r.id;
+                option.textContent = `${r.nom} ${r.prenom}`;
+                expertsSelect.appendChild(option);
+            });
+            
+            // Remplir la liste des localisations
+            const locSelect = document.getElementById('searchLocation');
+            locSelect.innerHTML = '';
+            
+            const locations = new Set();
+            Object.keys(scheduleData).forEach(key => {
+                if (key.includes('_localisation_')) {
+                    const val = scheduleData[key];
+                    if (val && val !== '-') {
+                        locations.add(val);
+                    }
+                }
+            });
+            
+            Array.from(locations).sort().forEach(loc => {
+                const option = document.createElement('option');
+                option.value = loc;
+                option.textContent = loc;
+                locSelect.appendChild(option);
+            });
+            
+            // Définir les dates par défaut (mois en cours)
+            const now = new Date();
+            const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+            const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            
+            document.getElementById('searchStartDate').value = firstDay.toISOString().split('T')[0];
+            document.getElementById('searchEndDate').value = lastDay.toISOString().split('T')[0];
+            
+            document.getElementById('searchModal').style.display = 'block';
+        }
+        
+        // Fermer la modal de recherche
+        function closeSearchModal() {
+            document.getElementById('searchModal').style.display = 'none';
+        }
+        
+        // Réinitialiser le formulaire de recherche
+        function resetSearchForm() {
+            document.getElementById('searchExperts').selectedIndex = -1;
+            document.getElementById('searchAvailability').selectedIndex = -1;
+            document.getElementById('searchActivity').selectedIndex = -1;
+            document.getElementById('searchLocation').selectedIndex = -1;
+            
+            const now = new Date();
+            const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+            const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            document.getElementById('searchStartDate').value = firstDay.toISOString().split('T')[0];
+            document.getElementById('searchEndDate').value = lastDay.toISOString().split('T')[0];
+            
+            document.getElementById('searchResultsContent').innerHTML = '<p style="color: #999; text-align: center;">Sélectionnez vos critères et cliquez sur "Rechercher"</p>';
+        }
+        
+        // Exécuter la recherche
+        function executeSearch() {
+            const selectedExperts = Array.from(document.getElementById('searchExperts').selectedOptions).map(o => parseInt(o.value));
+            const startDate = document.getElementById('searchStartDate').value;
+            const endDate = document.getElementById('searchEndDate').value;
+            const selectedAvailability = Array.from(document.getElementById('searchAvailability').selectedOptions).map(o => o.value);
+            const selectedActivity = Array.from(document.getElementById('searchActivity').selectedOptions).map(o => o.value);
+            const selectedLocation = Array.from(document.getElementById('searchLocation').selectedOptions).map(o => o.value);
+            
+            if (!startDate || !endDate) {
+                alert('Veuillez sélectionner un intervalle de dates');
+                return;
+            }
+            
+            // Filtrer les ressources à rechercher
+            const resourcesToSearch = selectedExperts.length > 0 
+                ? resources.filter(r => selectedExperts.includes(r.id) && r.actif)
+                : resources.filter(r => r.actif);
+            
+            // Générer toutes les dates de l'intervalle
+            const dates = [];
+            let currentDate = new Date(startDate);
+            const end = new Date(endDate);
+            while (currentDate <= end) {
+                dates.push(currentDate.toISOString().split('T')[0]);
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+            
+            // Rechercher les correspondances
+            const results = [];
+            
+            resourcesToSearch.forEach(resource => {
+                const matches = [];
+                
+                dates.forEach(dateStr => {
+                    ['AM', 'PM'].forEach(period => {
+                        const availKey = `${resource.id}_available_${dateStr}_${period}`;
+                        const actKey = `${resource.id}_activity_${dateStr}_${period}`;
+                        const locKey = `${resource.id}_localisation_${dateStr}_${period}`;
+                        
+                        const avail = scheduleData[availKey] || '1';
+                        const act = scheduleData[actKey] || '1';
+                        const loc = scheduleData[locKey] || '-';
+                        
+                        // Vérifier les critères
+                        let matchAvail = selectedAvailability.length === 0 || selectedAvailability.includes(avail);
+                        let matchAct = selectedActivity.length === 0 || selectedActivity.includes(act);
+                        let matchLoc = selectedLocation.length === 0 || selectedLocation.includes(loc);
+                        
+                        if (matchAvail && matchAct && matchLoc) {
+                            matches.push({
+                                date: dateStr,
+                                period: period,
+                                availability: avail,
+                                activity: act,
+                                location: loc
+                            });
+                        }
+                    });
+                });
+                
+                if (matches.length > 0) {
+                    results.push({
+                        resource: resource,
+                        matches: matches
+                    });
+                }
+            });
+            
+            // Afficher les résultats
+            displaySearchResults(results);
+        }
+        
+        // Afficher les résultats de recherche
+        function displaySearchResults(results) {
+            const container = document.getElementById('searchResultsContent');
+            
+            if (results.length === 0) {
+                container.innerHTML = '<p style="color: #e74c3c; text-align: center;">Aucun résultat trouvé pour ces critères</p>';
+                return;
+            }
+            
+            const availLabels = { '1': 'Indisponible', '2': 'Disponible', '3': 'Congés' };
+            const actLabels = {
+                '1': 'Indisponible', '2': 'En attente', '3': 'SAMU Dépl.', '4': 'SAMU Dev.',
+                '5': 'ANS Dépl.', '6': 'ANS Dev.', '7': 'Qualif.', '8': 'Divers'
+            };
+            
+            let html = `<p style="color: #27ae60; font-weight: bold; margin-bottom: 10px;">${results.length} expert(s) trouvé(s)</p>`;
+            html += '<table style="width: 100%; border-collapse: collapse; font-size: 11px;">';
+            html += '<thead><tr style="background: #3498db; color: white;">';
+            html += '<th style="padding: 8px; text-align: left;">Expert</th>';
+            html += '<th style="padding: 8px; text-align: center;">Nb demi-journées</th>';
+            html += '<th style="padding: 8px; text-align: left;">Détails</th>';
+            html += '</tr></thead><tbody>';
+            
+            results.forEach(result => {
+                const resource = result.resource;
+                const matches = result.matches;
+                
+                // Regrouper par date
+                const byDate = {};
+                matches.forEach(m => {
+                    if (!byDate[m.date]) byDate[m.date] = [];
+                    byDate[m.date].push(m);
+                });
+                
+                // Générer le détail (max 5 dates affichées)
+                const dateKeys = Object.keys(byDate).slice(0, 5);
+                let detailHtml = dateKeys.map(d => {
+                    const dateObj = new Date(d);
+                    const dateStr = dateObj.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+                    const periods = byDate[d].map(m => `${m.period}`).join('/');
+                    return `${dateStr} (${periods})`;
+                }).join(', ');
+                
+                if (Object.keys(byDate).length > 5) {
+                    detailHtml += `, ... (+${Object.keys(byDate).length - 5})`;
+                }
+                
+                html += '<tr style="border-bottom: 1px solid #ddd;">';
+                html += `<td style="padding: 8px; font-weight: bold;">${resource.nom} ${resource.prenom}</td>`;
+                html += `<td style="padding: 8px; text-align: center;">${matches.length}</td>`;
+                html += `<td style="padding: 8px;">${detailHtml}</td>`;
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+        
+        // ========== FIN RECHERCHE AVANCÉE ==========
+        
         // ========== FIN GESTION DES FICHIERS ICS ==========
         
         // Supprimer les congés scolaires (ancienne fonction - gardée pour compatibilité)
@@ -8087,6 +8336,7 @@
         }
 
         // Tracker une nouvelle affectation
+        // Compare avec l'état initial de la session pour éviter les notifications pour des retours à l'état d'origine
         function trackAssignment(resourceId, dateKey, period, activity, location) {
             // Trouver l'expert associé à cette ressource
             const resource = resources.find(r => r.id === resourceId);
@@ -8097,80 +8347,149 @@
             if (!expert) return;
             
             const newActivityInt = parseInt(activity);
-            const isRealAssignment = newActivityInt >= 3; // Activités 3-8 sont des vraies affectations
             
-            // Si c'est un retour à l'état 1 (Indisponible) ou 2 (En attente), retirer de la liste
-            if (newActivityInt <= 2) {
+            // Récupérer l'état initial COMPLET (disponibilité + activité) au début de la session
+            const actKey = `${resourceId}_activity_${dateKey}_${period}`;
+            const availKey = `${resourceId}_available_${dateKey}_${period}`;
+            
+            const initialActivity = initialScheduleState[actKey] || '1';
+            const initialActivityInt = parseInt(initialActivity);
+            const initialAvailability = initialScheduleState[availKey] || '1';
+            const initialAvailabilityInt = parseInt(initialAvailability);
+            
+            // Récupérer la disponibilité actuelle
+            const currentAvailability = scheduleData[availKey] || '1';
+            const currentAvailabilityInt = parseInt(currentAvailability);
+            
+            console.log(`📊 trackAssignment: ${dateKey} ${period}`);
+            console.log(`   Initial: Dispo=${initialAvailabilityInt}, Act=${initialActivityInt}`);
+            console.log(`   Actuel:  Dispo=${currentAvailabilityInt}, Act=${newActivityInt}`);
+            
+            // L'état initial avait-il une vraie affectation (>= 3) ?
+            const initialHadAssignment = initialActivityInt >= 3;
+            // Le nouvel état a-t-il une vraie affectation (>= 3) ?
+            const newHasAssignment = newActivityInt >= 3;
+            
+            // Comparer l'état COMPLET : si on revient exactement à l'état initial
+            const isBackToInitialState = (currentAvailabilityInt === initialAvailabilityInt && newActivityInt === initialActivityInt);
+            
+            // CAS 1: Retour à l'état initial exact → retirer de la liste
+            if (isBackToInitialState) {
                 if (pendingAssignments[resourceId]) {
-                    // Chercher et retirer cette demi-journée
                     const existingIndex = pendingAssignments[resourceId].assignments.findIndex(
                         a => a.date === dateKey && a.period === period
                     );
                     
                     if (existingIndex >= 0) {
                         pendingAssignments[resourceId].assignments.splice(existingIndex, 1);
-                        console.log(`🗑️ Affectation retirée: ${dateKey} ${period} pour ${resource.prenom} ${resource.nom}`);
+                        console.log(`↩️ Retour à l'état initial complet: ${dateKey} ${period} - Affectation retirée`);
                         
-                        // Si plus aucune affectation pour cet expert, supprimer l'entrée
                         if (pendingAssignments[resourceId].assignments.length === 0) {
                             delete pendingAssignments[resourceId];
                             console.log(`🗑️ Expert retiré de la liste: ${resource.prenom} ${resource.nom}`);
                         }
                         
-                        // Mettre à jour le badge
                         updatePendingEmailBadge();
                     }
                 }
-                return; // Ne pas ajouter d'affectation pour les états 1 et 2
+                return;
             }
             
-            // C'est une vraie affectation (>= 3)
-            if (isRealAssignment) {
-                if (!pendingAssignments[resourceId]) {
-                    pendingAssignments[resourceId] = {
-                        expertId: expert.id,
-                        expertEmail: expert.email,
-                        expertNom: expert.nom,
-                        expertPrenom: expert.prenom,
-                        resourceNom: resource.nom,
-                        resourcePrenom: resource.prenom,
-                        assignments: []
-                    };
+            // CAS 2: L'état initial avait déjà une affectation ET on passe à pas d'affectation
+            // → C'est une ANNULATION, pas une nouvelle affectation → ne pas tracker
+            if (initialHadAssignment && !newHasAssignment) {
+                // Retirer de la liste si présent (cas où on avait changé puis on annule)
+                if (pendingAssignments[resourceId]) {
+                    const existingIndex = pendingAssignments[resourceId].assignments.findIndex(
+                        a => a.date === dateKey && a.period === period
+                    );
+                    
+                    if (existingIndex >= 0) {
+                        pendingAssignments[resourceId].assignments.splice(existingIndex, 1);
+                        console.log(`🚫 Annulation d'affectation existante: ${dateKey} ${period} - Pas de notification`);
+                        
+                        if (pendingAssignments[resourceId].assignments.length === 0) {
+                            delete pendingAssignments[resourceId];
+                        }
+                        
+                        updatePendingEmailBadge();
+                    }
                 }
-                
-                // Déterminer le label de l'activité
-                const activityLabels = {
-                    '3': '🚨 SAMU (Déploiement)',
-                    '4': '🚨 SAMU (Dev. usages)',
-                    '5': 'ANS (Déploiement)',
-                    '6': 'ANS (Dev. usages)',
-                    '7': 'Qualification',
-                    '8': 'Divers'
-                };
-                
-                // Vérifier si une affectation existe déjà pour cette demi-journée
-                const existingIndex = pendingAssignments[resourceId].assignments.findIndex(
-                    a => a.date === dateKey && a.period === period
-                );
-                
-                const newAssignment = {
-                    date: dateKey,
-                    period: period,
-                    activity: activityLabels[activity] || activity,
-                    location: location || '-'
-                };
-                
-                if (existingIndex >= 0) {
-                    // Remplacer l'affectation existante
-                    pendingAssignments[resourceId].assignments[existingIndex] = newAssignment;
-                } else {
-                    // Ajouter une nouvelle affectation
-                    pendingAssignments[resourceId].assignments.push(newAssignment);
-                }
-                
-                // Mettre à jour le badge du bouton d'envoi d'email
-                updatePendingEmailBadge();
+                console.log(`🚫 Passage de affectation (${initialActivityInt}) vers non-affectation (${newActivityInt}) - Pas de notification`);
+                return;
             }
+            
+            // CAS 3: Le nouvel état n'est pas une vraie affectation (< 3) ET l'initial n'en avait pas non plus
+            // → Pas de changement significatif, retirer si présent
+            if (!newHasAssignment && !initialHadAssignment) {
+                if (pendingAssignments[resourceId]) {
+                    const existingIndex = pendingAssignments[resourceId].assignments.findIndex(
+                        a => a.date === dateKey && a.period === period
+                    );
+                    
+                    if (existingIndex >= 0) {
+                        pendingAssignments[resourceId].assignments.splice(existingIndex, 1);
+                        console.log(`🗑️ Affectation retirée (pas d'affectation): ${dateKey} ${period}`);
+                        
+                        if (pendingAssignments[resourceId].assignments.length === 0) {
+                            delete pendingAssignments[resourceId];
+                        }
+                        
+                        updatePendingEmailBadge();
+                    }
+                }
+                return;
+            }
+            
+            // CAS 4: C'est une vraie nouvelle affectation (>= 3)
+            // Soit nouvelle (initial < 3), soit modification (initial >= 3 mais différent)
+            if (!pendingAssignments[resourceId]) {
+                pendingAssignments[resourceId] = {
+                    expertId: expert.id,
+                    expertEmail: expert.email,
+                    expertNom: expert.nom,
+                    expertPrenom: expert.prenom,
+                    resourceNom: resource.nom,
+                    resourcePrenom: resource.prenom,
+                    assignments: []
+                };
+            }
+            
+            // Déterminer le label de l'activité
+            const activityLabelsMap = {
+                '3': '🚨 SAMU (Déploiement)',
+                '4': '🚨 SAMU (Dev. usages)',
+                '5': 'ANS (Déploiement)',
+                '6': 'ANS (Dev. usages)',
+                '7': 'Qualification',
+                '8': 'Divers'
+            };
+            
+            // Vérifier si une affectation existe déjà pour cette demi-journée
+            const existingIndex = pendingAssignments[resourceId].assignments.findIndex(
+                a => a.date === dateKey && a.period === period
+            );
+            
+            const newAssignment = {
+                date: dateKey,
+                period: period,
+                activity: activityLabelsMap[activity] || activity,
+                location: location || '-',
+                isModification: initialHadAssignment // Indique si c'est une modification d'une affectation existante
+            };
+            
+            if (existingIndex >= 0) {
+                // Remplacer l'affectation existante
+                pendingAssignments[resourceId].assignments[existingIndex] = newAssignment;
+            } else {
+                // Ajouter une nouvelle affectation
+                pendingAssignments[resourceId].assignments.push(newAssignment);
+            }
+            
+            console.log(`➕ Affectation ajoutée: ${dateKey} ${period} - ${activityLabelsMap[activity]} (${initialHadAssignment ? 'modification' : 'nouvelle'})`);
+            
+            // Mettre à jour le badge du bouton d'envoi d'email
+            updatePendingEmailBadge();
         }
         
         // Mettre à jour le badge du bouton d'envoi d'email
@@ -8203,30 +8522,75 @@
                 return;
             }
             
-            // Lancer l'envoi des emails
-            sendPendingEmails();
-        }
-        
-        // Envoyer les emails en attente
-        async function sendPendingEmails() {
-            const expertCount = Object.keys(pendingAssignments).length;
+            // Construire le contenu de la modal
+            let html = '';
+            let totalAssignments = 0;
             
-            if (expertCount === 0) {
-                console.log('⏭️ Aucune affectation en attente');
-                return;
+            for (const [resourceId, data] of Object.entries(pendingAssignments)) {
+                const assignmentCount = data.assignments.length;
+                totalAssignments += assignmentCount;
+                
+                html += `<div style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #27ae60;">`;
+                html += `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">`;
+                html += `<div>`;
+                html += `<strong style="font-size: 14px; color: #2c3e50;">${data.expertPrenom} ${data.expertNom}</strong>`;
+                html += `<br><span style="font-size: 12px; color: #7f8c8d;">${data.expertEmail}</span>`;
+                html += `</div>`;
+                html += `<label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">`;
+                html += `<input type="checkbox" id="sendTo_${resourceId}" checked style="width: 18px; height: 18px;">`;
+                html += `<span style="font-size: 12px;">Notifier</span>`;
+                html += `</label>`;
+                html += `</div>`;
+                
+                html += `<table style="width: 100%; font-size: 11px; border-collapse: collapse;">`;
+                html += `<thead><tr style="background: #ecf0f1;">`;
+                html += `<th style="padding: 5px; text-align: left;">Date</th>`;
+                html += `<th style="padding: 5px; text-align: center;">Période</th>`;
+                html += `<th style="padding: 5px; text-align: left;">Affectation</th>`;
+                html += `<th style="padding: 5px; text-align: left;">Localisation</th>`;
+                html += `</tr></thead><tbody>`;
+                
+                // Trier les affectations par date
+                const sortedAssignments = [...data.assignments].sort((a, b) => {
+                    if (a.date !== b.date) return a.date.localeCompare(b.date);
+                    return a.period === 'AM' ? -1 : 1;
+                });
+                
+                sortedAssignments.forEach(assignment => {
+                    const dateObj = new Date(assignment.date);
+                    const dateStr = dateObj.toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit' });
+                    const periodStr = assignment.period === 'AM' ? 'Matin' : 'Après-midi';
+                    
+                    html += `<tr style="border-bottom: 1px solid #ddd;">`;
+                    html += `<td style="padding: 5px;">${dateStr}</td>`;
+                    html += `<td style="padding: 5px; text-align: center;">${periodStr}</td>`;
+                    html += `<td style="padding: 5px;">${assignment.activity}</td>`;
+                    html += `<td style="padding: 5px;">${assignment.location || '-'}</td>`;
+                    html += `</tr>`;
+                });
+                
+                html += `</tbody></table>`;
+                html += `</div>`;
             }
             
-            console.log(`📧 ${expertCount} expert(s) avec affectations en attente`, pendingAssignments);
+            // Afficher la modal
+            document.getElementById('sendEmailModalContent').innerHTML = html;
+            document.getElementById('sendEmailModalSummary').textContent = `${expertCount} expert(s) - ${totalAssignments} affectation(s)`;
+            document.getElementById('sendEmailModalContainer').style.display = 'block';
+        }
+        
+        // Fermer la modal d'envoi d'email
+        function closeSendEmailModal() {
+            document.getElementById('sendEmailModalContainer').style.display = 'none';
+        }
+        
+        // Confirmer et envoyer les emails
+        async function confirmSendEmails() {
+            const assignmentsToSend = [];
             
-            const entries = Object.entries(pendingAssignments);
-            
-            // Demander confirmation pour chaque expert
-            let assignmentsToSend = [];
-            for (const [resourceId, data] of entries) {
-                const assignmentCount = data.assignments.length;
-                const message = `Voulez-vous notifier ${data.expertPrenom} ${data.expertNom} (${data.expertEmail}) ?\n\n${assignmentCount} nouvelle(s) affectation(s).`;
-                
-                if (confirm(message)) {
+            for (const [resourceId, data] of Object.entries(pendingAssignments)) {
+                const checkbox = document.getElementById(`sendTo_${resourceId}`);
+                if (checkbox && checkbox.checked) {
                     assignmentsToSend.push({
                         resourceId: parseInt(resourceId),
                         email: data.expertEmail,
@@ -8243,11 +8607,51 @@
             }
             
             if (assignmentsToSend.length === 0) {
-                console.log('⏭️ Aucun email à envoyer (tous refusés)');
+                alert('Aucun expert sélectionné pour la notification.');
                 return;
             }
             
-            // Créer le message d'attente
+            // Fermer la modal de sélection
+            closeSendEmailModal();
+            
+            // Afficher le message d'attente
+            showEmailWaitingOverlay(assignmentsToSend.length);
+            
+            try {
+                // Envoyer les emails
+                const senderName = currentUser ? `${currentUser.prenom} ${currentUser.nom}` : 'Système';
+                const response = await fetch(`${API_URL}/send-assignment-emails`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ assignments: assignmentsToSend, senderName, sessionId })
+                });
+                
+                const result = await response.json();
+                
+                // Fermer le message d'attente
+                hideEmailWaitingOverlay();
+                
+                if (response.ok) {
+                    // Retirer les affectations envoyées de pendingAssignments
+                    assignmentsToSend.forEach(sent => {
+                        delete pendingAssignments[sent.resourceId];
+                    });
+                    updatePendingEmailBadge();
+                    
+                    alert(`✅ ${result.sent || assignmentsToSend.length} email(s) envoyé(s) avec succès !`);
+                } else {
+                    alert(`❌ Erreur: ${result.error || 'Erreur lors de l\'envoi'}`);
+                }
+            } catch (error) {
+                hideEmailWaitingOverlay();
+                console.error('Erreur envoi emails:', error);
+                alert(`❌ Erreur: ${error.message}`);
+            }
+        }
+        
+        // Afficher l'overlay d'attente
+        function showEmailWaitingOverlay(count) {
             const overlay = document.createElement('div');
             overlay.id = 'emailWaitingOverlay';
             overlay.style.cssText = `
@@ -8278,9 +8682,9 @@
             waitingDiv.innerHTML = `
                 <div style="font-size: 48px; margin-bottom: 20px;">📧</div>
                 <h3 style="margin: 0 0 15px 0; color: #333;">Envoi des emails en cours...</h3>
-                <p style="margin: 0 0 20px 0; color: #666; font-size: 14px;">Envoi de ${assignmentsToSend.length} email(s), merci de patienter</p>
+                <p style="margin: 0 0 20px 0; color: #666; font-size: 14px;">Envoi de ${count} email(s), merci de patienter</p>
                 <div style="margin-top: 15px; height: 4px; background: #e0e0e0; border-radius: 2px; overflow: hidden;">
-                    <div id="emailProgressBar" style="height: 100%; width: 0%; background: #4CAF50; animation: progressPulse 1.5s ease-in-out infinite;"></div>
+                    <div style="height: 100%; width: 30%; background: #4CAF50; animation: progressPulse 1.5s ease-in-out infinite;"></div>
                 </div>
                 <style>
                     @keyframes progressPulse {
@@ -8288,157 +8692,28 @@
                         50% { width: 60%; margin-left: 20%; }
                     }
                 </style>
-                <p id="emailCurrentStatus" style="margin-top: 15px; color: #888; font-size: 12px;">Connexion au serveur...</p>
             `;
             
             document.body.appendChild(overlay);
             document.body.appendChild(waitingDiv);
-            
-            try {
-                // Un seul appel API qui envoie tous les emails
-                console.log('📤 Appel API send-assignment-emails...');
-                const senderName = `${currentUser.prenom} ${currentUser.nom}`;
-                const response = await fetch(`${API_URL}/send-assignment-emails`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({ 
-                        assignments: assignmentsToSend,
-                        senderName: senderName
-                    })
-                });
-                
-                const result = await response.json();
-                console.log('📥 Réponse serveur:', result);
-                
-                // Mettre à jour le statut
-                const statusEl = document.getElementById('emailCurrentStatus');
-                const progressBar = document.getElementById('emailProgressBar');
-                
-                if (progressBar) {
-                    progressBar.style.animation = 'none';
-                    progressBar.style.width = '100%';
-                    progressBar.style.marginLeft = '0';
-                }
-                
-                // Traiter les résultats
-                const successResults = result.results ? result.results.filter(r => r.success) : [];
-                const failedResults = result.results ? result.results.filter(r => !r.success) : [];
-                
-                if (result.success && successResults.length > 0) {
-                    // Supprimer les experts dont l'email a été envoyé
-                    successResults.forEach(r => {
-                        delete pendingAssignments[r.resourceId];
-                    });
-                    
-                    if (failedResults.length > 0) {
-                        statusEl.innerHTML = `<span style="color: #f39c12;">⚠️ ${successResults.length} envoyé(s), ${failedResults.length} échec(s)</span>`;
-                    } else {
-                        statusEl.innerHTML = `<span style="color: #4CAF50;">✅ ${successResults.length} email(s) envoyé(s) avec succès</span>`;
-                    }
-                } else {
-                    statusEl.innerHTML = `<span style="color: #e74c3c;">❌ ${result.error || 'Erreur lors de l\'envoi'}</span>`;
-                }
-                
-                // Ajouter le bouton Fermer
-                statusEl.innerHTML += `
-                    <br><br>
-                    <button id="emailContinueBtn" style="
-                        padding: 12px 30px;
-                        background-color: #4CAF50;
-                        color: white;
-                        border: none;
-                        border-radius: 5px;
-                        font-size: 16px;
-                        font-weight: bold;
-                        cursor: pointer;
-                    ">Fermer</button>
-                `;
-                
-                // Attendre le clic sur Fermer
-                await new Promise(resolve => {
-                    const continueBtn = document.getElementById('emailContinueBtn');
-                    if (continueBtn) {
-                        continueBtn.addEventListener('click', resolve);
-                    } else {
-                        setTimeout(resolve, 2000);
-                    }
-                });
-                
-                // Créer les notifications en base pour les emails envoyés
-                if (successResults.length > 0) {
-                    const notificationsToCreate = [];
-                    
-                    for (const assignment of assignmentsToSend) {
-                        const wasSuccess = successResults.some(r => r.resourceId === assignment.resourceId);
-                        if (wasSuccess) {
-                            assignment.assignments.forEach(item => {
-                                notificationsToCreate.push({
-                                    resourceId: assignment.resourceId,
-                                    date: item.date,
-                                    period: item.period,
-                                    activity: item.activity,
-                                    location: item.location || '-'
-                                });
-                            });
-                        }
-                    }
-                    
-                    if (notificationsToCreate.length > 0) {
-                        try {
-                            await fetch(`${API_URL}/notifications/create-batch`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                credentials: 'include',
-                                body: JSON.stringify({ notifications: notificationsToCreate })
-                            });
-                            console.log('✅ Notifications créées en base');
-                        } catch (error) {
-                            console.error('❌ Erreur création notifications:', error);
-                        }
-                    }
-                }
-                
-            } catch (error) {
-                console.error('❌ Erreur envoi emails:', error);
-                const statusEl = document.getElementById('emailCurrentStatus');
-                if (statusEl) {
-                    statusEl.innerHTML = `
-                        <span style="color: #e74c3c;">❌ Erreur: ${error.message}</span>
-                        <br><br>
-                        <button id="emailContinueBtn" style="
-                            padding: 12px 30px;
-                            background-color: #4CAF50;
-                            color: white;
-                            border: none;
-                            border-radius: 5px;
-                            font-size: 16px;
-                            font-weight: bold;
-                            cursor: pointer;
-                        ">Fermer</button>
-                    `;
-                    
-                    await new Promise(resolve => {
-                        const continueBtn = document.getElementById('emailContinueBtn');
-                        if (continueBtn) {
-                            continueBtn.addEventListener('click', resolve);
-                        } else {
-                            setTimeout(resolve, 2000);
-                        }
-                    });
-                }
-            }
-            
-            // Fermer la popup
-            const waitingElement = document.getElementById('emailWaitingMessage');
-            const overlayElement = document.getElementById('emailWaitingOverlay');
-            if (waitingElement) waitingElement.remove();
-            if (overlayElement) overlayElement.remove();
-            
-            // Mettre à jour le badge
-            updatePendingEmailBadge();
         }
-
+        
+        // Cacher l'overlay d'attente
+        function hideEmailWaitingOverlay() {
+            const overlay = document.getElementById('emailWaitingOverlay');
+            const waitingDiv = document.getElementById('emailWaitingMessage');
+            if (overlay) overlay.remove();
+            if (waitingDiv) waitingDiv.remove();
+        }
+        
+        // Sélectionner/Désélectionner tous les experts
+        function toggleAllExperts() {
+            const selectAll = document.getElementById('selectAllExperts').checked;
+            for (const resourceId of Object.keys(pendingAssignments)) {
+                const checkbox = document.getElementById(`sendTo_${resourceId}`);
+                if (checkbox) checkbox.checked = selectAll;
+            }
+        }
 
         // ========== GESTION DES LOGS DE CONNEXION ==========
 
@@ -10536,6 +10811,140 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 <button onclick="closeEditCustomEventModal()" style="background-color: #95a5a6; color: white; padding: 10px 20px;">
                     Annuler
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Recherche Avancée -->
+    <div id="searchModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); z-index: 10002;">
+        <div style="position: relative; background-color: white; margin: 3% auto; padding: 30px; width: 95%; max-width: 900px; border-radius: 12px; max-height: 90vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="color: #3498db; margin: 0;">🔍 Recherche avancée</h2>
+                <span onclick="closeSearchModal()" style="cursor: pointer; font-size: 28px; color: #7f8c8d;">&times;</span>
+            </div>
+            
+            <!-- Critères de recherche -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                <!-- Colonne gauche -->
+                <div>
+                    <!-- Sélection des experts -->
+                    <div style="margin-bottom: 15px;">
+                        <label style="font-size: 12px; font-weight: bold; color: #333; display: block; margin-bottom: 5px;">Experts (choix multiple) :</label>
+                        <select id="searchExperts" multiple style="width: 100%; height: 120px; padding: 5px;">
+                            <!-- Rempli dynamiquement -->
+                        </select>
+                        <div style="font-size: 10px; color: #999; margin-top: 2px;">Maintenez Ctrl/Cmd pour sélectionner plusieurs experts. Laissez vide pour tous.</div>
+                    </div>
+                    
+                    <!-- Intervalle de dates -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+                        <div>
+                            <label style="font-size: 12px; font-weight: bold; color: #333; display: block; margin-bottom: 5px;">Date de début :</label>
+                            <input type="date" id="searchStartDate" style="width: 100%; padding: 8px;">
+                        </div>
+                        <div>
+                            <label style="font-size: 12px; font-weight: bold; color: #333; display: block; margin-bottom: 5px;">Date de fin :</label>
+                            <input type="date" id="searchEndDate" style="width: 100%; padding: 8px;">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Colonne droite -->
+                <div>
+                    <!-- Critère de disponibilité -->
+                    <div style="margin-bottom: 15px;">
+                        <label style="font-size: 12px; font-weight: bold; color: #333; display: block; margin-bottom: 5px;">Disponibilité (choix multiple) :</label>
+                        <select id="searchAvailability" multiple style="width: 100%; height: 80px; padding: 5px;">
+                            <option value="1">Indisponible</option>
+                            <option value="2">Disponible pour l'ANS</option>
+                            <option value="3">Congés</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Critère d'affectation -->
+                    <div style="margin-bottom: 15px;">
+                        <label style="font-size: 12px; font-weight: bold; color: #333; display: block; margin-bottom: 5px;">Affectation (choix multiple) :</label>
+                        <select id="searchActivity" multiple style="width: 100%; height: 100px; padding: 5px;">
+                            <option value="1">Indisponible</option>
+                            <option value="2">En attente d'affectation</option>
+                            <option value="3">SAMU (Déploiement)</option>
+                            <option value="4">SAMU (Dev. usages)</option>
+                            <option value="5">ANS (Déploiement)</option>
+                            <option value="6">ANS (Dev. usages)</option>
+                            <option value="7">Qualification</option>
+                            <option value="8">Divers</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Critère de localisation -->
+                    <div style="margin-bottom: 15px;">
+                        <label style="font-size: 12px; font-weight: bold; color: #333; display: block; margin-bottom: 5px;">Localisation (choix multiple) :</label>
+                        <select id="searchLocation" multiple style="width: 100%; height: 80px; padding: 5px;">
+                            <!-- Rempli dynamiquement -->
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Boutons d'action -->
+            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                <button onclick="executeSearch()" style="background-color: #3498db; color: white; padding: 10px 25px; flex: 1;">
+                    🔍 Rechercher
+                </button>
+                <button onclick="resetSearchForm()" style="background-color: #95a5a6; color: white; padding: 10px 25px;">
+                    🔄 Réinitialiser
+                </button>
+            </div>
+            
+            <!-- Résultats de recherche -->
+            <div id="searchResults" style="border-top: 2px solid #3498db; padding-top: 15px;">
+                <h3 style="color: #2c3e50; margin-bottom: 10px;">Résultats</h3>
+                <div id="searchResultsContent" style="max-height: 300px; overflow-y: auto;">
+                    <p style="color: #999; text-align: center;">Sélectionnez vos critères et cliquez sur "Rechercher"</p>
+                </div>
+            </div>
+            
+            <div style="margin-top: 20px; text-align: right;">
+                <button onclick="closeSearchModal()" style="background-color: #95a5a6; color: white; padding: 10px 20px;">
+                    Fermer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Envoi Emails Affectations -->
+    <div id="sendEmailModalContainer" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); z-index: 10002;">
+        <div style="position: relative; background-color: white; margin: 3% auto; padding: 30px; width: 95%; max-width: 800px; border-radius: 12px; max-height: 90vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <div>
+                    <h2 style="color: #27ae60; margin: 0;">✉️ Notifications des affectations</h2>
+                    <p id="sendEmailModalSummary" style="color: #7f8c8d; font-size: 12px; margin: 5px 0 0 0;">0 expert(s) - 0 affectation(s)</p>
+                </div>
+                <span onclick="closeSendEmailModal()" style="cursor: pointer; font-size: 28px; color: #7f8c8d;">&times;</span>
+            </div>
+            
+            <p style="color: #666; font-size: 13px; margin-bottom: 15px; padding: 10px; background: #f0f9f0; border-radius: 5px;">
+                📧 Cochez les experts que vous souhaitez notifier par email. Chaque expert recevra un récapitulatif de ses nouvelles affectations.
+            </p>
+            
+            <!-- Liste des affectations par expert -->
+            <div id="sendEmailModalContent" style="max-height: 50vh; overflow-y: auto; margin-bottom: 20px;">
+                <!-- Rempli dynamiquement -->
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #eee; padding-top: 15px;">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                    <input type="checkbox" id="selectAllExperts" checked onchange="toggleAllExperts()" style="width: 18px; height: 18px;">
+                    <span style="font-size: 13px;">Sélectionner/Désélectionner tous</span>
+                </label>
+                <div>
+                    <button onclick="confirmSendEmails()" style="background-color: #27ae60; color: white; padding: 12px 25px; margin-right: 10px; font-size: 14px;">
+                        ✉️ Envoyer les notifications
+                    </button>
+                    <button onclick="closeSendEmailModal()" style="background-color: #95a5a6; color: white; padding: 12px 25px; font-size: 14px;">
+                        Annuler
+                    </button>
+                </div>
             </div>
         </div>
     </div>
