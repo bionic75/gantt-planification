@@ -8633,34 +8633,8 @@
                 hideEmailWaitingOverlay();
                 
                 if (response.ok) {
-                    // Créer les notifications en base de données pour les experts
-                    const notificationsToCreate = [];
-                    
-                    for (const assignment of assignmentsToSend) {
-                        assignment.assignments.forEach(item => {
-                            notificationsToCreate.push({
-                                resourceId: assignment.resourceId,
-                                date: item.date,
-                                period: item.period,
-                                activity: item.activity,
-                                location: item.location || '-'
-                            });
-                        });
-                    }
-                    
-                    if (notificationsToCreate.length > 0) {
-                        try {
-                            await fetch(`${API_URL}/notifications/create-batch`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                credentials: 'include',
-                                body: JSON.stringify({ notifications: notificationsToCreate })
-                            });
-                            console.log('✅ Notifications créées en base:', notificationsToCreate.length);
-                        } catch (notifError) {
-                            console.error('❌ Erreur création notifications:', notifError);
-                        }
-                    }
+                    // Les notifications sont maintenant créées côté serveur
+                    console.log('✅ Notifications créées côté serveur:', result.notificationsCreated);
                     
                     // Retirer les affectations envoyées de pendingAssignments
                     assignmentsToSend.forEach(sent => {
@@ -8668,7 +8642,7 @@
                     });
                     updatePendingEmailBadge();
                     
-                    alert(`✅ ${result.sent || assignmentsToSend.length} email(s) envoyé(s) avec succès !`);
+                    alert(`✅ ${result.sent || assignmentsToSend.length} notification(s) envoyée(s) !\nLes emails seront envoyés en arrière-plan.`);
                 } else {
                     alert(`❌ Erreur: ${result.error || 'Erreur lors de l\'envoi'}`);
                 }

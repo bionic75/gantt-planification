@@ -2203,11 +2203,12 @@ app.post('/api/send-calendar-email', requireAuth, async (req, res) => {
     }
 });
 
-// Endpoint optimisé pour envoyer les emails d'affectation (utilise Promise.all comme request-assignment)
+// Endpoint optimisé pour envoyer les emails d'affectation
+// Crée les notifications immédiatement et envoie les emails en arrière-plan
 app.post('/api/send-assignment-emails', requireAuth, async (req, res) => {
     const { assignments, senderName } = req.body;
     
-    // assignments = [{ resourceId, email, expertName, assignments: [{date, period, activity, location}] }]
+    // assignments = [{ resourceId, email, expertName, expertPrenom, assignments: [{date, period, activity, location}] }]
     
     if (!assignments || !Array.isArray(assignments) || assignments.length === 0) {
         return res.status(400).json({ success: false, error: 'Aucune affectation à envoyer' });
@@ -2220,92 +2221,160 @@ app.post('/api/send-assignment-emails', requireAuth, async (req, res) => {
     
     console.log(`📧 Envoi de ${assignments.length} email(s) d'affectation par ${senderName}`);
     
-    // Envoyer tous les emails en parallèle (comme request-assignment)
-    const emailPromises = assignments.map(async (item) => {
-        const { resourceId, email, expertName, expertPrenom, assignments: expertAssignments } = item;
+    // 1. CRÉER LES NOTIFICATIONS EN BASE IMMÉDIATEMENT
+    const requesterName = senderName || `${req.session.prenom || 'Admin'} ${req.session.nom || 'Système'}`;
+    let notificationsCreated = 0;
+    
+    for (const item of assignments) {
+        const { resourceId, assignments: expertAssignments } = item;
         
-        if (!email) {
-            console.log(`⚠️ Pas d'email pour ${expertName}`);
-            return { resourceId, success: false, error: 'Pas d\'email' };
-        }
-        
-        // Construire le contenu de l'email
-        const assignmentsList = expertAssignments.map(a => {
-            const [year, month, day] = a.date.split('-');
-            const dateStr = `${day}/${month}/${year}`;
-            let locationText = '';
-            if (a.location && a.location !== '-') {
-                locationText = ` - <em>${a.location}</em>`;
-            }
-            return `<li><strong>${dateStr} (${a.period})</strong> - ${a.activity}${locationText}</li>`;
-        }).join('');
-        
-        const mailOptions = {
-            from: `"Domaine des Urgences - Planification des ressources" <${emailConfig.user}>`,
-            to: email,
-            subject: 'Nouvelle affectation - Planification GANTT',
-            html: `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
-                    <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                        <h2 style="color: #1D70B7; border-bottom: 2px solid #1D70B7; padding-bottom: 10px;">
-                            Nouvelle affectation
-                        </h2>
-                        
-                        <p>Bonjour ${expertPrenom || expertName},</p>
-                        
-                        <p><strong>${senderName}</strong> vous a affecté ${expertAssignments.length} nouvelle(s) activité(s) :</p>
-                        
-                        <ul style="background-color: #e3f2fd; padding: 15px 15px 15px 35px; border-left: 4px solid #2196f3; border-radius: 4px; list-style-type: disc;">
-                            ${assignmentsList}
-                        </ul>
-                        
-                        <p style="margin-top: 20px;">Cordialement,<br>Le système de planification SI-SAMU</p>
-                        
-                        <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
-                        
-                        <p style="color: #7f8c8d; font-size: 12px; text-align: center;">
-                            Cet email a été envoyé depuis le système SI-SAMU de planification des ressources.
-                        </p>
-                    </div>
-                </div>
-            `
-        };
-        
+        // Récupérer l'user_id de l'expert
         try {
-            console.log(`📧 Envoi à ${email} (${expertName})...`);
-            await transporter.sendMail(mailOptions);
-            console.log(`✅ Email envoyé à ${email}`);
-            return { resourceId, success: true, email };
+            const user = await new Promise((resolve, reject) => {
+                database.get(
+                    `SELECT id FROM users WHERE resource_id = ? AND is_expert = 1`,
+                    [resourceId],
+                    (err, row) => {
+                        if (err) reject(err);
+                        else resolve(row);
+                    }
+                );
+            });
+            
+            if (user) {
+                for (const assignment of expertAssignments) {
+                    // Construire le nom de l'activité avec la localisation
+                    let activityName = assignment.activity;
+                    if (assignment.location && assignment.location !== '-') {
+                        activityName = `${assignment.activity} (${assignment.location})`;
+                    }
+                    
+                    // Vérifier si une notification existe déjà
+                    const existingNotif = await new Promise((resolve, reject) => {
+                        database.get(
+                            `SELECT id FROM expert_notifications 
+                             WHERE expert_id = ? AND date = ? AND period = ? AND is_read = 0`,
+                            [user.id, assignment.date, assignment.period],
+                            (err, row) => {
+                                if (err) reject(err);
+                                else resolve(row);
+                            }
+                        );
+                    });
+                    
+                    if (existingNotif) {
+                        // UPDATE
+                        await new Promise((resolve, reject) => {
+                            database.run(
+                                `UPDATE expert_notifications 
+                                 SET activity_name = ?, requester_name = ?, created_at = CURRENT_TIMESTAMP
+                                 WHERE id = ?`,
+                                [activityName, requesterName, existingNotif.id],
+                                (err) => err ? reject(err) : resolve()
+                            );
+                        });
+                    } else {
+                        // INSERT
+                        await new Promise((resolve, reject) => {
+                            database.run(
+                                `INSERT INTO expert_notifications (expert_id, date, period, activity_name, requester_name, action_type)
+                                 VALUES (?, ?, ?, ?, ?, 'Nouvelle affectation')`,
+                                [user.id, assignment.date, assignment.period, activityName, requesterName],
+                                (err) => err ? reject(err) : resolve()
+                            );
+                        });
+                    }
+                    notificationsCreated++;
+                }
+            }
         } catch (error) {
-            console.error(`❌ Erreur envoi à ${email}:`, error.message);
-            return { resourceId, success: false, error: error.message };
+            console.error(`❌ Erreur création notification pour resource ${resourceId}:`, error);
         }
-    });
-    
-    // Attendre tous les envois
-    const results = await Promise.all(emailPromises);
-    
-    const successCount = results.filter(r => r.success).length;
-    const failedCount = results.filter(r => !r.success).length;
-    
-    console.log(`📊 Résultat: ${successCount} envoyé(s), ${failedCount} échec(s)`);
-    
-    // Logger l'action
-    if (successCount > 0 && req.session.logId) {
-        const successEmails = results.filter(r => r.success).map(r => r.email).join(', ');
-        database.run(
-            `UPDATE connection_logs 
-             SET modifications = modifications || ? 
-             WHERE id = ?`,
-            [`${new Date().toLocaleString('fr-FR')}: Emails d'affectation envoyés à: ${successEmails}\n`, req.session.logId]
-        );
     }
     
+    console.log(`✅ ${notificationsCreated} notification(s) créée(s) en base`);
+    
+    // 2. RÉPONDRE IMMÉDIATEMENT AU CLIENT
     res.json({
-        success: successCount > 0,
-        results,
-        sent: successCount,
-        failed: failedCount
+        success: true,
+        sent: assignments.length,
+        notificationsCreated: notificationsCreated,
+        message: 'Notifications créées, emails en cours d\'envoi...'
+    });
+    
+    // 3. ENVOYER LES EMAILS EN ARRIÈRE-PLAN (après la réponse)
+    setImmediate(async () => {
+        for (const item of assignments) {
+            const { resourceId, email, expertName, expertPrenom, assignments: expertAssignments } = item;
+            
+            if (!email) {
+                console.log(`⚠️ Pas d'email pour ${expertName}`);
+                continue;
+            }
+            
+            // Construire le contenu de l'email
+            const assignmentsList = expertAssignments.map(a => {
+                const [year, month, day] = a.date.split('-');
+                const dateStr = `${day}/${month}/${year}`;
+                let locationText = '';
+                if (a.location && a.location !== '-') {
+                    locationText = ` - <em>${a.location}</em>`;
+                }
+                return `<li><strong>${dateStr} (${a.period})</strong> - ${a.activity}${locationText}</li>`;
+            }).join('');
+            
+            const mailOptions = {
+                from: `"Domaine des Urgences - Planification des ressources" <${emailConfig.user}>`,
+                to: email,
+                subject: 'Nouvelle affectation - Planification GANTT',
+                html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
+                        <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                            <h2 style="color: #1D70B7; border-bottom: 2px solid #1D70B7; padding-bottom: 10px;">
+                                Nouvelle affectation
+                            </h2>
+                            
+                            <p>Bonjour ${expertPrenom || expertName},</p>
+                            
+                            <p><strong>${senderName}</strong> vous a affecté ${expertAssignments.length} nouvelle(s) activité(s) :</p>
+                            
+                            <ul style="background-color: #e3f2fd; padding: 15px 15px 15px 35px; border-left: 4px solid #2196f3; border-radius: 4px; list-style-type: disc;">
+                                ${assignmentsList}
+                            </ul>
+                            
+                            <p style="margin-top: 20px;">Cordialement,<br>Le système de planification SI-SAMU</p>
+                            
+                            <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
+                            
+                            <p style="color: #7f8c8d; font-size: 12px; text-align: center;">
+                                Cet email a été envoyé depuis le système SI-SAMU de planification des ressources.
+                            </p>
+                        </div>
+                    </div>
+                `
+            };
+            
+            try {
+                console.log(`📧 Envoi en arrière-plan à ${email} (${expertName})...`);
+                await transporter.sendMail(mailOptions);
+                console.log(`✅ Email envoyé à ${email}`);
+            } catch (error) {
+                console.error(`❌ Erreur envoi à ${email}:`, error.message);
+            }
+        }
+        
+        console.log('📧 Tous les emails ont été traités en arrière-plan');
+        
+        // Logger l'action
+        if (req.session && req.session.logId) {
+            const emails = assignments.map(a => a.email).filter(e => e).join(', ');
+            database.run(
+                `UPDATE connection_logs 
+                 SET modifications = modifications || ? 
+                 WHERE id = ?`,
+                [`${new Date().toLocaleString('fr-FR')}: Emails d'affectation envoyés à: ${emails}\n`, req.session.logId]
+            );
+        }
     });
 });
 
