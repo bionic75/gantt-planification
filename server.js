@@ -296,6 +296,21 @@ function initDB() {
                             }
                         });
                     }
+                    
+                    // Migration: ajouter has_reporting_access si elle n'existe pas
+                    const reportingCol = columns.find(col => col.name === 'has_reporting_access');
+                    if (!reportingCol) {
+                        console.log('Migration: Ajout colonne has_reporting_access à users...');
+                        database.run(`ALTER TABLE users ADD COLUMN has_reporting_access INTEGER DEFAULT 0`, (alterErr) => {
+                            if (alterErr) {
+                                console.error('Erreur migration has_reporting_access:', alterErr);
+                            } else {
+                                console.log('✅ Migration terminée: has_reporting_access ajouté');
+                                // Par défaut, les admins ont accès au reporting
+                                database.run(`UPDATE users SET has_reporting_access = 1 WHERE is_admin = 1`);
+                            }
+                        });
+                    }
                 }
             });
             
@@ -590,6 +605,41 @@ function requireAdmin(req, res, next) {
     next();
 }
 
+// Middleware pour vérifier l'accès au reporting (admin OU utilisateur avec droit)
+function requireReportingAccess(req, res, next) {
+    if (!req.session || !req.session.userId) {
+        return res.status(401).json({ error: 'Non authentifié' });
+    }
+    
+    // Les admins ont toujours accès
+    if (req.session.activeProfile === 'admin') {
+        if (activeSessions.has(req.session.userId)) {
+            activeSessions.get(req.session.userId).lastActivity = Date.now();
+        }
+        return next();
+    }
+    
+    // Vérifier si l'utilisateur a l'accès au reporting
+    database.get(
+        'SELECT has_reporting_access, is_admin FROM users WHERE id = ?',
+        [req.session.userId],
+        (err, user) => {
+            if (err || !user) {
+                return res.status(403).json({ error: 'Accès refusé' });
+            }
+            
+            if (user.is_admin === 1 || user.has_reporting_access === 1) {
+                if (activeSessions.has(req.session.userId)) {
+                    activeSessions.get(req.session.userId).lastActivity = Date.now();
+                }
+                return next();
+            }
+            
+            return res.status(403).json({ error: 'Accès au reporting non autorisé' });
+        }
+    );
+}
+
 // ==================== API CONNEXION ====================
 
 app.post('/api/login', (req, res) => {
@@ -663,7 +713,8 @@ app.post('/api/login', (req, res) => {
                         trigramme: user.trigramme || null,
                         profilePhoto: user.profile_photo || null,
                         activeProfile: profile,
-                        resourceId: user.resource_id
+                        resourceId: user.resource_id,
+                        hasReportingAccess: user.has_reporting_access === 1 || user.is_admin === 1
                     };
                     
                     res.json({ 
@@ -1506,7 +1557,7 @@ app.get('/api/users/public', requireAuth, (req, res) => {
 });
 
 app.post('/api/users', requireAdmin, async (req, res) => {
-    const { username, password, nom, prenom, email, telephone, is_admin, is_expert, is_user, resource_id, sendEmail: shouldSendEmail } = req.body;
+    const { username, password, nom, prenom, email, telephone, is_admin, is_expert, is_user, resource_id, has_reporting_access, sendEmail: shouldSendEmail } = req.body;
     
     if (!username || !password) {
         return res.status(400).json({ error: 'Username et password requis' });
@@ -1515,9 +1566,9 @@ app.post('/api/users', requireAdmin, async (req, res) => {
     const hashedPassword = hashPassword(password);
     
     database.run(
-        `INSERT INTO users (username, password, nom, prenom, email, telephone, is_admin, is_expert, is_user, resource_id) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [username, hashedPassword, nom, prenom, email, telephone || null, is_admin ? 1 : 0, is_expert ? 1 : 0, is_user ? 1 : 0, resource_id || null],
+        `INSERT INTO users (username, password, nom, prenom, email, telephone, is_admin, is_expert, is_user, resource_id, has_reporting_access) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [username, hashedPassword, nom, prenom, email, telephone || null, is_admin ? 1 : 0, is_expert ? 1 : 0, is_user ? 1 : 0, resource_id || null, has_reporting_access ? 1 : 0],
         async function(err) {
             if (err) {
                 console.error('Erreur ajout user:', err);
@@ -1576,7 +1627,7 @@ app.post('/api/users', requireAdmin, async (req, res) => {
 });
 
 app.put('/api/users/:id', requireAdmin, (req, res) => {
-    const { nom, prenom, email, is_admin, is_expert, is_user, resource_id } = req.body;
+    const { nom, prenom, email, is_admin, is_expert, is_user, resource_id, has_reporting_access } = req.body;
     const { id } = req.params;
     
     // Convertir resource_id en integer ou null
@@ -1594,14 +1645,15 @@ app.put('/api/users/:id', requireAdmin, (req, res) => {
         is_expert,
         resource_id_recu: resource_id,
         resource_id_type: typeof resource_id,
-        resource_id_final: finalResourceId
+        resource_id_final: finalResourceId,
+        has_reporting_access
     });
     
     database.run(
         `UPDATE users 
-         SET nom = ?, prenom = ?, email = ?, is_admin = ?, is_expert = ?, is_user = ?, resource_id = ?
+         SET nom = ?, prenom = ?, email = ?, is_admin = ?, is_expert = ?, is_user = ?, resource_id = ?, has_reporting_access = ?
          WHERE id = ?`,
-        [nom, prenom, email, is_admin ? 1 : 0, is_expert ? 1 : 0, is_user ? 1 : 0, finalResourceId, id],
+        [nom, prenom, email, is_admin ? 1 : 0, is_expert ? 1 : 0, is_user ? 1 : 0, finalResourceId, has_reporting_access ? 1 : 0, id],
         (err) => {
             if (err) {
                 console.error('Erreur update user:', err);
@@ -1613,7 +1665,8 @@ app.put('/api/users/:id', requireAdmin, (req, res) => {
                     nom, 
                     prenom,
                     roles: { is_admin, is_expert, is_user },
-                    resource_id: finalResourceId
+                    resource_id: finalResourceId,
+                    has_reporting_access
                 });
                 res.json({ success: true });
             }
@@ -1681,6 +1734,26 @@ app.post('/api/users/:id/toggle', requireAdmin, (req, res) => {
             }
         });
     });
+});
+
+// Modifier l'accès au reporting d'un utilisateur
+app.post('/api/users/:id/reporting-access', requireAdmin, (req, res) => {
+    const { hasAccess } = req.body;
+    const { id } = req.params;
+    
+    database.run(
+        'UPDATE users SET has_reporting_access = ? WHERE id = ?',
+        [hasAccess ? 1 : 0, id],
+        (err) => {
+            if (err) {
+                console.error('Erreur modification accès reporting:', err);
+                res.status(500).json({ error: err.message });
+            } else {
+                console.log(`✅ Accès reporting modifié pour user ${id}: ${hasAccess}`);
+                res.json({ success: true, hasReportingAccess: hasAccess });
+            }
+        }
+    );
 });
 
 app.post('/api/users/:id/reset-password', requireAdmin, async (req, res) => {
@@ -3604,7 +3677,7 @@ app.post('/api/automation/send/2', requireAdmin, async (req, res) => {
 // ========== REPORTING ==========
 
 // Endpoint pour le rapport de disponibilités/affectations
-app.post('/api/reporting/availability', requireAdmin, async (req, res) => {
+app.post('/api/reporting/availability', requireReportingAccess, async (req, res) => {
     try {
         const { startMonth, startYear, endMonth, endYear, expertIds, includeLeave } = req.body;
         
@@ -3826,7 +3899,7 @@ app.post('/api/reporting/availability', requireAdmin, async (req, res) => {
 });
 
 // Endpoint de diagnostic pour voir les données brutes d'un expert sur un mois
-app.get('/api/reporting/diagnose/:expertId/:year/:month', requireAdmin, async (req, res) => {
+app.get('/api/reporting/diagnose/:expertId/:year/:month', requireReportingAccess, async (req, res) => {
     try {
         const { expertId, year, month } = req.params;
         const monthKey = `${year}-${String(parseInt(month)).padStart(2, '0')}`;

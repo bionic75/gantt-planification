@@ -929,7 +929,7 @@
                 <div style="display: grid; grid-template-columns: 1fr 1fr 1fr auto auto auto auto; gap: 10px; align-items: end; margin-bottom: 15px; background: #bbdefb; padding: 15px; border-radius: 5px;">
                     <div>
                         <label style="font-size: 11px; color: #1565c0; display: block; margin-bottom: 3px;">Date de début</label>
-                        <input type="date" id="customEventStartDate" style="width: 100%; padding: 6px;">
+                        <input type="date" id="customEventStartDate" style="width: 100%; padding: 6px;" onchange="prefillCustomEventEndDate()">
                     </div>
                     <div>
                         <label style="font-size: 11px; color: #1565c0; display: block; margin-bottom: 3px;">Date de fin</label>
@@ -1356,7 +1356,8 @@
                             <th onclick="sortTable('users', 3)">Email</th>
                             <th onclick="sortTable('users', 4)">Téléphone</th>
                             <th onclick="sortTable('users', 5)">Rôle</th>
-                            <th onclick="sortTable('users', 6)">Actif</th>
+                            <th title="Accès à l'onglet Reporting">Reporting</th>
+                            <th onclick="sortTable('users', 7)">Actif</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -1896,6 +1897,7 @@
                     resources = [];
                     users = [];
                     schoolHolidays = { zoneA: [], zoneB: [], zoneC: [] };
+                    modifiedCellsInSession.clear(); // Réinitialiser les cellules modifiées
                     
                     sessionId = generateSessionId(); // Générer un ID de session unique
                     
@@ -2042,7 +2044,13 @@
             } else if (currentUser.activeProfile === 'expert' || currentUser.activeProfile === 'user') {
                 resourcesTab.style.display = 'none';
                 planningTab.style.display = 'block';
-                reportingTab.style.display = 'none';
+                // Afficher le reporting si l'utilisateur a l'accès
+                if (currentUser.hasReportingAccess) {
+                    reportingTab.style.display = 'block';
+                    loadReportingExperts();
+                } else {
+                    reportingTab.style.display = 'none';
+                }
                 adminTab.style.display = 'none';
                 switchTab('planning', null);
             }
@@ -2828,6 +2836,9 @@
             updateGantt();
         }
 
+        // Set pour tracker les cellules déjà modifiées dans la session (pour éviter de réafficher le pop-up)
+        const modifiedCellsInSession = new Set();
+        
         function cycleActivity(resourceId, dateKey, availability, period = '') {
             // Vérifier les droits pour Expert Métier
             if (currentUser && currentUser.activeProfile === 'expert') {
@@ -2860,23 +2871,70 @@
             const key = period ? `${resourceId}_activity_${dateKey}_${period}` : `${resourceId}_activity_${dateKey}`;
             const locKey = period ? `${resourceId}_localisation_${dateKey}_${period}` : `${resourceId}_localisation_${dateKey}`;
             const authorKey = period ? `${resourceId}_author_${dateKey}_${period}` : `${resourceId}_author_${dateKey}`;
+            const cellKey = `${resourceId}_${dateKey}_${period}`; // Clé unique pour cette cellule
             
             const currentValue = parseInt(scheduleData[key] || '2'); // Par défaut "En attente d'affectation"
+            const currentAuthor = scheduleData[authorKey] || '';
+            const currentLocation = scheduleData[locKey] || '';
+            
+            console.log(`🔍 cycleActivity: cellKey=${cellKey}, currentValue=${currentValue}, authorKey=${authorKey}, currentAuthor=${currentAuthor}`);
+            
+            // Pour admin et user : demander confirmation si une affectation existe (valeur 3 à 8)
+            if (currentUser && (currentUser.activeProfile === 'admin' || currentUser.activeProfile === 'user')) {
+                // Ne demander confirmation que si l'affectation actuelle est >= 3 (vraie affectation)
+                if (currentValue >= 3 && currentValue <= 8) {
+                    console.log(`⚠️ Affectation existante détectée: ${currentValue}`);
+                    
+                    // Vérifier si cette cellule a déjà été modifiée dans cette session
+                    if (modifiedCellsInSession.has(cellKey)) {
+                        console.log(`✅ Cellule déjà modifiée dans cette session, pas de pop-up`);
+                        // Déjà modifié dans cette session, pas besoin de confirmation
+                        executeActivityChange(resourceId, dateKey, period);
+                        return;
+                    }
+                    
+                    // Vérifier si c'est l'utilisateur connecté qui a posé l'affectation
+                    const currentUserFullName = `${currentUser.prenom}.${currentUser.nom}`;
+                    const isOwnAssignment = currentAuthor === currentUserFullName;
+                    
+                    console.log(`📋 Affichage de la modal de confirmation`);
+                    // Afficher la modal de confirmation
+                    showAssignmentConfirmModal(resourceId, dateKey, period, resource, currentValue, currentLocation, currentAuthor, isOwnAssignment);
+                    return; // La modification sera effectuée dans le callback de la modal
+                } else {
+                    console.log(`✅ Pas d'affectation existante (currentValue=${currentValue}), modification directe`);
+                }
+            }
+            
+            // Exécuter directement la modification (pas d'affectation existante ou profil expert)
+            executeActivityChange(resourceId, dateKey, period);
+        }
+        
+        // Fonction pour exécuter le changement d'activité
+        function executeActivityChange(resourceId, dateKey, period) {
+            const key = period ? `${resourceId}_activity_${dateKey}_${period}` : `${resourceId}_activity_${dateKey}`;
+            const locKey = period ? `${resourceId}_localisation_${dateKey}_${period}` : `${resourceId}_localisation_${dateKey}`;
+            const authorKey = period ? `${resourceId}_author_${dateKey}_${period}` : `${resourceId}_author_${dateKey}`;
+            const cellKey = `${resourceId}_${dateKey}_${period}`;
+            
+            const currentValue = parseInt(scheduleData[key] || '2');
             let nextValue = currentValue + 1;
             if (nextValue > 8) nextValue = 2; // Cycle 2-8 (pas de retour à 1 car disponibilité = 2)
             
+            // Ajouter cette cellule au Set des cellules modifiées dans la session
+            // (pour éviter le pop-up lors des modifications suivantes)
+            if (currentUser && (currentUser.activeProfile === 'admin' || currentUser.activeProfile === 'user')) {
+                modifiedCellsInSession.add(cellKey);
+                console.log(`📝 Cellule ajoutée au Set: ${cellKey}`);
+            }
+            
             // Gestion de la localisation selon les règles :
-            // - Si on passe de 2 vers {3-8} : vider la localisation
-            // - Si on passe de {3-8} vers 2 : vider la localisation
-            // - Si on passe de {3-8} vers {3-8} : conserver la localisation
             if (currentValue === 2 || nextValue === 2) {
-                // Passage de/vers "En attente d'affectation"
                 delete scheduleData[locKey];
                 console.log('🗑️ Localisation réinitialisée (passage de/vers En attente d\'affectation)');
             }
-            // Si currentValue >= 3 et nextValue >= 3 : la localisation est conservée automatiquement
             
-            // Tracker l'affectation AVANT de modifier scheduleData (pour bien comparer avec oldScheduleData)
+            // Tracker l'affectation AVANT de modifier scheduleData
             if (currentUser && (currentUser.activeProfile === 'admin' || currentUser.activeProfile === 'user')) {
                 const location = scheduleData[locKey] || '-';
                 trackAssignment(resourceId, dateKey, period, String(nextValue), location);
@@ -2885,13 +2943,92 @@
             // Maintenant on modifie scheduleData
             scheduleData[key] = String(nextValue);
             
-            // Stocker l'auteur de la modification si on a un currentUser
+            // Stocker l'auteur de la modification
             if (currentUser) {
                 scheduleData[authorKey] = `${currentUser.prenom}.${currentUser.nom}`;
             }
             
             saveSchedule();
             updateGantt();
+        }
+        
+        // Afficher la modal de confirmation pour modification d'affectation
+        function showAssignmentConfirmModal(resourceId, dateKey, period, resource, currentValue, currentLocation, currentAuthor, isOwnAssignment) {
+            const [year, month, day] = dateKey.split('-').map(Number);
+            const dateObj = new Date(year, month - 1, day);
+            const dateFormatted = dateObj.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+            const periodLabel = period === 'AM' ? 'Matin' : 'Après-midi';
+            
+            const activityLabels = {
+                '3': 'SAMU (Déploiement)',
+                '4': 'SAMU (Dev. usages)',
+                '5': 'ANS (Déploiement)',
+                '6': 'ANS (Dev. usages)',
+                '7': 'Qualification',
+                '8': 'Divers'
+            };
+            const currentActivityLabel = activityLabels[currentValue] || 'Affectation';
+            
+            // Construire le contenu de la modal
+            let warningMessage = '';
+            let authorDisplay = currentAuthor ? currentAuthor.replace('.', ' ') : 'Non défini';
+            
+            if (!isOwnAssignment) {
+                warningMessage = `
+                    <div style="background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 5px; padding: 15px; margin-bottom: 15px;">
+                        <strong style="color: #856404;">⚠️ Cette affectation a été posée par quelqu'un d'autre.</strong><br>
+                        <span style="color: #856404;">Veuillez contacter <strong>${authorDisplay}</strong> avant toute modification.</span>
+                    </div>
+                `;
+            }
+            
+            const modalHtml = `
+                <div id="assignmentConfirmModal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center;">
+                    <div style="background: white; border-radius: 10px; padding: 25px; max-width: 500px; width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+                        <h3 style="margin-top: 0; color: #e67e22; border-bottom: 2px solid #e67e22; padding-bottom: 10px;">
+                            ⚠️ Modification d'une affectation
+                        </h3>
+                        
+                        ${warningMessage}
+                        
+                        <div style="background-color: #f8f9fa; border-radius: 5px; padding: 15px; margin-bottom: 20px;">
+                            <p style="margin: 5px 0;"><strong>📅 Date :</strong> ${dateFormatted} (${periodLabel})</p>
+                            <p style="margin: 5px 0;"><strong>👤 Expert :</strong> ${resource.prenom} ${resource.nom}</p>
+                            <p style="margin: 5px 0;"><strong>📋 Affectation :</strong> ${currentActivityLabel}</p>
+                            ${currentLocation ? `<p style="margin: 5px 0;"><strong>📍 Localisation :</strong> ${currentLocation}</p>` : ''}
+                            <p style="margin: 5px 0;"><strong>✍️ Posée par :</strong> ${authorDisplay}</p>
+                        </div>
+                        
+                        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                            <button onclick="closeAssignmentConfirmModal()" style="padding: 10px 20px; background-color: #6c757d; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px;">
+                                Abandonner
+                            </button>
+                            <button onclick="confirmAssignmentChange(${resourceId}, '${dateKey}', '${period}')" style="padding: 10px 20px; background-color: #e67e22; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px;">
+                                Je veux quand même poursuivre
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Supprimer une modal existante si présente
+            const existingModal = document.getElementById('assignmentConfirmModal');
+            if (existingModal) existingModal.remove();
+            
+            // Ajouter la modal au DOM
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+        }
+        
+        // Fermer la modal de confirmation
+        function closeAssignmentConfirmModal() {
+            const modal = document.getElementById('assignmentConfirmModal');
+            if (modal) modal.remove();
+        }
+        
+        // Confirmer le changement d'affectation
+        function confirmAssignmentChange(resourceId, dateKey, period) {
+            closeAssignmentConfirmModal();
+            executeActivityChange(resourceId, dateKey, period);
         }
 
         function openLocalisationModal(resourceId, dateKey, availability, activityValue, period = '') {
@@ -2967,7 +3104,7 @@
                 const isSamuActivity = activityValue === '3' || activityValue === '4';
                 
                 const activityOptions = [
-                    { label: '📞 Télétravail', value: '📞 Télétravail', color: '#3498db' },
+                    { label: '🏠 Télétravail', value: '🏠 Télétravail', color: '#3498db' },
                     { label: '🗼 PSC', value: '🗼 PSC', color: '#9b59b6' },
                     { label: '🎤 Autres (Congrès, CFARM, EHESP...)', value: '🎤 Autres', color: '#16a085' }
                 ];
@@ -4101,6 +4238,7 @@
                     <td style="cursor: pointer; color: #1D70B7; font-weight: bold;" onclick="showUserDetails(${u.id})">${statusDot}${u.nom}</td>
                     <td>${u.prenom}</td><td>${u.username}</td><td>${u.email}</td><td>${u.telephone || '-'}</td>
                     <td><span style="background-color: ${badgeColor}; color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px;">${roleText}</span></td>
+                    <td style="text-align: center;"><input type="checkbox" ${u.has_reporting_access === 1 || u.is_admin === 1 ? 'checked' : ''} ${u.is_admin === 1 ? 'disabled title="Les admins ont toujours accès"' : ''} onchange="toggleReportingAccess(${u.id}, this.checked)" style="width: 18px; height: 18px; cursor: ${u.is_admin === 1 ? 'not-allowed' : 'pointer'};"></td>
                     <td><label class="toggle-switch"><input type="checkbox" ${u.actif ? 'checked' : ''} onchange="toggleUserActive(${u.id})"><span class="slider"></span></label></td>
                     <td>
                         <button class="edit" onclick="openEditUserModal(${u.id})" style="background-color: #3498db; margin-right: 5px;">Modifier</button>
@@ -4120,6 +4258,25 @@
                 logModification("Modification du planning");
             } catch (error) {
                 console.error('Erreur:', error);
+            }
+        }
+        
+        async function toggleReportingAccess(id, hasAccess) {
+            try {
+                const response = await fetch(`${API_URL}/users/${id}/reporting-access`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ hasAccess })
+                });
+                if (!response.ok) throw new Error('Erreur modification accès reporting');
+                await loadUsers();
+                showSyncStatus();
+            } catch (error) {
+                console.error('Erreur:', error);
+                alert('Erreur lors de la modification de l\'accès au reporting');
+                // Recharger pour remettre l'état correct
+                await loadUsers();
             }
         }
 
@@ -6967,6 +7124,17 @@
                 preview.style.backgroundColor = bgColor;
                 preview.style.color = textColor;
                 preview.style.borderColor = borderColor;
+            }
+        }
+        
+        // Pré-remplir la date de fin avec la date de début
+        function prefillCustomEventEndDate() {
+            const startDate = document.getElementById('customEventStartDate').value;
+            const endDateInput = document.getElementById('customEventEndDate');
+            
+            // Pré-remplir seulement si la date de fin est vide ou antérieure à la date de début
+            if (startDate && (!endDateInput.value || endDateInput.value < startDate)) {
+                endDateInput.value = startDate;
             }
         }
         
