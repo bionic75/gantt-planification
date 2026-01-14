@@ -1964,25 +1964,66 @@ app.get('/api/system/version', (req, res) => {
     });
 });
 
-// Endpoint pour récupérer les sessions actives (utilisateurs connectés)
-app.get('/api/active-sessions', requireAdmin, (req, res) => {
+// Endpoint pour récupérer les sessions actives (utilisateurs connectés) - accessible à tous les utilisateurs authentifiés
+app.get('/api/active-sessions', requireAuth, async (req, res) => {
     const activeUsers = [];
     const now = Date.now();
     const timeout = 15 * 60 * 1000; // 15 minutes
     
+    // Collecter les IDs des utilisateurs actifs
+    const activeUserIds = [];
     for (const [userId, session] of activeSessions) {
-        // Vérifier si la session est encore active (moins de 15 min d'inactivité)
         if (now - session.lastActivity <= timeout) {
-            activeUsers.push({
-                userId: userId,
-                profile: session.profile,
-                username: session.username,
-                lastActivity: session.lastActivity
-            });
+            activeUserIds.push(userId);
         }
     }
     
-    res.json({ activeUsers });
+    if (activeUserIds.length === 0) {
+        return res.json({ activeUsers: [] });
+    }
+    
+    // Récupérer les infos complètes des utilisateurs actifs (nom, prénom, photo, trigramme)
+    try {
+        const placeholders = activeUserIds.map(() => '?').join(',');
+        const users = await new Promise((resolve, reject) => {
+            database.all(
+                `SELECT u.id, u.nom, u.prenom, u.profile_photo, r.trigramme 
+                 FROM users u 
+                 LEFT JOIN resources r ON u.resource_id = r.id 
+                 WHERE u.id IN (${placeholders})`,
+                activeUserIds,
+                (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows || []);
+                }
+            );
+        });
+        
+        // Créer un map pour accès rapide
+        const userInfoMap = new Map();
+        users.forEach(u => userInfoMap.set(u.id, u));
+        
+        for (const [userId, session] of activeSessions) {
+            if (now - session.lastActivity <= timeout) {
+                const userInfo = userInfoMap.get(userId) || {};
+                activeUsers.push({
+                    userId: userId,
+                    profile: session.profile,
+                    username: session.username,
+                    nom: userInfo.nom || '',
+                    prenom: userInfo.prenom || '',
+                    trigramme: userInfo.trigramme || '',
+                    profilePhoto: userInfo.profile_photo || null,
+                    lastActivity: session.lastActivity
+                });
+            }
+        }
+        
+        res.json({ activeUsers });
+    } catch (error) {
+        console.error('Erreur récupération sessions actives:', error);
+        res.status(500).json({ error: error.message });
+    }
 });
 
 // Récupération des logs de connexion (20 derniers)
@@ -4283,9 +4324,31 @@ app.get('/api/ics-files/special-dates/all', requireAuth, async (req, res) => {
             });
         }
         
-        // 2. Récupérer les événements personnalisés
+        // 2. Récupérer les événements personnalisés avec les infos du créateur
+        // Vérifier si la colonne created_by existe
+        const columns = await new Promise((resolve, reject) => {
+            database.all("PRAGMA table_info(custom_events)", (err, cols) => {
+                if (err) reject(err);
+                else resolve(cols || []);
+            });
+        });
+        
+        const hasCreatedBy = columns.some(col => col.name === 'created_by');
+        
+        let customEventsQuery;
+        if (hasCreatedBy) {
+            customEventsQuery = `
+                SELECT ce.*, u.nom as creator_nom, u.prenom as creator_prenom, r.trigramme as creator_trigramme
+                FROM custom_events ce
+                LEFT JOIN users u ON ce.created_by = u.id
+                LEFT JOIN resources r ON u.resource_id = r.id
+            `;
+        } else {
+            customEventsQuery = `SELECT * FROM custom_events`;
+        }
+        
         const customEvents = await new Promise((resolve, reject) => {
-            database.all(`SELECT * FROM custom_events`, (err, rows) => {
+            database.all(customEventsQuery, (err, rows) => {
                 if (err) reject(err);
                 else resolve(rows || []);
             });
@@ -4295,6 +4358,13 @@ app.get('/api/ics-files/special-dates/all', requireAuth, async (req, res) => {
             const config = e.config ? JSON.parse(e.config) : {};
             // Ajouter le label dans le config pour l'affichage sur le Gantt
             config.label = e.label;
+            // Ajouter les infos du créateur pour l'info-bulle (si disponibles)
+            if (hasCreatedBy && e.created_by) {
+                const creatorName = e.creator_trigramme || 
+                    ((e.creator_prenom || '') + ' ' + (e.creator_nom || '')).trim() || 
+                    'Admin';
+                config.createdBy = creatorName;
+            }
             result.push({
                 date: e.start_date,
                 endDate: e.end_date,
@@ -4323,17 +4393,68 @@ database.run(`
         start_date TEXT NOT NULL,
         end_date TEXT NOT NULL,
         config TEXT,
+        created_by INTEGER,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
 `, (err) => {
-    if (!err) console.log('✅ Table custom_events créée ou existante');
+    if (err) {
+        console.error('Erreur création table custom_events:', err);
+    } else {
+        console.log('✅ Table custom_events créée ou existante');
+    }
+    
+    // Migration: ajouter la colonne created_by si elle n'existe pas (toujours vérifier)
+    database.all("PRAGMA table_info(custom_events)", (pragmaErr, columns) => {
+        if (pragmaErr) {
+            console.error('Erreur PRAGMA custom_events:', pragmaErr);
+            return;
+        }
+        if (columns) {
+            const createdByCol = columns.find(col => col.name === 'created_by');
+            if (!createdByCol) {
+                console.log('Migration: Ajout colonne created_by à custom_events...');
+                database.run(`ALTER TABLE custom_events ADD COLUMN created_by INTEGER`, (alterErr) => {
+                    if (alterErr) {
+                        console.error('Erreur migration created_by:', alterErr);
+                    } else {
+                        console.log('✅ Migration terminée: created_by ajouté');
+                    }
+                });
+            } else {
+                console.log('✅ Colonne created_by déjà présente');
+            }
+        }
+    });
 });
 
-// Lister les événements personnalisés
+// Lister tous les événements personnalisés (admin uniquement - pour l'administration)
 app.get('/api/custom-events', requireAdmin, async (req, res) => {
     try {
+        // Vérifier si la colonne created_by existe
+        const columns = await new Promise((resolve, reject) => {
+            database.all("PRAGMA table_info(custom_events)", (err, cols) => {
+                if (err) reject(err);
+                else resolve(cols || []);
+            });
+        });
+        
+        const hasCreatedBy = columns.some(col => col.name === 'created_by');
+        
+        let query;
+        if (hasCreatedBy) {
+            query = `
+                SELECT ce.*, u.nom as creator_nom, u.prenom as creator_prenom, r.trigramme as creator_trigramme
+                FROM custom_events ce
+                LEFT JOIN users u ON ce.created_by = u.id
+                LEFT JOIN resources r ON u.resource_id = r.id
+                ORDER BY ce.start_date
+            `;
+        } else {
+            query = `SELECT * FROM custom_events ORDER BY start_date`;
+        }
+        
         const events = await new Promise((resolve, reject) => {
-            database.all(`SELECT * FROM custom_events ORDER BY start_date`, (err, rows) => {
+            database.all(query, (err, rows) => {
                 if (err) reject(err);
                 else resolve(rows || []);
             });
@@ -4345,26 +4466,110 @@ app.get('/api/custom-events', requireAdmin, async (req, res) => {
     }
 });
 
-// Ajouter un événement personnalisé
+// Lister les événements personnalisés de l'utilisateur connecté (pour experts/utilisateurs)
+app.get('/api/my-custom-events', requireAuth, async (req, res) => {
+    try {
+        const userId = req.session.userId;
+        const isAdmin = req.session.activeProfile === 'admin';
+        
+        // Vérifier si la colonne created_by existe
+        const columns = await new Promise((resolve, reject) => {
+            database.all("PRAGMA table_info(custom_events)", (err, cols) => {
+                if (err) reject(err);
+                else resolve(cols || []);
+            });
+        });
+        
+        const hasCreatedBy = columns.some(col => col.name === 'created_by');
+        
+        let query;
+        let params;
+        
+        if (hasCreatedBy) {
+            if (isAdmin) {
+                // Admin voit tous les événements
+                query = `
+                    SELECT ce.*, u.nom as creator_nom, u.prenom as creator_prenom, r.trigramme as creator_trigramme
+                    FROM custom_events ce
+                    LEFT JOIN users u ON ce.created_by = u.id
+                    LEFT JOIN resources r ON u.resource_id = r.id
+                    ORDER BY ce.start_date
+                `;
+                params = [];
+            } else {
+                // Les autres ne voient que leurs propres événements
+                query = `
+                    SELECT ce.*, u.nom as creator_nom, u.prenom as creator_prenom, r.trigramme as creator_trigramme
+                    FROM custom_events ce
+                    LEFT JOIN users u ON ce.created_by = u.id
+                    LEFT JOIN resources r ON u.resource_id = r.id
+                    WHERE ce.created_by = ?
+                    ORDER BY ce.start_date
+                `;
+                params = [userId];
+            }
+        } else {
+            // Pas de colonne created_by, tout le monde voit tous les événements
+            query = `SELECT * FROM custom_events ORDER BY start_date`;
+            params = [];
+        }
+        
+        const events = await new Promise((resolve, reject) => {
+            database.all(query, params, (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows || []);
+            });
+        });
+        res.json({ events, isAdmin });
+    } catch (error) {
+        console.error('Erreur liste mes événements personnalisés:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Ajouter un événement personnalisé (admin via interface admin)
 app.post('/api/custom-events', requireAdmin, async (req, res) => {
     try {
         const { startDate, endDate, label, config } = req.body;
+        const createdBy = req.session.userId;
         
         if (!startDate || !label) {
             return res.status(400).json({ error: 'Date de début et libellé requis' });
         }
         
-        const eventId = await new Promise((resolve, reject) => {
-            database.run(
-                `INSERT INTO custom_events (label, start_date, end_date, config) VALUES (?, ?, ?, ?)`,
-                [label, startDate, endDate || startDate, JSON.stringify(config)],
-                function(err) {
-                    if (err) reject(err);
-                    else resolve(this.lastID);
-                }
-            );
+        // Vérifier si la colonne created_by existe
+        const columns = await new Promise((resolve, reject) => {
+            database.all("PRAGMA table_info(custom_events)", (err, cols) => {
+                if (err) reject(err);
+                else resolve(cols || []);
+            });
         });
         
+        const hasCreatedBy = columns.some(col => col.name === 'created_by');
+        
+        const eventId = await new Promise((resolve, reject) => {
+            if (hasCreatedBy) {
+                database.run(
+                    `INSERT INTO custom_events (label, start_date, end_date, config, created_by) VALUES (?, ?, ?, ?, ?)`,
+                    [label, startDate, endDate || startDate, JSON.stringify(config), createdBy],
+                    function(err) {
+                        if (err) reject(err);
+                        else resolve(this.lastID);
+                    }
+                );
+            } else {
+                database.run(
+                    `INSERT INTO custom_events (label, start_date, end_date, config) VALUES (?, ?, ?, ?)`,
+                    [label, startDate, endDate || startDate, JSON.stringify(config)],
+                    function(err) {
+                        if (err) reject(err);
+                        else resolve(this.lastID);
+                    }
+                );
+            }
+        });
+        
+        console.log(`✅ Événement personnalisé ajouté (ID: ${eventId})`);
         res.json({ success: true, eventId });
     } catch (error) {
         console.error('Erreur ajout événement personnalisé:', error);
@@ -4372,11 +4577,115 @@ app.post('/api/custom-events', requireAdmin, async (req, res) => {
     }
 });
 
-// Modifier un événement personnalisé
+// Ajouter un événement personnalisé (utilisateurs/experts via pop-up planification)
+app.post('/api/my-custom-events', requireAuth, async (req, res) => {
+    try {
+        const { startDate, endDate, label, config } = req.body;
+        const createdBy = req.session.userId;
+        
+        if (!startDate || !label) {
+            return res.status(400).json({ error: 'Date de début et libellé requis' });
+        }
+        
+        // Vérifier si la colonne created_by existe
+        const columns = await new Promise((resolve, reject) => {
+            database.all("PRAGMA table_info(custom_events)", (err, cols) => {
+                if (err) reject(err);
+                else resolve(cols || []);
+            });
+        });
+        
+        const hasCreatedBy = columns.some(col => col.name === 'created_by');
+        
+        const eventId = await new Promise((resolve, reject) => {
+            if (hasCreatedBy) {
+                database.run(
+                    `INSERT INTO custom_events (label, start_date, end_date, config, created_by) VALUES (?, ?, ?, ?, ?)`,
+                    [label, startDate, endDate || startDate, JSON.stringify(config), createdBy],
+                    function(err) {
+                        if (err) reject(err);
+                        else resolve(this.lastID);
+                    }
+                );
+            } else {
+                database.run(
+                    `INSERT INTO custom_events (label, start_date, end_date, config) VALUES (?, ?, ?, ?)`,
+                    [label, startDate, endDate || startDate, JSON.stringify(config)],
+                    function(err) {
+                        if (err) reject(err);
+                        else resolve(this.lastID);
+                    }
+                );
+            }
+        });
+        
+        console.log(`✅ Mon événement personnalisé ajouté (ID: ${eventId})`);
+        res.json({ success: true, eventId });
+    } catch (error) {
+        console.error('Erreur ajout mon événement personnalisé:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Modifier un événement personnalisé (admin)
 app.put('/api/custom-events/:id', requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
+        const { startDate, endDate, label, config, createdBy } = req.body;
+        
+        // Si createdBy est fourni, on le met à jour aussi
+        if (createdBy !== undefined) {
+            await new Promise((resolve, reject) => {
+                database.run(
+                    `UPDATE custom_events SET label = ?, start_date = ?, end_date = ?, config = ?, created_by = ? WHERE id = ?`,
+                    [label, startDate, endDate || startDate, JSON.stringify(config), createdBy, id],
+                    (err) => {
+                        if (err) reject(err);
+                        else resolve();
+                    }
+                );
+            });
+        } else {
+            await new Promise((resolve, reject) => {
+                database.run(
+                    `UPDATE custom_events SET label = ?, start_date = ?, end_date = ?, config = ? WHERE id = ?`,
+                    [label, startDate, endDate || startDate, JSON.stringify(config), id],
+                    (err) => {
+                        if (err) reject(err);
+                        else resolve();
+                    }
+                );
+            });
+        }
+        
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Erreur modification événement personnalisé:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Modifier un événement personnalisé (utilisateur - seulement ses propres événements)
+app.put('/api/my-custom-events/:id', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
         const { startDate, endDate, label, config } = req.body;
+        const userId = req.session.userId;
+        const isAdmin = req.session.activeProfile === 'admin';
+        
+        // Vérifier que l'événement appartient à l'utilisateur (sauf admin)
+        if (!isAdmin) {
+            const event = await new Promise((resolve, reject) => {
+                database.get(`SELECT created_by FROM custom_events WHERE id = ?`, [id], (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row);
+                });
+            });
+            
+            if (!event || event.created_by !== userId) {
+                return res.status(403).json({ error: 'Vous ne pouvez modifier que vos propres événements' });
+            }
+        }
         
         await new Promise((resolve, reject) => {
             database.run(
@@ -4391,12 +4700,12 @@ app.put('/api/custom-events/:id', requireAdmin, async (req, res) => {
         
         res.json({ success: true });
     } catch (error) {
-        console.error('Erreur modification événement personnalisé:', error);
+        console.error('Erreur modification mon événement personnalisé:', error);
         res.status(500).json({ error: error.message });
     }
 });
 
-// Supprimer un événement personnalisé
+// Supprimer un événement personnalisé (admin)
 app.delete('/api/custom-events/:id', requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
@@ -4411,6 +4720,41 @@ app.delete('/api/custom-events/:id', requireAdmin, async (req, res) => {
         res.json({ success: true });
     } catch (error) {
         console.error('Erreur suppression événement personnalisé:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Supprimer un événement personnalisé (utilisateur - seulement ses propres événements)
+app.delete('/api/my-custom-events/:id', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.session.userId;
+        const isAdmin = req.session.activeProfile === 'admin';
+        
+        // Vérifier que l'événement appartient à l'utilisateur (sauf admin)
+        if (!isAdmin) {
+            const event = await new Promise((resolve, reject) => {
+                database.get(`SELECT created_by FROM custom_events WHERE id = ?`, [id], (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row);
+                });
+            });
+            
+            if (!event || event.created_by !== userId) {
+                return res.status(403).json({ error: 'Vous ne pouvez supprimer que vos propres événements' });
+            }
+        }
+        
+        await new Promise((resolve, reject) => {
+            database.run(`DELETE FROM custom_events WHERE id = ?`, [id], (err) => {
+                if (err) reject(err);
+                else resolve();
+            });
+        });
+        
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Erreur suppression mon événement personnalisé:', error);
         res.status(500).json({ error: error.message });
     }
 });
