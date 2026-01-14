@@ -356,6 +356,22 @@
 </head>
 <body>
     <div class="container">
+        <!-- Conteneur des utilisateurs connectés en temps réel -->
+        <div id="onlineUsersContainer" style="display: none; position: fixed; top: 10px; right: 120px; background: #fff; padding: 6px 12px; border-radius: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 1001; cursor: pointer;" onclick="toggleOnlineUsersTooltip(event)">
+            <div style="display: flex; align-items: center; gap: 4px;">
+                <span style="font-size: 12px; color: #27ae60; margin-right: 4px;">●</span>
+                <div id="onlineUsersAvatars" style="display: flex; align-items: center;"></div>
+                <span id="onlineUsersCount" style="font-size: 11px; color: #666; margin-left: 4px;"></span>
+            </div>
+        </div>
+        <!-- Tooltip pour la liste des utilisateurs connectés -->
+        <div id="onlineUsersTooltip" style="display: none; position: fixed; top: 45px; right: 120px; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1002; padding: 10px; min-width: 200px; max-width: 300px;">
+            <div style="font-weight: bold; color: #2c3e50; margin-bottom: 8px; font-size: 12px; border-bottom: 1px solid #eee; padding-bottom: 5px;">
+                👥 Utilisateurs connectés
+            </div>
+            <div id="onlineUsersTooltipList" style="max-height: 200px; overflow-y: auto;"></div>
+        </div>
+        
         <div class="inactivity-timer" id="inactivityTimerDisplay" style="display: none; position: fixed; top: 10px; right: 10px; background: #fff; padding: 8px 15px; border-radius: 5px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 1001; font-size: 14px; font-weight: bold; color: #2c3e50;">
             ⏱️ <span id="timerMinutes">00</span>:<span id="timerSeconds">00</span>
         </div>
@@ -602,6 +618,11 @@
                                 style="padding: 8px 15px; background-color: #2196f3; border: none; border-radius: 4px; cursor: pointer; font-size: 16px;" 
                                 title="Vue calendrier mensuel">
                             📅
+                        </button>
+                        <button onclick="event.stopPropagation(); openMyEventsModal();" 
+                                style="padding: 8px 15px; background-color: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold;" 
+                                title="Gérer mes événements personnalisés">
+                            ✏️ Gérer mes événements
                         </button>
                         <button id="requestBtn" onclick="event.stopPropagation(); openRequestModal();" 
                                 style="padding: 8px 15px; background-color: #27ae60; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; display: none;" 
@@ -1785,7 +1806,13 @@
                     await loadResources();
                     await loadSchedule();
                     await loadUsers(); // Charger les users pour le Gantt
-                    loadAppVersion();  // NOUVEAU
+                    await loadSchoolHolidays(); // Charger les congés scolaires
+                    await loadSpecialDates(); // Charger les dates particulières et événements personnalisés
+                    loadAppVersion();
+                    
+                    // Démarrer le suivi des utilisateurs connectés en temps réel
+                    startOnlineUsersPolling();
+                    
                     setCurrentMonth();
                 } else {
                     document.getElementById('loginPage').classList.add('active');
@@ -1913,6 +1940,9 @@
                     await loadUsers(); // Charger les utilisateurs pour les notifications
                     await loadSchoolHolidays(); // Charger les congés scolaires pour tous les profils
                     await loadSpecialDates(); // Charger les dates particulières pour tous les profils
+                    
+                    // Démarrer le suivi des utilisateurs connectés en temps réel
+                    startOnlineUsersPolling();
                     
                     // Charger les nouvelles affectations uniquement pour les experts
                     console.log('🔍 CurrentUser:', currentUser);
@@ -3482,8 +3512,8 @@
                     const inZoneB = isDateInHoliday(dateStr, 'zoneB');
                     const inZoneC = isDateInHoliday(dateStr, 'zoneC');
                     
-                    // Vérifier les dates particulières
-                    const specialDateInfo = getSpecialDateInfo(dateStr);
+                    // Vérifier les dates particulières - récupérer TOUS les événements
+                    const allSpecialDates = getAllSpecialDateInfo(dateStr);
                     
                     // Générer le contenu de la cellule - aligné en haut
                     let cellContent = '<div style="display: flex; flex-direction: column; justify-content: flex-start; align-items: center; height: 100%; gap: 2px; padding-top: 4px;">';
@@ -3497,15 +3527,21 @@
                         if (inZoneC) cellContent += '<div style="width: 85%; height: 4px; background-color: #ff9800; border-radius: 2px;"></div>';
                     }
                     
-                    // Ajouter le cartouche des dates particulières
-                    if (specialDateInfo && specialDateInfo.config) {
+                    // Ajouter les cartouches des dates particulières (TOUS les événements)
+                    if (allSpecialDates.length > 0) {
                         hasContent = true;
-                        const cfg = specialDateInfo.config;
-                        const displayLabel = cfg.label || specialDateInfo.summary || 'JF';
-                        cellContent += `<span style="display: inline-block; padding: 1px 3px; border-radius: 6px; font-size: 8px; font-weight: bold; 
-                            background-color: ${cfg.bgColor || '#ffeb3b'}; 
-                            color: ${cfg.textColor || '#000'}; 
-                            border: 1px solid ${cfg.borderColor || '#fbc02d'};">${displayLabel}</span>`;
+                        for (const specialDateInfo of allSpecialDates) {
+                            if (specialDateInfo.config) {
+                                const cfg = specialDateInfo.config;
+                                const displayLabel = cfg.label || specialDateInfo.summary || 'JF';
+                                const creatorInfo = cfg.createdBy ? `Créé par: ${cfg.createdBy}` : '';
+                                const tooltipText = creatorInfo ? `title="${displayLabel} - ${creatorInfo}"` : `title="${displayLabel}"`;
+                                cellContent += `<span ${tooltipText} style="display: inline-block; padding: 1px 3px; border-radius: 6px; font-size: 8px; font-weight: bold; cursor: help;
+                                    background-color: ${cfg.bgColor || '#ffeb3b'}; 
+                                    color: ${cfg.textColor || '#000'}; 
+                                    border: 1px solid ${cfg.borderColor || '#fbc02d'}; margin-bottom: 1px;">${displayLabel}</span>`;
+                            }
+                        }
                     }
                     
                     cellContent += '</div>';
@@ -5268,6 +5304,13 @@
                     specialDates = data.dates || [];
                     console.log('📅 Dates particulières chargées:', specialDates.length);
                     
+                    // Debug: afficher les événements personnalisés (ceux qui ont config.label)
+                    const customEventsLoaded = specialDates.filter(sd => sd.config && sd.config.label);
+                    console.log('📅 Événements personnalisés dans specialDates:', customEventsLoaded.length);
+                    if (customEventsLoaded.length > 0) {
+                        console.log('📅 Exemple événement:', JSON.stringify(customEventsLoaded[0]));
+                    }
+                    
                     // Rafraîchir le Gantt si déjà affiché
                     if (document.getElementById('ganttBody')) {
                         updateGantt();
@@ -5278,17 +5321,32 @@
             }
         }
         
-        // Vérifier si une date est une date particulière
+        // Vérifier si une date est une date particulière - retourne TOUS les événements pour cette date
         function getSpecialDateInfo(dateStr) {
             // dateStr au format "YYYY-MM-DD"
+            const matches = [];
             for (const sd of specialDates) {
                 const start = sd.date;
                 const end = sd.endDate || sd.date;
                 if (dateStr >= start && dateStr <= end) {
-                    return sd;
+                    matches.push(sd);
                 }
             }
-            return null;
+            // Retourne le premier pour la compatibilité, mais on utilisera getAllSpecialDateInfo pour l'affichage
+            return matches.length > 0 ? matches[0] : null;
+        }
+        
+        // Récupérer TOUS les événements pour une date donnée
+        function getAllSpecialDateInfo(dateStr) {
+            const matches = [];
+            for (const sd of specialDates) {
+                const start = sd.date;
+                const end = sd.endDate || sd.date;
+                if (dateStr >= start && dateStr <= end) {
+                    matches.push(sd);
+                }
+            }
+            return matches;
         }
         
         // ========== GESTION DES AUTOMATISATIONS ==========
@@ -7224,6 +7282,10 @@
                 } else if (customEventsSortColumn === 'endDate') {
                     valA = a.end_date;
                     valB = b.end_date;
+                } else if (customEventsSortColumn === 'creator') {
+                    valA = (a.creator_nom || '').toLowerCase();
+                    valB = (b.creator_nom || '').toLowerCase();
+                    return customEventsSortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
                 }
                 if (customEventsSortAsc) {
                     return valA < valB ? -1 : valA > valB ? 1 : 0;
@@ -7246,6 +7308,7 @@
             html += `<th onclick="sortCustomEvents('startDate')" style="padding: 8px; text-align: center; cursor: pointer; border: none;">Date début${getSortIcon('startDate')}</th>`;
             html += `<th onclick="sortCustomEvents('endDate')" style="padding: 8px; text-align: center; cursor: pointer; border: none;">Date fin${getSortIcon('endDate')}</th>`;
             html += '<th style="padding: 8px; text-align: center; border: none;">Durée</th>';
+            html += `<th onclick="sortCustomEvents('creator')" style="padding: 8px; text-align: center; cursor: pointer; border: none;">Créé par${getSortIcon('creator')}</th>`;
             html += '<th style="padding: 8px; text-align: center; border: none;">Actions</th>';
             html += '</tr></thead><tbody>';
             
@@ -7259,6 +7322,11 @@
                 const startStr = startDate.toLocaleDateString('fr-FR');
                 const endStr = endDate.toLocaleDateString('fr-FR');
                 
+                // Nom du créateur
+                const creatorName = event.creator_trigramme || 
+                    ((event.creator_prenom || '') + ' ' + (event.creator_nom || '')).trim() || 
+                    'Système';
+                
                 html += '<tr style="border-bottom: 1px solid #ddd;">';
                 html += `<td style="padding: 8px;">${event.label}</td>`;
                 html += `<td style="padding: 8px; text-align: center;">
@@ -7270,6 +7338,7 @@
                 html += `<td style="padding: 8px; text-align: center;">${startStr}</td>`;
                 html += `<td style="padding: 8px; text-align: center;">${endStr}</td>`;
                 html += `<td style="padding: 8px; text-align: center;">${diffDays} jour${diffDays > 1 ? 's' : ''}</td>`;
+                html += `<td style="padding: 8px; text-align: center; font-size: 11px;">${creatorName}</td>`;
                 html += `<td style="padding: 8px; text-align: center;">
                     <button onclick="editCustomEvent(${event.id})" style="background: #1e88e5; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 11px; margin-right: 5px;">✏️</button>
                     <button onclick="deleteCustomEvent(${event.id})" style="background: #e53935; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 11px;">🗑️</button>
@@ -7320,6 +7389,36 @@
             document.getElementById('editCustomEventBorderColor').value = config.borderColor || '#fbc02d';
             updateEditCustomEventPreview();
             
+            // Gestion du champ créateur (uniquement pour les admins)
+            const creatorSection = document.getElementById('editCustomEventCreatorSection');
+            const creatorSelect = document.getElementById('editCustomEventCreator');
+            
+            if (activeProfile === 'admin') {
+                creatorSection.style.display = 'block';
+                
+                // Remplir la liste des utilisateurs
+                creatorSelect.innerHTML = '<option value="">-- Sélectionner un créateur --</option>';
+                
+                // Ajouter tous les utilisateurs actifs (triés par nom)
+                const allUsers = [...resources].sort((a, b) => {
+                    const nameA = `${a.nom} ${a.prenom}`.toLowerCase();
+                    const nameB = `${b.nom} ${b.prenom}`.toLowerCase();
+                    return nameA.localeCompare(nameB);
+                });
+                
+                allUsers.forEach(user => {
+                    const option = document.createElement('option');
+                    option.value = user.id;
+                    option.textContent = `${user.nom} ${user.prenom}`;
+                    if (user.id === event.created_by) {
+                        option.selected = true;
+                    }
+                    creatorSelect.appendChild(option);
+                });
+            } else {
+                creatorSection.style.display = 'none';
+            }
+            
             document.getElementById('editCustomEventModal').style.display = 'block';
         }
         
@@ -7359,17 +7458,28 @@
                 return;
             }
             
+            // Préparer les données
+            const data = {
+                startDate,
+                endDate: endDate || startDate,
+                label,
+                config: { bgColor, textColor, borderColor }
+            };
+            
+            // Si admin, inclure le créateur sélectionné
+            if (activeProfile === 'admin') {
+                const creatorSelect = document.getElementById('editCustomEventCreator');
+                if (creatorSelect && creatorSelect.value) {
+                    data.createdBy = parseInt(creatorSelect.value);
+                }
+            }
+            
             try {
                 const response = await fetch(`${API_URL}/custom-events/${eventId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({
-                        startDate,
-                        endDate: endDate || startDate,
-                        label,
-                        config: { bgColor, textColor, borderColor }
-                    })
+                    body: JSON.stringify(data)
                 });
                 
                 if (response.ok) {
@@ -9592,9 +9702,23 @@
 
         // ========== VUE CALENDRIER MENSUEL ==========
         
-        function openMonthlyCalendarView() {
-            const year = parseInt(document.getElementById('yearSelect').value);
-            const month = parseInt(document.getElementById('monthSelect').value);
+        // Variables pour la navigation du calendrier mensuel
+        let calendarViewYear = null;
+        let calendarViewMonth = null;
+        
+        function openMonthlyCalendarView(customYear, customMonth) {
+            // Utiliser les paramètres si fournis, sinon les valeurs des sélecteurs
+            const year = customYear !== undefined ? customYear : parseInt(document.getElementById('yearSelect').value);
+            const month = customMonth !== undefined ? customMonth : parseInt(document.getElementById('monthSelect').value);
+            
+            // Stocker pour la navigation
+            calendarViewYear = year;
+            calendarViewMonth = month;
+            
+            renderMonthlyCalendarView(year, month);
+        }
+        
+        function renderMonthlyCalendarView(year, month) {
             const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 
                                 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
             
@@ -9606,13 +9730,37 @@
             
             content.innerHTML = `
                 <div style="text-align: center; margin-bottom: 20px;">
-                    <h2 style="margin: 0; color: #2c3e50;">${monthNames[month]} ${year}</h2>
-                    <p style="color: #7f8c8d; font-size: 13px; margin-top: 5px;">Vue d'ensemble des disponibilités par demi-journée</p>
+                    <div style="display: flex; justify-content: center; align-items: center; gap: 20px;">
+                        <button onclick="navigateCalendarView(-1)" style="padding: 10px 20px; background-color: #1D70B7; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold;" title="Mois précédent">
+                            ◀ 
+                        </button>
+                        <h2 style="margin: 0; color: #2c3e50; min-width: 200px;">${monthNames[month]} ${year}</h2>
+                        <button onclick="navigateCalendarView(1)" style="padding: 10px 20px; background-color: #1D70B7; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold;" title="Mois suivant">
+                             ▶
+                        </button>
+                    </div>
+                    <p style="color: #7f8c8d; font-size: 13px; margin-top: 10px;">Vue d'ensemble des disponibilités par demi-journée</p>
                 </div>
                 ${calendarHTML}
             `;
             
             modal.classList.add('active');
+        }
+        
+        function navigateCalendarView(direction) {
+            // direction: -1 pour mois précédent, +1 pour mois suivant
+            calendarViewMonth += direction;
+            
+            // Gérer le changement d'année
+            if (calendarViewMonth < 0) {
+                calendarViewMonth = 11;
+                calendarViewYear--;
+            } else if (calendarViewMonth > 11) {
+                calendarViewMonth = 0;
+                calendarViewYear++;
+            }
+            
+            renderMonthlyCalendarView(calendarViewYear, calendarViewMonth);
         }
         
         function generateMonthlyCalendarView(year, month) {
@@ -10360,6 +10508,576 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 profilePhoto.style.display = 'none';
             }
         }
+        
+        // ========== GESTION DES UTILISATEURS CONNECTÉS EN TEMPS RÉEL ==========
+        
+        let onlineUsersInterval = null;
+        let onlineUsersTooltipVisible = false;
+        
+        // Charger et afficher les utilisateurs connectés
+        async function loadOnlineUsers() {
+            try {
+                const response = await fetch(`${API_URL}/active-sessions`, { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    renderOnlineUsers(data.activeUsers || []);
+                }
+            } catch (error) {
+                console.error('Erreur chargement utilisateurs connectés:', error);
+            }
+        }
+        
+        // Afficher les avatars des utilisateurs connectés
+        function renderOnlineUsers(users) {
+            const container = document.getElementById('onlineUsersContainer');
+            const avatarsDiv = document.getElementById('onlineUsersAvatars');
+            const countSpan = document.getElementById('onlineUsersCount');
+            
+            if (!container || !avatarsDiv) return;
+            
+            // Filtrer l'utilisateur courant si besoin (optionnel - on peut le garder)
+            const filteredUsers = users.filter(u => u.userId !== currentUser?.id);
+            
+            if (users.length === 0) {
+                container.style.display = 'none';
+                return;
+            }
+            
+            container.style.display = 'flex';
+            
+            // Afficher max 5 avatars, le reste en compteur
+            const maxVisible = 5;
+            const visibleUsers = users.slice(0, maxVisible);
+            const extraCount = users.length - maxVisible;
+            
+            let html = '';
+            visibleUsers.forEach((user, index) => {
+                const bgColor = getAvatarColor(user.profile);
+                const initials = user.trigramme || ((user.prenom?.charAt(0) || '') + (user.nom?.charAt(0) || ''));
+                const fullName = `${user.prenom || ''} ${user.nom || ''}`.trim() || user.username;
+                
+                // Effet d'empilement
+                const marginLeft = index > 0 ? '-8px' : '0';
+                
+                if (user.profilePhoto) {
+                    html += `<div style="width: 28px; height: 28px; border-radius: 50%; border: 2px solid white; background-color: ${bgColor}; margin-left: ${marginLeft}; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.2);" title="${fullName}">
+                        <img src="${user.profilePhoto}" style="width: 100%; height: 100%; object-fit: cover;" />
+                    </div>`;
+                } else {
+                    html += `<div style="width: 28px; height: 28px; border-radius: 50%; border: 2px solid white; background-color: ${bgColor}; display: flex; align-items: center; justify-content: center; color: white; font-size: 10px; font-weight: bold; margin-left: ${marginLeft}; box-shadow: 0 1px 3px rgba(0,0,0,0.2);" title="${fullName}">
+                        ${initials}
+                    </div>`;
+                }
+            });
+            
+            avatarsDiv.innerHTML = html;
+            
+            // Afficher le compteur si plus de 5 utilisateurs
+            if (extraCount > 0) {
+                countSpan.textContent = `+${extraCount}`;
+                countSpan.style.display = 'inline';
+            } else {
+                countSpan.style.display = 'none';
+            }
+            
+            // Mettre à jour le tooltip
+            renderOnlineUsersTooltip(users);
+        }
+        
+        // Obtenir la couleur selon le profil
+        function getAvatarColor(profile) {
+            switch(profile) {
+                case 'admin': return '#e74c3c';
+                case 'user': return '#3498db';
+                case 'expert': return '#27ae60';
+                default: return '#7f8c8d';
+            }
+        }
+        
+        // Afficher le tooltip avec la liste complète
+        function renderOnlineUsersTooltip(users) {
+            const listDiv = document.getElementById('onlineUsersTooltipList');
+            if (!listDiv) return;
+            
+            if (users.length === 0) {
+                listDiv.innerHTML = '<p style="color: #999; font-size: 11px;">Aucun utilisateur connecté</p>';
+                return;
+            }
+            
+            let html = '';
+            users.forEach(user => {
+                const bgColor = getAvatarColor(user.profile);
+                const initials = user.trigramme || ((user.prenom?.charAt(0) || '') + (user.nom?.charAt(0) || ''));
+                const fullName = `${user.prenom || ''} ${user.nom || ''}`.trim() || user.username;
+                const profileLabel = user.profile === 'admin' ? 'Admin' : user.profile === 'user' ? 'Utilisateur' : 'Expert';
+                
+                html += `<div style="display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid #f0f0f0;">`;
+                
+                if (user.profilePhoto) {
+                    html += `<div style="width: 30px; height: 30px; border-radius: 50%; border: 2px solid ${bgColor}; overflow: hidden; flex-shrink: 0;">
+                        <img src="${user.profilePhoto}" style="width: 100%; height: 100%; object-fit: cover;" />
+                    </div>`;
+                } else {
+                    html += `<div style="width: 30px; height: 30px; border-radius: 50%; background-color: ${bgColor}; display: flex; align-items: center; justify-content: center; color: white; font-size: 11px; font-weight: bold; flex-shrink: 0;">
+                        ${initials}
+                    </div>`;
+                }
+                
+                html += `<div style="flex: 1; min-width: 0;">
+                    <div style="font-size: 12px; font-weight: 500; color: #2c3e50; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${fullName}</div>
+                    <div style="font-size: 10px; color: ${bgColor};">${profileLabel}</div>
+                </div>`;
+                
+                html += `</div>`;
+            });
+            
+            listDiv.innerHTML = html;
+        }
+        
+        // Toggle du tooltip
+        function toggleOnlineUsersTooltip(event) {
+            event.stopPropagation();
+            const tooltip = document.getElementById('onlineUsersTooltip');
+            if (!tooltip) return;
+            
+            onlineUsersTooltipVisible = !onlineUsersTooltipVisible;
+            tooltip.style.display = onlineUsersTooltipVisible ? 'block' : 'none';
+        }
+        
+        // Fermer le tooltip en cliquant ailleurs
+        document.addEventListener('click', function(event) {
+            const tooltip = document.getElementById('onlineUsersTooltip');
+            const container = document.getElementById('onlineUsersContainer');
+            
+            if (tooltip && container && !container.contains(event.target) && !tooltip.contains(event.target)) {
+                onlineUsersTooltipVisible = false;
+                tooltip.style.display = 'none';
+            }
+        });
+        
+        // Démarrer la mise à jour périodique des utilisateurs connectés
+        function startOnlineUsersPolling() {
+            loadOnlineUsers();
+            onlineUsersInterval = setInterval(loadOnlineUsers, 30000); // Toutes les 30 secondes
+        }
+        
+        // Arrêter la mise à jour périodique
+        function stopOnlineUsersPolling() {
+            if (onlineUsersInterval) {
+                clearInterval(onlineUsersInterval);
+                onlineUsersInterval = null;
+            }
+        }
+        
+        // ========== GESTION DES ÉVÉNEMENTS PERSONNALISÉS (POUR TOUS LES UTILISATEURS) ==========
+        
+        let myEvents = [];
+        let myEventsSortColumn = 'startDate';
+        let myEventsSortAsc = true;
+        let isAdminViewingAllEvents = false;
+        
+        // Ouvrir la modal de gestion des événements
+        async function openMyEventsModal() {
+            document.getElementById('myEventsModalContainer').style.display = 'block';
+            await loadMyEvents();
+        }
+        
+        // Fermer la modal
+        function closeMyEventsModal() {
+            document.getElementById('myEventsModalContainer').style.display = 'none';
+            resetMyEventForm();
+        }
+        
+        // Réinitialiser le formulaire
+        function resetMyEventForm() {
+            document.getElementById('myEventStartDate').value = '';
+            document.getElementById('myEventEndDate').value = '';
+            document.getElementById('myEventLabel').value = '';
+            document.getElementById('myEventBgColor').value = '#ffeb3b';
+            document.getElementById('myEventTextColor').value = '#000000';
+            document.getElementById('myEventBorderColor').value = '#fbc02d';
+            updateMyEventPreview();
+            
+            // Cacher le sélecteur de créateur
+            const creatorSection = document.getElementById('myEventCreatorSection');
+            if (creatorSection) {
+                creatorSection.style.display = 'none';
+            }
+        }
+        
+        // Pré-remplir la date de fin
+        function prefillMyEventEndDate() {
+            const startDate = document.getElementById('myEventStartDate').value;
+            const endDateInput = document.getElementById('myEventEndDate');
+            
+            if (startDate && (!endDateInput.value || endDateInput.value < startDate)) {
+                endDateInput.value = startDate;
+            }
+        }
+        
+        // Mettre à jour la prévisualisation
+        function updateMyEventPreview() {
+            const label = document.getElementById('myEventLabel').value || 'Mon événement';
+            const bgColor = document.getElementById('myEventBgColor').value;
+            const textColor = document.getElementById('myEventTextColor').value;
+            const borderColor = document.getElementById('myEventBorderColor').value;
+            
+            const preview = document.getElementById('myEventPreview');
+            if (preview) {
+                preview.textContent = label;
+                preview.style.backgroundColor = bgColor;
+                preview.style.color = textColor;
+                preview.style.borderColor = borderColor;
+            }
+        }
+        
+        // Charger les événements personnalisés
+        async function loadMyEvents() {
+            try {
+                const response = await fetch(`${API_URL}/my-custom-events`, { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    myEvents = data.events || [];
+                    isAdminViewingAllEvents = data.isAdmin || false;
+                    
+                    // Mettre à jour le titre selon le profil
+                    const titleEl = document.getElementById('myEventsModalTitle');
+                    if (titleEl) {
+                        titleEl.textContent = isAdminViewingAllEvents ? 'Tous les événements personnalisés' : 'Mes événements personnalisés';
+                    }
+                    
+                    renderMyEventsTable();
+                }
+            } catch (error) {
+                console.error('Erreur chargement mes événements:', error);
+            }
+        }
+        
+        // Trier les événements
+        function sortMyEvents(column) {
+            if (myEventsSortColumn === column) {
+                myEventsSortAsc = !myEventsSortAsc;
+            } else {
+                myEventsSortColumn = column;
+                myEventsSortAsc = true;
+            }
+            renderMyEventsTable();
+        }
+        
+        // Afficher le tableau des événements
+        function renderMyEventsTable() {
+            const container = document.getElementById('myEventsTableContainer');
+            if (!container) return;
+            
+            if (myEvents.length === 0) {
+                container.innerHTML = '<p style="color: #999; font-size: 12px; font-style: italic; text-align: center; padding: 20px;">Aucun événement personnalisé</p>';
+                return;
+            }
+            
+            // Trier
+            const sorted = [...myEvents].sort((a, b) => {
+                let valA, valB;
+                if (myEventsSortColumn === 'label') {
+                    valA = a.label.toLowerCase();
+                    valB = b.label.toLowerCase();
+                    return myEventsSortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                } else if (myEventsSortColumn === 'startDate') {
+                    valA = a.start_date;
+                    valB = b.start_date;
+                } else if (myEventsSortColumn === 'endDate') {
+                    valA = a.end_date;
+                    valB = b.end_date;
+                } else if (myEventsSortColumn === 'creator') {
+                    valA = (a.creator_nom || '').toLowerCase();
+                    valB = (b.creator_nom || '').toLowerCase();
+                    return myEventsSortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                }
+                if (myEventsSortAsc) {
+                    return valA < valB ? -1 : valA > valB ? 1 : 0;
+                } else {
+                    return valA > valB ? -1 : valA < valB ? 1 : 0;
+                }
+            });
+            
+            const getSortIcon = (col) => {
+                if (myEventsSortColumn === col) {
+                    return myEventsSortAsc ? ' ▲' : ' ▼';
+                }
+                return ' ▲▼';
+            };
+            
+            let html = '<table style="width: 100%; border-collapse: collapse; font-size: 12px;">';
+            html += '<thead><tr style="background: #ff9800; color: white;">';
+            html += `<th onclick="sortMyEvents('label')" style="padding: 8px; text-align: left; cursor: pointer; border: none;">Libellé${getSortIcon('label')}</th>`;
+            html += '<th style="padding: 8px; text-align: center; border: none;">Apparence</th>';
+            html += `<th onclick="sortMyEvents('startDate')" style="padding: 8px; text-align: center; cursor: pointer; border: none;">Début${getSortIcon('startDate')}</th>`;
+            html += `<th onclick="sortMyEvents('endDate')" style="padding: 8px; text-align: center; cursor: pointer; border: none;">Fin${getSortIcon('endDate')}</th>`;
+            html += '<th style="padding: 8px; text-align: center; border: none;">Durée</th>';
+            
+            // Colonne "Créé par" uniquement pour les admins
+            if (isAdminViewingAllEvents) {
+                html += `<th onclick="sortMyEvents('creator')" style="padding: 8px; text-align: center; cursor: pointer; border: none;">Créé par${getSortIcon('creator')}</th>`;
+            }
+            
+            html += '<th style="padding: 8px; text-align: center; border: none;">Actions</th>';
+            html += '</tr></thead><tbody>';
+            
+            sorted.forEach(event => {
+                const config = event.config ? (typeof event.config === 'string' ? JSON.parse(event.config) : event.config) : {};
+                const startDate = new Date(event.start_date);
+                const endDate = new Date(event.end_date);
+                const diffTime = Math.abs(endDate - startDate);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+                
+                const startStr = startDate.toLocaleDateString('fr-FR');
+                const endStr = endDate.toLocaleDateString('fr-FR');
+                
+                const creatorName = event.creator_trigramme || 
+                    ((event.creator_prenom || '') + ' ' + (event.creator_nom || '')).trim() || 
+                    'Système';
+                
+                html += '<tr style="border-bottom: 1px solid #ddd;">';
+                html += `<td style="padding: 8px;">${event.label}</td>`;
+                html += `<td style="padding: 8px; text-align: center;">
+                    <span style="display: inline-block; padding: 2px 6px; border-radius: 8px; font-size: 10px; font-weight: bold; 
+                        background-color: ${config.bgColor || '#ffeb3b'}; 
+                        color: ${config.textColor || '#000'}; 
+                        border: 2px solid ${config.borderColor || '#fbc02d'};">${event.label}</span>
+                </td>`;
+                html += `<td style="padding: 8px; text-align: center;">${startStr}</td>`;
+                html += `<td style="padding: 8px; text-align: center;">${endStr}</td>`;
+                html += `<td style="padding: 8px; text-align: center;">${diffDays} jour${diffDays > 1 ? 's' : ''}</td>`;
+                
+                // Colonne "Créé par" uniquement pour les admins
+                if (isAdminViewingAllEvents) {
+                    html += `<td style="padding: 8px; text-align: center; font-size: 11px;">${creatorName}</td>`;
+                }
+                
+                html += `<td style="padding: 8px; text-align: center;">
+                    <button onclick="editMyEvent(${event.id})" style="background: #ff9800; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 11px; margin-right: 5px;">✏️</button>
+                    <button onclick="deleteMyEvent(${event.id})" style="background: #e53935; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 11px;">🗑️</button>
+                </td>`;
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+        
+        // Ajouter un événement
+        async function addMyEvent() {
+            const startDate = document.getElementById('myEventStartDate').value;
+            const endDate = document.getElementById('myEventEndDate').value;
+            const label = document.getElementById('myEventLabel').value.trim();
+            const bgColor = document.getElementById('myEventBgColor').value;
+            const textColor = document.getElementById('myEventTextColor').value;
+            const borderColor = document.getElementById('myEventBorderColor').value;
+            
+            if (!startDate) {
+                alert('Veuillez sélectionner une date de début');
+                return;
+            }
+            if (!label) {
+                alert('Veuillez saisir un libellé');
+                return;
+            }
+            
+            const finalEndDate = endDate || startDate;
+            
+            try {
+                const response = await fetch(`${API_URL}/my-custom-events`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        startDate,
+                        endDate: finalEndDate,
+                        label,
+                        config: { bgColor, textColor, borderColor }
+                    })
+                });
+                
+                if (response.ok) {
+                    resetMyEventForm();
+                    await loadMyEvents();
+                    await loadSpecialDates();
+                    // Forcer la mise à jour du Gantt avec un petit délai pour s'assurer que specialDates est bien mis à jour
+                    setTimeout(() => {
+                        updateGantt();
+                        console.log('📅 Gantt mis à jour après ajout événement');
+                    }, 100);
+                } else {
+                    const err = await response.json();
+                    alert('Erreur: ' + err.error);
+                }
+            } catch (error) {
+                console.error('Erreur ajout événement:', error);
+                alert('Erreur: ' + error.message);
+            }
+        }
+        
+        // Variable pour stocker l'ID de l'événement en cours d'édition
+        let editingMyEventId = null;
+        
+        // Éditer un événement
+        async function editMyEvent(eventId) {
+            const event = myEvents.find(e => e.id === eventId);
+            if (!event) return;
+            
+            const config = event.config ? (typeof event.config === 'string' ? JSON.parse(event.config) : event.config) : {};
+            
+            document.getElementById('myEventStartDate').value = event.start_date;
+            document.getElementById('myEventEndDate').value = event.end_date;
+            document.getElementById('myEventLabel').value = event.label;
+            document.getElementById('myEventBgColor').value = config.bgColor || '#ffeb3b';
+            document.getElementById('myEventTextColor').value = config.textColor || '#000000';
+            document.getElementById('myEventBorderColor').value = config.borderColor || '#fbc02d';
+            updateMyEventPreview();
+            
+            editingMyEventId = eventId;
+            
+            // Gestion du sélecteur de créateur (uniquement pour les admins)
+            const creatorSection = document.getElementById('myEventCreatorSection');
+            const creatorSelect = document.getElementById('myEventCreator');
+            
+            if (activeProfile === 'admin') {
+                creatorSection.style.display = 'block';
+                
+                // Remplir la liste des utilisateurs
+                creatorSelect.innerHTML = '<option value="">-- Sélectionner un créateur --</option>';
+                
+                // Ajouter tous les utilisateurs (triés par nom)
+                const allUsers = [...resources].sort((a, b) => {
+                    const nameA = `${a.nom} ${a.prenom}`.toLowerCase();
+                    const nameB = `${b.nom} ${b.prenom}`.toLowerCase();
+                    return nameA.localeCompare(nameB);
+                });
+                
+                allUsers.forEach(user => {
+                    const option = document.createElement('option');
+                    option.value = user.id;
+                    option.textContent = `${user.nom} ${user.prenom}`;
+                    if (user.id === event.created_by) {
+                        option.selected = true;
+                    }
+                    creatorSelect.appendChild(option);
+                });
+            } else {
+                creatorSection.style.display = 'none';
+            }
+            
+            // Changer le bouton "Ajouter" en "Modifier"
+            const addBtn = document.querySelector('#myEventsModalContainer button[onclick="addMyEvent()"]');
+            if (addBtn) {
+                addBtn.textContent = '💾 Modifier';
+                addBtn.onclick = saveMyEventEdit;
+            }
+        }
+        
+        // Sauvegarder la modification
+        async function saveMyEventEdit() {
+            if (!editingMyEventId) return;
+            
+            const startDate = document.getElementById('myEventStartDate').value;
+            const endDate = document.getElementById('myEventEndDate').value;
+            const label = document.getElementById('myEventLabel').value.trim();
+            const bgColor = document.getElementById('myEventBgColor').value;
+            const textColor = document.getElementById('myEventTextColor').value;
+            const borderColor = document.getElementById('myEventBorderColor').value;
+            
+            if (!startDate || !label) {
+                alert('Date de début et libellé requis');
+                return;
+            }
+            
+            // Préparer les données
+            const data = {
+                startDate,
+                endDate: endDate || startDate,
+                label,
+                config: { bgColor, textColor, borderColor }
+            };
+            
+            // Si admin, inclure le créateur sélectionné
+            let useAdminRoute = false;
+            if (activeProfile === 'admin') {
+                const creatorSelect = document.getElementById('myEventCreator');
+                if (creatorSelect && creatorSelect.value) {
+                    data.createdBy = parseInt(creatorSelect.value);
+                    useAdminRoute = true; // Utiliser la route admin pour changer le créateur
+                }
+            }
+            
+            try {
+                // Utiliser la route admin si on change le créateur, sinon la route my-custom-events
+                const endpoint = useAdminRoute 
+                    ? `${API_URL}/custom-events/${editingMyEventId}` 
+                    : `${API_URL}/my-custom-events/${editingMyEventId}`;
+                
+                const response = await fetch(endpoint, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(data)
+                });
+                
+                if (response.ok) {
+                    editingMyEventId = null;
+                    
+                    // Remettre le bouton "Ajouter"
+                    const addBtn = document.querySelector('#myEventsModalContainer button[onclick="saveMyEventEdit()"]');
+                    if (addBtn) {
+                        addBtn.textContent = '➕ Ajouter';
+                        addBtn.onclick = addMyEvent;
+                    }
+                    
+                    // Cacher le sélecteur de créateur
+                    document.getElementById('myEventCreatorSection').style.display = 'none';
+                    
+                    resetMyEventForm();
+                    await loadMyEvents();
+                    await loadSpecialDates();
+                    setTimeout(() => {
+                        updateGantt();
+                        console.log('📅 Gantt mis à jour après modification événement');
+                    }, 100);
+                } else {
+                    const err = await response.json();
+                    alert('Erreur: ' + err.error);
+                }
+            } catch (error) {
+                console.error('Erreur modification événement:', error);
+                alert('Erreur: ' + error.message);
+            }
+        }
+        
+        // Supprimer un événement
+        async function deleteMyEvent(eventId) {
+            if (!confirm('Êtes-vous sûr de vouloir supprimer cet événement ?')) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/my-custom-events/${eventId}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    await loadMyEvents();
+                    await loadSpecialDates();
+                    setTimeout(() => {
+                        updateGantt();
+                        console.log('📅 Gantt mis à jour après suppression événement');
+                    }, 100);
+                } else {
+                    const err = await response.json();
+                    alert('Erreur: ' + err.error);
+                }
+            } catch (error) {
+                console.error('Erreur suppression événement:', error);
+                alert('Erreur: ' + error.message);
+            }
+        }
+        
     </script>
 
     <!-- MODALE VUE CALENDRIER MENSUEL -->
@@ -10932,6 +11650,14 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             <input type="hidden" id="editCustomEventId">
             
             <div id="editCustomEventContent">
+                <!-- Créateur (uniquement visible pour les admins) -->
+                <div id="editCustomEventCreatorSection" style="margin-bottom: 15px; display: none;">
+                    <label style="font-size: 12px; font-weight: bold; color: #333;">👤 Créateur :</label>
+                    <select id="editCustomEventCreator" style="width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px;">
+                        <!-- Options remplies dynamiquement -->
+                    </select>
+                </div>
+                
                 <!-- Date de début -->
                 <div style="margin-bottom: 15px;">
                     <label style="font-size: 12px; font-weight: bold; color: #333;">Date de début :</label>
@@ -11116,6 +11842,81 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                         Annuler
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Gérer mes événements personnalisés -->
+    <div id="myEventsModalContainer" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); z-index: 10002;">
+        <div style="position: relative; background-color: white; margin: 3% auto; padding: 30px; width: 95%; max-width: 900px; border-radius: 12px; max-height: 90vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <div>
+                    <h2 style="color: #ff9800; margin: 0;">✏️ <span id="myEventsModalTitle">Mes événements personnalisés</span></h2>
+                    <p style="color: #7f8c8d; font-size: 12px; margin: 5px 0 0 0;">Créez des événements qui s'afficheront sur le planning</p>
+                </div>
+                <span onclick="closeMyEventsModal()" style="cursor: pointer; font-size: 28px; color: #7f8c8d;">&times;</span>
+            </div>
+            
+            <!-- Formulaire d'ajout -->
+            <div style="background: #fff3e0; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                <h3 style="color: #e65100; margin: 0 0 15px 0; font-size: 14px;">➕ Ajouter un événement</h3>
+                
+                <!-- Sélecteur de créateur (uniquement visible pour les admins en mode édition) -->
+                <div id="myEventCreatorSection" style="display: none; margin-bottom: 15px; background: #e3f2fd; padding: 10px; border-radius: 5px;">
+                    <label style="font-size: 11px; color: #1565c0; display: block; margin-bottom: 5px; font-weight: bold;">👤 Modifier le créateur</label>
+                    <select id="myEventCreator" style="width: 100%; max-width: 300px; padding: 6px; border: 1px solid #90caf9; border-radius: 4px;">
+                        <!-- Options remplies dynamiquement -->
+                    </select>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr auto auto auto auto; gap: 10px; align-items: end;">
+                    <div>
+                        <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px;">Date de début *</label>
+                        <input type="date" id="myEventStartDate" style="width: 100%; padding: 6px;" onchange="prefillMyEventEndDate()">
+                    </div>
+                    <div>
+                        <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px;">Date de fin</label>
+                        <input type="date" id="myEventEndDate" style="width: 100%; padding: 6px;">
+                    </div>
+                    <div>
+                        <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px;">Libellé *</label>
+                        <input type="text" id="myEventLabel" placeholder="Ex: Formation, Réunion..." style="width: 100%; padding: 6px;" oninput="updateMyEventPreview()">
+                    </div>
+                    <div>
+                        <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px;">Fond</label>
+                        <input type="color" id="myEventBgColor" value="#ffeb3b" style="width: 40px; height: 32px; padding: 0; border: 1px solid #ccc; cursor: pointer;" onchange="updateMyEventPreview()">
+                    </div>
+                    <div>
+                        <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px;">Texte</label>
+                        <input type="color" id="myEventTextColor" value="#000000" style="width: 40px; height: 32px; padding: 0; border: 1px solid #ccc; cursor: pointer;" onchange="updateMyEventPreview()">
+                    </div>
+                    <div>
+                        <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px;">Bordure</label>
+                        <input type="color" id="myEventBorderColor" value="#fbc02d" style="width: 40px; height: 32px; padding: 0; border: 1px solid #ccc; cursor: pointer;" onchange="updateMyEventPreview()">
+                    </div>
+                    <div>
+                        <button onclick="addMyEvent()" style="background-color: #ff9800; color: white; padding: 6px 15px; white-space: nowrap;">
+                            ➕ Ajouter
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Prévisualisation -->
+                <div style="margin-top: 10px; display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 12px; color: #666;">Prévisualisation :</span>
+                    <span id="myEventPreview" style="display: inline-block; padding: 3px 8px; border-radius: 8px; font-size: 11px; font-weight: bold; background-color: #ffeb3b; color: #000; border: 2px solid #fbc02d;">Mon événement</span>
+                </div>
+            </div>
+            
+            <!-- Liste des événements -->
+            <div id="myEventsTableContainer" style="max-height: 40vh; overflow-y: auto;">
+                <p style="color: #999; font-size: 12px; font-style: italic; text-align: center; padding: 20px;">Chargement...</p>
+            </div>
+            
+            <div style="display: flex; justify-content: flex-end; margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;">
+                <button onclick="closeMyEventsModal()" style="background-color: #95a5a6; color: white; padding: 10px 25px;">
+                    Fermer
+                </button>
             </div>
         </div>
     </div>
