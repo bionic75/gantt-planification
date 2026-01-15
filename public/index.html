@@ -63,6 +63,10 @@
         #reportingTable th { cursor: default; }
         #reportingTable th::after { content: none; }
         #reportingTable th:hover { background-color: #34495e; }
+        /* Tableaux événements personnalisés - pas de flèches CSS (gérées en JS) */
+        #customEventsTableContainer th::after { content: none; }
+        #myEventsTableContainer th::after { content: none; }
+        #specialDatesFilesList th::after { content: none; }
         #reportingTable th.sortable { cursor: pointer; }
         #reportingTable th.sortable:hover { background-color: #2c3e50; }
         td { padding: 10px; border-bottom: 1px solid #ecf0f1; }
@@ -7249,7 +7253,7 @@
         }
         
         // Trier les événements personnalisés
-        function sortCustomEvents(column) {
+        window.sortCustomEvents = function(column) {
             if (customEventsSortColumn === column) {
                 customEventsSortAsc = !customEventsSortAsc;
             } else {
@@ -7257,7 +7261,7 @@
                 customEventsSortAsc = true;
             }
             renderCustomEventsTable();
-        }
+        };
         
         // Afficher le tableau des événements personnalisés
         function renderCustomEventsTable() {
@@ -7282,6 +7286,14 @@
                 } else if (customEventsSortColumn === 'endDate') {
                     valA = a.end_date;
                     valB = b.end_date;
+                } else if (customEventsSortColumn === 'duration') {
+                    // Calculer la durée en jours
+                    const startA = new Date(a.start_date);
+                    const endA = new Date(a.end_date);
+                    const startB = new Date(b.start_date);
+                    const endB = new Date(b.end_date);
+                    valA = Math.ceil(Math.abs(endA - startA) / (1000 * 60 * 60 * 24)) + 1;
+                    valB = Math.ceil(Math.abs(endB - startB) / (1000 * 60 * 60 * 24)) + 1;
                 } else if (customEventsSortColumn === 'creator') {
                     valA = (a.creator_nom || '').toLowerCase();
                     valB = (b.creator_nom || '').toLowerCase();
@@ -7294,6 +7306,7 @@
                 }
             });
             
+            // Icônes de tri - afficher les flèches sur les colonnes triables
             const getSortIcon = (col) => {
                 if (customEventsSortColumn === col) {
                     return customEventsSortAsc ? ' ▲' : ' ▼';
@@ -7303,13 +7316,13 @@
             
             let html = '<table style="width: 100%; border-collapse: collapse; font-size: 12px;">';
             html += '<thead><tr style="background: #1565c0; color: white;">';
-            html += `<th onclick="sortCustomEvents('label')" style="padding: 8px; text-align: left; cursor: pointer; border: none;">Nom${getSortIcon('label')}</th>`;
-            html += '<th style="padding: 8px; text-align: center; border: none;">Apparence</th>';
-            html += `<th onclick="sortCustomEvents('startDate')" style="padding: 8px; text-align: center; cursor: pointer; border: none;">Date début${getSortIcon('startDate')}</th>`;
-            html += `<th onclick="sortCustomEvents('endDate')" style="padding: 8px; text-align: center; cursor: pointer; border: none;">Date fin${getSortIcon('endDate')}</th>`;
-            html += '<th style="padding: 8px; text-align: center; border: none;">Durée</th>';
-            html += `<th onclick="sortCustomEvents('creator')" style="padding: 8px; text-align: center; cursor: pointer; border: none;">Créé par${getSortIcon('creator')}</th>`;
-            html += '<th style="padding: 8px; text-align: center; border: none;">Actions</th>';
+            html += '<th onclick="window.sortCustomEvents(\'label\')" style="padding: 8px; text-align: left; cursor: pointer; border: none;">Nom' + getSortIcon('label') + '</th>';
+            html += '<th style="padding: 8px; text-align: center; border: none; cursor: default;">Apparence</th>';
+            html += '<th onclick="window.sortCustomEvents(\'startDate\')" style="padding: 8px; text-align: center; cursor: pointer; border: none;">Date début' + getSortIcon('startDate') + '</th>';
+            html += '<th onclick="window.sortCustomEvents(\'endDate\')" style="padding: 8px; text-align: center; cursor: pointer; border: none;">Date fin' + getSortIcon('endDate') + '</th>';
+            html += '<th onclick="window.sortCustomEvents(\'duration\')" style="padding: 8px; text-align: center; cursor: pointer; border: none;">Durée' + getSortIcon('duration') + '</th>';
+            html += '<th onclick="window.sortCustomEvents(\'creator\')" style="padding: 8px; text-align: center; cursor: pointer; border: none;">Créé par' + getSortIcon('creator') + '</th>';
+            html += '<th style="padding: 8px; text-align: center; border: none; cursor: default;">Actions</th>';
             html += '</tr></thead><tbody>';
             
             sorted.forEach(event => {
@@ -7339,10 +7352,10 @@
                 html += `<td style="padding: 8px; text-align: center;">${endStr}</td>`;
                 html += `<td style="padding: 8px; text-align: center;">${diffDays} jour${diffDays > 1 ? 's' : ''}</td>`;
                 html += `<td style="padding: 8px; text-align: center; font-size: 11px;">${creatorName}</td>`;
-                html += `<td style="padding: 8px; text-align: center;">
-                    <button onclick="editCustomEvent(${event.id})" style="background: #1e88e5; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 11px; margin-right: 5px;">✏️</button>
-                    <button onclick="deleteCustomEvent(${event.id})" style="background: #e53935; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 11px;">🗑️</button>
-                </td>`;
+                html += '<td style="padding: 8px; text-align: center;">' +
+                    '<button onclick="window.editCustomEvent(' + event.id + ')" style="background: #1e88e5; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 11px; margin-right: 5px;" title="Modifier">✏️</button>' +
+                    '<button onclick="window.deleteCustomEvent(' + event.id + ')" style="background: #e53935; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 11px;" title="Supprimer">🗑️</button>' +
+                '</td>';
                 html += '</tr>';
             });
             
@@ -7351,7 +7364,7 @@
         }
         
         // Supprimer un événement personnalisé
-        async function deleteCustomEvent(eventId) {
+        window.deleteCustomEvent = async function(eventId) {
             if (!confirm('Voulez-vous vraiment supprimer cet événement ?')) return;
             
             try {
@@ -7371,12 +7384,16 @@
                 console.error('Erreur suppression:', error);
                 alert('Erreur: ' + error.message);
             }
-        }
+        };
         
         // Éditer un événement personnalisé
-        function editCustomEvent(eventId) {
+        window.editCustomEvent = function(eventId) {
+            console.log('🔧 editCustomEvent appelé avec ID:', eventId);
             const event = customEvents.find(e => e.id === eventId);
-            if (!event) return;
+            if (!event) {
+                console.error('Événement non trouvé:', eventId);
+                return;
+            }
             
             const config = event.config ? (typeof event.config === 'string' ? JSON.parse(event.config) : event.config) : {};
             
@@ -7393,23 +7410,23 @@
             const creatorSection = document.getElementById('editCustomEventCreatorSection');
             const creatorSelect = document.getElementById('editCustomEventCreator');
             
-            if (activeProfile === 'admin') {
+            if (currentUser && currentUser.activeProfile === 'admin') {
                 creatorSection.style.display = 'block';
                 
-                // Remplir la liste des utilisateurs
+                // Remplir la liste des utilisateurs (utiliser users, pas resources)
                 creatorSelect.innerHTML = '<option value="">-- Sélectionner un créateur --</option>';
                 
-                // Ajouter tous les utilisateurs actifs (triés par nom)
-                const allUsers = [...resources].sort((a, b) => {
-                    const nameA = `${a.nom} ${a.prenom}`.toLowerCase();
-                    const nameB = `${b.nom} ${b.prenom}`.toLowerCase();
+                // Ajouter tous les utilisateurs (triés par nom)
+                const allUsers = [...users].sort((a, b) => {
+                    const nameA = `${a.nom || ''} ${a.prenom || ''}`.toLowerCase();
+                    const nameB = `${b.nom || ''} ${b.prenom || ''}`.toLowerCase();
                     return nameA.localeCompare(nameB);
                 });
                 
                 allUsers.forEach(user => {
                     const option = document.createElement('option');
-                    option.value = user.id;
-                    option.textContent = `${user.nom} ${user.prenom}`;
+                    option.value = user.id; // ID utilisateur (pas ID ressource)
+                    option.textContent = `${user.nom || ''} ${user.prenom || ''}`.trim() || user.username;
                     if (user.id === event.created_by) {
                         option.selected = true;
                     }
@@ -7420,7 +7437,7 @@
             }
             
             document.getElementById('editCustomEventModal').style.display = 'block';
-        }
+        };
         
         // Fermer la modal d'édition
         function closeEditCustomEventModal() {
@@ -7467,7 +7484,7 @@
             };
             
             // Si admin, inclure le créateur sélectionné
-            if (activeProfile === 'admin') {
+            if (currentUser && currentUser.activeProfile === 'admin') {
                 const creatorSelect = document.getElementById('editCustomEventCreator');
                 if (creatorSelect && creatorSelect.value) {
                     data.createdBy = parseInt(creatorSelect.value);
@@ -10787,6 +10804,14 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 } else if (myEventsSortColumn === 'endDate') {
                     valA = a.end_date;
                     valB = b.end_date;
+                } else if (myEventsSortColumn === 'duration') {
+                    // Calculer la durée en jours
+                    const startA = new Date(a.start_date);
+                    const endA = new Date(a.end_date);
+                    const startB = new Date(b.start_date);
+                    const endB = new Date(b.end_date);
+                    valA = Math.ceil(Math.abs(endA - startA) / (1000 * 60 * 60 * 24)) + 1;
+                    valB = Math.ceil(Math.abs(endB - startB) / (1000 * 60 * 60 * 24)) + 1;
                 } else if (myEventsSortColumn === 'creator') {
                     valA = (a.creator_nom || '').toLowerCase();
                     valB = (b.creator_nom || '').toLowerCase();
@@ -10799,6 +10824,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 }
             });
             
+            // Icônes de tri - afficher les flèches sur les colonnes triables
             const getSortIcon = (col) => {
                 if (myEventsSortColumn === col) {
                     return myEventsSortAsc ? ' ▲' : ' ▼';
@@ -10808,18 +10834,18 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             
             let html = '<table style="width: 100%; border-collapse: collapse; font-size: 12px;">';
             html += '<thead><tr style="background: #ff9800; color: white;">';
-            html += `<th onclick="sortMyEvents('label')" style="padding: 8px; text-align: left; cursor: pointer; border: none;">Libellé${getSortIcon('label')}</th>`;
-            html += '<th style="padding: 8px; text-align: center; border: none;">Apparence</th>';
-            html += `<th onclick="sortMyEvents('startDate')" style="padding: 8px; text-align: center; cursor: pointer; border: none;">Début${getSortIcon('startDate')}</th>`;
-            html += `<th onclick="sortMyEvents('endDate')" style="padding: 8px; text-align: center; cursor: pointer; border: none;">Fin${getSortIcon('endDate')}</th>`;
-            html += '<th style="padding: 8px; text-align: center; border: none;">Durée</th>';
+            html += '<th onclick="sortMyEvents(\'label\')" style="padding: 8px; text-align: left; cursor: pointer; border: none;">Libellé' + getSortIcon('label') + '</th>';
+            html += '<th style="padding: 8px; text-align: center; border: none; cursor: default;">Apparence</th>';
+            html += '<th onclick="sortMyEvents(\'startDate\')" style="padding: 8px; text-align: center; cursor: pointer; border: none;">Début' + getSortIcon('startDate') + '</th>';
+            html += '<th onclick="sortMyEvents(\'endDate\')" style="padding: 8px; text-align: center; cursor: pointer; border: none;">Fin' + getSortIcon('endDate') + '</th>';
+            html += '<th onclick="sortMyEvents(\'duration\')" style="padding: 8px; text-align: center; cursor: pointer; border: none;">Durée' + getSortIcon('duration') + '</th>';
             
             // Colonne "Créé par" uniquement pour les admins
             if (isAdminViewingAllEvents) {
-                html += `<th onclick="sortMyEvents('creator')" style="padding: 8px; text-align: center; cursor: pointer; border: none;">Créé par${getSortIcon('creator')}</th>`;
+                html += '<th onclick="sortMyEvents(\'creator\')" style="padding: 8px; text-align: center; cursor: pointer; border: none;">Créé par' + getSortIcon('creator') + '</th>';
             }
             
-            html += '<th style="padding: 8px; text-align: center; border: none;">Actions</th>';
+            html += '<th style="padding: 8px; text-align: center; border: none; cursor: default;">Actions</th>';
             html += '</tr></thead><tbody>';
             
             sorted.forEach(event => {
@@ -10940,23 +10966,23 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             const creatorSection = document.getElementById('myEventCreatorSection');
             const creatorSelect = document.getElementById('myEventCreator');
             
-            if (activeProfile === 'admin') {
+            if (currentUser && currentUser.activeProfile === 'admin') {
                 creatorSection.style.display = 'block';
                 
-                // Remplir la liste des utilisateurs
+                // Remplir la liste des utilisateurs (utiliser users, pas resources)
                 creatorSelect.innerHTML = '<option value="">-- Sélectionner un créateur --</option>';
                 
                 // Ajouter tous les utilisateurs (triés par nom)
-                const allUsers = [...resources].sort((a, b) => {
-                    const nameA = `${a.nom} ${a.prenom}`.toLowerCase();
-                    const nameB = `${b.nom} ${b.prenom}`.toLowerCase();
+                const allUsers = [...users].sort((a, b) => {
+                    const nameA = `${a.nom || ''} ${a.prenom || ''}`.toLowerCase();
+                    const nameB = `${b.nom || ''} ${b.prenom || ''}`.toLowerCase();
                     return nameA.localeCompare(nameB);
                 });
                 
                 allUsers.forEach(user => {
                     const option = document.createElement('option');
-                    option.value = user.id;
-                    option.textContent = `${user.nom} ${user.prenom}`;
+                    option.value = user.id; // ID utilisateur (pas ID ressource)
+                    option.textContent = `${user.nom || ''} ${user.prenom || ''}`.trim() || user.username;
                     if (user.id === event.created_by) {
                         option.selected = true;
                     }
@@ -11000,7 +11026,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             
             // Si admin, inclure le créateur sélectionné
             let useAdminRoute = false;
-            if (activeProfile === 'admin') {
+            if (currentUser && currentUser.activeProfile === 'admin') {
                 const creatorSelect = document.getElementById('myEventCreator');
                 if (creatorSelect && creatorSelect.value) {
                     data.createdBy = parseInt(creatorSelect.value);
