@@ -369,7 +369,7 @@
             padding: 1px 3px;
             border-radius: 8px;
             border: 1px solid #333;
-            z-index: 10;
+            z-index: 1;
             cursor: help;
             line-height: 1;
             box-shadow: 0 1px 2px rgba(0,0,0,0.3);
@@ -377,6 +377,7 @@
         
         .gantt-cell {
             position: relative;
+            overflow: hidden;
         }
     </style>
 </head>
@@ -509,6 +510,10 @@
                     <div class="form-group"><label>Date début MAD</label><input type="date" id="dateDebut"></div>
                     <div class="form-group"><label>Date fin MAD</label><input type="date" id="dateFin"></div>
                 </div>
+                <div class="form-row">
+                    <div class="form-group"><label>ES de rattachement</label><input type="text" id="esRattachement" placeholder="Ex: CHU Paris"></div>
+                    <div class="form-group"><label>Fonction</label><input type="text" id="fonction" placeholder="Ex: Médecin, Infirmier..."></div>
+                </div>
                 <div class="button-group">
                     <button onclick="addResource()">Ajouter la ressource</button>
                     <button class="export-btn" onclick="exportResourcesToExcel()">Exporter (Excel)</button>
@@ -524,10 +529,12 @@
                             <th onclick="sortTable('resources', 2)">Trigramme</th>
                             <th onclick="sortTable('resources', 3)">Taux MAD</th>
                             <th onclick="sortTable('resources', 4)">SAMU</th>
-                            <th onclick="sortTable('resources', 5)">Début MAD</th>
-                            <th onclick="sortTable('resources', 6)">Fin MAD</th>
-                            <th onclick="sortTable('resources', 7)">Statut</th>
-                            <th onclick="sortTable('resources', 8)">Actif</th>
+                            <th onclick="sortTable('resources', 5)">ES rattachement</th>
+                            <th onclick="sortTable('resources', 6)">Fonction</th>
+                            <th onclick="sortTable('resources', 7)">Début MAD</th>
+                            <th onclick="sortTable('resources', 8)">Fin MAD</th>
+                            <th onclick="sortTable('resources', 9)">Statut</th>
+                            <th>Actif</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -597,25 +604,29 @@
                     </h3>
                 </div>
                 <div id="planningLegendSection" style="margin-top: 15px; display: none;">
-                    <div class="legend-section">
-                        <div class="legend-section-title">DISPONIBILITE</div>
-                        <div class="legend-items">
-                            <div class="legend-item"><span class="color-code" style="background-color: #95a5a6;"></span> 1 - Indisponible</div>
-                            <div class="legend-item"><span class="color-code" style="background-color: #27ae60;"></span> 2 - Disponible pour l'ANS</div>
-                            <div class="legend-item"><span class="color-code" style="background-color: #00bcd4;"></span> 3 - 🏖️ Congés</div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <!-- Colonne DISPONIBILITE -->
+                        <div class="legend-section">
+                            <div class="legend-section-title">DISPONIBILITE</div>
+                            <div class="legend-items" style="display: flex; flex-direction: column; gap: 8px;">
+                                <div class="legend-item"><span class="color-code" style="background-color: #95a5a6;"></span> 1 - Indisponible</div>
+                                <div class="legend-item"><span class="color-code" style="background-color: #27ae60;"></span> 2 - Disponible pour l'ANS</div>
+                                <div class="legend-item"><span class="color-code" style="background-color: #00bcd4;"></span> 3 - 🏖️ Congés</div>
+                            </div>
                         </div>
-                    </div>
-                    <div class="legend-section" style="margin-top: 15px;">
-                        <div class="legend-section-title">AFFECTATION</div>
-                        <div class="legend-items">
-                            <div class="legend-item"><span class="color-code" style="background-color: #95a5a6;"></span> 1 - Indisponible</div>
-                            <div class="legend-item"><span class="color-code" style="background-color: #9b59b6;"></span> 2 - En attente d'affectation</div>
-                            <div class="legend-item"><span class="color-code" style="background-color: #e67e22;"></span> 3 - 🚨 SAMU (Déploiement)</div>
-                            <div class="legend-item"><span class="color-code" style="background-color: #d35400;"></span> 4 - 🚨 SAMU (Dev. usages)</div>
-                            <div class="legend-item"><span class="color-code" style="background-color: #3498db;"></span> 5 - ANS (Déploiement)</div>
-                            <div class="legend-item"><span class="color-code" style="background-color: #2980b9;"></span> 6 - ANS (Dev. usages)</div>
-                            <div class="legend-item"><span class="color-code" style="background-color: #e74c3c;"></span> 7 - Qualification</div>
-                            <div class="legend-item"><span class="color-code" style="background-color: #16a085;"></span> 8 - Divers</div>
+                        <!-- Colonne AFFECTATION -->
+                        <div class="legend-section">
+                            <div class="legend-section-title">AFFECTATION</div>
+                            <div class="legend-items" style="display: flex; flex-direction: column; gap: 8px;">
+                                <div class="legend-item"><span class="color-code" style="background-color: #95a5a6;"></span> 1 - Indisponible</div>
+                                <div class="legend-item"><span class="color-code" style="background-color: #9b59b6;"></span> 2 - En attente d'affectation</div>
+                                <div class="legend-item"><span class="color-code" style="background-color: #e67e22;"></span> 3 - 🚨 SAMU (Déploiement)</div>
+                                <div class="legend-item"><span class="color-code" style="background-color: #d35400;"></span> 4 - 🚨 SAMU (Dev. usages)</div>
+                                <div class="legend-item"><span class="color-code" style="background-color: #3498db;"></span> 5 - ANS (Déploiement)</div>
+                                <div class="legend-item"><span class="color-code" style="background-color: #2980b9;"></span> 6 - ANS (Dev. usages)</div>
+                                <div class="legend-item"><span class="color-code" style="background-color: #e74c3c;"></span> 7 - Qualification</div>
+                                <div class="legend-item"><span class="color-code" style="background-color: #16a085;"></span> 8 - Divers</div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -631,36 +642,36 @@
                     </div>
                     <div style="display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap;">
                         <button onclick="event.stopPropagation(); navigateMonth(-1);" 
-                                style="padding: 8px 15px; background-color: #1565c0; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold;" 
+                                style="padding: 8px 15px; height: 38px; background-color: #1565c0; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; display: flex; align-items: center;" 
                                 title="Mois précédent">
                             &lt;&lt; Mois précédent
                         </button>
                         <button onclick="event.stopPropagation(); navigateMonth(1);" 
-                                style="padding: 8px 15px; background-color: #1565c0; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold;" 
+                                style="padding: 8px 15px; height: 38px; background-color: #1565c0; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; display: flex; align-items: center;" 
                                 title="Mois suivant">
                             Mois suivant &gt;&gt;
                         </button>
                         <button onclick="event.stopPropagation(); openMonthlyCalendarView();" 
-                                style="padding: 8px 15px; background-color: #2196f3; border: none; border-radius: 4px; cursor: pointer; font-size: 16px;" 
+                                style="padding: 8px 15px; height: 38px; background-color: #2196f3; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center;" 
                                 title="Vue calendrier mensuel">
                             📅
                         </button>
                         <button onclick="event.stopPropagation(); openMyEventsModal();" 
-                                style="padding: 8px 15px; background-color: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold;" 
+                                style="padding: 8px 15px; height: 38px; background-color: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; display: flex; align-items: center;" 
                                 title="Gérer mes événements personnalisés">
                             ✏️ Gérer mes événements
                         </button>
                         <button id="astreintesBtn" onclick="event.stopPropagation(); openAstreintesModal();" 
-                                style="padding: 8px 15px; background-color: #9c27b0; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; display: none;" 
+                                style="padding: 8px 15px; height: 38px; background-color: #9c27b0; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; display: none; align-items: center;" 
                                 title="Gérer les astreintes et HNO">
                             🕐 <span id="astreintesBtnText">Gérer mes astreintes/HNO</span>
                         </button>
                         <button id="requestBtn" onclick="event.stopPropagation(); openRequestModal();" 
-                                style="padding: 8px 15px; background-color: #27ae60; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; display: none;" 
+                                style="padding: 8px 15px; height: 38px; background-color: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; display: none; align-items: center;" 
                                 title="Faire une demande d'affectation">
                             ✉️ Faire une demande
                         </button>
-                        <div id="currentMonthDisplay" onclick="event.stopPropagation();" style="margin-left: 20px; padding: 8px 15px; font-weight: bold; color: #1565c0; font-size: 16px; cursor: default;">
+                        <div id="currentMonthDisplay" onclick="event.stopPropagation();" style="margin-left: 20px; padding: 10px 20px; font-weight: bold; color: #1565c0; font-size: 22px; cursor: default;">
                             <!-- Le mois et l'année seront affichés ici -->
                         </div>
                     </div>
@@ -793,6 +804,16 @@
                     </span>
                 </div>
                 
+                <!-- Boutons export -->
+                <div id="reportingExportButtons" style="display: none; margin-bottom: 15px; gap: 10px;">
+                    <button onclick="exportReportingToCSV()" style="background-color: #4caf50; color: white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                        📥 Exporter CSV
+                    </button>
+                    <button onclick="printReporting()" style="background-color: #2196f3; color: white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                        🖨️ Imprimer
+                    </button>
+                </div>
+                
                 <!-- Tableau des résultats -->
                 <div id="reportingResults" style="overflow-x: auto;">
                     <p style="text-align: center; color: #999; padding: 40px;">
@@ -877,13 +898,13 @@
                     <!-- Type de données -->
                     <div>
                         <label style="font-size: 12px; color: #555; display: block; margin-bottom: 5px;">Type de données</label>
-                        <div style="display: flex; flex-direction: column; gap: 5px;">
+                        <div style="display: flex; flex-direction: column; gap: 5px; align-items: flex-start;">
                             <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
-                                <input type="checkbox" id="hnoReportingShowHno" checked>
+                                <input type="checkbox" id="hnoReportingShowHno" checked style="margin: 0;">
                                 <span style="font-size: 12px;">⏰ HNO</span>
                             </label>
                             <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
-                                <input type="checkbox" id="hnoReportingShowAstreintes" checked>
+                                <input type="checkbox" id="hnoReportingShowAstreintes" checked style="margin: 0;">
                                 <span style="font-size: 12px;">🔔 Astreintes</span>
                             </label>
                         </div>
@@ -895,6 +916,16 @@
                             📊 Générer le rapport
                         </button>
                     </div>
+                </div>
+                
+                <!-- Boutons export -->
+                <div id="hnoReportingExportButtons" style="display: none; margin-bottom: 15px; gap: 10px;">
+                    <button onclick="exportHnoReportingToCSV()" style="background-color: #4caf50; color: white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                        📥 Exporter CSV
+                    </button>
+                    <button onclick="printHnoReporting()" style="background-color: #2196f3; color: white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                        🖨️ Imprimer
+                    </button>
                 </div>
                 
                 <!-- Tableau des résultats -->
@@ -1093,19 +1124,19 @@
                     </div>
                     <div>
                         <label style="font-size: 11px; color: #1565c0; display: block; margin-bottom: 3px;">Libellé</label>
-                        <input type="text" id="customEventLabel" placeholder="Ex: FÉRIÉ, Congé, ..." style="width: 100%; padding: 6px;">
+                        <input type="text" id="customEventLabel" placeholder="Ex: FÉRIÉ, Congé, ..." style="width: 100%; padding: 6px; text-transform: uppercase;" oninput="this.value = this.value.toUpperCase(); updateCustomEventPreview()">
                     </div>
                     <div>
                         <label style="font-size: 11px; color: #1565c0; display: block; margin-bottom: 3px;">Fond</label>
-                        <input type="color" id="customEventBgColor" value="#ffeb3b" style="width: 40px; height: 32px; padding: 0; border: 1px solid #ccc; cursor: pointer;">
+                        <input type="color" id="customEventBgColor" value="#ffeb3b" style="width: 40px; height: 32px; padding: 0; border: 1px solid #ccc; cursor: pointer;" onchange="updateCustomEventPreview()">
                     </div>
                     <div>
                         <label style="font-size: 11px; color: #1565c0; display: block; margin-bottom: 3px;">Texte</label>
-                        <input type="color" id="customEventTextColor" value="#000000" style="width: 40px; height: 32px; padding: 0; border: 1px solid #ccc; cursor: pointer;">
+                        <input type="color" id="customEventTextColor" value="#000000" style="width: 40px; height: 32px; padding: 0; border: 1px solid #ccc; cursor: pointer;" onchange="updateCustomEventPreview()">
                     </div>
                     <div>
                         <label style="font-size: 11px; color: #1565c0; display: block; margin-bottom: 3px;">Bordure</label>
-                        <input type="color" id="customEventBorderColor" value="#fbc02d" style="width: 40px; height: 32px; padding: 0; border: 1px solid #ccc; cursor: pointer;">
+                        <input type="color" id="customEventBorderColor" value="#000000" style="width: 40px; height: 32px; padding: 0; border: 1px solid #ccc; cursor: pointer;" onchange="updateCustomEventPreview()">
                     </div>
                     <div>
                         <button onclick="addCustomEvent()" style="background-color: #1e88e5; color: white; padding: 6px 15px; white-space: nowrap;">
@@ -1114,10 +1145,23 @@
                     </div>
                 </div>
                 
+                <!-- Templates prédéfinis -->
+                <div style="margin-bottom: 15px; padding: 10px; background: #e3f2fd; border-radius: 5px;">
+                    <label style="font-size: 11px; color: #1565c0; display: block; margin-bottom: 8px;">📋 Templates prédéfinis (cliquez pour appliquer) :</label>
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                        <span onclick="applyCustomEventTemplate('formation')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: rgb(255, 234, 0); color: rgb(0, 8, 255); border: 2px solid rgb(0, 0, 0);" title="Cliquez pour appliquer ce template">FORMATION</span>
+                        <span onclick="applyCustomEventTemplate('mes')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: rgb(255, 234, 0); color: rgb(210, 9, 6); border: 2px solid rgb(0, 0, 0);" title="Cliquez pour appliquer ce template">MISE EN SERVICE</span>
+                        <span onclick="applyCustomEventTemplate('apd')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: rgb(255, 234, 0); color: rgb(194, 5, 154); border: 2px solid rgb(0, 0, 0);" title="Cliquez pour appliquer ce template">ACCOMP. POST DÉM.</span>
+                        <span onclick="applyCustomEventTemplate('visite')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: rgb(0, 17, 255); color: rgb(255, 255, 255); border: 2px solid rgb(0, 0, 0);" title="Cliquez pour appliquer ce template">VISITE TERRAIN</span>
+                        <span onclick="applyCustomEventTemplate('congres')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: rgb(223, 240, 216); color: rgb(66, 118, 69); border: 2px solid rgb(0, 0, 0);" title="Cliquez pour appliquer ce template">CONGRÈS</span>
+                        <span onclick="applyCustomEventTemplate('libre')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: #fff; color: #333; border: 2px dashed #999;" title="Réinitialiser les couleurs">🎨 Libre</span>
+                    </div>
+                </div>
+                
                 <!-- Prévisualisation -->
                 <div style="margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
                     <span style="font-size: 12px; color: #666;">Prévisualisation :</span>
-                    <span id="customEventPreview" style="display: inline-block; padding: 3px 8px; border-radius: 8px; font-size: 11px; font-weight: bold; background-color: #ffeb3b; color: #000; border: 2px solid #fbc02d;">FÉRIÉ</span>
+                    <span id="customEventPreview" style="display: inline-block; padding: 3px 8px; border-radius: 8px; font-size: 11px; font-weight: bold; background-color: #ffeb3b; color: #000; border: 2px solid #000;">LIBELLÉ</span>
                 </div>
                 
                 <!-- Tableau des événements -->
@@ -1557,7 +1601,7 @@
             <div style="background-color: white; padding: 30px 40px; text-align: center; border-bottom: 4px solid #1D70B7;">
                 <img src="data:image/webp;base64,UklGRvYiAABXRUJQVlA4WAoAAAAgAAAA9wEAYwAASUNDUMgBAAAAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADZWUDggCCEAANB9AJ0BKvgBZAA+USKORSOiIRP4vrA4BQSxN26vURJPzPYnan7H/bP2w/vP7SfNnXv6f+Jf7B7pfALrvy6vKvzn/S/2H8gvmR/hv+R7LP0B/zvcD/Un/a/2n+9+07+s3ub8wH9J/uP/n/wnunf6n/nf6P3I/1D/bewB/RP7N/2vaZ/6nsheg5/Of8l/8PXI/a74S/6x/w/3G+Br9if/v7AHoAdR/0k/n/5JeCf+A/Kb93O769U+y3Kj6u8z/5F9g/yH9t/bT84/vH/Mf8Pwf9W/qBfk387/u/5Yf3b9zeQd2/zCPY/6X/qP7h+73+e9Qz+n9EvsH/x/cA/m/9O/1/r3/yP9B4833z/f+wH/Hf7H/wf89+X3xxf7f+F/M/2+/n/+M/7H+c+Av+X/1v/l/4P2zvXl+4/sa/rp/90TfEMu9kkGJ8AcTa2JYbJaIBplWb/SOZr8lqSsNbUWJ0B4guwwnbcat2olfskU/fP4eyw3CbTwfc5o3ojjJVkirlty4vl1M5lykBwYdrhFFyOR7nbDp/LK1DcnWLGCacAdsL/RDUPKq4KVm4yKoz6fJ1WT1le0zibshAexXJ7P4ejneyNPp9l2VxdJGIWYgqet36fQ+R7bI89UmcsJ9dc0pCK1j8gnW8+aA6h/3BO/jag3uDzAMYBqJ4tEjftBM8VnfnDgmdyFarUV98AFw7qoDVZRUJ6LcuZTJFlbfohIa4NPz0gb9LOd3YYI/9xe/8HphOu0ZjVflW2opVdrpWlf/EzPrBQFHgLgtDpFjNAMufarofkAyKXXfhMl/hDRIw4Vf58AuJCY3tZNJuslv+WKnuZPh8zJ9nk4BCw+7SoRenWTj3hiy1QeHJx9GopN+XfnzAOn1z9b5FC0B0ge07ywT/EKxDqKWtAFzJLyJCOhW7ab9C3ZS+8Zam4YU/sB02KUxgHFsUd86Qxwip7kMmaXAhtQekWw7UPys/t5q9LfgbtYSgHc1boLH1/8ejSB0h0XSQ/ldD/LBbTcSHbS/NNjGOpMG5Kfg5CYZ8ghw9l9RE1fu+3OdQO/h51n3XlUOz/hT9Tfvn0vNYqv8Y2ODtB4qVZFI6N5XGet0EuOyFOfEOsPM2dEVMIYfAbVZ6g3+/DJWFErQ/n9mzAyKxc1VPVohj/mKDRG+yu//xOznRsKP4+GobKH9AYbSmn5J6OAGdotvdNrdLrX51y1FgpHrH+k6ICyZEss5/4O010kdPO4anTMXHa4tupaG7Dh25T1a6eT4VE8WfhTaak/LmMYj7PyFvAq8dVZGpv3iq/lVBjpyQz4ykEnualK3SD5WFR2ZmDJAeFmk0PTJjQjBh2HnuGHPjZqHwGQfwXXdgAA/v3BD9jCG8y5GOXsrA0nQJCl5fkkbwDeK+iXm4GKMJxbp4OGo5hexWV4XfNjrmO9USTrsPgTOYx4eC/bMU6NboNSnQqjqKhZ0tPOAuu202j1ocZTbmG+1bc3oXrElsmVU8rtwM9/jh/Ob/i1BRVPctmaRFnq7IFbra8bqkjc8GG35SsaWlH0If9IM6nXSZ7+JZNED8kbW6GpNHMfcQXCv2+8ds72WGzw/68TA5oEqNPMKQWjAUihebRYliLwAev1PHLSBZJrNzir3cuAGqy3kNuRokUN2P0yImEs476q7CaAjZ3EKMu5qJias6YadBb453El9yt+SOpuXeDaWCoQ4z38H01lsoCzmkJN8FalhHHiKoh+zoyxcfpWTLadXVrFTMvo0BVUbUDEntYPnClOHkzfRS0f2ImNxs32SmEX0Z3eKjSvaOf9HkneAB2WR+H660YlaCQR1xer22ffE8onVzt5trNneI87dIfd9fqiwM/PBj7njz9lmgNCxppym1/LCfyYvhvkzrBXQ/pKCtQIJI4K4n5ClPK39KepUG2D9q91+ljttZv1s6pcM3tsiDD2pqkLhhz5Z0I62gEcIhO+wY/pCBX56wO4bYL9MrNFKh94YdUe8Gh6IYq5fg3WzG+5CWhkwAqDL6LTFGCCPKBMA10Y71sgkH6CanauaYE5V/k5mSa7noWCOVHuwB70utSLNpcTi2UUglhOgVmkPuVEKyxUUbqyjDkr3dbAKnYFFdcO1ZLx8ZuHdMFvppm3w6vRQsMJDxW/8k5IEQZg3c/u2Q9wzLBHj8XffiO1O0uncnkJMmFHTzS06xu0o2OvYBDLUP6RRL7PeQBxf9k4Qeug1ZAN2dh2rKCfDYNvWSZ1eTFZbpG7TG5642ljyJBKQzpZUtLQ0wY7oQNOo9O0YJiqd8DKMg/S0DgY2Xtsp8JqRjlnGpIQeMp04voOjkRy0+ohNl3EdArm1xRouknqE+vilJLu8fU6UUack1co4Oy1LjEPZ9kqx1v+vX6LiXsZA6lt4y2JvJhyimwPX/Gf71MBo+jlPcJXY7vlkn80qU7RVuDjN1jh26CWVQ9jxlKpY3uhu0iirEJpy204RLyvoT2D2/i5saY8C6ALHrM//OfjFvmgLTLBEwAU/cN46C3MhzuxwW/l1U4h0Qr+wU6DObEVn0PC8CuAqK6L+9TvnO0fF+2YAJAfflCPd0qQVXcs3e1i2lTwRb4gb/HECpbNdGz2YkCgBfpOo6l+rNn3TrfKKR+zROlRJm/jm2dqnioaJQokY3QYzPeYfED+fD76PUHs6t4AopACxCCvbPtQfrAOyBCDKbfPo/gDQvfnNWqHjC5LrFgXG6Axtm6HwqzDoESNZJAeuw0iuRFGDX7ww0XOr9BbFC0FjVT4o2QVxG3cY5MplivYWofBdPLgK2ptQCYyhDyMzTs0LuBs8HirdsOWBX2CN0TlsWxaz68A25VQVWE6PtDGktGrOjlbX7xkinT3qLHIPnYExXxexgTNiABYmf3iq/KK0gsp6RtxuTaMk5lIPgDGbVgrPzK13WCr/Ol59rZqJB7m5Phe3n8hbXeJlQZyysAEbe44Stj23hH/sIrfAGLP7bHgImRZPbOabj6IX/JlYYGw/LyF/pIyDnsK2hazGHb5MoGh6W4NncW5hAQskESmuiIC+b4UFu66SnOqs6HdsZREoIWoqhkTVzu3kp9/azC0Nxgb+i6drs+2Ekdun9VA16A4DIwt6OZVZPCHJ2i1yKVidriZJvOb8Dq+335gHe6iewLXBf98P2+HB1fX7ZNhWvNJ0l51J1ArHowVqd3uihOe86n5vE+DWwA65u+Zz4QlL6pXIjpA4+mSGdd0Gs+Ok5JCPAP9OdaF/Wh/vbJGCGFpG4rG74Qj3SPVZu6bob3YTKtHz0nzspwh/7UDIH0jlCOv2YXYaF05bNUNAFa69h5V1NPjiCDHBg+0PmucTszaX32gqpmk8+Y5ViQNlTKj5T8+uR9RUWMXjfkxunMdlwKfUbSp8miubrW+PflHwzgc+fCFbCE7QUMn86nbKiXfpxK0zoBMiIeyWGVU8aFn4HDWAWczG9HNUwHik0IRlVQzBbEZbSAgwBv6Ju//mmrKJgXp26Qu93MUPU8uCZSqI9gBF+7/F6tBW162OjjfAAGigUamsK2zSoULd2lHP/nD1LusTO/G+H03cVI31nwNEACRAsepVhaxkvoWIZR0lh37JHoCsYorfDdDYk4D3ZMAl2sqVgKf0igSAv8/ZAX2xyGbL1R+HVBXdQmAI+O9YQ6LsdLeT3klSe1yxzIR3Ta29XdI5QSu8r52L5A94L4ecTonWFd5U/NnKie4AOKY7ZoRi0QL4q+qj6+UrP+vEdHwlr45kDxE0YABPJTNjt8FVzC/axzYT162PZl0YL/0IWPIpWuLB69XIflIHkhYRZzCasDXDipMCNaZjmgdCFsXgHQQk65i2YbSgNcLnT+TfLkui5XcLlww/zHPglli37XUqD9p4wjrG7/X38bCSzsv9iK+OYgLX7saDeeWSkb0IQl3bWPup7WUdbc6IXmYvdXtuRbHczWOQcm+mv/3IXDXkGnUGWYiILiWT7K3hp1AFlWHu1+5rBlsiw+vlH+Di1yVmX2BG5bTJmpWYjvIpxOB4FhzzJnsvYC7I1alWcvG5gt8qyMfsYJ5veGerAwO+wZ+2C2KTSdtu5x6DgXbD3kSSKOr8G0D0qIoX8654oRrVRNFs72jSG210DmR4GfWBxxW89oVGaVdwrAV6Q7gNXtDQWlPQ7W/uKjJ/YlveMzdJjARMLtHS92RuXf7+6iLdjyxBRfLIvxOAxvmzetsNrV//FjYXDj6rjI24/O6Mpj2XuewBsTENbOr/j1eDH2GBqixLtnob6JPwU1t1ytUwF048TtcBoISG+AD8HGLoM81xs6ZHvTFV8s2CF4XYuzxW19ric8H1Xq3qt2achsXWNJvcU5mlSETf5aP31FyGDGDbwl7pOxzpW6eN7ZxeQNOctKP/Hmf3Yfjte2f0Xe9hjK9ujKyi1eT5Dhnq5DK7A4WkKFOwml+iuF84mM69fXoAQVc/Phyw/1FfZBkgaJ12vvv8czyhOjjeNG/QDzOQQLd58mliYdMt38vPfnLJc8218BcZQZ9jSfDwgpj4Ad5adMOfHFUa3ellI7Cz8oH4Hl8FjkeVc3ex8ipHorzY9YT740JpI4J+MlIR8Mn+WTzlErGGY+XEHLVQYSC9VgsCs6oflnM9SKezvvzIGpS5NEq7/zFWxfEBepy78K7YWcu93xRafEXQuNvMEln04478L8gnByMC+RV3u//8VjEIIr44d5pepDbr+WiNSQ+FrKc++6XBNQ/CrKTf49vmBUiOdlwD8E2qVSY7onPxvf/9K9+WVYpHdtD1B5D/csU0aDS6jniADsQ2KJPrIAeQ0UJ4TbLazCoxj4YVxPnHA1FYaMteKHDqa/YGcZHC71ZIkgkDL98ohrVUFFzgwRLPHxvc7oP1TTaid++JB3EIsZqiDU+Dc6josL4ElaWSCgX+pN3+eMzvWodsAM5VUl3NI5RXdWNkhqqAqhYiQW8VD73k4oSTUi75a3sDRPyxce1ogOKeypEqkLUWBiM6KQMz8xQAewLiOvgdY5Vn/1IZHlwRax/mceUgppASaWogKHzwGtBs0+xaT5tSpysk/Lu65kLqk9vInngp34+HA6dOwHxcTnWGWlT2i0lYoNooWyoGCpRoeoB9jcmBDdmEhdHlw37FzkgWZ5XlXB6nDoJDM0OrMf4eVMEIcBf4WLArYaS9KvjEmA3R0rgFmluFPFIiDUrQEnfC6XBwTxcUbhcGjXHEO6jOS0OGSxts148W57aVRaa+p88xErl8SuFCkCTCVK/jLsoWB/8PH2oPHSUEikn/foH7pMHeRXJLClwK2J0kF3J9+mqTQFcrNP+Iq41VWnlkct0U5nJcCSl7Ahhm5fwnDnw3oLFf4OktlfKQZoQcjap9JQzUTyFqHlKzzM7Fj7ML5iG2nx8QRwsyJr2Uz88x/n5rB81VK8j86lvk61atdFTJ0tel826Rkd8R5ILv1kTsymV9l4M3oPoQ9eL4oDiDE9yLgcOpKmzh4PVFkaa5/G9y/Eq0ba8RZVai1jGnXWod2LPUoUXN8o3jcRQ/PTKVUNwZrcvYEpFoBm1qM9uEBs3rfzSuhpsoJOtxE8bPr8p2cexezUj0jkY/pkpxW6U4wD7PtzHxWQ7GSmoesTvWidxDHk2ZKeeslFdqrIy55msm/PZp+4hCRKR6AdqLB8AdI23sDFEhEXc1M6mr4VzMAcuMTHoI0ksXDfEfSpT8hYZYmxjbI2Z6ODEzmxUX+JV23fhVO/Etw4qWxt0M05XUwqXkRE/3+LEdnXohhIaeWo0JU/MTnREXNir6o12q0DZX3Rf0aCWKxcSvjFNnAESA3K55jkbCxstWrbhA9A7b6zTKgX1QZVOceHO1NBMSnxT/ulPMANKyXkB35+AG0Toieur9kmRXjVTmGOy1AGbz4qUgk5VocU3pcZ8vHzkOO4lG279hqjpeEbS9j2HBFELgQSoImiLk3eK5E01H0vPFAY1LzwkZWH9smAuusKGO/u73rN7ogAZvhtkWl0T+q3/Mblpd40Ll/doJu8JVc9scQee8asGjGeVC65PnFlSsOLOKyraWKm/yOi4w0CanSDzGuWOuhQXdT3/4go3/DAVfbLZh5fza5Gdxujf4pa46IjpiG26stOP/xZ4NWRvqqK7KCgHLKlG1ZzmBYA7RQ4AC4gh5PJi7XjuvnGMQ9O518NPr+LWr9gGk4sTzLElmGWfmgVs4zPscBW3Zvkii4onOvKladjw9SLaFKK1Nb5/KR027Y9en8Dx5mkcX5Gh7bSYorAgShVLHDAsqNYj9P9oT40luJL/S2qESFwHhU6Wlfh5tUid8t3CuLieeCuTMfNYjoPDwz3p8LWk99Zyl+9yhHNknPC3ul1jK/FnYrZ7wG339QmerzPnHop94CSXa5wT16t2PCc9ltICYT5Go0bM0XsHDc+zp2rJVjjmG1myGVe0ePnYQpLoAjCfjRfadHBEt/w6fGueSta0lcIX6xjJbOKwSwKwVH+E1DHI05y0aWD9IyE9k6bDR+vV2TfPWNBQ1xZFdc8Y/nbS2EfUKrpVp+7I0kAKOGyvTKwFeyosH0Aa6u03KhjOALx8Ipzf4OaWVjmKBLuUYDIAkM1b/pjY/3fhs3d727IC3BAA61hCNlxwLSLdvhYmN3r5BmogoNz4Cwtzh9lsPISzKwf5rNn0vw6tiM8YKosiFJKlsYgIZp6U7ziyDeL73+UTD2e4ULomjbX96hIsNN7XKKinh6REEPYpBXMOxksrtswErEK4p2rXYhKR9OLC8BTo8V1c3vBHs9SZ751Q6WWleMRQ4vF00Psf/PXmI185j6QsWan/2zWdAZh7NNcznL4GUNeQDMqHzBXdkIhBJLayC8RttO4w6adzzTq3ofYaUa9olF0Fb8g0Eo8byKYAV0OWOCsvaE/40oebOShdaygW74TZfumcqGJkzoYkpJpEPRaPIkPRd2+uN4MjhXqXJL2ZJtqaoXdbaAezXwEPrlT8Mb6TnpkI3Yz71L/XBAlbXHCjHMVhfKdnAfGe5BXsRYVRdGxo7S6Ss9O6sgDKz8tE7pfpms+jIhB6QHAoARFSkScoTxfaZS1vDFburSkLH+h/wIhJ4w26UPqvWa9/gFR8zr/1/M8CKxBxhdnMScOtMqKJCpj02Z4M/H+6PPMSmSUyM/a9byszxVXNE6IVjHLualvAhFGQRr7c7iGJpJilmpv7vm3NjUyXk2WhkqsIB7MjK1EAqC0JfzsZThKJAZi0+CCNUXyM5Fk8fSJvimrrRrGNydbQuNfRBd52+XKnyZj4yJU7Jp6BfKSsJuLuRiVosXuezcsd/Eoqr72OPIkIzv/f991rY0m41gUf2HAdgwc8kdQlzxbcMtNV8N2HzHa4Vy4T24Oi3+XvvSewtjvKm4IY6Bahgh9qD81A4eXePJwmzdKlCA/2+CxighYg0LuyP89/xo/7KlQ8fP4ahkcaNJH3GcfYCTooHU19WB0sWP8tmP1KePqmO2UpCLPI2r4e2V921AdNYOXavFAz1NlEkOmjn6JCFJ7g9pY7O40raahg+F6KuJZECPejMvxcj2FNbei5RMuoOzclOYOYh+KJs206l0difQ2+IiD6PEB7ws7HA2LcXpYzMGJEeu5wnkcwybpAOjK3b6ry8XxsiRZIe/U5go6zyUpWW3yZZasNAAhPlI5nuzwCenme+umylTC/wPQ+45DB7sB6QFikxp/HBCK8sJESsvW45XsmhR/PucAM/zRo47jSC+8SYb1Qn++zKsFVHG0LcMy91Lsqe4DcjTgf4agPVgrVmWZrSYKYyAbnkDmpNi/jRDWcdMF1b+DDo4WwskCfuaY6Cv2ljhjArNUPqkVfD98bpScrRZ5qAI4Hlw3+Ozjwg06z4fvnNZeaB1pCcwH6iL0vdXRalSS0+4rJz8UCx9P9xNBc4QVj8aw1ne7QTzuMdJG4R7Jn/GICKQgDB0TEI6+o4nsqF+b4NZrdd/mfm7tRKA2IrrOLQUCrtHKS06OBeh8yOV+cL4Ej1w7IE+mcKDNIjjvGdc8HBOyLp8dcZoqfG7430OjeGD7kkMBWBcvBq9GbUhyw5nTGjHrTBvHmcuk1RGCagIKtRMpg/L75L9zsQUFMLujXJ+0xQrEswiokqrFqLFJf7CfbRpPj38DdXQCN368Nq29HIg6kopJpMpU3JmDy2NnVOUgAWwZ9zrP7EGEi0r/x26LXkW/GNHipvviZ2Cw46vu3GvgYfAm/m0sPJIMGXy5gaLWyPI53dzzKhm3Z1bvzGXIRnfo0J0R7Qt1jqGOWrgCUWe7E4H/IuTesx05WulQ3bZh6PN7h3OfwPo8ULqN60jAQcLJOuKDBudQoBY0H6taigchUXj60xxvrAa4jNZEXDInVuOuOEJUCGrU+dWiMvSjQINQlEpseakJRzTjTtYYfAHo6ZwNJN9pL3QQ9BI5qg3gel0oZQteCmxdnxOqfmoioXplrIwbzu13F8mLte1Kob6lebInUEBuxCLXujdQ9dpds96xxsLwsflEmsvHrM6IQrQ64JZZRBU5U6IkYv3gIxxCAjgKV21aV7cWn8f/lDzdAg5jFzIwRLSaocMLcIj6kHp1rSjx1aF7tz+rJinw5Tz1cCoezPQ/lDwT6W1qX1Fwnq+LyWjT2LshyfvXLVzAXXdYyE0uxlf8lCdzazUoAgBbkl43wh/psNOiyDS6GGew5Oa6kQADC66j6oFiDP5n14/AFGI21iBFpHkz6WXBKgwq3MITLXZeGSqsa1tY8nKLntrP09djwG9dNHUx816ZI8/u2OM439DINKn/QfU0n50EDFlG+pM/keZw/49781V1yGJwvPyRep0u0xtZor+68c+KHT9s+S7UenAN1PTI0flfjWtSqDxRolzg7BbR6+4GVYzz/3sLzGnYmjlP7a8qScpqU/Ulq1NAwHpvICEePLmbcBd4RiuQOMo+8oWrmhO+sZIQpvh9S7J5djM8wVK/drZ7ql6KfcnS+ZqwIM5bvp510KuTk42YVsnwdN1JzBn7L5/HPeo1bPlSPde/fZtUOB0cznTv0BoLuF2M26wdvAx4MjM43AsGFl9trBiJcMu84+OhcoWzZHTbI+VMpPsonZ6UEByKnZc60wSd8KVxrwKcKywZCuUFiaIvCcY2e8EhK3zttaoUubHhleBX7wkIhcXXjzWMdsEG0lmus0V9inAE6yuQBTjtrL30/aSgvrsHVQbDZeXeIxRz98ADiDnnTcXEHYLZjtLVywYt1Nfv5j0N4WSmNR8w8ujsb2kxluVbpwpmPdRDIL4/xx9MfbAS+ZCbXeO47rccnQpAA1CA+U8+FuRiJCQ/6C7xKYPU64fxK2KiM8D0svHl9IEZD07zEcVhQnkKOM7Tnag8OhIpBiBDPxVYplZ8PRg3SRlV4raK5b1zNaQL8vzTGfwvcRCllyz1zaawy1zx6tGW0yFSLEZV2gNE/J1B3Ww3UmQ5OoEmt6El5llqXk+iTEAyjZi47BucK9omUpqZNwuP7fiyk2J77Ns5oe8+K/4YtaPrd+/KfnhR8rEt0iD9nPsUqGL7Fw4gOzeja9p1ObiB4pUHttYDqE3o49T/akVdaKZNKQOzvUhUhlDoILEi9CuaKQzdYji3J/dL8HNQVQJ3HpH1G84ou7dKoh47gWFQLliIna+KO8P4mjyImMsKLoyViRMWiPKtx4jyeC2gPb7MCZwGW83d6vwt339ucIIYWQHtU11durHD0jXGtD0tWjWdMqZvip2rw96K6bGadOAe6lHOlORu1RTg3ofrcz0NWW12CE0I5NECdzuIo3buArCNGqg6q6MV5P+/ihx76OF7d+iChEvOBvGNSyxA/HWieUa/0ADk2mDv84nSLNW9Y6SKDeLpsj9VC92+NeCaFkNOdcyNNDrw2SLvKw6MtxrTUuj33FAtg7uO59XQJuY6tOHWuLDmlB/FS32Jld7LHUCCPhsDykpHHD05PMOJMtD10Rft5rkEj3lrHVStiSWwc2+X7UscpKyozPgwV9pygrlvTld8xk2TajeJG7No/28VOH2OrOgA/Cn0KpCd4aHukKepEN5Xl6PbNYPjgqAeka/VRVMWCs76esn3wh9ZkFHkD9KkyivH0L/DgUYDNIiZemMNyljMkE+woxN5x9H+qxvRZ+5uICcf5y6n0GYgjfJkBUNfhmfxIaElE9762X7SbAfGtPWGuv1NspbjxYOzoD4dY8sRNork0XmM6Orl6RInit0Qwys9DPbdVpo2QT6HZa/8pxDlTD5ytEnTXjOMsR0Z+eSsgEGfQUBAX8usOGW/3V+83l4V6NhD9DNfAVwjmEny7z0bigAORmmmSZE4R2lKH+2NmaPzXsU9n3edhF41ZtEk7Hdnju/SKHNE5+lpbYnJDzQ7+AmbZ0Za184iO3J6SLUgALuOVBiOLrjWdHJGlJNtfgawAAGBmyQ32+3XGeO/b0IOL/3kbdijJpurMwTJpJDoee5gx+OgOCBI+hMqx2vOMn8dt1Dy/OMgDb3J01kRTtbBQjAPCIqVq5/+ZYGKtfyM+cDuTcieO6LSs8wyLestE+tegRIeI81FxCe+4/W/Wb4aL5NAlA4swDpV4a0dSXKusRAw5JO8f6Kh6vi+m8xKtXVC2SRCjreM9g57XRjSrvIiHlIal+pTjnBJC3jAiYnk3ZYNbpX5IREZ2Xu/6zFn+ahDhczTnYboOFNKii/BVB4PCAgLORazUvWyVXxMRTNE1Xd5z+UyaXdVa7zM9REgtbzFvF6Ur2/uQHlC6xh+BGKUgJfQodsBE63ZnX2zhXBeu2qtr8VmvWSWfqVtzjrGC8tyFtW1HbmnK1UqtClLEG5LMbwyZBNQEj63kqeM3fx+FL80V+y97AHQN4YJi4hAPRi5OPsFpyc8J8jbxfOZimgTj2QQbCxBPtz+BYX7w/m8a6Ty62RiPg/8R32f29ufS9Ps4vkYuUuEms9MSPfDbXWILJJR1RjRcEz3Ky+1GeFhwjZUH2J3zPQ55FRFg+U4HGcE+iY4Vf7JIe+V9FZ2We+FlfZlG7UQZnQRs+3SNJhMWszwklh9F64lEIS8E/Sx9dLBMl/Cjzy4qAy1D2w8+zReCNvdHW38VxWG3fwQ7EoSijUC1+BrUfg4jnolAccW4pibWrU8x9V4QOdNR+buOr9Zjld/sdm3qZoE2ZH0pBqWJRAIJB79wTzntfQ4y3q4c75pzRPQP6Lz0NC/dBio1Q/CC2fL9Tee1wJ9dUGCt+C48dDq6H2Ar3w9qNB4RqQU9o11G2i36Ojb96HxqKrg/QE8VgLFT6mqAUAK5lWEGa08BdH17F0HG+1fQAAAA" alt="Agence du Numérique en Santé" style="max-width: 280px; height: auto;">
                 <h2 style="color: #1D70B7; margin-top: 20px; margin-bottom: 5px; font-size: 24px; font-weight: 600;">Plateforme de Planification</h2>
-                <p style="color: #6F6F6E; font-size: 14px; margin: 0;">Gestion des ressources et affectations</p>
+                <p style="color: #6F6F6E; font-size: 14px; margin: 0;">Gestion opérationnelle des ressources</p>
             </div>
             
             <!-- Corps du formulaire -->
@@ -1628,6 +1672,8 @@
             <div class="form-group"><label>SAMU</label><input type="text" id="editSamu"></div>
             <div class="form-group"><label>Date début MAD</label><input type="date" id="editDateDebut"></div>
             <div class="form-group"><label>Date fin MAD</label><input type="date" id="editDateFin"></div>
+            <div class="form-group"><label>ES de rattachement</label><input type="text" id="editEsRattachement" placeholder="Ex: CHU Paris"></div>
+            <div class="form-group"><label>Fonction</label><input type="text" id="editFonction" placeholder="Ex: Médecin, Infirmier..."></div>
             <div class="modal-button-group">
                 <button onclick="closeEditModal()" style="background-color: #95a5a6;">Annuler</button>
                 <button onclick="saveResourceEdit()">Enregistrer</button>
@@ -3862,8 +3908,43 @@
             // Ne PAS réinitialiser pendingAssignments ici car l'utilisateur peut vouloir envoyer les emails avant
         }
         
+        // Fermer tous les modals/popups ouverts
+        function closeAllModals() {
+            // Fermer tous les éléments avec la classe 'modal' qui sont actifs
+            document.querySelectorAll('.modal.active').forEach(modal => {
+                modal.classList.remove('active');
+            });
+            
+            // Fermer également les modals qui utilisent display au lieu de classe active
+            document.querySelectorAll('.modal').forEach(modal => {
+                if (modal.style.display === 'block' || modal.style.display === 'flex') {
+                    modal.style.display = 'none';
+                }
+            });
+            
+            // Fermer les modals spécifiques par ID
+            const modalIds = [
+                'editModal', 'localisationModal', 'samuModal', 'localisationConfirmModal',
+                'deplacementsModal', 'logoutConfirmModal', 'myEventsModal', 'astreintesModal',
+                'requestModal', 'monthlyCalendarModal', 'diagnosticModal', 'localisationsManagementModal'
+            ];
+            
+            modalIds.forEach(id => {
+                const modal = document.getElementById(id);
+                if (modal) {
+                    modal.classList.remove('active');
+                    modal.style.display = 'none';
+                }
+            });
+            
+            console.log('🔒 Tous les modals fermés');
+        }
+        
         // Fonction séparée pour effectuer la déconnexion
         async function performLogout() {
+            // Fermer tous les modals/popups ouverts
+            closeAllModals();
+            
             // Afficher un indicateur de déconnexion en cours
             const loadingIndicator = document.createElement('div');
             loadingIndicator.id = 'logout-loading';
@@ -4196,6 +4277,8 @@
             const samu = document.getElementById('samu').value.trim();
             const dateDebut = document.getElementById('dateDebut').value;
             const dateFin = document.getElementById('dateFin').value;
+            const esRattachement = document.getElementById('esRattachement').value.trim();
+            const fonction = document.getElementById('fonction').value.trim();
 
             if (!nom || !prenom || !trigramme || !taux || !samu) {
                 alert('Remplissez tous les champs obligatoires (*)');
@@ -4214,11 +4297,13 @@
                     credentials: 'include',
                     body: JSON.stringify({ 
                         nom, prenom, trigramme,
-                        email: null,  // Ajout des champs manquants
-                        telephone: null,  // Ajout des champs manquants
+                        email: null,
+                        telephone: null,
                         taux: parseFloat(taux), samu, actif: 1,
                         date_debut: dateDebut || null,
-                        date_fin: dateFin || null
+                        date_fin: dateFin || null,
+                        es_rattachement: esRattachement || null,
+                        fonction: fonction || null
                     })
                 });
                 
@@ -4230,7 +4315,7 @@
                 showSyncStatus();
                 logModification("Modification du planning");
                 await loadResources();
-                ['nom','prenom','trigramme','taux','samu','dateDebut','dateFin'].forEach(id => document.getElementById(id).value = '');
+                ['nom','prenom','trigramme','taux','samu','dateDebut','dateFin','esRattachement','fonction'].forEach(id => document.getElementById(id).value = '');
                 updateGantt();
             } catch (error) {
                 console.error('Erreur:', error);
@@ -4258,6 +4343,8 @@
                     <td>${r.trigramme}</td>
                     <td>${r.taux}%</td>
                     <td>${r.samu}</td>
+                    <td>${r.es_rattachement || '-'}</td>
+                    <td>${r.fonction || '-'}</td>
                     <td>${formatDate(r.date_debut)}</td>
                     <td>${formatDate(r.date_fin)}</td>
                     <td><span class="date-badge ${status.class}">${status.text}</span></td>
@@ -4281,6 +4368,8 @@
             document.getElementById('editSamu').value = resource.samu;
             document.getElementById('editDateDebut').value = resource.date_debut || '';
             document.getElementById('editDateFin').value = resource.date_fin || '';
+            document.getElementById('editEsRattachement').value = resource.es_rattachement || '';
+            document.getElementById('editFonction').value = resource.fonction || '';
             document.getElementById('editModal').classList.add('active');
         }
 
@@ -4302,12 +4391,14 @@
                         nom: document.getElementById('editNom').value,
                         prenom: document.getElementById('editPrenom').value,
                         trigramme: document.getElementById('editTrigramme').value,
-                        email: null,  // Champs non modifiables pour l'instant
-                        telephone: null,  // Champs non modifiables pour l'instant
+                        email: null,
+                        telephone: null,
                         taux: parseFloat(document.getElementById('editTaux').value),
                         samu: document.getElementById('editSamu').value,
                         date_debut: dateDebut || null,
-                        date_fin: dateFin || null
+                        date_fin: dateFin || null,
+                        es_rattachement: document.getElementById('editEsRattachement').value || null,
+                        fonction: document.getElementById('editFonction').value || null
                     })
                 });
                 if (!response.ok) {
@@ -8429,6 +8520,127 @@
             html += '</tr></tbody></table>';
             
             resultsDiv.innerHTML = html;
+            
+            // Afficher les boutons d'export
+            document.getElementById('hnoReportingExportButtons').style.display = 'flex';
+        }
+        
+        // Export CSV pour le reporting HNO/Astreintes
+        function exportHnoReportingToCSV() {
+            const table = document.querySelector('#hnoReportingResults table');
+            if (!table) {
+                alert('Veuillez d\'abord générer un rapport');
+                return;
+            }
+            
+            let csv = [];
+            const rows = table.querySelectorAll('tr');
+            
+            rows.forEach(row => {
+                const cols = row.querySelectorAll('th, td');
+                const rowData = [];
+                cols.forEach(col => {
+                    let text = col.innerText.replace(/"/g, '""');
+                    rowData.push(`"${text}"`);
+                });
+                csv.push(rowData.join(';'));
+            });
+            
+            const csvContent = '\uFEFF' + csv.join('\n'); // BOM pour Excel
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `reporting_hno_astreintes_${new Date().toISOString().slice(0, 10)}.csv`;
+            link.click();
+        }
+        
+        // Impression du reporting HNO/Astreintes
+        function printHnoReporting() {
+            const content = document.getElementById('hnoReportingResults').innerHTML;
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <html>
+                <head>
+                    <title>Reporting HNO/Astreintes</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 20px; }
+                        table { width: 100%; border-collapse: collapse; font-size: 10px; }
+                        th, td { border: 1px solid #ddd; padding: 5px; text-align: center; }
+                        th { background-color: #9c27b0; color: white; }
+                        @media print {
+                            @page { size: A4 landscape; margin: 10mm; }
+                            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <h2>Reporting HNO/Astreintes</h2>
+                    <p>Généré le ${new Date().toLocaleDateString('fr-FR')}</p>
+                    ${content}
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+            printWindow.print();
+        }
+        
+        // Export CSV pour le reporting disponibilités
+        function exportReportingToCSV() {
+            const table = document.querySelector('#reportingResults table');
+            if (!table) {
+                alert('Veuillez d\'abord générer un rapport');
+                return;
+            }
+            
+            let csv = [];
+            const rows = table.querySelectorAll('tr');
+            
+            rows.forEach(row => {
+                const cols = row.querySelectorAll('th, td');
+                const rowData = [];
+                cols.forEach(col => {
+                    let text = col.innerText.replace(/"/g, '""');
+                    rowData.push(`"${text}"`);
+                });
+                csv.push(rowData.join(';'));
+            });
+            
+            const csvContent = '\uFEFF' + csv.join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `reporting_disponibilites_${new Date().toISOString().slice(0, 10)}.csv`;
+            link.click();
+        }
+        
+        // Impression du reporting disponibilités
+        function printReporting() {
+            const content = document.getElementById('reportingResults').innerHTML;
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <html>
+                <head>
+                    <title>Reporting Disponibilités/Affectations</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 20px; }
+                        table { width: 100%; border-collapse: collapse; font-size: 9px; }
+                        th, td { border: 1px solid #ddd; padding: 4px; text-align: center; }
+                        th { background-color: #4caf50; color: white; }
+                        @media print {
+                            @page { size: A4 landscape; margin: 10mm; }
+                            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <h2>Reporting Disponibilités/Affectations</h2>
+                    <p>Généré le ${new Date().toLocaleDateString('fr-FR')}</p>
+                    ${content}
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+            printWindow.print();
         }
         
         // Générer le rapport
@@ -8681,6 +8893,9 @@
             html += '</div>';
             
             resultsDiv.innerHTML = html;
+            
+            // Afficher les boutons d'export
+            document.getElementById('reportingExportButtons').style.display = 'flex';
         }
         
         // ========== FIN REPORTING ==========
@@ -9190,7 +9405,7 @@
         
         // Mettre à jour la prévisualisation
         function updateCustomEventPreview() {
-            const label = document.getElementById('customEventLabel').value || 'FÉRIÉ';
+            const label = document.getElementById('customEventLabel').value || 'LIBELLÉ';
             const bgColor = document.getElementById('customEventBgColor').value;
             const textColor = document.getElementById('customEventTextColor').value;
             const borderColor = document.getElementById('customEventBorderColor').value;
@@ -9202,6 +9417,33 @@
                 preview.style.color = textColor;
                 preview.style.borderColor = borderColor;
             }
+        }
+        
+        // Templates prédéfinis pour les événements admin
+        const eventTemplates = {
+            formation: { bg: '#ffea00', text: '#0008ff', border: '#000000', label: 'FORMATION' },
+            mes: { bg: '#ffea00', text: '#d20906', border: '#000000', label: 'MISE EN SERVICE' },
+            apd: { bg: '#ffea00', text: '#c2059a', border: '#000000', label: 'ACCOMP. POST DÉM.' },
+            visite: { bg: '#0011ff', text: '#ffffff', border: '#000000', label: 'VISITE TERRAIN' },
+            congres: { bg: '#dff0d8', text: '#427645', border: '#000000', label: 'CONGRÈS' },
+            libre: { bg: '#ffeb3b', text: '#000000', border: '#000000', label: '' }
+        };
+        
+        // Appliquer un template prédéfini (Administration)
+        function applyCustomEventTemplate(templateName) {
+            const template = eventTemplates[templateName];
+            if (!template) return;
+            
+            document.getElementById('customEventBgColor').value = template.bg;
+            document.getElementById('customEventTextColor').value = template.text;
+            document.getElementById('customEventBorderColor').value = template.border;
+            
+            // Si un libellé est défini dans le template et que le champ est vide, on le pré-remplit
+            if (template.label && !document.getElementById('customEventLabel').value) {
+                document.getElementById('customEventLabel').value = template.label;
+            }
+            
+            updateCustomEventPreview();
         }
         
         // Pré-remplir la date de fin avec la date de début
@@ -9268,9 +9510,52 @@
         }
         
         // Toggle tri par année pour événements admin
+        // Variable pour mémoriser l'état des arbres dépliés
+        let customEventsExpandedNodes = new Set();
+        
         function toggleCustomEventsSortYear() {
+            // Sauvegarder l'état des nœuds dépliés avant le tri
+            saveCustomEventsExpandedState();
             customEventsSortYear = customEventsSortYear === 'desc' ? 'asc' : 'desc';
             renderCustomEventsTable();
+            // Restaurer l'état des nœuds après le rendu
+            restoreCustomEventsExpandedState();
+        }
+        
+        function saveCustomEventsExpandedState() {
+            customEventsExpandedNodes.clear();
+            const container = document.getElementById('customEventsTableContainer');
+            if (!container) return;
+            
+            const treeContents = container.querySelectorAll('.tree-content');
+            treeContents.forEach((content, idx) => {
+                if (content.style.display !== 'none') {
+                    // Sauvegarder le texte du parent pour identifier le nœud
+                    const parent = content.previousElementSibling;
+                    if (parent) {
+                        const nodeId = parent.textContent.replace(/[▶▼]/g, '').trim();
+                        customEventsExpandedNodes.add(nodeId);
+                    }
+                }
+            });
+        }
+        
+        function restoreCustomEventsExpandedState() {
+            const container = document.getElementById('customEventsTableContainer');
+            if (!container) return;
+            
+            const treeHeaders = container.querySelectorAll('[onclick*="toggleCustomEventsTreeNode"]');
+            treeHeaders.forEach(header => {
+                const nodeId = header.textContent.replace(/[▶▼]/g, '').trim();
+                if (customEventsExpandedNodes.has(nodeId)) {
+                    const content = header.nextElementSibling;
+                    const arrow = header.querySelector('.tree-arrow');
+                    if (content && arrow) {
+                        content.style.display = 'block';
+                        arrow.textContent = '▼';
+                    }
+                }
+            });
         }
         
         // Toggle pour l'arborescence des événements admin
@@ -12782,7 +13067,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
         
         // Mettre à jour la prévisualisation
         function updateMyEventPreview() {
-            const label = document.getElementById('myEventLabel').value || 'Mon événement';
+            const label = document.getElementById('myEventLabel').value || 'LIBELLÉ';
             const bgColor = document.getElementById('myEventBgColor').value;
             const textColor = document.getElementById('myEventTextColor').value;
             const borderColor = document.getElementById('myEventBorderColor').value;
@@ -12794,6 +13079,23 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 preview.style.color = textColor;
                 preview.style.borderColor = borderColor;
             }
+        }
+        
+        // Appliquer un template prédéfini (Mes événements - Planification)
+        function applyMyEventTemplate(templateName) {
+            const template = eventTemplates[templateName];
+            if (!template) return;
+            
+            document.getElementById('myEventBgColor').value = template.bg;
+            document.getElementById('myEventTextColor').value = template.text;
+            document.getElementById('myEventBorderColor').value = template.border;
+            
+            // Si un libellé est défini dans le template et que le champ est vide, on le pré-remplit
+            if (template.label && !document.getElementById('myEventLabel').value) {
+                document.getElementById('myEventLabel').value = template.label;
+            }
+            
+            updateMyEventPreview();
         }
         
         // Charger les événements personnalisés
@@ -12820,10 +13122,50 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
         
         // Trier les événements
         let myEventsSortYear = 'desc'; // 'asc' ou 'desc'
+        let myEventsExpandedNodes = new Set(); // Pour mémoriser l'état des arbres dépliés
         
         function toggleMyEventsSortYear() {
+            // Sauvegarder l'état des nœuds dépliés avant le tri
+            saveMyEventsExpandedState();
             myEventsSortYear = myEventsSortYear === 'desc' ? 'asc' : 'desc';
             renderMyEventsTable();
+            // Restaurer l'état des nœuds après le rendu
+            restoreMyEventsExpandedState();
+        }
+        
+        function saveMyEventsExpandedState() {
+            myEventsExpandedNodes.clear();
+            const container = document.getElementById('myEventsTableContainer');
+            if (!container) return;
+            
+            const treeContents = container.querySelectorAll('.tree-content');
+            treeContents.forEach(content => {
+                if (content.style.display !== 'none') {
+                    const parent = content.previousElementSibling;
+                    if (parent) {
+                        const nodeId = parent.textContent.replace(/[▶▼]/g, '').trim();
+                        myEventsExpandedNodes.add(nodeId);
+                    }
+                }
+            });
+        }
+        
+        function restoreMyEventsExpandedState() {
+            const container = document.getElementById('myEventsTableContainer');
+            if (!container) return;
+            
+            const treeHeaders = container.querySelectorAll('[onclick*="toggleMyEventsTreeNode"]');
+            treeHeaders.forEach(header => {
+                const nodeId = header.textContent.replace(/[▶▼]/g, '').trim();
+                if (myEventsExpandedNodes.has(nodeId)) {
+                    const content = header.nextElementSibling;
+                    const arrow = header.querySelector('.tree-arrow');
+                    if (content && arrow) {
+                        content.style.display = 'block';
+                        arrow.textContent = '▼';
+                    }
+                }
+            });
         }
         
         // Afficher les événements sous forme d'arborescence Année > Mois
@@ -13980,7 +14322,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     </div>
                     <div>
                         <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px;">Libellé *</label>
-                        <input type="text" id="myEventLabel" placeholder="Ex: Formation, Réunion..." style="width: 100%; padding: 6px;" oninput="updateMyEventPreview()">
+                        <input type="text" id="myEventLabel" placeholder="Ex: FORMATION, RÉUNION..." style="width: 100%; padding: 6px; text-transform: uppercase;" oninput="this.value = this.value.toUpperCase(); updateMyEventPreview()">
                     </div>
                     <div>
                         <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px;">Fond</label>
@@ -13992,7 +14334,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     </div>
                     <div>
                         <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px;">Bordure</label>
-                        <input type="color" id="myEventBorderColor" value="#fbc02d" style="width: 40px; height: 32px; padding: 0; border: 1px solid #ccc; cursor: pointer;" onchange="updateMyEventPreview()">
+                        <input type="color" id="myEventBorderColor" value="#000000" style="width: 40px; height: 32px; padding: 0; border: 1px solid #ccc; cursor: pointer;" onchange="updateMyEventPreview()">
                     </div>
                     <div>
                         <button onclick="addMyEvent()" style="background-color: #ff9800; color: white; padding: 6px 15px; white-space: nowrap;">
@@ -14001,10 +14343,23 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     </div>
                 </div>
                 
+                <!-- Templates prédéfinis -->
+                <div style="margin-top: 10px; padding: 10px; background: #fff3e0; border-radius: 5px;">
+                    <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 8px;">📋 Templates prédéfinis (cliquez pour appliquer) :</label>
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                        <span onclick="applyMyEventTemplate('formation')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: rgb(255, 234, 0); color: rgb(0, 8, 255); border: 2px solid rgb(0, 0, 0);" title="Cliquez pour appliquer ce template">FORMATION</span>
+                        <span onclick="applyMyEventTemplate('mes')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: rgb(255, 234, 0); color: rgb(210, 9, 6); border: 2px solid rgb(0, 0, 0);" title="Cliquez pour appliquer ce template">MISE EN SERVICE</span>
+                        <span onclick="applyMyEventTemplate('apd')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: rgb(255, 234, 0); color: rgb(194, 5, 154); border: 2px solid rgb(0, 0, 0);" title="Cliquez pour appliquer ce template">ACCOMP. POST DÉM.</span>
+                        <span onclick="applyMyEventTemplate('visite')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: rgb(0, 17, 255); color: rgb(255, 255, 255); border: 2px solid rgb(0, 0, 0);" title="Cliquez pour appliquer ce template">VISITE TERRAIN</span>
+                        <span onclick="applyMyEventTemplate('congres')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: rgb(223, 240, 216); color: rgb(66, 118, 69); border: 2px solid rgb(0, 0, 0);" title="Cliquez pour appliquer ce template">CONGRÈS</span>
+                        <span onclick="applyMyEventTemplate('libre')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: #fff; color: #333; border: 2px dashed #999;" title="Réinitialiser les couleurs">🎨 Libre</span>
+                    </div>
+                </div>
+                
                 <!-- Prévisualisation -->
                 <div style="margin-top: 10px; display: flex; align-items: center; gap: 10px;">
                     <span style="font-size: 12px; color: #666;">Prévisualisation :</span>
-                    <span id="myEventPreview" style="display: inline-block; padding: 3px 8px; border-radius: 8px; font-size: 11px; font-weight: bold; background-color: #ffeb3b; color: #000; border: 2px solid #fbc02d;">Mon événement</span>
+                    <span id="myEventPreview" style="display: inline-block; padding: 3px 8px; border-radius: 8px; font-size: 11px; font-weight: bold; background-color: #ffeb3b; color: #000; border: 2px solid #000;">LIBELLÉ</span>
                 </div>
             </div>
             
