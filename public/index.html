@@ -356,6 +356,28 @@
         #cleanupDetailsList::-webkit-scrollbar-thumb:hover {
             background: #229954;
         }
+        
+        /* Pastilles Astreinte/HNO */
+        .astreinte-badge {
+            position: absolute;
+            top: 1px;
+            right: 1px;
+            background: #ffeb3b;
+            color: #d32f2f;
+            font-size: 7px;
+            font-weight: bold;
+            padding: 1px 3px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            z-index: 10;
+            cursor: help;
+            line-height: 1;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
+        
+        .gantt-cell {
+            position: relative;
+        }
     </style>
 </head>
 <body>
@@ -628,6 +650,11 @@
                                 title="Gérer mes événements personnalisés">
                             ✏️ Gérer mes événements
                         </button>
+                        <button id="astreintesBtn" onclick="event.stopPropagation(); openAstreintesModal();" 
+                                style="padding: 8px 15px; background-color: #9c27b0; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; display: none;" 
+                                title="Gérer les astreintes et HNO">
+                            🕐 <span id="astreintesBtnText">Gérer mes astreintes/HNO</span>
+                        </button>
                         <button id="requestBtn" onclick="event.stopPropagation(); openRequestModal();" 
                                 style="padding: 8px 15px; background-color: #27ae60; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; display: none;" 
                                 title="Faire une demande d'affectation">
@@ -768,6 +795,110 @@
                 
                 <!-- Tableau des résultats -->
                 <div id="reportingResults" style="overflow-x: auto;">
+                    <p style="text-align: center; color: #999; padding: 40px;">
+                        Sélectionnez les paramètres et cliquez sur "Générer le rapport"
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Section Suivi des HNO / Astreintes -->
+            <div class="form-section" style="background-color: #f3e5f5; border-left: 4px solid #9c27b0;">
+                <h3 style="color: #7b1fa2; border-left: none; margin: 0 0 15px 0;">
+                    📈 Suivi des HNO / Astreintes
+                </h3>
+                
+                <!-- Filtres -->
+                <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; margin-bottom: 20px;">
+                    <!-- Période de début -->
+                    <div>
+                        <label style="font-size: 12px; color: #555; display: block; margin-bottom: 5px;">Période de début</label>
+                        <div style="display: flex; gap: 5px;">
+                            <select id="hnoReportingStartMonth" style="width: 120px;">
+                                <option value="0">Janvier</option>
+                                <option value="1">Février</option>
+                                <option value="2">Mars</option>
+                                <option value="3">Avril</option>
+                                <option value="4">Mai</option>
+                                <option value="5">Juin</option>
+                                <option value="6">Juillet</option>
+                                <option value="7">Août</option>
+                                <option value="8">Septembre</option>
+                                <option value="9">Octobre</option>
+                                <option value="10">Novembre</option>
+                                <option value="11">Décembre</option>
+                            </select>
+                            <select id="hnoReportingStartYear" style="width: 80px;">
+                                <option value="2024">2024</option>
+                                <option value="2025">2025</option>
+                                <option value="2026">2026</option>
+                                <option value="2027">2027</option>
+                                <option value="2028">2028</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Période de fin -->
+                    <div>
+                        <label style="font-size: 12px; color: #555; display: block; margin-bottom: 5px;">Période de fin</label>
+                        <div style="display: flex; gap: 5px;">
+                            <select id="hnoReportingEndMonth" style="width: 120px;">
+                                <option value="0">Janvier</option>
+                                <option value="1">Février</option>
+                                <option value="2">Mars</option>
+                                <option value="3">Avril</option>
+                                <option value="4">Mai</option>
+                                <option value="5">Juin</option>
+                                <option value="6">Juillet</option>
+                                <option value="7">Août</option>
+                                <option value="8">Septembre</option>
+                                <option value="9">Octobre</option>
+                                <option value="10">Novembre</option>
+                                <option value="11">Décembre</option>
+                            </select>
+                            <select id="hnoReportingEndYear" style="width: 80px;">
+                                <option value="2024">2024</option>
+                                <option value="2025">2025</option>
+                                <option value="2026">2026</option>
+                                <option value="2027">2027</option>
+                                <option value="2028">2028</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Sélection des experts -->
+                    <div>
+                        <label style="font-size: 12px; color: #555; display: block; margin-bottom: 5px;">Experts métier</label>
+                        <select id="hnoReportingExperts" multiple style="width: 250px; height: 80px;">
+                            <!-- Rempli dynamiquement -->
+                        </select>
+                        <div style="font-size: 10px; color: #999; margin-top: 2px;">Ctrl+clic pour sélection multiple</div>
+                    </div>
+                    
+                    <!-- Type de données -->
+                    <div>
+                        <label style="font-size: 12px; color: #555; display: block; margin-bottom: 5px;">Type de données</label>
+                        <div style="display: flex; flex-direction: column; gap: 5px;">
+                            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                                <input type="checkbox" id="hnoReportingShowHno" checked>
+                                <span style="font-size: 12px;">⏰ HNO</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                                <input type="checkbox" id="hnoReportingShowAstreintes" checked>
+                                <span style="font-size: 12px;">🔔 Astreintes</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Bouton générer -->
+                    <div style="display: flex; align-items: flex-end;">
+                        <button onclick="generateHnoAstreintesReport()" style="background-color: #9c27b0; color: white; padding: 10px 20px;">
+                            📊 Générer le rapport
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Tableau des résultats -->
+                <div id="hnoReportingResults" style="overflow-x: auto;">
                     <p style="text-align: center; color: #999; padding: 40px;">
                         Sélectionnez les paramètres et cliquez sur "Générer le rapport"
                     </p>
@@ -1320,6 +1451,15 @@
                         </div>
                     </div>
                 </div>
+                <div class="form-group">
+                    <label>Options d'accès</label>
+                    <div class="checkbox-group">
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="adminUserAmoaCed">
+                            <label for="adminUserAmoaCed" title="Accès à la Plateforme de suivi des déplacements">AMOA CED</label>
+                        </div>
+                    </div>
+                </div>
                 <div class="form-group" id="expertResourceGroup" style="display:none;">
                     <label>Ressource associée (pour Expert Métier)</label>
                     <select id="adminUserResource">
@@ -1382,7 +1522,8 @@
                             <th onclick="sortTable('users', 4)">Téléphone</th>
                             <th onclick="sortTable('users', 5)">Rôle</th>
                             <th title="Accès à l'onglet Reporting">Reporting</th>
-                            <th onclick="sortTable('users', 7)">Actif</th>
+                            <th title="Accès à la Plateforme de suivi des déplacements">AMOA CED</th>
+                            <th onclick="sortTable('users', 8)">Actif</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -1439,6 +1580,13 @@
                         <option value="admin">Administrateur</option>
                         <option value="expert">Expert Métier</option>
                         <option value="user">Utilisateur</option>
+                    </select>
+                </div>
+                <div class="form-group" id="appSelectGroup" style="display:none;">
+                    <label style="color: #2c3e50; font-weight: 600; font-size: 14px;">Sélectionnez l'application</label>
+                    <select id="loginApp" style="border: 2px solid #e0e0e0; padding: 12px; font-size: 14px;">
+                        <option value="planification">📅 Plateforme de planification</option>
+                        <option value="deplacements">🚗 Plateforme de suivi des déplacements</option>
                     </select>
                 </div>
                 <div id="loginError" class="error-message"></div>
@@ -1682,6 +1830,15 @@
                 </div>
             </div>
             <div class="form-group">
+                <label>Options d'accès</label>
+                <div class="checkbox-group">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="editUserAmoaCed">
+                        <label for="editUserAmoaCed" title="Accès à la Plateforme de suivi des déplacements">AMOA CED</label>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group">
                 <label>Statut</label>
                 <div class="checkbox-group">
                     <div class="checkbox-item">
@@ -1717,6 +1874,7 @@
         let isFirstPlanningLoad = true; // Flag pour le scroll initial vers aujourd'hui
         let schoolHolidays = { zoneA: [], zoneB: [], zoneC: [] }; // Périodes de congés scolaires
         let specialDates = []; // Dates particulières (jours fériés, etc.)
+        let allAstreintesHno = []; // Toutes les astreintes/HNO pour affichage sur le planning
 
         const availabilityLabels = {
             '1': 'Indisponible',
@@ -1782,6 +1940,7 @@
                 if (!response.ok) {
                     document.getElementById('loginPage').classList.add('active');
                     document.querySelector('.container').style.display = 'none';
+                    sessionStorage.removeItem('selectedApp');
                     return;
                 }
                 
@@ -1790,6 +1949,7 @@
                 if (!contentType || !contentType.includes("application/json")) {
                     document.getElementById('loginPage').classList.add('active');
                     document.querySelector('.container').style.display = 'none';
+                    sessionStorage.removeItem('selectedApp');
                     return;
                 }
                 
@@ -1800,6 +1960,21 @@
                     console.log('✅ Session restaurée:', currentUser);
                     console.log('📷 Photo dans session:', currentUser.profilePhoto ? 'OUI' : 'NON');
                     
+                    // Récupérer l'application sélectionnée depuis sessionStorage
+                    const savedApp = sessionStorage.getItem('selectedApp');
+                    console.log('📱 Application sauvegardée:', savedApp);
+                    
+                    // Si l'utilisateur était sur l'application déplacements et qu'il a le droit AMOA_CED
+                    if (savedApp === 'deplacements' && currentUser.amoaCed) {
+                        console.log('🚗 Restauration vers la Plateforme de suivi des déplacements');
+                        document.getElementById('loginPage').classList.remove('active');
+                        currentUser.selectedApp = 'deplacements';
+                        showDeplacementsApp();
+                        return;
+                    }
+                    
+                    // Sinon, afficher l'application de planification
+                    currentUser.selectedApp = 'planification';
                     document.getElementById('loginPage').classList.remove('active');
                     document.querySelector('.container').style.display = 'block';
                     
@@ -1821,11 +1996,13 @@
                 } else {
                     document.getElementById('loginPage').classList.add('active');
                     document.querySelector('.container').style.display = 'none';
+                    sessionStorage.removeItem('selectedApp');
                 }
             } catch (error) {
                 // En cas d'erreur, rediriger silencieusement vers login
                 document.getElementById('loginPage').classList.add('active');
                 document.querySelector('.container').style.display = 'none';
+                sessionStorage.removeItem('selectedApp');
             }
         }
 
@@ -1859,33 +2036,60 @@
                 if (data.profiles && data.profiles.length > 0) {
                     availableProfiles = data.profiles;
                     
-                    // Si un seul profil, connexion directe sans sélection
-                    if (data.profiles.length === 1) {
+                    // Stocker si l'utilisateur a accès AMOA_CED
+                    window.userHasAmoaCed = data.amoaCed || false;
+                    
+                    // Si un seul profil ET pas d'accès AMOA_CED, connexion directe
+                    if (data.profiles.length === 1 && !data.amoaCed) {
                         console.log('✅ Un seul profil disponible, connexion directe:', data.profiles[0]);
                         
                         // Sélectionner automatiquement le profil unique
                         const uniqueProfile = data.profiles[0];
                         document.getElementById('loginProfile').value = uniqueProfile;
+                        document.getElementById('loginApp').value = 'planification';
                         
                         // Se connecter directement
                         await loginWithProfile();
                         return;
                     }
                     
-                    // Plusieurs profils : afficher le menu déroulant
+                    // Afficher le menu déroulant des profils
                     const profileSelect = document.getElementById('loginProfile');
-                    profileSelect.innerHTML = '<option value="">-- Choisir un profil --</option>';
+                    profileSelect.innerHTML = '';
                     
-                    data.profiles.forEach(profile => {
+                    if (data.profiles.length === 1) {
+                        // Un seul profil mais avec AMOA_CED
+                        const profile = data.profiles[0];
                         const option = document.createElement('option');
                         option.value = profile;
                         option.textContent = profile === 'admin' ? 'Administrateur' : 
                                            profile === 'expert' ? 'Expert Métier' : 
                                            'Utilisateur';
                         profileSelect.appendChild(option);
-                    });
+                        document.getElementById('profileSelectGroup').style.display = 'none';
+                    } else {
+                        // Plusieurs profils
+                        profileSelect.innerHTML = '<option value="">-- Choisir un profil --</option>';
+                        data.profiles.forEach(profile => {
+                            const option = document.createElement('option');
+                            option.value = profile;
+                            option.textContent = profile === 'admin' ? 'Administrateur' : 
+                                               profile === 'expert' ? 'Expert Métier' : 
+                                               'Utilisateur';
+                            profileSelect.appendChild(option);
+                        });
+                        document.getElementById('profileSelectGroup').style.display = 'block';
+                    }
                     
-                    document.getElementById('profileSelectGroup').style.display = 'block';
+                    // Afficher le sélecteur d'application si AMOA_CED
+                    if (data.amoaCed) {
+                        document.getElementById('appSelectGroup').style.display = 'block';
+                        console.log('🚗 Utilisateur AMOA_CED: affichage du choix d\'application');
+                    } else {
+                        document.getElementById('appSelectGroup').style.display = 'none';
+                        document.getElementById('loginApp').value = 'planification';
+                    }
+                    
                     document.getElementById('loginButton').textContent = 'Se connecter';
                     loginStep = 'profile';
                 } else {
@@ -1901,6 +2105,7 @@
             const username = document.getElementById('loginUsername').value.trim();
             const password = document.getElementById('loginPassword').value;
             const profile = document.getElementById('loginProfile').value;
+            const selectedApp = document.getElementById('loginApp').value || 'planification';
 
             if (!profile) {
                 showLoginError('Veuillez sélectionner un profil');
@@ -1919,10 +2124,23 @@
 
                 if (response.ok) {
                     currentUser = data.user;
+                    currentUser.selectedApp = selectedApp; // Stocker l'application choisie
                     console.log('👤 Current user après login:', currentUser);
                     console.log('📛 Trigramme:', currentUser.trigramme);
                     console.log('📷 Photo:', currentUser.profilePhoto ? 'Oui' : 'Non');
+                    console.log('📱 Application choisie:', selectedApp);
                     
+                    // Si l'utilisateur a choisi la plateforme de déplacements
+                    if (selectedApp === 'deplacements') {
+                        console.log('🚗 Redirection vers la Plateforme de suivi des déplacements');
+                        document.getElementById('loginPage').classList.remove('active');
+                        
+                        // Afficher l'application déplacements
+                        showDeplacementsApp();
+                        return;
+                    }
+                    
+                    // Sinon, continuer avec la plateforme de planification standard
                     // Purger les anciennes données en mémoire pour éviter les problèmes de cache
                     scheduleData = {};
                     resources = [];
@@ -2063,12 +2281,17 @@
             const planningTab = document.querySelector('.tab-btn[onclick*="planning"]');
             const reportingTab = document.getElementById('reportingTab');
             const adminTab = document.getElementById('adminTab');
+            const astreintesBtn = document.getElementById('astreintesBtn');
+            const astreintesBtnText = document.getElementById('astreintesBtnText');
             
             if (currentUser.activeProfile === 'admin') {
                 resourcesTab.style.display = 'block';
                 planningTab.style.display = 'block';
                 reportingTab.style.display = 'block';
                 adminTab.style.display = 'block';
+                // Afficher le bouton astreintes pour admin
+                astreintesBtn.style.display = 'inline-block';
+                astreintesBtnText.textContent = 'Gérer les astreintes/HNO';
                 // Charger les experts pour le reporting
                 loadReportingExperts();
                 // Charger les fichiers ICS
@@ -2086,6 +2309,13 @@
                     reportingTab.style.display = 'none';
                 }
                 adminTab.style.display = 'none';
+                // Afficher le bouton astreintes pour expert seulement
+                if (currentUser.activeProfile === 'expert') {
+                    astreintesBtn.style.display = 'inline-block';
+                    astreintesBtnText.textContent = 'Gérer mes astreintes/HNO';
+                } else {
+                    astreintesBtn.style.display = 'none';
+                }
                 switchTab('planning', null);
             }
         }
@@ -2093,7 +2323,13 @@
         async function logout() {
             console.log('🚪 Début de la déconnexion');
             
-            // Demander la confirmation de déconnexion
+            // Si l'utilisateur a le droit AMOA_CED, proposer le choix entre déconnexion et changement d'application
+            if (currentUser && currentUser.amoaCed) {
+                openPlanificationLogoutModal();
+                return;
+            }
+            
+            // Sinon, demander la confirmation simple de déconnexion
             if (!confirm('Voulez-vous vraiment vous déconnecter ?')) {
                 console.log('❌ Déconnexion annulée par l\'utilisateur');
                 return;
@@ -2105,6 +2341,1476 @@
             // Procéder à la déconnexion
             await performLogout();
         }
+        
+        // Modal de choix de déconnexion pour l'application Planification
+        function openPlanificationLogoutModal() {
+            document.getElementById('planificationLogoutModal').style.display = 'flex';
+        }
+        
+        function closePlanificationLogoutModal() {
+            document.getElementById('planificationLogoutModal').style.display = 'none';
+        }
+        
+        async function confirmLogoutFromPlanification() {
+            closePlanificationLogoutModal();
+            
+            // Nettoyer le sessionStorage
+            sessionStorage.removeItem('selectedApp');
+            
+            // Arrêter le timer
+            stopInactivityTimer();
+            
+            // Arrêter le polling des utilisateurs connectés
+            if (onlineUsersInterval) {
+                clearInterval(onlineUsersInterval);
+            }
+            
+            // Enregistrer les logs des affectations en attente
+            await saveAssignmentLogs();
+            
+            // Procéder à la déconnexion
+            await performLogout();
+        }
+        
+        function goToDeplacementsApp() {
+            closePlanificationLogoutModal();
+            
+            // Arrêter le timer de planification
+            stopInactivityTimer();
+            
+            // Arrêter le polling des utilisateurs connectés de planification
+            if (onlineUsersInterval) {
+                clearInterval(onlineUsersInterval);
+            }
+            
+            // Masquer l'application planification
+            document.querySelector('.container').style.display = 'none';
+            
+            // Afficher l'application déplacements
+            showDeplacementsApp();
+        }
+        
+        // ============== FONCTIONS POUR LES ASTREINTES/HNO ==============
+        
+        // Liste statique des SAMU pour les astreintes
+        const ASTREINTES_SAMU_LIST = [
+            "SAMU 01", "SAMU 02", "SAMU 03", "SAMU 04", "SAMU 05", "SAMU 06", "SAMU 07", "SAMU 08", "SAMU 09", "SAMU 10",
+            "SAMU 11", "SAMU 12", "SAMU 13", "SAMU 14", "SAMU 15", "SAMU 16", "SAMU 17", "SAMU 18", "SAMU 19",
+            "SAMU 21", "SAMU 22", "SAMU 23", "SAMU 24", "SAMU 25", "SAMU 26", "SAMU 27", "SAMU 28", "SAMU 29", "SAMU 30",
+            "SAMU 31", "SAMU 32", "SAMU 33", "SAMU 34", "SAMU 35", "SAMU 36", "SAMU 37", "SAMU 38",
+            "SAMU 40", "SAMU 41", "SAMU 42", "SAMU 43", "SAMU 44", "SAMU 45", "SAMU 46", "SAMU 47", "SAMU 48", "SAMU 49", "SAMU 50",
+            "SAMU 51", "SAMU 52", "SAMU 53", "SAMU 54", "SAMU 55", "SAMU 56", "SAMU 57",
+            "SAMU 59", "SAMU 60", "SAMU 61", "SAMU 62", "SAMU 63", "SAMU 64A", "SAMU 64B", "SAMU 65", "SAMU 66", "SAMU 67", "SAMU 68", "SAMU 69",
+            "SAMU 71", "SAMU 72", "SAMU 73", "SAMU 74", "SAMU 75", "SAMU 76A", "SAMU 76B", "SAMU 77", "SAMU 78", "SAMU 79", "SAMU 80",
+            "SAMU 81", "SAMU 82", "SAMU 83", "SAMU 84", "SAMU 85", "SAMU 86", "SAMU 87", "SAMU 88", "SAMU 89",
+            "SAMU 91", "SAMU 92", "SAMU 93", "SAMU 94", "SAMU 95",
+            "SAMU 971", "SAMU 972", "SAMU 973", "SAMU 974", "SAMU 976",
+            "SAMU 2A", "SAMU 2B"
+        ];
+        
+        let astreintesData = [];
+        let expertsListForAstreintes = [];
+        
+        async function openAstreintesModal() {
+            const modal = document.getElementById('astreintesModal');
+            modal.style.display = 'flex';
+            
+            // Adapter le titre selon le profil
+            const title = document.getElementById('astreintesModalTitle');
+            const expertSelectDiv = document.getElementById('astreintesExpertSelect');
+            
+            if (currentUser.activeProfile === 'admin') {
+                title.textContent = '🕐 Gérer les astreintes/HNO';
+                expertSelectDiv.style.display = 'block';
+                await loadExpertsForAstreintes();
+            } else {
+                title.textContent = '🕐 Gérer mes astreintes/HNO';
+                expertSelectDiv.style.display = 'none';
+            }
+            
+            // Charger la liste des SAMU
+            const samuSelect = document.getElementById('astreintesSamu');
+            samuSelect.innerHTML = '<option value="">-- Sélectionner un SAMU --</option>' +
+                ASTREINTES_SAMU_LIST.map(s => `<option value="${s}">${s}</option>`).join('');
+            
+            // Charger les astreintes
+            await loadAstreintes();
+            
+            // Réinitialiser le formulaire
+            resetAstreintesForm();
+        }
+        
+        function closeAstreintesModal() {
+            document.getElementById('astreintesModal').style.display = 'none';
+        }
+        
+        async function loadExpertsForAstreintes() {
+            try {
+                const response = await fetch(`${API_URL}/experts-list`, { credentials: 'include' });
+                if (response.ok) {
+                    expertsListForAstreintes = await response.json();
+                    const select = document.getElementById('astreintesExpert');
+                    select.innerHTML = '<option value="">-- Sélectionner un expert --</option>' +
+                        expertsListForAstreintes.map(e => `<option value="${e.id}">${e.nom} ${e.prenom}</option>`).join('');
+                }
+            } catch (error) {
+                console.error('Erreur chargement experts:', error);
+            }
+        }
+        
+        async function loadAstreintes() {
+            try {
+                const isAdmin = currentUser.activeProfile === 'admin';
+                const url = isAdmin ? `${API_URL}/astreintes` : `${API_URL}/mes-astreintes`;
+                const response = await fetch(url, { credentials: 'include' });
+                
+                if (response.ok) {
+                    astreintesData = await response.json();
+                    displayAstreintesTree();
+                }
+            } catch (error) {
+                console.error('Erreur chargement astreintes:', error);
+            }
+        }
+        
+        function displayAstreintesTree() {
+            const container = document.getElementById('astreintesTreeView');
+            
+            if (astreintesData.length === 0) {
+                container.innerHTML = '<p style="color: #999; text-align: center;">Aucune astreinte/HNO enregistrée</p>';
+                return;
+            }
+            
+            const isAdmin = currentUser.activeProfile === 'admin';
+            let html = '';
+            
+            if (isAdmin) {
+                // Arborescence : Expert > Année > Mois
+                const byExpert = {};
+                astreintesData.forEach(a => {
+                    const expertName = `${a.user_nom} ${a.user_prenom}`;
+                    if (!byExpert[expertName]) byExpert[expertName] = {};
+                    
+                    const date = new Date(a.date_debut);
+                    const year = date.getFullYear();
+                    const month = date.getMonth();
+                    
+                    if (!byExpert[expertName][year]) byExpert[expertName][year] = {};
+                    if (!byExpert[expertName][year][month]) byExpert[expertName][year][month] = [];
+                    byExpert[expertName][year][month].push(a);
+                });
+                
+                html = buildAdminTree(byExpert);
+            } else {
+                // Arborescence : Année > Mois
+                const byYear = {};
+                astreintesData.forEach(a => {
+                    const date = new Date(a.date_debut);
+                    const year = date.getFullYear();
+                    const month = date.getMonth();
+                    
+                    if (!byYear[year]) byYear[year] = {};
+                    if (!byYear[year][month]) byYear[year][month] = [];
+                    byYear[year][month].push(a);
+                });
+                
+                html = buildExpertTree(byYear);
+            }
+            
+            container.innerHTML = html;
+        }
+        
+        function buildAdminTree(byExpert) {
+            const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+            let html = '';
+            
+            Object.keys(byExpert).sort().forEach(expertName => {
+                html += `<div style="margin-bottom: 10px;">
+                    <div onclick="toggleTreeNode(this)" style="cursor: pointer; padding: 8px; background: #e1bee7; border-radius: 4px; font-weight: bold; display: flex; align-items: center; gap: 5px;">
+                        <span class="tree-arrow">▶</span> 👤 ${expertName}
+                    </div>
+                    <div class="tree-content" style="display: none; margin-left: 20px; margin-top: 5px;">`;
+                
+                Object.keys(byExpert[expertName]).sort((a, b) => b - a).forEach(year => {
+                    html += `<div style="margin-bottom: 5px;">
+                        <div onclick="toggleTreeNode(this)" style="cursor: pointer; padding: 6px; background: #ce93d8; border-radius: 4px; display: flex; align-items: center; gap: 5px;">
+                            <span class="tree-arrow">▶</span> 📅 ${year}
+                        </div>
+                        <div class="tree-content" style="display: none; margin-left: 20px; margin-top: 5px;">`;
+                    
+                    Object.keys(byExpert[expertName][year]).sort((a, b) => b - a).forEach(month => {
+                        html += `<div style="margin-bottom: 5px;">
+                            <div onclick="toggleTreeNode(this)" style="cursor: pointer; padding: 5px; background: #f3e5f5; border-radius: 4px; display: flex; align-items: center; gap: 5px;">
+                                <span class="tree-arrow">▶</span> ${monthNames[month]}
+                            </div>
+                            <div class="tree-content" style="display: none; margin-left: 20px; margin-top: 5px;">`;
+                        
+                        byExpert[expertName][year][month].forEach(a => {
+                            html += buildAstreinteItem(a);
+                        });
+                        
+                        html += `</div></div>`;
+                    });
+                    
+                    html += `</div></div>`;
+                });
+                
+                html += `</div></div>`;
+            });
+            
+            return html;
+        }
+        
+        function buildExpertTree(byYear) {
+            const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+            let html = '';
+            
+            Object.keys(byYear).sort((a, b) => b - a).forEach(year => {
+                html += `<div style="margin-bottom: 10px;">
+                    <div onclick="toggleTreeNode(this)" style="cursor: pointer; padding: 8px; background: #e1bee7; border-radius: 4px; font-weight: bold; display: flex; align-items: center; gap: 5px;">
+                        <span class="tree-arrow">▶</span> 📅 ${year}
+                    </div>
+                    <div class="tree-content" style="display: none; margin-left: 20px; margin-top: 5px;">`;
+                
+                Object.keys(byYear[year]).sort((a, b) => b - a).forEach(month => {
+                    html += `<div style="margin-bottom: 5px;">
+                        <div onclick="toggleTreeNode(this)" style="cursor: pointer; padding: 6px; background: #ce93d8; border-radius: 4px; display: flex; align-items: center; gap: 5px;">
+                            <span class="tree-arrow">▶</span> ${monthNames[month]}
+                        </div>
+                        <div class="tree-content" style="display: none; margin-left: 20px; margin-top: 5px;">`;
+                    
+                    byYear[year][month].forEach(a => {
+                        html += buildAstreinteItem(a);
+                    });
+                    
+                    html += `</div></div>`;
+                });
+                
+                html += `</div></div>`;
+            });
+            
+            return html;
+        }
+        
+        function buildAstreinteItem(a) {
+            const typeLabel = a.type === 'astreinte' ? '🔔 Astreinte' : '⏰ HNO';
+            const typeColor = a.type === 'astreinte' ? '#ff9800' : '#2196f3';
+            const dateDebut = formatDateFr(a.date_debut);
+            const dateFin = formatDateFr(a.date_fin);
+            const periode = dateDebut === dateFin ? dateDebut : `${dateDebut} - ${dateFin}`;
+            const heures = a.type === 'hno' && a.heure_debut && a.heure_fin ? ` (${a.heure_debut} - ${a.heure_fin})` : '';
+            const samuInfo = a.tous_samu ? 'Tous les SAMU' : a.samu;
+            
+            return `<div style="background: white; padding: 10px; border-radius: 4px; margin-bottom: 5px; border-left: 3px solid ${typeColor};">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div>
+                        <span style="background: ${typeColor}; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px;">${typeLabel}</span>
+                        <div style="margin-top: 5px; font-weight: bold;">${a.objet}</div>
+                        <div style="font-size: 12px; color: #666; margin-top: 3px;">
+                            📅 ${periode}${heures}<br>
+                            🏥 ${samuInfo}
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 5px;">
+                        <button onclick="editAstreinte(${a.id})" style="background: #3498db; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;">✏️</button>
+                        <button onclick="deleteAstreinte(${a.id})" style="background: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;">🗑️</button>
+                    </div>
+                </div>
+            </div>`;
+        }
+        
+        function toggleTreeNode(element) {
+            const content = element.nextElementSibling;
+            const arrow = element.querySelector('.tree-arrow');
+            
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                arrow.textContent = '▼';
+            } else {
+                content.style.display = 'none';
+                arrow.textContent = '▶';
+            }
+        }
+        
+        function toggleHnoFields() {
+            const type = document.getElementById('astreintesType').value;
+            const container = document.getElementById('hnoFieldsContainer');
+            container.style.display = type === 'hno' ? 'block' : 'none';
+        }
+        
+        function toggleSamuSelect() {
+            const tousSamu = document.getElementById('astreintesTousSamu').checked;
+            const samuSelect = document.getElementById('astreintesSamu');
+            samuSelect.disabled = tousSamu;
+            if (tousSamu) {
+                samuSelect.value = '';
+            }
+        }
+        
+        function syncAstreintesDateFin() {
+            const dateDebut = document.getElementById('astreintesDateDebut').value;
+            const dateFin = document.getElementById('astreintesDateFin');
+            if (dateDebut && !dateFin.value) {
+                dateFin.value = dateDebut;
+            }
+        }
+        
+        function resetAstreintesForm() {
+            document.getElementById('astreintesEditId').value = '';
+            document.getElementById('astreintesType').value = 'astreinte';
+            document.getElementById('astreintesDateDebut').value = '';
+            document.getElementById('astreintesDateFin').value = '';
+            document.getElementById('astreintesHeureDebut').value = '';
+            document.getElementById('astreintesHeureFin').value = '';
+            document.getElementById('astreintesSamu').value = '';
+            document.getElementById('astreintesSamu').disabled = false;
+            document.getElementById('astreintesTousSamu').checked = false;
+            document.getElementById('astreintesObjet').value = '';
+            
+            if (currentUser.activeProfile === 'admin') {
+                document.getElementById('astreintesExpert').value = '';
+            }
+            
+            document.getElementById('astreintesFormTitle').textContent = 'Ajouter une astreinte/HNO';
+            toggleHnoFields();
+        }
+        
+        function editAstreinte(id) {
+            const astreinte = astreintesData.find(a => a.id === id);
+            if (!astreinte) return;
+            
+            document.getElementById('astreintesEditId').value = astreinte.id;
+            document.getElementById('astreintesType').value = astreinte.type;
+            document.getElementById('astreintesDateDebut').value = astreinte.date_debut;
+            document.getElementById('astreintesDateFin').value = astreinte.date_fin;
+            document.getElementById('astreintesHeureDebut').value = astreinte.heure_debut || '';
+            document.getElementById('astreintesHeureFin').value = astreinte.heure_fin || '';
+            document.getElementById('astreintesSamu').value = astreinte.samu || '';
+            document.getElementById('astreintesTousSamu').checked = astreinte.tous_samu === 1;
+            document.getElementById('astreintesObjet').value = astreinte.objet;
+            
+            if (currentUser.activeProfile === 'admin') {
+                document.getElementById('astreintesExpert').value = astreinte.user_id;
+            }
+            
+            document.getElementById('astreintesFormTitle').textContent = 'Modifier l\'astreinte/HNO';
+            toggleHnoFields();
+            toggleSamuSelect();
+            
+            // Scroll vers le formulaire
+            document.getElementById('astreintesFormTitle').scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        async function saveAstreinte() {
+            const editId = document.getElementById('astreintesEditId').value;
+            const type = document.getElementById('astreintesType').value;
+            const date_debut = document.getElementById('astreintesDateDebut').value;
+            const date_fin = document.getElementById('astreintesDateFin').value;
+            const heure_debut = document.getElementById('astreintesHeureDebut').value;
+            const heure_fin = document.getElementById('astreintesHeureFin').value;
+            const samu = document.getElementById('astreintesSamu').value;
+            const tous_samu = document.getElementById('astreintesTousSamu').checked;
+            const objet = document.getElementById('astreintesObjet').value.trim();
+            
+            // Validations
+            if (!date_debut || !date_fin) {
+                alert('Veuillez remplir les dates');
+                return;
+            }
+            
+            if (type === 'hno' && (!heure_debut || !heure_fin)) {
+                alert('Veuillez remplir les heures pour le HNO');
+                return;
+            }
+            
+            if (!tous_samu && !samu) {
+                alert('Veuillez sélectionner un SAMU ou cocher "Tous les SAMU"');
+                return;
+            }
+            
+            if (!objet) {
+                alert('Veuillez remplir l\'objet');
+                return;
+            }
+            
+            const data = {
+                type,
+                date_debut,
+                date_fin,
+                heure_debut: type === 'hno' ? heure_debut : null,
+                heure_fin: type === 'hno' ? heure_fin : null,
+                samu: tous_samu ? null : samu,
+                tous_samu,
+                objet
+            };
+            
+            // Ajouter l'expert si admin
+            if (currentUser.activeProfile === 'admin') {
+                const expertId = document.getElementById('astreintesExpert').value;
+                if (!expertId && !editId) {
+                    alert('Veuillez sélectionner un expert');
+                    return;
+                }
+                data.user_id = parseInt(expertId);
+            }
+            
+            try {
+                const url = editId ? `${API_URL}/astreintes/${editId}` : `${API_URL}/astreintes`;
+                const method = editId ? 'PUT' : 'POST';
+                
+                const response = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(data)
+                });
+                
+                if (response.ok) {
+                    alert(editId ? 'Astreinte/HNO modifiée avec succès' : 'Astreinte/HNO créée avec succès');
+                    resetAstreintesForm();
+                    await loadAstreintes();
+                    // Recharger les astreintes pour le planning et rafraîchir
+                    await loadAllAstreintesForPlanning();
+                    updateGantt();
+                } else {
+                    const result = await response.json();
+                    alert(result.error || 'Erreur lors de l\'enregistrement');
+                }
+            } catch (error) {
+                console.error('Erreur sauvegarde astreinte:', error);
+                alert('Erreur lors de l\'enregistrement');
+            }
+        }
+        
+        async function deleteAstreinte(id) {
+            if (!confirm('Êtes-vous sûr de vouloir supprimer cette astreinte/HNO ?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/astreintes/${id}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    alert('Astreinte/HNO supprimée avec succès');
+                    await loadAstreintes();
+                    // Recharger les astreintes pour le planning et rafraîchir
+                    await loadAllAstreintesForPlanning();
+                    updateGantt();
+                } else {
+                    const result = await response.json();
+                    alert(result.error || 'Erreur lors de la suppression');
+                }
+            } catch (error) {
+                console.error('Erreur suppression astreinte:', error);
+                alert('Erreur lors de la suppression');
+            }
+        }
+        
+        // ============== FONCTIONS POUR L'APPLICATION DÉPLACEMENTS ==============
+        
+        function showDeplacementsApp() {
+            console.log('🚗 Affichage de l\'application Déplacements');
+            
+            // Sauvegarder l'application sélectionnée
+            sessionStorage.setItem('selectedApp', 'deplacements');
+            
+            // Masquer le container principal de planification
+            document.querySelector('.container').style.display = 'none';
+            
+            // Afficher le container déplacements
+            document.getElementById('deplacementsContainer').style.display = 'block';
+            
+            // Mettre à jour les infos utilisateur
+            updateDeplacementsUserDisplay();
+            
+            // Afficher les onglets selon le profil
+            updateDeplacementsTabsVisibility();
+            
+            // Afficher le premier onglet et charger les données
+            switchDeplacementsTab('planification');
+            
+            // Afficher le timer et les utilisateurs connectés
+            document.getElementById('deplacementsTimerDisplay').style.display = 'block';
+            document.getElementById('deplacementsOnlineUsersContainer').style.display = 'block';
+            
+            // Charger les paramètres puis démarrer le timer
+            loadSettingsForDeplacements().then(() => {
+                startDeplacementsInactivityTimer(deplacementsInactivityTimeout);
+            });
+            
+            // Démarrer le polling des utilisateurs connectés
+            startDeplacementsOnlineUsersPolling();
+        }
+        
+        async function loadSettingsForDeplacements() {
+            try {
+                const response = await fetch(`${API_URL}/settings`, { credentials: 'include' });
+                if (response.ok) {
+                    const settings = await response.json();
+                    // Le timeout est en MINUTES dans les paramètres
+                    deplacementsInactivityTimeout = settings.inactivity_timeout || 5;
+                    console.log('⚙️ Timeout inactivité déplacements:', deplacementsInactivityTimeout, 'minutes');
+                }
+            } catch (error) {
+                console.error('Erreur chargement settings:', error);
+                deplacementsInactivityTimeout = 5; // 5 minutes par défaut
+            }
+        }
+        
+        function updateDeplacementsUserDisplay() {
+            if (!currentUser) return;
+            
+            // Nom de l'utilisateur
+            const fullName = `${currentUser.prenom || ''} ${currentUser.nom || ''}`.trim() || currentUser.username;
+            document.getElementById('deplacementsUserDisplayName').textContent = fullName;
+            
+            // Badge de profil
+            const profileText = currentUser.activeProfile === 'admin' ? 'Administrateur' :
+                               currentUser.activeProfile === 'expert' ? 'Expert Métier' :
+                               'Utilisateur';
+            const badgeEl = document.getElementById('deplacementsUserDisplayRole');
+            badgeEl.textContent = profileText;
+            
+            // Trigramme et photo
+            const trigramme = currentUser.trigramme || '?';
+            document.getElementById('deplacementsProfileTrigramme').textContent = trigramme;
+            
+            if (currentUser.profilePhoto) {
+                document.getElementById('deplacementsProfilePhoto').src = currentUser.profilePhoto;
+                document.getElementById('deplacementsProfilePhoto').style.display = 'block';
+                document.getElementById('deplacementsProfileTrigramme').style.display = 'none';
+            } else {
+                document.getElementById('deplacementsProfilePhoto').style.display = 'none';
+                document.getElementById('deplacementsProfileTrigramme').style.display = 'flex';
+            }
+        }
+        
+        function updateDeplacementsTabsVisibility() {
+            if (!currentUser) return;
+            
+            const isAdmin = currentUser.activeProfile === 'admin';
+            
+            // Onglet Reporting - uniquement pour Admin
+            document.getElementById('deplacementsTabReporting').style.display = isAdmin ? 'inline-block' : 'none';
+            
+            // Onglet Administration - uniquement pour Admin
+            document.getElementById('deplacementsTabAdmin').style.display = isAdmin ? 'inline-block' : 'none';
+        }
+        
+        function switchToPlanificationApp() {
+            console.log('📅 Retour à l\'application Planification');
+            
+            // Arrêter le timer de déplacements
+            stopDeplacementsInactivityTimer();
+            
+            // Arrêter le polling des utilisateurs connectés
+            if (deplacementsOnlineUsersInterval) {
+                clearInterval(deplacementsOnlineUsersInterval);
+            }
+            
+            // Masquer l'application déplacements
+            document.getElementById('deplacementsContainer').style.display = 'none';
+            document.getElementById('deplacementsTimerDisplay').style.display = 'none';
+            document.getElementById('deplacementsOnlineUsersContainer').style.display = 'none';
+            
+            // Afficher l'application planification
+            document.querySelector('.container').style.display = 'block';
+            
+            // Mettre à jour l'application sélectionnée
+            if (currentUser) {
+                currentUser.selectedApp = 'planification';
+            }
+            
+            // Réinitialiser le timer de l'app principale
+            resetTimer();
+        }
+        
+        function openDeplacementsSearchModal() {
+            alert('Recherche - Fonctionnalité en cours de développement');
+        }
+        
+        // Variables pour le timer déplacements
+        let deplacementsTimerInterval = null;
+        let deplacementsTimeRemaining = 0;
+        let deplacementsInactivityTimeout = 5; // 5 minutes par défaut
+        let deplacementsLastActivityTime = Date.now();
+        let deplacementsOnlineUsersInterval = null;
+        
+        function startDeplacementsInactivityTimer(timeoutMinutes) {
+            stopDeplacementsInactivityTimer(); // Arrêter le timer existant
+            
+            deplacementsInactivityTimeout = timeoutMinutes;
+            deplacementsTimeRemaining = timeoutMinutes * 60; // Convertir en secondes
+            deplacementsLastActivityTime = Date.now();
+            
+            console.log(`🚗 Timer déplacements démarré: ${timeoutMinutes} minutes`);
+            
+            // Afficher le timer
+            updateDeplacementsTimerDisplay();
+            
+            // Mettre à jour l'affichage chaque seconde
+            deplacementsTimerInterval = setInterval(() => {
+                const elapsedSeconds = Math.floor((Date.now() - deplacementsLastActivityTime) / 1000);
+                deplacementsTimeRemaining = (deplacementsInactivityTimeout * 60) - elapsedSeconds;
+                
+                if (deplacementsTimeRemaining <= 0) {
+                    console.log('⏰ Timer déplacements terminé! Déconnexion...');
+                    clearInterval(deplacementsTimerInterval);
+                    deplacementsTimerInterval = null;
+                    showDeplacementsInactivityModal();
+                } else {
+                    updateDeplacementsTimerDisplay();
+                    
+                    // Changer la couleur si moins de 1 minute restante
+                    const timerDisplay = document.getElementById('deplacementsTimerDisplay');
+                    if (timerDisplay) {
+                        if (deplacementsTimeRemaining <= 60) {
+                            timerDisplay.style.color = '#e74c3c';
+                        } else if (deplacementsTimeRemaining <= 120) {
+                            timerDisplay.style.color = '#f39c12';
+                        } else {
+                            timerDisplay.style.color = '#2c3e50';
+                        }
+                    }
+                }
+            }, 1000);
+            
+            // Réinitialiser le timer sur activité (clic ou touche)
+            const container = document.getElementById('deplacementsContainer');
+            container.addEventListener('mousedown', resetDeplacementsTimer, true);
+            container.addEventListener('keypress', resetDeplacementsTimer, true);
+        }
+        
+        function stopDeplacementsInactivityTimer() {
+            if (deplacementsTimerInterval) {
+                clearInterval(deplacementsTimerInterval);
+                deplacementsTimerInterval = null;
+            }
+            
+            // Retirer les event listeners
+            const container = document.getElementById('deplacementsContainer');
+            if (container) {
+                container.removeEventListener('mousedown', resetDeplacementsTimer, true);
+                container.removeEventListener('keypress', resetDeplacementsTimer, true);
+            }
+        }
+        
+        function resetDeplacementsTimer() {
+            deplacementsLastActivityTime = Date.now();
+            deplacementsTimeRemaining = deplacementsInactivityTimeout * 60;
+            
+            // Réinitialiser la couleur
+            const timerDisplay = document.getElementById('deplacementsTimerDisplay');
+            if (timerDisplay) {
+                timerDisplay.style.color = '#2c3e50';
+            }
+        }
+        
+        function updateDeplacementsTimerDisplay() {
+            const minutes = Math.floor(deplacementsTimeRemaining / 60);
+            const seconds = deplacementsTimeRemaining % 60;
+            document.getElementById('deplacementsTimerMinutes').textContent = String(minutes).padStart(2, '0');
+            document.getElementById('deplacementsTimerSeconds').textContent = String(seconds).padStart(2, '0');
+        }
+        
+        function showDeplacementsInactivityModal() {
+            const wantsToStay = confirm(`Vous êtes inactif depuis ${deplacementsInactivityTimeout} minutes.\n\nVoulez-vous rester connecté ?`);
+            
+            if (wantsToStay) {
+                // Redémarrer le timer
+                startDeplacementsInactivityTimer(deplacementsInactivityTimeout);
+            } else {
+                // Déconnecter
+                logoutFromDeplacements(true);
+            }
+        }
+        
+        function startDeplacementsOnlineUsersPolling() {
+            // Charger immédiatement
+            updateDeplacementsOnlineUsers();
+            
+            // Arrêter l'intervalle existant s'il y en a un
+            if (deplacementsOnlineUsersInterval) {
+                clearInterval(deplacementsOnlineUsersInterval);
+            }
+            
+            // Mettre à jour toutes les 30 secondes
+            deplacementsOnlineUsersInterval = setInterval(updateDeplacementsOnlineUsers, 30000);
+        }
+        
+        let deplacementsOnlineUsersTooltipVisible = false;
+        
+        async function updateDeplacementsOnlineUsers() {
+            try {
+                const response = await fetch(`${API_URL}/active-sessions`, { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    const onlineUsers = data.activeUsers || [];
+                    
+                    // Mettre à jour le compteur
+                    const countEl = document.getElementById('deplacementsOnlineUsersCount');
+                    countEl.textContent = `${onlineUsers.length} connecté(s)`;
+                    
+                    // Mettre à jour les avatars
+                    const avatarsEl = document.getElementById('deplacementsOnlineUsersAvatars');
+                    avatarsEl.innerHTML = '';
+                    
+                    const maxAvatars = 5;
+                    const usersToShow = onlineUsers.slice(0, maxAvatars);
+                    
+                    usersToShow.forEach((user, index) => {
+                        const avatar = document.createElement('div');
+                        avatar.style.cssText = `
+                            width: 24px;
+                            height: 24px;
+                            border-radius: 50%;
+                            background-color: #3498db;
+                            color: white;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font-size: 10px;
+                            font-weight: bold;
+                            margin-left: ${index > 0 ? '-8px' : '0'};
+                            border: 2px solid white;
+                            z-index: ${maxAvatars - index};
+                            position: relative;
+                        `;
+                        
+                        if (user.profilePhoto) {
+                            avatar.innerHTML = `<img src="${user.profilePhoto}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
+                        } else {
+                            avatar.textContent = user.trigramme || user.prenom?.charAt(0) || '?';
+                        }
+                        avatar.title = `${user.prenom || ''} ${user.nom || ''}`.trim() || user.username;
+                        
+                        avatarsEl.appendChild(avatar);
+                    });
+                    
+                    if (onlineUsers.length > maxAvatars) {
+                        const more = document.createElement('div');
+                        more.style.cssText = `
+                            width: 24px;
+                            height: 24px;
+                            border-radius: 50%;
+                            background-color: #95a5a6;
+                            color: white;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font-size: 9px;
+                            font-weight: bold;
+                            margin-left: -8px;
+                            border: 2px solid white;
+                        `;
+                        more.textContent = `+${onlineUsers.length - maxAvatars}`;
+                        avatarsEl.appendChild(more);
+                    }
+                    
+                    // Mettre à jour la liste du tooltip
+                    updateDeplacementsOnlineUsersTooltipList(onlineUsers);
+                }
+            } catch (error) {
+                console.error('Erreur chargement utilisateurs connectés:', error);
+            }
+        }
+        
+        function updateDeplacementsOnlineUsersTooltipList(users) {
+            const listDiv = document.getElementById('deplacementsOnlineUsersTooltipList');
+            if (!listDiv) return;
+            
+            if (users.length === 0) {
+                listDiv.innerHTML = '<div style="color: #999; font-size: 11px; text-align: center; padding: 10px;">Aucun utilisateur connecté</div>';
+                return;
+            }
+            
+            let html = '';
+            users.forEach(user => {
+                const fullName = `${user.prenom || ''} ${user.nom || ''}`.trim() || user.username;
+                const profileLabel = user.profile === 'admin' ? 'Admin' : 
+                                    user.profile === 'expert' ? 'Expert' : 'Utilisateur';
+                const badgeColor = user.profile === 'admin' ? '#e74c3c' : 
+                                  user.profile === 'expert' ? '#f39c12' : '#3498db';
+                
+                html += `
+                    <div style="display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #f0f0f0;">
+                        <div style="width: 28px; height: 28px; border-radius: 50%; background-color: #3498db; color: white; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; overflow: hidden;">
+                            ${user.profilePhoto 
+                                ? `<img src="${user.profilePhoto}" style="width: 100%; height: 100%; object-fit: cover;">` 
+                                : (user.trigramme || user.prenom?.charAt(0) || '?')}
+                        </div>
+                        <div style="flex: 1;">
+                            <div style="font-size: 12px; color: #2c3e50; font-weight: 500;">${fullName}</div>
+                            <span style="font-size: 9px; background-color: ${badgeColor}; color: white; padding: 1px 5px; border-radius: 3px;">${profileLabel}</span>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            listDiv.innerHTML = html;
+        }
+        
+        function toggleDeplacementsOnlineUsersTooltip(event) {
+            event.stopPropagation();
+            const tooltip = document.getElementById('deplacementsOnlineUsersTooltip');
+            if (!tooltip) return;
+            
+            deplacementsOnlineUsersTooltipVisible = !deplacementsOnlineUsersTooltipVisible;
+            tooltip.style.display = deplacementsOnlineUsersTooltipVisible ? 'block' : 'none';
+        }
+        
+        // Fermer le tooltip déplacements en cliquant ailleurs
+        document.addEventListener('click', function(event) {
+            const tooltip = document.getElementById('deplacementsOnlineUsersTooltip');
+            const container = document.getElementById('deplacementsOnlineUsersContainer');
+            
+            if (tooltip && container && !container.contains(event.target) && !tooltip.contains(event.target)) {
+                deplacementsOnlineUsersTooltipVisible = false;
+                tooltip.style.display = 'none';
+            }
+        });
+        
+        async function logoutFromDeplacements(auto = false) {
+            if (auto) {
+                // Déconnexion automatique (timeout)
+                stopDeplacementsInactivityTimer();
+                if (deplacementsOnlineUsersInterval) {
+                    clearInterval(deplacementsOnlineUsersInterval);
+                }
+                await performLogout();
+                document.getElementById('deplacementsContainer').style.display = 'none';
+                document.getElementById('deplacementsTimerDisplay').style.display = 'none';
+                document.getElementById('deplacementsOnlineUsersContainer').style.display = 'none';
+                document.getElementById('deplacementsOnlineUsersTooltip').style.display = 'none';
+                return;
+            }
+            
+            // Afficher le modal de choix
+            showDeplacementsLogoutModal();
+        }
+        
+        function showDeplacementsLogoutModal() {
+            // Créer le modal s'il n'existe pas
+            let modal = document.getElementById('deplacementsLogoutModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'deplacementsLogoutModal';
+                modal.className = 'modal';
+                modal.innerHTML = `
+                    <div class="modal-content" style="max-width: 400px; text-align: center;">
+                        <h3 style="margin-bottom: 20px; color: #2c3e50;">Que souhaitez-vous faire ?</h3>
+                        <div style="display: flex; flex-direction: column; gap: 15px;">
+                            <button onclick="goToPlanificationApp()" style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); color: white; padding: 15px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                                <span style="font-size: 24px;">📅</span>
+                                <span>Aller sur la Plateforme de planification</span>
+                            </button>
+                            <button onclick="confirmLogoutFromDeplacements()" style="background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); color: white; padding: 15px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                                <span style="font-size: 24px;">🚪</span>
+                                <span>Se déconnecter</span>
+                            </button>
+                            <button onclick="closeDeplacementsLogoutModal()" style="background-color: #95a5a6; color: white; padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px;">
+                                Annuler
+                            </button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+            modal.classList.add('active');
+        }
+        
+        function closeDeplacementsLogoutModal() {
+            const modal = document.getElementById('deplacementsLogoutModal');
+            if (modal) {
+                modal.classList.remove('active');
+            }
+        }
+        
+        async function goToPlanificationApp() {
+            closeDeplacementsLogoutModal();
+            
+            // Sauvegarder l'application sélectionnée
+            sessionStorage.setItem('selectedApp', 'planification');
+            
+            // Arrêter le timer de déplacements
+            stopDeplacementsInactivityTimer();
+            
+            // Arrêter le polling des utilisateurs connectés de l'app déplacements
+            if (deplacementsOnlineUsersInterval) {
+                clearInterval(deplacementsOnlineUsersInterval);
+            }
+            
+            // Masquer l'application déplacements
+            document.getElementById('deplacementsContainer').style.display = 'none';
+            document.getElementById('deplacementsTimerDisplay').style.display = 'none';
+            document.getElementById('deplacementsOnlineUsersContainer').style.display = 'none';
+            document.getElementById('deplacementsOnlineUsersTooltip').style.display = 'none';
+            
+            // Afficher l'application planification
+            document.querySelector('.container').style.display = 'block';
+            
+            // Mettre à jour l'application sélectionnée
+            if (currentUser) {
+                currentUser.selectedApp = 'planification';
+            }
+            
+            // Réinitialiser l'affichage de l'IHM principale
+            updateTabsVisibility();
+            updateUserDisplay();
+            
+            // Afficher le timer et les utilisateurs connectés de l'app principale
+            document.getElementById('inactivityTimerDisplay').style.display = 'block';
+            document.getElementById('onlineUsersContainer').style.display = 'block';
+            
+            // Recharger les données pour s'assurer que tout est à jour
+            await loadResources();
+            await loadSchedule();
+            await loadSettings();
+            
+            // Réinitialiser l'affichage du mois courant
+            setCurrentMonth();
+            
+            // Mettre à jour le Gantt si on est sur l'onglet planification
+            if (document.getElementById('planning').classList.contains('active')) {
+                updateGantt();
+            }
+            
+            // Afficher les ressources si on est sur l'onglet ressources
+            if (document.getElementById('resources').classList.contains('active')) {
+                displayResources();
+            }
+            
+            // Démarrer le polling des utilisateurs connectés
+            startOnlineUsersPolling();
+            
+            // Charger les notifications pour les experts
+            if (currentUser.activeProfile === 'expert') {
+                await loadNewAssignments();
+            }
+            
+            console.log('📅 Retour à la Plateforme de planification effectué');
+        }
+        
+        async function confirmLogoutFromDeplacements() {
+            closeDeplacementsLogoutModal();
+            
+            // Nettoyer le sessionStorage
+            sessionStorage.removeItem('selectedApp');
+            
+            // Arrêter le timer
+            stopDeplacementsInactivityTimer();
+            
+            // Arrêter le polling des utilisateurs connectés
+            if (deplacementsOnlineUsersInterval) {
+                clearInterval(deplacementsOnlineUsersInterval);
+            }
+            
+            await performLogout();
+            
+            // Masquer l'application déplacements
+            document.getElementById('deplacementsContainer').style.display = 'none';
+            document.getElementById('deplacementsTimerDisplay').style.display = 'none';
+            document.getElementById('deplacementsOnlineUsersContainer').style.display = 'none';
+            document.getElementById('deplacementsOnlineUsersTooltip').style.display = 'none';
+        }
+        
+        // ============== FIN FONCTIONS APPLICATION DÉPLACEMENTS ==============
+        
+        // ============== FONCTIONS GESTION BONS DE COMMANDE ET DÉPLACEMENTS ==============
+        
+        let bonsCommandeList = [];
+        let listeSamu = [];
+        
+        // Fonction utilitaire pour formater une date en français
+        function formatDateFr(dateStr) {
+            if (!dateStr) return '-';
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        }
+        
+        // Charger les données au changement d'onglet
+        function switchDeplacementsTab(tabName) {
+            // Désactiver tous les onglets
+            document.querySelectorAll('#deplacementsContainer .tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Masquer tous les contenus
+            document.querySelectorAll('#deplacementsContainer .tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Activer l'onglet et le contenu sélectionnés
+            if (tabName === 'planification') {
+                document.getElementById('deplacementsTabPlanification').classList.add('active');
+                document.querySelector('#deplacementsContainer #deplacementsPlanificationTab').classList.add('active');
+                loadMesDeplacements();
+                loadListeSamu();
+                loadBonsCommandeForSelect();
+            } else if (tabName === 'reporting') {
+                document.getElementById('deplacementsTabReporting').classList.add('active');
+                document.querySelector('#deplacementsContainer #deplacementsReportingTab').classList.add('active');
+                loadReportingDeplacements();
+                loadAllDeplacements();
+            } else if (tabName === 'admin') {
+                document.getElementById('deplacementsTabAdmin').classList.add('active');
+                document.querySelector('#deplacementsContainer #deplacementsAdminTab').classList.add('active');
+                loadBonsCommande();
+            }
+        }
+        
+        // ===== BONS DE COMMANDE =====
+        
+        async function loadBonsCommande() {
+            console.log('📋 Chargement des bons de commande...');
+            try {
+                const response = await fetch(`${API_URL}/bons-commande`, { credentials: 'include' });
+                console.log('📋 Réponse bons-commande:', response.status);
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('📋 Bons de commande reçus:', data);
+                    bonsCommandeList = data;
+                    displayBonsCommande(data);
+                } else {
+                    console.error('📋 Erreur HTTP:', response.status);
+                    const errorText = await response.text();
+                    console.error('📋 Détail erreur:', errorText);
+                }
+            } catch (error) {
+                console.error('📋 Erreur chargement bons de commande:', error);
+            }
+        }
+        
+        function displayBonsCommande(bons) {
+            console.log('📋 Affichage bons de commande:', bons?.length || 0);
+            const tbody = document.getElementById('bonsCommandeBody');
+            if (!tbody) {
+                console.error('📋 Element bonsCommandeBody non trouvé!');
+                return;
+            }
+            if (!bons || bons.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #999;">Aucun bon de commande</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = bons.map(bc => `
+                <tr>
+                    <td>${bc.intitule}</td>
+                    <td>${formatDateFr(bc.date_debut)}</td>
+                    <td>${formatDateFr(bc.date_fin)}</td>
+                    <td>${bc.nb_uo}</td>
+                    <td>
+                        <span style="background-color: ${bc.actif ? '#27ae60' : '#95a5a6'}; color: white; padding: 3px 10px; border-radius: 12px; font-size: 11px;">
+                            ${bc.actif ? 'Actif' : 'Inactif'}
+                        </span>
+                    </td>
+                    <td>
+                        <button onclick="editBonCommande(${bc.id})" style="background-color: #3498db; color: white; padding: 5px 10px; margin-right: 5px; font-size: 12px;">✏️ Modifier</button>
+                        <button onclick="deleteBonCommande(${bc.id})" style="background-color: #e74c3c; color: white; padding: 5px 10px; font-size: 12px;">🗑️ Supprimer</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+        
+        async function addBonCommande() {
+            const intitule = document.getElementById('bcIntitule').value.trim();
+            const date_debut = document.getElementById('bcDateDebut').value;
+            const date_fin = document.getElementById('bcDateFin').value;
+            const nb_uo = parseInt(document.getElementById('bcNbUO').value);
+            
+            if (!intitule || !date_debut || !date_fin || !nb_uo) {
+                alert('Veuillez remplir tous les champs');
+                return;
+            }
+            
+            if (date_fin < date_debut) {
+                alert('La date de fin doit être postérieure à la date de début');
+                return;
+            }
+            
+            // Contrôle d'unicité du numéro de CBDC
+            const existingBC = bonsCommandeList.find(bc => bc.intitule.toLowerCase() === intitule.toLowerCase());
+            if (existingBC) {
+                alert('Ce numéro de CBDC existe déjà. Veuillez en saisir un autre.');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/bons-commande`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ intitule, date_debut, date_fin, nb_uo })
+                });
+                
+                if (response.ok) {
+                    // Réinitialiser le formulaire
+                    document.getElementById('bcIntitule').value = '';
+                    document.getElementById('bcDateDebut').value = '';
+                    document.getElementById('bcDateFin').value = '';
+                    document.getElementById('bcNbUO').value = '';
+                    
+                    loadBonsCommande();
+                    alert('Bon de commande créé avec succès');
+                } else {
+                    const data = await response.json();
+                    alert(data.error || 'Erreur lors de la création');
+                }
+            } catch (error) {
+                console.error('Erreur création bon de commande:', error);
+                alert('Erreur lors de la création');
+            }
+        }
+        
+        function editBonCommande(id) {
+            const bc = bonsCommandeList.find(b => b.id === id);
+            if (!bc) return;
+            
+            document.getElementById('editBcId').value = bc.id;
+            document.getElementById('editBcIntitule').value = bc.intitule;
+            document.getElementById('editBcDateDebut').value = bc.date_debut;
+            document.getElementById('editBcDateFin').value = bc.date_fin;
+            document.getElementById('editBcNbUO').value = bc.nb_uo;
+            document.getElementById('editBcActif').value = bc.actif ? '1' : '0';
+            
+            document.getElementById('editBonCommandeModal').classList.add('active');
+        }
+        
+        function closeEditBonCommandeModal() {
+            document.getElementById('editBonCommandeModal').classList.remove('active');
+        }
+        
+        async function saveBonCommande() {
+            const id = document.getElementById('editBcId').value;
+            const intitule = document.getElementById('editBcIntitule').value.trim();
+            const date_debut = document.getElementById('editBcDateDebut').value;
+            const date_fin = document.getElementById('editBcDateFin').value;
+            const nb_uo = parseInt(document.getElementById('editBcNbUO').value);
+            const actif = document.getElementById('editBcActif').value === '1';
+            
+            if (!intitule || !date_debut || !date_fin || !nb_uo) {
+                alert('Veuillez remplir tous les champs');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/bons-commande/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ intitule, date_debut, date_fin, nb_uo, actif })
+                });
+                
+                if (response.ok) {
+                    closeEditBonCommandeModal();
+                    loadBonsCommande();
+                    alert('Bon de commande modifié avec succès');
+                } else {
+                    const data = await response.json();
+                    alert(data.error || 'Erreur lors de la modification');
+                }
+            } catch (error) {
+                console.error('Erreur modification bon de commande:', error);
+                alert('Erreur lors de la modification');
+            }
+        }
+        
+        async function deleteBonCommande(id) {
+            if (!confirm('Êtes-vous sûr de vouloir supprimer ce bon de commande ?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/bons-commande/${id}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    loadBonsCommande();
+                    alert('Bon de commande supprimé');
+                } else {
+                    const data = await response.json();
+                    alert(data.error || 'Erreur lors de la suppression');
+                }
+            } catch (error) {
+                console.error('Erreur suppression bon de commande:', error);
+                alert('Erreur lors de la suppression');
+            }
+        }
+        
+        // ===== DÉPLACEMENTS =====
+        
+        // Liste statique des SAMU (identique à l'application principale)
+        const SAMU_LIST = [
+            "SAMU 01", "SAMU 02", "SAMU 03", "SAMU 04", "SAMU 05", "SAMU 06", "SAMU 07", "SAMU 08", "SAMU 09", "SAMU 10",
+            "SAMU 11", "SAMU 12", "SAMU 13", "SAMU 14", "SAMU 15", "SAMU 16", "SAMU 17", "SAMU 18", "SAMU 19",
+            "SAMU 21", "SAMU 22", "SAMU 23", "SAMU 24", "SAMU 25", "SAMU 26", "SAMU 27", "SAMU 28", "SAMU 29", "SAMU 30",
+            "SAMU 31", "SAMU 32", "SAMU 33", "SAMU 34", "SAMU 35", "SAMU 36", "SAMU 37", "SAMU 38",
+            "SAMU 40", "SAMU 41", "SAMU 42", "SAMU 43", "SAMU 44", "SAMU 45", "SAMU 46", "SAMU 47", "SAMU 48", "SAMU 49", "SAMU 50",
+            "SAMU 51", "SAMU 52", "SAMU 53", "SAMU 54", "SAMU 55", "SAMU 56", "SAMU 57",
+            "SAMU 59", "SAMU 60", "SAMU 61", "SAMU 62", "SAMU 63", "SAMU 64A", "SAMU 64B", "SAMU 65", "SAMU 66", "SAMU 67", "SAMU 68", "SAMU 69",
+            "SAMU 71", "SAMU 72", "SAMU 73", "SAMU 74", "SAMU 75", "SAMU 76A", "SAMU 76B", "SAMU 77", "SAMU 78", "SAMU 79", "SAMU 80",
+            "SAMU 81", "SAMU 82", "SAMU 83", "SAMU 84", "SAMU 85", "SAMU 86", "SAMU 87", "SAMU 88", "SAMU 89",
+            "SAMU 91", "SAMU 92", "SAMU 93", "SAMU 94", "SAMU 95",
+            "SAMU 971", "SAMU 972", "SAMU 973", "SAMU 974", "SAMU 976",
+            "SAMU 2A", "SAMU 2B"
+        ];
+        
+        function loadListeSamu() {
+            listeSamu = SAMU_LIST;
+            const select = document.getElementById('deplacementSamu');
+            select.innerHTML = '<option value="">-- Sélectionner un SAMU --</option>' +
+                listeSamu.map(s => `<option value="${s}">${s}</option>`).join('');
+        }
+        
+        async function loadBonsCommandeForSelect() {
+            try {
+                const response = await fetch(`${API_URL}/bons-commande`, { credentials: 'include' });
+                if (response.ok) {
+                    bonsCommandeList = await response.json();
+                    // Remplir la liste déroulante des bons de commande actifs
+                    const select = document.getElementById('deplacementBonCommande');
+                    const activeBCs = bonsCommandeList.filter(bc => bc.actif === 1);
+                    select.innerHTML = '<option value="">-- Sélectionner un bon de commande --</option>' +
+                        activeBCs.map(bc => `<option value="${bc.id}">${bc.intitule} (${formatDateFr(bc.date_debut)} - ${formatDateFr(bc.date_fin)})</option>`).join('');
+                }
+            } catch (error) {
+                console.error('Erreur chargement bons de commande:', error);
+            }
+        }
+        
+        function updateDeplacementBonCommande() {
+            const dateDebut = document.getElementById('deplacementDateDebut').value;
+            const dateFin = document.getElementById('deplacementDateFin').value;
+            
+            if (!dateDebut || !dateFin) {
+                document.getElementById('deplacementNbUO').value = '0';
+                return;
+            }
+            
+            // Calculer le nombre d'UO
+            const start = new Date(dateDebut);
+            const end = new Date(dateFin);
+            const diffTime = Math.abs(end - start);
+            const nbUO = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+            document.getElementById('deplacementNbUO').value = nbUO;
+            
+            // Pré-sélectionner le bon de commande correspondant aux dates
+            const select = document.getElementById('deplacementBonCommande');
+            const bc = bonsCommandeList.find(b => 
+                b.actif === 1 && 
+                b.date_debut <= dateDebut && 
+                b.date_fin >= dateFin
+            );
+            
+            if (bc) {
+                select.value = bc.id;
+            }
+        }
+        
+        function updateDeplacementBonCommandeSelection() {
+            // Fonction appelée quand on change manuellement le bon de commande
+            // (permet de garder la sélection manuelle)
+        }
+        
+        async function loadMesDeplacements() {
+            try {
+                const response = await fetch(`${API_URL}/mes-deplacements`, { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    displayMesDeplacements(data);
+                }
+            } catch (error) {
+                console.error('Erreur chargement mes déplacements:', error);
+            }
+        }
+        
+        function displayMesDeplacements(deplacements) {
+            const tbody = document.getElementById('mesDeplacementsBody');
+            if (!deplacements || deplacements.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #999;">Aucun déplacement enregistré</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = deplacements.map(d => `
+                <tr>
+                    <td>${formatDateFr(d.date_debut)}</td>
+                    <td>${formatDateFr(d.date_fin)}</td>
+                    <td>${d.samu}</td>
+                    <td>${d.ville}</td>
+                    <td>${d.nb_uo}</td>
+                    <td>${d.bon_commande_intitule || '<span style="color: #999;">-</span>'}</td>
+                    <td>
+                        <button onclick="deleteDeplacement(${d.id})" style="background-color: #e74c3c; color: white; padding: 5px 10px; font-size: 12px;">🗑️ Supprimer</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+        
+        async function addDeplacement() {
+            const date_debut = document.getElementById('deplacementDateDebut').value;
+            const date_fin = document.getElementById('deplacementDateFin').value;
+            const samu = document.getElementById('deplacementSamu').value;
+            const ville = document.getElementById('deplacementVille').value.trim().toUpperCase();
+            const bon_commande_id = document.getElementById('deplacementBonCommande').value;
+            
+            if (!date_debut || !date_fin || !samu || !ville) {
+                alert('Veuillez remplir tous les champs obligatoires');
+                return;
+            }
+            
+            if (!bon_commande_id) {
+                alert('Veuillez sélectionner un bon de commande');
+                return;
+            }
+            
+            if (date_fin < date_debut) {
+                alert('La date de fin doit être postérieure ou égale à la date de début');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/deplacements`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ date_debut, date_fin, samu, ville, bon_commande_id: parseInt(bon_commande_id) })
+                });
+                
+                if (response.ok) {
+                    // Réinitialiser le formulaire
+                    document.getElementById('deplacementDateDebut').value = '';
+                    document.getElementById('deplacementDateFin').value = '';
+                    document.getElementById('deplacementSamu').value = '';
+                    document.getElementById('deplacementVille').value = '';
+                    document.getElementById('deplacementBonCommande').value = '';
+                    document.getElementById('deplacementNbUO').value = '0';
+                    
+                    loadMesDeplacements();
+                    alert('Déplacement ajouté avec succès');
+                } else {
+                    const data = await response.json();
+                    alert(data.error || 'Erreur lors de l\'ajout');
+                }
+            } catch (error) {
+                console.error('Erreur ajout déplacement:', error);
+                alert('Erreur lors de l\'ajout');
+            }
+        }
+        
+        async function deleteDeplacement(id) {
+            if (!confirm('Êtes-vous sûr de vouloir supprimer ce déplacement ?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/deplacements/${id}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    loadMesDeplacements();
+                    alert('Déplacement supprimé');
+                } else {
+                    const data = await response.json();
+                    alert(data.error || 'Erreur lors de la suppression');
+                }
+            } catch (error) {
+                console.error('Erreur suppression déplacement:', error);
+                alert('Erreur lors de la suppression');
+            }
+        }
+        
+        // ===== REPORTING =====
+        
+        async function loadReportingDeplacements() {
+            try {
+                const response = await fetch(`${API_URL}/reporting-deplacements`, { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    displayReportingBonsCommande(data);
+                }
+            } catch (error) {
+                console.error('Erreur chargement reporting:', error);
+            }
+        }
+        
+        function displayReportingBonsCommande(bons) {
+            const tbody = document.getElementById('reportingBonsCommandeBody');
+            if (!bons || bons.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #999;">Aucun bon de commande</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = bons.map(bc => {
+                const solde = bc.uo_commandees - bc.uo_consommees;
+                const tauxConsommation = bc.uo_commandees > 0 ? Math.round((bc.uo_consommees / bc.uo_commandees) * 100) : 0;
+                const soldeColor = solde < 0 ? '#e74c3c' : (solde < bc.uo_commandees * 0.2 ? '#f39c12' : '#27ae60');
+                const barColor = tauxConsommation > 100 ? '#e74c3c' : (tauxConsommation > 80 ? '#f39c12' : '#27ae60');
+                
+                return `
+                    <tr>
+                        <td>${bc.intitule}</td>
+                        <td>${formatDateFr(bc.date_debut)} - ${formatDateFr(bc.date_fin)}</td>
+                        <td style="text-align: center; font-weight: bold;">${bc.uo_commandees}</td>
+                        <td style="text-align: center; font-weight: bold;">${bc.uo_consommees}</td>
+                        <td style="text-align: center; font-weight: bold; color: ${soldeColor};">${solde}</td>
+                        <td>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <div style="flex: 1; background-color: #ecf0f1; border-radius: 10px; height: 20px; overflow: hidden;">
+                                    <div style="width: ${Math.min(tauxConsommation, 100)}%; height: 100%; background-color: ${barColor}; transition: width 0.3s;"></div>
+                                </div>
+                                <span style="font-weight: bold; min-width: 45px;">${tauxConsommation}%</span>
+                            </div>
+                        </td>
+                        <td>
+                            <span style="background-color: ${bc.actif ? '#27ae60' : '#95a5a6'}; color: white; padding: 3px 10px; border-radius: 12px; font-size: 11px;">
+                                ${bc.actif ? 'Actif' : 'Inactif'}
+                            </span>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+        
+        async function loadAllDeplacements() {
+            try {
+                const response = await fetch(`${API_URL}/deplacements`, { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    displayAllDeplacements(data);
+                }
+            } catch (error) {
+                console.error('Erreur chargement tous déplacements:', error);
+            }
+        }
+        
+        function displayAllDeplacements(deplacements) {
+            const tbody = document.getElementById('reportingDeplacementsBody');
+            if (!deplacements || deplacements.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #999;">Aucun déplacement enregistré</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = deplacements.map(d => `
+                <tr>
+                    <td>${formatDateFr(d.date_debut)}</td>
+                    <td>${formatDateFr(d.date_fin)}</td>
+                    <td>${d.user_prenom || ''} ${d.user_nom || ''}</td>
+                    <td>${d.samu}</td>
+                    <td>${d.ville}</td>
+                    <td style="text-align: center; font-weight: bold;">${d.nb_uo}</td>
+                    <td>${d.bon_commande_intitule || '<span style="color: #999;">-</span>'}</td>
+                </tr>
+            `).join('');
+        }
+        
+        // ============== FIN FONCTIONS GESTION BONS DE COMMANDE ET DÉPLACEMENTS ==============
         
         // Fonction pour sauvegarder les logs des affectations sans envoyer d'email
         async function saveAssignmentLogs() {
@@ -2664,9 +4370,79 @@
                 // Cela permet de comparer les changements et d'éviter les notifications pour des retours à l'état initial
                 initialScheduleState = JSON.parse(JSON.stringify(scheduleData));
                 console.log('📋 État initial du planning sauvegardé pour la session');
+                
+                // Charger les astreintes/HNO pour affichage sur le planning
+                await loadAllAstreintesForPlanning();
             } catch (error) {
                 console.error('Erreur:', error);
             }
+        }
+
+        async function loadAllAstreintesForPlanning() {
+            try {
+                const response = await fetch(`${API_URL}/all-astreintes-planning`, { credentials: 'include' });
+                if (response.ok) {
+                    allAstreintesHno = await response.json();
+                    console.log('🕐 Astreintes/HNO chargées pour le planning:', allAstreintesHno.length);
+                }
+            } catch (error) {
+                console.error('Erreur chargement astreintes pour planning:', error);
+            }
+        }
+
+        // Vérifie si une ressource a une astreinte/HNO pour une date et période données
+        function getAstreinteForCell(resourceId, dateKey, period) {
+            if (!allAstreintesHno || allAstreintesHno.length === 0) return null;
+            
+            const cellDate = new Date(dateKey);
+            
+            for (const a of allAstreintesHno) {
+                if (a.resource_id !== resourceId) continue;
+                
+                const dateDebut = new Date(a.date_debut);
+                const dateFin = new Date(a.date_fin);
+                
+                // Vérifier si la date est dans la période
+                if (cellDate < dateDebut || cellDate > dateFin) continue;
+                
+                // Pour les astreintes, afficher sur toutes les demi-journées
+                if (a.type === 'astreinte') {
+                    return { type: 'astreinte', objet: a.objet, samu: a.tous_samu ? 'Tous SAMU' : a.samu };
+                }
+                
+                // Pour HNO, vérifier l'heure
+                if (a.type === 'hno' && a.heure_debut && a.heure_fin) {
+                    const heureDebut = parseInt(a.heure_debut.split(':')[0]);
+                    const heureFin = parseInt(a.heure_fin.split(':')[0]);
+                    
+                    // AM = avant 12h, PM = après 12h
+                    if (period === 'AM') {
+                        // Si l'heure de début est avant 12h ou l'heure de fin est après 6h et avant 14h
+                        if (heureDebut < 12 || (heureDebut < 14 && heureFin > 6)) {
+                            return { type: 'hno', objet: a.objet, samu: a.tous_samu ? 'Tous SAMU' : a.samu, heures: `${a.heure_debut}-${a.heure_fin}` };
+                        }
+                    } else if (period === 'PM') {
+                        // Si l'heure de début est après 11h ou l'heure de fin est après 12h
+                        if (heureDebut >= 12 || heureFin > 12) {
+                            return { type: 'hno', objet: a.objet, samu: a.tous_samu ? 'Tous SAMU' : a.samu, heures: `${a.heure_debut}-${a.heure_fin}` };
+                        }
+                    }
+                }
+            }
+            
+            return null;
+        }
+
+        // Génère le HTML de la pastille astreinte/HNO
+        function getAstreinteBadgeHtml(astreinte) {
+            if (!astreinte) return '';
+            
+            const label = astreinte.type === 'astreinte' ? 'ASTR' : 'HNO';
+            const tooltip = astreinte.type === 'astreinte' 
+                ? `Astreinte: ${astreinte.objet}\n${astreinte.samu}`
+                : `HNO: ${astreinte.objet}\n${astreinte.heures}\n${astreinte.samu}`;
+            
+            return `<span class="astreinte-badge" title="${tooltip.replace(/"/g, '&quot;')}">${label}</span>`;
         }
 
         async function saveSchedule() {
@@ -3742,7 +5518,12 @@
                         const actDisplayValue = availValue === '3' ? '🏖️' : actValue;
                         const actDisplayTooltip = availValue === '3' ? '🏖️ Congés - Aucune affectation possible' : actTooltip;
                         
-                        html += `<td class="${cellClass} ${borderClass}" data-date="${year}-${month+1}-${day}" style="min-width: 50px; max-width: 50px; width: 50px; ">
+                        // Vérifier s'il y a une astreinte/HNO pour cette cellule
+                        const astreinteInfo = getAstreinteForCell(resource.id, dateKey, period);
+                        const astreinteBadge = getAstreinteBadgeHtml(astreinteInfo);
+                        
+                        html += `<td class="${cellClass} ${borderClass}" data-date="${year}-${month+1}-${day}" style="min-width: 50px; max-width: 50px; width: 50px; position: relative;">
+                            ${astreinteBadge}
                             <div class="gantt-cell-content">
                                 <div class="gantt-cell-row${rowDisabledClass}" style="background-color: ${isAccessible ? availBg : '#d0d0d0'}; color: white; font-size: 11px; min-height: 20px;" onclick="${isAccessible ? `toggleAvailability(${resource.id}, '${dateKey}', '${period}')` : 'return false;'}" title="${availTooltip} (${period})">${availValue === '3' ? '🏖️' : availValue}</div>
                                 <div class="gantt-cell-row${rowDisabledClass}" style="background-color: ${isAccessible ? actBg : '#d0d0d0'}; color: white; font-size: 11px; min-height: 20px;" onclick="${isAccessible ? `cycleActivity(${resource.id}, '${dateKey}', '${availValue}', '${period}')` : 'return false;'}" title="${actDisplayTooltip} (${period})">${actDisplayValue}</div>
@@ -4166,6 +5947,7 @@
             const is_expert = document.getElementById('adminProfileExpert').checked;
             const is_user = document.getElementById('adminProfileUser').checked;
             const resource_id = document.getElementById('adminUserResource').value || null;
+            const amoa_ced = document.getElementById('adminUserAmoaCed').checked;
 
             if (!username || !password || !nom || !prenom || !email) {
                 alert('Veuillez remplir tous les champs requis');
@@ -4190,7 +5972,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({ username, password, nom, prenom, email, telephone, is_admin, is_expert, is_user, resource_id, sendEmail })
+                    body: JSON.stringify({ username, password, nom, prenom, email, telephone, is_admin, is_expert, is_user, resource_id, amoa_ced, sendEmail })
                 });
 
                 if (!response.ok) {
@@ -4218,6 +6000,7 @@
                 document.getElementById('adminProfileExpert').checked = false;
                 document.getElementById('adminProfileUser').checked = false;
                 document.getElementById('adminUserResource').value = '';
+                document.getElementById('adminUserAmoaCed').checked = false;
                 document.getElementById('expertResourceGroup').style.display = 'none';
                 
                 await loadUsers();
@@ -4279,6 +6062,7 @@
                     <td>${u.prenom}</td><td>${u.username}</td><td>${u.email}</td><td>${u.telephone || '-'}</td>
                     <td><span style="background-color: ${badgeColor}; color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px;">${roleText}</span></td>
                     <td style="text-align: center;"><input type="checkbox" ${u.has_reporting_access === 1 || u.is_admin === 1 ? 'checked' : ''} ${u.is_admin === 1 ? 'disabled title="Les admins ont toujours accès"' : ''} onchange="toggleReportingAccess(${u.id}, this.checked)" style="width: 18px; height: 18px; cursor: ${u.is_admin === 1 ? 'not-allowed' : 'pointer'};"></td>
+                    <td style="text-align: center;"><input type="checkbox" ${u.amoa_ced === 1 ? 'checked' : ''} onchange="toggleAmoaCed(${u.id}, this.checked)" style="width: 18px; height: 18px; cursor: pointer;" title="Accès Plateforme de suivi des déplacements"></td>
                     <td><label class="toggle-switch"><input type="checkbox" ${u.actif ? 'checked' : ''} onchange="toggleUserActive(${u.id})"><span class="slider"></span></label></td>
                     <td>
                         <button class="edit" onclick="openEditUserModal(${u.id})" style="background-color: #3498db; margin-right: 5px;">Modifier</button>
@@ -4315,6 +6099,25 @@
             } catch (error) {
                 console.error('Erreur:', error);
                 alert('Erreur lors de la modification de l\'accès au reporting');
+                // Recharger pour remettre l'état correct
+                await loadUsers();
+            }
+        }
+        
+        async function toggleAmoaCed(id, hasAccess) {
+            try {
+                const response = await fetch(`${API_URL}/users/${id}/amoa-ced`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ hasAccess })
+                });
+                if (!response.ok) throw new Error('Erreur modification accès AMOA CED');
+                await loadUsers();
+                showSyncStatus();
+            } catch (error) {
+                console.error('Erreur:', error);
+                alert('Erreur lors de la modification de l\'accès AMOA CED');
                 // Recharger pour remettre l'état correct
                 await loadUsers();
             }
@@ -6388,12 +8191,15 @@
             try {
                 // Initialiser les dates par défaut
                 initReportingDates();
+                initHnoReportingDates();
                 
                 const response = await fetch(`${API_URL}/resources`, { credentials: 'include' });
                 if (response.ok) {
                     const data = await response.json();
                     const select = document.getElementById('reportingExperts');
+                    const hnoSelect = document.getElementById('hnoReportingExperts');
                     select.innerHTML = '';
+                    if (hnoSelect) hnoSelect.innerHTML = '';
                     
                     // Filtrer les experts actifs et trier par nom
                     const activeExperts = data.filter(r => r.actif).sort((a, b) => {
@@ -6408,11 +8214,221 @@
                         option.textContent = `${expert.prenom} ${expert.nom}`;
                         option.selected = true; // Tous sélectionnés par défaut
                         select.appendChild(option);
+                        
+                        // Ajouter aussi à la liste HNO
+                        if (hnoSelect) {
+                            const hnoOption = document.createElement('option');
+                            hnoOption.value = expert.id;
+                            hnoOption.textContent = `${expert.prenom} ${expert.nom}`;
+                            hnoOption.selected = true;
+                            hnoSelect.appendChild(hnoOption);
+                        }
                     });
                 }
             } catch (error) {
                 console.error('Erreur chargement experts reporting:', error);
             }
+        }
+        
+        // Initialiser les dates pour le reporting HNO
+        function initHnoReportingDates() {
+            const now = new Date();
+            const startMonth = document.getElementById('hnoReportingStartMonth');
+            const startYear = document.getElementById('hnoReportingStartYear');
+            const endMonth = document.getElementById('hnoReportingEndMonth');
+            const endYear = document.getElementById('hnoReportingEndYear');
+            
+            if (startMonth && startYear && endMonth && endYear) {
+                // Par défaut : année en cours, de janvier à décembre
+                startMonth.value = '0';
+                startYear.value = now.getFullYear().toString();
+                endMonth.value = '11';
+                endYear.value = now.getFullYear().toString();
+            }
+        }
+        
+        // Générer le rapport HNO/Astreintes
+        async function generateHnoAstreintesReport() {
+            const startMonth = parseInt(document.getElementById('hnoReportingStartMonth').value);
+            const startYear = parseInt(document.getElementById('hnoReportingStartYear').value);
+            const endMonth = parseInt(document.getElementById('hnoReportingEndMonth').value);
+            const endYear = parseInt(document.getElementById('hnoReportingEndYear').value);
+            const showHno = document.getElementById('hnoReportingShowHno').checked;
+            const showAstreintes = document.getElementById('hnoReportingShowAstreintes').checked;
+            
+            const expertsSelect = document.getElementById('hnoReportingExperts');
+            const selectedExperts = Array.from(expertsSelect.selectedOptions).map(opt => parseInt(opt.value));
+            
+            if (selectedExperts.length === 0) {
+                alert('Veuillez sélectionner au moins un expert');
+                return;
+            }
+            
+            if (!showHno && !showAstreintes) {
+                alert('Veuillez sélectionner au moins un type de données (HNO ou Astreintes)');
+                return;
+            }
+            
+            // Vérifier que la période est valide
+            const startDate = new Date(startYear, startMonth, 1);
+            const endDate = new Date(endYear, endMonth + 1, 0);
+            
+            if (startDate > endDate) {
+                alert('La date de début doit être antérieure à la date de fin');
+                return;
+            }
+            
+            const resultsDiv = document.getElementById('hnoReportingResults');
+            resultsDiv.innerHTML = '<p style="text-align: center; padding: 20px;"><span style="font-size: 24px;">⏳</span> Génération en cours...</p>';
+            
+            try {
+                const response = await fetch(`${API_URL}/reporting/hno-astreintes`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        startMonth,
+                        startYear,
+                        endMonth,
+                        endYear,
+                        expertIds: selectedExperts,
+                        showHno,
+                        showAstreintes
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    renderHnoAstreintesReport(data, startMonth, startYear, endMonth, endYear, showHno, showAstreintes);
+                } else {
+                    resultsDiv.innerHTML = '<p style="text-align: center; color: #e53935; padding: 20px;">Erreur lors de la génération du rapport</p>';
+                }
+            } catch (error) {
+                console.error('Erreur génération rapport HNO:', error);
+                resultsDiv.innerHTML = '<p style="text-align: center; color: #e53935; padding: 20px;">Erreur lors de la génération du rapport</p>';
+            }
+        }
+        
+        // Afficher le rapport HNO/Astreintes
+        function renderHnoAstreintesReport(data, startMonth, startYear, endMonth, endYear, showHno, showAstreintes) {
+            const resultsDiv = document.getElementById('hnoReportingResults');
+            const monthNames = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
+            
+            // Générer la liste des mois
+            const months = [];
+            let currentDate = new Date(startYear, startMonth, 1);
+            const endDate = new Date(endYear, endMonth, 1);
+            
+            while (currentDate <= endDate) {
+                months.push({
+                    month: currentDate.getMonth(),
+                    year: currentDate.getFullYear(),
+                    label: `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`
+                });
+                currentDate.setMonth(currentDate.getMonth() + 1);
+            }
+            
+            // Nombre de colonnes par mois
+            const colsPerMonth = (showHno ? 1 : 0) + (showAstreintes ? 1 : 0);
+            
+            // Construire le tableau
+            let html = '<table style="width: 100%; border-collapse: collapse; font-size: 11px;">';
+            
+            // En-tête niveau 1 : Mois
+            html += '<thead><tr style="background: #9c27b0; color: white;">';
+            html += '<th rowspan="2" style="padding: 8px; border: 1px solid #7b1fa2; min-width: 150px; position: sticky; left: 0; background: #9c27b0; z-index: 1;">Expert</th>';
+            months.forEach(m => {
+                html += `<th colspan="${colsPerMonth}" style="padding: 8px; border: 1px solid #7b1fa2; text-align: center;">${m.label}</th>`;
+            });
+            html += `<th colspan="${colsPerMonth}" style="padding: 8px; border: 1px solid #7b1fa2; text-align: center; background: #7b1fa2;">Total</th>`;
+            html += '</tr>';
+            
+            // En-tête niveau 2 : HNO / Astreintes
+            html += '<tr style="background: #ba68c8; color: white;">';
+            for (let i = 0; i <= months.length; i++) {
+                if (showHno) {
+                    html += '<th style="padding: 5px; border: 1px solid #9c27b0; text-align: center; font-size: 10px;">⏰ HNO</th>';
+                }
+                if (showAstreintes) {
+                    html += '<th style="padding: 5px; border: 1px solid #9c27b0; text-align: center; font-size: 10px;">🔔 ASTR</th>';
+                }
+            }
+            html += '</tr></thead>';
+            
+            // Corps du tableau
+            html += '<tbody>';
+            
+            // Initialiser les totaux par colonne
+            const columnTotals = {};
+            months.forEach(m => {
+                const key = `${m.year}-${m.month}`;
+                columnTotals[key] = { hno: 0, astreintes: 0 };
+            });
+            columnTotals['total'] = { hno: 0, astreintes: 0 };
+            
+            // Lignes par expert
+            data.experts.forEach((expert, idx) => {
+                const bgColor = idx % 2 === 0 ? '#fce4ec' : '#fff';
+                html += `<tr style="background: ${bgColor};">`;
+                html += `<td style="padding: 8px; border: 1px solid #e1bee7; font-weight: bold; position: sticky; left: 0; background: ${bgColor}; z-index: 1;">${expert.prenom} ${expert.nom}</td>`;
+                
+                let expertTotalHno = 0;
+                let expertTotalAstreintes = 0;
+                
+                months.forEach(m => {
+                    const key = `${m.year}-${m.month}`;
+                    const monthData = expert.monthlyData[key] || { hno: 0, astreintes: 0 };
+                    
+                    if (showHno) {
+                        html += `<td style="padding: 5px; border: 1px solid #e1bee7; text-align: center; ${monthData.hno > 0 ? 'font-weight: bold; color: #1565c0;' : 'color: #999;'}">${monthData.hno || '-'}</td>`;
+                        expertTotalHno += monthData.hno || 0;
+                        columnTotals[key].hno += monthData.hno || 0;
+                    }
+                    if (showAstreintes) {
+                        html += `<td style="padding: 5px; border: 1px solid #e1bee7; text-align: center; ${monthData.astreintes > 0 ? 'font-weight: bold; color: #ff9800;' : 'color: #999;'}">${monthData.astreintes || '-'}</td>`;
+                        expertTotalAstreintes += monthData.astreintes || 0;
+                        columnTotals[key].astreintes += monthData.astreintes || 0;
+                    }
+                });
+                
+                // Total par expert
+                if (showHno) {
+                    html += `<td style="padding: 5px; border: 1px solid #7b1fa2; text-align: center; font-weight: bold; background: #f3e5f5; color: #1565c0;">${expertTotalHno || '-'}</td>`;
+                    columnTotals['total'].hno += expertTotalHno;
+                }
+                if (showAstreintes) {
+                    html += `<td style="padding: 5px; border: 1px solid #7b1fa2; text-align: center; font-weight: bold; background: #f3e5f5; color: #ff9800;">${expertTotalAstreintes || '-'}</td>`;
+                    columnTotals['total'].astreintes += expertTotalAstreintes;
+                }
+                
+                html += '</tr>';
+            });
+            
+            // Ligne Total
+            html += '<tr style="background: #9c27b0; color: white; font-weight: bold;">';
+            html += '<td style="padding: 8px; border: 1px solid #7b1fa2; position: sticky; left: 0; background: #9c27b0; z-index: 1;">TOTAL</td>';
+            
+            months.forEach(m => {
+                const key = `${m.year}-${m.month}`;
+                if (showHno) {
+                    html += `<td style="padding: 5px; border: 1px solid #7b1fa2; text-align: center;">${columnTotals[key].hno || '-'}</td>`;
+                }
+                if (showAstreintes) {
+                    html += `<td style="padding: 5px; border: 1px solid #7b1fa2; text-align: center;">${columnTotals[key].astreintes || '-'}</td>`;
+                }
+            });
+            
+            // Total général
+            if (showHno) {
+                html += `<td style="padding: 5px; border: 1px solid #4a148c; text-align: center; background: #7b1fa2;">${columnTotals['total'].hno || '-'}</td>`;
+            }
+            if (showAstreintes) {
+                html += `<td style="padding: 5px; border: 1px solid #4a148c; text-align: center; background: #7b1fa2;">${columnTotals['total'].astreintes || '-'}</td>`;
+            }
+            
+            html += '</tr></tbody></table>';
+            
+            resultsDiv.innerHTML = html;
         }
         
         // Générer le rapport
@@ -7156,8 +9172,7 @@
         // ========== ÉVÉNEMENTS PERSONNALISÉS ==========
         
         let customEvents = [];
-        let customEventsSortColumn = 'startDate';
-        let customEventsSortAsc = true;
+        let customEventsSortYear = 'desc'; // 'asc' ou 'desc'
         
         // Charger les événements personnalisés
         async function loadCustomEvents() {
@@ -7252,18 +9267,64 @@
             }
         }
         
-        // Trier les événements personnalisés
-        window.sortCustomEvents = function(column) {
-            if (customEventsSortColumn === column) {
-                customEventsSortAsc = !customEventsSortAsc;
-            } else {
-                customEventsSortColumn = column;
-                customEventsSortAsc = true;
-            }
+        // Toggle tri par année pour événements admin
+        function toggleCustomEventsSortYear() {
+            customEventsSortYear = customEventsSortYear === 'desc' ? 'asc' : 'desc';
             renderCustomEventsTable();
-        };
+        }
         
-        // Afficher le tableau des événements personnalisés
+        // Toggle pour l'arborescence des événements admin
+        function toggleCustomEventsTreeNode(element) {
+            const content = element.nextElementSibling;
+            const arrow = element.querySelector('.tree-arrow');
+            
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                arrow.textContent = '▼';
+            } else {
+                content.style.display = 'none';
+                arrow.textContent = '▶';
+            }
+        }
+        
+        // Construire un item d'événement admin
+        function buildCustomEventItem(event) {
+            const config = event.config ? (typeof event.config === 'string' ? JSON.parse(event.config) : event.config) : {};
+            const startDate = new Date(event.start_date);
+            const endDate = new Date(event.end_date);
+            const diffTime = Math.abs(endDate - startDate);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+            
+            const startStr = startDate.toLocaleDateString('fr-FR');
+            const endStr = endDate.toLocaleDateString('fr-FR');
+            const dateDisplay = startStr === endStr ? startStr : `${startStr} - ${endStr}`;
+            
+            // Nom du créateur
+            const creatorFullName = ((event.creator_prenom || '') + ' ' + (event.creator_nom || '').toUpperCase()).trim() || 'Système';
+            
+            return `<div style="background: white; padding: 12px; border-radius: 6px; margin-bottom: 6px; border-left: 4px solid ${config.borderColor || '#fbc02d'}; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
+                    <div style="flex: 1;">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 5px;">
+                            <span style="display: inline-block; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: bold; 
+                                background-color: ${config.bgColor || '#ffeb3b'}; 
+                                color: ${config.textColor || '#000'}; 
+                                border: 2px solid ${config.borderColor || '#fbc02d'};">${event.label}</span>
+                            <span style="font-size: 10px; color: #666;">👤 ${creatorFullName}</span>
+                        </div>
+                        <div style="font-size: 11px; color: #666;">
+                            📅 ${dateDisplay} <span style="color: #999;">(${diffDays} jour${diffDays > 1 ? 's' : ''})</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 5px;">
+                        <button onclick="window.editCustomEvent(${event.id})" style="background: #1e88e5; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;">✏️</button>
+                        <button onclick="window.deleteCustomEvent(${event.id})" style="background: #e53935; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;">🗑️</button>
+                    </div>
+                </div>
+            </div>`;
+        }
+        
+        // Afficher les événements personnalisés sous forme d'arborescence Année > Mois
         function renderCustomEventsTable() {
             const container = document.getElementById('customEventsTableContainer');
             if (!container) return;
@@ -7273,93 +9334,79 @@
                 return;
             }
             
-            // Trier
-            const sorted = [...customEvents].sort((a, b) => {
-                let valA, valB;
-                if (customEventsSortColumn === 'label') {
-                    valA = a.label.toLowerCase();
-                    valB = b.label.toLowerCase();
-                    return customEventsSortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
-                } else if (customEventsSortColumn === 'startDate') {
-                    valA = a.start_date;
-                    valB = b.start_date;
-                } else if (customEventsSortColumn === 'endDate') {
-                    valA = a.end_date;
-                    valB = b.end_date;
-                } else if (customEventsSortColumn === 'duration') {
-                    // Calculer la durée en jours
-                    const startA = new Date(a.start_date);
-                    const endA = new Date(a.end_date);
-                    const startB = new Date(b.start_date);
-                    const endB = new Date(b.end_date);
-                    valA = Math.ceil(Math.abs(endA - startA) / (1000 * 60 * 60 * 24)) + 1;
-                    valB = Math.ceil(Math.abs(endB - startB) / (1000 * 60 * 60 * 24)) + 1;
-                } else if (customEventsSortColumn === 'creator') {
-                    valA = (a.creator_nom || '').toLowerCase();
-                    valB = (b.creator_nom || '').toLowerCase();
-                    return customEventsSortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
-                }
-                if (customEventsSortAsc) {
-                    return valA < valB ? -1 : valA > valB ? 1 : 0;
-                } else {
-                    return valA > valB ? -1 : valA < valB ? 1 : 0;
-                }
-            });
+            const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
             
-            // Icônes de tri - afficher les flèches sur les colonnes triables
-            const getSortIcon = (col) => {
-                if (customEventsSortColumn === col) {
-                    return customEventsSortAsc ? ' ▲' : ' ▼';
-                }
-                return ' ▲▼';
-            };
-            
-            let html = '<table style="width: 100%; border-collapse: collapse; font-size: 12px;">';
-            html += '<thead><tr style="background: #1565c0; color: white;">';
-            html += '<th onclick="window.sortCustomEvents(\'label\')" style="padding: 8px; text-align: left; cursor: pointer; border: none;">Nom' + getSortIcon('label') + '</th>';
-            html += '<th style="padding: 8px; text-align: center; border: none; cursor: default;">Apparence</th>';
-            html += '<th onclick="window.sortCustomEvents(\'startDate\')" style="padding: 8px; text-align: center; cursor: pointer; border: none;">Date début' + getSortIcon('startDate') + '</th>';
-            html += '<th onclick="window.sortCustomEvents(\'endDate\')" style="padding: 8px; text-align: center; cursor: pointer; border: none;">Date fin' + getSortIcon('endDate') + '</th>';
-            html += '<th onclick="window.sortCustomEvents(\'duration\')" style="padding: 8px; text-align: center; cursor: pointer; border: none;">Durée' + getSortIcon('duration') + '</th>';
-            html += '<th onclick="window.sortCustomEvents(\'creator\')" style="padding: 8px; text-align: center; cursor: pointer; border: none;">Créé par' + getSortIcon('creator') + '</th>';
-            html += '<th style="padding: 8px; text-align: center; border: none; cursor: default;">Actions</th>';
-            html += '</tr></thead><tbody>';
-            
-            sorted.forEach(event => {
-                const config = event.config ? (typeof event.config === 'string' ? JSON.parse(event.config) : event.config) : {};
+            // Organiser par année > mois
+            const byYear = {};
+            customEvents.forEach(event => {
                 const startDate = new Date(event.start_date);
-                const endDate = new Date(event.end_date);
-                const diffTime = Math.abs(endDate - startDate);
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+                const year = startDate.getFullYear();
+                const month = startDate.getMonth();
                 
-                const startStr = startDate.toLocaleDateString('fr-FR');
-                const endStr = endDate.toLocaleDateString('fr-FR');
-                
-                // Nom du créateur
-                const creatorName = event.creator_trigramme || 
-                    ((event.creator_prenom || '') + ' ' + (event.creator_nom || '')).trim() || 
-                    'Système';
-                
-                html += '<tr style="border-bottom: 1px solid #ddd;">';
-                html += `<td style="padding: 8px;">${event.label}</td>`;
-                html += `<td style="padding: 8px; text-align: center;">
-                    <span style="display: inline-block; padding: 2px 6px; border-radius: 8px; font-size: 10px; font-weight: bold; 
-                        background-color: ${config.bgColor || '#ffeb3b'}; 
-                        color: ${config.textColor || '#000'}; 
-                        border: 2px solid ${config.borderColor || '#fbc02d'};">${event.label}</span>
-                </td>`;
-                html += `<td style="padding: 8px; text-align: center;">${startStr}</td>`;
-                html += `<td style="padding: 8px; text-align: center;">${endStr}</td>`;
-                html += `<td style="padding: 8px; text-align: center;">${diffDays} jour${diffDays > 1 ? 's' : ''}</td>`;
-                html += `<td style="padding: 8px; text-align: center; font-size: 11px;">${creatorName}</td>`;
-                html += '<td style="padding: 8px; text-align: center;">' +
-                    '<button onclick="window.editCustomEvent(' + event.id + ')" style="background: #1e88e5; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 11px; margin-right: 5px;" title="Modifier">✏️</button>' +
-                    '<button onclick="window.deleteCustomEvent(' + event.id + ')" style="background: #e53935; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 11px;" title="Supprimer">🗑️</button>' +
-                '</td>';
-                html += '</tr>';
+                if (!byYear[year]) byYear[year] = {};
+                if (!byYear[year][month]) byYear[year][month] = [];
+                byYear[year][month].push(event);
             });
             
-            html += '</tbody></table>';
+            // Trier les années
+            const sortedYears = Object.keys(byYear).sort((a, b) => {
+                return customEventsSortYear === 'desc' ? b - a : a - b;
+            });
+            
+            // Bouton de tri
+            let html = `<div style="display: flex; gap: 10px; margin-bottom: 15px; padding: 10px; background: #e3f2fd; border-radius: 8px;">
+                <span style="font-size: 12px; color: #1565c0; display: flex; align-items: center;">Trier par :</span>
+                <button onclick="toggleCustomEventsSortYear()" style="background: #1565c0; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;">
+                    Année ${customEventsSortYear === 'desc' ? '▼ (récent → ancien)' : '▲ (ancien → récent)'}
+                </button>
+            </div>`;
+            
+            html += '<div style="max-height: 50vh; overflow-y: auto;">';
+            
+            sortedYears.forEach(year => {
+                // Trier les mois selon le tri de l'année
+                const sortedMonths = Object.keys(byYear[year]).sort((a, b) => {
+                    return customEventsSortYear === 'desc' ? b - a : a - b;
+                });
+                
+                html += `<div style="margin-bottom: 10px;">
+                    <div onclick="toggleCustomEventsTreeNode(this)" style="cursor: pointer; padding: 10px; background: linear-gradient(135deg, #1565c0 0%, #0d47a1 100%); border-radius: 6px; font-weight: bold; color: white; display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <span class="tree-arrow">▶</span> 📅 ${year}
+                        <span style="font-size: 11px; font-weight: normal; margin-left: auto; background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 10px;">
+                            ${Object.values(byYear[year]).flat().length} événement(s)
+                        </span>
+                    </div>
+                    <div class="tree-content" style="display: none; margin-left: 15px; margin-top: 8px;">`;
+                
+                sortedMonths.forEach(month => {
+                    const monthEvents = byYear[year][month];
+                    
+                    html += `<div style="margin-bottom: 8px;">
+                        <div onclick="toggleCustomEventsTreeNode(this)" style="cursor: pointer; padding: 8px 12px; background: linear-gradient(135deg, #42a5f5 0%, #1e88e5 100%); border-radius: 5px; display: flex; align-items: center; gap: 8px; color: white;">
+                            <span class="tree-arrow">▶</span> ${monthNames[month]}
+                            <span style="font-size: 10px; margin-left: auto; background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 8px;">
+                                ${monthEvents.length} événement(s)
+                            </span>
+                        </div>
+                        <div class="tree-content" style="display: none; margin-left: 15px; margin-top: 5px;">`;
+                    
+                    // Trier les événements par date de début
+                    monthEvents.sort((a, b) => {
+                        const diff = new Date(a.start_date) - new Date(b.start_date);
+                        return customEventsSortYear === 'desc' ? -diff : diff;
+                    });
+                    
+                    monthEvents.forEach(event => {
+                        html += buildCustomEventItem(event);
+                    });
+                    
+                    html += `</div></div>`;
+                });
+                
+                html += `</div></div>`;
+            });
+            
+            html += '</div>';
             container.innerHTML = html;
         }
         
@@ -7888,6 +9935,7 @@
             document.getElementById('editUserIsAdmin').checked = user.is_admin === 1;
             document.getElementById('editUserIsExpert').checked = user.is_expert === 1;
             document.getElementById('editUserIsUser').checked = user.is_user === 1;
+            document.getElementById('editUserAmoaCed').checked = user.amoa_ced === 1;
             document.getElementById('editUserActif').checked = user.actif === 1;
 
             // Charger les ressources dans le select EN PREMIER
@@ -7935,12 +9983,14 @@
             const is_admin = document.getElementById('editUserIsAdmin').checked ? 1 : 0;
             const is_expert = document.getElementById('editUserIsExpert').checked ? 1 : 0;
             const is_user = document.getElementById('editUserIsUser').checked ? 1 : 0;
+            const amoa_ced = document.getElementById('editUserAmoaCed').checked ? 1 : 0;
             const actif = document.getElementById('editUserActif').checked ? 1 : 0;
             
             console.log('💾 Sauvegarde utilisateur:', {
                 username,
                 resource_id,
                 is_expert,
+                amoa_ced,
                 selectValue: document.getElementById('editUserResourceId').value
             });
 
@@ -7964,7 +10014,7 @@
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({ username, nom, prenom, email, resource_id, is_admin, is_expert, is_user, actif })
+                    body: JSON.stringify({ username, nom, prenom, email, resource_id, is_admin, is_expert, is_user, amoa_ced, actif })
                 });
 
                 if (!response.ok) {
@@ -10689,8 +12739,6 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
         // ========== GESTION DES ÉVÉNEMENTS PERSONNALISÉS (POUR TOUS LES UTILISATEURS) ==========
         
         let myEvents = [];
-        let myEventsSortColumn = 'startDate';
-        let myEventsSortAsc = true;
         let isAdminViewingAllEvents = false;
         
         // Ouvrir la modal de gestion des événements
@@ -10771,17 +12819,14 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
         }
         
         // Trier les événements
-        function sortMyEvents(column) {
-            if (myEventsSortColumn === column) {
-                myEventsSortAsc = !myEventsSortAsc;
-            } else {
-                myEventsSortColumn = column;
-                myEventsSortAsc = true;
-            }
+        let myEventsSortYear = 'desc'; // 'asc' ou 'desc'
+        
+        function toggleMyEventsSortYear() {
+            myEventsSortYear = myEventsSortYear === 'desc' ? 'asc' : 'desc';
             renderMyEventsTable();
         }
         
-        // Afficher le tableau des événements
+        // Afficher les événements sous forme d'arborescence Année > Mois
         function renderMyEventsTable() {
             const container = document.getElementById('myEventsTableContainer');
             if (!container) return;
@@ -10791,103 +12836,132 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 return;
             }
             
-            // Trier
-            const sorted = [...myEvents].sort((a, b) => {
-                let valA, valB;
-                if (myEventsSortColumn === 'label') {
-                    valA = a.label.toLowerCase();
-                    valB = b.label.toLowerCase();
-                    return myEventsSortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
-                } else if (myEventsSortColumn === 'startDate') {
-                    valA = a.start_date;
-                    valB = b.start_date;
-                } else if (myEventsSortColumn === 'endDate') {
-                    valA = a.end_date;
-                    valB = b.end_date;
-                } else if (myEventsSortColumn === 'duration') {
-                    // Calculer la durée en jours
-                    const startA = new Date(a.start_date);
-                    const endA = new Date(a.end_date);
-                    const startB = new Date(b.start_date);
-                    const endB = new Date(b.end_date);
-                    valA = Math.ceil(Math.abs(endA - startA) / (1000 * 60 * 60 * 24)) + 1;
-                    valB = Math.ceil(Math.abs(endB - startB) / (1000 * 60 * 60 * 24)) + 1;
-                } else if (myEventsSortColumn === 'creator') {
-                    valA = (a.creator_nom || '').toLowerCase();
-                    valB = (b.creator_nom || '').toLowerCase();
-                    return myEventsSortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
-                }
-                if (myEventsSortAsc) {
-                    return valA < valB ? -1 : valA > valB ? 1 : 0;
-                } else {
-                    return valA > valB ? -1 : valA < valB ? 1 : 0;
-                }
-            });
+            const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
             
-            // Icônes de tri - afficher les flèches sur les colonnes triables
-            const getSortIcon = (col) => {
-                if (myEventsSortColumn === col) {
-                    return myEventsSortAsc ? ' ▲' : ' ▼';
-                }
-                return ' ▲▼';
-            };
-            
-            let html = '<table style="width: 100%; border-collapse: collapse; font-size: 12px;">';
-            html += '<thead><tr style="background: #ff9800; color: white;">';
-            html += '<th onclick="sortMyEvents(\'label\')" style="padding: 8px; text-align: left; cursor: pointer; border: none;">Libellé' + getSortIcon('label') + '</th>';
-            html += '<th style="padding: 8px; text-align: center; border: none; cursor: default;">Apparence</th>';
-            html += '<th onclick="sortMyEvents(\'startDate\')" style="padding: 8px; text-align: center; cursor: pointer; border: none;">Début' + getSortIcon('startDate') + '</th>';
-            html += '<th onclick="sortMyEvents(\'endDate\')" style="padding: 8px; text-align: center; cursor: pointer; border: none;">Fin' + getSortIcon('endDate') + '</th>';
-            html += '<th onclick="sortMyEvents(\'duration\')" style="padding: 8px; text-align: center; cursor: pointer; border: none;">Durée' + getSortIcon('duration') + '</th>';
-            
-            // Colonne "Créé par" uniquement pour les admins
-            if (isAdminViewingAllEvents) {
-                html += '<th onclick="sortMyEvents(\'creator\')" style="padding: 8px; text-align: center; cursor: pointer; border: none;">Créé par' + getSortIcon('creator') + '</th>';
-            }
-            
-            html += '<th style="padding: 8px; text-align: center; border: none; cursor: default;">Actions</th>';
-            html += '</tr></thead><tbody>';
-            
-            sorted.forEach(event => {
-                const config = event.config ? (typeof event.config === 'string' ? JSON.parse(event.config) : event.config) : {};
+            // Organiser par année > mois
+            const byYear = {};
+            myEvents.forEach(event => {
                 const startDate = new Date(event.start_date);
-                const endDate = new Date(event.end_date);
-                const diffTime = Math.abs(endDate - startDate);
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+                const year = startDate.getFullYear();
+                const month = startDate.getMonth();
                 
-                const startStr = startDate.toLocaleDateString('fr-FR');
-                const endStr = endDate.toLocaleDateString('fr-FR');
-                
-                const creatorName = event.creator_trigramme || 
-                    ((event.creator_prenom || '') + ' ' + (event.creator_nom || '')).trim() || 
-                    'Système';
-                
-                html += '<tr style="border-bottom: 1px solid #ddd;">';
-                html += `<td style="padding: 8px;">${event.label}</td>`;
-                html += `<td style="padding: 8px; text-align: center;">
-                    <span style="display: inline-block; padding: 2px 6px; border-radius: 8px; font-size: 10px; font-weight: bold; 
-                        background-color: ${config.bgColor || '#ffeb3b'}; 
-                        color: ${config.textColor || '#000'}; 
-                        border: 2px solid ${config.borderColor || '#fbc02d'};">${event.label}</span>
-                </td>`;
-                html += `<td style="padding: 8px; text-align: center;">${startStr}</td>`;
-                html += `<td style="padding: 8px; text-align: center;">${endStr}</td>`;
-                html += `<td style="padding: 8px; text-align: center;">${diffDays} jour${diffDays > 1 ? 's' : ''}</td>`;
-                
-                // Colonne "Créé par" uniquement pour les admins
-                if (isAdminViewingAllEvents) {
-                    html += `<td style="padding: 8px; text-align: center; font-size: 11px;">${creatorName}</td>`;
-                }
-                
-                html += `<td style="padding: 8px; text-align: center;">
-                    <button onclick="editMyEvent(${event.id})" style="background: #ff9800; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 11px; margin-right: 5px;">✏️</button>
-                    <button onclick="deleteMyEvent(${event.id})" style="background: #e53935; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 11px;">🗑️</button>
-                </td>`;
-                html += '</tr>';
+                if (!byYear[year]) byYear[year] = {};
+                if (!byYear[year][month]) byYear[year][month] = [];
+                byYear[year][month].push(event);
             });
             
-            html += '</tbody></table>';
+            // Trier les années
+            const sortedYears = Object.keys(byYear).sort((a, b) => {
+                return myEventsSortYear === 'desc' ? b - a : a - b;
+            });
+            
+            // Bouton de tri
+            let html = `<div style="display: flex; gap: 10px; margin-bottom: 15px; padding: 10px; background: #f5f5f5; border-radius: 8px;">
+                <span style="font-size: 12px; color: #666; display: flex; align-items: center;">Trier par :</span>
+                <button onclick="toggleMyEventsSortYear()" style="background: #ff9800; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;">
+                    Année ${myEventsSortYear === 'desc' ? '▼ (récent → ancien)' : '▲ (ancien → récent)'}
+                </button>
+            </div>`;
+            
+            html += '<div style="max-height: 50vh; overflow-y: auto;">';
+            
+            sortedYears.forEach(year => {
+                // Trier les mois selon le tri de l'année (si année desc, mois desc aussi)
+                const sortedMonths = Object.keys(byYear[year]).sort((a, b) => {
+                    return myEventsSortYear === 'desc' ? b - a : a - b;
+                });
+                
+                html += `<div style="margin-bottom: 10px;">
+                    <div onclick="toggleMyEventsTreeNode(this)" style="cursor: pointer; padding: 10px; background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%); border-radius: 6px; font-weight: bold; color: white; display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <span class="tree-arrow">▶</span> 📅 ${year}
+                        <span style="font-size: 11px; font-weight: normal; margin-left: auto; background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 10px;">
+                            ${Object.values(byYear[year]).flat().length} événement(s)
+                        </span>
+                    </div>
+                    <div class="tree-content" style="display: none; margin-left: 15px; margin-top: 8px;">`;
+                
+                sortedMonths.forEach(month => {
+                    const monthEvents = byYear[year][month];
+                    
+                    html += `<div style="margin-bottom: 8px;">
+                        <div onclick="toggleMyEventsTreeNode(this)" style="cursor: pointer; padding: 8px 12px; background: linear-gradient(135deg, #ffb74d 0%, #ffa726 100%); border-radius: 5px; display: flex; align-items: center; gap: 8px; color: #333;">
+                            <span class="tree-arrow">▶</span> ${monthNames[month]}
+                            <span style="font-size: 10px; margin-left: auto; background: rgba(0,0,0,0.1); padding: 2px 6px; border-radius: 8px;">
+                                ${monthEvents.length} événement(s)
+                            </span>
+                        </div>
+                        <div class="tree-content" style="display: none; margin-left: 15px; margin-top: 5px;">`;
+                    
+                    // Trier les événements par date de début
+                    monthEvents.sort((a, b) => {
+                        const diff = new Date(a.start_date) - new Date(b.start_date);
+                        return myEventsSortYear === 'desc' ? -diff : diff;
+                    });
+                    
+                    monthEvents.forEach(event => {
+                        html += buildMyEventItem(event);
+                    });
+                    
+                    html += `</div></div>`;
+                });
+                
+                html += `</div></div>`;
+            });
+            
+            html += '</div>';
             container.innerHTML = html;
+        }
+        
+        // Construire un item d'événement
+        function buildMyEventItem(event) {
+            const config = event.config ? (typeof event.config === 'string' ? JSON.parse(event.config) : event.config) : {};
+            const startDate = new Date(event.start_date);
+            const endDate = new Date(event.end_date);
+            const diffTime = Math.abs(endDate - startDate);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+            
+            const startStr = startDate.toLocaleDateString('fr-FR');
+            const endStr = endDate.toLocaleDateString('fr-FR');
+            const dateDisplay = startStr === endStr ? startStr : `${startStr} - ${endStr}`;
+            
+            // Nom du créateur
+            const creatorFullName = ((event.creator_prenom || '') + ' ' + (event.creator_nom || '').toUpperCase()).trim() || 'Système';
+            const creatorInfo = isAdminViewingAllEvents ? `<span style="font-size: 10px; color: #666;">👤 ${creatorFullName}</span>` : '';
+            
+            return `<div style="background: white; padding: 12px; border-radius: 6px; margin-bottom: 6px; border-left: 4px solid ${config.borderColor || '#fbc02d'}; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
+                    <div style="flex: 1;">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 5px;">
+                            <span style="display: inline-block; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: bold; 
+                                background-color: ${config.bgColor || '#ffeb3b'}; 
+                                color: ${config.textColor || '#000'}; 
+                                border: 2px solid ${config.borderColor || '#fbc02d'};">${event.label}</span>
+                            ${creatorInfo}
+                        </div>
+                        <div style="font-size: 11px; color: #666;">
+                            📅 ${dateDisplay} <span style="color: #999;">(${diffDays} jour${diffDays > 1 ? 's' : ''})</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 5px;">
+                        <button onclick="editMyEvent(${event.id})" style="background: #ff9800; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;">✏️</button>
+                        <button onclick="deleteMyEvent(${event.id})" style="background: #e53935; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;">🗑️</button>
+                    </div>
+                </div>
+            </div>`;
+        }
+        
+        // Toggle pour l'arborescence des événements
+        function toggleMyEventsTreeNode(element) {
+            const content = element.nextElementSibling;
+            const arrow = element.querySelector('.tree-arrow');
+            
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                arrow.textContent = '▼';
+            } else {
+                content.style.display = 'none';
+                arrow.textContent = '▶';
+            }
         }
         
         // Ajouter un événement
@@ -11943,6 +14017,393 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 <button onclick="closeMyEventsModal()" style="background-color: #95a5a6; color: white; padding: 10px 25px;">
                     Fermer
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTAINER POUR L'APPLICATION DÉPLACEMENTS -->
+    <div id="deplacementsContainer" class="container" style="display: none;">
+        <!-- Conteneur des utilisateurs connectés en temps réel -->
+        <div id="deplacementsOnlineUsersContainer" style="display: none; position: fixed; top: 10px; right: 120px; background: #fff; padding: 6px 12px; border-radius: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 1001; cursor: pointer;" onclick="toggleDeplacementsOnlineUsersTooltip(event)">
+            <div style="display: flex; align-items: center; gap: 4px;">
+                <span style="font-size: 12px; color: #27ae60; margin-right: 4px;">●</span>
+                <div id="deplacementsOnlineUsersAvatars" style="display: flex; align-items: center;"></div>
+                <span id="deplacementsOnlineUsersCount" style="font-size: 11px; color: #666; margin-left: 4px;">0 connecté(s)</span>
+            </div>
+        </div>
+        <!-- Tooltip pour la liste des utilisateurs connectés -->
+        <div id="deplacementsOnlineUsersTooltip" style="display: none; position: fixed; top: 45px; right: 120px; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1002; padding: 10px; min-width: 200px; max-width: 300px;">
+            <div style="font-weight: bold; color: #2c3e50; margin-bottom: 8px; font-size: 12px; border-bottom: 1px solid #eee; padding-bottom: 5px;">
+                👥 Utilisateurs connectés
+            </div>
+            <div id="deplacementsOnlineUsersTooltipList" style="max-height: 200px; overflow-y: auto;"></div>
+        </div>
+        
+        <div class="inactivity-timer" id="deplacementsTimerDisplay" style="display: none; position: fixed; top: 10px; right: 10px; background: #fff; padding: 8px 15px; border-radius: 5px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 1001; font-size: 14px; font-weight: bold; color: #2c3e50;">
+            ⏱️ <span id="deplacementsTimerMinutes">05</span>:<span id="deplacementsTimerSeconds">00</span>
+        </div>
+        
+        <!-- Header fixe -->
+        <div class="fixed-header">
+            <div class="user-info" id="deplacementsUserInfo">
+                <!-- Conteneur pour cercle utilisateur et badge -->
+                <div style="position: relative; display: flex; align-items: center;">
+                    <div id="deplacementsProfileCircle" onclick="openProfilePhotoModal()" style="width: 50px; height: 50px; border-radius: 50%; border: 3px solid #1D70B7; background-color: #7f8c8d; display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden;" title="Cliquer pour changer la photo">
+                        <span id="deplacementsProfileTrigramme" style="color: white; font-weight: bold; font-size: 16px;">?</span>
+                        <img id="deplacementsProfilePhoto" style="width: 100%; height: 100%; object-fit: cover; display: none;" />
+                    </div>
+                </div>
+                <span class="user-info-name" id="deplacementsUserDisplayName" style="margin-left: 15px;"></span>
+                <span class="user-info-role" id="deplacementsUserDisplayRole"></span>
+            </div>
+            <div class="tabs">
+                <button class="tab-btn active" id="deplacementsTabPlanification" onclick="switchDeplacementsTab('planification')">Planification des déplacements</button>
+                <button class="tab-btn" id="deplacementsTabReporting" onclick="switchDeplacementsTab('reporting')" style="display:none;">Reporting</button>
+                <button class="tab-btn" id="deplacementsTabAdmin" onclick="switchDeplacementsTab('admin')" style="display:none;">Administration</button>
+                
+                <!-- Bouton de recherche -->
+                <button onclick="openDeplacementsSearchModal()" title="Recherche" style="
+                    padding: 8px 15px;
+                    background-color: #3498db;
+                    color: white;
+                    border: none;
+                    cursor: pointer;
+                    font-size: 18px;
+                    transition: all 0.3s;
+                    border-radius: 4px;
+                    margin-right: 10px;
+                ">
+                    <span style="font-size: 20px;">🔍</span>
+                </button>
+                
+                <button class="logout-icon" onclick="logoutFromDeplacements()" title="Déconnexion"></button>
+            </div>
+        </div>
+        
+        <!-- Espaceur pour compenser le header fixe -->
+        <div class="header-spacer"></div>
+        
+        <!-- Onglet Planification des déplacements -->
+        <div id="deplacementsPlanificationTab" class="tab-content active">
+            <h2>Mes déplacements</h2>
+            
+            <div class="form-section">
+                <h3>Ajouter un déplacement</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Date de début *</label>
+                        <input type="date" id="deplacementDateDebut" onchange="updateDeplacementBonCommande()">
+                    </div>
+                    <div class="form-group">
+                        <label>Date de fin *</label>
+                        <input type="date" id="deplacementDateFin" onchange="updateDeplacementBonCommande()">
+                    </div>
+                    <div class="form-group">
+                        <label>SAMU *</label>
+                        <select id="deplacementSamu">
+                            <option value="">-- Sélectionner un SAMU --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Ville *</label>
+                        <input type="text" id="deplacementVille" placeholder="Nom de la ville" style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase()">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Bon de commande *</label>
+                        <select id="deplacementBonCommande" onchange="updateDeplacementBonCommandeSelection()">
+                            <option value="">-- Sélectionner un bon de commande --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Nombre d'UO</label>
+                        <input type="text" id="deplacementNbUO" readonly style="background-color: #f5f5f5; color: #666;" value="0">
+                    </div>
+                </div>
+                <div class="button-group">
+                    <button onclick="addDeplacement()">Ajouter le déplacement</button>
+                </div>
+            </div>
+            
+            <div class="form-section">
+                <h3>Liste de mes déplacements</h3>
+                <div class="table-container">
+                    <table id="mesDeplacementsTable">
+                        <thead>
+                            <tr>
+                                <th>Date début</th>
+                                <th>Date fin</th>
+                                <th>SAMU</th>
+                                <th>Ville</th>
+                                <th>Nb UO</th>
+                                <th>Bon de commande</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mesDeplacementsBody">
+                            <tr><td colspan="7" style="text-align: center; color: #999;">Chargement...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Onglet Reporting -->
+        <div id="deplacementsReportingTab" class="tab-content">
+            <h2>Reporting des déplacements</h2>
+            
+            <div class="form-section">
+                <h3>Synthèse des bons de commande</h3>
+                <div class="table-container">
+                    <table id="reportingBonsCommandeTable">
+                        <thead>
+                            <tr>
+                                <th>Numéro de CBDC</th>
+                                <th>Période</th>
+                                <th>UO commandées</th>
+                                <th>UO consommées</th>
+                                <th>Solde</th>
+                                <th>Taux consommation</th>
+                                <th>Statut</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reportingBonsCommandeBody">
+                            <tr><td colspan="7" style="text-align: center; color: #999;">Chargement...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="form-section">
+                <h3>Détail des déplacements</h3>
+                <div class="table-container">
+                    <table id="reportingDeplacementsTable">
+                        <thead>
+                            <tr>
+                                <th>Date début</th>
+                                <th>Date fin</th>
+                                <th>Utilisateur</th>
+                                <th>SAMU</th>
+                                <th>Ville</th>
+                                <th>Nb UO</th>
+                                <th>Bon de commande</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reportingDeplacementsBody">
+                            <tr><td colspan="7" style="text-align: center; color: #999;">Chargement...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Onglet Administration -->
+        <div id="deplacementsAdminTab" class="tab-content">
+            <h2>Administration des bons de commande</h2>
+            
+            <div class="form-section">
+                <h3>Créer un bon de commande</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Numéro de CBDC *</label>
+                        <input type="text" id="bcIntitule" placeholder="Ex: CBDC-2026-001">
+                    </div>
+                    <div class="form-group">
+                        <label>Date de début *</label>
+                        <input type="date" id="bcDateDebut">
+                    </div>
+                    <div class="form-group">
+                        <label>Date de fin *</label>
+                        <input type="date" id="bcDateFin">
+                    </div>
+                    <div class="form-group">
+                        <label>Nombre d'UO *</label>
+                        <input type="number" id="bcNbUO" placeholder="Ex: 100" min="1">
+                    </div>
+                </div>
+                <div class="button-group">
+                    <button onclick="addBonCommande()">Créer le bon de commande</button>
+                </div>
+            </div>
+            
+            <div class="form-section">
+                <h3>Liste des bons de commande</h3>
+                <div class="table-container">
+                    <table id="bonsCommandeTable">
+                        <thead>
+                            <tr>
+                                <th>Numéro de CBDC</th>
+                                <th>Date début</th>
+                                <th>Date fin</th>
+                                <th>Nb UO</th>
+                                <th>Statut</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bonsCommandeBody">
+                            <tr><td colspan="6" style="text-align: center; color: #999;">Chargement...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal édition bon de commande -->
+    <div id="editBonCommandeModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <h3>Modifier le bon de commande</h3>
+            <input type="hidden" id="editBcId">
+            <div class="form-group">
+                <label>Numéro de CBDC *</label>
+                <input type="text" id="editBcIntitule">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Date de début *</label>
+                    <input type="date" id="editBcDateDebut">
+                </div>
+                <div class="form-group">
+                    <label>Date de fin *</label>
+                    <input type="date" id="editBcDateFin">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Nombre d'UO *</label>
+                    <input type="number" id="editBcNbUO" min="1">
+                </div>
+                <div class="form-group">
+                    <label>Statut</label>
+                    <select id="editBcActif">
+                        <option value="1">Actif</option>
+                        <option value="0">Inactif</option>
+                    </select>
+                </div>
+            </div>
+            <div class="button-group">
+                <button onclick="saveBonCommande()">Enregistrer</button>
+                <button onclick="closeEditBonCommandeModal()" style="background-color: #95a5a6;">Annuler</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de choix de déconnexion pour l'application Planification -->
+    <div id="planificationLogoutModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); z-index: 10003; justify-content: center; align-items: center;">
+        <div style="background: white; padding: 30px; border-radius: 12px; max-width: 450px; width: 90%; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+            <h3 style="color: #2c3e50; margin-bottom: 20px; font-size: 18px;">Que souhaitez-vous faire ?</h3>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <button onclick="goToDeplacementsApp()" style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); color: white; padding: 15px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                    <span style="font-size: 20px;">🚗</span>
+                    <span>Aller sur Plateforme de suivi des déplacements</span>
+                </button>
+                <button onclick="confirmLogoutFromPlanification()" style="background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); color: white; padding: 15px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                    <span style="font-size: 20px;">🚪</span>
+                    <span>Se déconnecter</span>
+                </button>
+                <button onclick="closePlanificationLogoutModal()" style="background: #95a5a6; color: white; padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px;">
+                    Annuler
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Gérer les Astreintes/HNO -->
+    <div id="astreintesModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); z-index: 10003; justify-content: center; align-items: center;">
+        <div style="background: white; padding: 25px; border-radius: 12px; max-width: 900px; width: 95%; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #9c27b0; padding-bottom: 10px;">
+                <h3 style="color: #9c27b0; margin: 0;" id="astreintesModalTitle">🕐 Gérer mes astreintes/HNO</h3>
+                <span onclick="closeAstreintesModal()" style="cursor: pointer; font-size: 28px; color: #7f8c8d;">&times;</span>
+            </div>
+            
+            <!-- Formulaire d'ajout -->
+            <div style="background: #f3e5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                <h4 style="margin: 0 0 15px 0; color: #7b1fa2;" id="astreintesFormTitle">Ajouter une astreinte/HNO</h4>
+                
+                <!-- Sélection expert (admin seulement) -->
+                <div id="astreintesExpertSelect" style="display: none; margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #333;">Expert *</label>
+                    <select id="astreintesExpert" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="">-- Sélectionner un expert --</option>
+                    </select>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                    <!-- Type -->
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #333;">Type *</label>
+                        <select id="astreintesType" onchange="toggleHnoFields()" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                            <option value="astreinte">Astreinte</option>
+                            <option value="hno">Travail HNO</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Date début -->
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #333;">Date de début *</label>
+                        <input type="date" id="astreintesDateDebut" onchange="syncAstreintesDateFin()" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                    
+                    <!-- Date fin -->
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #333;">Date de fin *</label>
+                        <input type="date" id="astreintesDateFin" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                </div>
+                
+                <!-- Heures HNO (masquées par défaut) -->
+                <div id="hnoFieldsContainer" style="display: none; margin-top: 15px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #333;">Heure de début *</label>
+                            <input type="time" id="astreintesHeureDebut" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #333;">Heure de fin *</label>
+                            <input type="time" id="astreintesHeureFin" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- SAMU -->
+                <div style="margin-top: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #333;">SAMU *</label>
+                    <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                        <select id="astreintesSamu" style="flex: 1; min-width: 200px; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                            <option value="">-- Sélectionner un SAMU --</option>
+                        </select>
+                        <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                            <input type="checkbox" id="astreintesTousSamu" onchange="toggleSamuSelect()">
+                            <span>Tous les SAMU</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Objet -->
+                <div style="margin-top: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #333;">Objet *</label>
+                    <input type="text" id="astreintesObjet" placeholder="Objet de l'astreinte/HNO" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+                
+                <!-- Boutons -->
+                <div style="margin-top: 20px; display: flex; gap: 10px;">
+                    <input type="hidden" id="astreintesEditId" value="">
+                    <button onclick="saveAstreinte()" style="background: #9c27b0; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                        💾 Enregistrer
+                    </button>
+                    <button onclick="resetAstreintesForm()" style="background: #95a5a6; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;">
+                        🔄 Réinitialiser
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Liste des astreintes/HNO -->
+            <div style="background: #fafafa; padding: 20px; border-radius: 8px;">
+                <h4 style="margin: 0 0 15px 0; color: #7b1fa2;">Liste des astreintes/HNO</h4>
+                <div id="astreintesTreeView" style="max-height: 400px; overflow-y: auto;">
+                    <p style="color: #999; text-align: center;">Chargement...</p>
+                </div>
             </div>
         </div>
     </div>

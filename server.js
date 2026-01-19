@@ -311,6 +311,19 @@ function initDB() {
                             }
                         });
                     }
+                    
+                    // Migration: ajouter amoa_ced si elle n'existe pas
+                    const amoaCedCol = columns.find(col => col.name === 'amoa_ced');
+                    if (!amoaCedCol) {
+                        console.log('Migration: Ajout colonne amoa_ced à users...');
+                        database.run(`ALTER TABLE users ADD COLUMN amoa_ced INTEGER DEFAULT 0`, (alterErr) => {
+                            if (alterErr) {
+                                console.error('Erreur migration amoa_ced:', alterErr);
+                            } else {
+                                console.log('✅ Migration terminée: amoa_ced ajouté');
+                            }
+                        });
+                    }
                 }
             });
             
@@ -521,6 +534,75 @@ function initDB() {
             });
         }
     });
+
+    // Table des bons de commande pour les déplacements
+    database.run(`
+        CREATE TABLE IF NOT EXISTS bons_commande (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            intitule TEXT NOT NULL,
+            date_debut DATE NOT NULL,
+            date_fin DATE NOT NULL,
+            nb_uo INTEGER NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            created_by INTEGER,
+            actif INTEGER DEFAULT 1,
+            FOREIGN KEY (created_by) REFERENCES users(id)
+        )
+    `, (err) => {
+        if (err) {
+            console.error('Erreur création table bons_commande:', err);
+        } else {
+            console.log('✅ Table bons_commande créée');
+        }
+    });
+
+    // Table des déplacements
+    database.run(`
+        CREATE TABLE IF NOT EXISTS deplacements (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            date_debut DATE NOT NULL,
+            date_fin DATE NOT NULL,
+            samu TEXT NOT NULL,
+            ville TEXT NOT NULL,
+            bon_commande_id INTEGER,
+            nb_uo INTEGER NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id),
+            FOREIGN KEY (bon_commande_id) REFERENCES bons_commande(id)
+        )
+    `, (err) => {
+        if (err) {
+            console.error('Erreur création table deplacements:', err);
+        } else {
+            console.log('✅ Table deplacements créée');
+        }
+    });
+
+    // Table des astreintes et HNO
+    database.run(`
+        CREATE TABLE IF NOT EXISTS astreintes_hno (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            type TEXT NOT NULL CHECK(type IN ('astreinte', 'hno')),
+            date_debut DATE NOT NULL,
+            date_fin DATE NOT NULL,
+            heure_debut TIME,
+            heure_fin TIME,
+            samu TEXT,
+            tous_samu INTEGER DEFAULT 0,
+            objet TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    `, (err) => {
+        if (err) {
+            console.error('Erreur création table astreintes_hno:', err);
+        } else {
+            console.log('✅ Table astreintes_hno créée');
+        }
+    });
 }
 
 // ==================== MIDDLEWARE AUTH ====================
@@ -714,7 +796,8 @@ app.post('/api/login', (req, res) => {
                         profilePhoto: user.profile_photo || null,
                         activeProfile: profile,
                         resourceId: user.resource_id,
-                        hasReportingAccess: user.has_reporting_access === 1 || user.is_admin === 1
+                        hasReportingAccess: user.has_reporting_access === 1 || user.is_admin === 1,
+                        amoaCed: user.amoa_ced === 1
                     };
                     
                     res.json({ 
@@ -873,9 +956,9 @@ app.post('/api/forgot-password', async (req, res) => {
 
 app.get('/api/check-session', (req, res) => {
     if (req.session && req.session.userId) {
-        // Récupérer le trigramme, la photo et l'email depuis la base
+        // Récupérer le trigramme, la photo, l'email et amoa_ced depuis la base
         database.get(
-            `SELECT u.email, u.profile_photo, r.trigramme 
+            `SELECT u.email, u.profile_photo, u.amoa_ced, r.trigramme 
              FROM users u 
              LEFT JOIN resources r ON r.id = u.resource_id 
              WHERE u.id = ?`,
@@ -894,7 +977,8 @@ app.get('/api/check-session', (req, res) => {
                     activeProfile: req.session.activeProfile,
                     resourceId: req.session.resourceId,
                     trigramme: userData?.trigramme || null,
-                    profilePhoto: userData?.profile_photo || null
+                    profilePhoto: userData?.profile_photo || null,
+                    amoaCed: userData?.amoa_ced === 1
                 });
             }
         );
@@ -912,7 +996,7 @@ app.get('/api/user/profiles', (req, res) => {
     }
     
     database.get(
-        'SELECT is_admin, is_expert, is_user, actif FROM users WHERE username = ?',
+        'SELECT is_admin, is_expert, is_user, actif, amoa_ced FROM users WHERE username = ?',
         [username],
         (err, user) => {
             if (err) {
@@ -921,11 +1005,11 @@ app.get('/api/user/profiles', (req, res) => {
             }
             
             if (!user) {
-                return res.json({ profiles: [] });
+                return res.json({ profiles: [], amoaCed: false });
             }
             
             if (user.actif !== 1) {
-                return res.json({ profiles: [], error: 'Compte désactivé' });
+                return res.json({ profiles: [], error: 'Compte désactivé', amoaCed: false });
             }
             
             const profiles = [];
@@ -933,7 +1017,7 @@ app.get('/api/user/profiles', (req, res) => {
             if (user.is_expert === 1) profiles.push('expert');
             if (user.is_user === 1) profiles.push('user');
             
-            res.json({ profiles });
+            res.json({ profiles, amoaCed: user.amoa_ced === 1 });
         }
     );
 });
@@ -1557,7 +1641,7 @@ app.get('/api/users/public', requireAuth, (req, res) => {
 });
 
 app.post('/api/users', requireAdmin, async (req, res) => {
-    const { username, password, nom, prenom, email, telephone, is_admin, is_expert, is_user, resource_id, has_reporting_access, sendEmail: shouldSendEmail } = req.body;
+    const { username, password, nom, prenom, email, telephone, is_admin, is_expert, is_user, resource_id, has_reporting_access, amoa_ced, sendEmail: shouldSendEmail } = req.body;
     
     if (!username || !password) {
         return res.status(400).json({ error: 'Username et password requis' });
@@ -1566,9 +1650,9 @@ app.post('/api/users', requireAdmin, async (req, res) => {
     const hashedPassword = hashPassword(password);
     
     database.run(
-        `INSERT INTO users (username, password, nom, prenom, email, telephone, is_admin, is_expert, is_user, resource_id, has_reporting_access) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [username, hashedPassword, nom, prenom, email, telephone || null, is_admin ? 1 : 0, is_expert ? 1 : 0, is_user ? 1 : 0, resource_id || null, has_reporting_access ? 1 : 0],
+        `INSERT INTO users (username, password, nom, prenom, email, telephone, is_admin, is_expert, is_user, resource_id, has_reporting_access, amoa_ced) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [username, hashedPassword, nom, prenom, email, telephone || null, is_admin ? 1 : 0, is_expert ? 1 : 0, is_user ? 1 : 0, resource_id || null, has_reporting_access ? 1 : 0, amoa_ced ? 1 : 0],
         async function(err) {
             if (err) {
                 console.error('Erreur ajout user:', err);
@@ -1627,7 +1711,7 @@ app.post('/api/users', requireAdmin, async (req, res) => {
 });
 
 app.put('/api/users/:id', requireAdmin, (req, res) => {
-    const { nom, prenom, email, is_admin, is_expert, is_user, resource_id, has_reporting_access } = req.body;
+    const { nom, prenom, email, is_admin, is_expert, is_user, resource_id, has_reporting_access, amoa_ced } = req.body;
     const { id } = req.params;
     
     // Convertir resource_id en integer ou null
@@ -1646,14 +1730,15 @@ app.put('/api/users/:id', requireAdmin, (req, res) => {
         resource_id_recu: resource_id,
         resource_id_type: typeof resource_id,
         resource_id_final: finalResourceId,
-        has_reporting_access
+        has_reporting_access,
+        amoa_ced
     });
     
     database.run(
         `UPDATE users 
-         SET nom = ?, prenom = ?, email = ?, is_admin = ?, is_expert = ?, is_user = ?, resource_id = ?, has_reporting_access = ?
+         SET nom = ?, prenom = ?, email = ?, is_admin = ?, is_expert = ?, is_user = ?, resource_id = ?, has_reporting_access = ?, amoa_ced = ?
          WHERE id = ?`,
-        [nom, prenom, email, is_admin ? 1 : 0, is_expert ? 1 : 0, is_user ? 1 : 0, finalResourceId, has_reporting_access ? 1 : 0, id],
+        [nom, prenom, email, is_admin ? 1 : 0, is_expert ? 1 : 0, is_user ? 1 : 0, finalResourceId, has_reporting_access ? 1 : 0, amoa_ced ? 1 : 0, id],
         (err) => {
             if (err) {
                 console.error('Erreur update user:', err);
@@ -1666,7 +1751,8 @@ app.put('/api/users/:id', requireAdmin, (req, res) => {
                     prenom,
                     roles: { is_admin, is_expert, is_user },
                     resource_id: finalResourceId,
-                    has_reporting_access
+                    has_reporting_access,
+                    amoa_ced
                 });
                 res.json({ success: true });
             }
@@ -1751,6 +1837,25 @@ app.post('/api/users/:id/reporting-access', requireAdmin, (req, res) => {
             } else {
                 console.log(`✅ Accès reporting modifié pour user ${id}: ${hasAccess}`);
                 res.json({ success: true, hasReportingAccess: hasAccess });
+            }
+        }
+    );
+});
+
+app.post('/api/users/:id/amoa-ced', requireAdmin, (req, res) => {
+    const { hasAccess } = req.body;
+    const { id } = req.params;
+    
+    database.run(
+        'UPDATE users SET amoa_ced = ? WHERE id = ?',
+        [hasAccess ? 1 : 0, id],
+        (err) => {
+            if (err) {
+                console.error('Erreur modification accès AMOA CED:', err);
+                res.status(500).json({ error: err.message });
+            } else {
+                console.log(`✅ Accès AMOA CED modifié pour user ${id}: ${hasAccess}`);
+                res.json({ success: true, amoaCed: hasAccess });
             }
         }
     );
@@ -4360,10 +4465,9 @@ app.get('/api/ics-files/special-dates/all', requireAuth, async (req, res) => {
             config.label = e.label;
             // Ajouter les infos du créateur pour l'info-bulle (si disponibles)
             if (hasCreatedBy && e.created_by) {
-                const creatorName = e.creator_trigramme || 
-                    ((e.creator_prenom || '') + ' ' + (e.creator_nom || '')).trim() || 
-                    'Admin';
-                config.createdBy = creatorName;
+                // Afficher "Prénom NOM" (nom en majuscules)
+                const creatorFullName = ((e.creator_prenom || '') + ' ' + (e.creator_nom || '').toUpperCase()).trim() || 'Système';
+                config.createdBy = creatorFullName;
             }
             result.push({
                 date: e.start_date,
@@ -5824,6 +5928,509 @@ function createNotification(expertResourceId, date, period, activityName, reques
 
 // Servir les fichiers statiques APRÈS les routes API pour éviter les conflits
 app.use(express.static(path.join(__dirname, 'public')));
+
+// ========== API BONS DE COMMANDE ET DÉPLACEMENTS ==========
+
+// Récupérer tous les bons de commande
+app.get('/api/bons-commande', requireAuth, (req, res) => {
+    database.all(`
+        SELECT bc.*, u.nom as creator_nom, u.prenom as creator_prenom
+        FROM bons_commande bc
+        LEFT JOIN users u ON bc.created_by = u.id
+        ORDER BY bc.date_debut DESC
+    `, [], (err, rows) => {
+        if (err) {
+            console.error('Erreur récupération bons de commande:', err);
+            return res.status(500).json({ error: err.message });
+        }
+        res.json(rows || []);
+    });
+});
+
+// Créer un bon de commande
+app.post('/api/bons-commande', requireAuth, (req, res) => {
+    const { intitule, date_debut, date_fin, nb_uo } = req.body;
+    
+    if (!intitule || !date_debut || !date_fin || !nb_uo) {
+        return res.status(400).json({ error: 'Tous les champs sont requis' });
+    }
+    
+    // Vérifier l'unicité du numéro de CBDC
+    database.get(`SELECT id FROM bons_commande WHERE LOWER(intitule) = LOWER(?)`, [intitule], (err, existing) => {
+        if (err) {
+            console.error('Erreur vérification unicité CBDC:', err);
+            return res.status(500).json({ error: err.message });
+        }
+        
+        if (existing) {
+            return res.status(400).json({ error: 'Ce numéro de CBDC existe déjà' });
+        }
+        
+        database.run(
+            `INSERT INTO bons_commande (intitule, date_debut, date_fin, nb_uo, created_by) VALUES (?, ?, ?, ?, ?)`,
+            [intitule, date_debut, date_fin, nb_uo, req.session.userId],
+            function(err) {
+                if (err) {
+                    console.error('Erreur création bon de commande:', err);
+                    return res.status(500).json({ error: err.message });
+                }
+                res.json({ id: this.lastID, message: 'Bon de commande créé' });
+            }
+        );
+    });
+});
+
+// Modifier un bon de commande
+app.put('/api/bons-commande/:id', requireAuth, (req, res) => {
+    const { intitule, date_debut, date_fin, nb_uo, actif } = req.body;
+    const id = req.params.id;
+    
+    database.run(
+        `UPDATE bons_commande SET intitule = ?, date_debut = ?, date_fin = ?, nb_uo = ?, actif = ? WHERE id = ?`,
+        [intitule, date_debut, date_fin, nb_uo, actif ? 1 : 0, id],
+        function(err) {
+            if (err) {
+                console.error('Erreur modification bon de commande:', err);
+                return res.status(500).json({ error: err.message });
+            }
+            res.json({ message: 'Bon de commande modifié' });
+        }
+    );
+});
+
+// Supprimer un bon de commande
+app.delete('/api/bons-commande/:id', requireAuth, (req, res) => {
+    const id = req.params.id;
+    
+    // Vérifier s'il y a des déplacements associés
+    database.get(`SELECT COUNT(*) as count FROM deplacements WHERE bon_commande_id = ?`, [id], (err, row) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        
+        if (row.count > 0) {
+            return res.status(400).json({ error: `Impossible de supprimer: ${row.count} déplacement(s) associé(s)` });
+        }
+        
+        database.run(`DELETE FROM bons_commande WHERE id = ?`, [id], function(err) {
+            if (err) {
+                console.error('Erreur suppression bon de commande:', err);
+                return res.status(500).json({ error: err.message });
+            }
+            res.json({ message: 'Bon de commande supprimé' });
+        });
+    });
+});
+
+// Récupérer tous les déplacements (pour reporting)
+app.get('/api/deplacements', requireAuth, (req, res) => {
+    database.all(`
+        SELECT d.*, 
+               u.nom as user_nom, u.prenom as user_prenom,
+               bc.intitule as bon_commande_intitule
+        FROM deplacements d
+        LEFT JOIN users u ON d.user_id = u.id
+        LEFT JOIN bons_commande bc ON d.bon_commande_id = bc.id
+        ORDER BY d.date_debut DESC
+    `, [], (err, rows) => {
+        if (err) {
+            console.error('Erreur récupération déplacements:', err);
+            return res.status(500).json({ error: err.message });
+        }
+        res.json(rows || []);
+    });
+});
+
+// Récupérer les déplacements de l'utilisateur connecté
+app.get('/api/mes-deplacements', requireAuth, (req, res) => {
+    database.all(`
+        SELECT d.*, bc.intitule as bon_commande_intitule
+        FROM deplacements d
+        LEFT JOIN bons_commande bc ON d.bon_commande_id = bc.id
+        WHERE d.user_id = ?
+        ORDER BY d.date_debut DESC
+    `, [req.session.userId], (err, rows) => {
+        if (err) {
+            console.error('Erreur récupération mes déplacements:', err);
+            return res.status(500).json({ error: err.message });
+        }
+        res.json(rows || []);
+    });
+});
+
+// Créer un déplacement
+app.post('/api/deplacements', requireAuth, (req, res) => {
+    const { date_debut, date_fin, samu, ville, bon_commande_id } = req.body;
+    
+    if (!date_debut || !date_fin || !samu || !ville) {
+        return res.status(400).json({ error: 'Tous les champs sont requis' });
+    }
+    
+    // Calculer le nombre d'UO (nombre de jours)
+    const start = new Date(date_debut);
+    const end = new Date(date_fin);
+    const diffTime = Math.abs(end - start);
+    const nb_uo = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 pour inclure le jour de départ
+    
+    // Utiliser le bon_commande_id passé en paramètre s'il existe
+    const bcId = bon_commande_id || null;
+    
+    database.run(
+        `INSERT INTO deplacements (user_id, date_debut, date_fin, samu, ville, bon_commande_id, nb_uo) 
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [req.session.userId, date_debut, date_fin, samu, ville.toUpperCase(), bcId, nb_uo],
+        function(err) {
+            if (err) {
+                console.error('Erreur création déplacement:', err);
+                return res.status(500).json({ error: err.message });
+            }
+            res.json({ id: this.lastID, nb_uo, bon_commande_id: bcId, message: 'Déplacement créé' });
+        }
+    );
+});
+
+// Supprimer un déplacement
+app.delete('/api/deplacements/:id', requireAuth, (req, res) => {
+    const id = req.params.id;
+    
+    // Vérifier que le déplacement appartient à l'utilisateur (sauf admin)
+    database.get(`SELECT user_id FROM deplacements WHERE id = ?`, [id], (err, row) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        
+        if (!row) {
+            return res.status(404).json({ error: 'Déplacement non trouvé' });
+        }
+        
+        // Seul l'utilisateur propriétaire ou un admin peut supprimer
+        if (row.user_id !== req.session.userId && req.session.activeProfile !== 'admin') {
+            return res.status(403).json({ error: 'Non autorisé' });
+        }
+        
+        database.run(`DELETE FROM deplacements WHERE id = ?`, [id], function(err) {
+            if (err) {
+                console.error('Erreur suppression déplacement:', err);
+                return res.status(500).json({ error: err.message });
+            }
+            res.json({ message: 'Déplacement supprimé' });
+        });
+    });
+});
+
+// Reporting: statistiques des bons de commande
+app.get('/api/reporting-deplacements', requireAuth, (req, res) => {
+    database.all(`
+        SELECT 
+            bc.id,
+            bc.intitule,
+            bc.date_debut,
+            bc.date_fin,
+            bc.nb_uo as uo_commandees,
+            bc.actif,
+            COALESCE(SUM(d.nb_uo), 0) as uo_consommees
+        FROM bons_commande bc
+        LEFT JOIN deplacements d ON d.bon_commande_id = bc.id
+        GROUP BY bc.id
+        ORDER BY bc.date_debut DESC
+    `, [], (err, rows) => {
+        if (err) {
+            console.error('Erreur reporting déplacements:', err);
+            return res.status(500).json({ error: err.message });
+        }
+        res.json(rows || []);
+    });
+});
+
+// Récupérer la liste des SAMU (depuis les ressources)
+app.get('/api/liste-samu', requireAuth, (req, res) => {
+    database.all(`SELECT DISTINCT samu FROM resources WHERE samu IS NOT NULL AND samu != '' ORDER BY samu`, [], (err, rows) => {
+        if (err) {
+            console.error('Erreur récupération liste SAMU:', err);
+            return res.status(500).json({ error: err.message });
+        }
+        res.json(rows.map(r => r.samu));
+    });
+});
+
+// ========== FIN API BONS DE COMMANDE ET DÉPLACEMENTS ==========
+
+// ========== API ASTREINTES ET HNO ==========
+
+// Récupérer les astreintes/HNO de l'utilisateur connecté
+app.get('/api/mes-astreintes', requireAuth, (req, res) => {
+    database.all(`
+        SELECT * FROM astreintes_hno 
+        WHERE user_id = ?
+        ORDER BY date_debut DESC
+    `, [req.session.userId], (err, rows) => {
+        if (err) {
+            console.error('Erreur récupération astreintes:', err);
+            return res.status(500).json({ error: err.message });
+        }
+        res.json(rows || []);
+    });
+});
+
+// Récupérer toutes les astreintes/HNO pour affichage sur le planning
+app.get('/api/all-astreintes-planning', requireAuth, (req, res) => {
+    database.all(`
+        SELECT a.*, u.nom as user_nom, u.prenom as user_prenom, u.resource_id
+        FROM astreintes_hno a
+        LEFT JOIN users u ON a.user_id = u.id
+        WHERE u.resource_id IS NOT NULL
+        ORDER BY a.date_debut
+    `, [], (err, rows) => {
+        if (err) {
+            console.error('Erreur récupération astreintes planning:', err);
+            return res.status(500).json({ error: err.message });
+        }
+        res.json(rows || []);
+    });
+});
+
+// Récupérer toutes les astreintes/HNO (admin)
+app.get('/api/astreintes', requireAuth, (req, res) => {
+    if (req.session.activeProfile !== 'admin') {
+        return res.status(403).json({ error: 'Accès réservé aux administrateurs' });
+    }
+    
+    database.all(`
+        SELECT a.*, u.nom as user_nom, u.prenom as user_prenom
+        FROM astreintes_hno a
+        LEFT JOIN users u ON a.user_id = u.id
+        ORDER BY u.nom, u.prenom, a.date_debut DESC
+    `, [], (err, rows) => {
+        if (err) {
+            console.error('Erreur récupération astreintes:', err);
+            return res.status(500).json({ error: err.message });
+        }
+        res.json(rows || []);
+    });
+});
+
+// Récupérer la liste des experts (pour admin)
+app.get('/api/experts-list', requireAuth, (req, res) => {
+    if (req.session.activeProfile !== 'admin') {
+        return res.status(403).json({ error: 'Accès réservé aux administrateurs' });
+    }
+    
+    database.all(`
+        SELECT id, nom, prenom 
+        FROM users 
+        WHERE is_expert = 1 AND actif = 1
+        ORDER BY nom, prenom
+    `, [], (err, rows) => {
+        if (err) {
+            console.error('Erreur récupération experts:', err);
+            return res.status(500).json({ error: err.message });
+        }
+        res.json(rows || []);
+    });
+});
+
+// Créer une astreinte/HNO
+app.post('/api/astreintes', requireAuth, (req, res) => {
+    const { user_id, type, date_debut, date_fin, heure_debut, heure_fin, samu, tous_samu, objet } = req.body;
+    
+    // Vérifier les droits
+    const targetUserId = req.session.activeProfile === 'admin' ? (user_id || req.session.userId) : req.session.userId;
+    
+    if (!type || !date_debut || !date_fin || !objet) {
+        return res.status(400).json({ error: 'Type, dates et objet sont requis' });
+    }
+    
+    if (type === 'hno' && (!heure_debut || !heure_fin)) {
+        return res.status(400).json({ error: 'Heures de début et fin requises pour HNO' });
+    }
+    
+    if (!tous_samu && !samu) {
+        return res.status(400).json({ error: 'SAMU requis ou cocher "Tous les SAMU"' });
+    }
+    
+    database.run(
+        `INSERT INTO astreintes_hno (user_id, type, date_debut, date_fin, heure_debut, heure_fin, samu, tous_samu, objet) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [targetUserId, type, date_debut, date_fin, heure_debut || null, heure_fin || null, tous_samu ? null : samu, tous_samu ? 1 : 0, objet],
+        function(err) {
+            if (err) {
+                console.error('Erreur création astreinte:', err);
+                return res.status(500).json({ error: err.message });
+            }
+            res.json({ id: this.lastID, message: 'Astreinte/HNO créée' });
+        }
+    );
+});
+
+// Modifier une astreinte/HNO
+app.put('/api/astreintes/:id', requireAuth, (req, res) => {
+    const id = req.params.id;
+    const { type, date_debut, date_fin, heure_debut, heure_fin, samu, tous_samu, objet } = req.body;
+    
+    // Vérifier que l'astreinte appartient à l'utilisateur (sauf admin)
+    database.get(`SELECT user_id FROM astreintes_hno WHERE id = ?`, [id], (err, row) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        
+        if (!row) {
+            return res.status(404).json({ error: 'Astreinte non trouvée' });
+        }
+        
+        if (row.user_id !== req.session.userId && req.session.activeProfile !== 'admin') {
+            return res.status(403).json({ error: 'Non autorisé' });
+        }
+        
+        database.run(
+            `UPDATE astreintes_hno 
+             SET type = ?, date_debut = ?, date_fin = ?, heure_debut = ?, heure_fin = ?, samu = ?, tous_samu = ?, objet = ?, updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?`,
+            [type, date_debut, date_fin, heure_debut || null, heure_fin || null, tous_samu ? null : samu, tous_samu ? 1 : 0, objet, id],
+            function(err) {
+                if (err) {
+                    console.error('Erreur modification astreinte:', err);
+                    return res.status(500).json({ error: err.message });
+                }
+                res.json({ message: 'Astreinte/HNO modifiée' });
+            }
+        );
+    });
+});
+
+// Supprimer une astreinte/HNO
+app.delete('/api/astreintes/:id', requireAuth, (req, res) => {
+    const id = req.params.id;
+    
+    // Vérifier que l'astreinte appartient à l'utilisateur (sauf admin)
+    database.get(`SELECT user_id FROM astreintes_hno WHERE id = ?`, [id], (err, row) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        
+        if (!row) {
+            return res.status(404).json({ error: 'Astreinte non trouvée' });
+        }
+        
+        if (row.user_id !== req.session.userId && req.session.activeProfile !== 'admin') {
+            return res.status(403).json({ error: 'Non autorisé' });
+        }
+        
+        database.run(`DELETE FROM astreintes_hno WHERE id = ?`, [id], function(err) {
+            if (err) {
+                console.error('Erreur suppression astreinte:', err);
+                return res.status(500).json({ error: err.message });
+            }
+            res.json({ message: 'Astreinte/HNO supprimée' });
+        });
+    });
+});
+
+// Reporting HNO/Astreintes
+app.post('/api/reporting/hno-astreintes', requireAuth, (req, res) => {
+    const { startMonth, startYear, endMonth, endYear, expertIds, showHno, showAstreintes } = req.body;
+    
+    // Récupérer les ressources sélectionnées avec leurs user_id
+    database.all(`
+        SELECT r.id as resource_id, r.nom, r.prenom, u.id as user_id
+        FROM resources r
+        LEFT JOIN users u ON u.resource_id = r.id
+        WHERE r.id IN (${expertIds.map(() => '?').join(',')})
+        ORDER BY r.nom, r.prenom
+    `, expertIds, (err, experts) => {
+        if (err) {
+            console.error('Erreur récupération experts:', err);
+            return res.status(500).json({ error: err.message });
+        }
+        
+        // Récupérer toutes les astreintes/HNO pour ces experts dans la période
+        const startDate = `${startYear}-${String(startMonth + 1).padStart(2, '0')}-01`;
+        const endDate = `${endYear}-${String(endMonth + 1).padStart(2, '0')}-31`;
+        
+        const userIds = experts.map(e => e.user_id).filter(id => id != null);
+        
+        if (userIds.length === 0) {
+            // Aucun expert n'a de compte utilisateur associé
+            return res.json({
+                experts: experts.map(e => ({
+                    resource_id: e.resource_id,
+                    nom: e.nom,
+                    prenom: e.prenom,
+                    monthlyData: {}
+                }))
+            });
+        }
+        
+        database.all(`
+            SELECT a.*, u.resource_id
+            FROM astreintes_hno a
+            JOIN users u ON a.user_id = u.id
+            WHERE a.user_id IN (${userIds.map(() => '?').join(',')})
+            AND a.date_debut <= ?
+            AND a.date_fin >= ?
+        `, [...userIds, endDate, startDate], (err, astreintes) => {
+            if (err) {
+                console.error('Erreur récupération astreintes:', err);
+                return res.status(500).json({ error: err.message });
+            }
+            
+            // Calculer les données par expert et par mois
+            const result = {
+                experts: experts.map(expert => {
+                    const monthlyData = {};
+                    
+                    // Pour chaque mois de la période
+                    let currentDate = new Date(startYear, startMonth, 1);
+                    const endPeriod = new Date(endYear, endMonth + 1, 0);
+                    
+                    while (currentDate <= endPeriod) {
+                        const month = currentDate.getMonth();
+                        const year = currentDate.getFullYear();
+                        const key = `${year}-${month}`;
+                        
+                        monthlyData[key] = { hno: 0, astreintes: 0 };
+                        
+                        // Compter les astreintes/HNO pour cet expert ce mois
+                        astreintes.forEach(a => {
+                            if (a.resource_id !== expert.resource_id) return;
+                            
+                            const aStart = new Date(a.date_debut);
+                            const aEnd = new Date(a.date_fin);
+                            const monthStart = new Date(year, month, 1);
+                            const monthEnd = new Date(year, month + 1, 0);
+                            
+                            // Vérifier si l'astreinte chevauche ce mois
+                            if (aStart <= monthEnd && aEnd >= monthStart) {
+                                // Compter le nombre de jours dans ce mois
+                                const overlapStart = aStart > monthStart ? aStart : monthStart;
+                                const overlapEnd = aEnd < monthEnd ? aEnd : monthEnd;
+                                const days = Math.ceil((overlapEnd - overlapStart) / (1000 * 60 * 60 * 24)) + 1;
+                                
+                                if (a.type === 'hno') {
+                                    monthlyData[key].hno += days;
+                                } else if (a.type === 'astreinte') {
+                                    monthlyData[key].astreintes += days;
+                                }
+                            }
+                        });
+                        
+                        currentDate.setMonth(currentDate.getMonth() + 1);
+                    }
+                    
+                    return {
+                        resource_id: expert.resource_id,
+                        nom: expert.nom,
+                        prenom: expert.prenom,
+                        monthlyData
+                    };
+                })
+            };
+            
+            res.json(result);
+        });
+    });
+});
+
+// ========== FIN API ASTREINTES ET HNO ==========
 
 // Route catch-all pour servir index.html (doit être la dernière route)
 app.get('*', (req, res) => {
