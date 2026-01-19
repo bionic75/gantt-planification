@@ -1616,7 +1616,8 @@ app.post('/api/schedule/cleanup-old-format', requireAdmin, (req, res) => {
 
 app.get('/api/users', requireAdmin, (req, res) => {
     database.all(`
-        SELECT u.*, r.trigramme as resource_trigramme 
+        SELECT u.*, r.trigramme as resource_trigramme,
+               (SELECT MAX(login_time) FROM connection_logs WHERE user_id = u.id) as last_login
         FROM users u 
         LEFT JOIN resources r ON u.resource_id = r.id
         ORDER BY u.username
