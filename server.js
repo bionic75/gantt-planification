@@ -196,6 +196,8 @@ function initDB() {
         actif INTEGER DEFAULT 1,
         date_debut TEXT,
         date_fin TEXT,
+        es_rattachement TEXT,
+        fonction TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
 `, (err) => {
@@ -222,14 +224,28 @@ function initDB() {
                             actif INTEGER DEFAULT 1,
                             date_debut TEXT,
                             date_fin TEXT,
+                            es_rattachement TEXT,
+                            fonction TEXT,
                             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                         )`);
                         
-                        database.run(`INSERT INTO resources_new SELECT * FROM resources`);
+                        database.run(`INSERT INTO resources_new SELECT id, nom, prenom, trigramme, email, telephone, taux, samu, actif, date_debut, date_fin, NULL, NULL, created_at FROM resources`);
                         database.run(`DROP TABLE resources`);
                         database.run(`ALTER TABLE resources_new RENAME TO resources`);
                         console.log('✅ Migration terminée: email est maintenant nullable');
                     });
+                }
+                
+                // Migration pour es_rattachement et fonction
+                const esCol = columns.find(col => col.name === 'es_rattachement');
+                if (!esCol) {
+                    database.run(`ALTER TABLE resources ADD COLUMN es_rattachement TEXT`);
+                    console.log('Migration: Ajout colonne es_rattachement à resources');
+                }
+                const fonctionCol = columns.find(col => col.name === 'fonction');
+                if (!fonctionCol) {
+                    database.run(`ALTER TABLE resources ADD COLUMN fonction TEXT`);
+                    console.log('Migration: Ajout colonne fonction à resources');
                 }
             }
         });
@@ -1070,16 +1086,16 @@ app.get('/api/resources', requireAuth, (req, res) => {
 });
 
 app.post('/api/resources', requireAdmin, (req, res) => {
-    const { nom, prenom, trigramme, email, telephone, taux, samu, date_debut, date_fin } = req.body;
+    const { nom, prenom, trigramme, email, telephone, taux, samu, date_debut, date_fin, es_rattachement, fonction } = req.body;
     
     if (!nom || !prenom || !trigramme || !taux || !samu) {
         return res.status(400).json({ error: 'Champs obligatoires manquants' });
     }
 
     database.run(
-        `INSERT INTO resources (nom, prenom, trigramme, email, telephone, taux, samu, date_debut, date_fin) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [nom, prenom, trigramme, email || null, telephone || null, taux, samu, date_debut || null, date_fin || null],
+        `INSERT INTO resources (nom, prenom, trigramme, email, telephone, taux, samu, date_debut, date_fin, es_rattachement, fonction) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [nom, prenom, trigramme, email || null, telephone || null, taux, samu, date_debut || null, date_fin || null, es_rattachement || null, fonction || null],
         function(err) {
             if (err) {
                 console.error('Erreur ajout resource:', err);
@@ -1098,14 +1114,14 @@ app.post('/api/resources', requireAdmin, (req, res) => {
 });
 
 app.put('/api/resources/:id', requireAdmin, (req, res) => {
-    const { nom, prenom, trigramme, email, telephone, taux, samu, date_debut, date_fin } = req.body;
+    const { nom, prenom, trigramme, email, telephone, taux, samu, date_debut, date_fin, es_rattachement, fonction } = req.body;
     const { id } = req.params;
     
     database.run(
         `UPDATE resources 
-         SET nom = ?, prenom = ?, trigramme = ?, email = ?, telephone = ?, taux = ?, samu = ?, date_debut = ?, date_fin = ?
+         SET nom = ?, prenom = ?, trigramme = ?, email = ?, telephone = ?, taux = ?, samu = ?, date_debut = ?, date_fin = ?, es_rattachement = ?, fonction = ?
          WHERE id = ?`,
-        [nom, prenom, trigramme, email || null, telephone || null, taux, samu, date_debut || null, date_fin || null, id],
+        [nom, prenom, trigramme, email || null, telephone || null, taux, samu, date_debut || null, date_fin || null, es_rattachement || null, fonction || null, id],
         (err) => {
             if (err) {
                 console.error('Erreur update resource:', err);
