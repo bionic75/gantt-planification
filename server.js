@@ -247,6 +247,18 @@ function initDB() {
                     database.run(`ALTER TABLE resources ADD COLUMN fonction TEXT`);
                     console.log('Migration: Ajout colonne fonction à resources');
                 }
+                
+                // Migration pour astreinte_volontaire et astreinte_date_activation
+                const astrVolCol = columns.find(col => col.name === 'astreinte_volontaire');
+                if (!astrVolCol) {
+                    database.run(`ALTER TABLE resources ADD COLUMN astreinte_volontaire INTEGER DEFAULT 0`);
+                    console.log('Migration: Ajout colonne astreinte_volontaire à resources');
+                }
+                const astrDateCol = columns.find(col => col.name === 'astreinte_date_activation');
+                if (!astrDateCol) {
+                    database.run(`ALTER TABLE resources ADD COLUMN astreinte_date_activation TEXT`);
+                    console.log('Migration: Ajout colonne astreinte_date_activation à resources');
+                }
             }
         });
     }
@@ -509,6 +521,66 @@ function initDB() {
         }
     });
     
+    // Table pour les indisponibilités d'astreinte (conservée pour compatibilité)
+    database.run(`
+        CREATE TABLE IF NOT EXISTS astreinte_indisponibilites (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            resource_id INTEGER NOT NULL,
+            date TEXT NOT NULL,
+            type_creneau TEXT NOT NULL,
+            motif TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (resource_id) REFERENCES resources(id),
+            UNIQUE(resource_id, date, type_creneau)
+        )
+    `, (err) => {
+        if (err) {
+            console.error('Erreur création table astreinte_indisponibilites:', err);
+        } else {
+            console.log('✅ Table astreinte_indisponibilites créée');
+        }
+    });
+    
+    // Table pour les disponibilités d'astreinte (jours verts)
+    database.run(`
+        CREATE TABLE IF NOT EXISTS astreinte_disponibilites (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            resource_id INTEGER NOT NULL,
+            date TEXT NOT NULL,
+            type_creneau TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (resource_id) REFERENCES resources(id),
+            UNIQUE(resource_id, date)
+        )
+    `, (err) => {
+        if (err) {
+            console.error('Erreur création table astreinte_disponibilites:', err);
+        } else {
+            console.log('✅ Table astreinte_disponibilites créée');
+        }
+    });
+    
+    // Table pour le planning d'astreinte
+    database.run(`
+        CREATE TABLE IF NOT EXISTS astreinte_planning (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT NOT NULL,
+            type_creneau TEXT NOT NULL,
+            resource_id INTEGER,
+            year INTEGER NOT NULL,
+            month INTEGER NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (resource_id) REFERENCES resources(id),
+            UNIQUE(date, type_creneau)
+        )
+    `, (err) => {
+        if (err) {
+            console.error('Erreur création table astreinte_planning:', err);
+        } else {
+            console.log('✅ Table astreinte_planning créée');
+        }
+    });
+    
     // Table pour les logs d'automatisation
     database.run(`
         CREATE TABLE IF NOT EXISTS automation_logs (
@@ -556,6 +628,7 @@ function initDB() {
         CREATE TABLE IF NOT EXISTS bons_commande (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             intitule TEXT NOT NULL,
+            titulaire TEXT,
             date_debut DATE NOT NULL,
             date_fin DATE NOT NULL,
             nb_uo INTEGER NOT NULL,
@@ -569,6 +642,12 @@ function initDB() {
             console.error('Erreur création table bons_commande:', err);
         } else {
             console.log('✅ Table bons_commande créée');
+            // Migration: ajouter la colonne titulaire si elle n'existe pas
+            database.run(`ALTER TABLE bons_commande ADD COLUMN titulaire TEXT`, (err) => {
+                if (err && !err.message.includes('duplicate column')) {
+                    // Ignorer l'erreur si la colonne existe déjà
+                }
+            });
         }
     });
 
@@ -577,6 +656,7 @@ function initDB() {
         CREATE TABLE IF NOT EXISTS deplacements (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
+            amoa_ced_id INTEGER,
             date_debut DATE NOT NULL,
             date_fin DATE NOT NULL,
             samu TEXT NOT NULL,
@@ -585,6 +665,7 @@ function initDB() {
             nb_uo INTEGER NOT NULL,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id),
+            FOREIGN KEY (amoa_ced_id) REFERENCES resources(id),
             FOREIGN KEY (bon_commande_id) REFERENCES bons_commande(id)
         )
     `, (err) => {
@@ -592,6 +673,12 @@ function initDB() {
             console.error('Erreur création table deplacements:', err);
         } else {
             console.log('✅ Table deplacements créée');
+            // Migration: ajouter la colonne amoa_ced_id si elle n'existe pas
+            database.run(`ALTER TABLE deplacements ADD COLUMN amoa_ced_id INTEGER`, (err) => {
+                if (err && !err.message.includes('duplicate column')) {
+                    // Ignorer l'erreur si la colonne existe déjà
+                }
+            });
         }
     });
 
@@ -1650,6 +1737,30 @@ app.get('/api/users/public', requireAuth, (req, res) => {
     `, (err, rows) => {
         if (err) {
             console.error('Erreur récup users publics:', err);
+            res.status(500).json({ error: err.message });
+        } else {
+            res.json(rows || []);
+        }
+    });
+});
+
+// Récupérer les utilisateurs AMOA CED actifs
+app.get('/api/users/amoa-ced', requireAuth, (req, res) => {
+    database.all(`
+        SELECT 
+            u.id,
+            u.nom,
+            u.prenom,
+            u.email,
+            u.resource_id,
+            r.trigramme
+        FROM users u 
+        LEFT JOIN resources r ON u.resource_id = r.id
+        WHERE u.actif = 1 AND u.amoa_ced = 1
+        ORDER BY u.nom, u.prenom
+    `, (err, rows) => {
+        if (err) {
+            console.error('Erreur récup users AMOA CED:', err);
             res.status(500).json({ error: err.message });
         } else {
             res.json(rows || []);
@@ -5966,9 +6077,9 @@ app.get('/api/bons-commande', requireAuth, (req, res) => {
 
 // Créer un bon de commande
 app.post('/api/bons-commande', requireAuth, (req, res) => {
-    const { intitule, date_debut, date_fin, nb_uo } = req.body;
+    const { intitule, titulaire, date_debut, date_fin, nb_uo } = req.body;
     
-    if (!intitule || !date_debut || !date_fin || !nb_uo) {
+    if (!intitule || !titulaire || !date_debut || !date_fin || !nb_uo) {
         return res.status(400).json({ error: 'Tous les champs sont requis' });
     }
     
@@ -5984,8 +6095,8 @@ app.post('/api/bons-commande', requireAuth, (req, res) => {
         }
         
         database.run(
-            `INSERT INTO bons_commande (intitule, date_debut, date_fin, nb_uo, created_by) VALUES (?, ?, ?, ?, ?)`,
-            [intitule, date_debut, date_fin, nb_uo, req.session.userId],
+            `INSERT INTO bons_commande (intitule, titulaire, date_debut, date_fin, nb_uo, created_by) VALUES (?, ?, ?, ?, ?, ?)`,
+            [intitule, titulaire.toUpperCase(), date_debut, date_fin, nb_uo, req.session.userId],
             function(err) {
                 if (err) {
                     console.error('Erreur création bon de commande:', err);
@@ -5999,12 +6110,12 @@ app.post('/api/bons-commande', requireAuth, (req, res) => {
 
 // Modifier un bon de commande
 app.put('/api/bons-commande/:id', requireAuth, (req, res) => {
-    const { intitule, date_debut, date_fin, nb_uo, actif } = req.body;
+    const { intitule, titulaire, date_debut, date_fin, nb_uo, actif } = req.body;
     const id = req.params.id;
     
     database.run(
-        `UPDATE bons_commande SET intitule = ?, date_debut = ?, date_fin = ?, nb_uo = ?, actif = ? WHERE id = ?`,
-        [intitule, date_debut, date_fin, nb_uo, actif ? 1 : 0, id],
+        `UPDATE bons_commande SET intitule = ?, titulaire = ?, date_debut = ?, date_fin = ?, nb_uo = ?, actif = ? WHERE id = ?`,
+        [intitule, titulaire ? titulaire.toUpperCase() : null, date_debut, date_fin, nb_uo, actif ? 1 : 0, id],
         function(err) {
             if (err) {
                 console.error('Erreur modification bon de commande:', err);
@@ -6061,9 +6172,14 @@ app.get('/api/deplacements', requireAuth, (req, res) => {
 // Récupérer les déplacements de l'utilisateur connecté
 app.get('/api/mes-deplacements', requireAuth, (req, res) => {
     database.all(`
-        SELECT d.*, bc.intitule as bon_commande_intitule
+        SELECT d.*, 
+               bc.intitule as bon_commande_intitule, 
+               bc.titulaire as bon_commande_titulaire,
+               u.nom as amoa_ced_nom,
+               u.prenom as amoa_ced_prenom
         FROM deplacements d
         LEFT JOIN bons_commande bc ON d.bon_commande_id = bc.id
+        LEFT JOIN users u ON d.amoa_ced_id = u.id
         WHERE d.user_id = ?
         ORDER BY d.date_debut DESC
     `, [req.session.userId], (err, rows) => {
@@ -6075,11 +6191,32 @@ app.get('/api/mes-deplacements', requireAuth, (req, res) => {
     });
 });
 
+// Récupérer un déplacement par ID
+app.get('/api/deplacements/:id', requireAuth, (req, res) => {
+    const id = req.params.id;
+    
+    database.get(`
+        SELECT d.*, bc.intitule as bon_commande_intitule, bc.titulaire as bon_commande_titulaire
+        FROM deplacements d
+        LEFT JOIN bons_commande bc ON d.bon_commande_id = bc.id
+        WHERE d.id = ?
+    `, [id], (err, row) => {
+        if (err) {
+            console.error('Erreur récupération déplacement:', err);
+            return res.status(500).json({ error: err.message });
+        }
+        if (!row) {
+            return res.status(404).json({ error: 'Déplacement non trouvé' });
+        }
+        res.json(row);
+    });
+});
+
 // Créer un déplacement
 app.post('/api/deplacements', requireAuth, (req, res) => {
-    const { date_debut, date_fin, samu, ville, bon_commande_id } = req.body;
+    const { amoa_ced_id, date_debut, date_fin, samu, ville, bon_commande_id } = req.body;
     
-    if (!date_debut || !date_fin || !samu || !ville) {
+    if (!amoa_ced_id || !date_debut || !date_fin || !samu || !ville) {
         return res.status(400).json({ error: 'Tous les champs sont requis' });
     }
     
@@ -6093,9 +6230,9 @@ app.post('/api/deplacements', requireAuth, (req, res) => {
     const bcId = bon_commande_id || null;
     
     database.run(
-        `INSERT INTO deplacements (user_id, date_debut, date_fin, samu, ville, bon_commande_id, nb_uo) 
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [req.session.userId, date_debut, date_fin, samu, ville.toUpperCase(), bcId, nb_uo],
+        `INSERT INTO deplacements (user_id, amoa_ced_id, date_debut, date_fin, samu, ville, bon_commande_id, nb_uo) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [req.session.userId, amoa_ced_id, date_debut, date_fin, samu, ville.toUpperCase(), bcId, nb_uo],
         function(err) {
             if (err) {
                 console.error('Erreur création déplacement:', err);
@@ -6104,6 +6241,49 @@ app.post('/api/deplacements', requireAuth, (req, res) => {
             res.json({ id: this.lastID, nb_uo, bon_commande_id: bcId, message: 'Déplacement créé' });
         }
     );
+});
+
+// Modifier un déplacement
+app.put('/api/deplacements/:id', requireAuth, (req, res) => {
+    const id = req.params.id;
+    const { amoa_ced_id, date_debut, date_fin, samu, ville, bon_commande_id } = req.body;
+    
+    if (!amoa_ced_id || !date_debut || !date_fin || !samu || !ville) {
+        return res.status(400).json({ error: 'Tous les champs sont requis' });
+    }
+    
+    // Calculer le nombre d'UO (nombre de jours)
+    const start = new Date(date_debut);
+    const end = new Date(date_fin);
+    const diffTime = Math.abs(end - start);
+    const nb_uo = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    
+    // Vérifier que le déplacement appartient à l'utilisateur (sauf admin)
+    database.get(`SELECT user_id FROM deplacements WHERE id = ?`, [id], (err, row) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        
+        if (!row) {
+            return res.status(404).json({ error: 'Déplacement non trouvé' });
+        }
+        
+        if (row.user_id !== req.session.userId && req.session.activeProfile !== 'admin') {
+            return res.status(403).json({ error: 'Non autorisé' });
+        }
+        
+        database.run(
+            `UPDATE deplacements SET amoa_ced_id = ?, date_debut = ?, date_fin = ?, samu = ?, ville = ?, bon_commande_id = ?, nb_uo = ? WHERE id = ?`,
+            [amoa_ced_id, date_debut, date_fin, samu, ville.toUpperCase(), bon_commande_id || null, nb_uo, id],
+            function(err) {
+                if (err) {
+                    console.error('Erreur modification déplacement:', err);
+                    return res.status(500).json({ error: err.message });
+                }
+                res.json({ message: 'Déplacement modifié' });
+            }
+        );
+    });
 });
 
 // Supprimer un déplacement
@@ -6448,11 +6628,6 @@ app.post('/api/reporting/hno-astreintes', requireAuth, (req, res) => {
 });
 
 // ========== FIN API ASTREINTES ET HNO ==========
-
-// Route catch-all pour servir index.html (doit être la dernière route)
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
 
 // ========== SYSTÈME DE CRON POUR LES AUTOMATISATIONS ==========
 
@@ -7013,6 +7188,379 @@ cron.schedule('0 8 * * *', () => {
 console.log('⏰ Crons configurés: vérification horaire + automatisation n°1 à 8h00 (Europe/Paris)');
 
 // ========== FIN SYSTÈME DE CRON ==========
+
+// ========== ROUTES GESTION ASTREINTES ==========
+
+// Récupérer la liste des volontaires
+app.get('/api/astreinte/volontaires', requireAdmin, (req, res) => {
+    database.all(`SELECT id, nom, prenom, trigramme, astreinte_volontaire, astreinte_date_activation 
+                  FROM resources WHERE actif = 1 ORDER BY nom, prenom`, (err, rows) => {
+        if (err) {
+            res.status(500).json({ error: err.message });
+        } else {
+            res.json(rows || []);
+        }
+    });
+});
+
+// Activer/désactiver un volontaire
+app.post('/api/astreinte/volontaire/:id', requireAdmin, (req, res) => {
+    const { id } = req.params;
+    const { volontaire } = req.body;
+    
+    const dateActivation = volontaire ? new Date().toISOString() : null;
+    
+    database.run(`UPDATE resources SET astreinte_volontaire = ?, astreinte_date_activation = ? WHERE id = ?`,
+        [volontaire ? 1 : 0, dateActivation, id], function(err) {
+            if (err) {
+                res.status(500).json({ error: err.message });
+            } else {
+                res.json({ success: true });
+            }
+        });
+});
+
+// Récupérer les indisponibilités
+app.get('/api/astreinte/indispos', requireAdmin, (req, res) => {
+    database.all(`SELECT * FROM astreinte_indisponibilites ORDER BY date`, (err, rows) => {
+        if (err) {
+            res.status(500).json({ error: err.message });
+        } else {
+            res.json(rows || []);
+        }
+    });
+});
+
+// Récupérer les disponibilités d'un expert pour un mois
+app.get('/api/astreinte/dispos/:expertId/:mois', requireAuth, (req, res) => {
+    const { expertId, mois } = req.params;
+    console.log('📅 GET astreinte/dispos - expertId:', expertId, 'mois:', mois);
+    
+    const [year, month] = mois.split('-');
+    const startDate = `${year}-${month}-01`;
+    const endDate = `${year}-${month}-31`;
+    
+    // On stocke maintenant les DISPONIBILITÉS (jours verts)
+    database.all(`SELECT * FROM astreinte_disponibilites 
+                  WHERE resource_id = ? AND date >= ? AND date <= ?
+                  ORDER BY date`,
+        [expertId, startDate, endDate], (err, rows) => {
+            if (err) {
+                console.error('📅 Erreur GET dispos:', err);
+                res.status(500).json({ error: err.message });
+            } else {
+                console.log('📅 Disponibilités trouvées:', rows?.length || 0);
+                res.json(rows || []);
+            }
+        });
+});
+
+// Sauvegarder les disponibilités d'un expert pour un mois
+app.post('/api/astreinte/dispos/:expertId/:mois', requireAuth, async (req, res) => {
+    const { expertId, mois } = req.params;
+    const { disponibilites } = req.body; // Array de dates disponibles (vertes)
+    const [year, month] = mois.split('-');
+    const startDate = `${year}-${month}-01`;
+    const endDate = `${year}-${month}-31`;
+    
+    try {
+        // Supprimer les anciennes disponibilités du mois pour cet expert
+        await new Promise((resolve, reject) => {
+            database.run(`DELETE FROM astreinte_disponibilites 
+                          WHERE resource_id = ? AND date >= ? AND date <= ?`,
+                [expertId, startDate, endDate], (err) => {
+                    if (err) reject(err);
+                    else resolve();
+                });
+        });
+        
+        // Insérer les nouvelles disponibilités
+        for (const date of disponibilites) {
+            // Déterminer le type de créneau selon le jour
+            const dateObj = new Date(date);
+            const dayOfWeek = dateObj.getDay();
+            const typeCreneau = (dayOfWeek === 0 || dayOfWeek === 6) ? 'journee' : 'soir';
+            
+            await new Promise((resolve, reject) => {
+                database.run(`INSERT INTO astreinte_disponibilites (resource_id, date, type_creneau) VALUES (?, ?, ?)`,
+                    [expertId, date, typeCreneau], (err) => {
+                        if (err) reject(err);
+                        else resolve();
+                    });
+            });
+        }
+        
+        res.json({ success: true, count: disponibilites.length });
+        
+    } catch (error) {
+        console.error('Erreur sauvegarde dispos:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Ajouter une indisponibilité
+app.post('/api/astreinte/indispo', requireAdmin, (req, res) => {
+    const { resource_id, date, type_creneau, motif } = req.body;
+    
+    database.run(`INSERT OR REPLACE INTO astreinte_indisponibilites (resource_id, date, type_creneau, motif) VALUES (?, ?, ?, ?)`,
+        [resource_id, date, type_creneau, motif || null], function(err) {
+            if (err) {
+                res.status(500).json({ error: err.message });
+            } else {
+                res.json({ success: true, id: this.lastID });
+            }
+        });
+});
+
+// Supprimer une indisponibilité
+app.delete('/api/astreinte/indispo/:id', requireAdmin, (req, res) => {
+    const { id } = req.params;
+    
+    database.run(`DELETE FROM astreinte_indisponibilites WHERE id = ?`, [id], function(err) {
+        if (err) {
+            res.status(500).json({ error: err.message });
+        } else {
+            res.json({ success: true });
+        }
+    });
+});
+
+// Générer le planning d'astreinte
+app.post('/api/astreinte/generate', requireAdmin, async (req, res) => {
+    const { year, month } = req.body;
+    
+    try {
+        // Récupérer les volontaires actifs
+        const volontaires = await new Promise((resolve, reject) => {
+            database.all(`SELECT * FROM resources WHERE actif = 1 AND astreinte_volontaire = 1`, (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows || []);
+            });
+        });
+        
+        if (volontaires.length === 0) {
+            return res.status(400).json({ error: 'Aucun volontaire disponible' });
+        }
+        
+        // Récupérer les DISPONIBILITÉS du mois (jours verts déclarés)
+        const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+        const endDate = `${year}-${String(month).padStart(2, '0')}-31`;
+        
+        const disponibilites = await new Promise((resolve, reject) => {
+            database.all(`SELECT * FROM astreinte_disponibilites WHERE date >= ? AND date <= ?`,
+                [startDate, endDate], (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows || []);
+                });
+        });
+        
+        // Récupérer les affectations existantes (déplacements, bascules)
+        const affectations = await new Promise((resolve, reject) => {
+            database.all(`SELECT * FROM schedule_data WHERE date_key LIKE ? AND type = 'activity' AND value IN ('3', '4')`,
+                [`${year}-${String(month).padStart(2, '0')}%`], (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows || []);
+                });
+        });
+        
+        // Générer les créneaux du mois
+        const slots = [];
+        const daysInMonth = new Date(year, month, 0).getDate();
+        
+        for (let day = 1; day <= daysInMonth; day++) {
+            const date = new Date(year, month - 1, day);
+            const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const dayOfWeek = date.getDay();
+            
+            if (dayOfWeek === 0 || dayOfWeek === 6) {
+                // Week-end : journée complète
+                slots.push({ date: dateStr, type_creneau: 'journee', dayOfWeek });
+            } else {
+                // Semaine : soir seulement
+                slots.push({ date: dateStr, type_creneau: 'soir', dayOfWeek });
+            }
+        }
+        
+        // Algorithme de répartition
+        const planning = [];
+        const compteur = {}; // Compteur d'astreintes par expert
+        const dernierAstreinte = {}; // Dernière date d'astreinte par expert
+        const warnings = [];
+        
+        volontaires.forEach(v => {
+            compteur[v.id] = 0;
+            dernierAstreinte[v.id] = null;
+        });
+        
+        // Fonction pour vérifier si un expert est disponible
+        const isDisponible = (expertId, date, typeCreneau) => {
+            // Vérifier si l'expert a déclaré être DISPONIBLE pour cette date
+            const dispo = disponibilites.find(d => 
+                d.resource_id === expertId && 
+                d.date === date
+            );
+            // Si pas de disponibilité déclarée pour cette date = indisponible (rouge par défaut)
+            if (!dispo) return false;
+            
+            // Vérifier si déplacement/bascule le lendemain (pour astreinte soir)
+            if (typeCreneau === 'soir') {
+                const nextDay = new Date(date);
+                nextDay.setDate(nextDay.getDate() + 1);
+                const nextDateStr = nextDay.toISOString().split('T')[0];
+                
+                const affectLendemain = affectations.find(a => 
+                    a.resource_id === expertId && 
+                    a.date_key === nextDateStr
+                );
+                if (affectLendemain) return false;
+            }
+            
+            return true;
+        };
+        
+        // Fonction pour vérifier les contraintes FPH
+        const checkContraintesFPH = (expertId, date) => {
+            // Max 15 astreintes par mois
+            if (compteur[expertId] >= 15) return false;
+            
+            // Calculer les heures sur 7 jours glissants (simplifié)
+            // Soir = 14h, Journée WE = 24h
+            // Max 72h sur 7 jours
+            // Pour simplifier, on limite à 3 créneaux sur 7 jours
+            const dateObj = new Date(date);
+            let countLast7Days = 0;
+            
+            for (const slot of planning) {
+                const slotDate = new Date(slot.date);
+                const diffDays = Math.abs((dateObj - slotDate) / (1000 * 60 * 60 * 24));
+                if (slot.resource_id === expertId && diffDays < 7) {
+                    countLast7Days++;
+                }
+            }
+            
+            if (countLast7Days >= 3) return false;
+            
+            // Repos de 11h entre deux périodes
+            if (dernierAstreinte[expertId]) {
+                const lastDate = new Date(dernierAstreinte[expertId]);
+                const currentDate = new Date(date);
+                const diffHours = (currentDate - lastDate) / (1000 * 60 * 60);
+                if (diffHours < 11) return false;
+            }
+            
+            return true;
+        };
+        
+        // Assigner les créneaux
+        for (const slot of slots) {
+            // Trier les volontaires par nombre d'astreintes (équité)
+            const sortedVolontaires = [...volontaires].sort((a, b) => compteur[a.id] - compteur[b.id]);
+            
+            let assigned = false;
+            for (const expert of sortedVolontaires) {
+                if (isDisponible(expert.id, slot.date, slot.type_creneau) && 
+                    checkContraintesFPH(expert.id, slot.date)) {
+                    
+                    planning.push({
+                        date: slot.date,
+                        type_creneau: slot.type_creneau,
+                        resource_id: expert.id,
+                        year,
+                        month
+                    });
+                    
+                    compteur[expert.id]++;
+                    dernierAstreinte[expert.id] = slot.date;
+                    assigned = true;
+                    break;
+                }
+            }
+            
+            if (!assigned) {
+                planning.push({
+                    date: slot.date,
+                    type_creneau: slot.type_creneau,
+                    resource_id: null,
+                    year,
+                    month
+                });
+                warnings.push(`Aucun expert disponible pour le ${slot.date} (${slot.type_creneau})`);
+            }
+        }
+        
+        // Sauvegarder le planning en base
+        await new Promise((resolve, reject) => {
+            database.run(`DELETE FROM astreinte_planning WHERE year = ? AND month = ?`, [year, month], (err) => {
+                if (err) reject(err);
+                else resolve();
+            });
+        });
+        
+        for (const slot of planning) {
+            await new Promise((resolve, reject) => {
+                database.run(`INSERT INTO astreinte_planning (date, type_creneau, resource_id, year, month) VALUES (?, ?, ?, ?, ?)`,
+                    [slot.date, slot.type_creneau, slot.resource_id, year, month], function(err) {
+                        if (err) reject(err);
+                        else {
+                            slot.id = this.lastID;
+                            resolve();
+                        }
+                    });
+            });
+        }
+        
+        // Statistiques
+        const stats = {};
+        volontaires.forEach(v => {
+            if (compteur[v.id] > 0) {
+                stats[`${v.nom.toUpperCase()} ${v.prenom}`] = compteur[v.id];
+            }
+        });
+        
+        res.json({ planning, warnings, stats, disponibilites });
+        
+    } catch (error) {
+        console.error('Erreur génération planning:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Modifier une assignation
+app.put('/api/astreinte/slot/:id', requireAdmin, (req, res) => {
+    const { id } = req.params;
+    const { resource_id } = req.body;
+    
+    database.run(`UPDATE astreinte_planning SET resource_id = ? WHERE id = ?`,
+        [resource_id, id], function(err) {
+            if (err) {
+                res.status(500).json({ error: err.message });
+            } else {
+                res.json({ success: true });
+            }
+        });
+});
+
+// Récupérer le planning d'un mois
+app.get('/api/astreinte/planning/:mois', requireAdmin, (req, res) => {
+    const { mois } = req.params;
+    const [year, month] = mois.split('-').map(Number);
+    
+    database.all(`SELECT * FROM astreinte_planning WHERE year = ? AND month = ? ORDER BY date`,
+        [year, month], (err, rows) => {
+            if (err) {
+                res.status(500).json({ error: err.message });
+            } else {
+                res.json(rows || []);
+            }
+        });
+});
+
+// ========== FIN ROUTES GESTION ASTREINTES ==========
+
+// Route catch-all pour servir index.html (doit être la DERNIÈRE route API)
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 // Serveur Ecoute
 app.listen(PORT, () => {
