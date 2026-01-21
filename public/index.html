@@ -1613,10 +1613,10 @@
     <div class="form-section" style="background-color: #e8f5e9; border-left: 4px solid #4caf50;">
         <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleAstreinteSection('volontairesSection')">
             <h3 style="color: #2e7d32; border-left: none; margin: 0;">
-                <span id="volontairesSectionIcon">▼</span> 👥 Volontaires au dispositif d'astreinte
+                <span id="volontairesSectionIcon">▶</span> 👥 Volontaires au dispositif d'astreinte
             </h3>
         </div>
-        <div id="volontairesSection" style="margin-top: 15px;">
+        <div id="volontairesSection" style="margin-top: 15px; display: none;">
             <p style="font-size: 12px; color: #666; margin-bottom: 15px;">
                 Cochez les experts volontaires pour participer au dispositif d'astreinte. La date d'activation est enregistrée automatiquement.
             </p>
@@ -1723,11 +1723,11 @@
             
             <!-- Règles FPH rappel -->
             <div style="background: #e1f5fe; padding: 10px; border-radius: 5px; margin-bottom: 15px; font-size: 11px;">
-                <strong>📋 Règles FPH appliquées :</strong>
+                <strong>📋 Règles FPH appliquées (Décret n°2002-9 du 4 janvier 2002) :</strong>
                 <ul style="margin: 5px 0 0 20px; padding: 0;">
-                    <li>Maximum 72h d'astreinte par période de 7 jours glissants</li>
-                    <li>Maximum 15 astreintes par mois</li>
-                    <li>Repos de 11h consécutives entre deux périodes de travail</li>
+                    <li>Maximum 72h d'astreinte par période de 15 jours</li>
+                    <li>Maximum 1 samedi, 1 dimanche et 1 jour férié par mois</li>
+                    <li>Repos de 12h consécutives minimum entre deux périodes de travail</li>
                     <li>Pas d'astreinte si déplacement/bascule le lendemain</li>
                 </ul>
             </div>
@@ -14153,7 +14153,50 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             const daysInMonth = new Date(year, month, 0).getDate();
             const monthName = new Date(year, month - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
             
-            let html = `<h4 style="color: #e65100; margin-bottom: 15px; text-transform: capitalize;">📅 ${monthName}</h4>`;
+            // Calculer les compteurs mensuels
+            let totalHeures = 0;
+            let samedisCount = 0;
+            let dimanchesCount = 0;
+            let joursCount = 0;
+            
+            Object.keys(currentExpertDispos).filter(d => currentExpertDispos[d] === true).forEach(dateStr => {
+                const [y, m, day] = dateStr.split('-').map(Number);
+                const dateObj = new Date(y, m - 1, day); // Mois 0-indexé, évite le décalage UTC
+                const dayOfWeek = dateObj.getDay();
+                joursCount++;
+                if (dayOfWeek === 6) { // Samedi
+                    totalHeures += 24;
+                    samedisCount++;
+                } else if (dayOfWeek === 0) { // Dimanche
+                    totalHeures += 24;
+                    dimanchesCount++;
+                } else { // Lun-Ven
+                    totalHeures += 14;
+                }
+            });
+            
+            // Déterminer les couleurs des compteurs
+            const heuresColor = totalHeures > 144 ? '#e74c3c' : (totalHeures > 100 ? '#f39c12' : '#27ae60');
+            const samedisColor = samedisCount > 1 ? '#e74c3c' : (samedisCount === 1 ? '#27ae60' : '#666');
+            const dimanchesColor = dimanchesCount > 1 ? '#e74c3c' : (dimanchesCount === 1 ? '#27ae60' : '#666');
+            
+            let html = `<h4 style="color: #e65100; margin-bottom: 10px; text-transform: capitalize;">📅 ${monthName}</h4>`;
+            
+            // Compteurs mensuels
+            html += `<div style="display: flex; gap: 15px; margin-bottom: 15px; flex-wrap: wrap;">
+                <div style="background: linear-gradient(135deg, #fff 0%, #f5f5f5 100%); border: 2px solid ${heuresColor}; border-radius: 8px; padding: 10px 15px; min-width: 150px; text-align: center;">
+                    <div style="font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 1px;">Heures d'astreinte</div>
+                    <div style="font-size: 24px; font-weight: bold; color: ${heuresColor};">${totalHeures}h <span style="font-size: 14px; font-weight: normal;">/ 144h</span></div>
+                </div>
+                <div style="background: linear-gradient(135deg, #fff 0%, #f5f5f5 100%); border: 2px solid ${samedisColor}; border-radius: 8px; padding: 10px 15px; min-width: 100px; text-align: center;">
+                    <div style="font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 1px;">Samedis</div>
+                    <div style="font-size: 24px; font-weight: bold; color: ${samedisColor};">${samedisCount} <span style="font-size: 14px; font-weight: normal;">/ 1 max</span></div>
+                </div>
+                <div style="background: linear-gradient(135deg, #fff 0%, #f5f5f5 100%); border: 2px solid ${dimanchesColor}; border-radius: 8px; padding: 10px 15px; min-width: 100px; text-align: center;">
+                    <div style="font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 1px;">Dimanches</div>
+                    <div style="font-size: 24px; font-weight: bold; color: ${dimanchesColor};">${dimanchesCount} <span style="font-size: 14px; font-weight: normal;">/ 1 max</span></div>
+                </div>
+            </div>`;
             
             // En-tête des jours de la semaine (sans tri)
             html += '<table style="width: 100%; border-collapse: collapse; table-layout: fixed;">';
@@ -14206,48 +14249,34 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             const dispoCount = Object.values(currentExpertDispos).filter(v => v === true).length;
             const indispoCount = daysInMonth - dispoCount;
             
-            // Calculer les alertes
+            // Calculer les alertes (réutilisation des variables totalHeures, samedisCount, dimanchesCount calculées plus haut)
             let alertes = [];
             
-            // Alerte max 15 par mois
-            if (dispoCount > 15) {
-                alertes.push(`⚠️ ${dispoCount} disponibilités déclarées (max 15/mois)`);
+            // Alerte max 72h sur 15 jours (on vérifie sur le mois = ~2x15 jours)
+            // Donc max ~144h par mois, ou ~72h pour les 15 premiers jours
+            // Pour simplifier, on alerte si > 72h sur le mois (sera affiné)
+            if (totalHeures > 144) {
+                alertes.push(`⚠️ ${totalHeures}h d'astreinte déclarées ce mois (max 144h ≈ 2x72h pour 2 périodes de 15 jours)`);
             }
             
-            // Calculer le max sur 7 jours glissants
-            const disponibilites = Object.keys(currentExpertDispos).filter(d => currentExpertDispos[d] === true);
-            let maxIn7Days = 0;
+            // Alerte max 1 samedi par mois
+            if (samedisCount > 1) {
+                alertes.push(`⚠️ ${samedisCount} samedis déclarés (max 1 samedi/mois selon décret FPH)`);
+            }
             
-            disponibilites.forEach(dateStr => {
-                const dateObj = new Date(dateStr);
-                let countIn7Days = 1;
-                
-                disponibilites.forEach(otherDateStr => {
-                    if (dateStr === otherDateStr) return;
-                    const otherDate = new Date(otherDateStr);
-                    const diffDays = Math.abs((dateObj - otherDate) / (1000 * 60 * 60 * 24));
-                    if (diffDays < 7) {
-                        countIn7Days++;
-                    }
-                });
-                
-                if (countIn7Days > maxIn7Days) {
-                    maxIn7Days = countIn7Days;
-                }
-            });
-            
-            if (maxIn7Days > 3) {
-                alertes.push(`⚠️ ${maxIn7Days} créneaux sur 7 jours (max 72h ≈ 3 créneaux)`);
+            // Alerte max 1 dimanche par mois
+            if (dimanchesCount > 1) {
+                alertes.push(`⚠️ ${dimanchesCount} dimanches déclarés (max 1 dimanche/mois selon décret FPH)`);
             }
             
             html += `<div style="margin-top: 15px; padding: 10px; background: #fff3e0; border-radius: 5px; font-size: 12px;">
-                <strong>Résumé :</strong> <span style="color: #27ae60;">${dispoCount} créneaux disponibles</span> / <span style="color: #e74c3c;">${indispoCount} indisponibilités</span>
+                <strong>Résumé :</strong> <span style="color: #27ae60;">${dispoCount} créneaux disponibles (${totalHeures}h)</span> / <span style="color: #e74c3c;">${indispoCount} indisponibilités</span>
             </div>`;
             
             // Afficher les alertes si présentes
             if (alertes.length > 0) {
                 html += `<div style="margin-top: 10px; padding: 10px; background: #ffebee; border: 1px solid #e74c3c; border-radius: 5px; font-size: 12px; color: #c62828;">
-                    <strong>🚨 Alertes règles FPH :</strong>
+                    <strong>🚨 Alertes règles FPH (Décret n°2002-9) :</strong>
                     <ul style="margin: 5px 0 0 15px; padding: 0;">
                         ${alertes.map(a => `<li>${a}</li>`).join('')}
                     </ul>
@@ -14263,40 +14292,55 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             const mois = document.getElementById('astreinteDispoMois').value;
             const [year, month] = mois.split('-').map(Number);
             
-            // Compter les disponibilités du mois (y compris celle qu'on ajoute)
+            // Compter les disponibilités du mois et calculer les heures
             const disposMois = Object.keys(currentExpertDispos).filter(d => {
                 if (currentExpertDispos[d] !== true) return false;
                 const [y, m] = d.split('-').map(Number);
                 return y === year && m === month;
             });
             
-            // Maximum 15 astreintes par mois
-            if (disposMois.length >= 15) {
-                warnings.push(`⚠️ Attention : vous avez déclaré ${disposMois.length} disponibilités ce mois-ci.\nLe maximum autorisé est de 15 astreintes par mois.`);
-            }
+            // Compter les samedis et dimanches déjà déclarés
+            let samedisCount = 0;
+            let dimanchesCount = 0;
+            let totalHeures = 0;
             
-            // Calculer sur 7 jours glissants autour de la date
-            const dateObj = new Date(dateStr);
-            let countIn7Days = 1; // La date qu'on ajoute
-            
-            for (let i = -6; i <= 6; i++) {
-                if (i === 0) continue;
-                const checkDate = new Date(dateObj);
-                checkDate.setDate(checkDate.getDate() + i);
-                const checkDateStr = checkDate.toISOString().split('T')[0];
-                
-                if (currentExpertDispos[checkDateStr] === true) {
-                    // Vérifier si c'est dans la fenêtre de 7 jours
-                    const diffDays = Math.abs(i);
-                    if (diffDays < 7) {
-                        countIn7Days++;
-                    }
+            disposMois.forEach(d => {
+                const [y, m, day] = d.split('-').map(Number);
+                const dateObj = new Date(y, m - 1, day); // Mois 0-indexé, évite le décalage UTC
+                const dayOfWeek = dateObj.getDay();
+                if (dayOfWeek === 6) {
+                    samedisCount++;
+                    totalHeures += 24;
+                } else if (dayOfWeek === 0) {
+                    dimanchesCount++;
+                    totalHeures += 24;
+                } else {
+                    totalHeures += 14;
                 }
+            });
+            
+            // Vérifier le jour qu'on ajoute
+            const [newY, newM, newD] = dateStr.split('-').map(Number);
+            const newDateObj = new Date(newY, newM - 1, newD); // Mois 0-indexé
+            const newDayOfWeek = newDateObj.getDay();
+            
+            // Règle : max 1 samedi par mois
+            if (newDayOfWeek === 6 && samedisCount >= 1) {
+                warnings.push(`⚠️ Vous avez déjà déclaré ${samedisCount} samedi ce mois.\nSelon le Décret n°2002-9, un agent ne peut participer au service d'astreinte que dans la limite d'1 samedi par mois.`);
             }
             
-            // Maximum 72h sur 7 jours = environ 3-4 créneaux
-            if (countIn7Days > 3) {
-                warnings.push(`⚠️ Attention : vous avez ${countIn7Days} disponibilités sur une période de 7 jours glissants.\nLe maximum autorisé est de 72h d'astreinte (environ 3 créneaux) par période de 7 jours.`);
+            // Règle : max 1 dimanche par mois
+            if (newDayOfWeek === 0 && dimanchesCount >= 1) {
+                warnings.push(`⚠️ Vous avez déjà déclaré ${dimanchesCount} dimanche ce mois.\nSelon le Décret n°2002-9, un agent ne peut participer au service d'astreinte que dans la limite d'1 dimanche par mois.`);
+            }
+            
+            // Calculer les heures avec le nouveau créneau
+            const newCreneauHeures = (newDayOfWeek === 0 || newDayOfWeek === 6) ? 24 : 14;
+            const newTotalHeures = totalHeures + newCreneauHeures;
+            
+            // Règle : max 72h sur 15 jours (donc ~144h max sur un mois)
+            if (newTotalHeures > 144) {
+                warnings.push(`⚠️ Vous atteignez ${newTotalHeures}h d'astreinte ce mois.\nSelon le Décret n°2002-9, la durée de l'astreinte ne peut excéder 72h pour 15 jours (soit ~144h/mois max).`);
             }
             
             return warnings;
@@ -14308,18 +14352,15 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 // Était disponible (vert), devient indisponible (rouge) - pas de vérification nécessaire
                 delete currentExpertDispos[dateStr];
             } else {
-                // Était indisponible (rouge), veut devenir disponible (vert) - vérifier les contraintes AVANT
-                // Simuler l'ajout pour vérifier
-                currentExpertDispos[dateStr] = true;
-                
-                // Vérifier les contraintes FPH
+                // Était indisponible (rouge), veut devenir disponible (vert) - vérifier les contraintes AVANT d'ajouter
                 const warnings = checkContraintesFPHSaisie(dateStr);
                 if (warnings.length > 0) {
-                    // Annuler l'ajout - rester en rouge
-                    delete currentExpertDispos[dateStr];
+                    // Ne pas ajouter - rester en rouge
                     alert('❌ Impossible de se déclarer disponible ce jour :\n\n' + warnings.join('\n\n'));
+                } else {
+                    // Pas de warning, on peut ajouter
+                    currentExpertDispos[dateStr] = true;
                 }
-                // Si pas de warning, le jour reste en vert (déjà fait)
             }
             
             // Re-render le calendrier
@@ -14532,31 +14573,34 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             </thead><tbody>`;
             
             planning.forEach(slot => {
-                const dateObj = new Date(slot.date);
+                const [slotY, slotM, slotD] = slot.date.split('-').map(Number);
+                const dateObj = new Date(slotY, slotM - 1, slotD); // Mois 0-indexé
                 const dateStr = dateObj.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
                 const dayName = dateObj.toLocaleDateString('fr-FR', { weekday: 'long' });
                 const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
                 const bgColor = isWeekend ? '#fff3e0' : 'white';
                 const creneauLabel = slot.type_creneau === 'soir' ? '🌙 Soir (18h-08h)' : '☀️ Journée';
                 
-                const resource = resources.find(r => r.id === slot.resource_id);
-                const expertName = resource 
-                    ? `${resource.nom.toUpperCase()} ${resource.prenom} (${resource.trigramme})`
+                const currentResource = resources.find(r => r.id === slot.resource_id);
+                const expertName = currentResource 
+                    ? `${currentResource.nom.toUpperCase()} ${currentResource.prenom} (${currentResource.trigramme})`
                     : '<span style="color: #e74c3c;">⚠️ Non assigné</span>';
                 
                 // Filtrer pour n'afficher que les experts disponibles pour cette date
-                const expertsDisponibles = getExpertsDisponiblesPourDate(slot.date);
+                // MAIS exclure l'expert actuellement assigné de la liste (il est déjà affiché dans "Expert assigné")
+                const expertsDisponibles = getExpertsDisponiblesPourDate(slot.date)
+                    .filter(r => r.id !== slot.resource_id);
                 
-                html += `<tr style="border-bottom: 1px solid #eee; background-color: ${bgColor};">
+                html += `<tr id="astreinte-row-${slot.id}" style="border-bottom: 1px solid #eee; background-color: ${bgColor};">
                     <td style="padding: 10px;">${dateStr}</td>
                     <td style="padding: 10px; text-align: center; text-transform: capitalize;">${dayName}</td>
                     <td style="padding: 10px; text-align: center;">${creneauLabel}</td>
-                    <td style="padding: 10px;">${expertName}</td>
+                    <td id="expert-cell-${slot.id}" style="padding: 10px;">${expertName}</td>
                     <td style="padding: 10px; text-align: center;">
-                        <select onchange="changeAstreinteAssignment(${slot.id}, this.value, '${slot.date}')" style="padding: 4px;">
+                        <select id="select-${slot.id}" onchange="changeAstreinteAssignment(${slot.id}, this.value, '${slot.date}', this)" style="padding: 4px;">
                             <option value="">-- Modifier --</option>
                             ${expertsDisponibles.map(r => 
-                                `<option value="${r.id}" ${r.id === slot.resource_id ? 'selected' : ''}>
+                                `<option value="${r.id}">
                                     ${r.nom.toUpperCase()} ${r.prenom}
                                 </option>`
                             ).join('')}
@@ -14591,56 +14635,76 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             }).sort((a, b) => `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`));
         }
         
-        // Vérifier les contraintes FPH pour un expert
+        // Vérifier les contraintes FPH pour un expert (Décret n°2002-9 du 4 janvier 2002)
         function checkContraintesFPHClient(expertId, date) {
             const errors = [];
+            const [dateY, dateM, dateD] = date.split('-').map(Number);
+            const dateObj = new Date(dateY, dateM - 1, dateD); // Mois 0-indexé
+            const newDayOfWeek = dateObj.getDay();
             
-            // Compter les astreintes du mois pour cet expert
-            let countMois = 0;
-            astreintePlanning.forEach(slot => {
-                if (slot.resource_id === parseInt(expertId)) {
-                    countMois++;
-                }
-            });
-            
-            // Max 15 astreintes par mois
-            if (countMois >= 15) {
-                errors.push(`Maximum de 15 astreintes par mois atteint (${countMois} actuellement)`);
-            }
-            
-            // Calculer les heures sur 7 jours glissants
-            const dateObj = new Date(date);
-            let countLast7Days = 0;
+            // Compter les samedis, dimanches et heures totales du mois pour cet expert
+            let samedisCount = 0;
+            let dimanchesCount = 0;
+            let totalHeures = 0;
             
             astreintePlanning.forEach(slot => {
                 if (slot.resource_id === parseInt(expertId)) {
-                    const slotDate = new Date(slot.date);
-                    const diffDays = Math.abs((dateObj - slotDate) / (1000 * 60 * 60 * 24));
-                    if (diffDays < 7 && diffDays > 0) {
-                        countLast7Days++;
+                    const [slotY, slotM, slotD] = slot.date.split('-').map(Number);
+                    const slotDate = new Date(slotY, slotM - 1, slotD); // Mois 0-indexé
+                    const dayOfWeek = slotDate.getDay();
+                    
+                    if (dayOfWeek === 6) { // Samedi
+                        samedisCount++;
+                        totalHeures += 24;
+                    } else if (dayOfWeek === 0) { // Dimanche
+                        dimanchesCount++;
+                        totalHeures += 24;
+                    } else { // Lun-Ven
+                        totalHeures += 14;
                     }
                 }
             });
             
-            // Max 72h sur 7 jours = environ 3 créneaux (soir 14h + journée 24h)
-            if (countLast7Days >= 3) {
-                errors.push(`Maximum de 72h sur 7 jours glissants atteint (${countLast7Days} créneaux sur les 7 derniers jours)`);
+            // Calculer les heures du nouveau créneau
+            const newCreneauHeures = (newDayOfWeek === 0 || newDayOfWeek === 6) ? 24 : 14;
+            
+            // Règle : max 1 samedi par mois
+            if (newDayOfWeek === 6 && samedisCount >= 1) {
+                errors.push(`Maximum d'1 samedi par mois atteint (${samedisCount} samedi déjà assigné)`);
+            }
+            
+            // Règle : max 1 dimanche par mois
+            if (newDayOfWeek === 0 && dimanchesCount >= 1) {
+                errors.push(`Maximum d'1 dimanche par mois atteint (${dimanchesCount} dimanche déjà assigné)`);
+            }
+            
+            // Règle : max 72h sur 15 jours (~144h/mois)
+            if (totalHeures + newCreneauHeures > 144) {
+                errors.push(`Maximum de 72h/15 jours dépassé (${totalHeures + newCreneauHeures}h ce mois, max ~144h)`);
             }
             
             return errors;
         }
         
         // Modifier une assignation
-        async function changeAstreinteAssignment(slotId, newResourceId, slotDate) {
+        async function changeAstreinteAssignment(slotId, newResourceId, slotDate, selectElement) {
             if (!newResourceId) return;
+            
+            // Récupérer l'ancien expert assigné
+            const slot = astreintePlanning.find(s => s.id === slotId);
+            const oldResourceId = slot ? slot.resource_id : null;
+            const oldResource = oldResourceId ? resources.find(r => r.id === oldResourceId) : null;
+            
+            // Récupérer le nouvel expert
+            const newResource = resources.find(r => r.id === parseInt(newResourceId));
+            
+            console.log('changeAstreinteAssignment:', { slotId, oldResourceId, newResourceId, slotDate });
             
             // Vérifier les contraintes FPH
             const errors = checkContraintesFPHClient(newResourceId, slotDate);
             if (errors.length > 0) {
                 alert('⚠️ Impossible d\'assigner cet expert :\n\n' + errors.join('\n'));
-                // Réinitialiser le select
-                const select = event.target;
-                select.value = '';
+                selectElement.value = '';
                 return;
             }
             
@@ -14649,24 +14713,45 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({ resource_id: newResourceId })
+                    body: JSON.stringify({ resource_id: parseInt(newResourceId) })
                 });
                 
                 if (response.ok) {
                     // Mettre à jour le planning local
-                    const slot = astreintePlanning.find(s => s.id === slotId);
                     if (slot) {
                         slot.resource_id = parseInt(newResourceId);
                     }
-                    // Rafraîchir l'affichage
-                    const mois = document.getElementById('astreinteMoisGeneration').value;
-                    await generateAstreintePlanning();
+                    
+                    // Mettre à jour la cellule "Expert assigné" avec le nouveau nom
+                    const expertCell = document.getElementById(`expert-cell-${slotId}`);
+                    if (expertCell && newResource) {
+                        expertCell.innerHTML = `${newResource.nom.toUpperCase()} ${newResource.prenom} (${newResource.trigramme})`;
+                    }
+                    
+                    // Reconstruire la liste déroulante
+                    const expertsDisponibles = getExpertsDisponiblesPourDate(slotDate)
+                        .filter(r => r.id !== parseInt(newResourceId)); // Exclure le nouvel assigné
+                    
+                    // Si l'ancien expert était disponible pour cette date, il doit revenir dans la liste
+                    let optionsHtml = '<option value="">-- Modifier --</option>';
+                    expertsDisponibles.forEach(r => {
+                        optionsHtml += `<option value="${r.id}">${r.nom.toUpperCase()} ${r.prenom}</option>`;
+                    });
+                    
+                    selectElement.innerHTML = optionsHtml;
+                    selectElement.value = ''; // Réinitialiser la sélection
+                    
+                    console.log('Assignation mise à jour avec succès');
                 } else {
                     const err = await response.json();
+                    console.error('Erreur serveur:', err);
                     alert('Erreur: ' + err.error);
+                    selectElement.value = '';
                 }
             } catch (error) {
                 console.error('Erreur modification:', error);
+                alert('Erreur réseau: ' + error.message);
+                selectElement.value = '';
             }
         }
         
