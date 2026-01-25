@@ -3604,9 +3604,8 @@
         async function loadBonsCommande() {
             console.log('📋 Chargement des bons de commande...');
             try {
-                // Utiliser l'API reporting pour avoir les UO consommées
-                const response = await fetch(`${API_URL}/reporting-deplacements`, { credentials: 'include' });
-                console.log('📋 Réponse reporting-deplacements:', response.status);
+                const response = await fetch(`${API_URL}/bons-commande`, { credentials: 'include' });
+                console.log('📋 Réponse bons-commande:', response.status);
                 if (response.ok) {
                     const data = await response.json();
                     console.log('📋 Bons de commande reçus:', data);
@@ -3630,399 +3629,28 @@
                 return;
             }
             if (!bons || bons.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #999;">Aucun bon de commande</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #999;">Aucun bon de commande</td></tr>';
                 return;
             }
             
-            tbody.innerHTML = bons.map(bc => {
-                const uoCommandees = bc.uo_commandees || bc.nb_uo || 0;
-                const uoConsommees = bc.uo_consommees || 0;
-                const diff = uoConsommees - uoCommandees;
-                const isSurconsommation = uoConsommees > uoCommandees;
-                
-                // Déterminer le message d'observation
-                let observation = '';
-                if (bc.solde) {
-                    if (isSurconsommation) {
-                        // Surconsommation sur BDC soldé = régularisation à prévoir
-                        observation = `<span style="color: #e74c3c; font-weight: bold;">⚠️ Régularisation à prévoir pour ${diff} UO sur le prochain bon de commande</span>`;
-                    } else if (uoConsommees < uoCommandees) {
-                        // Sous-consommation sur BDC soldé = réfaction à prévoir
-                        observation = `<span style="color: #2196F3; font-weight: bold;">ℹ️ Réfaction à prévoir pour ${Math.abs(diff)} UO</span>`;
-                    } else {
-                        observation = '<span style="color: #27ae60;">✅ Équilibré</span>';
-                    }
-                } else {
-                    // BDC non soldé - afficher juste le solde restant
-                    const soldeRestant = uoCommandees - uoConsommees;
-                    if (soldeRestant < 0) {
-                        observation = `<span style="color: #e74c3c;">${soldeRestant} UO (surconsommation)</span>`;
-                    } else {
-                        observation = `<span style="color: #27ae60;">${soldeRestant} UO disponibles</span>`;
-                    }
-                }
-                
-                return `
-                <tr style="${bc.solde ? 'background-color: #fff8e1;' : ''}">
-                    <td>
-                        <a href="#" onclick="openBdcDeplacementsModal(${bc.id}, '${bc.intitule.replace(/'/g, "\\'")}', '${bc.titulaire || ''}', ${bc.solde ? 1 : 0}, ${isSurconsommation ? 1 : 0}, ${diff}); return false;" 
-                           style="color: #3498db; text-decoration: underline; cursor: pointer; font-weight: bold;">
-                            ${bc.intitule}
-                        </a>
-                    </td>
+            tbody.innerHTML = bons.map(bc => `
+                <tr>
+                    <td>${bc.intitule}</td>
                     <td style="text-transform: uppercase;">${bc.titulaire || '-'}</td>
                     <td>${formatDateFr(bc.date_debut)}</td>
                     <td>${formatDateFr(bc.date_fin)}</td>
-                    <td style="text-align: center; font-weight: bold;">${uoConsommees}</td>
-                    <td style="text-align: center; font-weight: bold;">${uoCommandees}</td>
-                    <td style="text-align: center;">
-                        <span style="background-color: ${bc.solde ? '#ff9800' : '#27ae60'}; color: white; padding: 3px 10px; border-radius: 12px; font-size: 11px;">
-                            ${bc.solde ? 'OUI' : 'NON'}
+                    <td>${bc.nb_uo}</td>
+                    <td>
+                        <span style="background-color: ${bc.actif ? '#27ae60' : '#95a5a6'}; color: white; padding: 3px 10px; border-radius: 12px; font-size: 11px;">
+                            ${bc.actif ? 'Actif' : 'Inactif'}
                         </span>
                     </td>
-                    <td style="font-size: 12px;">${observation}</td>
                     <td>
                         <button onclick="editBonCommande(${bc.id})" style="background-color: #3498db; color: white; padding: 5px 10px; margin-right: 5px; font-size: 12px;">✏️ Modifier</button>
                         <button onclick="deleteBonCommande(${bc.id})" style="background-color: #e74c3c; color: white; padding: 5px 10px; font-size: 12px;">🗑️ Supprimer</button>
                     </td>
                 </tr>
-            `}).join('');
-        }
-        
-        // Variables pour le modal des déplacements du BDC
-        let currentBdcDeplacementsList = [];
-        let currentBdcId = null;
-        let targetBdcId = null;
-        let uoSurconsommation = 0;
-        
-        async function openBdcDeplacementsModal(bcId, bcIntitule, bcTitulaire, isSolde, isSurconsommation, uoEnTrop) {
-            currentBdcId = bcId;
-            uoSurconsommation = uoEnTrop;
-            
-            // Mettre à jour le titre du modal
-            document.getElementById('bdcDeplacementsModalTitle').innerHTML = `
-                📋 Déplacements du bon de commande<br>
-                <span style="font-size: 16px; color: #3498db;">${bcIntitule} - ${bcTitulaire || 'N/A'}</span>
-            `;
-            
-            // Afficher/masquer la section de régularisation
-            const regularisationSection = document.getElementById('bdcRegularisationSection');
-            const validateBtn = document.getElementById('bdcValidateRegularisationBtn');
-            const errorSection = document.getElementById('bdcRegularisationError');
-            
-            // Masquer l'erreur par défaut
-            errorSection.style.display = 'none';
-            
-            if (isSolde && isSurconsommation) {
-                regularisationSection.style.display = 'block';
-                document.getElementById('bdcUoEnTrop').textContent = uoEnTrop;
-                
-                // Charger les BDC disponibles du même titulaire
-                await loadBdcCiblesForRegularisation(bcTitulaire, bcId);
-                
-                // Charger les déplacements et trouver la combinaison
-                await loadBdcDeplacementsAndFindCombination(bcId, uoEnTrop);
-            } else {
-                regularisationSection.style.display = 'none';
-                validateBtn.style.display = 'none';
-                
-                // Charger les déplacements sans régularisation
-                await loadBdcDeplacements(bcId, false, 0);
-            }
-            
-            // Afficher le modal
-            document.getElementById('bdcDeplacementsModal').classList.add('active');
-        }
-        
-        async function loadBdcDeplacementsAndFindCombination(bcId, uoEnTrop) {
-            try {
-                const response = await fetch(`${API_URL}/deplacements?bon_commande_id=${bcId}`, { credentials: 'include' });
-                if (response.ok) {
-                    currentBdcDeplacementsList = await response.json();
-                    
-                    // Trouver la combinaison exacte de déplacements
-                    const combination = findExactCombination(currentBdcDeplacementsList, uoEnTrop);
-                    
-                    const errorSection = document.getElementById('bdcRegularisationError');
-                    const validateBtn = document.getElementById('bdcValidateRegularisationBtn');
-                    
-                    if (combination) {
-                        // Combinaison trouvée !
-                        errorSection.style.display = 'none';
-                        validateBtn.style.display = 'inline-block';
-                        displayBdcDeplacements(currentBdcDeplacementsList, true, combination);
-                    } else {
-                        // Pas de combinaison possible
-                        const minDeplacement = currentBdcDeplacementsList.reduce((min, d) => 
-                            d.nb_uo < min.nb_uo ? d : min, currentBdcDeplacementsList[0]);
-                        
-                        errorSection.style.display = 'block';
-                        errorSection.innerHTML = `
-                            <strong>❌ Régularisation automatique impossible</strong><br>
-                            <span style="font-size: 12px;">
-                                Impossible de trouver une combinaison de déplacements correspondant exactement à ${uoEnTrop} UO.<br>
-                                Le plus petit déplacement fait ${minDeplacement ? minDeplacement.nb_uo : '?'} UO.<br>
-                                <strong>Le retraitement doit être fait manuellement.</strong>
-                            </span>
-                        `;
-                        validateBtn.style.display = 'none';
-                        displayBdcDeplacements(currentBdcDeplacementsList, false, null);
-                    }
-                }
-            } catch (error) {
-                console.error('Erreur chargement déplacements BDC:', error);
-            }
-        }
-        
-        // Fonction pour trouver une combinaison exacte de déplacements qui font exactement targetUO
-        function findExactCombination(deplacements, targetUO) {
-            if (targetUO <= 0 || !deplacements || deplacements.length === 0) {
-                return null;
-            }
-            
-            // Tri par nombre d'UO croissant pour optimiser la recherche
-            const sorted = [...deplacements].sort((a, b) => a.nb_uo - b.nb_uo);
-            
-            // Vérifier d'abord si le plus petit déplacement est déjà trop grand
-            if (sorted[0].nb_uo > targetUO) {
-                return null;
-            }
-            
-            // Recherche de combinaison avec backtracking
-            function backtrack(index, remaining, current) {
-                if (remaining === 0) {
-                    return [...current]; // Trouvé !
-                }
-                if (remaining < 0 || index >= sorted.length) {
-                    return null;
-                }
-                
-                // Essayer d'inclure le déplacement courant
-                if (sorted[index].nb_uo <= remaining) {
-                    current.push(sorted[index].id);
-                    const result = backtrack(index + 1, remaining - sorted[index].nb_uo, current);
-                    if (result) return result;
-                    current.pop();
-                }
-                
-                // Essayer sans le déplacement courant
-                return backtrack(index + 1, remaining, current);
-            }
-            
-            return backtrack(0, targetUO, []);
-        }
-        
-        async function loadBdcDeplacements(bcId, showCheckboxes, uoEnTrop) {
-            try {
-                const response = await fetch(`${API_URL}/deplacements?bon_commande_id=${bcId}`, { credentials: 'include' });
-                if (response.ok) {
-                    currentBdcDeplacementsList = await response.json();
-                    displayBdcDeplacements(currentBdcDeplacementsList, showCheckboxes, null);
-                }
-            } catch (error) {
-                console.error('Erreur chargement déplacements BDC:', error);
-            }
-        }
-        
-        function displayBdcDeplacements(deplacements, showCheckboxes, precheckedIds) {
-            const tbody = document.getElementById('bdcDeplacementsBody');
-            
-            if (!deplacements || deplacements.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="' + (showCheckboxes ? 7 : 6) + '" style="text-align: center; color: #999;">Aucun déplacement</td></tr>';
-                return;
-            }
-            
-            // Trier par date décroissante
-            deplacements.sort((a, b) => new Date(b.date_debut) - new Date(a.date_debut));
-            
-            tbody.innerHTML = deplacements.map(d => {
-                const isPrecheck = precheckedIds && precheckedIds.includes(d.id);
-                const checkboxCell = showCheckboxes 
-                    ? `<td style="text-align: center;">
-                         <input type="checkbox" class="bdc-deplacement-checkbox" value="${d.id}" data-uo="${d.nb_uo}" ${isPrecheck ? 'checked' : ''} onchange="updateBdcRegularisationInfo()">
-                       </td>` 
-                    : '';
-                
-                return `
-                <tr style="${isPrecheck ? 'background-color: #ffebee;' : ''}">
-                    ${checkboxCell}
-                    <td>${d.user_prenom || ''} ${d.user_nom || ''}</td>
-                    <td>${d.samu || '-'}</td>
-                    <td>${d.ville || '-'}</td>
-                    <td>${formatDateFr(d.date_debut)}</td>
-                    <td>${formatDateFr(d.date_fin)}</td>
-                    <td style="text-align: center; font-weight: bold;">${d.nb_uo}</td>
-                </tr>
-            `}).join('');
-            
-            // Mettre à jour les headers selon le mode
-            const thead = document.getElementById('bdcDeplacementsHead');
-            thead.innerHTML = `
-                <tr>
-                    ${showCheckboxes ? '<th style="width: 40px;">✓</th>' : ''}
-                    <th>Utilisateur</th>
-                    <th>SAMU</th>
-                    <th>Ville</th>
-                    <th>Date début</th>
-                    <th>Date fin</th>
-                    <th>Nb UO</th>
-                </tr>
-            `;
-            
-            // Mettre à jour les infos de régularisation
-            if (showCheckboxes) {
-                updateBdcRegularisationInfo();
-            }
-        }
-        
-        async function loadBdcCiblesForRegularisation(titulaire, excludeBcId) {
-            const select = document.getElementById('bdcCibleRegularisation');
-            select.innerHTML = '<option value="">-- Chargement... --</option>';
-            
-            try {
-                const response = await fetch(`${API_URL}/reporting-deplacements`, { credentials: 'include' });
-                if (response.ok) {
-                    const bons = await response.json();
-                    
-                    // Filtrer: même titulaire, non soldé (le solde positif n'est plus obligatoire)
-                    const bonsCibles = bons.filter(bc => {
-                        return bc.titulaire && 
-                               bc.titulaire.toUpperCase() === titulaire.toUpperCase() && 
-                               bc.id !== excludeBcId && 
-                               !bc.solde;
-                    });
-                    
-                    if (bonsCibles.length === 0) {
-                        select.innerHTML = '<option value="">-- Aucun BDC disponible du même titulaire --</option>';
-                    } else {
-                        select.innerHTML = '<option value="">-- Sélectionner un BDC cible --</option>' +
-                            bonsCibles.map(bc => {
-                                const solde = (bc.uo_commandees || 0) - (bc.uo_consommees || 0);
-                                const soldeText = solde >= 0 ? `${solde} UO disponibles` : `${Math.abs(solde)} UO en surconsommation`;
-                                return `<option value="${bc.id}">${bc.intitule} (${soldeText})</option>`;
-                            }).join('');
-                        
-                        // Pré-sélectionner le premier si un seul disponible
-                        if (bonsCibles.length === 1) {
-                            select.value = bonsCibles[0].id;
-                        }
-                    }
-                    
-                    targetBdcId = select.value ? parseInt(select.value) : null;
-                }
-            } catch (error) {
-                console.error('Erreur chargement BDC cibles:', error);
-                select.innerHTML = '<option value="">-- Erreur de chargement --</option>';
-            }
-        }
-        
-        function updateBdcRegularisationInfo() {
-            const checkboxes = document.querySelectorAll('.bdc-deplacement-checkbox:checked');
-            let totalUo = 0;
-            checkboxes.forEach(cb => {
-                totalUo += parseInt(cb.dataset.uo) || 0;
-            });
-            
-            document.getElementById('bdcUoSelectionnees').textContent = totalUo;
-            document.getElementById('bdcNbDeplacementsSelectionnes').textContent = checkboxes.length;
-            
-            // Mettre à jour le BDC cible sélectionné
-            const select = document.getElementById('bdcCibleRegularisation');
-            targetBdcId = select.value ? parseInt(select.value) : null;
-            
-            // Afficher un warning si la sélection ne correspond pas exactement aux UO en surconsommation
-            const warningDiv = document.getElementById('bdcSelectionWarning');
-            if (warningDiv) {
-                if (totalUo !== uoSurconsommation && totalUo > 0) {
-                    warningDiv.style.display = 'block';
-                    warningDiv.innerHTML = `⚠️ Attention: vous avez sélectionné ${totalUo} UO au lieu de ${uoSurconsommation} UO`;
-                } else {
-                    warningDiv.style.display = 'none';
-                }
-            }
-        }
-        
-        async function validateBdcRegularisation() {
-            const checkboxes = document.querySelectorAll('.bdc-deplacement-checkbox:checked');
-            
-            if (checkboxes.length === 0) {
-                alert('Veuillez sélectionner au moins un déplacement à réaffecter');
-                return;
-            }
-            
-            const select = document.getElementById('bdcCibleRegularisation');
-            if (!select.value) {
-                alert('Veuillez sélectionner un bon de commande cible');
-                return;
-            }
-            
-            // Vérifier que la sélection correspond exactement
-            let totalUo = 0;
-            checkboxes.forEach(cb => { totalUo += parseInt(cb.dataset.uo) || 0; });
-            
-            if (totalUo !== uoSurconsommation) {
-                if (!confirm(`⚠️ Attention: vous avez sélectionné ${totalUo} UO au lieu de ${uoSurconsommation} UO attendues.\n\nVoulez-vous continuer quand même ?`)) {
-                    return;
-                }
-            }
-            
-            const targetBcId = parseInt(select.value);
-            const deplacementIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
-            
-            // Confirmation
-            const nbDeplacements = deplacementIds.length;
-            const targetBcText = select.options[select.selectedIndex].text;
-            
-            if (!confirm(`Voulez-vous vraiment réaffecter ${nbDeplacements} déplacement(s) (${totalUo} UO) vers le bon de commande :\n\n${targetBcText} ?`)) {
-                return;
-            }
-            
-            // Effectuer la réaffectation
-            try {
-                let success = 0;
-                let errors = 0;
-                let errorMessages = [];
-                
-                for (const depId of deplacementIds) {
-                    // Utiliser la bonne route avec les bons paramètres
-                    const response = await fetch(`${API_URL}/deplacements/${depId}/reaffecter`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        credentials: 'include',
-                        body: JSON.stringify({ nouveau_bon_commande_id: targetBcId })
-                    });
-                    
-                    if (response.ok) {
-                        success++;
-                    } else {
-                        errors++;
-                        const errData = await response.json();
-                        errorMessages.push(errData.error || 'Erreur inconnue');
-                    }
-                }
-                
-                if (errors > 0) {
-                    alert(`Régularisation terminée avec ${errors} erreur(s) sur ${deplacementIds.length} déplacements.\n\nErreurs: ${errorMessages.join(', ')}`);
-                } else {
-                    alert(`✅ ${success} déplacement(s) réaffecté(s) avec succès !`);
-                }
-                
-                // Fermer le modal et recharger les données
-                closeBdcDeplacementsModal();
-                loadBonsCommande();
-                
-            } catch (error) {
-                console.error('Erreur régularisation:', error);
-                alert('Erreur lors de la régularisation: ' + error.message);
-            }
-        }
-        
-        function closeBdcDeplacementsModal() {
-            document.getElementById('bdcDeplacementsModal').classList.remove('active');
-            currentBdcDeplacementsList = [];
-            currentBdcId = null;
-            targetBdcId = null;
-            uoSurconsommation = 0;
+            `).join('');
         }
         
         async function addBonCommande() {
@@ -4086,8 +3714,8 @@
             document.getElementById('editBcTitulaire').value = bc.titulaire || '';
             document.getElementById('editBcDateDebut').value = bc.date_debut;
             document.getElementById('editBcDateFin').value = bc.date_fin;
-            document.getElementById('editBcNbUO').value = bc.uo_commandees || bc.nb_uo;
-            document.getElementById('editBcSolde').checked = bc.solde === 1;
+            document.getElementById('editBcNbUO').value = bc.nb_uo;
+            document.getElementById('editBcActif').value = bc.actif ? '1' : '0';
             
             document.getElementById('editBonCommandeModal').classList.add('active');
         }
@@ -4103,7 +3731,7 @@
             const date_debut = document.getElementById('editBcDateDebut').value;
             const date_fin = document.getElementById('editBcDateFin').value;
             const nb_uo = parseInt(document.getElementById('editBcNbUO').value);
-            const solde = document.getElementById('editBcSolde').checked;
+            const actif = document.getElementById('editBcActif').value === '1';
             
             if (!intitule || !titulaire || !date_debut || !date_fin || !nb_uo) {
                 alert('Veuillez remplir tous les champs');
@@ -4115,7 +3743,7 @@
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({ intitule, titulaire, date_debut, date_fin, nb_uo, solde })
+                    body: JSON.stringify({ intitule, titulaire, date_debut, date_fin, nb_uo, actif })
                 });
                 
                 if (response.ok) {
@@ -4133,11 +3761,7 @@
         }
         
         async function deleteBonCommande(id) {
-            // Trouver le BC pour afficher son nom
-            const bc = bonsCommandeList.find(b => b.id === id);
-            const bcName = bc ? bc.intitule : 'ce bon de commande';
-            
-            if (!confirm(`⚠️ Êtes-vous sûr de vouloir supprimer "${bcName}" ?\n\nSi des déplacements sont associés à ce bon de commande, ils seront marqués comme "À affecter".`)) {
+            if (!confirm('Êtes-vous sûr de vouloir supprimer ce bon de commande ?')) {
                 return;
             }
             
@@ -4148,15 +3772,8 @@
                 });
                 
                 if (response.ok) {
-                    const result = await response.json();
                     loadBonsCommande();
-                    loadMesDeplacements(); // Rafraîchir aussi la liste des déplacements
-                    
-                    if (result.deplacements_desaffectes > 0) {
-                        alert(`✅ Bon de commande supprimé.\n\n${result.deplacements_desaffectes} déplacement(s) ont été désaffectés et sont maintenant marqués "À affecter".`);
-                    } else {
-                        alert('Bon de commande supprimé');
-                    }
+                    alert('Bon de commande supprimé');
                 } else {
                     const data = await response.json();
                     alert(data.error || 'Erreur lors de la suppression');
@@ -4198,44 +3815,22 @@
         
         async function loadAmoaCedForSelect() {
             const select = document.getElementById('deplacementAmoaCed');
-            const fixedDiv = document.getElementById('deplacementAmoaCedFixed');
-            const fixedName = document.getElementById('deplacementAmoaCedFixedName');
-            const fixedId = document.getElementById('deplacementAmoaCedFixedId');
+            if (!select) return;
             
-            if (!select || !fixedDiv) return;
-            
-            const isAdmin = currentUser && currentUser.activeProfile === 'admin';
-            
-            if (isAdmin) {
-                // Mode administrateur : afficher la liste déroulante
-                select.style.display = 'block';
-                fixedDiv.style.display = 'none';
-                
-                try {
-                    const response = await fetch(`${API_URL}/users/amoa-ced`, { credentials: 'include' });
-                    if (response.ok) {
-                        amoaCedUsers = await response.json();
-                        
-                        if (amoaCedUsers.length === 0) {
-                            select.innerHTML = '<option value="">-- Aucun AMOA CED disponible --</option>';
-                        } else {
-                            select.innerHTML = '<option value="">-- Sélectionner un AMOA CED --</option>' +
-                                amoaCedUsers.map(u => `<option value="${u.id}">${u.nom.toUpperCase()} ${u.prenom}${u.trigramme ? ' (' + u.trigramme + ')' : ''}</option>`).join('');
-                        }
-                    }
-                } catch (error) {
-                    console.error('Erreur chargement AMOA CED:', error);
+            try {
+                // Charger les utilisateurs AMOA CED depuis la nouvelle route
+                const response = await fetch(`${API_URL}/users/amoa-ced`, { credentials: 'include' });
+                if (response.ok) {
+                    amoaCedUsers = await response.json();
+                    console.log('🔍 AMOA CED chargés:', amoaCedUsers.length, amoaCedUsers.map(u => `${u.nom} ${u.prenom}`));
+                    
+                    select.innerHTML = '<option value="">-- Sélectionner un AMOA CED --</option>' +
+                        amoaCedUsers.map(u => `<option value="${u.id}">${u.nom.toUpperCase()} ${u.prenom}${u.trigramme ? ' (' + u.trigramme + ')' : ''}</option>`).join('');
+                } else {
+                    console.error('Erreur chargement AMOA CED:', response.status);
                 }
-            } else {
-                // Mode utilisateur : afficher le nom fixe de l'utilisateur connecté
-                select.style.display = 'none';
-                fixedDiv.style.display = 'block';
-                
-                if (currentUser) {
-                    const displayName = `${currentUser.nom ? currentUser.nom.toUpperCase() : ''} ${currentUser.prenom || ''}${currentUser.trigramme ? ' (' + currentUser.trigramme + ')' : ''}`.trim();
-                    fixedName.textContent = displayName || currentUser.username;
-                    fixedId.value = currentUser.id;
-                }
+            } catch (error) {
+                console.error('Erreur chargement AMOA CED:', error);
             }
         }
         
@@ -4244,11 +3839,11 @@
                 const response = await fetch(`${API_URL}/bons-commande`, { credentials: 'include' });
                 if (response.ok) {
                     bonsCommandeList = await response.json();
-                    // Remplir la liste déroulante des bons de commande non soldés
+                    // Remplir la liste déroulante des bons de commande actifs
                     const select = document.getElementById('deplacementBonCommande');
-                    const availableBCs = bonsCommandeList.filter(bc => bc.solde !== 1);
+                    const activeBCs = bonsCommandeList.filter(bc => bc.actif === 1);
                     select.innerHTML = '<option value="">-- Sélectionner un bon de commande --</option>' +
-                        availableBCs.map(bc => `<option value="${bc.id}">${bc.intitule} - ${bc.titulaire || 'N/A'}</option>`).join('');
+                        activeBCs.map(bc => `<option value="${bc.id}">${bc.intitule} - ${bc.titulaire || 'N/A'}</option>`).join('');
                 }
             } catch (error) {
                 console.error('Erreur chargement bons de commande:', error);
@@ -4261,7 +3856,6 @@
             
             if (!dateDebut || !dateFin) {
                 document.getElementById('deplacementNbUO').value = '0';
-                hideDeplacementSurconsommationWarning();
                 return;
             }
             
@@ -4272,10 +3866,10 @@
             const nbUO = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
             document.getElementById('deplacementNbUO').value = nbUO;
             
-            // Pré-sélectionner le bon de commande correspondant aux dates (non soldé)
+            // Pré-sélectionner le bon de commande correspondant aux dates
             const select = document.getElementById('deplacementBonCommande');
             const bc = bonsCommandeList.find(b => 
-                b.solde !== 1 &&
+                b.actif === 1 && 
                 b.date_debut <= dateDebut && 
                 b.date_fin >= dateFin
             );
@@ -4283,106 +3877,11 @@
             if (bc) {
                 select.value = bc.id;
             }
-            
-            // Vérifier la surconsommation
-            checkDeplacementSurconsommation();
-        }
-        
-        // Vérifier si le déplacement va causer une surconsommation
-        async function checkDeplacementSurconsommation() {
-            const bcSelect = document.getElementById('deplacementBonCommande');
-            const nbUOInput = document.getElementById('deplacementNbUO');
-            
-            if (!bcSelect || !nbUOInput) {
-                console.error('Elements formulaire non trouvés');
-                return;
-            }
-            
-            const bcId = bcSelect.value;
-            const nbUO = parseInt(nbUOInput.value) || 0;
-            
-            console.log('🔍 checkDeplacementSurconsommation - BC ID:', bcId, ', UO demandées:', nbUO);
-            
-            // Masquer l'avertissement si pas de BC ou pas d'UO
-            if (!bcId || nbUO === 0) {
-                hideDeplacementSurconsommationWarning();
-                return;
-            }
-            
-            // Trouver le BC dans la liste locale pour avoir l'intitulé
-            const bcLocal = bonsCommandeList.find(b => b.id === parseInt(bcId));
-            console.log('🔍 BC local trouvé:', bcLocal);
-            
-            if (!bcLocal) {
-                hideDeplacementSurconsommationWarning();
-                return;
-            }
-            
-            try {
-                // Récupérer les stats du bon de commande via l'API reporting
-                const response = await fetch(`${API_URL}/reporting-deplacements`, { credentials: 'include' });
-                console.log('🔍 Response reporting:', response.status);
-                
-                if (response.ok) {
-                    const bons = await response.json();
-                    console.log('🔍 Bons reçus:', bons);
-                    
-                    const bcStats = bons.find(b => b.id === parseInt(bcId));
-                    console.log('🔍 BC stats trouvé:', bcStats);
-                    
-                    if (bcStats) {
-                        const uoCommandees = bcStats.uo_commandees || 0;
-                        const uoConsommees = bcStats.uo_consommees || 0;
-                        const soldeActuel = uoCommandees - uoConsommees;
-                        
-                        console.log('🔍 Calcul: commandées=', uoCommandees, ', consommées=', uoConsommees, ', solde=', soldeActuel, ', demandées=', nbUO);
-                        
-                        // Si le solde actuel moins les nouvelles UO est négatif = surconsommation
-                        if (soldeActuel - nbUO < 0) {
-                            console.log('⚠️ SURCONSOMMATION DÉTECTÉE !');
-                            showDeplacementSurconsommationWarning(bcLocal.intitule, soldeActuel, nbUO);
-                        } else {
-                            console.log('✅ Pas de surconsommation');
-                            hideDeplacementSurconsommationWarning();
-                        }
-                    } else {
-                        console.log('❌ BC non trouvé dans les stats');
-                        hideDeplacementSurconsommationWarning();
-                    }
-                } else {
-                    console.error('❌ Erreur API:', response.status);
-                }
-            } catch (error) {
-                console.error('❌ Erreur vérification surconsommation:', error);
-                hideDeplacementSurconsommationWarning();
-            }
-        }
-        
-        function showDeplacementSurconsommationWarning(bcIntitule, soldeActuel, nbUO) {
-            const warningDiv = document.getElementById('deplacementSurconsommationWarning');
-            const messageSpan = document.getElementById('deplacementSurconsommationMessage');
-            
-            console.log('🔴 Affichage warning - div:', warningDiv, ', span:', messageSpan);
-            
-            if (warningDiv && messageSpan) {
-                messageSpan.innerHTML = `Le solde du bon de commande <strong>"${bcIntitule}"</strong> sera dépassé (${soldeActuel} UO disponibles, ${nbUO} UO demandées).<br>Merci de penser à régulariser sur le prochain bon de commande.`;
-                warningDiv.style.display = 'block';
-                console.log('🔴 Warning affiché !');
-            } else {
-                console.error('❌ Elements warning non trouvés !');
-            }
-        }
-        
-        function hideDeplacementSurconsommationWarning() {
-            const warningDiv = document.getElementById('deplacementSurconsommationWarning');
-            if (warningDiv) {
-                warningDiv.style.display = 'none';
-            }
         }
         
         function updateDeplacementBonCommandeSelection() {
             // Fonction appelée quand on change manuellement le bon de commande
-            checkDeplacementSurconsommation();
+            // (permet de garder la sélection manuelle)
         }
         
         async function loadMesDeplacements() {
@@ -4400,7 +3899,7 @@
         function displayMesDeplacements(deplacements) {
             const tbody = document.getElementById('mesDeplacementsBody');
             if (!deplacements || deplacements.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #999;">Aucun déplacement enregistré</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #999;">Aucun déplacement enregistré</td></tr>';
                 return;
             }
             
@@ -4409,44 +3908,17 @@
                 const amoaCed = amoaCedUsers.find(u => u.id === d.amoa_ced_id);
                 const amoaCedName = amoaCed ? `${amoaCed.nom.toUpperCase()} ${amoaCed.prenom}` : (d.amoa_ced_nom ? `${d.amoa_ced_nom.toUpperCase()} ${d.amoa_ced_prenom || ''}` : '-');
                 
-                // Vérifier si le déplacement n'a pas de BC affecté
-                const hasNoBC = !d.bon_commande_id || !d.bon_commande_intitule;
-                
-                // Style de ligne si à régulariser OU si pas de BC affecté
-                const needsAttention = d.a_regulariser || hasNoBC;
-                const rowStyle = needsAttention ? 'background-color: #ffebee; border-left: 4px solid #e74c3c;' : '';
-                
-                // Badge à afficher
-                let badge = '';
-                if (d.a_regulariser) {
-                    badge = `<span style="display: inline-block; background-color: #e74c3c; color: white; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: bold; margin-left: 5px;">⚠️ À RÉGULARISER</span>`;
-                }
-                
-                // Affichage du bon de commande
-                let bcDisplay;
-                if (hasNoBC) {
-                    bcDisplay = `<span style="color: #e74c3c; font-weight: bold;">⚠️ À affecter</span>`;
-                } else {
-                    bcDisplay = `${d.bon_commande_intitule}${d.bon_commande_titulaire ? ' - ' + d.bon_commande_titulaire : ''}${badge}`;
-                }
-                
-                // Affichage du commentaire (tronqué si trop long)
-                const commentaireDisplay = d.commentaire 
-                    ? `<span title="${d.commentaire.replace(/"/g, '&quot;')}">${d.commentaire.length > 30 ? d.commentaire.substring(0, 30) + '...' : d.commentaire}</span>`
-                    : '<span style="color: #999;">-</span>';
-                
                 return `
-                <tr style="${rowStyle}">
-                    <td>${bcDisplay}</td>
-                    <td>${d.samu}</td>
-                    <td>${d.ville}</td>
+                <tr>
+                    <td>${amoaCedName}</td>
                     <td>${formatDateFr(d.date_debut)}</td>
                     <td>${formatDateFr(d.date_fin)}</td>
+                    <td>${d.samu}</td>
+                    <td>${d.ville}</td>
                     <td>${d.nb_uo}</td>
-                    <td>${amoaCedName}</td>
-                    <td style="font-size: 11px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${commentaireDisplay}</td>
+                    <td>${d.bon_commande_intitule || '-'}${d.bon_commande_titulaire ? ' - ' + d.bon_commande_titulaire : ''}</td>
                     <td>
-                        <button onclick="editDeplacement(${d.id})" style="background-color: ${needsAttention ? '#e74c3c' : '#3498db'}; color: white; padding: 5px 10px; font-size: 12px; margin-right: 5px;">${hasNoBC ? '📋 Affecter' : (d.a_regulariser ? '🔄 Régulariser' : '✏️ Modifier')}</button>
+                        <button onclick="editDeplacement(${d.id})" style="background-color: #3498db; color: white; padding: 5px 10px; font-size: 12px; margin-right: 5px;">✏️ Modifier</button>
                         <button onclick="deleteDeplacement(${d.id})" style="background-color: #e74c3c; color: white; padding: 5px 10px; font-size: 12px;">🗑️ Supprimer</button>
                     </td>
                 </tr>
@@ -4457,18 +3929,12 @@
         let mesDeplacementsList = [];
         
         async function addDeplacement() {
-            // Récupérer l'ID AMOA CED selon le profil (select pour admin, input hidden pour utilisateur)
-            const isAdmin = currentUser && currentUser.activeProfile === 'admin';
-            const amoa_ced_id = isAdmin 
-                ? document.getElementById('deplacementAmoaCed').value 
-                : document.getElementById('deplacementAmoaCedFixedId').value;
-            
+            const amoa_ced_id = document.getElementById('deplacementAmoaCed').value;
             const date_debut = document.getElementById('deplacementDateDebut').value;
             const date_fin = document.getElementById('deplacementDateFin').value;
             const samu = document.getElementById('deplacementSamu').value;
             const ville = document.getElementById('deplacementVille').value.trim().toUpperCase();
             const bon_commande_id = document.getElementById('deplacementBonCommande').value;
-            const commentaire = document.getElementById('deplacementCommentaire').value.trim();
             
             if (!amoa_ced_id || !date_debut || !date_fin || !samu || !ville) {
                 alert('Veuillez remplir tous les champs obligatoires');
@@ -4499,38 +3965,21 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({ amoa_ced_id: parseInt(amoa_ced_id), date_debut, date_fin, samu, ville, bon_commande_id: parseInt(bon_commande_id), commentaire })
+                    body: JSON.stringify({ amoa_ced_id: parseInt(amoa_ced_id), date_debut, date_fin, samu, ville, bon_commande_id: parseInt(bon_commande_id) })
                 });
                 
                 if (response.ok) {
-                    const result = await response.json();
-                    
-                    // Réinitialiser le formulaire (seulement le select pour les admins)
-                    if (isAdmin) {
-                        document.getElementById('deplacementAmoaCed').value = '';
-                    }
+                    // Réinitialiser le formulaire
+                    document.getElementById('deplacementAmoaCed').value = '';
                     document.getElementById('deplacementDateDebut').value = '';
                     document.getElementById('deplacementDateFin').value = '';
                     document.getElementById('deplacementSamu').value = '';
                     document.getElementById('deplacementVille').value = '';
                     document.getElementById('deplacementBonCommande').value = '';
                     document.getElementById('deplacementNbUO').value = '0';
-                    document.getElementById('deplacementCommentaire').value = '';
-                    
-                    // Masquer l'avertissement de surconsommation
-                    hideDeplacementSurconsommationWarning();
                     
                     loadMesDeplacements();
-                    
-                    // Message différent si surconsommation
-                    if (result.a_regulariser) {
-                        alert('⚠️ ATTENTION - Déplacement créé sur un bon de commande en SURCONSOMMATION !\n\n' +
-                              'Ce déplacement est marqué "À RÉGULARISER".\n\n' +
-                              'Vous devrez le transférer vers un autre bon de commande disposant d\'UO disponibles.\n\n' +
-                              'Pour régulariser : cliquez sur le bouton "🔄 Régulariser" dans la liste des déplacements.');
-                    } else {
-                        alert('Déplacement ajouté avec succès');
-                    }
+                    alert('Déplacement ajouté avec succès');
                 } else {
                     const data = await response.json();
                     alert(data.error || 'Erreur lors de l\'ajout');
@@ -4579,7 +4028,6 @@
                     document.getElementById('editDeplacementSamu').value = deplacement.samu;
                     document.getElementById('editDeplacementVille').value = deplacement.ville;
                     document.getElementById('editDeplacementBonCommande').value = deplacement.bon_commande_id || '';
-                    document.getElementById('editDeplacementCommentaire').value = deplacement.commentaire || '';
                     
                     // Remplir les listes déroulantes
                     await loadEditDeplacementSelects();
@@ -4620,155 +4068,15 @@
             samuSelect.innerHTML = '<option value="">-- Sélectionner --</option>' +
                 SAMU_LIST.map(s => `<option value="${s}">${s}</option>`).join('');
             
-            // Bons de commande (non soldés, mais inclure le BC actuel même s'il est soldé)
+            // Bons de commande
             const bcSelect = document.getElementById('editDeplacementBonCommande');
-            const currentBcId = parseInt(document.getElementById('editDeplacementBonCommande').value) || null;
-            const availableBCs = bonsCommandeList.filter(bc => bc.solde !== 1 || bc.id === currentBcId);
+            const activeBCs = bonsCommandeList.filter(bc => bc.actif === 1);
             bcSelect.innerHTML = '<option value="">-- Sélectionner --</option>' +
-                availableBCs.map(bc => {
-                    const soldeBadge = bc.solde === 1 ? ' [SOLDÉ]' : '';
-                    return `<option value="${bc.id}">${bc.intitule} - ${bc.titulaire || 'N/A'}${soldeBadge}</option>`;
-                }).join('');
+                activeBCs.map(bc => `<option value="${bc.id}">${bc.intitule} - ${bc.titulaire || 'N/A'}</option>`).join('');
         }
         
         function closeEditDeplacementModal() {
             document.getElementById('editDeplacementModal').classList.remove('active');
-            // Réinitialiser la section régularisation
-            document.getElementById('editDeplacementRegularisation').checked = false;
-            document.getElementById('regularisationSelectContainer').style.display = 'none';
-            document.getElementById('regularisationInfo').style.display = 'none';
-        }
-        
-        // Toggle l'affichage de la liste déroulante de régularisation
-        function toggleRegularisationSelect() {
-            const checkbox = document.getElementById('editDeplacementRegularisation');
-            const container = document.getElementById('regularisationSelectContainer');
-            
-            if (checkbox.checked) {
-                container.style.display = 'block';
-                loadBonsCommandeAvecUODisponibles();
-            } else {
-                container.style.display = 'none';
-                document.getElementById('editDeplacementNouveauBonCommande').value = '';
-                document.getElementById('regularisationInfo').style.display = 'none';
-            }
-        }
-        
-        // Charger les bons de commande avec UO disponibles
-        async function loadBonsCommandeAvecUODisponibles() {
-            const currentBcId = document.getElementById('editDeplacementBonCommande').value;
-            const dateDebut = document.getElementById('editDeplacementDateDebut').value;
-            const dateFin = document.getElementById('editDeplacementDateFin').value;
-            
-            const select = document.getElementById('editDeplacementNouveauBonCommande');
-            select.innerHTML = '<option value="">-- Chargement... --</option>';
-            
-            try {
-                // Récupérer les bons de commande avec leur solde UO
-                const response = await fetch(`${API_URL}/reporting-deplacements`, { credentials: 'include' });
-                if (response.ok) {
-                    const bons = await response.json();
-                    
-                    // Filtrer les bons de commande :
-                    // - Non soldés
-                    // - Différents du bon actuel
-                    // - Avec des UO disponibles (solde > 0)
-                    // - Dont les dates du déplacement sont dans la période du BC
-                    const bonsDisponibles = bons.filter(bc => {
-                        const solde = bc.uo_commandees - bc.uo_consommees;
-                        const bcId = bc.id;
-                        const isNotSolde = bc.solde !== 1;
-                        const isDifferent = bcId !== parseInt(currentBcId);
-                        const hasUO = solde > 0;
-                        const datesValides = dateDebut >= bc.date_debut && dateFin <= bc.date_fin;
-                        
-                        return isNotSolde && isDifferent && hasUO && datesValides;
-                    });
-                    
-                    if (bonsDisponibles.length === 0) {
-                        select.innerHTML = '<option value="">-- Aucun bon de commande disponible --</option>';
-                        document.getElementById('regularisationInfo').innerHTML = `
-                            <div style="color: #e74c3c;">
-                                <strong>⚠️ Aucun bon de commande éligible</strong><br>
-                                <small>Aucun bon de commande non soldé, avec des UO disponibles et couvrant les dates du déplacement n'a été trouvé.</small>
-                            </div>
-                        `;
-                        document.getElementById('regularisationInfo').style.display = 'block';
-                    } else {
-                        select.innerHTML = '<option value="">-- Sélectionner --</option>' +
-                            bonsDisponibles.map(bc => {
-                                const solde = bc.uo_commandees - bc.uo_consommees;
-                                return `<option value="${bc.id}">${bc.intitule} - ${bc.titulaire || 'N/A'} (${solde} UO disponibles)</option>`;
-                            }).join('');
-                        
-                        // Ajouter l'événement pour afficher les infos de transfert
-                        select.onchange = function() {
-                            updateRegularisationInfo(bonsDisponibles);
-                        };
-                    }
-                }
-            } catch (error) {
-                console.error('Erreur chargement bons de commande:', error);
-                select.innerHTML = '<option value="">-- Erreur de chargement --</option>';
-            }
-        }
-        
-        // Mettre à jour les infos de régularisation
-        function updateRegularisationInfo(bonsDisponibles) {
-            const newBcId = document.getElementById('editDeplacementNouveauBonCommande').value;
-            const infoDiv = document.getElementById('regularisationInfo');
-            
-            if (!newBcId) {
-                infoDiv.style.display = 'none';
-                return;
-            }
-            
-            const newBc = bonsDisponibles.find(bc => bc.id === parseInt(newBcId));
-            const currentBcId = document.getElementById('editDeplacementBonCommande').value;
-            const currentBc = bonsCommandeList.find(bc => bc.id === parseInt(currentBcId));
-            
-            // Calculer les jours du déplacement
-            const dateDebut = new Date(document.getElementById('editDeplacementDateDebut').value);
-            const dateFin = new Date(document.getElementById('editDeplacementDateFin').value);
-            const joursOuvres = calculerJoursOuvres(dateDebut, dateFin);
-            
-            if (newBc && currentBc) {
-                const soldeNewBc = newBc.uo_commandees - newBc.uo_consommees;
-                infoDiv.innerHTML = `
-                    <div style="color: #2e7d32;">
-                        <strong>📋 Résumé du transfert</strong><br>
-                        <table style="width: 100%; margin-top: 10px; font-size: 12px;">
-                            <tr>
-                                <td><strong>Déplacement :</strong></td>
-                                <td>${joursOuvres} jour(s) ouvré(s) = ${joursOuvres} UO</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Ancien BC :</strong></td>
-                                <td>${currentBc.intitule} → <span style="color: #27ae60;">+${joursOuvres} UO recrédités</span></td>
-                            </tr>
-                            <tr>
-                                <td><strong>Nouveau BC :</strong></td>
-                                <td>${newBc.intitule} → <span style="color: #e74c3c;">-${joursOuvres} UO</span> (restera ${soldeNewBc - joursOuvres} UO)</td>
-                            </tr>
-                        </table>
-                    </div>
-                `;
-                infoDiv.style.display = 'block';
-            }
-        }
-        
-        // Calculer les jours ouvrés entre deux dates
-        function calculerJoursOuvres(dateDebut, dateFin) {
-            let count = 0;
-            let current = new Date(dateDebut);
-            while (current <= dateFin) {
-                const dayOfWeek = current.getDay();
-                if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Pas samedi ni dimanche
-                    count++;
-                }
-                current.setDate(current.getDate() + 1);
-            }
-            return count;
         }
         
         async function saveDeplacement() {
@@ -4779,7 +4087,6 @@
             const samu = document.getElementById('editDeplacementSamu').value;
             const ville = document.getElementById('editDeplacementVille').value.trim().toUpperCase();
             const bon_commande_id = document.getElementById('editDeplacementBonCommande').value;
-            const commentaire = document.getElementById('editDeplacementCommentaire').value.trim();
             
             if (!amoa_ced_id || !date_debut || !date_fin || !samu || !ville || !bon_commande_id) {
                 alert('Veuillez remplir tous les champs obligatoires');
@@ -4811,8 +4118,7 @@
                         date_fin, 
                         samu, 
                         ville, 
-                        bon_commande_id: parseInt(bon_commande_id),
-                        commentaire
+                        bon_commande_id: parseInt(bon_commande_id) 
                     })
                 });
                 
@@ -4851,31 +4157,15 @@
                 return;
             }
             
-            // Remplir aussi la liste déroulante des filtres
-            const filterBdc = document.getElementById('filterReportingBdc');
-            if (filterBdc) {
-                filterBdc.innerHTML = '<option value="">-- Tous les BDC --</option>' +
-                    bons.map(bc => `<option value="${bc.id}">${bc.intitule} - ${bc.titulaire || 'N/A'}</option>`).join('');
-            }
-            
             tbody.innerHTML = bons.map(bc => {
                 const solde = bc.uo_commandees - bc.uo_consommees;
                 const tauxConsommation = bc.uo_commandees > 0 ? Math.round((bc.uo_consommees / bc.uo_commandees) * 100) : 0;
                 const soldeColor = solde < 0 ? '#e74c3c' : (solde < bc.uo_commandees * 0.2 ? '#f39c12' : '#27ae60');
                 const barColor = tauxConsommation > 100 ? '#e74c3c' : (tauxConsommation > 80 ? '#f39c12' : '#27ae60');
                 
-                // Concaténer N° BDC et titulaire
-                const bdcDisplay = `${bc.intitule}${bc.titulaire ? ' - ' + bc.titulaire : ''}`;
-                
-                // Badge Soldé
-                const soldeBadge = bc.solde 
-                    ? '<span style="background-color: #ff9800; color: white; padding: 3px 10px; border-radius: 12px; font-size: 11px;">OUI</span>'
-                    : '<span style="background-color: #27ae60; color: white; padding: 3px 10px; border-radius: 12px; font-size: 11px;">NON</span>';
-                
                 return `
-                    <tr style="${bc.solde ? 'background-color: #fff8e1;' : ''}">
-                        <td style="text-align: center;">${soldeBadge}</td>
-                        <td>${bdcDisplay}</td>
+                    <tr>
+                        <td>${bc.intitule}</td>
                         <td>${formatDateFr(bc.date_debut)} - ${formatDateFr(bc.date_fin)}</td>
                         <td style="text-align: center; font-weight: bold;">${bc.uo_commandees}</td>
                         <td style="text-align: center; font-weight: bold;">${bc.uo_consommees}</td>
@@ -4888,24 +4178,21 @@
                                 <span style="font-weight: bold; min-width: 45px;">${tauxConsommation}%</span>
                             </div>
                         </td>
+                        <td>
+                            <span style="background-color: ${bc.actif ? '#27ae60' : '#95a5a6'}; color: white; padding: 3px 10px; border-radius: 12px; font-size: 11px;">
+                                ${bc.actif ? 'Actif' : 'Inactif'}
+                            </span>
+                        </td>
                     </tr>
                 `;
             }).join('');
         }
-        
-        // Variable pour stocker tous les déplacements (pour le filtrage)
-        let allReportingDeplacements = [];
         
         async function loadAllDeplacements() {
             try {
                 const response = await fetch(`${API_URL}/deplacements`, { credentials: 'include' });
                 if (response.ok) {
                     const data = await response.json();
-                    allReportingDeplacements = data;
-                    
-                    // Remplir la liste des SAMU pour le filtre
-                    populateReportingSamuFilter(data);
-                    
                     displayAllDeplacements(data);
                 }
             } catch (error) {
@@ -4913,152 +4200,24 @@
             }
         }
         
-        function populateReportingSamuFilter(deplacements) {
-            const samuSet = new Set();
-            deplacements.forEach(d => {
-                if (d.samu) samuSet.add(d.samu);
-            });
-            
-            const filterSamu = document.getElementById('filterReportingSamu');
-            if (filterSamu) {
-                const samuList = Array.from(samuSet).sort();
-                filterSamu.innerHTML = '<option value="">-- Tous les SAMU --</option>' +
-                    samuList.map(s => `<option value="${s}">${s}</option>`).join('');
-            }
-        }
-        
         function displayAllDeplacements(deplacements) {
             const tbody = document.getElementById('reportingDeplacementsBody');
-            const countDiv = document.getElementById('reportingDeplacementsCount');
-            
             if (!deplacements || deplacements.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #999;">Aucun déplacement enregistré</td></tr>';
-                if (countDiv) countDiv.textContent = '0 déplacement(s)';
                 return;
             }
             
-            tbody.innerHTML = deplacements.map(d => {
-                // Concaténer N° BDC et titulaire
-                const bdcDisplay = d.bon_commande_intitule 
-                    ? `${d.bon_commande_intitule}${d.bon_commande_titulaire ? ' - ' + d.bon_commande_titulaire : ''}`
-                    : '<span style="color: #e74c3c; font-weight: bold;">⚠️ À affecter</span>';
-                
-                return `
+            tbody.innerHTML = deplacements.map(d => `
                 <tr>
-                    <td>${bdcDisplay}</td>
                     <td>${formatDateFr(d.date_debut)}</td>
                     <td>${formatDateFr(d.date_fin)}</td>
                     <td>${d.user_prenom || ''} ${d.user_nom || ''}</td>
                     <td>${d.samu}</td>
                     <td>${d.ville}</td>
                     <td style="text-align: center; font-weight: bold;">${d.nb_uo}</td>
+                    <td>${d.bon_commande_intitule || '<span style="color: #999;">-</span>'}</td>
                 </tr>
-            `}).join('');
-            
-            if (countDiv) {
-                const totalUO = deplacements.reduce((sum, d) => sum + (d.nb_uo || 0), 0);
-                countDiv.textContent = `${deplacements.length} déplacement(s) - Total: ${totalUO} UO`;
-            }
-        }
-        
-        function filterReportingDeplacements() {
-            const bdcFilter = document.getElementById('filterReportingBdc').value;
-            const dateDebutFilter = document.getElementById('filterReportingDateDebut').value;
-            const dateFinFilter = document.getElementById('filterReportingDateFin').value;
-            const samuFilter = document.getElementById('filterReportingSamu').value;
-            
-            let filtered = [...allReportingDeplacements];
-            
-            // Filtre par BDC
-            if (bdcFilter) {
-                filtered = filtered.filter(d => d.bon_commande_id === parseInt(bdcFilter));
-            }
-            
-            // Filtre par date début (déplacements commençant à partir de cette date)
-            if (dateDebutFilter) {
-                filtered = filtered.filter(d => d.date_debut >= dateDebutFilter);
-            }
-            
-            // Filtre par date fin (déplacements se terminant avant cette date)
-            if (dateFinFilter) {
-                filtered = filtered.filter(d => d.date_fin <= dateFinFilter);
-            }
-            
-            // Filtre par SAMU
-            if (samuFilter) {
-                filtered = filtered.filter(d => d.samu === samuFilter);
-            }
-            
-            displayAllDeplacements(filtered);
-        }
-        
-        function resetReportingFilters() {
-            document.getElementById('filterReportingBdc').value = '';
-            document.getElementById('filterReportingDateDebut').value = '';
-            document.getElementById('filterReportingDateFin').value = '';
-            document.getElementById('filterReportingSamu').value = '';
-            
-            displayAllDeplacements(allReportingDeplacements);
-        }
-        
-        function exportReportingCSV() {
-            // Récupérer les déplacements actuellement affichés (filtrés)
-            const bdcFilter = document.getElementById('filterReportingBdc').value;
-            const dateDebutFilter = document.getElementById('filterReportingDateDebut').value;
-            const dateFinFilter = document.getElementById('filterReportingDateFin').value;
-            const samuFilter = document.getElementById('filterReportingSamu').value;
-            
-            let dataToExport = [...allReportingDeplacements];
-            
-            if (bdcFilter) {
-                dataToExport = dataToExport.filter(d => d.bon_commande_id === parseInt(bdcFilter));
-            }
-            if (dateDebutFilter) {
-                dataToExport = dataToExport.filter(d => d.date_debut >= dateDebutFilter);
-            }
-            if (dateFinFilter) {
-                dataToExport = dataToExport.filter(d => d.date_fin <= dateFinFilter);
-            }
-            if (samuFilter) {
-                dataToExport = dataToExport.filter(d => d.samu === samuFilter);
-            }
-            
-            if (dataToExport.length === 0) {
-                alert('Aucune donnée à exporter');
-                return;
-            }
-            
-            // Créer le contenu CSV
-            const headers = ['N° de BDC', 'Titulaire', 'Date début', 'Date fin', 'Utilisateur', 'SAMU', 'Ville', 'Nb UO'];
-            const rows = dataToExport.map(d => [
-                d.bon_commande_intitule || 'À affecter',
-                d.bon_commande_titulaire || '',
-                d.date_debut,
-                d.date_fin,
-                `${d.user_prenom || ''} ${d.user_nom || ''}`.trim(),
-                d.samu,
-                d.ville,
-                d.nb_uo
-            ]);
-            
-            // Ajouter BOM pour UTF-8 et créer le CSV
-            const BOM = '\uFEFF';
-            const csvContent = BOM + headers.join(';') + '\n' + rows.map(r => r.join(';')).join('\n');
-            
-            // Créer et télécharger le fichier
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            const url = URL.createObjectURL(blob);
-            
-            const today = new Date().toISOString().split('T')[0];
-            link.setAttribute('href', url);
-            link.setAttribute('download', `export_deplacements_${today}.csv`);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            
-            console.log(`✅ Export CSV: ${dataToExport.length} ligne(s)`);
+            `).join('');
         }
         
         // ============== FIN FONCTIONS GESTION BONS DE COMMANDE ET DÉPLACEMENTS ==============
@@ -15001,8 +14160,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             let joursCount = 0;
             
             Object.keys(currentExpertDispos).filter(d => currentExpertDispos[d] === true).forEach(dateStr => {
-                const [y, m, day] = dateStr.split('-').map(Number);
-                const dateObj = new Date(y, m - 1, day); // Mois 0-indexé, évite le décalage UTC
+                const dateObj = new Date(dateStr);
                 const dayOfWeek = dateObj.getDay();
                 joursCount++;
                 if (dayOfWeek === 6) { // Samedi
@@ -15090,12 +14248,10 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             const dispoCount = Object.values(currentExpertDispos).filter(v => v === true).length;
             const indispoCount = daysInMonth - dispoCount;
             
-            // Calculer les alertes (réutilisation des variables totalHeures, samedisCount, dimanchesCount calculées plus haut)
+            // Calculer les alertes (les compteurs totalHeures, samedisCount, dimanchesCount sont déjà calculés en haut)
             let alertes = [];
             
             // Alerte max 72h sur 15 jours (on vérifie sur le mois = ~2x15 jours)
-            // Donc max ~144h par mois, ou ~72h pour les 15 premiers jours
-            // Pour simplifier, on alerte si > 72h sur le mois (sera affiné)
             if (totalHeures > 144) {
                 alertes.push(`⚠️ ${totalHeures}h d'astreinte déclarées ce mois (max 144h ≈ 2x72h pour 2 périodes de 15 jours)`);
             }
@@ -15146,8 +14302,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             let totalHeures = 0;
             
             disposMois.forEach(d => {
-                const [y, m, day] = d.split('-').map(Number);
-                const dateObj = new Date(y, m - 1, day); // Mois 0-indexé, évite le décalage UTC
+                const dateObj = new Date(d);
                 const dayOfWeek = dateObj.getDay();
                 if (dayOfWeek === 6) {
                     samedisCount++;
@@ -15161,8 +14316,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             });
             
             // Vérifier le jour qu'on ajoute
-            const [newY, newM, newD] = dateStr.split('-').map(Number);
-            const newDateObj = new Date(newY, newM - 1, newD); // Mois 0-indexé
+            const newDateObj = new Date(dateStr);
             const newDayOfWeek = newDateObj.getDay();
             
             // Règle : max 1 samedi par mois
@@ -15193,15 +14347,18 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 // Était disponible (vert), devient indisponible (rouge) - pas de vérification nécessaire
                 delete currentExpertDispos[dateStr];
             } else {
-                // Était indisponible (rouge), veut devenir disponible (vert) - vérifier les contraintes AVANT d'ajouter
+                // Était indisponible (rouge), veut devenir disponible (vert) - vérifier les contraintes AVANT
+                // Simuler l'ajout pour vérifier
+                currentExpertDispos[dateStr] = true;
+                
+                // Vérifier les contraintes FPH
                 const warnings = checkContraintesFPHSaisie(dateStr);
                 if (warnings.length > 0) {
-                    // Ne pas ajouter - rester en rouge
+                    // Annuler l'ajout - rester en rouge
+                    delete currentExpertDispos[dateStr];
                     alert('❌ Impossible de se déclarer disponible ce jour :\n\n' + warnings.join('\n\n'));
-                } else {
-                    // Pas de warning, on peut ajouter
-                    currentExpertDispos[dateStr] = true;
                 }
+                // Si pas de warning, le jour reste en vert (déjà fait)
             }
             
             // Re-render le calendrier
@@ -15414,34 +14571,31 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             </thead><tbody>`;
             
             planning.forEach(slot => {
-                const [slotY, slotM, slotD] = slot.date.split('-').map(Number);
-                const dateObj = new Date(slotY, slotM - 1, slotD); // Mois 0-indexé
+                const dateObj = new Date(slot.date);
                 const dateStr = dateObj.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
                 const dayName = dateObj.toLocaleDateString('fr-FR', { weekday: 'long' });
                 const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
                 const bgColor = isWeekend ? '#fff3e0' : 'white';
                 const creneauLabel = slot.type_creneau === 'soir' ? '🌙 Soir (18h-08h)' : '☀️ Journée';
                 
-                const currentResource = resources.find(r => r.id === slot.resource_id);
-                const expertName = currentResource 
-                    ? `${currentResource.nom.toUpperCase()} ${currentResource.prenom} (${currentResource.trigramme})`
+                const resource = resources.find(r => r.id === slot.resource_id);
+                const expertName = resource 
+                    ? `${resource.nom.toUpperCase()} ${resource.prenom} (${resource.trigramme})`
                     : '<span style="color: #e74c3c;">⚠️ Non assigné</span>';
                 
                 // Filtrer pour n'afficher que les experts disponibles pour cette date
-                // MAIS exclure l'expert actuellement assigné de la liste (il est déjà affiché dans "Expert assigné")
-                const expertsDisponibles = getExpertsDisponiblesPourDate(slot.date)
-                    .filter(r => r.id !== slot.resource_id);
+                const expertsDisponibles = getExpertsDisponiblesPourDate(slot.date);
                 
-                html += `<tr id="astreinte-row-${slot.id}" style="border-bottom: 1px solid #eee; background-color: ${bgColor};">
+                html += `<tr style="border-bottom: 1px solid #eee; background-color: ${bgColor};">
                     <td style="padding: 10px;">${dateStr}</td>
                     <td style="padding: 10px; text-align: center; text-transform: capitalize;">${dayName}</td>
                     <td style="padding: 10px; text-align: center;">${creneauLabel}</td>
-                    <td id="expert-cell-${slot.id}" style="padding: 10px;">${expertName}</td>
+                    <td style="padding: 10px;">${expertName}</td>
                     <td style="padding: 10px; text-align: center;">
-                        <select id="select-${slot.id}" onchange="changeAstreinteAssignment(${slot.id}, this.value, '${slot.date}', this)" style="padding: 4px;">
+                        <select onchange="changeAstreinteAssignment(${slot.id}, this.value, '${slot.date}')" style="padding: 4px;">
                             <option value="">-- Modifier --</option>
                             ${expertsDisponibles.map(r => 
-                                `<option value="${r.id}">
+                                `<option value="${r.id}" ${r.id === slot.resource_id ? 'selected' : ''}>
                                     ${r.nom.toUpperCase()} ${r.prenom}
                                 </option>`
                             ).join('')}
@@ -15479,8 +14633,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
         // Vérifier les contraintes FPH pour un expert (Décret n°2002-9 du 4 janvier 2002)
         function checkContraintesFPHClient(expertId, date) {
             const errors = [];
-            const [dateY, dateM, dateD] = date.split('-').map(Number);
-            const dateObj = new Date(dateY, dateM - 1, dateD); // Mois 0-indexé
+            const dateObj = new Date(date);
             const newDayOfWeek = dateObj.getDay();
             
             // Compter les samedis, dimanches et heures totales du mois pour cet expert
@@ -15490,8 +14643,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             
             astreintePlanning.forEach(slot => {
                 if (slot.resource_id === parseInt(expertId)) {
-                    const [slotY, slotM, slotD] = slot.date.split('-').map(Number);
-                    const slotDate = new Date(slotY, slotM - 1, slotD); // Mois 0-indexé
+                    const slotDate = new Date(slot.date);
                     const dayOfWeek = slotDate.getDay();
                     
                     if (dayOfWeek === 6) { // Samedi
@@ -15528,24 +14680,16 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
         }
         
         // Modifier une assignation
-        async function changeAstreinteAssignment(slotId, newResourceId, slotDate, selectElement) {
+        async function changeAstreinteAssignment(slotId, newResourceId, slotDate) {
             if (!newResourceId) return;
-            
-            // Récupérer l'ancien expert assigné
-            const slot = astreintePlanning.find(s => s.id === slotId);
-            const oldResourceId = slot ? slot.resource_id : null;
-            const oldResource = oldResourceId ? resources.find(r => r.id === oldResourceId) : null;
-            
-            // Récupérer le nouvel expert
-            const newResource = resources.find(r => r.id === parseInt(newResourceId));
-            
-            console.log('changeAstreinteAssignment:', { slotId, oldResourceId, newResourceId, slotDate });
             
             // Vérifier les contraintes FPH
             const errors = checkContraintesFPHClient(newResourceId, slotDate);
             if (errors.length > 0) {
                 alert('⚠️ Impossible d\'assigner cet expert :\n\n' + errors.join('\n'));
-                selectElement.value = '';
+                // Réinitialiser le select
+                const select = event.target;
+                select.value = '';
                 return;
             }
             
@@ -15554,45 +14698,24 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({ resource_id: parseInt(newResourceId) })
+                    body: JSON.stringify({ resource_id: newResourceId })
                 });
                 
                 if (response.ok) {
                     // Mettre à jour le planning local
+                    const slot = astreintePlanning.find(s => s.id === slotId);
                     if (slot) {
                         slot.resource_id = parseInt(newResourceId);
                     }
-                    
-                    // Mettre à jour la cellule "Expert assigné" avec le nouveau nom
-                    const expertCell = document.getElementById(`expert-cell-${slotId}`);
-                    if (expertCell && newResource) {
-                        expertCell.innerHTML = `${newResource.nom.toUpperCase()} ${newResource.prenom} (${newResource.trigramme})`;
-                    }
-                    
-                    // Reconstruire la liste déroulante
-                    const expertsDisponibles = getExpertsDisponiblesPourDate(slotDate)
-                        .filter(r => r.id !== parseInt(newResourceId)); // Exclure le nouvel assigné
-                    
-                    // Si l'ancien expert était disponible pour cette date, il doit revenir dans la liste
-                    let optionsHtml = '<option value="">-- Modifier --</option>';
-                    expertsDisponibles.forEach(r => {
-                        optionsHtml += `<option value="${r.id}">${r.nom.toUpperCase()} ${r.prenom}</option>`;
-                    });
-                    
-                    selectElement.innerHTML = optionsHtml;
-                    selectElement.value = ''; // Réinitialiser la sélection
-                    
-                    console.log('Assignation mise à jour avec succès');
+                    // Rafraîchir l'affichage
+                    const mois = document.getElementById('astreinteMoisGeneration').value;
+                    await generateAstreintePlanning();
                 } else {
                     const err = await response.json();
-                    console.error('Erreur serveur:', err);
                     alert('Erreur: ' + err.error);
-                    selectElement.value = '';
                 }
             } catch (error) {
                 console.error('Erreur modification:', error);
-                alert('Erreur réseau: ' + error.message);
-                selectElement.value = '';
             }
         }
         
@@ -16621,15 +15744,9 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 <div class="form-row">
                     <div class="form-group">
                         <label>AMOA CED *</label>
-                        <!-- Select pour les admins -->
-                        <select id="deplacementAmoaCed" style="display: none;">
+                        <select id="deplacementAmoaCed">
                             <option value="">-- Sélectionner un AMOA CED --</option>
                         </select>
-                        <!-- Texte fixe pour les utilisateurs -->
-                        <div id="deplacementAmoaCedFixed" style="display: none; padding: 10px 15px; background-color: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; color: #333; font-weight: bold;">
-                            <span id="deplacementAmoaCedFixedName"></span>
-                            <input type="hidden" id="deplacementAmoaCedFixedId">
-                        </div>
                     </div>
                     <div class="form-group">
                         <label>Date de début *</label>
@@ -16653,7 +15770,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     </div>
                     <div class="form-group">
                         <label>Bon de commande *</label>
-                        <select id="deplacementBonCommande" onchange="checkDeplacementSurconsommation()">
+                        <select id="deplacementBonCommande" onchange="updateDeplacementBonCommandeSelection()">
                             <option value="">-- Sélectionner un bon de commande --</option>
                         </select>
                     </div>
@@ -16662,20 +15779,6 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                         <input type="text" id="deplacementNbUO" readonly style="background-color: #f5f5f5; color: #666;" value="0">
                     </div>
                 </div>
-                
-                <!-- Champ commentaire sur toute la largeur -->
-                <div class="form-row">
-                    <div class="form-group" style="flex: 1;">
-                        <label>Commentaire</label>
-                        <textarea id="deplacementCommentaire" placeholder="Commentaire optionnel..." rows="2" style="width: 100%; resize: vertical; padding: 10px; border: 1px solid #ddd; border-radius: 4px;"></textarea>
-                    </div>
-                </div>
-                
-                <!-- Zone d'avertissement surconsommation -->
-                <div id="deplacementSurconsommationWarning" style="display: none; margin: 15px 0; padding: 15px; background-color: #ffebee; border: 2px solid #e74c3c; border-radius: 8px; color: #c62828;">
-                    <strong>⚠️ ATTENTION :</strong> <span id="deplacementSurconsommationMessage"></span>
-                </div>
-                
                 <div class="button-group">
                     <button onclick="addDeplacement()">Ajouter le déplacement</button>
                 </div>
@@ -16687,19 +15790,18 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     <table id="mesDeplacementsTable">
                         <thead>
                             <tr>
-                                <th>Bon de commande</th>
-                                <th>SAMU</th>
-                                <th>Ville</th>
+                                <th>AMOA CED</th>
                                 <th>Date début</th>
                                 <th>Date fin</th>
+                                <th>SAMU</th>
+                                <th>Ville</th>
                                 <th>Nb UO</th>
-                                <th>AMOA CED</th>
-                                <th>Commentaire</th>
+                                <th>Bon de commande</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody id="mesDeplacementsBody">
-                            <tr><td colspan="9" style="text-align: center; color: #999;">Chargement...</td></tr>
+                            <tr><td colspan="8" style="text-align: center; color: #999;">Chargement...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -16716,13 +15818,13 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     <table id="reportingBonsCommandeTable">
                         <thead>
                             <tr>
-                                <th>Soldé?</th>
-                                <th>N° de BDC</th>
+                                <th>Numéro de CBDC</th>
                                 <th>Période</th>
                                 <th>UO commandées</th>
                                 <th>UO consommées</th>
                                 <th>Solde</th>
                                 <th>Taux consommation</th>
+                                <th>Statut</th>
                             </tr>
                         </thead>
                         <tbody id="reportingBonsCommandeBody">
@@ -16734,52 +15836,17 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             
             <div class="form-section">
                 <h3>Détail des déplacements</h3>
-                
-                <!-- Filtres de recherche -->
-                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #dee2e6;">
-                    <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end;">
-                        <div style="flex: 1; min-width: 200px;">
-                            <label style="display: block; font-weight: bold; margin-bottom: 5px; font-size: 12px; color: #495057;">N° de BDC</label>
-                            <select id="filterReportingBdc" onchange="filterReportingDeplacements()" style="width: 100%; padding: 8px; border: 1px solid #ced4da; border-radius: 4px;">
-                                <option value="">-- Tous les BDC --</option>
-                            </select>
-                        </div>
-                        <div style="flex: 1; min-width: 150px;">
-                            <label style="display: block; font-weight: bold; margin-bottom: 5px; font-size: 12px; color: #495057;">Date début</label>
-                            <input type="date" id="filterReportingDateDebut" onchange="filterReportingDeplacements()" style="width: 100%; padding: 8px; border: 1px solid #ced4da; border-radius: 4px; box-sizing: border-box;">
-                        </div>
-                        <div style="flex: 1; min-width: 150px;">
-                            <label style="display: block; font-weight: bold; margin-bottom: 5px; font-size: 12px; color: #495057;">Date fin</label>
-                            <input type="date" id="filterReportingDateFin" onchange="filterReportingDeplacements()" style="width: 100%; padding: 8px; border: 1px solid #ced4da; border-radius: 4px; box-sizing: border-box;">
-                        </div>
-                        <div style="flex: 1; min-width: 150px;">
-                            <label style="display: block; font-weight: bold; margin-bottom: 5px; font-size: 12px; color: #495057;">SAMU</label>
-                            <select id="filterReportingSamu" onchange="filterReportingDeplacements()" style="width: 100%; padding: 8px; border: 1px solid #ced4da; border-radius: 4px;">
-                                <option value="">-- Tous les SAMU --</option>
-                            </select>
-                        </div>
-                        <div style="display: flex; gap: 10px;">
-                            <button onclick="resetReportingFilters()" style="padding: 8px 15px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px;">
-                                🔄 Réinitialiser
-                            </button>
-                            <button onclick="exportReportingCSV()" style="padding: 8px 15px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px;">
-                                📥 Export CSV
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                
                 <div class="table-container">
                     <table id="reportingDeplacementsTable">
                         <thead>
                             <tr>
-                                <th>N° de BDC</th>
                                 <th>Date début</th>
                                 <th>Date fin</th>
                                 <th>Utilisateur</th>
                                 <th>SAMU</th>
                                 <th>Ville</th>
                                 <th>Nb UO</th>
+                                <th>Bon de commande</th>
                             </tr>
                         </thead>
                         <tbody id="reportingDeplacementsBody">
@@ -16787,7 +15854,6 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                         </tbody>
                     </table>
                 </div>
-                <div id="reportingDeplacementsCount" style="margin-top: 10px; font-size: 12px; color: #666;"></div>
             </div>
         </div>
         
@@ -16804,7 +15870,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     </div>
                     <div class="form-group">
                         <label>Titulaire *</label>
-                        <input type="text" id="bcTitulaire" placeholder="Ex: PWC" style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase()">
+                        <input type="text" id="bcTitulaire" placeholder="Ex: SOPRA STERIA" style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase()">
                     </div>
                 </div>
                 <div class="form-row">
@@ -16836,15 +15902,13 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                                 <th>Titulaire</th>
                                 <th>Date début</th>
                                 <th>Date fin</th>
-                                <th>UO consommées</th>
                                 <th>Nb UO</th>
-                                <th>Soldé</th>
-                                <th>Observation</th>
+                                <th>Statut</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody id="bonsCommandeBody">
-                            <tr><td colspan="9" style="text-align: center; color: #999;">Chargement...</td></tr>
+                            <tr><td colspan="7" style="text-align: center; color: #999;">Chargement...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -16854,158 +15918,49 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
     
     <!-- Modal édition bon de commande -->
     <div id="editBonCommandeModal" class="modal">
-        <div class="modal-content" style="max-width: 750px; padding: 30px;">
-            <h3 style="margin-bottom: 25px; padding-bottom: 15px; border-bottom: 3px solid #3498db; font-size: 20px; color: #2c3e50;">
-                ✏️ Modifier le bon de commande
-            </h3>
+        <div class="modal-content" style="max-width: 550px;">
+            <h3 style="margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid #3498db;">✏️ Modifier le bon de commande</h3>
             <input type="hidden" id="editBcId">
             
-            <!-- Numéro et Titulaire -->
-            <div class="form-row" style="display: flex; gap: 20px; margin-bottom: 20px;">
+            <div class="form-row" style="margin-bottom: 15px;">
                 <div class="form-group" style="flex: 1;">
-                    <label style="font-weight: bold; color: #2c3e50; margin-bottom: 8px; display: block; font-size: 14px;">
-                        📋 Numéro de CBDC *
-                    </label>
-                    <input type="text" id="editBcIntitule" style="width: 100%; padding: 12px 15px; font-size: 15px; border: 2px solid #ddd; border-radius: 8px; box-sizing: border-box;">
+                    <label style="font-weight: bold; color: #2c3e50; margin-bottom: 5px; display: block;">Numéro de CBDC *</label>
+                    <input type="text" id="editBcIntitule" style="padding: 10px; font-size: 14px;">
                 </div>
                 <div class="form-group" style="flex: 1;">
-                    <label style="font-weight: bold; color: #2c3e50; margin-bottom: 8px; display: block; font-size: 14px;">
-                        👤 Titulaire *
-                    </label>
-                    <input type="text" id="editBcTitulaire" style="width: 100%; text-transform: uppercase; padding: 12px 15px; font-size: 15px; border: 2px solid #ddd; border-radius: 8px; box-sizing: border-box;" oninput="this.value = this.value.toUpperCase()">
+                    <label style="font-weight: bold; color: #2c3e50; margin-bottom: 5px; display: block;">Titulaire *</label>
+                    <input type="text" id="editBcTitulaire" style="text-transform: uppercase; padding: 10px; font-size: 14px;" oninput="this.value = this.value.toUpperCase()">
                 </div>
             </div>
             
-            <!-- Dates -->
-            <div class="form-row" style="display: flex; gap: 20px; margin-bottom: 20px;">
+            <div class="form-row" style="margin-bottom: 15px;">
                 <div class="form-group" style="flex: 1;">
-                    <label style="font-weight: bold; color: #2c3e50; margin-bottom: 8px; display: block; font-size: 14px;">
-                        📅 Date de début *
-                    </label>
-                    <input type="date" id="editBcDateDebut" style="width: 100%; padding: 12px 15px; font-size: 15px; border: 2px solid #ddd; border-radius: 8px; box-sizing: border-box;">
+                    <label style="font-weight: bold; color: #2c3e50; margin-bottom: 5px; display: block;">Date de début *</label>
+                    <input type="date" id="editBcDateDebut" style="padding: 10px; font-size: 14px;">
                 </div>
                 <div class="form-group" style="flex: 1;">
-                    <label style="font-weight: bold; color: #2c3e50; margin-bottom: 8px; display: block; font-size: 14px;">
-                        📅 Date de fin *
-                    </label>
-                    <input type="date" id="editBcDateFin" style="width: 100%; padding: 12px 15px; font-size: 15px; border: 2px solid #ddd; border-radius: 8px; box-sizing: border-box;">
+                    <label style="font-weight: bold; color: #2c3e50; margin-bottom: 5px; display: block;">Date de fin *</label>
+                    <input type="date" id="editBcDateFin" style="padding: 10px; font-size: 14px;">
                 </div>
             </div>
             
-            <!-- UO -->
-            <div class="form-row" style="display: flex; gap: 20px; margin-bottom: 25px;">
+            <div class="form-row" style="margin-bottom: 20px;">
                 <div class="form-group" style="flex: 1;">
-                    <label style="font-weight: bold; color: #2c3e50; margin-bottom: 8px; display: block; font-size: 14px;">
-                        🔢 Nombre d'UO commandées *
-                    </label>
-                    <input type="number" id="editBcNbUO" min="1" style="width: 100%; padding: 12px 15px; font-size: 15px; border: 2px solid #ddd; border-radius: 8px; box-sizing: border-box;">
+                    <label style="font-weight: bold; color: #2c3e50; margin-bottom: 5px; display: block;">Nombre d'UO *</label>
+                    <input type="number" id="editBcNbUO" min="1" style="padding: 10px; font-size: 14px;">
                 </div>
-            </div>
-            
-            <!-- Section BDC Soldé -->
-            <div class="form-row" style="margin-bottom: 25px;">
                 <div class="form-group" style="flex: 1;">
-                    <div style="display: flex; align-items: center; gap: 15px; padding: 20px; background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); border: 2px solid #ff9800; border-radius: 10px;">
-                        <input type="checkbox" id="editBcSolde" style="width: 24px; height: 24px; cursor: pointer; accent-color: #ff9800;">
-                        <div>
-                            <label for="editBcSolde" style="font-weight: bold; color: #e65100; cursor: pointer; margin: 0; font-size: 16px; display: block;">
-                                💰 Bon de commande soldé
-                            </label>
-                            <span style="font-size: 12px; color: #666; margin-top: 5px; display: block;">
-                                Si coché, ce bon de commande n'apparaîtra plus dans les listes de sélection pour les nouveaux déplacements
-                            </span>
-                        </div>
-                    </div>
+                    <label style="font-weight: bold; color: #2c3e50; margin-bottom: 5px; display: block;">Statut</label>
+                    <select id="editBcActif" style="padding: 10px; font-size: 14px;">
+                        <option value="1">Actif</option>
+                        <option value="0">Inactif</option>
+                    </select>
                 </div>
             </div>
             
-            <!-- Boutons -->
-            <div class="button-group" style="display: flex; gap: 15px; justify-content: flex-end; padding-top: 20px; border-top: 2px solid #eee;">
-                <button onclick="saveBonCommande()" style="padding: 14px 30px; font-size: 15px; background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%); border: none; border-radius: 8px; color: white; cursor: pointer; font-weight: bold;">
-                    ✅ Enregistrer
-                </button>
-                <button onclick="closeEditBonCommandeModal()" style="padding: 14px 30px; font-size: 15px; background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%); border: none; border-radius: 8px; color: white; cursor: pointer; font-weight: bold;">
-                    ❌ Annuler
-                </button>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Modal déplacements d'un BDC -->
-    <div id="bdcDeplacementsModal" class="modal">
-        <div class="modal-content" style="max-width: 900px; padding: 25px;">
-            <h3 id="bdcDeplacementsModalTitle" style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 3px solid #3498db; font-size: 18px; color: #2c3e50;">
-                📋 Déplacements du bon de commande
-            </h3>
-            
-            <!-- Section régularisation (visible uniquement si BDC soldé en surconsommation) -->
-            <div id="bdcRegularisationSection" style="display: none; background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%); padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 2px solid #e74c3c;">
-                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
-                    <span style="font-size: 24px;">⚠️</span>
-                    <div>
-                        <strong style="color: #c62828; font-size: 14px;">Ce bon de commande est SOLDÉ et en SURCONSOMMATION</strong>
-                        <div style="font-size: 12px; color: #666; margin-top: 3px;">
-                            <span id="bdcUoEnTrop">0</span> UO en trop doivent être réaffectées vers un autre BDC
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Zone d'erreur si régularisation impossible -->
-                <div id="bdcRegularisationError" style="display: none; background: #fff; padding: 12px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #e74c3c; color: #c62828;">
-                </div>
-                
-                <div style="display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap;">
-                    <div style="flex: 1; min-width: 250px;">
-                        <label style="display: block; font-weight: bold; margin-bottom: 5px; font-size: 12px; color: #495057;">
-                            Réaffecter vers le BDC (même titulaire) :
-                        </label>
-                        <select id="bdcCibleRegularisation" onchange="updateBdcRegularisationInfo()" style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 6px; font-size: 13px;">
-                            <option value="">-- Sélectionner un BDC cible --</option>
-                        </select>
-                    </div>
-                    <div style="text-align: center; padding: 10px; background: white; border-radius: 8px; min-width: 150px;">
-                        <div style="font-size: 11px; color: #666;">Sélectionnés</div>
-                        <div style="font-size: 20px; font-weight: bold; color: #e74c3c;">
-                            <span id="bdcNbDeplacementsSelectionnes">0</span> dépl.
-                        </div>
-                        <div style="font-size: 14px; font-weight: bold; color: #c62828;">
-                            <span id="bdcUoSelectionnees">0</span> UO
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Warning si sélection différente des UO en trop -->
-                <div id="bdcSelectionWarning" style="display: none; margin-top: 10px; padding: 8px; background: #fff3e0; border-radius: 6px; color: #e65100; font-size: 12px;">
-                </div>
-            </div>
-            
-            <!-- Tableau des déplacements -->
-            <div style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 8px;">
-                <table style="width: 100%; border-collapse: collapse;">
-                    <thead id="bdcDeplacementsHead" style="position: sticky; top: 0; background: #f8f9fa;">
-                        <tr>
-                            <th>Utilisateur</th>
-                            <th>SAMU</th>
-                            <th>Ville</th>
-                            <th>Date début</th>
-                            <th>Date fin</th>
-                            <th>Nb UO</th>
-                        </tr>
-                    </thead>
-                    <tbody id="bdcDeplacementsBody">
-                        <tr><td colspan="6" style="text-align: center; color: #999; padding: 20px;">Chargement...</td></tr>
-                    </tbody>
-                </table>
-            </div>
-            
-            <!-- Boutons -->
-            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; padding-top: 15px; border-top: 2px solid #eee;">
-                <button id="bdcValidateRegularisationBtn" onclick="validateBdcRegularisation()" style="display: none; padding: 12px 25px; background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%); color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">
-                    ✅ Valider la réaffectation
-                </button>
-                <button onclick="closeBdcDeplacementsModal()" style="padding: 12px 25px; background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%); color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">
-                    Fermer
-                </button>
+            <div class="button-group" style="display: flex; gap: 10px; justify-content: flex-end; padding-top: 15px; border-top: 1px solid #eee;">
+                <button onclick="saveBonCommande()" style="padding: 12px 25px; font-size: 14px;">✅ Enregistrer</button>
+                <button onclick="closeEditBonCommandeModal()" style="background-color: #95a5a6; padding: 12px 25px; font-size: 14px;">❌ Annuler</button>
             </div>
         </div>
     </div>
@@ -17055,14 +16010,6 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     <select id="editDeplacementBonCommande" style="padding: 10px; font-size: 14px;">
                         <option value="">-- Sélectionner --</option>
                     </select>
-                </div>
-            </div>
-            
-            <!-- Champ commentaire -->
-            <div class="form-row" style="margin-bottom: 20px;">
-                <div class="form-group" style="flex: 1;">
-                    <label style="font-weight: bold; color: #2c3e50; margin-bottom: 5px; display: block;">Commentaire</label>
-                    <textarea id="editDeplacementCommentaire" placeholder="Commentaire optionnel..." rows="2" style="width: 100%; resize: vertical; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;"></textarea>
                 </div>
             </div>
             
