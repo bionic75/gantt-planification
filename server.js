@@ -648,6 +648,12 @@ function initDB() {
                     // Ignorer l'erreur si la colonne existe déjà
                 }
             });
+            // Migration: ajouter la colonne solde (BDC soldé) si elle n'existe pas
+            database.run(`ALTER TABLE bons_commande ADD COLUMN solde INTEGER DEFAULT 0`, (err) => {
+                if (err && !err.message.includes('duplicate column')) {
+                    // Ignorer l'erreur si la colonne existe déjà
+                }
+            });
         }
     });
 
@@ -675,6 +681,18 @@ function initDB() {
             console.log('✅ Table deplacements créée');
             // Migration: ajouter la colonne amoa_ced_id si elle n'existe pas
             database.run(`ALTER TABLE deplacements ADD COLUMN amoa_ced_id INTEGER`, (err) => {
+                if (err && !err.message.includes('duplicate column')) {
+                    // Ignorer l'erreur si la colonne existe déjà
+                }
+            });
+            // Migration: ajouter la colonne a_regulariser pour marquer les déplacements sur BC en surconsommation
+            database.run(`ALTER TABLE deplacements ADD COLUMN a_regulariser INTEGER DEFAULT 0`, (err) => {
+                if (err && !err.message.includes('duplicate column')) {
+                    // Ignorer l'erreur si la colonne existe déjà
+                }
+            });
+            // Migration: ajouter la colonne commentaire
+            database.run(`ALTER TABLE deplacements ADD COLUMN commentaire TEXT`, (err) => {
                 if (err && !err.message.includes('duplicate column')) {
                     // Ignorer l'erreur si la colonne existe déjà
                 }
@@ -6110,12 +6128,12 @@ app.post('/api/bons-commande', requireAuth, (req, res) => {
 
 // Modifier un bon de commande
 app.put('/api/bons-commande/:id', requireAuth, (req, res) => {
-    const { intitule, titulaire, date_debut, date_fin, nb_uo, actif } = req.body;
+    const { intitule, titulaire, date_debut, date_fin, nb_uo, solde } = req.body;
     const id = req.params.id;
     
     database.run(
-        `UPDATE bons_commande SET intitule = ?, titulaire = ?, date_debut = ?, date_fin = ?, nb_uo = ?, actif = ? WHERE id = ?`,
-        [intitule, titulaire ? titulaire.toUpperCase() : null, date_debut, date_fin, nb_uo, actif ? 1 : 0, id],
+        `UPDATE bons_commande SET intitule = ?, titulaire = ?, date_debut = ?, date_fin = ?, nb_uo = ?, actif = 1, solde = ? WHERE id = ?`,
+        [intitule, titulaire ? titulaire.toUpperCase() : null, date_debut, date_fin, nb_uo, solde ? 1 : 0, id],
         function(err) {
             if (err) {
                 console.error('Erreur modification bon de commande:', err);
@@ -6130,37 +6148,66 @@ app.put('/api/bons-commande/:id', requireAuth, (req, res) => {
 app.delete('/api/bons-commande/:id', requireAuth, (req, res) => {
     const id = req.params.id;
     
-    // Vérifier s'il y a des déplacements associés
+    // Récupérer les infos du BC et compter les déplacements associés
     database.get(`SELECT COUNT(*) as count FROM deplacements WHERE bon_commande_id = ?`, [id], (err, row) => {
         if (err) {
             return res.status(500).json({ error: err.message });
         }
         
-        if (row.count > 0) {
-            return res.status(400).json({ error: `Impossible de supprimer: ${row.count} déplacement(s) associé(s)` });
-        }
+        const nbDeplacements = row.count;
         
-        database.run(`DELETE FROM bons_commande WHERE id = ?`, [id], function(err) {
+        // D'abord, désaffecter tous les déplacements liés à ce BC (mettre bon_commande_id à NULL)
+        database.run(`UPDATE deplacements SET bon_commande_id = NULL WHERE bon_commande_id = ?`, [id], function(err) {
             if (err) {
-                console.error('Erreur suppression bon de commande:', err);
+                console.error('Erreur désaffectation déplacements:', err);
                 return res.status(500).json({ error: err.message });
             }
-            res.json({ message: 'Bon de commande supprimé' });
+            
+            // Ensuite, supprimer le bon de commande
+            database.run(`DELETE FROM bons_commande WHERE id = ?`, [id], function(err) {
+                if (err) {
+                    console.error('Erreur suppression bon de commande:', err);
+                    return res.status(500).json({ error: err.message });
+                }
+                
+                if (nbDeplacements > 0) {
+                    console.log(`✅ BC ${id} supprimé, ${nbDeplacements} déplacement(s) désaffecté(s)`);
+                    res.json({ 
+                        message: 'Bon de commande supprimé', 
+                        deplacements_desaffectes: nbDeplacements 
+                    });
+                } else {
+                    res.json({ message: 'Bon de commande supprimé' });
+                }
+            });
         });
     });
 });
 
-// Récupérer tous les déplacements (pour reporting)
+// Récupérer tous les déplacements (pour reporting) - avec filtre optionnel par bon_commande_id
 app.get('/api/deplacements', requireAuth, (req, res) => {
-    database.all(`
+    const bonCommandeId = req.query.bon_commande_id;
+    
+    let query = `
         SELECT d.*, 
                u.nom as user_nom, u.prenom as user_prenom,
-               bc.intitule as bon_commande_intitule
+               bc.intitule as bon_commande_intitule,
+               bc.titulaire as bon_commande_titulaire
         FROM deplacements d
         LEFT JOIN users u ON d.user_id = u.id
         LEFT JOIN bons_commande bc ON d.bon_commande_id = bc.id
-        ORDER BY d.date_debut DESC
-    `, [], (err, rows) => {
+    `;
+    
+    const params = [];
+    
+    if (bonCommandeId) {
+        query += ` WHERE d.bon_commande_id = ?`;
+        params.push(bonCommandeId);
+    }
+    
+    query += ` ORDER BY d.date_debut DESC`;
+    
+    database.all(query, params, (err, rows) => {
         if (err) {
             console.error('Erreur récupération déplacements:', err);
             return res.status(500).json({ error: err.message });
@@ -6214,7 +6261,7 @@ app.get('/api/deplacements/:id', requireAuth, (req, res) => {
 
 // Créer un déplacement
 app.post('/api/deplacements', requireAuth, (req, res) => {
-    const { amoa_ced_id, date_debut, date_fin, samu, ville, bon_commande_id } = req.body;
+    const { amoa_ced_id, date_debut, date_fin, samu, ville, bon_commande_id, commentaire } = req.body;
     
     if (!amoa_ced_id || !date_debut || !date_fin || !samu || !ville) {
         return res.status(400).json({ error: 'Tous les champs sont requis' });
@@ -6228,25 +6275,67 @@ app.post('/api/deplacements', requireAuth, (req, res) => {
     
     // Utiliser le bon_commande_id passé en paramètre s'il existe
     const bcId = bon_commande_id || null;
+    const comm = commentaire ? commentaire.trim() : null;
     
-    database.run(
-        `INSERT INTO deplacements (user_id, amoa_ced_id, date_debut, date_fin, samu, ville, bon_commande_id, nb_uo) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [req.session.userId, amoa_ced_id, date_debut, date_fin, samu, ville.toUpperCase(), bcId, nb_uo],
-        function(err) {
+    // Vérifier si le BC est en surconsommation
+    if (bcId) {
+        database.get(`
+            SELECT bc.*, COALESCE(SUM(d.nb_uo), 0) as uo_consommees
+            FROM bons_commande bc
+            LEFT JOIN deplacements d ON d.bon_commande_id = bc.id
+            WHERE bc.id = ?
+            GROUP BY bc.id
+        `, [bcId], (err, bc) => {
             if (err) {
-                console.error('Erreur création déplacement:', err);
                 return res.status(500).json({ error: err.message });
             }
-            res.json({ id: this.lastID, nb_uo, bon_commande_id: bcId, message: 'Déplacement créé' });
-        }
-    );
+            
+            // Calculer si après ajout on sera en surconsommation
+            const uoApresAjout = (bc.uo_consommees || 0) + nb_uo;
+            const enSurconsommation = uoApresAjout > bc.uo_commandees;
+            
+            database.run(
+                `INSERT INTO deplacements (user_id, amoa_ced_id, date_debut, date_fin, samu, ville, bon_commande_id, nb_uo, a_regulariser, commentaire) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [req.session.userId, amoa_ced_id, date_debut, date_fin, samu, ville.toUpperCase(), bcId, nb_uo, enSurconsommation ? 1 : 0, comm],
+                function(err) {
+                    if (err) {
+                        console.error('Erreur création déplacement:', err);
+                        return res.status(500).json({ error: err.message });
+                    }
+                    res.json({ 
+                        id: this.lastID, 
+                        nb_uo, 
+                        bon_commande_id: bcId, 
+                        a_regulariser: enSurconsommation,
+                        message: enSurconsommation 
+                            ? '⚠️ Déplacement créé - À RÉGULARISER (bon de commande en surconsommation)' 
+                            : 'Déplacement créé'
+                    });
+                }
+            );
+        });
+    } else {
+        // Pas de BC, pas de vérification de surconsommation
+        database.run(
+            `INSERT INTO deplacements (user_id, amoa_ced_id, date_debut, date_fin, samu, ville, bon_commande_id, nb_uo, a_regulariser, commentaire) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
+            [req.session.userId, amoa_ced_id, date_debut, date_fin, samu, ville.toUpperCase(), bcId, nb_uo, comm],
+            function(err) {
+                if (err) {
+                    console.error('Erreur création déplacement:', err);
+                    return res.status(500).json({ error: err.message });
+                }
+                res.json({ id: this.lastID, nb_uo, bon_commande_id: bcId, message: 'Déplacement créé' });
+            }
+        );
+    }
 });
 
 // Modifier un déplacement
 app.put('/api/deplacements/:id', requireAuth, (req, res) => {
     const id = req.params.id;
-    const { amoa_ced_id, date_debut, date_fin, samu, ville, bon_commande_id } = req.body;
+    const { amoa_ced_id, date_debut, date_fin, samu, ville, bon_commande_id, commentaire } = req.body;
     
     if (!amoa_ced_id || !date_debut || !date_fin || !samu || !ville) {
         return res.status(400).json({ error: 'Tous les champs sont requis' });
@@ -6257,6 +6346,7 @@ app.put('/api/deplacements/:id', requireAuth, (req, res) => {
     const end = new Date(date_fin);
     const diffTime = Math.abs(end - start);
     const nb_uo = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    const comm = commentaire ? commentaire.trim() : null;
     
     // Vérifier que le déplacement appartient à l'utilisateur (sauf admin)
     database.get(`SELECT user_id FROM deplacements WHERE id = ?`, [id], (err, row) => {
@@ -6273,8 +6363,8 @@ app.put('/api/deplacements/:id', requireAuth, (req, res) => {
         }
         
         database.run(
-            `UPDATE deplacements SET amoa_ced_id = ?, date_debut = ?, date_fin = ?, samu = ?, ville = ?, bon_commande_id = ?, nb_uo = ? WHERE id = ?`,
-            [amoa_ced_id, date_debut, date_fin, samu, ville.toUpperCase(), bon_commande_id || null, nb_uo, id],
+            `UPDATE deplacements SET amoa_ced_id = ?, date_debut = ?, date_fin = ?, samu = ?, ville = ?, bon_commande_id = ?, nb_uo = ?, commentaire = ? WHERE id = ?`,
+            [amoa_ced_id, date_debut, date_fin, samu, ville.toUpperCase(), bon_commande_id || null, nb_uo, comm, id],
             function(err) {
                 if (err) {
                     console.error('Erreur modification déplacement:', err);
@@ -6283,6 +6373,176 @@ app.put('/api/deplacements/:id', requireAuth, (req, res) => {
                 res.json({ message: 'Déplacement modifié' });
             }
         );
+    });
+});
+
+// Régularisation d'un déplacement (transfert d'un bon de commande à un autre)
+app.post('/api/deplacements/:id/regularisation', requireAuth, (req, res) => {
+    const id = req.params.id;
+    const { ancien_bon_commande_id, nouveau_bon_commande_id } = req.body;
+    
+    if (!ancien_bon_commande_id || !nouveau_bon_commande_id) {
+        return res.status(400).json({ error: 'Les deux bons de commande sont requis' });
+    }
+    
+    if (ancien_bon_commande_id === nouveau_bon_commande_id) {
+        return res.status(400).json({ error: 'Les deux bons de commande doivent être différents' });
+    }
+    
+    // Vérifier que l'utilisateur est admin ou propriétaire du déplacement
+    database.get(`SELECT * FROM deplacements WHERE id = ?`, [id], (err, deplacement) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        
+        if (!deplacement) {
+            return res.status(404).json({ error: 'Déplacement non trouvé' });
+        }
+        
+        if (deplacement.user_id !== req.session.userId && req.session.activeProfile !== 'admin') {
+            return res.status(403).json({ error: 'Non autorisé' });
+        }
+        
+        // Vérifier que le nouveau bon de commande existe et n'est pas soldé
+        database.get(`SELECT * FROM bons_commande WHERE id = ? AND (solde IS NULL OR solde = 0)`, [nouveau_bon_commande_id], (err, nouveauBc) => {
+            if (err) {
+                return res.status(500).json({ error: err.message });
+            }
+            
+            if (!nouveauBc) {
+                return res.status(404).json({ error: 'Nouveau bon de commande non trouvé ou soldé' });
+            }
+            
+            // Vérifier que les dates du déplacement sont dans la période du nouveau BC
+            if (deplacement.date_debut < nouveauBc.date_debut || deplacement.date_fin > nouveauBc.date_fin) {
+                return res.status(400).json({ 
+                    error: `Les dates du déplacement (${deplacement.date_debut} - ${deplacement.date_fin}) ne sont pas dans la période du nouveau bon de commande (${nouveauBc.date_debut} - ${nouveauBc.date_fin})` 
+                });
+            }
+            
+            // Calculer les UO disponibles sur le nouveau BC
+            database.get(`
+                SELECT COALESCE(SUM(nb_uo), 0) as uo_consommees 
+                FROM deplacements 
+                WHERE bon_commande_id = ?
+            `, [nouveau_bon_commande_id], (err, stats) => {
+                if (err) {
+                    return res.status(500).json({ error: err.message });
+                }
+                
+                const uoDisponibles = nouveauBc.uo_commandees - stats.uo_consommees;
+                
+                if (uoDisponibles < deplacement.nb_uo) {
+                    return res.status(400).json({ 
+                        error: `Le nouveau bon de commande n'a pas assez d'UO disponibles (${uoDisponibles} disponibles, ${deplacement.nb_uo} nécessaires)` 
+                    });
+                }
+                
+                // Effectuer le transfert : mettre à jour le bon de commande du déplacement ET retirer le marquage à régulariser
+                database.run(
+                    `UPDATE deplacements SET bon_commande_id = ?, a_regulariser = 0 WHERE id = ?`,
+                    [nouveau_bon_commande_id, id],
+                    function(err) {
+                        if (err) {
+                            console.error('Erreur régularisation déplacement:', err);
+                            return res.status(500).json({ error: err.message });
+                        }
+                        
+                        console.log(`✅ Régularisation effectuée: Déplacement ${id} transféré du BC ${ancien_bon_commande_id} vers BC ${nouveau_bon_commande_id} (${deplacement.nb_uo} UO)`);
+                        
+                        res.json({ 
+                            message: 'Régularisation effectuée avec succès',
+                            details: {
+                                deplacement_id: id,
+                                ancien_bon_commande_id: ancien_bon_commande_id,
+                                nouveau_bon_commande_id: nouveau_bon_commande_id,
+                                nb_uo_transferees: deplacement.nb_uo
+                            }
+                        });
+                    }
+                );
+            });
+        });
+    });
+});
+
+// Réaffectation simple d'un déplacement vers un autre BC (sans vérification des UO disponibles)
+app.post('/api/deplacements/:id/reaffecter', requireAuth, (req, res) => {
+    const id = req.params.id;
+    const { nouveau_bon_commande_id } = req.body;
+    
+    if (!nouveau_bon_commande_id) {
+        return res.status(400).json({ error: 'Le nouveau bon de commande est requis' });
+    }
+    
+    // Vérifier que l'utilisateur est admin
+    if (req.session.activeProfile !== 'admin') {
+        return res.status(403).json({ error: 'Seul un administrateur peut effectuer cette opération' });
+    }
+    
+    // Vérifier que le déplacement existe
+    database.get(`
+        SELECT d.*, bc.intitule as ancien_bc_intitule 
+        FROM deplacements d 
+        LEFT JOIN bons_commande bc ON d.bon_commande_id = bc.id 
+        WHERE d.id = ?
+    `, [id], (err, deplacement) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        
+        if (!deplacement) {
+            return res.status(404).json({ error: 'Déplacement non trouvé' });
+        }
+        
+        // Vérifier que le nouveau bon de commande existe
+        database.get(`SELECT * FROM bons_commande WHERE id = ?`, [nouveau_bon_commande_id], (err, nouveauBc) => {
+            if (err) {
+                return res.status(500).json({ error: err.message });
+            }
+            
+            if (!nouveauBc) {
+                return res.status(404).json({ error: 'Nouveau bon de commande non trouvé' });
+            }
+            
+            // Préparer le nouveau commentaire avec la trace de réaffectation
+            const ancienBcRef = deplacement.ancien_bc_intitule || 'N/A';
+            const nouveauBcRef = nouveauBc.intitule;
+            const traceReaffectation = `Réaffectation du BDC n° ${ancienBcRef} vers le BDC n° ${nouveauBcRef}`;
+            
+            // Si un commentaire existait, l'ajouter après la trace
+            let nouveauCommentaire = traceReaffectation;
+            if (deplacement.commentaire && deplacement.commentaire.trim()) {
+                // Vérifier si ce n'est pas déjà une trace de réaffectation
+                if (!deplacement.commentaire.startsWith('Réaffectation du BDC')) {
+                    nouveauCommentaire = traceReaffectation + ' | ' + deplacement.commentaire;
+                }
+            }
+            
+            // Effectuer le transfert : mettre à jour le bon de commande, le commentaire et retirer le marquage à régulariser
+            database.run(
+                `UPDATE deplacements SET bon_commande_id = ?, a_regulariser = 0, commentaire = ? WHERE id = ?`,
+                [nouveau_bon_commande_id, nouveauCommentaire, id],
+                function(err) {
+                    if (err) {
+                        console.error('Erreur réaffectation déplacement:', err);
+                        return res.status(500).json({ error: err.message });
+                    }
+                    
+                    console.log(`✅ Réaffectation effectuée: Déplacement ${id} transféré de BC ${ancienBcRef} vers BC ${nouveauBcRef} (${deplacement.nb_uo} UO)`);
+                    
+                    res.json({ 
+                        message: 'Réaffectation effectuée avec succès',
+                        details: {
+                            deplacement_id: id,
+                            ancien_bon_commande: ancienBcRef,
+                            nouveau_bon_commande: nouveauBcRef,
+                            nb_uo_transferees: deplacement.nb_uo
+                        }
+                    });
+                }
+            );
+        });
     });
 });
 
@@ -6321,10 +6581,12 @@ app.get('/api/reporting-deplacements', requireAuth, (req, res) => {
         SELECT 
             bc.id,
             bc.intitule,
+            bc.titulaire,
             bc.date_debut,
             bc.date_fin,
             bc.nb_uo as uo_commandees,
             bc.actif,
+            bc.solde,
             COALESCE(SUM(d.nb_uo), 0) as uo_consommees
         FROM bons_commande bc
         LEFT JOIN deplacements d ON d.bon_commande_id = bc.id
