@@ -3128,9 +3128,10 @@
             if (!currentUser) return;
             
             const isAdmin = currentUser.activeProfile === 'admin';
+            const isAmoaCed = currentUser.is_amoa_ced === 1;
             
-            // Onglet Reporting - uniquement pour Admin
-            document.getElementById('deplacementsTabReporting').style.display = isAdmin ? 'inline-block' : 'none';
+            // Onglet Reporting - pour Admin ET AMOA CED
+            document.getElementById('deplacementsTabReporting').style.display = (isAdmin || isAmoaCed) ? 'inline-block' : 'none';
             
             // Onglet Administration - uniquement pour Admin
             document.getElementById('deplacementsTabAdmin').style.display = isAdmin ? 'inline-block' : 'none';
@@ -4408,44 +4409,93 @@
                 title.textContent = isAdmin ? 'Liste de tous les déplacements' : 'Liste de mes déplacements';
             }
             
-            // Adapter les headers selon le profil (ajouter "Créé par" pour admin)
+            // Adapter les headers selon le profil
+            // Ordre: Date début - Date fin - Nb UO - SAMU - Ville - AMOA CED - Bon de commande - Créé par (admin) - Créé le (admin) - Commentaire - Actions
             if (thead) {
                 thead.innerHTML = `
                     <tr>
-                        ${isAdmin ? '<th>Créé par</th>' : ''}
-                        <th>Bon de commande</th>
-                        <th>SAMU</th>
-                        <th>Ville</th>
                         <th>Date début</th>
                         <th>Date fin</th>
                         <th>Nb UO</th>
+                        <th>SAMU</th>
+                        <th>Ville</th>
                         <th>AMOA CED</th>
+                        <th>Bon de commande</th>
+                        ${isAdmin ? '<th>Créé par</th><th>Créé le</th>' : ''}
                         <th>Commentaire</th>
                         <th>Actions</th>
                     </tr>
                 `;
             }
             
-            const colSpan = isAdmin ? 10 : 9;
+            const colSpan = isAdmin ? 11 : 9;
             
             if (!deplacements || deplacements.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align: center; color: #999;">Aucun déplacement enregistré</td></tr>`;
                 return;
             }
             
+            // Calculer les UO cumulées par BDC pour identifier les dépassements
+            // On trie par date de création pour identifier quel déplacement fait dépasser
+            const depassePlafond = {};
+            
+            try {
+                const deplacementsSorted = [...deplacements].sort((a, b) => {
+                    const dateA = a.created_at ? new Date(a.created_at) : new Date(0);
+                    const dateB = b.created_at ? new Date(b.created_at) : new Date(0);
+                    return dateA - dateB;
+                });
+                const uoCumuleeParBdc = {};
+                
+                deplacementsSorted.forEach(d => {
+                    if (d.bon_commande_id) {
+                        const bcId = d.bon_commande_id;
+                        // Utiliser les données du BC directement depuis le déplacement (jointure SQL)
+                        const uoCommandees = d.bc_uo_commandees || d.bc_nb_uo || 0;
+                        
+                        if (!uoCumuleeParBdc[bcId]) {
+                            uoCumuleeParBdc[bcId] = 0;
+                        }
+                        
+                        uoCumuleeParBdc[bcId] += (d.nb_uo || 0);
+                        
+                        // Si ce déplacement fait dépasser le plafond
+                        if (uoCommandees > 0 && uoCumuleeParBdc[bcId] > uoCommandees) {
+                            depassePlafond[d.id] = true;
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Erreur calcul dépassements:', error);
+            }
+            
             tbody.innerHTML = deplacements.map(d => {
                 // Trouver le nom de l'AMOA CED (dans les utilisateurs)
-                const amoaCed = amoaCedUsers.find(u => u.id === d.amoa_ced_id);
+                const amoaCed = (amoaCedUsers || []).find(u => u.id === d.amoa_ced_id);
                 const amoaCedName = amoaCed ? `${amoaCed.nom.toUpperCase()} ${amoaCed.prenom}` : (d.amoa_ced_nom ? `${d.amoa_ced_nom.toUpperCase()} ${d.amoa_ced_prenom || ''}` : '-');
                 
                 // Nom du créateur (pour admin)
                 const creatorName = d.creator_nom ? `${d.creator_nom.toUpperCase()} ${d.creator_prenom || ''}` : '-';
                 
+                // Date de création formatée
+                let createdAt = '-';
+                if (d.created_at) {
+                    try {
+                        const datePart = d.created_at.includes('T') ? d.created_at.split('T')[0] : d.created_at.split(' ')[0];
+                        createdAt = formatDateFr(datePart);
+                    } catch (e) {
+                        createdAt = '-';
+                    }
+                }
+                
                 // Vérifier si le déplacement n'a pas de BC affecté
                 const hasNoBC = !d.bon_commande_id || !d.bon_commande_intitule;
                 
-                // Style de ligne si à régulariser OU si pas de BC affecté
-                const needsAttention = d.a_regulariser || hasNoBC;
+                // Vérifier si ce déplacement dépasse le plafond
+                const isDepassement = depassePlafond[d.id] === true;
+                
+                // Style de ligne si à régulariser OU si pas de BC affecté OU si dépassement
+                const needsAttention = d.a_regulariser || hasNoBC || isDepassement;
                 const rowStyle = needsAttention ? 'background-color: #ffebee; border-left: 4px solid #e74c3c;' : '';
                 
                 // Badge à afficher
@@ -4462,21 +4512,28 @@
                     bcDisplay = `${d.bon_commande_intitule}${d.bon_commande_titulaire ? ' - ' + d.bon_commande_titulaire : ''}${badge}`;
                 }
                 
-                // Affichage du commentaire (tronqué si trop long)
-                const commentaireDisplay = d.commentaire 
-                    ? `<span title="${d.commentaire.replace(/"/g, '&quot;')}">${d.commentaire.length > 30 ? d.commentaire.substring(0, 30) + '...' : d.commentaire}</span>`
+                // Affichage du commentaire
+                // Si dépassement et pas déjà de commentaire sur le dépassement, ajouter automatiquement
+                let commentaireText = d.commentaire || '';
+                if (isDepassement && !commentaireText.includes('Dépasse le plafond')) {
+                    const depassementMsg = '⚠️ Dépasse le plafond de la commande';
+                    commentaireText = commentaireText ? `${depassementMsg} | ${commentaireText}` : depassementMsg;
+                }
+                
+                const commentaireDisplay = commentaireText 
+                    ? `<span title="${commentaireText.replace(/"/g, '&quot;')}" style="${isDepassement ? 'color: #e74c3c; font-weight: bold;' : ''}">${commentaireText.length > 30 ? commentaireText.substring(0, 30) + '...' : commentaireText}</span>`
                     : '<span style="color: #999;">-</span>';
                 
                 return `
                 <tr style="${rowStyle}">
-                    ${isAdmin ? `<td style="font-size: 11px;">${creatorName}</td>` : ''}
-                    <td>${bcDisplay}</td>
-                    <td>${d.samu}</td>
-                    <td>${d.ville}</td>
                     <td>${formatDateFr(d.date_debut)}</td>
                     <td>${formatDateFr(d.date_fin)}</td>
                     <td>${d.nb_uo}</td>
+                    <td>${d.samu}</td>
+                    <td>${d.ville}</td>
                     <td>${amoaCedName}</td>
+                    <td>${bcDisplay}</td>
+                    ${isAdmin ? `<td style="font-size: 11px;">${creatorName}</td><td style="font-size: 11px;">${createdAt}</td>` : ''}
                     <td style="font-size: 11px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${commentaireDisplay}</td>
                     <td>
                         <button onclick="editDeplacement(${d.id})" style="background-color: ${needsAttention ? '#e74c3c' : '#3498db'}; color: white; padding: 5px 10px; font-size: 12px; margin-right: 5px;">${hasNoBC ? '📋 Affecter' : (d.a_regulariser ? '🔄 Régulariser' : '✏️ Modifier')}</button>
@@ -4653,10 +4710,22 @@
             samuSelect.innerHTML = '<option value="">-- Sélectionner --</option>' +
                 SAMU_LIST.map(s => `<option value="${s}">${s}</option>`).join('');
             
-            // Bons de commande (non soldés, mais inclure le BC actuel même s'il est soldé)
+            // Bons de commande
+            // Pour les admins: afficher tous les BDC (soldés avec badge)
+            // Pour les utilisateurs: afficher uniquement les BDC non soldés + le BC actuel s'il est soldé
+            const isAdmin = currentUser && currentUser.activeProfile === 'admin';
             const bcSelect = document.getElementById('editDeplacementBonCommande');
             const currentBcId = parseInt(document.getElementById('editDeplacementBonCommande').value) || null;
-            const availableBCs = bonsCommandeList.filter(bc => bc.solde !== 1 || bc.id === currentBcId);
+            
+            let availableBCs;
+            if (isAdmin) {
+                // Admin voit tous les BDC
+                availableBCs = bonsCommandeList;
+            } else {
+                // Utilisateur ne voit que les BDC non soldés + le BC actuel (même soldé)
+                availableBCs = bonsCommandeList.filter(bc => bc.solde !== 1 || bc.id === currentBcId);
+            }
+            
             bcSelect.innerHTML = '<option value="">-- Sélectionner --</option>' +
                 availableBCs.map(bc => {
                     const soldeBadge = bc.solde === 1 ? ' [SOLDÉ]' : '';
@@ -4666,142 +4735,6 @@
         
         function closeEditDeplacementModal() {
             document.getElementById('editDeplacementModal').classList.remove('active');
-            // Réinitialiser la section régularisation
-            document.getElementById('editDeplacementRegularisation').checked = false;
-            document.getElementById('regularisationSelectContainer').style.display = 'none';
-            document.getElementById('regularisationInfo').style.display = 'none';
-        }
-        
-        // Toggle l'affichage de la liste déroulante de régularisation
-        function toggleRegularisationSelect() {
-            const checkbox = document.getElementById('editDeplacementRegularisation');
-            const container = document.getElementById('regularisationSelectContainer');
-            
-            if (checkbox.checked) {
-                container.style.display = 'block';
-                loadBonsCommandeAvecUODisponibles();
-            } else {
-                container.style.display = 'none';
-                document.getElementById('editDeplacementNouveauBonCommande').value = '';
-                document.getElementById('regularisationInfo').style.display = 'none';
-            }
-        }
-        
-        // Charger les bons de commande avec UO disponibles
-        async function loadBonsCommandeAvecUODisponibles() {
-            const currentBcId = document.getElementById('editDeplacementBonCommande').value;
-            const dateDebut = document.getElementById('editDeplacementDateDebut').value;
-            const dateFin = document.getElementById('editDeplacementDateFin').value;
-            
-            const select = document.getElementById('editDeplacementNouveauBonCommande');
-            select.innerHTML = '<option value="">-- Chargement... --</option>';
-            
-            try {
-                // Récupérer les bons de commande avec leur solde UO
-                const response = await fetch(`${API_URL}/reporting-deplacements`, { credentials: 'include' });
-                if (response.ok) {
-                    const bons = await response.json();
-                    
-                    // Filtrer les bons de commande :
-                    // - Non soldés
-                    // - Différents du bon actuel
-                    // - Avec des UO disponibles (solde > 0)
-                    // - Dont les dates du déplacement sont dans la période du BC
-                    const bonsDisponibles = bons.filter(bc => {
-                        const solde = bc.uo_commandees - bc.uo_consommees;
-                        const bcId = bc.id;
-                        const isNotSolde = bc.solde !== 1;
-                        const isDifferent = bcId !== parseInt(currentBcId);
-                        const hasUO = solde > 0;
-                        const datesValides = dateDebut >= bc.date_debut && dateFin <= bc.date_fin;
-                        
-                        return isNotSolde && isDifferent && hasUO && datesValides;
-                    });
-                    
-                    if (bonsDisponibles.length === 0) {
-                        select.innerHTML = '<option value="">-- Aucun bon de commande disponible --</option>';
-                        document.getElementById('regularisationInfo').innerHTML = `
-                            <div style="color: #e74c3c;">
-                                <strong>⚠️ Aucun bon de commande éligible</strong><br>
-                                <small>Aucun bon de commande non soldé, avec des UO disponibles et couvrant les dates du déplacement n'a été trouvé.</small>
-                            </div>
-                        `;
-                        document.getElementById('regularisationInfo').style.display = 'block';
-                    } else {
-                        select.innerHTML = '<option value="">-- Sélectionner --</option>' +
-                            bonsDisponibles.map(bc => {
-                                const solde = bc.uo_commandees - bc.uo_consommees;
-                                return `<option value="${bc.id}">${bc.intitule} - ${bc.titulaire || 'N/A'} (${solde} UO disponibles)</option>`;
-                            }).join('');
-                        
-                        // Ajouter l'événement pour afficher les infos de transfert
-                        select.onchange = function() {
-                            updateRegularisationInfo(bonsDisponibles);
-                        };
-                    }
-                }
-            } catch (error) {
-                console.error('Erreur chargement bons de commande:', error);
-                select.innerHTML = '<option value="">-- Erreur de chargement --</option>';
-            }
-        }
-        
-        // Mettre à jour les infos de régularisation
-        function updateRegularisationInfo(bonsDisponibles) {
-            const newBcId = document.getElementById('editDeplacementNouveauBonCommande').value;
-            const infoDiv = document.getElementById('regularisationInfo');
-            
-            if (!newBcId) {
-                infoDiv.style.display = 'none';
-                return;
-            }
-            
-            const newBc = bonsDisponibles.find(bc => bc.id === parseInt(newBcId));
-            const currentBcId = document.getElementById('editDeplacementBonCommande').value;
-            const currentBc = bonsCommandeList.find(bc => bc.id === parseInt(currentBcId));
-            
-            // Calculer les jours du déplacement
-            const dateDebut = new Date(document.getElementById('editDeplacementDateDebut').value);
-            const dateFin = new Date(document.getElementById('editDeplacementDateFin').value);
-            const joursOuvres = calculerJoursOuvres(dateDebut, dateFin);
-            
-            if (newBc && currentBc) {
-                const soldeNewBc = newBc.uo_commandees - newBc.uo_consommees;
-                infoDiv.innerHTML = `
-                    <div style="color: #2e7d32;">
-                        <strong>📋 Résumé du transfert</strong><br>
-                        <table style="width: 100%; margin-top: 10px; font-size: 12px;">
-                            <tr>
-                                <td><strong>Déplacement :</strong></td>
-                                <td>${joursOuvres} jour(s) ouvré(s) = ${joursOuvres} UO</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Ancien BC :</strong></td>
-                                <td>${currentBc.intitule} → <span style="color: #27ae60;">+${joursOuvres} UO recrédités</span></td>
-                            </tr>
-                            <tr>
-                                <td><strong>Nouveau BC :</strong></td>
-                                <td>${newBc.intitule} → <span style="color: #e74c3c;">-${joursOuvres} UO</span> (restera ${soldeNewBc - joursOuvres} UO)</td>
-                            </tr>
-                        </table>
-                    </div>
-                `;
-                infoDiv.style.display = 'block';
-            }
-        }
-        
-        // Calculer les jours ouvrés entre deux dates
-        function calculerJoursOuvres(dateDebut, dateFin) {
-            let count = 0;
-            let current = new Date(dateDebut);
-            while (current <= dateFin) {
-                const dayOfWeek = current.getDay();
-                if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Pas samedi ni dimanche
-                    count++;
-                }
-                current.setDate(current.getDate() + 1);
-            }
-            return count;
         }
         
         async function saveDeplacement() {
@@ -16720,13 +16653,13 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     <table id="mesDeplacementsTable">
                         <thead id="mesDeplacementsHead">
                             <tr>
-                                <th>Bon de commande</th>
-                                <th>SAMU</th>
-                                <th>Ville</th>
                                 <th>Date début</th>
                                 <th>Date fin</th>
                                 <th>Nb UO</th>
+                                <th>SAMU</th>
+                                <th>Ville</th>
                                 <th>AMOA CED</th>
+                                <th>Bon de commande</th>
                                 <th>Commentaire</th>
                                 <th>Actions</th>
                             </tr>
@@ -17085,7 +17018,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             <div class="form-row" style="margin-bottom: 20px;">
                 <div class="form-group" style="flex: 1;">
                     <label style="font-weight: bold; color: #2c3e50; margin-bottom: 5px; display: block;">Bon de commande *</label>
-                    <select id="editDeplacementBonCommande" style="padding: 10px; font-size: 14px;">
+                    <select id="editDeplacementBonCommande" size="5" style="padding: 10px; font-size: 14px; width: 100%;">
                         <option value="">-- Sélectionner --</option>
                     </select>
                 </div>
@@ -17095,7 +17028,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             <div class="form-row" style="margin-bottom: 20px;">
                 <div class="form-group" style="flex: 1;">
                     <label style="font-weight: bold; color: #2c3e50; margin-bottom: 5px; display: block;">Commentaire</label>
-                    <textarea id="editDeplacementCommentaire" placeholder="Commentaire optionnel..." rows="2" style="width: 100%; resize: vertical; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;"></textarea>
+                    <textarea id="editDeplacementCommentaire" placeholder="Commentaire optionnel..." rows="5" style="width: 100%; resize: vertical; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;"></textarea>
                 </div>
             </div>
             

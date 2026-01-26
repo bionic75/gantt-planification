@@ -6225,6 +6225,7 @@ app.get('/api/mes-deplacements', requireAuth, (req, res) => {
         SELECT d.*, 
                bc.intitule as bon_commande_intitule, 
                bc.titulaire as bon_commande_titulaire,
+               bc.nb_uo as bc_uo_commandees,
                u.nom as amoa_ced_nom,
                u.prenom as amoa_ced_prenom,
                creator.nom as creator_nom,
