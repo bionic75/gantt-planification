@@ -918,7 +918,8 @@ app.post('/api/login', (req, res) => {
                         activeProfile: profile,
                         resourceId: user.resource_id,
                         hasReportingAccess: user.has_reporting_access === 1 || user.is_admin === 1,
-                        amoaCed: user.amoa_ced === 1
+                        amoaCed: user.amoa_ced === 1,
+                        is_amoa_ced: user.amoa_ced === 1
                     };
                     
                     res.json({ 
@@ -1099,7 +1100,8 @@ app.get('/api/check-session', (req, res) => {
                     resourceId: req.session.resourceId,
                     trigramme: userData?.trigramme || null,
                     profilePhoto: userData?.profile_photo || null,
-                    amoaCed: userData?.amoa_ced === 1
+                    amoaCed: userData?.amoa_ced === 1,
+                    is_amoa_ced: userData?.amoa_ced === 1
                 });
             }
         );
@@ -6192,10 +6194,13 @@ app.get('/api/deplacements', requireAuth, (req, res) => {
         SELECT d.*, 
                u.nom as user_nom, u.prenom as user_prenom,
                bc.intitule as bon_commande_intitule,
-               bc.titulaire as bon_commande_titulaire
+               bc.titulaire as bon_commande_titulaire,
+               amoa.nom as amoa_ced_nom,
+               amoa.prenom as amoa_ced_prenom
         FROM deplacements d
         LEFT JOIN users u ON d.user_id = u.id
         LEFT JOIN bons_commande bc ON d.bon_commande_id = bc.id
+        LEFT JOIN users amoa ON d.amoa_ced_id = amoa.id
     `;
     
     const params = [];
