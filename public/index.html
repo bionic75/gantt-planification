@@ -4872,6 +4872,9 @@
                     // Remplir la liste des SAMU pour le filtre
                     populateReportingSamuFilter(data);
                     
+                    // Remplir la liste des AMOA CED pour le filtre
+                    populateReportingAmoaCedFilter(data);
+                    
                     displayAllDeplacements(data);
                 }
             } catch (error) {
@@ -4893,12 +4896,50 @@
             }
         }
         
+        function populateReportingAmoaCedFilter(deplacements) {
+            const filterAmoaCed = document.getElementById('filterReportingAmoaCed');
+            if (!filterAmoaCed) return;
+            
+            // Utiliser la liste amoaCedUsers si disponible (contient tous les AMOA CED avec leurs noms)
+            if (amoaCedUsers && amoaCedUsers.length > 0) {
+                // Collecter les IDs des AMOA CED présents dans les déplacements
+                const amoaCedIdsInDeplacements = new Set();
+                deplacements.forEach(d => {
+                    if (d.amoa_ced_id) amoaCedIdsInDeplacements.add(d.amoa_ced_id);
+                });
+                
+                // Filtrer amoaCedUsers pour ne garder que ceux présents dans les déplacements
+                const filteredAmoaCed = amoaCedUsers.filter(u => amoaCedIdsInDeplacements.has(u.id));
+                
+                // Trier par nom
+                filteredAmoaCed.sort((a, b) => `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`));
+                
+                filterAmoaCed.innerHTML = '<option value="">-- Tous les AMOA CED --</option>' +
+                    filteredAmoaCed.map(u => `<option value="${u.id}">${u.nom.toUpperCase()} ${u.prenom}${u.societe ? ' (' + u.societe + ')' : ''}</option>`).join('');
+            } else {
+                // Fallback: utiliser les données des déplacements
+                const amoaCedMap = new Map();
+                deplacements.forEach(d => {
+                    if (d.amoa_ced_id) {
+                        const name = d.amoa_ced_nom 
+                            ? `${d.amoa_ced_nom.toUpperCase()} ${d.amoa_ced_prenom || ''}`.trim()
+                            : `AMOA CED #${d.amoa_ced_id}`;
+                        amoaCedMap.set(d.amoa_ced_id, name);
+                    }
+                });
+                
+                const amoaCedList = Array.from(amoaCedMap.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+                filterAmoaCed.innerHTML = '<option value="">-- Tous les AMOA CED --</option>' +
+                    amoaCedList.map(([id, name]) => `<option value="${id}">${name}</option>`).join('');
+            }
+        }
+        
         function displayAllDeplacements(deplacements) {
             const tbody = document.getElementById('reportingDeplacementsBody');
             const countDiv = document.getElementById('reportingDeplacementsCount');
             
             if (!deplacements || deplacements.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #999;">Aucun déplacement enregistré</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #999;">Aucun déplacement enregistré</td></tr>';
                 if (countDiv) countDiv.textContent = '0 déplacement(s)';
                 return;
             }
@@ -4909,12 +4950,31 @@
                     ? `${d.bon_commande_intitule}${d.bon_commande_titulaire ? ' - ' + d.bon_commande_titulaire : ''}`
                     : '<span style="color: #e74c3c; font-weight: bold;">⚠️ À affecter</span>';
                 
+                // Créé par (user qui a créé le déplacement)
+                const creePar = d.user_nom 
+                    ? `${d.user_nom.toUpperCase()} ${d.user_prenom || ''}`.trim()
+                    : '-';
+                
+                // AMOA CED - utiliser amoaCedUsers pour avoir le nom complet
+                let amoaCedDisplay = '-';
+                if (d.amoa_ced_id) {
+                    const amoaCed = (amoaCedUsers || []).find(u => u.id === d.amoa_ced_id);
+                    if (amoaCed) {
+                        amoaCedDisplay = `${amoaCed.nom.toUpperCase()} ${amoaCed.prenom}${amoaCed.societe ? ' (' + amoaCed.societe + ')' : ''}`;
+                    } else if (d.amoa_ced_nom) {
+                        amoaCedDisplay = `${d.amoa_ced_nom.toUpperCase()} ${d.amoa_ced_prenom || ''}`.trim();
+                    } else {
+                        amoaCedDisplay = `AMOA CED #${d.amoa_ced_id}`;
+                    }
+                }
+                
                 return `
                 <tr>
                     <td>${bdcDisplay}</td>
                     <td>${formatDateFr(d.date_debut)}</td>
                     <td>${formatDateFr(d.date_fin)}</td>
-                    <td>${d.user_prenom || ''} ${d.user_nom || ''}</td>
+                    <td>${creePar}</td>
+                    <td>${amoaCedDisplay}</td>
                     <td>${d.samu}</td>
                     <td>${d.ville}</td>
                     <td style="text-align: center; font-weight: bold;">${d.nb_uo}</td>
@@ -4932,6 +4992,7 @@
             const dateDebutFilter = document.getElementById('filterReportingDateDebut').value;
             const dateFinFilter = document.getElementById('filterReportingDateFin').value;
             const samuFilter = document.getElementById('filterReportingSamu').value;
+            const amoaCedFilter = document.getElementById('filterReportingAmoaCed').value;
             
             let filtered = [...allReportingDeplacements];
             
@@ -4955,6 +5016,11 @@
                 filtered = filtered.filter(d => d.samu === samuFilter);
             }
             
+            // Filtre par AMOA CED
+            if (amoaCedFilter) {
+                filtered = filtered.filter(d => d.amoa_ced_id === parseInt(amoaCedFilter));
+            }
+            
             displayAllDeplacements(filtered);
         }
         
@@ -4963,6 +5029,7 @@
             document.getElementById('filterReportingDateDebut').value = '';
             document.getElementById('filterReportingDateFin').value = '';
             document.getElementById('filterReportingSamu').value = '';
+            document.getElementById('filterReportingAmoaCed').value = '';
             
             displayAllDeplacements(allReportingDeplacements);
         }
@@ -4973,6 +5040,7 @@
             const dateDebutFilter = document.getElementById('filterReportingDateDebut').value;
             const dateFinFilter = document.getElementById('filterReportingDateFin').value;
             const samuFilter = document.getElementById('filterReportingSamu').value;
+            const amoaCedFilter = document.getElementById('filterReportingAmoaCed').value;
             
             let dataToExport = [...allReportingDeplacements];
             
@@ -4988,6 +5056,9 @@
             if (samuFilter) {
                 dataToExport = dataToExport.filter(d => d.samu === samuFilter);
             }
+            if (amoaCedFilter) {
+                dataToExport = dataToExport.filter(d => d.amoa_ced_id === parseInt(amoaCedFilter));
+            }
             
             if (dataToExport.length === 0) {
                 alert('Aucune donnée à exporter');
@@ -4995,17 +5066,36 @@
             }
             
             // Créer le contenu CSV
-            const headers = ['N° de BDC', 'Titulaire', 'Date début', 'Date fin', 'Utilisateur', 'SAMU', 'Ville', 'Nb UO'];
-            const rows = dataToExport.map(d => [
-                d.bon_commande_intitule || 'À affecter',
-                d.bon_commande_titulaire || '',
-                d.date_debut,
-                d.date_fin,
-                `${d.user_prenom || ''} ${d.user_nom || ''}`.trim(),
-                d.samu,
-                d.ville,
-                d.nb_uo
-            ]);
+            const headers = ['N° de BDC', 'Titulaire', 'Date début', 'Date fin', 'Créé par', 'AMOA CED', 'SAMU', 'Ville', 'Nb UO'];
+            const rows = dataToExport.map(d => {
+                // Créé par
+                const creePar = d.user_nom 
+                    ? `${d.user_nom.toUpperCase()} ${d.user_prenom || ''}`.trim()
+                    : '';
+                
+                // AMOA CED
+                let amoaCedDisplay = '';
+                if (d.amoa_ced_id) {
+                    const amoaCed = (amoaCedUsers || []).find(u => u.id === d.amoa_ced_id);
+                    if (amoaCed) {
+                        amoaCedDisplay = `${amoaCed.nom.toUpperCase()} ${amoaCed.prenom}${amoaCed.societe ? ' (' + amoaCed.societe + ')' : ''}`;
+                    } else if (d.amoa_ced_nom) {
+                        amoaCedDisplay = `${d.amoa_ced_nom.toUpperCase()} ${d.amoa_ced_prenom || ''}`.trim();
+                    }
+                }
+                
+                return [
+                    d.bon_commande_intitule || 'À affecter',
+                    d.bon_commande_titulaire || '',
+                    d.date_debut,
+                    d.date_fin,
+                    creePar,
+                    amoaCedDisplay,
+                    d.samu,
+                    d.ville,
+                    d.nb_uo
+                ];
+            });
             
             // Ajouter BOM pour UTF-8 et créer le CSV
             const BOM = '\uFEFF';
@@ -16724,6 +16814,12 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                                 <option value="">-- Tous les SAMU --</option>
                             </select>
                         </div>
+                        <div style="flex: 1; min-width: 180px;">
+                            <label style="display: block; font-weight: bold; margin-bottom: 5px; font-size: 12px; color: #495057;">AMOA CED</label>
+                            <select id="filterReportingAmoaCed" onchange="filterReportingDeplacements()" style="width: 100%; padding: 8px; border: 1px solid #ced4da; border-radius: 4px;">
+                                <option value="">-- Tous les AMOA CED --</option>
+                            </select>
+                        </div>
                         <div style="display: flex; gap: 10px;">
                             <button onclick="resetReportingFilters()" style="padding: 8px 15px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px;">
                                 🔄 Réinitialiser
@@ -16742,14 +16838,15 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                                 <th>N° de BDC</th>
                                 <th>Date début</th>
                                 <th>Date fin</th>
-                                <th>Utilisateur</th>
+                                <th>Créé par</th>
+                                <th>AMOA CED</th>
                                 <th>SAMU</th>
                                 <th>Ville</th>
                                 <th>Nb UO</th>
                             </tr>
                         </thead>
                         <tbody id="reportingDeplacementsBody">
-                            <tr><td colspan="7" style="text-align: center; color: #999;">Chargement...</td></tr>
+                            <tr><td colspan="8" style="text-align: center; color: #999;">Chargement...</td></tr>
                         </tbody>
                     </table>
                 </div>
