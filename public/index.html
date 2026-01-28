@@ -353,7 +353,7 @@
             background: #2980b9;
         }
         
-        /* Style de la scrollbar pour la liste de détails du nettoyage à effectuer*/
+        /* Style de la scrollbar pour la liste de détails du nettoyage */
         #cleanupDetailsList::-webkit-scrollbar {
             width: 8px;
         }
@@ -13495,13 +13495,14 @@
                 expertColors[resource.id] = baseColors[index % baseColors.length];
             });
             
-            let html = '<table style="width: 100%; border-collapse: collapse; font-size: 12px;">';
+            // Table avec colonnes de largeur fixe égale (100% / 7 = ~14.28%)
+            let html = '<table style="width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed;">';
             
-            // En-tête des jours de la semaine
+            // En-tête des jours de la semaine avec largeur fixe
             html += '<thead><tr>';
             dayNames.forEach((day, index) => {
                 const isWeekend = index === 0 || index === 6;
-                html += `<th style="padding: 10px; background-color: ${isWeekend ? '#ffc107' : '#1D70B7'}; color: ${isWeekend ? '#333' : 'white'}; border: 1px solid #bdc3c7; font-weight: bold;">${day}</th>`;
+                html += `<th style="width: 14.28%; padding: 10px; background-color: ${isWeekend ? '#ffc107' : '#1D70B7'}; color: ${isWeekend ? '#333' : 'white'}; border: 1px solid #bdc3c7; font-weight: bold;">${day}</th>`;
             });
             html += '</tr></thead><tbody>';
             
@@ -13514,7 +13515,7 @@
                 
                 for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {
                     if ((week === 0 && dayOfWeek < startDayOfWeek) || day > lastDay) {
-                        html += '<td style="padding: 10px; border: 1px solid #bdc3c7; background-color: #f5f5f5; min-height: 100px;"></td>';
+                        html += '<td style="width: 14.28%; padding: 10px; border: 1px solid #bdc3c7; background-color: #f5f5f5; min-height: 100px; vertical-align: top;"></td>';
                     } else {
                         // CORRECTION : Format correct YYYY-MM-DD avec padding et month+1
                         const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -13558,7 +13559,7 @@
                             }
                         });
                         
-                        html += `<td style="padding: 5px; border: 1px solid #bdc3c7; ${isWeekend ? 'background-color: #fff8e1;' : isToday ? 'background-color: #d4edda;' : ''} vertical-align: top; min-height: 100px;">
+                        html += `<td style="width: 14.28%; padding: 5px; border: 1px solid #bdc3c7; ${isWeekend ? 'background-color: #fff8e1;' : isToday ? 'background-color: #d4edda;' : ''} vertical-align: top; min-height: 100px;">
                             <div style="font-weight: bold; text-align: center; margin-bottom: 8px; padding: 4px; background-color: ${isToday ? '#28a745' : '#34495e'}; color: white; border-radius: 3px; font-size: 13px;">${day}</div>
                             
                             <div style="margin-bottom: 5px;">
