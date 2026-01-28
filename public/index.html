@@ -124,8 +124,14 @@
         /* Bordure fine pour séparer AM/PM au sein d'une même journée */
         .gantt-table td.half-day-separator { border-right: 1px solid #d0d0d0; }
         .gantt-table th.half-day-separator { border-right: 1px solid #34495e; }
-        .resource-header { background-color: #2c3e50; color: white; text-align: left; font-weight: bold; min-width: 200px; max-width: 200px; width: 200px; position: sticky; left: 0; z-index: 10; padding: 10px; }
-        .resource-label { background-color: #ecf0f1; text-align: center; font-size: 11px; font-weight: bold; color: #7f8c8d; min-width: 120px; max-width: 120px; width: 120px; position: sticky; left: 200px; z-index: 9; padding: 10px; line-height: 1.4; }
+        .resource-header { background-color: #2c3e50; color: white; text-align: left; font-weight: bold; min-width: 200px; max-width: 200px; width: 200px; position: sticky; left: 0; z-index: 30; padding: 10px; }
+        .resource-label { background-color: #ecf0f1; text-align: center; font-size: 11px; font-weight: bold; color: #7f8c8d; min-width: 120px; max-width: 120px; width: 120px; position: sticky; left: 200px; z-index: 29; padding: 10px; line-height: 1.4; }
+        /* Header sticky pour les deux premières colonnes */
+        .gantt-table thead th.resource-header { z-index: 50; background-color: #1D70B7; }
+        .gantt-table thead th.resource-label { z-index: 49; background-color: #1D70B7; }
+        /* Body sticky pour les deux premières colonnes */
+        .gantt-table tbody td.resource-header { z-index: 30; }
+        .gantt-table tbody td.resource-label { z-index: 29; }
         .day-header { background-color: #1D70B7; color: white; min-width: 100px; max-width: 100px; width: 100px; cursor: default; }
         .day-header::after { content: none; }
         .day-header.weekend { background-color: #ffc107; color: #333; }
@@ -626,29 +632,29 @@
                         <div class="legend-section">
                             <div class="legend-section-title">DISPONIBILITE</div>
                             <div class="legend-items" style="display: flex; flex-direction: column; gap: 8px;">
-                                <div class="legend-item"><span class="color-code" style="background-color: #95a5a6;"></span> 1 - Indisponible</div>
-                                <div class="legend-item"><span class="color-code" style="background-color: #27ae60;"></span> 2 - Disponible pour l'ANS</div>
-                                <div class="legend-item"><span class="color-code" style="background-color: #00bcd4;"></span> 3 - 🏖️ Congés</div>
+                                <div class="legend-item" title="L'expert métier n'est pas disponible pour l'ANS mais vous pouvez néanmoins le solliciter en cliquant sur '✉️ Faire une demande'" style="cursor: help;"><span class="color-code" style="background-color: #95a5a6;"></span> 1 - Indisponible</div>
+                                <div class="legend-item" title="L'expert métier est disponible pour l'ANS, vous pouvez lui affecter une activité sur le planning" style="cursor: help;"><span class="color-code" style="background-color: #27ae60;"></span> 2 - Disponible pour l'ANS</div>
+                                <div class="legend-item" title="L'expert métier n'est absolument pas disponible pour l'ANS" style="cursor: help;"><span class="color-code" style="background-color: #00bcd4;"></span> 3 - 🏖️ Congés</div>
                             </div>
                         </div>
                         <!-- Colonne AFFECTATION 1-4 -->
                         <div class="legend-section">
                             <div class="legend-section-title">AFFECTATION (1-4)</div>
                             <div class="legend-items" style="display: flex; flex-direction: column; gap: 8px;">
-                                <div class="legend-item"><span class="color-code" style="background-color: #95a5a6;"></span> 1 - Indisponible</div>
-                                <div class="legend-item"><span class="color-code" style="background-color: #9b59b6;"></span> 2 - En attente d'affectation</div>
-                                <div class="legend-item"><span class="color-code" style="background-color: #e67e22;"></span> 3 - 🚨 SAMU (Déploiement)</div>
-                                <div class="legend-item"><span class="color-code" style="background-color: #d35400;"></span> 4 - 🚨 SAMU (Dev. usages)</div>
+                                <div class="legend-item" title="Pas d'affectation possible" style="cursor: help;"><span class="color-code" style="background-color: #95a5a6;"></span> 1 - ❓ Indisponible</div>
+                                <div class="legend-item" title="L'expert attend que vous lui affectiez une activité" style="cursor: help;"><span class="color-code" style="background-color: #9b59b6;"></span> 2 - ⏳ En attente d'affectation</div>
+                                <div class="legend-item" title="L'expert travaille aux activités opérationnelles de déploiement du bandeau de communication" style="cursor: help;"><span class="color-code" style="background-color: #e67e22;"></span> 3 - 📞 SAMU (Déploiement)</div>
+                                <div class="legend-item" title="L'expert travaille aux activités liées à l'utilisation du bandeau de communication (démonstration, formation, accompagnement post démarrage, visite de site, ...)" style="cursor: help;"><span class="color-code" style="background-color: #d35400;"></span> 4 - 📞 SAMU (Dev. usages)</div>
                             </div>
                         </div>
                         <!-- Colonne AFFECTATION 5-8 -->
                         <div class="legend-section">
                             <div class="legend-section-title">AFFECTATION (5-8)</div>
                             <div class="legend-items" style="display: flex; flex-direction: column; gap: 8px;">
-                                <div class="legend-item"><span class="color-code" style="background-color: #3498db;"></span> 5 - ANS (Déploiement)</div>
-                                <div class="legend-item"><span class="color-code" style="background-color: #2980b9;"></span> 6 - ANS (Dev. usages)</div>
-                                <div class="legend-item"><span class="color-code" style="background-color: #e74c3c;"></span> 7 - Qualification</div>
-                                <div class="legend-item"><span class="color-code" style="background-color: #16a085;"></span> 8 - Divers</div>
+                                <div class="legend-item" title="L'expert travaille à la réalisation de documents pour le déploiement du SI-SAMU" style="cursor: help;"><span class="color-code" style="background-color: #3498db;"></span> 5 - 📄 ANS (Déploiement)</div>
+                                <div class="legend-item" title="L'expert travaille à des opérations de développement des usages (communication, animation de webinaires, formation EHESP, congrès, ...)" style="cursor: help;"><span class="color-code" style="background-color: #2980b9;"></span> 6 - 👨‍🏫 ANS (Dev. usages)</div>
+                                <div class="legend-item" title="L'expert travaille à la réalisation de VFT métier" style="cursor: help;"><span class="color-code" style="background-color: #e74c3c;"></span> 7 - ☑️ Qualification</div>
+                                <div class="legend-item" title="L'expert est affecté à des activités relatives aux autres produits du domaine des urgences (SAS, SI-VIC, SICAP, Hub Santé, ...)" style="cursor: help;"><span class="color-code" style="background-color: #16a085;"></span> 8 - 📖 Divers</div>
                             </div>
                         </div>
                     </div>
@@ -662,6 +668,32 @@
                         <h3 style="color: #1565c0; border-left: none; margin: 0;">
                             <span id="ganttDisplaySectionIcon">▼</span> Planification
                         </h3>
+                        <!-- Boutons de zoom à droite - Design stylisé -->
+                        <div onclick="event.stopPropagation();" style="display: flex; gap: 0; align-items: center; background: linear-gradient(145deg, #f0f4f8, #e2e8f0); border-radius: 8px; padding: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            <span style="font-size: 11px; color: #64748b; margin: 0 10px; font-weight: 500;">🔍 Zoom</span>
+                            <button onclick="event.stopPropagation(); zoomPlanning(-1);" 
+                                    style="width: 36px; height: 36px; background: linear-gradient(145deg, #3b82f6, #1d4ed8); color: white; border: none; border-radius: 6px 0 0 6px; cursor: pointer; font-size: 18px; font-weight: bold; display: flex; align-items: center; justify-content: center; transition: all 0.2s; box-shadow: inset 0 1px 0 rgba(255,255,255,0.2);" 
+                                    onmouseover="this.style.background='linear-gradient(145deg, #2563eb, #1e40af)'" 
+                                    onmouseout="this.style.background='linear-gradient(145deg, #3b82f6, #1d4ed8)'"
+                                    title="Réduire (zoom arrière)">
+                                −
+                            </button>
+                            <span id="zoomLevelDisplay" style="font-size: 13px; color: #1e40af; min-width: 50px; text-align: center; font-weight: 600; background: white; height: 36px; display: flex; align-items: center; justify-content: center; border-top: 1px solid #cbd5e1; border-bottom: 1px solid #cbd5e1;">100%</span>
+                            <button onclick="event.stopPropagation(); zoomPlanning(1);" 
+                                    style="width: 36px; height: 36px; background: linear-gradient(145deg, #3b82f6, #1d4ed8); color: white; border: none; border-radius: 0 6px 6px 0; cursor: pointer; font-size: 18px; font-weight: bold; display: flex; align-items: center; justify-content: center; transition: all 0.2s; box-shadow: inset 0 1px 0 rgba(255,255,255,0.2);" 
+                                    onmouseover="this.style.background='linear-gradient(145deg, #2563eb, #1e40af)'" 
+                                    onmouseout="this.style.background='linear-gradient(145deg, #3b82f6, #1d4ed8)'"
+                                    title="Agrandir (zoom avant)">
+                                +
+                            </button>
+                            <button onclick="event.stopPropagation(); resetZoomPlanning();" 
+                                    style="height: 36px; margin-left: 8px; padding: 0 12px; background: linear-gradient(145deg, #64748b, #475569); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 4px; transition: all 0.2s; box-shadow: inset 0 1px 0 rgba(255,255,255,0.2);" 
+                                    onmouseover="this.style.background='linear-gradient(145deg, #475569, #334155)'" 
+                                    onmouseout="this.style.background='linear-gradient(145deg, #64748b, #475569)'"
+                                    title="Réinitialiser le zoom à 100%">
+                                ↺ Reset
+                            </button>
+                        </div>
                     </div>
                     <div style="display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap;">
                         <button onclick="event.stopPropagation(); navigateMonth(-1);" 
@@ -2114,14 +2146,14 @@
         };
 
         const activityLabels = {
-            '1': 'Indisponible',
-            '2': 'En attente d\'affectation',
-            '3': '🚨 SAMU (Déploiement)',
-            '4': '🚨 SAMU (Dev. usages)',
-            '5': 'ANS (Déploiement)',
-            '6': 'ANS (Dev. usages)',
-            '7': 'Qualification',
-            '8': 'Divers'
+            '1': '❓ Indisponible',
+            '2': '⏳ En attente d\'affectation',
+            '3': '📞 SAMU (Déploiement)',
+            '4': '📞 SAMU (Dev. usages)',
+            '5': '📄 ANS (Déploiement)',
+            '6': '👨‍🏫 ANS (Dev. usages)',
+            '7': '☑️ Qualification',
+            '8': '📖 Divers'
         };
 
         function getUserProfiles(user) {
@@ -6151,12 +6183,12 @@
             const periodLabel = period === 'AM' ? 'Matin' : 'Après-midi';
             
             const activityLabels = {
-                '3': 'SAMU (Déploiement)',
-                '4': 'SAMU (Dev. usages)',
-                '5': 'ANS (Déploiement)',
-                '6': 'ANS (Dev. usages)',
-                '7': 'Qualification',
-                '8': 'Divers'
+                '3': '📞 SAMU (Déploiement)',
+                '4': '📞 SAMU (Dev. usages)',
+                '5': '📄 ANS (Déploiement)',
+                '6': '👨‍🏫 ANS (Dev. usages)',
+                '7': '☑️ Qualification',
+                '8': '📖 Divers'
             };
             const currentActivityLabel = activityLabels[currentValue] || 'Affectation';
             
@@ -6449,12 +6481,12 @@
                     // Mapper les valeurs pour un affichage lisible
                     const availableLabels = { '1': 'Indisponible', '2': 'Disponible ANS', '3': 'Disponible SAMU' };
                     const activityLabels = {
-                        '1': 'Indisponible',
-                        '2': 'Disponible', 
-                        '3': '🚨 SAMU (Déploiement)',
-                        '4': '🚨 SAMU (Dev. usages)',
-                        '5': 'ANS (Déploiement)',
-                        '6': 'ANS (Dev. usages)'
+                        '1': '❓ Indisponible',
+                        '2': '⏳ Disponible', 
+                        '3': '📞 SAMU (Déploiement)',
+                        '4': '📞 SAMU (Dev. usages)',
+                        '5': '📄 ANS (Déploiement)',
+                        '6': '👨‍🏫 ANS (Dev. usages)'
                     };
                     
                     previewData.entries.forEach(entry => {
@@ -6682,16 +6714,16 @@
                     // Vérifier les dates particulières - récupérer TOUS les événements
                     const allSpecialDates = getAllSpecialDateInfo(dateStr);
                     
-                    // Générer le contenu de la cellule - aligné en haut
-                    let cellContent = '<div style="display: flex; flex-direction: column; justify-content: flex-start; align-items: center; height: 100%; gap: 2px; padding-top: 4px;">';
+                    // Générer le contenu de la cellule - aligné en haut, bord à bord
+                    let cellContent = '<div style="display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch; height: 100%; gap: 1px; padding-top: 2px;">';
                     let hasContent = false;
                     
-                    // Ajouter les barres de congés scolaires
+                    // Ajouter les barres de congés scolaires - BORD À BORD (100%)
                     if (inZoneA || inZoneB || inZoneC) {
                         hasContent = true;
-                        if (inZoneA) cellContent += '<div style="width: 85%; height: 4px; background-color: #e91e63; border-radius: 2px;"></div>';
-                        if (inZoneB) cellContent += '<div style="width: 85%; height: 4px; background-color: #2196f3; border-radius: 2px;"></div>';
-                        if (inZoneC) cellContent += '<div style="width: 85%; height: 4px; background-color: #ff9800; border-radius: 2px;"></div>';
+                        if (inZoneA) cellContent += '<div style="width: 100%; height: 4px; background-color: #e91e63;"></div>';
+                        if (inZoneB) cellContent += '<div style="width: 100%; height: 4px; background-color: #2196f3;"></div>';
+                        if (inZoneC) cellContent += '<div style="width: 100%; height: 4px; background-color: #ff9800;"></div>';
                     }
                     
                     // Ajouter les cartouches des dates particulières (TOUS les événements)
@@ -6703,7 +6735,7 @@
                                 const displayLabel = cfg.label || specialDateInfo.summary || 'JF';
                                 const creatorInfo = cfg.createdBy ? `Créé par: ${cfg.createdBy}` : '';
                                 const tooltipText = creatorInfo ? `title="${displayLabel} - ${creatorInfo}"` : `title="${displayLabel}"`;
-                                cellContent += `<span ${tooltipText} style="display: inline-block; padding: 1px 3px; border-radius: 6px; font-size: 8px; font-weight: bold; cursor: help;
+                                cellContent += `<span ${tooltipText} style="display: inline-block; padding: 1px 3px; border-radius: 6px; font-size: 8px; font-weight: bold; cursor: help; align-self: center;
                                     background-color: ${cfg.bgColor || '#ffeb3b'}; 
                                     color: ${cfg.textColor || '#000'}; 
                                     border: 1px solid ${cfg.borderColor || '#fbc02d'}; margin-bottom: 1px;">${displayLabel}</span>`;
@@ -6719,10 +6751,10 @@
                     
                     const bgColor = isWeekend ? '#e8e8e8' : '#f5f5f5';
                     
-                    // AM
-                    html += `<td style="background-color: ${bgColor}; padding: 2px; min-height: 30px; vertical-align: top;">${cellContent}</td>`;
-                    // PM
-                    html += `<td class="day-separator" style="background-color: ${bgColor}; padding: 2px; min-height: 30px; vertical-align: top;">${cellContent}</td>`;
+                    // AM - padding 0 pour les barres bord à bord
+                    html += `<td style="background-color: ${bgColor}; padding: 0; min-height: 30px; vertical-align: top;">${cellContent}</td>`;
+                    // PM - padding 0 pour les barres bord à bord
+                    html += `<td class="day-separator" style="background-color: ${bgColor}; padding: 0; min-height: 30px; vertical-align: top;">${cellContent}</td>`;
                 }
                 
                 html += '</tr>';
@@ -7714,14 +7746,14 @@
                                                 function decodeActivity(rawValue) {
                                                     if (!rawValue || rawValue === '-') return '-';
                                                     const activityMap = {
-                                                        '1': 'Indisponible',
-                                                        '2': 'En attente d\'affectation',
-                                                        '3': '🚨 SAMU (Déploiement)',
-                                                        '4': '🚨 SAMU (Dev. usages)',
-                                                        '5': 'ANS (Déploiement)',
-                                                        '6': 'ANS (Dev. usages)',
-                                                        '7': '📋 Support SI-SAMU',
-                                                        '8': '🎓 Formation',
+                                                        '1': '❓ Indisponible',
+                                                        '2': '⏳ En attente d\'affectation',
+                                                        '3': '📞 SAMU (Déploiement)',
+                                                        '4': '📞 SAMU (Dev. usages)',
+                                                        '5': '📄 ANS (Déploiement)',
+                                                        '6': '👨‍🏫 ANS (Dev. usages)',
+                                                        '7': '☑️ Qualification',
+                                                        '8': '📖 Divers',
                                                         '9': '📊 Analyse',
                                                         '10': '🔧 MCO',
                                                         '11': '📞 Astreinte',
@@ -7852,14 +7884,14 @@
                                                 function decodeActivity(rawValue) {
                                                     if (!rawValue || rawValue === '-') return '-';
                                                     const activityMap = {
-                                                        '1': 'Indisponible',
-                                                        '2': 'En attente d\'affectation',
-                                                        '3': '🚨 SAMU (Déploiement)',
-                                                        '4': '🚨 SAMU (Dev. usages)',
-                                                        '5': 'ANS (Déploiement)',
-                                                        '6': 'ANS (Dev. usages)',
-                                                        '7': '📋 Support SI-SAMU',
-                                                        '8': '🎓 Formation',
+                                                        '1': '❓ Indisponible',
+                                                        '2': '⏳ En attente d\'affectation',
+                                                        '3': '📞 SAMU (Déploiement)',
+                                                        '4': '📞 SAMU (Dev. usages)',
+                                                        '5': '📄 ANS (Déploiement)',
+                                                        '6': '👨‍🏫 ANS (Dev. usages)',
+                                                        '7': '☑️ Qualification',
+                                                        '8': '📖 Divers',
                                                         '9': '📊 Analyse',
                                                         '10': '🔧 MCO',
                                                         '11': '📞 Astreinte',
@@ -12408,12 +12440,12 @@
             
             // Déterminer le label de l'activité
             const activityLabelsMap = {
-                '3': '🚨 SAMU (Déploiement)',
-                '4': '🚨 SAMU (Dev. usages)',
-                '5': 'ANS (Déploiement)',
-                '6': 'ANS (Dev. usages)',
-                '7': 'Qualification',
-                '8': 'Divers'
+                '3': '📞 SAMU (Déploiement)',
+                '4': '📞 SAMU (Dev. usages)',
+                '5': '📄 ANS (Déploiement)',
+                '6': '👨‍🏫 ANS (Dev. usages)',
+                '7': '☑️ Qualification',
+                '8': '📖 Divers'
             };
             
             // Vérifier si une affectation existe déjà pour cette demi-journée
@@ -13779,6 +13811,169 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
 
         function closeConfirmationModal() {
             document.getElementById('confirmationModal').style.display = 'none';
+        }
+
+        // ========== ZOOM DU PLANNING ==========
+        
+        let currentZoomLevel = 100; // Niveau de zoom en pourcentage
+        const minZoom = 50;
+        const maxZoom = 150;
+        const zoomStep = 10;
+        
+        function zoomPlanning(direction) {
+            // Calculer le nouveau niveau de zoom
+            const newZoom = currentZoomLevel + (direction * zoomStep);
+            
+            // Vérifier les limites
+            if (newZoom < minZoom || newZoom > maxZoom) {
+                return;
+            }
+            
+            currentZoomLevel = newZoom;
+            applyZoom();
+        }
+        
+        function resetZoomPlanning() {
+            currentZoomLevel = 100;
+            applyZoom();
+        }
+        
+        function applyZoom() {
+            const ganttWrapper = document.getElementById('ganttWrapper');
+            const ganttSection = document.getElementById('ganttDisplaySection');
+            if (!ganttWrapper || !ganttSection) return;
+            
+            const zoomFactor = currentZoomLevel / 100;
+            
+            // Créer ou mettre à jour la feuille de style dynamique pour le zoom
+            let zoomStyle = document.getElementById('ganttZoomStyle');
+            if (!zoomStyle) {
+                zoomStyle = document.createElement('style');
+                zoomStyle.id = 'ganttZoomStyle';
+                document.head.appendChild(zoomStyle);
+            }
+            
+            // IMPORTANT: Ne pas utiliser transform sur le wrapper car ça casse le sticky
+            // À la place, on modifie les tailles des éléments directement
+            
+            if (currentZoomLevel === 100) {
+                // Reset à la normale
+                zoomStyle.textContent = '';
+            } else {
+                // Calculer les nouvelles tailles
+                const baseCellWidth = 55;
+                const baseResourceWidth = 200;
+                const baseLabelWidth = 120;
+                
+                const newCellWidth = Math.round(baseCellWidth * zoomFactor);
+                const newResourceWidth = Math.round(baseResourceWidth * zoomFactor);
+                const newLabelWidth = Math.round(baseLabelWidth * zoomFactor);
+                const newFontSize = Math.max(8, Math.round(12 * zoomFactor));
+                const newCellFontSize = Math.max(7, Math.round(11 * zoomFactor));
+                
+                zoomStyle.textContent = `
+                    /* ===== ZOOM: Colonnes des jours (AM/PM) ===== */
+                    #ganttWrapper .gantt-table .day-header {
+                        min-width: ${newCellWidth}px !important;
+                        max-width: ${newCellWidth}px !important;
+                        width: ${newCellWidth}px !important;
+                        font-size: ${Math.max(9, Math.round(11 * zoomFactor))}px !important;
+                        padding: ${Math.max(2, Math.round(4 * zoomFactor))}px !important;
+                    }
+                    
+                    #ganttWrapper .gantt-table .gantt-cell {
+                        min-width: ${newCellWidth}px !important;
+                        max-width: ${newCellWidth}px !important;
+                        width: ${newCellWidth}px !important;
+                        height: ${Math.round(90 * zoomFactor)}px !important;
+                    }
+                    
+                    /* Cellules des congés scolaires */
+                    #ganttWrapper .gantt-table .school-holidays-row td:not(.resource-header):not(.resource-label) {
+                        min-width: ${newCellWidth}px !important;
+                        max-width: ${newCellWidth}px !important;
+                        width: ${newCellWidth}px !important;
+                    }
+                    
+                    /* ===== ZOOM: Colonne Ressource (sticky) ===== */
+                    #ganttWrapper .gantt-table .resource-header {
+                        min-width: ${newResourceWidth}px !important;
+                        max-width: ${newResourceWidth}px !important;
+                        width: ${newResourceWidth}px !important;
+                    }
+                    
+                    /* ===== ZOOM: Colonne Labels (sticky) ===== */
+                    #ganttWrapper .gantt-table .resource-label {
+                        min-width: ${newLabelWidth}px !important;
+                        max-width: ${newLabelWidth}px !important;
+                        width: ${newLabelWidth}px !important;
+                        left: ${newResourceWidth}px !important;
+                        font-size: ${Math.max(9, Math.round(11 * zoomFactor))}px !important;
+                    }
+                    
+                    /* Ajuster aussi total-sublabel */
+                    #ganttWrapper .gantt-table .total-sublabel {
+                        left: ${newResourceWidth}px !important;
+                    }
+                    
+                    /* ===== ZOOM: Contenu des cellules ===== */
+                    #ganttWrapper .gantt-cell-row {
+                        font-size: ${newCellFontSize}px !important;
+                        min-height: ${Math.max(18, Math.round(28 * zoomFactor))}px !important;
+                    }
+                    
+                    /* ===== ZOOM: Info ressource ===== */
+                    #ganttWrapper .gantt-table tbody td.resource-header > div {
+                        font-size: ${Math.max(9, Math.round(11 * zoomFactor))}px !important;
+                    }
+                    
+                    #ganttWrapper .gantt-table tbody td.resource-header strong {
+                        font-size: ${Math.max(10, Math.round(13 * zoomFactor))}px !important;
+                    }
+                    
+                    #ganttWrapper .gantt-table tbody td.resource-header small {
+                        font-size: ${Math.max(8, Math.round(10 * zoomFactor))}px !important;
+                    }
+                    
+                    #ganttWrapper .gantt-table tbody td.resource-header img,
+                    #ganttWrapper .gantt-table tbody td.resource-header > div > div > div:first-child {
+                        width: ${Math.round(40 * zoomFactor)}px !important;
+                        height: ${Math.round(40 * zoomFactor)}px !important;
+                    }
+                    
+                    #ganttWrapper .gantt-table tbody td.resource-header button {
+                        padding: ${Math.max(2, Math.round(4 * zoomFactor))}px ${Math.max(4, Math.round(8 * zoomFactor))}px !important;
+                        font-size: ${Math.max(8, Math.round(10 * zoomFactor))}px !important;
+                    }
+                    
+                    /* ===== ZOOM: Ligne totaux ===== */
+                    #ganttWrapper .gantt-table .total-cell {
+                        min-width: ${newCellWidth}px !important;
+                        max-width: ${newCellWidth}px !important;
+                        width: ${newCellWidth}px !important;
+                        font-size: ${newCellFontSize}px !important;
+                        padding: ${Math.max(4, Math.round(10 * zoomFactor))}px !important;
+                    }
+                    
+                    #ganttWrapper .gantt-table .total-label {
+                        min-width: ${newResourceWidth}px !important;
+                        max-width: ${newResourceWidth}px !important;
+                        width: ${newResourceWidth}px !important;
+                    }
+                    
+                    #ganttWrapper .gantt-table .total-sublabel {
+                        min-width: ${newLabelWidth}px !important;
+                        max-width: ${newLabelWidth}px !important;
+                        width: ${newLabelWidth}px !important;
+                    }
+                `;
+            }
+            
+            // Mettre à jour l'affichage du niveau de zoom
+            const zoomDisplay = document.getElementById('zoomLevelDisplay');
+            if (zoomDisplay) {
+                zoomDisplay.textContent = `${currentZoomLevel}%`;
+            }
         }
 
         // ========== NAVIGATION MOIS PRÉCÉDENT/SUIVANT ==========
