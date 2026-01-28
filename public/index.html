@@ -3128,7 +3128,10 @@
             if (!currentUser) return;
             
             const isAdmin = currentUser.activeProfile === 'admin';
-            const isAmoaCed = currentUser.is_amoa_ced === 1;
+            // Vérification robuste pour is_amoa_ced (peut être 1, true, "1", ou truthy)
+            const isAmoaCed = currentUser.is_amoa_ced == 1 || currentUser.is_amoa_ced === true;
+            
+            console.log('🔍 Vérification onglets déplacements:', { isAdmin, isAmoaCed, is_amoa_ced_raw: currentUser.is_amoa_ced });
             
             // Onglet Reporting - pour Admin ET AMOA CED
             document.getElementById('deplacementsTabReporting').style.display = (isAdmin || isAmoaCed) ? 'inline-block' : 'none';
