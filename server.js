@@ -55,7 +55,7 @@ const activeSessions = new Map();
 // Nettoyer les sessions inactives toutes les minutes (timeout 15 min)
 setInterval(() => {
     const now = Date.now();
-    const timeout = 15 * 60 * 1000; // 15 minutes
+    const timeout = 15 * 60 * 1000; // 15 minutes par défaut
     for (const [userId, session] of activeSessions) {
         if (now - session.lastActivity > timeout) {
             activeSessions.delete(userId);
