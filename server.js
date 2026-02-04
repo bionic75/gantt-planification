@@ -6720,8 +6720,9 @@ app.post('/api/astreintes', requireAuth, (req, res) => {
         return res.status(400).json({ error: 'Type, dates et objet sont requis' });
     }
     
-    if (type === 'hno' && (!heure_debut || !heure_fin)) {
-        return res.status(400).json({ error: 'Heures de début et fin requises pour HNO' });
+    // Heures obligatoires pour astreintes ET HNO
+    if (!heure_debut || !heure_fin) {
+        return res.status(400).json({ error: 'Heures de début et fin requises' });
     }
     
     if (!tous_samu && !samu) {
@@ -6731,7 +6732,7 @@ app.post('/api/astreintes', requireAuth, (req, res) => {
     database.run(
         `INSERT INTO astreintes_hno (user_id, type, date_debut, date_fin, heure_debut, heure_fin, samu, tous_samu, objet) 
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [targetUserId, type, date_debut, date_fin, heure_debut || null, heure_fin || null, tous_samu ? null : samu, tous_samu ? 1 : 0, objet],
+        [targetUserId, type, date_debut, date_fin, heure_debut, heure_fin, tous_samu ? null : samu, tous_samu ? 1 : 0, objet],
         function(err) {
             if (err) {
                 console.error('Erreur création astreinte:', err);
@@ -6761,11 +6762,16 @@ app.put('/api/astreintes/:id', requireAuth, (req, res) => {
             return res.status(403).json({ error: 'Non autorisé' });
         }
         
+        // Heures obligatoires pour astreintes ET HNO
+        if (!heure_debut || !heure_fin) {
+            return res.status(400).json({ error: 'Heures de début et fin requises' });
+        }
+        
         database.run(
             `UPDATE astreintes_hno 
              SET type = ?, date_debut = ?, date_fin = ?, heure_debut = ?, heure_fin = ?, samu = ?, tous_samu = ?, objet = ?, updated_at = CURRENT_TIMESTAMP
              WHERE id = ?`,
-            [type, date_debut, date_fin, heure_debut || null, heure_fin || null, tous_samu ? null : samu, tous_samu ? 1 : 0, objet, id],
+            [type, date_debut, date_fin, heure_debut, heure_fin, tous_samu ? null : samu, tous_samu ? 1 : 0, objet, id],
             function(err) {
                 if (err) {
                     console.error('Erreur modification astreinte:', err);
