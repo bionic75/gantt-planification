@@ -2866,7 +2866,8 @@
             const dateDebut = formatDateFr(a.date_debut);
             const dateFin = formatDateFr(a.date_fin);
             const periode = dateDebut === dateFin ? dateDebut : `${dateDebut} - ${dateFin}`;
-            const heures = a.type === 'hno' && a.heure_debut && a.heure_fin ? ` (${a.heure_debut} - ${a.heure_fin})` : '';
+            // Afficher les heures pour astreintes ET HNO
+            const heures = a.heure_debut && a.heure_fin ? ` (${a.heure_debut} - ${a.heure_fin})` : '';
             const samuInfo = a.tous_samu ? 'Tous les SAMU' : a.samu;
             
             return `<div style="background: white; padding: 10px; border-radius: 4px; margin-bottom: 5px; border-left: 3px solid ${typeColor};">
@@ -2884,7 +2885,7 @@
                         <button onclick="deleteAstreinte(${a.id})" style="background: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;">🗑️</button>
                     </div>
                 </div>
-            </div>`;
+            </div>`
         }
         
         function toggleTreeNode(element) {
@@ -2901,9 +2902,8 @@
         }
         
         function toggleHnoFields() {
-            const type = document.getElementById('astreintesType').value;
-            const container = document.getElementById('hnoFieldsContainer');
-            container.style.display = type === 'hno' ? 'block' : 'none';
+            // Les champs heures sont maintenant toujours visibles (astreintes et HNO)
+            // Cette fonction est conservée pour compatibilité mais ne fait plus rien
         }
         
         function toggleSamuSelect() {
@@ -2986,8 +2986,9 @@
                 return;
             }
             
-            if (type === 'hno' && (!heure_debut || !heure_fin)) {
-                alert('Veuillez remplir les heures pour le HNO');
+            // Heures obligatoires pour astreintes et HNO
+            if (!heure_debut || !heure_fin) {
+                alert('Veuillez remplir les heures de début et de fin');
                 return;
             }
             
@@ -3005,8 +3006,8 @@
                 type,
                 date_debut,
                 date_fin,
-                heure_debut: type === 'hno' ? heure_debut : null,
-                heure_fin: type === 'hno' ? heure_fin : null,
+                heure_debut,  // Toujours envoyer les heures
+                heure_fin,    // Toujours envoyer les heures
                 samu: tous_samu ? null : samu,
                 tous_samu,
                 objet
@@ -5818,9 +5819,24 @@
                 // Vérifier si la date est dans la période
                 if (cellDate < dateDebut || cellDate > dateFin) continue;
                 
-                // Pour les astreintes, afficher sur toutes les demi-journées
+                const heures = a.heure_debut && a.heure_fin ? `${a.heure_debut}-${a.heure_fin}` : '';
+                
+                // Pour les astreintes, vérifier aussi les heures si disponibles
                 if (a.type === 'astreinte') {
-                    return { type: 'astreinte', objet: a.objet, samu: a.tous_samu ? 'Tous SAMU' : a.samu };
+                    if (a.heure_debut && a.heure_fin) {
+                        const heureDebut = parseInt(a.heure_debut.split(':')[0]);
+                        const heureFin = parseInt(a.heure_fin.split(':')[0]);
+                        
+                        // AM = avant 12h, PM = après 12h
+                        if (period === 'AM' && (heureDebut < 12 || (heureDebut < 14 && heureFin > 6))) {
+                            return { type: 'astreinte', objet: a.objet, samu: a.tous_samu ? 'Tous SAMU' : a.samu, heures };
+                        } else if (period === 'PM' && (heureDebut >= 12 || heureFin > 12)) {
+                            return { type: 'astreinte', objet: a.objet, samu: a.tous_samu ? 'Tous SAMU' : a.samu, heures };
+                        }
+                    } else {
+                        // Pas d'heures définies, afficher sur toutes les demi-journées
+                        return { type: 'astreinte', objet: a.objet, samu: a.tous_samu ? 'Tous SAMU' : a.samu, heures };
+                    }
                 }
                 
                 // Pour HNO, vérifier l'heure
@@ -5832,12 +5848,12 @@
                     if (period === 'AM') {
                         // Si l'heure de début est avant 12h ou l'heure de fin est après 6h et avant 14h
                         if (heureDebut < 12 || (heureDebut < 14 && heureFin > 6)) {
-                            return { type: 'hno', objet: a.objet, samu: a.tous_samu ? 'Tous SAMU' : a.samu, heures: `${a.heure_debut}-${a.heure_fin}` };
+                            return { type: 'hno', objet: a.objet, samu: a.tous_samu ? 'Tous SAMU' : a.samu, heures };
                         }
                     } else if (period === 'PM') {
                         // Si l'heure de début est après 11h ou l'heure de fin est après 12h
                         if (heureDebut >= 12 || heureFin > 12) {
-                            return { type: 'hno', objet: a.objet, samu: a.tous_samu ? 'Tous SAMU' : a.samu, heures: `${a.heure_debut}-${a.heure_fin}` };
+                            return { type: 'hno', objet: a.objet, samu: a.tous_samu ? 'Tous SAMU' : a.samu, heures };
                         }
                     }
                 }
@@ -5851,9 +5867,10 @@
             if (!astreinte) return '';
             
             const label = astreinte.type === 'astreinte' ? 'ASTR' : 'HNO';
+            const heuresInfo = astreinte.heures ? `\n${astreinte.heures}` : '';
             const tooltip = astreinte.type === 'astreinte' 
-                ? `Astreinte: ${astreinte.objet}\n${astreinte.samu}`
-                : `HNO: ${astreinte.objet}\n${astreinte.heures}\n${astreinte.samu}`;
+                ? `Astreinte: ${astreinte.objet}${heuresInfo}\n${astreinte.samu}`
+                : `HNO: ${astreinte.objet}${heuresInfo}\n${astreinte.samu}`;
             
             return `<span class="astreinte-badge" title="${tooltip.replace(/"/g, '&quot;')}">${label}</span>`;
         }
@@ -7443,18 +7460,6 @@
             const tbody = document.getElementById('usersList');
             tbody.innerHTML = '';
             
-            // Récupérer les sessions actives
-            let activeUserIds = [];
-            try {
-                const response = await fetch(`${API_URL}/active-sessions`, { credentials: 'include' });
-                if (response.ok) {
-                    const data = await response.json();
-                    activeUserIds = data.activeUsers.map(u => u.userId);
-                }
-            } catch (e) {
-                console.log('Erreur récupération sessions actives:', e);
-            }
-            
             // Trier les utilisateurs par ordre alphabétique (nom, puis prénom)
             const sortedUsers = [...users].sort((a, b) => {
                 const nameA = `${a.nom} ${a.prenom}`.toLowerCase();
@@ -7476,12 +7481,6 @@
                 if (u.is_admin === 1) badgeColor = '#e74c3c'; // Rouge pour admin
                 else if (u.is_expert === 1) badgeColor = '#f39c12'; // Orange pour expert
                 
-                // Pastille de connexion
-                const isOnline = activeUserIds.includes(u.id);
-                const statusDot = isOnline 
-                    ? `<span title="Connecté" style="display: inline-block; width: 10px; height: 10px; background-color: #27ae60; border-radius: 50%; margin-right: 8px; box-shadow: 0 0 4px #27ae60;"></span>`
-                    : `<span title="Hors ligne" style="display: inline-block; width: 10px; height: 10px; background-color: #bdc3c7; border-radius: 50%; margin-right: 8px;"></span>`;
-                
                 // Formater la dernière connexion
                 let lastLoginDisplay = '-';
                 if (u.last_login) {
@@ -7497,7 +7496,7 @@
                 
                 const row = tbody.insertRow();
                 row.innerHTML = `
-                    <td style="cursor: pointer; color: #1D70B7; font-weight: bold;" onclick="showUserDetails(${u.id})">${statusDot}${u.nom}</td>
+                    <td style="cursor: pointer; color: #1D70B7; font-weight: bold;" onclick="showUserDetails(${u.id})">${u.nom}</td>
                     <td>${u.prenom}</td><td>${u.username}</td><td>${u.email}</td><td>${u.telephone || '-'}</td>
                     <td><span style="background-color: ${badgeColor}; color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px;">${roleText}</span></td>
                     <td style="text-align: center;"><input type="checkbox" ${u.has_reporting_access === 1 || u.is_admin === 1 ? 'checked' : ''} ${u.is_admin === 1 ? 'disabled title="Les admins ont toujours accès"' : ''} onchange="toggleReportingAccess(${u.id}, this.checked)" style="width: 18px; height: 18px; cursor: ${u.is_admin === 1 ? 'not-allowed' : 'pointer'};"></td>
@@ -11886,16 +11885,26 @@
                 const response = await fetch(`${API_URL}/version`);
                 if (response.ok) {
                     const data = await response.json();
-                    const appVersionDisplay = document.getElementById('appVersion');
-                    if (appVersionDisplay && data.version) {
-                        appVersionDisplay.textContent = data.version;
-                        console.log('✅ Version chargée (public):', data.version);
-                    }
+                    // Mettre à jour tous les éléments avec id="appVersion" (il peut y en avoir plusieurs)
+                    const appVersionDisplays = document.querySelectorAll('#appVersion, .app-version');
+                    appVersionDisplays.forEach(el => {
+                        if (data.version) {
+                            el.textContent = data.version;
+                        }
+                    });
+                    console.log('✅ Version chargée (public):', data.version);
+                    return data.version;
                 }
             } catch (error) {
                 console.error('Erreur chargement version:', error);
             }
+            return null;
         }
+        
+        // Charger la version immédiatement (pour la mire de login)
+        (async function() {
+            await loadVersion();
+        })();
 
         // ========== CHARGEMENT PARAMÈTRES (AUTHENTIFIÉ) ==========
         
@@ -14766,6 +14775,99 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             }
         }
         
+        // ========== DÉTECTION DE RÉVEIL ET RECONNEXION AUTOMATIQUE ==========
+        
+        let lastActivityTimestamp = Date.now();
+        const WAKE_THRESHOLD = 60000; // 1 minute - si plus de 1 min s'est écoulée entre 2 intervalles, c'est un réveil
+        
+        // Détecte si l'ordinateur a été en veille et recharge les données
+        function setupWakeDetection() {
+            // Méthode 1: Détection via visibilitychange (quand l'onglet redevient visible)
+            document.addEventListener('visibilitychange', function() {
+                if (document.visibilityState === 'visible') {
+                    const now = Date.now();
+                    const elapsed = now - lastActivityTimestamp;
+                    
+                    // Si plus de 1 minute s'est écoulée, c'est probablement un réveil
+                    if (elapsed > WAKE_THRESHOLD) {
+                        console.log(`🔄 Réveil détecté (${Math.round(elapsed / 1000 / 60)} min d'inactivité) - Rechargement des données...`);
+                        handleWakeUp();
+                    }
+                    lastActivityTimestamp = now;
+                }
+            });
+            
+            // Méthode 2: Heartbeat - vérifie régulièrement si le temps s'est écoulé normalement
+            setInterval(function() {
+                const now = Date.now();
+                const elapsed = now - lastActivityTimestamp;
+                
+                // Si plus de 2x l'intervalle normal (60s au lieu de 30s), c'est un réveil
+                if (elapsed > WAKE_THRESHOLD * 2) {
+                    console.log(`🔄 Réveil détecté via heartbeat (${Math.round(elapsed / 1000 / 60)} min d'inactivité) - Rechargement des données...`);
+                    handleWakeUp();
+                }
+                lastActivityTimestamp = now;
+            }, 30000); // Toutes les 30 secondes
+            
+            // Méthode 3: Focus sur la fenêtre
+            window.addEventListener('focus', function() {
+                const now = Date.now();
+                const elapsed = now - lastActivityTimestamp;
+                
+                if (elapsed > WAKE_THRESHOLD) {
+                    console.log(`🔄 Focus détecté après ${Math.round(elapsed / 1000 / 60)} min - Rechargement des données...`);
+                    handleWakeUp();
+                }
+                lastActivityTimestamp = now;
+            });
+        }
+        
+        // Actions à effectuer au réveil
+        async function handleWakeUp() {
+            try {
+                // 1. Vérifier que la session est toujours valide
+                const sessionResponse = await fetch(`${API_URL}/check-session`, { credentials: 'include' });
+                
+                if (!sessionResponse.ok) {
+                    console.log('❌ Session expirée - Redirection vers login');
+                    window.location.href = '/login.html';
+                    return;
+                }
+                
+                // 2. Recharger les utilisateurs connectés
+                console.log('👥 Rechargement des utilisateurs connectés...');
+                await loadOnlineUsers();
+                
+                // 3. Redémarrer le polling si nécessaire
+                if (!onlineUsersInterval) {
+                    startOnlineUsersPolling();
+                }
+                
+                // 4. Recharger les données du planning si on est sur l'onglet Planification
+                const planningTab = document.getElementById('planning');
+                if (planningTab && planningTab.style.display !== 'none') {
+                    console.log('📅 Rechargement du planning...');
+                    await loadScheduleData();
+                    updateGantt();
+                }
+                
+                // 5. Recharger les astreintes/HNO
+                if (typeof loadAllAstreintesHno === 'function') {
+                    console.log('🕐 Rechargement des astreintes/HNO...');
+                    await loadAllAstreintesHno();
+                }
+                
+                console.log('✅ Rechargement terminé après réveil');
+                
+            } catch (error) {
+                console.error('❌ Erreur lors du rechargement après réveil:', error);
+            }
+        }
+        
+        // Initialiser la détection de réveil au chargement
+        document.addEventListener('DOMContentLoaded', setupWakeDetection);
+        
         // ========== GESTION DES ÉVÉNEMENTS PERSONNALISÉS (POUR TOUS LES UTILISATEURS) ==========
         
         let myEvents = [];
@@ -17626,8 +17728,8 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     </div>
                 </div>
                 
-                <!-- Heures HNO (masquées par défaut) -->
-                <div id="hnoFieldsContainer" style="display: none; margin-top: 15px;">
+                <!-- Heures (pour astreintes et HNO) -->
+                <div id="hnoFieldsContainer" style="margin-top: 15px;">
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                         <div>
                             <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #333;">Heure de début *</label>
