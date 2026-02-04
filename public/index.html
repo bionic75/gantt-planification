@@ -68,6 +68,30 @@
         #reportingTable th:hover { background-color: #34495e; }
         /* Tableaux événements personnalisés - pas de flèches CSS (gérées en JS) */
         #customEventsTableContainer th::after { content: none; }
+        /* Tables déplacements - flèches gérées manuellement */
+        #mesDeplacementsTable th::after { content: none; }
+        #mesDeplacementsTable th.sortable::after { content: " ▲▼"; font-size: 11px; }
+        #mesDeplacementsTable th.sortable.asc::after { content: " ▲"; font-size: 11px; }
+        #mesDeplacementsTable th.sortable.desc::after { content: " ▼"; font-size: 11px; }
+        #mesDeplacementsTable th.sortable { cursor: pointer; }
+        #mesDeplacementsTable th.sortable:hover { background-color: #2c3e50; }
+        /* Tables reporting déplacements */
+        #reportingBonsCommandeTable th::after { content: none; }
+        #reportingBonsCommandeTable th.sortable::after { content: " ▲▼"; font-size: 11px; }
+        #reportingBonsCommandeTable th.sortable.asc::after { content: " ▲"; font-size: 11px; }
+        #reportingBonsCommandeTable th.sortable.desc::after { content: " ▼"; font-size: 11px; }
+        #reportingBonsCommandeTable th.sortable { cursor: pointer; }
+        #deplacementsReportingTable th::after { content: none; }
+        #deplacementsReportingTable th.sortable::after { content: " ▲▼"; font-size: 11px; }
+        #deplacementsReportingTable th.sortable.asc::after { content: " ▲"; font-size: 11px; }
+        #deplacementsReportingTable th.sortable.desc::after { content: " ▼"; font-size: 11px; }
+        #deplacementsReportingTable th.sortable { cursor: pointer; }
+        /* Tables admin BDC */
+        #bonsCommandeTable th::after { content: none; }
+        #bonsCommandeTable th.sortable::after { content: " ▲▼"; font-size: 11px; }
+        #bonsCommandeTable th.sortable.asc::after { content: " ▲"; font-size: 11px; }
+        #bonsCommandeTable th.sortable.desc::after { content: " ▼"; font-size: 11px; }
+        #bonsCommandeTable th.sortable { cursor: pointer; }
         #myEventsTableContainer th::after { content: none; }
         #specialDatesFilesList th::after { content: none; }
         /* Calendrier disponibilités astreinte - pas de flèches */
@@ -4450,14 +4474,14 @@
             if (thead) {
                 thead.innerHTML = `
                     <tr>
-                        <th>Date début</th>
-                        <th>Date fin</th>
-                        <th>Nb UO</th>
-                        <th>SAMU</th>
-                        <th>Ville</th>
-                        <th>AMOA CED</th>
-                        <th>Bon de commande</th>
-                        ${isAdmin ? '<th>Créé par</th><th>Créé le</th>' : ''}
+                        <th class="sortable" onclick="sortDeplacementsTable(0, 'date')">Date début</th>
+                        <th class="sortable" onclick="sortDeplacementsTable(1, 'date')">Date fin</th>
+                        <th class="sortable" onclick="sortDeplacementsTable(2, 'number')">Nb UO</th>
+                        <th class="sortable" onclick="sortDeplacementsTable(3, 'text')">SAMU</th>
+                        <th class="sortable" onclick="sortDeplacementsTable(4, 'text')">Ville</th>
+                        <th class="sortable" onclick="sortDeplacementsTable(5, 'text')">AMOA CED</th>
+                        <th class="sortable" onclick="sortDeplacementsTable(6, 'text')">Bon de commande</th>
+                        ${isAdmin ? '<th class="sortable" onclick="sortDeplacementsTable(7, \'text\')">Créé par</th><th class="sortable" onclick="sortDeplacementsTable(8, \'date\')">Créé le</th>' : ''}
                         <th>Commentaire</th>
                         <th>Actions</th>
                     </tr>
@@ -5151,6 +5175,103 @@
             document.body.removeChild(link);
             
             console.log(`✅ Export CSV: ${dataToExport.length} ligne(s)`);
+        }
+        
+        // ============== FONCTIONS DE TRI POUR LES TABLES DÉPLACEMENTS ==============
+        
+        let deplacementsSortColumn = null;
+        let deplacementsSortAsc = true;
+        let reportingDeplacementsSortColumn = null;
+        let reportingDeplacementsSortAsc = true;
+        let bonsCommandeSortColumn = null;
+        let bonsCommandeSortAsc = true;
+        
+        // Fonction générique de tri de table
+        function sortTableGeneric(tableId, columnIndex, dataType, sortStateVar, sortAscVar) {
+            const table = document.getElementById(tableId);
+            if (!table) return;
+            
+            const tbody = table.querySelector('tbody');
+            const thead = table.querySelector('thead');
+            if (!tbody || !thead) return;
+            
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            if (rows.length === 0) return;
+            
+            // Inverser le sens si même colonne
+            if (window[sortStateVar] === columnIndex) {
+                window[sortAscVar] = !window[sortAscVar];
+            } else {
+                window[sortStateVar] = columnIndex;
+                window[sortAscVar] = true;
+            }
+            
+            const asc = window[sortAscVar];
+            
+            // Mettre à jour les classes CSS des en-têtes
+            thead.querySelectorAll('th.sortable').forEach((th, idx) => {
+                th.classList.remove('asc', 'desc');
+                if (idx === columnIndex) {
+                    th.classList.add(asc ? 'asc' : 'desc');
+                }
+            });
+            
+            // Trier les lignes
+            rows.sort((a, b) => {
+                const cellA = a.cells[columnIndex];
+                const cellB = b.cells[columnIndex];
+                if (!cellA || !cellB) return 0;
+                
+                let valA = cellA.textContent.trim();
+                let valB = cellB.textContent.trim();
+                
+                // Gérer les valeurs vides
+                if (valA === '-' || valA === '') valA = asc ? 'zzzzz' : '';
+                if (valB === '-' || valB === '') valB = asc ? 'zzzzz' : '';
+                
+                let comparison = 0;
+                
+                if (dataType === 'date') {
+                    // Parser les dates au format DD/MM/YYYY
+                    const parseDate = (str) => {
+                        if (!str || str === 'zzzzz') return asc ? new Date(9999, 11, 31) : new Date(0);
+                        const parts = str.split('/');
+                        if (parts.length === 3) {
+                            return new Date(parts[2], parts[1] - 1, parts[0]);
+                        }
+                        return new Date(str);
+                    };
+                    const dateA = parseDate(valA);
+                    const dateB = parseDate(valB);
+                    comparison = dateA - dateB;
+                } else if (dataType === 'number') {
+                    const numA = parseFloat(valA.replace(/[^0-9.-]/g, '')) || 0;
+                    const numB = parseFloat(valB.replace(/[^0-9.-]/g, '')) || 0;
+                    comparison = numA - numB;
+                } else {
+                    comparison = valA.localeCompare(valB, 'fr', { sensitivity: 'base' });
+                }
+                
+                return asc ? comparison : -comparison;
+            });
+            
+            // Réinsérer les lignes triées
+            rows.forEach(row => tbody.appendChild(row));
+        }
+        
+        // Tri table déplacements (onglet Planification)
+        function sortDeplacementsTable(columnIndex, dataType) {
+            sortTableGeneric('mesDeplacementsTable', columnIndex, dataType, 'deplacementsSortColumn', 'deplacementsSortAsc');
+        }
+        
+        // Tri table reporting déplacements
+        function sortReportingDeplacementsTable(columnIndex, dataType) {
+            sortTableGeneric('reportingDeplacementsTable', columnIndex, dataType, 'reportingDeplacementsSortColumn', 'reportingDeplacementsSortAsc');
+        }
+        
+        // Tri table bons de commande (admin)
+        function sortBonsCommandeTable(columnIndex, dataType) {
+            sortTableGeneric('bonsCommandeTable', columnIndex, dataType, 'bonsCommandeSortColumn', 'bonsCommandeSortAsc');
         }
         
         // ============== FIN FONCTIONS GESTION BONS DE COMMANDE ET DÉPLACEMENTS ==============
@@ -17364,14 +17485,14 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     <table id="reportingDeplacementsTable">
                         <thead>
                             <tr>
-                                <th>N° de BDC</th>
-                                <th>Date début</th>
-                                <th>Date fin</th>
-                                <th>Créé par</th>
-                                <th>AMOA CED</th>
-                                <th>SAMU</th>
-                                <th>Ville</th>
-                                <th>Nb UO</th>
+                                <th class="sortable" onclick="sortReportingDeplacementsTable(0, 'text')">N° de BDC</th>
+                                <th class="sortable" onclick="sortReportingDeplacementsTable(1, 'date')">Date début</th>
+                                <th class="sortable" onclick="sortReportingDeplacementsTable(2, 'date')">Date fin</th>
+                                <th class="sortable" onclick="sortReportingDeplacementsTable(3, 'text')">Créé par</th>
+                                <th class="sortable" onclick="sortReportingDeplacementsTable(4, 'text')">AMOA CED</th>
+                                <th class="sortable" onclick="sortReportingDeplacementsTable(5, 'text')">SAMU</th>
+                                <th class="sortable" onclick="sortReportingDeplacementsTable(6, 'text')">Ville</th>
+                                <th class="sortable" onclick="sortReportingDeplacementsTable(7, 'number')">Nb UO</th>
                             </tr>
                         </thead>
                         <tbody id="reportingDeplacementsBody">
@@ -17424,13 +17545,13 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     <table id="bonsCommandeTable">
                         <thead>
                             <tr>
-                                <th>Numéro de CBDC</th>
-                                <th>Titulaire</th>
-                                <th>Date début</th>
-                                <th>Date fin</th>
-                                <th>UO consommées</th>
-                                <th>Nb UO</th>
-                                <th>Soldé</th>
+                                <th class="sortable" onclick="sortBonsCommandeTable(0, 'text')">Numéro de CBDC</th>
+                                <th class="sortable" onclick="sortBonsCommandeTable(1, 'text')">Titulaire</th>
+                                <th class="sortable" onclick="sortBonsCommandeTable(2, 'date')">Date début</th>
+                                <th class="sortable" onclick="sortBonsCommandeTable(3, 'date')">Date fin</th>
+                                <th class="sortable" onclick="sortBonsCommandeTable(4, 'number')">UO consommées</th>
+                                <th class="sortable" onclick="sortBonsCommandeTable(5, 'number')">Nb UO</th>
+                                <th class="sortable" onclick="sortBonsCommandeTable(6, 'text')">Soldé</th>
                                 <th>Observation</th>
                                 <th>Actions</th>
                             </tr>
