@@ -91,6 +91,152 @@ function hashPassword(password) {
     return crypto.createHash('sha256').update(password).digest('hex');
 }
 
+// Formater une date en français
+function formatDateFR(dateStr) {
+    if (!dateStr) return '';
+    const date = new Date(dateStr + 'T00:00:00');
+    return date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+// Envoyer une notification Teams depuis le serveur
+async function sendTeamsNotificationFromServer(type, data) {
+    try {
+        // Récupérer la configuration de l'automatisation 3
+        const configRow = await new Promise((resolve, reject) => {
+            database.get(
+                `SELECT value FROM settings WHERE key = ?`,
+                ['automation_3_config'],
+                (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row);
+                }
+            );
+        });
+        
+        if (!configRow || !configRow.value) {
+            console.log('📢 Teams: Configuration non trouvée');
+            return;
+        }
+        
+        const config = JSON.parse(configRow.value);
+        
+        if (!config.enabled) {
+            console.log('📢 Teams: Automatisation désactivée');
+            return;
+        }
+        
+        if (!config.notifications || !config.notifications.includes(type)) {
+            console.log(`📢 Teams: Type de notification "${type}" non activé`);
+            return;
+        }
+        
+        if (!config.teamsEmail) {
+            console.log('📢 Teams: Email Teams non configuré');
+            return;
+        }
+        
+        // Construire le message selon le type
+        let subject = '';
+        let content = '';
+        let color = '#3498db';
+        
+        switch (type) {
+            case 'affectation':
+                subject = '📅 Nouvelle affectation';
+                color = '#3498db';
+                content = `
+                    <p><strong>Expert :</strong> ${data.expert || 'Non spécifié'}</p>
+                    <p><strong>Activité :</strong> ${data.activity || 'Non spécifiée'}</p>
+                    <p><strong>Date :</strong> ${data.date || 'Non spécifiée'}</p>
+                    <p><strong>Période :</strong> ${data.period || 'Non spécifiée'}</p>
+                    ${data.location ? `<p><strong>Localisation :</strong> ${data.location}</p>` : ''}
+                `;
+                break;
+                
+            case 'demande':
+                subject = '✉️ Demande d\'affectation';
+                color = '#27ae60';
+                content = `
+                    <p><strong>De :</strong> ${data.from || 'Non spécifié'}</p>
+                    <p><strong>Objet :</strong> ${data.subject || 'Non spécifié'}</p>
+                    <p><strong>Message :</strong></p>
+                    <div style="background: #f5f5f5; padding: 10px; border-radius: 5px; margin-top: 5px;">
+                        ${(data.message || '').replace(/\n/g, '<br>').substring(0, 500)}
+                    </div>
+                `;
+                break;
+                
+            case 'astreinte':
+                subject = '🔔 Nouvelle astreinte/HNO';
+                color = '#9c27b0';
+                content = `
+                    <p><strong>Expert :</strong> ${data.expert || 'Non spécifié'}</p>
+                    <p><strong>Type :</strong> ${data.type === 'hno' ? 'HNO (Heures Non Ouvrées)' : 'Astreinte'}</p>
+                    <p><strong>Date :</strong> ${data.date || 'Non spécifiée'}</p>
+                    ${data.heureDebut ? `<p><strong>Horaires :</strong> ${data.heureDebut} - ${data.heureFin}</p>` : ''}
+                `;
+                break;
+                
+            case 'evenement':
+                subject = '📆 Nouvel événement';
+                color = '#ff9800';
+                content = `
+                    <p><strong>Événement :</strong> ${data.name || 'Non spécifié'}</p>
+                    <p><strong>Date :</strong> ${data.date || 'Non spécifiée'}</p>
+                    ${data.createdBy ? `<p><strong>Créé par :</strong> ${data.createdBy}</p>` : ''}
+                `;
+                break;
+                
+            default:
+                console.log(`📢 Teams: Type de notification inconnu: ${type}`);
+                return;
+        }
+        
+        const transporter = createEmailTransporter();
+        if (!transporter) {
+            console.log('📢 Teams: Transporteur email non disponible');
+            return;
+        }
+        
+        const mailOptions = {
+            from: `"Planning ANS" <${emailConfig.user || 'noreply@esante.gouv.fr'}>`,
+            to: config.teamsEmail,
+            subject: `${subject} - Planning ANS`,
+            html: `
+                <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #f5f5f5;">
+                    <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                        <div style="background: linear-gradient(135deg, ${color} 0%, ${color}dd 100%); color: white; padding: 20px; text-align: center;">
+                            <h2 style="margin: 0;">${subject}</h2>
+                        </div>
+                        <div style="padding: 25px;">
+                            ${content}
+                            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+                            <p style="font-size: 12px; color: #999; text-align: center;">
+                                📅 Application de Planification des Experts - ANS
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            `
+        };
+        
+        await transporter.sendMail(mailOptions);
+        
+        // Logger l'envoi
+        database.run(
+            `INSERT INTO automation_logs (automation_id, expert_name, expert_email, target_month, sent_at) VALUES (?, ?, ?, ?, datetime('now'))`,
+            [3, type, config.teamsEmail, JSON.stringify(data)],
+            (err) => {
+                if (err) console.error('Erreur log Teams notify:', err);
+            }
+        );
+        
+        console.log(`📢 Notification Teams [${type}] envoyée avec succès`);
+    } catch (error) {
+        console.error('📢 Erreur envoi notification Teams:', error);
+    }
+}
+
 // Configuration email
 let emailConfig = {
     host: 'smtp.gmail.com',
@@ -4871,6 +5017,13 @@ app.post('/api/my-custom-events', requireAuth, async (req, res) => {
             }
         });
         
+        // Envoyer notification Teams
+        sendTeamsNotificationFromServer('evenement', {
+            name: label,
+            date: `${formatDateFR(startDate)}${endDate && endDate !== startDate ? ' au ' + formatDateFR(endDate) : ''}`,
+            createdBy: `${req.session.prenom} ${req.session.nom}`
+        });
+        
         console.log(`✅ Mon événement personnalisé ajouté (ID: ${eventId})`);
         res.json({ success: true, eventId });
     } catch (error) {
@@ -5512,6 +5665,13 @@ Fin : ${endDateFormatted}
                 success: true,
                 message: responseMessage,
                 emails: successfulEmails
+            });
+            
+            // Envoyer notification Teams
+            sendTeamsNotificationFromServer('demande', {
+                from: fromName,
+                subject: subject,
+                message: message.substring(0, 500) // Limiter la longueur
             });
         } else {
             res.status(500).json({
@@ -6738,6 +6898,16 @@ app.post('/api/astreintes', requireAuth, (req, res) => {
                 console.error('Erreur création astreinte:', err);
                 return res.status(500).json({ error: err.message });
             }
+            
+            // Envoyer notification Teams
+            sendTeamsNotificationFromServer('astreinte', {
+                expert: `${req.session.prenom} ${req.session.nom}`,
+                type: type,
+                date: `${formatDateFR(date_debut)}${date_fin !== date_debut ? ' au ' + formatDateFR(date_fin) : ''}`,
+                heureDebut: heure_debut,
+                heureFin: heure_fin
+            });
+            
             res.json({ id: this.lastID, message: 'Astreinte/HNO créée' });
         }
     );
@@ -7845,6 +8015,210 @@ app.get('/api/astreinte/planning/:mois', requireAdmin, (req, res) => {
 });
 
 // ========== FIN ROUTES GESTION ASTREINTES ==========
+
+// ========== ROUTES NOTIFICATIONS TEAMS ==========
+
+// Tester l'envoi vers Teams
+app.post('/api/teams/test', requireAdmin, async (req, res) => {
+    const { teamsEmail } = req.body;
+    
+    if (!teamsEmail) {
+        return res.status(400).json({ error: 'Adresse email Teams requise' });
+    }
+    
+    try {
+        const transporter = createEmailTransporter();
+        if (!transporter) {
+            return res.status(500).json({ error: 'Configuration email non disponible. Veuillez configurer SMTP dans les paramètres.' });
+        }
+        
+        const mailOptions = {
+            from: `"Planning ANS" <${emailConfig.user || 'noreply@esante.gouv.fr'}>`,
+            to: teamsEmail,
+            subject: '🧪 Test de notification - Planning ANS',
+            html: `
+                <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #f5f5f5;">
+                    <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                        <div style="background: linear-gradient(135deg, #00bcd4 0%, #0097a7 100%); color: white; padding: 20px; text-align: center;">
+                            <h2 style="margin: 0;">🧪 Test de notification</h2>
+                        </div>
+                        <div style="padding: 25px;">
+                            <p style="font-size: 16px; color: #333;">
+                                ✅ <strong>Félicitations !</strong>
+                            </p>
+                            <p style="color: #666;">
+                                Si vous voyez ce message, la connexion entre l'application <strong>Planning ANS</strong> et votre canal Teams fonctionne correctement.
+                            </p>
+                            <p style="color: #666;">
+                                Les notifications automatiques seront désormais envoyées ici selon la configuration choisie.
+                            </p>
+                            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+                            <p style="font-size: 12px; color: #999; text-align: center;">
+                                📅 Application de Planification des Experts - ANS
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            `
+        };
+        
+        await transporter.sendMail(mailOptions);
+        
+        // Logger l'envoi
+        database.run(
+            `INSERT INTO automation_logs (automation_id, expert_name, expert_email, target_month, sent_at) VALUES (?, ?, ?, ?, datetime('now'))`,
+            [3, 'TEST', teamsEmail, 'Test de connexion'],
+            (err) => {
+                if (err) console.error('Erreur log Teams test:', err);
+            }
+        );
+        
+        console.log('📢 Test Teams envoyé à:', teamsEmail);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Erreur envoi test Teams:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Envoyer une notification Teams
+app.post('/api/teams/notify', requireAuth, async (req, res) => {
+    const { type, data } = req.body;
+    
+    try {
+        // Récupérer la configuration de l'automatisation 3
+        const configRow = await new Promise((resolve, reject) => {
+            database.get(
+                `SELECT value FROM settings WHERE key = ?`,
+                ['automation_3_config'],
+                (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row);
+                }
+            );
+        });
+        
+        if (!configRow || !configRow.value) {
+            return res.json({ success: false, reason: 'Configuration non trouvée' });
+        }
+        
+        const config = JSON.parse(configRow.value);
+        
+        if (!config.enabled) {
+            return res.json({ success: false, reason: 'Automatisation désactivée' });
+        }
+        
+        if (!config.notifications || !config.notifications.includes(type)) {
+            return res.json({ success: false, reason: 'Type de notification non activé' });
+        }
+        
+        if (!config.teamsEmail) {
+            return res.json({ success: false, reason: 'Email Teams non configuré' });
+        }
+        
+        // Construire le message selon le type
+        let subject = '';
+        let content = '';
+        let emoji = '';
+        let color = '#3498db';
+        
+        switch (type) {
+            case 'affectation':
+                emoji = '📅';
+                subject = `${emoji} Nouvelle affectation`;
+                color = '#3498db';
+                content = `
+                    <p><strong>Expert :</strong> ${data.expert || 'Non spécifié'}</p>
+                    <p><strong>Activité :</strong> ${data.activity || 'Non spécifiée'}</p>
+                    <p><strong>Date :</strong> ${data.date || 'Non spécifiée'}</p>
+                    <p><strong>Période :</strong> ${data.period || 'Non spécifiée'}</p>
+                    ${data.location ? `<p><strong>Localisation :</strong> ${data.location}</p>` : ''}
+                `;
+                break;
+                
+            case 'demande':
+                emoji = '✉️';
+                subject = `${emoji} Demande d'affectation`;
+                color = '#27ae60';
+                content = `
+                    <p><strong>De :</strong> ${data.from || 'Non spécifié'}</p>
+                    <p><strong>Objet :</strong> ${data.subject || 'Non spécifié'}</p>
+                    <p><strong>Message :</strong></p>
+                    <div style="background: #f5f5f5; padding: 10px; border-radius: 5px; margin-top: 5px;">
+                        ${(data.message || '').replace(/\n/g, '<br>')}
+                    </div>
+                `;
+                break;
+                
+            case 'astreinte':
+                emoji = '🔔';
+                subject = `${emoji} Nouvelle astreinte/HNO`;
+                color = '#9c27b0';
+                content = `
+                    <p><strong>Expert :</strong> ${data.expert || 'Non spécifié'}</p>
+                    <p><strong>Type :</strong> ${data.type === 'hno' ? 'HNO (Heures Non Ouvrées)' : 'Astreinte'}</p>
+                    <p><strong>Date :</strong> ${data.date || 'Non spécifiée'}</p>
+                    ${data.heureDebut ? `<p><strong>Horaires :</strong> ${data.heureDebut} - ${data.heureFin}</p>` : ''}
+                `;
+                break;
+                
+            case 'evenement':
+                emoji = '📆';
+                subject = `${emoji} Nouvel événement`;
+                color = '#ff9800';
+                content = `
+                    <p><strong>Événement :</strong> ${data.name || 'Non spécifié'}</p>
+                    <p><strong>Date :</strong> ${data.date || 'Non spécifiée'}</p>
+                    ${data.createdBy ? `<p><strong>Créé par :</strong> ${data.createdBy}</p>` : ''}
+                `;
+                break;
+                
+            default:
+                return res.json({ success: false, reason: 'Type de notification inconnu' });
+        }
+        
+        const mailOptions = {
+            from: `"Planning ANS" <${process.env.SMTP_USER || 'noreply@esante.gouv.fr'}>`,
+            to: config.teamsEmail,
+            subject: `${subject} - Planning ANS`,
+            html: `
+                <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #f5f5f5;">
+                    <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                        <div style="background: linear-gradient(135deg, ${color} 0%, ${color}dd 100%); color: white; padding: 20px; text-align: center;">
+                            <h2 style="margin: 0;">${subject}</h2>
+                        </div>
+                        <div style="padding: 25px;">
+                            ${content}
+                            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+                            <p style="font-size: 12px; color: #999; text-align: center;">
+                                📅 Application de Planification des Experts - ANS
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            `
+        };
+        
+        await transporter.sendMail(mailOptions);
+        
+        // Logger l'envoi
+        database.run(
+            `INSERT INTO automation_logs (automation_id, expert_name, expert_email, target_month, sent_at) VALUES (?, ?, ?, ?, datetime('now'))`,
+            [3, type, config.teamsEmail, JSON.stringify(data)],
+            (err) => {
+                if (err) console.error('Erreur log Teams notify:', err);
+            }
+        );
+        
+        console.log(`📢 Notification Teams [${type}] envoyée`);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Erreur envoi notification Teams:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ========== FIN ROUTES NOTIFICATIONS TEAMS ==========
 
 // Route catch-all pour servir index.html (doit être la DERNIÈRE route API)
 app.get('*', (req, res) => {
