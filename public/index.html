@@ -1537,6 +1537,69 @@
                 </div>
             </div>
             
+            <!-- Automatisation n°3: Notifications Teams -->
+            <div style="background-color: white; border: 1px solid #ffcc80; border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0;">
+                        <input type="checkbox" id="automation3Enabled" onchange="toggleAutomation3Config()" style="width: 18px; height: 18px; margin: 0;">
+                        <span style="font-weight: bold; color: #e65100; font-size: 14px;">📢 Automatisation n°3 : Notifications envoyées vers Teams</span>
+                    </label>
+                </div>
+                
+                <p style="font-size: 12px; color: #666; margin: 0 0 15px 0; padding-left: 26px;">
+                    Envoie automatiquement des notifications par email vers un canal Microsoft Teams lorsque certains événements se produisent.
+                </p>
+                
+                <!-- Configuration (masquée par défaut) -->
+                <div id="automation3Config" style="padding-left: 26px; display: none;">
+                    <!-- Adresse email du canal Teams -->
+                    <div style="margin-bottom: 15px;">
+                        <label style="font-size: 12px; color: #555; display: block; margin-bottom: 5px;">Adresse email du canal Teams *</label>
+                        <input type="email" id="automation3TeamsEmail" onchange="saveAutomation3Config()" 
+                               placeholder="xxxxxxxx.domaine.fr@fr.teams.ms"
+                               value="0a7041bd.esante.gouv.fr@fr.teams.ms"
+                               style="width: 100%; max-width: 400px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <p style="font-size: 10px; color: #999; margin: 5px 0 0 0;">
+                            Pour obtenir cette adresse : Dans Teams, clic droit sur le canal → "Obtenir l'adresse e-mail"
+                        </p>
+                    </div>
+                    
+                    <!-- Types de notifications -->
+                    <div style="margin-bottom: 15px;">
+                        <label style="font-size: 12px; color: #555; display: block; margin-bottom: 8px;">Types de notifications à envoyer :</label>
+                        <select id="automation3Notifications" multiple onchange="saveAutomation3Config()" 
+                                style="width: 100%; max-width: 400px; height: 120px; padding: 5px; border: 1px solid #ddd; border-radius: 4px;">
+                            <option value="affectation">📅 Nouvelle affectation d'expert</option>
+                            <option value="demande">✉️ Demande d'affectation reçue</option>
+                            <option value="astreinte">🔔 Nouvelle astreinte/HNO créée</option>
+                            <option value="evenement">📆 Nouvel événement renseigné</option>
+                        </select>
+                        <p style="font-size: 10px; color: #999; margin: 5px 0 0 0;">
+                            Maintenez Ctrl/Cmd pour sélectionner plusieurs types
+                        </p>
+                    </div>
+                    
+                    <!-- Historique -->
+                    <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;">
+                        <button onclick="openAutomation3Logs()" style="background-color: #ff9800; color: white; white-space: nowrap;">
+                            📋 Historique des envois
+                        </button>
+                    </div>
+                    
+                    <!-- Section de test -->
+                    <div style="margin-top: 20px; padding: 15px; background-color: #fff8e1; border-radius: 5px; border: 1px dashed #ffcc80;">
+                        <label style="font-size: 12px; font-weight: bold; color: #e65100;">🧪 Test de la notification Teams</label>
+                        <p style="font-size: 11px; color: #666; margin: 5px 0 10px 0;">
+                            Envoie un message de test vers le canal Teams configuré pour vérifier que la connexion fonctionne.
+                        </p>
+                        <button onclick="testTeamsNotification()" style="background-color: #4CAF50; color: white;">
+                            🔍 Envoyer un test
+                        </button>
+                        <div id="automation3TestResult" style="margin-top: 10px; font-size: 12px;"></div>
+                    </div>
+                </div>
+            </div>
+            
         </div>
     </div>
     
@@ -7336,6 +7399,8 @@
                     // Automatisation 2
                     initAutomation2Options();
                     loadAutomation2Config();
+                    // Automatisation 3 (Teams)
+                    loadAutomation3Config();
                 }
             } catch (error) {
                 console.error('Erreur:', error);
@@ -10449,6 +10514,133 @@
             } catch (error) {
                 console.error('Erreur diagnostic:', error);
                 alert('Erreur: ' + error.message);
+            }
+        }
+        
+        // ========== AUTOMATISATION N°3: NOTIFICATIONS TEAMS ==========
+        
+        // Toggle affichage de la configuration Teams
+        function toggleAutomation3Config() {
+            const enabled = document.getElementById('automation3Enabled').checked;
+            const configDiv = document.getElementById('automation3Config');
+            configDiv.style.display = enabled ? 'block' : 'none';
+            saveAutomation3Config();
+        }
+        
+        // Charger la configuration de l'automatisation n°3
+        async function loadAutomation3Config() {
+            try {
+                const response = await fetch(`${API_URL}/automation/config/3`, { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.config) {
+                        document.getElementById('automation3Enabled').checked = data.config.enabled || false;
+                        document.getElementById('automation3TeamsEmail').value = data.config.teamsEmail || '0a7041bd.esante.gouv.fr@fr.teams.ms';
+                        
+                        // Sélectionner les types de notifications
+                        const select = document.getElementById('automation3Notifications');
+                        const notifications = data.config.notifications || [];
+                        Array.from(select.options).forEach(option => {
+                            option.selected = notifications.includes(option.value);
+                        });
+                        
+                        // Afficher/masquer la config
+                        document.getElementById('automation3Config').style.display = data.config.enabled ? 'block' : 'none';
+                    }
+                }
+            } catch (error) {
+                console.error('Erreur chargement config automation 3:', error);
+            }
+        }
+        
+        // Sauvegarder la configuration de l'automatisation n°3
+        async function saveAutomation3Config() {
+            const select = document.getElementById('automation3Notifications');
+            const notifications = Array.from(select.selectedOptions).map(opt => opt.value);
+            
+            const config = {
+                enabled: document.getElementById('automation3Enabled').checked,
+                teamsEmail: document.getElementById('automation3TeamsEmail').value,
+                notifications: notifications
+            };
+            
+            try {
+                const response = await fetch(`${API_URL}/automation/config/3`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ config })
+                });
+                
+                if (response.ok) {
+                    console.log('✅ Configuration automatisation 3 sauvegardée');
+                }
+            } catch (error) {
+                console.error('Erreur sauvegarde config automation 3:', error);
+            }
+        }
+        
+        // Tester l'envoi de notification Teams
+        async function testTeamsNotification() {
+            const resultDiv = document.getElementById('automation3TestResult');
+            const teamsEmail = document.getElementById('automation3TeamsEmail').value;
+            
+            if (!teamsEmail) {
+                resultDiv.innerHTML = '<span style="color: #e74c3c;">❌ Veuillez renseigner l\'adresse email du canal Teams</span>';
+                return;
+            }
+            
+            resultDiv.innerHTML = '<span style="color: #2196f3;">📤 Envoi du message de test...</span>';
+            
+            try {
+                const response = await fetch(`${API_URL}/teams/test`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ teamsEmail })
+                });
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = '<span style="color: #4CAF50;">✅ Message de test envoyé avec succès ! Vérifiez votre canal Teams.</span>';
+                } else {
+                    const err = await response.json();
+                    resultDiv.innerHTML = `<span style="color: #e74c3c;">❌ Erreur: ${err.error || 'Erreur inconnue'}</span>`;
+                }
+            } catch (error) {
+                console.error('Erreur test Teams:', error);
+                resultDiv.innerHTML = `<span style="color: #e74c3c;">❌ Erreur: ${error.message}</span>`;
+            }
+        }
+        
+        // Ouvrir la modal d'historique des envois Teams
+        function openAutomation3Logs() {
+            currentAutomationLogsId = 3;
+            const modal = document.getElementById('automationLogsModal');
+            modal.querySelector('h2').textContent = '📋 Historique des notifications Teams';
+            loadAutomationLogs(3);
+            modal.style.display = 'block';
+        }
+        
+        // Envoyer une notification Teams (appelée depuis d'autres parties du code)
+        async function sendTeamsNotification(type, data) {
+            try {
+                // Vérifier si l'automatisation est activée
+                const configResponse = await fetch(`${API_URL}/automation/config/3`, { credentials: 'include' });
+                if (!configResponse.ok) return;
+                
+                const configData = await configResponse.json();
+                if (!configData.config || !configData.config.enabled) return;
+                if (!configData.config.notifications || !configData.config.notifications.includes(type)) return;
+                
+                // Envoyer la notification
+                await fetch(`${API_URL}/teams/notify`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ type, data })
+                });
+            } catch (error) {
+                console.error('Erreur envoi notification Teams:', error);
             }
         }
         
