@@ -1282,6 +1282,109 @@
         </div>
     </div>
     
+    <!-- SECTION 3bis: Authentification à deux facteurs (MFA) -->
+    <div class="form-section" style="background-color: #e8f5e9; border-left: 4px solid #4caf50;">
+        <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleAdminSection('mfaSection')">
+            <h3 style="color: #2e7d32; border-left: none; margin: 0;">
+                <span id="mfaSectionIcon">▶</span> 🔐 Authentification à deux facteurs (MFA)
+            </h3>
+        </div>
+        <div id="mfaSection" style="margin-top: 15px; display: none;">
+            <p style="margin-bottom: 15px; font-size: 12px; color: #2e7d32;">
+                Renforcez la sécurité de l'application en activant l'authentification à deux facteurs pour tous les utilisateurs.
+            </p>
+            
+            <!-- Activation MFA -->
+            <div style="background: white; border: 1px solid #a5d6a7; border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0;">
+                        <input type="checkbox" id="mfaEnabled" onchange="toggleMfaConfig()" style="width: 18px; height: 18px; margin: 0;">
+                        <span style="font-weight: bold; color: #2e7d32; font-size: 14px;">Activer l'authentification à deux facteurs</span>
+                    </label>
+                </div>
+                
+                <!-- Configuration MFA (masquée par défaut) -->
+                <div id="mfaConfig" style="display: none;">
+                    <!-- Méthode MFA -->
+                    <div style="margin-bottom: 15px;">
+                        <label style="font-size: 12px; font-weight: bold; color: #555; display: block; margin-bottom: 8px;">Méthode d'authentification :</label>
+                        <div style="display: flex; flex-direction: column; gap: 8px; padding: 10px; background: #f5f5f5; border-radius: 5px;">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px;">
+                                <input type="radio" name="mfaMethod" value="email" checked onchange="saveMfaConfig()" style="width: 16px; height: 16px;">
+                                <span>📧 <strong>Code par email</strong> - Un code à 6 chiffres est envoyé par email</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px;">
+                                <input type="radio" name="mfaMethod" value="totp" onchange="saveMfaConfig()" style="width: 16px; height: 16px;">
+                                <span>📱 <strong>Application TOTP</strong> - Google Authenticator, Microsoft Authenticator, etc.</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px;">
+                                <input type="radio" name="mfaMethod" value="both" onchange="saveMfaConfig()" style="width: 16px; height: 16px;">
+                                <span>🔄 <strong>Au choix de l'utilisateur</strong> - L'utilisateur choisit sa méthode préférée</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Fréquence de vérification -->
+                    <div style="margin-bottom: 15px;">
+                        <label style="font-size: 12px; font-weight: bold; color: #555; display: block; margin-bottom: 8px;">Fréquence de vérification :</label>
+                        <select id="mfaFrequency" onchange="saveMfaConfig()" style="width: 100%; max-width: 300px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;">
+                            <option value="always">À chaque connexion</option>
+                            <option value="daily" selected>1 fois par jour</option>
+                            <option value="weekly">1 fois par semaine</option>
+                            <option value="monthly">1 fois par mois</option>
+                        </select>
+                        <p style="font-size: 11px; color: #666; margin-top: 5px;">
+                            Après une vérification réussie, l'utilisateur ne sera plus sollicité pendant la période choisie (sur le même appareil).
+                        </p>
+                    </div>
+                    
+                    <!-- Profils concernés -->
+                    <div style="margin-bottom: 15px;">
+                        <label style="font-size: 12px; font-weight: bold; color: #555; display: block; margin-bottom: 8px;">Profils concernés :</label>
+                        <div style="display: flex; flex-wrap: wrap; gap: 15px; padding: 10px; background: #f5f5f5; border-radius: 5px;">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px;">
+                                <input type="checkbox" id="mfaProfileAdmin" checked onchange="saveMfaConfig()" style="width: 16px; height: 16px;">
+                                <span>👑 Administrateurs</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px;">
+                                <input type="checkbox" id="mfaProfileExpert" onchange="saveMfaConfig()" style="width: 16px; height: 16px;">
+                                <span>👨‍💼 Experts Métier</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px;">
+                                <input type="checkbox" id="mfaProfileUser" onchange="saveMfaConfig()" style="width: 16px; height: 16px;">
+                                <span>👤 Utilisateurs</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Durée de validité du code email -->
+                    <div style="margin-bottom: 15px;">
+                        <label style="font-size: 12px; font-weight: bold; color: #555; display: block; margin-bottom: 8px;">Durée de validité du code email :</label>
+                        <select id="mfaCodeValidity" onchange="saveMfaConfig()" style="width: 100%; max-width: 200px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;">
+                            <option value="5">5 minutes</option>
+                            <option value="10" selected>10 minutes</option>
+                            <option value="15">15 minutes</option>
+                            <option value="30">30 minutes</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Bouton de sauvegarde -->
+                    <div class="button-group" style="margin-top: 20px;">
+                        <button onclick="saveMfaConfig()" style="background-color: #4caf50;">💾 Sauvegarder la configuration MFA</button>
+                        <button onclick="resetAllUsersMfa()" style="background-color: #ff9800;">🔄 Réinitialiser le MFA de tous les utilisateurs</button>
+                    </div>
+                    
+                    <!-- Info -->
+                    <div style="margin-top: 15px; padding: 10px; background: #e3f2fd; border-radius: 5px; border-left: 3px solid #2196f3;">
+                        <p style="font-size: 11px; color: #1565c0; margin: 0;">
+                            <strong>ℹ️ Information :</strong> Lorsque le MFA TOTP est activé, les utilisateurs devront configurer leur application d'authentification lors de leur prochaine connexion. Un QR code leur sera présenté.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
     <!-- SECTION 4: Automatisations et rappels (repliable) -->
     <div class="form-section" style="background-color: #fff3e0; border-left: 4px solid #ff9800;">
         <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleAdminSection('automationSection')">
@@ -1972,6 +2075,133 @@
         </div>
     </div>
     
+    <!-- Modal MFA - Saisie du code -->
+    <div id="mfaCodeModal" class="modal">
+        <div class="modal-content" style="max-width: 420px; text-align: center;">
+            <div style="margin-bottom: 20px;">
+                <div id="mfaCodeIcon" style="font-size: 48px; margin-bottom: 10px;">🔐</div>
+                <h3 style="color: #2e7d32; margin: 0;">Vérification en deux étapes</h3>
+            </div>
+            
+            <p id="mfaCodeMessage" style="font-size: 13px; color: #666; margin-bottom: 20px;">
+                Un code de vérification a été envoyé à votre adresse email.
+            </p>
+            
+            <div style="margin-bottom: 20px;">
+                <input type="text" id="mfaCodeInput" maxlength="6" placeholder="000000" 
+                       style="width: 180px; text-align: center; font-size: 28px; font-family: monospace; letter-spacing: 8px; padding: 15px; border: 2px solid #4caf50; border-radius: 8px;"
+                       onkeyup="if(this.value.length === 6) verifyMfaCode()">
+                <p style="font-size: 11px; color: #999; margin-top: 8px;">Entrez le code à 6 chiffres</p>
+            </div>
+            
+            <div id="mfaCodeError" style="display: none; color: #e74c3c; font-size: 13px; margin-bottom: 15px;"></div>
+            
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <button onclick="verifyMfaCode()" style="width: 100%; background: linear-gradient(135deg, #4caf50 0%, #43a047 100%); padding: 12px; font-size: 14px; font-weight: 600; border-radius: 8px;" id="mfaVerifyButton">
+                    ✓ Vérifier
+                </button>
+                <button onclick="resendMfaCode()" id="mfaResendButton" style="width: 100%; background: #f5f5f5; color: #666; padding: 10px; font-size: 12px; border-radius: 8px;">
+                    📧 Renvoyer le code
+                </button>
+                <button onclick="cancelMfaLogin()" style="width: 100%; background: transparent; color: #999; padding: 8px; font-size: 12px; border: none;">
+                    Annuler
+                </button>
+            </div>
+            
+            <input type="hidden" id="mfaPendingUserId">
+            <input type="hidden" id="mfaPendingProfile">
+            <input type="hidden" id="mfaPendingApp">
+        </div>
+    </div>
+    
+    <!-- Modal MFA - Configuration TOTP (QR Code) -->
+    <div id="mfaTotpSetupModal" class="modal">
+        <div class="modal-content" style="max-width: 480px; text-align: center;">
+            <div style="margin-bottom: 20px;">
+                <div style="font-size: 48px; margin-bottom: 10px;">📱</div>
+                <h3 style="color: #1565c0; margin: 0;">Configuration de l'authentification</h3>
+            </div>
+            
+            <p style="font-size: 13px; color: #666; margin-bottom: 20px;">
+                Scannez ce QR code avec votre application d'authentification<br>
+                <span style="font-size: 11px; color: #999;">(Google Authenticator, Microsoft Authenticator, Authy, etc.)</span>
+            </p>
+            
+            <div id="mfaTotpQrCode" style="display: inline-block; padding: 15px; background: white; border: 2px solid #e0e0e0; border-radius: 8px; margin-bottom: 15px;">
+                <!-- QR Code sera inséré ici -->
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <p style="font-size: 11px; color: #999; margin-bottom: 5px;">Ou entrez cette clé manuellement :</p>
+                <code id="mfaTotpSecret" style="display: inline-block; padding: 8px 15px; background: #f5f5f5; border-radius: 4px; font-size: 14px; letter-spacing: 2px; user-select: all;"></code>
+            </div>
+            
+            <div style="border-top: 1px solid #e0e0e0; padding-top: 20px; margin-bottom: 15px;">
+                <p style="font-size: 13px; color: #666; margin-bottom: 10px;">Entrez le code affiché dans votre application pour confirmer :</p>
+                <input type="text" id="mfaTotpConfirmCode" maxlength="6" placeholder="000000" 
+                       style="width: 180px; text-align: center; font-size: 24px; font-family: monospace; letter-spacing: 6px; padding: 12px; border: 2px solid #2196f3; border-radius: 8px;">
+            </div>
+            
+            <div id="mfaTotpSetupError" style="display: none; color: #e74c3c; font-size: 13px; margin-bottom: 15px;"></div>
+            
+            <div style="display: flex; gap: 10px;">
+                <button onclick="cancelTotpSetup()" style="flex: 1; background: #f5f5f5; color: #666; padding: 12px; font-size: 14px; border-radius: 8px;">
+                    Annuler
+                </button>
+                <button onclick="confirmTotpSetup()" style="flex: 1; background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%); padding: 12px; font-size: 14px; font-weight: 600; border-radius: 8px;">
+                    ✓ Confirmer
+                </button>
+            </div>
+            
+            <input type="hidden" id="mfaTotpPendingSecret">
+            <input type="hidden" id="mfaTotpPendingUserId">
+        </div>
+    </div>
+    
+    <!-- Modal MFA - Choix de la méthode -->
+    <div id="mfaMethodChoiceModal" class="modal">
+        <div class="modal-content" style="max-width: 450px; text-align: center;">
+            <div style="margin-bottom: 20px;">
+                <div style="font-size: 48px; margin-bottom: 10px;">🔐</div>
+                <h3 style="color: #2c3e50; margin: 0;">Choisissez votre méthode de vérification</h3>
+            </div>
+            
+            <p style="font-size: 13px; color: #666; margin-bottom: 25px;">
+                Comment souhaitez-vous recevoir votre code de vérification ?
+            </p>
+            
+            <div style="display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px;">
+                <button onclick="chooseMfaMethod('email')" style="width: 100%; padding: 20px; background: #e3f2fd; border: 2px solid #2196f3; border-radius: 10px; text-align: left; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#bbdefb'" onmouseout="this.style.background='#e3f2fd'">
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <span style="font-size: 32px;">📧</span>
+                        <div>
+                            <div style="font-weight: bold; color: #1565c0; font-size: 15px;">Code par email</div>
+                            <div style="font-size: 12px; color: #666;">Recevez un code à 6 chiffres sur votre adresse email</div>
+                        </div>
+                    </div>
+                </button>
+                
+                <button onclick="chooseMfaMethod('totp')" id="mfaMethodTotpButton" style="width: 100%; padding: 20px; background: #e8f5e9; border: 2px solid #4caf50; border-radius: 10px; text-align: left; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#c8e6c9'" onmouseout="this.style.background='#e8f5e9'">
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <span style="font-size: 32px;">📱</span>
+                        <div>
+                            <div id="mfaTotpBtnTitle" style="font-weight: bold; color: #2e7d32; font-size: 15px;">Application d'authentification</div>
+                            <div id="mfaTotpBtnSubtitle" style="font-size: 12px; color: #666;">Utilisez Google Authenticator ou similaire</div>
+                        </div>
+                    </div>
+                </button>
+            </div>
+            
+            <button onclick="cancelMfaLogin()" style="background: transparent; color: #999; padding: 10px; font-size: 12px; border: none; cursor: pointer;">
+                Annuler
+            </button>
+            
+            <input type="hidden" id="mfaMethodPendingUserId">
+            <input type="hidden" id="mfaMethodPendingProfile">
+            <input type="hidden" id="mfaMethodPendingApp">
+        </div>
+    </div>
+    
     <div id="editModal" class="modal">
         <div class="modal-content">
             <h3>Modifier la ressource</h3>
@@ -2366,10 +2596,27 @@
             const errorDiv = document.getElementById('loginError');
             errorDiv.style.display = 'none';
             errorDiv.textContent = '';
+            
+            console.log('🔍 handleLogin appelé, loginStep =', loginStep);
+            
+            // Vérifier la cohérence de l'état du formulaire
+            const profileSelectVisible = document.getElementById('profileSelectGroup').style.display !== 'none';
+            const hasProfile = document.getElementById('loginProfile').value;
+            
+            console.log('🔍 profileSelectVisible =', profileSelectVisible, ', hasProfile =', hasProfile);
+            
+            // Si loginStep est 'profile' mais que le sélecteur n'est pas visible, réinitialiser
+            if (loginStep === 'profile' && !profileSelectVisible && !hasProfile) {
+                console.log('⚠️ État incohérent détecté, réinitialisation du formulaire');
+                loginStep = 'credentials';
+                document.getElementById('loginButton').textContent = 'Continuer';
+            }
 
             if (loginStep === 'credentials') {
+                console.log('📝 Appel de loadUserProfiles()');
                 await loadUserProfiles();
             } else {
+                console.log('🔐 Appel de loginWithProfile()');
                 await loginWithProfile();
             }
         }
@@ -2378,16 +2625,20 @@
             const username = document.getElementById('loginUsername').value.trim();
             const password = document.getElementById('loginPassword').value;
 
+            console.log('📝 loadUserProfiles - username:', username, ', password length:', password ? password.length : 0);
+
             if (!username || !password) {
                 showLoginError('Veuillez remplir les identifiants');
                 return;
             }
 
             try {
+                console.log('📡 Appel API /user/profiles...');
                 const response = await fetch(`${API_URL}/user/profiles?username=${encodeURIComponent(username)}`, {
                     credentials: 'include'
                 });
                 const data = await response.json();
+                console.log('📡 Réponse /user/profiles:', data);
 
                 if (data.profiles && data.profiles.length > 0) {
                     availableProfiles = data.profiles;
@@ -2463,12 +2714,15 @@
             const profile = document.getElementById('loginProfile').value;
             const selectedApp = document.getElementById('loginApp').value || 'planification';
 
+            console.log('🔐 loginWithProfile - username:', username, ', profile:', profile, ', app:', selectedApp);
+
             if (!profile) {
                 showLoginError('Veuillez sélectionner un profil');
                 return;
             }
 
             try {
+                console.log('📡 Appel API /login...');
                 const response = await fetch(`${API_URL}/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -2479,74 +2733,49 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    currentUser = data.user;
-                    currentUser.selectedApp = selectedApp; // Stocker l'application choisie
-                    console.log('👤 Current user après login:', currentUser);
-                    console.log('📛 Trigramme:', currentUser.trigramme);
-                    console.log('📷 Photo:', currentUser.profilePhoto ? 'Oui' : 'Non');
-                    console.log('📱 Application choisie:', selectedApp);
-                    
-                    // Si l'utilisateur a choisi la plateforme de déplacements
-                    if (selectedApp === 'deplacements') {
-                        console.log('🚗 Redirection vers la Plateforme de suivi des déplacements');
-                        document.getElementById('loginPage').classList.remove('active');
+                    // Vérifier si MFA est requis
+                    if (data.mfaRequired) {
+                        console.log('🔐 MFA requis, méthode:', data.mfaMethod);
                         
-                        // Afficher l'application déplacements
-                        showDeplacementsApp();
+                        // Stocker les infos pour la suite
+                        const pendingUserId = data.pendingUserId;
+                        const pendingProfile = profile;
+                        const pendingApp = selectedApp;
+                        
+                        if (data.mfaMethod === 'choice') {
+                            // L'utilisateur peut choisir sa méthode
+                            document.getElementById('mfaMethodPendingUserId').value = pendingUserId;
+                            document.getElementById('mfaMethodPendingProfile').value = pendingProfile;
+                            document.getElementById('mfaMethodPendingApp').value = pendingApp;
+                            
+                            // Configurer le bouton TOTP selon si déjà configuré
+                            if (data.totpConfigured) {
+                                document.getElementById('mfaTotpBtnTitle').textContent = 'Application d\'authentification';
+                                document.getElementById('mfaTotpBtnSubtitle').textContent = 'Utilisez votre application configurée';
+                            } else {
+                                document.getElementById('mfaTotpBtnTitle').textContent = 'Configurer une application';
+                                document.getElementById('mfaTotpBtnSubtitle').textContent = 'Première utilisation : configuration requise';
+                            }
+                            
+                            document.getElementById('mfaMethodChoiceModal').classList.add('active');
+                        } else if (data.mfaMethod === 'email') {
+                            // MFA par email
+                            await initiateMfaEmail(pendingUserId, pendingProfile, pendingApp);
+                        } else if (data.mfaMethod === 'totp') {
+                            // MFA par TOTP
+                            if (data.totpConfigured) {
+                                // TOTP déjà configuré, demander le code
+                                showMfaTotpVerification(pendingUserId, pendingProfile, pendingApp);
+                            } else {
+                                // TOTP pas encore configuré, afficher le QR code
+                                await setupTotpForUser(pendingUserId, pendingProfile, pendingApp);
+                            }
+                        }
                         return;
                     }
                     
-                    // Sinon, continuer avec la plateforme de planification standard
-                    // Purger les anciennes données en mémoire pour éviter les problèmes de cache
-                    scheduleData = {};
-                    resources = [];
-                    users = [];
-                    schoolHolidays = { zoneA: [], zoneB: [], zoneC: [] };
-                    modifiedCellsInSession.clear(); // Réinitialiser les cellules modifiées
-                    
-                    sessionId = generateSessionId(); // Générer un ID de session unique
-                    
-                    document.getElementById('loginPage').classList.remove('active');
-                    document.querySelector('.container').style.display = 'block';
-                    
-                    updateTabsVisibility();
-                    updateUserDisplay();
-                    
-                    await loadResources();
-                    await loadSchedule();
-                    await loadSettings(); // Charger les paramètres d'inactivité
-                    await loadUsers(); // Charger les utilisateurs pour les notifications
-                    await loadSchoolHolidays(); // Charger les congés scolaires pour tous les profils
-                    await loadSpecialDates(); // Charger les dates particulières pour tous les profils
-                    
-                    // Démarrer le suivi des utilisateurs connectés en temps réel
-                    startOnlineUsersPolling();
-                    
-                    // Charger les nouvelles affectations uniquement pour les experts
-                    console.log('🔍 CurrentUser:', currentUser);
-                    console.log('🔍 ActiveProfile:', currentUser.activeProfile);
-                    console.log('🔍 Est expert?', currentUser.activeProfile === 'expert');
-                    
-                    if (currentUser.activeProfile === 'expert') {
-                        console.log('✅ Profil expert détecté, chargement des notifications...');
-                        await loadNewAssignments();
-                    } else {
-                        console.log('⏭️ Pas un expert, pas de notifications');
-                    }
-                    
-                    setCurrentMonth();
-                    
-                    // Si expert, forcer l'affichage de sa ressource
-                    if (currentUser.activeProfile === 'expert') {
-                        updateGantt();
-                    }
-                    
-                    document.getElementById('loginUsername').value = '';
-                    document.getElementById('loginPassword').value = '';
-                    document.getElementById('loginProfile').value = '';
-                    document.getElementById('profileSelectGroup').style.display = 'none';
-                    document.getElementById('loginButton').textContent = 'Continuer';
-                    loginStep = 'credentials';
+                    // Pas de MFA, continuer normalement
+                    await completeFinalLogin(data.user, selectedApp);
                 } else {
                     showLoginError(data.error || 'Erreur de connexion');
                 }
@@ -2555,12 +2784,435 @@
                 showLoginError('Erreur de connexion');
             }
         }
+        
+        // Finaliser le login après validation MFA ou sans MFA
+        async function completeFinalLogin(user, selectedApp) {
+            currentUser = user;
+            currentUser.selectedApp = selectedApp;
+            console.log('👤 Current user après login:', currentUser);
+            console.log('📛 Trigramme:', currentUser.trigramme);
+            console.log('📷 Photo:', currentUser.profilePhoto ? 'Oui' : 'Non');
+            console.log('📱 Application choisie:', selectedApp);
+            
+            // Fermer toutes les modales MFA
+            document.getElementById('mfaCodeModal').classList.remove('active');
+            document.getElementById('mfaTotpSetupModal').classList.remove('active');
+            document.getElementById('mfaMethodChoiceModal').classList.remove('active');
+            
+            // Si l'utilisateur a choisi la plateforme de déplacements
+            if (selectedApp === 'deplacements') {
+                console.log('🚗 Redirection vers la Plateforme de suivi des déplacements');
+                document.getElementById('loginPage').classList.remove('active');
+                
+                // Afficher l'application déplacements
+                showDeplacementsApp();
+                return;
+            }
+            
+            // Sinon, continuer avec la plateforme de planification standard
+            // Purger les anciennes données en mémoire pour éviter les problèmes de cache
+            scheduleData = {};
+            resources = [];
+            users = [];
+            schoolHolidays = { zoneA: [], zoneB: [], zoneC: [] };
+            modifiedCellsInSession.clear(); // Réinitialiser les cellules modifiées
+            
+            sessionId = generateSessionId(); // Générer un ID de session unique
+            
+            document.getElementById('loginPage').classList.remove('active');
+            document.querySelector('.container').style.display = 'block';
+            
+            updateTabsVisibility();
+            updateUserDisplay();
+            
+            await loadResources();
+            await loadSchedule();
+            await loadSettings(); // Charger les paramètres d'inactivité
+            await loadUsers(); // Charger les utilisateurs pour les notifications
+            await loadSchoolHolidays(); // Charger les congés scolaires pour tous les profils
+            await loadSpecialDates(); // Charger les dates particulières pour tous les profils
+            
+            // Démarrer le suivi des utilisateurs connectés en temps réel
+            startOnlineUsersPolling();
+            
+            // Charger les nouvelles affectations uniquement pour les experts
+            console.log('🔍 CurrentUser:', currentUser);
+            console.log('🔍 ActiveProfile:', currentUser.activeProfile);
+            console.log('🔍 Est expert?', currentUser.activeProfile === 'expert');
+            
+            if (currentUser.activeProfile === 'expert') {
+                console.log('✅ Profil expert détecté, chargement des notifications...');
+                await loadNewAssignments();
+            } else {
+                console.log('⏭️ Pas un expert, pas de notifications');
+            }
+            
+            setCurrentMonth();
+            
+            // Si expert, forcer l'affichage de sa ressource
+            if (currentUser.activeProfile === 'expert') {
+                updateGantt();
+            }
+            
+            document.getElementById('loginUsername').value = '';
+            document.getElementById('loginPassword').value = '';
+            document.getElementById('loginProfile').value = '';
+            document.getElementById('profileSelectGroup').style.display = 'none';
+            document.getElementById('loginButton').textContent = 'Continuer';
+            loginStep = 'credentials';
+        }
 
         function showLoginError(message) {
             const errorDiv = document.getElementById('loginError');
             errorDiv.textContent = message;
             errorDiv.style.display = 'block';
         }
+        
+        // ========== FONCTIONS MFA ==========
+        
+        // Toggle affichage configuration MFA
+        function toggleMfaConfig() {
+            const enabled = document.getElementById('mfaEnabled').checked;
+            document.getElementById('mfaConfig').style.display = enabled ? 'block' : 'none';
+            saveMfaConfig();
+        }
+        
+        // Charger la configuration MFA
+        async function loadMfaConfig() {
+            try {
+                const response = await fetch(`${API_URL}/mfa/config`, { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.config) {
+                        document.getElementById('mfaEnabled').checked = data.config.enabled || false;
+                        document.getElementById('mfaConfig').style.display = data.config.enabled ? 'block' : 'none';
+                        
+                        // Méthode
+                        const methodRadios = document.querySelectorAll('input[name="mfaMethod"]');
+                        methodRadios.forEach(radio => {
+                            radio.checked = radio.value === (data.config.method || 'email');
+                        });
+                        
+                        // Fréquence
+                        document.getElementById('mfaFrequency').value = data.config.frequency || 'daily';
+                        
+                        // Profils
+                        document.getElementById('mfaProfileAdmin').checked = data.config.profileAdmin !== false;
+                        document.getElementById('mfaProfileExpert').checked = data.config.profileExpert || false;
+                        document.getElementById('mfaProfileUser').checked = data.config.profileUser || false;
+                        
+                        // Validité du code
+                        document.getElementById('mfaCodeValidity').value = data.config.codeValidity || '10';
+                    }
+                }
+            } catch (error) {
+                console.error('Erreur chargement config MFA:', error);
+            }
+        }
+        
+        // Sauvegarder la configuration MFA
+        async function saveMfaConfig() {
+            const methodRadio = document.querySelector('input[name="mfaMethod"]:checked');
+            
+            const config = {
+                enabled: document.getElementById('mfaEnabled').checked,
+                method: methodRadio ? methodRadio.value : 'email',
+                frequency: document.getElementById('mfaFrequency').value,
+                profileAdmin: document.getElementById('mfaProfileAdmin').checked,
+                profileExpert: document.getElementById('mfaProfileExpert').checked,
+                profileUser: document.getElementById('mfaProfileUser').checked,
+                codeValidity: parseInt(document.getElementById('mfaCodeValidity').value)
+            };
+            
+            try {
+                const response = await fetch(`${API_URL}/mfa/config`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ config })
+                });
+                
+                if (response.ok) {
+                    console.log('✅ Configuration MFA sauvegardée');
+                }
+            } catch (error) {
+                console.error('Erreur sauvegarde config MFA:', error);
+            }
+        }
+        
+        // Réinitialiser le MFA de tous les utilisateurs
+        async function resetAllUsersMfa() {
+            if (!confirm('⚠️ Êtes-vous sûr de vouloir réinitialiser le MFA de tous les utilisateurs ?\n\nTous les utilisateurs devront reconfigurer leur authentification TOTP.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/mfa/reset-all`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    alert('✅ MFA réinitialisé pour tous les utilisateurs');
+                } else {
+                    const data = await response.json();
+                    alert('❌ Erreur: ' + (data.error || 'Erreur inconnue'));
+                }
+            } catch (error) {
+                console.error('Erreur reset MFA:', error);
+                alert('❌ Erreur: ' + error.message);
+            }
+        }
+        
+        // Initier MFA par email
+        async function initiateMfaEmail(userId, profile, app) {
+            try {
+                const response = await fetch(`${API_URL}/mfa/send-code`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ userId })
+                });
+                
+                if (response.ok) {
+                    document.getElementById('mfaPendingUserId').value = userId;
+                    document.getElementById('mfaPendingProfile').value = profile;
+                    document.getElementById('mfaPendingApp').value = app;
+                    
+                    document.getElementById('mfaCodeIcon').textContent = '📧';
+                    document.getElementById('mfaCodeMessage').textContent = 'Un code de vérification a été envoyé à votre adresse email.';
+                    document.getElementById('mfaCodeInput').value = '';
+                    document.getElementById('mfaCodeError').style.display = 'none';
+                    document.getElementById('mfaResendButton').style.display = 'block';
+                    
+                    document.getElementById('mfaCodeModal').classList.add('active');
+                    document.getElementById('mfaCodeInput').focus();
+                } else {
+                    const data = await response.json();
+                    showLoginError(data.error || 'Erreur envoi du code');
+                }
+            } catch (error) {
+                console.error('Erreur MFA email:', error);
+                showLoginError('Erreur envoi du code');
+            }
+        }
+        
+        // Afficher la vérification TOTP
+        function showMfaTotpVerification(userId, profile, app) {
+            document.getElementById('mfaPendingUserId').value = userId;
+            document.getElementById('mfaPendingProfile').value = profile;
+            document.getElementById('mfaPendingApp').value = app;
+            
+            document.getElementById('mfaCodeIcon').textContent = '📱';
+            document.getElementById('mfaCodeMessage').textContent = 'Entrez le code affiché dans votre application d\'authentification.';
+            document.getElementById('mfaCodeInput').value = '';
+            document.getElementById('mfaCodeError').style.display = 'none';
+            document.getElementById('mfaResendButton').style.display = 'none';
+            
+            document.getElementById('mfaCodeModal').classList.add('active');
+            document.getElementById('mfaCodeInput').focus();
+        }
+        
+        // Vérifier le code MFA
+        async function verifyMfaCode() {
+            const code = document.getElementById('mfaCodeInput').value.trim();
+            const userId = document.getElementById('mfaPendingUserId').value;
+            const profile = document.getElementById('mfaPendingProfile').value;
+            const app = document.getElementById('mfaPendingApp').value;
+            
+            if (code.length !== 6) {
+                document.getElementById('mfaCodeError').textContent = 'Le code doit contenir 6 chiffres';
+                document.getElementById('mfaCodeError').style.display = 'block';
+                return;
+            }
+            
+            document.getElementById('mfaVerifyButton').disabled = true;
+            document.getElementById('mfaVerifyButton').textContent = 'Vérification...';
+            
+            try {
+                const response = await fetch(`${API_URL}/mfa/verify`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ userId, code, profile })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    await completeFinalLogin(data.user, app);
+                } else {
+                    document.getElementById('mfaCodeError').textContent = data.error || 'Code invalide';
+                    document.getElementById('mfaCodeError').style.display = 'block';
+                    document.getElementById('mfaCodeInput').value = '';
+                    document.getElementById('mfaCodeInput').focus();
+                }
+            } catch (error) {
+                console.error('Erreur vérification MFA:', error);
+                document.getElementById('mfaCodeError').textContent = 'Erreur de vérification';
+                document.getElementById('mfaCodeError').style.display = 'block';
+            } finally {
+                document.getElementById('mfaVerifyButton').disabled = false;
+                document.getElementById('mfaVerifyButton').textContent = '✓ Vérifier';
+            }
+        }
+        
+        // Renvoyer le code MFA par email
+        async function resendMfaCode() {
+            const userId = document.getElementById('mfaPendingUserId').value;
+            
+            document.getElementById('mfaResendButton').disabled = true;
+            document.getElementById('mfaResendButton').textContent = 'Envoi en cours...';
+            
+            try {
+                const response = await fetch(`${API_URL}/mfa/send-code`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ userId })
+                });
+                
+                if (response.ok) {
+                    document.getElementById('mfaResendButton').textContent = '✓ Code envoyé !';
+                    setTimeout(() => {
+                        document.getElementById('mfaResendButton').textContent = '📧 Renvoyer le code';
+                        document.getElementById('mfaResendButton').disabled = false;
+                    }, 3000);
+                } else {
+                    document.getElementById('mfaResendButton').textContent = '❌ Erreur';
+                    setTimeout(() => {
+                        document.getElementById('mfaResendButton').textContent = '📧 Renvoyer le code';
+                        document.getElementById('mfaResendButton').disabled = false;
+                    }, 2000);
+                }
+            } catch (error) {
+                console.error('Erreur renvoi code:', error);
+                document.getElementById('mfaResendButton').textContent = '📧 Renvoyer le code';
+                document.getElementById('mfaResendButton').disabled = false;
+            }
+        }
+        
+        // Annuler le login MFA
+        function cancelMfaLogin() {
+            document.getElementById('mfaCodeModal').classList.remove('active');
+            document.getElementById('mfaTotpSetupModal').classList.remove('active');
+            document.getElementById('mfaMethodChoiceModal').classList.remove('active');
+            
+            // Réinitialiser le formulaire de login
+            document.getElementById('loginPassword').value = '';
+            document.getElementById('profileSelectGroup').style.display = 'none';
+            document.getElementById('appSelectGroup').style.display = 'none';
+            document.getElementById('loginButton').textContent = 'Continuer';
+            loginStep = 'credentials';
+        }
+        
+        // Choisir la méthode MFA
+        async function chooseMfaMethod(method) {
+            const userId = document.getElementById('mfaMethodPendingUserId').value;
+            const profile = document.getElementById('mfaMethodPendingProfile').value;
+            const app = document.getElementById('mfaMethodPendingApp').value;
+            
+            document.getElementById('mfaMethodChoiceModal').classList.remove('active');
+            
+            if (method === 'email') {
+                await initiateMfaEmail(userId, profile, app);
+            } else if (method === 'totp') {
+                // Vérifier si TOTP est déjà configuré
+                try {
+                    const response = await fetch(`${API_URL}/mfa/totp-status/${userId}`, { credentials: 'include' });
+                    const data = await response.json();
+                    
+                    if (data.configured) {
+                        showMfaTotpVerification(userId, profile, app);
+                    } else {
+                        await setupTotpForUser(userId, profile, app);
+                    }
+                } catch (error) {
+                    console.error('Erreur TOTP status:', error);
+                    showLoginError('Erreur de vérification TOTP');
+                }
+            }
+        }
+        
+        // Configurer TOTP pour un utilisateur
+        async function setupTotpForUser(userId, profile, app) {
+            try {
+                const response = await fetch(`${API_URL}/mfa/totp-setup`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ userId })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    document.getElementById('mfaTotpPendingSecret').value = data.secret;
+                    document.getElementById('mfaTotpPendingUserId').value = userId;
+                    document.getElementById('mfaPendingProfile').value = profile;
+                    document.getElementById('mfaPendingApp').value = app;
+                    
+                    // Afficher le QR code
+                    document.getElementById('mfaTotpQrCode').innerHTML = `<img src="${data.qrCode}" alt="QR Code" style="width: 200px; height: 200px;">`;
+                    document.getElementById('mfaTotpSecret').textContent = data.secret;
+                    document.getElementById('mfaTotpConfirmCode').value = '';
+                    document.getElementById('mfaTotpSetupError').style.display = 'none';
+                    
+                    document.getElementById('mfaTotpSetupModal').classList.add('active');
+                } else {
+                    showLoginError(data.error || 'Erreur configuration TOTP');
+                }
+            } catch (error) {
+                console.error('Erreur setup TOTP:', error);
+                showLoginError('Erreur configuration TOTP');
+            }
+        }
+        
+        // Confirmer la configuration TOTP
+        async function confirmTotpSetup() {
+            const code = document.getElementById('mfaTotpConfirmCode').value.trim();
+            const secret = document.getElementById('mfaTotpPendingSecret').value;
+            const userId = document.getElementById('mfaTotpPendingUserId').value;
+            const profile = document.getElementById('mfaPendingProfile').value;
+            const app = document.getElementById('mfaPendingApp').value;
+            
+            if (code.length !== 6) {
+                document.getElementById('mfaTotpSetupError').textContent = 'Le code doit contenir 6 chiffres';
+                document.getElementById('mfaTotpSetupError').style.display = 'block';
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/mfa/totp-confirm`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ userId, secret, code, profile })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    await completeFinalLogin(data.user, app);
+                } else {
+                    document.getElementById('mfaTotpSetupError').textContent = data.error || 'Code invalide';
+                    document.getElementById('mfaTotpSetupError').style.display = 'block';
+                    document.getElementById('mfaTotpConfirmCode').value = '';
+                }
+            } catch (error) {
+                console.error('Erreur confirm TOTP:', error);
+                document.getElementById('mfaTotpSetupError').textContent = 'Erreur de vérification';
+                document.getElementById('mfaTotpSetupError').style.display = 'block';
+            }
+        }
+        
+        // Annuler la configuration TOTP
+        function cancelTotpSetup() {
+            document.getElementById('mfaTotpSetupModal').classList.remove('active');
+            cancelMfaLogin();
+        }
+        
+        // ========== FIN FONCTIONS MFA ==========
 
         function updateUserDisplay() {
             
@@ -5502,6 +6154,16 @@
                 loginStep = 'credentials';
                 availableProfiles = [];
                 
+                // Réinitialiser complètement le formulaire de login
+                document.getElementById('loginUsername').value = '';
+                document.getElementById('loginPassword').value = '';
+                document.getElementById('loginProfile').value = '';
+                document.getElementById('profileSelectGroup').style.display = 'none';
+                document.getElementById('appSelectGroup').style.display = 'none';
+                document.getElementById('loginButton').textContent = 'Continuer';
+                document.getElementById('loginError').style.display = 'none';
+                document.getElementById('loginError').textContent = '';
+                
             } catch (error) {
                 console.error('Erreur logout:', error);
                 alert('Erreur lors de la déconnexion. Veuillez réessayer.');
@@ -7401,6 +8063,8 @@
                     loadAutomation2Config();
                     // Automatisation 3 (Teams)
                     loadAutomation3Config();
+                    // Configuration MFA
+                    loadMfaConfig();
                 }
             } catch (error) {
                 console.error('Erreur:', error);

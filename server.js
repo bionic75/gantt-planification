@@ -16,6 +16,8 @@ console.log('✅ Nodemailer importé');
 import fs from 'fs';
 import cron from 'node-cron';
 console.log('✅ Cron importé');
+import QRCode from 'qrcode';
+console.log('✅ QRCode importé');
 
 console.log('📂 Chargement config.json...');
 import config from './config/config.json' with { type: "json" };
@@ -768,6 +770,42 @@ function initDB() {
             });
         }
     });
+    
+    // Tables MFA
+    database.run(`
+        CREATE TABLE IF NOT EXISTS mfa_codes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL UNIQUE,
+            code TEXT NOT NULL,
+            expires_at DATETIME NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    `, (err) => {
+        if (err) console.error('Erreur création table mfa_codes:', err);
+        else console.log('✅ Table mfa_codes créée');
+    });
+    
+    database.run(`
+        CREATE TABLE IF NOT EXISTS mfa_validations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            validated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    `, (err) => {
+        if (err) console.error('Erreur création table mfa_validations:', err);
+        else console.log('✅ Table mfa_validations créée');
+    });
+    
+    // Migration: ajouter colonne totp_secret à users si elle n'existe pas
+    database.all(`PRAGMA table_info(users)`, [], (err, columns) => {
+        if (!err && columns) {
+            const columnNames = columns.map(c => c.name);
+            if (!columnNames.includes('totp_secret')) {
+                database.run(`ALTER TABLE users ADD COLUMN totp_secret TEXT`);
+                console.log('Migration: Ajout colonne totp_secret à users');
+            }
+        }
+    });
 
     // Table des bons de commande pour les déplacements
     database.run(`
@@ -991,7 +1029,7 @@ function requireReportingAccess(req, res, next) {
 
 // ==================== API CONNEXION ====================
 
-app.post('/api/login', (req, res) => {
+app.post('/api/login', async (req, res) => {
     const { username, password, profile } = req.body;
     
     if (!username || !password || !profile) {
@@ -1000,83 +1038,250 @@ app.post('/api/login', (req, res) => {
 
     const hashedPassword = hashPassword(password);
     
-    database.get(
-        `SELECT u.*, r.trigramme 
-         FROM users u 
-         LEFT JOIN resources r ON r.id = u.resource_id 
-         WHERE u.username = ? AND u.password = ? AND u.actif = 1`,
-        [username, hashedPassword],
-        (err, user) => {
-            if (err) {
-                console.error('Erreur login:', err);
-                return res.status(500).json({ error: err.message });
-            }
-            
-            if (!user) {
-                return res.status(401).json({ error: 'Identifiants incorrects' });
-            }
-            
-            let profileValid = false;
-            if (profile === 'admin' && user.is_admin === 1) profileValid = true;
-            if (profile === 'expert' && user.is_expert === 1) profileValid = true;
-            if (profile === 'user' && user.is_user === 1) profileValid = true;
-            
-            if (!profileValid) {
-                return res.status(403).json({ error: 'Profil non autorisé' });
-            }
-            
-            req.session.userId = user.id;
-            req.session.username = user.username;
-            req.session.nom = user.nom;
-            req.session.prenom = user.prenom;
-            req.session.activeProfile = profile;
-            req.session.resourceId = user.resource_id;
-            
-            // Tracker la session active
-            activeSessions.set(user.id, {
-                lastActivity: Date.now(),
-                profile: profile,
-                username: user.username
-            });
-            console.log(`🟢 Session active pour ${user.username} (userId: ${user.id})`);
-            
-            // Logger la connexion
-            database.run(
-                `INSERT INTO connection_logs (user_id, username, nom, prenom, profile) VALUES (?, ?, ?, ?, ?)`,
-                [user.id, user.username, user.nom, user.prenom, profile],
-                function(err) {
-                    if (err) {
-                        console.error('❌ Erreur log connexion:', err);
-                    } else {
-                        // Sauvegarder l'ID du log dans la session
-                        req.session.logId = this.lastID;
-                    }
-                    
-                    // Répondre APRÈS avoir tenté d'insérer le log
-                    const userResponse = {
-                        id: user.id,
-                        username: user.username,
-                        nom: user.nom,
-                        prenom: user.prenom,
-                        email: user.email,
-                        trigramme: user.trigramme || null,
-                        profilePhoto: user.profile_photo || null,
-                        activeProfile: profile,
-                        resourceId: user.resource_id,
-                        hasReportingAccess: user.has_reporting_access === 1 || user.is_admin === 1,
-                        amoaCed: user.amoa_ced === 1,
-                        is_amoa_ced: user.amoa_ced === 1
-                    };
-                    
-                    res.json({ 
-                        success: true,
-                        user: userResponse
-                    });
+    try {
+        const user = await new Promise((resolve, reject) => {
+            database.get(
+                `SELECT u.*, r.trigramme 
+                 FROM users u 
+                 LEFT JOIN resources r ON r.id = u.resource_id 
+                 WHERE u.username = ? AND u.password = ? AND u.actif = 1`,
+                [username, hashedPassword],
+                (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row);
                 }
             );
+        });
+        
+        if (!user) {
+            return res.status(401).json({ error: 'Identifiants incorrects' });
         }
-    );
+        
+        let profileValid = false;
+        if (profile === 'admin' && user.is_admin === 1) profileValid = true;
+        if (profile === 'expert' && user.is_expert === 1) profileValid = true;
+        if (profile === 'user' && user.is_user === 1) profileValid = true;
+        
+        if (!profileValid) {
+            return res.status(403).json({ error: 'Profil non autorisé' });
+        }
+        
+        // Vérifier si MFA est requis
+        const mfaConfig = await getMfaConfig();
+        
+        if (mfaConfig && mfaConfig.enabled) {
+            // Vérifier si le profil nécessite MFA
+            const profileNeedsMfa = 
+                (profile === 'admin' && mfaConfig.profileAdmin) ||
+                (profile === 'expert' && mfaConfig.profileExpert) ||
+                (profile === 'user' && mfaConfig.profileUser);
+            
+            if (profileNeedsMfa) {
+                // Vérifier si MFA a déjà été validé récemment
+                const mfaStillValid = await checkMfaValidity(user.id, mfaConfig.frequency);
+                
+                if (!mfaStillValid) {
+                    // MFA requis
+                    const totpConfigured = await isUserTotpConfigured(user.id);
+                    
+                    let mfaMethod = mfaConfig.method;
+                    if (mfaMethod === 'both') {
+                        mfaMethod = 'choice';
+                    }
+                    
+                    return res.json({
+                        mfaRequired: true,
+                        mfaMethod: mfaMethod,
+                        totpConfigured: totpConfigured,
+                        pendingUserId: user.id
+                    });
+                }
+            }
+        }
+        
+        // Pas de MFA requis, continuer le login normal
+        await completeLogin(req, res, user, profile);
+        
+    } catch (error) {
+        console.error('Erreur login:', error);
+        res.status(500).json({ error: error.message });
+    }
 });
+
+// Fonction pour compléter le login
+async function completeLogin(req, res, user, profile) {
+    req.session.userId = user.id;
+    req.session.username = user.username;
+    req.session.nom = user.nom;
+    req.session.prenom = user.prenom;
+    req.session.activeProfile = profile;
+    req.session.resourceId = user.resource_id;
+    
+    // Tracker la session active
+    activeSessions.set(user.id, {
+        lastActivity: Date.now(),
+        profile: profile,
+        username: user.username
+    });
+    console.log(`🟢 Session active pour ${user.username} (userId: ${user.id})`);
+    
+    // Logger la connexion
+    return new Promise((resolve, reject) => {
+        database.run(
+            `INSERT INTO connection_logs (user_id, username, nom, prenom, profile) VALUES (?, ?, ?, ?, ?)`,
+            [user.id, user.username, user.nom, user.prenom, profile],
+            function(err) {
+                if (err) {
+                    console.error('❌ Erreur log connexion:', err);
+                } else {
+                    req.session.logId = this.lastID;
+                }
+                
+                const userResponse = {
+                    id: user.id,
+                    username: user.username,
+                    nom: user.nom,
+                    prenom: user.prenom,
+                    email: user.email,
+                    trigramme: user.trigramme || null,
+                    profilePhoto: user.profile_photo || null,
+                    activeProfile: profile,
+                    resourceId: user.resource_id,
+                    hasReportingAccess: user.has_reporting_access === 1 || user.is_admin === 1,
+                    amoaCed: user.amoa_ced === 1,
+                    is_amoa_ced: user.amoa_ced === 1
+                };
+                
+                res.json({ 
+                    success: true,
+                    user: userResponse
+                });
+                resolve();
+            }
+        );
+    });
+}
+
+// Fonctions helper pour MFA
+async function getMfaConfig() {
+    return new Promise((resolve, reject) => {
+        database.get(
+            `SELECT value FROM settings WHERE key = 'mfa_config'`,
+            (err, row) => {
+                if (err) reject(err);
+                else resolve(row ? JSON.parse(row.value) : null);
+            }
+        );
+    });
+}
+
+async function checkMfaValidity(userId, frequency) {
+    return new Promise((resolve, reject) => {
+        database.get(
+            `SELECT validated_at FROM mfa_validations WHERE user_id = ? ORDER BY validated_at DESC LIMIT 1`,
+            [userId],
+            (err, row) => {
+                if (err) reject(err);
+                else if (!row) resolve(false);
+                else {
+                    const validatedAt = new Date(row.validated_at);
+                    const now = new Date();
+                    let maxAge;
+                    
+                    switch (frequency) {
+                        case 'always': maxAge = 0; break;
+                        case 'daily': maxAge = 24 * 60 * 60 * 1000; break;
+                        case 'weekly': maxAge = 7 * 24 * 60 * 60 * 1000; break;
+                        case 'monthly': maxAge = 30 * 24 * 60 * 60 * 1000; break;
+                        default: maxAge = 24 * 60 * 60 * 1000;
+                    }
+                    
+                    resolve(now - validatedAt < maxAge);
+                }
+            }
+        );
+    });
+}
+
+async function isUserTotpConfigured(userId) {
+    return new Promise((resolve, reject) => {
+        database.get(
+            `SELECT totp_secret FROM users WHERE id = ? AND totp_secret IS NOT NULL`,
+            [userId],
+            (err, row) => {
+                if (err) reject(err);
+                else resolve(!!row);
+            }
+        );
+    });
+}
+
+// Générer un code MFA à 6 chiffres
+function generateMfaCode() {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+// Générer une clé secrète TOTP
+function generateTotpSecret() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+    let secret = '';
+    for (let i = 0; i < 32; i++) {
+        secret += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return secret;
+}
+
+// Vérifier un code TOTP
+function verifyTotp(secret, code) {
+    const epoch = Math.floor(Date.now() / 1000);
+    const timeStep = 30;
+    
+    // Vérifier le code pour la fenêtre actuelle et les deux adjacentes
+    for (let i = -1; i <= 1; i++) {
+        const counter = Math.floor((epoch / timeStep) + i);
+        const expectedCode = generateTotpCode(secret, counter);
+        if (expectedCode === code) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Générer un code TOTP pour un compteur donné
+function generateTotpCode(secret, counter) {
+    // Décoder le secret base32
+    const base32Chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+    let bits = '';
+    for (let i = 0; i < secret.length; i++) {
+        const val = base32Chars.indexOf(secret.charAt(i).toUpperCase());
+        bits += val.toString(2).padStart(5, '0');
+    }
+    
+    const bytes = [];
+    for (let i = 0; i + 8 <= bits.length; i += 8) {
+        bytes.push(parseInt(bits.substr(i, 8), 2));
+    }
+    const key = Buffer.from(bytes);
+    
+    // Créer le compteur en bytes
+    const counterBuffer = Buffer.alloc(8);
+    counterBuffer.writeBigInt64BE(BigInt(counter));
+    
+    // HMAC-SHA1
+    const hmac = crypto.createHmac('sha1', key);
+    hmac.update(counterBuffer);
+    const hash = hmac.digest();
+    
+    // Extraction dynamique
+    const offset = hash[hash.length - 1] & 0xf;
+    const binary = ((hash[offset] & 0x7f) << 24) |
+                   ((hash[offset + 1] & 0xff) << 16) |
+                   ((hash[offset + 2] & 0xff) << 8) |
+                   (hash[offset + 3] & 0xff);
+    
+    const otp = binary % 1000000;
+    return otp.toString().padStart(6, '0');
+}
 
 app.post('/api/logout', (req, res) => {
     const userId = req.session.userId;
@@ -8219,6 +8424,319 @@ app.post('/api/teams/notify', requireAuth, async (req, res) => {
 });
 
 // ========== FIN ROUTES NOTIFICATIONS TEAMS ==========
+
+// ========== ROUTES MFA ==========
+
+// Récupérer la configuration MFA
+app.get('/api/mfa/config', requireAdmin, (req, res) => {
+    database.get(
+        `SELECT value FROM settings WHERE key = 'mfa_config'`,
+        (err, row) => {
+            if (err) {
+                return res.status(500).json({ error: err.message });
+            }
+            res.json({ config: row ? JSON.parse(row.value) : {} });
+        }
+    );
+});
+
+// Sauvegarder la configuration MFA
+app.post('/api/mfa/config', requireAdmin, (req, res) => {
+    const { config } = req.body;
+    
+    database.run(
+        `INSERT OR REPLACE INTO settings (key, value) VALUES ('mfa_config', ?)`,
+        [JSON.stringify(config)],
+        (err) => {
+            if (err) {
+                return res.status(500).json({ error: err.message });
+            }
+            console.log('🔐 Configuration MFA sauvegardée:', config);
+            res.json({ success: true });
+        }
+    );
+});
+
+// Réinitialiser le MFA de tous les utilisateurs
+app.post('/api/mfa/reset-all', requireAdmin, (req, res) => {
+    database.serialize(() => {
+        // Supprimer les secrets TOTP
+        database.run(`UPDATE users SET totp_secret = NULL`);
+        // Supprimer les validations MFA
+        database.run(`DELETE FROM mfa_validations`);
+        // Supprimer les codes MFA en attente
+        database.run(`DELETE FROM mfa_codes`);
+    });
+    
+    console.log('🔐 MFA réinitialisé pour tous les utilisateurs');
+    res.json({ success: true });
+});
+
+// Envoyer un code MFA par email
+app.post('/api/mfa/send-code', async (req, res) => {
+    const { userId } = req.body;
+    
+    try {
+        // Récupérer l'utilisateur
+        const user = await new Promise((resolve, reject) => {
+            database.get(`SELECT email, prenom, nom FROM users WHERE id = ?`, [userId], (err, row) => {
+                if (err) reject(err);
+                else resolve(row);
+            });
+        });
+        
+        if (!user || !user.email) {
+            return res.status(400).json({ error: 'Utilisateur sans email' });
+        }
+        
+        // Générer le code
+        const code = generateMfaCode();
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 minutes
+        
+        // Sauvegarder le code
+        await new Promise((resolve, reject) => {
+            database.run(
+                `INSERT OR REPLACE INTO mfa_codes (user_id, code, expires_at) VALUES (?, ?, ?)`,
+                [userId, code, expiresAt],
+                (err) => {
+                    if (err) reject(err);
+                    else resolve();
+                }
+            );
+        });
+        
+        // Envoyer l'email
+        const transporter = createEmailTransporter();
+        if (!transporter) {
+            return res.status(500).json({ error: 'Configuration email non disponible' });
+        }
+        
+        await transporter.sendMail({
+            from: `"Planning ANS" <${emailConfig.user}>`,
+            to: user.email,
+            subject: '🔐 Code de vérification - Planning ANS',
+            html: `
+                <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #f5f5f5;">
+                    <div style="max-width: 450px; margin: 0 auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                        <div style="background: linear-gradient(135deg, #4caf50 0%, #43a047 100%); color: white; padding: 25px; text-align: center;">
+                            <h2 style="margin: 0;">🔐 Code de vérification</h2>
+                        </div>
+                        <div style="padding: 30px; text-align: center;">
+                            <p style="color: #666; margin-bottom: 20px;">
+                                Bonjour ${user.prenom},<br>
+                                Voici votre code de vérification pour accéder à l'application.
+                            </p>
+                            <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                                <span style="font-size: 36px; font-family: monospace; letter-spacing: 8px; font-weight: bold; color: #2e7d32;">${code}</span>
+                            </div>
+                            <p style="color: #999; font-size: 12px;">
+                                Ce code est valable pendant 10 minutes.<br>
+                                Si vous n'avez pas demandé ce code, ignorez cet email.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            `
+        });
+        
+        console.log(`🔐 Code MFA envoyé à ${user.email}`);
+        res.json({ success: true });
+        
+    } catch (error) {
+        console.error('Erreur envoi code MFA:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Vérifier un code MFA
+app.post('/api/mfa/verify', async (req, res) => {
+    const { userId, code, profile } = req.body;
+    
+    try {
+        // Vérifier d'abord si c'est un code email
+        const emailCode = await new Promise((resolve, reject) => {
+            database.get(
+                `SELECT * FROM mfa_codes WHERE user_id = ? AND code = ? AND expires_at > datetime('now')`,
+                [userId, code],
+                (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row);
+                }
+            );
+        });
+        
+        let valid = false;
+        
+        if (emailCode) {
+            valid = true;
+            // Supprimer le code utilisé
+            await new Promise((resolve, reject) => {
+                database.run(`DELETE FROM mfa_codes WHERE user_id = ?`, [userId], (err) => {
+                    if (err) reject(err);
+                    else resolve();
+                });
+            });
+        } else {
+            // Essayer TOTP
+            const user = await new Promise((resolve, reject) => {
+                database.get(`SELECT totp_secret FROM users WHERE id = ?`, [userId], (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row);
+                });
+            });
+            
+            if (user && user.totp_secret) {
+                valid = verifyTotp(user.totp_secret, code);
+            }
+        }
+        
+        if (!valid) {
+            return res.status(401).json({ error: 'Code invalide ou expiré' });
+        }
+        
+        // Enregistrer la validation MFA
+        await new Promise((resolve, reject) => {
+            database.run(
+                `INSERT INTO mfa_validations (user_id, validated_at) VALUES (?, datetime('now'))`,
+                [userId],
+                (err) => {
+                    if (err) reject(err);
+                    else resolve();
+                }
+            );
+        });
+        
+        // Récupérer l'utilisateur et compléter le login
+        const user = await new Promise((resolve, reject) => {
+            database.get(
+                `SELECT u.*, r.trigramme 
+                 FROM users u 
+                 LEFT JOIN resources r ON r.id = u.resource_id 
+                 WHERE u.id = ?`,
+                [userId],
+                (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row);
+                }
+            );
+        });
+        
+        await completeLogin(req, res, user, profile);
+        
+    } catch (error) {
+        console.error('Erreur vérification MFA:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Vérifier le statut TOTP d'un utilisateur
+app.get('/api/mfa/totp-status/:userId', async (req, res) => {
+    const { userId } = req.params;
+    
+    try {
+        const configured = await isUserTotpConfigured(userId);
+        res.json({ configured });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Configurer TOTP pour un utilisateur
+app.post('/api/mfa/totp-setup', async (req, res) => {
+    const { userId } = req.body;
+    
+    try {
+        // Récupérer l'utilisateur
+        const user = await new Promise((resolve, reject) => {
+            database.get(`SELECT username, email FROM users WHERE id = ?`, [userId], (err, row) => {
+                if (err) reject(err);
+                else resolve(row);
+            });
+        });
+        
+        if (!user) {
+            return res.status(404).json({ error: 'Utilisateur non trouvé' });
+        }
+        
+        // Générer la clé secrète
+        const secret = generateTotpSecret();
+        
+        // Générer l'URL otpauth
+        const otpauthUrl = `otpauth://totp/Planning%20ANS:${encodeURIComponent(user.username)}?secret=${secret}&issuer=Planning%20ANS`;
+        
+        // Générer le QR code
+        const qrCode = await QRCode.toDataURL(otpauthUrl);
+        
+        res.json({
+            secret: secret,
+            qrCode: qrCode
+        });
+        
+    } catch (error) {
+        console.error('Erreur setup TOTP:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Confirmer la configuration TOTP
+app.post('/api/mfa/totp-confirm', async (req, res) => {
+    const { userId, secret, code, profile } = req.body;
+    
+    try {
+        // Vérifier le code
+        if (!verifyTotp(secret, code)) {
+            return res.status(401).json({ error: 'Code invalide' });
+        }
+        
+        // Sauvegarder le secret
+        await new Promise((resolve, reject) => {
+            database.run(
+                `UPDATE users SET totp_secret = ? WHERE id = ?`,
+                [secret, userId],
+                (err) => {
+                    if (err) reject(err);
+                    else resolve();
+                }
+            );
+        });
+        
+        // Enregistrer la validation MFA
+        await new Promise((resolve, reject) => {
+            database.run(
+                `INSERT INTO mfa_validations (user_id, validated_at) VALUES (?, datetime('now'))`,
+                [userId],
+                (err) => {
+                    if (err) reject(err);
+                    else resolve();
+                }
+            );
+        });
+        
+        // Récupérer l'utilisateur et compléter le login
+        const user = await new Promise((resolve, reject) => {
+            database.get(
+                `SELECT u.*, r.trigramme 
+                 FROM users u 
+                 LEFT JOIN resources r ON r.id = u.resource_id 
+                 WHERE u.id = ?`,
+                [userId],
+                (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row);
+                }
+            );
+        });
+        
+        console.log(`🔐 TOTP configuré pour l'utilisateur ${userId}`);
+        await completeLogin(req, res, user, profile);
+        
+    } catch (error) {
+        console.error('Erreur confirmation TOTP:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ========== FIN ROUTES MFA ==========
 
 // Route catch-all pour servir index.html (doit être la DERNIÈRE route API)
 app.get('*', (req, res) => {
