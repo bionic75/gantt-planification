@@ -2921,12 +2921,185 @@ app.post('/api/send-calendar-email', requireAuth, async (req, res) => {
     }
 });
 
-// Endpoint optimisé pour envoyer les emails d'affectation
-// Crée les notifications immédiatement et envoie les emails en arrière-plan
-app.post('/api/send-assignment-emails', requireAuth, async (req, res) => {
-    const { assignments, senderName } = req.body;
+// ========== GENERATION ICS (INVITATIONS OUTLOOK) ==========
+
+// Formater une date en format ICS (YYYYMMDDTHHmmssZ)
+function formatDateICS(dateStr, hours, minutes) {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    // Créer la date en heure locale Paris, convertir en UTC (Paris = UTC+1 en hiver, UTC+2 en été)
+    const date = new Date(year, month - 1, day, hours, minutes, 0);
+    const y = date.getUTCFullYear();
+    const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(date.getUTCDate()).padStart(2, '0');
+    const h = String(date.getUTCHours()).padStart(2, '0');
+    const min = String(date.getUTCMinutes()).padStart(2, '0');
+    return `${y}${m}${d}T${h}${min}00Z`;
+}
+
+// Formater un timestamp now en ICS
+function nowICS() {
+    const now = new Date();
+    return now.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+}
+
+// Générer un UID unique pour un événement ICS
+function generateICSUid() {
+    return crypto.randomUUID() + '@planning-ans';
+}
+
+// Construire un fichier ICS pour une invitation (METHOD: REQUEST)
+function buildICS({ uid, summary, description, location, dtstart, dtend, organizer, organizerName, attendee, attendeeName, sequence, method }) {
+    const methodStr = method || 'REQUEST';
+    const seq = sequence || 0;
+    const status = methodStr === 'CANCEL' ? 'CANCELLED' : 'CONFIRMED';
+    const now = nowICS();
     
-    // assignments = [{ resourceId, email, expertName, expertPrenom, assignments: [{date, period, activity, location}] }]
+    let ics = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//Planning ANS//SI-SAMU//FR',
+        `METHOD:${methodStr}`,
+        'CALSCALE:GREGORIAN',
+        'BEGIN:VEVENT',
+        `UID:${uid}`,
+        `DTSTAMP:${now}`,
+        `DTSTART:${dtstart}`,
+        `DTEND:${dtend}`,
+        `SUMMARY:${summary}`,
+        `DESCRIPTION:${(description || '').replace(/\n/g, '\\n')}`,
+    ];
+    
+    if (location) {
+        ics.push(`LOCATION:${location}`);
+    }
+    
+    ics.push(`ORGANIZER;CN=${organizerName}:mailto:${organizer}`);
+    ics.push(`ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=${attendeeName}:mailto:${attendee}`);
+    ics.push(`SEQUENCE:${seq}`);
+    ics.push(`STATUS:${status}`);
+    ics.push('END:VEVENT');
+    ics.push('END:VCALENDAR');
+    
+    return ics.join('\r\n');
+}
+
+// Horaires des demi-journées
+const HALF_DAY_HOURS = {
+    AM: { start: 8, end: 12 },
+    PM: { start: 14, end: 18 }
+};
+
+// Grouper les affectations contiguës de même type/localisation
+function groupContiguousAssignments(assignments) {
+    if (!assignments || assignments.length === 0) return [];
+    
+    // Trier par date puis par période (AM avant PM)
+    const sorted = [...assignments].sort((a, b) => {
+        if (a.date !== b.date) return a.date.localeCompare(b.date);
+        return a.period === 'AM' ? -1 : 1;
+    });
+    
+    const groups = [];
+    let currentGroup = null;
+    
+    for (const item of sorted) {
+        if (!currentGroup) {
+            currentGroup = { activity: item.activity, activityCode: item.activityCode, location: item.location, slots: [item] };
+            continue;
+        }
+        
+        // Vérifier si même activité ET même localisation
+        const sameActivity = currentGroup.activityCode === item.activityCode;
+        const sameLocation = (currentGroup.location || '') === (item.location || '');
+        
+        if (!sameActivity || !sameLocation) {
+            groups.push(currentGroup);
+            currentGroup = { activity: item.activity, activityCode: item.activityCode, location: item.location, slots: [item] };
+            continue;
+        }
+        
+        // Vérifier la contiguïté
+        const lastSlot = currentGroup.slots[currentGroup.slots.length - 1];
+        const isContiguous = checkContiguous(lastSlot.date, lastSlot.period, item.date, item.period);
+        
+        if (isContiguous) {
+            currentGroup.slots.push(item);
+        } else {
+            groups.push(currentGroup);
+            currentGroup = { activity: item.activity, activityCode: item.activityCode, location: item.location, slots: [item] };
+        }
+    }
+    
+    if (currentGroup) groups.push(currentGroup);
+    return groups;
+}
+
+// Vérifier si deux créneaux sont contigus
+function checkContiguous(date1, period1, date2, period2) {
+    // AM puis PM du même jour
+    if (date1 === date2 && period1 === 'AM' && period2 === 'PM') return true;
+    
+    // PM d'un jour puis AM du jour ouvré suivant
+    if (period1 === 'PM' && period2 === 'AM') {
+        const nextWorkDay = getNextWorkDay(date1);
+        if (nextWorkDay === date2) return true;
+    }
+    
+    return false;
+}
+
+// Obtenir le prochain jour ouvré après une date
+function getNextWorkDay(dateStr) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const date = new Date(y, m - 1, d);
+    do {
+        date.setDate(date.getDate() + 1);
+    } while (date.getDay() === 0 || date.getDay() === 6); // Skip weekend
+    const ny = date.getFullYear();
+    const nm = String(date.getMonth() + 1).padStart(2, '0');
+    const nd = String(date.getDate()).padStart(2, '0');
+    return `${ny}-${nm}-${nd}`;
+}
+
+// Labels d'activités propres (sans emoji) pour les ICS
+const ACTIVITY_LABELS = {
+    '3': 'SAMU (Déploiement)',
+    '4': 'SAMU (Dev. usages)',
+    '5': 'ANS (Déploiement)',
+    '6': 'ANS (Dev. usages)',
+    '7': 'Qualification',
+    '8': 'Autre mission'
+};
+
+function getCleanActivityLabel(assignment) {
+    // Priorité : activityCode → oldActivityCode → fallback sur activity sans emoji
+    if (assignment.activityCode && ACTIVITY_LABELS[assignment.activityCode]) {
+        return ACTIVITY_LABELS[assignment.activityCode];
+    }
+    // Nettoyer les emojis du label si pas de code
+    if (assignment.activity) {
+        return assignment.activity.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '').trim();
+    }
+    return 'Affectation';
+}
+
+function getCleanOldActivityLabel(assignment) {
+    if (assignment.oldActivityCode && ACTIVITY_LABELS[assignment.oldActivityCode]) {
+        return ACTIVITY_LABELS[assignment.oldActivityCode];
+    }
+    if (assignment.oldActivity) {
+        return assignment.oldActivity.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '').trim();
+    }
+    return 'Affectation';
+}
+
+// ========== ENDPOINT ENVOI EMAILS D'AFFECTATION (REFONTE ICS) ==========
+
+app.post('/api/send-assignment-emails', requireAuth, async (req, res) => {
+    const { assignments, senderName, senderEmail: clientSenderEmail } = req.body;
+    
+    // assignments = [{ resourceId, email, expertName, expertPrenom, assignments: [{date, period, activity, activityCode, location, actionType}] }]
+    // actionType: 'new' | 'modified' | 'deleted'
     
     if (!assignments || !Array.isArray(assignments) || assignments.length === 0) {
         return res.status(400).json({ success: false, error: 'Aucune affectation à envoyer' });
@@ -2937,16 +3110,18 @@ app.post('/api/send-assignment-emails', requireAuth, async (req, res) => {
         return res.status(500).json({ success: false, error: 'Configuration email non disponible' });
     }
     
-    console.log(`📧 Envoi de ${assignments.length} email(s) d'affectation par ${senderName}`);
+    const requesterName = senderName || `${req.session.prenom || 'Admin'} ${req.session.nom || 'Système'}`;
+    // Utiliser l'email de l'utilisateur connecté comme expéditeur, sinon l'email SMTP
+    const senderEmailAddr = clientSenderEmail || emailConfig.user;
+    
+    console.log(`📧 Envoi d'emails d'affectation ICS par ${requesterName} <${senderEmailAddr}>`);
     
     // 1. CRÉER LES NOTIFICATIONS EN BASE IMMÉDIATEMENT
-    const requesterName = senderName || `${req.session.prenom || 'Admin'} ${req.session.nom || 'Système'}`;
     let notificationsCreated = 0;
     
     for (const item of assignments) {
         const { resourceId, assignments: expertAssignments } = item;
         
-        // Récupérer l'user_id de l'expert
         try {
             const user = await new Promise((resolve, reject) => {
                 database.get(
@@ -2961,13 +3136,15 @@ app.post('/api/send-assignment-emails', requireAuth, async (req, res) => {
             
             if (user) {
                 for (const assignment of expertAssignments) {
-                    // Construire le nom de l'activité avec la localisation
                     let activityName = assignment.activity;
                     if (assignment.location && assignment.location !== '-') {
                         activityName = `${assignment.activity} (${assignment.location})`;
                     }
                     
-                    // Vérifier si une notification existe déjà
+                    let actionLabel = 'Nouvelle affectation';
+                    if (assignment.actionType === 'modified') actionLabel = 'Modification affectation';
+                    if (assignment.actionType === 'deleted') actionLabel = 'Suppression affectation';
+                    
                     const existingNotif = await new Promise((resolve, reject) => {
                         database.get(
                             `SELECT id FROM expert_notifications 
@@ -2981,23 +3158,21 @@ app.post('/api/send-assignment-emails', requireAuth, async (req, res) => {
                     });
                     
                     if (existingNotif) {
-                        // UPDATE
                         await new Promise((resolve, reject) => {
                             database.run(
                                 `UPDATE expert_notifications 
-                                 SET activity_name = ?, requester_name = ?, created_at = CURRENT_TIMESTAMP
+                                 SET activity_name = ?, requester_name = ?, action_type = ?, created_at = CURRENT_TIMESTAMP
                                  WHERE id = ?`,
-                                [activityName, requesterName, existingNotif.id],
+                                [activityName, requesterName, actionLabel, existingNotif.id],
                                 (err) => err ? reject(err) : resolve()
                             );
                         });
                     } else {
-                        // INSERT
                         await new Promise((resolve, reject) => {
                             database.run(
                                 `INSERT INTO expert_notifications (expert_id, date, period, activity_name, requester_name, action_type)
-                                 VALUES (?, ?, ?, ?, ?, 'Nouvelle affectation')`,
-                                [user.id, assignment.date, assignment.period, activityName, requesterName],
+                                 VALUES (?, ?, ?, ?, ?, ?)`,
+                                [user.id, assignment.date, assignment.period, activityName, requesterName, actionLabel],
                                 (err) => err ? reject(err) : resolve()
                             );
                         });
@@ -3017,11 +3192,13 @@ app.post('/api/send-assignment-emails', requireAuth, async (req, res) => {
         success: true,
         sent: assignments.length,
         notificationsCreated: notificationsCreated,
-        message: 'Notifications créées, emails en cours d\'envoi...'
+        message: 'Notifications créées, invitations Outlook en cours d\'envoi...'
     });
     
-    // 3. ENVOYER LES EMAILS EN ARRIÈRE-PLAN (après la réponse)
+    // 3. ENVOYER LES INVITATIONS ICS EN ARRIÈRE-PLAN
     setImmediate(async () => {
+        let totalEmailsSent = 0;
+        
         for (const item of assignments) {
             const { resourceId, email, expertName, expertPrenom, assignments: expertAssignments } = item;
             
@@ -3030,58 +3207,184 @@ app.post('/api/send-assignment-emails', requireAuth, async (req, res) => {
                 continue;
             }
             
-            // Construire le contenu de l'email
-            const assignmentsList = expertAssignments.map(a => {
-                const [year, month, day] = a.date.split('-');
-                const dateStr = `${day}/${month}/${year}`;
-                let locationText = '';
-                if (a.location && a.location !== '-') {
-                    locationText = ` - <em>${a.location}</em>`;
+            const attendeeName = `${expertPrenom || ''} ${expertName || ''}`.trim();
+            
+            // Séparer par type d'action
+            const newAssignments = expertAssignments.filter(a => a.actionType === 'new' || !a.actionType);
+            const modifiedAssignments = expertAssignments.filter(a => a.actionType === 'modified');
+            const deletedAssignments = expertAssignments.filter(a => a.actionType === 'deleted');
+            
+            // --- NOUVELLES AFFECTATIONS: grouper les contiguës ---
+            if (newAssignments.length > 0) {
+                const groups = groupContiguousAssignments(newAssignments);
+                
+                for (const group of groups) {
+                    try {
+                        const firstSlot = group.slots[0];
+                        const lastSlot = group.slots[group.slots.length - 1];
+                        
+                        const startHours = HALF_DAY_HOURS[firstSlot.period];
+                        const endHours = HALF_DAY_HOURS[lastSlot.period];
+                        
+                        const dtstart = formatDateICS(firstSlot.date, startHours.start, 0);
+                        const dtend = formatDateICS(lastSlot.date, endHours.end, 0);
+                        
+                        const uid = generateICSUid();
+                        const cleanLabel = ACTIVITY_LABELS[group.activityCode] || getCleanActivityLabel({ activityCode: group.activityCode, activity: group.activity });
+                        const summary = `Domaines des Urgences - Affectation – ${cleanLabel} – ${requesterName}`;
+                        const location = group.location && group.location !== '-' ? group.location : '';
+                        
+                        const slotsDesc = group.slots.map(s => {
+                            const [y, m, d] = s.date.split('-');
+                            return `${d}/${m}/${y} (${s.period === 'AM' ? 'Matin 8h-12h' : 'Apres-midi 14h-18h'})`;
+                        }).join('\\n');
+                        const description = `Affectation: ${cleanLabel}\\nLocalisation: ${location || 'Non precisee'}\\nDemandeur: ${requesterName}\\n\\nCreneaux:\\n${slotsDesc}`;
+                        
+                        const icsContent = buildICS({
+                            uid, summary, description, location,
+                            dtstart, dtend,
+                            organizer: senderEmailAddr, organizerName: requesterName,
+                            attendee: email, attendeeName,
+                            method: 'REQUEST'
+                        });
+                        
+                        await transporter.sendMail({
+                            from: `"${requesterName} (Planning SI-SAMU)" <${emailConfig.user}>`,
+                            to: email,
+                            subject: summary,
+                            html: buildInvitationHTML(attendeeName, requesterName, group, 'new'),
+                            icalEvent: {
+                                filename: 'invitation.ics',
+                                method: 'REQUEST',
+                                content: icsContent
+                            }
+                        });
+                        totalEmailsSent++;
+                        console.log(`✅ Invitation NEW envoyée à ${email} - ${cleanLabel}`);
+                    } catch (error) {
+                        console.error(`❌ Erreur envoi invitation NEW à ${email}:`, error.message);
+                    }
                 }
-                return `<li><strong>${dateStr} (${a.period})</strong> - ${a.activity}${locationText}</li>`;
-            }).join('');
+            }
             
-            const mailOptions = {
-                from: `"Domaine des Urgences - Planification des ressources" <${emailConfig.user}>`,
-                to: email,
-                subject: 'Nouvelle affectation - Planification GANTT',
-                html: `
-                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
-                        <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                            <h2 style="color: #1D70B7; border-bottom: 2px solid #1D70B7; padding-bottom: 10px;">
-                                Nouvelle affectation
-                            </h2>
-                            
-                            <p>Bonjour ${expertPrenom || expertName},</p>
-                            
-                            <p><strong>${senderName}</strong> vous a affecté ${expertAssignments.length} nouvelle(s) activité(s) :</p>
-                            
-                            <ul style="background-color: #e3f2fd; padding: 15px 15px 15px 35px; border-left: 4px solid #2196f3; border-radius: 4px; list-style-type: disc;">
-                                ${assignmentsList}
-                            </ul>
-                            
-                            <p style="margin-top: 20px;">Cordialement,<br>Le système de planification SI-SAMU</p>
-                            
-                            <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
-                            
-                            <p style="color: #7f8c8d; font-size: 12px; text-align: center;">
-                                Cet email a été envoyé depuis le système SI-SAMU de planification des ressources.
-                            </p>
-                        </div>
-                    </div>
-                `
-            };
+            // --- MODIFICATIONS: 1er email CANCEL ancien + 2ème email REQUEST nouveau ---
+            if (modifiedAssignments.length > 0) {
+                for (const assignment of modifiedAssignments) {
+                    try {
+                        const hours = HALF_DAY_HOURS[assignment.period];
+                        
+                        // ===== EMAIL 1: CANCEL de l'ancienne affectation =====
+                        const cancelUid = generateICSUid();
+                        const oldLabel = getCleanOldActivityLabel(assignment);
+                        const cancelSummary = `Domaines des Urgences - Affectation – ${oldLabel} – ${requesterName}`;
+                        const oldLoc = assignment.oldLocation && assignment.oldLocation !== '-' ? assignment.oldLocation : '';
+                        
+                        const cancelIcs = buildICS({
+                            uid: cancelUid,
+                            summary: cancelSummary,
+                            description: `Annulation: cette affectation a ete modifiee par ${requesterName}.`,
+                            location: oldLoc,
+                            dtstart: formatDateICS(assignment.date, hours.start, 0),
+                            dtend: formatDateICS(assignment.date, hours.end, 0),
+                            organizer: senderEmailAddr, organizerName: requesterName,
+                            attendee: email, attendeeName,
+                            sequence: 1, method: 'CANCEL'
+                        });
+                        
+                        await transporter.sendMail({
+                            from: `"${requesterName} (Planning SI-SAMU)" <${emailConfig.user}>`,
+                            to: email,
+                            subject: `Annule: ${cancelSummary}`,
+                            html: buildInvitationHTML(attendeeName, requesterName, { activity: oldLabel, location: oldLoc, slots: [assignment] }, 'cancelled'),
+                            icalEvent: {
+                                filename: 'annulation.ics',
+                                method: 'CANCEL',
+                                content: cancelIcs
+                            }
+                        });
+                        totalEmailsSent++;
+                        console.log(`✅ Email 1/2 CANCEL envoyé à ${email} (modif: ${oldLabel})`);
+                        
+                        // ===== EMAIL 2: REQUEST de la nouvelle affectation =====
+                        const newUid = generateICSUid();
+                        const newLabel = getCleanActivityLabel(assignment);
+                        const newSummary = `Domaines des Urgences - Affectation – ${newLabel} – ${requesterName}`;
+                        const newLoc = assignment.location && assignment.location !== '-' ? assignment.location : '';
+                        
+                        const newIcs = buildICS({
+                            uid: newUid,
+                            summary: newSummary,
+                            description: `Nouvelle affectation: ${newLabel}\\nLocalisation: ${newLoc || 'Non precisee'}\\nDemandeur: ${requesterName}`,
+                            location: newLoc,
+                            dtstart: formatDateICS(assignment.date, hours.start, 0),
+                            dtend: formatDateICS(assignment.date, hours.end, 0),
+                            organizer: senderEmailAddr, organizerName: requesterName,
+                            attendee: email, attendeeName,
+                            method: 'REQUEST'
+                        });
+                        
+                        await transporter.sendMail({
+                            from: `"${requesterName} (Planning SI-SAMU)" <${emailConfig.user}>`,
+                            to: email,
+                            subject: newSummary,
+                            html: buildInvitationHTML(attendeeName, requesterName, { activity: newLabel, location: newLoc, slots: [assignment] }, 'modified'),
+                            icalEvent: {
+                                filename: 'invitation.ics',
+                                method: 'REQUEST',
+                                content: newIcs
+                            }
+                        });
+                        totalEmailsSent++;
+                        console.log(`✅ Email 2/2 REQUEST envoyé à ${email} (modif: ${newLabel})`);
+                    } catch (error) {
+                        console.error(`❌ Erreur envoi modif à ${email}:`, error.message);
+                    }
+                }
+            }
             
-            try {
-                console.log(`📧 Envoi en arrière-plan à ${email} (${expertName})...`);
-                await transporter.sendMail(mailOptions);
-                console.log(`✅ Email envoyé à ${email}`);
-            } catch (error) {
-                console.error(`❌ Erreur envoi à ${email}:`, error.message);
+            // --- SUPPRESSIONS PURES (passage en "En attente" ou "Indisponible"): seulement CANCEL ---
+            if (deletedAssignments.length > 0) {
+                for (const assignment of deletedAssignments) {
+                    try {
+                        const hours = HALF_DAY_HOURS[assignment.period];
+                        const cancelUid = generateICSUid();
+                        const delLabel = getCleanOldActivityLabel(assignment);
+                        const cancelSummary = `Domaines des Urgences - Affectation – ${delLabel} – ${requesterName}`;
+                        const loc = assignment.oldLocation && assignment.oldLocation !== '-' ? assignment.oldLocation : (assignment.location && assignment.location !== '-' ? assignment.location : '');
+                        
+                        const cancelIcs = buildICS({
+                            uid: cancelUid,
+                            summary: cancelSummary,
+                            description: `Cette affectation a ete supprimee par ${requesterName}.`,
+                            location: loc,
+                            dtstart: formatDateICS(assignment.date, hours.start, 0),
+                            dtend: formatDateICS(assignment.date, hours.end, 0),
+                            organizer: senderEmailAddr, organizerName: requesterName,
+                            attendee: email, attendeeName,
+                            sequence: 1, method: 'CANCEL'
+                        });
+                        
+                        await transporter.sendMail({
+                            from: `"${requesterName} (Planning SI-SAMU)" <${emailConfig.user}>`,
+                            to: email,
+                            subject: `Annule: ${cancelSummary}`,
+                            html: buildInvitationHTML(attendeeName, requesterName, { activity: delLabel, location: loc, slots: [assignment] }, 'cancelled'),
+                            icalEvent: {
+                                filename: 'annulation.ics',
+                                method: 'CANCEL',
+                                content: cancelIcs
+                            }
+                        });
+                        totalEmailsSent++;
+                        console.log(`✅ CANCEL (suppression pure) envoyé à ${email} - ${delLabel}`);
+                    } catch (error) {
+                        console.error(`❌ Erreur envoi suppression à ${email}:`, error.message);
+                    }
+                }
             }
         }
         
-        console.log('📧 Tous les emails ont été traités en arrière-plan');
+        console.log(`📧 ${totalEmailsSent} email(s) ICS traités en arrière-plan`);
         
         // Logger l'action
         if (req.session && req.session.logId) {
@@ -3090,11 +3393,61 @@ app.post('/api/send-assignment-emails', requireAuth, async (req, res) => {
                 `UPDATE connection_logs 
                  SET modifications = modifications || ? 
                  WHERE id = ?`,
-                [`${new Date().toLocaleString('fr-FR')}: Emails d'affectation envoyés à: ${emails}\n`, req.session.logId]
+                [`${new Date().toLocaleString('fr-FR')}: Invitations Outlook envoyées à: ${emails}\n`, req.session.logId]
             );
         }
     });
 });
+
+// Construire le HTML du body d'une invitation
+function buildInvitationHTML(attendeeName, requesterName, group, type) {
+    const isCancel = type === 'cancelled';
+    const isModified = type === 'modified';
+    const color = isCancel ? '#D60B51' : isModified ? '#ff9800' : '#1D70B7';
+    const icon = isCancel ? '❌' : isModified ? '🔄' : '📅';
+    const title = isCancel ? 'Affectation annulée' : isModified ? 'Affectation modifiée' : 'Nouvelle affectation';
+    
+    const slotsHTML = group.slots.map(s => {
+        const [y, m, d] = s.date.split('-');
+        const dateStr = `${d}/${m}/${y}`;
+        const periodStr = s.period === 'AM' ? 'Matin (8h-12h)' : 'Après-midi (14h-18h)';
+        return `<li><strong>${dateStr}</strong> - ${periodStr}</li>`;
+    }).join('');
+    
+    const locationHTML = group.location && group.location !== '-' 
+        ? `<p><strong>📍 Localisation :</strong> ${group.location}</p>` 
+        : '';
+    
+    return `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
+            <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                <h2 style="color: ${color}; border-bottom: 2px solid ${color}; padding-bottom: 10px;">
+                    ${icon} ${title}
+                </h2>
+                
+                <p>Bonjour ${attendeeName},</p>
+                
+                <p><strong>${requesterName}</strong> ${isCancel ? 'a annulé' : isModified ? 'a modifié' : 'vous a affecté'} :</p>
+                
+                <div style="background-color: ${isCancel ? '#fde8e8' : '#e3f2fd'}; padding: 15px; border-left: 4px solid ${color}; border-radius: 4px; margin: 15px 0;">
+                    <p style="margin: 0 0 8px 0;"><strong>Activité :</strong> ${group.activity}</p>
+                    ${locationHTML}
+                    <ul style="margin: 8px 0 0 0; padding-left: 20px;">${slotsHTML}</ul>
+                </div>
+                
+                ${!isCancel ? '<p style="font-size: 12px; color: #666;">💡 Cette invitation a été ajoutée à votre calendrier Outlook.</p>' : '<p style="font-size: 12px; color: #666;">Cette occurrence a été retirée de votre calendrier.</p>'}
+                
+                <p style="margin-top: 20px;">Cordialement,<br>${requesterName}<br>Système de planification SI-SAMU</p>
+                
+                <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
+                
+                <p style="color: #7f8c8d; font-size: 11px; text-align: center;">
+                    📅 Domaine des Urgences - Planification des Experts - ANS
+                </p>
+            </div>
+        </div>
+    `;
+}
 
 // ========== GESTION DES CONGÉS SCOLAIRES ==========
 
