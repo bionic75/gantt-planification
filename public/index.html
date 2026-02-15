@@ -2454,7 +2454,7 @@
         let currentUser = null;
         let availableProfiles = [];
         let loginStep = 'credentials';
-        let pendingAssignments = {}; // {resourceId: {expertId, assignments: [{date, period, activity, location}]}}
+        let pendingAssignments = {}; // {resourceId: {expertId, assignments: [{date, period, activity, activityCode, location, actionType, oldActivity, oldActivityCode, oldLocation}]}}
         let initialScheduleState = {}; // État initial du planning au chargement (pour comparer les changements)
         let sessionId = null; // ID de session pour grouper les notifications
         let isFirstPlanningLoad = true; // Flag pour le scroll initial vers aujourd'hui
@@ -3259,14 +3259,10 @@
                 requestBtn.style.display = 'none';
             }
             
-            // Afficher le bouton d'envoi d'email pour admin et user
+            // Afficher le bouton d'envoi d'email pour tous les profils (admin, user, expert)
             const sendEmailBtn = document.getElementById('sendEmailBtn');
-            if (currentUser.activeProfile === 'admin' || currentUser.activeProfile === 'user') {
-                sendEmailBtn.style.display = 'inline-block';
-                updatePendingEmailBadge(); // Mettre à jour le badge
-            } else {
-                sendEmailBtn.style.display = 'none';
-            }
+            sendEmailBtn.style.display = 'inline-block';
+            updatePendingEmailBadge(); // Mettre à jour le badge
             
             // Démarrer la vérification des notifications pour les experts
             if (currentUser.activeProfile === 'expert') {
@@ -6918,8 +6914,8 @@
                 }
             }
             
-            // Tracker le changement pour les notifications (Admin/User seulement)
-            if (currentUser && (currentUser.activeProfile === 'admin' || currentUser.activeProfile === 'user')) {
+            // Tracker le changement pour les notifications (tous les profils)
+            if (currentUser) {
                 const location = scheduleData[locKey] || '-';
                 trackAssignment(resourceId, dateKey, period, newActivityValue, location);
             }
@@ -7015,7 +7011,7 @@
             
             // Ajouter cette cellule au Set des cellules modifiées dans la session
             // (pour éviter le pop-up lors des modifications suivantes)
-            if (currentUser && (currentUser.activeProfile === 'admin' || currentUser.activeProfile === 'user')) {
+            if (currentUser && (currentUser.activeProfile === 'admin' || currentUser.activeProfile === 'user' || currentUser.activeProfile === 'expert')) {
                 modifiedCellsInSession.add(cellKey);
                 console.log(`📝 Cellule ajoutée au Set: ${cellKey}`);
             }
@@ -7027,7 +7023,7 @@
             }
             
             // Tracker l'affectation AVANT de modifier scheduleData
-            if (currentUser && (currentUser.activeProfile === 'admin' || currentUser.activeProfile === 'user')) {
+            if (currentUser) {
                 const location = scheduleData[locKey] || '-';
                 trackAssignment(resourceId, dateKey, period, String(nextValue), location);
             }
@@ -7279,8 +7275,8 @@
             
             // Si l'activité est une affectation (3-13)
             if (currentActivity && parseInt(currentActivity) >= 3) {
-                // Appeler trackAssignment pour mettre à jour les données
-                if (currentUser && (currentUser.activeProfile === 'admin' || currentUser.activeProfile === 'user')) {
+                // Appeler trackAssignment pour mettre à jour les données (tous les profils)
+                if (currentUser) {
                     trackAssignment(resourceId, dateKey, period, currentActivity, localisation);
                 }
             }
@@ -7305,12 +7301,7 @@
                 return true;
             }
             
-            // Expert : seulement sa propre ligne
-            if (currentUser.activeProfile === 'expert') {
-                return parseInt(resourceId) === parseInt(currentUser.resourceId);
-            }
-            
-            // Utilisateur : pas de RAZ
+            // Expert et Utilisateur : pas de RAZ
             return false;
         }
 
@@ -13404,19 +13395,21 @@
             // Récupérer l'état initial COMPLET (disponibilité + activité) au début de la session
             const actKey = `${resourceId}_activity_${dateKey}_${period}`;
             const availKey = `${resourceId}_available_${dateKey}_${period}`;
+            const locKey = `${resourceId}_localisation_${dateKey}_${period}`;
             
             const initialActivity = initialScheduleState[actKey] || '1';
             const initialActivityInt = parseInt(initialActivity);
             const initialAvailability = initialScheduleState[availKey] || '1';
             const initialAvailabilityInt = parseInt(initialAvailability);
+            const initialLocation = initialScheduleState[locKey] || '-';
             
             // Récupérer la disponibilité actuelle
             const currentAvailability = scheduleData[availKey] || '1';
             const currentAvailabilityInt = parseInt(currentAvailability);
             
             console.log(`📊 trackAssignment: ${dateKey} ${period}`);
-            console.log(`   Initial: Dispo=${initialAvailabilityInt}, Act=${initialActivityInt}`);
-            console.log(`   Actuel:  Dispo=${currentAvailabilityInt}, Act=${newActivityInt}`);
+            console.log(`   Initial: Dispo=${initialAvailabilityInt}, Act=${initialActivityInt}, Loc=${initialLocation}`);
+            console.log(`   Actuel:  Dispo=${currentAvailabilityInt}, Act=${newActivityInt}, Loc=${location || '-'}`);
             
             // L'état initial avait-il une vraie affectation (>= 3) ?
             const initialHadAssignment = initialActivityInt >= 3;
@@ -13425,6 +13418,25 @@
             
             // Comparer l'état COMPLET : si on revient exactement à l'état initial
             const isBackToInitialState = (currentAvailabilityInt === initialAvailabilityInt && newActivityInt === initialActivityInt);
+            
+            // Labels d'activités
+            const activityLabelsMap = {
+                '3': 'SAMU (Déploiement)',
+                '4': 'SAMU (Dev. usages)',
+                '5': 'ANS (Déploiement)',
+                '6': 'ANS (Dev. usages)',
+                '7': 'Qualification',
+                '8': 'Divers'
+            };
+            
+            const activityLabelsMapEmoji = {
+                '3': '📞 SAMU (Déploiement)',
+                '4': '📞 SAMU (Dev. usages)',
+                '5': '📄 ANS (Déploiement)',
+                '6': '👨‍🏫 ANS (Dev. usages)',
+                '7': '☑️ Qualification',
+                '8': '📖 Divers'
+            };
             
             // CAS 1: Retour à l'état initial exact → retirer de la liste
             if (isBackToInitialState) {
@@ -13448,32 +13460,48 @@
                 return;
             }
             
-            // CAS 2: L'état initial avait déjà une affectation ET on passe à pas d'affectation
-            // → C'est une ANNULATION, pas une nouvelle affectation → ne pas tracker
+            // CAS 2: L'état initial avait une affectation ET on passe à pas d'affectation → SUPPRESSION
             if (initialHadAssignment && !newHasAssignment) {
-                // Retirer de la liste si présent (cas où on avait changé puis on annule)
-                if (pendingAssignments[resourceId]) {
-                    const existingIndex = pendingAssignments[resourceId].assignments.findIndex(
-                        a => a.date === dateKey && a.period === period
-                    );
-                    
-                    if (existingIndex >= 0) {
-                        pendingAssignments[resourceId].assignments.splice(existingIndex, 1);
-                        console.log(`🚫 Annulation d'affectation existante: ${dateKey} ${period} - Pas de notification`);
-                        
-                        if (pendingAssignments[resourceId].assignments.length === 0) {
-                            delete pendingAssignments[resourceId];
-                        }
-                        
-                        updatePendingEmailBadge();
-                    }
+                // C'est une SUPPRESSION : on doit tracker pour envoyer un email d'annulation
+                if (!pendingAssignments[resourceId]) {
+                    pendingAssignments[resourceId] = {
+                        expertId: expert.id,
+                        expertEmail: expert.email,
+                        expertNom: expert.nom,
+                        expertPrenom: expert.prenom,
+                        resourceNom: resource.nom,
+                        resourcePrenom: resource.prenom,
+                        assignments: []
+                    };
                 }
-                console.log(`🚫 Passage de affectation (${initialActivityInt}) vers non-affectation (${newActivityInt}) - Pas de notification`);
+                
+                // Retirer toute entrée précédente pour ce créneau
+                const existingIndex = pendingAssignments[resourceId].assignments.findIndex(
+                    a => a.date === dateKey && a.period === period
+                );
+                if (existingIndex >= 0) {
+                    pendingAssignments[resourceId].assignments.splice(existingIndex, 1);
+                }
+                
+                // Ajouter l'entrée de suppression
+                pendingAssignments[resourceId].assignments.push({
+                    date: dateKey,
+                    period: period,
+                    activity: activityLabelsMapEmoji[String(initialActivityInt)] || 'Affectation',
+                    activityCode: String(initialActivityInt),
+                    location: initialLocation || '-',
+                    actionType: 'deleted',
+                    oldActivity: activityLabelsMap[String(initialActivityInt)] || 'Affectation',
+                    oldActivityCode: String(initialActivityInt),
+                    oldLocation: initialLocation || '-'
+                });
+                
+                console.log(`🗑️ Suppression trackée: ${dateKey} ${period} - ${activityLabelsMap[String(initialActivityInt)]}`);
+                updatePendingEmailBadge();
                 return;
             }
             
             // CAS 3: Le nouvel état n'est pas une vraie affectation (< 3) ET l'initial n'en avait pas non plus
-            // → Pas de changement significatif, retirer si présent
             if (!newHasAssignment && !initialHadAssignment) {
                 if (pendingAssignments[resourceId]) {
                     const existingIndex = pendingAssignments[resourceId].assignments.findIndex(
@@ -13494,8 +13522,10 @@
                 return;
             }
             
-            // CAS 4: C'est une vraie nouvelle affectation (>= 3)
-            // Soit nouvelle (initial < 3), soit modification (initial >= 3 mais différent)
+            // CAS 4: C'est une vraie affectation (>= 3)
+            // Déterminer si c'est nouveau ou modifié
+            const actionType = initialHadAssignment ? 'modified' : 'new';
+            
             if (!pendingAssignments[resourceId]) {
                 pendingAssignments[resourceId] = {
                     expertId: expert.id,
@@ -13508,16 +13538,6 @@
                 };
             }
             
-            // Déterminer le label de l'activité
-            const activityLabelsMap = {
-                '3': '📞 SAMU (Déploiement)',
-                '4': '📞 SAMU (Dev. usages)',
-                '5': '📄 ANS (Déploiement)',
-                '6': '👨‍🏫 ANS (Dev. usages)',
-                '7': '☑️ Qualification',
-                '8': '📖 Divers'
-            };
-            
             // Vérifier si une affectation existe déjà pour cette demi-journée
             const existingIndex = pendingAssignments[resourceId].assignments.findIndex(
                 a => a.date === dateKey && a.period === period
@@ -13526,20 +13546,24 @@
             const newAssignment = {
                 date: dateKey,
                 period: period,
-                activity: activityLabelsMap[activity] || activity,
+                activity: activityLabelsMapEmoji[activity] || activity,
+                activityCode: activity,
                 location: location || '-',
-                isModification: initialHadAssignment // Indique si c'est une modification d'une affectation existante
+                actionType: actionType,
+                // Infos de l'ancienne affectation (pour modifications)
+                oldActivity: initialHadAssignment ? (activityLabelsMap[String(initialActivityInt)] || String(initialActivityInt)) : null,
+                oldActivityCode: initialHadAssignment ? String(initialActivityInt) : null,
+                oldLocation: initialHadAssignment ? (initialLocation || '-') : null,
+                isModification: initialHadAssignment
             };
             
             if (existingIndex >= 0) {
-                // Remplacer l'affectation existante
                 pendingAssignments[resourceId].assignments[existingIndex] = newAssignment;
             } else {
-                // Ajouter une nouvelle affectation
                 pendingAssignments[resourceId].assignments.push(newAssignment);
             }
             
-            console.log(`➕ Affectation ajoutée: ${dateKey} ${period} - ${activityLabelsMap[activity]} (${initialHadAssignment ? 'modification' : 'nouvelle'})`);
+            console.log(`➕ Affectation ajoutée: ${dateKey} ${period} - ${activityLabelsMapEmoji[activity]} (${actionType})`);
             
             // Mettre à jour le badge du bouton d'envoi d'email
             updatePendingEmailBadge();
@@ -13552,15 +13576,29 @@
             
             if (!badge || !btn) return;
             
-            // Compter le nombre total d'affectations en attente
-            let totalAssignments = 0;
+            // Compter le nombre total d'affectations en attente par type
+            let totalNew = 0, totalModified = 0, totalDeleted = 0;
             for (const data of Object.values(pendingAssignments)) {
-                totalAssignments += data.assignments.length;
+                data.assignments.forEach(a => {
+                    if (a.actionType === 'deleted') totalDeleted++;
+                    else if (a.actionType === 'modified') totalModified++;
+                    else totalNew++;
+                });
             }
+            
+            const totalAssignments = totalNew + totalModified + totalDeleted;
             
             if (totalAssignments > 0) {
                 badge.textContent = totalAssignments;
                 badge.style.display = 'flex';
+                // Colorer le badge selon les types
+                if (totalDeleted > 0 && totalNew === 0 && totalModified === 0) {
+                    badge.style.backgroundColor = '#D60B51'; // Rouge pour suppressions uniquement
+                } else if (totalModified > 0 && totalNew === 0 && totalDeleted === 0) {
+                    badge.style.backgroundColor = '#ff9800'; // Orange pour modifications uniquement
+                } else {
+                    badge.style.backgroundColor = '#e74c3c'; // Rouge par défaut
+                }
             } else {
                 badge.style.display = 'none';
             }
@@ -13571,23 +13609,33 @@
             const expertCount = Object.keys(pendingAssignments).length;
             
             if (expertCount === 0) {
-                alert('Aucune nouvelle affectation à envoyer.');
+                alert('Aucune modification d\'affectation à envoyer.');
                 return;
             }
             
             // Construire le contenu de la modal
             let html = '';
-            let totalAssignments = 0;
+            let totalNew = 0, totalModified = 0, totalDeleted = 0;
             
             for (const [resourceId, data] of Object.entries(pendingAssignments)) {
                 const assignmentCount = data.assignments.length;
-                totalAssignments += assignmentCount;
+                const newCount = data.assignments.filter(a => a.actionType === 'new' || !a.actionType).length;
+                const modCount = data.assignments.filter(a => a.actionType === 'modified').length;
+                const delCount = data.assignments.filter(a => a.actionType === 'deleted').length;
+                totalNew += newCount;
+                totalModified += modCount;
+                totalDeleted += delCount;
                 
                 html += `<div style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #27ae60;">`;
                 html += `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">`;
                 html += `<div>`;
                 html += `<strong style="font-size: 14px; color: #2c3e50;">${data.expertPrenom} ${data.expertNom}</strong>`;
-                html += `<br><span style="font-size: 12px; color: #7f8c8d;">${data.expertEmail}</span>`;
+                html += `<br><span style="font-size: 12px; color: #7f8c8d;">${data.expertEmail || 'Pas d\'email'}</span>`;
+                html += `<br><span style="font-size: 11px;">`;
+                if (newCount > 0) html += `<span style="color: #27ae60;">📅 ${newCount} nouvelle(s)</span> `;
+                if (modCount > 0) html += `<span style="color: #ff9800;">🔄 ${modCount} modification(s)</span> `;
+                if (delCount > 0) html += `<span style="color: #D60B51;">❌ ${delCount} suppression(s)</span>`;
+                html += `</span>`;
                 html += `</div>`;
                 html += `<label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">`;
                 html += `<input type="checkbox" id="sendTo_${resourceId}" checked style="width: 18px; height: 18px;">`;
@@ -13597,6 +13645,7 @@
                 
                 html += `<table style="width: 100%; font-size: 11px; border-collapse: collapse;">`;
                 html += `<thead><tr style="background: #ecf0f1;">`;
+                html += `<th style="padding: 5px; text-align: center; width: 30px;">Type</th>`;
                 html += `<th style="padding: 5px; text-align: left;">Date</th>`;
                 html += `<th style="padding: 5px; text-align: center;">Période</th>`;
                 html += `<th style="padding: 5px; text-align: left;">Affectation</th>`;
@@ -13614,11 +13663,25 @@
                     const dateStr = dateObj.toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit' });
                     const periodStr = assignment.period === 'AM' ? 'Matin' : 'Après-midi';
                     
-                    html += `<tr style="border-bottom: 1px solid #ddd;">`;
+                    let typeIcon = '📅';
+                    let rowBg = 'white';
+                    if (assignment.actionType === 'modified') { typeIcon = '🔄'; rowBg = '#fff8e1'; }
+                    if (assignment.actionType === 'deleted') { typeIcon = '❌'; rowBg = '#fde8e8'; }
+                    
+                    html += `<tr style="border-bottom: 1px solid #ddd; background: ${rowBg};">`;
+                    html += `<td style="padding: 5px; text-align: center;" title="${assignment.actionType === 'deleted' ? 'Suppression' : assignment.actionType === 'modified' ? 'Modification' : 'Nouvelle'}">${typeIcon}</td>`;
                     html += `<td style="padding: 5px;">${dateStr}</td>`;
                     html += `<td style="padding: 5px; text-align: center;">${periodStr}</td>`;
-                    html += `<td style="padding: 5px;">${assignment.activity}</td>`;
-                    html += `<td style="padding: 5px;">${assignment.location || '-'}</td>`;
+                    html += `<td style="padding: 5px;">${assignment.activity}`;
+                    if (assignment.actionType === 'modified' && assignment.oldActivity) {
+                        html += `<br><span style="font-size: 10px; color: #999; text-decoration: line-through;">Ancien: ${assignment.oldActivity}</span>`;
+                    }
+                    html += `</td>`;
+                    html += `<td style="padding: 5px;">${assignment.location || '-'}`;
+                    if (assignment.actionType === 'modified' && assignment.oldLocation && assignment.oldLocation !== assignment.location) {
+                        html += `<br><span style="font-size: 10px; color: #999; text-decoration: line-through;">${assignment.oldLocation}</span>`;
+                    }
+                    html += `</td>`;
                     html += `</tr>`;
                 });
                 
@@ -13626,9 +13689,15 @@
                 html += `</div>`;
             }
             
+            // Résumé
+            let summaryParts = [];
+            if (totalNew > 0) summaryParts.push(`${totalNew} nouvelle(s)`);
+            if (totalModified > 0) summaryParts.push(`${totalModified} modification(s)`);
+            if (totalDeleted > 0) summaryParts.push(`${totalDeleted} suppression(s)`);
+            
             // Afficher la modal
             document.getElementById('sendEmailModalContent').innerHTML = html;
-            document.getElementById('sendEmailModalSummary').textContent = `${expertCount} expert(s) - ${totalAssignments} affectation(s)`;
+            document.getElementById('sendEmailModalSummary').textContent = `${expertCount} expert(s) - ${summaryParts.join(', ')}`;
             document.getElementById('sendEmailModalContainer').style.display = 'block';
         }
         
@@ -13651,9 +13720,14 @@
                         expertPrenom: data.expertPrenom,
                         assignments: data.assignments.map(a => ({
                             date: a.date,
-                            period: a.period === 'AM' ? 'Matin' : 'Après-midi',
+                            period: a.period,
                             activity: a.activity,
-                            location: a.location
+                            activityCode: a.activityCode,
+                            location: a.location,
+                            actionType: a.actionType || 'new',
+                            oldActivity: a.oldActivity || null,
+                            oldActivityCode: a.oldActivityCode || null,
+                            oldLocation: a.oldLocation || null
                         }))
                     });
                 }
@@ -13668,16 +13742,23 @@
             closeSendEmailModal();
             
             // Afficher le message d'attente
-            showEmailWaitingOverlay(assignmentsToSend.length);
+            const totalItems = assignmentsToSend.reduce((sum, a) => sum + a.assignments.length, 0);
+            showEmailWaitingOverlay(totalItems);
             
             try {
                 // Envoyer les emails
                 const senderName = currentUser ? `${currentUser.prenom} ${currentUser.nom}` : 'Système';
+                const senderEmail = currentUser ? currentUser.email : null;
                 const response = await fetch(`${API_URL}/send-assignment-emails`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({ assignments: assignmentsToSend, senderName, sessionId })
+                    body: JSON.stringify({ 
+                        assignments: assignmentsToSend, 
+                        senderName, 
+                        senderEmail,
+                        sessionId 
+                    })
                 });
                 
                 const result = await response.json();
@@ -13686,7 +13767,6 @@
                 hideEmailWaitingOverlay();
                 
                 if (response.ok) {
-                    // Les notifications sont maintenant créées côté serveur
                     console.log('✅ Notifications créées côté serveur:', result.notificationsCreated);
                     
                     // Retirer les affectations envoyées de pendingAssignments
@@ -13695,7 +13775,7 @@
                     });
                     updatePendingEmailBadge();
                     
-                    alert(`✅ ${result.sent || assignmentsToSend.length} notification(s) envoyée(s) !\nLes emails seront envoyés en arrière-plan.`);
+                    alert(`✅ ${result.notificationsCreated || totalItems} invitation(s) Outlook envoyée(s) !`);
                 } else {
                     alert(`❌ Erreur: ${result.error || 'Erreur lors de l\'envoi'}`);
                 }
@@ -13736,9 +13816,9 @@
                 min-width: 400px;
             `;
             waitingDiv.innerHTML = `
-                <div style="font-size: 48px; margin-bottom: 20px;">📧</div>
-                <h3 style="margin: 0 0 15px 0; color: #333;">Envoi des emails en cours...</h3>
-                <p style="margin: 0 0 20px 0; color: #666; font-size: 14px;">Envoi de ${count} email(s), merci de patienter</p>
+                <div style="font-size: 48px; margin-bottom: 20px;">📅</div>
+                <h3 style="margin: 0 0 15px 0; color: #333;">Envoi des invitations Outlook...</h3>
+                <p style="margin: 0 0 20px 0; color: #666; font-size: 14px;">Création de ${count} invitation(s) ICS, merci de patienter</p>
                 <div style="margin-top: 15px; height: 4px; background: #e0e0e0; border-radius: 2px; overflow: hidden;">
                     <div style="height: 100%; width: 30%; background: #4CAF50; animation: progressPulse 1.5s ease-in-out infinite;"></div>
                 </div>
@@ -18315,14 +18395,17 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
         <div style="position: relative; background-color: white; margin: 3% auto; padding: 30px; width: 95%; max-width: 800px; border-radius: 12px; max-height: 90vh; overflow-y: auto;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <div>
-                    <h2 style="color: #27ae60; margin: 0;">✉️ Notifications des affectations</h2>
+                    <h2 style="color: #27ae60; margin: 0;">📅 Invitations Outlook - Affectations</h2>
                     <p id="sendEmailModalSummary" style="color: #7f8c8d; font-size: 12px; margin: 5px 0 0 0;">0 expert(s) - 0 affectation(s)</p>
                 </div>
                 <span onclick="closeSendEmailModal()" style="cursor: pointer; font-size: 28px; color: #7f8c8d;">&times;</span>
             </div>
             
             <p style="color: #666; font-size: 13px; margin-bottom: 15px; padding: 10px; background: #f0f9f0; border-radius: 5px;">
-                📧 Cochez les experts que vous souhaitez notifier par email. Chaque expert recevra un récapitulatif de ses nouvelles affectations.
+                📧 Cochez les experts à notifier. Chaque expert recevra des <strong>invitations Outlook</strong> (fichiers ICS) :<br>
+                <span style="font-size: 11px; color: #555;">
+                    📅 Nouvelles affectations &nbsp;|&nbsp; 🔄 Modifications &nbsp;|&nbsp; ❌ Suppressions (annulation calendrier)
+                </span>
             </p>
             
             <!-- Liste des affectations par expert -->
@@ -18337,7 +18420,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 </label>
                 <div>
                     <button onclick="confirmSendEmails()" style="background-color: #27ae60; color: white; padding: 12px 25px; margin-right: 10px; font-size: 14px;">
-                        ✉️ Envoyer les notifications
+                        📅 Envoyer les invitations Outlook
                     </button>
                     <button onclick="closeSendEmailModal()" style="background-color: #95a5a6; color: white; padding: 12px 25px; font-size: 14px;">
                         Annuler
