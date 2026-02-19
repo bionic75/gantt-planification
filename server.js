@@ -104,7 +104,7 @@ function formatDateFR(dateStr) {
 // Envoyer une notification Teams depuis le serveur
 async function sendTeamsNotificationFromServer(type, data) {
     try {
-        // Récupérer la configuration de l'automatisation 3
+        // Récupérer la configuration de l'automatisation numero 3
         const configRow = await new Promise((resolve, reject) => {
             database.get(
                 `SELECT value FROM settings WHERE key = ?`,

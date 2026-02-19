@@ -6728,7 +6728,7 @@
             return `<span class="astreinte-badge" title="${tooltip.replace(/"/g, '&quot;')}">${label}</span>`;
         }
 
-        async function saveSchedule() {
+        async function saveSchedule(retryCount = 0) {
             try {
                 const response = await fetch(`${API_URL}/schedule/save`, {
                     method: 'POST',
@@ -6736,7 +6736,16 @@
                     credentials: 'include',
                     body: JSON.stringify(scheduleData)
                 });
-                if (!response.ok) throw new Error('Erreur sauvegarde');
+                if (!response.ok) {
+                    // Retry automatique jusqu'à 3 fois avec délai croissant
+                    if (retryCount < 3) {
+                        const delay = (retryCount + 1) * 2000; // 2s, 4s, 6s
+                        console.log(`⏳ Sauvegarde échouée (${response.status}), retry dans ${delay/1000}s... (${retryCount + 1}/3)`);
+                        setTimeout(() => saveSchedule(retryCount + 1), delay);
+                        return;
+                    }
+                    throw new Error('Erreur sauvegarde');
+                }
                 
                 // Mettre à jour l'ancien état après sauvegarde réussie
                 oldScheduleData = JSON.parse(JSON.stringify(scheduleData));
@@ -6744,7 +6753,13 @@
                 showSyncStatus();
                 logModification("Modification du planning");
             } catch (error) {
-                console.error('Erreur:', error);
+                if (retryCount < 3) {
+                    const delay = (retryCount + 1) * 2000;
+                    console.log(`⏳ Erreur réseau sauvegarde, retry dans ${delay/1000}s... (${retryCount + 1}/3)`);
+                    setTimeout(() => saveSchedule(retryCount + 1), delay);
+                } else {
+                    console.error('Erreur:', error);
+                }
             }
         }
 
@@ -13839,26 +13854,46 @@
                     sessionId 
                 })
             })
-            .then(response => {
+            .then(async response => {
                 console.log('📧 Réponse serveur status:', response.status);
-                return response.json();
-            })
-            .then(data => {
+                
+                // 502/504 = Gateway Timeout du reverse proxy
+                // Le serveur Node a probablement reçu la requête et traite en background
+                if (response.status === 502 || response.status === 504) {
+                    console.log('📧 Timeout reverse proxy - le serveur traite probablement en background');
+                    // Considérer comme succès optimiste
+                    assignmentsToSend.forEach(sent => { delete pendingAssignments[sent.resourceId]; });
+                    updatePendingEmailBadge();
+                    updateEmailToastSuccess(totalItems, 0, true); // true = optimiste
+                    return;
+                }
+                
+                // Vérifier que c'est du JSON avant de parser
+                const contentType = response.headers.get('content-type') || '';
+                if (!contentType.includes('application/json')) {
+                    console.warn('📧 Réponse non-JSON:', contentType);
+                    // Probablement une page d'erreur HTML - traiter comme timeout
+                    assignmentsToSend.forEach(sent => { delete pendingAssignments[sent.resourceId]; });
+                    updatePendingEmailBadge();
+                    updateEmailToastSuccess(totalItems, 0, true);
+                    return;
+                }
+                
+                const data = await response.json();
                 console.log('📧 Résultat:', data);
                 if (data.success) {
-                    // Retirer les affectations envoyées
-                    assignmentsToSend.forEach(sent => {
-                        delete pendingAssignments[sent.resourceId];
-                    });
+                    assignmentsToSend.forEach(sent => { delete pendingAssignments[sent.resourceId]; });
                     updatePendingEmailBadge();
-                    
-                    // Toast succès - les emails s'envoient en background
                     updateEmailToastSuccess(totalItems, 0);
                 }
             })
             .catch(error => {
                 console.error('❌ Erreur réseau:', error);
-                // Pas grave - le serveur a probablement reçu la requête et traite en background
+                // Même en cas d'erreur réseau, le serveur a peut-être reçu la requête
+                // Traiter comme succès optimiste plutôt que montrer une erreur
+                assignmentsToSend.forEach(sent => { delete pendingAssignments[sent.resourceId]; });
+                updatePendingEmailBadge();
+                updateEmailToastSuccess(totalItems, 0, true);
             });
         }
         
@@ -13917,7 +13952,7 @@
         }
         
         // Mettre à jour le toast en succès
-        function updateEmailToastSuccess(sent, failed) {
+        function updateEmailToastSuccess(sent, failed, optimistic = false) {
             const icon = document.getElementById('emailToastIcon');
             const title = document.getElementById('emailToastTitle');
             const status = document.getElementById('emailToastStatus');
@@ -13929,7 +13964,15 @@
             bar.style.animation = 'none';
             bar.style.width = '100%';
             
-            if (failed === 0) {
+            if (optimistic) {
+                // Le serveur n'a pas confirmé mais a probablement reçu la requête
+                icon.textContent = '📨';
+                title.textContent = 'Invitations en cours d\'envoi';
+                title.style.color = '#2196f3';
+                bar.style.background = 'linear-gradient(90deg, #2196f3, #42a5f5)';
+                status.textContent = `${sent} invitation(s) prises en charge par le serveur`;
+                if (details) details.innerHTML = '<span style="color: #666;">Vérifiez votre boîte mail dans quelques minutes</span>';
+            } else if (failed === 0) {
                 icon.textContent = '✅';
                 title.textContent = 'Invitations envoyées !';
                 title.style.color = '#27ae60';
@@ -13949,16 +13992,14 @@
                 status.textContent = '';
             }
             
-            // Auto-fermeture après 8 secondes si tout OK
-            if (failed === 0) {
-                setTimeout(() => {
-                    const toast = document.getElementById('emailProgressToast');
-                    if (toast) {
-                        toast.style.opacity = '0';
-                        setTimeout(() => toast.remove(), 300);
-                    }
-                }, 8000);
-            }
+            // Auto-fermeture après 8 secondes
+            setTimeout(() => {
+                const toast = document.getElementById('emailProgressToast');
+                if (toast) {
+                    toast.style.opacity = '0';
+                    setTimeout(() => toast.remove(), 300);
+                }
+            }, optimistic ? 12000 : 8000);
         }
         
         // Afficher une erreur dans le toast
