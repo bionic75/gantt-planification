@@ -1,4 +1,4 @@
-// email-worker.js - Process séparé pour envoyer les emails sans bloquer le serveur principal
+// email-worker.js - Process séparé pour envoyer les emails sans bloquer le serveur principa server jsl
 import nodemailer from 'nodemailer';
 
 function createTransporter(config) {
