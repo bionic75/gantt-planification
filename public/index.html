@@ -13824,9 +13824,9 @@
                 const senderName = currentUser ? `${currentUser.prenom} ${currentUser.nom}` : 'Système';
                 const senderEmail = currentUser ? currentUser.email : null;
                 
-                // Timeout de sécurité 15s (la réponse devrait être instantanée)
+                // Timeout de sécurité 30s (la réponse devrait être instantanée)
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 15000);
+                const timeoutId = setTimeout(() => controller.abort(), 30000);
                 
                 console.log('📧 Envoi requête send-assignment-emails...', { experts: assignmentsToSend.length, totalItems });
                 
@@ -13864,7 +13864,10 @@
             } catch (error) {
                 console.error('Erreur envoi emails:', error);
                 if (error.name === 'AbortError') {
-                    alert('⏱️ Le serveur met trop de temps à répondre. Vérifiez les logs serveur. Les emails n\'ont peut-être pas été mis en file d\'attente.');
+                    // Le serveur a peut-être quand même traité la requête - on ne peut pas savoir
+                    alert('⏱️ Le serveur met trop de temps à répondre. Les emails ont peut-être été mis en file d\'attente. Vérifiez votre boîte mail dans quelques minutes.');
+                } else if (error.message === 'Failed to fetch') {
+                    alert('🔌 Impossible de contacter le serveur. Vérifiez votre connexion ou réessayez dans quelques instants.');
                 } else {
                     alert(`❌ Erreur: ${error.message}`);
                 }
