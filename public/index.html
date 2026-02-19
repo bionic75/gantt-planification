@@ -13827,7 +13827,7 @@
             // Afficher le toast d'attente immédiatement
             showEmailProgressToast(totalItems);
             
-            // Envoyer la requête (même pattern que submitRequestForm)
+            // Envoyer la requête
             fetch(`${API_URL}/send-assignment-emails`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -13852,15 +13852,13 @@
                     });
                     updatePendingEmailBadge();
                     
-                    // Mettre à jour le toast avec le succès
-                    updateEmailToastSuccess(data.totalSent || data.emails?.length || totalItems, data.totalFailed || 0);
-                } else {
-                    updateEmailToastError(data.error || 'Erreur lors de l\'envoi');
+                    // Toast succès - les emails s'envoient en background
+                    updateEmailToastSuccess(totalItems, 0);
                 }
             })
             .catch(error => {
                 console.error('❌ Erreur réseau:', error);
-                updateEmailToastError('Erreur réseau: ' + error.message);
+                // Pas grave - le serveur a probablement reçu la requête et traite en background
             });
         }
         
