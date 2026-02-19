@@ -500,6 +500,19 @@ function initDB() {
                             }
                         });
                     }
+                    
+                    // Migration: ajouter trigramme si elle n'existe pas
+                    const trigrammeCol = columns.find(col => col.name === 'trigramme');
+                    if (!trigrammeCol) {
+                        console.log('Migration: Ajout colonne trigramme à users...');
+                        database.run(`ALTER TABLE users ADD COLUMN trigramme TEXT`, (alterErr) => {
+                            if (alterErr) {
+                                console.error('Erreur migration trigramme:', alterErr);
+                            } else {
+                                console.log('✅ Migration terminée: trigramme ajouté');
+                            }
+                        });
+                    }
                 }
             });
             
@@ -906,6 +919,40 @@ function initDB() {
             console.error('Erreur création table astreintes_hno:', err);
         } else {
             console.log('✅ Table astreintes_hno créée');
+        }
+    });
+    
+    // Table file d'attente d'emails
+    database.run(`
+        CREATE TABLE IF NOT EXISTS email_queue (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            batch_id TEXT NOT NULL,
+            recipient_email TEXT NOT NULL,
+            recipient_name TEXT NOT NULL,
+            sender_name TEXT NOT NULL,
+            sender_email TEXT NOT NULL,
+            subject TEXT NOT NULL,
+            html_body TEXT NOT NULL,
+            ics_content TEXT,
+            ics_method TEXT,
+            ics_filename TEXT,
+            status TEXT DEFAULT 'pending',
+            attempts INTEGER DEFAULT 0,
+            max_attempts INTEGER DEFAULT 3,
+            error_message TEXT,
+            action_type TEXT,
+            resource_id INTEGER,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            processed_at DATETIME,
+            next_retry_at DATETIME
+        )
+    `, (err) => {
+        if (err) {
+            console.error('Erreur création table email_queue:', err);
+        } else {
+            console.log('✅ Table email_queue créée');
+            // Nettoyer les vieux emails traités (> 7 jours)
+            database.run(`DELETE FROM email_queue WHERE status IN ('sent', 'failed') AND created_at < datetime('now', '-7 days')`);
         }
     });
 }
@@ -2075,6 +2122,7 @@ app.post('/api/schedule/cleanup-old-format', requireAdmin, (req, res) => {
 app.get('/api/users', requireAdmin, (req, res) => {
     database.all(`
         SELECT u.*, r.trigramme as resource_trigramme,
+               COALESCE(u.trigramme, r.trigramme) as trigramme,
                (SELECT MAX(login_time) FROM connection_logs WHERE user_id = u.id) as last_login
         FROM users u 
         LEFT JOIN resources r ON u.resource_id = r.id
@@ -2100,7 +2148,7 @@ app.get('/api/users/public', requireAuth, (req, res) => {
             u.resource_id,
             u.profile_photo,
             u.is_expert,
-            r.trigramme
+            COALESCE(u.trigramme, r.trigramme) as trigramme
         FROM users u 
         LEFT JOIN resources r ON u.resource_id = r.id
         WHERE u.actif = 1
@@ -2210,7 +2258,7 @@ app.post('/api/users', requireAdmin, async (req, res) => {
 });
 
 app.put('/api/users/:id', requireAdmin, (req, res) => {
-    const { nom, prenom, email, is_admin, is_expert, is_user, resource_id, has_reporting_access, amoa_ced } = req.body;
+    const { nom, prenom, email, trigramme, is_admin, is_expert, is_user, resource_id, has_reporting_access, amoa_ced } = req.body;
     const { id } = req.params;
     
     // Convertir resource_id en integer ou null
@@ -2222,9 +2270,13 @@ app.put('/api/users/:id', requireAdmin, (req, res) => {
         }
     }
     
+    // Trigramme en majuscules
+    const finalTrigramme = trigramme ? trigramme.toUpperCase().trim() : null;
+    
     console.log('💾 Modification utilisateur ID', id, ':', {
         nom,
         prenom,
+        trigramme: finalTrigramme,
         is_expert,
         resource_id_recu: resource_id,
         resource_id_type: typeof resource_id,
@@ -2235,9 +2287,9 @@ app.put('/api/users/:id', requireAdmin, (req, res) => {
     
     database.run(
         `UPDATE users 
-         SET nom = ?, prenom = ?, email = ?, is_admin = ?, is_expert = ?, is_user = ?, resource_id = ?, has_reporting_access = ?, amoa_ced = ?
+         SET nom = ?, prenom = ?, email = ?, trigramme = ?, is_admin = ?, is_expert = ?, is_user = ?, resource_id = ?, has_reporting_access = ?, amoa_ced = ?
          WHERE id = ?`,
-        [nom, prenom, email, is_admin ? 1 : 0, is_expert ? 1 : 0, is_user ? 1 : 0, finalResourceId, has_reporting_access ? 1 : 0, amoa_ced ? 1 : 0, id],
+        [nom, prenom, email, finalTrigramme, is_admin ? 1 : 0, is_expert ? 1 : 0, is_user ? 1 : 0, finalResourceId, has_reporting_access ? 1 : 0, amoa_ced ? 1 : 0, id],
         (err) => {
             if (err) {
                 console.error('Erreur update user:', err);
@@ -2921,6 +2973,219 @@ app.post('/api/send-calendar-email', requireAuth, async (req, res) => {
     }
 });
 
+// ========== FILE D'ATTENTE EMAILS (EMAIL QUEUE WORKER) ==========
+
+let emailWorkerRunning = false;
+const EMAIL_WORKER_POLL_INTERVAL = 1500; // Vérification quand la queue est vide
+const EMAIL_INTER_SEND_DELAY = 500; // 500ms entre chaque email (évite de saturer le SMTP)
+const EMAIL_RETRY_DELAYS = [0, 30000, 120000]; // Retry immédiat, puis 30s, puis 2min
+let cachedTransporter = null;
+let cachedTransporterConfig = '';
+
+// Obtenir un transporter réutilisable (ne recrée que si la config change)
+function getReusableTransporter() {
+    const configKey = `${emailConfig.host}:${emailConfig.port}:${emailConfig.user}`;
+    if (cachedTransporter && cachedTransporterConfig === configKey) {
+        return cachedTransporter;
+    }
+    cachedTransporter = createEmailTransporter();
+    cachedTransporterConfig = configKey;
+    return cachedTransporter;
+}
+
+// Ajouter un email à la file d'attente
+function enqueueEmail({ batchId, recipientEmail, recipientName, senderName, senderEmail, subject, htmlBody, icsContent, icsMethod, icsFilename, actionType, resourceId }) {
+    return new Promise((resolve, reject) => {
+        database.run(
+            `INSERT INTO email_queue (batch_id, recipient_email, recipient_name, sender_name, sender_email, subject, html_body, ics_content, ics_method, ics_filename, action_type, resource_id, next_retry_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+            [batchId, recipientEmail, recipientName, senderName, senderEmail, subject, htmlBody, icsContent || null, icsMethod || null, icsFilename || null, actionType || 'new', resourceId || null],
+            function(err) {
+                if (err) reject(err);
+                else resolve(this.lastID);
+            }
+        );
+    });
+}
+
+// Récupérer le prochain email à traiter
+function getNextQueuedEmail() {
+    return new Promise((resolve, reject) => {
+        database.get(
+            `SELECT * FROM email_queue 
+             WHERE status = 'pending' AND next_retry_at <= datetime('now') AND attempts < max_attempts
+             ORDER BY created_at ASC LIMIT 1`,
+            [],
+            (err, row) => {
+                if (err) reject(err);
+                else resolve(row);
+            }
+        );
+    });
+}
+
+// Mettre à jour le statut d'un email dans la file
+function updateQueueStatus(id, status, errorMessage) {
+    return new Promise((resolve, reject) => {
+        if (status === 'sent') {
+            database.run(
+                `UPDATE email_queue SET status = 'sent', processed_at = datetime('now'), attempts = attempts + 1 WHERE id = ?`,
+                [id],
+                (err) => err ? reject(err) : resolve()
+            );
+        } else if (status === 'failed') {
+            database.run(
+                `UPDATE email_queue SET status = 'failed', error_message = ?, attempts = attempts + 1, processed_at = datetime('now') WHERE id = ?`,
+                [errorMessage, id],
+                (err) => err ? reject(err) : resolve()
+            );
+        } else if (status === 'retry') {
+            database.get(`SELECT attempts FROM email_queue WHERE id = ?`, [id], (err, row) => {
+                if (err) return reject(err);
+                const attempts = (row ? row.attempts : 0) + 1;
+                const delayMs = EMAIL_RETRY_DELAYS[Math.min(attempts, EMAIL_RETRY_DELAYS.length - 1)];
+                const delaySec = Math.floor(delayMs / 1000);
+                database.run(
+                    `UPDATE email_queue SET status = 'pending', error_message = ?, attempts = attempts + 1, next_retry_at = datetime('now', '+${delaySec} seconds') WHERE id = ?`,
+                    [errorMessage, id],
+                    (err2) => err2 ? reject(err2) : resolve()
+                );
+            });
+        }
+    });
+}
+
+// Pause utilitaire
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// Worker qui traite la file d'attente en boucle (enchaîne tant qu'il y a des emails)
+async function processEmailQueue() {
+    if (emailWorkerRunning) return;
+    emailWorkerRunning = true;
+    
+    try {
+        const transporter = getReusableTransporter();
+        if (!transporter) {
+            emailWorkerRunning = false;
+            return;
+        }
+        
+        // Boucle : traiter tous les emails disponibles d'un coup
+        let processed = 0;
+        while (true) {
+            const email = await getNextQueuedEmail();
+            if (!email) break; // Queue vide
+            
+            const mailOptions = {
+                from: `"${email.sender_name} (Planning SI-SAMU)" <${emailConfig.user}>`,
+                to: email.recipient_email,
+                subject: email.subject,
+                html: email.html_body
+            };
+            
+            if (email.ics_content) {
+                mailOptions.icalEvent = {
+                    filename: email.ics_filename || 'invitation.ics',
+                    method: email.ics_method || 'REQUEST',
+                    content: email.ics_content
+                };
+            }
+            
+            try {
+                await transporter.sendMail(mailOptions);
+                await updateQueueStatus(email.id, 'sent');
+                processed++;
+                console.log(`✅ Queue [${processed}]: envoyé à ${email.recipient_email} (${email.action_type}) [batch:${email.batch_id.substring(0, 8)}]`);
+            } catch (sendError) {
+                const errorMsg = sendError.message || 'Erreur inconnue';
+                console.error(`❌ Queue: échec envoi à ${email.recipient_email}: ${errorMsg}`);
+                
+                // Invalider le transporter en cache si erreur de connexion
+                if (errorMsg.includes('ECONNREFUSED') || errorMsg.includes('ETIMEDOUT') || errorMsg.includes('ESOCKET')) {
+                    cachedTransporter = null;
+                    cachedTransporterConfig = '';
+                }
+                
+                if (email.attempts + 1 >= email.max_attempts) {
+                    await updateQueueStatus(email.id, 'failed', errorMsg);
+                    console.log(`💀 Queue: abandonné après ${email.max_attempts} tentatives`);
+                } else {
+                    await updateQueueStatus(email.id, 'retry', errorMsg);
+                    console.log(`🔄 Queue: retry planifié (tentative ${email.attempts + 2}/${email.max_attempts})`);
+                }
+            }
+            
+            // Petite pause entre les envois pour ne pas saturer le SMTP
+            await sleep(EMAIL_INTER_SEND_DELAY);
+        }
+        
+        if (processed > 0) {
+            console.log(`📧 Queue: ${processed} email(s) traités dans ce cycle`);
+        }
+    } catch (error) {
+        console.error('❌ Queue worker error:', error);
+    }
+    
+    emailWorkerRunning = false;
+}
+
+// Vérifier la queue périodiquement (le worker enchaîne quand il y a des emails)
+setInterval(processEmailQueue, EMAIL_WORKER_POLL_INTERVAL);
+
+// Endpoint: statut d'un batch d'emails
+app.get('/api/email-queue/status/:batchId', requireAuth, async (req, res) => {
+    const { batchId } = req.params;
+    
+    try {
+        const stats = await new Promise((resolve, reject) => {
+            database.get(
+                `SELECT 
+                    COUNT(*) as total,
+                    SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END) as sent,
+                    SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+                    SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed
+                 FROM email_queue WHERE batch_id = ?`,
+                [batchId],
+                (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row);
+                }
+            );
+        });
+        
+        // Récupérer les détails des emails échoués
+        const failures = await new Promise((resolve, reject) => {
+            database.all(
+                `SELECT recipient_name, recipient_email, error_message, action_type 
+                 FROM email_queue WHERE batch_id = ? AND status = 'failed'`,
+                [batchId],
+                (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows || []);
+                }
+            );
+        });
+        
+        const completed = (stats.sent || 0) + (stats.failed || 0);
+        const isComplete = completed >= stats.total;
+        
+        res.json({
+            success: true,
+            batchId,
+            total: stats.total || 0,
+            sent: stats.sent || 0,
+            pending: stats.pending || 0,
+            failed: stats.failed || 0,
+            isComplete,
+            progress: stats.total > 0 ? Math.round((completed / stats.total) * 100) : 0,
+            failures
+        });
+    } catch (error) {
+        console.error('Erreur statut queue:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // ========== GENERATION ICS (INVITATIONS OUTLOOK) ==========
 
 // Formater une date en format ICS (YYYYMMDDTHHmmssZ)
@@ -3105,8 +3370,8 @@ app.post('/api/send-assignment-emails', requireAuth, async (req, res) => {
         return res.status(400).json({ success: false, error: 'Aucune affectation à envoyer' });
     }
     
-    const transporter = createEmailTransporter();
-    if (!transporter) {
+    // Vérifier que la config email est disponible (les emails seront envoyés par le worker)
+    if (!emailConfig.user || !emailConfig.password) {
         return res.status(500).json({ success: false, error: 'Configuration email non disponible' });
     }
     
@@ -3187,215 +3452,201 @@ app.post('/api/send-assignment-emails', requireAuth, async (req, res) => {
     
     console.log(`✅ ${notificationsCreated} notification(s) créée(s) en base`);
     
-    // 2. RÉPONDRE IMMÉDIATEMENT AU CLIENT
+    // 2. METTRE EN FILE D'ATTENTE ET RÉPONDRE IMMÉDIATEMENT
+    const batchId = crypto.randomUUID();
+    let totalQueued = 0;
+    
+    for (const item of assignments) {
+        const { resourceId, email, expertNom, expertPrenom, expertName, assignments: expertAssignments } = item;
+        
+        // Construire le nom complet : priorité aux champs séparés, fallback sur expertName
+        const attendeeName = (expertPrenom && expertNom) 
+            ? `${expertPrenom} ${expertNom}` 
+            : (expertName || expertPrenom || expertNom || 'Expert');
+        
+        if (!email) {
+            console.log(`⚠️ Pas d'email pour ${attendeeName}`);
+            continue;
+        }
+        
+        console.log(`📧 Traitement expert: ${attendeeName} (prenom=${expertPrenom}, nom=${expertNom}, email=${email})`);
+        
+        // Séparer par type d'action
+        const newAssigns = expertAssignments.filter(a => a.actionType === 'new' || !a.actionType);
+        const modifiedAssigns = expertAssignments.filter(a => a.actionType === 'modified');
+        const deletedAssigns = expertAssignments.filter(a => a.actionType === 'deleted');
+        
+        // --- NOUVELLES AFFECTATIONS: grouper les contiguës ---
+        if (newAssigns.length > 0) {
+            const groups = groupContiguousAssignments(newAssigns);
+            
+            for (const group of groups) {
+                try {
+                    const firstSlot = group.slots[0];
+                    const lastSlot = group.slots[group.slots.length - 1];
+                    
+                    const startHours = HALF_DAY_HOURS[firstSlot.period];
+                    const endHours = HALF_DAY_HOURS[lastSlot.period];
+                    
+                    const dtstart = formatDateICS(firstSlot.date, startHours.start, 0);
+                    const dtend = formatDateICS(lastSlot.date, endHours.end, 0);
+                    
+                    const uid = generateICSUid();
+                    const cleanLabel = ACTIVITY_LABELS[group.activityCode] || getCleanActivityLabel({ activityCode: group.activityCode, activity: group.activity });
+                    const summary = `Domaines des Urgences - Affectation – ${cleanLabel} – ${requesterName}`;
+                    const location = group.location && group.location !== '-' ? group.location : '';
+                    
+                    const slotsDesc = group.slots.map(s => {
+                        const [y, m, d] = s.date.split('-');
+                        return `${d}/${m}/${y} (${s.period === 'AM' ? 'Matin 8h-12h' : 'Apres-midi 14h-18h'})`;
+                    }).join('\\n');
+                    const description = `Affectation: ${cleanLabel}\\nLocalisation: ${location || 'Non precisee'}\\nDemandeur: ${requesterName}\\n\\nCreneaux:\\n${slotsDesc}`;
+                    
+                    const icsContent = buildICS({
+                        uid, summary, description, location,
+                        dtstart, dtend,
+                        organizer: senderEmailAddr, organizerName: requesterName,
+                        attendee: email, attendeeName,
+                        method: 'REQUEST'
+                    });
+                    
+                    await enqueueEmail({
+                        batchId, recipientEmail: email, recipientName: attendeeName,
+                        senderName: requesterName, senderEmail: senderEmailAddr,
+                        subject: summary,
+                        htmlBody: buildInvitationHTML(attendeeName, requesterName, group, 'new'),
+                        icsContent, icsMethod: 'REQUEST', icsFilename: 'invitation.ics',
+                        actionType: 'new', resourceId
+                    });
+                    totalQueued++;
+                } catch (error) {
+                    console.error(`❌ Erreur enqueue NEW:`, error.message);
+                }
+            }
+        }
+        
+        // --- MODIFICATIONS: 1er email CANCEL + 2ème email REQUEST ---
+        if (modifiedAssigns.length > 0) {
+            for (const assignment of modifiedAssigns) {
+                try {
+                    const hours = HALF_DAY_HOURS[assignment.period];
+                    
+                    // EMAIL 1: CANCEL
+                    const cancelUid = generateICSUid();
+                    const oldLabel = getCleanOldActivityLabel(assignment);
+                    const cancelSummary = `Domaines des Urgences - Affectation – ${oldLabel} – ${requesterName}`;
+                    const oldLoc = assignment.oldLocation && assignment.oldLocation !== '-' ? assignment.oldLocation : '';
+                    
+                    const cancelIcs = buildICS({
+                        uid: cancelUid, summary: cancelSummary,
+                        description: `Annulation: cette affectation a ete modifiee par ${requesterName}.`,
+                        location: oldLoc,
+                        dtstart: formatDateICS(assignment.date, hours.start, 0),
+                        dtend: formatDateICS(assignment.date, hours.end, 0),
+                        organizer: senderEmailAddr, organizerName: requesterName,
+                        attendee: email, attendeeName,
+                        sequence: 1, method: 'CANCEL'
+                    });
+                    
+                    await enqueueEmail({
+                        batchId, recipientEmail: email, recipientName: attendeeName,
+                        senderName: requesterName, senderEmail: senderEmailAddr,
+                        subject: `Annule: ${cancelSummary}`,
+                        htmlBody: buildInvitationHTML(attendeeName, requesterName, { activity: oldLabel, location: oldLoc, slots: [assignment] }, 'cancelled'),
+                        icsContent: cancelIcs, icsMethod: 'CANCEL', icsFilename: 'annulation.ics',
+                        actionType: 'cancel_modify', resourceId
+                    });
+                    totalQueued++;
+                    
+                    // EMAIL 2: REQUEST
+                    const newUid = generateICSUid();
+                    const newLabel = getCleanActivityLabel(assignment);
+                    const newSummary = `Domaines des Urgences - Affectation – ${newLabel} – ${requesterName}`;
+                    const newLoc = assignment.location && assignment.location !== '-' ? assignment.location : '';
+                    
+                    const newIcs = buildICS({
+                        uid: newUid, summary: newSummary,
+                        description: `Nouvelle affectation: ${newLabel}\\nLocalisation: ${newLoc || 'Non precisee'}\\nDemandeur: ${requesterName}`,
+                        location: newLoc,
+                        dtstart: formatDateICS(assignment.date, hours.start, 0),
+                        dtend: formatDateICS(assignment.date, hours.end, 0),
+                        organizer: senderEmailAddr, organizerName: requesterName,
+                        attendee: email, attendeeName,
+                        method: 'REQUEST'
+                    });
+                    
+                    await enqueueEmail({
+                        batchId, recipientEmail: email, recipientName: attendeeName,
+                        senderName: requesterName, senderEmail: senderEmailAddr,
+                        subject: newSummary,
+                        htmlBody: buildInvitationHTML(attendeeName, requesterName, { activity: newLabel, location: newLoc, slots: [assignment] }, 'modified'),
+                        icsContent: newIcs, icsMethod: 'REQUEST', icsFilename: 'invitation.ics',
+                        actionType: 'modified', resourceId
+                    });
+                    totalQueued++;
+                } catch (error) {
+                    console.error(`❌ Erreur enqueue MODIFIED:`, error.message);
+                }
+            }
+        }
+        
+        // --- SUPPRESSIONS PURES: seulement CANCEL ---
+        if (deletedAssigns.length > 0) {
+            for (const assignment of deletedAssigns) {
+                try {
+                    const hours = HALF_DAY_HOURS[assignment.period];
+                    const cancelUid = generateICSUid();
+                    const delLabel = getCleanOldActivityLabel(assignment);
+                    const cancelSummary = `Domaines des Urgences - Affectation – ${delLabel} – ${requesterName}`;
+                    const loc = assignment.oldLocation && assignment.oldLocation !== '-' ? assignment.oldLocation : (assignment.location && assignment.location !== '-' ? assignment.location : '');
+                    
+                    const cancelIcs = buildICS({
+                        uid: cancelUid, summary: cancelSummary,
+                        description: `Cette affectation a ete supprimee par ${requesterName}.`,
+                        location: loc,
+                        dtstart: formatDateICS(assignment.date, hours.start, 0),
+                        dtend: formatDateICS(assignment.date, hours.end, 0),
+                        organizer: senderEmailAddr, organizerName: requesterName,
+                        attendee: email, attendeeName,
+                        sequence: 1, method: 'CANCEL'
+                    });
+                    
+                    await enqueueEmail({
+                        batchId, recipientEmail: email, recipientName: attendeeName,
+                        senderName: requesterName, senderEmail: senderEmailAddr,
+                        subject: `Annule: ${cancelSummary}`,
+                        htmlBody: buildInvitationHTML(attendeeName, requesterName, { activity: delLabel, location: loc, slots: [assignment] }, 'cancelled'),
+                        icsContent: cancelIcs, icsMethod: 'CANCEL', icsFilename: 'annulation.ics',
+                        actionType: 'deleted', resourceId
+                    });
+                    totalQueued++;
+                } catch (error) {
+                    console.error(`❌ Erreur enqueue DELETED:`, error.message);
+                }
+            }
+        }
+    }
+    
+    console.log(`📧 ${totalQueued} email(s) mis en file d'attente [batch:${batchId.substring(0, 8)}]`);
+    
+    // Logger l'action
+    if (req.session && req.session.logId) {
+        const emails = assignments.map(a => a.email).filter(e => e).join(', ');
+        database.run(
+            `UPDATE connection_logs 
+             SET modifications = modifications || ? 
+             WHERE id = ?`,
+            [`${new Date().toLocaleString('fr-FR')}: Invitations Outlook mises en file (${totalQueued}) pour: ${emails}\n`, req.session.logId]
+        );
+    }
+    
+    // RÉPONDRE INSTANTANÉMENT
     res.json({
         success: true,
-        sent: assignments.length,
-        notificationsCreated: notificationsCreated,
-        message: 'Notifications créées, invitations Outlook en cours d\'envoi...'
-    });
-    
-    // 3. ENVOYER LES INVITATIONS ICS EN ARRIÈRE-PLAN
-    setImmediate(async () => {
-        let totalEmailsSent = 0;
-        
-        for (const item of assignments) {
-            const { resourceId, email, expertName, expertPrenom, assignments: expertAssignments } = item;
-            
-            if (!email) {
-                console.log(`⚠️ Pas d'email pour ${expertName}`);
-                continue;
-            }
-            
-            const attendeeName = `${expertPrenom || ''} ${expertName || ''}`.trim();
-            
-            // Séparer par type d'action
-            const newAssignments = expertAssignments.filter(a => a.actionType === 'new' || !a.actionType);
-            const modifiedAssignments = expertAssignments.filter(a => a.actionType === 'modified');
-            const deletedAssignments = expertAssignments.filter(a => a.actionType === 'deleted');
-            
-            // --- NOUVELLES AFFECTATIONS: grouper les contiguës ---
-            if (newAssignments.length > 0) {
-                const groups = groupContiguousAssignments(newAssignments);
-                
-                for (const group of groups) {
-                    try {
-                        const firstSlot = group.slots[0];
-                        const lastSlot = group.slots[group.slots.length - 1];
-                        
-                        const startHours = HALF_DAY_HOURS[firstSlot.period];
-                        const endHours = HALF_DAY_HOURS[lastSlot.period];
-                        
-                        const dtstart = formatDateICS(firstSlot.date, startHours.start, 0);
-                        const dtend = formatDateICS(lastSlot.date, endHours.end, 0);
-                        
-                        const uid = generateICSUid();
-                        const cleanLabel = ACTIVITY_LABELS[group.activityCode] || getCleanActivityLabel({ activityCode: group.activityCode, activity: group.activity });
-                        const summary = `Domaines des Urgences - Affectation – ${cleanLabel} – ${requesterName}`;
-                        const location = group.location && group.location !== '-' ? group.location : '';
-                        
-                        const slotsDesc = group.slots.map(s => {
-                            const [y, m, d] = s.date.split('-');
-                            return `${d}/${m}/${y} (${s.period === 'AM' ? 'Matin 8h-12h' : 'Apres-midi 14h-18h'})`;
-                        }).join('\\n');
-                        const description = `Affectation: ${cleanLabel}\\nLocalisation: ${location || 'Non precisee'}\\nDemandeur: ${requesterName}\\n\\nCreneaux:\\n${slotsDesc}`;
-                        
-                        const icsContent = buildICS({
-                            uid, summary, description, location,
-                            dtstart, dtend,
-                            organizer: senderEmailAddr, organizerName: requesterName,
-                            attendee: email, attendeeName,
-                            method: 'REQUEST'
-                        });
-                        
-                        await transporter.sendMail({
-                            from: `"${requesterName} (Planning SI-SAMU)" <${emailConfig.user}>`,
-                            to: email,
-                            subject: summary,
-                            html: buildInvitationHTML(attendeeName, requesterName, group, 'new'),
-                            icalEvent: {
-                                filename: 'invitation.ics',
-                                method: 'REQUEST',
-                                content: icsContent
-                            }
-                        });
-                        totalEmailsSent++;
-                        console.log(`✅ Invitation NEW envoyée à ${email} - ${cleanLabel}`);
-                    } catch (error) {
-                        console.error(`❌ Erreur envoi invitation NEW à ${email}:`, error.message);
-                    }
-                }
-            }
-            
-            // --- MODIFICATIONS: 1er email CANCEL ancien + 2ème email REQUEST nouveau ---
-            if (modifiedAssignments.length > 0) {
-                for (const assignment of modifiedAssignments) {
-                    try {
-                        const hours = HALF_DAY_HOURS[assignment.period];
-                        
-                        // ===== EMAIL 1: CANCEL de l'ancienne affectation =====
-                        const cancelUid = generateICSUid();
-                        const oldLabel = getCleanOldActivityLabel(assignment);
-                        const cancelSummary = `Domaines des Urgences - Affectation – ${oldLabel} – ${requesterName}`;
-                        const oldLoc = assignment.oldLocation && assignment.oldLocation !== '-' ? assignment.oldLocation : '';
-                        
-                        const cancelIcs = buildICS({
-                            uid: cancelUid,
-                            summary: cancelSummary,
-                            description: `Annulation: cette affectation a ete modifiee par ${requesterName}.`,
-                            location: oldLoc,
-                            dtstart: formatDateICS(assignment.date, hours.start, 0),
-                            dtend: formatDateICS(assignment.date, hours.end, 0),
-                            organizer: senderEmailAddr, organizerName: requesterName,
-                            attendee: email, attendeeName,
-                            sequence: 1, method: 'CANCEL'
-                        });
-                        
-                        await transporter.sendMail({
-                            from: `"${requesterName} (Planning SI-SAMU)" <${emailConfig.user}>`,
-                            to: email,
-                            subject: `Annule: ${cancelSummary}`,
-                            html: buildInvitationHTML(attendeeName, requesterName, { activity: oldLabel, location: oldLoc, slots: [assignment] }, 'cancelled'),
-                            icalEvent: {
-                                filename: 'annulation.ics',
-                                method: 'CANCEL',
-                                content: cancelIcs
-                            }
-                        });
-                        totalEmailsSent++;
-                        console.log(`✅ Email 1/2 CANCEL envoyé à ${email} (modif: ${oldLabel})`);
-                        
-                        // ===== EMAIL 2: REQUEST de la nouvelle affectation =====
-                        const newUid = generateICSUid();
-                        const newLabel = getCleanActivityLabel(assignment);
-                        const newSummary = `Domaines des Urgences - Affectation – ${newLabel} – ${requesterName}`;
-                        const newLoc = assignment.location && assignment.location !== '-' ? assignment.location : '';
-                        
-                        const newIcs = buildICS({
-                            uid: newUid,
-                            summary: newSummary,
-                            description: `Nouvelle affectation: ${newLabel}\\nLocalisation: ${newLoc || 'Non precisee'}\\nDemandeur: ${requesterName}`,
-                            location: newLoc,
-                            dtstart: formatDateICS(assignment.date, hours.start, 0),
-                            dtend: formatDateICS(assignment.date, hours.end, 0),
-                            organizer: senderEmailAddr, organizerName: requesterName,
-                            attendee: email, attendeeName,
-                            method: 'REQUEST'
-                        });
-                        
-                        await transporter.sendMail({
-                            from: `"${requesterName} (Planning SI-SAMU)" <${emailConfig.user}>`,
-                            to: email,
-                            subject: newSummary,
-                            html: buildInvitationHTML(attendeeName, requesterName, { activity: newLabel, location: newLoc, slots: [assignment] }, 'modified'),
-                            icalEvent: {
-                                filename: 'invitation.ics',
-                                method: 'REQUEST',
-                                content: newIcs
-                            }
-                        });
-                        totalEmailsSent++;
-                        console.log(`✅ Email 2/2 REQUEST envoyé à ${email} (modif: ${newLabel})`);
-                    } catch (error) {
-                        console.error(`❌ Erreur envoi modif à ${email}:`, error.message);
-                    }
-                }
-            }
-            
-            // --- SUPPRESSIONS PURES (passage en "En attente" ou "Indisponible"): seulement CANCEL ---
-            if (deletedAssignments.length > 0) {
-                for (const assignment of deletedAssignments) {
-                    try {
-                        const hours = HALF_DAY_HOURS[assignment.period];
-                        const cancelUid = generateICSUid();
-                        const delLabel = getCleanOldActivityLabel(assignment);
-                        const cancelSummary = `Domaines des Urgences - Affectation – ${delLabel} – ${requesterName}`;
-                        const loc = assignment.oldLocation && assignment.oldLocation !== '-' ? assignment.oldLocation : (assignment.location && assignment.location !== '-' ? assignment.location : '');
-                        
-                        const cancelIcs = buildICS({
-                            uid: cancelUid,
-                            summary: cancelSummary,
-                            description: `Cette affectation a ete supprimee par ${requesterName}.`,
-                            location: loc,
-                            dtstart: formatDateICS(assignment.date, hours.start, 0),
-                            dtend: formatDateICS(assignment.date, hours.end, 0),
-                            organizer: senderEmailAddr, organizerName: requesterName,
-                            attendee: email, attendeeName,
-                            sequence: 1, method: 'CANCEL'
-                        });
-                        
-                        await transporter.sendMail({
-                            from: `"${requesterName} (Planning SI-SAMU)" <${emailConfig.user}>`,
-                            to: email,
-                            subject: `Annule: ${cancelSummary}`,
-                            html: buildInvitationHTML(attendeeName, requesterName, { activity: delLabel, location: loc, slots: [assignment] }, 'cancelled'),
-                            icalEvent: {
-                                filename: 'annulation.ics',
-                                method: 'CANCEL',
-                                content: cancelIcs
-                            }
-                        });
-                        totalEmailsSent++;
-                        console.log(`✅ CANCEL (suppression pure) envoyé à ${email} - ${delLabel}`);
-                    } catch (error) {
-                        console.error(`❌ Erreur envoi suppression à ${email}:`, error.message);
-                    }
-                }
-            }
-        }
-        
-        console.log(`📧 ${totalEmailsSent} email(s) ICS traités en arrière-plan`);
-        
-        // Logger l'action
-        if (req.session && req.session.logId) {
-            const emails = assignments.map(a => a.email).filter(e => e).join(', ');
-            database.run(
-                `UPDATE connection_logs 
-                 SET modifications = modifications || ? 
-                 WHERE id = ?`,
-                [`${new Date().toLocaleString('fr-FR')}: Invitations Outlook envoyées à: ${emails}\n`, req.session.logId]
-            );
-        }
+        batchId,
+        totalQueued,
+        notificationsCreated,
+        message: `${totalQueued} invitation(s) en file d'attente`
     });
 });
 
@@ -6226,10 +6477,14 @@ Fin : ${endDateFormatted}
             });
             
             // Envoyer notification Teams
+            const expertNames = expertsWithEmail.map(e => `${e.prenom} ${e.nom}`).join(', ');
             sendTeamsNotificationFromServer('demande', {
                 from: fromName,
                 subject: subject,
-                message: message.substring(0, 500) // Limiter la longueur
+                message: message.substring(0, 500),
+                experts: expertNames,
+                startDate: startDateFormatted,
+                endDate: endDateFormatted
             });
         } else {
             res.status(500).json({
@@ -8701,8 +8956,10 @@ app.post('/api/teams/notify', requireAuth, async (req, res) => {
                 content = `
                     <p><strong>De :</strong> ${data.from || 'Non spécifié'}</p>
                     <p><strong>Objet :</strong> ${data.subject || 'Non spécifié'}</p>
+                    ${data.experts ? `<p><strong>Expert(s) contacté(s) :</strong> ${data.experts}</p>` : ''}
+                    ${data.startDate ? `<p><strong>Période demandée :</strong></p><p style="margin-left: 15px;">📅 Du ${data.startDate}<br>📅 Au ${data.endDate}</p>` : ''}
                     <p><strong>Message :</strong></p>
-                    <div style="background: #f5f5f5; padding: 10px; border-radius: 5px; margin-top: 5px;">
+                    <div style="background: #ffffff; border: 1px solid #e0e0e0; padding: 12px; border-radius: 5px; margin-top: 5px; color: #333333; line-height: 1.6;">
                         ${(data.message || '').replace(/\n/g, '<br>')}
                     </div>
                 `;
