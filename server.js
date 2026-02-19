@@ -3361,9 +3361,10 @@ function getCleanOldActivityLabel(assignment) {
 // ========== ENDPOINT ENVOI EMAILS D'AFFECTATION (REFONTE ICS) ==========
 
 app.post('/api/send-assignment-emails', requireAuth, async (req, res) => {
+    try {
     const { assignments, senderName, senderEmail: clientSenderEmail } = req.body;
     
-    // assignments = [{ resourceId, email, expertName, expertPrenom, assignments: [{date, period, activity, activityCode, location, actionType}] }]
+    // assignments = [{ resourceId, email, expertNom, expertPrenom, assignments: [{date, period, activity, activityCode, location, actionType}] }]
     // actionType: 'new' | 'modified' | 'deleted'
     
     if (!assignments || !Array.isArray(assignments) || assignments.length === 0) {
@@ -3380,41 +3381,51 @@ app.post('/api/send-assignment-emails', requireAuth, async (req, res) => {
     const senderEmailAddr = clientSenderEmail || emailConfig.user;
     
     console.log(`📧 Envoi d'emails d'affectation ICS par ${requesterName} <${senderEmailAddr}>`);
+    console.log(`📧 ${assignments.length} expert(s) à traiter`);
     
-    // 1. CRÉER LES NOTIFICATIONS EN BASE IMMÉDIATEMENT
-    let notificationsCreated = 0;
+    // GÉNÉRER LE BATCH ID ET RÉPONDRE IMMÉDIATEMENT
+    const batchId = crypto.randomUUID();
+    const sessionLogId = req.session?.logId;
     
+    // Compter le nombre estimé d'emails pour le toast
+    let estimatedEmails = 0;
     for (const item of assignments) {
-        const { resourceId, assignments: expertAssignments } = item;
-        
+        if (!item.email) continue;
+        const newCount = item.assignments.filter(a => a.actionType === 'new' || !a.actionType).length;
+        const modCount = item.assignments.filter(a => a.actionType === 'modified').length;
+        const delCount = item.assignments.filter(a => a.actionType === 'deleted').length;
+        // new: groupés donc 1+ emails, modified: 2 par modif (cancel+request), deleted: 1 par suppr
+        estimatedEmails += (newCount > 0 ? 1 : 0) + (modCount * 2) + delCount;
+    }
+    
+    console.log(`📧 Estimated emails: ${estimatedEmails}, batchId: ${batchId.substring(0, 8)}`);
+    console.log(`📧 Envoi réponse immédiate au client...`);
+    
+    // RÉPONDRE IMMÉDIATEMENT AU CLIENT
+    res.json({
+        success: true,
+        batchId,
+        totalQueued: estimatedEmails || assignments.length,
+        notificationsCreated: 0,
+        message: `Traitement en cours...`
+    });
+    
+    // ===== TRAITEMENT EN BACKGROUND (après response) =====
+    setImmediate(async () => {
         try {
-            const user = await new Promise((resolve, reject) => {
-                database.get(
-                    `SELECT id FROM users WHERE resource_id = ? AND is_expert = 1`,
-                    [resourceId],
-                    (err, row) => {
-                        if (err) reject(err);
-                        else resolve(row);
-                    }
-                );
-            });
+            console.log(`📧 [BG] Début traitement background batch:${batchId.substring(0, 8)}`);
             
-            if (user) {
-                for (const assignment of expertAssignments) {
-                    let activityName = assignment.activity;
-                    if (assignment.location && assignment.location !== '-') {
-                        activityName = `${assignment.activity} (${assignment.location})`;
-                    }
-                    
-                    let actionLabel = 'Nouvelle affectation';
-                    if (assignment.actionType === 'modified') actionLabel = 'Modification affectation';
-                    if (assignment.actionType === 'deleted') actionLabel = 'Suppression affectation';
-                    
-                    const existingNotif = await new Promise((resolve, reject) => {
+            // 1. CRÉER LES NOTIFICATIONS EN BASE
+            let notificationsCreated = 0;
+            
+            for (const item of assignments) {
+                const { resourceId, assignments: expertAssignments } = item;
+                
+                try {
+                    const user = await new Promise((resolve, reject) => {
                         database.get(
-                            `SELECT id FROM expert_notifications 
-                             WHERE expert_id = ? AND date = ? AND period = ? AND is_read = 0`,
-                            [user.id, assignment.date, assignment.period],
+                            `SELECT id FROM users WHERE resource_id = ? AND is_expert = 1`,
+                            [resourceId],
                             (err, row) => {
                                 if (err) reject(err);
                                 else resolve(row);
@@ -3422,39 +3433,65 @@ app.post('/api/send-assignment-emails', requireAuth, async (req, res) => {
                         );
                     });
                     
-                    if (existingNotif) {
-                        await new Promise((resolve, reject) => {
-                            database.run(
-                                `UPDATE expert_notifications 
-                                 SET activity_name = ?, requester_name = ?, action_type = ?, created_at = CURRENT_TIMESTAMP
-                                 WHERE id = ?`,
-                                [activityName, requesterName, actionLabel, existingNotif.id],
-                                (err) => err ? reject(err) : resolve()
-                            );
-                        });
-                    } else {
-                        await new Promise((resolve, reject) => {
-                            database.run(
-                                `INSERT INTO expert_notifications (expert_id, date, period, activity_name, requester_name, action_type)
-                                 VALUES (?, ?, ?, ?, ?, ?)`,
-                                [user.id, assignment.date, assignment.period, activityName, requesterName, actionLabel],
-                                (err) => err ? reject(err) : resolve()
-                            );
-                        });
+                    if (user) {
+                        for (const assignment of expertAssignments) {
+                            try {
+                                let activityName = assignment.activity;
+                                if (assignment.location && assignment.location !== '-') {
+                                    activityName = `${assignment.activity} (${assignment.location})`;
+                                }
+                                
+                                let actionLabel = 'Nouvelle affectation';
+                                if (assignment.actionType === 'modified') actionLabel = 'Modification affectation';
+                                if (assignment.actionType === 'deleted') actionLabel = 'Suppression affectation';
+                                
+                                const existingNotif = await new Promise((resolve, reject) => {
+                                    database.get(
+                                        `SELECT id FROM expert_notifications 
+                                         WHERE expert_id = ? AND date = ? AND period = ? AND is_read = 0`,
+                                        [user.id, assignment.date, assignment.period],
+                                        (err, row) => {
+                                            if (err) reject(err);
+                                            else resolve(row);
+                                        }
+                                    );
+                                });
+                                
+                                if (existingNotif) {
+                                    await new Promise((resolve, reject) => {
+                                        database.run(
+                                            `UPDATE expert_notifications 
+                                             SET activity_name = ?, requester_name = ?, action_type = ?, created_at = CURRENT_TIMESTAMP
+                                             WHERE id = ?`,
+                                            [activityName, requesterName, actionLabel, existingNotif.id],
+                                            (err) => err ? reject(err) : resolve()
+                                        );
+                                    });
+                                } else {
+                                    await new Promise((resolve, reject) => {
+                                        database.run(
+                                            `INSERT INTO expert_notifications (expert_id, date, period, activity_name, requester_name, action_type)
+                                             VALUES (?, ?, ?, ?, ?, ?)`,
+                                            [user.id, assignment.date, assignment.period, activityName, requesterName, actionLabel],
+                                            (err) => err ? reject(err) : resolve()
+                                        );
+                                    });
+                                }
+                                notificationsCreated++;
+                            } catch (notifErr) {
+                                console.error(`❌ [BG] Erreur notification slot:`, notifErr.message);
+                            }
+                        }
                     }
-                    notificationsCreated++;
+                } catch (error) {
+                    console.error(`❌ [BG] Erreur création notification pour resource ${resourceId}:`, error.message);
                 }
             }
-        } catch (error) {
-            console.error(`❌ Erreur création notification pour resource ${resourceId}:`, error);
-        }
-    }
+            
+            console.log(`✅ [BG] ${notificationsCreated} notification(s) créée(s) en base`);
     
-    console.log(`✅ ${notificationsCreated} notification(s) créée(s) en base`);
-    
-    // 2. METTRE EN FILE D'ATTENTE ET RÉPONDRE IMMÉDIATEMENT
-    const batchId = crypto.randomUUID();
-    let totalQueued = 0;
+            // 2. METTRE EN FILE D'ATTENTE LES EMAILS
+            let totalQueued = 0;
     
     for (const item of assignments) {
         const { resourceId, email, expertNom, expertPrenom, expertName, assignments: expertAssignments } = item;
@@ -3627,27 +3664,30 @@ app.post('/api/send-assignment-emails', requireAuth, async (req, res) => {
         }
     }
     
-    console.log(`📧 ${totalQueued} email(s) mis en file d'attente [batch:${batchId.substring(0, 8)}]`);
+            console.log(`📧 [BG] ${totalQueued} email(s) mis en file d'attente [batch:${batchId.substring(0, 8)}]`);
     
-    // Logger l'action
-    if (req.session && req.session.logId) {
-        const emails = assignments.map(a => a.email).filter(e => e).join(', ');
-        database.run(
-            `UPDATE connection_logs 
-             SET modifications = modifications || ? 
-             WHERE id = ?`,
-            [`${new Date().toLocaleString('fr-FR')}: Invitations Outlook mises en file (${totalQueued}) pour: ${emails}\n`, req.session.logId]
-        );
+            // Logger l'action
+            if (sessionLogId) {
+                const emails = assignments.map(a => a.email).filter(e => e).join(', ');
+                database.run(
+                    `UPDATE connection_logs 
+                     SET modifications = modifications || ? 
+                     WHERE id = ?`,
+                    [`${new Date().toLocaleString('fr-FR')}: Invitations Outlook mises en file (${totalQueued}) pour: ${emails}\n`, sessionLogId]
+                );
+            }
+            
+        } catch (bgError) {
+            console.error('❌ [BG] Erreur traitement background:', bgError);
+        }
+    }); // fin setImmediate
+    
+    } catch (globalError) {
+        console.error('❌ ERREUR GLOBALE send-assignment-emails:', globalError);
+        if (!res.headersSent) {
+            res.status(500).json({ success: false, error: `Erreur serveur: ${globalError.message}` });
+        }
     }
-    
-    // RÉPONDRE INSTANTANÉMENT
-    res.json({
-        success: true,
-        batchId,
-        totalQueued,
-        notificationsCreated,
-        message: `${totalQueued} invitation(s) en file d'attente`
-    });
 });
 
 // Construire le HTML du body d'une invitation
@@ -9358,4 +9398,13 @@ app.listen(PORT, () => {
     console.log(`🚀 Serveur démarré sur le port ${PORT}`);
     console.log(`👤 Compte admin: admin / Admin2025!`);
     console.log(`⏰ Automatisations programmées actives`);
+});
+
+// Protection contre les crash silencieux
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('⚠️ Unhandled Promise Rejection:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+    console.error('🔥 Uncaught Exception:', err);
 });

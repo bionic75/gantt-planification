@@ -13823,10 +13823,18 @@
             try {
                 const senderName = currentUser ? `${currentUser.prenom} ${currentUser.nom}` : 'Système';
                 const senderEmail = currentUser ? currentUser.email : null;
+                
+                // Timeout de sécurité 15s (la réponse devrait être instantanée)
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 15000);
+                
+                console.log('📧 Envoi requête send-assignment-emails...', { experts: assignmentsToSend.length, totalItems });
+                
                 const response = await fetch(`${API_URL}/send-assignment-emails`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
+                    signal: controller.signal,
                     body: JSON.stringify({ 
                         assignments: assignmentsToSend, 
                         senderName, 
@@ -13835,7 +13843,11 @@
                     })
                 });
                 
+                clearTimeout(timeoutId);
+                console.log('📧 Réponse reçue, status:', response.status);
+                
                 const result = await response.json();
+                console.log('📧 Résultat:', result);
                 
                 if (response.ok && result.batchId) {
                     // Retirer les affectations envoyées
@@ -13851,7 +13863,11 @@
                 }
             } catch (error) {
                 console.error('Erreur envoi emails:', error);
-                alert(`❌ Erreur: ${error.message}`);
+                if (error.name === 'AbortError') {
+                    alert('⏱️ Le serveur met trop de temps à répondre. Vérifiez les logs serveur. Les emails n\'ont peut-être pas été mis en file d\'attente.');
+                } else {
+                    alert(`❌ Erreur: ${error.message}`);
+                }
             }
         }
         
@@ -13924,15 +13940,22 @@
                 
                 if (!bar) return; // Toast fermé
                 
-                bar.style.width = `${data.progress}%`;
-                status.textContent = `${data.sent} / ${data.total} envoyé(s)`;
-                percent.textContent = `${data.progress}%`;
+                // Si la queue n'est pas encore alimentée, utiliser l'estimation du client
+                const displayTotal = data.total > 0 ? data.total : totalEmails;
+                const progress = displayTotal > 0 ? Math.round((data.sent / displayTotal) * 100) : 0;
+                
+                bar.style.width = `${progress}%`;
+                status.textContent = data.total > 0 
+                    ? `${data.sent} / ${data.total} envoyé(s)` 
+                    : `Préparation des invitations...`;
+                percent.textContent = data.total > 0 ? `${progress}%` : '';
                 
                 if (data.failed > 0) {
                     details.innerHTML = `<span style="color: #e74c3c;">⚠️ ${data.failed} échec(s)</span>`;
                 }
                 
-                if (data.isComplete) {
+                // Ne considérer comme terminé QUE si on a des emails en queue
+                if (data.isComplete && data.total > 0) {
                     clearInterval(emailPollingInterval);
                     emailPollingInterval = null;
                     
