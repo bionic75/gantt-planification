@@ -9403,8 +9403,11 @@ app.listen(PORT, () => {
 // Protection contre les crash silencieux
 process.on('unhandledRejection', (reason, promise) => {
     console.error('⚠️ Unhandled Promise Rejection:', reason);
+    console.error('⚠️ Stack:', reason?.stack || 'no stack');
 });
 
 process.on('uncaughtException', (err) => {
     console.error('🔥 Uncaught Exception:', err);
+    console.error('🔥 Stack:', err?.stack || 'no stack');
+    // NE PAS process.exit() - on veut que le serveur continue
 });
