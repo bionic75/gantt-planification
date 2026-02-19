@@ -3364,139 +3364,103 @@ app.post('/api/send-assignment-emails', requireAuth, async (req, res) => {
     try {
     const { assignments, senderName, senderEmail: clientSenderEmail } = req.body;
     
-    // assignments = [{ resourceId, email, expertNom, expertPrenom, assignments: [{date, period, activity, activityCode, location, actionType}] }]
-    // actionType: 'new' | 'modified' | 'deleted'
-    
     if (!assignments || !Array.isArray(assignments) || assignments.length === 0) {
         return res.status(400).json({ success: false, error: 'Aucune affectation à envoyer' });
     }
     
-    // Vérifier que la config email est disponible (les emails seront envoyés par le worker)
-    if (!emailConfig.user || !emailConfig.password) {
-        return res.status(500).json({ success: false, error: 'Configuration email non disponible' });
+    // Récupérer le transporteur email (même méthode que request-assignment)
+    const transporter = createEmailTransporter();
+    if (!transporter) {
+        return res.status(500).json({ success: false, error: 'Configuration email non disponible. Veuillez configurer SMTP dans les paramètres.' });
     }
     
     const requesterName = senderName || `${req.session.prenom || 'Admin'} ${req.session.nom || 'Système'}`;
-    // Utiliser l'email de l'utilisateur connecté comme expéditeur, sinon l'email SMTP
     const senderEmailAddr = clientSenderEmail || emailConfig.user;
     
     console.log(`📧 Envoi d'emails d'affectation ICS par ${requesterName} <${senderEmailAddr}>`);
     console.log(`📧 ${assignments.length} expert(s) à traiter`);
     
-    // GÉNÉRER LE BATCH ID ET RÉPONDRE IMMÉDIATEMENT
-    const batchId = crypto.randomUUID();
-    const sessionLogId = req.session?.logId;
+    // 1. CRÉER LES NOTIFICATIONS EN BASE
+    let notificationsCreated = 0;
     
-    // Compter le nombre estimé d'emails pour le toast
-    let estimatedEmails = 0;
     for (const item of assignments) {
-        if (!item.email) continue;
-        const newCount = item.assignments.filter(a => a.actionType === 'new' || !a.actionType).length;
-        const modCount = item.assignments.filter(a => a.actionType === 'modified').length;
-        const delCount = item.assignments.filter(a => a.actionType === 'deleted').length;
-        // new: groupés donc 1+ emails, modified: 2 par modif (cancel+request), deleted: 1 par suppr
-        estimatedEmails += (newCount > 0 ? 1 : 0) + (modCount * 2) + delCount;
-    }
-    
-    console.log(`📧 Estimated emails: ${estimatedEmails}, batchId: ${batchId.substring(0, 8)}`);
-    console.log(`📧 Envoi réponse immédiate au client...`);
-    
-    // RÉPONDRE IMMÉDIATEMENT AU CLIENT
-    res.json({
-        success: true,
-        batchId,
-        totalQueued: estimatedEmails || assignments.length,
-        notificationsCreated: 0,
-        message: `Traitement en cours...`
-    });
-    
-    // ===== TRAITEMENT EN BACKGROUND (après response) =====
-    setImmediate(async () => {
+        const { resourceId, assignments: expertAssignments } = item;
+        
         try {
-            console.log(`📧 [BG] Début traitement background batch:${batchId.substring(0, 8)}`);
-            
-            // 1. CRÉER LES NOTIFICATIONS EN BASE
-            let notificationsCreated = 0;
-            
-            for (const item of assignments) {
-                const { resourceId, assignments: expertAssignments } = item;
-                
-                try {
-                    const user = await new Promise((resolve, reject) => {
-                        database.get(
-                            `SELECT id FROM users WHERE resource_id = ? AND is_expert = 1`,
-                            [resourceId],
-                            (err, row) => {
-                                if (err) reject(err);
-                                else resolve(row);
-                            }
-                        );
-                    });
-                    
-                    if (user) {
-                        for (const assignment of expertAssignments) {
-                            try {
-                                let activityName = assignment.activity;
-                                if (assignment.location && assignment.location !== '-') {
-                                    activityName = `${assignment.activity} (${assignment.location})`;
-                                }
-                                
-                                let actionLabel = 'Nouvelle affectation';
-                                if (assignment.actionType === 'modified') actionLabel = 'Modification affectation';
-                                if (assignment.actionType === 'deleted') actionLabel = 'Suppression affectation';
-                                
-                                const existingNotif = await new Promise((resolve, reject) => {
-                                    database.get(
-                                        `SELECT id FROM expert_notifications 
-                                         WHERE expert_id = ? AND date = ? AND period = ? AND is_read = 0`,
-                                        [user.id, assignment.date, assignment.period],
-                                        (err, row) => {
-                                            if (err) reject(err);
-                                            else resolve(row);
-                                        }
-                                    );
-                                });
-                                
-                                if (existingNotif) {
-                                    await new Promise((resolve, reject) => {
-                                        database.run(
-                                            `UPDATE expert_notifications 
-                                             SET activity_name = ?, requester_name = ?, action_type = ?, created_at = CURRENT_TIMESTAMP
-                                             WHERE id = ?`,
-                                            [activityName, requesterName, actionLabel, existingNotif.id],
-                                            (err) => err ? reject(err) : resolve()
-                                        );
-                                    });
-                                } else {
-                                    await new Promise((resolve, reject) => {
-                                        database.run(
-                                            `INSERT INTO expert_notifications (expert_id, date, period, activity_name, requester_name, action_type)
-                                             VALUES (?, ?, ?, ?, ?, ?)`,
-                                            [user.id, assignment.date, assignment.period, activityName, requesterName, actionLabel],
-                                            (err) => err ? reject(err) : resolve()
-                                        );
-                                    });
-                                }
-                                notificationsCreated++;
-                            } catch (notifErr) {
-                                console.error(`❌ [BG] Erreur notification slot:`, notifErr.message);
-                            }
-                        }
+            const user = await new Promise((resolve, reject) => {
+                database.get(
+                    `SELECT id FROM users WHERE resource_id = ? AND is_expert = 1`,
+                    [resourceId],
+                    (err, row) => {
+                        if (err) reject(err);
+                        else resolve(row);
                     }
-                } catch (error) {
-                    console.error(`❌ [BG] Erreur création notification pour resource ${resourceId}:`, error.message);
+                );
+            });
+            
+            if (user) {
+                for (const assignment of expertAssignments) {
+                    try {
+                        let activityName = assignment.activity;
+                        if (assignment.location && assignment.location !== '-') {
+                            activityName = `${assignment.activity} (${assignment.location})`;
+                        }
+                        
+                        let actionLabel = 'Nouvelle affectation';
+                        if (assignment.actionType === 'modified') actionLabel = 'Modification affectation';
+                        if (assignment.actionType === 'deleted') actionLabel = 'Suppression affectation';
+                        
+                        const existingNotif = await new Promise((resolve, reject) => {
+                            database.get(
+                                `SELECT id FROM expert_notifications 
+                                 WHERE expert_id = ? AND date = ? AND period = ? AND is_read = 0`,
+                                [user.id, assignment.date, assignment.period],
+                                (err, row) => {
+                                    if (err) reject(err);
+                                    else resolve(row);
+                                }
+                            );
+                        });
+                        
+                        if (existingNotif) {
+                            await new Promise((resolve, reject) => {
+                                database.run(
+                                    `UPDATE expert_notifications 
+                                     SET activity_name = ?, requester_name = ?, action_type = ?, created_at = CURRENT_TIMESTAMP
+                                     WHERE id = ?`,
+                                    [activityName, requesterName, actionLabel, existingNotif.id],
+                                    (err) => err ? reject(err) : resolve()
+                                );
+                            });
+                        } else {
+                            await new Promise((resolve, reject) => {
+                                database.run(
+                                    `INSERT INTO expert_notifications (expert_id, date, period, activity_name, requester_name, action_type)
+                                     VALUES (?, ?, ?, ?, ?, ?)`,
+                                    [user.id, assignment.date, assignment.period, activityName, requesterName, actionLabel],
+                                    (err) => err ? reject(err) : resolve()
+                                );
+                            });
+                        }
+                        notificationsCreated++;
+                    } catch (notifErr) {
+                        console.error(`❌ Erreur notification slot:`, notifErr.message);
+                    }
                 }
             }
-            
-            console.log(`✅ [BG] ${notificationsCreated} notification(s) créée(s) en base`);
+        } catch (error) {
+            console.error(`❌ Erreur création notification pour resource ${resourceId}:`, error.message);
+        }
+    }
     
-            // 2. METTRE EN FILE D'ATTENTE LES EMAILS
-            let totalQueued = 0;
+    console.log(`✅ ${notificationsCreated} notification(s) créée(s) en base`);
+    
+    // 2. PRÉPARER ET ENVOYER LES EMAILS DIRECTEMENT (comme request-assignment)
+    const emailPromises = [];
     
     for (const item of assignments) {
         const { resourceId, email, expertNom, expertPrenom, expertName, assignments: expertAssignments } = item;
         
-        // Construire le nom complet : priorité aux champs séparés, fallback sur expertName
         const attendeeName = (expertPrenom && expertNom) 
             ? `${expertPrenom} ${expertNom}` 
             : (expertName || expertPrenom || expertNom || 'Expert');
@@ -3547,17 +3511,31 @@ app.post('/api/send-assignment-emails', requireAuth, async (req, res) => {
                         method: 'REQUEST'
                     });
                     
-                    await enqueueEmail({
-                        batchId, recipientEmail: email, recipientName: attendeeName,
-                        senderName: requesterName, senderEmail: senderEmailAddr,
+                    const mailOptions = {
+                        from: `"${requesterName} (Planning SI-SAMU)" <${emailConfig.user}>`,
+                        to: email,
                         subject: summary,
-                        htmlBody: buildInvitationHTML(attendeeName, requesterName, group, 'new'),
-                        icsContent, icsMethod: 'REQUEST', icsFilename: 'invitation.ics',
-                        actionType: 'new', resourceId
-                    });
-                    totalQueued++;
+                        html: buildInvitationHTML(attendeeName, requesterName, group, 'new'),
+                        icalEvent: {
+                            filename: 'invitation.ics',
+                            method: 'REQUEST',
+                            content: icsContent
+                        }
+                    };
+                    
+                    emailPromises.push(
+                        transporter.sendMail(mailOptions)
+                            .then(() => {
+                                console.log(`✅ Email envoyé à ${email} (new - ${cleanLabel})`);
+                                return { success: true, email, type: 'new' };
+                            })
+                            .catch(err => {
+                                console.error(`❌ Erreur envoi à ${email} (new):`, err.message);
+                                return { success: false, email, type: 'new', error: err.message };
+                            })
+                    );
                 } catch (error) {
-                    console.error(`❌ Erreur enqueue NEW:`, error.message);
+                    console.error(`❌ Erreur préparation NEW:`, error.message);
                 }
             }
         }
@@ -3585,15 +3563,23 @@ app.post('/api/send-assignment-emails', requireAuth, async (req, res) => {
                         sequence: 1, method: 'CANCEL'
                     });
                     
-                    await enqueueEmail({
-                        batchId, recipientEmail: email, recipientName: attendeeName,
-                        senderName: requesterName, senderEmail: senderEmailAddr,
-                        subject: `Annule: ${cancelSummary}`,
-                        htmlBody: buildInvitationHTML(attendeeName, requesterName, { activity: oldLabel, location: oldLoc, slots: [assignment] }, 'cancelled'),
-                        icsContent: cancelIcs, icsMethod: 'CANCEL', icsFilename: 'annulation.ics',
-                        actionType: 'cancel_modify', resourceId
-                    });
-                    totalQueued++;
+                    emailPromises.push(
+                        transporter.sendMail({
+                            from: `"${requesterName} (Planning SI-SAMU)" <${emailConfig.user}>`,
+                            to: email,
+                            subject: `Annule: ${cancelSummary}`,
+                            html: buildInvitationHTML(attendeeName, requesterName, { activity: oldLabel, location: oldLoc, slots: [assignment] }, 'cancelled'),
+                            icalEvent: { filename: 'annulation.ics', method: 'CANCEL', content: cancelIcs }
+                        })
+                        .then(() => {
+                            console.log(`✅ Email envoyé à ${email} (cancel_modify - ${oldLabel})`);
+                            return { success: true, email, type: 'cancel_modify' };
+                        })
+                        .catch(err => {
+                            console.error(`❌ Erreur envoi à ${email} (cancel_modify):`, err.message);
+                            return { success: false, email, type: 'cancel_modify', error: err.message };
+                        })
+                    );
                     
                     // EMAIL 2: REQUEST
                     const newUid = generateICSUid();
@@ -3612,17 +3598,25 @@ app.post('/api/send-assignment-emails', requireAuth, async (req, res) => {
                         method: 'REQUEST'
                     });
                     
-                    await enqueueEmail({
-                        batchId, recipientEmail: email, recipientName: attendeeName,
-                        senderName: requesterName, senderEmail: senderEmailAddr,
-                        subject: newSummary,
-                        htmlBody: buildInvitationHTML(attendeeName, requesterName, { activity: newLabel, location: newLoc, slots: [assignment] }, 'modified'),
-                        icsContent: newIcs, icsMethod: 'REQUEST', icsFilename: 'invitation.ics',
-                        actionType: 'modified', resourceId
-                    });
-                    totalQueued++;
+                    emailPromises.push(
+                        transporter.sendMail({
+                            from: `"${requesterName} (Planning SI-SAMU)" <${emailConfig.user}>`,
+                            to: email,
+                            subject: newSummary,
+                            html: buildInvitationHTML(attendeeName, requesterName, { activity: newLabel, location: newLoc, slots: [assignment] }, 'modified'),
+                            icalEvent: { filename: 'invitation.ics', method: 'REQUEST', content: newIcs }
+                        })
+                        .then(() => {
+                            console.log(`✅ Email envoyé à ${email} (modified - ${newLabel})`);
+                            return { success: true, email, type: 'modified' };
+                        })
+                        .catch(err => {
+                            console.error(`❌ Erreur envoi à ${email} (modified):`, err.message);
+                            return { success: false, email, type: 'modified', error: err.message };
+                        })
+                    );
                 } catch (error) {
-                    console.error(`❌ Erreur enqueue MODIFIED:`, error.message);
+                    console.error(`❌ Erreur préparation MODIFIED:`, error.message);
                 }
             }
         }
@@ -3648,39 +3642,68 @@ app.post('/api/send-assignment-emails', requireAuth, async (req, res) => {
                         sequence: 1, method: 'CANCEL'
                     });
                     
-                    await enqueueEmail({
-                        batchId, recipientEmail: email, recipientName: attendeeName,
-                        senderName: requesterName, senderEmail: senderEmailAddr,
-                        subject: `Annule: ${cancelSummary}`,
-                        htmlBody: buildInvitationHTML(attendeeName, requesterName, { activity: delLabel, location: loc, slots: [assignment] }, 'cancelled'),
-                        icsContent: cancelIcs, icsMethod: 'CANCEL', icsFilename: 'annulation.ics',
-                        actionType: 'deleted', resourceId
-                    });
-                    totalQueued++;
+                    emailPromises.push(
+                        transporter.sendMail({
+                            from: `"${requesterName} (Planning SI-SAMU)" <${emailConfig.user}>`,
+                            to: email,
+                            subject: `Annule: ${cancelSummary}`,
+                            html: buildInvitationHTML(attendeeName, requesterName, { activity: delLabel, location: loc, slots: [assignment] }, 'cancelled'),
+                            icalEvent: { filename: 'annulation.ics', method: 'CANCEL', content: cancelIcs }
+                        })
+                        .then(() => {
+                            console.log(`✅ Email envoyé à ${email} (deleted - ${delLabel})`);
+                            return { success: true, email, type: 'deleted' };
+                        })
+                        .catch(err => {
+                            console.error(`❌ Erreur envoi à ${email} (deleted):`, err.message);
+                            return { success: false, email, type: 'deleted', error: err.message };
+                        })
+                    );
                 } catch (error) {
-                    console.error(`❌ Erreur enqueue DELETED:`, error.message);
+                    console.error(`❌ Erreur préparation DELETED:`, error.message);
                 }
             }
         }
     }
     
-            console.log(`📧 [BG] ${totalQueued} email(s) mis en file d'attente [batch:${batchId.substring(0, 8)}]`);
+    console.log(`📧 ${emailPromises.length} email(s) à envoyer...`);
     
-            // Logger l'action
-            if (sessionLogId) {
-                const emails = assignments.map(a => a.email).filter(e => e).join(', ');
-                database.run(
-                    `UPDATE connection_logs 
-                     SET modifications = modifications || ? 
-                     WHERE id = ?`,
-                    [`${new Date().toLocaleString('fr-FR')}: Invitations Outlook mises en file (${totalQueued}) pour: ${emails}\n`, sessionLogId]
-                );
-            }
-            
-        } catch (bgError) {
-            console.error('❌ [BG] Erreur traitement background:', bgError);
-        }
-    }); // fin setImmediate
+    // Envoyer tous les emails en parallèle (comme request-assignment)
+    const results = await Promise.all(emailPromises);
+    const successCount = results.filter(r => r.success).length;
+    const failCount = results.filter(r => !r.success).length;
+    const successEmails = [...new Set(results.filter(r => r.success).map(r => r.email))];
+    
+    console.log(`📊 Résultats envoi: ${successCount} succès, ${failCount} échec(s)`);
+    
+    // Logger l'action
+    if (req.session && req.session.logId) {
+        const emails = successEmails.join(', ');
+        database.run(
+            `UPDATE connection_logs 
+             SET modifications = modifications || ? 
+             WHERE id = ?`,
+            [`${new Date().toLocaleString('fr-FR')}: Invitations Outlook envoyées (${successCount}/${results.length}) pour: ${emails}\n`, req.session.logId]
+        );
+    }
+    
+    // Répondre au client (comme request-assignment)
+    if (successCount > 0) {
+        res.json({
+            success: true,
+            message: `${successCount} invitation(s) envoyée(s) avec succès${failCount > 0 ? ` (${failCount} échec(s))` : ''}`,
+            emails: successEmails,
+            totalSent: successCount,
+            totalFailed: failCount,
+            notificationsCreated
+        });
+    } else {
+        const errors = results.filter(r => !r.success).map(r => r.error).filter((v, i, a) => a.indexOf(v) === i);
+        res.status(500).json({
+            success: false,
+            error: `Échec de l'envoi: ${errors.join(', ')}`
+        });
+    }
     
     } catch (globalError) {
         console.error('❌ ERREUR GLOBALE send-assignment-emails:', globalError);

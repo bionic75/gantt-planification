@@ -13819,65 +13819,55 @@
             closeSendEmailModal();
             
             const totalItems = assignmentsToSend.reduce((sum, a) => sum + a.assignments.length, 0);
+            const senderName = currentUser ? `${currentUser.prenom} ${currentUser.nom}` : 'Système';
+            const senderEmail = currentUser ? currentUser.email : null;
             
-            try {
-                const senderName = currentUser ? `${currentUser.prenom} ${currentUser.nom}` : 'Système';
-                const senderEmail = currentUser ? currentUser.email : null;
-                
-                // Timeout de sécurité 30s (la réponse devrait être instantanée)
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 30000);
-                
-                console.log('📧 Envoi requête send-assignment-emails...', { experts: assignmentsToSend.length, totalItems });
-                
-                const response = await fetch(`${API_URL}/send-assignment-emails`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    signal: controller.signal,
-                    body: JSON.stringify({ 
-                        assignments: assignmentsToSend, 
-                        senderName, 
-                        senderEmail,
-                        sessionId 
-                    })
-                });
-                
-                clearTimeout(timeoutId);
-                console.log('📧 Réponse reçue, status:', response.status);
-                
-                const result = await response.json();
-                console.log('📧 Résultat:', result);
-                
-                if (response.ok && result.batchId) {
+            console.log('📧 Envoi requête send-assignment-emails...', { experts: assignmentsToSend.length, totalItems });
+            
+            // Afficher le toast d'attente immédiatement
+            showEmailProgressToast(totalItems);
+            
+            // Envoyer la requête (même pattern que submitRequestForm)
+            fetch(`${API_URL}/send-assignment-emails`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ 
+                    assignments: assignmentsToSend, 
+                    senderName, 
+                    senderEmail,
+                    sessionId 
+                })
+            })
+            .then(response => {
+                console.log('📧 Réponse serveur status:', response.status);
+                return response.json();
+            })
+            .then(data => {
+                console.log('📧 Résultat:', data);
+                if (data.success) {
                     // Retirer les affectations envoyées
                     assignmentsToSend.forEach(sent => {
                         delete pendingAssignments[sent.resourceId];
                     });
                     updatePendingEmailBadge();
                     
-                    // Afficher le toast non-bloquant et démarrer le polling
-                    showEmailProgressToast(result.batchId, result.totalQueued || totalItems);
+                    // Mettre à jour le toast avec le succès
+                    updateEmailToastSuccess(data.totalSent || data.emails?.length || totalItems, data.totalFailed || 0);
                 } else {
-                    alert(`❌ Erreur: ${result.error || 'Erreur lors de l\'envoi'}`);
+                    updateEmailToastError(data.error || 'Erreur lors de l\'envoi');
                 }
-            } catch (error) {
-                console.error('Erreur envoi emails:', error);
-                if (error.name === 'AbortError') {
-                    // Le serveur a peut-être quand même traité la requête - on ne peut pas savoir
-                    alert('⏱️ Le serveur met trop de temps à répondre. Les emails ont peut-être été mis en file d\'attente. Vérifiez votre boîte mail dans quelques minutes.');
-                } else if (error.message === 'Failed to fetch') {
-                    alert('🔌 Impossible de contacter le serveur. Vérifiez votre connexion ou réessayez dans quelques instants.');
-                } else {
-                    alert(`❌ Erreur: ${error.message}`);
-                }
-            }
+            })
+            .catch(error => {
+                console.error('❌ Erreur réseau:', error);
+                updateEmailToastError('Erreur réseau: ' + error.message);
+            });
         }
         
         // Toast non-bloquant avec barre de progression temps réel
         let emailPollingInterval = null;
         
-        function showEmailProgressToast(batchId, totalEmails) {
+        function showEmailProgressToast(totalEmails) {
             // Supprimer un toast existant
             const existing = document.getElementById('emailProgressToast');
             if (existing) existing.remove();
@@ -13909,22 +13899,86 @@
                         <button onclick="closeEmailProgressToast()" style="background: none; border: none; font-size: 18px; cursor: pointer; color: #999; padding: 0 4px;">✕</button>
                     </div>
                     <div style="display: flex; justify-content: space-between; font-size: 12px; color: #666; margin-bottom: 6px;">
-                        <span id="emailToastStatus">0 / ${totalEmails} envoyé(s)</span>
-                        <span id="emailToastPercent">0%</span>
+                        <span id="emailToastStatus">Envoi en cours de ${totalEmails} invitation(s)...</span>
+                        <span id="emailToastPercent"></span>
                     </div>
                     <div style="height: 6px; background: #e8e8e8; border-radius: 3px; overflow: hidden;">
-                        <div id="emailToastBar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #4CAF50, #66BB6A); border-radius: 3px; transition: width 0.4s ease;"></div>
+                        <div id="emailToastBar" style="height: 100%; width: 30%; background: linear-gradient(90deg, #4CAF50, #66BB6A); border-radius: 3px; transition: width 0.4s ease; animation: progressPulse 1.5s ease-in-out infinite;"></div>
                     </div>
                     <div id="emailToastDetails" style="margin-top: 8px; font-size: 11px; color: #999;"></div>
                 </div>
+                <style>
+                    @keyframes progressPulse {
+                        0%, 100% { opacity: 1; width: 30%; }
+                        50% { opacity: 0.7; width: 60%; }
+                    }
+                </style>
             `;
             
             document.body.appendChild(toast);
+        }
+        
+        // Mettre à jour le toast en succès
+        function updateEmailToastSuccess(sent, failed) {
+            const icon = document.getElementById('emailToastIcon');
+            const title = document.getElementById('emailToastTitle');
+            const status = document.getElementById('emailToastStatus');
+            const bar = document.getElementById('emailToastBar');
+            const details = document.getElementById('emailToastDetails');
             
-            // Démarrer le polling
-            emailPollingInterval = setInterval(() => pollEmailStatus(batchId, totalEmails), 2000);
-            // Premier appel immédiat
-            setTimeout(() => pollEmailStatus(batchId, totalEmails), 500);
+            if (!icon) return;
+            
+            bar.style.animation = 'none';
+            bar.style.width = '100%';
+            
+            if (failed === 0) {
+                icon.textContent = '✅';
+                title.textContent = 'Invitations envoyées !';
+                title.style.color = '#27ae60';
+                bar.style.background = 'linear-gradient(90deg, #27ae60, #2ecc71)';
+                status.textContent = `${sent} invitation(s) envoyée(s) avec succès`;
+            } else if (sent > 0) {
+                icon.textContent = '⚠️';
+                title.textContent = `${sent} envoyé(s), ${failed} échec(s)`;
+                title.style.color = '#e67e22';
+                bar.style.background = 'linear-gradient(90deg, #e67e22, #f39c12)';
+                status.textContent = '';
+            } else {
+                icon.textContent = '❌';
+                title.textContent = 'Échec de l\'envoi';
+                title.style.color = '#e74c3c';
+                bar.style.background = '#e74c3c';
+                status.textContent = '';
+            }
+            
+            // Auto-fermeture après 8 secondes si tout OK
+            if (failed === 0) {
+                setTimeout(() => {
+                    const toast = document.getElementById('emailProgressToast');
+                    if (toast) {
+                        toast.style.opacity = '0';
+                        setTimeout(() => toast.remove(), 300);
+                    }
+                }, 8000);
+            }
+        }
+        
+        // Afficher une erreur dans le toast
+        function updateEmailToastError(message) {
+            const icon = document.getElementById('emailToastIcon');
+            const title = document.getElementById('emailToastTitle');
+            const status = document.getElementById('emailToastStatus');
+            const bar = document.getElementById('emailToastBar');
+            const details = document.getElementById('emailToastDetails');
+            
+            if (!icon) return;
+            
+            icon.textContent = '❌';
+            title.textContent = 'Erreur d\'envoi';
+            title.style.color = '#e74c3c';
+            if (bar) { bar.style.animation = 'none'; bar.style.width = '100%'; bar.style.background = '#e74c3c'; }
+            if (status) status.textContent = '';
+            if (details) details.innerHTML = `<span style="color: #e74c3c;">${message}</span>`;
         }
         
         async function pollEmailStatus(batchId, totalEmails) {
