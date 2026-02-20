@@ -5457,12 +5457,7 @@ app.get('/api/ics-files/special-dates/all', requireAuth, async (req, res) => {
             const config = e.config ? JSON.parse(e.config) : {};
             // Ajouter le label dans le config pour l'affichage sur le Gantt
             config.label = e.label;
-            // Ajouter les infos du créateur pour l'info-bulle (si disponibles)
-            if (hasCreatedBy && e.created_by) {
-                // Afficher "Prénom NOM" (nom en majuscules)
-                const creatorFullName = ((e.creator_prenom || '') + ' ' + (e.creator_nom || '').toUpperCase()).trim() || 'Système';
-                config.createdBy = creatorFullName;
-            }
+            config.eventId = e.id;
             result.push({
                 date: e.start_date,
                 endDate: e.end_date,
@@ -5470,6 +5465,36 @@ app.get('/api/ics-files/special-dates/all', requireAuth, async (req, res) => {
                 config: config
             });
         });
+        
+        // 3. Charger les participants pour les événements personnalisés
+        const eventIds = customEvents.map(e => e.id);
+        if (eventIds.length > 0) {
+            const participants = await new Promise((resolve, reject) => {
+                database.all(
+                    `SELECT cep.event_id, u.nom, u.prenom
+                     FROM custom_event_participants cep
+                     JOIN users u ON cep.user_id = u.id
+                     WHERE cep.event_id IN (${eventIds.map(() => '?').join(',')})
+                     ORDER BY u.nom, u.prenom`,
+                    eventIds,
+                    (err, rows) => err ? reject(err) : resolve(rows || [])
+                );
+            });
+            
+            // Grouper par event_id
+            const participantsByEvent = {};
+            for (const p of participants) {
+                if (!participantsByEvent[p.event_id]) participantsByEvent[p.event_id] = [];
+                participantsByEvent[p.event_id].push(`${p.prenom || ''} ${(p.nom || '').toUpperCase()}`.trim());
+            }
+            
+            // Injecter dans les résultats
+            for (const r of result) {
+                if (r.config && r.config.eventId && participantsByEvent[r.config.eventId]) {
+                    r.config.participants = participantsByEvent[r.config.eventId];
+                }
+            }
+        }
         
         console.log(`📅 Dates particulières chargées: ${result.length} (ICS + personnalisés)`);
         res.json({ dates: result });
@@ -5523,6 +5548,22 @@ database.run(`
             }
         }
     });
+});
+
+// Table des participants aux événements personnalisés
+database.run(`
+    CREATE TABLE IF NOT EXISTS custom_event_participants (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        event_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (event_id) REFERENCES custom_events(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        UNIQUE(event_id, user_id)
+    )
+`, (err) => {
+    if (err) console.error('Erreur création table custom_event_participants:', err);
+    else console.log('✅ Table custom_event_participants créée ou existante');
 });
 
 // Lister tous les événements personnalisés (admin uniquement - pour l'administration)
@@ -5618,6 +5659,27 @@ app.get('/api/my-custom-events', requireAuth, async (req, res) => {
                 else resolve(rows || []);
             });
         });
+        
+        // Charger les participants pour chaque événement
+        for (const event of events) {
+            try {
+                const participants = await new Promise((resolve, reject) => {
+                    database.all(
+                        `SELECT cep.user_id, u.nom, u.prenom, u.email, u.profile_photo
+                         FROM custom_event_participants cep
+                         JOIN users u ON cep.user_id = u.id
+                         WHERE cep.event_id = ?
+                         ORDER BY u.nom, u.prenom`,
+                        [event.id],
+                        (err, rows) => err ? reject(err) : resolve(rows || [])
+                    );
+                });
+                event.participants = participants;
+            } catch (e) {
+                event.participants = [];
+            }
+        }
+        
         res.json({ events, isAdmin });
     } catch (error) {
         console.error('Erreur liste mes événements personnalisés:', error);
@@ -5678,7 +5740,7 @@ app.post('/api/custom-events', requireAdmin, async (req, res) => {
 // Ajouter un événement personnalisé (utilisateurs/experts via pop-up planification)
 app.post('/api/my-custom-events', requireAuth, async (req, res) => {
     try {
-        const { startDate, endDate, label, config } = req.body;
+        const { startDate, endDate, label, config, participants } = req.body;
         const createdBy = req.session.userId;
         
         if (!startDate || !label) {
@@ -5717,6 +5779,23 @@ app.post('/api/my-custom-events', requireAuth, async (req, res) => {
             }
         });
         
+        // Sauvegarder les participants
+        if (participants && Array.isArray(participants) && participants.length > 0) {
+            for (const userId of participants) {
+                try {
+                    await new Promise((resolve, reject) => {
+                        database.run(
+                            `INSERT OR IGNORE INTO custom_event_participants (event_id, user_id) VALUES (?, ?)`,
+                            [eventId, userId],
+                            (err) => err ? reject(err) : resolve()
+                        );
+                    });
+                } catch (e) {
+                    console.error(`❌ Erreur ajout participant ${userId}:`, e.message);
+                }
+            }
+        }
+        
         // Envoyer notification Teams
         sendTeamsNotificationFromServer('evenement', {
             name: label,
@@ -5724,7 +5803,7 @@ app.post('/api/my-custom-events', requireAuth, async (req, res) => {
             createdBy: `${req.session.prenom} ${req.session.nom}`
         });
         
-        console.log(`✅ Mon événement personnalisé ajouté (ID: ${eventId})`);
+        console.log(`✅ Mon événement personnalisé ajouté (ID: ${eventId}, ${participants?.length || 0} participant(s))`);
         res.json({ success: true, eventId });
     } catch (error) {
         console.error('Erreur ajout mon événement personnalisé:', error);
@@ -5736,18 +5815,14 @@ app.post('/api/my-custom-events', requireAuth, async (req, res) => {
 app.put('/api/custom-events/:id', requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
-        const { startDate, endDate, label, config, createdBy } = req.body;
+        const { startDate, endDate, label, config, createdBy, participants } = req.body;
         
-        // Si createdBy est fourni, on le met à jour aussi
         if (createdBy !== undefined) {
             await new Promise((resolve, reject) => {
                 database.run(
                     `UPDATE custom_events SET label = ?, start_date = ?, end_date = ?, config = ?, created_by = ? WHERE id = ?`,
                     [label, startDate, endDate || startDate, JSON.stringify(config), createdBy, id],
-                    (err) => {
-                        if (err) reject(err);
-                        else resolve();
-                    }
+                    (err) => err ? reject(err) : resolve()
                 );
             });
         } else {
@@ -5755,12 +5830,27 @@ app.put('/api/custom-events/:id', requireAdmin, async (req, res) => {
                 database.run(
                     `UPDATE custom_events SET label = ?, start_date = ?, end_date = ?, config = ? WHERE id = ?`,
                     [label, startDate, endDate || startDate, JSON.stringify(config), id],
-                    (err) => {
-                        if (err) reject(err);
-                        else resolve();
-                    }
+                    (err) => err ? reject(err) : resolve()
                 );
             });
+        }
+        
+        // Mettre à jour les participants
+        if (participants !== undefined) {
+            await new Promise((resolve, reject) => {
+                database.run(`DELETE FROM custom_event_participants WHERE event_id = ?`, [id],
+                    (err) => err ? reject(err) : resolve());
+            });
+            if (Array.isArray(participants)) {
+                for (const uid of participants) {
+                    try {
+                        await new Promise((resolve, reject) => {
+                            database.run(`INSERT OR IGNORE INTO custom_event_participants (event_id, user_id) VALUES (?, ?)`,
+                                [id, uid], (err) => err ? reject(err) : resolve());
+                        });
+                    } catch (e) { /* ignore */ }
+                }
+            }
         }
         
         res.json({ success: true });
@@ -5774,7 +5864,7 @@ app.put('/api/custom-events/:id', requireAdmin, async (req, res) => {
 app.put('/api/my-custom-events/:id', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
-        const { startDate, endDate, label, config } = req.body;
+        const { startDate, endDate, label, config, participants } = req.body;
         const userId = req.session.userId;
         const isAdmin = req.session.activeProfile === 'admin';
         
@@ -5802,6 +5892,25 @@ app.put('/api/my-custom-events/:id', requireAuth, async (req, res) => {
                 }
             );
         });
+        
+        // Mettre à jour les participants (supprimer puis ré-insérer)
+        if (participants !== undefined) {
+            await new Promise((resolve, reject) => {
+                database.run(`DELETE FROM custom_event_participants WHERE event_id = ?`, [id],
+                    (err) => err ? reject(err) : resolve());
+            });
+            
+            if (Array.isArray(participants)) {
+                for (const uid of participants) {
+                    try {
+                        await new Promise((resolve, reject) => {
+                            database.run(`INSERT OR IGNORE INTO custom_event_participants (event_id, user_id) VALUES (?, ?)`,
+                                [id, uid], (err) => err ? reject(err) : resolve());
+                        });
+                    } catch (e) { /* ignore duplicates */ }
+                }
+            }
+        }
         
         res.json({ success: true });
     } catch (error) {
