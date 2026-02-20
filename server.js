@@ -14,7 +14,6 @@ console.log('✅ Session importé');
 import nodemailer from 'nodemailer';
 console.log('✅ Nodemailer importé');
 import fs from 'fs';
-import { fork } from 'child_process';
 import cron from 'node-cron';
 console.log('✅ Cron importé');
 import QRCode from 'qrcode';
@@ -85,6 +84,16 @@ const database = new sqlite3.Database(DB_FILE, (err) =>
     if (err) {
         console.error('Erreur connexion DB:', err);
     } else {
+        // Activer WAL mode pour permettre lectures/écritures concurrentes
+        database.run('PRAGMA journal_mode = WAL', (err) => {
+            if (err) console.error('❌ Erreur PRAGMA WAL:', err);
+            else console.log('✅ SQLite WAL mode activé');
+        });
+        // Attendre 5s au lieu d'échouer immédiatement sur SQLITE_BUSY
+        database.run('PRAGMA busy_timeout = 5000', (err) => {
+            if (err) console.error('❌ Erreur PRAGMA busy_timeout:', err);
+            else console.log('✅ SQLite busy_timeout = 5000ms');
+        });
         initDB();
     }
 });
@@ -104,7 +113,7 @@ function formatDateFR(dateStr) {
 // Envoyer une notification Teams depuis le serveur
 async function sendTeamsNotificationFromServer(type, data) {
     try {
-        // Récupérer la configuration de l'automatisation numero 3
+        // Récupérer la configuration de l'automatisation 3
         const configRow = await new Promise((resolve, reject) => {
             database.get(
                 `SELECT value FROM settings WHERE key = ?`,
@@ -3453,11 +3462,10 @@ app.post('/api/send-assignment-emails', requireAuth, (req, res) => {
                             const location = group.location && group.location !== '-' ? group.location : '';
                             const slotsDesc = group.slots.map(s => { const [y,m,d] = s.date.split('-'); return `${d}/${m}/${y} (${s.period === 'AM' ? 'Matin 8h-12h' : 'Apres-midi 14h-18h'})`; }).join('\\n');
                             const description = `Affectation: ${cleanLabel}\\nLocalisation: ${location || 'Non precisee'}\\nDemandeur: ${requesterName}\\n\\nCreneaux:\\n${slotsDesc}`;
-                            emailsToSend.push({ type: 'new', options: {
-                                from: `"${requesterName} (Planning SI-SAMU)" <${emailConfig.user}>`, to: email, subject: summary,
+                            emailsToSend.push({ type: 'new', to: email, subject: summary,
                                 html: buildInvitationHTML(attendeeName, requesterName, group, 'new'),
-                                icalEvent: { filename: 'invitation.ics', method: 'REQUEST', content: buildICS({ uid, summary, description, location, dtstart: formatDateICS(firstSlot.date, startHours.start, 0), dtend: formatDateICS(lastSlot.date, endHours.end, 0), organizer: senderEmailAddr, organizerName: requesterName, attendee: email, attendeeName, method: 'REQUEST' }) }
-                            }});
+                                attachments: [{ filename: 'invitation.ics', content: buildICS({ uid, summary, description, location, dtstart: formatDateICS(firstSlot.date, startHours.start, 0), dtend: formatDateICS(lastSlot.date, endHours.end, 0), organizer: senderEmailAddr, organizerName: requesterName, attendee: email, attendeeName, method: 'REQUEST' }), contentType: 'text/calendar; method=REQUEST' }]
+                            });
                         } catch (e) { console.error(`❌ Erreur préparation NEW:`, e.message); }
                     }
                 }
@@ -3468,19 +3476,17 @@ app.post('/api/send-assignment-emails', requireAuth, (req, res) => {
                         const oldLabel = getCleanOldActivityLabel(assignment);
                         const cancelSummary = `Domaines des Urgences - Affectation – ${oldLabel} – ${requesterName}`;
                         const oldLoc = assignment.oldLocation && assignment.oldLocation !== '-' ? assignment.oldLocation : '';
-                        emailsToSend.push({ type: 'cancel_modify', options: {
-                            from: `"${requesterName} (Planning SI-SAMU)" <${emailConfig.user}>`, to: email, subject: `Annule: ${cancelSummary}`,
+                        emailsToSend.push({ type: 'cancel_modify', to: email, subject: `Annule: ${cancelSummary}`,
                             html: buildInvitationHTML(attendeeName, requesterName, { activity: oldLabel, location: oldLoc, slots: [assignment] }, 'cancelled'),
-                            icalEvent: { filename: 'annulation.ics', method: 'CANCEL', content: buildICS({ uid: generateICSUid(), summary: cancelSummary, description: `Annulation: cette affectation a ete modifiee par ${requesterName}.`, location: oldLoc, dtstart: formatDateICS(assignment.date, hours.start, 0), dtend: formatDateICS(assignment.date, hours.end, 0), organizer: senderEmailAddr, organizerName: requesterName, attendee: email, attendeeName, sequence: 1, method: 'CANCEL' }) }
-                        }});
+                            attachments: [{ filename: 'annulation.ics', content: buildICS({ uid: generateICSUid(), summary: cancelSummary, description: `Annulation: cette affectation a ete modifiee par ${requesterName}.`, location: oldLoc, dtstart: formatDateICS(assignment.date, hours.start, 0), dtend: formatDateICS(assignment.date, hours.end, 0), organizer: senderEmailAddr, organizerName: requesterName, attendee: email, attendeeName, sequence: 1, method: 'CANCEL' }), contentType: 'text/calendar; method=CANCEL' }]
+                        });
                         const newLabel = getCleanActivityLabel(assignment);
                         const newSummary = `Domaines des Urgences - Affectation – ${newLabel} – ${requesterName}`;
                         const newLoc = assignment.location && assignment.location !== '-' ? assignment.location : '';
-                        emailsToSend.push({ type: 'modified', options: {
-                            from: `"${requesterName} (Planning SI-SAMU)" <${emailConfig.user}>`, to: email, subject: newSummary,
+                        emailsToSend.push({ type: 'modified', to: email, subject: newSummary,
                             html: buildInvitationHTML(attendeeName, requesterName, { activity: newLabel, location: newLoc, slots: [assignment] }, 'modified'),
-                            icalEvent: { filename: 'invitation.ics', method: 'REQUEST', content: buildICS({ uid: generateICSUid(), summary: newSummary, description: `Nouvelle affectation: ${newLabel}\\nLocalisation: ${newLoc || 'Non precisee'}\\nDemandeur: ${requesterName}`, location: newLoc, dtstart: formatDateICS(assignment.date, hours.start, 0), dtend: formatDateICS(assignment.date, hours.end, 0), organizer: senderEmailAddr, organizerName: requesterName, attendee: email, attendeeName, method: 'REQUEST' }) }
-                        }});
+                            attachments: [{ filename: 'invitation.ics', content: buildICS({ uid: generateICSUid(), summary: newSummary, description: `Nouvelle affectation: ${newLabel}\\nLocalisation: ${newLoc || 'Non precisee'}\\nDemandeur: ${requesterName}`, location: newLoc, dtstart: formatDateICS(assignment.date, hours.start, 0), dtend: formatDateICS(assignment.date, hours.end, 0), organizer: senderEmailAddr, organizerName: requesterName, attendee: email, attendeeName, method: 'REQUEST' }), contentType: 'text/calendar; method=REQUEST' }]
+                        });
                     } catch (e) { console.error(`❌ Erreur préparation MODIFIED:`, e.message); }
                 }
                 
@@ -3490,36 +3496,43 @@ app.post('/api/send-assignment-emails', requireAuth, (req, res) => {
                         const delLabel = getCleanOldActivityLabel(assignment);
                         const cancelSummary = `Domaines des Urgences - Affectation – ${delLabel} – ${requesterName}`;
                         const loc = assignment.oldLocation && assignment.oldLocation !== '-' ? assignment.oldLocation : (assignment.location && assignment.location !== '-' ? assignment.location : '');
-                        emailsToSend.push({ type: 'deleted', options: {
-                            from: `"${requesterName} (Planning SI-SAMU)" <${emailConfig.user}>`, to: email, subject: `Annule: ${cancelSummary}`,
+                        emailsToSend.push({ type: 'deleted', to: email, subject: `Annule: ${cancelSummary}`,
                             html: buildInvitationHTML(attendeeName, requesterName, { activity: delLabel, location: loc, slots: [assignment] }, 'cancelled'),
-                            icalEvent: { filename: 'annulation.ics', method: 'CANCEL', content: buildICS({ uid: generateICSUid(), summary: cancelSummary, description: `Cette affectation a ete supprimee par ${requesterName}.`, location: loc, dtstart: formatDateICS(assignment.date, hours.start, 0), dtend: formatDateICS(assignment.date, hours.end, 0), organizer: senderEmailAddr, organizerName: requesterName, attendee: email, attendeeName, sequence: 1, method: 'CANCEL' }) }
-                        }});
+                            attachments: [{ filename: 'annulation.ics', content: buildICS({ uid: generateICSUid(), summary: cancelSummary, description: `Cette affectation a ete supprimee par ${requesterName}.`, location: loc, dtstart: formatDateICS(assignment.date, hours.start, 0), dtend: formatDateICS(assignment.date, hours.end, 0), organizer: senderEmailAddr, organizerName: requesterName, attendee: email, attendeeName, sequence: 1, method: 'CANCEL' }), contentType: 'text/calendar; method=CANCEL' }]
+                        });
                     } catch (e) { console.error(`❌ Erreur préparation DELETED:`, e.message); }
                 }
             }
             
-            console.log(`📧 ${emailsToSend.length} email(s) préparés, lancement du worker...`);
+            console.log(`📧 ${emailsToSend.length} email(s) préparés, envoi séquentiel avec sendEmail()...`);
             
-            // 3. ENVOYER VIA WORKER PROCESS SÉPARÉ
-            try {
-                const workerPath = path.join(__dirname, 'email-worker.js');
-                const worker = fork(workerPath);
-                
-                worker.send({ emailConfig, emails: emailsToSend });
-                
-                worker.on('message', (result) => {
-                    console.log(`📊 Worker terminé: ${result.totalSent} envoyé(s), ${result.totalFailed} échec(s)`);
-                    if (sessionLogId) {
-                        const emails = assignments.map(a => a.email).filter(e => e).join(', ');
-                        database.run(`UPDATE connection_logs SET modifications = modifications || ? WHERE id = ?`,
-                            [`${new Date().toLocaleString('fr-FR')}: Invitations Outlook (${result.totalSent}/${result.totalSent + result.totalFailed}) pour: ${emails}\n`, sessionLogId]);
+            // 3. ENVOYER SÉQUENTIELLEMENT AVEC sendEmail() (la même fonction qui marche pour test et demandes)
+            //    Chaque email est envoyé via un setTimeout pour laisser l'event loop traiter les autres requêtes
+            let totalSent = 0, totalFailed = 0;
+            
+            for (let i = 0; i < emailsToSend.length; i++) {
+                const mail = emailsToSend[i];
+                try {
+                    // Petit délai entre chaque email pour laisser l'event loop respirer
+                    if (i > 0) {
+                        await new Promise(resolve => setTimeout(resolve, 100));
                     }
-                });
-                worker.on('error', (err) => console.error('❌ Worker error:', err.message));
-                worker.on('exit', (code) => { if (code !== 0) console.error(`❌ Worker exited with code ${code}`); });
-            } catch (e) {
-                console.error('❌ Erreur lancement worker:', e.message);
+                    await sendEmail(mail.to, mail.subject, mail.html, mail.attachments);
+                    totalSent++;
+                    console.log(`✅ [${i+1}/${emailsToSend.length}] Email envoyé à ${mail.to} (${mail.type})`);
+                } catch (error) {
+                    totalFailed++;
+                    console.error(`❌ [${i+1}/${emailsToSend.length}] Erreur envoi à ${mail.to} (${mail.type}):`, error.message);
+                }
+            }
+            
+            console.log(`📊 Résultat final: ${totalSent} envoyé(s), ${totalFailed} échec(s)`);
+            
+            // Logger l'action
+            if (sessionLogId) {
+                const allEmails = assignments.map(a => a.email).filter(e => e).join(', ');
+                database.run(`UPDATE connection_logs SET modifications = modifications || ? WHERE id = ?`,
+                    [`${new Date().toLocaleString('fr-FR')}: Invitations Outlook (${totalSent}/${totalSent + totalFailed}) pour: ${allEmails}\n`, sessionLogId]);
             }
             
         } catch (bgError) {
