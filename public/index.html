@@ -15372,7 +15372,8 @@
                                 if (specialDateInfo.config) {
                                     const cfg = specialDateInfo.config;
                                     const displayLabel = cfg.label || specialDateInfo.summary || 'Événement';
-                                    eventsHTML += `<div title="${displayLabel}" style="font-size: 9px; padding: 3px 5px; border-radius: 4px; font-weight: bold; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+                                    const participantsTooltip = cfg.participants && cfg.participants.length > 0 ? `\n👥 ${cfg.participants.join(', ')}` : '';
+                                    eventsHTML += `<div title="${displayLabel}${participantsTooltip}" style="font-size: 9px; padding: 3px 5px; border-radius: 4px; font-weight: bold; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: help;
                                         background-color: ${cfg.bgColor || '#ffeb3b'}; 
                                         color: ${cfg.textColor || '#000'}; 
                                         border: 1px solid ${cfg.borderColor || '#fbc02d'};">${displayLabel}</div>`;
