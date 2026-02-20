@@ -7628,8 +7628,8 @@
                             if (specialDateInfo.config) {
                                 const cfg = specialDateInfo.config;
                                 const displayLabel = cfg.label || specialDateInfo.summary || 'JF';
-                                const creatorInfo = cfg.createdBy ? `Créé par: ${cfg.createdBy}` : '';
-                                const tooltipText = creatorInfo ? `title="${displayLabel} - ${creatorInfo}"` : `title="${displayLabel}"`;
+                                const participantsInfo = cfg.participants && cfg.participants.length > 0 ? `\n👥 ${cfg.participants.join(', ')}` : '';
+                                const tooltipText = `title="${displayLabel}${participantsInfo}"`;
                                 cellContent += `<span ${tooltipText} style="display: inline-block; padding: 1px 3px; border-radius: 6px; font-size: 8px; font-weight: bold; cursor: help; align-self: center;
                                     background-color: ${cfg.bgColor || '#ffeb3b'}; 
                                     color: ${cfg.textColor || '#000'}; 
@@ -16487,6 +16487,105 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             resetMyEventForm();
         }
         
+        // === PARTICIPANTS ÉVÉNEMENTS ===
+        let myEventSelectedParticipants = []; // [{id, nom, prenom, email}]
+        
+        function getParticipantInitials(prenom, nom) {
+            return ((prenom || '')[0] || '').toUpperCase() + ((nom || '')[0] || '').toUpperCase();
+        }
+        
+        function getParticipantColor(name) {
+            let hash = 0;
+            for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+            const colors = ['#e91e63','#9c27b0','#673ab7','#3f51b5','#2196f3','#009688','#4caf50','#ff9800','#795548','#607d8b'];
+            return colors[Math.abs(hash) % colors.length];
+        }
+        
+        function renderMyEventParticipantTags() {
+            const container = document.getElementById('myEventParticipantsContainer');
+            const input = document.getElementById('myEventParticipantInput');
+            if (!container || !input) return;
+            container.querySelectorAll('.participant-tag').forEach(t => t.remove());
+            myEventSelectedParticipants.forEach(p => {
+                const tag = document.createElement('span');
+                tag.className = 'participant-tag';
+                const displayName = `${p.prenom || ''} ${(p.nom || '').toUpperCase()}`.trim();
+                const initials = getParticipantInitials(p.prenom, p.nom);
+                const color = getParticipantColor(displayName);
+                tag.innerHTML = `<span style="display:inline-flex;align-items:center;gap:4px;background:#f0f0f0;border:1px solid #ddd;border-radius:15px;padding:2px 8px 2px 2px;font-size:11px;white-space:nowrap;">
+                    <span style="width:20px;height:20px;border-radius:50%;background:${color};color:white;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:bold;">${initials}</span>
+                    <span style="color:#333;">${displayName}</span>
+                    <span onclick="removeMyEventParticipant(${p.id})" style="cursor:pointer;color:#999;font-size:14px;line-height:1;margin-left:2px;" title="Retirer">&times;</span>
+                </span>`;
+                container.insertBefore(tag, input);
+            });
+        }
+        
+        function removeMyEventParticipant(userId) {
+            myEventSelectedParticipants = myEventSelectedParticipants.filter(p => p.id !== userId);
+            renderMyEventParticipantTags();
+        }
+        
+        function addMyEventParticipant(user) {
+            if (myEventSelectedParticipants.some(p => p.id === user.id)) return;
+            myEventSelectedParticipants.push({ id: user.id, nom: user.nom, prenom: user.prenom, email: user.email });
+            renderMyEventParticipantTags();
+            const input = document.getElementById('myEventParticipantInput');
+            if (input) { input.value = ''; input.focus(); }
+            document.getElementById('myEventParticipantDropdown').style.display = 'none';
+        }
+        
+        function filterMyEventParticipants(query) {
+            const dropdown = document.getElementById('myEventParticipantDropdown');
+            if (!dropdown) return;
+            const q = (query || '').toLowerCase().trim();
+            const selectedIds = new Set(myEventSelectedParticipants.map(p => p.id));
+            const filtered = users.filter(u => {
+                if (selectedIds.has(u.id)) return false;
+                if (!q) return true;
+                const fullName = `${u.prenom || ''} ${u.nom || ''}`.toLowerCase();
+                const email = (u.email || '').toLowerCase();
+                return fullName.includes(q) || email.includes(q);
+            }).slice(0, 8);
+            if (filtered.length === 0) { dropdown.style.display = 'none'; return; }
+            dropdown.innerHTML = filtered.map(u => {
+                const displayName = `${u.prenom || ''} ${(u.nom || '').toUpperCase()}`.trim() || u.username;
+                const email = u.email || '';
+                const initials = getParticipantInitials(u.prenom, u.nom);
+                const color = getParticipantColor(displayName);
+                const isExpert = u.is_expert ? '<span style="background:#ffe0b2;color:#e65100;padding:1px 6px;border-radius:8px;font-size:9px;margin-left:6px;">Expert</span>' : '';
+                return `<div onclick='addMyEventParticipant(${JSON.stringify({id:u.id,nom:u.nom||"",prenom:u.prenom||"",email:u.email||""})})' 
+                    style="display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;border-bottom:1px solid #f5f5f5;transition:background 0.15s;" 
+                    onmouseenter="this.style.background='#f5f5f5'" onmouseleave="this.style.background='white'">
+                    <span style="width:32px;height:32px;border-radius:50%;background:${color};color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:bold;flex-shrink:0;">${initials}</span>
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-size:13px;font-weight:500;color:#333;">${displayName}${isExpert}</div>
+                        ${email ? `<div style="font-size:11px;color:#999;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${email}</div>` : ''}
+                    </div>
+                </div>`;
+            }).join('');
+            dropdown.style.display = 'block';
+        }
+        
+        function handleParticipantKeydown(e) {
+            if (e.key === 'Backspace' && e.target.value === '' && myEventSelectedParticipants.length > 0) {
+                myEventSelectedParticipants.pop();
+                renderMyEventParticipantTags();
+            }
+            if (e.key === 'Escape') {
+                document.getElementById('myEventParticipantDropdown').style.display = 'none';
+            }
+        }
+        
+        // Fermer le dropdown participants si on clique en dehors
+        document.addEventListener('click', function(e) {
+            const container = document.getElementById('myEventParticipantsContainer');
+            const dropdown = document.getElementById('myEventParticipantDropdown');
+            if (dropdown && container && !container.contains(e.target) && !dropdown.contains(e.target)) {
+                dropdown.style.display = 'none';
+            }
+        });
+        
         // Réinitialiser le formulaire
         function resetMyEventForm() {
             document.getElementById('myEventStartDate').value = '';
@@ -16496,6 +16595,12 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             document.getElementById('myEventTextColor').value = '#000000';
             document.getElementById('myEventBorderColor').value = '#fbc02d';
             updateMyEventPreview();
+            
+            // Reset participants
+            myEventSelectedParticipants = [];
+            renderMyEventParticipantTags();
+            const participantInput = document.getElementById('myEventParticipantInput');
+            if (participantInput) participantInput.value = '';
             
             // Cacher le sélecteur de créateur
             const creatorSection = document.getElementById('myEventCreatorSection');
@@ -16719,6 +16824,23 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             const creatorFullName = ((event.creator_prenom || '') + ' ' + (event.creator_nom || '').toUpperCase()).trim() || 'Système';
             const creatorInfo = isAdminViewingAllEvents ? `<span style="font-size: 10px; color: #666;">👤 ${creatorFullName}</span>` : '';
             
+            // Participants
+            let participantsHtml = '';
+            if (event.participants && event.participants.length > 0) {
+                const chips = event.participants.map(p => {
+                    const name = `${p.prenom || ''} ${(p.nom || '').toUpperCase()}`.trim();
+                    const initials = getParticipantInitials(p.prenom, p.nom);
+                    const color = getParticipantColor(name);
+                    return `<span title="${name}${p.email ? ' (' + p.email + ')' : ''}" style="display:inline-flex;align-items:center;gap:3px;background:#f0f0f0;border:1px solid #e0e0e0;border-radius:12px;padding:1px 7px 1px 1px;font-size:10px;">
+                        <span style="width:16px;height:16px;border-radius:50%;background:${color};color:white;display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:bold;">${initials}</span>
+                        ${name}
+                    </span>`;
+                }).join(' ');
+                participantsHtml = `<div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:3px;align-items:center;">
+                    <span style="font-size:10px;color:#888;">👥</span> ${chips}
+                </div>`;
+            }
+            
             return `<div style="background: white; padding: 12px; border-radius: 6px; margin-bottom: 6px; border-left: 4px solid ${config.borderColor || '#fbc02d'}; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
                     <div style="flex: 1;">
@@ -16732,13 +16854,14 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                         <div style="font-size: 11px; color: #666;">
                             📅 ${dateDisplay} <span style="color: #999;">(${diffDays} jour${diffDays > 1 ? 's' : ''})</span>
                         </div>
+                        ${participantsHtml}
                     </div>
                     <div style="display: flex; gap: 5px;">
                         <button onclick="editMyEvent(${event.id})" style="background: #ff9800; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;">✏️</button>
                         <button onclick="deleteMyEvent(${event.id})" style="background: #e53935; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;">🗑️</button>
                     </div>
                 </div>
-            </div>`;
+            </div>`
         }
         
         // Toggle pour l'arborescence des événements
@@ -16784,7 +16907,8 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                         startDate,
                         endDate: finalEndDate,
                         label,
-                        config: { bgColor, textColor, borderColor }
+                        config: { bgColor, textColor, borderColor },
+                        participants: myEventSelectedParticipants.map(p => p.id)
                     })
                 });
                 
@@ -16825,6 +16949,12 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             document.getElementById('myEventBorderColor').value = config.borderColor || '#fbc02d';
             updateMyEventPreview();
             
+            // Charger les participants existants
+            myEventSelectedParticipants = (event.participants || []).map(p => ({
+                id: p.user_id, nom: p.nom, prenom: p.prenom, email: p.email
+            }));
+            renderMyEventParticipantTags();
+            
             editingMyEventId = eventId;
             
             // Gestion du sélecteur de créateur (uniquement pour les admins)
@@ -16858,7 +16988,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             }
             
             // Changer le bouton "Ajouter" en "Modifier"
-            const addBtn = document.querySelector('#myEventsModalContainer button[onclick="addMyEvent()"]');
+            const addBtn = document.getElementById('myEventActionBtn');
             if (addBtn) {
                 addBtn.textContent = '💾 Modifier';
                 addBtn.onclick = saveMyEventEdit;
@@ -16886,7 +17016,8 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 startDate,
                 endDate: endDate || startDate,
                 label,
-                config: { bgColor, textColor, borderColor }
+                config: { bgColor, textColor, borderColor },
+                participants: myEventSelectedParticipants.map(p => p.id)
             };
             
             // Si admin, inclure le créateur sélectionné
@@ -16916,7 +17047,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     editingMyEventId = null;
                     
                     // Remettre le bouton "Ajouter"
-                    const addBtn = document.querySelector('#myEventsModalContainer button[onclick="saveMyEventEdit()"]');
+                    const addBtn = document.getElementById('myEventActionBtn');
                     if (addBtn) {
                         addBtn.textContent = '➕ Ajouter';
                         addBtn.onclick = addMyEvent;
@@ -18738,7 +18869,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     </select>
                 </div>
                 
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr auto auto auto auto; gap: 10px; align-items: end;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr 2fr 2fr; gap: 10px; align-items: start;">
                     <div>
                         <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px;">Date de début *</label>
                         <input type="date" id="myEventStartDate" style="width: 100%; padding: 6px;" onchange="prefillMyEventEndDate()">
@@ -18751,6 +18882,21 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                         <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px;">Libellé *</label>
                         <input type="text" id="myEventLabel" placeholder="Ex: FORMATION, RÉUNION..." style="width: 100%; padding: 6px; text-transform: uppercase;" oninput="this.value = this.value.toUpperCase(); updateMyEventPreview()">
                     </div>
+                    <div style="position: relative;">
+                        <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px;">👥 Participant(s)</label>
+                        <div id="myEventParticipantsContainer" style="display: flex; flex-wrap: wrap; gap: 4px; padding: 3px 6px; border: 1px solid #ccc; border-radius: 4px; min-height: 32px; align-items: center; background: white; cursor: text;" onclick="document.getElementById('myEventParticipantInput').focus()">
+                            <input type="text" id="myEventParticipantInput" placeholder="Nom ou email..." 
+                                style="border: none; outline: none; flex: 1; min-width: 80px; padding: 3px 0; font-size: 12px;" 
+                                oninput="filterMyEventParticipants(this.value)"
+                                onfocus="filterMyEventParticipants(this.value)"
+                                onkeydown="handleParticipantKeydown(event)">
+                        </div>
+                        <div id="myEventParticipantDropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ddd; border-radius: 0 0 8px 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); max-height: 200px; overflow-y: auto; z-index: 10010;"></div>
+                    </div>
+                </div>
+                
+                <!-- Ligne couleurs -->
+                <div style="display: flex; align-items: end; gap: 10px; margin-top: 10px;">
                     <div>
                         <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px;">Fond</label>
                         <input type="color" id="myEventBgColor" value="#ffeb3b" style="width: 40px; height: 32px; padding: 0; border: 1px solid #ccc; cursor: pointer;" onchange="updateMyEventPreview()">
@@ -18762,11 +18908,6 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     <div>
                         <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px;">Bordure</label>
                         <input type="color" id="myEventBorderColor" value="#000000" style="width: 40px; height: 32px; padding: 0; border: 1px solid #ccc; cursor: pointer;" onchange="updateMyEventPreview()">
-                    </div>
-                    <div>
-                        <button onclick="addMyEvent()" style="background-color: #ff9800; color: white; padding: 6px 15px; white-space: nowrap;">
-                            ➕ Ajouter
-                        </button>
                     </div>
                 </div>
                 
@@ -18787,6 +18928,13 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 <div style="margin-top: 10px; display: flex; align-items: center; gap: 10px;">
                     <span style="font-size: 12px; color: #666;">Prévisualisation :</span>
                     <span id="myEventPreview" style="display: inline-block; padding: 3px 8px; border-radius: 8px; font-size: 11px; font-weight: bold; background-color: #ffeb3b; color: #000; border: 2px solid #000;">LIBELLÉ</span>
+                </div>
+                
+                <!-- Bouton Ajouter / Modifier en bas à droite -->
+                <div style="display: flex; justify-content: flex-end; margin-top: 15px;">
+                    <button onclick="addMyEvent()" id="myEventActionBtn" style="background-color: #ff9800; color: white; padding: 8px 20px; white-space: nowrap; font-size: 13px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer;">
+                        ➕ Ajouter
+                    </button>
                 </div>
             </div>
             
