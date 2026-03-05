@@ -89,7 +89,6 @@ const database = new sqlite3.Database(DB_FILE, (err) =>
             if (err) console.error('❌ Erreur PRAGMA WAL:', err);
             else console.log('✅ SQLite WAL mode activé');
         });
-        // Attendre 5s au lieu d'échouer immédiatement sur SQLITE_BUSY
         database.run('PRAGMA busy_timeout = 5000', (err) => {
             if (err) console.error('❌ Erreur PRAGMA busy_timeout:', err);
             else console.log('✅ SQLite busy_timeout = 5000ms');
@@ -510,19 +509,6 @@ function initDB() {
                             }
                         });
                     }
-                    
-                    // Migration: ajouter trigramme si elle n'existe pas
-                    const trigrammeCol = columns.find(col => col.name === 'trigramme');
-                    if (!trigrammeCol) {
-                        console.log('Migration: Ajout colonne trigramme à users...');
-                        database.run(`ALTER TABLE users ADD COLUMN trigramme TEXT`, (alterErr) => {
-                            if (alterErr) {
-                                console.error('Erreur migration trigramme:', alterErr);
-                            } else {
-                                console.log('✅ Migration terminée: trigramme ajouté');
-                            }
-                        });
-                    }
                 }
             });
             
@@ -931,40 +917,6 @@ function initDB() {
             console.log('✅ Table astreintes_hno créée');
         }
     });
-    
-    // Table file d'attente d'emails
-    database.run(`
-        CREATE TABLE IF NOT EXISTS email_queue (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            batch_id TEXT NOT NULL,
-            recipient_email TEXT NOT NULL,
-            recipient_name TEXT NOT NULL,
-            sender_name TEXT NOT NULL,
-            sender_email TEXT NOT NULL,
-            subject TEXT NOT NULL,
-            html_body TEXT NOT NULL,
-            ics_content TEXT,
-            ics_method TEXT,
-            ics_filename TEXT,
-            status TEXT DEFAULT 'pending',
-            attempts INTEGER DEFAULT 0,
-            max_attempts INTEGER DEFAULT 3,
-            error_message TEXT,
-            action_type TEXT,
-            resource_id INTEGER,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            processed_at DATETIME,
-            next_retry_at DATETIME
-        )
-    `, (err) => {
-        if (err) {
-            console.error('Erreur création table email_queue:', err);
-        } else {
-            console.log('✅ Table email_queue créée');
-            // Nettoyer les vieux emails traités (> 7 jours)
-            database.run(`DELETE FROM email_queue WHERE status IN ('sent', 'failed') AND created_at < datetime('now', '-7 days')`);
-        }
-    });
 }
 
 // ==================== MIDDLEWARE AUTH ====================
@@ -1206,7 +1158,8 @@ async function completeLogin(req, res, user, profile) {
                     resourceId: user.resource_id,
                     hasReportingAccess: user.has_reporting_access === 1 || user.is_admin === 1,
                     amoaCed: user.amoa_ced === 1,
-                    is_amoa_ced: user.amoa_ced === 1
+                    is_amoa_ced: user.amoa_ced === 1,
+                    defaultTab: user.default_tab || 'planning'
                 };
                 
                 res.json({ 
@@ -2132,7 +2085,6 @@ app.post('/api/schedule/cleanup-old-format', requireAdmin, (req, res) => {
 app.get('/api/users', requireAdmin, (req, res) => {
     database.all(`
         SELECT u.*, r.trigramme as resource_trigramme,
-               COALESCE(u.trigramme, r.trigramme) as trigramme,
                (SELECT MAX(login_time) FROM connection_logs WHERE user_id = u.id) as last_login
         FROM users u 
         LEFT JOIN resources r ON u.resource_id = r.id
@@ -2158,7 +2110,7 @@ app.get('/api/users/public', requireAuth, (req, res) => {
             u.resource_id,
             u.profile_photo,
             u.is_expert,
-            COALESCE(u.trigramme, r.trigramme) as trigramme
+            r.trigramme
         FROM users u 
         LEFT JOIN resources r ON u.resource_id = r.id
         WHERE u.actif = 1
@@ -2268,7 +2220,7 @@ app.post('/api/users', requireAdmin, async (req, res) => {
 });
 
 app.put('/api/users/:id', requireAdmin, (req, res) => {
-    const { nom, prenom, email, trigramme, is_admin, is_expert, is_user, resource_id, has_reporting_access, amoa_ced } = req.body;
+    const { nom, prenom, email, is_admin, is_expert, is_user, resource_id, has_reporting_access, amoa_ced } = req.body;
     const { id } = req.params;
     
     // Convertir resource_id en integer ou null
@@ -2280,13 +2232,9 @@ app.put('/api/users/:id', requireAdmin, (req, res) => {
         }
     }
     
-    // Trigramme en majuscules
-    const finalTrigramme = trigramme ? trigramme.toUpperCase().trim() : null;
-    
     console.log('💾 Modification utilisateur ID', id, ':', {
         nom,
         prenom,
-        trigramme: finalTrigramme,
         is_expert,
         resource_id_recu: resource_id,
         resource_id_type: typeof resource_id,
@@ -2297,9 +2245,9 @@ app.put('/api/users/:id', requireAdmin, (req, res) => {
     
     database.run(
         `UPDATE users 
-         SET nom = ?, prenom = ?, email = ?, trigramme = ?, is_admin = ?, is_expert = ?, is_user = ?, resource_id = ?, has_reporting_access = ?, amoa_ced = ?
+         SET nom = ?, prenom = ?, email = ?, is_admin = ?, is_expert = ?, is_user = ?, resource_id = ?, has_reporting_access = ?, amoa_ced = ?
          WHERE id = ?`,
-        [nom, prenom, email, finalTrigramme, is_admin ? 1 : 0, is_expert ? 1 : 0, is_user ? 1 : 0, finalResourceId, has_reporting_access ? 1 : 0, amoa_ced ? 1 : 0, id],
+        [nom, prenom, email, is_admin ? 1 : 0, is_expert ? 1 : 0, is_user ? 1 : 0, finalResourceId, has_reporting_access ? 1 : 0, amoa_ced ? 1 : 0, id],
         (err) => {
             if (err) {
                 console.error('Erreur update user:', err);
@@ -2983,613 +2931,180 @@ app.post('/api/send-calendar-email', requireAuth, async (req, res) => {
     }
 });
 
-// ========== FILE D'ATTENTE EMAILS (EMAIL QUEUE WORKER) ==========
-
-let emailWorkerRunning = false;
-const EMAIL_WORKER_POLL_INTERVAL = 1500; // Vérification quand la queue est vide
-const EMAIL_INTER_SEND_DELAY = 500; // 500ms entre chaque email (évite de saturer le SMTP)
-const EMAIL_RETRY_DELAYS = [0, 30000, 120000]; // Retry immédiat, puis 30s, puis 2min
-let cachedTransporter = null;
-let cachedTransporterConfig = '';
-
-// Obtenir un transporter réutilisable (ne recrée que si la config change)
-function getReusableTransporter() {
-    const configKey = `${emailConfig.host}:${emailConfig.port}:${emailConfig.user}`;
-    if (cachedTransporter && cachedTransporterConfig === configKey) {
-        return cachedTransporter;
-    }
-    cachedTransporter = createEmailTransporter();
-    cachedTransporterConfig = configKey;
-    return cachedTransporter;
-}
-
-// Ajouter un email à la file d'attente
-function enqueueEmail({ batchId, recipientEmail, recipientName, senderName, senderEmail, subject, htmlBody, icsContent, icsMethod, icsFilename, actionType, resourceId }) {
-    return new Promise((resolve, reject) => {
-        database.run(
-            `INSERT INTO email_queue (batch_id, recipient_email, recipient_name, sender_name, sender_email, subject, html_body, ics_content, ics_method, ics_filename, action_type, resource_id, next_retry_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
-            [batchId, recipientEmail, recipientName, senderName, senderEmail, subject, htmlBody, icsContent || null, icsMethod || null, icsFilename || null, actionType || 'new', resourceId || null],
-            function(err) {
-                if (err) reject(err);
-                else resolve(this.lastID);
-            }
-        );
-    });
-}
-
-// Récupérer le prochain email à traiter
-function getNextQueuedEmail() {
-    return new Promise((resolve, reject) => {
-        database.get(
-            `SELECT * FROM email_queue 
-             WHERE status = 'pending' AND next_retry_at <= datetime('now') AND attempts < max_attempts
-             ORDER BY created_at ASC LIMIT 1`,
-            [],
-            (err, row) => {
-                if (err) reject(err);
-                else resolve(row);
-            }
-        );
-    });
-}
-
-// Mettre à jour le statut d'un email dans la file
-function updateQueueStatus(id, status, errorMessage) {
-    return new Promise((resolve, reject) => {
-        if (status === 'sent') {
-            database.run(
-                `UPDATE email_queue SET status = 'sent', processed_at = datetime('now'), attempts = attempts + 1 WHERE id = ?`,
-                [id],
-                (err) => err ? reject(err) : resolve()
-            );
-        } else if (status === 'failed') {
-            database.run(
-                `UPDATE email_queue SET status = 'failed', error_message = ?, attempts = attempts + 1, processed_at = datetime('now') WHERE id = ?`,
-                [errorMessage, id],
-                (err) => err ? reject(err) : resolve()
-            );
-        } else if (status === 'retry') {
-            database.get(`SELECT attempts FROM email_queue WHERE id = ?`, [id], (err, row) => {
-                if (err) return reject(err);
-                const attempts = (row ? row.attempts : 0) + 1;
-                const delayMs = EMAIL_RETRY_DELAYS[Math.min(attempts, EMAIL_RETRY_DELAYS.length - 1)];
-                const delaySec = Math.floor(delayMs / 1000);
-                database.run(
-                    `UPDATE email_queue SET status = 'pending', error_message = ?, attempts = attempts + 1, next_retry_at = datetime('now', '+${delaySec} seconds') WHERE id = ?`,
-                    [errorMessage, id],
-                    (err2) => err2 ? reject(err2) : resolve()
-                );
-            });
-        }
-    });
-}
-
-// Pause utilitaire
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-// Worker qui traite la file d'attente en boucle (enchaîne tant qu'il y a des emails)
-async function processEmailQueue() {
-    if (emailWorkerRunning) return;
-    emailWorkerRunning = true;
+// Endpoint optimisé pour envoyer les emails d'affectation
+// Crée les notifications immédiatement et envoie les emails en arrière-plan
+app.post('/api/send-assignment-emails', requireAuth, async (req, res) => {
+    const { assignments, senderName } = req.body;
     
-    try {
-        const transporter = getReusableTransporter();
-        if (!transporter) {
-            emailWorkerRunning = false;
-            return;
-        }
-        
-        // Boucle : traiter tous les emails disponibles d'un coup
-        let processed = 0;
-        while (true) {
-            const email = await getNextQueuedEmail();
-            if (!email) break; // Queue vide
-            
-            const mailOptions = {
-                from: `"${email.sender_name} (Planning SI-SAMU)" <${emailConfig.user}>`,
-                to: email.recipient_email,
-                subject: email.subject,
-                html: email.html_body
-            };
-            
-            if (email.ics_content) {
-                mailOptions.icalEvent = {
-                    filename: email.ics_filename || 'invitation.ics',
-                    method: email.ics_method || 'REQUEST',
-                    content: email.ics_content
-                };
-            }
-            
-            try {
-                await transporter.sendMail(mailOptions);
-                await updateQueueStatus(email.id, 'sent');
-                processed++;
-                console.log(`✅ Queue [${processed}]: envoyé à ${email.recipient_email} (${email.action_type}) [batch:${email.batch_id.substring(0, 8)}]`);
-            } catch (sendError) {
-                const errorMsg = sendError.message || 'Erreur inconnue';
-                console.error(`❌ Queue: échec envoi à ${email.recipient_email}: ${errorMsg}`);
-                
-                // Invalider le transporter en cache si erreur de connexion
-                if (errorMsg.includes('ECONNREFUSED') || errorMsg.includes('ETIMEDOUT') || errorMsg.includes('ESOCKET')) {
-                    cachedTransporter = null;
-                    cachedTransporterConfig = '';
-                }
-                
-                if (email.attempts + 1 >= email.max_attempts) {
-                    await updateQueueStatus(email.id, 'failed', errorMsg);
-                    console.log(`💀 Queue: abandonné après ${email.max_attempts} tentatives`);
-                } else {
-                    await updateQueueStatus(email.id, 'retry', errorMsg);
-                    console.log(`🔄 Queue: retry planifié (tentative ${email.attempts + 2}/${email.max_attempts})`);
-                }
-            }
-            
-            // Petite pause entre les envois pour ne pas saturer le SMTP
-            await sleep(EMAIL_INTER_SEND_DELAY);
-        }
-        
-        if (processed > 0) {
-            console.log(`📧 Queue: ${processed} email(s) traités dans ce cycle`);
-        }
-    } catch (error) {
-        console.error('❌ Queue worker error:', error);
-    }
-    
-    emailWorkerRunning = false;
-}
-
-// Vérifier la queue périodiquement (le worker enchaîne quand il y a des emails)
-setInterval(processEmailQueue, EMAIL_WORKER_POLL_INTERVAL);
-
-// Endpoint: statut d'un batch d'emails
-app.get('/api/email-queue/status/:batchId', requireAuth, async (req, res) => {
-    const { batchId } = req.params;
-    
-    try {
-        const stats = await new Promise((resolve, reject) => {
-            database.get(
-                `SELECT 
-                    COUNT(*) as total,
-                    SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END) as sent,
-                    SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
-                    SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed
-                 FROM email_queue WHERE batch_id = ?`,
-                [batchId],
-                (err, row) => {
-                    if (err) reject(err);
-                    else resolve(row);
-                }
-            );
-        });
-        
-        // Récupérer les détails des emails échoués
-        const failures = await new Promise((resolve, reject) => {
-            database.all(
-                `SELECT recipient_name, recipient_email, error_message, action_type 
-                 FROM email_queue WHERE batch_id = ? AND status = 'failed'`,
-                [batchId],
-                (err, rows) => {
-                    if (err) reject(err);
-                    else resolve(rows || []);
-                }
-            );
-        });
-        
-        const completed = (stats.sent || 0) + (stats.failed || 0);
-        const isComplete = completed >= stats.total;
-        
-        res.json({
-            success: true,
-            batchId,
-            total: stats.total || 0,
-            sent: stats.sent || 0,
-            pending: stats.pending || 0,
-            failed: stats.failed || 0,
-            isComplete,
-            progress: stats.total > 0 ? Math.round((completed / stats.total) * 100) : 0,
-            failures
-        });
-    } catch (error) {
-        console.error('Erreur statut queue:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// ========== GENERATION ICS (INVITATIONS OUTLOOK) ==========
-
-// Formater une date en format ICS (YYYYMMDDTHHmmssZ)
-function formatDateICS(dateStr, hours, minutes) {
-    const [year, month, day] = dateStr.split('-').map(Number);
-    // Créer la date en heure locale Paris, convertir en UTC (Paris = UTC+1 en hiver, UTC+2 en été)
-    const date = new Date(year, month - 1, day, hours, minutes, 0);
-    const y = date.getUTCFullYear();
-    const m = String(date.getUTCMonth() + 1).padStart(2, '0');
-    const d = String(date.getUTCDate()).padStart(2, '0');
-    const h = String(date.getUTCHours()).padStart(2, '0');
-    const min = String(date.getUTCMinutes()).padStart(2, '0');
-    return `${y}${m}${d}T${h}${min}00Z`;
-}
-
-// Formater un timestamp now en ICS
-function nowICS() {
-    const now = new Date();
-    return now.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
-}
-
-// Générer un UID unique pour un événement ICS
-function generateICSUid() {
-    return crypto.randomUUID() + '@planning-ans';
-}
-
-// Construire un fichier ICS pour une invitation (METHOD: REQUEST)
-function buildICS({ uid, summary, description, location, dtstart, dtend, organizer, organizerName, attendee, attendeeName, sequence, method }) {
-    const methodStr = method || 'REQUEST';
-    const seq = sequence || 0;
-    const status = methodStr === 'CANCEL' ? 'CANCELLED' : 'CONFIRMED';
-    const now = nowICS();
-    
-    let ics = [
-        'BEGIN:VCALENDAR',
-        'VERSION:2.0',
-        'PRODID:-//Planning ANS//SI-SAMU//FR',
-        `METHOD:${methodStr}`,
-        'CALSCALE:GREGORIAN',
-        'BEGIN:VEVENT',
-        `UID:${uid}`,
-        `DTSTAMP:${now}`,
-        `DTSTART:${dtstart}`,
-        `DTEND:${dtend}`,
-        `SUMMARY:${summary}`,
-        `DESCRIPTION:${(description || '').replace(/\n/g, '\\n')}`,
-    ];
-    
-    if (location) {
-        ics.push(`LOCATION:${location}`);
-    }
-    
-    ics.push(`ORGANIZER;CN=${organizerName}:mailto:${organizer}`);
-    ics.push(`ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=${attendeeName}:mailto:${attendee}`);
-    ics.push(`SEQUENCE:${seq}`);
-    ics.push(`STATUS:${status}`);
-    ics.push('END:VEVENT');
-    ics.push('END:VCALENDAR');
-    
-    return ics.join('\r\n');
-}
-
-// Horaires des demi-journées
-const HALF_DAY_HOURS = {
-    AM: { start: 8, end: 12 },
-    PM: { start: 14, end: 18 }
-};
-
-// Grouper les affectations contiguës de même type/localisation
-function groupContiguousAssignments(assignments) {
-    if (!assignments || assignments.length === 0) return [];
-    
-    // Trier par date puis par période (AM avant PM)
-    const sorted = [...assignments].sort((a, b) => {
-        if (a.date !== b.date) return a.date.localeCompare(b.date);
-        return a.period === 'AM' ? -1 : 1;
-    });
-    
-    const groups = [];
-    let currentGroup = null;
-    
-    for (const item of sorted) {
-        if (!currentGroup) {
-            currentGroup = { activity: item.activity, activityCode: item.activityCode, location: item.location, slots: [item] };
-            continue;
-        }
-        
-        // Vérifier si même activité ET même localisation
-        const sameActivity = currentGroup.activityCode === item.activityCode;
-        const sameLocation = (currentGroup.location || '') === (item.location || '');
-        
-        if (!sameActivity || !sameLocation) {
-            groups.push(currentGroup);
-            currentGroup = { activity: item.activity, activityCode: item.activityCode, location: item.location, slots: [item] };
-            continue;
-        }
-        
-        // Vérifier la contiguïté
-        const lastSlot = currentGroup.slots[currentGroup.slots.length - 1];
-        const isContiguous = checkContiguous(lastSlot.date, lastSlot.period, item.date, item.period);
-        
-        if (isContiguous) {
-            currentGroup.slots.push(item);
-        } else {
-            groups.push(currentGroup);
-            currentGroup = { activity: item.activity, activityCode: item.activityCode, location: item.location, slots: [item] };
-        }
-    }
-    
-    if (currentGroup) groups.push(currentGroup);
-    return groups;
-}
-
-// Vérifier si deux créneaux sont contigus
-function checkContiguous(date1, period1, date2, period2) {
-    // AM puis PM du même jour
-    if (date1 === date2 && period1 === 'AM' && period2 === 'PM') return true;
-    
-    // PM d'un jour puis AM du jour ouvré suivant
-    if (period1 === 'PM' && period2 === 'AM') {
-        const nextWorkDay = getNextWorkDay(date1);
-        if (nextWorkDay === date2) return true;
-    }
-    
-    return false;
-}
-
-// Obtenir le prochain jour ouvré après une date
-function getNextWorkDay(dateStr) {
-    const [y, m, d] = dateStr.split('-').map(Number);
-    const date = new Date(y, m - 1, d);
-    do {
-        date.setDate(date.getDate() + 1);
-    } while (date.getDay() === 0 || date.getDay() === 6); // Skip weekend
-    const ny = date.getFullYear();
-    const nm = String(date.getMonth() + 1).padStart(2, '0');
-    const nd = String(date.getDate()).padStart(2, '0');
-    return `${ny}-${nm}-${nd}`;
-}
-
-// Labels d'activités propres (sans emoji) pour les ICS
-const ACTIVITY_LABELS = {
-    '3': 'SAMU (Déploiement)',
-    '4': 'SAMU (Dev. usages)',
-    '5': 'ANS (Déploiement)',
-    '6': 'ANS (Dev. usages)',
-    '7': 'Qualification',
-    '8': 'Autre mission'
-};
-
-function getCleanActivityLabel(assignment) {
-    // Priorité : activityCode → oldActivityCode → fallback sur activity sans emoji
-    if (assignment.activityCode && ACTIVITY_LABELS[assignment.activityCode]) {
-        return ACTIVITY_LABELS[assignment.activityCode];
-    }
-    // Nettoyer les emojis du label si pas de code
-    if (assignment.activity) {
-        return assignment.activity.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '').trim();
-    }
-    return 'Affectation';
-}
-
-function getCleanOldActivityLabel(assignment) {
-    if (assignment.oldActivityCode && ACTIVITY_LABELS[assignment.oldActivityCode]) {
-        return ACTIVITY_LABELS[assignment.oldActivityCode];
-    }
-    if (assignment.oldActivity) {
-        return assignment.oldActivity.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '').trim();
-    }
-    return 'Affectation';
-}
-
-// ========== ENDPOINT ENVOI EMAILS D'AFFECTATION (REFONTE ICS) ==========
-
-app.post('/api/send-assignment-emails', requireAuth, (req, res) => {
-    console.log(`📧 [${new Date().toISOString()}] === DEBUT send-assignment-emails (v4-nextTick) ===`);
-    
-    const { assignments, senderName, senderEmail: clientSenderEmail } = req.body;
+    // assignments = [{ resourceId, email, expertName, expertPrenom, assignments: [{date, period, activity, location}] }]
     
     if (!assignments || !Array.isArray(assignments) || assignments.length === 0) {
         return res.status(400).json({ success: false, error: 'Aucune affectation à envoyer' });
     }
     
-    if (!emailConfig.user || !emailConfig.password) {
+    const transporter = createEmailTransporter();
+    if (!transporter) {
         return res.status(500).json({ success: false, error: 'Configuration email non disponible' });
     }
     
+    console.log(`📧 Envoi de ${assignments.length} email(s) d'affectation par ${senderName}`);
+    
+    // 1. CRÉER LES NOTIFICATIONS EN BASE IMMÉDIATEMENT
     const requesterName = senderName || `${req.session.prenom || 'Admin'} ${req.session.nom || 'Système'}`;
-    const senderEmailAddr = clientSenderEmail || emailConfig.user;
-    const sessionLogId = req.session?.logId;
+    let notificationsCreated = 0;
     
-    console.log(`📧 [${new Date().toISOString()}] ${assignments.length} expert(s), envoi res.json MAINTENANT`);
-    
-    // RÉPONDRE IMMÉDIATEMENT - RIEN d'autre avant
-    res.json({ success: true, message: `Invitations en cours d'envoi...` });
-    
-    console.log(`📧 [${new Date().toISOString()}] res.json envoyé, lancement process.nextTick...`);
-    
-    // TOUT le reste dans un process séparé via setTimeout + async IIFE
-    process.nextTick(async () => {
+    for (const item of assignments) {
+        const { resourceId, assignments: expertAssignments } = item;
+        
+        // Récupérer l'user_id de l'expert
         try {
-            // 1. NOTIFICATIONS EN BASE
-            let notificationsCreated = 0;
-            for (const item of assignments) {
-                const { resourceId, assignments: expertAssignments } = item;
-                try {
-                    const user = await new Promise((resolve, reject) => {
-                        database.get(`SELECT id FROM users WHERE resource_id = ? AND is_expert = 1`, [resourceId],
-                            (err, row) => err ? reject(err) : resolve(row));
+            const user = await new Promise((resolve, reject) => {
+                database.get(
+                    `SELECT id FROM users WHERE resource_id = ? AND is_expert = 1`,
+                    [resourceId],
+                    (err, row) => {
+                        if (err) reject(err);
+                        else resolve(row);
+                    }
+                );
+            });
+            
+            if (user) {
+                for (const assignment of expertAssignments) {
+                    // Construire le nom de l'activité avec la localisation
+                    let activityName = assignment.activity;
+                    if (assignment.location && assignment.location !== '-') {
+                        activityName = `${assignment.activity} (${assignment.location})`;
+                    }
+                    
+                    // Vérifier si une notification existe déjà
+                    const existingNotif = await new Promise((resolve, reject) => {
+                        database.get(
+                            `SELECT id FROM expert_notifications 
+                             WHERE expert_id = ? AND date = ? AND period = ? AND is_read = 0`,
+                            [user.id, assignment.date, assignment.period],
+                            (err, row) => {
+                                if (err) reject(err);
+                                else resolve(row);
+                            }
+                        );
                     });
-                    if (user) {
-                        for (const assignment of expertAssignments) {
-                            try {
-                                let activityName = assignment.activity;
-                                if (assignment.location && assignment.location !== '-') activityName = `${assignment.activity} (${assignment.location})`;
-                                let actionLabel = 'Nouvelle affectation';
-                                if (assignment.actionType === 'modified') actionLabel = 'Modification affectation';
-                                if (assignment.actionType === 'deleted') actionLabel = 'Suppression affectation';
-                                
-                                const existingNotif = await new Promise((resolve, reject) => {
-                                    database.get(`SELECT id FROM expert_notifications WHERE expert_id = ? AND date = ? AND period = ? AND is_read = 0`,
-                                        [user.id, assignment.date, assignment.period], (err, row) => err ? reject(err) : resolve(row));
-                                });
-                                if (existingNotif) {
-                                    await new Promise((resolve, reject) => {
-                                        database.run(`UPDATE expert_notifications SET activity_name = ?, requester_name = ?, action_type = ?, created_at = CURRENT_TIMESTAMP WHERE id = ?`,
-                                            [activityName, requesterName, actionLabel, existingNotif.id], (err) => err ? reject(err) : resolve());
-                                    });
-                                } else {
-                                    await new Promise((resolve, reject) => {
-                                        database.run(`INSERT INTO expert_notifications (expert_id, date, period, activity_name, requester_name, action_type) VALUES (?, ?, ?, ?, ?, ?)`,
-                                            [user.id, assignment.date, assignment.period, activityName, requesterName, actionLabel], (err) => err ? reject(err) : resolve());
-                                    });
-                                }
-                                notificationsCreated++;
-                            } catch (e) { console.error(`❌ Erreur notification:`, e.message); }
-                        }
-                    }
-                } catch (e) { console.error(`❌ Erreur notification resource ${resourceId}:`, e.message); }
-            }
-            console.log(`✅ ${notificationsCreated} notification(s) créée(s) en base`);
-            
-            // 2. PRÉPARER LES EMAILS
-            const emailsToSend = [];
-            for (const item of assignments) {
-                const { resourceId, email, expertNom, expertPrenom, expertName, assignments: expertAssignments } = item;
-                const attendeeName = (expertPrenom && expertNom) ? `${expertPrenom} ${expertNom}` : (expertName || expertPrenom || expertNom || 'Expert');
-                if (!email) continue;
-                console.log(`📧 Traitement expert: ${attendeeName} (prenom=${expertPrenom}, nom=${expertNom}, email=${email})`);
-                
-                const newAssigns = expertAssignments.filter(a => a.actionType === 'new' || !a.actionType);
-                const modifiedAssigns = expertAssignments.filter(a => a.actionType === 'modified');
-                const deletedAssigns = expertAssignments.filter(a => a.actionType === 'deleted');
-                
-                if (newAssigns.length > 0) {
-                    const groups = groupContiguousAssignments(newAssigns);
-                    for (const group of groups) {
-                        try {
-                            const firstSlot = group.slots[0], lastSlot = group.slots[group.slots.length - 1];
-                            const startHours = HALF_DAY_HOURS[firstSlot.period], endHours = HALF_DAY_HOURS[lastSlot.period];
-                            const uid = generateICSUid();
-                            const cleanLabel = ACTIVITY_LABELS[group.activityCode] || getCleanActivityLabel({ activityCode: group.activityCode, activity: group.activity });
-                            const summary = `Domaines des Urgences - Affectation – ${cleanLabel} – ${requesterName}`;
-                            const location = group.location && group.location !== '-' ? group.location : '';
-                            const slotsDesc = group.slots.map(s => { const [y,m,d] = s.date.split('-'); return `${d}/${m}/${y} (${s.period === 'AM' ? 'Matin 8h-12h' : 'Apres-midi 14h-18h'})`; }).join('\\n');
-                            const description = `Affectation: ${cleanLabel}\\nLocalisation: ${location || 'Non precisee'}\\nDemandeur: ${requesterName}\\n\\nCreneaux:\\n${slotsDesc}`;
-                            emailsToSend.push({ type: 'new', to: email, subject: summary,
-                                html: buildInvitationHTML(attendeeName, requesterName, group, 'new'),
-                                attachments: [{ filename: 'invitation.ics', content: buildICS({ uid, summary, description, location, dtstart: formatDateICS(firstSlot.date, startHours.start, 0), dtend: formatDateICS(lastSlot.date, endHours.end, 0), organizer: senderEmailAddr, organizerName: requesterName, attendee: email, attendeeName, method: 'REQUEST' }), contentType: 'text/calendar; method=REQUEST' }]
-                            });
-                        } catch (e) { console.error(`❌ Erreur préparation NEW:`, e.message); }
-                    }
-                }
-                
-                for (const assignment of modifiedAssigns) {
-                    try {
-                        const hours = HALF_DAY_HOURS[assignment.period];
-                        const oldLabel = getCleanOldActivityLabel(assignment);
-                        const cancelSummary = `Domaines des Urgences - Affectation – ${oldLabel} – ${requesterName}`;
-                        const oldLoc = assignment.oldLocation && assignment.oldLocation !== '-' ? assignment.oldLocation : '';
-                        emailsToSend.push({ type: 'cancel_modify', to: email, subject: `Annule: ${cancelSummary}`,
-                            html: buildInvitationHTML(attendeeName, requesterName, { activity: oldLabel, location: oldLoc, slots: [assignment] }, 'cancelled'),
-                            attachments: [{ filename: 'annulation.ics', content: buildICS({ uid: generateICSUid(), summary: cancelSummary, description: `Annulation: cette affectation a ete modifiee par ${requesterName}.`, location: oldLoc, dtstart: formatDateICS(assignment.date, hours.start, 0), dtend: formatDateICS(assignment.date, hours.end, 0), organizer: senderEmailAddr, organizerName: requesterName, attendee: email, attendeeName, sequence: 1, method: 'CANCEL' }), contentType: 'text/calendar; method=CANCEL' }]
+                    
+                    if (existingNotif) {
+                        // UPDATE
+                        await new Promise((resolve, reject) => {
+                            database.run(
+                                `UPDATE expert_notifications 
+                                 SET activity_name = ?, requester_name = ?, created_at = CURRENT_TIMESTAMP
+                                 WHERE id = ?`,
+                                [activityName, requesterName, existingNotif.id],
+                                (err) => err ? reject(err) : resolve()
+                            );
                         });
-                        const newLabel = getCleanActivityLabel(assignment);
-                        const newSummary = `Domaines des Urgences - Affectation – ${newLabel} – ${requesterName}`;
-                        const newLoc = assignment.location && assignment.location !== '-' ? assignment.location : '';
-                        emailsToSend.push({ type: 'modified', to: email, subject: newSummary,
-                            html: buildInvitationHTML(attendeeName, requesterName, { activity: newLabel, location: newLoc, slots: [assignment] }, 'modified'),
-                            attachments: [{ filename: 'invitation.ics', content: buildICS({ uid: generateICSUid(), summary: newSummary, description: `Nouvelle affectation: ${newLabel}\\nLocalisation: ${newLoc || 'Non precisee'}\\nDemandeur: ${requesterName}`, location: newLoc, dtstart: formatDateICS(assignment.date, hours.start, 0), dtend: formatDateICS(assignment.date, hours.end, 0), organizer: senderEmailAddr, organizerName: requesterName, attendee: email, attendeeName, method: 'REQUEST' }), contentType: 'text/calendar; method=REQUEST' }]
+                    } else {
+                        // INSERT
+                        await new Promise((resolve, reject) => {
+                            database.run(
+                                `INSERT INTO expert_notifications (expert_id, date, period, activity_name, requester_name, action_type)
+                                 VALUES (?, ?, ?, ?, ?, 'Nouvelle affectation')`,
+                                [user.id, assignment.date, assignment.period, activityName, requesterName],
+                                (err) => err ? reject(err) : resolve()
+                            );
                         });
-                    } catch (e) { console.error(`❌ Erreur préparation MODIFIED:`, e.message); }
-                }
-                
-                for (const assignment of deletedAssigns) {
-                    try {
-                        const hours = HALF_DAY_HOURS[assignment.period];
-                        const delLabel = getCleanOldActivityLabel(assignment);
-                        const cancelSummary = `Domaines des Urgences - Affectation – ${delLabel} – ${requesterName}`;
-                        const loc = assignment.oldLocation && assignment.oldLocation !== '-' ? assignment.oldLocation : (assignment.location && assignment.location !== '-' ? assignment.location : '');
-                        emailsToSend.push({ type: 'deleted', to: email, subject: `Annule: ${cancelSummary}`,
-                            html: buildInvitationHTML(attendeeName, requesterName, { activity: delLabel, location: loc, slots: [assignment] }, 'cancelled'),
-                            attachments: [{ filename: 'annulation.ics', content: buildICS({ uid: generateICSUid(), summary: cancelSummary, description: `Cette affectation a ete supprimee par ${requesterName}.`, location: loc, dtstart: formatDateICS(assignment.date, hours.start, 0), dtend: formatDateICS(assignment.date, hours.end, 0), organizer: senderEmailAddr, organizerName: requesterName, attendee: email, attendeeName, sequence: 1, method: 'CANCEL' }), contentType: 'text/calendar; method=CANCEL' }]
-                        });
-                    } catch (e) { console.error(`❌ Erreur préparation DELETED:`, e.message); }
-                }
-            }
-            
-            console.log(`📧 ${emailsToSend.length} email(s) préparés, envoi séquentiel avec sendEmail()...`);
-            
-            // 3. ENVOYER SÉQUENTIELLEMENT AVEC sendEmail() (la même fonction qui marche pour test et demandes)
-            //    Chaque email est envoyé via un setTimeout pour laisser l'event loop traiter les autres requêtes
-            let totalSent = 0, totalFailed = 0;
-            
-            for (let i = 0; i < emailsToSend.length; i++) {
-                const mail = emailsToSend[i];
-                try {
-                    // Petit délai entre chaque email pour laisser l'event loop respirer
-                    if (i > 0) {
-                        await new Promise(resolve => setTimeout(resolve, 100));
                     }
-                    await sendEmail(mail.to, mail.subject, mail.html, mail.attachments);
-                    totalSent++;
-                    console.log(`✅ [${i+1}/${emailsToSend.length}] Email envoyé à ${mail.to} (${mail.type})`);
-                } catch (error) {
-                    totalFailed++;
-                    console.error(`❌ [${i+1}/${emailsToSend.length}] Erreur envoi à ${mail.to} (${mail.type}):`, error.message);
+                    notificationsCreated++;
                 }
             }
+        } catch (error) {
+            console.error(`❌ Erreur création notification pour resource ${resourceId}:`, error);
+        }
+    }
+    
+    console.log(`✅ ${notificationsCreated} notification(s) créée(s) en base`);
+    
+    // 2. RÉPONDRE IMMÉDIATEMENT AU CLIENT
+    res.json({
+        success: true,
+        sent: assignments.length,
+        notificationsCreated: notificationsCreated,
+        message: 'Notifications créées, emails en cours d\'envoi...'
+    });
+    
+    // 3. ENVOYER LES EMAILS EN ARRIÈRE-PLAN (après la réponse)
+    setImmediate(async () => {
+        for (const item of assignments) {
+            const { resourceId, email, expertName, expertPrenom, assignments: expertAssignments } = item;
             
-            console.log(`📊 Résultat final: ${totalSent} envoyé(s), ${totalFailed} échec(s)`);
-            
-            // Logger l'action
-            if (sessionLogId) {
-                const allEmails = assignments.map(a => a.email).filter(e => e).join(', ');
-                database.run(`UPDATE connection_logs SET modifications = modifications || ? WHERE id = ?`,
-                    [`${new Date().toLocaleString('fr-FR')}: Invitations Outlook (${totalSent}/${totalSent + totalFailed}) pour: ${allEmails}\n`, sessionLogId]);
+            if (!email) {
+                console.log(`⚠️ Pas d'email pour ${expertName}`);
+                continue;
             }
             
-        } catch (bgError) {
-            console.error('❌ Erreur traitement background:', bgError);
+            // Construire le contenu de l'email
+            const assignmentsList = expertAssignments.map(a => {
+                const [year, month, day] = a.date.split('-');
+                const dateStr = `${day}/${month}/${year}`;
+                let locationText = '';
+                if (a.location && a.location !== '-') {
+                    locationText = ` - <em>${a.location}</em>`;
+                }
+                return `<li><strong>${dateStr} (${a.period})</strong> - ${a.activity}${locationText}</li>`;
+            }).join('');
+            
+            const mailOptions = {
+                from: `"Domaine des Urgences - Planification des ressources" <${emailConfig.user}>`,
+                to: email,
+                subject: 'Nouvelle affectation - Planification GANTT',
+                html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
+                        <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                            <h2 style="color: #1D70B7; border-bottom: 2px solid #1D70B7; padding-bottom: 10px;">
+                                Nouvelle affectation
+                            </h2>
+                            
+                            <p>Bonjour ${expertPrenom || expertName},</p>
+                            
+                            <p><strong>${senderName}</strong> vous a affecté ${expertAssignments.length} nouvelle(s) activité(s) :</p>
+                            
+                            <ul style="background-color: #e3f2fd; padding: 15px 15px 15px 35px; border-left: 4px solid #2196f3; border-radius: 4px; list-style-type: disc;">
+                                ${assignmentsList}
+                            </ul>
+                            
+                            <p style="margin-top: 20px;">Cordialement,<br>Le système de planification SI-SAMU</p>
+                            
+                            <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
+                            
+                            <p style="color: #7f8c8d; font-size: 12px; text-align: center;">
+                                Cet email a été envoyé depuis le système SI-SAMU de planification des ressources.
+                            </p>
+                        </div>
+                    </div>
+                `
+            };
+            
+            try {
+                console.log(`📧 Envoi en arrière-plan à ${email} (${expertName})...`);
+                await transporter.sendMail(mailOptions);
+                console.log(`✅ Email envoyé à ${email}`);
+            } catch (error) {
+                console.error(`❌ Erreur envoi à ${email}:`, error.message);
+            }
+        }
+        
+        console.log('📧 Tous les emails ont été traités en arrière-plan');
+        
+        // Logger l'action
+        if (req.session && req.session.logId) {
+            const emails = assignments.map(a => a.email).filter(e => e).join(', ');
+            database.run(
+                `UPDATE connection_logs 
+                 SET modifications = modifications || ? 
+                 WHERE id = ?`,
+                [`${new Date().toLocaleString('fr-FR')}: Emails d'affectation envoyés à: ${emails}\n`, req.session.logId]
+            );
         }
     });
 });
-
-// Construire le HTML du body d'une invitation
-function buildInvitationHTML(attendeeName, requesterName, group, type) {
-    const isCancel = type === 'cancelled';
-    const isModified = type === 'modified';
-    const color = isCancel ? '#D60B51' : isModified ? '#ff9800' : '#1D70B7';
-    const icon = isCancel ? '❌' : isModified ? '🔄' : '📅';
-    const title = isCancel ? 'Affectation annulée' : isModified ? 'Affectation modifiée' : 'Nouvelle affectation';
-    
-    const slotsHTML = group.slots.map(s => {
-        const [y, m, d] = s.date.split('-');
-        const dateStr = `${d}/${m}/${y}`;
-        const periodStr = s.period === 'AM' ? 'Matin (8h-12h)' : 'Après-midi (14h-18h)';
-        return `<li><strong>${dateStr}</strong> - ${periodStr}</li>`;
-    }).join('');
-    
-    const locationHTML = group.location && group.location !== '-' 
-        ? `<p><strong>📍 Localisation :</strong> ${group.location}</p>` 
-        : '';
-    
-    return `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
-            <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                <h2 style="color: ${color}; border-bottom: 2px solid ${color}; padding-bottom: 10px;">
-                    ${icon} ${title}
-                </h2>
-                
-                <p>Bonjour ${attendeeName},</p>
-                
-                <p><strong>${requesterName}</strong> ${isCancel ? 'a annulé' : isModified ? 'a modifié' : 'vous a affecté'} :</p>
-                
-                <div style="background-color: ${isCancel ? '#fde8e8' : '#e3f2fd'}; padding: 15px; border-left: 4px solid ${color}; border-radius: 4px; margin: 15px 0;">
-                    <p style="margin: 0 0 8px 0;"><strong>Activité :</strong> ${group.activity}</p>
-                    ${locationHTML}
-                    <ul style="margin: 8px 0 0 0; padding-left: 20px;">${slotsHTML}</ul>
-                </div>
-                
-                ${!isCancel ? '<p style="font-size: 12px; color: #666;">💡 Cette invitation a été ajoutée à votre calendrier Outlook.</p>' : '<p style="font-size: 12px; color: #666;">Cette occurrence a été retirée de votre calendrier.</p>'}
-                
-                <p style="margin-top: 20px;">Cordialement,<br>${requesterName}<br>Système de planification SI-SAMU</p>
-                
-                <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
-                
-                <p style="color: #7f8c8d; font-size: 11px; text-align: center;">
-                    📅 Domaine des Urgences - Planification des Experts - ANS
-                </p>
-            </div>
-        </div>
-    `;
-}
 
 // ========== GESTION DES CONGÉS SCOLAIRES ==========
 
@@ -5455,7 +4970,6 @@ app.get('/api/ics-files/special-dates/all', requireAuth, async (req, res) => {
         
         customEvents.forEach(e => {
             const config = e.config ? JSON.parse(e.config) : {};
-            // Ajouter le label dans le config pour l'affichage sur le Gantt
             config.label = e.label;
             config.eventId = e.id;
             result.push({
@@ -5466,7 +4980,7 @@ app.get('/api/ics-files/special-dates/all', requireAuth, async (req, res) => {
             });
         });
         
-        // 3. Charger les participants pour les événements personnalisés
+        // Charger les participants pour les événements personnalisés
         const eventIds = customEvents.map(e => e.id);
         if (eventIds.length > 0) {
             const participants = await new Promise((resolve, reject) => {
@@ -5480,15 +4994,11 @@ app.get('/api/ics-files/special-dates/all', requireAuth, async (req, res) => {
                     (err, rows) => err ? reject(err) : resolve(rows || [])
                 );
             });
-            
-            // Grouper par event_id
             const participantsByEvent = {};
             for (const p of participants) {
                 if (!participantsByEvent[p.event_id]) participantsByEvent[p.event_id] = [];
                 participantsByEvent[p.event_id].push(`${p.prenom || ''} ${(p.nom || '').toUpperCase()}`.trim());
             }
-            
-            // Injecter dans les résultats
             for (const r of result) {
                 if (r.config && r.config.eventId && participantsByEvent[r.config.eventId]) {
                     r.config.participants = participantsByEvent[r.config.eventId];
@@ -5564,6 +5074,20 @@ database.run(`
 `, (err) => {
     if (err) console.error('Erreur création table custom_event_participants:', err);
     else console.log('✅ Table custom_event_participants créée ou existante');
+});
+
+// Migration: ajouter colonne default_tab à users
+database.all(`PRAGMA table_info(users)`, [], (err, columns) => {
+    if (!err && columns) {
+        const defaultTabCol = columns.find(col => col.name === 'default_tab');
+        if (!defaultTabCol) {
+            console.log('Migration: Ajout colonne default_tab à users...');
+            database.run(`ALTER TABLE users ADD COLUMN default_tab TEXT DEFAULT 'planning'`, (alterErr) => {
+                if (alterErr) console.error('Erreur migration default_tab:', alterErr);
+                else console.log('✅ Migration terminée: default_tab ajouté');
+            });
+        }
+    }
 });
 
 // Lister tous les événements personnalisés (admin uniquement - pour l'administration)
@@ -5665,7 +5189,7 @@ app.get('/api/my-custom-events', requireAuth, async (req, res) => {
             try {
                 const participants = await new Promise((resolve, reject) => {
                     database.all(
-                        `SELECT cep.user_id, u.nom, u.prenom, u.email, u.profile_photo
+                        `SELECT cep.user_id, u.nom, u.prenom, u.email
                          FROM custom_event_participants cep
                          JOIN users u ON cep.user_id = u.id
                          WHERE cep.event_id = ?
@@ -5690,7 +5214,8 @@ app.get('/api/my-custom-events', requireAuth, async (req, res) => {
 // Ajouter un événement personnalisé (admin via interface admin)
 app.post('/api/custom-events', requireAdmin, async (req, res) => {
     try {
-        const { startDate, endDate, label, config } = req.body;
+        const { startDate, endDate, label: rawLabel, config } = req.body;
+        const label = (rawLabel || "").toUpperCase();
         const createdBy = req.session.userId;
         
         if (!startDate || !label) {
@@ -5740,7 +5265,8 @@ app.post('/api/custom-events', requireAdmin, async (req, res) => {
 // Ajouter un événement personnalisé (utilisateurs/experts via pop-up planification)
 app.post('/api/my-custom-events', requireAuth, async (req, res) => {
     try {
-        const { startDate, endDate, label, config, participants } = req.body;
+        const { startDate, endDate, label: rawLabel, config, participants } = req.body;
+        const label = (rawLabel || "").toUpperCase();
         const createdBy = req.session.userId;
         
         if (!startDate || !label) {
@@ -5779,29 +5305,24 @@ app.post('/api/my-custom-events', requireAuth, async (req, res) => {
             }
         });
         
-        // Sauvegarder les participants
-        if (participants && Array.isArray(participants) && participants.length > 0) {
-            for (const userId of participants) {
-                try {
-                    await new Promise((resolve, reject) => {
-                        database.run(
-                            `INSERT OR IGNORE INTO custom_event_participants (event_id, user_id) VALUES (?, ?)`,
-                            [eventId, userId],
-                            (err) => err ? reject(err) : resolve()
-                        );
-                    });
-                } catch (e) {
-                    console.error(`❌ Erreur ajout participant ${userId}:`, e.message);
-                }
-            }
-        }
-        
         // Envoyer notification Teams
         sendTeamsNotificationFromServer('evenement', {
             name: label,
             date: `${formatDateFR(startDate)}${endDate && endDate !== startDate ? ' au ' + formatDateFR(endDate) : ''}`,
             createdBy: `${req.session.prenom} ${req.session.nom}`
         });
+        
+        // Sauvegarder les participants
+        if (participants && Array.isArray(participants) && participants.length > 0) {
+            for (const userId of participants) {
+                try {
+                    await new Promise((resolve, reject) => {
+                        database.run(`INSERT OR IGNORE INTO custom_event_participants (event_id, user_id) VALUES (?, ?)`,
+                            [eventId, userId], (err) => err ? reject(err) : resolve());
+                    });
+                } catch (e) { /* ignore */ }
+            }
+        }
         
         console.log(`✅ Mon événement personnalisé ajouté (ID: ${eventId}, ${participants?.length || 0} participant(s))`);
         res.json({ success: true, eventId });
@@ -5815,40 +5336,31 @@ app.post('/api/my-custom-events', requireAuth, async (req, res) => {
 app.put('/api/custom-events/:id', requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
-        const { startDate, endDate, label, config, createdBy, participants } = req.body;
+        const { startDate, endDate, label: rawLabel, config, createdBy, participants } = req.body;
+        const label = (rawLabel || "").toUpperCase();
         
         if (createdBy !== undefined) {
             await new Promise((resolve, reject) => {
-                database.run(
-                    `UPDATE custom_events SET label = ?, start_date = ?, end_date = ?, config = ?, created_by = ? WHERE id = ?`,
+                database.run(`UPDATE custom_events SET label = ?, start_date = ?, end_date = ?, config = ?, created_by = ? WHERE id = ?`,
                     [label, startDate, endDate || startDate, JSON.stringify(config), createdBy, id],
-                    (err) => err ? reject(err) : resolve()
-                );
+                    (err) => err ? reject(err) : resolve());
             });
         } else {
             await new Promise((resolve, reject) => {
-                database.run(
-                    `UPDATE custom_events SET label = ?, start_date = ?, end_date = ?, config = ? WHERE id = ?`,
+                database.run(`UPDATE custom_events SET label = ?, start_date = ?, end_date = ?, config = ? WHERE id = ?`,
                     [label, startDate, endDate || startDate, JSON.stringify(config), id],
-                    (err) => err ? reject(err) : resolve()
-                );
+                    (err) => err ? reject(err) : resolve());
             });
         }
         
         // Mettre à jour les participants
         if (participants !== undefined) {
             await new Promise((resolve, reject) => {
-                database.run(`DELETE FROM custom_event_participants WHERE event_id = ?`, [id],
-                    (err) => err ? reject(err) : resolve());
+                database.run(`DELETE FROM custom_event_participants WHERE event_id = ?`, [id], (err) => err ? reject(err) : resolve());
             });
             if (Array.isArray(participants)) {
                 for (const uid of participants) {
-                    try {
-                        await new Promise((resolve, reject) => {
-                            database.run(`INSERT OR IGNORE INTO custom_event_participants (event_id, user_id) VALUES (?, ?)`,
-                                [id, uid], (err) => err ? reject(err) : resolve());
-                        });
-                    } catch (e) { /* ignore */ }
+                    try { await new Promise((resolve, reject) => { database.run(`INSERT OR IGNORE INTO custom_event_participants (event_id, user_id) VALUES (?, ?)`, [id, uid], (err) => err ? reject(err) : resolve()); }); } catch (e) { /* ignore */ }
                 }
             }
         }
@@ -5864,7 +5376,8 @@ app.put('/api/custom-events/:id', requireAdmin, async (req, res) => {
 app.put('/api/my-custom-events/:id', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
-        const { startDate, endDate, label, config, participants } = req.body;
+        const { startDate, endDate, label: rawLabel, config, participants } = req.body;
+        const label = (rawLabel || "").toUpperCase();
         const userId = req.session.userId;
         const isAdmin = req.session.activeProfile === 'admin';
         
@@ -5893,21 +5406,14 @@ app.put('/api/my-custom-events/:id', requireAuth, async (req, res) => {
             );
         });
         
-        // Mettre à jour les participants (supprimer puis ré-insérer)
+        // Mettre à jour les participants
         if (participants !== undefined) {
             await new Promise((resolve, reject) => {
-                database.run(`DELETE FROM custom_event_participants WHERE event_id = ?`, [id],
-                    (err) => err ? reject(err) : resolve());
+                database.run(`DELETE FROM custom_event_participants WHERE event_id = ?`, [id], (err) => err ? reject(err) : resolve());
             });
-            
             if (Array.isArray(participants)) {
                 for (const uid of participants) {
-                    try {
-                        await new Promise((resolve, reject) => {
-                            database.run(`INSERT OR IGNORE INTO custom_event_participants (event_id, user_id) VALUES (?, ?)`,
-                                [id, uid], (err) => err ? reject(err) : resolve());
-                        });
-                    } catch (e) { /* ignore duplicates */ }
+                    try { await new Promise((resolve, reject) => { database.run(`INSERT OR IGNORE INTO custom_event_participants (event_id, user_id) VALUES (?, ?)`, [id, uid], (err) => err ? reject(err) : resolve()); }); } catch (e) { /* ignore */ }
                 }
             }
         }
@@ -6477,14 +5983,10 @@ Fin : ${endDateFormatted}
             });
             
             // Envoyer notification Teams
-            const expertNames = expertsWithEmail.map(e => `${e.prenom} ${e.nom}`).join(', ');
             sendTeamsNotificationFromServer('demande', {
                 from: fromName,
                 subject: subject,
-                message: message.substring(0, 500),
-                experts: expertNames,
-                startDate: startDateFormatted,
-                endDate: endDateFormatted
+                message: message.substring(0, 500) // Limiter la longueur
             });
         } else {
             res.status(500).json({
@@ -6762,6 +6264,29 @@ app.post('/api/profile/change-password', requireAuth, (req, res) => {
             res.json({ success: true });
         }
     );
+});
+
+// ========== PRÉFÉRENCES UTILISATEUR ==========
+
+// Récupérer l'onglet par défaut
+app.get('/api/profile/default-tab', requireAuth, (req, res) => {
+    database.get(`SELECT default_tab FROM users WHERE id = ?`, [req.session.userId], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ defaultTab: row?.default_tab || 'planning' });
+    });
+});
+
+// Mettre à jour l'onglet par défaut
+app.put('/api/profile/default-tab', requireAuth, (req, res) => {
+    const { defaultTab } = req.body;
+    const validTabs = ['resources', 'planning', 'reporting', 'admin', 'astreintesGestion'];
+    if (!validTabs.includes(defaultTab)) {
+        return res.status(400).json({ error: 'Onglet invalide' });
+    }
+    database.run(`UPDATE users SET default_tab = ? WHERE id = ?`, [defaultTab, req.session.userId], (err) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ success: true });
+    });
 });
 
 // ========== NOTIFICATIONS EXPERTS ==========
@@ -8956,10 +8481,8 @@ app.post('/api/teams/notify', requireAuth, async (req, res) => {
                 content = `
                     <p><strong>De :</strong> ${data.from || 'Non spécifié'}</p>
                     <p><strong>Objet :</strong> ${data.subject || 'Non spécifié'}</p>
-                    ${data.experts ? `<p><strong>Expert(s) contacté(s) :</strong> ${data.experts}</p>` : ''}
-                    ${data.startDate ? `<p><strong>Période demandée :</strong></p><p style="margin-left: 15px;">📅 Du ${data.startDate}<br>📅 Au ${data.endDate}</p>` : ''}
                     <p><strong>Message :</strong></p>
-                    <div style="background: #ffffff; border: 1px solid #e0e0e0; padding: 12px; border-radius: 5px; margin-top: 5px; color: #333333; line-height: 1.6;">
+                    <div style="background: #f5f5f5; padding: 10px; border-radius: 5px; margin-top: 5px;">
                         ${(data.message || '').replace(/\n/g, '<br>')}
                     </div>
                 `;
@@ -9358,16 +8881,4 @@ app.listen(PORT, () => {
     console.log(`🚀 Serveur démarré sur le port ${PORT}`);
     console.log(`👤 Compte admin: admin / Admin2025!`);
     console.log(`⏰ Automatisations programmées actives`);
-});
-
-// Protection contre les crash silencieux
-process.on('unhandledRejection', (reason, promise) => {
-    console.error('⚠️ Unhandled Promise Rejection:', reason);
-    console.error('⚠️ Stack:', reason?.stack || 'no stack');
-});
-
-process.on('uncaughtException', (err) => {
-    console.error('🔥 Uncaught Exception:', err);
-    console.error('🔥 Stack:', err?.stack || 'no stack');
-    // NE PAS process.exit() - on veut que le serveur continue
 });
