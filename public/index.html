@@ -846,6 +846,16 @@
                         <div style="font-size: 10px; color: #999; margin-top: 2px;">Ctrl+clic pour sélection multiple</div>
                     </div>
                     
+                    <!-- Filtrer par fonction -->
+                    <div>
+                        <label style="font-size: 12px; color: #555; display: block; margin-bottom: 5px;">Filtrer par fonction</label>
+                        <select id="reportingFonctionFilter" multiple size="4" onchange="applyReportingFonctionFilter()" style="width: 200px; height: 80px;">
+                            <option value="" selected>Toutes les fonctions</option>
+                            <!-- Rempli dynamiquement -->
+                        </select>
+                        <div style="font-size: 10px; color: #999; margin-top: 2px;">Filtre la liste des experts</div>
+                    </div>
+                    
                     <!-- Option congés -->
                     <div>
                         <label style="font-size: 12px; color: #555; display: block; margin-bottom: 5px;">&nbsp;</label>
@@ -10488,6 +10498,8 @@
         }
         
         // Charger les experts dans la liste déroulante du reporting
+        let reportingAllExperts = []; // Stocker tous les experts pour le filtrage par fonction
+        
         async function loadReportingExperts() {
             try {
                 // Initialiser les dates par défaut
@@ -10509,6 +10521,8 @@
                         return nameA.localeCompare(nameB);
                     });
                     
+                    reportingAllExperts = activeExperts;
+                    
                     activeExperts.forEach(expert => {
                         const option = document.createElement('option');
                         option.value = expert.id;
@@ -10525,10 +10539,56 @@
                             hnoSelect.appendChild(hnoOption);
                         }
                     });
+                    
+                    // Peupler le filtre par fonction du reporting
+                    updateReportingFonctionFilter(activeExperts);
                 }
             } catch (error) {
                 console.error('Erreur chargement experts reporting:', error);
             }
+        }
+        
+        function updateReportingFonctionFilter(experts) {
+            const filterSelect = document.getElementById('reportingFonctionFilter');
+            if (!filterSelect) return;
+            
+            const currentValues = Array.from(filterSelect.selectedOptions).map(opt => opt.value);
+            filterSelect.innerHTML = '<option value="">Toutes les fonctions</option>';
+            
+            const fonctions = new Set();
+            (experts || reportingAllExperts).filter(r => r.fonction).forEach(r => fonctions.add(r.fonction));
+            
+            [...fonctions].sort().forEach(f => {
+                const option = document.createElement('option');
+                option.value = f;
+                option.textContent = f;
+                if (currentValues.includes(f)) option.selected = true;
+                filterSelect.appendChild(option);
+            });
+        }
+        
+        function applyReportingFonctionFilter() {
+            const filterSelect = document.getElementById('reportingFonctionFilter');
+            const expertsSelect = document.getElementById('reportingExperts');
+            if (!filterSelect || !expertsSelect) return;
+            
+            const selectedFonctions = Array.from(filterSelect.selectedOptions).map(opt => opt.value);
+            const filterAll = selectedFonctions.includes('') || selectedFonctions.length === 0;
+            
+            // Filtrer les experts selon la fonction sélectionnée
+            const filteredExperts = filterAll 
+                ? reportingAllExperts 
+                : reportingAllExperts.filter(r => selectedFonctions.includes(r.fonction));
+            
+            // Re-peupler la liste des experts
+            expertsSelect.innerHTML = '';
+            filteredExperts.forEach(expert => {
+                const option = document.createElement('option');
+                option.value = expert.id;
+                option.textContent = `${expert.prenom} ${expert.nom}`;
+                option.selected = true;
+                expertsSelect.appendChild(option);
+            });
         }
         
         // Initialiser les dates pour le reporting HNO

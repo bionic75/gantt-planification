@@ -84,7 +84,7 @@ const database = new sqlite3.Database(DB_FILE, (err) =>
     if (err) {
         console.error('Erreur connexion DB:', err);
     } else {
-        // Activer WAL mode pour permettre lectures/écritures concurrentes
+        // Activer WAL mode pour permettre lectures/écritures concurrentes dans la BDD
         database.run('PRAGMA journal_mode = WAL', (err) => {
             if (err) console.error('❌ Erreur PRAGMA WAL:', err);
             else console.log('✅ SQLite WAL mode activé');
