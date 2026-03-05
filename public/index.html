@@ -1206,34 +1206,50 @@
                     Créez manuellement des événements avec dates, libellé et apparence personnalisée.
                 </p>
                 
-                <!-- Formulaire d'ajout -->
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr auto auto auto auto; gap: 10px; align-items: end; margin-bottom: 15px; background: #bbdefb; padding: 15px; border-radius: 5px;">
-                    <div>
-                        <label style="font-size: 11px; color: #1565c0; display: block; margin-bottom: 3px;">Date de début</label>
-                        <input type="date" id="customEventStartDate" style="width: 100%; padding: 6px;" onchange="prefillCustomEventEndDate()">
+                <!-- Formulaire d'ajout (identique à la pop-up Planification) -->
+                <div style="background: #bbdefb; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 2fr 2fr; gap: 10px; align-items: start;">
+                        <div>
+                            <label style="font-size: 11px; color: #1565c0; display: block; margin-bottom: 3px;">Date de début *</label>
+                            <input type="date" id="customEventStartDate" style="width: 100%; padding: 6px;" onchange="prefillCustomEventEndDate()">
+                        </div>
+                        <div>
+                            <label style="font-size: 11px; color: #1565c0; display: block; margin-bottom: 3px;">Date de fin</label>
+                            <input type="date" id="customEventEndDate" style="width: 100%; padding: 6px;">
+                        </div>
+                        <div>
+                            <label style="font-size: 11px; color: #1565c0; display: block; margin-bottom: 3px;">Libellé *</label>
+                            <input type="text" id="customEventLabel" placeholder="Ex: FORMATION, RÉUNION..." style="width: 100%; padding: 6px; text-transform: uppercase;" oninput="this.value = this.value.toUpperCase(); updateCustomEventPreview()">
+                        </div>
+                        <div style="position: relative;">
+                            <label style="font-size: 11px; color: #1565c0; display: block; margin-bottom: 3px;">👥 Participant(s)</label>
+                            <div id="adminEventParticipantsContainer" style="display: flex; flex-wrap: wrap; gap: 4px; padding: 3px 6px; border: 1px solid #ccc; border-radius: 4px; min-height: 32px; align-items: center; background: white; cursor: text;" onclick="document.getElementById('adminEventParticipantInput').focus()">
+                                <input type="text" id="adminEventParticipantInput" placeholder="Nom ou email..." 
+                                    style="border: none; outline: none; flex: 1; min-width: 80px; padding: 3px 0; font-size: 12px;" 
+                                    oninput="filterAdminEventParticipants(this.value)"
+                                    onfocus="filterAdminEventParticipants(this.value)"
+                                    onkeydown="handleAdminEventParticipantKeydown(event)">
+                            </div>
+                            <div id="adminEventParticipantDropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ddd; border-radius: 0 0 8px 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); max-height: 200px; overflow-y: auto; z-index: 10010;"></div>
+                        </div>
                     </div>
-                    <div>
-                        <label style="font-size: 11px; color: #1565c0; display: block; margin-bottom: 3px;">Date de fin</label>
-                        <input type="date" id="customEventEndDate" style="width: 100%; padding: 6px;">
-                    </div>
-                    <div>
-                        <label style="font-size: 11px; color: #1565c0; display: block; margin-bottom: 3px;">Libellé</label>
-                        <input type="text" id="customEventLabel" placeholder="Ex: FÉRIÉ, Congé, ..." style="width: 100%; padding: 6px; text-transform: uppercase;" oninput="this.value = this.value.toUpperCase(); updateCustomEventPreview()">
-                    </div>
-                    <div>
-                        <label style="font-size: 11px; color: #1565c0; display: block; margin-bottom: 3px;">Fond</label>
-                        <input type="color" id="customEventBgColor" value="#ffeb3b" style="width: 40px; height: 32px; padding: 0; border: 1px solid #ccc; cursor: pointer;" onchange="updateCustomEventPreview()">
-                    </div>
-                    <div>
-                        <label style="font-size: 11px; color: #1565c0; display: block; margin-bottom: 3px;">Texte</label>
-                        <input type="color" id="customEventTextColor" value="#000000" style="width: 40px; height: 32px; padding: 0; border: 1px solid #ccc; cursor: pointer;" onchange="updateCustomEventPreview()">
-                    </div>
-                    <div>
-                        <label style="font-size: 11px; color: #1565c0; display: block; margin-bottom: 3px;">Bordure</label>
-                        <input type="color" id="customEventBorderColor" value="#000000" style="width: 40px; height: 32px; padding: 0; border: 1px solid #ccc; cursor: pointer;" onchange="updateCustomEventPreview()">
-                    </div>
-                    <div>
-                        <button onclick="addCustomEvent()" style="background-color: #1e88e5; color: white; padding: 6px 15px; white-space: nowrap;">
+                    
+                    <!-- Ligne couleurs -->
+                    <div style="display: flex; align-items: end; gap: 10px; margin-top: 10px;">
+                        <div>
+                            <label style="font-size: 11px; color: #1565c0; display: block; margin-bottom: 3px;">Fond</label>
+                            <input type="color" id="customEventBgColor" value="#ffeb3b" style="width: 40px; height: 32px; padding: 0; border: 1px solid #ccc; cursor: pointer;" onchange="updateCustomEventPreview()">
+                        </div>
+                        <div>
+                            <label style="font-size: 11px; color: #1565c0; display: block; margin-bottom: 3px;">Texte</label>
+                            <input type="color" id="customEventTextColor" value="#000000" style="width: 40px; height: 32px; padding: 0; border: 1px solid #ccc; cursor: pointer;" onchange="updateCustomEventPreview()">
+                        </div>
+                        <div>
+                            <label style="font-size: 11px; color: #1565c0; display: block; margin-bottom: 3px;">Bordure</label>
+                            <input type="color" id="customEventBorderColor" value="#000000" style="width: 40px; height: 32px; padding: 0; border: 1px solid #ccc; cursor: pointer;" onchange="updateCustomEventPreview()">
+                        </div>
+                        <div style="flex: 1;"></div>
+                        <button onclick="addCustomEvent()" style="background-color: #1e88e5; color: white; padding: 8px 20px; white-space: nowrap; font-size: 13px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer;">
                             ➕ Ajouter
                         </button>
                     </div>
@@ -2213,20 +2229,134 @@
     </div>
     
     <div id="editModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width: 800px;">
             <h3>Modifier la ressource</h3>
-            <div class="form-group"><label>Nom</label><input type="text" id="editNom"></div>
-            <div class="form-group"><label>Prénom</label><input type="text" id="editPrenom"></div>
-            <div class="form-group"><label>Trigramme</label><input type="text" id="editTrigramme" maxlength="3"></div>
-            <div class="form-group"><label>Taux MAD (%)</label><input type="number" id="editTaux" min="0" max="100"></div>
-            <div class="form-group"><label>SAMU</label><input type="text" id="editSamu"></div>
-            <div class="form-group"><label>Date début MAD</label><input type="date" id="editDateDebut"></div>
-            <div class="form-group"><label>Date fin MAD</label><input type="date" id="editDateFin"></div>
+            <input type="hidden" id="editResourceId">
+            
+            <!-- Informations de base -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group"><label>Nom</label><input type="text" id="editNom"></div>
+                <div class="form-group"><label>Prénom</label><input type="text" id="editPrenom"></div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+                <div class="form-group"><label>Trigramme</label><input type="text" id="editTrigramme" maxlength="3"></div>
+                <div class="form-group"><label>SAMU</label><input type="text" id="editSamu"></div>
+                <div class="form-group"><label>Fonction</label><input type="text" id="editFonction" placeholder="Ex: Médecin..."></div>
+            </div>
             <div class="form-group"><label>ES de rattachement</label><input type="text" id="editEsRattachement" placeholder="Ex: CHU Paris"></div>
-            <div class="form-group"><label>Fonction</label><input type="text" id="editFonction" placeholder="Ex: Médecin, Infirmier..."></div>
-            <div class="modal-button-group">
+            
+            <!-- Section Historique des taux de MAD -->
+            <div style="margin-top: 20px; padding: 15px; background: #e3f2fd; border-radius: 8px;">
+                <h4 style="margin: 0 0 15px 0; color: #1565c0;">📊 Historique des taux de MAD</h4>
+                <div id="madHistoryContainer" style="max-height: 250px; overflow-y: auto;">
+                    <p style="color: #666; font-size: 12px;">Chargement...</p>
+                </div>
+                <button onclick="openAddMadModal()" style="margin-top: 10px; background: #4CAF50; color: white; padding: 8px 15px; font-size: 12px;">
+                    ➕ Ajouter un taux de MAD
+                </button>
+            </div>
+            
+            <div class="modal-button-group" style="margin-top: 20px;">
                 <button onclick="closeEditModal()" style="background-color: #95a5a6;">Annuler</button>
                 <button onclick="saveResourceEdit()">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal Ajouter/Modifier Taux MAD -->
+    <div id="madHistoryModal" class="modal" style="z-index: 10005;">
+        <div class="modal-content" style="max-width: 450px;">
+            <h3 id="madHistoryModalTitle">Ajouter un taux de MAD</h3>
+            <input type="hidden" id="madHistoryId">
+            <div class="form-group">
+                <label>Date de début *</label>
+                <input type="date" id="madDateDebut" style="width: 100%;">
+            </div>
+            <div class="form-group">
+                <label>Date de fin <span style="font-size: 11px; color: #666;">(laisser vide si en cours)</span></label>
+                <input type="date" id="madDateFin" style="width: 100%;">
+            </div>
+            <div class="form-group">
+                <label>Taux de MAD (%) *</label>
+                <input type="number" id="madTaux" min="0" max="100" style="width: 100%;" placeholder="Ex: 50, 80, 100...">
+            </div>
+            <div class="modal-button-group">
+                <button onclick="closeMadHistoryModal()" style="background-color: #95a5a6;">Annuler</button>
+                <button onclick="saveMadHistory()">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal Particularités MAD -->
+    <div id="madParticularitesModal" class="modal" style="z-index: 10005;">
+        <div class="modal-content" style="max-width: 600px;">
+            <h3>📅 Particularités du taux de MAD</h3>
+            <p style="font-size: 12px; color: #666; margin-bottom: 15px;">
+                Définissez des variations temporaires du taux de MAD sur cette période (ex: réduction temporaire, suspension...).
+            </p>
+            <input type="hidden" id="particulariteMadHistoryId">
+            
+            <div id="particularitesListContainer" style="max-height: 200px; overflow-y: auto; margin-bottom: 15px;">
+                <p style="color: #666; font-size: 12px;">Aucune particularité définie.</p>
+            </div>
+            
+            <!-- Formulaire ajout particularité -->
+            <div style="background: #fff3e0; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                <h5 style="margin: 0 0 10px 0; color: #e65100;">➕ Ajouter une particularité</h5>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+                    <div>
+                        <label style="font-size: 11px;">Date début *</label>
+                        <input type="date" id="particulariteDateDebut" style="width: 100%; padding: 6px;">
+                    </div>
+                    <div>
+                        <label style="font-size: 11px;">Date fin *</label>
+                        <input type="date" id="particulariteDateFin" style="width: 100%; padding: 6px;">
+                    </div>
+                    <div>
+                        <label style="font-size: 11px;">Taux (%) *</label>
+                        <input type="number" id="particulariteTaux" min="0" max="100" style="width: 100%; padding: 6px;" placeholder="Ex: 0, 50...">
+                    </div>
+                </div>
+                <div style="margin-top: 10px;">
+                    <label style="font-size: 11px;">Motif (optionnel)</label>
+                    <input type="text" id="particulariteMotif" style="width: 100%; padding: 6px;" placeholder="Ex: Congé maladie, Mission temporaire...">
+                </div>
+                <button onclick="addParticularite()" style="margin-top: 10px; background: #ff9800; color: white; padding: 6px 15px; font-size: 12px;">
+                    Ajouter
+                </button>
+            </div>
+            
+            <div class="modal-button-group">
+                <button onclick="closeParticularitesModal()" style="background-color: #95a5a6;">Fermer</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal Modifier Particularité -->
+    <div id="editParticulariteModal" class="modal" style="z-index: 10006;">
+        <div class="modal-content" style="max-width: 400px;">
+            <h3>Modifier la particularité</h3>
+            <input type="hidden" id="editParticulariteId">
+            <input type="hidden" id="editParticulariteMadHistoryId">
+            <div class="form-group">
+                <label>Date de début *</label>
+                <input type="date" id="editParticulariteDateDebut" style="width: 100%;">
+            </div>
+            <div class="form-group">
+                <label>Date de fin *</label>
+                <input type="date" id="editParticulariteDateFin" style="width: 100%;">
+            </div>
+            <div class="form-group">
+                <label>Taux de MAD (%) *</label>
+                <input type="number" id="editParticulariteTaux" min="0" max="100" style="width: 100%;">
+            </div>
+            <div class="form-group">
+                <label>Motif</label>
+                <input type="text" id="editParticulariteMotif" style="width: 100%;">
+            </div>
+            <div class="modal-button-group">
+                <button onclick="closeEditParticulariteModal()" style="background-color: #95a5a6;">Annuler</button>
+                <button onclick="saveParticulariteEdit()">Enregistrer</button>
             </div>
         </div>
     </div>
@@ -6362,6 +6492,11 @@
                 const response = await fetch(`${API_URL}/resources`, { credentials: 'include' });
                 if (!response.ok) throw new Error('Erreur chargement ressources');
                 resources = await response.json();
+                
+                // Charger le cache MAD avant d'afficher les ressources
+                await loadAllMadHistoryCache();
+                console.log('✅ Cache MAD chargé');
+                
                 displayResources();
                 updateResourceFilter();
             } catch (error) {
@@ -6424,50 +6559,99 @@
         function getResourceStatus(resource) {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
+            const todayStr = today.toISOString().split('T')[0];
             
-            if (!resource.date_debut) {
+            // Utiliser l'historique MAD si disponible
+            const madHistory = window.resourceMadHistoryCache ? window.resourceMadHistoryCache[resource.id] : null;
+            
+            let dateDebut = resource.date_debut;
+            let dateFin = resource.date_fin;
+            
+            if (madHistory && madHistory.length > 0) {
+                // Trier par date de début
+                const sorted = [...madHistory].sort((a, b) => a.date_debut.localeCompare(b.date_debut));
+                // La première date de début de l'historique
+                dateDebut = sorted[0].date_debut;
+                // La dernière date de fin (null = en cours)
+                const lastPeriod = sorted[sorted.length - 1];
+                dateFin = lastPeriod.date_fin;
+            }
+            
+            if (!dateDebut) {
                 return { text: 'Non démarré', class: 'pending' };
             }
             
-            const dateDebut = new Date(resource.date_debut);
-            dateDebut.setHours(0, 0, 0, 0);
+            const dateDebutObj = new Date(dateDebut);
+            dateDebutObj.setHours(0, 0, 0, 0);
             
-            if (today < dateDebut) {
+            if (today < dateDebutObj) {
                 return { text: 'À venir', class: 'pending' };
             }
             
-            if (resource.date_fin) {
-                const dateFin = new Date(resource.date_fin);
-                dateFin.setHours(0, 0, 0, 0);
+            if (dateFin) {
+                const dateFinObj = new Date(dateFin);
+                dateFinObj.setHours(0, 0, 0, 0);
                 
-                if (today > dateFin) {
+                if (today > dateFinObj) {
                     return { text: 'Terminé', class: 'inactive' };
                 }
             }
             
             return { text: 'En cours', class: 'active' };
         }
+        
+        // Obtenir les dates de début et fin MAD depuis l'historique
+        function getResourceMadDates(resourceId) {
+            const madHistory = window.resourceMadHistoryCache ? window.resourceMadHistoryCache[resourceId] : null;
+            const resource = resources.find(r => r.id === resourceId);
+            
+            let dateDebut = resource ? resource.date_debut : null;
+            let dateFin = resource ? resource.date_fin : null;
+            
+            if (madHistory && madHistory.length > 0) {
+                const sorted = [...madHistory].sort((a, b) => a.date_debut.localeCompare(b.date_debut));
+                dateDebut = sorted[0].date_debut;
+                const lastPeriod = sorted[sorted.length - 1];
+                dateFin = lastPeriod.date_fin;
+            }
+            
+            return { dateDebut, dateFin };
+        }
 
         function isDateAccessible(resource, date) {
             const checkDate = new Date(date);
             checkDate.setHours(0, 0, 0, 0);
+            const checkDateStr = checkDate.toISOString().split('T')[0];
             
-            if (!resource.date_debut) {
+            // Utiliser l'historique MAD si disponible
+            const madHistory = window.resourceMadHistoryCache ? window.resourceMadHistoryCache[resource.id] : null;
+            
+            let dateDebut = resource.date_debut;
+            let dateFin = resource.date_fin;
+            
+            if (madHistory && madHistory.length > 0) {
+                const sorted = [...madHistory].sort((a, b) => a.date_debut.localeCompare(b.date_debut));
+                dateDebut = sorted[0].date_debut;
+                const lastPeriod = sorted[sorted.length - 1];
+                dateFin = lastPeriod.date_fin;
+            }
+            
+            if (!dateDebut) {
                 return false;
             }
             
-            const dateDebut = new Date(resource.date_debut);
-            dateDebut.setHours(0, 0, 0, 0);
+            const dateDebutObj = new Date(dateDebut);
+            dateDebutObj.setHours(0, 0, 0, 0);
             
-            if (checkDate < dateDebut) {
+            if (checkDate < dateDebutObj) {
                 return false;
             }
             
-            if (resource.date_fin) {
-                const dateFin = new Date(resource.date_fin);
-                dateFin.setHours(0, 0, 0, 0);
+            if (dateFin) {
+                const dateFinObj = new Date(dateFin);
+                dateFinObj.setHours(0, 0, 0, 0);
                 
-                if (checkDate > dateFin) {
+                if (checkDate > dateFinObj) {
                     return false;
                 }
             }
@@ -6548,6 +6732,8 @@
             
             sortedResources.forEach(r => {
                 const status = getResourceStatus(r);
+                // Obtenir les dates depuis l'historique MAD
+                const madDates = getResourceMadDates(r.id);
                 const row = tbody.insertRow();
                 row.innerHTML = `
                     <td>${r.nom}</td>
@@ -6557,8 +6743,8 @@
                     <td>${r.samu}</td>
                     <td>${r.es_rattachement || '-'}</td>
                     <td>${r.fonction || '-'}</td>
-                    <td>${formatDate(r.date_debut)}</td>
-                    <td>${formatDate(r.date_fin)}</td>
+                    <td>${formatDate(madDates.dateDebut || r.date_debut)}</td>
+                    <td>${formatDate(madDates.dateFin || r.date_fin)}</td>
                     <td><span class="date-badge ${status.class}">${status.text}</span></td>
                     <td><label class="toggle-switch"><input type="checkbox" ${r.actif ? 'checked' : ''} onchange="toggleActive(${r.id})"><span class="slider"></span></label></td>
                     <td>
@@ -6569,32 +6755,413 @@
             });
         }
 
-        function openEditModal(id) {
+        // Variable pour stocker l'historique MAD de la ressource en cours d'édition
+        let currentResourceMadHistory = [];
+
+        async function openEditModal(id) {
             const resource = resources.find(r => r.id === id);
             if (!resource) return;
             currentEditId = id;
+            document.getElementById('editResourceId').value = id;
             document.getElementById('editNom').value = resource.nom;
             document.getElementById('editPrenom').value = resource.prenom;
             document.getElementById('editTrigramme').value = resource.trigramme || '';
-            document.getElementById('editTaux').value = resource.taux;
             document.getElementById('editSamu').value = resource.samu;
-            document.getElementById('editDateDebut').value = resource.date_debut || '';
-            document.getElementById('editDateFin').value = resource.date_fin || '';
             document.getElementById('editEsRattachement').value = resource.es_rattachement || '';
             document.getElementById('editFonction').value = resource.fonction || '';
+            
+            // Charger l'historique MAD
+            await loadMadHistory(id);
+            
             document.getElementById('editModal').classList.add('active');
         }
-
-        async function saveResourceEdit() {
-            const dateDebut = document.getElementById('editDateDebut').value;
-            const dateFin = document.getElementById('editDateFin').value;
-
-            if (dateDebut && dateFin && new Date(dateDebut) > new Date(dateFin)) {
+        
+        async function loadMadHistory(resourceId) {
+            const container = document.getElementById('madHistoryContainer');
+            container.innerHTML = '<p style="color: #666; font-size: 12px;">Chargement...</p>';
+            
+            try {
+                const response = await fetch(`${API_URL}/resources/${resourceId}/mad-history`, { credentials: 'include' });
+                if (response.ok) {
+                    currentResourceMadHistory = await response.json();
+                    
+                    // Si pas d'historique, créer une entrée par défaut basée sur la ressource
+                    if (currentResourceMadHistory.length === 0) {
+                        const resource = resources.find(r => r.id === resourceId);
+                        if (resource) {
+                            // Créer automatiquement une entrée initiale
+                            await fetch(`${API_URL}/resources/${resourceId}/mad-history`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                credentials: 'include',
+                                body: JSON.stringify({
+                                    taux: resource.taux,
+                                    date_debut: resource.date_debut || new Date().toISOString().split('T')[0],
+                                    date_fin: null
+                                })
+                            });
+                            // Recharger
+                            const resp2 = await fetch(`${API_URL}/resources/${resourceId}/mad-history`, { credentials: 'include' });
+                            if (resp2.ok) {
+                                currentResourceMadHistory = await resp2.json();
+                            }
+                        }
+                    }
+                    
+                    renderMadHistory();
+                } else {
+                    container.innerHTML = '<p style="color: #e74c3c; font-size: 12px;">Erreur de chargement</p>';
+                }
+            } catch (error) {
+                console.error('Erreur chargement historique MAD:', error);
+                container.innerHTML = '<p style="color: #e74c3c; font-size: 12px;">Erreur de chargement</p>';
+            }
+        }
+        
+        function renderMadHistory() {
+            const container = document.getElementById('madHistoryContainer');
+            
+            if (currentResourceMadHistory.length === 0) {
+                container.innerHTML = '<p style="color: #666; font-size: 12px; font-style: italic;">Aucun historique de taux MAD</p>';
+                return;
+            }
+            
+            // Trier par date de début
+            const sorted = [...currentResourceMadHistory].sort((a, b) => a.date_debut.localeCompare(b.date_debut));
+            const showDelete = sorted.length > 1;
+            
+            let html = '<table style="width: 100%; border-collapse: collapse; font-size: 12px;">';
+            html += `<thead>
+                <tr style="background: #1565c0; color: white;">
+                    <th style="padding: 8px; text-align: left;">Date début</th>
+                    <th style="padding: 8px; text-align: left;">Date fin</th>
+                    <th style="padding: 8px; text-align: center;">Taux</th>
+                    <th style="padding: 8px; text-align: center;">Actions</th>
+                </tr>
+            </thead><tbody>`;
+            
+            sorted.forEach((mad, index) => {
+                const isLast = index === sorted.length - 1;
+                const dateDebutStr = mad.date_debut ? new Date(mad.date_debut).toLocaleDateString('fr-FR') : '-';
+                const dateFinStr = mad.date_fin ? new Date(mad.date_fin).toLocaleDateString('fr-FR') : '<em style="color:#999;">En cours</em>';
+                
+                html += `<tr style="border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 8px;">${dateDebutStr}</td>
+                    <td style="padding: 8px;">${dateFinStr}</td>
+                    <td style="padding: 8px; text-align: center; font-weight: bold; color: ${mad.taux === 0 ? '#e74c3c' : '#2e7d32'};">${mad.taux}%</td>
+                    <td style="padding: 8px; text-align: center;">
+                        <button onclick="openParticularitesModal(${mad.id})" style="background: #9c27b0; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 10px; margin-right: 3px;" title="Gérer les particularités">📅</button>
+                        <button onclick="openEditMadModal(${mad.id})" style="background: #1e88e5; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 10px; margin-right: 3px;" title="Modifier">✏️</button>
+                        ${showDelete ? `<button onclick="deleteMadHistory(${mad.id})" style="background: #e53935; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 10px;" title="Supprimer">🗑️</button>` : ''}
+                    </td>
+                </tr>`;
+            });
+            
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+        
+        function openAddMadModal() {
+            document.getElementById('madHistoryModalTitle').textContent = 'Ajouter un taux de MAD';
+            document.getElementById('madHistoryId').value = '';
+            document.getElementById('madDateDebut').value = '';
+            document.getElementById('madDateFin').value = '';
+            document.getElementById('madTaux').value = '';
+            document.getElementById('madHistoryModal').classList.add('active');
+        }
+        
+        function openEditMadModal(historyId) {
+            const mad = currentResourceMadHistory.find(m => m.id === historyId);
+            if (!mad) return;
+            
+            document.getElementById('madHistoryModalTitle').textContent = 'Modifier le taux de MAD';
+            document.getElementById('madHistoryId').value = historyId;
+            document.getElementById('madDateDebut').value = mad.date_debut || '';
+            document.getElementById('madDateFin').value = mad.date_fin || '';
+            document.getElementById('madTaux').value = mad.taux;
+            document.getElementById('madHistoryModal').classList.add('active');
+        }
+        
+        function closeMadHistoryModal() {
+            document.getElementById('madHistoryModal').classList.remove('active');
+        }
+        
+        async function saveMadHistory() {
+            const historyId = document.getElementById('madHistoryId').value;
+            const dateDebut = document.getElementById('madDateDebut').value;
+            const dateFin = document.getElementById('madDateFin').value;
+            const taux = document.getElementById('madTaux').value;
+            const resourceId = currentEditId;
+            
+            if (!dateDebut || taux === '') {
+                alert('Veuillez remplir la date de début et le taux');
+                return;
+            }
+            
+            if (dateFin && dateDebut > dateFin) {
                 alert('La date de fin doit être postérieure à la date de début');
                 return;
             }
-
+            
             try {
+                let response;
+                if (historyId) {
+                    // Modification
+                    response = await fetch(`${API_URL}/resources/${resourceId}/mad-history/${historyId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({ taux: parseFloat(taux), date_debut: dateDebut, date_fin: dateFin || null })
+                    });
+                } else {
+                    // Ajout
+                    response = await fetch(`${API_URL}/resources/${resourceId}/mad-history`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({ taux: parseFloat(taux), date_debut: dateDebut, date_fin: dateFin || null })
+                    });
+                }
+                
+                if (response.ok) {
+                    closeMadHistoryModal();
+                    await loadMadHistory(resourceId);
+                    await loadResources(); // Recharger pour mettre à jour le taux actuel
+                } else {
+                    const err = await response.json();
+                    alert('Erreur: ' + err.error);
+                }
+            } catch (error) {
+                console.error('Erreur sauvegarde MAD:', error);
+                alert('Erreur: ' + error.message);
+            }
+        }
+        
+        async function deleteMadHistory(historyId) {
+            if (!confirm('Confirmer la suppression de cette période de MAD ?')) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/resources/${currentEditId}/mad-history/${historyId}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    await loadMadHistory(currentEditId);
+                } else {
+                    const err = await response.json();
+                    alert('Erreur: ' + err.error);
+                }
+            } catch (error) {
+                console.error('Erreur suppression MAD:', error);
+                alert('Erreur: ' + error.message);
+            }
+        }
+        
+        // ========== GESTION DES PARTICULARITÉS ==========
+        let currentParticularites = [];
+        let currentMadHistoryId = null;
+        
+        async function openParticularitesModal(madHistoryId) {
+            currentMadHistoryId = madHistoryId;
+            document.getElementById('particulariteMadHistoryId').value = madHistoryId;
+            
+            // Récupérer la période MAD parente pour afficher les limites
+            const mad = currentResourceMadHistory.find(m => m.id === madHistoryId);
+            if (mad) {
+                document.getElementById('particulariteDateDebut').min = mad.date_debut;
+                document.getElementById('particulariteDateFin').min = mad.date_debut;
+                if (mad.date_fin) {
+                    document.getElementById('particulariteDateDebut').max = mad.date_fin;
+                    document.getElementById('particulariteDateFin').max = mad.date_fin;
+                }
+            }
+            
+            await loadParticularites(madHistoryId);
+            document.getElementById('madParticularitesModal').classList.add('active');
+        }
+        
+        function closeParticularitesModal() {
+            document.getElementById('madParticularitesModal').classList.remove('active');
+            currentMadHistoryId = null;
+            currentParticularites = [];
+        }
+        
+        async function loadParticularites(madHistoryId) {
+            const container = document.getElementById('particularitesListContainer');
+            
+            try {
+                const response = await fetch(`${API_URL}/resources/${currentEditId}/mad-history/${madHistoryId}/particularites`, { credentials: 'include' });
+                if (response.ok) {
+                    currentParticularites = await response.json();
+                    renderParticularites();
+                }
+            } catch (error) {
+                console.error('Erreur chargement particularités:', error);
+            }
+        }
+        
+        function renderParticularites() {
+            const container = document.getElementById('particularitesListContainer');
+            
+            if (currentParticularites.length === 0) {
+                container.innerHTML = '<p style="color: #666; font-size: 12px; font-style: italic;">Aucune particularité définie pour cette période.</p>';
+                return;
+            }
+            
+            let html = '<table style="width: 100%; border-collapse: collapse; font-size: 11px;">';
+            html += `<thead>
+                <tr style="background: #9c27b0; color: white;">
+                    <th style="padding: 6px;">Période</th>
+                    <th style="padding: 6px;">Taux</th>
+                    <th style="padding: 6px;">Motif</th>
+                    <th style="padding: 6px;">Actions</th>
+                </tr>
+            </thead><tbody>`;
+            
+            currentParticularites.forEach(p => {
+                const dateDebutStr = new Date(p.date_debut).toLocaleDateString('fr-FR');
+                const dateFinStr = new Date(p.date_fin).toLocaleDateString('fr-FR');
+                
+                html += `<tr style="border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 6px;">${dateDebutStr} - ${dateFinStr}</td>
+                    <td style="padding: 6px; text-align: center; font-weight: bold; color: ${p.taux === 0 ? '#e74c3c' : '#ff9800'};">${p.taux}%</td>
+                    <td style="padding: 6px; font-size: 10px; color: #666;">${p.motif || '-'}</td>
+                    <td style="padding: 6px; text-align: center;">
+                        <button onclick="openEditParticulariteModal(${p.id})" style="background: #1e88e5; color: white; border: none; padding: 3px 6px; border-radius: 3px; cursor: pointer; font-size: 10px; margin-right: 2px;">✏️</button>
+                        <button onclick="deleteParticularite(${p.id})" style="background: #e53935; color: white; border: none; padding: 3px 6px; border-radius: 3px; cursor: pointer; font-size: 10px;">🗑️</button>
+                    </td>
+                </tr>`;
+            });
+            
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+        
+        async function addParticularite() {
+            const dateDebut = document.getElementById('particulariteDateDebut').value;
+            const dateFin = document.getElementById('particulariteDateFin').value;
+            const taux = document.getElementById('particulariteTaux').value;
+            const motif = document.getElementById('particulariteMotif').value;
+            
+            if (!dateDebut || !dateFin || taux === '') {
+                alert('Veuillez remplir les dates et le taux');
+                return;
+            }
+            
+            if (dateDebut > dateFin) {
+                alert('La date de fin doit être postérieure à la date de début');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/resources/${currentEditId}/mad-history/${currentMadHistoryId}/particularites`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ taux: parseFloat(taux), date_debut: dateDebut, date_fin: dateFin, motif: motif || null })
+                });
+                
+                if (response.ok) {
+                    // Réinitialiser le formulaire
+                    document.getElementById('particulariteDateDebut').value = '';
+                    document.getElementById('particulariteDateFin').value = '';
+                    document.getElementById('particulariteTaux').value = '';
+                    document.getElementById('particulariteMotif').value = '';
+                    await loadParticularites(currentMadHistoryId);
+                } else {
+                    const err = await response.json();
+                    alert('Erreur: ' + err.error);
+                }
+            } catch (error) {
+                console.error('Erreur ajout particularité:', error);
+                alert('Erreur: ' + error.message);
+            }
+        }
+        
+        function openEditParticulariteModal(particulariteId) {
+            const p = currentParticularites.find(x => x.id === particulariteId);
+            if (!p) return;
+            
+            document.getElementById('editParticulariteId').value = particulariteId;
+            document.getElementById('editParticulariteMadHistoryId').value = currentMadHistoryId;
+            document.getElementById('editParticulariteDateDebut').value = p.date_debut;
+            document.getElementById('editParticulariteDateFin').value = p.date_fin;
+            document.getElementById('editParticulariteTaux').value = p.taux;
+            document.getElementById('editParticulariteMotif').value = p.motif || '';
+            document.getElementById('editParticulariteModal').classList.add('active');
+        }
+        
+        function closeEditParticulariteModal() {
+            document.getElementById('editParticulariteModal').classList.remove('active');
+        }
+        
+        async function saveParticulariteEdit() {
+            const particulariteId = document.getElementById('editParticulariteId').value;
+            const dateDebut = document.getElementById('editParticulariteDateDebut').value;
+            const dateFin = document.getElementById('editParticulariteDateFin').value;
+            const taux = document.getElementById('editParticulariteTaux').value;
+            const motif = document.getElementById('editParticulariteMotif').value;
+            
+            try {
+                const response = await fetch(`${API_URL}/resources/${currentEditId}/mad-history/${currentMadHistoryId}/particularites/${particulariteId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ taux: parseFloat(taux), date_debut: dateDebut, date_fin: dateFin, motif: motif || null })
+                });
+                
+                if (response.ok) {
+                    closeEditParticulariteModal();
+                    await loadParticularites(currentMadHistoryId);
+                } else {
+                    const err = await response.json();
+                    alert('Erreur: ' + err.error);
+                }
+            } catch (error) {
+                console.error('Erreur modification particularité:', error);
+                alert('Erreur: ' + error.message);
+            }
+        }
+        
+        async function deleteParticularite(particulariteId) {
+            if (!confirm('Confirmer la suppression de cette particularité ?')) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/resources/${currentEditId}/mad-history/${currentMadHistoryId}/particularites/${particulariteId}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    await loadParticularites(currentMadHistoryId);
+                } else {
+                    const err = await response.json();
+                    alert('Erreur: ' + err.error);
+                }
+            } catch (error) {
+                console.error('Erreur suppression particularité:', error);
+                alert('Erreur: ' + error.message);
+            }
+        }
+
+        async function saveResourceEdit() {
+            try {
+                // Récupérer le taux actuel (celui de la période en cours) depuis l'historique
+                const today = new Date().toISOString().split('T')[0];
+                let currentTaux = 0;
+                for (const mad of currentResourceMadHistory) {
+                    if (mad.date_debut <= today && (!mad.date_fin || mad.date_fin >= today)) {
+                        currentTaux = mad.taux;
+                        break;
+                    }
+                }
+                // Si aucune période en cours, prendre le dernier taux
+                if (currentTaux === 0 && currentResourceMadHistory.length > 0) {
+                    const sorted = [...currentResourceMadHistory].sort((a, b) => b.date_debut.localeCompare(a.date_debut));
+                    currentTaux = sorted[0].taux;
+                }
+                
                 const response = await fetch(`${API_URL}/resources/${currentEditId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
@@ -6605,10 +7172,10 @@
                         trigramme: document.getElementById('editTrigramme').value,
                         email: null,
                         telephone: null,
-                        taux: parseFloat(document.getElementById('editTaux').value),
+                        taux: currentTaux,
                         samu: document.getElementById('editSamu').value,
-                        date_debut: dateDebut || null,
-                        date_fin: dateFin || null,
+                        date_debut: null, // Les dates sont maintenant gérées dans l'historique MAD
+                        date_fin: null,
                         es_rattachement: document.getElementById('editEsRattachement').value || null,
                         fonction: document.getElementById('editFonction').value || null
                     })
@@ -6631,6 +7198,7 @@
         function closeEditModal() {
             document.getElementById('editModal').classList.remove('active');
             currentEditId = null;
+            currentResourceMadHistory = [];
         }
 
         async function toggleActive(id) {
@@ -6857,21 +7425,66 @@
             const firstDayOfMonth = new Date(year, month, 1);
             const lastDayOfMonth = new Date(year, month + 1, 0);
             
-            console.log(`📅 Calcul jours attendus pour ${resource.nom} - ${month+1}/${year}:`, {
-                date_debut: resource.date_debut,
-                date_fin: resource.date_fin,
-                taux: resource.taux
-            });
+            // Si on a un historique MAD chargé pour cette ressource, l'utiliser
+            // Sinon, calculer avec l'ancien système
+            const madHistory = window.resourceMadHistoryCache ? window.resourceMadHistoryCache[resourceId] : null;
+            const particularites = window.resourceParticularitesCache ? window.resourceParticularitesCache[resourceId] : null;
+            
+            // Si pas de cache MAD, utiliser l'ancien système
+            if (!madHistory || madHistory.length === 0) {
+                return calculateExpectedWorkDaysLegacy(resource, year, month);
+            }
+            
+            // Nouveau calcul jour par jour avec l'historique MAD
+            let totalDays = 0;
+            const currentDate = new Date(year, month, 1);
+            
+            while (currentDate.getMonth() === month && currentDate.getFullYear() === year) {
+                // Exclure les week-ends
+                if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6) {
+                    const dateStr = currentDate.toISOString().split('T')[0];
+                    
+                    // Trouver le taux applicable pour cette date
+                    let tauxJour = 0;
+                    
+                    // D'abord vérifier les particularités
+                    if (particularites && particularites.length > 0) {
+                        const partMatch = particularites.find(p => p.date_debut <= dateStr && p.date_fin >= dateStr);
+                        if (partMatch) {
+                            tauxJour = partMatch.taux;
+                        }
+                    }
+                    
+                    // Si pas de particularité, chercher dans l'historique MAD
+                    if (tauxJour === 0 || !particularites || particularites.length === 0 || !particularites.find(p => p.date_debut <= dateStr && p.date_fin >= dateStr)) {
+                        const madMatch = madHistory.find(m => m.date_debut <= dateStr && (!m.date_fin || m.date_fin >= dateStr));
+                        if (madMatch) {
+                            // Vérifier si une particularité s'applique
+                            const partOverride = particularites ? particularites.find(p => p.date_debut <= dateStr && p.date_fin >= dateStr) : null;
+                            tauxJour = partOverride ? partOverride.taux : madMatch.taux;
+                        }
+                    }
+                    
+                    // Ajouter la fraction de jour
+                    totalDays += tauxJour / 100;
+                }
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+            
+            return totalDays.toFixed(1);
+        }
+        
+        // Ancienne fonction de calcul (fallback)
+        function calculateExpectedWorkDaysLegacy(resource, year, month) {
+            const firstDayOfMonth = new Date(year, month, 1);
+            const lastDayOfMonth = new Date(year, month + 1, 0);
             
             // Date de début de MAD
             let startDate = firstDayOfMonth;
             if (resource.date_debut) {
                 const madStartDate = new Date(resource.date_debut);
-                console.log(`  🟢 Date début MAD: ${madStartDate.toISOString().split('T')[0]}`);
-                // Si la MAD commence après le début du mois, utiliser cette date
                 if (madStartDate > firstDayOfMonth) {
                     startDate = madStartDate;
-                    console.log(`  ✅ MAD commence en cours de mois, startDate = ${startDate.toISOString().split('T')[0]}`);
                 }
             }
             
@@ -6879,19 +7492,13 @@
             let endDate = lastDayOfMonth;
             if (resource.date_fin) {
                 const madEndDate = new Date(resource.date_fin);
-                console.log(`  🔴 Date fin MAD: ${madEndDate.toISOString().split('T')[0]}`);
-                // Si la MAD se termine avant la fin du mois, utiliser cette date
                 if (madEndDate < lastDayOfMonth) {
                     endDate = madEndDate;
-                    console.log(`  ✅ MAD se termine en cours de mois, endDate = ${endDate.toISOString().split('T')[0]}`);
                 }
             }
             
-            console.log(`  📆 Période effective: ${startDate.toISOString().split('T')[0]} → ${endDate.toISOString().split('T')[0]}`);
-            
             // Si la période de MAD ne touche pas ce mois, retourner 0
             if (startDate > lastDayOfMonth || endDate < firstDayOfMonth) {
-                console.log(`  ❌ MAD ne touche pas ce mois`);
                 return 0;
             }
             
@@ -6899,9 +7506,7 @@
             let workDays = 0;
             const currentDate = new Date(startDate);
             while (currentDate <= endDate) {
-                // Vérifier que c'est dans le mois concerné
                 if (currentDate.getMonth() === month && currentDate.getFullYear() === year) {
-                    // Exclure les week-ends (0 = dimanche, 6 = samedi)
                     if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6) {
                         workDays++;
                     }
@@ -6909,12 +7514,63 @@
                 currentDate.setDate(currentDate.getDate() + 1);
             }
             
-            console.log(`  📊 Jours ouvrés: ${workDays}, Taux: ${resource.taux}%`);
-            
             // Appliquer le taux de MAD
             const result = ((workDays * resource.taux) / 100).toFixed(1);
-            console.log(`  ✅ Résultat final: ${result} jours`);
             return result;
+        }
+        
+        // Fonction pour charger le cache MAD pour toutes les ressources
+        async function loadAllMadHistoryCache() {
+            window.resourceMadHistoryCache = {};
+            window.resourceParticularitesCache = {};
+            
+            for (const resource of resources) {
+                try {
+                    // Charger l'historique MAD
+                    const histResponse = await fetch(`${API_URL}/resources/${resource.id}/mad-history`, { credentials: 'include' });
+                    if (histResponse.ok) {
+                        window.resourceMadHistoryCache[resource.id] = await histResponse.json();
+                        
+                        // Charger les particularités pour chaque période MAD
+                        window.resourceParticularitesCache[resource.id] = [];
+                        for (const mad of window.resourceMadHistoryCache[resource.id]) {
+                            const partResponse = await fetch(`${API_URL}/resources/${resource.id}/mad-history/${mad.id}/particularites`, { credentials: 'include' });
+                            if (partResponse.ok) {
+                                const parts = await partResponse.json();
+                                window.resourceParticularitesCache[resource.id].push(...parts);
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error(`Erreur chargement MAD pour ressource ${resource.id}:`, e);
+                }
+            }
+        }
+        
+        // Fonction pour obtenir le taux MAD effectif pour une ressource et une date
+        function getEffectiveMadRate(resourceId, dateStr) {
+            const madHistory = window.resourceMadHistoryCache ? window.resourceMadHistoryCache[resourceId] : null;
+            const particularites = window.resourceParticularitesCache ? window.resourceParticularitesCache[resourceId] : null;
+            
+            // Vérifier les particularités d'abord
+            if (particularites && particularites.length > 0) {
+                const partMatch = particularites.find(p => p.date_debut <= dateStr && p.date_fin >= dateStr);
+                if (partMatch) {
+                    return { taux: partMatch.taux, source: 'particularite', motif: partMatch.motif };
+                }
+            }
+            
+            // Sinon chercher dans l'historique MAD
+            if (madHistory && madHistory.length > 0) {
+                const madMatch = madHistory.find(m => m.date_debut <= dateStr && (!m.date_fin || m.date_fin >= dateStr));
+                if (madMatch) {
+                    return { taux: madMatch.taux, source: 'history' };
+                }
+            }
+            
+            // Par défaut, utiliser le taux de la ressource
+            const resource = resources.find(r => r.id === resourceId);
+            return { taux: resource ? resource.taux : 0, source: 'resource' };
         }
 
         function toggleAvailability(resourceId, dateKey, period = '') {
@@ -11963,6 +12619,105 @@
             }
         }
         
+        // ========== GESTION PARTICIPANTS ADMIN (copie exacte de la pop-up Planification) ==========
+        let adminEventSelectedParticipants = []; // [{id, nom, prenom, email}]
+        
+        function getAdminEventParticipantInitials(prenom, nom) {
+            return ((prenom || '')[0] || '').toUpperCase() + ((nom || '')[0] || '').toUpperCase();
+        }
+        
+        function getAdminEventParticipantColor(name) {
+            let hash = 0;
+            for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+            const colors = ['#e91e63','#9c27b0','#673ab7','#3f51b5','#2196f3','#009688','#4caf50','#ff9800','#795548','#607d8b'];
+            return colors[Math.abs(hash) % colors.length];
+        }
+        
+        function renderAdminEventParticipantTags() {
+            const container = document.getElementById('adminEventParticipantsContainer');
+            const input = document.getElementById('adminEventParticipantInput');
+            if (!container || !input) return;
+            container.querySelectorAll('.participant-tag').forEach(t => t.remove());
+            adminEventSelectedParticipants.forEach(p => {
+                const tag = document.createElement('span');
+                tag.className = 'participant-tag';
+                const displayName = `${p.prenom || ''} ${(p.nom || '').toUpperCase()}`.trim();
+                const initials = getAdminEventParticipantInitials(p.prenom, p.nom);
+                const color = getAdminEventParticipantColor(displayName);
+                tag.innerHTML = `<span style="display:inline-flex;align-items:center;gap:4px;background:#f0f0f0;border:1px solid #ddd;border-radius:15px;padding:2px 8px 2px 2px;font-size:11px;white-space:nowrap;">
+                    <span style="width:20px;height:20px;border-radius:50%;background:${color};color:white;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:bold;">${initials}</span>
+                    <span style="color:#333;">${displayName}</span>
+                    <span onclick="removeAdminEventParticipant(${p.id})" style="cursor:pointer;color:#999;font-size:14px;line-height:1;margin-left:2px;" title="Retirer">&times;</span>
+                </span>`;
+                container.insertBefore(tag, input);
+            });
+        }
+        
+        function removeAdminEventParticipant(userId) {
+            adminEventSelectedParticipants = adminEventSelectedParticipants.filter(p => p.id !== userId);
+            renderAdminEventParticipantTags();
+        }
+        
+        function addAdminEventParticipant(user) {
+            if (adminEventSelectedParticipants.some(p => p.id === user.id)) return;
+            adminEventSelectedParticipants.push({ id: user.id, nom: user.nom, prenom: user.prenom, email: user.email });
+            renderAdminEventParticipantTags();
+            const input = document.getElementById('adminEventParticipantInput');
+            if (input) { input.value = ''; input.focus(); }
+            document.getElementById('adminEventParticipantDropdown').style.display = 'none';
+        }
+        
+        function filterAdminEventParticipants(query) {
+            const dropdown = document.getElementById('adminEventParticipantDropdown');
+            if (!dropdown) return;
+            const q = (query || '').toLowerCase().trim();
+            const selectedIds = new Set(adminEventSelectedParticipants.map(p => p.id));
+            const filtered = users.filter(u => {
+                if (selectedIds.has(u.id)) return false;
+                if (!q) return true;
+                const fullName = `${u.prenom || ''} ${u.nom || ''}`.toLowerCase();
+                const email = (u.email || '').toLowerCase();
+                return fullName.includes(q) || email.includes(q);
+            }).slice(0, 8);
+            if (filtered.length === 0) { dropdown.style.display = 'none'; return; }
+            dropdown.innerHTML = filtered.map(u => {
+                const displayName = `${u.prenom || ''} ${(u.nom || '').toUpperCase()}`.trim() || u.username;
+                const email = u.email || '';
+                const initials = getAdminEventParticipantInitials(u.prenom, u.nom);
+                const color = getAdminEventParticipantColor(displayName);
+                const isExpert = u.is_expert ? '<span style="background:#ffe0b2;color:#e65100;padding:1px 6px;border-radius:8px;font-size:9px;margin-left:6px;">Expert</span>' : '';
+                return `<div onclick='addAdminEventParticipant(${JSON.stringify({id:u.id,nom:u.nom||"",prenom:u.prenom||"",email:u.email||""})})' 
+                    style="display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;border-bottom:1px solid #f5f5f5;transition:background 0.15s;" 
+                    onmouseenter="this.style.background='#f5f5f5'" onmouseleave="this.style.background='white'">
+                    <span style="width:32px;height:32px;border-radius:50%;background:${color};color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:bold;flex-shrink:0;">${initials}</span>
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-size:13px;font-weight:500;color:#333;">${displayName}${isExpert}</div>
+                        ${email ? `<div style="font-size:11px;color:#999;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${email}</div>` : ''}
+                    </div>
+                </div>`;
+            }).join('');
+            dropdown.style.display = 'block';
+        }
+        
+        function handleAdminEventParticipantKeydown(e) {
+            if (e.key === 'Backspace' && e.target.value === '' && adminEventSelectedParticipants.length > 0) {
+                adminEventSelectedParticipants.pop();
+                renderAdminEventParticipantTags();
+            }
+            if (e.key === 'Escape') {
+                document.getElementById('adminEventParticipantDropdown').style.display = 'none';
+            }
+        }
+        
+        // Fermer le dropdown Admin participants si on clique en dehors
+        document.addEventListener('click', function(e) {
+            const dropdown = document.getElementById('adminEventParticipantDropdown');
+            const container = document.getElementById('adminEventParticipantsContainer');
+            if (dropdown && container && !container.contains(e.target)) {
+                dropdown.style.display = 'none';
+            }
+        });
+        
         // Ajouter un événement personnalisé
         async function addCustomEvent() {
             const startDate = document.getElementById('customEventStartDate').value;
@@ -11984,7 +12739,8 @@
             const finalEndDate = endDate || startDate;
             
             try {
-                const response = await fetch(`${API_URL}/custom-events`, {
+                // Utiliser la même route que la pop-up Planification pour que les participants soient gérés
+                const response = await fetch(`${API_URL}/my-custom-events`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -11992,7 +12748,8 @@
                         startDate,
                         endDate: finalEndDate,
                         label,
-                        config: { bgColor, textColor, borderColor }
+                        config: { bgColor, textColor, borderColor },
+                        participants: adminEventSelectedParticipants.map(p => p.id)
                     })
                 });
                 
@@ -12001,6 +12758,8 @@
                     document.getElementById('customEventStartDate').value = '';
                     document.getElementById('customEventEndDate').value = '';
                     document.getElementById('customEventLabel').value = '';
+                    adminEventSelectedParticipants = [];
+                    renderAdminEventParticipantTags();
                     
                     await loadCustomEvents();
                     await loadSpecialDates();
@@ -12103,6 +12862,36 @@
             };
             const displayLabel = capitalizeLabel(event.label);
             
+            // Fonction pour obtenir les initiales
+            const getInitials = (prenom, nom) => {
+                return ((prenom || '')[0] || '').toUpperCase() + ((nom || '')[0] || '').toUpperCase();
+            };
+            
+            // Fonction pour obtenir une couleur basée sur le nom
+            const getColor = (name) => {
+                let hash = 0;
+                for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+                const colors = ['#e91e63','#9c27b0','#673ab7','#3f51b5','#2196f3','#009688','#4caf50','#ff9800','#795548','#607d8b'];
+                return colors[Math.abs(hash) % colors.length];
+            };
+            
+            // Participants
+            let participantsHtml = '';
+            if (event.participants && event.participants.length > 0) {
+                const chips = event.participants.map(p => {
+                    const name = `${p.prenom || ''} ${(p.nom || '').toUpperCase()}`.trim();
+                    const initials = getInitials(p.prenom, p.nom);
+                    const color = getColor(name);
+                    return `<span title="${name}${p.email ? ' (' + p.email + ')' : ''}" style="display:inline-flex;align-items:center;gap:3px;background:#f0f0f0;border:1px solid #e0e0e0;border-radius:12px;padding:1px 7px 1px 1px;font-size:10px;">
+                        <span style="width:16px;height:16px;border-radius:50%;background:${color};color:white;display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:bold;">${initials}</span>
+                        ${name}
+                    </span>`;
+                }).join(' ');
+                participantsHtml = `<div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:3px;align-items:center;">
+                    <span style="font-size:10px;color:#888;">👥</span> ${chips}
+                </div>`;
+            }
+            
             return `<div style="background: white; padding: 12px; border-radius: 6px; margin-bottom: 6px; border-left: 4px solid ${config.borderColor || '#fbc02d'}; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
                     <div style="flex: 1;">
@@ -12116,6 +12905,7 @@
                         <div style="font-size: 11px; color: #666;">
                             📅 ${dateDisplay} <span style="color: #999;">(${diffDays} jour${diffDays > 1 ? 's' : ''})</span>
                         </div>
+                        ${participantsHtml}
                     </div>
                     <div style="display: flex; gap: 5px;">
                         <button onclick="window.editCustomEvent(${event.id})" style="background: #1e88e5; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;">✏️</button>
@@ -12261,6 +13051,12 @@
             document.getElementById('editCustomEventBorderColor').value = config.borderColor || '#fbc02d';
             updateEditCustomEventPreview();
             
+            // Charger les participants existants
+            editEventSelectedParticipants = (event.participants || []).map(p => ({
+                id: p.user_id, nom: p.nom, prenom: p.prenom, email: p.email
+            }));
+            renderEditEventParticipantTags();
+            
             // Gestion du champ créateur (uniquement pour les admins)
             const creatorSection = document.getElementById('editCustomEventCreatorSection');
             const creatorSelect = document.getElementById('editCustomEventCreator');
@@ -12297,6 +13093,7 @@
         // Fermer la modal d'édition
         function closeEditCustomEventModal() {
             document.getElementById('editCustomEventModal').style.display = 'none';
+            editEventSelectedParticipants = [];
         }
         
         // Prévisualisation édition événement
@@ -12314,6 +13111,105 @@
                 preview.style.border = `2px solid ${borderColor}`;
             }
         }
+        
+        // ========== GESTION PARTICIPANTS MODAL ÉDITION ==========
+        let editEventSelectedParticipants = [];
+        
+        function getEditEventParticipantInitials(prenom, nom) {
+            return ((prenom || '')[0] || '').toUpperCase() + ((nom || '')[0] || '').toUpperCase();
+        }
+        
+        function getEditEventParticipantColor(name) {
+            let hash = 0;
+            for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+            const colors = ['#e91e63','#9c27b0','#673ab7','#3f51b5','#2196f3','#009688','#4caf50','#ff9800','#795548','#607d8b'];
+            return colors[Math.abs(hash) % colors.length];
+        }
+        
+        function renderEditEventParticipantTags() {
+            const container = document.getElementById('editEventParticipantsContainer');
+            const input = document.getElementById('editEventParticipantInput');
+            if (!container || !input) return;
+            container.querySelectorAll('.participant-tag').forEach(t => t.remove());
+            editEventSelectedParticipants.forEach(p => {
+                const tag = document.createElement('span');
+                tag.className = 'participant-tag';
+                const displayName = `${p.prenom || ''} ${(p.nom || '').toUpperCase()}`.trim();
+                const initials = getEditEventParticipantInitials(p.prenom, p.nom);
+                const color = getEditEventParticipantColor(displayName);
+                tag.innerHTML = `<span style="display:inline-flex;align-items:center;gap:4px;background:#f0f0f0;border:1px solid #ddd;border-radius:15px;padding:2px 8px 2px 2px;font-size:11px;white-space:nowrap;">
+                    <span style="width:20px;height:20px;border-radius:50%;background:${color};color:white;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:bold;">${initials}</span>
+                    <span style="color:#333;">${displayName}</span>
+                    <span onclick="removeEditEventParticipant(${p.id})" style="cursor:pointer;color:#999;font-size:14px;line-height:1;margin-left:2px;" title="Retirer">&times;</span>
+                </span>`;
+                container.insertBefore(tag, input);
+            });
+        }
+        
+        function removeEditEventParticipant(userId) {
+            editEventSelectedParticipants = editEventSelectedParticipants.filter(p => p.id !== userId);
+            renderEditEventParticipantTags();
+        }
+        
+        function addEditEventParticipant(user) {
+            if (editEventSelectedParticipants.some(p => p.id === user.id)) return;
+            editEventSelectedParticipants.push({ id: user.id, nom: user.nom, prenom: user.prenom, email: user.email });
+            renderEditEventParticipantTags();
+            const input = document.getElementById('editEventParticipantInput');
+            if (input) { input.value = ''; input.focus(); }
+            document.getElementById('editEventParticipantDropdown').style.display = 'none';
+        }
+        
+        function filterEditEventParticipants(query) {
+            const dropdown = document.getElementById('editEventParticipantDropdown');
+            if (!dropdown) return;
+            const q = (query || '').toLowerCase().trim();
+            const selectedIds = new Set(editEventSelectedParticipants.map(p => p.id));
+            const filtered = users.filter(u => {
+                if (selectedIds.has(u.id)) return false;
+                if (!q) return true;
+                const fullName = `${u.prenom || ''} ${u.nom || ''}`.toLowerCase();
+                const email = (u.email || '').toLowerCase();
+                return fullName.includes(q) || email.includes(q);
+            }).slice(0, 8);
+            if (filtered.length === 0) { dropdown.style.display = 'none'; return; }
+            dropdown.innerHTML = filtered.map(u => {
+                const displayName = `${u.prenom || ''} ${(u.nom || '').toUpperCase()}`.trim() || u.username;
+                const email = u.email || '';
+                const initials = getEditEventParticipantInitials(u.prenom, u.nom);
+                const color = getEditEventParticipantColor(displayName);
+                const isExpert = u.is_expert ? '<span style="background:#ffe0b2;color:#e65100;padding:1px 6px;border-radius:8px;font-size:9px;margin-left:6px;">Expert</span>' : '';
+                return `<div onclick='addEditEventParticipant(${JSON.stringify({id:u.id,nom:u.nom||"",prenom:u.prenom||"",email:u.email||""})})' 
+                    style="display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;border-bottom:1px solid #f5f5f5;transition:background 0.15s;" 
+                    onmouseenter="this.style.background='#f5f5f5'" onmouseleave="this.style.background='white'">
+                    <span style="width:32px;height:32px;border-radius:50%;background:${color};color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:bold;flex-shrink:0;">${initials}</span>
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-size:13px;font-weight:500;color:#333;">${displayName}${isExpert}</div>
+                        ${email ? `<div style="font-size:11px;color:#999;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${email}</div>` : ''}
+                    </div>
+                </div>`;
+            }).join('');
+            dropdown.style.display = 'block';
+        }
+        
+        function handleEditEventParticipantKeydown(e) {
+            if (e.key === 'Backspace' && e.target.value === '' && editEventSelectedParticipants.length > 0) {
+                editEventSelectedParticipants.pop();
+                renderEditEventParticipantTags();
+            }
+            if (e.key === 'Escape') {
+                document.getElementById('editEventParticipantDropdown').style.display = 'none';
+            }
+        }
+        
+        // Fermer le dropdown édition si on clique en dehors
+        document.addEventListener('click', function(e) {
+            const dropdown = document.getElementById('editEventParticipantDropdown');
+            const container = document.getElementById('editEventParticipantsContainer');
+            if (dropdown && container && !container.contains(e.target)) {
+                dropdown.style.display = 'none';
+            }
+        });
         
         // Sauvegarder les modifications d'un événement
         async function saveEditCustomEvent() {
@@ -12335,7 +13231,8 @@
                 startDate,
                 endDate: endDate || startDate,
                 label,
-                config: { bgColor, textColor, borderColor }
+                config: { bgColor, textColor, borderColor },
+                participants: editEventSelectedParticipants.map(p => p.id)
             };
             
             // Si admin, inclure le créateur sélectionné
@@ -16924,6 +17821,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             }
             
             const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+            const currentYear = new Date().getFullYear();
             
             // Organiser par année > mois
             const byYear = {};
@@ -16958,18 +17856,24 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     return myEventsSortYear === 'desc' ? b - a : a - b;
                 });
                 
+                // L'année en cours est ouverte par défaut
+                const isCurrentYear = parseInt(year) === currentYear;
+                const yearDisplay = isCurrentYear ? 'block' : 'none';
+                const yearArrow = isCurrentYear ? '▼' : '▶';
+                
                 html += `<div style="margin-bottom: 10px;">
                     <div onclick="toggleMyEventsTreeNode(this)" style="cursor: pointer; padding: 10px; background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%); border-radius: 6px; font-weight: bold; color: white; display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                        <span class="tree-arrow">▶</span> 📅 ${year}
+                        <span class="tree-arrow">${yearArrow}</span> 📅 ${year}
                         <span style="font-size: 11px; font-weight: normal; margin-left: auto; background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 10px;">
                             ${Object.values(byYear[year]).flat().length} événement(s)
                         </span>
                     </div>
-                    <div class="tree-content" style="display: none; margin-left: 15px; margin-top: 8px;">`;
+                    <div class="tree-content" style="display: ${yearDisplay}; margin-left: 15px; margin-top: 8px;">`;
                 
                 sortedMonths.forEach(month => {
                     const monthEvents = byYear[year][month];
                     
+                    // Les mois restent repliés par défaut
                     html += `<div style="margin-bottom: 8px;">
                         <div onclick="toggleMyEventsTreeNode(this)" style="cursor: pointer; padding: 8px 12px; background: linear-gradient(135deg, #ffb74d 0%, #ffa726 100%); border-radius: 5px; display: flex; align-items: center; gap: 8px; color: #333;">
                             <span class="tree-arrow">▶</span> ${monthNames[month]}
@@ -18834,7 +19738,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
 
     <!-- Modal Édition Événement Personnalisé -->
     <div id="editCustomEventModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); z-index: 10002;">
-        <div style="position: relative; background-color: white; margin: 5% auto; padding: 30px; width: 90%; max-width: 500px; border-radius: 12px; max-height: 80vh; overflow-y: auto;">
+        <div style="position: relative; background-color: white; margin: 5% auto; padding: 30px; width: 90%; max-width: 600px; border-radius: 12px; max-height: 80vh; overflow-y: auto;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <h2 style="color: #1565c0; margin: 0;">✏️ Modifier l'événement</h2>
                 <span onclick="closeEditCustomEventModal()" style="cursor: pointer; font-size: 28px; color: #7f8c8d;">&times;</span>
@@ -18851,37 +19755,50 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     </select>
                 </div>
                 
-                <!-- Date de début -->
-                <div style="margin-bottom: 15px;">
-                    <label style="font-size: 12px; font-weight: bold; color: #333;">Date de début :</label>
-                    <input type="date" id="editCustomEventStartDate" style="width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px;">
-                </div>
-                
-                <!-- Date de fin -->
-                <div style="margin-bottom: 15px;">
-                    <label style="font-size: 12px; font-weight: bold; color: #333;">Date de fin :</label>
-                    <input type="date" id="editCustomEventEndDate" style="width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px;">
+                <!-- Date de début et fin -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                    <div>
+                        <label style="font-size: 12px; font-weight: bold; color: #333;">Date de début :</label>
+                        <input type="date" id="editCustomEventStartDate" style="width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                    <div>
+                        <label style="font-size: 12px; font-weight: bold; color: #333;">Date de fin :</label>
+                        <input type="date" id="editCustomEventEndDate" style="width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
                 </div>
                 
                 <!-- Libellé -->
                 <div style="margin-bottom: 15px;">
                     <label style="font-size: 12px; font-weight: bold; color: #333;">Libellé :</label>
-                    <input type="text" id="editCustomEventLabel" style="width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px;">
+                    <input type="text" id="editCustomEventLabel" style="width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px; text-transform: uppercase;" oninput="this.value = this.value.toUpperCase(); updateEditCustomEventPreview()">
+                </div>
+                
+                <!-- Participants -->
+                <div style="margin-bottom: 15px; position: relative;">
+                    <label style="font-size: 12px; font-weight: bold; color: #333;">👥 Participant(s) :</label>
+                    <div id="editEventParticipantsContainer" style="display: flex; flex-wrap: wrap; gap: 4px; padding: 6px; border: 1px solid #ddd; border-radius: 4px; min-height: 40px; align-items: center; background: white; cursor: text; margin-top: 5px;" onclick="document.getElementById('editEventParticipantInput').focus()">
+                        <input type="text" id="editEventParticipantInput" placeholder="Nom ou email..." 
+                            style="border: none; outline: none; flex: 1; min-width: 80px; padding: 3px 0; font-size: 12px;" 
+                            oninput="filterEditEventParticipants(this.value)"
+                            onfocus="filterEditEventParticipants(this.value)"
+                            onkeydown="handleEditEventParticipantKeydown(event)">
+                    </div>
+                    <div id="editEventParticipantDropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ddd; border-radius: 0 0 8px 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); max-height: 200px; overflow-y: auto; z-index: 10010;"></div>
                 </div>
                 
                 <!-- Couleurs -->
                 <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px;">
                     <div>
                         <label style="font-size: 12px; font-weight: bold; color: #333;">Couleur de fond :</label>
-                        <input type="color" id="editCustomEventBgColor" style="width: 100%; height: 40px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
+                        <input type="color" id="editCustomEventBgColor" style="width: 100%; height: 40px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;" onchange="updateEditCustomEventPreview()">
                     </div>
                     <div>
                         <label style="font-size: 12px; font-weight: bold; color: #333;">Couleur du texte :</label>
-                        <input type="color" id="editCustomEventTextColor" style="width: 100%; height: 40px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
+                        <input type="color" id="editCustomEventTextColor" style="width: 100%; height: 40px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;" onchange="updateEditCustomEventPreview()">
                     </div>
                     <div>
                         <label style="font-size: 12px; font-weight: bold; color: #333;">Couleur bordure :</label>
-                        <input type="color" id="editCustomEventBorderColor" style="width: 100%; height: 40px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
+                        <input type="color" id="editCustomEventBorderColor" style="width: 100%; height: 40px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;" onchange="updateEditCustomEventPreview()">
                     </div>
                 </div>
                 

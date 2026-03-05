@@ -692,6 +692,51 @@ function initDB() {
         }
     });
     
+    // Table pour l'historique des taux de MAD
+    database.run(`
+        CREATE TABLE IF NOT EXISTS resource_mad_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            resource_id INTEGER NOT NULL,
+            taux REAL NOT NULL,
+            date_debut TEXT NOT NULL,
+            date_fin TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            created_by INTEGER,
+            FOREIGN KEY (resource_id) REFERENCES resources(id),
+            FOREIGN KEY (created_by) REFERENCES users(id)
+        )
+    `, (err) => {
+        if (err) {
+            console.error('Erreur création table resource_mad_history:', err);
+        } else {
+            console.log('✅ Table resource_mad_history créée');
+        }
+    });
+    
+    // Table pour les particularités de taux MAD (variations temporaires)
+    database.run(`
+        CREATE TABLE IF NOT EXISTS resource_mad_particularites (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            resource_id INTEGER NOT NULL,
+            mad_history_id INTEGER NOT NULL,
+            taux REAL NOT NULL,
+            date_debut TEXT NOT NULL,
+            date_fin TEXT NOT NULL,
+            motif TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            created_by INTEGER,
+            FOREIGN KEY (resource_id) REFERENCES resources(id),
+            FOREIGN KEY (mad_history_id) REFERENCES resource_mad_history(id),
+            FOREIGN KEY (created_by) REFERENCES users(id)
+        )
+    `, (err) => {
+        if (err) {
+            console.error('Erreur création table resource_mad_particularites:', err);
+        } else {
+            console.log('✅ Table resource_mad_particularites créée');
+        }
+    });
+    
     // Table pour les indisponibilités d'astreinte (conservée pour compatibilité)
     database.run(`
         CREATE TABLE IF NOT EXISTS astreinte_indisponibilites (
@@ -1622,13 +1667,26 @@ app.post('/api/resources', requireAdmin, (req, res) => {
                 console.error('Erreur ajout resource:', err);
                 res.status(500).json({ error: err.message });
             } else {
+                const resourceId = this.lastID;
+                
+                // Créer l'entrée initiale dans l'historique MAD
+                database.run(
+                    `INSERT INTO resource_mad_history (resource_id, taux, date_debut, date_fin, created_by) VALUES (?, ?, ?, NULL, ?)`,
+                    [resourceId, taux, date_debut || new Date().toISOString().split('T')[0], req.session.userId],
+                    (madErr) => {
+                        if (madErr) {
+                            console.error('Erreur création historique MAD:', madErr);
+                        }
+                    }
+                );
+                
                 logUserAction(req, 'Création ressource', { 
-                    resourceId: this.lastID, 
+                    resourceId: resourceId, 
                     nom, 
                     prenom, 
                     trigramme 
                 });
-                res.json({ id: this.lastID, success: true });
+                res.json({ id: resourceId, success: true });
             }
         }
     );
@@ -1669,12 +1727,434 @@ app.delete('/api/resources/:id', requireAdmin, (req, res) => {
             res.status(500).json({ error: err.message });
         } else {
             logUserAction(req, 'Suppression ressource', { resourceId: id });
+            // Supprimer aussi l'historique MAD et les particularités
+            database.run('DELETE FROM resource_mad_particularites WHERE resource_id = ?', [id]);
+            database.run('DELETE FROM resource_mad_history WHERE resource_id = ?', [id]);
             database.run('DELETE FROM schedule_data WHERE resource_id = ?', [id], (err2) => {
                 if (err2) console.error('Erreur suppression schedule:', err2);
                 res.json({ success: true });
             });
         }
     });
+});
+
+// ========== ROUTES HISTORIQUE TAUX MAD ==========
+
+// Récupérer l'historique MAD d'une ressource
+app.get('/api/resources/:id/mad-history', requireAuth, (req, res) => {
+    const { id } = req.params;
+    
+    database.all(
+        `SELECT * FROM resource_mad_history WHERE resource_id = ? ORDER BY date_debut`,
+        [id],
+        (err, rows) => {
+            if (err) {
+                console.error('Erreur récup historique MAD:', err);
+                res.status(500).json({ error: err.message });
+            } else {
+                res.json(rows || []);
+            }
+        }
+    );
+});
+
+// Ajouter un taux MAD
+app.post('/api/resources/:id/mad-history', requireAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { taux, date_debut, date_fin } = req.body;
+    
+    if (taux === undefined || !date_debut) {
+        return res.status(400).json({ error: 'Taux et date de début requis' });
+    }
+    
+    try {
+        // Récupérer toutes les périodes existantes
+        const existingPeriods = await new Promise((resolve, reject) => {
+            database.all(
+                `SELECT * FROM resource_mad_history WHERE resource_id = ?`,
+                [id],
+                (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows || []);
+                }
+            );
+        });
+        
+        // Vérifier les chevauchements
+        const thisStart = date_debut;
+        const thisEnd = date_fin || '9999-12-31';
+        
+        for (const other of existingPeriods) {
+            const otherStart = other.date_debut;
+            const otherEnd = other.date_fin || '9999-12-31';
+            
+            // Vérifier si les périodes partagent au moins un jour
+            const overlapStart = thisStart > otherStart ? thisStart : otherStart;
+            const overlapEnd = thisEnd < otherEnd ? thisEnd : otherEnd;
+            
+            if (overlapStart <= overlapEnd) {
+                return res.status(400).json({ 
+                    error: `Chevauchement de dates détecté avec la période ${other.date_debut} - ${other.date_fin || 'en cours'}` 
+                });
+            }
+        }
+        
+        // Insérer le nouveau taux
+        const result = await new Promise((resolve, reject) => {
+            database.run(
+                `INSERT INTO resource_mad_history (resource_id, taux, date_debut, date_fin, created_by) VALUES (?, ?, ?, ?, ?)`,
+                [id, taux, date_debut, date_fin || null, req.session.userId],
+                function(err) {
+                    if (err) reject(err);
+                    else resolve({ id: this.lastID });
+                }
+            );
+        });
+        
+        // Mettre à jour le taux actuel dans resources si c'est la période en cours
+        const today = new Date().toISOString().split('T')[0];
+        if (date_debut <= today && (!date_fin || date_fin >= today)) {
+            await new Promise((resolve, reject) => {
+                database.run(`UPDATE resources SET taux = ? WHERE id = ?`, [taux, id], (err) => {
+                    if (err) reject(err);
+                    else resolve();
+                });
+            });
+        }
+        
+        logUserAction(req, 'Ajout taux MAD', { resourceId: id, taux, date_debut, date_fin });
+        res.json({ success: true, id: result.id });
+    } catch (error) {
+        console.error('Erreur ajout taux MAD:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Modifier un taux MAD
+app.put('/api/resources/:id/mad-history/:historyId', requireAdmin, async (req, res) => {
+    const { id, historyId } = req.params;
+    const { taux, date_debut, date_fin } = req.body;
+    
+    try {
+        // Récupérer toutes les autres périodes (exclure celle en cours de modification)
+        const otherPeriods = await new Promise((resolve, reject) => {
+            database.all(
+                `SELECT * FROM resource_mad_history WHERE resource_id = ? AND id != ?`,
+                [id, historyId],
+                (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows || []);
+                }
+            );
+        });
+        
+        // Vérifier les chevauchements
+        // Deux périodes se chevauchent si : debut1 <= fin2 ET debut2 <= fin1
+        // Mais les périodes consécutives (fin1 = jour avant debut2) ne sont PAS des chevauchements
+        const thisStart = date_debut;
+        const thisEnd = date_fin || '9999-12-31';
+        
+        for (const other of otherPeriods) {
+            const otherStart = other.date_debut;
+            const otherEnd = other.date_fin || '9999-12-31';
+            
+            // Vérifier si les périodes se chevauchent vraiment (partagent au moins un jour)
+            // Chevauchement = NOT (thisEnd < otherStart OR otherEnd < thisStart)
+            // En d'autres termes : thisStart <= otherEnd AND otherStart <= thisEnd
+            if (thisStart <= otherEnd && otherStart <= thisEnd) {
+                // Mais on autorise les périodes qui se "touchent" exactement
+                // Ex: période 1 finit le 31/03, période 2 commence le 01/04 = OK
+                // Chevauchement réel = les périodes partagent AU MOINS un jour commun
+                // thisStart <= otherEnd signifie que this commence avant ou le jour où other finit
+                // otherStart <= thisEnd signifie que other commence avant ou le jour où this finit
+                
+                // Pour qu'il y ait chevauchement réel, il faut que :
+                // - this commence AVANT ou LE JOUR où other finit ET
+                // - other commence AVANT ou LE JOUR où this finit
+                // Mais si this finit EXACTEMENT le jour AVANT que other commence, c'est OK
+                
+                // Simplification : on vérifie si les intervalles partagent un jour
+                // [thisStart, thisEnd] et [otherStart, otherEnd] se chevauchent si
+                // max(thisStart, otherStart) <= min(thisEnd, otherEnd)
+                const overlapStart = thisStart > otherStart ? thisStart : otherStart;
+                const overlapEnd = thisEnd < otherEnd ? thisEnd : otherEnd;
+                
+                if (overlapStart <= overlapEnd) {
+                    return res.status(400).json({ 
+                        error: `Chevauchement de dates détecté avec la période ${other.date_debut} - ${other.date_fin || 'en cours'}` 
+                    });
+                }
+            }
+        }
+        
+        await new Promise((resolve, reject) => {
+            database.run(
+                `UPDATE resource_mad_history SET taux = ?, date_debut = ?, date_fin = ? WHERE id = ? AND resource_id = ?`,
+                [taux, date_debut, date_fin || null, historyId, id],
+                (err) => err ? reject(err) : resolve()
+            );
+        });
+        
+        // Mettre à jour le taux actuel dans resources si c'est la période en cours
+        const today = new Date().toISOString().split('T')[0];
+        if (date_debut <= today && (!date_fin || date_fin >= today)) {
+            await new Promise((resolve, reject) => {
+                database.run(`UPDATE resources SET taux = ? WHERE id = ?`, [taux, id], (err) => {
+                    if (err) reject(err);
+                    else resolve();
+                });
+            });
+        }
+        
+        logUserAction(req, 'Modification taux MAD', { resourceId: id, historyId, taux, date_debut, date_fin });
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Erreur modification taux MAD:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Supprimer un taux MAD
+app.delete('/api/resources/:id/mad-history/:historyId', requireAdmin, async (req, res) => {
+    const { id, historyId } = req.params;
+    
+    try {
+        // Vérifier qu'il reste au moins une entrée
+        const count = await new Promise((resolve, reject) => {
+            database.get(`SELECT COUNT(*) as count FROM resource_mad_history WHERE resource_id = ?`, [id], (err, row) => {
+                if (err) reject(err);
+                else resolve(row.count);
+            });
+        });
+        
+        if (count <= 1) {
+            return res.status(400).json({ error: 'Impossible de supprimer le dernier taux MAD' });
+        }
+        
+        // Supprimer aussi les particularités liées
+        await new Promise((resolve, reject) => {
+            database.run(`DELETE FROM resource_mad_particularites WHERE mad_history_id = ?`, [historyId], (err) => {
+                if (err) reject(err);
+                else resolve();
+            });
+        });
+        
+        await new Promise((resolve, reject) => {
+            database.run(`DELETE FROM resource_mad_history WHERE id = ? AND resource_id = ?`, [historyId, id], (err) => {
+                if (err) reject(err);
+                else resolve();
+            });
+        });
+        
+        logUserAction(req, 'Suppression taux MAD', { resourceId: id, historyId });
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Erreur suppression taux MAD:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ========== ROUTES PARTICULARITÉS MAD ==========
+
+// Récupérer les particularités d'une période MAD
+app.get('/api/resources/:id/mad-history/:historyId/particularites', requireAuth, (req, res) => {
+    const { id, historyId } = req.params;
+    
+    database.all(
+        `SELECT * FROM resource_mad_particularites WHERE resource_id = ? AND mad_history_id = ? ORDER BY date_debut`,
+        [id, historyId],
+        (err, rows) => {
+            if (err) {
+                console.error('Erreur récup particularités MAD:', err);
+                res.status(500).json({ error: err.message });
+            } else {
+                res.json(rows || []);
+            }
+        }
+    );
+});
+
+// Ajouter une particularité
+app.post('/api/resources/:id/mad-history/:historyId/particularites', requireAdmin, async (req, res) => {
+    const { id, historyId } = req.params;
+    const { taux, date_debut, date_fin, motif } = req.body;
+    
+    if (taux === undefined || !date_debut || !date_fin) {
+        return res.status(400).json({ error: 'Taux, date de début et date de fin requis' });
+    }
+    
+    try {
+        // Vérifier que les dates sont dans la période MAD parente
+        const parentPeriod = await new Promise((resolve, reject) => {
+            database.get(`SELECT * FROM resource_mad_history WHERE id = ? AND resource_id = ?`, [historyId, id], (err, row) => {
+                if (err) reject(err);
+                else resolve(row);
+            });
+        });
+        
+        if (!parentPeriod) {
+            return res.status(404).json({ error: 'Période MAD non trouvée' });
+        }
+        
+        if (date_debut < parentPeriod.date_debut || (parentPeriod.date_fin && date_fin > parentPeriod.date_fin)) {
+            return res.status(400).json({ error: 'Les dates doivent être dans la période MAD parente' });
+        }
+        
+        // Vérifier les chevauchements avec d'autres particularités
+        const overlaps = await new Promise((resolve, reject) => {
+            database.all(
+                `SELECT * FROM resource_mad_particularites 
+                 WHERE resource_id = ? AND mad_history_id = ?
+                 AND (
+                     (date_debut <= ? AND date_fin >= ?)
+                     OR (date_debut <= ? AND date_fin >= ?)
+                     OR (date_debut >= ? AND date_debut <= ?)
+                 )`,
+                [id, historyId, date_debut, date_debut, date_fin, date_fin, date_debut, date_fin],
+                (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows || []);
+                }
+            );
+        });
+        
+        if (overlaps.length > 0) {
+            return res.status(400).json({ error: 'Chevauchement de dates détecté avec une particularité existante' });
+        }
+        
+        const result = await new Promise((resolve, reject) => {
+            database.run(
+                `INSERT INTO resource_mad_particularites (resource_id, mad_history_id, taux, date_debut, date_fin, motif, created_by) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                [id, historyId, taux, date_debut, date_fin, motif || null, req.session.userId],
+                function(err) {
+                    if (err) reject(err);
+                    else resolve({ id: this.lastID });
+                }
+            );
+        });
+        
+        logUserAction(req, 'Ajout particularité MAD', { resourceId: id, historyId, taux, date_debut, date_fin });
+        res.json({ success: true, id: result.id });
+    } catch (error) {
+        console.error('Erreur ajout particularité MAD:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Modifier une particularité
+app.put('/api/resources/:id/mad-history/:historyId/particularites/:particulariteId', requireAdmin, async (req, res) => {
+    const { id, historyId, particulariteId } = req.params;
+    const { taux, date_debut, date_fin, motif } = req.body;
+    
+    try {
+        // Vérifier les chevauchements (exclure l'entrée en cours de modification)
+        const overlaps = await new Promise((resolve, reject) => {
+            database.all(
+                `SELECT * FROM resource_mad_particularites 
+                 WHERE resource_id = ? AND mad_history_id = ? AND id != ?
+                 AND (
+                     (date_debut <= ? AND date_fin >= ?)
+                     OR (date_debut <= ? AND date_fin >= ?)
+                     OR (date_debut >= ? AND date_debut <= ?)
+                 )`,
+                [id, historyId, particulariteId, date_debut, date_debut, date_fin, date_fin, date_debut, date_fin],
+                (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows || []);
+                }
+            );
+        });
+        
+        if (overlaps.length > 0) {
+            return res.status(400).json({ error: 'Chevauchement de dates détecté' });
+        }
+        
+        await new Promise((resolve, reject) => {
+            database.run(
+                `UPDATE resource_mad_particularites SET taux = ?, date_debut = ?, date_fin = ?, motif = ? WHERE id = ?`,
+                [taux, date_debut, date_fin, motif || null, particulariteId],
+                (err) => err ? reject(err) : resolve()
+            );
+        });
+        
+        logUserAction(req, 'Modification particularité MAD', { resourceId: id, particulariteId, taux, date_debut, date_fin });
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Erreur modification particularité MAD:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Supprimer une particularité
+app.delete('/api/resources/:id/mad-history/:historyId/particularites/:particulariteId', requireAdmin, (req, res) => {
+    const { id, particulariteId } = req.params;
+    
+    database.run(`DELETE FROM resource_mad_particularites WHERE id = ? AND resource_id = ?`, [particulariteId, id], (err) => {
+        if (err) {
+            console.error('Erreur suppression particularité MAD:', err);
+            res.status(500).json({ error: err.message });
+        } else {
+            logUserAction(req, 'Suppression particularité MAD', { resourceId: id, particulariteId });
+            res.json({ success: true });
+        }
+    });
+});
+
+// Récupérer le taux MAD effectif pour une ressource à une date donnée
+app.get('/api/resources/:id/effective-mad-rate', requireAuth, async (req, res) => {
+    const { id } = req.params;
+    const { date } = req.query;
+    const targetDate = date || new Date().toISOString().split('T')[0];
+    
+    try {
+        // D'abord vérifier les particularités
+        const particularite = await new Promise((resolve, reject) => {
+            database.get(
+                `SELECT p.* FROM resource_mad_particularites p
+                 WHERE p.resource_id = ? AND p.date_debut <= ? AND p.date_fin >= ?`,
+                [id, targetDate, targetDate],
+                (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row);
+                }
+            );
+        });
+        
+        if (particularite) {
+            return res.json({ taux: particularite.taux, source: 'particularite', particularite });
+        }
+        
+        // Sinon, chercher dans l'historique MAD
+        const madHistory = await new Promise((resolve, reject) => {
+            database.get(
+                `SELECT * FROM resource_mad_history 
+                 WHERE resource_id = ? AND date_debut <= ? AND (date_fin IS NULL OR date_fin >= ?)`,
+                [id, targetDate, targetDate],
+                (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row);
+                }
+            );
+        });
+        
+        if (madHistory) {
+            return res.json({ taux: madHistory.taux, source: 'history', history: madHistory });
+        }
+        
+        // Par défaut, retourner le taux de la ressource
+        const resource = await new Promise((resolve, reject) => {
+            database.get(`SELECT taux FROM resources WHERE id = ?`, [id], (err, row) => {
+                if (err) reject(err);
+                else resolve(row);
+            });
+        });
+        
+        res.json({ taux: resource ? resource.taux : 0, source: 'resource' });
+    } catch (error) {
+        console.error('Erreur récup taux effectif MAD:', error);
+        res.status(500).json({ error: error.message });
+    }
 });
 
 app.post('/api/resources/:id/toggle', requireAdmin, (req, res) => {
@@ -5604,6 +6084,27 @@ app.get('/api/custom-events', requireAdmin, async (req, res) => {
                 else resolve(rows || []);
             });
         });
+        
+        // Charger les participants pour chaque événement
+        for (const event of events) {
+            try {
+                const participants = await new Promise((resolve, reject) => {
+                    database.all(
+                        `SELECT cep.user_id, u.nom, u.prenom, u.email, u.profile_photo
+                         FROM custom_event_participants cep
+                         JOIN users u ON cep.user_id = u.id
+                         WHERE cep.event_id = ?
+                         ORDER BY u.nom, u.prenom`,
+                        [event.id],
+                        (err, rows) => err ? reject(err) : resolve(rows || [])
+                    );
+                });
+                event.participants = participants;
+            } catch (e) {
+                event.participants = [];
+            }
+        }
+        
         res.json({ events });
     } catch (error) {
         console.error('Erreur liste événements personnalisés:', error);
@@ -5696,7 +6197,7 @@ app.get('/api/my-custom-events', requireAuth, async (req, res) => {
 // Ajouter un événement personnalisé (admin via interface admin)
 app.post('/api/custom-events', requireAdmin, async (req, res) => {
     try {
-        const { startDate, endDate, label, config } = req.body;
+        const { startDate, endDate, label, config, participants } = req.body;
         const createdBy = req.session.userId;
         
         if (!startDate || !label) {
@@ -5735,7 +6236,26 @@ app.post('/api/custom-events', requireAdmin, async (req, res) => {
             }
         });
         
-        console.log(`✅ Événement personnalisé ajouté (ID: ${eventId})`);
+        // Sauvegarder les participants
+        if (participants && Array.isArray(participants) && participants.length > 0) {
+            for (const userId of participants) {
+                try {
+                    await new Promise((resolve, reject) => {
+                        database.run(
+                            `INSERT OR IGNORE INTO custom_event_participants (event_id, user_id) VALUES (?, ?)`,
+                            [eventId, userId],
+                            (err) => err ? reject(err) : resolve()
+                        );
+                    });
+                } catch (e) {
+                    console.error(`❌ Erreur ajout participant ${userId}:`, e.message);
+                }
+            }
+            console.log(`✅ Événement personnalisé ajouté (ID: ${eventId}) avec ${participants.length} participant(s)`);
+        } else {
+            console.log(`✅ Événement personnalisé ajouté (ID: ${eventId})`);
+        }
+        
         res.json({ success: true, eventId });
     } catch (error) {
         console.error('Erreur ajout événement personnalisé:', error);
