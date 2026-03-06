@@ -6872,15 +6872,6 @@ app.post('/api/request-assignment', requireAuth, async (req, res) => {
             });
         }
 
-        // Formater les dates pour l'affichage
-        const formatDate = (dateStr) => {
-            const date = new Date(dateStr + 'T00:00:00');
-            return date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-        };
-
-        const startDateFormatted = `${formatDate(startDate)} - ${startPeriod}`;
-        const endDateFormatted = `${formatDate(endDate)} - ${endPeriod}`;
-
         // Récupérer le transporteur email
         const transporter = createEmailTransporter();
         
@@ -6892,38 +6883,64 @@ app.post('/api/request-assignment', requireAuth, async (req, res) => {
             });
         }
 
+        // Formater les dates pour l'affichage
+        const formatDate = (dateStr) => {
+            const date = new Date(dateStr + 'T00:00:00');
+            return date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        };
+
+        const startDateFormatted = `${formatDate(startDate)} - ${startPeriod}`;
+        const endDateFormatted = `${formatDate(endDate)} - ${endPeriod}`;
+
         console.log('📧 Envoi d\'emails à:', expertsWithEmail.map(e => e.email));
 
-        // Envoyer un email à chaque expert
-        const emailPromises = expertsWithEmail.map(expert => {
-            const personalizedMessage = message.replace(/\[Prénom de l'utilisateur\]/g, expert.prenom);
+        // RÉPONDRE IMMÉDIATEMENT AU CLIENT
+        let responseMessage = `Envoi en cours à ${expertsWithEmail.length} expert(s)...`;
+        if (expertsWithoutEmail.length > 0) {
+            responseMessage += ` (${expertsWithoutEmail.length} expert(s) sans email configuré)`;
+        }
+        
+        res.json({
+            success: true,
+            message: responseMessage,
+            emails: expertsWithEmail.map(e => e.email)
+        });
 
-            const mailOptions = {
-                from: `"Domaine des Urgences - Planification des ressources" <${emailConfig.user}>`,
-                replyTo: fromEmail,
-                to: expert.email,
-                subject: subject,
-                html: `
-                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
-                        <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                            <h2 style="color: #1D70B7; border-bottom: 2px solid #1D70B7; padding-bottom: 10px;">
-                                Demande d'affectation
-                            </h2>
-                            
-                            <div style="margin: 20px 0; padding: 15px; background-color: #e3f2fd; border-left: 4px solid #2196f3; border-radius: 4px;">
-                                <p style="margin: 5px 0;"><strong>De:</strong> ${fromName} (${fromEmail})</p>
-                                <p style="margin: 5px 0;"><strong>Début:</strong> ${startDateFormatted}</p>
-                                <p style="margin: 5px 0;"><strong>Fin:</strong> ${endDateFormatted}</p>
-                            </div>
-                            
-                            <div style="margin: 20px 0; padding: 15px; background-color: #f9f9f9; border-radius: 4px; line-height: 1.8;">
-                                ${personalizedMessage.split('\n').map(line => 
-                                    line.trim() === '' ? '<br>' : `<p style="margin: 0 0 10px 0;">${line}</p>`
-                                ).join('')}
-                            </div>
-                            
-                            <div style="text-align: center; margin: 25px 0;">
-                                <a href="mailto:${fromEmail}?subject=${encodeURIComponent('Re: ' + subject)}&body=${encodeURIComponent(`Bonjour ${fromName.split(' ')[0]},
+        // ENVOYER LES EMAILS EN ARRIÈRE-PLAN (après avoir répondu au client)
+        const sessionLogId = req.session.logId;
+        
+        setImmediate(async () => {
+            console.log('📧 Début envoi emails en arrière-plan...');
+            
+            const emailPromises = expertsWithEmail.map(expert => {
+                const personalizedMessage = message.replace(/\[Prénom de l'utilisateur\]/g, expert.prenom);
+
+                const mailOptions = {
+                    from: `"Domaine des Urgences - Planification des ressources" <${emailConfig.user}>`,
+                    replyTo: fromEmail,
+                    to: expert.email,
+                    subject: subject,
+                    html: `
+                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
+                            <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                <h2 style="color: #1D70B7; border-bottom: 2px solid #1D70B7; padding-bottom: 10px;">
+                                    Demande d'affectation
+                                </h2>
+                                
+                                <div style="margin: 20px 0; padding: 15px; background-color: #e3f2fd; border-left: 4px solid #2196f3; border-radius: 4px;">
+                                    <p style="margin: 5px 0;"><strong>De:</strong> ${fromName} (${fromEmail})</p>
+                                    <p style="margin: 5px 0;"><strong>Début:</strong> ${startDateFormatted}</p>
+                                    <p style="margin: 5px 0;"><strong>Fin:</strong> ${endDateFormatted}</p>
+                                </div>
+                                
+                                <div style="margin: 20px 0; padding: 15px; background-color: #f9f9f9; border-radius: 4px; line-height: 1.8;">
+                                    ${personalizedMessage.split('\n').map(line => 
+                                        line.trim() === '' ? '<br>' : `<p style="margin: 0 0 10px 0;">${line}</p>`
+                                    ).join('')}
+                                </div>
+                                
+                                <div style="text-align: center; margin: 25px 0;">
+                                    <a href="mailto:${fromEmail}?subject=${encodeURIComponent('Re: ' + subject)}&body=${encodeURIComponent(`Bonjour ${fromName.split(' ')[0]},
 
 [Votre réponse ici]
 
@@ -6933,51 +6950,45 @@ De : ${fromName} (${fromEmail})
 Début : ${startDateFormatted}
 Fin : ${endDateFormatted}
 `)}" 
-                                   style="display: inline-block; padding: 12px 30px; background-color: #27ae60; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">
-                                    📧 Répondre à ${fromName}
-                                </a>
+                                       style="display: inline-block; padding: 12px 30px; background-color: #27ae60; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">
+                                        📧 Répondre à ${fromName}
+                                    </a>
+                                </div>
+                                
+                                <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
+                                
+                                <p style="color: #7f8c8d; font-size: 12px; text-align: center; margin: 0;">
+                                    Cet email a été envoyé depuis le système SI-SAMU de planification des ressources.
+                                </p>
                             </div>
-                            
-                            <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
-                            
-                            <p style="color: #7f8c8d; font-size: 12px; text-align: center; margin: 0;">
-                                Cet email a été envoyé depuis le système SI-SAMU de planification des ressources.
-                            </p>
                         </div>
-                    </div>
-                `
-            };
+                    `
+                };
 
-            console.log(`📧 Envoi email à ${expert.email} (${expert.prenom} ${expert.nom})...`);
+                console.log(`📧 Envoi email à ${expert.email} (${expert.prenom} ${expert.nom})...`);
 
-            return transporter.sendMail(mailOptions)
-                .then(() => {
-                    console.log(`✅ Email envoyé avec succès à ${expert.email}`);
-                    return expert.email;
-                })
-                .catch(error => {
-                    console.error(`❌ Erreur envoi email à ${expert.email}:`, error.message);
-                    return null;
-                });
-        });
+                return transporter.sendMail(mailOptions)
+                    .then(() => {
+                        console.log(`✅ Email envoyé avec succès à ${expert.email}`);
+                        return expert.email;
+                    })
+                    .catch(error => {
+                        console.error(`❌ Erreur envoi email à ${expert.email}:`, error.message);
+                        return null;
+                    });
+            });
 
-        const results = await Promise.all(emailPromises);
-        const successfulEmails = results.filter(email => email !== null);
+            const results = await Promise.all(emailPromises);
+            const successfulEmails = results.filter(email => email !== null);
 
-        console.log('📊 Résultats envoi:', { 
-            total: emailPromises.length, 
-            succès: successfulEmails.length,
-            échecs: emailPromises.length - successfulEmails.length 
-        });
+            console.log('📊 Résultats envoi:', { 
+                total: emailPromises.length, 
+                succès: successfulEmails.length,
+                échecs: emailPromises.length - successfulEmails.length 
+            });
 
-        if (successfulEmails.length > 0) {
-            let responseMessage = `${successfulEmails.length} email(s) envoyé(s) avec succès`;
-            if (expertsWithoutEmail.length > 0) {
-                responseMessage += ` (${expertsWithoutEmail.length} expert(s) sans email configuré)`;
-            }
-            
-            // Logger l'action dans connection_logs
-            if (req.session.logId) {
+            // Logger l'action dans connection_logs (en arrière-plan)
+            if (sessionLogId && successfulEmails.length > 0) {
                 const expertNames = expertsWithEmail.map(e => `${e.prenom} ${e.nom}`).join(', ');
                 const logMessage = `Demande d'affectation envoyée à: ${expertNames} (${startDate} ${startPeriod} - ${endDate} ${endPeriod})`;
                 
@@ -6985,7 +6996,7 @@ Fin : ${endDateFormatted}
                     `UPDATE connection_logs 
                      SET modifications = modifications || ? 
                      WHERE id = ?`,
-                    [`${new Date().toLocaleString('fr-FR')}: ${logMessage}\n`, req.session.logId],
+                    [`${new Date().toLocaleString('fr-FR')}: ${logMessage}\n`, sessionLogId],
                     (err) => {
                         if (err) {
                             console.error('❌ Erreur log action:', err);
@@ -6996,28 +7007,21 @@ Fin : ${endDateFormatted}
                 );
             }
             
-            res.json({
-                success: true,
-                message: responseMessage,
-                emails: successfulEmails
-            });
+            // Envoyer notification Teams (en arrière-plan)
+            if (successfulEmails.length > 0) {
+                const expertNames = expertsWithEmail.map(e => `${e.prenom} ${e.nom}`).join(', ');
+                sendTeamsNotificationFromServer('demande', {
+                    from: fromName,
+                    subject: subject,
+                    message: message.substring(0, 500),
+                    experts: expertNames,
+                    startDate: startDateFormatted,
+                    endDate: endDateFormatted
+                });
+            }
             
-            // Envoyer notification Teams
-            const expertNames = expertsWithEmail.map(e => `${e.prenom} ${e.nom}`).join(', ');
-            sendTeamsNotificationFromServer('demande', {
-                from: fromName,
-                subject: subject,
-                message: message.substring(0, 500),
-                experts: expertNames,
-                startDate: startDateFormatted,
-                endDate: endDateFormatted
-            });
-        } else {
-            res.status(500).json({
-                success: false,
-                error: 'Échec de l\'envoi de tous les emails. Vérifiez la configuration SMTP dans les paramètres.'
-            });
-        }
+            console.log('📧 Fin envoi emails en arrière-plan');
+        });
 
     } catch (error) {
         console.error('❌ Erreur demande d\'affectation:', error);
