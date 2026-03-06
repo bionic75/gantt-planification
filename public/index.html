@@ -14868,20 +14868,21 @@
                 showEmailProgressToast(totalItems);
             }
             
-            // Envoyer la requête
-            fetch(`${API_URL}/send-assignment-emails`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ 
-                    assignments: assignmentsToSend, 
-                    senderName, 
-                    senderEmail,
-                    sessionId,
-                    debug: debugMode
-                })
-            })
-            .then(async response => {
+            try {
+                // Envoyer la requête
+                const response = await fetch(`${API_URL}/send-assignment-emails`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ 
+                        assignments: assignmentsToSend, 
+                        senderName, 
+                        senderEmail,
+                        sessionId,
+                        debug: debugMode
+                    })
+                });
+                
                 console.log('📧 Réponse serveur status:', response.status);
                 
                 if (debugMode) {
@@ -14890,29 +14891,12 @@
                 
                 emailSendingInProgress = false;
                 
-                // 502/504 = Gateway Timeout du reverse proxy
+                // 502/504 = Gateway Timeout - ne devrait plus arriver avec le polling
                 if (response.status === 502 || response.status === 504) {
-                    console.log('📧 Timeout reverse proxy - le serveur traite probablement en background');
                     if (debugMode) {
                         addDebugLog('warning', '⚠️ Timeout reverse proxy (502/504)');
-                        addDebugLog('info', 'Le serveur traite probablement la demande en arrière-plan');
+                        addDebugLog('info', 'Le serveur traite la demande en arrière-plan');
                         setDebugStatus('warning', '⚠️ Timeout proxy');
-                        stopDebugTimer();
-                    } else {
-                        assignmentsToSend.forEach(sent => { delete pendingAssignments[sent.resourceId]; });
-                        updatePendingEmailBadge();
-                        updateEmailToastSuccess(totalItems, 0, true);
-                    }
-                    return;
-                }
-                
-                // Vérifier que c'est du JSON avant de parser
-                const contentType = response.headers.get('content-type') || '';
-                if (!contentType.includes('application/json')) {
-                    console.warn('📧 Réponse non-JSON:', contentType);
-                    if (debugMode) {
-                        addDebugLog('warning', `⚠️ Réponse non-JSON: ${contentType}`);
-                        setDebugStatus('warning', '⚠️ Réponse inattendue');
                         stopDebugTimer();
                     } else {
                         assignmentsToSend.forEach(sent => { delete pendingAssignments[sent.resourceId]; });
@@ -14925,8 +14909,19 @@
                 const data = await response.json();
                 console.log('📧 Résultat:', data);
                 
-                if (debugMode) {
+                // En mode debug avec jobId, démarrer le polling
+                if (debugMode && data.jobId) {
+                    addDebugLog('info', `📋 Job démarré: ${data.jobId}`);
+                    addDebugLog('info', '⏳ Polling des logs en cours...');
                     addDebugLog('', '─'.repeat(60));
+                    
+                    // Démarrer le polling
+                    startDebugPolling(data.jobId, assignmentsToSend);
+                    return;
+                }
+                
+                // Réponse directe (mode non-debug ou erreur rapide)
+                if (debugMode) {
                     if (data.debugLogs && data.debugLogs.length > 0) {
                         addDebugLog('info', '📋 LOGS SERVEUR:');
                         data.debugLogs.forEach(log => {
@@ -14937,16 +14932,13 @@
                     
                     if (data.success) {
                         addDebugLog('success', `✅ SUCCÈS: ${data.message || 'Invitations envoyées'}`);
-                        if (data.sent) addDebugLog('success', `📧 Emails envoyés: ${data.sent}`);
-                        if (data.failed) addDebugLog('warning', `⚠️ Échecs: ${data.failed}`);
-                        setDebugStatus('success', '✅ Terminé avec succès');
+                        setDebugStatus('success', '✅ Terminé');
                     } else {
                         addDebugLog('error', `❌ ERREUR: ${data.error || 'Erreur inconnue'}`);
                         setDebugStatus('error', '❌ Échec');
                     }
                     stopDebugTimer();
                     
-                    // Nettoyer les pending même en mode debug
                     if (data.success) {
                         assignmentsToSend.forEach(sent => { delete pendingAssignments[sent.resourceId]; });
                         updatePendingEmailBadge();
@@ -14958,8 +14950,7 @@
                         updateEmailToastSuccess(totalItems, 0);
                     }
                 }
-            })
-            .catch(error => {
+            } catch (error) {
                 console.error('❌ Erreur réseau:', error);
                 emailSendingInProgress = false;
                 
@@ -14972,7 +14963,73 @@
                     updatePendingEmailBadge();
                     updateEmailToastSuccess(totalItems, 0, true);
                 }
-            });
+            }
+        }
+        
+        // Variable pour le polling debug
+        let debugPollingInterval = null;
+        let lastLogIndex = 0;
+        
+        function startDebugPolling(jobId, assignmentsToSend) {
+            lastLogIndex = 0;
+            
+            const poll = async () => {
+                try {
+                    const response = await fetch(`${API_URL}/debug-job/${jobId}`, { credentials: 'include' });
+                    
+                    if (!response.ok) {
+                        addDebugLog('error', `❌ Erreur polling: ${response.status}`);
+                        stopDebugPolling();
+                        setDebugStatus('error', '❌ Erreur polling');
+                        stopDebugTimer();
+                        return;
+                    }
+                    
+                    const data = await response.json();
+                    
+                    // Afficher les nouveaux logs
+                    if (data.logs && data.logs.length > lastLogIndex) {
+                        for (let i = lastLogIndex; i < data.logs.length; i++) {
+                            const log = data.logs[i];
+                            addDebugLog(log.type, log.message, log.timestamp);
+                        }
+                        lastLogIndex = data.logs.length;
+                    }
+                    
+                    // Vérifier si terminé
+                    if (data.status === 'completed' || data.status === 'error') {
+                        stopDebugPolling();
+                        addDebugLog('', '─'.repeat(60));
+                        
+                        if (data.result) {
+                            if (data.result.success) {
+                                addDebugLog('success', `✅ TERMINÉ: ${data.result.sent || 0} envoyé(s), ${data.result.failed || 0} échec(s)`);
+                                setDebugStatus('success', '✅ Terminé');
+                                assignmentsToSend.forEach(sent => { delete pendingAssignments[sent.resourceId]; });
+                                updatePendingEmailBadge();
+                            } else {
+                                addDebugLog('error', `❌ ÉCHEC: ${data.result.error || 'Erreur inconnue'}`);
+                                setDebugStatus('error', '❌ Échec');
+                            }
+                        }
+                        stopDebugTimer();
+                    }
+                } catch (error) {
+                    console.error('Erreur polling:', error);
+                    // Continuer le polling même en cas d'erreur ponctuelle
+                }
+            };
+            
+            // Polling toutes les 2 secondes
+            poll(); // Premier appel immédiat
+            debugPollingInterval = setInterval(poll, 2000);
+        }
+        
+        function stopDebugPolling() {
+            if (debugPollingInterval) {
+                clearInterval(debugPollingInterval);
+                debugPollingInterval = null;
+            }
         }
         
         // Toast non-bloquant avec barre de progression temps réel
@@ -16726,6 +16783,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
         function closeDebugLogsModal() {
             document.getElementById('debugLogsModal').style.display = 'none';
             stopDebugTimer();
+            stopDebugPolling();
         }
 
         function startDebugTimer() {
