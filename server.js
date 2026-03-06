@@ -3891,7 +3891,7 @@ function getCleanOldActivityLabel(assignment) {
 
 // ========== ENDPOINT ENVOI EMAILS D'AFFECTATION (REFONTE ICS) ==========
 
-app.post('/api/send-assignment-emails', requireAuth, async (req, res) => {
+app.post('/api/send-assignment-emails', requireAuth, (req, res) => {
     const debugMode = req.body.debug === true;
     
     const { assignments, senderName, senderEmail: clientSenderEmail } = req.body;
@@ -3908,7 +3908,7 @@ app.post('/api/send-assignment-emails', requireAuth, async (req, res) => {
     const senderEmailAddr = clientSenderEmail || emailConfig.user;
     const sessionLogId = req.session?.logId;
     
-    // En mode debug, créer un job et traiter en arrière-plan avec polling
+    // En mode debug, créer un job
     if (debugMode) {
         const jobId = crypto.randomUUID();
         const job = {
@@ -3920,204 +3920,167 @@ app.post('/api/send-assignment-emails', requireAuth, async (req, res) => {
         };
         debugJobs.set(jobId, job);
         
-        const addLog = (type, message) => {
-            const timestamp = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 });
-            job.logs.push({ type, message, timestamp });
-            console.log(`[DEBUG ${jobId.slice(0,8)}] [${type}] ${message}`);
-        };
+        // Répondre IMMÉDIATEMENT - rien d'autre avant
+        res.json({ success: true, jobId, message: 'Job créé' });
         
-        // Répondre immédiatement avec le jobId
-        res.json({ success: true, jobId, message: 'Traitement démarré, utilisez /api/debug-job/' + jobId + ' pour suivre' });
-        
-        // Traitement en arrière-plan
-        setImmediate(async () => {
-            try {
-                addLog('info', '📧 === DEBUT send-assignment-emails (DEBUG MODE) ===');
-                addLog('info', `📧 Expéditeur: ${requesterName} <${senderEmailAddr}>`);
-                addLog('info', `👥 Experts à traiter: ${assignments.length}`);
-                addLog('email', `📧 Configuration SMTP:`);
-                addLog('email', `   Host: ${emailConfig.host}`);
-                addLog('email', `   Port: ${emailConfig.port}`);
-                addLog('email', `   Secure: ${emailConfig.secure}`);
-                addLog('email', `   User: ${emailConfig.user}`);
-                
-                // 1. NOTIFICATIONS EN BASE
-                addLog('db', '📝 Création des notifications en base...');
-                let notificationsCreated = 0;
-                const dbStartTime = Date.now();
-                
-                for (const item of assignments) {
-                    const { resourceId, assignments: expertAssignments } = item;
-                    try {
-                        const user = await new Promise((resolve, reject) => {
-                            database.get(`SELECT id FROM users WHERE resource_id = ? AND is_expert = 1`, [resourceId],
-                                (err, row) => err ? reject(err) : resolve(row));
-                        });
-                        if (user) {
-                            for (const assignment of expertAssignments) {
-                                try {
-                                    let activityName = assignment.activity;
-                                    if (assignment.location && assignment.location !== '-') activityName = `${assignment.activity} (${assignment.location})`;
-                                    let actionLabel = 'Nouvelle affectation';
-                                    if (assignment.actionType === 'modified') actionLabel = 'Modification affectation';
-                                    if (assignment.actionType === 'deleted') actionLabel = 'Suppression affectation';
-                                    
-                                    const existingNotif = await new Promise((resolve, reject) => {
-                                        database.get(`SELECT id FROM expert_notifications WHERE expert_id = ? AND date = ? AND period = ? AND is_read = 0`,
-                                            [user.id, assignment.date, assignment.period], (err, row) => err ? reject(err) : resolve(row));
-                                    });
-                                    if (existingNotif) {
-                                        await new Promise((resolve, reject) => {
-                                            database.run(`UPDATE expert_notifications SET activity_name = ?, requester_name = ?, action_type = ?, created_at = CURRENT_TIMESTAMP WHERE id = ?`,
-                                                [activityName, requesterName, actionLabel, existingNotif.id], (err) => err ? reject(err) : resolve());
-                                        });
-                                    } else {
-                                        await new Promise((resolve, reject) => {
-                                            database.run(`INSERT INTO expert_notifications (expert_id, date, period, activity_name, requester_name, action_type) VALUES (?, ?, ?, ?, ?, ?)`,
-                                                [user.id, assignment.date, assignment.period, activityName, requesterName, actionLabel], (err) => err ? reject(err) : resolve());
-                                        });
-                                    }
-                                    notificationsCreated++;
-                                } catch (e) { addLog('error', `   Erreur notification: ${e.message}`); }
-                            }
-                        }
-                    } catch (e) { addLog('error', `   Erreur notification resource ${resourceId}: ${e.message}`); }
-                }
-                addLog('db', `✅ ${notificationsCreated} notification(s) créée(s) en ${Date.now() - dbStartTime}ms`);
-                
-                // 2. PRÉPARER LES EMAILS
-                addLog('info', '📧 Préparation des emails...');
-                const emailsToSend = [];
-                for (const item of assignments) {
-                    const { resourceId, email, expertNom, expertPrenom, expertName, assignments: expertAssignments } = item;
-                    const attendeeName = (expertPrenom && expertNom) ? `${expertPrenom} ${expertNom}` : (expertName || expertPrenom || expertNom || 'Expert');
-                    if (!email) {
-                        addLog('warning', `   ⚠️ ${attendeeName}: pas d'email configuré`);
-                        continue;
-                    }
-                    addLog('info', `   ${attendeeName} <${email}>: ${expertAssignments.length} affectation(s)`);
-                    
-                    const newAssigns = expertAssignments.filter(a => a.actionType === 'new' || !a.actionType);
-                    const modifiedAssigns = expertAssignments.filter(a => a.actionType === 'modified');
-                    const deletedAssigns = expertAssignments.filter(a => a.actionType === 'deleted');
-                    
-                    if (newAssigns.length > 0) {
-                        const groups = groupContiguousAssignments(newAssigns);
-                        for (const group of groups) {
-                            try {
-                                const firstSlot = group.slots[0], lastSlot = group.slots[group.slots.length - 1];
-                                const startHours = HALF_DAY_HOURS[firstSlot.period], endHours = HALF_DAY_HOURS[lastSlot.period];
-                                const uid = generateICSUid();
-                                const cleanLabel = ACTIVITY_LABELS[group.activityCode] || getCleanActivityLabel({ activityCode: group.activityCode, activity: group.activity });
-                                const summary = `Domaines des Urgences - Affectation – ${cleanLabel} – ${requesterName}`;
-                                const location = group.location && group.location !== '-' ? group.location : '';
-                                const slotsDesc = group.slots.map(s => { const [y,m,d] = s.date.split('-'); return `${d}/${m}/${y} (${s.period === 'AM' ? 'Matin 8h-12h' : 'Apres-midi 14h-18h'})`; }).join('\\n');
-                                const description = `Affectation: ${cleanLabel}\\nLocalisation: ${location || 'Non precisee'}\\nDemandeur: ${requesterName}\\n\\nCreneaux:\\n${slotsDesc}`;
-                                emailsToSend.push({ type: 'new', to: email, subject: summary, attendeeName,
-                                    html: buildInvitationHTML(attendeeName, requesterName, group, 'new'),
-                                    attachments: [{ filename: 'invitation.ics', content: buildICS({ uid, summary, description, location, dtstart: formatDateICS(firstSlot.date, startHours.start, 0), dtend: formatDateICS(lastSlot.date, endHours.end, 0), organizer: senderEmailAddr, organizerName: requesterName, attendee: email, attendeeName, method: 'REQUEST' }), contentType: 'text/calendar; method=REQUEST' }]
-                                });
-                            } catch (e) { addLog('error', `   Erreur préparation NEW: ${e.message}`); }
-                        }
-                    }
-                    
-                    for (const assignment of modifiedAssigns) {
-                        try {
-                            const hours = HALF_DAY_HOURS[assignment.period];
-                            const oldLabel = getCleanOldActivityLabel(assignment);
-                            const cancelSummary = `Domaines des Urgences - Affectation – ${oldLabel} – ${requesterName}`;
-                            const oldLoc = assignment.oldLocation && assignment.oldLocation !== '-' ? assignment.oldLocation : '';
-                            emailsToSend.push({ type: 'cancel_modify', to: email, subject: `Annule: ${cancelSummary}`, attendeeName,
-                                html: buildInvitationHTML(attendeeName, requesterName, { activity: oldLabel, location: oldLoc, slots: [assignment] }, 'cancelled'),
-                                attachments: [{ filename: 'annulation.ics', content: buildICS({ uid: generateICSUid(), summary: cancelSummary, description: `Annulation: cette affectation a ete modifiee par ${requesterName}.`, location: oldLoc, dtstart: formatDateICS(assignment.date, hours.start, 0), dtend: formatDateICS(assignment.date, hours.end, 0), organizer: senderEmailAddr, organizerName: requesterName, attendee: email, attendeeName, sequence: 1, method: 'CANCEL' }), contentType: 'text/calendar; method=CANCEL' }]
-                            });
-                            const newLabel = ACTIVITY_LABELS[assignment.activityCode] || getCleanActivityLabel(assignment);
-                            const newSummary = `Domaines des Urgences - Affectation – ${newLabel} – ${requesterName}`;
-                            const newLoc = assignment.location && assignment.location !== '-' ? assignment.location : '';
-                            emailsToSend.push({ type: 'modified', to: email, subject: newSummary, attendeeName,
-                                html: buildInvitationHTML(attendeeName, requesterName, { activity: newLabel, location: newLoc, slots: [assignment] }, 'modified'),
-                                attachments: [{ filename: 'invitation.ics', content: buildICS({ uid: generateICSUid(), summary: newSummary, description: `Nouvelle affectation: ${newLabel}\\nLocalisation: ${newLoc || 'Non precisee'}\\nDemandeur: ${requesterName}`, location: newLoc, dtstart: formatDateICS(assignment.date, hours.start, 0), dtend: formatDateICS(assignment.date, hours.end, 0), organizer: senderEmailAddr, organizerName: requesterName, attendee: email, attendeeName, method: 'REQUEST' }), contentType: 'text/calendar; method=REQUEST' }]
-                            });
-                        } catch (e) { addLog('error', `   Erreur préparation MODIFIED: ${e.message}`); }
-                    }
-                    
-                    for (const assignment of deletedAssigns) {
-                        try {
-                            const hours = HALF_DAY_HOURS[assignment.period];
-                            const delLabel = getCleanOldActivityLabel(assignment);
-                            const cancelSummary = `Domaines des Urgences - Affectation – ${delLabel} – ${requesterName}`;
-                            const loc = assignment.oldLocation && assignment.oldLocation !== '-' ? assignment.oldLocation : (assignment.location && assignment.location !== '-' ? assignment.location : '');
-                            emailsToSend.push({ type: 'deleted', to: email, subject: `Annule: ${cancelSummary}`, attendeeName,
-                                html: buildInvitationHTML(attendeeName, requesterName, { activity: delLabel, location: loc, slots: [assignment] }, 'cancelled'),
-                                attachments: [{ filename: 'annulation.ics', content: buildICS({ uid: generateICSUid(), summary: cancelSummary, description: `Cette affectation a ete supprimee par ${requesterName}.`, location: loc, dtstart: formatDateICS(assignment.date, hours.start, 0), dtend: formatDateICS(assignment.date, hours.end, 0), organizer: senderEmailAddr, organizerName: requesterName, attendee: email, attendeeName, sequence: 1, method: 'CANCEL' }), contentType: 'text/calendar; method=CANCEL' }]
-                            });
-                        } catch (e) { addLog('error', `   Erreur préparation DELETED: ${e.message}`); }
-                    }
-                }
-                
-                addLog('info', `📧 ${emailsToSend.length} email(s) préparés`);
-                addLog('info', '─'.repeat(50));
-                
-                // 3. ENVOYER LES EMAILS
-                addLog('email', '📤 Début envoi des emails...');
-                let totalSent = 0, totalFailed = 0;
-                
-                for (let i = 0; i < emailsToSend.length; i++) {
-                    const mail = emailsToSend[i];
-                    addLog('email', `📧 [${i+1}/${emailsToSend.length}] Envoi à ${mail.to} (${mail.type})...`);
-                    const emailStartTime = Date.now();
-                    
-                    try {
-                        await sendEmail(mail.to, mail.subject, mail.html, mail.attachments);
-                        const duration = Date.now() - emailStartTime;
-                        totalSent++;
-                        addLog('success', `   ✅ Envoyé en ${duration}ms`);
-                    } catch (error) {
-                        const duration = Date.now() - emailStartTime;
-                        totalFailed++;
-                        addLog('error', `   ❌ Échec après ${duration}ms: ${error.message}`);
-                        if (error.code) addLog('error', `   Code: ${error.code}`);
-                    }
-                    
-                    if (i < emailsToSend.length - 1) {
-                        await new Promise(resolve => setTimeout(resolve, 100));
-                    }
-                }
-                
-                addLog('info', '─'.repeat(50));
-                addLog('info', `📊 RÉSUMÉ: ${totalSent} envoyé(s), ${totalFailed} échec(s)`);
-                
-                // Logger l'action
-                if (sessionLogId) {
-                    const allEmails = assignments.map(a => a.email).filter(e => e).join(', ');
-                    database.run(`UPDATE connection_logs SET modifications = modifications || ? WHERE id = ?`,
-                        [`${new Date().toLocaleString('fr-FR')}: Invitations Outlook (${totalSent}/${totalSent + totalFailed}) pour: ${allEmails}\n`, sessionLogId]);
-                }
-                
-                job.status = 'completed';
-                job.result = { success: totalSent > 0, sent: totalSent, failed: totalFailed };
-                
-            } catch (error) {
-                job.logs.push({ type: 'error', message: `❌ EXCEPTION: ${error.message}`, timestamp: new Date().toLocaleTimeString('fr-FR') });
-                job.status = 'error';
-                job.result = { success: false, error: error.message };
-            }
-        });
-        
-        return; // Important: ne pas continuer
+        // Lancer le traitement en arrière-plan avec setTimeout(0) pour libérer l'event loop
+        setTimeout(() => processEmailJob(job, assignments, requesterName, senderEmailAddr, sessionLogId), 0);
+        return;
     }
     
-    // Mode normal : répondre immédiatement et traiter en arrière-plan
-    console.log(`📧 [${new Date().toISOString()}] ${assignments.length} expert(s), envoi res.json MAINTENANT`);
-    res.json({ success: true, message: `Invitations en cours d'envoi...` });
+    // Mode normal : répondre immédiatement
+    res.json({ success: true, message: 'Invitations en cours d\'envoi...' });
     
-    // TOUT le reste dans un process séparé
-    process.nextTick(async () => {
-        try {
-            // 1. NOTIFICATIONS EN BASE
-            let notificationsCreated = 0;
-            for (const item of assignments) {
-                const { resourceId, assignments: expertAssignments } = item;
+    // Traiter en arrière-plan
+    setTimeout(() => processEmailJobNormal(assignments, requesterName, senderEmailAddr, sessionLogId), 0);
+});
+
+// Fonction de traitement pour le mode debug
+async function processEmailJob(job, assignments, requesterName, senderEmailAddr, sessionLogId) {
+    const addLog = (type, message) => {
+        const timestamp = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 });
+        job.logs.push({ type, message, timestamp });
+        console.log(`[DEBUG ${job.id.slice(0,8)}] [${type}] ${message}`);
+    };
+    
+    try {
+        addLog('info', '📧 === DEBUT send-assignment-emails (DEBUG MODE) ===');
+        addLog('info', `📧 Expéditeur: ${requesterName} <${senderEmailAddr}>`);
+        addLog('info', `👥 Experts à traiter: ${assignments.length}`);
+        addLog('email', `📧 Configuration SMTP:`);
+        addLog('email', `   Host: ${emailConfig.host}`);
+        addLog('email', `   Port: ${emailConfig.port}`);
+        addLog('email', `   Secure: ${emailConfig.secure}`);
+        addLog('email', `   User: ${emailConfig.user}`);
+        
+        // 1. PRÉPARER LES EMAILS D'ABORD (rapide, pas de réseau)
+        addLog('info', '📧 Préparation des emails...');
+        const emailsToSend = [];
+        for (const item of assignments) {
+            const { resourceId, email, expertNom, expertPrenom, expertName, assignments: expertAssignments } = item;
+            const attendeeName = (expertPrenom && expertNom) ? `${expertPrenom} ${expertNom}` : (expertName || expertPrenom || expertNom || 'Expert');
+            if (!email) {
+                addLog('warning', `   ⚠️ ${attendeeName}: pas d'email configuré`);
+                continue;
+            }
+            addLog('info', `   ${attendeeName} <${email}>: ${expertAssignments.length} affectation(s)`);
+            
+            const newAssigns = expertAssignments.filter(a => a.actionType === 'new' || !a.actionType);
+            const modifiedAssigns = expertAssignments.filter(a => a.actionType === 'modified');
+            const deletedAssigns = expertAssignments.filter(a => a.actionType === 'deleted');
+            
+            if (newAssigns.length > 0) {
+                const groups = groupContiguousAssignments(newAssigns);
+                for (const group of groups) {
+                    try {
+                        const firstSlot = group.slots[0], lastSlot = group.slots[group.slots.length - 1];
+                        const startHours = HALF_DAY_HOURS[firstSlot.period], endHours = HALF_DAY_HOURS[lastSlot.period];
+                        const uid = generateICSUid();
+                        const cleanLabel = ACTIVITY_LABELS[group.activityCode] || getCleanActivityLabel({ activityCode: group.activityCode, activity: group.activity });
+                        const summary = `Domaines des Urgences - Affectation – ${cleanLabel} – ${requesterName}`;
+                        const location = group.location && group.location !== '-' ? group.location : '';
+                        const slotsDesc = group.slots.map(s => { const [y,m,d] = s.date.split('-'); return `${d}/${m}/${y} (${s.period === 'AM' ? 'Matin 8h-12h' : 'Apres-midi 14h-18h'})`; }).join('\\n');
+                        const description = `Affectation: ${cleanLabel}\\nLocalisation: ${location || 'Non precisee'}\\nDemandeur: ${requesterName}\\n\\nCreneaux:\\n${slotsDesc}`;
+                        emailsToSend.push({ type: 'new', to: email, subject: summary, attendeeName,
+                            html: buildInvitationHTML(attendeeName, requesterName, group, 'new'),
+                            attachments: [{ filename: 'invitation.ics', content: buildICS({ uid, summary, description, location, dtstart: formatDateICS(firstSlot.date, startHours.start, 0), dtend: formatDateICS(lastSlot.date, endHours.end, 0), organizer: senderEmailAddr, organizerName: requesterName, attendee: email, attendeeName, method: 'REQUEST' }), contentType: 'text/calendar; method=REQUEST' }]
+                        });
+                    } catch (e) { addLog('error', `   Erreur préparation NEW: ${e.message}`); }
+                }
+            }
+            
+            for (const assignment of modifiedAssigns) {
+                try {
+                    const hours = HALF_DAY_HOURS[assignment.period];
+                    const oldLabel = getCleanOldActivityLabel(assignment);
+                    const cancelSummary = `Domaines des Urgences - Affectation – ${oldLabel} – ${requesterName}`;
+                    const oldLoc = assignment.oldLocation && assignment.oldLocation !== '-' ? assignment.oldLocation : '';
+                    emailsToSend.push({ type: 'cancel_modify', to: email, subject: `Annule: ${cancelSummary}`, attendeeName,
+                        html: buildInvitationHTML(attendeeName, requesterName, { activity: oldLabel, location: oldLoc, slots: [assignment] }, 'cancelled'),
+                        attachments: [{ filename: 'annulation.ics', content: buildICS({ uid: generateICSUid(), summary: cancelSummary, description: `Annulation: cette affectation a ete modifiee par ${requesterName}.`, location: oldLoc, dtstart: formatDateICS(assignment.date, hours.start, 0), dtend: formatDateICS(assignment.date, hours.end, 0), organizer: senderEmailAddr, organizerName: requesterName, attendee: email, attendeeName, sequence: 1, method: 'CANCEL' }), contentType: 'text/calendar; method=CANCEL' }]
+                    });
+                    const newLabel = ACTIVITY_LABELS[assignment.activityCode] || getCleanActivityLabel(assignment);
+                    const newSummary = `Domaines des Urgences - Affectation – ${newLabel} – ${requesterName}`;
+                    const newLoc = assignment.location && assignment.location !== '-' ? assignment.location : '';
+                    emailsToSend.push({ type: 'modified', to: email, subject: newSummary, attendeeName,
+                        html: buildInvitationHTML(attendeeName, requesterName, { activity: newLabel, location: newLoc, slots: [assignment] }, 'modified'),
+                        attachments: [{ filename: 'invitation.ics', content: buildICS({ uid: generateICSUid(), summary: newSummary, description: `Nouvelle affectation: ${newLabel}\\nLocalisation: ${newLoc || 'Non precisee'}\\nDemandeur: ${requesterName}`, location: newLoc, dtstart: formatDateICS(assignment.date, hours.start, 0), dtend: formatDateICS(assignment.date, hours.end, 0), organizer: senderEmailAddr, organizerName: requesterName, attendee: email, attendeeName, method: 'REQUEST' }), contentType: 'text/calendar; method=REQUEST' }]
+                    });
+                } catch (e) { addLog('error', `   Erreur préparation MODIFIED: ${e.message}`); }
+            }
+            
+            for (const assignment of deletedAssigns) {
+                try {
+                    const hours = HALF_DAY_HOURS[assignment.period];
+                    const delLabel = getCleanOldActivityLabel(assignment);
+                    const cancelSummary = `Domaines des Urgences - Affectation – ${delLabel} – ${requesterName}`;
+                    const loc = assignment.oldLocation && assignment.oldLocation !== '-' ? assignment.oldLocation : (assignment.location && assignment.location !== '-' ? assignment.location : '');
+                    emailsToSend.push({ type: 'deleted', to: email, subject: `Annule: ${cancelSummary}`, attendeeName,
+                        html: buildInvitationHTML(attendeeName, requesterName, { activity: delLabel, location: loc, slots: [assignment] }, 'cancelled'),
+                        attachments: [{ filename: 'annulation.ics', content: buildICS({ uid: generateICSUid(), summary: cancelSummary, description: `Cette affectation a ete supprimee par ${requesterName}.`, location: loc, dtstart: formatDateICS(assignment.date, hours.start, 0), dtend: formatDateICS(assignment.date, hours.end, 0), organizer: senderEmailAddr, organizerName: requesterName, attendee: email, attendeeName, sequence: 1, method: 'CANCEL' }), contentType: 'text/calendar; method=CANCEL' }]
+                    });
+                } catch (e) { addLog('error', `   Erreur préparation DELETED: ${e.message}`); }
+            }
+        }
+        
+        addLog('info', `📧 ${emailsToSend.length} email(s) préparés`);
+        addLog('info', '─'.repeat(50));
+        
+        // 2. ENVOYER LES EMAILS (avec retry sur le premier)
+        addLog('email', '📤 Début envoi des emails...');
+        let totalSent = 0, totalFailed = 0;
+        
+        for (let i = 0; i < emailsToSend.length; i++) {
+            const mail = emailsToSend[i];
+            addLog('email', `📧 [${i+1}/${emailsToSend.length}] Envoi à ${mail.to} (${mail.type})...`);
+            const emailStartTime = Date.now();
+            
+            let success = false;
+            let lastError = null;
+            const maxRetries = (i === 0) ? 3 : 1; // Plus de retries pour le premier email
+            
+            for (let retry = 0; retry < maxRetries && !success; retry++) {
+                if (retry > 0) {
+                    addLog('warning', `   ⚠️ Retry ${retry}/${maxRetries-1}...`);
+                    await new Promise(resolve => setTimeout(resolve, 1000)); // Attendre 1s avant retry
+                }
+                
+                try {
+                    await sendEmail(mail.to, mail.subject, mail.html, mail.attachments);
+                    success = true;
+                } catch (error) {
+                    lastError = error;
+                }
+            }
+            
+            const duration = Date.now() - emailStartTime;
+            if (success) {
+                totalSent++;
+                addLog('success', `   ✅ Envoyé en ${duration}ms`);
+            } else {
+                totalFailed++;
+                addLog('error', `   ❌ Échec après ${duration}ms: ${lastError.message}`);
+                if (lastError.code) addLog('error', `   Code: ${lastError.code}`);
+            }
+            
+            if (i < emailsToSend.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+        }
+        
+        addLog('info', '─'.repeat(50));
+        addLog('info', `📊 RÉSUMÉ EMAILS: ${totalSent} envoyé(s), ${totalFailed} échec(s)`);
+        
+        // 3. NOTIFICATIONS EN BASE (après les emails, en parallèle)
+        addLog('db', '📝 Création des notifications en base (arrière-plan)...');
+        const dbStartTime = Date.now();
+        let notificationsCreated = 0;
+        
+        // Créer toutes les notifications en batch plutôt qu'une par une
+        const notifPromises = [];
+        for (const item of assignments) {
+            const { resourceId, assignments: expertAssignments } = item;
+            notifPromises.push((async () => {
                 try {
                     const user = await new Promise((resolve, reject) => {
                         database.get(`SELECT id FROM users WHERE resource_id = ? AND is_expert = 1`, [resourceId],
@@ -4125,133 +4088,156 @@ app.post('/api/send-assignment-emails', requireAuth, async (req, res) => {
                     });
                     if (user) {
                         for (const assignment of expertAssignments) {
-                            try {
-                                let activityName = assignment.activity;
-                                if (assignment.location && assignment.location !== '-') activityName = `${assignment.activity} (${assignment.location})`;
-                                let actionLabel = 'Nouvelle affectation';
-                                if (assignment.actionType === 'modified') actionLabel = 'Modification affectation';
-                                if (assignment.actionType === 'deleted') actionLabel = 'Suppression affectation';
-                                
-                                const existingNotif = await new Promise((resolve, reject) => {
-                                    database.get(`SELECT id FROM expert_notifications WHERE expert_id = ? AND date = ? AND period = ? AND is_read = 0`,
-                                        [user.id, assignment.date, assignment.period], (err, row) => err ? reject(err) : resolve(row));
-                                });
-                                if (existingNotif) {
-                                    await new Promise((resolve, reject) => {
-                                        database.run(`UPDATE expert_notifications SET activity_name = ?, requester_name = ?, action_type = ?, created_at = CURRENT_TIMESTAMP WHERE id = ?`,
-                                            [activityName, requesterName, actionLabel, existingNotif.id], (err) => err ? reject(err) : resolve());
-                                    });
-                                } else {
-                                    await new Promise((resolve, reject) => {
-                                        database.run(`INSERT INTO expert_notifications (expert_id, date, period, activity_name, requester_name, action_type) VALUES (?, ?, ?, ?, ?, ?)`,
-                                            [user.id, assignment.date, assignment.period, activityName, requesterName, actionLabel], (err) => err ? reject(err) : resolve());
-                                    });
-                                }
-                                notificationsCreated++;
-                            } catch (e) { console.error(`❌ Erreur notification:`, e.message); }
+                            let activityName = assignment.activity;
+                            if (assignment.location && assignment.location !== '-') activityName = `${assignment.activity} (${assignment.location})`;
+                            let actionLabel = 'Nouvelle affectation';
+                            if (assignment.actionType === 'modified') actionLabel = 'Modification affectation';
+                            if (assignment.actionType === 'deleted') actionLabel = 'Suppression affectation';
+                            
+                            await new Promise((resolve, reject) => {
+                                database.run(`INSERT OR REPLACE INTO expert_notifications (expert_id, date, period, activity_name, requester_name, action_type) VALUES (?, ?, ?, ?, ?, ?)`,
+                                    [user.id, assignment.date, assignment.period, activityName, requesterName, actionLabel], 
+                                    (err) => err ? reject(err) : resolve());
+                            });
+                            notificationsCreated++;
                         }
                     }
-                } catch (e) { console.error(`❌ Erreur notification resource ${resourceId}:`, e.message); }
-            }
-            console.log(`✅ ${notificationsCreated} notification(s) créée(s) en base`);
+                } catch (e) { console.error(`Erreur notification:`, e.message); }
+            })());
+        }
+        await Promise.all(notifPromises);
+        addLog('db', `✅ ${notificationsCreated} notification(s) créée(s) en ${Date.now() - dbStartTime}ms`);
+        
+        // Logger l'action
+        if (sessionLogId) {
+            const allEmails = assignments.map(a => a.email).filter(e => e).join(', ');
+            database.run(`UPDATE connection_logs SET modifications = modifications || ? WHERE id = ?`,
+                [`${new Date().toLocaleString('fr-FR')}: Invitations Outlook (${totalSent}/${totalSent + totalFailed}) pour: ${allEmails}\n`, sessionLogId]);
+        }
+        
+        job.status = 'completed';
+        job.result = { success: totalSent > 0, sent: totalSent, failed: totalFailed };
+        
+    } catch (error) {
+        job.logs.push({ type: 'error', message: `❌ EXCEPTION: ${error.message}`, timestamp: new Date().toLocaleTimeString('fr-FR') });
+        job.status = 'error';
+        job.result = { success: false, error: error.message };
+    }
+}
+
+// Fonction de traitement pour le mode normal (non-debug)
+async function processEmailJobNormal(assignments, requesterName, senderEmailAddr, sessionLogId) {
+    try {
+        // Préparer les emails
+        const emailsToSend = [];
+        for (const item of assignments) {
+            const { resourceId, email, expertNom, expertPrenom, expertName, assignments: expertAssignments } = item;
+            const attendeeName = (expertPrenom && expertNom) ? `${expertPrenom} ${expertNom}` : (expertName || expertPrenom || expertNom || 'Expert');
+            if (!email) continue;
             
-            // 2. PRÉPARER LES EMAILS
-            const emailsToSend = [];
-            for (const item of assignments) {
-                const { resourceId, email, expertNom, expertPrenom, expertName, assignments: expertAssignments } = item;
-                const attendeeName = (expertPrenom && expertNom) ? `${expertPrenom} ${expertNom}` : (expertName || expertPrenom || expertNom || 'Expert');
-                if (!email) continue;
-                
-                const newAssigns = expertAssignments.filter(a => a.actionType === 'new' || !a.actionType);
-                const modifiedAssigns = expertAssignments.filter(a => a.actionType === 'modified');
-                const deletedAssigns = expertAssignments.filter(a => a.actionType === 'deleted');
-                
-                if (newAssigns.length > 0) {
-                    const groups = groupContiguousAssignments(newAssigns);
-                    for (const group of groups) {
-                        try {
-                            const firstSlot = group.slots[0], lastSlot = group.slots[group.slots.length - 1];
-                            const startHours = HALF_DAY_HOURS[firstSlot.period], endHours = HALF_DAY_HOURS[lastSlot.period];
-                            const uid = generateICSUid();
-                            const cleanLabel = ACTIVITY_LABELS[group.activityCode] || getCleanActivityLabel({ activityCode: group.activityCode, activity: group.activity });
-                            const summary = `Domaines des Urgences - Affectation – ${cleanLabel} – ${requesterName}`;
-                            const location = group.location && group.location !== '-' ? group.location : '';
-                            const slotsDesc = group.slots.map(s => { const [y,m,d] = s.date.split('-'); return `${d}/${m}/${y} (${s.period === 'AM' ? 'Matin 8h-12h' : 'Apres-midi 14h-18h'})`; }).join('\\n');
-                            const description = `Affectation: ${cleanLabel}\\nLocalisation: ${location || 'Non precisee'}\\nDemandeur: ${requesterName}\\n\\nCreneaux:\\n${slotsDesc}`;
-                            emailsToSend.push({ type: 'new', to: email, subject: summary,
-                                html: buildInvitationHTML(attendeeName, requesterName, group, 'new'),
-                                attachments: [{ filename: 'invitation.ics', content: buildICS({ uid, summary, description, location, dtstart: formatDateICS(firstSlot.date, startHours.start, 0), dtend: formatDateICS(lastSlot.date, endHours.end, 0), organizer: senderEmailAddr, organizerName: requesterName, attendee: email, attendeeName, method: 'REQUEST' }), contentType: 'text/calendar; method=REQUEST' }]
-                            });
-                        } catch (e) { console.error(`❌ Erreur préparation NEW:`, e.message); }
+            const newAssigns = expertAssignments.filter(a => a.actionType === 'new' || !a.actionType);
+            const modifiedAssigns = expertAssignments.filter(a => a.actionType === 'modified');
+            const deletedAssigns = expertAssignments.filter(a => a.actionType === 'deleted');
+            
+            if (newAssigns.length > 0) {
+                const groups = groupContiguousAssignments(newAssigns);
+                for (const group of groups) {
+                    try {
+                        const firstSlot = group.slots[0], lastSlot = group.slots[group.slots.length - 1];
+                        const startHours = HALF_DAY_HOURS[firstSlot.period], endHours = HALF_DAY_HOURS[lastSlot.period];
+                        const uid = generateICSUid();
+                        const cleanLabel = ACTIVITY_LABELS[group.activityCode] || getCleanActivityLabel({ activityCode: group.activityCode, activity: group.activity });
+                        const summary = `Domaines des Urgences - Affectation – ${cleanLabel} – ${requesterName}`;
+                        const location = group.location && group.location !== '-' ? group.location : '';
+                        const slotsDesc = group.slots.map(s => { const [y,m,d] = s.date.split('-'); return `${d}/${m}/${y} (${s.period === 'AM' ? 'Matin 8h-12h' : 'Apres-midi 14h-18h'})`; }).join('\\n');
+                        const description = `Affectation: ${cleanLabel}\\nLocalisation: ${location || 'Non precisee'}\\nDemandeur: ${requesterName}\\n\\nCreneaux:\\n${slotsDesc}`;
+                        emailsToSend.push({ type: 'new', to: email, subject: summary,
+                            html: buildInvitationHTML(attendeeName, requesterName, group, 'new'),
+                            attachments: [{ filename: 'invitation.ics', content: buildICS({ uid, summary, description, location, dtstart: formatDateICS(firstSlot.date, startHours.start, 0), dtend: formatDateICS(lastSlot.date, endHours.end, 0), organizer: senderEmailAddr, organizerName: requesterName, attendee: email, attendeeName, method: 'REQUEST' }), contentType: 'text/calendar; method=REQUEST' }]
+                        });
+                    } catch (e) { console.error(`Erreur préparation NEW:`, e.message); }
+                }
+            }
+            
+            for (const assignment of modifiedAssigns) {
+                try {
+                    const hours = HALF_DAY_HOURS[assignment.period];
+                    const oldLabel = getCleanOldActivityLabel(assignment);
+                    const cancelSummary = `Domaines des Urgences - Affectation – ${oldLabel} – ${requesterName}`;
+                    const oldLoc = assignment.oldLocation && assignment.oldLocation !== '-' ? assignment.oldLocation : '';
+                    emailsToSend.push({ type: 'cancel_modify', to: email, subject: `Annule: ${cancelSummary}`,
+                        html: buildInvitationHTML(attendeeName, requesterName, { activity: oldLabel, location: oldLoc, slots: [assignment] }, 'cancelled'),
+                        attachments: [{ filename: 'annulation.ics', content: buildICS({ uid: generateICSUid(), summary: cancelSummary, description: `Annulation: cette affectation a ete modifiee par ${requesterName}.`, location: oldLoc, dtstart: formatDateICS(assignment.date, hours.start, 0), dtend: formatDateICS(assignment.date, hours.end, 0), organizer: senderEmailAddr, organizerName: requesterName, attendee: email, attendeeName, sequence: 1, method: 'CANCEL' }), contentType: 'text/calendar; method=CANCEL' }]
+                    });
+                    const newLabel = ACTIVITY_LABELS[assignment.activityCode] || getCleanActivityLabel(assignment);
+                    const newSummary = `Domaines des Urgences - Affectation – ${newLabel} – ${requesterName}`;
+                    const newLoc = assignment.location && assignment.location !== '-' ? assignment.location : '';
+                    emailsToSend.push({ type: 'modified', to: email, subject: newSummary,
+                        html: buildInvitationHTML(attendeeName, requesterName, { activity: newLabel, location: newLoc, slots: [assignment] }, 'modified'),
+                        attachments: [{ filename: 'invitation.ics', content: buildICS({ uid: generateICSUid(), summary: newSummary, description: `Nouvelle affectation: ${newLabel}\\nLocalisation: ${newLoc || 'Non precisee'}\\nDemandeur: ${requesterName}`, location: newLoc, dtstart: formatDateICS(assignment.date, hours.start, 0), dtend: formatDateICS(assignment.date, hours.end, 0), organizer: senderEmailAddr, organizerName: requesterName, attendee: email, attendeeName, method: 'REQUEST' }), contentType: 'text/calendar; method=REQUEST' }]
+                    });
+                } catch (e) { console.error(`Erreur préparation MODIFIED:`, e.message); }
+            }
+            
+            for (const assignment of deletedAssigns) {
+                try {
+                    const hours = HALF_DAY_HOURS[assignment.period];
+                    const delLabel = getCleanOldActivityLabel(assignment);
+                    const cancelSummary = `Domaines des Urgences - Affectation – ${delLabel} – ${requesterName}`;
+                    const loc = assignment.oldLocation && assignment.oldLocation !== '-' ? assignment.oldLocation : (assignment.location && assignment.location !== '-' ? assignment.location : '');
+                    emailsToSend.push({ type: 'deleted', to: email, subject: `Annule: ${cancelSummary}`,
+                        html: buildInvitationHTML(attendeeName, requesterName, { activity: delLabel, location: loc, slots: [assignment] }, 'cancelled'),
+                        attachments: [{ filename: 'annulation.ics', content: buildICS({ uid: generateICSUid(), summary: cancelSummary, description: `Cette affectation a ete supprimee par ${requesterName}.`, location: loc, dtstart: formatDateICS(assignment.date, hours.start, 0), dtend: formatDateICS(assignment.date, hours.end, 0), organizer: senderEmailAddr, organizerName: requesterName, attendee: email, attendeeName, sequence: 1, method: 'CANCEL' }), contentType: 'text/calendar; method=CANCEL' }]
+                    });
+                } catch (e) { console.error(`Erreur préparation DELETED:`, e.message); }
+            }
+        }
+        
+        console.log(`📧 ${emailsToSend.length} email(s) préparés, envoi...`);
+        
+        // Envoyer les emails
+        let totalSent = 0, totalFailed = 0;
+        for (let i = 0; i < emailsToSend.length; i++) {
+            const mail = emailsToSend[i];
+            try {
+                if (i > 0) await new Promise(resolve => setTimeout(resolve, 100));
+                await sendEmail(mail.to, mail.subject, mail.html, mail.attachments);
+                totalSent++;
+                console.log(`✅ [${i+1}/${emailsToSend.length}] Email envoyé à ${mail.to}`);
+            } catch (error) {
+                totalFailed++;
+                console.error(`❌ [${i+1}/${emailsToSend.length}] Erreur envoi à ${mail.to}:`, error.message);
+            }
+        }
+        
+        console.log(`📊 Résultat: ${totalSent} envoyé(s), ${totalFailed} échec(s)`);
+        
+        // Notifications en base (en arrière-plan, ne bloque pas)
+        for (const item of assignments) {
+            const { resourceId, assignments: expertAssignments } = item;
+            database.get(`SELECT id FROM users WHERE resource_id = ? AND is_expert = 1`, [resourceId], (err, user) => {
+                if (!err && user) {
+                    for (const assignment of expertAssignments) {
+                        let activityName = assignment.activity;
+                        if (assignment.location && assignment.location !== '-') activityName = `${assignment.activity} (${assignment.location})`;
+                        let actionLabel = assignment.actionType === 'modified' ? 'Modification' : assignment.actionType === 'deleted' ? 'Suppression' : 'Nouvelle';
+                        database.run(`INSERT OR REPLACE INTO expert_notifications (expert_id, date, period, activity_name, requester_name, action_type) VALUES (?, ?, ?, ?, ?, ?)`,
+                            [user.id, assignment.date, assignment.period, activityName, requesterName, actionLabel]);
                     }
                 }
-                
-                for (const assignment of modifiedAssigns) {
-                    try {
-                        const hours = HALF_DAY_HOURS[assignment.period];
-                        const oldLabel = getCleanOldActivityLabel(assignment);
-                        const cancelSummary = `Domaines des Urgences - Affectation – ${oldLabel} – ${requesterName}`;
-                        const oldLoc = assignment.oldLocation && assignment.oldLocation !== '-' ? assignment.oldLocation : '';
-                        emailsToSend.push({ type: 'cancel_modify', to: email, subject: `Annule: ${cancelSummary}`,
-                            html: buildInvitationHTML(attendeeName, requesterName, { activity: oldLabel, location: oldLoc, slots: [assignment] }, 'cancelled'),
-                            attachments: [{ filename: 'annulation.ics', content: buildICS({ uid: generateICSUid(), summary: cancelSummary, description: `Annulation: cette affectation a ete modifiee par ${requesterName}.`, location: oldLoc, dtstart: formatDateICS(assignment.date, hours.start, 0), dtend: formatDateICS(assignment.date, hours.end, 0), organizer: senderEmailAddr, organizerName: requesterName, attendee: email, attendeeName, sequence: 1, method: 'CANCEL' }), contentType: 'text/calendar; method=CANCEL' }]
-                        });
-                        const newLabel = ACTIVITY_LABELS[assignment.activityCode] || getCleanActivityLabel(assignment);
-                        const newSummary = `Domaines des Urgences - Affectation – ${newLabel} – ${requesterName}`;
-                        const newLoc = assignment.location && assignment.location !== '-' ? assignment.location : '';
-                        emailsToSend.push({ type: 'modified', to: email, subject: newSummary,
-                            html: buildInvitationHTML(attendeeName, requesterName, { activity: newLabel, location: newLoc, slots: [assignment] }, 'modified'),
-                            attachments: [{ filename: 'invitation.ics', content: buildICS({ uid: generateICSUid(), summary: newSummary, description: `Nouvelle affectation: ${newLabel}\\nLocalisation: ${newLoc || 'Non precisee'}\\nDemandeur: ${requesterName}`, location: newLoc, dtstart: formatDateICS(assignment.date, hours.start, 0), dtend: formatDateICS(assignment.date, hours.end, 0), organizer: senderEmailAddr, organizerName: requesterName, attendee: email, attendeeName, method: 'REQUEST' }), contentType: 'text/calendar; method=REQUEST' }]
-                        });
-                    } catch (e) { console.error(`❌ Erreur préparation MODIFIED:`, e.message); }
-                }
-                
-                for (const assignment of deletedAssigns) {
-                    try {
-                        const hours = HALF_DAY_HOURS[assignment.period];
-                        const delLabel = getCleanOldActivityLabel(assignment);
-                        const cancelSummary = `Domaines des Urgences - Affectation – ${delLabel} – ${requesterName}`;
-                        const loc = assignment.oldLocation && assignment.oldLocation !== '-' ? assignment.oldLocation : (assignment.location && assignment.location !== '-' ? assignment.location : '');
-                        emailsToSend.push({ type: 'deleted', to: email, subject: `Annule: ${cancelSummary}`,
-                            html: buildInvitationHTML(attendeeName, requesterName, { activity: delLabel, location: loc, slots: [assignment] }, 'cancelled'),
-                            attachments: [{ filename: 'annulation.ics', content: buildICS({ uid: generateICSUid(), summary: cancelSummary, description: `Cette affectation a ete supprimee par ${requesterName}.`, location: loc, dtstart: formatDateICS(assignment.date, hours.start, 0), dtend: formatDateICS(assignment.date, hours.end, 0), organizer: senderEmailAddr, organizerName: requesterName, attendee: email, attendeeName, sequence: 1, method: 'CANCEL' }), contentType: 'text/calendar; method=CANCEL' }]
-                        });
-                    } catch (e) { console.error(`❌ Erreur préparation DELETED:`, e.message); }
-                }
-            }
-            
-            console.log(`📧 ${emailsToSend.length} email(s) préparés, envoi séquentiel...`);
-            
-            // 3. ENVOYER SÉQUENTIELLEMENT
-            let totalSent = 0, totalFailed = 0;
-            
-            for (let i = 0; i < emailsToSend.length; i++) {
-                const mail = emailsToSend[i];
-                try {
-                    if (i > 0) await new Promise(resolve => setTimeout(resolve, 100));
-                    await sendEmail(mail.to, mail.subject, mail.html, mail.attachments);
-                    totalSent++;
-                    console.log(`✅ [${i+1}/${emailsToSend.length}] Email envoyé à ${mail.to}`);
-                } catch (error) {
-                    totalFailed++;
-                    console.error(`❌ [${i+1}/${emailsToSend.length}] Erreur envoi à ${mail.to}:`, error.message);
-                }
-            }
-            
-            console.log(`📊 Résultat: ${totalSent} envoyé(s), ${totalFailed} échec(s)`);
-            
-            if (sessionLogId) {
-                const allEmails = assignments.map(a => a.email).filter(e => e).join(', ');
-                database.run(`UPDATE connection_logs SET modifications = modifications || ? WHERE id = ?`,
-                    [`${new Date().toLocaleString('fr-FR')}: Invitations Outlook (${totalSent}/${totalSent + totalFailed}) pour: ${allEmails}\n`, sessionLogId]);
-            }
-            
-        } catch (bgError) {
-            console.error('❌ Erreur traitement background:', bgError);
+            });
         }
-    });
-});
-
+        
+        if (sessionLogId) {
+            const allEmails = assignments.map(a => a.email).filter(e => e).join(', ');
+            database.run(`UPDATE connection_logs SET modifications = modifications || ? WHERE id = ?`,
+                [`${new Date().toLocaleString('fr-FR')}: Invitations Outlook (${totalSent}/${totalSent + totalFailed}) pour: ${allEmails}\n`, sessionLogId]);
+        }
+        
+    } catch (bgError) {
+        console.error('❌ Erreur traitement background:', bgError);
+    }
+}
 
 // Construire le HTML du body d'une invitation
 function buildInvitationHTML(attendeeName, requesterName, group, type) {
