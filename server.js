@@ -259,32 +259,53 @@ let emailConfig = {
 };
 
 // Créer transporteur email avec options pour Render.com
+// Cache du transporteur email
+let emailTransporterCache = null;
+let emailTransporterConfigHash = null;
+
 function createEmailTransporter() {
     if (!emailConfig.user || !emailConfig.password) {
         return null;
     }
     
-    return nodemailer.createTransport({
+    // Créer un hash de la config pour détecter les changements
+    const configHash = `${emailConfig.host}:${emailConfig.port}:${emailConfig.user}`;
+    
+    // Réutiliser le transporteur s'il existe et que la config n'a pas changé
+    if (emailTransporterCache && emailTransporterConfigHash === configHash) {
+        return emailTransporterCache;
+    }
+    
+    // Créer un nouveau transporteur avec pool de connexions
+    emailTransporterCache = nodemailer.createTransport({
         host: emailConfig.host,
         port: emailConfig.port,
-        secure: emailConfig.secure, // true pour port 465, false pour les autres ports
+        secure: emailConfig.secure,
         auth: {
             user: emailConfig.user,
             pass: emailConfig.password
         },
-        // Timeouts généreux
-        connectionTimeout: 60000, // 60 secondes
-        greetingTimeout: 60000,
-        socketTimeout: 60000,
-        // Configuration TLS moins stricte
+        // Pool de connexions pour réutiliser les connexions
+        pool: true,
+        maxConnections: 5,
+        maxMessages: 100,
+        // Timeouts courts pour ne pas bloquer
+        connectionTimeout: 10000, // 10 secondes
+        greetingTimeout: 10000,
+        socketTimeout: 30000, // 30 secondes pour l'envoi
+        // Configuration TLS
         tls: {
             rejectUnauthorized: false,
             minVersion: 'TLSv1'
         },
-        // Logs de débogage désactivés
         debug: false,
         logger: false
     });
+    
+    emailTransporterConfigHash = configHash;
+    console.log('📧 Transporteur email créé avec pool de connexions');
+    
+    return emailTransporterCache;
 }
 
 // Envoyer un email
@@ -6841,63 +6862,47 @@ app.post('/api/request-assignment', requireAuth, async (req, res) => {
                 WHERE r.id IN (${placeholders}) AND r.actif = 1`,
                 expertIds,
                 (err, rows) => {
-                    if (err) {
-                        console.error('❌ Erreur DB:', err);
-                        reject(err);
-                    } else {
-                        console.log('✅ Experts trouvés:', rows);
-                        resolve(rows);
-                    }
+                    if (err) reject(err);
+                    else resolve(rows || []);
                 }
             );
         });
 
         if (experts.length === 0) {
-            console.log('⚠️ Aucun expert trouvé dans la base de données');
             return res.status(404).json({ success: false, error: 'Aucun expert trouvé' });
         }
 
-        // Vérifier que les experts ont des emails
         const expertsWithEmail = experts.filter(e => e.email && e.email.trim() !== '');
         const expertsWithoutEmail = experts.filter(e => !e.email || e.email.trim() === '');
-
-        if (expertsWithoutEmail.length > 0) {
-            console.log('⚠️ Experts sans email:', expertsWithoutEmail.map(e => `${e.prenom} ${e.nom}`));
-        }
 
         if (expertsWithEmail.length === 0) {
             return res.status(400).json({ 
                 success: false, 
-                error: 'Aucun des experts sélectionnés n\'a d\'adresse email configurée. Veuillez ajouter leur email dans la gestion des utilisateurs.' 
+                error: 'Aucun des experts sélectionnés n\'a d\'adresse email configurée.' 
             });
         }
 
-        // Récupérer le transporteur email
         const transporter = createEmailTransporter();
         
         if (!transporter) {
-            console.log('⚠️ Configuration email non disponible');
             return res.status(500).json({ 
                 success: false, 
-                error: 'Configuration email non disponible. Veuillez configurer SMTP dans les paramètres.' 
+                error: 'Configuration email non disponible.' 
             });
         }
 
-        // Formater les dates pour l'affichage
+        // Formater les dates
         const formatDate = (dateStr) => {
             const date = new Date(dateStr + 'T00:00:00');
             return date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
         };
-
         const startDateFormatted = `${formatDate(startDate)} - ${startPeriod}`;
         const endDateFormatted = `${formatDate(endDate)} - ${endPeriod}`;
 
-        console.log('📧 Envoi d\'emails à:', expertsWithEmail.map(e => e.email));
-
-        // RÉPONDRE IMMÉDIATEMENT AU CLIENT
-        let responseMessage = `Envoi en cours à ${expertsWithEmail.length} expert(s)...`;
+        // RÉPONDRE IMMÉDIATEMENT
+        let responseMessage = `Demande envoyée à ${expertsWithEmail.length} expert(s)`;
         if (expertsWithoutEmail.length > 0) {
-            responseMessage += ` (${expertsWithoutEmail.length} expert(s) sans email configuré)`;
+            responseMessage += ` (${expertsWithoutEmail.length} sans email)`;
         }
         
         res.json({
@@ -6906,17 +6911,14 @@ app.post('/api/request-assignment', requireAuth, async (req, res) => {
             emails: expertsWithEmail.map(e => e.email)
         });
 
-        // ENVOYER LES EMAILS EN ARRIÈRE-PLAN (après avoir répondu au client)
-        const sessionLogId = req.session.logId;
-        
-        setImmediate(async () => {
-            console.log('📧 Début envoi emails en arrière-plan...');
-            
-            const emailPromises = expertsWithEmail.map(expert => {
+        // ENVOYER LES EMAILS APRÈS LA RÉPONSE (fire-and-forget)
+        // On utilise process.nextTick pour s'assurer que la réponse est envoyée d'abord
+        process.nextTick(() => {
+            expertsWithEmail.forEach(expert => {
                 const personalizedMessage = message.replace(/\[Prénom de l'utilisateur\]/g, expert.prenom);
 
                 const mailOptions = {
-                    from: `"Domaine des Urgences - Planification des ressources" <${emailConfig.user}>`,
+                    from: `"SI-SAMU Planning" <${emailConfig.user}>`,
                     replyTo: fromEmail,
                     to: expert.email,
                     subject: subject,
@@ -6940,16 +6942,7 @@ app.post('/api/request-assignment', requireAuth, async (req, res) => {
                                 </div>
                                 
                                 <div style="text-align: center; margin: 25px 0;">
-                                    <a href="mailto:${fromEmail}?subject=${encodeURIComponent('Re: ' + subject)}&body=${encodeURIComponent(`Bonjour ${fromName.split(' ')[0]},
-
-[Votre réponse ici]
-
----
-Contexte de la demande :
-De : ${fromName} (${fromEmail})
-Début : ${startDateFormatted}
-Fin : ${endDateFormatted}
-`)}" 
+                                    <a href="mailto:${fromEmail}?subject=${encodeURIComponent('Re: ' + subject)}" 
                                        style="display: inline-block; padding: 12px 30px; background-color: #27ae60; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">
                                         📧 Répondre à ${fromName}
                                     </a>
@@ -6958,74 +6951,25 @@ Fin : ${endDateFormatted}
                                 <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
                                 
                                 <p style="color: #7f8c8d; font-size: 12px; text-align: center; margin: 0;">
-                                    Cet email a été envoyé depuis le système SI-SAMU de planification des ressources.
+                                    Système SI-SAMU de planification des ressources
                                 </p>
                             </div>
                         </div>
                     `
                 };
 
-                console.log(`📧 Envoi email à ${expert.email} (${expert.prenom} ${expert.nom})...`);
-
-                return transporter.sendMail(mailOptions)
-                    .then(() => {
-                        console.log(`✅ Email envoyé avec succès à ${expert.email}`);
-                        return expert.email;
-                    })
-                    .catch(error => {
-                        console.error(`❌ Erreur envoi email à ${expert.email}:`, error.message);
-                        return null;
-                    });
+                // Envoi non-bloquant avec timeout
+                transporter.sendMail(mailOptions)
+                    .then(() => console.log(`✅ Email envoyé à ${expert.email}`))
+                    .catch(err => console.error(`❌ Erreur email ${expert.email}:`, err.message));
             });
-
-            const results = await Promise.all(emailPromises);
-            const successfulEmails = results.filter(email => email !== null);
-
-            console.log('📊 Résultats envoi:', { 
-                total: emailPromises.length, 
-                succès: successfulEmails.length,
-                échecs: emailPromises.length - successfulEmails.length 
-            });
-
-            // Logger l'action dans connection_logs (en arrière-plan)
-            if (sessionLogId && successfulEmails.length > 0) {
-                const expertNames = expertsWithEmail.map(e => `${e.prenom} ${e.nom}`).join(', ');
-                const logMessage = `Demande d'affectation envoyée à: ${expertNames} (${startDate} ${startPeriod} - ${endDate} ${endPeriod})`;
-                
-                database.run(
-                    `UPDATE connection_logs 
-                     SET modifications = modifications || ? 
-                     WHERE id = ?`,
-                    [`${new Date().toLocaleString('fr-FR')}: ${logMessage}\n`, sessionLogId],
-                    (err) => {
-                        if (err) {
-                            console.error('❌ Erreur log action:', err);
-                        } else {
-                            console.log('✅ Action loggée dans connection_logs');
-                        }
-                    }
-                );
-            }
-            
-            // Envoyer notification Teams (en arrière-plan)
-            if (successfulEmails.length > 0) {
-                const expertNames = expertsWithEmail.map(e => `${e.prenom} ${e.nom}`).join(', ');
-                sendTeamsNotificationFromServer('demande', {
-                    from: fromName,
-                    subject: subject,
-                    message: message.substring(0, 500),
-                    experts: expertNames,
-                    startDate: startDateFormatted,
-                    endDate: endDateFormatted
-                });
-            }
-            
-            console.log('📧 Fin envoi emails en arrière-plan');
         });
 
     } catch (error) {
         console.error('❌ Erreur demande d\'affectation:', error);
-        res.status(500).json({ success: false, error: error.message });
+        if (!res.headersSent) {
+            res.status(500).json({ success: false, error: error.message });
+        }
     }
 });
 
