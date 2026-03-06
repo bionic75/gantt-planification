@@ -547,10 +547,7 @@
                 </div>
                 <div class="form-row">
                     <div class="form-group"><label>SAMU de rattachement *</label><input type="text" id="samu" placeholder="Ex: SAMU 75"></div>
-                    <div class="form-group"><label>Date début MAD</label><input type="date" id="dateDebut"></div>
-                    <div class="form-group"><label>Date fin MAD</label><input type="date" id="dateFin"></div>
-                </div>
-                <div class="form-row">
+                    <div class="form-group"><label>Date début MAD *</label><input type="date" id="dateDebut"></div>
                     <div class="form-group"><label>ES de rattachement</label><input type="text" id="esRattachement" placeholder="Ex: CHU Paris"></div>
                     <div class="form-group"><label>Fonction</label><input type="text" id="fonction" placeholder="Ex: Médecin, Infirmier..."></div>
                 </div>
@@ -6672,17 +6669,11 @@
             const taux = document.getElementById('taux').value;
             const samu = document.getElementById('samu').value.trim();
             const dateDebut = document.getElementById('dateDebut').value;
-            const dateFin = document.getElementById('dateFin').value;
             const esRattachement = document.getElementById('esRattachement').value.trim();
             const fonction = document.getElementById('fonction').value.trim();
 
-            if (!nom || !prenom || !trigramme || !taux || !samu) {
+            if (!nom || !prenom || !trigramme || !taux || !samu || !dateDebut) {
                 alert('Remplissez tous les champs obligatoires (*)');
-                return;
-            }
-
-            if (dateDebut && dateFin && new Date(dateDebut) > new Date(dateFin)) {
-                alert('La date de fin doit être postérieure à la date de début');
                 return;
             }
 
@@ -6696,8 +6687,8 @@
                         email: null,
                         telephone: null,
                         taux: parseFloat(taux), samu, actif: 1,
-                        date_debut: dateDebut || null,
-                        date_fin: dateFin || null,
+                        date_debut: dateDebut,
+                        date_fin: null,
                         es_rattachement: esRattachement || null,
                         fonction: fonction || null
                     })
@@ -6711,7 +6702,10 @@
                 showSyncStatus();
                 logModification("Modification du planning");
                 await loadResources();
-                ['nom','prenom','trigramme','taux','samu','dateDebut','dateFin','esRattachement','fonction'].forEach(id => document.getElementById(id).value = '');
+                ['nom','prenom','trigramme','taux','samu','dateDebut','esRattachement','fonction'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.value = '';
+                });
                 updateGantt();
             } catch (error) {
                 console.error('Erreur:', error);
@@ -14817,6 +14811,7 @@
         // Confirmer et envoyer les emails
         async function confirmSendEmails() {
             const assignmentsToSend = [];
+            const debugMode = document.getElementById('debugModeOutlookCheckbox').checked;
             
             for (const [resourceId, data] of Object.entries(pendingAssignments)) {
                 const checkbox = document.getElementById(`sendTo_${resourceId}`);
@@ -14853,13 +14848,25 @@
             const senderName = currentUser ? `${currentUser.prenom} ${currentUser.nom}` : 'Système';
             const senderEmail = currentUser ? currentUser.email : null;
             
-            console.log('📧 Envoi requête send-assignment-emails...', { experts: assignmentsToSend.length, totalItems });
+            console.log('📧 Envoi requête send-assignment-emails...', { experts: assignmentsToSend.length, totalItems, debugMode });
             
-            // Protéger saveSchedule pendant l'envoi
-            emailSendingInProgress = true;
-            
-            // Afficher le toast d'attente immédiatement
-            showEmailProgressToast(totalItems);
+            // En mode debug, ouvrir la modal de debug
+            if (debugMode) {
+                openDebugLogsModal();
+                addDebugLog('info', '🚀 Début envoi des invitations Outlook');
+                addDebugLog('info', `📧 Expéditeur: ${senderName} (${senderEmail || 'non défini'})`);
+                addDebugLog('info', `👥 Experts à notifier: ${assignmentsToSend.length}`);
+                addDebugLog('info', `📅 Total affectations: ${totalItems}`);
+                assignmentsToSend.forEach(a => {
+                    addDebugLog('info', `   - ${a.expertPrenom} ${a.expertNom} <${a.email}>: ${a.assignments.length} affectation(s)`);
+                });
+                addDebugLog('', '─'.repeat(60));
+                addDebugLog('info', '📡 Envoi de la requête au serveur...');
+            } else {
+                // Mode normal : afficher le toast
+                emailSendingInProgress = true;
+                showEmailProgressToast(totalItems);
+            }
             
             // Envoyer la requête
             fetch(`${API_URL}/send-assignment-emails`, {
@@ -14870,19 +14877,32 @@
                     assignments: assignmentsToSend, 
                     senderName, 
                     senderEmail,
-                    sessionId 
+                    sessionId,
+                    debug: debugMode
                 })
             })
             .then(async response => {
                 console.log('📧 Réponse serveur status:', response.status);
+                
+                if (debugMode) {
+                    addDebugLog('info', `📨 Réponse HTTP reçue: ${response.status} ${response.statusText}`);
+                }
+                
                 emailSendingInProgress = false;
                 
                 // 502/504 = Gateway Timeout du reverse proxy
                 if (response.status === 502 || response.status === 504) {
                     console.log('📧 Timeout reverse proxy - le serveur traite probablement en background');
-                    assignmentsToSend.forEach(sent => { delete pendingAssignments[sent.resourceId]; });
-                    updatePendingEmailBadge();
-                    updateEmailToastSuccess(totalItems, 0, true);
+                    if (debugMode) {
+                        addDebugLog('warning', '⚠️ Timeout reverse proxy (502/504)');
+                        addDebugLog('info', 'Le serveur traite probablement la demande en arrière-plan');
+                        setDebugStatus('warning', '⚠️ Timeout proxy');
+                        stopDebugTimer();
+                    } else {
+                        assignmentsToSend.forEach(sent => { delete pendingAssignments[sent.resourceId]; });
+                        updatePendingEmailBadge();
+                        updateEmailToastSuccess(totalItems, 0, true);
+                    }
                     return;
                 }
                 
@@ -14890,26 +14910,68 @@
                 const contentType = response.headers.get('content-type') || '';
                 if (!contentType.includes('application/json')) {
                     console.warn('📧 Réponse non-JSON:', contentType);
-                    assignmentsToSend.forEach(sent => { delete pendingAssignments[sent.resourceId]; });
-                    updatePendingEmailBadge();
-                    updateEmailToastSuccess(totalItems, 0, true);
+                    if (debugMode) {
+                        addDebugLog('warning', `⚠️ Réponse non-JSON: ${contentType}`);
+                        setDebugStatus('warning', '⚠️ Réponse inattendue');
+                        stopDebugTimer();
+                    } else {
+                        assignmentsToSend.forEach(sent => { delete pendingAssignments[sent.resourceId]; });
+                        updatePendingEmailBadge();
+                        updateEmailToastSuccess(totalItems, 0, true);
+                    }
                     return;
                 }
                 
                 const data = await response.json();
                 console.log('📧 Résultat:', data);
-                if (data.success) {
-                    assignmentsToSend.forEach(sent => { delete pendingAssignments[sent.resourceId]; });
-                    updatePendingEmailBadge();
-                    updateEmailToastSuccess(totalItems, 0);
+                
+                if (debugMode) {
+                    addDebugLog('', '─'.repeat(60));
+                    if (data.debugLogs && data.debugLogs.length > 0) {
+                        addDebugLog('info', '📋 LOGS SERVEUR:');
+                        data.debugLogs.forEach(log => {
+                            addDebugLog(log.type, log.message, log.timestamp);
+                        });
+                    }
+                    addDebugLog('', '─'.repeat(60));
+                    
+                    if (data.success) {
+                        addDebugLog('success', `✅ SUCCÈS: ${data.message || 'Invitations envoyées'}`);
+                        if (data.sent) addDebugLog('success', `📧 Emails envoyés: ${data.sent}`);
+                        if (data.failed) addDebugLog('warning', `⚠️ Échecs: ${data.failed}`);
+                        setDebugStatus('success', '✅ Terminé avec succès');
+                    } else {
+                        addDebugLog('error', `❌ ERREUR: ${data.error || 'Erreur inconnue'}`);
+                        setDebugStatus('error', '❌ Échec');
+                    }
+                    stopDebugTimer();
+                    
+                    // Nettoyer les pending même en mode debug
+                    if (data.success) {
+                        assignmentsToSend.forEach(sent => { delete pendingAssignments[sent.resourceId]; });
+                        updatePendingEmailBadge();
+                    }
+                } else {
+                    if (data.success) {
+                        assignmentsToSend.forEach(sent => { delete pendingAssignments[sent.resourceId]; });
+                        updatePendingEmailBadge();
+                        updateEmailToastSuccess(totalItems, 0);
+                    }
                 }
             })
             .catch(error => {
                 console.error('❌ Erreur réseau:', error);
                 emailSendingInProgress = false;
-                assignmentsToSend.forEach(sent => { delete pendingAssignments[sent.resourceId]; });
-                updatePendingEmailBadge();
-                updateEmailToastSuccess(totalItems, 0, true);
+                
+                if (debugMode) {
+                    addDebugLog('error', `❌ ERREUR RÉSEAU: ${error.message}`);
+                    setDebugStatus('error', '❌ Erreur réseau');
+                    stopDebugTimer();
+                } else {
+                    assignmentsToSend.forEach(sent => { delete pendingAssignments[sent.resourceId]; });
+                    updatePendingEmailBadge();
+                    updateEmailToastSuccess(totalItems, 0, true);
+                }
             });
         }
         
@@ -16548,6 +16610,10 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             return true;
         }
 
+        // Variables pour le mode debug
+        let debugStartTime = null;
+        let debugTimerInterval = null;
+
         function submitRequestForm(event) {
             event.preventDefault();
 
@@ -16564,25 +16630,32 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             }
 
             const selectedExperts = Array.from(checkedBoxes).map(cb => parseInt(cb.value));
+            const debugMode = document.getElementById('debugModeCheckbox').checked;
 
             const requestData = {
                 fromName: document.getElementById('requestFrom').value,
-                fromEmail: currentUserInfo.email, // Envoyer l'email de l'utilisateur
+                fromEmail: currentUserInfo.email,
                 expertIds: selectedExperts,
                 subject: document.getElementById('requestSubject').value,
                 startDate: document.getElementById('requestStartDate').value,
                 startPeriod: document.getElementById('requestStartPeriod').value,
                 endDate: document.getElementById('requestEndDate').value,
                 endPeriod: document.getElementById('requestEndPeriod').value,
-                message: document.getElementById('requestMessage').value
+                message: document.getElementById('requestMessage').value,
+                debug: debugMode
             };
 
-            console.log('📧 === ENVOI DEMANDE D\'AFFECTATION ===');
-            console.log('   From:', requestData.fromName, requestData.fromEmail);
-            console.log('   Experts:', requestData.expertIds);
-            console.log('   Subject:', requestData.subject);
-            console.log('   Période:', requestData.startDate, requestData.startPeriod, 'au', requestData.endDate, requestData.endPeriod);
-            console.log('   Message:', requestData.message);
+            if (debugMode) {
+                // Ouvrir la modal de debug
+                openDebugLogsModal();
+                addDebugLog('info', '🚀 Début de la requête');
+                addDebugLog('info', `📧 Expéditeur: ${requestData.fromName} (${requestData.fromEmail})`);
+                addDebugLog('info', `👥 Experts sélectionnés: ${selectedExperts.length} (IDs: ${selectedExperts.join(', ')})`);
+                addDebugLog('info', `📅 Période: ${requestData.startDate} ${requestData.startPeriod} → ${requestData.endDate} ${requestData.endPeriod}`);
+                addDebugLog('info', `📝 Sujet: ${requestData.subject}`);
+                addDebugLog('', '─'.repeat(60));
+                addDebugLog('info', '📡 Envoi de la requête au serveur...');
+            }
 
             // Envoyer la demande
             fetch('/api/request-assignment', {
@@ -16594,25 +16667,126 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 body: JSON.stringify(requestData)
             })
             .then(response => {
-                console.log('📨 Réponse serveur status:', response.status);
-                console.log('📨 Response OK?', response.ok);
+                if (debugMode) {
+                    addDebugLog('info', `📨 Réponse HTTP reçue: ${response.status} ${response.statusText}`);
+                }
                 return response.json();
             })
             .then(data => {
-                console.log('📨 Réponse serveur data:', data);
-                if (data.success) {
-                    console.log('✅ Succès! Emails envoyés:', data.emails);
-                    closeRequestModal();
-                    showConfirmationModal(data.emails);
+                if (debugMode) {
+                    addDebugLog('', '─'.repeat(60));
+                    if (data.debugLogs && data.debugLogs.length > 0) {
+                        addDebugLog('info', '📋 LOGS SERVEUR:');
+                        data.debugLogs.forEach(log => {
+                            addDebugLog(log.type, log.message, log.timestamp);
+                        });
+                    }
+                    addDebugLog('', '─'.repeat(60));
+                    
+                    if (data.success) {
+                        addDebugLog('success', `✅ SUCCÈS: ${data.message}`);
+                        if (data.emails) {
+                            addDebugLog('success', `📧 Emails traités: ${data.emails.join(', ')}`);
+                        }
+                        setDebugStatus('success', '✅ Terminé avec succès');
+                    } else {
+                        addDebugLog('error', `❌ ERREUR: ${data.error}`);
+                        setDebugStatus('error', '❌ Échec');
+                    }
+                    stopDebugTimer();
                 } else {
-                    console.error('❌ Échec:', data.error);
-                    alert('Erreur lors de l\'envoi de la demande:\n\n' + (data.error || 'Erreur inconnue') + 
-                          '\n\nVérifiez:\n- Que les experts ont une adresse email configurée\n- Que la configuration SMTP est correcte dans les paramètres');
+                    if (data.success) {
+                        closeRequestModal();
+                        showConfirmationModal(data.emails);
+                    } else {
+                        alert('Erreur lors de l\'envoi de la demande:\n\n' + (data.error || 'Erreur inconnue'));
+                    }
                 }
             })
             .catch(error => {
-                console.error('❌ Erreur réseau ou parsing:', error);
-                alert('Erreur lors de l\'envoi de la demande: ' + error.message);
+                if (debugMode) {
+                    addDebugLog('error', `❌ ERREUR RÉSEAU: ${error.message}`);
+                    setDebugStatus('error', '❌ Erreur réseau');
+                    stopDebugTimer();
+                } else {
+                    alert('Erreur lors de l\'envoi de la demande: ' + error.message);
+                }
+            });
+        }
+
+        function openDebugLogsModal() {
+            const modal = document.getElementById('debugLogsModal');
+            const content = document.getElementById('debugLogsContent');
+            content.innerHTML = '';
+            modal.style.display = 'block';
+            setDebugStatus('pending', '⏳ En cours...');
+            startDebugTimer();
+        }
+
+        function closeDebugLogsModal() {
+            document.getElementById('debugLogsModal').style.display = 'none';
+            stopDebugTimer();
+        }
+
+        function startDebugTimer() {
+            debugStartTime = Date.now();
+            debugTimerInterval = setInterval(() => {
+                const elapsed = ((Date.now() - debugStartTime) / 1000).toFixed(1);
+                document.getElementById('debugTimer').textContent = `Durée: ${elapsed}s`;
+            }, 100);
+        }
+
+        function stopDebugTimer() {
+            if (debugTimerInterval) {
+                clearInterval(debugTimerInterval);
+                debugTimerInterval = null;
+            }
+        }
+
+        function setDebugStatus(type, message) {
+            const statusEl = document.getElementById('debugStatus');
+            statusEl.textContent = message;
+            statusEl.style.backgroundColor = type === 'success' ? '#28a745' : type === 'error' ? '#dc3545' : '#ffc107';
+            statusEl.style.color = type === 'pending' ? '#333' : 'white';
+        }
+
+        function addDebugLog(type, message, timestamp = null) {
+            const content = document.getElementById('debugLogsContent');
+            const line = document.createElement('div');
+            
+            const time = timestamp || new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 });
+            
+            let color = '#d4d4d4';
+            if (type === 'success') color = '#4ec9b0';
+            else if (type === 'error') color = '#f14c4c';
+            else if (type === 'warning') color = '#cca700';
+            else if (type === 'info') color = '#3794ff';
+            else if (type === 'db') color = '#c586c0';
+            else if (type === 'email') color = '#4fc1ff';
+            
+            if (message.startsWith('─')) {
+                line.innerHTML = `<span style="color: #555;">${message}</span>`;
+            } else {
+                line.innerHTML = `<span style="color: #6a9955;">[${time}]</span> <span style="color: ${color};">${escapeHtml(message)}</span>`;
+            }
+            
+            content.appendChild(line);
+            content.scrollTop = content.scrollHeight;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function copyDebugLogs() {
+            const content = document.getElementById('debugLogsContent');
+            const text = content.innerText;
+            navigator.clipboard.writeText(text).then(() => {
+                alert('Logs copiés dans le presse-papiers !');
+            }).catch(err => {
+                console.error('Erreur copie:', err);
             });
         }
 
@@ -19346,11 +19520,46 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     <label>Message *</label>
                     <textarea id="requestMessage" required style="min-height: 150px; resize: vertical; width: 100%;"></textarea>
                 </div>
+                <div style="display: flex; align-items: center; margin-bottom: 15px; padding: 10px; background-color: #fff3cd; border-radius: 4px; border: 1px solid #ffc107;">
+                    <input type="checkbox" id="debugModeCheckbox" style="width: 18px; height: 18px; margin-right: 10px; cursor: pointer;">
+                    <label for="debugModeCheckbox" style="cursor: pointer; font-size: 13px; color: #856404; margin: 0;">
+                        🔧 Mode debug (afficher les logs serveur détaillés)
+                    </label>
+                </div>
                 <div class="button-group">
                     <button type="submit" style="background-color: #27ae60;">✉️ Envoyer la demande</button>
                     <button type="button" onclick="closeRequestModal()" style="background-color: #7f8c8d;">Annuler</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Modal Debug Logs -->
+    <div id="debugLogsModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); z-index: 10002; overflow-y: auto;">
+        <div style="background-color: #1e1e1e; max-width: 900px; margin: 30px auto; padding: 0; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background-color: #333; border-radius: 8px 8px 0 0; border-bottom: 2px solid #ffc107;">
+                <h2 style="color: #ffc107; margin: 0; font-size: 18px;">🔧 Debug Logs - Envoi d'email</h2>
+                <div>
+                    <button onclick="copyDebugLogs()" style="background-color: #17a2b8; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; margin-right: 10px; font-size: 12px;">📋 Copier</button>
+                    <span onclick="closeDebugLogsModal()" style="cursor: pointer; font-size: 24px; color: #aaa;">&times;</span>
+                </div>
+            </div>
+            <div style="padding: 15px 20px;">
+                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    <div id="debugStatus" style="padding: 8px 15px; border-radius: 4px; font-size: 13px; font-weight: bold;">
+                        ⏳ En attente...
+                    </div>
+                    <div id="debugTimer" style="padding: 8px 15px; background-color: #333; border-radius: 4px; font-size: 13px; color: #aaa;">
+                        Durée: 0.0s
+                    </div>
+                </div>
+                <div id="debugLogsContent" style="background-color: #0d0d0d; border-radius: 4px; padding: 15px; font-family: 'Consolas', 'Monaco', monospace; font-size: 12px; line-height: 1.6; max-height: 500px; overflow-y: auto; color: #d4d4d4;">
+                    <!-- Les logs seront ajoutés ici -->
+                </div>
+                <div style="margin-top: 15px; text-align: right;">
+                    <button onclick="closeDebugLogsModal()" style="background-color: #6c757d; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer;">Fermer</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -19949,13 +20158,19 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 <!-- Rempli dynamiquement -->
             </div>
             
-            <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #eee; padding-top: 15px;">
-                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                    <input type="checkbox" id="selectAllExperts" checked onchange="toggleAllExperts()" style="width: 18px; height: 18px;">
-                    <span style="font-size: 13px;">Sélectionner/Désélectionner tous</span>
-                </label>
-                <div>
-                    <button onclick="confirmSendEmails()" style="background-color: #27ae60; color: white; padding: 12px 25px; margin-right: 10px; font-size: 14px;">
+            <div style="display: flex; flex-direction: column; gap: 15px; border-top: 1px solid #eee; padding-top: 15px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" id="selectAllExperts" checked onchange="toggleAllExperts()" style="width: 18px; height: 18px;">
+                        <span style="font-size: 13px;">Sélectionner/Désélectionner tous</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 12px; background-color: #fff3cd; border-radius: 4px; border: 1px solid #ffc107;">
+                        <input type="checkbox" id="debugModeOutlookCheckbox" style="width: 16px; height: 16px;">
+                        <span style="font-size: 12px; color: #856404;">🔧 Mode debug</span>
+                    </label>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                    <button onclick="confirmSendEmails()" style="background-color: #27ae60; color: white; padding: 12px 25px; font-size: 14px;">
                         📅 Envoyer les invitations Outlook
                     </button>
                     <button onclick="closeSendEmailModal()" style="background-color: #95a5a6; color: white; padding: 12px 25px; font-size: 14px;">
