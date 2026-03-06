@@ -3891,10 +3891,19 @@ function getCleanOldActivityLabel(assignment) {
 
 // ========== ENDPOINT ENVOI EMAILS D'AFFECTATION (REFONTE ICS) ==========
 
-app.post('/api/send-assignment-emails', requireAuth, (req, res) => {
-    const debugMode = req.body.debug === true;
+app.post('/api/send-assignment-emails', (req, res, next) => {
+    req.timingStart = Date.now();
+    console.log(`📧 [${req.timingStart}] ROUTE HIT - avant requireAuth`);
+    next();
+}, requireAuth, (req, res) => {
+    const afterAuth = Date.now();
+    console.log(`📧 [${afterAuth}] APRÈS requireAuth (+${afterAuth - req.timingStart}ms)`);
     
+    const debugMode = req.body.debug === true;
     const { assignments, senderName, senderEmail: clientSenderEmail } = req.body;
+    
+    const afterParse = Date.now();
+    console.log(`📧 [${afterParse}] Body parsé (+${afterParse - req.timingStart}ms), debugMode=${debugMode}`);
     
     if (!assignments || !Array.isArray(assignments) || assignments.length === 0) {
         return res.status(400).json({ success: false, error: 'Aucune affectation à envoyer' });
@@ -3908,7 +3917,7 @@ app.post('/api/send-assignment-emails', requireAuth, (req, res) => {
     const senderEmailAddr = clientSenderEmail || emailConfig.user;
     const sessionLogId = req.session?.logId;
     
-    // En mode debug, créer un job
+    // En mode debug, créer un job avec les timings
     if (debugMode) {
         const jobId = crypto.randomUUID();
         const job = {
@@ -3916,23 +3925,56 @@ app.post('/api/send-assignment-emails', requireAuth, (req, res) => {
             status: 'running',
             logs: [],
             result: null,
-            createdAt: Date.now()
+            createdAt: Date.now(),
+            timingStart: req.timingStart // Pour calculer les durées
         };
         debugJobs.set(jobId, job);
         
-        // Répondre IMMÉDIATEMENT - rien d'autre avant
-        res.json({ success: true, jobId, message: 'Job créé' });
+        // Ajouter les logs de timing DANS le job pour qu'ils apparaissent côté client
+        const addTimingLog = (msg) => {
+            const now = Date.now();
+            const elapsed = now - req.timingStart;
+            job.logs.push({ 
+                type: 'info', 
+                message: `⏱️ ${msg} (+${elapsed}ms)`, 
+                timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 })
+            });
+        };
         
-        // Lancer le traitement en arrière-plan avec setTimeout(0) pour libérer l'event loop
-        setTimeout(() => processEmailJob(job, assignments, requesterName, senderEmailAddr, sessionLogId), 0);
+        addTimingLog('Requête reçue par le serveur');
+        addTimingLog(`Auth vérifiée en ${afterAuth - req.timingStart}ms`);
+        addTimingLog('Job créé, réponse envoyée');
+        
+        const beforeSend = Date.now();
+        console.log(`📧 [${beforeSend}] ENVOI res.json() (+${beforeSend - req.timingStart}ms)`);
+        
+        // Répondre IMMÉDIATEMENT
+        res.status(200).json({ success: true, jobId, message: 'Job créé' });
+        
+        const afterSend = Date.now();
+        console.log(`📧 [${afterSend}] res.json() terminé (+${afterSend - req.timingStart}ms)`);
+        
+        // Lancer le traitement en arrière-plan
+        setTimeout(() => {
+            const startProcess = Date.now();
+            console.log(`📧 [${startProcess}] setTimeout exécuté (+${startProcess - req.timingStart}ms)`);
+            job.logs.push({ 
+                type: 'info', 
+                message: `⏱️ Traitement démarré (+${startProcess - req.timingStart}ms depuis la requête)`, 
+                timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 })
+            });
+            processEmailJob(job, assignments, requesterName, senderEmailAddr, sessionLogId);
+        }, 10);
+        
         return;
     }
     
     // Mode normal : répondre immédiatement
-    res.json({ success: true, message: 'Invitations en cours d\'envoi...' });
+    console.log(`📧 [${Date.now()}] Mode normal, ENVOI RÉPONSE (+${Date.now() - req.timingStart}ms)`);
+    res.status(200).json({ success: true, message: 'Invitations en cours d\'envoi...' });
     
     // Traiter en arrière-plan
-    setTimeout(() => processEmailJobNormal(assignments, requesterName, senderEmailAddr, sessionLogId), 0);
+    setTimeout(() => processEmailJobNormal(assignments, requesterName, senderEmailAddr, sessionLogId), 10);
 });
 
 // Fonction de traitement pour le mode debug
