@@ -324,15 +324,15 @@ function createEmailTransporter() {
 
 // Envoyer un email
 async function sendEmail(to, subject, html, attachments = []) {
+    const startTime = Date.now();
+    console.log(`📧 sendEmail: Début envoi à ${to}, ${attachments.length} pièce(s) jointe(s)`);
+    
     const transporter = createEmailTransporter();
     if (!transporter) {
         throw new Error('Configuration email non définie');
     }
+    
     try {
-        
-        // Note: La vérification SMTP est désactivée pour accélérer l'envoi
-        // Si un problème survient, il sera détecté lors de l'envoi réel
-        
         const mailOptions = {
             from: `"Domaine des Urgences - Planification des ressources" <${emailConfig.user}>`,
             to: to,
@@ -341,13 +341,35 @@ async function sendEmail(to, subject, html, attachments = []) {
         };
         
         if (attachments.length > 0) {
-            mailOptions.attachments = attachments;
+            // Formater correctement les pièces jointes ICS pour Gmail
+            mailOptions.attachments = attachments.map(att => {
+                // Si c'est un fichier ICS, utiliser les bons headers
+                if (att.contentType && att.contentType.includes('text/calendar')) {
+                    return {
+                        filename: att.filename,
+                        content: att.content,
+                        contentType: att.contentType,
+                        // Ajouter les headers pour que Gmail reconnaisse l'invitation
+                        headers: {
+                            'Content-Class': 'urn:content-classes:calendarmessage'
+                        }
+                    };
+                }
+                return att;
+            });
+            
+            // Log la taille des attachments
+            const totalSize = attachments.reduce((sum, a) => sum + (a.content?.length || 0), 0);
+            console.log(`📧 sendEmail: Taille totale pièces jointes: ${totalSize} bytes`);
         }
         
+        console.log(`📧 sendEmail: Appel transporter.sendMail() à +${Date.now() - startTime}ms`);
         const info = await transporter.sendMail(mailOptions);
+        console.log(`📧 sendEmail: sendMail() terminé à +${Date.now() - startTime}ms, messageId: ${info.messageId}`);
         
         return { success: true, messageId: info.messageId };
     } catch (error) {
+        console.error(`📧 sendEmail: ERREUR à +${Date.now() - startTime}ms:`, error.message);
         
         // Messages d'erreur plus clairs pour l'utilisateur
         let userMessage = error.message;
@@ -3917,6 +3939,13 @@ app.post('/api/send-assignment-emails', (req, res, next) => {
     const senderEmailAddr = clientSenderEmail || emailConfig.user;
     const sessionLogId = req.session?.logId;
     
+    // Headers pour désactiver le buffering du reverse proxy
+    res.set({
+        'X-Accel-Buffering': 'no',
+        'Cache-Control': 'no-cache, no-store',
+        'Connection': 'close'
+    });
+    
     // En mode debug, créer un job avec les timings
     if (debugMode) {
         const jobId = crypto.randomUUID();
@@ -3926,11 +3955,11 @@ app.post('/api/send-assignment-emails', (req, res, next) => {
             logs: [],
             result: null,
             createdAt: Date.now(),
-            timingStart: req.timingStart // Pour calculer les durées
+            timingStart: req.timingStart
         };
         debugJobs.set(jobId, job);
         
-        // Ajouter les logs de timing DANS le job pour qu'ils apparaissent côté client
+        // Ajouter les logs de timing DANS le job
         const addTimingLog = (msg) => {
             const now = Date.now();
             const elapsed = now - req.timingStart;
@@ -3948,11 +3977,15 @@ app.post('/api/send-assignment-emails', (req, res, next) => {
         const beforeSend = Date.now();
         console.log(`📧 [${beforeSend}] ENVOI res.json() (+${beforeSend - req.timingStart}ms)`);
         
-        // Répondre IMMÉDIATEMENT
-        res.status(200).json({ success: true, jobId, message: 'Job créé' });
+        // Répondre IMMÉDIATEMENT avec res.end() explicite pour forcer le flush
+        const responseBody = JSON.stringify({ success: true, jobId, message: 'Job créé' });
+        res.status(200)
+           .set('Content-Type', 'application/json')
+           .set('Content-Length', Buffer.byteLength(responseBody))
+           .end(responseBody);
         
         const afterSend = Date.now();
-        console.log(`📧 [${afterSend}] res.json() terminé (+${afterSend - req.timingStart}ms)`);
+        console.log(`📧 [${afterSend}] res.end() terminé (+${afterSend - req.timingStart}ms)`);
         
         // Lancer le traitement en arrière-plan
         setTimeout(() => {
@@ -3971,7 +4004,11 @@ app.post('/api/send-assignment-emails', (req, res, next) => {
     
     // Mode normal : répondre immédiatement
     console.log(`📧 [${Date.now()}] Mode normal, ENVOI RÉPONSE (+${Date.now() - req.timingStart}ms)`);
-    res.status(200).json({ success: true, message: 'Invitations en cours d\'envoi...' });
+    const responseBody = JSON.stringify({ success: true, message: 'Invitations en cours d\'envoi...' });
+    res.status(200)
+       .set('Content-Type', 'application/json')
+       .set('Content-Length', Buffer.byteLength(responseBody))
+       .end(responseBody);
     
     // Traiter en arrière-plan
     setTimeout(() => processEmailJobNormal(assignments, requesterName, senderEmailAddr, sessionLogId), 10);
@@ -4066,6 +4103,13 @@ async function processEmailJob(job, assignments, requesterName, senderEmailAddr,
         }
         
         addLog('info', `📧 ${emailsToSend.length} email(s) préparés`);
+        
+        // Log de la taille des ICS
+        if (emailsToSend.length > 0 && emailsToSend[0].attachments) {
+            const icsSize = emailsToSend[0].attachments[0]?.content?.length || 0;
+            addLog('info', `📎 Taille fichier ICS: ${icsSize} caractères`);
+        }
+        
         addLog('info', '─'.repeat(50));
         
         // 2. ENVOYER LES EMAILS (avec retry sur le premier)
@@ -4074,7 +4118,8 @@ async function processEmailJob(job, assignments, requesterName, senderEmailAddr,
         
         for (let i = 0; i < emailsToSend.length; i++) {
             const mail = emailsToSend[i];
-            addLog('email', `📧 [${i+1}/${emailsToSend.length}] Envoi à ${mail.to} (${mail.type})...`);
+            const icsInfo = mail.attachments?.[0] ? `ICS: ${mail.attachments[0].content?.length || 0} chars` : 'pas de pièce jointe';
+            addLog('email', `📧 [${i+1}/${emailsToSend.length}] Envoi à ${mail.to} (${mail.type}, ${icsInfo})...`);
             const emailStartTime = Date.now();
             
             let success = false;

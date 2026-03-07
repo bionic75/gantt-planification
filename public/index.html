@@ -14969,19 +14969,30 @@
         // Variable pour le polling debug
         let debugPollingInterval = null;
         let lastLogIndex = 0;
+        let debugPollingCompleted = false; // Flag pour éviter les doublons
         
         function startDebugPolling(jobId, assignmentsToSend) {
             lastLogIndex = 0;
+            debugPollingCompleted = false;
             
             const poll = async () => {
+                // Si déjà terminé, ne rien faire
+                if (debugPollingCompleted) {
+                    stopDebugPolling();
+                    return;
+                }
+                
                 try {
                     const response = await fetch(`${API_URL}/debug-job/${jobId}`, { credentials: 'include' });
                     
                     if (!response.ok) {
-                        addDebugLog('error', `❌ Erreur polling: ${response.status}`);
-                        stopDebugPolling();
-                        setDebugStatus('error', '❌ Erreur polling');
-                        stopDebugTimer();
+                        if (!debugPollingCompleted) {
+                            addDebugLog('error', `❌ Erreur polling: ${response.status}`);
+                            debugPollingCompleted = true;
+                            stopDebugPolling();
+                            setDebugStatus('error', '❌ Erreur polling');
+                            stopDebugTimer();
+                        }
                         return;
                     }
                     
@@ -14996,8 +15007,9 @@
                         lastLogIndex = data.logs.length;
                     }
                     
-                    // Vérifier si terminé
-                    if (data.status === 'completed' || data.status === 'error') {
+                    // Vérifier si terminé (et pas déjà traité)
+                    if ((data.status === 'completed' || data.status === 'error') && !debugPollingCompleted) {
+                        debugPollingCompleted = true;
                         stopDebugPolling();
                         addDebugLog('', '─'.repeat(60));
                         
