@@ -12,8 +12,8 @@ function createTransporter(config) {
         greetingTimeout: 30000,
         socketTimeout: 30000,
         tls: { rejectUnauthorized: false, minVersion: 'TLSv1' },
-        debug: false,
-        logger: false
+        debug: true,
+        logger: true
     });
 }
 
