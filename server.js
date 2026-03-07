@@ -304,6 +304,7 @@ function createEmailTransporter() {
         pool: true,
         maxConnections: 5,
         maxMessages: 100,
+        family: 4,
         // Timeouts courts pour ne pas bloquer
         connectionTimeout: 10000, // 10 secondes
         greetingTimeout: 10000,
