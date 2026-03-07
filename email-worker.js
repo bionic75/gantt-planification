@@ -6,6 +6,7 @@ function createTransporter(config) {
         host: config.host,
         port: config.port,
         secure: config.secure,
+        requireTLS: config.requireTLS,
         auth: { user: config.user, pass: config.password },
         connectionTimeout: 30000,
         greetingTimeout: 30000,

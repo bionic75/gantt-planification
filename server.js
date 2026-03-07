@@ -268,6 +268,7 @@ let emailConfig = {
     host: 'smtp.gmail.com',
     port: 587,
     secure: false,
+    requireTLS: true,
     user: '',
     password: ''
 };
