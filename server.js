@@ -10283,7 +10283,47 @@ app.listen(PORT, () => {
     console.log(`🚀 Serveur démarré sur le port ${PORT}`);
     console.log(`👤 Compte admin: admin / Admin2025!`);
     console.log(`⏰ Automatisations programmées actives`);
+    
+    // Préchauffer la connexion SMTP après 5 secondes (laisser le temps à la config de se charger)
+    setTimeout(async () => {
+        await warmupSMTPConnection();
+    }, 5000);
 });
+
+// Fonction pour préchauffer la connexion SMTP
+async function warmupSMTPConnection() {
+    console.log('📧 Préchauffage connexion SMTP...');
+    
+    if (!emailConfig.user || !emailConfig.password) {
+        console.log('📧 Configuration SMTP non disponible, warmup ignoré');
+        return;
+    }
+    
+    try {
+        const transporter = createEmailTransporter();
+        if (transporter) {
+            // Vérifier la connexion sans envoyer d'email
+            await transporter.verify();
+            console.log('✅ Connexion SMTP préchauffée et prête');
+        }
+    } catch (error) {
+        console.log('⚠️ Warmup SMTP échoué (normal si config pas encore chargée):', error.message);
+    }
+}
+
+// Garder la connexion SMTP active en faisant un verify périodique
+setInterval(async () => {
+    if (emailConfig.user && emailConfig.password && emailTransporterCache) {
+        try {
+            await emailTransporterCache.verify();
+            console.log('📧 Connexion SMTP maintenue active');
+        } catch (error) {
+            console.log('📧 Connexion SMTP perdue, sera recréée au prochain envoi');
+            emailTransporterCache = null;
+            emailTransporterConfigHash = null;
+        }
+    }
+}, 5 * 60 * 1000); // Toutes les 5 minutes
 
 // Protection contre les crash silencieux
 process.on('unhandledRejection', (reason, promise) => {
