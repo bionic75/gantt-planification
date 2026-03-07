@@ -300,6 +300,11 @@ function createEmailTransporter() {
             user: emailConfig.user,
             pass: emailConfig.password
         },
+        // Pool de connexions pour réutiliser les connexions
+        pool: true,
+        maxConnections: 5,
+        maxMessages: 100,
+        family: 4,
         // Timeouts courts pour ne pas bloquer
         connectionTimeout: 10000, // 10 secondes
         greetingTimeout: 10000,
@@ -3935,6 +3940,9 @@ app.post('/api/send-assignment-emails', (req, res, next) => {
     const requesterName = senderName || `${req.session.prenom || 'Admin'} ${req.session.nom || 'Système'}`;
     const senderEmailAddr = clientSenderEmail || emailConfig.user;
     const sessionLogId = req.session?.logId;
+
+    // Absorber les erreurs de fermeture de socket (BadRequestError: request aborted)
+    req.on('error', () => {});
     
     // Headers pour désactiver le buffering du reverse proxy
     res.set({
