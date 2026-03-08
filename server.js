@@ -4144,7 +4144,24 @@ async function processEmailJob(job, assignments, requesterName, senderEmailAddr,
         
         addLog('info', '─'.repeat(50));
         
-        // 2. ENVOYER LES EMAILS (avec retry sur le premier)
+        // 2. ENVOYER LES EMAILS via le pool partagé (même transporter que le worker queue)
+        addLog('email', '📤 Connexion SMTP en cours (préchauffage pool)...');
+        
+        // Récupérer le transporter poolé et préchauffer la connexion avant la boucle.
+        // verify() ouvre la connexion TCP+TLS une seule fois ; les sendMail suivants
+        // réutilisent la socket déjà établie — plus de handshake à froid sur le 1er email.
+        const transporter = getReusableTransporter();
+        if (!transporter) {
+            throw new Error('Configuration email non disponible');
+        }
+        try {
+            const verifyStart = Date.now();
+            await transporter.verify();
+            addLog('email', `   ✅ Connexion SMTP établie en ${Date.now() - verifyStart}ms`);
+        } catch (verifyErr) {
+            addLog('warning', `   ⚠️ verify() échoué: ${verifyErr.message} — tentative d'envoi quand même`);
+        }
+        
         addLog('email', '📤 Début envoi des emails...');
         let totalSent = 0, totalFailed = 0;
         
@@ -4154,32 +4171,37 @@ async function processEmailJob(job, assignments, requesterName, senderEmailAddr,
             addLog('email', `📧 [${i+1}/${emailsToSend.length}] Envoi à ${mail.to} (${mail.type}, ${icsInfo})...`);
             const emailStartTime = Date.now();
             
-            let success = false;
-            let lastError = null;
-            const maxRetries = (i === 0) ? 3 : 1; // Plus de retries pour le premier email
-            
-            for (let retry = 0; retry < maxRetries && !success; retry++) {
-                if (retry > 0) {
-                    addLog('warning', `   ⚠️ Retry ${retry}/${maxRetries-1}...`);
-                    await new Promise(resolve => setTimeout(resolve, 1000)); // Attendre 1s avant retry
-                }
-                
-                try {
-                    await sendEmail(mail.to, mail.subject, mail.html, mail.attachments);
-                    success = true;
-                } catch (error) {
-                    lastError = error;
-                }
+            // Construire les options en utilisant icalEvent (format natif nodemailer-pool)
+            // au lieu de attachments bruts — évite une re-sérialisation inutile
+            const mailOptions = {
+                from: `"Domaine des Urgences - Planification des ressources" <${emailConfig.user}>`,
+                to: mail.to,
+                subject: mail.subject,
+                html: mail.html
+            };
+            if (mail.attachments?.[0]) {
+                const att = mail.attachments[0];
+                mailOptions.icalEvent = {
+                    filename: att.filename,
+                    method: att.contentType?.includes('CANCEL') ? 'CANCEL' : 'REQUEST',
+                    content: att.content
+                };
             }
             
-            const duration = Date.now() - emailStartTime;
-            if (success) {
+            try {
+                await transporter.sendMail(mailOptions);
                 totalSent++;
-                addLog('success', `   ✅ Envoyé en ${duration}ms`);
-            } else {
+                addLog('success', `   ✅ Envoyé en ${Date.now() - emailStartTime}ms`);
+            } catch (sendError) {
                 totalFailed++;
-                addLog('error', `   ❌ Échec après ${duration}ms: ${lastError.message}`);
-                if (lastError.code) addLog('error', `   Code: ${lastError.code}`);
+                // Si erreur de connexion, invalider le cache pour forcer une recréation
+                const errMsg = sendError.message || 'Erreur inconnue';
+                if (errMsg.includes('ECONNREFUSED') || errMsg.includes('ETIMEDOUT') || errMsg.includes('ESOCKET')) {
+                    cachedTransporter = null;
+                    cachedTransporterConfig = '';
+                }
+                addLog('error', `   ❌ Échec après ${Date.now() - emailStartTime}ms: ${errMsg}`);
+                if (sendError.code) addLog('error', `   Code: ${sendError.code}`);
             }
             
             if (i < emailsToSend.length - 1) {
@@ -4277,18 +4299,47 @@ async function processEmailJobNormal(assignments, requesterName, senderEmailAddr
         
         console.log(`📧 ${emailsToSend.length} email(s) préparés, envoi...`);
         
+        // Utiliser le pool partagé et préchauffer la connexion avant la boucle
+        const transporter = getReusableTransporter();
+        if (transporter) {
+            try { await transporter.verify(); } catch (_) { /* tentative d'envoi quand même */ }
+        }
+        
         // Envoyer les emails
         let totalSent = 0, totalFailed = 0;
         for (let i = 0; i < emailsToSend.length; i++) {
             const mail = emailsToSend[i];
             try {
                 if (i > 0) await new Promise(resolve => setTimeout(resolve, 100));
-                await sendEmail(mail.to, mail.subject, mail.html, mail.attachments);
+                if (transporter) {
+                    const mailOptions = {
+                        from: `"Domaine des Urgences - Planification des ressources" <${emailConfig.user}>`,
+                        to: mail.to,
+                        subject: mail.subject,
+                        html: mail.html
+                    };
+                    if (mail.attachments?.[0]) {
+                        const att = mail.attachments[0];
+                        mailOptions.icalEvent = {
+                            filename: att.filename,
+                            method: att.contentType?.includes('CANCEL') ? 'CANCEL' : 'REQUEST',
+                            content: att.content
+                        };
+                    }
+                    await transporter.sendMail(mailOptions);
+                } else {
+                    await sendEmail(mail.to, mail.subject, mail.html, mail.attachments);
+                }
                 totalSent++;
                 console.log(`✅ [${i+1}/${emailsToSend.length}] Email envoyé à ${mail.to}`);
             } catch (error) {
                 totalFailed++;
-                console.error(`❌ [${i+1}/${emailsToSend.length}] Erreur envoi à ${mail.to}:`, error.message);
+                const errMsg = error.message || 'Erreur inconnue';
+                if (errMsg.includes('ECONNREFUSED') || errMsg.includes('ETIMEDOUT') || errMsg.includes('ESOCKET')) {
+                    cachedTransporter = null;
+                    cachedTransporterConfig = '';
+                }
+                console.error(`❌ [${i+1}/${emailsToSend.length}] Erreur envoi à ${mail.to}:`, errMsg);
             }
         }
         
