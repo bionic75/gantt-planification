@@ -1,4 +1,4 @@
-FROM node:18-alpine
+FROM node:18
 
 WORKDIR /app
 
@@ -8,4 +8,4 @@ RUN npm install
 
 EXPOSE 8080
 
-CMD ["npx", "nodemon", "server.js"]
+CMD ["node", "server.js"]
