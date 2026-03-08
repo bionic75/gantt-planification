@@ -4190,43 +4190,6 @@ async function processEmailJob(job, assignments, requesterName, senderEmailAddr,
         addLog('info', '─'.repeat(50));
         addLog('info', `📊 RÉSUMÉ EMAILS: ${totalSent} envoyé(s), ${totalFailed} échec(s)`);
         
-        // 3. NOTIFICATIONS EN BASE (après les emails, en parallèle)
-        addLog('db', '📝 Création des notifications en base (arrière-plan)...');
-        const dbStartTime = Date.now();
-        let notificationsCreated = 0;
-        
-        // Créer toutes les notifications en batch plutôt qu'une par une
-        const notifPromises = [];
-        for (const item of assignments) {
-            const { resourceId, assignments: expertAssignments } = item;
-            notifPromises.push((async () => {
-                try {
-                    const user = await new Promise((resolve, reject) => {
-                        database.get(`SELECT id FROM users WHERE resource_id = ? AND is_expert = 1`, [resourceId],
-                            (err, row) => err ? reject(err) : resolve(row));
-                    });
-                    if (user) {
-                        for (const assignment of expertAssignments) {
-                            let activityName = assignment.activity;
-                            if (assignment.location && assignment.location !== '-') activityName = `${assignment.activity} (${assignment.location})`;
-                            let actionLabel = 'Nouvelle affectation';
-                            if (assignment.actionType === 'modified') actionLabel = 'Modification affectation';
-                            if (assignment.actionType === 'deleted') actionLabel = 'Suppression affectation';
-                            
-                            await new Promise((resolve, reject) => {
-                                database.run(`INSERT OR REPLACE INTO expert_notifications (expert_id, date, period, activity_name, requester_name, action_type) VALUES (?, ?, ?, ?, ?, ?)`,
-                                    [user.id, assignment.date, assignment.period, activityName, requesterName, actionLabel], 
-                                    (err) => err ? reject(err) : resolve());
-                            });
-                            notificationsCreated++;
-                        }
-                    }
-                } catch (e) { console.error(`Erreur notification:`, e.message); }
-            })());
-        }
-        await Promise.all(notifPromises);
-        addLog('db', `✅ ${notificationsCreated} notification(s) créée(s) en ${Date.now() - dbStartTime}ms`);
-        
         // Logger l'action
         if (sessionLogId) {
             const allEmails = assignments.map(a => a.email).filter(e => e).join(', ');
@@ -4330,22 +4293,6 @@ async function processEmailJobNormal(assignments, requesterName, senderEmailAddr
         }
         
         console.log(`📊 Résultat: ${totalSent} envoyé(s), ${totalFailed} échec(s)`);
-        
-        // Notifications en base (en arrière-plan, ne bloque pas)
-        for (const item of assignments) {
-            const { resourceId, assignments: expertAssignments } = item;
-            database.get(`SELECT id FROM users WHERE resource_id = ? AND is_expert = 1`, [resourceId], (err, user) => {
-                if (!err && user) {
-                    for (const assignment of expertAssignments) {
-                        let activityName = assignment.activity;
-                        if (assignment.location && assignment.location !== '-') activityName = `${assignment.activity} (${assignment.location})`;
-                        let actionLabel = assignment.actionType === 'modified' ? 'Modification' : assignment.actionType === 'deleted' ? 'Suppression' : 'Nouvelle';
-                        database.run(`INSERT OR REPLACE INTO expert_notifications (expert_id, date, period, activity_name, requester_name, action_type) VALUES (?, ?, ?, ?, ?, ?)`,
-                            [user.id, assignment.date, assignment.period, activityName, requesterName, actionLabel]);
-                    }
-                }
-            });
-        }
         
         if (sessionLogId) {
             const allEmails = assignments.map(a => a.email).filter(e => e).join(', ');
