@@ -268,6 +268,7 @@ let emailConfig = {
     host: 'smtp.gmail.com',
     port: 587,
     secure: false,
+    requireTLS: true,
     user: '',
     password: ''
 };
@@ -303,6 +304,7 @@ function createEmailTransporter() {
         pool: true,
         maxConnections: 5,
         maxMessages: 100,
+        family: 4,
         // Timeouts courts pour ne pas bloquer
         connectionTimeout: 10000, // 10 secondes
         greetingTimeout: 10000,
@@ -3578,7 +3580,8 @@ function getNextQueuedEmail() {
 }
 
 // Mettre à jour le statut d'un email dans la file
-function updateQueueStatus(id, status, errorMessage) {
+// currentAttempts : valeur déjà connue (champ attempts de la row), évite un SELECT inutile pour retry
+function updateQueueStatus(id, status, errorMessage, currentAttempts = 0) {
     return new Promise((resolve, reject) => {
         if (status === 'sent') {
             database.run(
@@ -3588,22 +3591,20 @@ function updateQueueStatus(id, status, errorMessage) {
             );
         } else if (status === 'failed') {
             database.run(
-                `UPDATE email_queue SET status = 'failed', error_message = ?, attempts = attempts + 1, processed_at = datetime('now') WHERE id = ?`,
+                `UPDATE email_queue SET status = 'failed', error_message = ?, attempts = attempts + 1, processed_at = datetime(\'now\') WHERE id = ?`,
                 [errorMessage, id],
                 (err) => err ? reject(err) : resolve()
             );
         } else if (status === 'retry') {
-            database.get(`SELECT attempts FROM email_queue WHERE id = ?`, [id], (err, row) => {
-                if (err) return reject(err);
-                const attempts = (row ? row.attempts : 0) + 1;
-                const delayMs = EMAIL_RETRY_DELAYS[Math.min(attempts, EMAIL_RETRY_DELAYS.length - 1)];
-                const delaySec = Math.floor(delayMs / 1000);
-                database.run(
-                    `UPDATE email_queue SET status = 'pending', error_message = ?, attempts = attempts + 1, next_retry_at = datetime('now', '+${delaySec} seconds') WHERE id = ?`,
-                    [errorMessage, id],
-                    (err2) => err2 ? reject(err2) : resolve()
-                );
-            });
+            // On utilise currentAttempts transmis par l'appelant : pas de SELECT supplémentaire
+            const nextAttempts = currentAttempts + 1;
+            const delayMs = EMAIL_RETRY_DELAYS[Math.min(nextAttempts, EMAIL_RETRY_DELAYS.length - 1)];
+            const delaySec = Math.floor(delayMs / 1000);
+            database.run(
+                `UPDATE email_queue SET status = 'pending', error_message = ?, attempts = attempts + 1, next_retry_at = datetime('now', '+${delaySec} seconds') WHERE id = ?`,
+                [errorMessage, id],
+                (err) => err ? reject(err) : resolve()
+            );
         }
     });
 }
@@ -3626,9 +3627,34 @@ async function processEmailQueue() {
         // Boucle : traiter tous les emails disponibles d'un coup
         let processed = 0;
         while (true) {
-            const email = await getNextQueuedEmail();
-            if (!email) break; // Queue vide
-            
+            // ÉTAPE 1 : SELECT + marquage 'processing' en transaction atomique.
+            // Le verrou d'écriture est pris puis relâché AVANT l'envoi SMTP,
+            // ce qui libère la BDD pendant toute la durée de l'appel réseau.
+            const email = await new Promise((resolve, reject) => {
+                database.serialize(() => {
+                    database.get(
+                        `SELECT * FROM email_queue
+                         WHERE status = 'pending' AND next_retry_at <= datetime('now') AND attempts < max_attempts
+                         ORDER BY created_at ASC LIMIT 1`,
+                        [],
+                        (err, row) => {
+                            if (err) return reject(err);
+                            if (!row) return resolve(null);
+                            // Marquer 'processing' immédiatement pour éviter
+                            // qu'un second cycle du worker prenne le même email
+                            database.run(
+                                `UPDATE email_queue SET status = 'processing' WHERE id = ? AND status = 'pending'`,
+                                [row.id],
+                                (err2) => err2 ? reject(err2) : resolve(row)
+                            );
+                        }
+                    );
+                });
+            });
+
+            if (!email) break; // Queue vide — verrou BDD déjà libéré
+
+            // ÉTAPE 2 : Construction des options (mémoire pure, pas de BDD)
             const mailOptions = {
                 from: `"${email.sender_name} (Planning SI-SAMU)" <${emailConfig.user}>`,
                 to: email.recipient_email,
@@ -3644,9 +3670,11 @@ async function processEmailQueue() {
                 };
             }
             
+            // ÉTAPE 3 : Envoi SMTP — aucun verrou BDD tenu pendant cet appel réseau
             try {
                 await transporter.sendMail(mailOptions);
-                await updateQueueStatus(email.id, 'sent');
+                // ÉTAPE 4a : Écriture résultat succès — verrou bref, pas de réseau
+                await updateQueueStatus(email.id, 'sent', null, email.attempts);
                 processed++;
                 console.log(`✅ Queue [${processed}]: envoyé à ${email.recipient_email} (${email.action_type}) [batch:${email.batch_id.substring(0, 8)}]`);
             } catch (sendError) {
@@ -3659,11 +3687,12 @@ async function processEmailQueue() {
                     cachedTransporterConfig = '';
                 }
                 
+                // ÉTAPE 4b : Écriture résultat échec — currentAttempts transmis, pas de SELECT
                 if (email.attempts + 1 >= email.max_attempts) {
-                    await updateQueueStatus(email.id, 'failed', errorMsg);
+                    await updateQueueStatus(email.id, 'failed', errorMsg, email.attempts);
                     console.log(`💀 Queue: abandonné après ${email.max_attempts} tentatives`);
                 } else {
-                    await updateQueueStatus(email.id, 'retry', errorMsg);
+                    await updateQueueStatus(email.id, 'retry', errorMsg, email.attempts);
                     console.log(`🔄 Queue: retry planifié (tentative ${email.attempts + 2}/${email.max_attempts})`);
                 }
             }
@@ -3938,6 +3967,9 @@ app.post('/api/send-assignment-emails', (req, res, next) => {
     const requesterName = senderName || `${req.session.prenom || 'Admin'} ${req.session.nom || 'Système'}`;
     const senderEmailAddr = clientSenderEmail || emailConfig.user;
     const sessionLogId = req.session?.logId;
+
+    // Absorber les erreurs de fermeture de socket (BadRequestError: request aborted)
+    req.on('error', () => {});
     
     // Headers pour désactiver le buffering du reverse proxy
     res.set({
