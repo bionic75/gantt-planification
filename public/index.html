@@ -14891,11 +14891,10 @@
                 
                 emailSendingInProgress = false;
                 
-                // 502/504 = Gateway Timeout - ne devrait plus arriver avec le polling
+                // 502/504 = Gateway Timeout
                 if (response.status === 502 || response.status === 504) {
                     if (debugMode) {
                         addDebugLog('warning', '⚠️ Timeout reverse proxy (502/504)');
-                        addDebugLog('info', 'Le serveur traite la demande en arrière-plan');
                         setDebugStatus('warning', '⚠️ Timeout proxy');
                         stopDebugTimer();
                     } else {
@@ -14909,19 +14908,9 @@
                 const data = await response.json();
                 console.log('📧 Résultat:', data);
                 
-                // En mode debug avec jobId, démarrer le polling
-                if (debugMode && data.jobId) {
-                    addDebugLog('info', `📋 Job démarré: ${data.jobId}`);
-                    addDebugLog('info', '⏳ Polling des logs en cours...');
-                    addDebugLog('', '─'.repeat(60));
-                    
-                    // Démarrer le polling
-                    startDebugPolling(data.jobId, assignmentsToSend);
-                    return;
-                }
-                
-                // Réponse directe (mode non-debug ou erreur rapide)
+                // Traitement de la réponse (mode debug ou normal)
                 if (debugMode) {
+                    addDebugLog('', '─'.repeat(60));
                     if (data.debugLogs && data.debugLogs.length > 0) {
                         addDebugLog('info', '📋 LOGS SERVEUR:');
                         data.debugLogs.forEach(log => {
@@ -14931,18 +14920,15 @@
                     addDebugLog('', '─'.repeat(60));
                     
                     if (data.success) {
-                        addDebugLog('success', `✅ SUCCÈS: ${data.message || 'Invitations envoyées'}`);
+                        addDebugLog('success', `✅ TERMINÉ: ${data.sent || 0} envoyé(s), ${data.failed || 0} échec(s)`);
                         setDebugStatus('success', '✅ Terminé');
+                        assignmentsToSend.forEach(sent => { delete pendingAssignments[sent.resourceId]; });
+                        updatePendingEmailBadge();
                     } else {
                         addDebugLog('error', `❌ ERREUR: ${data.error || 'Erreur inconnue'}`);
                         setDebugStatus('error', '❌ Échec');
                     }
                     stopDebugTimer();
-                    
-                    if (data.success) {
-                        assignmentsToSend.forEach(sent => { delete pendingAssignments[sent.resourceId]; });
-                        updatePendingEmailBadge();
-                    }
                 } else {
                     if (data.success) {
                         assignmentsToSend.forEach(sent => { delete pendingAssignments[sent.resourceId]; });
@@ -14963,84 +14949,6 @@
                     updatePendingEmailBadge();
                     updateEmailToastSuccess(totalItems, 0, true);
                 }
-            }
-        }
-        
-        // Variable pour le polling debug
-        let debugPollingInterval = null;
-        let lastLogIndex = 0;
-        let debugPollingCompleted = false; // Flag pour éviter les doublons
-        
-        function startDebugPolling(jobId, assignmentsToSend) {
-            lastLogIndex = 0;
-            debugPollingCompleted = false;
-            
-            const poll = async () => {
-                // Si déjà terminé, ne rien faire
-                if (debugPollingCompleted) {
-                    stopDebugPolling();
-                    return;
-                }
-                
-                try {
-                    const response = await fetch(`${API_URL}/debug-job/${jobId}`, { credentials: 'include' });
-                    
-                    if (!response.ok) {
-                        if (!debugPollingCompleted) {
-                            addDebugLog('error', `❌ Erreur polling: ${response.status}`);
-                            debugPollingCompleted = true;
-                            stopDebugPolling();
-                            setDebugStatus('error', '❌ Erreur polling');
-                            stopDebugTimer();
-                        }
-                        return;
-                    }
-                    
-                    const data = await response.json();
-                    
-                    // Afficher les nouveaux logs
-                    if (data.logs && data.logs.length > lastLogIndex) {
-                        for (let i = lastLogIndex; i < data.logs.length; i++) {
-                            const log = data.logs[i];
-                            addDebugLog(log.type, log.message, log.timestamp);
-                        }
-                        lastLogIndex = data.logs.length;
-                    }
-                    
-                    // Vérifier si terminé (et pas déjà traité)
-                    if ((data.status === 'completed' || data.status === 'error') && !debugPollingCompleted) {
-                        debugPollingCompleted = true;
-                        stopDebugPolling();
-                        addDebugLog('', '─'.repeat(60));
-                        
-                        if (data.result) {
-                            if (data.result.success) {
-                                addDebugLog('success', `✅ TERMINÉ: ${data.result.sent || 0} envoyé(s), ${data.result.failed || 0} échec(s)`);
-                                setDebugStatus('success', '✅ Terminé');
-                                assignmentsToSend.forEach(sent => { delete pendingAssignments[sent.resourceId]; });
-                                updatePendingEmailBadge();
-                            } else {
-                                addDebugLog('error', `❌ ÉCHEC: ${data.result.error || 'Erreur inconnue'}`);
-                                setDebugStatus('error', '❌ Échec');
-                            }
-                        }
-                        stopDebugTimer();
-                    }
-                } catch (error) {
-                    console.error('Erreur polling:', error);
-                    // Continuer le polling même en cas d'erreur ponctuelle
-                }
-            };
-            
-            // Polling toutes les 2 secondes
-            poll(); // Premier appel immédiat
-            debugPollingInterval = setInterval(poll, 2000);
-        }
-        
-        function stopDebugPolling() {
-            if (debugPollingInterval) {
-                clearInterval(debugPollingInterval);
-                debugPollingInterval = null;
             }
         }
         
@@ -16795,7 +16703,6 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
         function closeDebugLogsModal() {
             document.getElementById('debugLogsModal').style.display = 'none';
             stopDebugTimer();
-            stopDebugPolling();
         }
 
         function startDebugTimer() {
