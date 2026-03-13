@@ -310,15 +310,30 @@ function createEmailTransporter() {
     return emailTransporterCache;
 }
 
-// Envoyer un email
+// Envoyer un email (transporter sans pool — connexion à la demande, pour envois ponctuels)
 async function sendEmail(to, subject, html, attachments = []) {
     const startTime = Date.now();
     console.log(`📧 sendEmail: Début envoi à ${to}, ${attachments.length} pièce(s) jointe(s)`);
-    
-    const transporter = createEmailTransporter();
-    if (!transporter) {
+
+    if (!emailConfig.user || !emailConfig.password) {
         throw new Error('Configuration email non définie');
     }
+
+    // Transporter sans pool : ouvre/ferme la connexion TCP pour chaque envoi.
+    // Plus lent qu'un pool mais fiable en local et sur toute infra sans connexions persistantes.
+    const transporter = nodemailer.createTransport({
+        host: emailConfig.host,
+        port: emailConfig.port,
+        secure: emailConfig.secure,
+        auth: { user: emailConfig.user, pass: emailConfig.password },
+        family: 4,
+        connectionTimeout: 15000,
+        greetingTimeout: 10000,
+        socketTimeout: 30000,
+        tls: { rejectUnauthorized: false, minVersion: 'TLSv1' },
+        debug: false,
+        logger: false
+    });
     
     try {
         const mailOptions = {
@@ -4117,48 +4132,43 @@ app.post('/api/send-assignment-emails', requireAuth, async (req, res) => {
             });
         }
 
-        // ── Mode normal : réponse immédiate, envoi en arrière-plan ──────────
+        // ── Mode normal : enqueue dans email_queue, réponse immédiate ───────
+        const batchId = crypto.randomUUID();
+        let enqueued = 0;
+        for (const mail of emailsToSend) {
+            try {
+                await enqueueEmail({
+                    batchId,
+                    recipientEmail: mail.to,
+                    recipientName:  mail.attendeeName,
+                    senderName:     requesterName,
+                    senderEmail:    senderEmailAddr,
+                    subject:        mail.subject,
+                    htmlBody:       mail.html,
+                    icsContent:     mail.icsContent,
+                    icsMethod:      mail.icsMethod,
+                    icsFilename:    mail.icsFilename,
+                    actionType:     mail.type
+                });
+                enqueued++;
+            } catch (enqErr) {
+                console.error(`❌ Erreur enqueue pour ${mail.to}:`, enqErr.message);
+            }
+        }
+
+        console.log(`📧 send-assignment-emails: ${enqueued}/${emailsToSend.length} email(s) mis en file (batchId=${batchId})`);
+
+        if (sessionLogId) {
+            const allEmails = assignments.map(a => a.email).filter(e => e).join(', ');
+            database.run(`UPDATE connection_logs SET modifications = modifications || ? WHERE id = ?`,
+                [`${new Date().toLocaleString('fr-FR')}: Invitations Outlook en file (${enqueued} emails) pour: ${allEmails}\n`, sessionLogId]);
+        }
+
         res.json({
             success: true,
-            message: `Invitations en cours d'envoi pour ${assignments.length} expert(s)...`,
-            emails: assignments.map(a => a.email).filter(e => e)
-        });
-
-        process.nextTick(async () => {
-            try {
-                try { await transporter.verify(); } catch (_) { /* continue */ }
-                let totalSent = 0, totalFailed = 0;
-                for (let i = 0; i < emailsToSend.length; i++) {
-                    const mail = emailsToSend[i];
-                    const mailOptions = {
-                        from: `"Domaine des Urgences - Planification des ressources" <${emailConfig.user}>`,
-                        to: mail.to,
-                        subject: mail.subject,
-                        html: mail.html,
-                        icalEvent: { filename: mail.icsFilename, method: mail.icsMethod, content: mail.icsContent }
-                    };
-                    try {
-                        await transporter.sendMail(mailOptions);
-                        totalSent++;
-                        console.log(`✅ [${i+1}/${emailsToSend.length}] Email envoyé à ${mail.to} (${mail.type})`);
-                    } catch (err) {
-                        totalFailed++;
-                        console.error(`❌ [${i+1}/${emailsToSend.length}] Erreur envoi à ${mail.to}: ${err.message}`);
-                        if (err.message?.includes('ECONNREFUSED') || err.message?.includes('ETIMEDOUT') || err.message?.includes('ESOCKET')) {
-                            cachedTransporter = null; cachedTransporterConfig = '';
-                        }
-                    }
-                    if (i < emailsToSend.length - 1) await sleep(100);
-                }
-                console.log(`📊 send-assignment-emails: ${totalSent} envoyé(s), ${totalFailed} échec(s)`);
-                if (sessionLogId) {
-                    const allEmails = assignments.map(a => a.email).filter(e => e).join(', ');
-                    database.run(`UPDATE connection_logs SET modifications = modifications || ? WHERE id = ?`,
-                        [`${new Date().toLocaleString('fr-FR')}: Invitations Outlook (${totalSent}/${totalSent + totalFailed}) pour: ${allEmails}\n`, sessionLogId]);
-                }
-            } catch (bgError) {
-                console.error('❌ Erreur background send-assignment-emails:', bgError);
-            }
+            batchId,
+            enqueued,
+            message: `${enqueued} invitation(s) ajoutée(s) à la file d'envoi`
         });
 
     } catch (error) {
@@ -10115,9 +10125,9 @@ app.listen(PORT, () => {
     }, 5000);
 });
 
-// Fonction pour préchauffer la connexion SMTP
+// Fonction pour préchauffer la connexion SMTP (pool du worker uniquement)
 async function warmupSMTPConnection() {
-    console.log('📧 Préchauffage connexion SMTP...');
+    console.log('📧 Préchauffage connexion SMTP (pool worker)...');
     
     if (!emailConfig.user || !emailConfig.password) {
         console.log('📧 Configuration SMTP non disponible, warmup ignoré');
@@ -10125,30 +10135,18 @@ async function warmupSMTPConnection() {
     }
     
     try {
-        const transporter = createEmailTransporter();
+        const transporter = getReusableTransporter();
         if (transporter) {
-            // Vérifier la connexion sans envoyer d'email
             await transporter.verify();
             console.log('✅ Connexion SMTP préchauffée et prête');
         }
     } catch (error) {
+        // En local sans accès réseau OVH : normal. Ne pas laisser le pool en état d'erreur.
         console.log('⚠️ Warmup SMTP échoué (normal si config pas encore chargée):', error.message);
+        cachedTransporter = null;
+        cachedTransporterConfig = '';
     }
 }
-
-// Garder la connexion SMTP active en faisant un verify périodique
-setInterval(async () => {
-    if (emailConfig.user && emailConfig.password && emailTransporterCache) {
-        try {
-            await emailTransporterCache.verify();
-            console.log('📧 Connexion SMTP maintenue active');
-        } catch (error) {
-            console.log('📧 Connexion SMTP perdue, sera recréée au prochain envoi');
-            emailTransporterCache = null;
-            emailTransporterConfigHash = null;
-        }
-    }
-}, 5 * 60 * 1000); // Toutes les 5 minutes
 
 // Protection contre les crash silencieux
 process.on('unhandledRejection', (reason, promise) => {

@@ -14862,10 +14862,6 @@
                 });
                 addDebugLog('', '─'.repeat(60));
                 addDebugLog('info', '📡 Envoi de la requête au serveur...');
-            } else {
-                // Mode normal : afficher le toast
-                emailSendingInProgress = true;
-                showEmailProgressToast(totalItems);
             }
             
             try {
@@ -14889,8 +14885,6 @@
                     addDebugLog('info', `📨 Réponse HTTP reçue: ${response.status} ${response.statusText}`);
                 }
                 
-                emailSendingInProgress = false;
-                
                 // 502/504 = Gateway Timeout
                 if (response.status === 502 || response.status === 504) {
                     if (debugMode) {
@@ -14900,7 +14894,6 @@
                     } else {
                         assignmentsToSend.forEach(sent => { delete pendingAssignments[sent.resourceId]; });
                         updatePendingEmailBadge();
-                        updateEmailToastSuccess(totalItems, 0, true);
                     }
                     return;
                 }
@@ -14931,9 +14924,13 @@
                     stopDebugTimer();
                 } else {
                     if (data.success) {
+                        // Vider les affectations en attente immédiatement
                         assignmentsToSend.forEach(sent => { delete pendingAssignments[sent.resourceId]; });
                         updatePendingEmailBadge();
-                        updateEmailToastSuccess(totalItems, 0);
+                        // Lancer le polling du batch pour notifier via la cloche quand terminé
+                        if (data.batchId) {
+                            startBatchPolling(data.batchId, data.enqueued || totalItems, assignmentsToSend);
+                        }
                     }
                 }
             } catch (error) {
@@ -14947,9 +14944,95 @@
                 } else {
                     assignmentsToSend.forEach(sent => { delete pendingAssignments[sent.resourceId]; });
                     updatePendingEmailBadge();
-                    updateEmailToastSuccess(totalItems, 0, true);
                 }
             }
+        }
+
+        // Polling du batch d'envoi → toast de confirmation quand terminé
+        let batchPollingInterval = null;
+
+        function startBatchPolling(batchId, totalEmails, assignmentsToSend) {
+            if (batchPollingInterval) clearInterval(batchPollingInterval);
+
+            const expertNames = [...new Set(
+                assignmentsToSend.map(a => `${a.expertPrenom || ''} ${a.expertNom || ''}`.trim()).filter(Boolean)
+            )];
+
+            const poll = async () => {
+                try {
+                    const response = await fetch(`${API_URL}/email-queue/status/${batchId}`, { credentials: 'include' });
+                    if (!response.ok) return;
+                    const data = await response.json();
+
+                    if (data.isComplete) {
+                        clearInterval(batchPollingInterval);
+                        batchPollingInterval = null;
+                        showBatchDoneToast(data.sent || 0, data.failed || 0, totalEmails, expertNames);
+                    }
+                } catch (e) {
+                    console.error('Erreur polling batch:', e);
+                }
+            };
+
+            // Premier poll après 15s, puis toutes les 10s
+            setTimeout(() => {
+                poll();
+                batchPollingInterval = setInterval(poll, 10000);
+            }, 15000);
+        }
+
+        function showBatchDoneToast(sent, failed, total, expertNames) {
+            // Supprimer un éventuel toast précédent
+            const existing = document.getElementById('batchDoneToast');
+            if (existing) existing.remove();
+
+            const isSuccess = failed === 0;
+            const color     = isSuccess ? '#27ae60' : '#e67e22';
+            const icon      = isSuccess ? '✅' : '⚠️';
+            const title     = isSuccess
+                ? `Invitations envoyées (${sent}/${total})`
+                : `Invitations partiellement envoyées (${sent}/${total})`;
+            const detail    = expertNames.length > 0
+                ? expertNames.join(', ')
+                : `${total} email(s)`;
+
+            const toast = document.createElement('div');
+            toast.id = 'batchDoneToast';
+            toast.style.cssText = `
+                position: fixed; bottom: 24px; right: 24px;
+                min-width: 320px; max-width: 420px;
+                background: white; border-radius: 10px;
+                box-shadow: 0 6px 24px rgba(0,0,0,0.18);
+                border-left: 5px solid ${color};
+                z-index: 10050; overflow: hidden;
+                animation: slideInRight 0.3s ease;
+            `;
+            toast.innerHTML = `
+                <style>
+                    @keyframes slideInRight {
+                        from { transform: translateX(120%); opacity: 0; }
+                        to   { transform: translateX(0);    opacity: 1; }
+                    }
+                </style>
+                <div style="padding: 16px 18px;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
+                        <div>
+                            <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                                <span style="font-size:20px;">${icon}</span>
+                                <strong style="font-size:14px; color:#2c3e50;">${title}</strong>
+                            </div>
+                            <div style="font-size:12px; color:#7f8c8d;">${detail}</div>
+                            ${failed > 0 ? `<div style="font-size:12px; color:#e74c3c; margin-top:4px;">⚠️ ${failed} envoi(s) échoué(s) — voir logs serveur</div>` : ''}
+                        </div>
+                        <button onclick="document.getElementById('batchDoneToast').remove()"
+                            style="background:none; border:none; font-size:18px; cursor:pointer; color:#bbb; padding:0; flex-shrink:0;">✕</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(toast);
+
+            // Disparaît automatiquement après 12s
+            setTimeout(() => { if (toast.parentNode) toast.remove(); }, 12000);
         }
         
         // Toast non-bloquant avec barre de progression temps réel
