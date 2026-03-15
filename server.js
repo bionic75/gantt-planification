@@ -1,5 +1,3 @@
-process.env.UV_THREADPOOL_SIZE = '16';
-
 import express from 'express';
 console.log('✅ Express importé');
 import cors from 'cors';
@@ -307,10 +305,9 @@ function createEmailTransporter() {
             pass: emailConfig.password
         },
         // Pool de connexions pour réutiliser les connexions
-        //pool: true,
-        //maxConnections: 5,
-        //maxMessages: 100,
-        //family: 4,
+        pool: true,
+        maxConnections: 5,
+        maxMessages: 100,
         // Timeouts courts pour ne pas bloquer
         connectionTimeout: 10000, // 10 secondes
         greetingTimeout: 10000,
@@ -2490,7 +2487,7 @@ app.post('/api/schedule/save', requireAuth, async (req, res) => {
     }
 
     try {
-        // ÉTAPE 1 : Transaction — tous les writes en un seul lock SQLite
+        // ÉTAPE 1 : Transaction — toutes les écritures en un seul lock SQLite
         await new Promise((resolve, reject) => {
             database.serialize(() => {
                 database.run('BEGIN TRANSACTION');
@@ -2516,7 +2513,7 @@ app.post('/api/schedule/save', requireAuth, async (req, res) => {
         });
         res.json({ success: true, saved: updates.length });
 
-        // ÉTAPE 3 : Logs planning_modification en fire-and-forget (après la réponse)
+        // ÉTAPE 3 : Logs planning_modification en fire-and-forget après la réponse
         // La vérification "hasReallyChanged" se fait ici, après la réponse,
         // pour ne pas ajouter de lectures concurrentes sur le chemin critique
         const activityLabelsLocal = {
