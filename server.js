@@ -4077,14 +4077,14 @@ app.post('/api/send-assignment-emails', requireAuth, async (req, res) => {
 
         // ── Mode debug : envoi synchrone, logs retournés dans la réponse ────
         if (debugMode) {
-            addLog('email', '📤 Connexion SMTP (préchauffage pool)...');
-            try {
-                const t0 = Date.now();
-                await transporter.verify();
-                addLog('email', `   ✅ SMTP prêt en ${Date.now() - t0}ms`);
-            } catch (verifyErr) {
-                addLog('warning', `   ⚠️ verify() échoué: ${verifyErr.message} — envoi tenté quand même`);
-            }
+            //addLog('email', '📤 Connexion SMTP (préchauffage pool)...');
+            //try {
+            //    const t0 = Date.now();
+            //    await transporter.verify();
+            //    addLog('email', `   ✅ SMTP prêt en ${Date.now() - t0}ms`);
+            //} catch (verifyErr) {
+            //    addLog('warning', `   ⚠️ verify() échoué: ${verifyErr.message} — envoi tenté quand même`);
+            //}
 
             addLog('email', '─'.repeat(50));
             let totalSent = 0, totalFailed = 0;
