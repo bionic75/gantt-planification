@@ -10037,9 +10037,7 @@ app.get('*', (req, res) => {
 });
 
 // Serveur Ecoute
-// keepAliveTimeout doit être > timeout http-keep-alive de HAProxy (souvent 60s)
-// headersTimeout doit être > keepAliveTimeout
-const server = app.listen(PORT, () => {
+app.listen(PORT, () => {
     console.log(`🚀 Serveur démarré sur le port ${PORT}`);
     console.log(`👤 Compte admin: admin / Admin2025!`);
     console.log(`⏰ Automatisations programmées actives`);
@@ -10049,12 +10047,6 @@ const server = app.listen(PORT, () => {
         await warmupSMTPConnection();
     }, 5000);
 });
-
-// Éviter la race condition keepAlive entre HAProxy et Node.js :
-// Node.js fermait la connexion keep-alive après 5s (défaut), pendant que
-// HAProxy envoyait une nouvelle requête dessus → ECONNRESET → délai de retry ~125s
-server.keepAliveTimeout = 65000;   // > timeout http-keep-alive HAProxy (60s)
-server.headersTimeout   = 66000;   // > keepAliveTimeout
 
 // Fonction pour préchauffer la connexion SMTP (pool du worker uniquement)
 async function warmupSMTPConnection() {
