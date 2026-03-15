@@ -1,3 +1,5 @@
+process.env.UV_THREADPOOL_SIZE = '16';
+
 import express from 'express';
 console.log('✅ Express importé');
 import cors from 'cors';
