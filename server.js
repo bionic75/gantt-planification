@@ -38,6 +38,13 @@ app.use(cors({
 }));
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
+app.use((req, res, next) => {
+    const t0 = Date.now();
+    const { method, url } = req;
+    console.log(`→ ${method} ${url}`);
+    res.on('finish', () => console.log(`← ${method} ${url} ${res.statusCode} (${Date.now() - t0}ms)`));
+    next();
+});
 app.use(session({
     secret: process.env.SESSION_SECRET || 'gantt-secret-key-2025',
     resave: false,
