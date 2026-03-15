@@ -107,6 +107,17 @@ const database = new sqlite3.Database(DB_FILE, (err) =>
     }
 });
 
+// Connexion lecture seule dédiée aux lectures lourdes du CRON (runAutomation2)
+// En mode WAL, une connexion séparée peut lire en parallèle des écritures sur 'database'
+// sans bloquer la file d'opérations principale.
+const dbRead = new sqlite3.Database(DB_FILE, sqlite3.OPEN_READONLY, (err) => {
+    if (err) console.error('❌ Erreur connexion dbRead:', err);
+    else {
+        dbRead.run('PRAGMA busy_timeout = 5000');
+        console.log('✅ SQLite connexion lecture (dbRead) ouverte');
+    }
+});
+
 // Hash password
 function hashPassword(password) {
     return crypto.createHash('sha256').update(password).digest('hex');
@@ -2479,18 +2490,7 @@ app.post('/api/schedule/save', requireAuth, async (req, res) => {
     }
 
     try {
-        // ÉTAPE 1 : Lire les valeurs actuelles en parallèle (lectures = pas de write lock)
-        const existingValues = await Promise.all(updates.map(({ key }) => {
-            const parts = key.split('_');
-            return new Promise(resolve => database.get(
-                'SELECT value FROM schedule_data WHERE resource_id = ? AND date_key = ? AND type = ?',
-                [parts[0], parts.slice(2).join('_'), parts[1]],
-                (err, row) => resolve(row ? row.value : null)
-            ));
-        }));
-
-        // ÉTAPE 2 : Écrire TOUTES les mises à jour dans UNE SEULE transaction
-        // → une seule acquisition du write lock SQLite au lieu de N acquisitions parallèles
+        // ÉTAPE 1 : Transaction — tous les writes en un seul lock SQLite
         await new Promise((resolve, reject) => {
             database.serialize(() => {
                 database.run('BEGIN TRANSACTION');
@@ -2509,21 +2509,22 @@ app.post('/api/schedule/save', requireAuth, async (req, res) => {
             });
         });
 
-        // ÉTAPE 3 : Réponse immédiate
+        // ÉTAPE 2 : Réponse immédiate
         logUserAction(req, 'Sauvegarde planning rapide', {
             modificationsCount: updates.length,
             profile: req.session.activeProfile
         });
         res.json({ success: true, saved: updates.length });
 
-        // ÉTAPE 4 : Logs planning_modification en fire-and-forget (après la réponse)
+        // ÉTAPE 3 : Logs planning_modification en fire-and-forget (après la réponse)
+        // La vérification "hasReallyChanged" se fait ici, après la réponse,
+        // pour ne pas ajouter de lectures concurrentes sur le chemin critique
         const activityLabelsLocal = {
             '3': '🚨 SAMU (Déploiement)', '4': '🚨 SAMU (Dev. usages)',
             '5': 'ANS (Déploiement)',     '6': 'ANS (Dev. usages)',
             '7': 'Qualification',          '8': 'Autre mission'
         };
-        updates.forEach(({ key, value }, i) => {
-            if (existingValues[i] === value) return; // pas de changement réel
+        updates.forEach(({ key, value }) => {
             const parts = key.split('_');
             const resourceId = parts[0], type = parts[1];
             const dateKey = parts.slice(2).join('_');
@@ -8812,9 +8813,9 @@ async function runAutomation2() {
     console.log('⏰ [CRON] Vérification automatisation n°2...');
     
     try {
-        // Récupérer la configuration
+        // Récupérer la configuration (via dbRead pour ne pas bloquer les writes)
         const configRow = await new Promise((resolve, reject) => {
-            database.get(
+            dbRead.get(
                 `SELECT value FROM settings WHERE key = 'automation_2_config'`,
                 (err, row) => {
                     if (err) reject(err);
@@ -8873,37 +8874,37 @@ async function runAutomation2() {
         
         if (config.groupAdmin) {
             const admins = await new Promise((resolve, reject) => {
-                database.all(`SELECT email FROM users WHERE is_admin = 1 AND actif = 1 AND email IS NOT NULL AND email != ''`, (err, rows) => {
+                dbRead.all(`SELECT email FROM users WHERE is_admin = 1 AND actif = 1 AND email IS NOT NULL AND email != ''`, (err, rows) => {
                     if (err) reject(err);
                     else resolve(rows || []);
                 });
             });
             admins.forEach(u => { if (!recipientEmails.includes(u.email)) recipientEmails.push(u.email); });
         }
-        
+
         if (config.groupUser) {
             const usersData = await new Promise((resolve, reject) => {
-                database.all(`SELECT email FROM users WHERE is_user = 1 AND actif = 1 AND email IS NOT NULL AND email != ''`, (err, rows) => {
+                dbRead.all(`SELECT email FROM users WHERE is_user = 1 AND actif = 1 AND email IS NOT NULL AND email != ''`, (err, rows) => {
                     if (err) reject(err);
                     else resolve(rows || []);
                 });
             });
             usersData.forEach(u => { if (!recipientEmails.includes(u.email)) recipientEmails.push(u.email); });
         }
-        
+
         if (config.groupExpert) {
             const expertsUsers = await new Promise((resolve, reject) => {
-                database.all(`SELECT email FROM users WHERE is_expert = 1 AND actif = 1 AND email IS NOT NULL AND email != ''`, (err, rows) => {
+                dbRead.all(`SELECT email FROM users WHERE is_expert = 1 AND actif = 1 AND email IS NOT NULL AND email != ''`, (err, rows) => {
                     if (err) reject(err);
                     else resolve(rows || []);
                 });
             });
             expertsUsers.forEach(u => { if (!recipientEmails.includes(u.email)) recipientEmails.push(u.email); });
         }
-        
+
         if (config.recipients && config.recipients.length > 0) {
             const individualUsers = await new Promise((resolve, reject) => {
-                database.all(`SELECT email FROM users WHERE id IN (${config.recipients.join(',')}) AND email IS NOT NULL AND email != ''`, (err, rows) => {
+                dbRead.all(`SELECT email FROM users WHERE id IN (${config.recipients.join(',')}) AND email IS NOT NULL AND email != ''`, (err, rows) => {
                     if (err) reject(err);
                     else resolve(rows || []);
                 });
@@ -8920,14 +8921,14 @@ async function runAutomation2() {
         let resourcesList = [];
         if (config.allExperts !== false) { // Par défaut tous les experts
             resourcesList = await new Promise((resolve, reject) => {
-                database.all(`SELECT * FROM resources ORDER BY nom, prenom`, (err, rows) => {
+                dbRead.all(`SELECT * FROM resources ORDER BY nom, prenom`, (err, rows) => {
                     if (err) reject(err);
                     else resolve(rows || []);
                 });
             });
         } else if (config.expertsList && config.expertsList.length > 0) {
             resourcesList = await new Promise((resolve, reject) => {
-                database.all(`SELECT * FROM resources WHERE id IN (${config.expertsList.join(',')}) ORDER BY nom, prenom`, (err, rows) => {
+                dbRead.all(`SELECT * FROM resources WHERE id IN (${config.expertsList.join(',')}) ORDER BY nom, prenom`, (err, rows) => {
                     if (err) reject(err);
                     else resolve(rows || []);
                 });
@@ -8942,11 +8943,11 @@ async function runAutomation2() {
         let selectedMonthsList = [];
         
         if (config.allMonths) {
-            // Récupérer tous les mois disponibles depuis la base
+            // Récupérer tous les mois disponibles depuis la base (via dbRead)
             const availableMonths = await new Promise((resolve, reject) => {
-                database.all(`
+                dbRead.all(`
                     SELECT DISTINCT substr(date_key, 1, 7) as month
-                    FROM schedule_data 
+                    FROM schedule_data
                     WHERE (type = 'available' AND value != '1')
                        OR (type = 'activity' AND value != '1')
                 `, (err, rows) => {
@@ -8998,7 +8999,7 @@ async function runAutomation2() {
         const likeConditions = allPatterns.map(() => `date_key LIKE ?`).join(' OR ');
         
         const scheduleData = await new Promise((resolve, reject) => {
-            database.all(
+            dbRead.all(
                 `SELECT * FROM schedule_data WHERE ${likeConditions} ORDER BY resource_id, date_key`,
                 allPatterns,
                 (err, rows) => {
@@ -9086,7 +9087,7 @@ async function runAutomation2() {
         // Récupérer les noms des destinataires individuels
         if (config.recipients && config.recipients.length > 0) {
             const individualUsers = await new Promise((resolve, reject) => {
-                database.all(`SELECT nom, prenom FROM users WHERE id IN (${config.recipients.join(',')})`, (err, rows) => {
+                dbRead.all(`SELECT nom, prenom FROM users WHERE id IN (${config.recipients.join(',')})`, (err, rows) => {
                     if (err) reject(err);
                     else resolve(rows || []);
                 });
