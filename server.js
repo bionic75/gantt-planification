@@ -2459,207 +2459,123 @@ app.post('/api/schedule/reset-month', requireAuth, (req, res) => {
     });
 });
 
-app.post('/api/schedule/save', requireAuth, (req, res) => {
+app.post('/api/schedule/save', requireAuth, async (req, res) => {
     // Supporter les deux formats : { updates: [...] } OU scheduleData direct
     let updates;
     if (req.body.updates) {
         updates = req.body.updates;
     } else {
-        const scheduleData = req.body;
-        updates = Object.entries(scheduleData).map(([key, value]) => ({ key, value }));
+        updates = Object.entries(req.body).map(([key, value]) => ({ key, value }));
     }
-    
+
     if (!updates || updates.length === 0) {
         return res.json({ success: true, saved: 0 });
     }
 
-    let completed = 0;
-    const total = updates.length;
-    
-    // Collecter les activités modifiées pour créer les notifications une seule fois par demi-journée
-    const notificationsToCreate = new Map(); // Clé: "resourceId_date_period", Valeur: {resourceId, date, period, activity}
+    // Appliquer les droits expert (filtrage avant transaction)
+    const isExpert = req.session.activeProfile === 'expert';
+    if (isExpert) {
+        updates = updates.filter(({ key }) => parseInt(key.split('_')[0]) === req.session.resourceId);
+    }
 
-    updates.forEach(({ key, value }) => {
-        const parts = key.split('_');
-        const resourceId = parts[0];
-        const type = parts[1];
-        // FIX MAJEUR : Utiliser join('_') au lieu de join('-') pour préserver le format des clés
-        const dateKey = parts.slice(2).join('_');
-        
-        // Vérification des droits pour Expert métier
-        if (req.session.activeProfile === 'expert') {
-            // L'expert ne peut modifier que sa propre ligne
-            if (parseInt(resourceId) !== req.session.resourceId) {
-                completed++;
-                if (completed === total) {
-                    logUserAction(req, 'Sauvegarde planning rapide', { 
-                        modificationsCount: completed,
-                        profile: req.session.activeProfile
-                    });
-                    res.json({ success: true, saved: total });
-                }
-                return;
-            }
-        }
-        
-        // ===== VÉRIFIER AVANT L'INSERT SI C'EST UNE VRAIE MODIFICATION (ASYNCHRONE) =====
-        database.get(
-            'SELECT value FROM schedule_data WHERE resource_id = ? AND date_key = ? AND type = ?',
-            [resourceId, dateKey, type],
-            (errCheck, existingRow) => {
-                const oldValue = existingRow ? existingRow.value : null;
-                const hasReallyChanged = (oldValue !== value);
-                
-                database.run(
-                    `INSERT INTO schedule_data (resource_id, date_key, type, value)
-                     VALUES (?, ?, ?, ?)
-                     ON CONFLICT(resource_id, date_key, type) 
-                     DO UPDATE SET value = excluded.value`,
-                    [resourceId, dateKey, type, value],
-                    (err) => {
-                        if (err) console.error('Erreur insert schedule:', err);
-                        
-                        // Collecter les activités pour notifications (une seule par demi-journée)
-                        if (!err && type === 'activity' && value !== '1' && value !== '2' && req.session.activeProfile !== 'expert' && hasReallyChanged) {
-                            // C'est une vraie affectation SAMU/ANS qui a VRAIMENT changé
-                            const dateKeyParts = dateKey.split('_');
-                            const date = dateKeyParts[0];
-                            const period = dateKeyParts[1];
-                            const notifKey = `${resourceId}_${date}_${period}`;
-                            
-                            // N'ajouter que si pas déjà présent
-                            if (!notificationsToCreate.has(notifKey)) {
-                                notificationsToCreate.set(notifKey, {
-                                    resourceId,
-                                    date,
-                                    period,
-                                    activityValue: value
-                                });
+    try {
+        // ÉTAPE 1 : Lire les valeurs actuelles en parallèle (lectures = pas de write lock)
+        const existingValues = await Promise.all(updates.map(({ key }) => {
+            const parts = key.split('_');
+            return new Promise(resolve => database.get(
+                'SELECT value FROM schedule_data WHERE resource_id = ? AND date_key = ? AND type = ?',
+                [parts[0], parts.slice(2).join('_'), parts[1]],
+                (err, row) => resolve(row ? row.value : null)
+            ));
+        }));
+
+        // ÉTAPE 2 : Écrire TOUTES les mises à jour dans UNE SEULE transaction
+        // → une seule acquisition du write lock SQLite au lieu de N acquisitions parallèles
+        await new Promise((resolve, reject) => {
+            database.serialize(() => {
+                database.run('BEGIN TRANSACTION');
+                updates.forEach(({ key, value }) => {
+                    const parts = key.split('_');
+                    database.run(
+                        `INSERT INTO schedule_data (resource_id, date_key, type, value)
+                         VALUES (?, ?, ?, ?)
+                         ON CONFLICT(resource_id, date_key, type)
+                         DO UPDATE SET value = excluded.value`,
+                        [parts[0], parts.slice(2).join('_'), parts[1], value],
+                        (_err) => {}
+                    );
+                });
+                database.run('COMMIT', (err) => err ? reject(err) : resolve());
+            });
+        });
+
+        // ÉTAPE 3 : Réponse immédiate
+        logUserAction(req, 'Sauvegarde planning rapide', {
+            modificationsCount: updates.length,
+            profile: req.session.activeProfile
+        });
+        res.json({ success: true, saved: updates.length });
+
+        // ÉTAPE 4 : Logs planning_modification en fire-and-forget (après la réponse)
+        const activityLabelsLocal = {
+            '3': '🚨 SAMU (Déploiement)', '4': '🚨 SAMU (Dev. usages)',
+            '5': 'ANS (Déploiement)',     '6': 'ANS (Dev. usages)',
+            '7': 'Qualification',          '8': 'Autre mission'
+        };
+        updates.forEach(({ key, value }, i) => {
+            if (existingValues[i] === value) return; // pas de changement réel
+            const parts = key.split('_');
+            const resourceId = parts[0], type = parts[1];
+            const dateKey = parts.slice(2).join('_');
+            const [date, period] = dateKey.split('_');
+            const resId = parseInt(resourceId);
+
+            if (type === 'activity' && ['3','4','5','6','7','8'].includes(value)) {
+                database.get('SELECT value FROM schedule_data WHERE resource_id = ? AND date_key = ? AND type = ?',
+                    [resId, dateKey, 'localisation'], (_errLoc, locRow) => {
+                        database.get('SELECT nom, prenom FROM resources WHERE id = ?', [resId], (errRes, resource) => {
+                            if (!errRes && resource) {
+                                database.run('INSERT INTO action_logs (user_id, action_type, details) VALUES (?, ?, ?)',
+                                    [req.session.userId, 'planning_modification', JSON.stringify({
+                                        resourceId: resId, resourceName: `${resource.prenom} ${resource.nom}`,
+                                        date, period: period === 'AM' ? 'Matin' : 'Après-midi',
+                                        activity: activityLabelsLocal[value] || value,
+                                        location: (locRow && locRow.value) ? locRow.value : '-',
+                                        modifiedBy: req.session.activeProfile
+                                    })],
+                                    (errLog) => { if (errLog) console.error('❌ Erreur log activity:', errLog); }
+                                );
                             }
-                        }
-                        
-                        // Créer le log planning_modification quand une ACTIVITÉ affectable est modifiée
-                        if (!err && type === 'activity' && ['3','4','5','6','7','8'].includes(value) && hasReallyChanged) {
-                            const dateKeyParts = dateKey.split('_');
-                            const date = dateKeyParts[0];
-                            const period = dateKeyParts[1];
-                            const resId = parseInt(resourceId);
-                            
-                            const activityLabelsLocal = {
-                                '3': '🚨 SAMU (Déploiement)',
-                                '4': '🚨 SAMU (Dev. usages)',
-                                '5': 'ANS (Déploiement)',
-                                '6': 'ANS (Dev. usages)',
-                                '7': 'Qualification',
-                                '8': 'Autre mission'
-                            };
-                            
-                            // Récupérer la localisation existante (si présente)
-                            database.get(
-                                'SELECT value FROM schedule_data WHERE resource_id = ? AND date_key = ? AND type = ?',
-                                [resId, dateKey, 'localisation'],
-                                (errLoc, locRow) => {
-                                    database.get('SELECT nom, prenom FROM resources WHERE id = ?', [resId], (errRes, resource) => {
-                                        if (!errRes && resource) {
-                                            const logDetails = {
-                                                resourceId: resId,
-                                                resourceName: `${resource.prenom} ${resource.nom}`,
-                                                date: date,
-                                                period: period === 'AM' ? 'Matin' : 'Après-midi',
-                                                activity: activityLabelsLocal[value] || value,
-                                                location: (locRow && locRow.value) ? locRow.value : '-',
-                                                modifiedBy: req.session.activeProfile
-                                            };
-                                            
-                                            database.run(
-                                                `INSERT INTO action_logs (user_id, action_type, details) VALUES (?, ?, ?)`,
-                                                [req.session.userId, 'planning_modification', JSON.stringify(logDetails)],
-                                                (errLog) => {
-                                                    if (errLog) {
-                                                        console.error('❌ Erreur création log planning_modification (activity):', errLog);
-                                                    } else {
-                                                        console.log(`✅ Log planning_modification créé pour ${resource.prenom} ${resource.nom} - ${date} ${period} - ${activityLabelsLocal[value]} (par ${req.session.activeProfile})`);
-                                                    }
-                                                }
-                                            );
-                                        }
-                                    });
-                                }
-                            );
-                        }
-                        
-                        // Créer/Mettre à jour le log planning_modification quand la LOCALISATION est modifiée
-                        if (!err && type === 'localisation' && hasReallyChanged) {
-                            const dateKeyParts = dateKey.split('_');
-                            const date = dateKeyParts[0];
-                            const period = dateKeyParts[1];
-                            const resId = parseInt(resourceId);
-                            
-                            // Vérifier s'il y a une activité affectable (3-8) pour cette demi-journée
-                            database.get(
-                                'SELECT value FROM schedule_data WHERE resource_id = ? AND date_key = ? AND type = ?',
-                                [resId, dateKey, 'activity'],
-                                (errAct, actRow) => {
-                                    if (!errAct && actRow && ['3','4','5','6','7','8'].includes(actRow.value)) {
-                                        // Il y a une affectation, créer le log avec la localisation
-                                        const activityLabelsLocal = {
-                                            '3': '🚨 SAMU (Déploiement)',
-                                            '4': '🚨 SAMU (Dev. usages)',
-                                            '5': 'ANS (Déploiement)',
-                                            '6': 'ANS (Dev. usages)',
-                                            '7': 'Qualification',
-                                            '8': 'Autre mission'
-                                        };
-                                        
-                                        database.get('SELECT nom, prenom FROM resources WHERE id = ?', [resId], (errRes, resource) => {
-                                            if (!errRes && resource) {
-                                                const logDetails = {
-                                                    resourceId: resId,
-                                                    resourceName: `${resource.prenom} ${resource.nom}`,
-                                                    date: date,
-                                                    period: period === 'AM' ? 'Matin' : 'Après-midi',
-                                                    activity: activityLabelsLocal[actRow.value] || actRow.value,
-                                                    location: value,
-                                                    modifiedBy: req.session.activeProfile
-                                                };
-                                                
-                                                database.run(
-                                                    `INSERT INTO action_logs (user_id, action_type, details) VALUES (?, ?, ?)`,
-                                                    [req.session.userId, 'planning_modification', JSON.stringify(logDetails)],
-                                                    (errLog) => {
-                                                        if (errLog) {
-                                                            console.error('❌ Erreur création log planning_modification (localisation):', errLog);
-                                                        } else {
-                                                            console.log(`✅ Log planning_modification créé pour ${resource.prenom} ${resource.nom} - ${date} ${period} - localisation: ${value} (par ${req.session.activeProfile})`);
-                                                        }
-                                                    }
-                                                );
-                                            }
-                                        });
-                                    }
-                                }
-                            );
-                        }
-                
-                completed++;
-                if (completed === total) {
-                    // NOTE: Les notifications ne sont plus créées ici mais à la déconnexion
-                    // via l'endpoint /api/notifications/create-batch appelé par le client
-                    // après l'envoi des emails récapitulatifs aux experts
-                    
-                    // Note: Les logs planning_modification sont créés quand la LOCALISATION est modifiée
-                    // (voir le bloc "NOUVEAU" plus haut qui gère type === 'localisation')
-                    
-                    logUserAction(req, 'Sauvegarde planning rapide', { 
-                        modificationsCount: total,
-                        profile: req.session.activeProfile
+                        });
                     });
-                    res.json({ success: true, saved: total });
-                }
             }
-        );
-        }); // Fermeture du callback database.get
-    });
+
+            if (type === 'localisation') {
+                database.get('SELECT value FROM schedule_data WHERE resource_id = ? AND date_key = ? AND type = ?',
+                    [resId, dateKey, 'activity'], (errAct, actRow) => {
+                        if (!errAct && actRow && ['3','4','5','6','7','8'].includes(actRow.value)) {
+                            database.get('SELECT nom, prenom FROM resources WHERE id = ?', [resId], (errRes, resource) => {
+                                if (!errRes && resource) {
+                                    database.run('INSERT INTO action_logs (user_id, action_type, details) VALUES (?, ?, ?)',
+                                        [req.session.userId, 'planning_modification', JSON.stringify({
+                                            resourceId: resId, resourceName: `${resource.prenom} ${resource.nom}`,
+                                            date, period: period === 'AM' ? 'Matin' : 'Après-midi',
+                                            activity: activityLabelsLocal[actRow.value] || actRow.value,
+                                            location: value, modifiedBy: req.session.activeProfile
+                                        })],
+                                        (errLog) => { if (errLog) console.error('❌ Erreur log localisation:', errLog); }
+                                    );
+                                }
+                            });
+                        }
+                    });
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ Erreur schedule/save:', error);
+        if (!res.headersSent) res.status(500).json({ success: false, error: error.message });
+    }
 });
 
 // Nouvel endpoint pour nettoyer les anciennes données (sans AM/PM)
