@@ -3938,7 +3938,64 @@ app.post('/api/send-assignment-emails', requireAuth, async (req, res) => {
             return res.json({ success: false, error: 'Aucun email à envoyer (experts sans email ?)' });
         }
 
-        // Enqueue dans email_queue — réponse immédiate, worker traite en fond
+        // ── Mode debug : envoi synchrone, logs retournés dans la réponse ────
+        if (debugMode) {
+            addLog('email', '📤 Connexion SMTP (préchauffage pool)...');
+            try {
+                const t0 = Date.now();
+                await transporter.verify();
+                addLog('email', `   ✅ SMTP prêt en ${Date.now() - t0}ms`);
+            } catch (verifyErr) {
+                addLog('warning', `   ⚠️ verify() échoué: ${verifyErr.message} — envoi tenté quand même`);
+            }
+
+            addLog('email', '─'.repeat(50));
+            let totalSent = 0, totalFailed = 0;
+
+            for (let i = 0; i < emailsToSend.length; i++) {
+                const mail = emailsToSend[i];
+                addLog('email', `📧 [${i+1}/${emailsToSend.length}] Envoi à ${mail.to} (${mail.type}, ICS: ${mail.icsContent?.length || 0} chars)...`);
+                const t0 = Date.now();
+                const mailOptions = {
+                    from: `"Domaine des Urgences - Planification des ressources" <${emailConfig.user}>`,
+                    to: mail.to,
+                    subject: mail.subject,
+                    html: mail.html,
+                    icalEvent: { filename: mail.icsFilename, method: mail.icsMethod, content: mail.icsContent }
+                };
+                try {
+                    const info = await transporter.sendMail(mailOptions);
+                    totalSent++;
+                    addLog('success', `   ✅ Envoyé en ${Date.now() - t0}ms - MessageId: ${info.messageId}`);
+                } catch (emailError) {
+                    totalFailed++;
+                    addLog('error', `   ❌ Échec après ${Date.now() - t0}ms: ${emailError.message}`);
+                    if (emailError.code) addLog('error', `   Code: ${emailError.code}`);
+                    if (emailError.message?.includes('ECONNREFUSED') || emailError.message?.includes('ETIMEDOUT') || emailError.message?.includes('ESOCKET')) {
+                        cachedTransporter = null; cachedTransporterConfig = '';
+                    }
+                }
+            }
+
+            addLog('info', '─'.repeat(50));
+            addLog('info', `📊 RÉSUMÉ: ${totalSent}/${emailsToSend.length} envoyé(s)`);
+
+            if (sessionLogId) {
+                const allEmails = assignments.map(a => a.email).filter(e => e).join(', ');
+                database.run(`UPDATE connection_logs SET modifications = modifications || ? WHERE id = ?`,
+                    [`${new Date().toLocaleString('fr-FR')}: Invitations Outlook (${totalSent}/${totalSent + totalFailed}) pour: ${allEmails}\n`, sessionLogId]);
+            }
+
+            return res.json({
+                success: totalSent > 0,
+                message: `${totalSent} invitation(s) envoyée(s)`,
+                sent: totalSent,
+                failed: totalFailed,
+                debugLogs
+            });
+        }
+
+        // ── Mode normal : enqueue dans email_queue, réponse immédiate ───────
         const batchId = crypto.randomUUID();
         let enqueued = 0;
         for (const mail of emailsToSend) {
