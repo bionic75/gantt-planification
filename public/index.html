@@ -1208,11 +1208,11 @@
                     <div style="display: grid; grid-template-columns: 1fr 1fr 2fr 2fr; gap: 10px; align-items: start;">
                         <div>
                             <label style="font-size: 11px; color: #1565c0; display: block; margin-bottom: 3px;">Date de début *</label>
-                            <input type="date" id="customEventStartDate" style="width: 100%; padding: 6px;" onchange="prefillCustomEventEndDate()">
+                            <input type="date" id="customEventStartDate" style="width: 100%; padding: 6px;" onchange="prefillCustomEventEndDate(); updateCustomEventPeriodVisibility()">
                         </div>
                         <div>
                             <label style="font-size: 11px; color: #1565c0; display: block; margin-bottom: 3px;">Date de fin</label>
-                            <input type="date" id="customEventEndDate" style="width: 100%; padding: 6px;">
+                            <input type="date" id="customEventEndDate" style="width: 100%; padding: 6px;" onchange="updateCustomEventPeriodVisibility()">
                         </div>
                         <div>
                             <label style="font-size: 11px; color: #1565c0; display: block; margin-bottom: 3px;">Libellé *</label>
@@ -1228,6 +1228,22 @@
                                     onkeydown="handleAdminEventParticipantKeydown(event)">
                             </div>
                             <div id="adminEventParticipantDropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ddd; border-radius: 0 0 8px 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); max-height: 200px; overflow-y: auto; z-index: 10010;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Sélecteur demi-journée — visible uniquement si début = fin -->
+                    <div id="customEventPeriodSection" style="display: none; margin-top: 8px; padding: 8px 12px; background: #e3f2fd; border-radius: 6px; border: 1px solid #90caf9;">
+                        <label style="font-size: 11px; color: #1565c0; font-weight: bold; display: block; margin-bottom: 6px;">🕐 Demi-journée</label>
+                        <div style="display: flex; gap: 8px;">
+                            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 12px;">
+                                <input type="radio" name="customEventPeriod" id="customEventPeriodFull" value="FULL" checked> Journée entière
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 12px;">
+                                <input type="radio" name="customEventPeriod" id="customEventPeriodAM" value="AM"> Matin (AM)
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 12px;">
+                                <input type="radio" name="customEventPeriod" id="customEventPeriodPM" value="PM"> Après-midi (PM)
+                            </label>
                         </div>
                     </div>
                     
@@ -8013,143 +8029,6 @@
             currentLocalisationCell = null;
         }
 
-        // Fonction pour déterminer si on peut afficher le bouton RAZ
-        function canShowRAZ(resourceId) {
-            if (!currentUser) return false;
-            
-            // Admin : peut tout voir
-            if (currentUser.activeProfile === 'admin') {
-                return true;
-            }
-            
-            // Expert et Utilisateur : pas de RAZ
-            return false;
-        }
-
-        // Fonction pour masquer/afficher les contrôles de planification
-        async function resetResourceMonth(resourceId) {
-            console.log('🔧 VERSION 11.33 - resetResourceMonth appelé');
-            
-            const year = parseInt(document.getElementById('yearSelect').value);
-            const month = parseInt(document.getElementById('monthSelect').value);
-            
-            const resource = resources.find(r => r.id === resourceId);
-            const resourceName = resource ? `${resource.nom.toUpperCase()} ${resource.prenom}` : 'cette ressource';
-            
-            try {
-                console.log('📊 Appel preview pour resource:', resourceId, 'mois:', month + 1, 'année:', year);
-                
-                // Récupérer d'abord les données qui vont être supprimées
-                const previewResponse = await fetch(`${API_URL}/schedule/preview-reset-month`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({ resourceId, year, month })
-                });
-                
-                const previewData = await previewResponse.json();
-                console.log('📦 Données preview reçues:', previewData);
-                
-                if (!previewResponse.ok) {
-                    throw new Error(previewData.error || 'Erreur serveur');
-                }
-                
-                // Construire le message de confirmation avec les détails
-                let confirmMessage = `Voulez-vous vraiment remettre à zéro le planning de ${resourceName} pour ${month + 1}/${year} ?\n\n`;
-                confirmMessage += `${previewData.count} entrée(s) seront supprimées :\n\n`;
-                
-                if (previewData.entries && previewData.entries.length > 0) {
-                    // Mapper les valeurs pour un affichage lisible
-                    const availableLabels = { '1': 'Indisponible', '2': 'Disponible ANS', '3': 'Disponible SAMU' };
-                    const activityLabels = {
-                        '1': '❓ Indisponible',
-                        '2': '⏳ Disponible', 
-                        '3': '📞 SAMU (Déploiement)',
-                        '4': '📞 SAMU (Dev. usages)',
-                        '5': '📄 ANS (Déploiement)',
-                        '6': '👨‍🏫 ANS (Dev. usages)'
-                    };
-                    
-                    previewData.entries.forEach(entry => {
-                        const dateParts = entry.date_key.split('_')[0].split('-');
-                        const date = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
-                        const period = entry.date_key.includes('_AM') ? 'Matin' : entry.date_key.includes('_PM') ? 'Après-midi' : 'Journée';
-                        
-                        const availableText = availableLabels[entry.available] || entry.available || '-';
-                        const activityText = activityLabels[entry.activity] || entry.activity || '-';
-                        const locText = entry.localisation || '-';
-                        const authorText = entry.author && entry.author !== '-' ? entry.author : 'Non défini';
-                        
-                        confirmMessage += `• ${date.toLocaleDateString('fr-FR')} (${period})\n`;
-                        confirmMessage += `  ${availableText} → ${activityText} (${locText})\n`;
-                        confirmMessage += `  Par: ${authorText}\n`;
-                    });
-                } else {
-                    confirmMessage += 'Aucune donnée à supprimer pour ce mois.';
-                }
-                
-                console.log('💬 Message de confirmation:', confirmMessage);
-                
-                if (!confirm(confirmMessage)) {
-                    console.log('❌ RAZ annulé par l\'utilisateur');
-                    return;
-                }
-                
-                console.log('✅ RAZ confirmé, suppression en cours...');
-                
-                // Appeler l'endpoint de RAZ côté serveur
-                const response = await fetch(`${API_URL}/schedule/reset-month`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({ resourceId, year, month })
-                });
-                
-                const result = await response.json();
-                
-                if (!response.ok) {
-                    throw new Error(result.error || 'Erreur serveur');
-                }
-                
-                console.log(`✅ RAZ effectuée: ${result.deleted} lignes supprimées en base`);
-                
-                // Supprimer les données du cache local
-                const lastDay = new Date(year, month + 1, 0).getDate();
-                
-                for (let day = 1; day <= lastDay; day++) {
-                    const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                    
-                    // Anciennes clés sans période
-                    delete scheduleData[`${resourceId}_available_${dateKey}`];
-                    delete scheduleData[`${resourceId}_activity_${dateKey}`];
-                    delete scheduleData[`${resourceId}_localisation_${dateKey}`];
-                    delete scheduleData[`${resourceId}_author_${dateKey}`];
-                    
-                    // Nouvelles clés avec AM/PM
-                    ['AM', 'PM'].forEach(period => {
-                        delete scheduleData[`${resourceId}_available_${dateKey}_${period}`];
-                        delete scheduleData[`${resourceId}_activity_${dateKey}_${period}`];
-                        delete scheduleData[`${resourceId}_localisation_${dateKey}_${period}`];
-                        delete scheduleData[`${resourceId}_author_${dateKey}_${period}`];
-                    });
-                }
-                
-                // Recharger TOUTES les données depuis la base pour être synchronisé
-                await loadSchedule();
-                
-                // Maintenant synchroniser oldScheduleData avec les données fraîches
-                oldScheduleData = JSON.parse(JSON.stringify(scheduleData));
-                
-                updateGantt();
-                logModification(`RAZ planning ${resourceName} - ${month+1}/${year}`);
-                alert(`Réinitialisation effectuée pour ${resourceName}\n${result.deleted} lignes supprimées de la base de données`);
-                
-            } catch (error) {
-                console.error('Erreur RAZ:', error);
-                alert(`Erreur lors de la réinitialisation: ${error.message}`);
-            }
-        }
-
         function updateGantt() {
             const year = parseInt(document.getElementById('yearSelect').value);
             const month = parseInt(document.getElementById('monthSelect').value);
@@ -8295,48 +8174,43 @@
                     
                     // Vérifier les dates particulières - récupérer TOUS les événements
                     const allSpecialDates = getAllSpecialDateInfo(dateStr);
-                    
-                    // Générer le contenu de la cellule - aligné en haut, bord à bord
-                    let cellContent = '<div style="display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch; height: 100%; gap: 1px; padding-top: 2px;">';
-                    let hasContent = false;
-                    
-                    // Ajouter les barres de congés scolaires - BORD À BORD (100%)
-                    if (inZoneA || inZoneB || inZoneC) {
-                        hasContent = true;
-                        if (inZoneA) cellContent += '<div style="width: 100%; height: 4px; background-color: #e91e63; cursor: help;" title="Zone A : Besançon, Bordeaux, Clermont-Ferrand, Dijon, Grenoble, Limoges, Lyon, Poitiers"></div>';
-                        if (inZoneB) cellContent += '<div style="width: 100%; height: 4px; background-color: #2196f3; cursor: help;" title="Zone B : Aix-Marseille, Amiens, Caen, Lille, Nancy-Metz, Nantes, Nice, Orléans-Tours, Reims, Rennes, Rouen, Strasbourg"></div>';
-                        if (inZoneC) cellContent += '<div style="width: 100%; height: 4px; background-color: #ff9800; cursor: help;" title="Zone C : Créteil, Montpellier, Paris, Toulouse, Versailles"></div>';
-                    }
-                    
-                    // Ajouter les cartouches des dates particulières (TOUS les événements)
-                    if (allSpecialDates.length > 0) {
-                        hasContent = true;
-                        for (const specialDateInfo of allSpecialDates) {
-                            if (specialDateInfo.config) {
-                                const cfg = specialDateInfo.config;
-                                const displayLabel = cfg.label || specialDateInfo.summary || 'JF';
+
+                    // Construire le contenu d'une demi-journée (period = 'AM' ou 'PM')
+                    function buildHalfDayContent(halfPeriod) {
+                        let content = '<div style="display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch; height: 100%; gap: 1px; padding-top: 2px;">';
+                        let hasContent = false;
+                        if (inZoneA || inZoneB || inZoneC) {
+                            hasContent = true;
+                            if (inZoneA) content += '<div style="width: 100%; height: 4px; background-color: #e91e63; cursor: help;" title="Zone A"></div>';
+                            if (inZoneB) content += '<div style="width: 100%; height: 4px; background-color: #2196f3; cursor: help;" title="Zone B"></div>';
+                            if (inZoneC) content += '<div style="width: 100%; height: 4px; background-color: #ff9800; cursor: help;" title="Zone C"></div>';
+                        }
+                        if (allSpecialDates.length > 0) {
+                            for (const sd of allSpecialDates) {
+                                if (!sd.config) continue;
+                                // Filtrer par period : FULL s'affiche partout, AM uniquement matin, PM uniquement après-midi
+                                const evtPeriod = sd.period || 'FULL';
+                                if (evtPeriod !== 'FULL' && evtPeriod !== halfPeriod) continue;
+                                hasContent = true;
+                                const cfg = sd.config;
+                                const displayLabel = cfg.label || sd.summary || 'JF';
                                 const participantsInfo = cfg.participants && cfg.participants.length > 0 ? `\n👥 ${cfg.participants.join(', ')}` : '';
-                                const tooltipText = `title="${displayLabel}${participantsInfo}"`;
-                                cellContent += `<span ${tooltipText} style="display: inline-block; padding: 1px 3px; border-radius: 6px; font-size: 8px; font-weight: bold; cursor: help; align-self: center;
-                                    background-color: ${cfg.bgColor || '#ffeb3b'}; 
-                                    color: ${cfg.textColor || '#000'}; 
-                                    border: 1px solid ${cfg.borderColor || '#fbc02d'}; margin-bottom: 1px;">${displayLabel}</span>`;
+                                content += `<span title="${displayLabel}${participantsInfo}" style="display: inline-block; padding: 1px 3px; border-radius: 6px; font-size: 8px; font-weight: bold; cursor: help; align-self: center; background-color: ${cfg.bgColor || '#ffeb3b'}; color: ${cfg.textColor || '#000'}; border: 1px solid ${cfg.borderColor || '#fbc02d'}; margin-bottom: 1px;">${displayLabel}</span>`;
                             }
                         }
+                        content += '</div>';
+                        return hasContent ? content : '';
                     }
                     
-                    cellContent += '</div>';
-                    
-                    if (!hasContent) {
-                        cellContent = '';
-                    }
+                    const cellContentAM = buildHalfDayContent('AM');
+                    const cellContentPM = buildHalfDayContent('PM');
                     
                     const bgColor = isWeekend ? '#e8e8e8' : '#f5f5f5';
                     
-                    // AM - padding 0 pour les barres bord à bord
-                    html += `<td style="background-color: ${bgColor}; padding: 0; min-height: 30px; vertical-align: top;">${cellContent}</td>`;
-                    // PM - padding 0 pour les barres bord à bord
-                    html += `<td class="day-separator" style="background-color: ${bgColor}; padding: 0; min-height: 30px; vertical-align: top;">${cellContent}</td>`;
+                    // AM
+                    html += `<td style="background-color: ${bgColor}; padding: 0; min-height: 30px; vertical-align: top;">${cellContentAM}</td>`;
+                    // PM
+                    html += `<td class="day-separator" style="background-color: ${bgColor}; padding: 0; min-height: 30px; vertical-align: top;">${cellContentPM}</td>`;
                 }
                 
                 html += '</tr>';
@@ -8394,7 +8268,6 @@
                                         title="Envoyer par email">
                                     ✉️
                                 </button>
-                                ${canShowRAZ(resource.id) ? `<button onclick="resetResourceMonth(${resource.id})" style="padding: 4px 8px; font-size: 10px; background-color: #e74c3c; border: none; border-radius: 3px; cursor: pointer;" title="Remettre à zéro ce mois">RAZ</button>` : ''}
                             </div>
                         </div>
                     </td>
@@ -12606,11 +12479,19 @@
         function prefillCustomEventEndDate() {
             const startDate = document.getElementById('customEventStartDate').value;
             const endDateInput = document.getElementById('customEventEndDate');
-            
-            // Pré-remplir seulement si la date de fin est vide ou antérieure à la date de début
             if (startDate && (!endDateInput.value || endDateInput.value < startDate)) {
                 endDateInput.value = startDate;
             }
+        }
+
+        // Afficher/masquer le sélecteur de demi-journée (formulaire admin)
+        function updateCustomEventPeriodVisibility() {
+            const startDate = document.getElementById('customEventStartDate').value;
+            const endDate   = document.getElementById('customEventEndDate').value;
+            const section   = document.getElementById('customEventPeriodSection');
+            const isSameDay = startDate && (!endDate || endDate === startDate);
+            section.style.display = isSameDay ? 'block' : 'none';
+            if (!isSameDay) document.getElementById('customEventPeriodFull').checked = true;
         }
         
         // ========== GESTION PARTICIPANTS ADMIN (copie exacte de la pop-up Planification) ==========
@@ -12721,19 +12602,16 @@
             const textColor = document.getElementById('customEventTextColor').value;
             const borderColor = document.getElementById('customEventBorderColor').value;
             
-            if (!startDate) {
-                alert('Veuillez sélectionner une date de début');
-                return;
-            }
-            if (!label) {
-                alert('Veuillez saisir un libellé');
-                return;
-            }
+            if (!startDate) { alert('Veuillez sélectionner une date de début'); return; }
+            if (!label) { alert('Veuillez saisir un libellé'); return; }
             
             const finalEndDate = endDate || startDate;
+            const isSameDay = finalEndDate === startDate;
+            const period = isSameDay
+                ? (document.querySelector('input[name="customEventPeriod"]:checked')?.value || 'FULL')
+                : 'FULL';
             
             try {
-                // Utiliser la même route que la pop-up Planification pour que les participants soient gérés
                 const response = await fetch(`${API_URL}/my-custom-events`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -12743,18 +12621,19 @@
                         endDate: finalEndDate,
                         label,
                         config: { bgColor, textColor, borderColor },
-                        participants: adminEventSelectedParticipants.map(p => p.id)
+                        participants: adminEventSelectedParticipants.map(p => p.id),
+                        period
                     })
                 });
                 
                 if (response.ok) {
-                    // Réinitialiser le formulaire
                     document.getElementById('customEventStartDate').value = '';
                     document.getElementById('customEventEndDate').value = '';
                     document.getElementById('customEventLabel').value = '';
+                    document.getElementById('customEventPeriodFull').checked = true;
+                    document.getElementById('customEventPeriodSection').style.display = 'none';
                     adminEventSelectedParticipants = [];
                     renderAdminEventParticipantTags();
-                    
                     await loadCustomEvents();
                     await loadSpecialDates();
                     updateGantt();
@@ -13044,6 +12923,18 @@
             document.getElementById('editCustomEventTextColor').value = config.textColor || '#000000';
             document.getElementById('editCustomEventBorderColor').value = config.borderColor || '#fbc02d';
             updateEditCustomEventPreview();
+
+            // Pré-remplir la période
+            const evtPeriod = event.period || 'FULL';
+            const isSameDay = event.start_date === event.end_date;
+            if (isSameDay) {
+                document.getElementById('editCustomEventPeriodSection').style.display = 'block';
+                const radio = document.querySelector(`input[name="editCustomEventPeriod"][value="${evtPeriod}"]`);
+                if (radio) radio.checked = true;
+            } else {
+                document.getElementById('editCustomEventPeriodSection').style.display = 'none';
+                document.getElementById('editCustomEventPeriodFull').checked = true;
+            }
             
             // Charger les participants existants
             editEventSelectedParticipants = (event.participants || []).map(p => ({
@@ -13088,6 +12979,16 @@
         function closeEditCustomEventModal() {
             document.getElementById('editCustomEventModal').style.display = 'none';
             editEventSelectedParticipants = [];
+        }
+
+        // Afficher/masquer le sélecteur demi-journée dans la modale de modification
+        function updateEditCustomEventPeriodVisibility() {
+            const startDate = document.getElementById('editCustomEventStartDate').value;
+            const endDate   = document.getElementById('editCustomEventEndDate').value;
+            const section   = document.getElementById('editCustomEventPeriodSection');
+            const isSameDay = startDate && (!endDate || endDate === startDate);
+            section.style.display = isSameDay ? 'block' : 'none';
+            if (!isSameDay) document.getElementById('editCustomEventPeriodFull').checked = true;
         }
         
         // Prévisualisation édition événement
@@ -13215,21 +13116,23 @@
             const textColor = document.getElementById('editCustomEventTextColor').value;
             const borderColor = document.getElementById('editCustomEventBorderColor').value;
             
-            if (!startDate || !label) {
-                alert('Veuillez remplir tous les champs obligatoires');
-                return;
-            }
+            if (!startDate || !label) { alert('Veuillez remplir tous les champs obligatoires'); return; }
             
-            // Préparer les données
+            const finalEndDate = endDate || startDate;
+            const isSameDay = finalEndDate === startDate;
+            const period = isSameDay
+                ? (document.querySelector('input[name="editCustomEventPeriod"]:checked')?.value || 'FULL')
+                : 'FULL';
+
             const data = {
                 startDate,
-                endDate: endDate || startDate,
+                endDate: finalEndDate,
                 label,
                 config: { bgColor, textColor, borderColor },
-                participants: editEventSelectedParticipants.map(p => p.id)
+                participants: editEventSelectedParticipants.map(p => p.id),
+                period
             };
             
-            // Si admin, inclure le créateur sélectionné
             if (currentUser && currentUser.activeProfile === 'admin') {
                 const creatorSelect = document.getElementById('editCustomEventCreator');
                 if (creatorSelect && creatorSelect.value) {
@@ -14811,7 +14714,6 @@
         // Confirmer et envoyer les emails
         async function confirmSendEmails() {
             const assignmentsToSend = [];
-            const debugMode = document.getElementById('debugModeOutlookCheckbox').checked;
             
             for (const [resourceId, data] of Object.entries(pendingAssignments)) {
                 const checkbox = document.getElementById(`sendTo_${resourceId}`);
@@ -14841,110 +14743,38 @@
                 return;
             }
             
-            // Fermer la modal de sélection
             closeSendEmailModal();
             
             const totalItems = assignmentsToSend.reduce((sum, a) => sum + a.assignments.length, 0);
             const senderName = currentUser ? `${currentUser.prenom} ${currentUser.nom}` : 'Système';
             const senderEmail = currentUser ? currentUser.email : null;
             
-            console.log('📧 Envoi requête send-assignment-emails...', { experts: assignmentsToSend.length, totalItems, debugMode });
-            
-            // En mode debug, ouvrir la modal de debug
-            if (debugMode) {
-                openDebugLogsModal();
-                addDebugLog('info', '🚀 Début envoi des invitations Outlook');
-                addDebugLog('info', `📧 Expéditeur: ${senderName} (${senderEmail || 'non défini'})`);
-                addDebugLog('info', `👥 Experts à notifier: ${assignmentsToSend.length}`);
-                addDebugLog('info', `📅 Total affectations: ${totalItems}`);
-                assignmentsToSend.forEach(a => {
-                    addDebugLog('info', `   - ${a.expertPrenom} ${a.expertNom} <${a.email}>: ${a.assignments.length} affectation(s)`);
-                });
-                addDebugLog('', '─'.repeat(60));
-                addDebugLog('info', '📡 Envoi de la requête au serveur...');
-            }
-            
             try {
-                // Envoyer la requête
                 const response = await fetch(`${API_URL}/send-assignment-emails`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({ 
-                        assignments: assignmentsToSend, 
-                        senderName, 
-                        senderEmail,
-                        sessionId,
-                        debug: debugMode
-                    })
+                    body: JSON.stringify({ assignments: assignmentsToSend, senderName, senderEmail, sessionId })
                 });
                 
-                console.log('📧 Réponse serveur status:', response.status);
-                
-                if (debugMode) {
-                    addDebugLog('info', `📨 Réponse HTTP reçue: ${response.status} ${response.statusText}`);
-                }
-                
-                // 502/504 = Gateway Timeout
                 if (response.status === 502 || response.status === 504) {
-                    if (debugMode) {
-                        addDebugLog('warning', '⚠️ Timeout reverse proxy (502/504)');
-                        setDebugStatus('warning', '⚠️ Timeout proxy');
-                        stopDebugTimer();
-                    } else {
-                        assignmentsToSend.forEach(sent => { delete pendingAssignments[sent.resourceId]; });
-                        updatePendingEmailBadge();
-                    }
+                    assignmentsToSend.forEach(sent => { delete pendingAssignments[sent.resourceId]; });
+                    updatePendingEmailBadge();
                     return;
                 }
                 
                 const data = await response.json();
-                console.log('📧 Résultat:', data);
-                
-                // Traitement de la réponse (mode debug ou normal)
-                if (debugMode) {
-                    addDebugLog('', '─'.repeat(60));
-                    if (data.debugLogs && data.debugLogs.length > 0) {
-                        addDebugLog('info', '📋 LOGS SERVEUR:');
-                        data.debugLogs.forEach(log => {
-                            addDebugLog(log.type, log.message, log.timestamp);
-                        });
-                    }
-                    addDebugLog('', '─'.repeat(60));
-                    
-                    if (data.success) {
-                        addDebugLog('success', `✅ TERMINÉ: ${data.sent || 0} envoyé(s), ${data.failed || 0} échec(s)`);
-                        setDebugStatus('success', '✅ Terminé');
-                        assignmentsToSend.forEach(sent => { delete pendingAssignments[sent.resourceId]; });
-                        updatePendingEmailBadge();
-                    } else {
-                        addDebugLog('error', `❌ ERREUR: ${data.error || 'Erreur inconnue'}`);
-                        setDebugStatus('error', '❌ Échec');
-                    }
-                    stopDebugTimer();
-                } else {
-                    if (data.success) {
-                        // Vider les affectations en attente immédiatement
-                        assignmentsToSend.forEach(sent => { delete pendingAssignments[sent.resourceId]; });
-                        updatePendingEmailBadge();
-                        // Lancer le polling du batch pour notifier via la cloche quand terminé
-                        if (data.batchId) {
-                            startBatchPolling(data.batchId, data.enqueued || totalItems, assignmentsToSend);
-                        }
+                if (data.success) {
+                    assignmentsToSend.forEach(sent => { delete pendingAssignments[sent.resourceId]; });
+                    updatePendingEmailBadge();
+                    if (data.batchId) {
+                        startBatchPolling(data.batchId, data.enqueued || totalItems, assignmentsToSend);
                     }
                 }
             } catch (error) {
                 console.error('❌ Erreur réseau:', error);
-                emailSendingInProgress = false;
-                
-                if (debugMode) {
-                    addDebugLog('error', `❌ ERREUR RÉSEAU: ${error.message}`);
-                    setDebugStatus('error', '❌ Erreur réseau');
-                    stopDebugTimer();
-                } else {
-                    assignmentsToSend.forEach(sent => { delete pendingAssignments[sent.resourceId]; });
-                    updatePendingEmailBadge();
-                }
+                assignmentsToSend.forEach(sent => { delete pendingAssignments[sent.resourceId]; });
+                updatePendingEmailBadge();
             }
         }
 
@@ -16222,26 +16052,34 @@
                         // Barres de congés scolaires
                         if (inZoneA || inZoneB || inZoneC) {
                             eventsHTML += '<div style="display: flex; gap: 2px; margin-bottom: 4px;">';
-                            if (inZoneA) eventsHTML += '<div style="flex: 1; height: 3px; background-color: #e91e63;" title="Zone A : Besançon, Bordeaux, Clermont-Ferrand, Dijon, Grenoble, Limoges, Lyon, Poitiers"></div>';
-                            if (inZoneB) eventsHTML += '<div style="flex: 1; height: 3px; background-color: #2196f3;" title="Zone B : Aix-Marseille, Amiens, Caen, Lille, Nancy-Metz, Nantes, Nice, Orléans-Tours, Reims, Rennes, Rouen, Strasbourg"></div>';
-                            if (inZoneC) eventsHTML += '<div style="flex: 1; height: 3px; background-color: #ff9800;" title="Zone C : Créteil, Montpellier, Paris, Toulouse, Versailles"></div>';
+                            if (inZoneA) eventsHTML += '<div style="flex: 1; height: 3px; background-color: #e91e63;" title="Zone A"></div>';
+                            if (inZoneB) eventsHTML += '<div style="flex: 1; height: 3px; background-color: #2196f3;" title="Zone B"></div>';
+                            if (inZoneC) eventsHTML += '<div style="flex: 1; height: 3px; background-color: #ff9800;" title="Zone C"></div>';
                             eventsHTML += '</div>';
                         }
                         
-                        // Cartouches événements
+                        // Cartouches événements — affichés dans la zone correspondant à leur period
                         if (allSpecialDates.length > 0) {
-                            eventsHTML += '<div style="display: flex; flex-wrap: wrap; gap: 2px; margin-bottom: 4px;">';
-                            for (const specialDateInfo of allSpecialDates) {
-                                if (specialDateInfo.config) {
-                                    const cfg = specialDateInfo.config;
-                                    const displayLabel = cfg.label || specialDateInfo.summary || 'JF';
-                                    eventsHTML += `<span title="${displayLabel}" style="font-size: 7px; padding: 1px 3px; border-radius: 3px; font-weight: bold;
-                                        background-color: ${cfg.bgColor || '#ffeb3b'}; 
-                                        color: ${cfg.textColor || '#000'}; 
-                                        border: 1px solid ${cfg.borderColor || '#fbc02d'};">${displayLabel}</span>`;
-                                }
+                            // Séparer AM, PM, FULL
+                            const amEvents  = allSpecialDates.filter(sd => sd.config && (sd.period === 'AM'));
+                            const pmEvents  = allSpecialDates.filter(sd => sd.config && (sd.period === 'PM'));
+                            const fullEvents = allSpecialDates.filter(sd => sd.config && (!sd.period || sd.period === 'FULL'));
+
+                            const renderBadges = (list, suffix = '') => list.map(sd => {
+                                const cfg = sd.config;
+                                const lbl = cfg.label || sd.summary || 'JF';
+                                return `<span title="${lbl}${suffix}" style="font-size: 7px; padding: 1px 3px; border-radius: 3px; font-weight: bold; background-color: ${cfg.bgColor || '#ffeb3b'}; color: ${cfg.textColor || '#000'}; border: 1px solid ${cfg.borderColor || '#fbc02d'};">${lbl}</span>`;
+                            }).join('');
+
+                            if (fullEvents.length > 0) {
+                                eventsHTML += `<div style="display: flex; flex-wrap: wrap; gap: 2px; margin-bottom: 4px;">${renderBadges(fullEvents)}</div>`;
                             }
-                            eventsHTML += '</div>';
+                            if (amEvents.length > 0) {
+                                eventsHTML += `<div style="display: flex; flex-wrap: wrap; gap: 2px; margin-bottom: 2px;">${renderBadges(amEvents, ' (matin)')}</div>`;
+                            }
+                            if (pmEvents.length > 0) {
+                                eventsHTML += `<div style="display: flex; flex-wrap: wrap; gap: 2px; margin-bottom: 4px;">${renderBadges(pmEvents, ' (après-midi)')}</div>`;
+                            }
                         }
                         
                         html += `<td style="width: 14.28%; padding: 5px; border: 1px solid #bdc3c7; ${isWeekend ? 'background-color: #fff8e1;' : isToday ? 'background-color: #d4edda;' : ''} vertical-align: top; min-height: 100px;">
@@ -16481,26 +16319,24 @@
                         if (inZoneA || inZoneB || inZoneC) {
                             hasContent = true;
                             eventsHTML += '<div style="display: flex; gap: 2px; margin-bottom: 6px;">';
-                            if (inZoneA) eventsHTML += '<div style="flex: 1; height: 4px; background-color: #e91e63; border-radius: 2px;" title="Congés Zone A : Besançon, Bordeaux, Clermont-Ferrand, Dijon, Grenoble, Limoges, Lyon, Poitiers"></div>';
-                            if (inZoneB) eventsHTML += '<div style="flex: 1; height: 4px; background-color: #2196f3; border-radius: 2px;" title="Congés Zone B : Aix-Marseille, Amiens, Caen, Lille, Nancy-Metz, Nantes, Nice, Orléans-Tours, Reims, Rennes, Rouen, Strasbourg"></div>';
-                            if (inZoneC) eventsHTML += '<div style="flex: 1; height: 4px; background-color: #ff9800; border-radius: 2px;" title="Congés Zone C : Créteil, Montpellier, Paris, Toulouse, Versailles"></div>';
+                            if (inZoneA) eventsHTML += '<div style="flex: 1; height: 4px; background-color: #e91e63; border-radius: 2px;" title="Zone A"></div>';
+                            if (inZoneB) eventsHTML += '<div style="flex: 1; height: 4px; background-color: #2196f3; border-radius: 2px;" title="Zone B"></div>';
+                            if (inZoneC) eventsHTML += '<div style="flex: 1; height: 4px; background-color: #ff9800; border-radius: 2px;" title="Zone C"></div>';
                             eventsHTML += '</div>';
                         }
                         
-                        // Événements (jours fériés, événements personnalisés)
+                        // Événements personnalisés (avec label period si demi-journée)
                         if (allSpecialDates.length > 0) {
                             hasContent = true;
                             eventsHTML += '<div style="display: flex; flex-direction: column; gap: 3px;">';
-                            for (const specialDateInfo of allSpecialDates) {
-                                if (specialDateInfo.config) {
-                                    const cfg = specialDateInfo.config;
-                                    const displayLabel = cfg.label || specialDateInfo.summary || 'Événement';
-                                    const participantsTooltip = cfg.participants && cfg.participants.length > 0 ? `\n👥 ${cfg.participants.join(', ')}` : '';
-                                    eventsHTML += `<div title="${displayLabel}${participantsTooltip}" style="font-size: 9px; padding: 3px 5px; border-radius: 4px; font-weight: bold; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: help;
-                                        background-color: ${cfg.bgColor || '#ffeb3b'}; 
-                                        color: ${cfg.textColor || '#000'}; 
-                                        border: 1px solid ${cfg.borderColor || '#fbc02d'};">${displayLabel}</div>`;
-                                }
+                            for (const sd of allSpecialDates) {
+                                if (!sd.config) continue;
+                                const cfg = sd.config;
+                                const displayLabel = cfg.label || sd.summary || 'Événement';
+                                const evtPeriod = sd.period || 'FULL';
+                                const periodSuffix = evtPeriod === 'AM' ? ' ☀️' : evtPeriod === 'PM' ? ' 🌙' : '';
+                                const participantsTooltip = cfg.participants && cfg.participants.length > 0 ? `\n👥 ${cfg.participants.join(', ')}` : '';
+                                eventsHTML += `<div title="${displayLabel}${participantsTooltip}" style="font-size: 9px; padding: 3px 5px; border-radius: 4px; font-weight: bold; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: help; background-color: ${cfg.bgColor || '#ffeb3b'}; color: ${cfg.textColor || '#000'}; border: 1px solid ${cfg.borderColor || '#fbc02d'};">${displayLabel}${periodSuffix}</div>`;
                             }
                             eventsHTML += '</div>';
                         }
@@ -16670,27 +16506,22 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             return true;
         }
 
-        // Variables pour le mode debug
+        // Variables pour le mode debug (conservées pour compatibilité)
         let debugStartTime = null;
         let debugTimerInterval = null;
 
         function submitRequestForm(event) {
             event.preventDefault();
 
-            if (!validateDates()) {
-                return;
-            }
+            if (!validateDates()) return;
 
-            // Récupérer les experts sélectionnés
             const checkedBoxes = document.querySelectorAll('#requestExpertsList input[type="checkbox"]:checked');
-            
             if (checkedBoxes.length === 0) {
                 alert('Veuillez sélectionner au moins un expert.');
                 return;
             }
 
             const selectedExperts = Array.from(checkedBoxes).map(cb => parseInt(cb.value));
-            const debugMode = document.getElementById('debugModeCheckbox').checked;
 
             const requestData = {
                 fromName: document.getElementById('requestFrom').value,
@@ -16701,152 +16532,26 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 startPeriod: document.getElementById('requestStartPeriod').value,
                 endDate: document.getElementById('requestEndDate').value,
                 endPeriod: document.getElementById('requestEndPeriod').value,
-                message: document.getElementById('requestMessage').value,
-                debug: debugMode
+                message: document.getElementById('requestMessage').value
             };
 
-            if (debugMode) {
-                // Ouvrir la modal de debug
-                openDebugLogsModal();
-                addDebugLog('info', '🚀 Début de la requête');
-                addDebugLog('info', `📧 Expéditeur: ${requestData.fromName} (${requestData.fromEmail})`);
-                addDebugLog('info', `👥 Experts sélectionnés: ${selectedExperts.length} (IDs: ${selectedExperts.join(', ')})`);
-                addDebugLog('info', `📅 Période: ${requestData.startDate} ${requestData.startPeriod} → ${requestData.endDate} ${requestData.endPeriod}`);
-                addDebugLog('info', `📝 Sujet: ${requestData.subject}`);
-                addDebugLog('', '─'.repeat(60));
-                addDebugLog('info', '📡 Envoi de la requête au serveur...');
-            }
-
-            // Envoyer la demande
             fetch('/api/request-assignment', {
                 method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
                 body: JSON.stringify(requestData)
             })
-            .then(response => {
-                if (debugMode) {
-                    addDebugLog('info', `📨 Réponse HTTP reçue: ${response.status} ${response.statusText}`);
-                }
-                return response.json();
-            })
+            .then(response => response.json())
             .then(data => {
-                if (debugMode) {
-                    addDebugLog('', '─'.repeat(60));
-                    if (data.debugLogs && data.debugLogs.length > 0) {
-                        addDebugLog('info', '📋 LOGS SERVEUR:');
-                        data.debugLogs.forEach(log => {
-                            addDebugLog(log.type, log.message, log.timestamp);
-                        });
-                    }
-                    addDebugLog('', '─'.repeat(60));
-                    
-                    if (data.success) {
-                        addDebugLog('success', `✅ SUCCÈS: ${data.message}`);
-                        if (data.emails) {
-                            addDebugLog('success', `📧 Emails traités: ${data.emails.join(', ')}`);
-                        }
-                        setDebugStatus('success', '✅ Terminé avec succès');
-                    } else {
-                        addDebugLog('error', `❌ ERREUR: ${data.error}`);
-                        setDebugStatus('error', '❌ Échec');
-                    }
-                    stopDebugTimer();
+                if (data.success) {
+                    closeRequestModal();
+                    showConfirmationModal(data.emails);
                 } else {
-                    if (data.success) {
-                        closeRequestModal();
-                        showConfirmationModal(data.emails);
-                    } else {
-                        alert('Erreur lors de l\'envoi de la demande:\n\n' + (data.error || 'Erreur inconnue'));
-                    }
+                    alert('Erreur lors de l\'envoi de la demande:\n\n' + (data.error || 'Erreur inconnue'));
                 }
             })
             .catch(error => {
-                if (debugMode) {
-                    addDebugLog('error', `❌ ERREUR RÉSEAU: ${error.message}`);
-                    setDebugStatus('error', '❌ Erreur réseau');
-                    stopDebugTimer();
-                } else {
-                    alert('Erreur lors de l\'envoi de la demande: ' + error.message);
-                }
-            });
-        }
-
-        function openDebugLogsModal() {
-            const modal = document.getElementById('debugLogsModal');
-            const content = document.getElementById('debugLogsContent');
-            content.innerHTML = '';
-            modal.style.display = 'block';
-            setDebugStatus('pending', '⏳ En cours...');
-            startDebugTimer();
-        }
-
-        function closeDebugLogsModal() {
-            document.getElementById('debugLogsModal').style.display = 'none';
-            stopDebugTimer();
-        }
-
-        function startDebugTimer() {
-            debugStartTime = Date.now();
-            debugTimerInterval = setInterval(() => {
-                const elapsed = ((Date.now() - debugStartTime) / 1000).toFixed(1);
-                document.getElementById('debugTimer').textContent = `Durée: ${elapsed}s`;
-            }, 100);
-        }
-
-        function stopDebugTimer() {
-            if (debugTimerInterval) {
-                clearInterval(debugTimerInterval);
-                debugTimerInterval = null;
-            }
-        }
-
-        function setDebugStatus(type, message) {
-            const statusEl = document.getElementById('debugStatus');
-            statusEl.textContent = message;
-            statusEl.style.backgroundColor = type === 'success' ? '#28a745' : type === 'error' ? '#dc3545' : '#ffc107';
-            statusEl.style.color = type === 'pending' ? '#333' : 'white';
-        }
-
-        function addDebugLog(type, message, timestamp = null) {
-            const content = document.getElementById('debugLogsContent');
-            const line = document.createElement('div');
-            
-            const time = timestamp || new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 });
-            
-            let color = '#d4d4d4';
-            if (type === 'success') color = '#4ec9b0';
-            else if (type === 'error') color = '#f14c4c';
-            else if (type === 'warning') color = '#cca700';
-            else if (type === 'info') color = '#3794ff';
-            else if (type === 'db') color = '#c586c0';
-            else if (type === 'email') color = '#4fc1ff';
-            
-            if (message.startsWith('─')) {
-                line.innerHTML = `<span style="color: #555;">${message}</span>`;
-            } else {
-                line.innerHTML = `<span style="color: #6a9955;">[${time}]</span> <span style="color: ${color};">${escapeHtml(message)}</span>`;
-            }
-            
-            content.appendChild(line);
-            content.scrollTop = content.scrollHeight;
-        }
-
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-
-        function copyDebugLogs() {
-            const content = document.getElementById('debugLogsContent');
-            const text = content.innerText;
-            navigator.clipboard.writeText(text).then(() => {
-                alert('Logs copiés dans le presse-papiers !');
-            }).catch(err => {
-                console.error('Erreur copie:', err);
+                alert('Erreur lors de l\'envoi de la demande: ' + error.message);
             });
         }
 
@@ -17918,24 +17623,34 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             document.getElementById('myEventBorderColor').value = '#fbc02d';
             updateMyEventPreview();
             
+            // Reset période
+            document.getElementById('myEventPeriodFull').checked = true;
+            document.getElementById('myEventPeriodSection').style.display = 'none';
+            
             // Reset participants
             myEventSelectedParticipants = [];
             renderMyEventParticipantTags();
             const participantInput = document.getElementById('myEventParticipantInput');
             if (participantInput) participantInput.value = '';
             
-            // Cacher le sélecteur de créateur
             const creatorSection = document.getElementById('myEventCreatorSection');
-            if (creatorSection) {
-                creatorSection.style.display = 'none';
-            }
+            if (creatorSection) creatorSection.style.display = 'none';
+        }
+        
+        // Afficher/masquer le sélecteur de demi-journée selon les dates
+        function updateMyEventPeriodVisibility() {
+            const startDate = document.getElementById('myEventStartDate').value;
+            const endDate   = document.getElementById('myEventEndDate').value;
+            const section   = document.getElementById('myEventPeriodSection');
+            const isSameDay = startDate && (!endDate || endDate === startDate);
+            section.style.display = isSameDay ? 'block' : 'none';
+            if (!isSameDay) document.getElementById('myEventPeriodFull').checked = true;
         }
         
         // Pré-remplir la date de fin
         function prefillMyEventEndDate() {
             const startDate = document.getElementById('myEventStartDate').value;
             const endDateInput = document.getElementById('myEventEndDate');
-            
             if (startDate && (!endDateInput.value || endDateInput.value < startDate)) {
                 endDateInput.value = startDate;
             }
@@ -18216,16 +17931,15 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             const textColor = document.getElementById('myEventTextColor').value;
             const borderColor = document.getElementById('myEventBorderColor').value;
             
-            if (!startDate) {
-                alert('Veuillez sélectionner une date de début');
-                return;
-            }
-            if (!label) {
-                alert('Veuillez saisir un libellé');
-                return;
-            }
+            if (!startDate) { alert('Veuillez sélectionner une date de début'); return; }
+            if (!label) { alert('Veuillez saisir un libellé'); return; }
             
             const finalEndDate = endDate || startDate;
+            // Récupérer la période seulement si même jour
+            const isSameDay = finalEndDate === startDate;
+            const period = isSameDay
+                ? (document.querySelector('input[name="myEventPeriod"]:checked')?.value || 'FULL')
+                : 'FULL';
             
             try {
                 const response = await fetch(`${API_URL}/my-custom-events`, {
@@ -18237,7 +17951,8 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                         endDate: finalEndDate,
                         label,
                         config: { bgColor, textColor, borderColor },
-                        participants: myEventSelectedParticipants.map(p => p.id)
+                        participants: myEventSelectedParticipants.map(p => p.id),
+                        period
                     })
                 });
                 
@@ -18245,11 +17960,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     resetMyEventForm();
                     await loadMyEvents();
                     await loadSpecialDates();
-                    // Forcer la mise à jour du Gantt avec un petit délai pour s'assurer que specialDates est bien mis à jour
-                    setTimeout(() => {
-                        updateGantt();
-                        console.log('📅 Gantt mis à jour après ajout événement');
-                    }, 100);
+                    setTimeout(() => { updateGantt(); }, 100);
                 } else {
                     const err = await response.json();
                     alert('Erreur: ' + err.error);
@@ -18277,6 +17988,18 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             document.getElementById('myEventTextColor').value = config.textColor || '#000000';
             document.getElementById('myEventBorderColor').value = config.borderColor || '#fbc02d';
             updateMyEventPreview();
+
+            // Pré-remplir la période
+            const period = event.period || 'FULL';
+            const isSameDay = event.start_date === event.end_date;
+            if (isSameDay) {
+                document.getElementById('myEventPeriodSection').style.display = 'block';
+                const radio = document.querySelector(`input[name="myEventPeriod"][value="${period}"]`);
+                if (radio) radio.checked = true;
+            } else {
+                document.getElementById('myEventPeriodSection').style.display = 'none';
+                document.getElementById('myEventPeriodFull').checked = true;
+            }
             
             // Charger les participants existants
             myEventSelectedParticipants = (event.participants || []).map(p => ({
@@ -18292,31 +18015,23 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             
             if (currentUser && currentUser.activeProfile === 'admin') {
                 creatorSection.style.display = 'block';
-                
-                // Remplir la liste des utilisateurs (utiliser users, pas resources)
                 creatorSelect.innerHTML = '<option value="">-- Sélectionner un créateur --</option>';
-                
-                // Ajouter tous les utilisateurs (triés par nom)
                 const allUsers = [...users].sort((a, b) => {
                     const nameA = `${a.nom || ''} ${a.prenom || ''}`.toLowerCase();
                     const nameB = `${b.nom || ''} ${b.prenom || ''}`.toLowerCase();
                     return nameA.localeCompare(nameB);
                 });
-                
                 allUsers.forEach(user => {
                     const option = document.createElement('option');
-                    option.value = user.id; // ID utilisateur (pas ID ressource)
+                    option.value = user.id;
                     option.textContent = `${user.nom || ''} ${user.prenom || ''}`.trim() || user.username;
-                    if (user.id === event.created_by) {
-                        option.selected = true;
-                    }
+                    if (user.id === event.created_by) option.selected = true;
                     creatorSelect.appendChild(option);
                 });
             } else {
                 creatorSection.style.display = 'none';
             }
             
-            // Changer le bouton "Ajouter" en "Modifier"
             const addBtn = document.getElementById('myEventActionBtn');
             if (addBtn) {
                 addBtn.textContent = '💾 Modifier';
@@ -18335,18 +18050,21 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             const textColor = document.getElementById('myEventTextColor').value;
             const borderColor = document.getElementById('myEventBorderColor').value;
             
-            if (!startDate || !label) {
-                alert('Date de début et libellé requis');
-                return;
-            }
+            if (!startDate || !label) { alert('Date de début et libellé requis'); return; }
             
-            // Préparer les données
+            const finalEndDate = endDate || startDate;
+            const isSameDay = finalEndDate === startDate;
+            const period = isSameDay
+                ? (document.querySelector('input[name="myEventPeriod"]:checked')?.value || 'FULL')
+                : 'FULL';
+
             const data = {
                 startDate,
-                endDate: endDate || startDate,
+                endDate: finalEndDate,
                 label,
                 config: { bgColor, textColor, borderColor },
-                participants: myEventSelectedParticipants.map(p => p.id)
+                participants: myEventSelectedParticipants.map(p => p.id),
+                period
             };
             
             // Si admin, inclure le créateur sélectionné
@@ -19580,46 +19298,11 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     <label>Message *</label>
                     <textarea id="requestMessage" required style="min-height: 150px; resize: vertical; width: 100%;"></textarea>
                 </div>
-                <div style="display: flex; align-items: center; margin-bottom: 15px; padding: 10px; background-color: #fff3cd; border-radius: 4px; border: 1px solid #ffc107;">
-                    <input type="checkbox" id="debugModeCheckbox" style="width: 18px; height: 18px; margin-right: 10px; cursor: pointer;">
-                    <label for="debugModeCheckbox" style="cursor: pointer; font-size: 13px; color: #856404; margin: 0;">
-                        🔧 Mode debug (afficher les logs serveur détaillés)
-                    </label>
-                </div>
                 <div class="button-group">
                     <button type="submit" style="background-color: #27ae60;">✉️ Envoyer la demande</button>
                     <button type="button" onclick="closeRequestModal()" style="background-color: #7f8c8d;">Annuler</button>
                 </div>
             </form>
-        </div>
-    </div>
-
-    <!-- Modal Debug Logs -->
-    <div id="debugLogsModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); z-index: 10002; overflow-y: auto;">
-        <div style="background-color: #1e1e1e; max-width: 900px; margin: 30px auto; padding: 0; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background-color: #333; border-radius: 8px 8px 0 0; border-bottom: 2px solid #ffc107;">
-                <h2 style="color: #ffc107; margin: 0; font-size: 18px;">🔧 Debug Logs - Envoi d'email</h2>
-                <div>
-                    <button onclick="copyDebugLogs()" style="background-color: #17a2b8; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; margin-right: 10px; font-size: 12px;">📋 Copier</button>
-                    <span onclick="closeDebugLogsModal()" style="cursor: pointer; font-size: 24px; color: #aaa;">&times;</span>
-                </div>
-            </div>
-            <div style="padding: 15px 20px;">
-                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                    <div id="debugStatus" style="padding: 8px 15px; border-radius: 4px; font-size: 13px; font-weight: bold;">
-                        ⏳ En attente...
-                    </div>
-                    <div id="debugTimer" style="padding: 8px 15px; background-color: #333; border-radius: 4px; font-size: 13px; color: #aaa;">
-                        Durée: 0.0s
-                    </div>
-                </div>
-                <div id="debugLogsContent" style="background-color: #0d0d0d; border-radius: 4px; padding: 15px; font-family: 'Consolas', 'Monaco', monospace; font-size: 12px; line-height: 1.6; max-height: 500px; overflow-y: auto; color: #d4d4d4;">
-                    <!-- Les logs seront ajoutés ici -->
-                </div>
-                <div style="margin-top: 15px; text-align: right;">
-                    <button onclick="closeDebugLogsModal()" style="background-color: #6c757d; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer;">Fermer</button>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -20028,11 +19711,27 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
                     <div>
                         <label style="font-size: 12px; font-weight: bold; color: #333;">Date de début :</label>
-                        <input type="date" id="editCustomEventStartDate" style="width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px;">
+                        <input type="date" id="editCustomEventStartDate" style="width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px;" onchange="updateEditCustomEventPeriodVisibility()">
                     </div>
                     <div>
                         <label style="font-size: 12px; font-weight: bold; color: #333;">Date de fin :</label>
-                        <input type="date" id="editCustomEventEndDate" style="width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px;">
+                        <input type="date" id="editCustomEventEndDate" style="width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px;" onchange="updateEditCustomEventPeriodVisibility()">
+                    </div>
+                </div>
+
+                <!-- Sélecteur demi-journée -->
+                <div id="editCustomEventPeriodSection" style="display: none; margin-bottom: 15px; padding: 8px 12px; background: #e8f4fd; border-radius: 6px; border: 1px solid #bee3f8;">
+                    <label style="font-size: 11px; color: #1565c0; font-weight: bold; display: block; margin-bottom: 6px;">🕐 Demi-journée</label>
+                    <div style="display: flex; gap: 8px;">
+                        <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 12px;">
+                            <input type="radio" name="editCustomEventPeriod" id="editCustomEventPeriodFull" value="FULL" checked> Journée entière
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 12px;">
+                            <input type="radio" name="editCustomEventPeriod" id="editCustomEventPeriodAM" value="AM"> Matin (AM)
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 12px;">
+                            <input type="radio" name="editCustomEventPeriod" id="editCustomEventPeriodPM" value="PM"> Après-midi (PM)
+                        </label>
                     </div>
                 </div>
                 
@@ -20224,10 +19923,6 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                         <input type="checkbox" id="selectAllExperts" checked onchange="toggleAllExperts()" style="width: 18px; height: 18px;">
                         <span style="font-size: 13px;">Sélectionner/Désélectionner tous</span>
                     </label>
-                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 12px; background-color: #fff3cd; border-radius: 4px; border: 1px solid #ffc107;">
-                        <input type="checkbox" id="debugModeOutlookCheckbox" style="width: 16px; height: 16px;">
-                        <span style="font-size: 12px; color: #856404;">🔧 Mode debug</span>
-                    </label>
                 </div>
                 <div style="display: flex; justify-content: flex-end; gap: 10px;">
                     <button onclick="confirmSendEmails()" style="background-color: #27ae60; color: white; padding: 12px 25px; font-size: 14px;">
@@ -20267,11 +19962,11 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 <div style="display: grid; grid-template-columns: 1fr 1fr 2fr 2fr; gap: 10px; align-items: start;">
                     <div>
                         <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px;">Date de début *</label>
-                        <input type="date" id="myEventStartDate" style="width: 100%; padding: 6px;" onchange="prefillMyEventEndDate()">
+                        <input type="date" id="myEventStartDate" style="width: 100%; padding: 6px;" onchange="prefillMyEventEndDate(); updateMyEventPeriodVisibility()">
                     </div>
                     <div>
                         <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px;">Date de fin</label>
-                        <input type="date" id="myEventEndDate" style="width: 100%; padding: 6px;">
+                        <input type="date" id="myEventEndDate" style="width: 100%; padding: 6px;" onchange="updateMyEventPeriodVisibility()">
                     </div>
                     <div>
                         <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px;">Libellé *</label>
@@ -20287,6 +19982,22 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                                 onkeydown="handleParticipantKeydown(event)">
                         </div>
                         <div id="myEventParticipantDropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ddd; border-radius: 0 0 8px 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); max-height: 200px; overflow-y: auto; z-index: 10010;"></div>
+                    </div>
+                </div>
+
+                <!-- Sélecteur demi-journée — visible uniquement si début = fin -->
+                <div id="myEventPeriodSection" style="display: none; margin-top: 8px; padding: 8px 12px; background: #e8f4fd; border-radius: 6px; border: 1px solid #bee3f8;">
+                    <label style="font-size: 11px; color: #1565c0; font-weight: bold; display: block; margin-bottom: 6px;">🕐 Demi-journée</label>
+                    <div style="display: flex; gap: 8px;">
+                        <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 12px;">
+                            <input type="radio" name="myEventPeriod" id="myEventPeriodFull" value="FULL" checked> Journée entière
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 12px;">
+                            <input type="radio" name="myEventPeriod" id="myEventPeriodAM" value="AM"> Matin (AM)
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 12px;">
+                            <input type="radio" name="myEventPeriod" id="myEventPeriodPM" value="PM"> Après-midi (PM)
+                        </label>
                     </div>
                 </div>
                 

@@ -36,6 +36,13 @@ app.use(cors({
 }));
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
+app.use((req, res, next) => {
+    const t0 = Date.now();
+    const { method, url } = req;
+    console.log(`→ ${method} ${url}`);
+    res.on('finish', () => console.log(`← ${method} ${url} ${res.statusCode} (${Date.now() - t0}ms)`));
+    next();
+});
 app.use(session({
     secret: process.env.SESSION_SECRET || 'gantt-secret-key-2025',
     resave: false,
@@ -95,6 +102,17 @@ const database = new sqlite3.Database(DB_FILE, (err) =>
             else console.log('✅ SQLite busy_timeout = 5000ms');
         });
         initDB();
+    }
+});
+
+// Connexion lecture seule dédiée aux lectures lourdes du CRON (runAutomation2)
+// En mode WAL, une connexion séparée peut lire en parallèle des écritures sur 'database'
+// sans bloquer la file d'opérations principale.
+const dbRead = new sqlite3.Database(DB_FILE, sqlite3.OPEN_READONLY, (err) => {
+    if (err) console.error('❌ Erreur connexion dbRead:', err);
+    else {
+        dbRead.run('PRAGMA busy_timeout = 5000');
+        console.log('✅ SQLite connexion lecture (dbRead) ouverte');
     }
 });
 
@@ -290,7 +308,6 @@ function createEmailTransporter() {
         pool: true,
         maxConnections: 5,
         maxMessages: 100,
-        family: 4,
         // Timeouts courts pour ne pas bloquer
         connectionTimeout: 10000, // 10 secondes
         greetingTimeout: 10000,
@@ -2450,207 +2467,113 @@ app.post('/api/schedule/reset-month', requireAuth, (req, res) => {
     });
 });
 
-app.post('/api/schedule/save', requireAuth, (req, res) => {
+app.post('/api/schedule/save', requireAuth, async (req, res) => {
     // Supporter les deux formats : { updates: [...] } OU scheduleData direct
     let updates;
     if (req.body.updates) {
         updates = req.body.updates;
     } else {
-        const scheduleData = req.body;
-        updates = Object.entries(scheduleData).map(([key, value]) => ({ key, value }));
+        updates = Object.entries(req.body).map(([key, value]) => ({ key, value }));
     }
-    
+
     if (!updates || updates.length === 0) {
         return res.json({ success: true, saved: 0 });
     }
 
-    let completed = 0;
-    const total = updates.length;
-    
-    // Collecter les activités modifiées pour créer les notifications une seule fois par demi-journée
-    const notificationsToCreate = new Map(); // Clé: "resourceId_date_period", Valeur: {resourceId, date, period, activity}
+    // Appliquer les droits expert (filtrage avant transaction)
+    const isExpert = req.session.activeProfile === 'expert';
+    if (isExpert) {
+        updates = updates.filter(({ key }) => parseInt(key.split('_')[0]) === req.session.resourceId);
+    }
 
-    updates.forEach(({ key, value }) => {
-        const parts = key.split('_');
-        const resourceId = parts[0];
-        const type = parts[1];
-        // FIX MAJEUR : Utiliser join('_') au lieu de join('-') pour préserver le format des clés
-        const dateKey = parts.slice(2).join('_');
-        
-        // Vérification des droits pour Expert métier
-        if (req.session.activeProfile === 'expert') {
-            // L'expert ne peut modifier que sa propre ligne
-            if (parseInt(resourceId) !== req.session.resourceId) {
-                completed++;
-                if (completed === total) {
-                    logUserAction(req, 'Sauvegarde planning rapide', { 
-                        modificationsCount: completed,
-                        profile: req.session.activeProfile
-                    });
-                    res.json({ success: true, saved: total });
-                }
-                return;
-            }
-        }
-        
-        // ===== VÉRIFIER AVANT L'INSERT SI C'EST UNE VRAIE MODIFICATION (ASYNCHRONE) =====
-        database.get(
-            'SELECT value FROM schedule_data WHERE resource_id = ? AND date_key = ? AND type = ?',
-            [resourceId, dateKey, type],
-            (errCheck, existingRow) => {
-                const oldValue = existingRow ? existingRow.value : null;
-                const hasReallyChanged = (oldValue !== value);
-                
-                database.run(
-                    `INSERT INTO schedule_data (resource_id, date_key, type, value)
-                     VALUES (?, ?, ?, ?)
-                     ON CONFLICT(resource_id, date_key, type) 
-                     DO UPDATE SET value = excluded.value`,
-                    [resourceId, dateKey, type, value],
-                    (err) => {
-                        if (err) console.error('Erreur insert schedule:', err);
-                        
-                        // Collecter les activités pour notifications (une seule par demi-journée)
-                        if (!err && type === 'activity' && value !== '1' && value !== '2' && req.session.activeProfile !== 'expert' && hasReallyChanged) {
-                            // C'est une vraie affectation SAMU/ANS qui a VRAIMENT changé
-                            const dateKeyParts = dateKey.split('_');
-                            const date = dateKeyParts[0];
-                            const period = dateKeyParts[1];
-                            const notifKey = `${resourceId}_${date}_${period}`;
-                            
-                            // N'ajouter que si pas déjà présent
-                            if (!notificationsToCreate.has(notifKey)) {
-                                notificationsToCreate.set(notifKey, {
-                                    resourceId,
-                                    date,
-                                    period,
-                                    activityValue: value
-                                });
+    try {
+        // ÉTAPE 1 : Transaction — toutes les écritures en un seul lock SQLite
+        await new Promise((resolve, reject) => {
+            database.serialize(() => {
+                database.run('BEGIN TRANSACTION');
+                updates.forEach(({ key, value }) => {
+                    const parts = key.split('_');
+                    database.run(
+                        `INSERT INTO schedule_data (resource_id, date_key, type, value)
+                         VALUES (?, ?, ?, ?)
+                         ON CONFLICT(resource_id, date_key, type)
+                         DO UPDATE SET value = excluded.value`,
+                        [parts[0], parts.slice(2).join('_'), parts[1], value],
+                        (_err) => {}
+                    );
+                });
+                database.run('COMMIT', (err) => err ? reject(err) : resolve());
+            });
+        });
+
+        // ÉTAPE 2 : Réponse immédiate
+        logUserAction(req, 'Sauvegarde planning rapide', {
+            modificationsCount: updates.length,
+            profile: req.session.activeProfile
+        });
+        res.json({ success: true, saved: updates.length });
+
+        // ÉTAPE 3 : Logs planning_modification en fire-and-forget après la réponse
+        // La vérification "hasReallyChanged" se fait ici, après la réponse,
+        // pour ne pas ajouter de lectures concurrentes sur le chemin critique
+        const activityLabelsLocal = {
+            '3': '🚨 SAMU (Déploiement)', '4': '🚨 SAMU (Dev. usages)',
+            '5': 'ANS (Déploiement)',     '6': 'ANS (Dev. usages)',
+            '7': 'Qualification',          '8': 'Autre mission'
+        };
+        updates.forEach(({ key, value }) => {
+            const parts = key.split('_');
+            const resourceId = parts[0], type = parts[1];
+            const dateKey = parts.slice(2).join('_');
+            const [date, period] = dateKey.split('_');
+            const resId = parseInt(resourceId);
+
+            if (type === 'activity' && ['3','4','5','6','7','8'].includes(value)) {
+                database.get('SELECT value FROM schedule_data WHERE resource_id = ? AND date_key = ? AND type = ?',
+                    [resId, dateKey, 'localisation'], (_errLoc, locRow) => {
+                        database.get('SELECT nom, prenom FROM resources WHERE id = ?', [resId], (errRes, resource) => {
+                            if (!errRes && resource) {
+                                database.run('INSERT INTO action_logs (user_id, action_type, details) VALUES (?, ?, ?)',
+                                    [req.session.userId, 'planning_modification', JSON.stringify({
+                                        resourceId: resId, resourceName: `${resource.prenom} ${resource.nom}`,
+                                        date, period: period === 'AM' ? 'Matin' : 'Après-midi',
+                                        activity: activityLabelsLocal[value] || value,
+                                        location: (locRow && locRow.value) ? locRow.value : '-',
+                                        modifiedBy: req.session.activeProfile
+                                    })],
+                                    (errLog) => { if (errLog) console.error('❌ Erreur log activity:', errLog); }
+                                );
                             }
-                        }
-                        
-                        // Créer le log planning_modification quand une ACTIVITÉ affectable est modifiée
-                        if (!err && type === 'activity' && ['3','4','5','6','7','8'].includes(value) && hasReallyChanged) {
-                            const dateKeyParts = dateKey.split('_');
-                            const date = dateKeyParts[0];
-                            const period = dateKeyParts[1];
-                            const resId = parseInt(resourceId);
-                            
-                            const activityLabelsLocal = {
-                                '3': '🚨 SAMU (Déploiement)',
-                                '4': '🚨 SAMU (Dev. usages)',
-                                '5': 'ANS (Déploiement)',
-                                '6': 'ANS (Dev. usages)',
-                                '7': 'Qualification',
-                                '8': 'Autre mission'
-                            };
-                            
-                            // Récupérer la localisation existante (si présente)
-                            database.get(
-                                'SELECT value FROM schedule_data WHERE resource_id = ? AND date_key = ? AND type = ?',
-                                [resId, dateKey, 'localisation'],
-                                (errLoc, locRow) => {
-                                    database.get('SELECT nom, prenom FROM resources WHERE id = ?', [resId], (errRes, resource) => {
-                                        if (!errRes && resource) {
-                                            const logDetails = {
-                                                resourceId: resId,
-                                                resourceName: `${resource.prenom} ${resource.nom}`,
-                                                date: date,
-                                                period: period === 'AM' ? 'Matin' : 'Après-midi',
-                                                activity: activityLabelsLocal[value] || value,
-                                                location: (locRow && locRow.value) ? locRow.value : '-',
-                                                modifiedBy: req.session.activeProfile
-                                            };
-                                            
-                                            database.run(
-                                                `INSERT INTO action_logs (user_id, action_type, details) VALUES (?, ?, ?)`,
-                                                [req.session.userId, 'planning_modification', JSON.stringify(logDetails)],
-                                                (errLog) => {
-                                                    if (errLog) {
-                                                        console.error('❌ Erreur création log planning_modification (activity):', errLog);
-                                                    } else {
-                                                        console.log(`✅ Log planning_modification créé pour ${resource.prenom} ${resource.nom} - ${date} ${period} - ${activityLabelsLocal[value]} (par ${req.session.activeProfile})`);
-                                                    }
-                                                }
-                                            );
-                                        }
-                                    });
-                                }
-                            );
-                        }
-                        
-                        // Créer/Mettre à jour le log planning_modification quand la LOCALISATION est modifiée
-                        if (!err && type === 'localisation' && hasReallyChanged) {
-                            const dateKeyParts = dateKey.split('_');
-                            const date = dateKeyParts[0];
-                            const period = dateKeyParts[1];
-                            const resId = parseInt(resourceId);
-                            
-                            // Vérifier s'il y a une activité affectable (3-8) pour cette demi-journée
-                            database.get(
-                                'SELECT value FROM schedule_data WHERE resource_id = ? AND date_key = ? AND type = ?',
-                                [resId, dateKey, 'activity'],
-                                (errAct, actRow) => {
-                                    if (!errAct && actRow && ['3','4','5','6','7','8'].includes(actRow.value)) {
-                                        // Il y a une affectation, créer le log avec la localisation
-                                        const activityLabelsLocal = {
-                                            '3': '🚨 SAMU (Déploiement)',
-                                            '4': '🚨 SAMU (Dev. usages)',
-                                            '5': 'ANS (Déploiement)',
-                                            '6': 'ANS (Dev. usages)',
-                                            '7': 'Qualification',
-                                            '8': 'Autre mission'
-                                        };
-                                        
-                                        database.get('SELECT nom, prenom FROM resources WHERE id = ?', [resId], (errRes, resource) => {
-                                            if (!errRes && resource) {
-                                                const logDetails = {
-                                                    resourceId: resId,
-                                                    resourceName: `${resource.prenom} ${resource.nom}`,
-                                                    date: date,
-                                                    period: period === 'AM' ? 'Matin' : 'Après-midi',
-                                                    activity: activityLabelsLocal[actRow.value] || actRow.value,
-                                                    location: value,
-                                                    modifiedBy: req.session.activeProfile
-                                                };
-                                                
-                                                database.run(
-                                                    `INSERT INTO action_logs (user_id, action_type, details) VALUES (?, ?, ?)`,
-                                                    [req.session.userId, 'planning_modification', JSON.stringify(logDetails)],
-                                                    (errLog) => {
-                                                        if (errLog) {
-                                                            console.error('❌ Erreur création log planning_modification (localisation):', errLog);
-                                                        } else {
-                                                            console.log(`✅ Log planning_modification créé pour ${resource.prenom} ${resource.nom} - ${date} ${period} - localisation: ${value} (par ${req.session.activeProfile})`);
-                                                        }
-                                                    }
-                                                );
-                                            }
-                                        });
-                                    }
-                                }
-                            );
-                        }
-                
-                completed++;
-                if (completed === total) {
-                    // NOTE: Les notifications ne sont plus créées ici mais à la déconnexion
-                    // via l'endpoint /api/notifications/create-batch appelé par le client
-                    // après l'envoi des emails récapitulatifs aux experts
-                    
-                    // Note: Les logs planning_modification sont créés quand la LOCALISATION est modifiée
-                    // (voir le bloc "NOUVEAU" plus haut qui gère type === 'localisation')
-                    
-                    logUserAction(req, 'Sauvegarde planning rapide', { 
-                        modificationsCount: total,
-                        profile: req.session.activeProfile
+                        });
                     });
-                    res.json({ success: true, saved: total });
-                }
             }
-        );
-        }); // Fermeture du callback database.get
-    });
+
+            if (type === 'localisation') {
+                database.get('SELECT value FROM schedule_data WHERE resource_id = ? AND date_key = ? AND type = ?',
+                    [resId, dateKey, 'activity'], (errAct, actRow) => {
+                        if (!errAct && actRow && ['3','4','5','6','7','8'].includes(actRow.value)) {
+                            database.get('SELECT nom, prenom FROM resources WHERE id = ?', [resId], (errRes, resource) => {
+                                if (!errRes && resource) {
+                                    database.run('INSERT INTO action_logs (user_id, action_type, details) VALUES (?, ?, ?)',
+                                        [req.session.userId, 'planning_modification', JSON.stringify({
+                                            resourceId: resId, resourceName: `${resource.prenom} ${resource.nom}`,
+                                            date, period: period === 'AM' ? 'Matin' : 'Après-midi',
+                                            activity: activityLabelsLocal[actRow.value] || actRow.value,
+                                            location: value, modifiedBy: req.session.activeProfile
+                                        })],
+                                        (errLog) => { if (errLog) console.error('❌ Erreur log localisation:', errLog); }
+                                    );
+                                }
+                            });
+                        }
+                    });
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ Erreur schedule/save:', error);
+        if (!res.headersSent) res.status(500).json({ success: false, error: error.message });
+    }
 });
 
 // Nouvel endpoint pour nettoyer les anciennes données (sans AM/PM)
@@ -3944,219 +3867,88 @@ function getCleanOldActivityLabel(assignment) {
 // ========== ENDPOINT ENVOI EMAILS D'AFFECTATION (REFONTE ICS) ==========
 
 app.post('/api/send-assignment-emails', requireAuth, async (req, res) => {
-    
-    const debugMode = req.body.debug === true;
-    const debugLogs = [];
-
-    const addLog = (type, message) => {
-        const timestamp = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 });
-        debugLogs.push({ type, message, timestamp });
-        console.log(`[send-assignment-emails] [${type}] ${message}`);
-    };
-
     try {
         const { assignments, senderName, senderEmail: clientSenderEmail } = req.body;
 
-        addLog('info', '📧 Demande d\'envoi d\'invitations reçue');
-
         if (!assignments || !Array.isArray(assignments) || assignments.length === 0) {
-            addLog('error', '❌ Aucune affectation à envoyer');
-            return res.status(400).json({ success: false, error: 'Aucune affectation à envoyer', debugLogs });
+            return res.status(400).json({ success: false, error: 'Aucune affectation à envoyer' });
         }
-
         if (!emailConfig.user || !emailConfig.password) {
-            addLog('error', '❌ Configuration email non disponible');
-            return res.status(500).json({ success: false, error: 'Configuration email non disponible', debugLogs });
+            return res.status(500).json({ success: false, error: 'Configuration email non disponible' });
         }
 
         const requesterName = senderName || `${req.session.prenom || 'Admin'} ${req.session.nom || 'Système'}`;
         const senderEmailAddr = clientSenderEmail || emailConfig.user;
         const sessionLogId = req.session?.logId;
 
-        addLog('info', `📧 Expéditeur: ${requesterName} <${senderEmailAddr}>`);
-        addLog('info', `👥 Experts à notifier: ${assignments.length}`);
-        assignments.forEach(a => {
-            const name = (a.expertPrenom && a.expertNom) ? `${a.expertPrenom} ${a.expertNom}` : (a.expertName || 'Expert');
-            addLog('info', `   - ${name} <${a.email || 'pas d\'email'}>: ${a.assignments?.length || 0} affectation(s)`);
-        });
-
-        // Vérifier le transporter
-        addLog('email', '📧 Vérification configuration SMTP...');
-        addLog('email', `   Host: ${emailConfig.host}`);
-        addLog('email', `   Port: ${emailConfig.port}`);
-        addLog('email', `   User: ${emailConfig.user}`);
-
         const transporter = getReusableTransporter();
         if (!transporter) {
-            addLog('error', '❌ Transporter non configuré');
-            return res.status(500).json({ success: false, error: 'Configuration email non disponible', debugLogs });
+            return res.status(500).json({ success: false, error: 'Configuration email non disponible' });
         }
-        addLog('email', '✅ Transporter récupéré (pool partagé)');
 
-        // ── Préparer tous les emails en mémoire (zéro BDD) ──────────────────
+        // Préparer tous les emails en mémoire
         const emailsToSend = [];
         for (const item of assignments) {
             const { email, expertNom, expertPrenom, expertName, assignments: expertAssignments } = item;
             const attendeeName = (expertPrenom && expertNom) ? `${expertPrenom} ${expertNom}` : (expertName || expertPrenom || expertNom || 'Expert');
             if (!email) continue;
 
-            const newAssigns    = expertAssignments.filter(a => a.actionType === 'new' || !a.actionType);
+            const newAssigns      = expertAssignments.filter(a => a.actionType === 'new' || !a.actionType);
             const modifiedAssigns = expertAssignments.filter(a => a.actionType === 'modified');
             const deletedAssigns  = expertAssignments.filter(a => a.actionType === 'deleted');
 
-            // Nouvelles affectations — groupées par contiguïté
-            if (newAssigns.length > 0) {
-                for (const group of groupContiguousAssignments(newAssigns)) {
-                    try {
-                        const firstSlot = group.slots[0], lastSlot = group.slots[group.slots.length - 1];
-                        const startH = HALF_DAY_HOURS[firstSlot.period], endH = HALF_DAY_HOURS[lastSlot.period];
-                        const cleanLabel = ACTIVITY_LABELS[group.activityCode] || getCleanActivityLabel({ activityCode: group.activityCode, activity: group.activity });
-                        const summary  = `Domaines des Urgences - Affectation – ${cleanLabel} – ${requesterName}`;
-                        const location = group.location && group.location !== '-' ? group.location : '';
-                        const slotsDesc = group.slots.map(s => { const [y,m,d] = s.date.split('-'); return `${d}/${m}/${y} (${s.period === 'AM' ? 'Matin 8h-12h' : 'Apres-midi 14h-18h'})`; }).join('\\n');
-                        emailsToSend.push({
-                            type: 'new', to: email, attendeeName,
-                            subject: summary,
-                            html: buildInvitationHTML(attendeeName, requesterName, group, 'new'),
-                            icsContent: buildICS({ uid: generateICSUid(), summary, description: `Affectation: ${cleanLabel}\\nLocalisation: ${location || 'Non precisee'}\\nDemandeur: ${requesterName}\\n\\nCreneaux:\\n${slotsDesc}`, location, dtstart: formatDateICS(firstSlot.date, startH.start, 0), dtend: formatDateICS(lastSlot.date, endH.end, 0), organizer: senderEmailAddr, organizerName: requesterName, attendee: email, attendeeName, method: 'REQUEST' }),
-                            icsMethod: 'REQUEST', icsFilename: 'invitation.ics'
-                        });
-                    } catch (e) { addLog('error', `Erreur préparation NEW: ${e.message}`); }
-                }
+            for (const group of groupContiguousAssignments(newAssigns)) {
+                try {
+                    const firstSlot = group.slots[0], lastSlot = group.slots[group.slots.length - 1];
+                    const startH = HALF_DAY_HOURS[firstSlot.period], endH = HALF_DAY_HOURS[lastSlot.period];
+                    const cleanLabel = ACTIVITY_LABELS[group.activityCode] || getCleanActivityLabel({ activityCode: group.activityCode, activity: group.activity });
+                    const summary  = `Domaines des Urgences - Affectation – ${cleanLabel} – ${requesterName}`;
+                    const location = group.location && group.location !== '-' ? group.location : '';
+                    const slotsDesc = group.slots.map(s => { const [y,m,d] = s.date.split('-'); return `${d}/${m}/${y} (${s.period === 'AM' ? 'Matin 8h-12h' : 'Apres-midi 14h-18h'})`; }).join('\\n');
+                    emailsToSend.push({ type: 'new', to: email, attendeeName, subject: summary, html: buildInvitationHTML(attendeeName, requesterName, group, 'new'), icsContent: buildICS({ uid: generateICSUid(), summary, description: `Affectation: ${cleanLabel}\\nLocalisation: ${location || 'Non precisee'}\\nDemandeur: ${requesterName}\\n\\nCreneaux:\\n${slotsDesc}`, location, dtstart: formatDateICS(firstSlot.date, startH.start, 0), dtend: formatDateICS(lastSlot.date, endH.end, 0), organizer: senderEmailAddr, organizerName: requesterName, attendee: email, attendeeName, method: 'REQUEST' }), icsMethod: 'REQUEST', icsFilename: 'invitation.ics' });
+                } catch (e) { console.error('Erreur préparation NEW:', e.message); }
             }
 
-            // Modifications — annulation ancien + nouvelle invitation
             for (const a of modifiedAssigns) {
                 try {
                     const hours = HALF_DAY_HOURS[a.period];
                     const oldLabel = getCleanOldActivityLabel(a);
-                    const oldLoc   = a.oldLocation && a.oldLocation !== '-' ? a.oldLocation : '';
+                    const oldLoc = a.oldLocation && a.oldLocation !== '-' ? a.oldLocation : '';
                     const cancelSummary = `Domaines des Urgences - Affectation – ${oldLabel} – ${requesterName}`;
-                    emailsToSend.push({
-                        type: 'cancel_modify', to: email, attendeeName,
-                        subject: `Annule: ${cancelSummary}`,
-                        html: buildInvitationHTML(attendeeName, requesterName, { activity: oldLabel, location: oldLoc, slots: [a] }, 'cancelled'),
-                        icsContent: buildICS({ uid: generateICSUid(), summary: cancelSummary, description: `Annulation: cette affectation a ete modifiee par ${requesterName}.`, location: oldLoc, dtstart: formatDateICS(a.date, hours.start, 0), dtend: formatDateICS(a.date, hours.end, 0), organizer: senderEmailAddr, organizerName: requesterName, attendee: email, attendeeName, sequence: 1, method: 'CANCEL' }),
-                        icsMethod: 'CANCEL', icsFilename: 'annulation.ics'
-                    });
-                    const newLabel  = ACTIVITY_LABELS[a.activityCode] || getCleanActivityLabel(a);
-                    const newLoc    = a.location && a.location !== '-' ? a.location : '';
+                    emailsToSend.push({ type: 'cancel_modify', to: email, attendeeName, subject: `Annule: ${cancelSummary}`, html: buildInvitationHTML(attendeeName, requesterName, { activity: oldLabel, location: oldLoc, slots: [a] }, 'cancelled'), icsContent: buildICS({ uid: generateICSUid(), summary: cancelSummary, description: `Annulation: cette affectation a ete modifiee par ${requesterName}.`, location: oldLoc, dtstart: formatDateICS(a.date, hours.start, 0), dtend: formatDateICS(a.date, hours.end, 0), organizer: senderEmailAddr, organizerName: requesterName, attendee: email, attendeeName, sequence: 1, method: 'CANCEL' }), icsMethod: 'CANCEL', icsFilename: 'annulation.ics' });
+                    const newLabel = ACTIVITY_LABELS[a.activityCode] || getCleanActivityLabel(a);
+                    const newLoc = a.location && a.location !== '-' ? a.location : '';
                     const newSummary = `Domaines des Urgences - Affectation – ${newLabel} – ${requesterName}`;
-                    emailsToSend.push({
-                        type: 'modified', to: email, attendeeName,
-                        subject: newSummary,
-                        html: buildInvitationHTML(attendeeName, requesterName, { activity: newLabel, location: newLoc, slots: [a] }, 'modified'),
-                        icsContent: buildICS({ uid: generateICSUid(), summary: newSummary, description: `Nouvelle affectation: ${newLabel}\\nLocalisation: ${newLoc || 'Non precisee'}\\nDemandeur: ${requesterName}`, location: newLoc, dtstart: formatDateICS(a.date, hours.start, 0), dtend: formatDateICS(a.date, hours.end, 0), organizer: senderEmailAddr, organizerName: requesterName, attendee: email, attendeeName, method: 'REQUEST' }),
-                        icsMethod: 'REQUEST', icsFilename: 'invitation.ics'
-                    });
-                } catch (e) { addLog('error', `Erreur préparation MODIFIED: ${e.message}`); }
+                    emailsToSend.push({ type: 'modified', to: email, attendeeName, subject: newSummary, html: buildInvitationHTML(attendeeName, requesterName, { activity: newLabel, location: newLoc, slots: [a] }, 'modified'), icsContent: buildICS({ uid: generateICSUid(), summary: newSummary, description: `Nouvelle affectation: ${newLabel}\\nLocalisation: ${newLoc || 'Non precisee'}\\nDemandeur: ${requesterName}`, location: newLoc, dtstart: formatDateICS(a.date, hours.start, 0), dtend: formatDateICS(a.date, hours.end, 0), organizer: senderEmailAddr, organizerName: requesterName, attendee: email, attendeeName, method: 'REQUEST' }), icsMethod: 'REQUEST', icsFilename: 'invitation.ics' });
+                } catch (e) { console.error('Erreur préparation MODIFIED:', e.message); }
             }
 
-            // Suppressions — annulation calendrier
             for (const a of deletedAssigns) {
                 try {
                     const hours = HALF_DAY_HOURS[a.period];
                     const delLabel = getCleanOldActivityLabel(a);
                     const loc = (a.oldLocation && a.oldLocation !== '-') ? a.oldLocation : (a.location && a.location !== '-' ? a.location : '');
                     const cancelSummary = `Domaines des Urgences - Affectation – ${delLabel} – ${requesterName}`;
-                    emailsToSend.push({
-                        type: 'deleted', to: email, attendeeName,
-                        subject: `Annule: ${cancelSummary}`,
-                        html: buildInvitationHTML(attendeeName, requesterName, { activity: delLabel, location: loc, slots: [a] }, 'cancelled'),
-                        icsContent: buildICS({ uid: generateICSUid(), summary: cancelSummary, description: `Cette affectation a ete supprimee par ${requesterName}.`, location: loc, dtstart: formatDateICS(a.date, hours.start, 0), dtend: formatDateICS(a.date, hours.end, 0), organizer: senderEmailAddr, organizerName: requesterName, attendee: email, attendeeName, sequence: 1, method: 'CANCEL' }),
-                        icsMethod: 'CANCEL', icsFilename: 'annulation.ics'
-                    });
-                } catch (e) { addLog('error', `Erreur préparation DELETED: ${e.message}`); }
+                    emailsToSend.push({ type: 'deleted', to: email, attendeeName, subject: `Annule: ${cancelSummary}`, html: buildInvitationHTML(attendeeName, requesterName, { activity: delLabel, location: loc, slots: [a] }, 'cancelled'), icsContent: buildICS({ uid: generateICSUid(), summary: cancelSummary, description: `Cette affectation a ete supprimee par ${requesterName}.`, location: loc, dtstart: formatDateICS(a.date, hours.start, 0), dtend: formatDateICS(a.date, hours.end, 0), organizer: senderEmailAddr, organizerName: requesterName, attendee: email, attendeeName, sequence: 1, method: 'CANCEL' }), icsMethod: 'CANCEL', icsFilename: 'annulation.ics' });
+                } catch (e) { console.error('Erreur préparation DELETED:', e.message); }
             }
         }
 
-        addLog('info', `📧 ${emailsToSend.length} email(s) préparé(s)`);
         if (emailsToSend.length === 0) {
-            return res.json({ success: false, error: 'Aucun email à envoyer (experts sans email ?)', debugLogs });
+            return res.json({ success: false, error: 'Aucun email à envoyer (experts sans email ?)' });
         }
 
-        // ── Mode debug : envoi synchrone, logs retournés dans la réponse ────
-        if (debugMode) {
-            addLog('email', '📤 Connexion SMTP (préchauffage pool)...');
-            try {
-                const t0 = Date.now();
-                await transporter.verify();
-                addLog('email', `   ✅ SMTP prêt en ${Date.now() - t0}ms`);
-            } catch (verifyErr) {
-                addLog('warning', `   ⚠️ verify() échoué: ${verifyErr.message} — envoi tenté quand même`);
-            }
-
-            addLog('email', '─'.repeat(50));
-            let totalSent = 0, totalFailed = 0;
-
-            for (let i = 0; i < emailsToSend.length; i++) {
-                const mail = emailsToSend[i];
-                addLog('email', `📧 [${i+1}/${emailsToSend.length}] Envoi à ${mail.to} (${mail.type}, ICS: ${mail.icsContent?.length || 0} chars)...`);
-                const t0 = Date.now();
-                const mailOptions = {
-                    from: `"Domaine des Urgences - Planification des ressources" <${emailConfig.user}>`,
-                    to: mail.to,
-                    subject: mail.subject,
-                    html: mail.html,
-                    icalEvent: { filename: mail.icsFilename, method: mail.icsMethod, content: mail.icsContent }
-                };
-                try {
-                    const info = await transporter.sendMail(mailOptions);
-                    totalSent++;
-                    addLog('success', `   ✅ Envoyé en ${Date.now() - t0}ms - MessageId: ${info.messageId}`);
-                } catch (emailError) {
-                    totalFailed++;
-                    addLog('error', `   ❌ Échec après ${Date.now() - t0}ms: ${emailError.message}`);
-                    if (emailError.code) addLog('error', `   Code: ${emailError.code}`);
-                    if (emailError.message?.includes('ECONNREFUSED') || emailError.message?.includes('ETIMEDOUT') || emailError.message?.includes('ESOCKET')) {
-                        cachedTransporter = null; cachedTransporterConfig = '';
-                    }
-                }
-            }
-
-            addLog('info', '─'.repeat(50));
-            addLog('info', `📊 RÉSUMÉ: ${totalSent}/${emailsToSend.length} envoyé(s)`);
-
-            if (sessionLogId) {
-                const allEmails = assignments.map(a => a.email).filter(e => e).join(', ');
-                database.run(`UPDATE connection_logs SET modifications = modifications || ? WHERE id = ?`,
-                    [`${new Date().toLocaleString('fr-FR')}: Invitations Outlook (${totalSent}/${totalSent + totalFailed}) pour: ${allEmails}\n`, sessionLogId]);
-            }
-
-            return res.json({
-                success: totalSent > 0,
-                message: `${totalSent} invitation(s) envoyée(s)`,
-                sent: totalSent,
-                failed: totalFailed,
-                debugLogs
-            });
-        }
-
-        // ── Mode normal : enqueue dans email_queue, réponse immédiate ───────
+        // Enqueue dans email_queue — réponse immédiate, worker traite en fond
         const batchId = crypto.randomUUID();
         let enqueued = 0;
         for (const mail of emailsToSend) {
             try {
-                await enqueueEmail({
-                    batchId,
-                    recipientEmail: mail.to,
-                    recipientName:  mail.attendeeName,
-                    senderName:     requesterName,
-                    senderEmail:    senderEmailAddr,
-                    subject:        mail.subject,
-                    htmlBody:       mail.html,
-                    icsContent:     mail.icsContent,
-                    icsMethod:      mail.icsMethod,
-                    icsFilename:    mail.icsFilename,
-                    actionType:     mail.type
-                });
+                await enqueueEmail({ batchId, recipientEmail: mail.to, recipientName: mail.attendeeName, senderName: requesterName, senderEmail: senderEmailAddr, subject: mail.subject, htmlBody: mail.html, icsContent: mail.icsContent, icsMethod: mail.icsMethod, icsFilename: mail.icsFilename, actionType: mail.type });
                 enqueued++;
-            } catch (enqErr) {
-                console.error(`❌ Erreur enqueue pour ${mail.to}:`, enqErr.message);
-            }
+            } catch (enqErr) { console.error(`❌ Erreur enqueue pour ${mail.to}:`, enqErr.message); }
         }
 
-        console.log(`📧 send-assignment-emails: ${enqueued}/${emailsToSend.length} email(s) mis en file (batchId=${batchId})`);
+        console.log(`📧 send-assignment-emails: ${enqueued}/${emailsToSend.length} email(s) en file (batchId=${batchId})`);
 
         if (sessionLogId) {
             const allEmails = assignments.map(a => a.email).filter(e => e).join(', ');
@@ -4164,18 +3956,11 @@ app.post('/api/send-assignment-emails', requireAuth, async (req, res) => {
                 [`${new Date().toLocaleString('fr-FR')}: Invitations Outlook en file (${enqueued} emails) pour: ${allEmails}\n`, sessionLogId]);
         }
 
-        res.json({
-            success: true,
-            batchId,
-            enqueued,
-            message: `${enqueued} invitation(s) ajoutée(s) à la file d'envoi`
-        });
+        res.json({ success: true, batchId, enqueued, message: `${enqueued} invitation(s) ajoutée(s) à la file d'envoi` });
 
     } catch (error) {
         console.error('❌ Erreur send-assignment-emails:', error);
-        if (!res.headersSent) {
-            res.status(500).json({ success: false, error: error.message, debugLogs });
-        }
+        if (!res.headersSent) res.status(500).json({ success: false, error: error.message });
     }
 })
 
@@ -6093,13 +5878,13 @@ app.get('/api/ics-files/special-dates/all', requireAuth, async (req, res) => {
         
         customEvents.forEach(e => {
             const config = e.config ? JSON.parse(e.config) : {};
-            // Ajouter le label dans le config pour l'affichage sur le Gantt
             config.label = e.label;
             config.eventId = e.id;
             result.push({
                 date: e.start_date,
                 endDate: e.end_date,
                 summary: e.label,
+                period: e.period || 'FULL',
                 config: config
             });
         });
@@ -6164,26 +5949,22 @@ database.run(`
         console.log('✅ Table custom_events créée ou existante');
     }
     
-    // Migration: ajouter la colonne created_by si elle n'existe pas (toujours vérifier)
+    // Migrations : ajouter les colonnes manquantes si besoin
     database.all("PRAGMA table_info(custom_events)", (pragmaErr, columns) => {
-        if (pragmaErr) {
-            console.error('Erreur PRAGMA custom_events:', pragmaErr);
-            return;
+        if (pragmaErr) { console.error('Erreur PRAGMA custom_events:', pragmaErr); return; }
+        if (!columns) return;
+        const colNames = columns.map(c => c.name);
+        if (!colNames.includes('created_by')) {
+            database.run(`ALTER TABLE custom_events ADD COLUMN created_by INTEGER`, (e) => {
+                if (e) console.error('Erreur migration created_by:', e);
+                else console.log('✅ Migration: created_by ajouté à custom_events');
+            });
         }
-        if (columns) {
-            const createdByCol = columns.find(col => col.name === 'created_by');
-            if (!createdByCol) {
-                console.log('Migration: Ajout colonne created_by à custom_events...');
-                database.run(`ALTER TABLE custom_events ADD COLUMN created_by INTEGER`, (alterErr) => {
-                    if (alterErr) {
-                        console.error('Erreur migration created_by:', alterErr);
-                    } else {
-                        console.log('✅ Migration terminée: created_by ajouté');
-                    }
-                });
-            } else {
-                console.log('✅ Colonne created_by déjà présente');
-            }
+        if (!colNames.includes('period')) {
+            database.run(`ALTER TABLE custom_events ADD COLUMN period TEXT DEFAULT 'FULL'`, (e) => {
+                if (e) console.error('Erreur migration period:', e);
+                else console.log('✅ Migration: period ajouté à custom_events');
+            });
         }
     });
 });
@@ -6349,65 +6130,35 @@ app.get('/api/my-custom-events', requireAuth, async (req, res) => {
 // Ajouter un événement personnalisé (admin via interface admin)
 app.post('/api/custom-events', requireAdmin, async (req, res) => {
     try {
-        const { startDate, endDate, label, config, participants } = req.body;
+        const { startDate, endDate, label, config, participants, period } = req.body;
         const createdBy = req.session.userId;
         
         if (!startDate || !label) {
             return res.status(400).json({ error: 'Date de début et libellé requis' });
         }
-        
-        // Vérifier si la colonne created_by existe
-        const columns = await new Promise((resolve, reject) => {
-            database.all("PRAGMA table_info(custom_events)", (err, cols) => {
-                if (err) reject(err);
-                else resolve(cols || []);
-            });
-        });
-        
-        const hasCreatedBy = columns.some(col => col.name === 'created_by');
+
+        const finalPeriod = (period && startDate === (endDate || startDate)) ? period : 'FULL';
         
         const eventId = await new Promise((resolve, reject) => {
-            if (hasCreatedBy) {
-                database.run(
-                    `INSERT INTO custom_events (label, start_date, end_date, config, created_by) VALUES (?, ?, ?, ?, ?)`,
-                    [label, startDate, endDate || startDate, JSON.stringify(config), createdBy],
-                    function(err) {
-                        if (err) reject(err);
-                        else resolve(this.lastID);
-                    }
-                );
-            } else {
-                database.run(
-                    `INSERT INTO custom_events (label, start_date, end_date, config) VALUES (?, ?, ?, ?)`,
-                    [label, startDate, endDate || startDate, JSON.stringify(config)],
-                    function(err) {
-                        if (err) reject(err);
-                        else resolve(this.lastID);
-                    }
-                );
-            }
+            database.run(
+                `INSERT INTO custom_events (label, start_date, end_date, config, created_by, period) VALUES (?, ?, ?, ?, ?, ?)`,
+                [label, startDate, endDate || startDate, JSON.stringify(config), createdBy, finalPeriod],
+                function(err) { if (err) reject(err); else resolve(this.lastID); }
+            );
         });
         
-        // Sauvegarder les participants
         if (participants && Array.isArray(participants) && participants.length > 0) {
             for (const userId of participants) {
                 try {
                     await new Promise((resolve, reject) => {
-                        database.run(
-                            `INSERT OR IGNORE INTO custom_event_participants (event_id, user_id) VALUES (?, ?)`,
-                            [eventId, userId],
-                            (err) => err ? reject(err) : resolve()
-                        );
+                        database.run(`INSERT OR IGNORE INTO custom_event_participants (event_id, user_id) VALUES (?, ?)`,
+                            [eventId, userId], (err) => err ? reject(err) : resolve());
                     });
-                } catch (e) {
-                    console.error(`❌ Erreur ajout participant ${userId}:`, e.message);
-                }
+                } catch (e) { console.error(`❌ Erreur ajout participant ${userId}:`, e.message); }
             }
-            console.log(`✅ Événement personnalisé ajouté (ID: ${eventId}) avec ${participants.length} participant(s)`);
-        } else {
-            console.log(`✅ Événement personnalisé ajouté (ID: ${eventId})`);
         }
         
+        console.log(`✅ Événement admin ajouté (ID: ${eventId}, period: ${finalPeriod})`);
         res.json({ success: true, eventId });
     } catch (error) {
         console.error('Erreur ajout événement personnalisé:', error);
@@ -6418,43 +6169,23 @@ app.post('/api/custom-events', requireAdmin, async (req, res) => {
 // Ajouter un événement personnalisé (utilisateurs/experts via pop-up planification)
 app.post('/api/my-custom-events', requireAuth, async (req, res) => {
     try {
-        const { startDate, endDate, label, config, participants } = req.body;
+        const { startDate, endDate, label, config, participants, period } = req.body;
         const createdBy = req.session.userId;
         
         if (!startDate || !label) {
             return res.status(400).json({ error: 'Date de début et libellé requis' });
         }
-        
-        // Vérifier si la colonne created_by existe
-        const columns = await new Promise((resolve, reject) => {
-            database.all("PRAGMA table_info(custom_events)", (err, cols) => {
-                if (err) reject(err);
-                else resolve(cols || []);
-            });
-        });
-        
-        const hasCreatedBy = columns.some(col => col.name === 'created_by');
+
+        // period : 'FULL' (journée entière), 'AM' (matin), 'PM' (après-midi)
+        // N'est pertinent que si startDate === endDate
+        const finalPeriod = (period && startDate === (endDate || startDate)) ? period : 'FULL';
         
         const eventId = await new Promise((resolve, reject) => {
-            if (hasCreatedBy) {
-                database.run(
-                    `INSERT INTO custom_events (label, start_date, end_date, config, created_by) VALUES (?, ?, ?, ?, ?)`,
-                    [label, startDate, endDate || startDate, JSON.stringify(config), createdBy],
-                    function(err) {
-                        if (err) reject(err);
-                        else resolve(this.lastID);
-                    }
-                );
-            } else {
-                database.run(
-                    `INSERT INTO custom_events (label, start_date, end_date, config) VALUES (?, ?, ?, ?)`,
-                    [label, startDate, endDate || startDate, JSON.stringify(config)],
-                    function(err) {
-                        if (err) reject(err);
-                        else resolve(this.lastID);
-                    }
-                );
-            }
+            database.run(
+                `INSERT INTO custom_events (label, start_date, end_date, config, created_by, period) VALUES (?, ?, ?, ?, ?, ?)`,
+                [label, startDate, endDate || startDate, JSON.stringify(config), createdBy, finalPeriod],
+                function(err) { if (err) reject(err); else resolve(this.lastID); }
+            );
         });
         
         // Sauvegarder les participants
@@ -6474,17 +6205,16 @@ app.post('/api/my-custom-events', requireAuth, async (req, res) => {
             }
         }
         
-        // Envoyer notification Teams
         sendTeamsNotificationFromServer('evenement', {
             name: label,
             date: `${formatDateFR(startDate)}${endDate && endDate !== startDate ? ' au ' + formatDateFR(endDate) : ''}`,
             createdBy: `${req.session.prenom} ${req.session.nom}`
         });
         
-        console.log(`✅ Mon événement personnalisé ajouté (ID: ${eventId}, ${participants?.length || 0} participant(s))`);
+        console.log(`✅ Événement personnalisé ajouté (ID: ${eventId}, period: ${finalPeriod}, ${participants?.length || 0} participant(s))`);
         res.json({ success: true, eventId });
     } catch (error) {
-        console.error('Erreur ajout mon événement personnalisé:', error);
+        console.error('Erreur ajout événement personnalisé:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -6493,27 +6223,28 @@ app.post('/api/my-custom-events', requireAuth, async (req, res) => {
 app.put('/api/custom-events/:id', requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
-        const { startDate, endDate, label, config, createdBy, participants } = req.body;
-        
+        const { startDate, endDate, label, config, createdBy, participants, period } = req.body;
+
+        const finalPeriod = (period && startDate === (endDate || startDate)) ? period : 'FULL';
+
         if (createdBy !== undefined) {
             await new Promise((resolve, reject) => {
                 database.run(
-                    `UPDATE custom_events SET label = ?, start_date = ?, end_date = ?, config = ?, created_by = ? WHERE id = ?`,
-                    [label, startDate, endDate || startDate, JSON.stringify(config), createdBy, id],
+                    `UPDATE custom_events SET label = ?, start_date = ?, end_date = ?, config = ?, created_by = ?, period = ? WHERE id = ?`,
+                    [label, startDate, endDate || startDate, JSON.stringify(config), createdBy, finalPeriod, id],
                     (err) => err ? reject(err) : resolve()
                 );
             });
         } else {
             await new Promise((resolve, reject) => {
                 database.run(
-                    `UPDATE custom_events SET label = ?, start_date = ?, end_date = ?, config = ? WHERE id = ?`,
-                    [label, startDate, endDate || startDate, JSON.stringify(config), id],
+                    `UPDATE custom_events SET label = ?, start_date = ?, end_date = ?, config = ?, period = ? WHERE id = ?`,
+                    [label, startDate, endDate || startDate, JSON.stringify(config), finalPeriod, id],
                     (err) => err ? reject(err) : resolve()
                 );
             });
         }
         
-        // Mettre à jour les participants
         if (participants !== undefined) {
             await new Promise((resolve, reject) => {
                 database.run(`DELETE FROM custom_event_participants WHERE event_id = ?`, [id],
@@ -6542,42 +6273,36 @@ app.put('/api/custom-events/:id', requireAdmin, async (req, res) => {
 app.put('/api/my-custom-events/:id', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
-        const { startDate, endDate, label, config, participants } = req.body;
+        const { startDate, endDate, label, config, participants, period } = req.body;
         const userId = req.session.userId;
         const isAdmin = req.session.activeProfile === 'admin';
         
-        // Vérifier que l'événement appartient à l'utilisateur (sauf admin)
         if (!isAdmin) {
             const event = await new Promise((resolve, reject) => {
                 database.get(`SELECT created_by FROM custom_events WHERE id = ?`, [id], (err, row) => {
-                    if (err) reject(err);
-                    else resolve(row);
+                    if (err) reject(err); else resolve(row);
                 });
             });
-            
             if (!event || event.created_by !== userId) {
                 return res.status(403).json({ error: 'Vous ne pouvez modifier que vos propres événements' });
             }
         }
+
+        const finalPeriod = (period && startDate === (endDate || startDate)) ? period : 'FULL';
         
         await new Promise((resolve, reject) => {
             database.run(
-                `UPDATE custom_events SET label = ?, start_date = ?, end_date = ?, config = ? WHERE id = ?`,
-                [label, startDate, endDate || startDate, JSON.stringify(config), id],
-                (err) => {
-                    if (err) reject(err);
-                    else resolve();
-                }
+                `UPDATE custom_events SET label = ?, start_date = ?, end_date = ?, config = ?, period = ? WHERE id = ?`,
+                [label, startDate, endDate || startDate, JSON.stringify(config), finalPeriod, id],
+                (err) => { if (err) reject(err); else resolve(); }
             );
         });
         
-        // Mettre à jour les participants (supprimer puis ré-insérer)
         if (participants !== undefined) {
             await new Promise((resolve, reject) => {
                 database.run(`DELETE FROM custom_event_participants WHERE event_id = ?`, [id],
                     (err) => err ? reject(err) : resolve());
             });
-            
             if (Array.isArray(participants)) {
                 for (const uid of participants) {
                     try {
@@ -6966,122 +6691,59 @@ app.post('/api/send-assignment-notifications', requireAuth, async (req, res) => 
 
 // ========== DEMANDE D'AFFECTATION PAR EMAIL ==========
 app.post('/api/request-assignment', requireAuth, async (req, res) => {
-    const debugMode = req.body.debug === true;
-    const debugLogs = [];
-    
-    const addLog = (type, message) => {
-        const timestamp = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 });
-        debugLogs.push({ type, message, timestamp });
-        console.log(`[${type}] ${message}`);
-    };
-
     try {
         const { fromName, fromEmail, expertIds, subject, startDate, startPeriod, endDate, endPeriod, message } = req.body;
 
-        addLog('info', '📧 Demande d\'affectation reçue');
-        addLog('info', `   Expéditeur: ${fromName} <${fromEmail}>`);
-        addLog('info', `   Expert IDs: ${JSON.stringify(expertIds)}`);
-
         if (!expertIds || expertIds.length === 0) {
-            addLog('error', '❌ Aucun expert sélectionné');
-            return res.status(400).json({ success: false, error: 'Aucun expert sélectionné', debugLogs });
+            return res.status(400).json({ success: false, error: 'Aucun expert sélectionné' });
         }
-
         if (!fromEmail) {
-            addLog('error', '❌ Email expéditeur manquant');
-            return res.status(400).json({ success: false, error: 'Email de l\'expéditeur manquant', debugLogs });
+            return res.status(400).json({ success: false, error: 'Email de l\'expéditeur manquant' });
         }
 
-        // Récupérer les informations des experts
-        addLog('db', '🔍 Requête DB: Recherche des experts...');
-        const dbStartTime = Date.now();
-        
         const placeholders = expertIds.map(() => '?').join(',');
         const experts = await new Promise((resolve, reject) => {
             database.all(
-                `SELECT 
-                    r.id, 
-                    r.nom, 
-                    r.prenom, 
-                    u.email
+                `SELECT r.id, r.nom, r.prenom, u.email
                 FROM resources r
                 LEFT JOIN users u ON u.resource_id = r.id
                 WHERE r.id IN (${placeholders}) AND r.actif = 1`,
                 expertIds,
-                (err, rows) => {
-                    if (err) reject(err);
-                    else resolve(rows || []);
-                }
+                (err, rows) => { if (err) reject(err); else resolve(rows || []); }
             );
-        });
-        
-        addLog('db', `✅ Requête DB terminée en ${Date.now() - dbStartTime}ms`);
-        addLog('db', `   Experts trouvés: ${experts.length}`);
-        experts.forEach(e => {
-            addLog('db', `   - ${e.prenom} ${e.nom}: ${e.email || '(pas d\'email)'}`);
         });
 
         if (experts.length === 0) {
-            addLog('error', '❌ Aucun expert trouvé dans la base');
-            return res.status(404).json({ success: false, error: 'Aucun expert trouvé', debugLogs });
+            return res.status(404).json({ success: false, error: 'Aucun expert trouvé' });
         }
 
         const expertsWithEmail = experts.filter(e => e.email && e.email.trim() !== '');
-        const expertsWithoutEmail = experts.filter(e => !e.email || e.email.trim() === '');
-
-        if (expertsWithoutEmail.length > 0) {
-            addLog('warning', `⚠️ ${expertsWithoutEmail.length} expert(s) sans email: ${expertsWithoutEmail.map(e => `${e.prenom} ${e.nom}`).join(', ')}`);
-        }
-
         if (expertsWithEmail.length === 0) {
-            addLog('error', '❌ Aucun expert avec email configuré');
-            return res.status(400).json({ 
-                success: false, 
-                error: 'Aucun des experts sélectionnés n\'a d\'adresse email configurée.',
-                debugLogs
-            });
+            return res.status(400).json({ success: false, error: 'Aucun des experts sélectionnés n\'a d\'adresse email configurée.' });
         }
 
-        // Vérifier le transporteur email
-        addLog('email', '📧 Vérification configuration SMTP...');
-        addLog('email', `   Host: ${emailConfig.host}`);
-        addLog('email', `   Port: ${emailConfig.port}`);
-        addLog('email', `   Secure: ${emailConfig.secure}`);
-        addLog('email', `   User: ${emailConfig.user}`);
-        
         const transporter = createEmailTransporter();
-        
         if (!transporter) {
-            addLog('error', '❌ Transporteur email non configuré');
-            return res.status(500).json({ 
-                success: false, 
-                error: 'Configuration email non disponible.',
-                debugLogs
-            });
+            return res.status(500).json({ success: false, error: 'Configuration email non disponible.' });
         }
-        
-        addLog('email', '✅ Transporteur email créé');
 
-        // Formater les dates
         const formatDate = (dateStr) => {
             const date = new Date(dateStr + 'T00:00:00');
             return date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
         };
         const startDateFormatted = `${formatDate(startDate)} - ${startPeriod}`;
-        const endDateFormatted = `${formatDate(endDate)} - ${endPeriod}`;
+        const endDateFormatted   = `${formatDate(endDate)} - ${endPeriod}`;
 
-        // En mode debug, on attend l'envoi des emails pour retourner les logs complets
-        if (debugMode) {
-            addLog('email', '📤 Début envoi des emails (mode synchrone pour debug)...');
-            
-            const emailResults = [];
-            
-            for (const expert of expertsWithEmail) {
+        // Réponse immédiate, envoi en arrière-plan
+        res.json({
+            success: true,
+            message: `Demande envoyée à ${expertsWithEmail.length} expert(s)`,
+            emails: expertsWithEmail.map(e => e.email)
+        });
+
+        process.nextTick(() => {
+            expertsWithEmail.forEach(expert => {
                 const personalizedMessage = message.replace(/\[Prénom de l'utilisateur\]/g, expert.prenom);
-                
-                addLog('email', `📧 Envoi à ${expert.email} (${expert.prenom} ${expert.nom})...`);
-                const emailStartTime = Date.now();
-
                 const mailOptions = {
                     from: `"SI-SAMU Planning" <${emailConfig.user}>`,
                     replyTo: fromEmail,
@@ -7090,141 +6752,37 @@ app.post('/api/request-assignment', requireAuth, async (req, res) => {
                     html: `
                         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
                             <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                                <h2 style="color: #1D70B7; border-bottom: 2px solid #1D70B7; padding-bottom: 10px;">
-                                    Demande d'affectation
-                                </h2>
+                                <h2 style="color: #1D70B7; border-bottom: 2px solid #1D70B7; padding-bottom: 10px;">Demande d'affectation</h2>
                                 <div style="margin: 20px 0; padding: 15px; background-color: #e3f2fd; border-left: 4px solid #2196f3; border-radius: 4px;">
                                     <p style="margin: 5px 0;"><strong>De:</strong> ${fromName} (${fromEmail})</p>
                                     <p style="margin: 5px 0;"><strong>Début:</strong> ${startDateFormatted}</p>
                                     <p style="margin: 5px 0;"><strong>Fin:</strong> ${endDateFormatted}</p>
                                 </div>
                                 <div style="margin: 20px 0; padding: 15px; background-color: #f9f9f9; border-radius: 4px; line-height: 1.8;">
-                                    ${personalizedMessage.split('\n').map(line => 
+                                    ${personalizedMessage.split('\n').map(line =>
                                         line.trim() === '' ? '<br>' : `<p style="margin: 0 0 10px 0;">${line}</p>`
                                     ).join('')}
                                 </div>
                                 <div style="text-align: center; margin: 25px 0;">
-                                    <a href="mailto:${fromEmail}?subject=${encodeURIComponent('Re: ' + subject)}" 
+                                    <a href="mailto:${fromEmail}?subject=${encodeURIComponent('Re: ' + subject)}"
                                        style="display: inline-block; padding: 12px 30px; background-color: #27ae60; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">
                                         📧 Répondre à ${fromName}
                                     </a>
                                 </div>
                                 <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
-                                <p style="color: #7f8c8d; font-size: 12px; text-align: center; margin: 0;">
-                                    Système SI-SAMU de planification des ressources
-                                </p>
+                                <p style="color: #7f8c8d; font-size: 12px; text-align: center; margin: 0;">Système SI-SAMU de planification des ressources</p>
                             </div>
-                        </div>
-                    `
+                        </div>`
                 };
-
-                try {
-                    const info = await transporter.sendMail(mailOptions);
-                    const duration = Date.now() - emailStartTime;
-                    addLog('success', `   ✅ Envoyé en ${duration}ms - MessageId: ${info.messageId}`);
-                    addLog('success', `   Response: ${info.response || 'OK'}`);
-                    emailResults.push({ email: expert.email, success: true });
-                } catch (emailError) {
-                    const duration = Date.now() - emailStartTime;
-                    addLog('error', `   ❌ Échec après ${duration}ms`);
-                    addLog('error', `   Erreur: ${emailError.message}`);
-                    if (emailError.code) addLog('error', `   Code: ${emailError.code}`);
-                    if (emailError.command) addLog('error', `   Command: ${emailError.command}`);
-                    emailResults.push({ email: expert.email, success: false, error: emailError.message });
-                }
-            }
-
-            const successfulEmails = emailResults.filter(r => r.success).map(r => r.email);
-            const failedEmails = emailResults.filter(r => !r.success);
-
-            addLog('info', '─'.repeat(50));
-            addLog('info', `📊 RÉSUMÉ: ${successfulEmails.length}/${emailResults.length} emails envoyés`);
-            
-            if (failedEmails.length > 0) {
-                addLog('warning', `⚠️ Échecs: ${failedEmails.map(f => f.email).join(', ')}`);
-            }
-
-            if (successfulEmails.length > 0) {
-                return res.json({
-                    success: true,
-                    message: `${successfulEmails.length} email(s) envoyé(s) avec succès`,
-                    emails: successfulEmails,
-                    debugLogs
-                });
-            } else {
-                return res.json({
-                    success: false,
-                    error: 'Aucun email n\'a pu être envoyé',
-                    debugLogs
-                });
-            }
-        } else {
-            // Mode normal : réponse immédiate, envoi en arrière-plan
-            let responseMessage = `Demande envoyée à ${expertsWithEmail.length} expert(s)`;
-            if (expertsWithoutEmail.length > 0) {
-                responseMessage += ` (${expertsWithoutEmail.length} sans email)`;
-            }
-            
-            res.json({
-                success: true,
-                message: responseMessage,
-                emails: expertsWithEmail.map(e => e.email)
+                transporter.sendMail(mailOptions)
+                    .then(() => console.log(`✅ Email envoyé à ${expert.email}`))
+                    .catch(err => console.error(`❌ Erreur email ${expert.email}:`, err.message));
             });
-
-            // Envoi en arrière-plan
-            process.nextTick(() => {
-                expertsWithEmail.forEach(expert => {
-                    const personalizedMessage = message.replace(/\[Prénom de l'utilisateur\]/g, expert.prenom);
-
-                    const mailOptions = {
-                        from: `"SI-SAMU Planning" <${emailConfig.user}>`,
-                        replyTo: fromEmail,
-                        to: expert.email,
-                        subject: subject,
-                        html: `
-                            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
-                                <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                                    <h2 style="color: #1D70B7; border-bottom: 2px solid #1D70B7; padding-bottom: 10px;">
-                                        Demande d'affectation
-                                    </h2>
-                                    <div style="margin: 20px 0; padding: 15px; background-color: #e3f2fd; border-left: 4px solid #2196f3; border-radius: 4px;">
-                                        <p style="margin: 5px 0;"><strong>De:</strong> ${fromName} (${fromEmail})</p>
-                                        <p style="margin: 5px 0;"><strong>Début:</strong> ${startDateFormatted}</p>
-                                        <p style="margin: 5px 0;"><strong>Fin:</strong> ${endDateFormatted}</p>
-                                    </div>
-                                    <div style="margin: 20px 0; padding: 15px; background-color: #f9f9f9; border-radius: 4px; line-height: 1.8;">
-                                        ${personalizedMessage.split('\n').map(line => 
-                                            line.trim() === '' ? '<br>' : `<p style="margin: 0 0 10px 0;">${line}</p>`
-                                        ).join('')}
-                                    </div>
-                                    <div style="text-align: center; margin: 25px 0;">
-                                        <a href="mailto:${fromEmail}?subject=${encodeURIComponent('Re: ' + subject)}" 
-                                           style="display: inline-block; padding: 12px 30px; background-color: #27ae60; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">
-                                            📧 Répondre à ${fromName}
-                                        </a>
-                                    </div>
-                                    <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
-                                    <p style="color: #7f8c8d; font-size: 12px; text-align: center; margin: 0;">
-                                        Système SI-SAMU de planification des ressources
-                                    </p>
-                                </div>
-                            </div>
-                        `
-                    };
-
-                    transporter.sendMail(mailOptions)
-                        .then(() => console.log(`✅ Email envoyé à ${expert.email}`))
-                        .catch(err => console.error(`❌ Erreur email ${expert.email}:`, err.message));
-                });
-            });
-        }
+        });
 
     } catch (error) {
         console.error('❌ Erreur demande d\'affectation:', error);
-        const errorLog = { type: 'error', message: `❌ EXCEPTION: ${error.message}`, timestamp: new Date().toLocaleTimeString('fr-FR') };
-        if (!res.headersSent) {
-            res.status(500).json({ success: false, error: error.message, debugLogs: [...(debugMode ? debugLogs : []), errorLog] });
-        }
+        if (!res.headersSent) res.status(500).json({ success: false, error: error.message });
     }
 });
 
@@ -8887,9 +8445,9 @@ async function runAutomation2() {
     console.log('⏰ [CRON] Vérification automatisation n°2...');
     
     try {
-        // Récupérer la configuration
+        // Récupérer la configuration (via dbRead pour ne pas bloquer les writes)
         const configRow = await new Promise((resolve, reject) => {
-            database.get(
+            dbRead.get(
                 `SELECT value FROM settings WHERE key = 'automation_2_config'`,
                 (err, row) => {
                     if (err) reject(err);
@@ -8948,37 +8506,37 @@ async function runAutomation2() {
         
         if (config.groupAdmin) {
             const admins = await new Promise((resolve, reject) => {
-                database.all(`SELECT email FROM users WHERE is_admin = 1 AND actif = 1 AND email IS NOT NULL AND email != ''`, (err, rows) => {
+                dbRead.all(`SELECT email FROM users WHERE is_admin = 1 AND actif = 1 AND email IS NOT NULL AND email != ''`, (err, rows) => {
                     if (err) reject(err);
                     else resolve(rows || []);
                 });
             });
             admins.forEach(u => { if (!recipientEmails.includes(u.email)) recipientEmails.push(u.email); });
         }
-        
+
         if (config.groupUser) {
             const usersData = await new Promise((resolve, reject) => {
-                database.all(`SELECT email FROM users WHERE is_user = 1 AND actif = 1 AND email IS NOT NULL AND email != ''`, (err, rows) => {
+                dbRead.all(`SELECT email FROM users WHERE is_user = 1 AND actif = 1 AND email IS NOT NULL AND email != ''`, (err, rows) => {
                     if (err) reject(err);
                     else resolve(rows || []);
                 });
             });
             usersData.forEach(u => { if (!recipientEmails.includes(u.email)) recipientEmails.push(u.email); });
         }
-        
+
         if (config.groupExpert) {
             const expertsUsers = await new Promise((resolve, reject) => {
-                database.all(`SELECT email FROM users WHERE is_expert = 1 AND actif = 1 AND email IS NOT NULL AND email != ''`, (err, rows) => {
+                dbRead.all(`SELECT email FROM users WHERE is_expert = 1 AND actif = 1 AND email IS NOT NULL AND email != ''`, (err, rows) => {
                     if (err) reject(err);
                     else resolve(rows || []);
                 });
             });
             expertsUsers.forEach(u => { if (!recipientEmails.includes(u.email)) recipientEmails.push(u.email); });
         }
-        
+
         if (config.recipients && config.recipients.length > 0) {
             const individualUsers = await new Promise((resolve, reject) => {
-                database.all(`SELECT email FROM users WHERE id IN (${config.recipients.join(',')}) AND email IS NOT NULL AND email != ''`, (err, rows) => {
+                dbRead.all(`SELECT email FROM users WHERE id IN (${config.recipients.join(',')}) AND email IS NOT NULL AND email != ''`, (err, rows) => {
                     if (err) reject(err);
                     else resolve(rows || []);
                 });
@@ -8995,14 +8553,14 @@ async function runAutomation2() {
         let resourcesList = [];
         if (config.allExperts !== false) { // Par défaut tous les experts
             resourcesList = await new Promise((resolve, reject) => {
-                database.all(`SELECT * FROM resources ORDER BY nom, prenom`, (err, rows) => {
+                dbRead.all(`SELECT * FROM resources ORDER BY nom, prenom`, (err, rows) => {
                     if (err) reject(err);
                     else resolve(rows || []);
                 });
             });
         } else if (config.expertsList && config.expertsList.length > 0) {
             resourcesList = await new Promise((resolve, reject) => {
-                database.all(`SELECT * FROM resources WHERE id IN (${config.expertsList.join(',')}) ORDER BY nom, prenom`, (err, rows) => {
+                dbRead.all(`SELECT * FROM resources WHERE id IN (${config.expertsList.join(',')}) ORDER BY nom, prenom`, (err, rows) => {
                     if (err) reject(err);
                     else resolve(rows || []);
                 });
@@ -9017,11 +8575,11 @@ async function runAutomation2() {
         let selectedMonthsList = [];
         
         if (config.allMonths) {
-            // Récupérer tous les mois disponibles depuis la base
+            // Récupérer tous les mois disponibles depuis la base (via dbRead)
             const availableMonths = await new Promise((resolve, reject) => {
-                database.all(`
+                dbRead.all(`
                     SELECT DISTINCT substr(date_key, 1, 7) as month
-                    FROM schedule_data 
+                    FROM schedule_data
                     WHERE (type = 'available' AND value != '1')
                        OR (type = 'activity' AND value != '1')
                 `, (err, rows) => {
@@ -9073,7 +8631,7 @@ async function runAutomation2() {
         const likeConditions = allPatterns.map(() => `date_key LIKE ?`).join(' OR ');
         
         const scheduleData = await new Promise((resolve, reject) => {
-            database.all(
+            dbRead.all(
                 `SELECT * FROM schedule_data WHERE ${likeConditions} ORDER BY resource_id, date_key`,
                 allPatterns,
                 (err, rows) => {
@@ -9161,7 +8719,7 @@ async function runAutomation2() {
         // Récupérer les noms des destinataires individuels
         if (config.recipients && config.recipients.length > 0) {
             const individualUsers = await new Promise((resolve, reject) => {
-                database.all(`SELECT nom, prenom FROM users WHERE id IN (${config.recipients.join(',')})`, (err, rows) => {
+                dbRead.all(`SELECT nom, prenom FROM users WHERE id IN (${config.recipients.join(',')})`, (err, rows) => {
                     if (err) reject(err);
                     else resolve(rows || []);
                 });
