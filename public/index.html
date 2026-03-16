@@ -6233,18 +6233,24 @@
                 modal.classList.remove('active');
             });
             
-            // Fermer également les modals qui utilisent display au lieu de classe active
+            // Fermer tous les éléments qui utilisent display:block/flex (modales sans classe .modal)
             document.querySelectorAll('.modal').forEach(modal => {
                 if (modal.style.display === 'block' || modal.style.display === 'flex') {
                     modal.style.display = 'none';
                 }
             });
             
-            // Fermer les modals spécifiques par ID
+            // Fermer toutes les modales connues par ID (y compris celles sans classe .modal)
             const modalIds = [
                 'editModal', 'localisationModal', 'samuModal', 'localisationConfirmModal',
                 'deplacementsModal', 'logoutConfirmModal', 'myEventsModal', 'astreintesModal',
-                'requestModal', 'monthlyCalendarModal', 'diagnosticModal', 'localisationsManagementModal'
+                'requestModal', 'monthlyCalendarModal', 'diagnosticModal', 'localisationsManagementModal',
+                // Modales sans classe .modal
+                'sendEmailModalContainer', 'myEventsModalContainer', 'editCustomEventModal',
+                'confirmationModal', 'notificationsModal', 'searchModal',
+                'planificationLogoutModal', 'deplacementsLogoutModal',
+                'mfaModal', 'totpSetupModal', 'totpVerifyModal',
+                'debugLogsModal', 'editSpecialDatesModal'
             ];
             
             modalIds.forEach(id => {
@@ -6253,6 +6259,12 @@
                     modal.classList.remove('active');
                     modal.style.display = 'none';
                 }
+            });
+
+            // Fermer tous les toasts flottants
+            ['batchDoneToast', 'emailProgressToast'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.remove();
             });
             
             console.log('🔒 Tous les modals fermés');
@@ -8162,6 +8174,32 @@
                     </td>`;
                 
                 // Cellules pour chaque demi-journée
+                // buildHalfDayContent est déclarée ici (hors boucle) pour éviter la redéclaration à chaque itération
+                const buildHalfDayContent = (halfPeriod, specialDates, inZoneA, inZoneB, inZoneC) => {
+                    let content = '<div style="display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch; height: 100%; gap: 1px; padding-top: 2px;">';
+                    let hasContent = false;
+                    if (inZoneA || inZoneB || inZoneC) {
+                        hasContent = true;
+                        if (inZoneA) content += '<div style="width: 100%; height: 4px; background-color: #e91e63; cursor: help;" title="Zone A"></div>';
+                        if (inZoneB) content += '<div style="width: 100%; height: 4px; background-color: #2196f3; cursor: help;" title="Zone B"></div>';
+                        if (inZoneC) content += '<div style="width: 100%; height: 4px; background-color: #ff9800; cursor: help;" title="Zone C"></div>';
+                    }
+                    if (specialDates.length > 0) {
+                        for (const sd of specialDates) {
+                            if (!sd.config) continue;
+                            const evtPeriod = sd.period || 'FULL';
+                            if (evtPeriod !== 'FULL' && evtPeriod !== halfPeriod) continue;
+                            hasContent = true;
+                            const cfg = sd.config;
+                            const displayLabel = cfg.label || sd.summary || 'JF';
+                            const participantsInfo = cfg.participants && cfg.participants.length > 0 ? ` | 👥 ${cfg.participants.join(', ')}` : '';
+                            content += `<span title="${displayLabel}${participantsInfo}" style="display: inline-block; padding: 1px 3px; border-radius: 6px; font-size: 8px; font-weight: bold; cursor: help; align-self: center; background-color: ${cfg.bgColor || '#ffeb3b'}; color: ${cfg.textColor || '#000'}; border: 1px solid ${cfg.borderColor || '#fbc02d'}; margin-bottom: 1px;">${displayLabel}</span>`;
+                        }
+                    }
+                    content += '</div>';
+                    return hasContent ? content : '';
+                };
+
                 for (let day = 1; day <= lastDay; day++) {
                     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                     const date = new Date(year, month, day);
@@ -8175,35 +8213,8 @@
                     // Vérifier les dates particulières - récupérer TOUS les événements
                     const allSpecialDates = getAllSpecialDateInfo(dateStr);
 
-                    // Construire le contenu d'une demi-journée (period = 'AM' ou 'PM')
-                    function buildHalfDayContent(halfPeriod) {
-                        let content = '<div style="display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch; height: 100%; gap: 1px; padding-top: 2px;">';
-                        let hasContent = false;
-                        if (inZoneA || inZoneB || inZoneC) {
-                            hasContent = true;
-                            if (inZoneA) content += '<div style="width: 100%; height: 4px; background-color: #e91e63; cursor: help;" title="Zone A"></div>';
-                            if (inZoneB) content += '<div style="width: 100%; height: 4px; background-color: #2196f3; cursor: help;" title="Zone B"></div>';
-                            if (inZoneC) content += '<div style="width: 100%; height: 4px; background-color: #ff9800; cursor: help;" title="Zone C"></div>';
-                        }
-                        if (allSpecialDates.length > 0) {
-                            for (const sd of allSpecialDates) {
-                                if (!sd.config) continue;
-                                // Filtrer par period : FULL s'affiche partout, AM uniquement matin, PM uniquement après-midi
-                                const evtPeriod = sd.period || 'FULL';
-                                if (evtPeriod !== 'FULL' && evtPeriod !== halfPeriod) continue;
-                                hasContent = true;
-                                const cfg = sd.config;
-                                const displayLabel = cfg.label || sd.summary || 'JF';
-                                const participantsInfo = cfg.participants && cfg.participants.length > 0 ? `\n👥 ${cfg.participants.join(', ')}` : '';
-                                content += `<span title="${displayLabel}${participantsInfo}" style="display: inline-block; padding: 1px 3px; border-radius: 6px; font-size: 8px; font-weight: bold; cursor: help; align-self: center; background-color: ${cfg.bgColor || '#ffeb3b'}; color: ${cfg.textColor || '#000'}; border: 1px solid ${cfg.borderColor || '#fbc02d'}; margin-bottom: 1px;">${displayLabel}</span>`;
-                            }
-                        }
-                        content += '</div>';
-                        return hasContent ? content : '';
-                    }
-                    
-                    const cellContentAM = buildHalfDayContent('AM');
-                    const cellContentPM = buildHalfDayContent('PM');
+                    const cellContentAM = buildHalfDayContent('AM', allSpecialDates, inZoneA, inZoneB, inZoneC);
+                    const cellContentPM = buildHalfDayContent('PM', allSpecialDates, inZoneA, inZoneB, inZoneC);
                     
                     const bgColor = isWeekend ? '#e8e8e8' : '#f5f5f5';
                     
