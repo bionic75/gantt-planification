@@ -538,7 +538,12 @@
             <div id="syncStatus" class="sync-status" style="display:none;">Données synchronisées</div>
             
             <div class="form-section">
-                <h3>Ajouter une nouvelle ressource</h3>
+                <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="togglePlanningSection('addResourceSection')">
+                    <h3 style="border-left: none; margin: 0;">
+                        <span id="addResourceSectionIcon">▶</span> Ajouter une nouvelle ressource
+                    </h3>
+                </div>
+                <div id="addResourceSection" style="display: none; margin-top: 15px;">
                 <div class="form-row">
                     <div class="form-group"><label>Nom *</label><input type="text" id="nom" placeholder="Nom"></div>
                     <div class="form-group"><label>Prénom *</label><input type="text" id="prenom" placeholder="Prénom"></div>
@@ -555,6 +560,7 @@
                     <button onclick="addResource()">Ajouter la ressource</button>
                     <button class="export-btn" onclick="exportResourcesToExcel()">Exporter (Excel)</button>
                 </div>
+                </div><!-- /addResourceSection -->
             </div>
             
             <div class="table-container">
@@ -690,7 +696,7 @@
                             <span id="ganttDisplaySectionIcon">▼</span> Planification
                         </h3>
                         <!-- Boutons de zoom à droite - Design stylisé -->
-                        <div onclick="event.stopPropagation();" style="display: flex; gap: 0; align-items: center; background: linear-gradient(145deg, #f0f4f8, #e2e8f0); border-radius: 8px; padding: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <div id="ganttHeaderControls" onclick="event.stopPropagation();" style="display: flex; gap: 0; align-items: center; background: linear-gradient(145deg, #f0f4f8, #e2e8f0); border-radius: 8px; padding: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                             <span style="font-size: 11px; color: #64748b; margin: 0 10px; font-weight: 500;">🔍 Zoom</span>
                             <button onclick="event.stopPropagation(); zoomPlanning(-1);" 
                                     style="width: 36px; height: 36px; background: linear-gradient(145deg, #3b82f6, #1d4ed8); color: white; border: none; border-radius: 6px 0 0 6px; cursor: pointer; font-size: 18px; font-weight: bold; display: flex; align-items: center; justify-content: center; transition: all 0.2s; box-shadow: inset 0 1px 0 rgba(255,255,255,0.2);" 
@@ -716,7 +722,7 @@
                             </button>
                         </div>
                     </div>
-                    <div style="display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap;">
+                    <div id="ganttHeaderButtons" style="display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap;">
                         <button onclick="event.stopPropagation(); navigateMonth(-1);" 
                                 style="padding: 8px 15px; height: 38px; background-color: #1565c0; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; display: flex; align-items: center;" 
                                 title="Mois précédent">
@@ -735,18 +741,18 @@
                         <button onclick="event.stopPropagation(); openMyEventsModal();" 
                                 style="padding: 8px 15px; height: 38px; background-color: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; display: flex; align-items: center;" 
                                 title="Gérer mes événements personnalisés">
-                            ✏️ Gérer mes événements
+                            Gérer mes événements
                         </button>
                         <button onclick="event.stopPropagation(); openEventsCalendarModal();" 
                                 style="padding: 8px 15px; height: 38px; background-color: #00bcd4; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; display: flex; align-items: center;" 
                                 title="Visualiser les congés et événements">
-                            📆 Visualiser les événements
+                            Visualiser les événements
                         </button>
                         </button>
                         <button id="astreintesBtn" onclick="event.stopPropagation(); openAstreintesModal();" 
                                 style="padding: 8px 15px; height: 38px; background-color: #9c27b0; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; display: none; align-items: center;" 
                                 title="Gérer les astreintes et HNO">
-                            🕐 <span id="astreintesBtnText">Gérer mes astreintes/HNO</span>
+                            <span id="astreintesBtnText">Gérer mes astreintes/HNO</span>
                         </button>
                         <button id="requestBtn" onclick="event.stopPropagation(); openRequestModal();" 
                                 style="padding: 8px 15px; height: 38px; background-color: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; display: none; align-items: center;" 
@@ -768,14 +774,14 @@
         
         <!-- ONGLET REPORTING -->
         <div id="reporting" class="tab-content">
-            <h2>📊 Reporting</h2>
+            <h2>Reporting</h2>
             
             <!-- Section Suivi des disponibilités / affectations -->
             <div class="form-section" style="background-color: #e8f5e9; border-left: 4px solid #4caf50;">
                 <div style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 0;" onclick="toggleReportingSection('reportingDispoBody', 'reportingDispoIcon')">
                     <span id="reportingDispoIcon" style="font-size: 13px; color: #2e7d32; transition: transform 0.2s;">▶</span>
                     <h3 style="color: #2e7d32; border-left: none; margin: 0;">
-                        📈 Suivi des disponibilités / Suivi des affectations
+                        Suivi des disponibilités / Suivi des affectations
                     </h3>
                 </div>
                 <div id="reportingDispoBody" style="display: none; margin-top: 15px;">
@@ -921,7 +927,7 @@
                 <div style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 0;" onclick="toggleReportingSection('reportingHnoBody', 'reportingHnoIcon')">
                     <span id="reportingHnoIcon" style="font-size: 13px; color: #7b1fa2; transition: transform 0.2s;">▶</span>
                     <h3 style="color: #7b1fa2; border-left: none; margin: 0;">
-                        📈 Suivi des HNO / Astreintes
+                        Suivi des HNO / Astreintes
                     </h3>
                 </div>
                 <div id="reportingHnoBody" style="display: none; margin-top: 15px;">
@@ -1038,7 +1044,7 @@
                 <div style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 0;" onclick="toggleReportingSection('reportingEventsBody', 'reportingEventsIcon')">
                     <span id="reportingEventsIcon" style="font-size: 13px; color: #1565c0; transition: transform 0.2s;">▶</span>
                     <h3 style="color: #1565c0; border-left: none; margin: 0;">
-                        📈 Suivi des événements
+                        Suivi des événements
                     </h3>
                 </div>
                 <div id="reportingEventsBody" style="display: none; margin-top: 15px;">
@@ -1399,7 +1405,7 @@
     <div class="form-section" style="background-color: #e8f5e9; border-left: 4px solid #4caf50;">
         <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleAdminSection('mfaSection')">
             <h3 style="color: #2e7d32; border-left: none; margin: 0;">
-                <span id="mfaSectionIcon">▶</span> 🔐 Authentification à deux facteurs (MFA)
+                <span id="mfaSectionIcon">▶</span> Authentification à deux facteurs (MFA)
             </h3>
         </div>
         <div id="mfaSection" style="margin-top: 15px; display: none;">
@@ -3687,11 +3693,11 @@
             const expertSelectDiv = document.getElementById('astreintesExpertSelect');
             
             if (currentUser.activeProfile === 'admin') {
-                title.textContent = '🕐 Gérer les astreintes/HNO';
+                title.textContent = 'Gérer les astreintes/HNO';
                 expertSelectDiv.style.display = 'block';
                 await loadExpertsForAstreintes();
             } else {
-                title.textContent = '🕐 Gérer mes astreintes/HNO';
+                title.textContent = 'Gérer mes astreintes/HNO';
                 expertSelectDiv.style.display = 'none';
             }
             
@@ -3922,6 +3928,19 @@
             }
         }
         
+        function toggleAstreinteForm() {
+            const body = document.getElementById('astreinteFormBody');
+            const icon = document.getElementById('astreinteFormIcon');
+            if (!body || !icon) return;
+            if (body.style.display === 'none') {
+                body.style.display = 'block';
+                icon.textContent = '▼';
+            } else {
+                body.style.display = 'none';
+                icon.textContent = '▶';
+            }
+        }
+
         function resetAstreintesForm() {
             document.getElementById('astreintesEditId').value = '';
             document.getElementById('astreintesType').value = 'astreinte';
@@ -3940,6 +3959,12 @@
             
             document.getElementById('astreintesFormTitle').textContent = 'Ajouter une astreinte/HNO';
             toggleHnoFields();
+            
+            // Replier le formulaire après réinitialisation
+            const body = document.getElementById('astreinteFormBody');
+            const icon = document.getElementById('astreinteFormIcon');
+            if (body) body.style.display = 'none';
+            if (icon) icon.textContent = '▶';
         }
         
         function editAstreinte(id) {
@@ -3963,6 +3988,12 @@
             document.getElementById('astreintesFormTitle').textContent = 'Modifier l\'astreinte/HNO';
             toggleHnoFields();
             toggleSamuSelect();
+            
+            // Déplier le formulaire pour l'édition
+            const body = document.getElementById('astreinteFormBody');
+            const icon = document.getElementById('astreinteFormIcon');
+            if (body) body.style.display = 'block';
+            if (icon) icon.textContent = '▼';
             
             // Scroll vers le formulaire
             document.getElementById('astreintesFormTitle').scrollIntoView({ behavior: 'smooth' });
@@ -15654,9 +15685,23 @@
             if (section.style.display === 'none') {
                 section.style.display = 'block';
                 icon.textContent = '▼';
+                // Afficher les contrôles de l'en-tête Planification
+                if (sectionId === 'ganttDisplaySection') {
+                    const ctrl = document.getElementById('ganttHeaderControls');
+                    const btns = document.getElementById('ganttHeaderButtons');
+                    if (ctrl) ctrl.style.display = 'flex';
+                    if (btns) btns.style.display = 'flex';
+                }
             } else {
                 section.style.display = 'none';
                 icon.textContent = '▶';
+                // Masquer les contrôles de l'en-tête Planification
+                if (sectionId === 'ganttDisplaySection') {
+                    const ctrl = document.getElementById('ganttHeaderControls');
+                    const btns = document.getElementById('ganttHeaderButtons');
+                    if (ctrl) ctrl.style.display = 'none';
+                    if (btns) btns.style.display = 'none';
+                }
             }
         }
 
@@ -19404,7 +19449,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
     <div id="eventsCalendarModal" class="modal">
         <div class="modal-content" style="max-width: 1200px; width: 95%;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                <h3 style="margin: 0; color: #00bcd4;">📆 Calendrier des congés et événements</h3>
+                <h3 style="margin: 0; color: #00bcd4;">Calendrier des congés et événements</h3>
                 <span onclick="closeEventsCalendarModal()" style="cursor: pointer; font-size: 28px; color: #7f8c8d;">&times;</span>
             </div>
             
@@ -19574,8 +19619,8 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
     <!-- Modal Demande d'affectation -->
     <div id="requestModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10000; overflow-y: auto;">
         <div style="background-color: white; max-width: 700px; margin: 50px auto; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #1D70B7; padding-bottom: 10px;">
-                <h2 style="color: #2c3e50; margin: 0;">Faire une demande d'affectation</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="color: #2c3e50; margin: 0; flex: 1;">Faire une demande d'affectation</h2>
                 <span onclick="closeRequestModal()" style="cursor: pointer; font-size: 28px; color: #7f8c8d;">&times;</span>
             </div>
             <form id="requestForm" onsubmit="submitRequestForm(event)">
@@ -20262,7 +20307,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
         <div style="position: relative; background-color: white; margin: 3% auto; padding: 30px; width: 95%; max-width: 900px; border-radius: 12px; max-height: 90vh; overflow-y: auto;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <div>
-                    <h2 style="color: #ff9800; margin: 0;">✏️ <span id="myEventsModalTitle">Mes événements personnalisés</span></h2>
+                    <h2 style="color: #ff9800; margin: 0;"><span id="myEventsModalTitle">Mes événements personnalisés</span></h2>
                     <p style="color: #7f8c8d; font-size: 12px; margin: 5px 0 0 0;">Créez des événements qui s'afficheront sur le planning</p>
                 </div>
                 <span onclick="closeMyEventsModal()" style="cursor: pointer; font-size: 28px; color: #7f8c8d;">&times;</span>
@@ -20927,14 +20972,17 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
     <div id="astreintesModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); z-index: 10003; justify-content: center; align-items: center;">
         <div style="background: white; padding: 25px; border-radius: 12px; max-width: 900px; width: 95%; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #9c27b0; padding-bottom: 10px;">
-                <h3 style="color: #9c27b0; margin: 0;" id="astreintesModalTitle">🕐 Gérer mes astreintes/HNO</h3>
+                <h3 style="color: #9c27b0; margin: 0;" id="astreintesModalTitle">Gérer mes astreintes/HNO</h3>
                 <span onclick="closeAstreintesModal()" style="cursor: pointer; font-size: 28px; color: #7f8c8d;">&times;</span>
             </div>
             
             <!-- Formulaire d'ajout -->
             <div style="background: #f3e5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                <h4 style="margin: 0 0 15px 0; color: #7b1fa2;" id="astreintesFormTitle">Ajouter une astreinte/HNO</h4>
-                
+                <div style="display: flex; align-items: center; gap: 10px; cursor: pointer;" onclick="toggleAstreinteForm()">
+                    <span id="astreinteFormIcon" style="font-size: 13px; color: #7b1fa2; transition: transform 0.2s;">▶</span>
+                    <h4 style="margin: 0; color: #7b1fa2;" id="astreintesFormTitle">Ajouter une astreinte/HNO</h4>
+                </div>
+                <div id="astreinteFormBody" style="display: none; margin-top: 15px;">
                 <!-- Sélection expert (admin seulement) -->
                 <div id="astreintesExpertSelect" style="display: none; margin-bottom: 15px;">
                     <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #333;">Expert *</label>
@@ -21010,6 +21058,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                         🔄 Réinitialiser
                     </button>
                 </div>
+                </div><!-- /astreinteFormBody -->
             </div>
             
             <!-- Liste des astreintes/HNO -->
