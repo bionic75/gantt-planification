@@ -772,11 +772,13 @@
             
             <!-- Section Suivi des disponibilités / affectations -->
             <div class="form-section" style="background-color: #e8f5e9; border-left: 4px solid #4caf50;">
-                <h3 style="color: #2e7d32; border-left: none; margin: 0 0 15px 0;">
-                    📈 Suivi des disponibilités / Suivi des affectations
-                </h3>
-                
-                <!-- Filtres -->
+                <div style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 0;" onclick="toggleReportingSection('reportingDispoBody', 'reportingDispoIcon')">
+                    <span id="reportingDispoIcon" style="font-size: 13px; color: #2e7d32; transition: transform 0.2s;">▶</span>
+                    <h3 style="color: #2e7d32; border-left: none; margin: 0;">
+                        📈 Suivi des disponibilités / Suivi des affectations
+                    </h3>
+                </div>
+                <div id="reportingDispoBody" style="display: none; margin-top: 15px;">
                 <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; margin-bottom: 20px;">
                     <!-- Période de début -->
                     <div>
@@ -911,15 +913,18 @@
                         Sélectionnez les paramètres et cliquez sur "Générer le rapport"
                     </p>
                 </div>
+                </div><!-- fin reportingDispoBody -->
             </div>
             
             <!-- Section Suivi des HNO / Astreintes -->
             <div class="form-section" style="background-color: #f3e5f5; border-left: 4px solid #9c27b0;">
-                <h3 style="color: #7b1fa2; border-left: none; margin: 0 0 15px 0;">
-                    📈 Suivi des HNO / Astreintes
-                </h3>
-                
-                <!-- Filtres -->
+                <div style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 0;" onclick="toggleReportingSection('reportingHnoBody', 'reportingHnoIcon')">
+                    <span id="reportingHnoIcon" style="font-size: 13px; color: #7b1fa2; transition: transform 0.2s;">▶</span>
+                    <h3 style="color: #7b1fa2; border-left: none; margin: 0;">
+                        📈 Suivi des HNO / Astreintes
+                    </h3>
+                </div>
+                <div id="reportingHnoBody" style="display: none; margin-top: 15px;">
                 <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; margin-bottom: 20px;">
                     <!-- Période de début -->
                     <div>
@@ -1025,8 +1030,78 @@
                         Sélectionnez les paramètres et cliquez sur "Générer le rapport"
                     </p>
                 </div>
+                </div><!-- fin reportingHnoBody -->
             </div>
-        </div>
+
+            <!-- Section Suivi des événements -->
+            <div class="form-section" style="background-color: #e3f2fd; border-left: 4px solid #1976d2;">
+                <div style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 0;" onclick="toggleReportingSection('reportingEventsBody', 'reportingEventsIcon')">
+                    <span id="reportingEventsIcon" style="font-size: 13px; color: #1565c0; transition: transform 0.2s;">▶</span>
+                    <h3 style="color: #1565c0; border-left: none; margin: 0;">
+                        📈 Suivi des événements
+                    </h3>
+                </div>
+                <div id="reportingEventsBody" style="display: none; margin-top: 15px;">
+
+                    <!-- Filtres -->
+                    <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end; margin-bottom: 20px;">
+
+                        <!-- Date de début -->
+                        <div>
+                            <label style="font-size: 12px; color: #555; display: block; margin-bottom: 5px;">Date de début</label>
+                            <input type="date" id="eventsReportingStart" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                        </div>
+
+                        <!-- Date de fin -->
+                        <div>
+                            <label style="font-size: 12px; color: #555; display: block; margin-bottom: 5px;">Date de fin</label>
+                            <input type="date" id="eventsReportingEnd" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                        </div>
+
+                        <!-- Recherche libellé -->
+                        <div>
+                            <label style="font-size: 12px; color: #555; display: block; margin-bottom: 5px;">Libellé</label>
+                            <input type="text" id="eventsReportingLabel" placeholder="ex: FORMATION..." style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 180px;">
+                        </div>
+
+                        <!-- Recherche participants (tag-input) -->
+                        <div style="position: relative;">
+                            <label style="font-size: 12px; color: #555; display: block; margin-bottom: 5px;">👥 Participant(s)</label>
+                            <div id="eventsReportingParticipantsContainer" style="display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 6px; border: 1px solid #ccc; border-radius: 4px; min-height: 36px; min-width: 220px; max-width: 340px; align-items: center; background: white; cursor: text;" onclick="document.getElementById('eventsReportingParticipantInput').focus()">
+                                <input type="text" id="eventsReportingParticipantInput" placeholder="Nom ou email..." style="border: none; outline: none; flex: 1; min-width: 80px; padding: 2px 0; font-size: 12px;" oninput="filterEventsReportingParticipants(this.value)" onfocus="filterEventsReportingParticipants(this.value)" onkeydown="handleEventsReportingParticipantKeydown(event)">
+                            </div>
+                            <div id="eventsReportingParticipantDropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ddd; border-radius: 0 0 8px 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); max-height: 200px; overflow-y: auto; z-index: 1000;"></div>
+                        </div>
+
+                        <!-- Bouton -->
+                        <div>
+                            <button onclick="generateEventsReporting()" style="background-color: #1976d2; color: white; padding: 10px 25px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                                📊 Générer
+                            </button>
+                        </div>
+                        <div>
+                            <button onclick="resetEventsReportingFilters()" style="background-color: #78909c; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer;">
+                                🔄 Réinitialiser
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Boutons export (masqués par défaut) -->
+                    <div id="eventsReportingExportButtons" style="display: none; gap: 10px; margin-bottom: 15px;">
+                        <button onclick="exportEventsReportingToCSV()" style="background-color: #4caf50; color: white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">📥 Exporter CSV</button>
+                    </div>
+
+                    <!-- Tableau des résultats -->
+                    <div id="eventsReportingResults" style="overflow-x: auto;">
+                        <p style="text-align: center; color: #999; padding: 40px;">
+                            Définissez vos critères et cliquez sur "Générer"
+                        </p>
+                    </div>
+
+                </div><!-- fin reportingEventsBody -->
+            </div>
+
+        </div><!-- fin onglet reporting -->
 
 <div id="admin" class="tab-content">
     <h2>Administration</h2>
@@ -15353,6 +15428,223 @@
             }
         }
 
+        // ── Toggle sections Reporting ──────────────────────────────────────
+        function toggleReportingSection(bodyId, iconId) {
+            const body = document.getElementById(bodyId);
+            const icon = document.getElementById(iconId);
+            if (!body || !icon) return;
+            if (body.style.display === 'none') {
+                body.style.display = 'block';
+                icon.textContent = '▼';
+            } else {
+                body.style.display = 'none';
+                icon.textContent = '▶';
+            }
+        }
+
+        // ── Toggle formulaire d'ajout dans myEventsModal ──────────────────
+        function toggleMyEventForm() {
+            const body = document.getElementById('myEventFormBody');
+            const icon = document.getElementById('myEventFormIcon');
+            if (!body || !icon) return;
+            if (body.style.display === 'none') {
+                body.style.display = 'block';
+                icon.textContent = '▼';
+            } else {
+                body.style.display = 'none';
+                icon.textContent = '▶';
+                // Si on replie en mode modification, réinitialiser le bouton
+                const addBtn = document.getElementById('myEventActionBtn');
+                if (addBtn && addBtn.textContent.includes('Modifier')) {
+                    addBtn.textContent = '➕ Ajouter';
+                    addBtn.onclick = addMyEvent;
+                    editingMyEventId = null;
+                }
+            }
+        }
+
+        // ── Suivi des événements — participants tag-input ──────────────────
+        let eventsReportingSelectedParticipants = [];
+
+        function filterEventsReportingParticipants(query) {
+            const dropdown = document.getElementById('eventsReportingParticipantDropdown');
+            if (!dropdown) return;
+            const q = (query || '').toLowerCase().trim();
+            const selectedIds = new Set(eventsReportingSelectedParticipants.map(p => p.id));
+            const filtered = users.filter(u => {
+                if (selectedIds.has(u.id)) return false;
+                if (!q) return true;
+                const fullName = `${u.prenom || ''} ${u.nom || ''}`.toLowerCase();
+                const email = (u.email || '').toLowerCase();
+                return fullName.includes(q) || email.includes(q);
+            }).slice(0, 8);
+            if (filtered.length === 0) { dropdown.style.display = 'none'; return; }
+            dropdown.innerHTML = filtered.map(u => {
+                const displayName = `${u.prenom || ''} ${(u.nom || '').toUpperCase()}`.trim() || u.username;
+                const initials = ((u.prenom || '')[0] || '').toUpperCase() + ((u.nom || '')[0] || '').toUpperCase();
+                const colors = ['#e91e63','#9c27b0','#3f51b5','#2196f3','#009688','#4caf50','#ff9800'];
+                let h = 0; for (let i = 0; i < displayName.length; i++) h = displayName.charCodeAt(i) + ((h << 5) - h);
+                const color = colors[Math.abs(h) % colors.length];
+                return `<div onclick='addEventsReportingParticipant(${JSON.stringify({id:u.id,nom:u.nom||"",prenom:u.prenom||""})})' style="display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;border-bottom:1px solid #f5f5f5;" onmouseenter="this.style.background='#f5f5f5'" onmouseleave="this.style.background='white'">
+                    <span style="width:28px;height:28px;border-radius:50%;background:${color};color:white;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;flex-shrink:0;">${initials}</span>
+                    <span style="font-size:13px;">${displayName}</span>
+                </div>`;
+            }).join('');
+            dropdown.style.display = 'block';
+        }
+
+        function addEventsReportingParticipant(user) {
+            if (eventsReportingSelectedParticipants.some(p => p.id === user.id)) return;
+            eventsReportingSelectedParticipants.push(user);
+            renderEventsReportingParticipantTags();
+            const input = document.getElementById('eventsReportingParticipantInput');
+            if (input) { input.value = ''; input.focus(); }
+            document.getElementById('eventsReportingParticipantDropdown').style.display = 'none';
+        }
+
+        function removeEventsReportingParticipant(userId) {
+            eventsReportingSelectedParticipants = eventsReportingSelectedParticipants.filter(p => p.id !== userId);
+            renderEventsReportingParticipantTags();
+        }
+
+        function renderEventsReportingParticipantTags() {
+            const container = document.getElementById('eventsReportingParticipantsContainer');
+            const input = document.getElementById('eventsReportingParticipantInput');
+            if (!container || !input) return;
+            container.querySelectorAll('.participant-tag').forEach(t => t.remove());
+            eventsReportingSelectedParticipants.forEach(p => {
+                const tag = document.createElement('span');
+                tag.className = 'participant-tag';
+                const displayName = `${p.prenom || ''} ${(p.nom || '').toUpperCase()}`.trim();
+                const initials = ((p.prenom || '')[0] || '').toUpperCase() + ((p.nom || '')[0] || '').toUpperCase();
+                const colors = ['#e91e63','#9c27b0','#3f51b5','#2196f3','#009688','#4caf50','#ff9800'];
+                let h = 0; for (let i = 0; i < displayName.length; i++) h = displayName.charCodeAt(i) + ((h << 5) - h);
+                const color = colors[Math.abs(h) % colors.length];
+                tag.innerHTML = `<span style="display:inline-flex;align-items:center;gap:4px;background:#f0f0f0;border:1px solid #ddd;border-radius:15px;padding:2px 8px 2px 2px;font-size:11px;white-space:nowrap;">
+                    <span style="width:20px;height:20px;border-radius:50%;background:${color};color:white;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:bold;">${initials}</span>
+                    <span style="color:#333;">${displayName}</span>
+                    <span onclick="removeEventsReportingParticipant(${p.id})" style="cursor:pointer;color:#999;font-size:14px;line-height:1;margin-left:2px;" title="Retirer">&times;</span>
+                </span>`;
+                container.insertBefore(tag, input);
+            });
+        }
+
+        function handleEventsReportingParticipantKeydown(e) {
+            if (e.key === 'Backspace' && e.target.value === '' && eventsReportingSelectedParticipants.length > 0) {
+                eventsReportingSelectedParticipants.pop();
+                renderEventsReportingParticipantTags();
+            }
+            if (e.key === 'Escape') {
+                document.getElementById('eventsReportingParticipantDropdown').style.display = 'none';
+            }
+        }
+
+        document.addEventListener('click', function(e) {
+            const dropdown = document.getElementById('eventsReportingParticipantDropdown');
+            const container = document.getElementById('eventsReportingParticipantsContainer');
+            if (dropdown && container && !container.contains(e.target)) {
+                dropdown.style.display = 'none';
+            }
+        });
+
+        // ── Suivi des événements — génération du rapport ───────────────────
+        async function generateEventsReporting() {
+            const startDate  = document.getElementById('eventsReportingStart').value;
+            const endDate    = document.getElementById('eventsReportingEnd').value;
+            const label      = document.getElementById('eventsReportingLabel').value;
+            const participantIds = eventsReportingSelectedParticipants.map(p => p.id).join(',');
+
+            const resultsDiv = document.getElementById('eventsReportingResults');
+            resultsDiv.innerHTML = '<p style="text-align:center;color:#999;padding:30px;">⏳ Chargement...</p>';
+            document.getElementById('eventsReportingExportButtons').style.display = 'none';
+
+            const params = new URLSearchParams();
+            if (startDate)       params.set('startDate', startDate);
+            if (endDate)         params.set('endDate', endDate);
+            if (label.trim())    params.set('label', label.trim());
+            if (participantIds)  params.set('participantIds', participantIds);
+
+            try {
+                const response = await fetch(`${API_URL}/custom-events/search?${params.toString()}`, { credentials: 'include' });
+                const data = await response.json();
+
+                if (!response.ok) throw new Error(data.error || 'Erreur serveur');
+
+                const events = data.events || [];
+                if (events.length === 0) {
+                    resultsDiv.innerHTML = '<p style="text-align:center;color:#999;padding:40px;">Aucun événement trouvé pour ces critères.</p>';
+                    return;
+                }
+
+                // Construire le tableau
+                let html = `<p style="font-size:12px;color:#555;margin-bottom:10px;"><strong>${events.length}</strong> événement(s) trouvé(s)</p>`;
+                html += `<table style="width:100%;border-collapse:collapse;font-size:12px;">
+                    <thead><tr style="background:#1976d2;color:white;">
+                        <th style="padding:8px;text-align:left;border:1px solid #ccc;">Libellé</th>
+                        <th style="padding:8px;text-align:center;border:1px solid #ccc;">Date début</th>
+                        <th style="padding:8px;text-align:center;border:1px solid #ccc;">Date fin</th>
+                        <th style="padding:8px;text-align:center;border:1px solid #ccc;">Période</th>
+                        <th style="padding:8px;text-align:left;border:1px solid #ccc;">Créateur</th>
+                        <th style="padding:8px;text-align:left;border:1px solid #ccc;">Participant(s)</th>
+                    </tr></thead><tbody>`;
+
+                const formatDate = d => { if (!d) return '-'; const [y,m,j] = d.split('-'); return `${j}/${m}/${y}`; };
+                const periodLabel = p => p === 'AM' ? '☀️ Matin' : p === 'PM' ? '🌙 Après-midi' : 'Journée entière';
+
+                events.forEach((evt, i) => {
+                    const cfg = evt.config ? (typeof evt.config === 'string' ? JSON.parse(evt.config) : evt.config) : {};
+                    const badge = `<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:bold;background:${cfg.bgColor||'#ffeb3b'};color:${cfg.textColor||'#000'};border:1px solid ${cfg.borderColor||'#ccc'};">${evt.label}</span>`;
+                    const creator = [evt.creator_prenom, (evt.creator_nom||'').toUpperCase()].filter(Boolean).join(' ') || '—';
+                    const parts = (evt.participants || []).map(p => `${p.prenom||''} ${(p.nom||'').toUpperCase()}`.trim()).join(', ') || '—';
+                    const isSameDay = evt.start_date === evt.end_date;
+                    const periodCell = isSameDay ? periodLabel(evt.period) : '—';
+                    html += `<tr style="background:${i%2===0?'white':'#f5f5f5'};border-bottom:1px solid #eee;">
+                        <td style="padding:8px;border:1px solid #eee;">${badge}</td>
+                        <td style="padding:8px;text-align:center;border:1px solid #eee;">${formatDate(evt.start_date)}</td>
+                        <td style="padding:8px;text-align:center;border:1px solid #eee;">${formatDate(evt.end_date)}</td>
+                        <td style="padding:8px;text-align:center;border:1px solid #eee;font-size:11px;color:#666;">${periodCell}</td>
+                        <td style="padding:8px;border:1px solid #eee;">${creator}</td>
+                        <td style="padding:8px;border:1px solid #eee;">${parts}</td>
+                    </tr>`;
+                });
+                html += '</tbody></table>';
+                resultsDiv.innerHTML = html;
+                document.getElementById('eventsReportingExportButtons').style.display = 'flex';
+
+            } catch (error) {
+                console.error('Erreur suivi événements:', error);
+                resultsDiv.innerHTML = `<p style="color:#e74c3c;text-align:center;padding:30px;">Erreur : ${error.message}</p>`;
+            }
+        }
+
+        function resetEventsReportingFilters() {
+            document.getElementById('eventsReportingStart').value = '';
+            document.getElementById('eventsReportingEnd').value = '';
+            document.getElementById('eventsReportingLabel').value = '';
+            eventsReportingSelectedParticipants = [];
+            renderEventsReportingParticipantTags();
+            document.getElementById('eventsReportingResults').innerHTML = '<p style="text-align:center;color:#999;padding:40px;">Définissez vos critères et cliquez sur "Générer"</p>';
+            document.getElementById('eventsReportingExportButtons').style.display = 'none';
+        }
+
+        function exportEventsReportingToCSV() {
+            const table = document.querySelector('#eventsReportingResults table');
+            if (!table) return;
+            const rows = Array.from(table.querySelectorAll('tr'));
+            const csv = rows.map(row =>
+                Array.from(row.querySelectorAll('th, td')).map(cell => {
+                    const text = cell.innerText.replace(/"/g, '""').replace(/\n/g, ' ').trim();
+                    return `"${text}"`;
+                }).join(';')
+            ).join('\n');
+            const bom = '\uFEFF';
+            const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `suivi_evenements_${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+        }
+
         function togglePlanningSection(sectionId) {
             const section = document.getElementById(sectionId);
             const icon = document.getElementById(sectionId + 'Icon');
@@ -17646,6 +17938,15 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             
             const creatorSection = document.getElementById('myEventCreatorSection');
             if (creatorSection) creatorSection.style.display = 'none';
+
+            // Remettre le bouton en "Ajouter" et replier le formulaire
+            const addBtn = document.getElementById('myEventActionBtn');
+            if (addBtn) { addBtn.textContent = '➕ Ajouter'; addBtn.onclick = addMyEvent; }
+            editingMyEventId = null;
+            const formBody = document.getElementById('myEventFormBody');
+            const formIcon = document.getElementById('myEventFormIcon');
+            if (formBody) { formBody.style.display = 'none'; }
+            if (formIcon) { formIcon.textContent = '▶'; }
         }
         
         // Afficher/masquer le sélecteur de demi-journée selon les dates
@@ -18048,6 +18349,15 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 addBtn.textContent = '💾 Modifier';
                 addBtn.onclick = saveMyEventEdit;
             }
+            // Déplier le formulaire si replié
+            const formBody = document.getElementById('myEventFormBody');
+            const formIcon = document.getElementById('myEventFormIcon');
+            if (formBody && formBody.style.display === 'none') {
+                formBody.style.display = 'block';
+                if (formIcon) formIcon.textContent = '▼';
+            }
+            // Scroll vers le formulaire
+            formBody?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
         
         // Sauvegarder la modification
@@ -19960,7 +20270,11 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             
             <!-- Formulaire d'ajout -->
             <div style="background: #fff3e0; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                <h3 style="color: #e65100; margin: 0 0 15px 0; font-size: 14px;">➕ Ajouter un événement</h3>
+                <div style="display: flex; align-items: center; gap: 10px; cursor: pointer;" onclick="toggleMyEventForm()">
+                    <span id="myEventFormIcon" style="font-size: 13px; color: #e65100; transition: transform 0.2s;">▶</span>
+                    <h3 style="color: #e65100; margin: 0; font-size: 14px;">➕ Ajouter un événement</h3>
+                </div>
+                <div id="myEventFormBody" style="display: none; margin-top: 15px;">
                 
                 <!-- Sélecteur de créateur (uniquement visible pour les admins en mode édition) -->
                 <div id="myEventCreatorSection" style="display: none; margin-bottom: 15px; background: #e3f2fd; padding: 10px; border-radius: 5px;">
@@ -20053,6 +20367,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                         ➕ Ajouter
                     </button>
                 </div>
+                </div><!-- fin myEventFormBody -->
             </div>
             
             <!-- Liste des événements -->

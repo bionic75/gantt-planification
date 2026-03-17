@@ -3938,64 +3938,7 @@ app.post('/api/send-assignment-emails', requireAuth, async (req, res) => {
             return res.json({ success: false, error: 'Aucun email à envoyer (experts sans email ?)' });
         }
 
-        // ── Mode debug : envoi synchrone, logs retournés dans la réponse ────
-        if (debugMode) {
-            addLog('email', '📤 Connexion SMTP (préchauffage pool)...');
-            try {
-                const t0 = Date.now();
-                await transporter.verify();
-                addLog('email', `   ✅ SMTP prêt en ${Date.now() - t0}ms`);
-            } catch (verifyErr) {
-                addLog('warning', `   ⚠️ verify() échoué: ${verifyErr.message} — envoi tenté quand même`);
-            }
-
-            addLog('email', '─'.repeat(50));
-            let totalSent = 0, totalFailed = 0;
-
-            for (let i = 0; i < emailsToSend.length; i++) {
-                const mail = emailsToSend[i];
-                addLog('email', `📧 [${i+1}/${emailsToSend.length}] Envoi à ${mail.to} (${mail.type}, ICS: ${mail.icsContent?.length || 0} chars)...`);
-                const t0 = Date.now();
-                const mailOptions = {
-                    from: `"Domaine des Urgences - Planification des ressources" <${emailConfig.user}>`,
-                    to: mail.to,
-                    subject: mail.subject,
-                    html: mail.html,
-                    icalEvent: { filename: mail.icsFilename, method: mail.icsMethod, content: mail.icsContent }
-                };
-                try {
-                    const info = await transporter.sendMail(mailOptions);
-                    totalSent++;
-                    addLog('success', `   ✅ Envoyé en ${Date.now() - t0}ms - MessageId: ${info.messageId}`);
-                } catch (emailError) {
-                    totalFailed++;
-                    addLog('error', `   ❌ Échec après ${Date.now() - t0}ms: ${emailError.message}`);
-                    if (emailError.code) addLog('error', `   Code: ${emailError.code}`);
-                    if (emailError.message?.includes('ECONNREFUSED') || emailError.message?.includes('ETIMEDOUT') || emailError.message?.includes('ESOCKET')) {
-                        cachedTransporter = null; cachedTransporterConfig = '';
-                    }
-                }
-            }
-
-            addLog('info', '─'.repeat(50));
-            addLog('info', `📊 RÉSUMÉ: ${totalSent}/${emailsToSend.length} envoyé(s)`);
-
-            if (sessionLogId) {
-                const allEmails = assignments.map(a => a.email).filter(e => e).join(', ');
-                database.run(`UPDATE connection_logs SET modifications = modifications || ? WHERE id = ?`,
-                    [`${new Date().toLocaleString('fr-FR')}: Invitations Outlook (${totalSent}/${totalSent + totalFailed}) pour: ${allEmails}\n`, sessionLogId]);
-            }
-
-            return res.json({
-                success: totalSent > 0,
-                message: `${totalSent} invitation(s) envoyée(s)`,
-                sent: totalSent,
-                failed: totalFailed,
-                debugLogs
-            });
-        }
-
-        // ── Mode normal : enqueue dans email_queue, réponse immédiate ───────
+        // Enqueue dans email_queue — réponse immédiate, worker traite en fond
         const batchId = crypto.randomUUID();
         let enqueued = 0;
         for (const mail of emailsToSend) {
@@ -6040,6 +5983,85 @@ database.run(`
 `, (err) => {
     if (err) console.error('Erreur création table custom_event_participants:', err);
     else console.log('✅ Table custom_event_participants créée ou existante');
+});
+
+// ========== SUIVI DES ÉVÉNEMENTS (REPORTING) ==========
+
+app.get('/api/custom-events/search', requireAuth, async (req, res) => {
+    try {
+        const { startDate, endDate, label, participantIds } = req.query;
+
+        // Construire la requête avec filtres dynamiques
+        let conditions = [];
+        let params = [];
+
+        if (startDate) {
+            conditions.push(`ce.end_date >= ?`);
+            params.push(startDate);
+        }
+        if (endDate) {
+            conditions.push(`ce.start_date <= ?`);
+            params.push(endDate);
+        }
+        if (label && label.trim()) {
+            conditions.push(`UPPER(ce.label) LIKE ?`);
+            params.push(`%${label.trim().toUpperCase()}%`);
+        }
+
+        const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+        const query = `
+            SELECT ce.*, u.nom as creator_nom, u.prenom as creator_prenom
+            FROM custom_events ce
+            LEFT JOIN users u ON ce.created_by = u.id
+            ${whereClause}
+            ORDER BY ce.start_date DESC
+        `;
+
+        let events = await new Promise((resolve, reject) => {
+            database.all(query, params, (err, rows) => err ? reject(err) : resolve(rows || []));
+        });
+
+        // Charger les participants pour chaque événement
+        if (events.length > 0) {
+            const eventIds = events.map(e => e.id);
+            const participants = await new Promise((resolve, reject) => {
+                database.all(
+                    `SELECT cep.event_id, cep.user_id, u.nom, u.prenom, u.email
+                     FROM custom_event_participants cep
+                     JOIN users u ON cep.user_id = u.id
+                     WHERE cep.event_id IN (${eventIds.map(() => '?').join(',')})
+                     ORDER BY u.nom, u.prenom`,
+                    eventIds,
+                    (err, rows) => err ? reject(err) : resolve(rows || [])
+                );
+            });
+
+            const participantsByEvent = {};
+            for (const p of participants) {
+                if (!participantsByEvent[p.event_id]) participantsByEvent[p.event_id] = [];
+                participantsByEvent[p.event_id].push(p);
+            }
+            events.forEach(e => { e.participants = participantsByEvent[e.id] || []; });
+
+            // Filtrer par participants si demandé
+            if (participantIds) {
+                const ids = participantIds.split(',').map(Number).filter(Boolean);
+                if (ids.length > 0) {
+                    events = events.filter(e =>
+                        ids.every(id => (e.participants || []).some(p => p.user_id === id))
+                    );
+                }
+            }
+        } else {
+            events.forEach(e => { e.participants = []; });
+        }
+
+        res.json({ events });
+    } catch (error) {
+        console.error('Erreur recherche événements:', error);
+        res.status(500).json({ error: error.message });
+    }
 });
 
 // Lister tous les événements personnalisés (admin uniquement - pour l'administration)
