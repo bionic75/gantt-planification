@@ -12,6 +12,9 @@ jobs:
   build-push-deploy:
     name: Build, push and deploy Docker image
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       # 1. Checkout source code
