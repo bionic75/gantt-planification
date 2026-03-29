@@ -76,8 +76,8 @@ jobs:
           #platforms: linux/amd64
           tags: |
             ${{ env.REGISTRY }}/${{ steps.extract-metadata.outputs.REPO_FULLNAME }}:latest
-            ${{ env.REGISTRY }}/${{ steps.extract-metadata.outputs.REPO_FULLNAME }}:${{ steps.extract-metadata.outputs.DOCKER_TAG }}
             ${{ env.REGISTRY }}/${{ steps.extract-metadata.outputs.REPO_FULLNAME }}:${{ steps.extract-metadata.outputs.SHORT_SHA }}
+            ${{ env.REGISTRY }}/${{ steps.extract-metadata.outputs.REPO_FULLNAME }}:${{ steps.extract-metadata.outputs.DOCKER_TAG }}
           cache-from: type=local,src=/tmp/.buildx-cache
 
       # 8. Deploy to CSP
