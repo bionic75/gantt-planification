@@ -13005,6 +13005,11 @@
                 }).join(' ');
             };
             const displayLabel = capitalizeLabel(event.label);
+            // Préfixe localisation
+            const locAdmin = event.location_id
+                ? (allLocations.find(l => l.id === event.location_id)?.libelle_court || 'NON DÉFINI')
+                : null;
+            const displayFull = locAdmin ? `${locAdmin} | ${displayLabel}` : displayLabel;
             
             // Fonction pour obtenir les initiales
             const getInitials = (prenom, nom) => {
@@ -13043,7 +13048,7 @@
                             <span style="display: inline-block; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: bold; 
                                 background-color: ${config.bgColor || '#ffeb3b'}; 
                                 color: ${config.textColor || '#000'}; 
-                                border: 2px solid ${config.borderColor || '#fbc02d'};">${displayLabel}</span>
+                                border: 2px solid ${config.borderColor || '#fbc02d'};">${displayFull}</span>
                             <span style="font-size: 10px; color: #666;">👤 ${creatorFullName}</span>
                         </div>
                         <div style="font-size: 11px; color: #666;">
@@ -19285,6 +19290,12 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 </div>`;
             }
             
+            // Préfixe localisation
+            const locMy = event.location_id
+                ? (allLocations.find(l => l.id === event.location_id)?.libelle_court || 'NON DÉFINI')
+                : null;
+            const myEventDisplayLabel = locMy ? `${locMy} | ${event.label}` : event.label;
+
             return `<div style="background: white; padding: 12px; border-radius: 6px; margin-bottom: 6px; border-left: 4px solid ${config.borderColor || '#fbc02d'}; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
                     <div style="flex: 1;">
@@ -19292,7 +19303,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                             <span style="display: inline-block; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: bold; 
                                 background-color: ${config.bgColor || '#ffeb3b'}; 
                                 color: ${config.textColor || '#000'}; 
-                                border: 2px solid ${config.borderColor || '#fbc02d'};">${event.label}</span>
+                                border: 2px solid ${config.borderColor || '#fbc02d'};">${myEventDisplayLabel}</span>
                             ${creatorInfo}
                         </div>
                         <div style="font-size: 11px; color: #666;">
