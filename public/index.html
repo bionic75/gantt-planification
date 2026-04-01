@@ -1176,6 +1176,7 @@
     <!-- SECTION CARTE ÉVÉNEMENTS/DÉPLACEMENTS -->
     <style>
         #eventsMapContainer { height: 520px; border-radius: 8px; border: 1px solid #90caf9; z-index: 0; }
+        #eventMapModalContainer { height: 480px; border-radius: 8px; border: 1px solid #90caf9; z-index: 0; }
         .leaflet-popup-content { font-size: 12px; min-width: 220px; }
         .leaflet-popup-content strong { color: #1565c0; }
     </style>
@@ -16494,6 +16495,226 @@
 
         // ========== FIN CARTE ÉVÉNEMENTS/DÉPLACEMENTS ==========
 
+        // ========== MODALE CARTE (depuis Planification → Gérer mes événements) ==========
+
+        let eventModalMap = null;
+        let eventModalMapMarkers = [];
+        let modalMapSelectedParticipants = [];
+
+        function openEventMapModal() {
+            const modal = document.getElementById('eventMapModal');
+            if (!modal) return;
+            modal.style.display = 'block';
+
+            // Date de début par défaut : 1er janvier de l'année en cours
+            const startEl = document.getElementById('modalMapStartDate');
+            if (startEl && !startEl.value) startEl.value = `${new Date().getFullYear()}-01-01`;
+
+            // Peupler le filtre localisations
+            const sel = document.getElementById('modalMapLocationFilter');
+            if (sel) {
+                sel.innerHTML = '<option value="">— Toutes les localisations —</option>';
+                allLocations.filter(l => l.latitude && l.longitude).forEach(l => {
+                    const opt = document.createElement('option');
+                    opt.value = l.id;
+                    opt.textContent = `${l.libelle_court} – ${l.libelle_long}`;
+                    sel.appendChild(opt);
+                });
+            }
+
+            // Initialiser la carte Leaflet
+            if (!window.L) {
+                const script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+                script.onload = () => { _createModalMap(); loadModalEventsMap(); };
+                document.head.appendChild(script);
+            } else {
+                if (!eventModalMap) _createModalMap();
+                else eventModalMap.invalidateSize();
+                loadModalEventsMap();
+            }
+        }
+
+        function _createModalMap() {
+            eventModalMap = L.map('eventMapModalContainer', { zoomControl: true }).setView([46.6, 2.3], 6);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+                maxZoom: 18
+            }).addTo(eventModalMap);
+        }
+
+        function closeEventMapModal() {
+            document.getElementById('eventMapModal').style.display = 'none';
+        }
+
+        async function loadModalEventsMap() {
+            if (!eventModalMap) return;
+
+            const startDate = document.getElementById('modalMapStartDate').value;
+            const endDate   = document.getElementById('modalMapEndDate').value;
+            const locFilter = document.getElementById('modalMapLocationFilter').value;
+
+            const params = new URLSearchParams();
+            if (startDate) params.set('startDate', startDate);
+            if (endDate)   params.set('endDate', endDate);
+
+            try {
+                const res = await fetch(`${API_URL}/reporting/events-map?${params}`, { credentials: 'include' });
+                if (!res.ok) return;
+                let events = (await res.json()).events || [];
+
+                if (locFilter) events = events.filter(e => e.location_id == locFilter);
+
+                if (modalMapSelectedParticipants.length > 0) {
+                    events = events.filter(ev => {
+                        const partNames = (ev.participants || []).map(n => n.toLowerCase());
+                        return modalMapSelectedParticipants.every(sel => {
+                            const selName = `${sel.prenom||''} ${(sel.nom||'').toUpperCase()}`.trim().toLowerCase();
+                            return partNames.some(n => n.includes(selName) || selName.includes(n));
+                        });
+                    });
+                }
+
+                renderModalMapMarkers(events);
+                // Forcer Leaflet à recalculer la taille après affichage
+                setTimeout(() => eventModalMap.invalidateSize(), 50);
+            } catch (e) { console.error('Erreur chargement carte modale:', e); }
+        }
+
+        function renderModalMapMarkers(events) {
+            eventModalMapMarkers.forEach(m => eventModalMap.removeLayer(m));
+            eventModalMapMarkers = [];
+
+            const countEl = document.getElementById('modalMapEventCount');
+            if (countEl) countEl.textContent = events.length > 0
+                ? `${events.length} événement(s)`
+                : 'Aucun événement géolocalisé.';
+
+            const legend = document.getElementById('modalMapLegend');
+            const legendItems = document.getElementById('modalMapLegendItems');
+            if (events.length === 0) { if (legend) legend.style.display = 'none'; return; }
+
+            const byLoc = {};
+            events.forEach(e => {
+                const key = `${e.location_id}`;
+                if (!byLoc[key]) byLoc[key] = { lat: e.latitude, lng: e.longitude, libelle: e.libelle_court, adresse: e.adresse, events: [] };
+                byLoc[key].events.push(e);
+            });
+
+            const bounds = [];
+            Object.values(byLoc).forEach(loc => {
+                const count = loc.events.length;
+                const icon = L.divIcon({
+                    className: '',
+                    html: `<div style="background:#3f51b5;color:white;border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.35);cursor:pointer;">${count}</div>`,
+                    iconSize: [34, 34], iconAnchor: [17, 17], popupAnchor: [0, -18]
+                });
+
+                let popupHtml = `<div style="max-height:280px;overflow-y:auto;">
+                    <div style="font-weight:bold;color:#283593;font-size:13px;margin-bottom:6px;border-bottom:1px solid #e0e0e0;padding-bottom:4px;">📍 ${loc.libelle}</div>
+                    ${loc.adresse ? `<div style="color:#555;font-size:11px;margin-bottom:8px;">${loc.adresse}</div>` : ''}
+                    <div style="font-size:11px;color:#3f51b5;font-weight:bold;margin-bottom:6px;">${count} événement(s)</div>`;
+
+                loc.events.forEach(ev => {
+                    const dateRange = ev.end_date && ev.end_date !== ev.start_date
+                        ? `${formatDateFRClient(ev.start_date)} → ${formatDateFRClient(ev.end_date)}`
+                        : formatDateFRClient(ev.start_date);
+                    const period = ev.period === 'AM' ? ' ☀️' : ev.period === 'PM' ? ' 🌙' : '';
+                    const parts = ev.participants && ev.participants.length > 0
+                        ? `<div style="color:#777;margin-top:2px;font-size:10px;">👥 ${ev.participants.join(', ')}</div>` : '';
+                    popupHtml += `<div style="border:1px solid #e8eaf6;border-radius:5px;padding:7px;margin-bottom:6px;background:#fafafa;">
+                        <div style="font-weight:bold;color:#1565c0;">${ev.label}${period}</div>
+                        <div style="color:#555;margin-top:2px;font-size:11px;">📅 ${dateRange}</div>${parts}
+                    </div>`;
+                });
+                popupHtml += '</div>';
+
+                const marker = L.marker([loc.lat, loc.lng], { icon })
+                    .addTo(eventModalMap)
+                    .bindPopup(popupHtml, { maxWidth: 300 });
+                eventModalMapMarkers.push(marker);
+                bounds.push([loc.lat, loc.lng]);
+            });
+
+            if (bounds.length > 0) eventModalMap.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 });
+
+            if (legend && legendItems) {
+                legendItems.innerHTML = Object.values(byLoc).map(loc =>
+                    `<span style="background:#e8eaf6;border:1px solid #9fa8da;border-radius:12px;padding:2px 10px;white-space:nowrap;"><strong>${loc.libelle}</strong> — ${loc.events.length} evt</span>`
+                ).join('');
+                legend.style.display = 'block';
+            }
+        }
+
+        function resetModalMapFilters() {
+            document.getElementById('modalMapStartDate').value = `${new Date().getFullYear()}-01-01`;
+            document.getElementById('modalMapEndDate').value = '';
+            document.getElementById('modalMapLocationFilter').value = '';
+            modalMapSelectedParticipants = [];
+            renderModalMapParticipantTags();
+            if (eventModalMap) loadModalEventsMap();
+        }
+
+        // Tag-input participants (modal carte)
+        function renderModalMapParticipantTags() {
+            const container = document.getElementById('modalMapParticipantsContainer');
+            const input = document.getElementById('modalMapParticipantInput');
+            if (!container || !input) return;
+            container.querySelectorAll('.modal-map-tag').forEach(t => t.remove());
+            modalMapSelectedParticipants.forEach((p, i) => {
+                const tag = document.createElement('span');
+                tag.className = 'modal-map-tag';
+                tag.style.cssText = 'background:#3f51b5;color:white;border-radius:10px;padding:2px 8px;font-size:11px;display:flex;align-items:center;gap:4px;white-space:nowrap;';
+                tag.innerHTML = `${p.prenom} ${(p.nom||'').toUpperCase()} <span onclick="removeModalMapParticipant(${i})" style="cursor:pointer;font-size:14px;line-height:1;">&times;</span>`;
+                container.insertBefore(tag, input);
+            });
+        }
+
+        function removeModalMapParticipant(i) {
+            modalMapSelectedParticipants.splice(i, 1);
+            renderModalMapParticipantTags();
+        }
+
+        function addModalMapParticipant(user) {
+            if (modalMapSelectedParticipants.find(p => p.id === user.id)) return;
+            modalMapSelectedParticipants.push(user);
+            renderModalMapParticipantTags();
+            document.getElementById('modalMapParticipantInput').value = '';
+            document.getElementById('modalMapParticipantDropdown').style.display = 'none';
+        }
+
+        function filterModalMapParticipants(query) {
+            const dropdown = document.getElementById('modalMapParticipantDropdown');
+            if (!dropdown) return;
+            if (!query || query.length < 1) { dropdown.style.display = 'none'; return; }
+            const q = query.toLowerCase();
+            const matched = users.filter(u => {
+                const full = `${u.prenom||''} ${u.nom||''} ${u.email||''}`.toLowerCase();
+                return full.includes(q) && !modalMapSelectedParticipants.find(p => p.id === u.id);
+            }).slice(0, 8);
+            if (matched.length === 0) { dropdown.style.display = 'none'; return; }
+            dropdown.innerHTML = matched.map(u => {
+                const name = `${u.prenom||''} ${(u.nom||'').toUpperCase()}`.trim() || u.username;
+                return `<div onclick='addModalMapParticipant(${JSON.stringify({id:u.id,nom:u.nom||"",prenom:u.prenom||""})})' style="padding:8px 12px;cursor:pointer;font-size:12px;" onmouseover="this.style.background='#f5f5f5'" onmouseleave="this.style.background='white'">${name}</div>`;
+            }).join('');
+            dropdown.style.display = 'block';
+        }
+
+        function handleModalMapParticipantKeydown(e) {
+            if (e.key === 'Backspace' && e.target.value === '' && modalMapSelectedParticipants.length > 0) {
+                modalMapSelectedParticipants.pop(); renderModalMapParticipantTags();
+            }
+            if (e.key === 'Escape') document.getElementById('modalMapParticipantDropdown').style.display = 'none';
+        }
+
+        document.addEventListener('click', function(e) {
+            const c = document.getElementById('modalMapParticipantsContainer');
+            const d = document.getElementById('modalMapParticipantDropdown');
+            if (d && c && !c.contains(e.target) && !d.contains(e.target)) d.style.display = 'none';
+        });
+
+        // ========== FIN MODALE CARTE ==========
+
         // ── Toggle sections Reporting ──────────────────────────────────────
         function toggleReportingSection(bodyId, iconId) {
             const body = document.getElementById(bodyId);
@@ -21497,7 +21718,10 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 <p style="color: #999; font-size: 12px; font-style: italic; text-align: center; padding: 20px;">Chargement...</p>
             </div>
             
-            <div style="display: flex; justify-content: flex-end; margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;">
+                <button onclick="openEventMapModal()" style="background-color: #3f51b5; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px;">
+                    🗺️ Carte des Événements / Déplacements
+                </button>
                 <button onclick="closeMyEventsModal()" style="background-color: #95a5a6; color: white; padding: 10px 25px;">
                     Fermer
                 </button>
@@ -22148,6 +22372,58 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
         </div>
     </div>
     <!-- Modal résolution conflits localisation -->
+
+    <!-- Modal Carte des Événements / Déplacements (depuis Planification) -->
+    <div id="eventMapModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.65);z-index:11100;overflow:hidden;">
+        <div style="background:white;margin:2% auto;width:94%;max-width:1200px;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.35);display:flex;flex-direction:column;max-height:94vh;">
+            <!-- Header -->
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 24px;border-bottom:2px solid #3f51b5;">
+                <h3 style="margin:0;color:#283593;">🗺️ Suivi géographique des événements / déplacements</h3>
+                <span onclick="closeEventMapModal()" style="cursor:pointer;font-size:28px;color:#7f8c8d;line-height:1;">&times;</span>
+            </div>
+            <!-- Filtres -->
+            <div style="padding:14px 24px;border-bottom:1px solid #eee;display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;">
+                <div>
+                    <label style="font-size:12px;color:#555;display:block;margin-bottom:4px;">Date de début</label>
+                    <input type="date" id="modalMapStartDate" style="padding:7px;border:1px solid #9fa8da;border-radius:4px;">
+                </div>
+                <div>
+                    <label style="font-size:12px;color:#555;display:block;margin-bottom:4px;">Date de fin</label>
+                    <input type="date" id="modalMapEndDate" style="padding:7px;border:1px solid #9fa8da;border-radius:4px;">
+                </div>
+                <div>
+                    <label style="font-size:12px;color:#555;display:block;margin-bottom:4px;">Localisation</label>
+                    <select id="modalMapLocationFilter" style="padding:7px;border:1px solid #9fa8da;border-radius:4px;min-width:200px;">
+                        <option value="">— Toutes les localisations —</option>
+                    </select>
+                </div>
+                <div style="position:relative;">
+                    <label style="font-size:12px;color:#555;display:block;margin-bottom:4px;">👥 Participants</label>
+                    <div id="modalMapParticipantsContainer" style="display:flex;flex-wrap:wrap;gap:4px;padding:4px 6px;border:1px solid #9fa8da;border-radius:4px;min-height:36px;min-width:200px;max-width:300px;align-items:center;background:white;cursor:text;" onclick="document.getElementById('modalMapParticipantInput').focus()">
+                        <input type="text" id="modalMapParticipantInput" placeholder="Nom ou prénom…"
+                            style="border:none;outline:none;flex:1;min-width:80px;padding:2px 0;font-size:12px;"
+                            oninput="filterModalMapParticipants(this.value)"
+                            onfocus="filterModalMapParticipants(this.value)"
+                            onkeydown="handleModalMapParticipantKeydown(event)">
+                    </div>
+                    <div id="modalMapParticipantDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #ddd;border-radius:0 0 8px 8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);max-height:180px;overflow-y:auto;z-index:11200;"></div>
+                </div>
+                <div style="display:flex;gap:8px;align-items:flex-end;">
+                    <button onclick="loadModalEventsMap()" style="background:#3f51b5;color:white;border:none;padding:8px 18px;border-radius:4px;cursor:pointer;font-weight:bold;">🗺️ Afficher</button>
+                    <button onclick="resetModalMapFilters()" style="background:#78909c;color:white;border:none;padding:8px 14px;border-radius:4px;cursor:pointer;">🔄</button>
+                </div>
+                <div id="modalMapEventCount" style="font-size:12px;color:#555;padding:8px 0;"></div>
+            </div>
+            <!-- Carte -->
+            <div style="flex:1;padding:16px 24px 8px;overflow:hidden;">
+                <div id="eventMapModalContainer" style="height:480px;border-radius:8px;border:1px solid #90caf9;"></div>
+            </div>
+            <!-- Légende -->
+            <div id="modalMapLegend" style="display:none;padding:8px 24px 16px;">
+                <div id="modalMapLegendItems" style="display:flex;flex-wrap:wrap;gap:8px;font-size:11px;"></div>
+            </div>
+        </div>
+    </div>
     <div id="locConflictModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:11000;overflow-y:auto;">
         <div style="background:white;max-width:900px;margin:40px auto;padding:30px;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.3);">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
