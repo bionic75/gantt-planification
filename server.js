@@ -1058,6 +1058,36 @@ function initDB() {
         }
     });
     
+    // Table des localisations
+    database.run(`
+        CREATE TABLE IF NOT EXISTS locations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            libelle_long TEXT NOT NULL UNIQUE,
+            libelle_court TEXT NOT NULL,
+            adresse TEXT,
+            latitude REAL,
+            longitude REAL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    `, (err) => {
+        if (err) console.error('Erreur création table locations:', err);
+        else console.log('✅ Table locations créée');
+    });
+
+    // Migration : ajouter location_id à custom_events si absente
+    database.all(`PRAGMA table_info(custom_events)`, [], (err, columns) => {
+        if (!err && columns) {
+            const colNames = columns.map(c => c.name);
+            if (!colNames.includes('location_id')) {
+                database.run(`ALTER TABLE custom_events ADD COLUMN location_id INTEGER REFERENCES locations(id)`, (e) => {
+                    if (e) console.error('Erreur migration location_id:', e);
+                    else console.log('✅ Migration: location_id ajouté à custom_events');
+                });
+            }
+        }
+    });
+
     // Table file d'attente d'emails
     database.run(`
         CREATE TABLE IF NOT EXISTS email_queue (
@@ -5860,10 +5890,12 @@ app.get('/api/ics-files/special-dates/all', requireAuth, async (req, res) => {
         let customEventsQuery;
         if (hasCreatedBy) {
             customEventsQuery = `
-                SELECT ce.*, u.nom as creator_nom, u.prenom as creator_prenom, r.trigramme as creator_trigramme
+                SELECT ce.*, u.nom as creator_nom, u.prenom as creator_prenom, r.trigramme as creator_trigramme,
+                       l.libelle_court as location_libelle_court
                 FROM custom_events ce
                 LEFT JOIN users u ON ce.created_by = u.id
                 LEFT JOIN resources r ON u.resource_id = r.id
+                LEFT JOIN locations l ON ce.location_id = l.id
             `;
         } else {
             customEventsQuery = `SELECT * FROM custom_events`;
@@ -5880,6 +5912,10 @@ app.get('/api/ics-files/special-dates/all', requireAuth, async (req, res) => {
             const config = e.config ? JSON.parse(e.config) : {};
             config.label = e.label;
             config.eventId = e.id;
+            // Transmettre location_id même si la localisation a été supprimée
+            // → permet au client d'afficher "NON DÉFINI" quand location_id est set mais libelle_court null
+            if (e.location_id) config.locationId = e.location_id;
+            if (e.location_libelle_court) config.locationLibelleCourt = e.location_libelle_court;
             result.push({
                 date: e.start_date,
                 endDate: e.end_date,
@@ -6011,9 +6047,11 @@ app.get('/api/custom-events/search', requireAuth, async (req, res) => {
         const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
         const query = `
-            SELECT ce.*, u.nom as creator_nom, u.prenom as creator_prenom
+            SELECT ce.*, u.nom as creator_nom, u.prenom as creator_prenom,
+                   l.libelle_long as location_libelle_long, l.libelle_court as location_libelle_court, l.adresse as location_adresse
             FROM custom_events ce
             LEFT JOIN users u ON ce.created_by = u.id
+            LEFT JOIN locations l ON ce.location_id = l.id
             ${whereClause}
             ORDER BY ce.start_date DESC
         `;
@@ -6147,27 +6185,30 @@ app.get('/api/my-custom-events', requireAuth, async (req, res) => {
             if (isAdmin) {
                 // Admin voit tous les événements
                 query = `
-                    SELECT ce.*, u.nom as creator_nom, u.prenom as creator_prenom, r.trigramme as creator_trigramme
+                    SELECT ce.*, u.nom as creator_nom, u.prenom as creator_prenom, r.trigramme as creator_trigramme,
+                           l.libelle_long as location_libelle_long, l.libelle_court as location_libelle_court
                     FROM custom_events ce
                     LEFT JOIN users u ON ce.created_by = u.id
                     LEFT JOIN resources r ON u.resource_id = r.id
+                    LEFT JOIN locations l ON ce.location_id = l.id
                     ORDER BY ce.start_date
                 `;
                 params = [];
             } else {
                 // Les autres ne voient que leurs propres événements
                 query = `
-                    SELECT ce.*, u.nom as creator_nom, u.prenom as creator_prenom, r.trigramme as creator_trigramme
+                    SELECT ce.*, u.nom as creator_nom, u.prenom as creator_prenom, r.trigramme as creator_trigramme,
+                           l.libelle_long as location_libelle_long, l.libelle_court as location_libelle_court
                     FROM custom_events ce
                     LEFT JOIN users u ON ce.created_by = u.id
                     LEFT JOIN resources r ON u.resource_id = r.id
+                    LEFT JOIN locations l ON ce.location_id = l.id
                     WHERE ce.created_by = ?
                     ORDER BY ce.start_date
                 `;
                 params = [userId];
             }
         } else {
-            // Pas de colonne created_by, tout le monde voit tous les événements
             query = `SELECT * FROM custom_events ORDER BY start_date`;
             params = [];
         }
@@ -6209,7 +6250,7 @@ app.get('/api/my-custom-events', requireAuth, async (req, res) => {
 // Ajouter un événement personnalisé (admin via interface admin)
 app.post('/api/custom-events', requireAdmin, async (req, res) => {
     try {
-        const { startDate, endDate, label, config, participants, period } = req.body;
+        const { startDate, endDate, label, config, participants, period, location_id } = req.body;
         const createdBy = req.session.userId;
         
         if (!startDate || !label) {
@@ -6220,8 +6261,8 @@ app.post('/api/custom-events', requireAdmin, async (req, res) => {
         
         const eventId = await new Promise((resolve, reject) => {
             database.run(
-                `INSERT INTO custom_events (label, start_date, end_date, config, created_by, period) VALUES (?, ?, ?, ?, ?, ?)`,
-                [label, startDate, endDate || startDate, JSON.stringify(config), createdBy, finalPeriod],
+                `INSERT INTO custom_events (label, start_date, end_date, config, created_by, period, location_id) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                [label, startDate, endDate || startDate, JSON.stringify(config), createdBy, finalPeriod, location_id || null],
                 function(err) { if (err) reject(err); else resolve(this.lastID); }
             );
         });
@@ -6248,21 +6289,19 @@ app.post('/api/custom-events', requireAdmin, async (req, res) => {
 // Ajouter un événement personnalisé (utilisateurs/experts via pop-up planification)
 app.post('/api/my-custom-events', requireAuth, async (req, res) => {
     try {
-        const { startDate, endDate, label, config, participants, period } = req.body;
+        const { startDate, endDate, label, config, participants, period, location_id } = req.body;
         const createdBy = req.session.userId;
         
         if (!startDate || !label) {
             return res.status(400).json({ error: 'Date de début et libellé requis' });
         }
 
-        // period : 'FULL' (journée entière), 'AM' (matin), 'PM' (après-midi)
-        // N'est pertinent que si startDate === endDate
         const finalPeriod = (period && startDate === (endDate || startDate)) ? period : 'FULL';
         
         const eventId = await new Promise((resolve, reject) => {
             database.run(
-                `INSERT INTO custom_events (label, start_date, end_date, config, created_by, period) VALUES (?, ?, ?, ?, ?, ?)`,
-                [label, startDate, endDate || startDate, JSON.stringify(config), createdBy, finalPeriod],
+                `INSERT INTO custom_events (label, start_date, end_date, config, created_by, period, location_id) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                [label, startDate, endDate || startDate, JSON.stringify(config), createdBy, finalPeriod, location_id || null],
                 function(err) { if (err) reject(err); else resolve(this.lastID); }
             );
         });
@@ -6302,23 +6341,23 @@ app.post('/api/my-custom-events', requireAuth, async (req, res) => {
 app.put('/api/custom-events/:id', requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
-        const { startDate, endDate, label, config, createdBy, participants, period } = req.body;
+        const { startDate, endDate, label, config, createdBy, participants, period, location_id } = req.body;
 
         const finalPeriod = (period && startDate === (endDate || startDate)) ? period : 'FULL';
 
         if (createdBy !== undefined) {
             await new Promise((resolve, reject) => {
                 database.run(
-                    `UPDATE custom_events SET label = ?, start_date = ?, end_date = ?, config = ?, created_by = ?, period = ? WHERE id = ?`,
-                    [label, startDate, endDate || startDate, JSON.stringify(config), createdBy, finalPeriod, id],
+                    `UPDATE custom_events SET label = ?, start_date = ?, end_date = ?, config = ?, created_by = ?, period = ?, location_id = ? WHERE id = ?`,
+                    [label, startDate, endDate || startDate, JSON.stringify(config), createdBy, finalPeriod, location_id || null, id],
                     (err) => err ? reject(err) : resolve()
                 );
             });
         } else {
             await new Promise((resolve, reject) => {
                 database.run(
-                    `UPDATE custom_events SET label = ?, start_date = ?, end_date = ?, config = ?, period = ? WHERE id = ?`,
-                    [label, startDate, endDate || startDate, JSON.stringify(config), finalPeriod, id],
+                    `UPDATE custom_events SET label = ?, start_date = ?, end_date = ?, config = ?, period = ?, location_id = ? WHERE id = ?`,
+                    [label, startDate, endDate || startDate, JSON.stringify(config), finalPeriod, location_id || null, id],
                     (err) => err ? reject(err) : resolve()
                 );
             });
@@ -6352,7 +6391,7 @@ app.put('/api/custom-events/:id', requireAdmin, async (req, res) => {
 app.put('/api/my-custom-events/:id', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
-        const { startDate, endDate, label, config, participants, period } = req.body;
+        const { startDate, endDate, label, config, participants, period, location_id } = req.body;
         const userId = req.session.userId;
         const isAdmin = req.session.activeProfile === 'admin';
         
@@ -6371,8 +6410,8 @@ app.put('/api/my-custom-events/:id', requireAuth, async (req, res) => {
         
         await new Promise((resolve, reject) => {
             database.run(
-                `UPDATE custom_events SET label = ?, start_date = ?, end_date = ?, config = ?, period = ? WHERE id = ?`,
-                [label, startDate, endDate || startDate, JSON.stringify(config), finalPeriod, id],
+                `UPDATE custom_events SET label = ?, start_date = ?, end_date = ?, config = ?, period = ?, location_id = ? WHERE id = ?`,
+                [label, startDate, endDate || startDate, JSON.stringify(config), finalPeriod, location_id || null, id],
                 (err) => { if (err) reject(err); else resolve(); }
             );
         });
@@ -9742,6 +9781,218 @@ app.post('/api/mfa/totp-confirm', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+
+// ========== ROUTES LOCALISATIONS ==========
+
+// Lister toutes les localisations
+app.get('/api/locations', requireAuth, (req, res) => {
+    database.all(`SELECT * FROM locations ORDER BY libelle_long ASC`, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ locations: rows });
+    });
+});
+
+// Créer une localisation
+app.post('/api/locations', requireAdmin, (req, res) => {
+    const { libelle_long, libelle_court, adresse, latitude, longitude } = req.body;
+    if (!libelle_long || !libelle_court) {
+        return res.status(400).json({ error: 'Libellé long et libellé court requis' });
+    }
+    database.run(
+        `INSERT INTO locations (libelle_long, libelle_court, adresse, latitude, longitude) VALUES (?, ?, ?, ?, ?)`,
+        [libelle_long.toUpperCase(), libelle_court.toUpperCase(), adresse ? adresse.toUpperCase() : null, latitude || null, longitude || null],
+        function(err) {
+            if (err) {
+                if (err.message.includes('UNIQUE')) return res.status(409).json({ error: 'Ce libellé long existe déjà' });
+                return res.status(500).json({ error: err.message });
+            }
+            res.json({ success: true, id: this.lastID });
+        }
+    );
+});
+
+// Modifier une localisation
+app.put('/api/locations/:id', requireAdmin, (req, res) => {
+    const { id } = req.params;
+    const { libelle_long, libelle_court, adresse, latitude, longitude } = req.body;
+    if (!libelle_long || !libelle_court) {
+        return res.status(400).json({ error: 'Libellé long et libellé court requis' });
+    }
+    database.run(
+        `UPDATE locations SET libelle_long=?, libelle_court=?, adresse=?, latitude=?, longitude=?, updated_at=datetime('now') WHERE id=?`,
+        [libelle_long.toUpperCase(), libelle_court.toUpperCase(), adresse ? adresse.toUpperCase() : null, latitude || null, longitude || null, id],
+        function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            if (this.changes === 0) return res.status(404).json({ error: 'Localisation non trouvée' });
+            res.json({ success: true });
+        }
+    );
+});
+
+// Vérifier si une localisation est utilisée par des événements
+app.get('/api/locations/:id/usage', requireAdmin, (req, res) => {
+    const { id } = req.params;
+    database.all(
+        `SELECT id, label, start_date, end_date FROM custom_events WHERE location_id = ? ORDER BY start_date`,
+        [id],
+        (err, rows) => {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ count: rows.length, events: rows });
+        }
+    );
+});
+
+// Supprimer une localisation (garde l'orphelin location_id dans custom_events → "NON DÉFINI" à l'affichage)
+app.delete('/api/locations/:id', requireAdmin, (req, res) => {
+    const { id } = req.params;
+    database.run(`DELETE FROM locations WHERE id=?`, [id], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ success: true });
+    });
+});
+
+// Import CSV de localisations — détection des conflits
+app.post('/api/locations/import', requireAdmin, async (req, res) => {
+    const { rows } = req.body;
+    if (!Array.isArray(rows) || rows.length === 0) {
+        return res.status(400).json({ error: 'Aucune ligne fournie' });
+    }
+
+    const conflicts = [];
+    const clean = [];
+
+    for (const row of rows) {
+        if (!row.libelle_long || !row.libelle_court) continue;
+
+        const ll  = String(row.libelle_long).toUpperCase().trim();
+        const lc  = String(row.libelle_court).toUpperCase().trim();
+        const ad  = row.adresse ? String(row.adresse).toUpperCase().trim() : '';
+        const lat = (row.latitude !== null && row.latitude !== undefined && row.latitude !== '') ? Number(row.latitude) : null;
+        const lng = (row.longitude !== null && row.longitude !== undefined && row.longitude !== '') ? Number(row.longitude) : null;
+
+        const incoming = { libelle_long: ll, libelle_court: lc, adresse: ad, latitude: isNaN(lat) ? null : lat, longitude: isNaN(lng) ? null : lng };
+
+        const existingRow = await new Promise((resolve, reject) => {
+            database.get(`SELECT * FROM locations WHERE libelle_long = ?`, [ll], (err, r) => {
+                if (err) reject(err); else resolve(r || null);
+            });
+        });
+
+        if (existingRow) {
+            // Signaler s'il y a des différences réelles
+            const sameData =
+                existingRow.libelle_court === lc &&
+                (existingRow.adresse || '') === ad &&
+                existingRow.latitude == incoming.latitude &&
+                existingRow.longitude == incoming.longitude;
+
+            // Toujours signaler comme conflit, même si identique (l'utilisateur choisit)
+            conflicts.push({ incoming, existing: { ...existingRow }, identical: sameData });
+        } else {
+            clean.push(incoming);
+        }
+    }
+
+    // Insérer les lignes sans conflit
+    for (const row of clean) {
+        await new Promise((resolve) => {
+            database.run(
+                `INSERT OR IGNORE INTO locations (libelle_long, libelle_court, adresse, latitude, longitude) VALUES (?, ?, ?, ?, ?)`,
+                [row.libelle_long, row.libelle_court, row.adresse || null, row.latitude, row.longitude],
+                () => resolve()
+            );
+        });
+    }
+
+    res.json({ success: true, inserted: clean.length, conflicts });
+});
+
+// Résoudre un conflit d'import (écraser ou saisir manuellement)
+app.post('/api/locations/import/resolve', requireAdmin, async (req, res) => {
+    const { resolutions } = req.body;
+    if (!Array.isArray(resolutions)) return res.status(400).json({ error: 'Format invalide' });
+    if (resolutions.length === 0) return res.json({ success: true, updated: 0 });
+
+    let updated = 0;
+    for (const r of resolutions) {
+        if (r.action === 'overwrite' || r.action === 'manual') {
+            const lat = (r.latitude !== null && r.latitude !== undefined && r.latitude !== '') ? Number(r.latitude) : null;
+            const lng = (r.longitude !== null && r.longitude !== undefined && r.longitude !== '') ? Number(r.longitude) : null;
+            await new Promise((resolve) => {
+                database.run(
+                    `UPDATE locations SET libelle_court=?, adresse=?, latitude=?, longitude=?, updated_at=datetime('now') WHERE libelle_long=?`,
+                    [
+                        r.libelle_court ? String(r.libelle_court).toUpperCase() : null,
+                        r.adresse ? String(r.adresse).toUpperCase() : null,
+                        (lat !== null && !isNaN(lat)) ? lat : null,
+                        (lng !== null && !isNaN(lng)) ? lng : null,
+                        r.libelle_long
+                    ],
+                    (err) => {
+                        if (err) console.error('Erreur résolution conflit:', err);
+                        resolve();
+                    }
+                );
+            });
+            updated++;
+        }
+    }
+
+    res.json({ success: true, updated });
+});
+
+// ── Reporting carte événements géolocalisés ──
+app.get('/api/reporting/events-map', requireAuth, async (req, res) => {
+    const { startDate, endDate } = req.query;
+    try {
+        let sql = `
+            SELECT ce.id, ce.label, ce.start_date, ce.end_date, ce.period, ce.created_by,
+                   l.id as location_id, l.libelle_long, l.libelle_court, l.adresse,
+                   l.latitude, l.longitude,
+                   u.nom as creator_nom, u.prenom as creator_prenom
+            FROM custom_events ce
+            LEFT JOIN locations l ON ce.location_id = l.id
+            LEFT JOIN users u ON ce.created_by = u.id
+            WHERE l.latitude IS NOT NULL AND l.longitude IS NOT NULL
+        `;
+        const params = [];
+        if (startDate) { sql += ` AND ce.end_date >= ?`; params.push(startDate); }
+        if (endDate)   { sql += ` AND ce.start_date <= ?`; params.push(endDate); }
+        sql += ` ORDER BY ce.start_date`;
+
+        const events = await new Promise((resolve, reject) => {
+            database.all(sql, params, (err, rows) => err ? reject(err) : resolve(rows || []));
+        });
+
+        // Charger les participants pour chaque événement
+        if (events.length > 0) {
+            const ids = events.map(e => e.id);
+            const participants = await new Promise((resolve, reject) => {
+                database.all(
+                    `SELECT cep.event_id, u.nom, u.prenom
+                     FROM custom_event_participants cep
+                     JOIN users u ON cep.user_id = u.id
+                     WHERE cep.event_id IN (${ids.map(() => '?').join(',')})`,
+                    ids,
+                    (err, rows) => err ? reject(err) : resolve(rows || [])
+                );
+            });
+            const byEvent = {};
+            participants.forEach(p => {
+                if (!byEvent[p.event_id]) byEvent[p.event_id] = [];
+                byEvent[p.event_id].push(`${p.prenom} ${(p.nom||'').toUpperCase()}`.trim());
+            });
+            events.forEach(e => { e.participants = byEvent[e.id] || []; });
+        }
+
+        res.json({ events });
+    } catch (error) {
+        console.error('Erreur reporting events-map:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ========== FIN ROUTES LOCALISATIONS ==========
 
 // ========== FIN ROUTES MFA ==========
 
