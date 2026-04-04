@@ -91,8 +91,8 @@ jobs:
           port: 22
           passphrase: ${{ secrets.SAMU_TOOLS_PASSPHRASE }}
           script: |
-            sudo echo '${{ secrets.GITHUB_TOKEN }}' | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
-            sudo docker pull ${{ env.REGISTRY }}/${{ steps.extract-metadata.outputs.REPO_FULLNAME }}:${{ steps.extract-metadata.outputs.DOCKER_TAG }}
+            echo '${{ secrets.GITHUB_TOKEN }}' | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
+            docker pull ${{ env.REGISTRY }}/${{ steps.extract-metadata.outputs.REPO_FULLNAME }}:${{ steps.extract-metadata.outputs.DOCKER_TAG }}
             SAMU_TOOLS="planif-ressources"
             cd samu/$SAMU_TOOLS
             echo "VERSION_PLANIF_RESSOURCES=${{ steps.extract-metadata.outputs.DOCKER_TAG }}" > .env
