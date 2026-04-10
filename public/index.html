@@ -3399,11 +3399,17 @@
                     document.getElementById('mfaCodeInput').focus();
                 } else {
                     const data = await response.json();
-                    showLoginError(data.error || 'Erreur envoi du code');
+                    const msg = data.error || 'Erreur envoi du code';
+                    // Si SMTP indisponible, proposer de basculer sur TOTP
+                    if (msg.includes('SMTP') || msg.includes('timeout') || msg.includes('Configuration')) {
+                        showLoginError(`❌ ${msg}`);
+                    } else {
+                        showLoginError(msg);
+                    }
                 }
             } catch (error) {
                 console.error('Erreur MFA email:', error);
-                showLoginError('Erreur envoi du code');
+                showLoginError('Erreur réseau lors de l\'envoi du code. Vérifiez la configuration SMTP ou utilisez le code TOTP.');
             }
         }
         
@@ -4857,7 +4863,11 @@
                 // Déterminer le message d'observation
                 let observation = '';
                 if (bc.solde) {
-                    if (isSurconsommation) {
+                    if (bc.regularisation_cible_bdc_id) {
+                        // Surconsommation déjà régularisée
+                        const cibleLabel = bc.regularisation_cible_intitule || `BDC #${bc.regularisation_cible_bdc_id}`;
+                        observation = `<span style="color: #27ae60; font-weight: bold;">✅ Surconsommation régularisée sur le bon de commande ${cibleLabel}</span>`;
+                    } else if (isSurconsommation) {
                         // Surconsommation sur BDC soldé = régularisation à prévoir
                         observation = `<span style="color: #e74c3c; font-weight: bold;">⚠️ Régularisation à prévoir pour ${diff} UO sur le prochain bon de commande</span>`;
                     } else if (uoConsommees < uoCommandees) {
@@ -4912,325 +4922,143 @@
         async function openBdcDeplacementsModal(bcId, bcIntitule, bcTitulaire, isSolde, isSurconsommation, uoEnTrop) {
             currentBdcId = bcId;
             uoSurconsommation = uoEnTrop;
-            
-            // Mettre à jour le titre du modal
+
             document.getElementById('bdcDeplacementsModalTitle').innerHTML = `
                 📋 Déplacements du bon de commande<br>
                 <span style="font-size: 16px; color: #3498db;">${bcIntitule} - ${bcTitulaire || 'N/A'}</span>
             `;
-            
-            // Afficher/masquer la section de régularisation
+
             const regularisationSection = document.getElementById('bdcRegularisationSection');
-            const validateBtn = document.getElementById('bdcValidateRegularisationBtn');
-            const errorSection = document.getElementById('bdcRegularisationError');
-            
-            // Masquer l'erreur par défaut
-            errorSection.style.display = 'none';
-            
+
             if (isSolde && isSurconsommation) {
                 regularisationSection.style.display = 'block';
                 document.getElementById('bdcUoEnTrop').textContent = uoEnTrop;
-                
-                // Charger les BDC disponibles du même titulaire
+                document.getElementById('bdcRegulUo').textContent = uoEnTrop;
+
+                // Pré-remplir la date de début au 1er jour du mois prochain
+                const today = new Date();
+                const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+                document.getElementById('bdcRegulDateDebut').value = nextMonth.toISOString().split('T')[0];
+
+                // Pré-remplir le commentaire
+                document.getElementById('bdcRegulCommentaire').value = `Régularisation du bon de commande ${bcIntitule} qui était en surconsommation`;
+
+                // Charger les BDC disponibles (non soldés)
                 await loadBdcCiblesForRegularisation(bcTitulaire, bcId);
-                
-                // Charger les déplacements et trouver la combinaison
-                await loadBdcDeplacementsAndFindCombination(bcId, uoEnTrop);
             } else {
                 regularisationSection.style.display = 'none';
-                validateBtn.style.display = 'none';
-                
-                // Charger les déplacements sans régularisation
-                await loadBdcDeplacements(bcId, false, 0);
             }
-            
-            // Afficher le modal
+
+            await loadBdcDeplacements(bcId, false, 0);
             document.getElementById('bdcDeplacementsModal').classList.add('active');
         }
-        
-        async function loadBdcDeplacementsAndFindCombination(bcId, uoEnTrop) {
+
+        async function creerLigneRegularisationTechnique() {
+            const cibleBdcId = document.getElementById('bdcCibleRegularisation').value;
+            const dateDebut  = document.getElementById('bdcRegulDateDebut').value;
+            const commentaire = document.getElementById('bdcRegulCommentaire').value.trim();
+
+            if (!cibleBdcId) { alert('Veuillez sélectionner un bon de commande cible.'); return; }
+            if (!dateDebut)  { alert('Veuillez renseigner une date de début.'); return; }
+
+            const nbUo = uoSurconsommation;
+            const cibleText = document.getElementById('bdcCibleRegularisation').options[document.getElementById('bdcCibleRegularisation').selectedIndex].text;
+
+            if (!confirm(`Créer une ligne de régularisation technique de ${nbUo} UO sur le bon de commande :\n\n${cibleText}\n\nDate de début : ${dateDebut}\nCommentaire : ${commentaire}\n\nConfirmer ?`)) return;
+
             try {
-                const response = await fetch(`${API_URL}/deplacements?bon_commande_id=${bcId}`, { credentials: 'include' });
+                const res = await fetch(`${API_URL}/deplacements/regularisation-technique`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        source_bdc_id: currentBdcId,
+                        cible_bdc_id: parseInt(cibleBdcId),
+                        nb_uo: nbUo,
+                        date_debut: dateDebut,
+                        commentaire: commentaire || null
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok) { alert('Erreur : ' + (data.error || res.status)); return; }
+
+                alert(`✅ Ligne de régularisation créée avec succès !\n\nBDC source : ${data.source_intitule}\nBDC cible : ${data.cible_intitule}\nUO régularisées : ${data.nb_uo}\nPériode : ${data.date_debut} → ${data.date_fin}`);
+
+                closeBdcDeplacementsModal();
+                loadBonsCommande();
+            } catch (e) {
+                alert('Erreur réseau : ' + e.message);
+            }
+        }
+
+        async function loadBdcCiblesForRegularisation(titulaire, excludeBcId) {
+            const select = document.getElementById('bdcCibleRegularisation');
+            select.innerHTML = '<option value="">-- Chargement... --</option>';
+            try {
+                const response = await fetch(`${API_URL}/reporting-deplacements`, { credentials: 'include' });
                 if (response.ok) {
-                    currentBdcDeplacementsList = await response.json();
-                    
-                    // Trouver la combinaison exacte de déplacements
-                    const combination = findExactCombination(currentBdcDeplacementsList, uoEnTrop);
-                    
-                    const errorSection = document.getElementById('bdcRegularisationError');
-                    const validateBtn = document.getElementById('bdcValidateRegularisationBtn');
-                    
-                    if (combination) {
-                        // Combinaison trouvée !
-                        errorSection.style.display = 'none';
-                        validateBtn.style.display = 'inline-block';
-                        displayBdcDeplacements(currentBdcDeplacementsList, true, combination);
+                    const bons = await response.json();
+                    // Tous les BDC actifs non soldés (pas seulement même titulaire)
+                    const bonsCibles = bons.filter(bc => bc.id !== excludeBcId && !bc.solde && bc.actif !== 0);
+                    if (bonsCibles.length === 0) {
+                        select.innerHTML = '<option value="">-- Aucun BDC actif disponible --</option>';
                     } else {
-                        // Pas de combinaison possible
-                        const minDeplacement = currentBdcDeplacementsList.reduce((min, d) => 
-                            d.nb_uo < min.nb_uo ? d : min, currentBdcDeplacementsList[0]);
-                        
-                        errorSection.style.display = 'block';
-                        errorSection.innerHTML = `
-                            <strong>❌ Régularisation automatique impossible</strong><br>
-                            <span style="font-size: 12px;">
-                                Impossible de trouver une combinaison de déplacements correspondant exactement à ${uoEnTrop} UO.<br>
-                                Le plus petit déplacement fait ${minDeplacement ? minDeplacement.nb_uo : '?'} UO.<br>
-                                <strong>Le retraitement doit être fait manuellement.</strong>
-                            </span>
-                        `;
-                        validateBtn.style.display = 'none';
-                        displayBdcDeplacements(currentBdcDeplacementsList, false, null);
+                        select.innerHTML = '<option value="">-- Sélectionner un BDC --</option>' +
+                            bonsCibles.map(bc => {
+                                const solde = (bc.uo_commandees || 0) - (bc.uo_consommees || 0);
+                                return `<option value="${bc.id}">${bc.intitule} (${solde} UO disponibles)</option>`;
+                            }).join('');
+                        if (bonsCibles.length === 1) select.value = bonsCibles[0].id;
                     }
                 }
             } catch (error) {
-                console.error('Erreur chargement déplacements BDC:', error);
+                select.innerHTML = '<option value="">-- Erreur de chargement --</option>';
             }
         }
-        
-        // Fonction pour trouver une combinaison exacte de déplacements qui font exactement targetUO
-        function findExactCombination(deplacements, targetUO) {
-            if (targetUO <= 0 || !deplacements || deplacements.length === 0) {
-                return null;
-            }
-            
-            // Tri par nombre d'UO croissant pour optimiser la recherche
-            const sorted = [...deplacements].sort((a, b) => a.nb_uo - b.nb_uo);
-            
-            // Vérifier d'abord si le plus petit déplacement est déjà trop grand
-            if (sorted[0].nb_uo > targetUO) {
-                return null;
-            }
-            
-            // Recherche de combinaison avec backtracking
-            function backtrack(index, remaining, current) {
-                if (remaining === 0) {
-                    return [...current]; // Trouvé !
-                }
-                if (remaining < 0 || index >= sorted.length) {
-                    return null;
-                }
-                
-                // Essayer d'inclure le déplacement courant
-                if (sorted[index].nb_uo <= remaining) {
-                    current.push(sorted[index].id);
-                    const result = backtrack(index + 1, remaining - sorted[index].nb_uo, current);
-                    if (result) return result;
-                    current.pop();
-                }
-                
-                // Essayer sans le déplacement courant
-                return backtrack(index + 1, remaining, current);
-            }
-            
-            return backtrack(0, targetUO, []);
-        }
-        
+
         async function loadBdcDeplacements(bcId, showCheckboxes, uoEnTrop) {
             try {
                 const response = await fetch(`${API_URL}/deplacements?bon_commande_id=${bcId}`, { credentials: 'include' });
                 if (response.ok) {
                     currentBdcDeplacementsList = await response.json();
-                    displayBdcDeplacements(currentBdcDeplacementsList, showCheckboxes, null);
+                    displayBdcDeplacements(currentBdcDeplacementsList);
                 }
             } catch (error) {
                 console.error('Erreur chargement déplacements BDC:', error);
             }
         }
-        
-        function displayBdcDeplacements(deplacements, showCheckboxes, precheckedIds) {
+
+        function displayBdcDeplacements(deplacements) {
             const tbody = document.getElementById('bdcDeplacementsBody');
-            
+            const thead = document.getElementById('bdcDeplacementsHead');
+
+            thead.innerHTML = `<tr>
+                <th>Utilisateur</th><th>SAMU</th><th>Ville</th>
+                <th>Date début</th><th>Date fin</th><th>Nb UO</th>
+            </tr>`;
+
             if (!deplacements || deplacements.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="' + (showCheckboxes ? 7 : 6) + '" style="text-align: center; color: #999;">Aucun déplacement</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;padding:20px;">Aucun déplacement</td></tr>';
                 return;
             }
-            
-            // Trier par date décroissante
+
             deplacements.sort((a, b) => new Date(b.date_debut) - new Date(a.date_debut));
-            
+
             tbody.innerHTML = deplacements.map(d => {
-                const isPrecheck = precheckedIds && precheckedIds.includes(d.id);
-                const checkboxCell = showCheckboxes 
-                    ? `<td style="text-align: center;">
-                         <input type="checkbox" class="bdc-deplacement-checkbox" value="${d.id}" data-uo="${d.nb_uo}" ${isPrecheck ? 'checked' : ''} onchange="updateBdcRegularisationInfo()">
-                       </td>` 
-                    : '';
-                
-                return `
-                <tr style="${isPrecheck ? 'background-color: #ffebee;' : ''}">
-                    ${checkboxCell}
-                    <td>${d.user_prenom || ''} ${d.user_nom || ''}</td>
+                const isRegul = !!d.regularisation_source_bdc_id;
+                const rowStyle = isRegul ? 'background:#e8f5e9;font-style:italic;' : '';
+                const tag = isRegul ? '<span style="background:#27ae60;color:white;border-radius:8px;padding:1px 6px;font-size:10px;margin-left:4px;">Régularisation</span>' : '';
+                return `<tr style="${rowStyle}">
+                    <td>${d.user_prenom || ''} ${d.user_nom || ''}${tag}</td>
                     <td>${d.samu || '-'}</td>
                     <td>${d.ville || '-'}</td>
                     <td>${formatDateFr(d.date_debut)}</td>
                     <td>${formatDateFr(d.date_fin)}</td>
-                    <td style="text-align: center; font-weight: bold;">${d.nb_uo}</td>
-                </tr>
-            `}).join('');
-            
-            // Mettre à jour les headers selon le mode
-            const thead = document.getElementById('bdcDeplacementsHead');
-            thead.innerHTML = `
-                <tr>
-                    ${showCheckboxes ? '<th style="width: 40px;">✓</th>' : ''}
-                    <th>Utilisateur</th>
-                    <th>SAMU</th>
-                    <th>Ville</th>
-                    <th>Date début</th>
-                    <th>Date fin</th>
-                    <th>Nb UO</th>
-                </tr>
-            `;
-            
-            // Mettre à jour les infos de régularisation
-            if (showCheckboxes) {
-                updateBdcRegularisationInfo();
-            }
+                    <td style="text-align:center;font-weight:bold;">${d.nb_uo}</td>
+                </tr>`;
+            }).join('');
         }
-        
-        async function loadBdcCiblesForRegularisation(titulaire, excludeBcId) {
-            const select = document.getElementById('bdcCibleRegularisation');
-            select.innerHTML = '<option value="">-- Chargement... --</option>';
-            
-            try {
-                const response = await fetch(`${API_URL}/reporting-deplacements`, { credentials: 'include' });
-                if (response.ok) {
-                    const bons = await response.json();
-                    
-                    // Filtrer: même titulaire, non soldé (le solde positif n'est plus obligatoire)
-                    const bonsCibles = bons.filter(bc => {
-                        return bc.titulaire && 
-                               bc.titulaire.toUpperCase() === titulaire.toUpperCase() && 
-                               bc.id !== excludeBcId && 
-                               !bc.solde;
-                    });
-                    
-                    if (bonsCibles.length === 0) {
-                        select.innerHTML = '<option value="">-- Aucun BDC disponible du même titulaire --</option>';
-                    } else {
-                        select.innerHTML = '<option value="">-- Sélectionner un BDC cible --</option>' +
-                            bonsCibles.map(bc => {
-                                const solde = (bc.uo_commandees || 0) - (bc.uo_consommees || 0);
-                                const soldeText = solde >= 0 ? `${solde} UO disponibles` : `${Math.abs(solde)} UO en surconsommation`;
-                                return `<option value="${bc.id}">${bc.intitule} (${soldeText})</option>`;
-                            }).join('');
-                        
-                        // Pré-sélectionner le premier si un seul disponible
-                        if (bonsCibles.length === 1) {
-                            select.value = bonsCibles[0].id;
-                        }
-                    }
-                    
-                    targetBdcId = select.value ? parseInt(select.value) : null;
-                }
-            } catch (error) {
-                console.error('Erreur chargement BDC cibles:', error);
-                select.innerHTML = '<option value="">-- Erreur de chargement --</option>';
-            }
-        }
-        
-        function updateBdcRegularisationInfo() {
-            const checkboxes = document.querySelectorAll('.bdc-deplacement-checkbox:checked');
-            let totalUo = 0;
-            checkboxes.forEach(cb => {
-                totalUo += parseInt(cb.dataset.uo) || 0;
-            });
-            
-            document.getElementById('bdcUoSelectionnees').textContent = totalUo;
-            document.getElementById('bdcNbDeplacementsSelectionnes').textContent = checkboxes.length;
-            
-            // Mettre à jour le BDC cible sélectionné
-            const select = document.getElementById('bdcCibleRegularisation');
-            targetBdcId = select.value ? parseInt(select.value) : null;
-            
-            // Afficher un warning si la sélection ne correspond pas exactement aux UO en surconsommation
-            const warningDiv = document.getElementById('bdcSelectionWarning');
-            if (warningDiv) {
-                if (totalUo !== uoSurconsommation && totalUo > 0) {
-                    warningDiv.style.display = 'block';
-                    warningDiv.innerHTML = `⚠️ Attention: vous avez sélectionné ${totalUo} UO au lieu de ${uoSurconsommation} UO`;
-                } else {
-                    warningDiv.style.display = 'none';
-                }
-            }
-        }
-        
-        async function validateBdcRegularisation() {
-            const checkboxes = document.querySelectorAll('.bdc-deplacement-checkbox:checked');
-            
-            if (checkboxes.length === 0) {
-                alert('Veuillez sélectionner au moins un déplacement à réaffecter');
-                return;
-            }
-            
-            const select = document.getElementById('bdcCibleRegularisation');
-            if (!select.value) {
-                alert('Veuillez sélectionner un bon de commande cible');
-                return;
-            }
-            
-            // Vérifier que la sélection correspond exactement
-            let totalUo = 0;
-            checkboxes.forEach(cb => { totalUo += parseInt(cb.dataset.uo) || 0; });
-            
-            if (totalUo !== uoSurconsommation) {
-                if (!confirm(`⚠️ Attention: vous avez sélectionné ${totalUo} UO au lieu de ${uoSurconsommation} UO attendues.\n\nVoulez-vous continuer quand même ?`)) {
-                    return;
-                }
-            }
-            
-            const targetBcId = parseInt(select.value);
-            const deplacementIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
-            
-            // Confirmation
-            const nbDeplacements = deplacementIds.length;
-            const targetBcText = select.options[select.selectedIndex].text;
-            
-            if (!confirm(`Voulez-vous vraiment réaffecter ${nbDeplacements} déplacement(s) (${totalUo} UO) vers le bon de commande :\n\n${targetBcText} ?`)) {
-                return;
-            }
-            
-            // Effectuer la réaffectation
-            try {
-                let success = 0;
-                let errors = 0;
-                let errorMessages = [];
-                
-                for (const depId of deplacementIds) {
-                    // Utiliser la bonne route avec les bons paramètres
-                    const response = await fetch(`${API_URL}/deplacements/${depId}/reaffecter`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        credentials: 'include',
-                        body: JSON.stringify({ nouveau_bon_commande_id: targetBcId })
-                    });
-                    
-                    if (response.ok) {
-                        success++;
-                    } else {
-                        errors++;
-                        const errData = await response.json();
-                        errorMessages.push(errData.error || 'Erreur inconnue');
-                    }
-                }
-                
-                if (errors > 0) {
-                    alert(`Régularisation terminée avec ${errors} erreur(s) sur ${deplacementIds.length} déplacements.\n\nErreurs: ${errorMessages.join(', ')}`);
-                } else {
-                    alert(`✅ ${success} déplacement(s) réaffecté(s) avec succès !`);
-                }
-                
-                // Fermer le modal et recharger les données
-                closeBdcDeplacementsModal();
-                loadBonsCommande();
-                
-            } catch (error) {
-                console.error('Erreur régularisation:', error);
-                alert('Erreur lors de la régularisation: ' + error.message);
-            }
-        }
-        
+
         function closeBdcDeplacementsModal() {
             document.getElementById('bdcDeplacementsModal').classList.remove('active');
             currentBdcDeplacementsList = [];
@@ -22126,38 +21954,41 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     <span style="font-size: 24px;">⚠️</span>
                     <div>
                         <strong style="color: #c62828; font-size: 14px;">Ce bon de commande est SOLDÉ et en SURCONSOMMATION</strong>
-                        <div style="font-size: 12px; color: #666; margin-top: 3px;">
-                            <span id="bdcUoEnTrop">0</span> UO en trop doivent être réaffectées vers un autre BDC
+                        <div style="font-size: 12px; color: #555; margin-top: 3px;">
+                            Merci de régulariser en reportant la surconsommation de <strong id="bdcUoEnTrop">0</strong> UO sur un autre bon de commande.
                         </div>
                     </div>
                 </div>
-                
-                <!-- Zone d'erreur si régularisation impossible -->
-                <div id="bdcRegularisationError" style="display: none; background: #fff; padding: 12px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #e74c3c; color: #c62828;">
-                </div>
-                
-                <div style="display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap;">
-                    <div style="flex: 1; min-width: 250px;">
-                        <label style="display: block; font-weight: bold; margin-bottom: 5px; font-size: 12px; color: #495057;">
-                            Réaffecter vers le BDC (même titulaire) :
-                        </label>
-                        <select id="bdcCibleRegularisation" onchange="updateBdcRegularisationInfo()" style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 6px; font-size: 13px;">
-                            <option value="">-- Sélectionner un BDC cible --</option>
-                        </select>
+
+                <!-- Formulaire de régularisation technique -->
+                <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #ffcdd2;">
+                    <div style="font-size: 13px; font-weight: bold; color: #b71c1c; margin-bottom: 12px;">
+                        Créer une ligne de déplacement technique de régularisation
                     </div>
-                    <div style="text-align: center; padding: 10px; background: white; border-radius: 8px; min-width: 150px;">
-                        <div style="font-size: 11px; color: #666;">Sélectionnés</div>
-                        <div style="font-size: 20px; font-weight: bold; color: #e74c3c;">
-                            <span id="bdcNbDeplacementsSelectionnes">0</span> dépl.
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                        <div>
+                            <label style="font-size: 11px; font-weight: bold; color: #555; display: block; margin-bottom: 4px;">Bon de commande cible *</label>
+                            <select id="bdcCibleRegularisation" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;font-size:12px;">
+                                <option value="">-- Sélectionner un BDC --</option>
+                            </select>
                         </div>
-                        <div style="font-size: 14px; font-weight: bold; color: #c62828;">
-                            <span id="bdcUoSelectionnees">0</span> UO
+                        <div>
+                            <label style="font-size: 11px; font-weight: bold; color: #555; display: block; margin-bottom: 4px;">Date de début *</label>
+                            <input type="date" id="bdcRegulDateDebut" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;font-size:12px;box-sizing:border-box;">
                         </div>
                     </div>
-                </div>
-                
-                <!-- Warning si sélection différente des UO en trop -->
-                <div id="bdcSelectionWarning" style="display: none; margin-top: 10px; padding: 8px; background: #fff3e0; border-radius: 6px; color: #e65100; font-size: 12px;">
+                    <div style="margin-bottom: 12px;">
+                        <label style="font-size: 11px; font-weight: bold; color: #555; display: block; margin-bottom: 4px;">Commentaire</label>
+                        <input type="text" id="bdcRegulCommentaire" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;font-size:12px;box-sizing:border-box;" placeholder="Régularisation du bon de commande ... qui était en surconsommation">
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                        <div style="background:#ffebee;border-radius:6px;padding:8px 14px;font-size:12px;color:#c62828;font-weight:bold;">
+                            UO à régulariser : <span id="bdcRegulUo">0</span>
+                        </div>
+                        <button onclick="creerLigneRegularisationTechnique()" style="background:#c62828;color:white;border:none;padding:9px 20px;border-radius:5px;cursor:pointer;font-weight:bold;font-size:13px;">
+                            ✅ Créer la ligne de régularisation
+                        </button>
+                    </div>
                 </div>
             </div>
             
@@ -22182,9 +22013,6 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             
             <!-- Boutons -->
             <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; padding-top: 15px; border-top: 2px solid #eee;">
-                <button id="bdcValidateRegularisationBtn" onclick="validateBdcRegularisation()" style="display: none; padding: 12px 25px; background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%); color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">
-                    ✅ Valider la réaffectation
-                </button>
                 <button onclick="closeBdcDeplacementsModal()" style="padding: 12px 25px; background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%); color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">
                     Fermer
                 </button>
