@@ -1,3 +1,4 @@
+// v1.11.5
 import express from 'express';
 console.log('✅ Express importé');
 import cors from 'cors';
@@ -987,12 +988,6 @@ function initDB() {
                     // Ignorer l'erreur si la colonne existe déjà
                 }
             });
-            // Migration: stocker le BDC cible de régularisation
-            database.run(`ALTER TABLE bons_commande ADD COLUMN regularisation_cible_bdc_id INTEGER`, (err) => {
-                if (err && !err.message.includes('duplicate column')) {
-                    // Ignorer si existe déjà
-                }
-            });
         }
     });
 
@@ -1034,17 +1029,6 @@ function initDB() {
             database.run(`ALTER TABLE deplacements ADD COLUMN commentaire TEXT`, (err) => {
                 if (err && !err.message.includes('duplicate column')) {
                     // Ignorer l'erreur si la colonne existe déjà
-                }
-            });
-            // Migration: tracer l'origine/destination des lignes de régularisation technique
-            database.run(`ALTER TABLE deplacements ADD COLUMN regularisation_source_bdc_id INTEGER`, (err) => {
-                if (err && !err.message.includes('duplicate column')) {
-                    // Ignorer si existe déjà
-                }
-            });
-            database.run(`ALTER TABLE deplacements ADD COLUMN regularisation_cible_bdc_id INTEGER`, (err) => {
-                if (err && !err.message.includes('duplicate column')) {
-                    // Ignorer si existe déjà
                 }
             });
         }
@@ -7914,84 +7898,6 @@ app.post('/api/deplacements/:id/regularisation', requireAuth, (req, res) => {
 });
 
 // Réaffectation simple d'un déplacement vers un autre BC (sans vérification des UO disponibles)
-// ── Créer une ligne de régularisation technique ──────────────────────────────
-// Crée un déplacement "technique" sur le BDC cible pour absorber la surconsommation du BDC source,
-// puis met à jour le BDC source avec un commentaire de régularisation.
-app.post('/api/deplacements/regularisation-technique', requireAdmin, async (req, res) => {
-    const { source_bdc_id, cible_bdc_id, nb_uo, date_debut, commentaire } = req.body;
-
-    if (!source_bdc_id || !cible_bdc_id || !nb_uo || !date_debut) {
-        return res.status(400).json({ error: 'Champs manquants : source_bdc_id, cible_bdc_id, nb_uo, date_debut requis' });
-    }
-
-    try {
-        // Récupérer les infos BDC source et cible
-        const [sourceBdc, cibleBdc] = await Promise.all([
-            new Promise((res2, rej) => database.get(`SELECT * FROM bons_commande WHERE id = ?`, [source_bdc_id], (err, r) => err ? rej(err) : res2(r))),
-            new Promise((res2, rej) => database.get(`SELECT * FROM bons_commande WHERE id = ?`, [cible_bdc_id], (err, r) => err ? rej(err) : res2(r)))
-        ]);
-
-        if (!sourceBdc) return res.status(404).json({ error: 'BDC source introuvable' });
-        if (!cibleBdc)  return res.status(404).json({ error: 'BDC cible introuvable' });
-
-        // Récupérer l'ID de l'admin système (user admin)
-        const adminUser = await new Promise((res2, rej) => {
-            database.get(`SELECT id, resource_id FROM users WHERE is_admin = 1 ORDER BY id LIMIT 1`, (err, r) => err ? rej(err) : res2(r));
-        });
-
-        // Calculer date_fin : date_debut + nb_uo - 1 jours
-        const startDate = new Date(date_debut + 'T00:00:00');
-        const endDate   = new Date(startDate);
-        endDate.setDate(endDate.getDate() + parseInt(nb_uo) - 1);
-        const dateDebut = date_debut;
-        const dateFin   = endDate.toISOString().split('T')[0];
-
-        const comm = commentaire || `Régularisation du bon de commande ${sourceBdc.intitule} qui était en surconsommation`;
-
-        // Insérer la ligne de régularisation technique dans deplacements
-        const newId = await new Promise((res2, rej) => {
-            database.run(
-                `INSERT INTO deplacements (user_id, amoa_ced_id, date_debut, date_fin, samu, ville, bon_commande_id, nb_uo, a_regulariser, commentaire, regularisation_source_bdc_id)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
-                [
-                    adminUser ? adminUser.id : req.session.userId,
-                    adminUser ? adminUser.resource_id : null,
-                    dateDebut, dateFin,
-                    '', '',   // SAMU et VILLE vides
-                    cible_bdc_id,
-                    nb_uo,
-                    comm,
-                    source_bdc_id
-                ],
-                function(err) { if (err) rej(err); else res2(this.lastID); }
-            );
-        });
-
-        // Mettre à jour le BDC source : stocker l'ID du BDC cible de régularisation
-        await new Promise((res2, rej) => {
-            database.run(
-                `UPDATE bons_commande SET regularisation_cible_bdc_id = ? WHERE id = ?`,
-                [cible_bdc_id, source_bdc_id],
-                (err) => err ? rej(err) : res2()
-            );
-        });
-
-        console.log(`✅ Régularisation technique créée: BDC ${sourceBdc.intitule} → ${cibleBdc.intitule}, ${nb_uo} UO, déplacement #${newId}`);
-        res.json({
-            success: true,
-            deplacement_id: newId,
-            source_intitule: sourceBdc.intitule,
-            cible_intitule:  cibleBdc.intitule,
-            nb_uo,
-            date_debut: dateDebut,
-            date_fin: dateFin
-        });
-    } catch (error) {
-        console.error('Erreur régularisation technique:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
 app.post('/api/deplacements/:id/reaffecter', requireAuth, (req, res) => {
     const id = req.params.id;
     const { nouveau_bon_commande_id } = req.body;
@@ -8112,12 +8018,9 @@ app.get('/api/reporting-deplacements', requireAuth, (req, res) => {
             bc.nb_uo as uo_commandees,
             bc.actif,
             bc.solde,
-            bc.regularisation_cible_bdc_id,
-            COALESCE(SUM(d.nb_uo), 0) as uo_consommees,
-            bc2.intitule as regularisation_cible_intitule
+            COALESCE(SUM(d.nb_uo), 0) as uo_consommees
         FROM bons_commande bc
         LEFT JOIN deplacements d ON d.bon_commande_id = bc.id
-        LEFT JOIN bons_commande bc2 ON bc2.id = bc.regularisation_cible_bdc_id
         GROUP BY bc.id
         ORDER BY bc.date_debut DESC
     `, [], (err, rows) => {
@@ -9601,6 +9504,18 @@ app.post('/api/mfa/config', requireAdmin, (req, res) => {
     );
 });
 
+// Réinitialiser le TOTP d'un utilisateur spécifique (admin uniquement)
+app.post('/api/mfa/reset-totp/:userId', requireAdmin, (req, res) => {
+    const { userId } = req.params;
+    database.serialize(() => {
+        database.run(`UPDATE users SET totp_secret = NULL WHERE id = ?`, [userId]);
+        database.run(`DELETE FROM mfa_validations WHERE user_id = ?`, [userId]);
+        database.run(`DELETE FROM mfa_codes WHERE user_id = ?`, [userId]);
+    });
+    console.log(`🔐 TOTP réinitialisé pour userId: ${userId}`);
+    res.json({ success: true });
+});
+
 // Réinitialiser le MFA de tous les utilisateurs
 app.post('/api/mfa/reset-all', requireAdmin, (req, res) => {
     database.serialize(() => {
@@ -9632,63 +9547,63 @@ app.post('/api/mfa/send-code', async (req, res) => {
         if (!user || !user.email) {
             return res.status(400).json({ error: 'Utilisateur sans email' });
         }
-
-        if (!emailConfig.user || !emailConfig.password) {
-            return res.status(500).json({ error: 'Configuration SMTP non renseignée dans Administration → Configuration Email. Veuillez utiliser le code TOTP (QR code) à la place.' });
-        }
         
         // Générer le code
         const code = generateMfaCode();
-        const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 minutes
         
         // Sauvegarder le code
         await new Promise((resolve, reject) => {
             database.run(
                 `INSERT OR REPLACE INTO mfa_codes (user_id, code, expires_at) VALUES (?, ?, ?)`,
                 [userId, code, expiresAt],
-                (err) => { if (err) reject(err); else resolve(); }
+                (err) => {
+                    if (err) reject(err);
+                    else resolve();
+                }
             );
         });
         
-        // Envoyer via sendEmail() (transporter ponctuel sans pool, plus fiable)
-        await sendEmail(
-            user.email,
-            '🔐 Code de vérification - Planning ANS',
-            `<div style="font-family: Arial, sans-serif; padding: 20px; background-color: #f5f5f5;">
-                <div style="max-width: 450px; margin: 0 auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-                    <div style="background: linear-gradient(135deg, #4caf50 0%, #43a047 100%); color: white; padding: 25px; text-align: center;">
-                        <h2 style="margin: 0;">🔐 Code de vérification</h2>
-                    </div>
-                    <div style="padding: 30px; text-align: center;">
-                        <p style="color: #666; margin-bottom: 20px;">
-                            Bonjour ${user.prenom},<br>
-                            Voici votre code de vérification pour accéder à l'application.
-                        </p>
-                        <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                            <span style="font-size: 36px; font-family: monospace; letter-spacing: 8px; font-weight: bold; color: #2e7d32;">${code}</span>
+        // Envoyer l'email
+        const transporter = createEmailTransporter();
+        if (!transporter) {
+            return res.status(500).json({ error: 'Configuration email non disponible' });
+        }
+        
+        await transporter.sendMail({
+            from: `"Planning ANS" <${emailConfig.user}>`,
+            to: user.email,
+            subject: '🔐 Code de vérification - Planning ANS',
+            html: `
+                <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #f5f5f5;">
+                    <div style="max-width: 450px; margin: 0 auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                        <div style="background: linear-gradient(135deg, #4caf50 0%, #43a047 100%); color: white; padding: 25px; text-align: center;">
+                            <h2 style="margin: 0;">🔐 Code de vérification</h2>
                         </div>
-                        <p style="color: #999; font-size: 12px;">
-                            Ce code est valable pendant 10 minutes.<br>
-                            Si vous n'avez pas demandé ce code, ignorez cet email.
-                        </p>
+                        <div style="padding: 30px; text-align: center;">
+                            <p style="color: #666; margin-bottom: 20px;">
+                                Bonjour ${user.prenom},<br>
+                                Voici votre code de vérification pour accéder à l'application.
+                            </p>
+                            <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                                <span style="font-size: 36px; font-family: monospace; letter-spacing: 8px; font-weight: bold; color: #2e7d32;">${code}</span>
+                            </div>
+                            <p style="color: #999; font-size: 12px;">
+                                Ce code est valable pendant 10 minutes.<br>
+                                Si vous n'avez pas demandé ce code, ignorez cet email.
+                            </p>
+                        </div>
                     </div>
                 </div>
-            </div>`
-        );
+            `
+        });
         
         console.log(`🔐 Code MFA envoyé à ${user.email}`);
         res.json({ success: true });
         
     } catch (error) {
         console.error('Erreur envoi code MFA:', error);
-        // Message lisible selon le type d'erreur
-        let msg = error.message;
-        if (error.code === 'ETIMEDOUT' || msg.includes('timeout')) {
-            msg = `Impossible de joindre le serveur SMTP (${emailConfig.host}:${emailConfig.port}). Vérifiez la configuration email dans Administration, ou utilisez le code TOTP (QR code) à la place.`;
-        } else if (error.code === 'EAUTH' || msg.includes('auth')) {
-            msg = `Authentification SMTP échouée. Vérifiez l'email et le mot de passe dans Administration → Configuration Email.`;
-        }
-        res.status(500).json({ error: msg });
+        res.status(500).json({ error: error.message });
     }
 });
 
