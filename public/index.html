@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<!-- v1.11.5 -->
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestionnaire de Ressources et Planification des Experts Métier</title>
     <link rel="icon" type="image/svg+xml" href="/favicon-calendrier.svg" id="favicon">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: Arial, sans-serif; background-color: #f5f5f5; padding: 10px; }
@@ -101,6 +101,9 @@
         /* Planning astreinte généré - pas de flèches */
         #astreintePlanningTable th::after { content: none; }
         #astreintePlanningActuelContainer th::after { content: none; }
+        /* Tableau localisations — flèches gérées en JS, supprimer celles du CSS */
+        #localisationsTableContainer th::after { content: none; }
+        #localisationsTableContainer th { cursor: default; }
         #reportingTable th.sortable { cursor: pointer; }
         #reportingTable th.sortable:hover { background-color: #2c3e50; }
         td { padding: 10px; border-bottom: 1px solid #ecf0f1; }
@@ -539,7 +542,12 @@
             <div id="syncStatus" class="sync-status" style="display:none;">Données synchronisées</div>
             
             <div class="form-section">
-                <h3>Ajouter une nouvelle ressource</h3>
+                <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="togglePlanningSection('addResourceSection')">
+                    <h3 style="border-left: none; margin: 0;">
+                        <span id="addResourceSectionIcon">▶</span> Ajouter une nouvelle ressource
+                    </h3>
+                </div>
+                <div id="addResourceSection" style="display: none; margin-top: 15px;">
                 <div class="form-row">
                     <div class="form-group"><label>Nom *</label><input type="text" id="nom" placeholder="Nom"></div>
                     <div class="form-group"><label>Prénom *</label><input type="text" id="prenom" placeholder="Prénom"></div>
@@ -556,6 +564,7 @@
                     <button onclick="addResource()">Ajouter la ressource</button>
                     <button class="export-btn" onclick="exportResourcesToExcel()">Exporter (Excel)</button>
                 </div>
+                </div><!-- /addResourceSection -->
             </div>
             
             <div class="table-container">
@@ -691,7 +700,7 @@
                             <span id="ganttDisplaySectionIcon">▼</span> Planification
                         </h3>
                         <!-- Boutons de zoom à droite - Design stylisé -->
-                        <div onclick="event.stopPropagation();" style="display: flex; gap: 0; align-items: center; background: linear-gradient(145deg, #f0f4f8, #e2e8f0); border-radius: 8px; padding: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <div id="ganttHeaderControls" onclick="event.stopPropagation();" style="display: flex; gap: 0; align-items: center; background: linear-gradient(145deg, #f0f4f8, #e2e8f0); border-radius: 8px; padding: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                             <span style="font-size: 11px; color: #64748b; margin: 0 10px; font-weight: 500;">🔍 Zoom</span>
                             <button onclick="event.stopPropagation(); zoomPlanning(-1);" 
                                     style="width: 36px; height: 36px; background: linear-gradient(145deg, #3b82f6, #1d4ed8); color: white; border: none; border-radius: 6px 0 0 6px; cursor: pointer; font-size: 18px; font-weight: bold; display: flex; align-items: center; justify-content: center; transition: all 0.2s; box-shadow: inset 0 1px 0 rgba(255,255,255,0.2);" 
@@ -717,7 +726,7 @@
                             </button>
                         </div>
                     </div>
-                    <div style="display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap;">
+                    <div id="ganttHeaderButtons" style="display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap;">
                         <button onclick="event.stopPropagation(); navigateMonth(-1);" 
                                 style="padding: 8px 15px; height: 38px; background-color: #1565c0; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; display: flex; align-items: center;" 
                                 title="Mois précédent">
@@ -736,18 +745,18 @@
                         <button onclick="event.stopPropagation(); openMyEventsModal();" 
                                 style="padding: 8px 15px; height: 38px; background-color: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; display: flex; align-items: center;" 
                                 title="Gérer mes événements personnalisés">
-                            ✏️ Gérer mes événements
+                            Gérer mes événements
                         </button>
                         <button onclick="event.stopPropagation(); openEventsCalendarModal();" 
                                 style="padding: 8px 15px; height: 38px; background-color: #00bcd4; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; display: flex; align-items: center;" 
                                 title="Visualiser les congés et événements">
-                            📆 Visualiser les événements
+                            Visualiser les événements
                         </button>
                         </button>
                         <button id="astreintesBtn" onclick="event.stopPropagation(); openAstreintesModal();" 
                                 style="padding: 8px 15px; height: 38px; background-color: #9c27b0; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; display: none; align-items: center;" 
                                 title="Gérer les astreintes et HNO">
-                            🕐 <span id="astreintesBtnText">Gérer mes astreintes/HNO</span>
+                            <span id="astreintesBtnText">Gérer mes astreintes/HNO</span>
                         </button>
                         <button id="requestBtn" onclick="event.stopPropagation(); openRequestModal();" 
                                 style="padding: 8px 15px; height: 38px; background-color: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; display: none; align-items: center;" 
@@ -769,14 +778,14 @@
         
         <!-- ONGLET REPORTING -->
         <div id="reporting" class="tab-content">
-            <h2>📊 Reporting</h2>
+            <h2>Reporting</h2>
             
             <!-- Section Suivi des disponibilités / affectations -->
             <div class="form-section" style="background-color: #e8f5e9; border-left: 4px solid #4caf50;">
                 <div style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 0;" onclick="toggleReportingSection('reportingDispoBody', 'reportingDispoIcon')">
                     <span id="reportingDispoIcon" style="font-size: 13px; color: #2e7d32; transition: transform 0.2s;">▶</span>
                     <h3 style="color: #2e7d32; border-left: none; margin: 0;">
-                        📈 Suivi des disponibilités / Suivi des affectations
+                        Suivi des disponibilités / Suivi des affectations
                     </h3>
                 </div>
                 <div id="reportingDispoBody" style="display: none; margin-top: 15px;">
@@ -922,7 +931,7 @@
                 <div style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 0;" onclick="toggleReportingSection('reportingHnoBody', 'reportingHnoIcon')">
                     <span id="reportingHnoIcon" style="font-size: 13px; color: #7b1fa2; transition: transform 0.2s;">▶</span>
                     <h3 style="color: #7b1fa2; border-left: none; margin: 0;">
-                        📈 Suivi des HNO / Astreintes
+                        Suivi des HNO / Astreintes
                     </h3>
                 </div>
                 <div id="reportingHnoBody" style="display: none; margin-top: 15px;">
@@ -1039,7 +1048,7 @@
                 <div style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 0;" onclick="toggleReportingSection('reportingEventsBody', 'reportingEventsIcon')">
                     <span id="reportingEventsIcon" style="font-size: 13px; color: #1565c0; transition: transform 0.2s;">▶</span>
                     <h3 style="color: #1565c0; border-left: none; margin: 0;">
-                        📈 Suivi des événements
+                        Suivi des événements
                     </h3>
                 </div>
                 <div id="reportingEventsBody" style="display: none; margin-top: 15px;">
@@ -1102,7 +1111,75 @@
                 </div><!-- fin reportingEventsBody -->
             </div>
 
+            <!-- Section Carte des événements/déplacements -->
+            <div class="form-section" style="background-color: #e8eaf6; border-left: 4px solid #3f51b5; margin-top: 20px;">
+                <div style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 0;"
+                     onclick="toggleReportingSection('reportingMapBody', 'reportingMapIcon'); if(document.getElementById('reportingMapBody').style.display!=='none') initEventsMap()">
+                    <span id="reportingMapIcon" style="font-size: 13px; color: #283593; transition: transform 0.2s;">▶</span>
+                    <h3 style="color: #283593; border-left: none; margin: 0;">Suivi géographique des événements / déplacements</h3>
+                </div>
+                <div id="reportingMapBody" style="display: none; margin-top: 15px;">
+
+                    <!-- Filtres -->
+                    <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end; margin-bottom: 15px;">
+                        <div>
+                            <label style="font-size: 12px; color: #555; display: block; margin-bottom: 4px;">Date de début</label>
+                            <input type="date" id="mapStartDate" style="padding: 7px; border: 1px solid #9fa8da; border-radius: 4px;">
+                        </div>
+                        <div>
+                            <label style="font-size: 12px; color: #555; display: block; margin-bottom: 4px;">Date de fin</label>
+                            <input type="date" id="mapEndDate" style="padding: 7px; border: 1px solid #9fa8da; border-radius: 4px;">
+                        </div>
+                        <div>
+                            <label style="font-size: 12px; color: #555; display: block; margin-bottom: 4px;">Localisation</label>
+                            <select id="mapLocationFilter" style="padding: 7px; border: 1px solid #9fa8da; border-radius: 4px; min-width: 220px;">
+                                <option value="">— Toutes les localisations —</option>
+                            </select>
+                        </div>
+                        <!-- Recherche par utilisateur/participant -->
+                        <div style="position:relative;">
+                            <label style="font-size: 12px; color: #555; display: block; margin-bottom: 4px;">👥 Participants</label>
+                            <div id="mapParticipantsContainer" style="display:flex;flex-wrap:wrap;gap:4px;padding:4px 6px;border:1px solid #9fa8da;border-radius:4px;min-height:36px;min-width:220px;max-width:320px;align-items:center;background:white;cursor:text;" onclick="document.getElementById('mapParticipantInput').focus()">
+                                <input type="text" id="mapParticipantInput" placeholder="Nom ou prénom…"
+                                    style="border:none;outline:none;flex:1;min-width:80px;padding:2px 0;font-size:12px;"
+                                    oninput="filterMapParticipants(this.value)"
+                                    onfocus="filterMapParticipants(this.value)"
+                                    onkeydown="handleMapParticipantKeydown(event)">
+                            </div>
+                            <div id="mapParticipantDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #ddd;border-radius:0 0 8px 8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);max-height:200px;overflow-y:auto;z-index:1000;"></div>
+                        </div>
+                        <div>
+                            <button onclick="loadEventsMap()" style="background:#3f51b5;color:white;border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-weight:bold;">
+                                🗺️ Afficher
+                            </button>
+                            <button onclick="resetMapFilters()" style="background:#78909c;color:white;border:none;padding:8px 15px;border-radius:4px;cursor:pointer;margin-left:6px;">
+                                🔄 Réinitialiser
+                            </button>
+                        </div>
+                        <div id="mapEventCount" style="font-size:12px;color:#555;padding:8px 0;"></div>
+                    </div>
+
+                    <!-- Carte -->
+                    <div id="eventsMapContainer"></div>
+
+                    <!-- Légende -->
+                    <div id="eventsMapLegend" style="display:none;margin-top:12px;padding:10px;background:#f5f5f5;border-radius:6px;font-size:11px;">
+                        <strong style="color:#283593;">Événements affichés :</strong>
+                        <div id="eventsMapLegendItems" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;"></div>
+                    </div>
+
+                </div>
+            </div>
+
         </div><!-- fin onglet reporting -->
+
+    <!-- SECTION CARTE ÉVÉNEMENTS/DÉPLACEMENTS -->
+    <style>
+        #eventsMapContainer { height: 520px; border-radius: 8px; border: 1px solid #90caf9; z-index: 0; }
+        #eventMapModalContainer { height: 480px; border-radius: 8px; border: 1px solid #90caf9; z-index: 0; }
+        .leaflet-popup-content { font-size: 12px; min-width: 220px; }
+        .leaflet-popup-content strong { color: #1565c0; }
+    </style>
 
 <div id="admin" class="tab-content">
     <h2>Administration</h2>
@@ -1306,6 +1383,13 @@
                             <div id="adminEventParticipantDropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ddd; border-radius: 0 0 8px 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); max-height: 200px; overflow-y: auto; z-index: 10010;"></div>
                         </div>
                     </div>
+                    <!-- Localisation -->
+                    <div style="margin-top: 8px;">
+                        <label style="font-size: 11px; color: #1565c0; display: block; margin-bottom: 3px;">📍 Localisation</label>
+                        <select id="customEventLocationId" style="width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
+                            <option value="">— Aucune localisation —</option>
+                        </select>
+                    </div>
 
                     <!-- Sélecteur demi-journée — visible uniquement si début = fin -->
                     <div id="customEventPeriodSection" style="display: none; margin-top: 8px; padding: 8px 12px; background: #e3f2fd; border-radius: 6px; border: 1px solid #90caf9;">
@@ -1371,6 +1455,72 @@
         </div>
     </div>
     
+    <!-- SECTION LOCALISATION -->
+    <div class="form-section" style="background-color: #e8eaf6; border-left: 4px solid #3f51b5;">
+        <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleAdminSection('localisationAdminSection')">
+            <h3 style="color: #283593; border-left: none; margin: 0;">
+                <span id="localisationAdminSectionIcon">▶</span> Localisation
+            </h3>
+        </div>
+        <div id="localisationAdminSection" style="margin-top: 15px; display: none;">
+
+            <!-- Formulaire ajout/édition -->
+            <div style="background: #c5cae9; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                <div style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 0;" onclick="toggleLocalisationForm()">
+                    <span id="localisationFormIcon" style="font-size: 13px; color: #283593;">▶</span>
+                    <h4 id="localisationFormTitle" style="margin: 0; color: #283593;">Ajouter une localisation</h4>
+                </div>
+                <div id="localisationFormBody" style="display: none; margin-top: 15px;">
+                    <input type="hidden" id="localisationEditId">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                        <div>
+                            <label style="font-size: 12px; color: #283593; display: block; margin-bottom: 3px;">Libellé long *</label>
+                            <input type="text" id="locLong" placeholder="Ex: CENTRE HOSPITALIER DE BORDEAUX" style="width:100%;padding:6px;text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()">
+                        </div>
+                        <div>
+                            <label style="font-size: 12px; color: #283593; display: block; margin-bottom: 3px;">Libellé court *</label>
+                            <input type="text" id="locCourt" placeholder="Ex: CHB" style="width:100%;padding:6px;text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()">
+                        </div>
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <label style="font-size: 12px; color: #283593; display: block; margin-bottom: 3px;">Adresse</label>
+                        <input type="text" id="locAdresse" placeholder="Ex: 1 RUE DE LA PAIX, 75001 PARIS" style="width:100%;padding:6px;text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()">
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+                        <div>
+                            <label style="font-size: 12px; color: #283593; display: block; margin-bottom: 3px;">Latitude</label>
+                            <input type="number" id="locLat" placeholder="Ex: 44.8378" step="any" style="width:100%;padding:6px;">
+                        </div>
+                        <div>
+                            <label style="font-size: 12px; color: #283593; display: block; margin-bottom: 3px;">Longitude</label>
+                            <input type="number" id="locLng" placeholder="Ex: -0.5792" step="any" style="width:100%;padding:6px;">
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button onclick="saveLocalisation()" style="background:#3f51b5;color:white;padding:8px 20px;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">💾 Enregistrer</button>
+                        <button onclick="resetLocalisationForm()" style="background:#95a5a6;color:white;padding:8px 20px;border:none;border-radius:4px;cursor:pointer;">🔄 Annuler</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Import CSV -->
+            <div style="background: #e8eaf6; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #9fa8da;">
+                <label style="font-size: 13px; color: #283593; font-weight: bold; display: block; margin-bottom: 8px;">📥 Import CSV</label>
+                <p style="font-size: 11px; color: #3949ab; margin-bottom: 8px;">Format attendu : <code>libelle_long;libelle_court;adresse;latitude;longitude</code> (avec en-tête)</p>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <input type="file" id="locCsvFile" accept=".csv" style="flex:1;">
+                    <button onclick="importLocalisationsCSV()" style="background:#3f51b5;color:white;padding:8px 15px;border:none;border-radius:4px;cursor:pointer;white-space:nowrap;">📤 Importer</button>
+                </div>
+                <div id="locImportStatus" style="margin-top: 8px; font-size: 12px;"></div>
+            </div>
+
+            <!-- Tableau des localisations -->
+            <div id="localisationsTableContainer">
+                <p style="color:#999;font-size:12px;font-style:italic;">Chargement...</p>
+            </div>
+        </div>
+    </div>
+
     <!-- SECTION 3: Configuration Email (repliable) -->
     <div class="form-section" style="background-color: #fff3cd; border-left: 4px solid #ffc107;">
         <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleAdminSection('emailSection')">
@@ -1400,7 +1550,7 @@
     <div class="form-section" style="background-color: #e8f5e9; border-left: 4px solid #4caf50;">
         <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleAdminSection('mfaSection')">
             <h3 style="color: #2e7d32; border-left: none; margin: 0;">
-                <span id="mfaSectionIcon">▶</span> 🔐 Authentification à deux facteurs (MFA)
+                <span id="mfaSectionIcon">▶</span> Authentification à deux facteurs (MFA)
             </h3>
         </div>
         <div id="mfaSection" style="margin-top: 15px; display: none;">
@@ -3064,6 +3214,7 @@
             await loadUsers(); // Charger les utilisateurs pour les notifications
             await loadSchoolHolidays(); // Charger les congés scolaires pour tous les profils
             await loadSpecialDates(); // Charger les dates particulières pour tous les profils
+            await loadLocations(); // Charger les localisations
             
             // Démarrer le suivi des utilisateurs connectés en temps réel
             startOnlineUsersPolling();
@@ -3248,11 +3399,17 @@
                     document.getElementById('mfaCodeInput').focus();
                 } else {
                     const data = await response.json();
-                    showLoginError(data.error || 'Erreur envoi du code');
+                    const msg = data.error || 'Erreur envoi du code';
+                    // Si SMTP indisponible, proposer de basculer sur TOTP
+                    if (msg.includes('SMTP') || msg.includes('timeout') || msg.includes('Configuration')) {
+                        showLoginError(`❌ ${msg}`);
+                    } else {
+                        showLoginError(msg);
+                    }
                 }
             } catch (error) {
                 console.error('Erreur MFA email:', error);
-                showLoginError('Erreur envoi du code');
+                showLoginError('Erreur réseau lors de l\'envoi du code. Vérifiez la configuration SMTP ou utilisez le code TOTP.');
             }
         }
         
@@ -3564,6 +3721,7 @@
                 loadSchoolHolidaysFiles();
                 loadSpecialDatesFiles();
                 loadCustomEvents();
+                populateLocationSelects();
             } else if (currentUser.activeProfile === 'expert' || currentUser.activeProfile === 'user') {
                 resourcesTab.style.display = 'none';
                 planningTab.style.display = 'block';
@@ -3688,11 +3846,11 @@
             const expertSelectDiv = document.getElementById('astreintesExpertSelect');
             
             if (currentUser.activeProfile === 'admin') {
-                title.textContent = '🕐 Gérer les astreintes/HNO';
+                title.textContent = 'Gérer les astreintes/HNO';
                 expertSelectDiv.style.display = 'block';
                 await loadExpertsForAstreintes();
             } else {
-                title.textContent = '🕐 Gérer mes astreintes/HNO';
+                title.textContent = 'Gérer mes astreintes/HNO';
                 expertSelectDiv.style.display = 'none';
             }
             
@@ -3923,6 +4081,19 @@
             }
         }
         
+        function toggleAstreinteForm() {
+            const body = document.getElementById('astreinteFormBody');
+            const icon = document.getElementById('astreinteFormIcon');
+            if (!body || !icon) return;
+            if (body.style.display === 'none') {
+                body.style.display = 'block';
+                icon.textContent = '▼';
+            } else {
+                body.style.display = 'none';
+                icon.textContent = '▶';
+            }
+        }
+
         function resetAstreintesForm() {
             document.getElementById('astreintesEditId').value = '';
             document.getElementById('astreintesType').value = 'astreinte';
@@ -3941,6 +4112,12 @@
             
             document.getElementById('astreintesFormTitle').textContent = 'Ajouter une astreinte/HNO';
             toggleHnoFields();
+            
+            // Replier le formulaire après réinitialisation
+            const body = document.getElementById('astreinteFormBody');
+            const icon = document.getElementById('astreinteFormIcon');
+            if (body) body.style.display = 'none';
+            if (icon) icon.textContent = '▶';
         }
         
         function editAstreinte(id) {
@@ -3964,6 +4141,12 @@
             document.getElementById('astreintesFormTitle').textContent = 'Modifier l\'astreinte/HNO';
             toggleHnoFields();
             toggleSamuSelect();
+            
+            // Déplier le formulaire pour l'édition
+            const body = document.getElementById('astreinteFormBody');
+            const icon = document.getElementById('astreinteFormIcon');
+            if (body) body.style.display = 'block';
+            if (icon) icon.textContent = '▼';
             
             // Scroll vers le formulaire
             document.getElementById('astreintesFormTitle').scrollIntoView({ behavior: 'smooth' });
@@ -4680,7 +4863,11 @@
                 // Déterminer le message d'observation
                 let observation = '';
                 if (bc.solde) {
-                    if (isSurconsommation) {
+                    if (bc.regularisation_cible_bdc_id) {
+                        // Surconsommation déjà régularisée
+                        const cibleLabel = bc.regularisation_cible_intitule || `BDC #${bc.regularisation_cible_bdc_id}`;
+                        observation = `<span style="color: #27ae60; font-weight: bold;">✅ Surconsommation régularisée sur le bon de commande ${cibleLabel}</span>`;
+                    } else if (isSurconsommation) {
                         // Surconsommation sur BDC soldé = régularisation à prévoir
                         observation = `<span style="color: #e74c3c; font-weight: bold;">⚠️ Régularisation à prévoir pour ${diff} UO sur le prochain bon de commande</span>`;
                     } else if (uoConsommees < uoCommandees) {
@@ -4735,325 +4922,143 @@
         async function openBdcDeplacementsModal(bcId, bcIntitule, bcTitulaire, isSolde, isSurconsommation, uoEnTrop) {
             currentBdcId = bcId;
             uoSurconsommation = uoEnTrop;
-            
-            // Mettre à jour le titre du modal
+
             document.getElementById('bdcDeplacementsModalTitle').innerHTML = `
                 📋 Déplacements du bon de commande<br>
                 <span style="font-size: 16px; color: #3498db;">${bcIntitule} - ${bcTitulaire || 'N/A'}</span>
             `;
-            
-            // Afficher/masquer la section de régularisation
+
             const regularisationSection = document.getElementById('bdcRegularisationSection');
-            const validateBtn = document.getElementById('bdcValidateRegularisationBtn');
-            const errorSection = document.getElementById('bdcRegularisationError');
-            
-            // Masquer l'erreur par défaut
-            errorSection.style.display = 'none';
-            
+
             if (isSolde && isSurconsommation) {
                 regularisationSection.style.display = 'block';
                 document.getElementById('bdcUoEnTrop').textContent = uoEnTrop;
-                
-                // Charger les BDC disponibles du même titulaire
+                document.getElementById('bdcRegulUo').textContent = uoEnTrop;
+
+                // Pré-remplir la date de début au 1er jour du mois prochain
+                const today = new Date();
+                const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+                document.getElementById('bdcRegulDateDebut').value = nextMonth.toISOString().split('T')[0];
+
+                // Pré-remplir le commentaire
+                document.getElementById('bdcRegulCommentaire').value = `Régularisation du bon de commande ${bcIntitule} qui était en surconsommation`;
+
+                // Charger les BDC disponibles (non soldés)
                 await loadBdcCiblesForRegularisation(bcTitulaire, bcId);
-                
-                // Charger les déplacements et trouver la combinaison
-                await loadBdcDeplacementsAndFindCombination(bcId, uoEnTrop);
             } else {
                 regularisationSection.style.display = 'none';
-                validateBtn.style.display = 'none';
-                
-                // Charger les déplacements sans régularisation
-                await loadBdcDeplacements(bcId, false, 0);
             }
-            
-            // Afficher le modal
+
+            await loadBdcDeplacements(bcId, false, 0);
             document.getElementById('bdcDeplacementsModal').classList.add('active');
         }
-        
-        async function loadBdcDeplacementsAndFindCombination(bcId, uoEnTrop) {
+
+        async function creerLigneRegularisationTechnique() {
+            const cibleBdcId = document.getElementById('bdcCibleRegularisation').value;
+            const dateDebut  = document.getElementById('bdcRegulDateDebut').value;
+            const commentaire = document.getElementById('bdcRegulCommentaire').value.trim();
+
+            if (!cibleBdcId) { alert('Veuillez sélectionner un bon de commande cible.'); return; }
+            if (!dateDebut)  { alert('Veuillez renseigner une date de début.'); return; }
+
+            const nbUo = uoSurconsommation;
+            const cibleText = document.getElementById('bdcCibleRegularisation').options[document.getElementById('bdcCibleRegularisation').selectedIndex].text;
+
+            if (!confirm(`Créer une ligne de régularisation technique de ${nbUo} UO sur le bon de commande :\n\n${cibleText}\n\nDate de début : ${dateDebut}\nCommentaire : ${commentaire}\n\nConfirmer ?`)) return;
+
             try {
-                const response = await fetch(`${API_URL}/deplacements?bon_commande_id=${bcId}`, { credentials: 'include' });
+                const res = await fetch(`${API_URL}/deplacements/regularisation-technique`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        source_bdc_id: currentBdcId,
+                        cible_bdc_id: parseInt(cibleBdcId),
+                        nb_uo: nbUo,
+                        date_debut: dateDebut,
+                        commentaire: commentaire || null
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok) { alert('Erreur : ' + (data.error || res.status)); return; }
+
+                alert(`✅ Ligne de régularisation créée avec succès !\n\nBDC source : ${data.source_intitule}\nBDC cible : ${data.cible_intitule}\nUO régularisées : ${data.nb_uo}\nPériode : ${data.date_debut} → ${data.date_fin}`);
+
+                closeBdcDeplacementsModal();
+                loadBonsCommande();
+            } catch (e) {
+                alert('Erreur réseau : ' + e.message);
+            }
+        }
+
+        async function loadBdcCiblesForRegularisation(titulaire, excludeBcId) {
+            const select = document.getElementById('bdcCibleRegularisation');
+            select.innerHTML = '<option value="">-- Chargement... --</option>';
+            try {
+                const response = await fetch(`${API_URL}/reporting-deplacements`, { credentials: 'include' });
                 if (response.ok) {
-                    currentBdcDeplacementsList = await response.json();
-                    
-                    // Trouver la combinaison exacte de déplacements
-                    const combination = findExactCombination(currentBdcDeplacementsList, uoEnTrop);
-                    
-                    const errorSection = document.getElementById('bdcRegularisationError');
-                    const validateBtn = document.getElementById('bdcValidateRegularisationBtn');
-                    
-                    if (combination) {
-                        // Combinaison trouvée !
-                        errorSection.style.display = 'none';
-                        validateBtn.style.display = 'inline-block';
-                        displayBdcDeplacements(currentBdcDeplacementsList, true, combination);
+                    const bons = await response.json();
+                    // Tous les BDC actifs non soldés (pas seulement même titulaire)
+                    const bonsCibles = bons.filter(bc => bc.id !== excludeBcId && !bc.solde && bc.actif !== 0);
+                    if (bonsCibles.length === 0) {
+                        select.innerHTML = '<option value="">-- Aucun BDC actif disponible --</option>';
                     } else {
-                        // Pas de combinaison possible
-                        const minDeplacement = currentBdcDeplacementsList.reduce((min, d) => 
-                            d.nb_uo < min.nb_uo ? d : min, currentBdcDeplacementsList[0]);
-                        
-                        errorSection.style.display = 'block';
-                        errorSection.innerHTML = `
-                            <strong>❌ Régularisation automatique impossible</strong><br>
-                            <span style="font-size: 12px;">
-                                Impossible de trouver une combinaison de déplacements correspondant exactement à ${uoEnTrop} UO.<br>
-                                Le plus petit déplacement fait ${minDeplacement ? minDeplacement.nb_uo : '?'} UO.<br>
-                                <strong>Le retraitement doit être fait manuellement.</strong>
-                            </span>
-                        `;
-                        validateBtn.style.display = 'none';
-                        displayBdcDeplacements(currentBdcDeplacementsList, false, null);
+                        select.innerHTML = '<option value="">-- Sélectionner un BDC --</option>' +
+                            bonsCibles.map(bc => {
+                                const solde = (bc.uo_commandees || 0) - (bc.uo_consommees || 0);
+                                return `<option value="${bc.id}">${bc.intitule} (${solde} UO disponibles)</option>`;
+                            }).join('');
+                        if (bonsCibles.length === 1) select.value = bonsCibles[0].id;
                     }
                 }
             } catch (error) {
-                console.error('Erreur chargement déplacements BDC:', error);
+                select.innerHTML = '<option value="">-- Erreur de chargement --</option>';
             }
         }
-        
-        // Fonction pour trouver une combinaison exacte de déplacements qui font exactement targetUO
-        function findExactCombination(deplacements, targetUO) {
-            if (targetUO <= 0 || !deplacements || deplacements.length === 0) {
-                return null;
-            }
-            
-            // Tri par nombre d'UO croissant pour optimiser la recherche
-            const sorted = [...deplacements].sort((a, b) => a.nb_uo - b.nb_uo);
-            
-            // Vérifier d'abord si le plus petit déplacement est déjà trop grand
-            if (sorted[0].nb_uo > targetUO) {
-                return null;
-            }
-            
-            // Recherche de combinaison avec backtracking
-            function backtrack(index, remaining, current) {
-                if (remaining === 0) {
-                    return [...current]; // Trouvé !
-                }
-                if (remaining < 0 || index >= sorted.length) {
-                    return null;
-                }
-                
-                // Essayer d'inclure le déplacement courant
-                if (sorted[index].nb_uo <= remaining) {
-                    current.push(sorted[index].id);
-                    const result = backtrack(index + 1, remaining - sorted[index].nb_uo, current);
-                    if (result) return result;
-                    current.pop();
-                }
-                
-                // Essayer sans le déplacement courant
-                return backtrack(index + 1, remaining, current);
-            }
-            
-            return backtrack(0, targetUO, []);
-        }
-        
+
         async function loadBdcDeplacements(bcId, showCheckboxes, uoEnTrop) {
             try {
                 const response = await fetch(`${API_URL}/deplacements?bon_commande_id=${bcId}`, { credentials: 'include' });
                 if (response.ok) {
                     currentBdcDeplacementsList = await response.json();
-                    displayBdcDeplacements(currentBdcDeplacementsList, showCheckboxes, null);
+                    displayBdcDeplacements(currentBdcDeplacementsList);
                 }
             } catch (error) {
                 console.error('Erreur chargement déplacements BDC:', error);
             }
         }
-        
-        function displayBdcDeplacements(deplacements, showCheckboxes, precheckedIds) {
+
+        function displayBdcDeplacements(deplacements) {
             const tbody = document.getElementById('bdcDeplacementsBody');
-            
+            const thead = document.getElementById('bdcDeplacementsHead');
+
+            thead.innerHTML = `<tr>
+                <th>Utilisateur</th><th>SAMU</th><th>Ville</th>
+                <th>Date début</th><th>Date fin</th><th>Nb UO</th>
+            </tr>`;
+
             if (!deplacements || deplacements.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="' + (showCheckboxes ? 7 : 6) + '" style="text-align: center; color: #999;">Aucun déplacement</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;padding:20px;">Aucun déplacement</td></tr>';
                 return;
             }
-            
-            // Trier par date décroissante
+
             deplacements.sort((a, b) => new Date(b.date_debut) - new Date(a.date_debut));
-            
+
             tbody.innerHTML = deplacements.map(d => {
-                const isPrecheck = precheckedIds && precheckedIds.includes(d.id);
-                const checkboxCell = showCheckboxes 
-                    ? `<td style="text-align: center;">
-                         <input type="checkbox" class="bdc-deplacement-checkbox" value="${d.id}" data-uo="${d.nb_uo}" ${isPrecheck ? 'checked' : ''} onchange="updateBdcRegularisationInfo()">
-                       </td>` 
-                    : '';
-                
-                return `
-                <tr style="${isPrecheck ? 'background-color: #ffebee;' : ''}">
-                    ${checkboxCell}
-                    <td>${d.user_prenom || ''} ${d.user_nom || ''}</td>
+                const isRegul = !!d.regularisation_source_bdc_id;
+                const rowStyle = isRegul ? 'background:#e8f5e9;font-style:italic;' : '';
+                const tag = isRegul ? '<span style="background:#27ae60;color:white;border-radius:8px;padding:1px 6px;font-size:10px;margin-left:4px;">Régularisation</span>' : '';
+                return `<tr style="${rowStyle}">
+                    <td>${d.user_prenom || ''} ${d.user_nom || ''}${tag}</td>
                     <td>${d.samu || '-'}</td>
                     <td>${d.ville || '-'}</td>
                     <td>${formatDateFr(d.date_debut)}</td>
                     <td>${formatDateFr(d.date_fin)}</td>
-                    <td style="text-align: center; font-weight: bold;">${d.nb_uo}</td>
-                </tr>
-            `}).join('');
-            
-            // Mettre à jour les headers selon le mode
-            const thead = document.getElementById('bdcDeplacementsHead');
-            thead.innerHTML = `
-                <tr>
-                    ${showCheckboxes ? '<th style="width: 40px;">✓</th>' : ''}
-                    <th>Utilisateur</th>
-                    <th>SAMU</th>
-                    <th>Ville</th>
-                    <th>Date début</th>
-                    <th>Date fin</th>
-                    <th>Nb UO</th>
-                </tr>
-            `;
-            
-            // Mettre à jour les infos de régularisation
-            if (showCheckboxes) {
-                updateBdcRegularisationInfo();
-            }
+                    <td style="text-align:center;font-weight:bold;">${d.nb_uo}</td>
+                </tr>`;
+            }).join('');
         }
-        
-        async function loadBdcCiblesForRegularisation(titulaire, excludeBcId) {
-            const select = document.getElementById('bdcCibleRegularisation');
-            select.innerHTML = '<option value="">-- Chargement... --</option>';
-            
-            try {
-                const response = await fetch(`${API_URL}/reporting-deplacements`, { credentials: 'include' });
-                if (response.ok) {
-                    const bons = await response.json();
-                    
-                    // Filtrer: même titulaire, non soldé (le solde positif n'est plus obligatoire)
-                    const bonsCibles = bons.filter(bc => {
-                        return bc.titulaire && 
-                               bc.titulaire.toUpperCase() === titulaire.toUpperCase() && 
-                               bc.id !== excludeBcId && 
-                               !bc.solde;
-                    });
-                    
-                    if (bonsCibles.length === 0) {
-                        select.innerHTML = '<option value="">-- Aucun BDC disponible du même titulaire --</option>';
-                    } else {
-                        select.innerHTML = '<option value="">-- Sélectionner un BDC cible --</option>' +
-                            bonsCibles.map(bc => {
-                                const solde = (bc.uo_commandees || 0) - (bc.uo_consommees || 0);
-                                const soldeText = solde >= 0 ? `${solde} UO disponibles` : `${Math.abs(solde)} UO en surconsommation`;
-                                return `<option value="${bc.id}">${bc.intitule} (${soldeText})</option>`;
-                            }).join('');
-                        
-                        // Pré-sélectionner le premier si un seul disponible
-                        if (bonsCibles.length === 1) {
-                            select.value = bonsCibles[0].id;
-                        }
-                    }
-                    
-                    targetBdcId = select.value ? parseInt(select.value) : null;
-                }
-            } catch (error) {
-                console.error('Erreur chargement BDC cibles:', error);
-                select.innerHTML = '<option value="">-- Erreur de chargement --</option>';
-            }
-        }
-        
-        function updateBdcRegularisationInfo() {
-            const checkboxes = document.querySelectorAll('.bdc-deplacement-checkbox:checked');
-            let totalUo = 0;
-            checkboxes.forEach(cb => {
-                totalUo += parseInt(cb.dataset.uo) || 0;
-            });
-            
-            document.getElementById('bdcUoSelectionnees').textContent = totalUo;
-            document.getElementById('bdcNbDeplacementsSelectionnes').textContent = checkboxes.length;
-            
-            // Mettre à jour le BDC cible sélectionné
-            const select = document.getElementById('bdcCibleRegularisation');
-            targetBdcId = select.value ? parseInt(select.value) : null;
-            
-            // Afficher un warning si la sélection ne correspond pas exactement aux UO en surconsommation
-            const warningDiv = document.getElementById('bdcSelectionWarning');
-            if (warningDiv) {
-                if (totalUo !== uoSurconsommation && totalUo > 0) {
-                    warningDiv.style.display = 'block';
-                    warningDiv.innerHTML = `⚠️ Attention: vous avez sélectionné ${totalUo} UO au lieu de ${uoSurconsommation} UO`;
-                } else {
-                    warningDiv.style.display = 'none';
-                }
-            }
-        }
-        
-        async function validateBdcRegularisation() {
-            const checkboxes = document.querySelectorAll('.bdc-deplacement-checkbox:checked');
-            
-            if (checkboxes.length === 0) {
-                alert('Veuillez sélectionner au moins un déplacement à réaffecter');
-                return;
-            }
-            
-            const select = document.getElementById('bdcCibleRegularisation');
-            if (!select.value) {
-                alert('Veuillez sélectionner un bon de commande cible');
-                return;
-            }
-            
-            // Vérifier que la sélection correspond exactement
-            let totalUo = 0;
-            checkboxes.forEach(cb => { totalUo += parseInt(cb.dataset.uo) || 0; });
-            
-            if (totalUo !== uoSurconsommation) {
-                if (!confirm(`⚠️ Attention: vous avez sélectionné ${totalUo} UO au lieu de ${uoSurconsommation} UO attendues.\n\nVoulez-vous continuer quand même ?`)) {
-                    return;
-                }
-            }
-            
-            const targetBcId = parseInt(select.value);
-            const deplacementIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
-            
-            // Confirmation
-            const nbDeplacements = deplacementIds.length;
-            const targetBcText = select.options[select.selectedIndex].text;
-            
-            if (!confirm(`Voulez-vous vraiment réaffecter ${nbDeplacements} déplacement(s) (${totalUo} UO) vers le bon de commande :\n\n${targetBcText} ?`)) {
-                return;
-            }
-            
-            // Effectuer la réaffectation
-            try {
-                let success = 0;
-                let errors = 0;
-                let errorMessages = [];
-                
-                for (const depId of deplacementIds) {
-                    // Utiliser la bonne route avec les bons paramètres
-                    const response = await fetch(`${API_URL}/deplacements/${depId}/reaffecter`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        credentials: 'include',
-                        body: JSON.stringify({ nouveau_bon_commande_id: targetBcId })
-                    });
-                    
-                    if (response.ok) {
-                        success++;
-                    } else {
-                        errors++;
-                        const errData = await response.json();
-                        errorMessages.push(errData.error || 'Erreur inconnue');
-                    }
-                }
-                
-                if (errors > 0) {
-                    alert(`Régularisation terminée avec ${errors} erreur(s) sur ${deplacementIds.length} déplacements.\n\nErreurs: ${errorMessages.join(', ')}`);
-                } else {
-                    alert(`✅ ${success} déplacement(s) réaffecté(s) avec succès !`);
-                }
-                
-                // Fermer le modal et recharger les données
-                closeBdcDeplacementsModal();
-                loadBonsCommande();
-                
-            } catch (error) {
-                console.error('Erreur régularisation:', error);
-                alert('Erreur lors de la régularisation: ' + error.message);
-            }
-        }
-        
+
         function closeBdcDeplacementsModal() {
             document.getElementById('bdcDeplacementsModal').classList.remove('active');
             currentBdcDeplacementsList = [];
@@ -8267,7 +8272,11 @@
                             if (evtPeriod !== 'FULL' && evtPeriod !== halfPeriod) continue;
                             hasContent = true;
                             const cfg = sd.config;
-                            const displayLabel = cfg.label || sd.summary || 'JF';
+                            const eventLabel = cfg.label || sd.summary || 'JF';
+                            const locCourt = cfg.locationLibelleCourt
+                                ? cfg.locationLibelleCourt
+                                : (cfg.eventId ? 'NON DÉFINI' : null);  // custom event sans localisation
+                            const displayLabel = locCourt ? `${locCourt} | ${eventLabel}` : eventLabel;
                             const participantsInfo = cfg.participants && cfg.participants.length > 0 ? ` | 👥 ${cfg.participants.join(', ')}` : '';
                             content += `<span title="${displayLabel}${participantsInfo}" style="display: inline-block; padding: 1px 3px; border-radius: 6px; font-size: 8px; font-weight: bold; cursor: help; align-self: center; background-color: ${cfg.bgColor || '#ffeb3b'}; color: ${cfg.textColor || '#000'}; border: 1px solid ${cfg.borderColor || '#fbc02d'}; margin-bottom: 1px;">${displayLabel}</span>`;
                         }
@@ -9048,21 +9057,6 @@
             });
         }
 
-        async function resetUserTotp(userId, userName) {
-            if (!confirm(`Réinitialiser l'appairage TOTP de ${userName} ?\n\nL'utilisateur devra rescanner un nouveau QR code à sa prochaine connexion.`)) return;
-            try {
-                const res = await fetch(`${API_URL}/mfa/reset-totp/${userId}`, { method: 'POST', credentials: 'include' });
-                if (res.ok) {
-                    alert(`✅ TOTP réinitialisé pour ${userName}.\nL'utilisateur devra configurer un nouvel appairage à sa prochaine connexion.`);
-                } else {
-                    const d = await res.json();
-                    alert('Erreur : ' + (d.error || res.status));
-                }
-            } catch (e) {
-                alert('Erreur réseau : ' + e.message);
-            }
-        }
-
         async function toggleUserActive(id) {
             try {
                 const response = await fetch(`${API_URL}/users/${id}/toggle`, { method: 'POST', credentials: 'include' });
@@ -9110,6 +9104,21 @@
                 alert('Erreur lors de la modification de l\'accès AMOA CED');
                 // Recharger pour remettre l'état correct
                 await loadUsers();
+            }
+        }
+
+        async function resetUserTotp(userId, userName) {
+            if (!confirm(`Réinitialiser l'appairage TOTP de ${userName} ?\n\nL'utilisateur devra rescanner un nouveau QR code à sa prochaine connexion.`)) return;
+            try {
+                const res = await fetch(`${API_URL}/mfa/reset-totp/${userId}`, { method: 'POST', credentials: 'include' });
+                if (res.ok) {
+                    alert(`✅ TOTP réinitialisé pour ${userName}.\nL'utilisateur devra configurer un nouvel appairage à sa prochaine connexion.`);
+                } else {
+                    const d = await res.json();
+                    alert('Erreur : ' + (d.error || res.status));
+                }
+            } catch (e) {
+                alert('Erreur réseau : ' + e.message);
             }
         }
 
@@ -12704,6 +12713,7 @@
             const bgColor = document.getElementById('customEventBgColor').value;
             const textColor = document.getElementById('customEventTextColor').value;
             const borderColor = document.getElementById('customEventBorderColor').value;
+            const location_id = document.getElementById('customEventLocationId')?.value || null;
             
             if (!startDate) { alert('Veuillez sélectionner une date de début'); return; }
             if (!label) { alert('Veuillez saisir un libellé'); return; }
@@ -12725,7 +12735,8 @@
                         label,
                         config: { bgColor, textColor, borderColor },
                         participants: adminEventSelectedParticipants.map(p => p.id),
-                        period
+                        period,
+                        location_id: location_id || null
                     })
                 });
                 
@@ -12735,6 +12746,8 @@
                     document.getElementById('customEventLabel').value = '';
                     document.getElementById('customEventPeriodFull').checked = true;
                     document.getElementById('customEventPeriodSection').style.display = 'none';
+                    const locSel = document.getElementById('customEventLocationId');
+                    if (locSel) locSel.value = '';
                     adminEventSelectedParticipants = [];
                     renderAdminEventParticipantTags();
                     await loadCustomEvents();
@@ -12837,6 +12850,11 @@
                 }).join(' ');
             };
             const displayLabel = capitalizeLabel(event.label);
+            // Préfixe localisation
+            const locAdmin = event.location_id
+                ? (allLocations.find(l => l.id === event.location_id)?.libelle_court || 'NON DÉFINI')
+                : null;
+            const displayFull = locAdmin ? `${locAdmin} | ${displayLabel}` : displayLabel;
             
             // Fonction pour obtenir les initiales
             const getInitials = (prenom, nom) => {
@@ -12875,7 +12893,7 @@
                             <span style="display: inline-block; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: bold; 
                                 background-color: ${config.bgColor || '#ffeb3b'}; 
                                 color: ${config.textColor || '#000'}; 
-                                border: 2px solid ${config.borderColor || '#fbc02d'};">${displayLabel}</span>
+                                border: 2px solid ${config.borderColor || '#fbc02d'};">${displayFull}</span>
                             <span style="font-size: 10px; color: #666;">👤 ${creatorFullName}</span>
                         </div>
                         <div style="font-size: 11px; color: #666;">
@@ -13075,6 +13093,19 @@
                 creatorSection.style.display = 'none';
             }
             
+            // Pré-remplir la localisation dans la modale d'édition
+            const editLocSel = document.getElementById('editCustomEventLocationId');
+            if (editLocSel) {
+                editLocSel.innerHTML = '<option value="">— Aucune localisation —</option>';
+                allLocations.forEach(loc => {
+                    const opt = document.createElement('option');
+                    opt.value = loc.id;
+                    opt.textContent = `${loc.libelle_court} – ${loc.libelle_long}`;
+                    if (loc.id === event.location_id) opt.selected = true;
+                    editLocSel.appendChild(opt);
+                });
+            }
+            
             document.getElementById('editCustomEventModal').style.display = 'block';
         };
         
@@ -13218,6 +13249,7 @@
             const bgColor = document.getElementById('editCustomEventBgColor').value;
             const textColor = document.getElementById('editCustomEventTextColor').value;
             const borderColor = document.getElementById('editCustomEventBorderColor').value;
+            const location_id = document.getElementById('editCustomEventLocationId')?.value || null;
             
             if (!startDate || !label) { alert('Veuillez remplir tous les champs obligatoires'); return; }
             
@@ -13233,7 +13265,8 @@
                 label,
                 config: { bgColor, textColor, borderColor },
                 participants: editEventSelectedParticipants.map(p => p.id),
-                period
+                period,
+                location_id: location_id || null
             };
             
             if (currentUser && currentUser.activeProfile === 'admin') {
@@ -15439,11 +15472,1092 @@
             if (section.style.display === 'none') {
                 section.style.display = 'block';
                 icon.textContent = '▼';
+                if (sectionId === 'localisationAdminSection') loadLocations();
             } else {
                 section.style.display = 'none';
                 icon.textContent = '▶';
             }
         }
+
+        // ========== LOCALISATIONS ==========
+
+        let allLocations = [];
+        let locConflictData = [];
+        let locCsvParsedRows = {}; // CSV parsé côté client, clé = libelle_long
+
+        function toggleLocalisationForm() {
+            const body = document.getElementById('localisationFormBody');
+            const icon = document.getElementById('localisationFormIcon');
+            if (!body || !icon) return;
+            if (body.style.display === 'none') {
+                body.style.display = 'block';
+                icon.textContent = '▼';
+            } else {
+                body.style.display = 'none';
+                icon.textContent = '▶';
+            }
+        }
+
+        function resetLocalisationForm() {
+            document.getElementById('localisationEditId').value = '';
+            document.getElementById('locLong').value = '';
+            document.getElementById('locCourt').value = '';
+            document.getElementById('locAdresse').value = '';
+            document.getElementById('locLat').value = '';
+            document.getElementById('locLng').value = '';
+            document.getElementById('localisationFormTitle').textContent = 'Ajouter une localisation';
+            const body = document.getElementById('localisationFormBody');
+            const icon = document.getElementById('localisationFormIcon');
+            if (body) body.style.display = 'none';
+            if (icon) icon.textContent = '▶';
+        }
+
+        async function loadLocations() {
+            try {
+                const res = await fetch(`${API_URL}/locations`, { credentials: 'include' });
+                if (!res.ok) return;
+                const data = await res.json();
+                allLocations = data.locations || [];
+                renderLocationsTable();
+                populateLocationSelects();
+            } catch (e) {
+                console.error('Erreur chargement localisations:', e);
+            }
+        }
+
+        function populateLocationSelects() {
+            const selects = [
+                document.getElementById('customEventLocationId'),
+                document.getElementById('myEventLocationId')
+            ];
+            selects.forEach(sel => {
+                if (!sel) return;
+                const current = sel.value;
+                sel.innerHTML = '<option value="">— Aucune localisation —</option>';
+                allLocations.forEach(loc => {
+                    const opt = document.createElement('option');
+                    opt.value = loc.id;
+                    opt.textContent = `${loc.libelle_court} – ${loc.libelle_long}`;
+                    sel.appendChild(opt);
+                });
+                if (current) sel.value = current;
+            });
+        }
+
+        let locSortCol = 'libelle_long';
+        let locSortDir = 'asc';
+
+        function sortLocTable(col) {
+            if (locSortCol === col) {
+                locSortDir = locSortDir === 'asc' ? 'desc' : 'asc';
+            } else {
+                locSortCol = col;
+                locSortDir = 'asc';
+            }
+            renderLocationsTable();
+        }
+
+        function renderLocationsTable() {
+            const container = document.getElementById('localisationsTableContainer');
+            if (!container) return;
+            if (allLocations.length === 0) {
+                container.innerHTML = '<p style="color:#999;font-size:12px;font-style:italic;">Aucune localisation enregistrée.</p>';
+                return;
+            }
+
+            // Trier
+            const sorted = [...allLocations].sort((a, b) => {
+                let va = a[locSortCol], vb = b[locSortCol];
+                if (va === null || va === undefined) va = '';
+                if (vb === null || vb === undefined) vb = '';
+                const cmp = typeof va === 'number' && typeof vb === 'number'
+                    ? va - vb
+                    : String(va).localeCompare(String(vb), 'fr');
+                return locSortDir === 'asc' ? cmp : -cmp;
+            });
+
+            const arrow = (col) => {
+                if (locSortCol !== col) return '<span style="opacity:0.4;margin-left:4px;">▲▼</span>';
+                return locSortDir === 'asc'
+                    ? '<span style="margin-left:4px;">▲</span>'
+                    : '<span style="margin-left:4px;">▼</span>';
+            };
+            const thStyle = 'padding:8px;text-align:left;cursor:pointer;user-select:none;white-space:nowrap;';
+            const thStyleC = 'padding:8px;text-align:center;cursor:pointer;user-select:none;white-space:nowrap;';
+
+            const count = allLocations.length;
+            let html = `
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;">
+                    <button onclick="deleteSelectedLocalisations()" id="locDeleteSelectedBtn"
+                        style="background:#e53935;color:white;border:none;padding:6px 14px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;display:none;">
+                        🗑️ Supprimer la sélection (<span id="locSelectedCount">0</span>)
+                    </button>
+                    <button onclick="deleteAllLocalisations()"
+                        style="background:#b71c1c;color:white;border:none;padding:6px 14px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;">
+                        🗑️ Tout supprimer (${count})
+                    </button>
+                </div>
+                <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                <thead>
+                    <tr style="background:#3f51b5;color:white;">
+                        <th style="padding:8px;width:30px;text-align:center;">
+                            <input type="checkbox" id="locSelectAll" onchange="toggleSelectAllLoc(this)"
+                                style="width:14px;height:14px;cursor:pointer;" title="Tout sélectionner">
+                        </th>
+                        <th style="${thStyle}" onclick="sortLocTable('libelle_long')">Libellé long${arrow('libelle_long')}</th>
+                        <th style="${thStyle}" onclick="sortLocTable('libelle_court')">Libellé court${arrow('libelle_court')}</th>
+                        <th style="${thStyle}" onclick="sortLocTable('adresse')">Adresse${arrow('adresse')}</th>
+                        <th style="${thStyleC}" onclick="sortLocTable('latitude')">Lat.${arrow('latitude')}</th>
+                        <th style="${thStyleC}" onclick="sortLocTable('longitude')">Lng.${arrow('longitude')}</th>
+                        <th style="padding:8px;text-align:center;" class="no-sort">Actions</th>
+                    </tr>
+                </thead><tbody>`;
+
+            sorted.forEach(loc => {
+                html += `<tr style="border-bottom:1px solid #e8eaf6;" id="locRow_${loc.id}">
+                    <td style="padding:7px;text-align:center;">
+                        <input type="checkbox" class="locCheckbox" data-id="${loc.id}" onchange="updateLocSelectionCount()"
+                            style="width:14px;height:14px;cursor:pointer;">
+                    </td>
+                    <td style="padding:7px;">${loc.libelle_long}</td>
+                    <td style="padding:7px;">${loc.libelle_court}</td>
+                    <td style="padding:7px;">${loc.adresse || '-'}</td>
+                    <td style="padding:7px;text-align:center;">${loc.latitude != null ? loc.latitude : '-'}</td>
+                    <td style="padding:7px;text-align:center;">${loc.longitude != null ? loc.longitude : '-'}</td>
+                    <td style="padding:7px;text-align:center;">
+                        <button onclick="editLocalisation(${loc.id})" style="background:#1e88e5;color:white;border:none;padding:4px 10px;border-radius:3px;cursor:pointer;font-size:11px;margin-right:4px;">✏️</button>
+                        <button onclick="deleteLocalisation(${loc.id})" style="background:#e53935;color:white;border:none;padding:4px 10px;border-radius:3px;cursor:pointer;font-size:11px;">🗑️</button>
+                    </td>
+                </tr>`;
+            });
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        function toggleSelectAllLoc(checkbox) {
+            document.querySelectorAll('.locCheckbox').forEach(cb => { cb.checked = checkbox.checked; });
+            updateLocSelectionCount();
+        }
+
+        function updateLocSelectionCount() {
+            const checked = document.querySelectorAll('.locCheckbox:checked');
+            const btn = document.getElementById('locDeleteSelectedBtn');
+            const countEl = document.getElementById('locSelectedCount');
+            const selectAll = document.getElementById('locSelectAll');
+            const total = document.querySelectorAll('.locCheckbox').length;
+            if (countEl) countEl.textContent = checked.length;
+            if (btn) btn.style.display = checked.length > 0 ? 'inline-block' : 'none';
+            if (selectAll) selectAll.indeterminate = checked.length > 0 && checked.length < total;
+            if (selectAll && checked.length === total && total > 0) selectAll.checked = true;
+        }
+
+        async function saveLocalisation() {
+            const id = document.getElementById('localisationEditId').value;
+            const libelle_long = document.getElementById('locLong').value.trim().toUpperCase();
+            const libelle_court = document.getElementById('locCourt').value.trim().toUpperCase();
+            const adresse = document.getElementById('locAdresse').value.trim().toUpperCase();
+            const latitude = document.getElementById('locLat').value;
+            const longitude = document.getElementById('locLng').value;
+
+            if (!libelle_long || !libelle_court) {
+                alert('Le libellé long et le libellé court sont obligatoires.');
+                return;
+            }
+
+            const body = { libelle_long, libelle_court, adresse: adresse || null, latitude: latitude || null, longitude: longitude || null };
+            const url = id ? `${API_URL}/locations/${id}` : `${API_URL}/locations`;
+            const method = id ? 'PUT' : 'POST';
+
+            try {
+                const res = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(body)
+                });
+                const data = await res.json();
+                if (!res.ok) { alert('Erreur : ' + (data.error || res.status)); return; }
+                resetLocalisationForm();
+                await loadLocations();
+            } catch (e) {
+                alert('Erreur réseau : ' + e.message);
+            }
+        }
+
+        function editLocalisation(id) {
+            const loc = allLocations.find(l => l.id === id);
+            if (!loc) return;
+            document.getElementById('localisationEditId').value = loc.id;
+            document.getElementById('locLong').value = loc.libelle_long;
+            document.getElementById('locCourt').value = loc.libelle_court;
+            document.getElementById('locAdresse').value = loc.adresse || '';
+            document.getElementById('locLat').value = loc.latitude != null ? loc.latitude : '';
+            document.getElementById('locLng').value = loc.longitude != null ? loc.longitude : '';
+            document.getElementById('localisationFormTitle').textContent = 'Modifier la localisation';
+            const body = document.getElementById('localisationFormBody');
+            const icon = document.getElementById('localisationFormIcon');
+            if (body) body.style.display = 'block';
+            if (icon) icon.textContent = '▼';
+            document.getElementById('locLong').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        async function deleteLocalisation(id) {
+            await checkAndDeleteLocalisations([id]);
+        }
+
+        async function deleteSelectedLocalisations() {
+            const checked = [...document.querySelectorAll('.locCheckbox:checked')];
+            if (checked.length === 0) return;
+            const ids = checked.map(cb => parseInt(cb.dataset.id));
+            await checkAndDeleteLocalisations(ids);
+        }
+
+        async function deleteAllLocalisations() {
+            if (allLocations.length === 0) return;
+            const ids = allLocations.map(l => l.id);
+            await checkAndDeleteLocalisations(ids);
+        }
+
+        // Vérifie l'usage de chaque ID, affiche le warning si besoin, puis supprime
+        async function checkAndDeleteLocalisations(ids) {
+            // Vérifier l'usage de chaque localisation
+            const usageResults = [];
+            for (const id of ids) {
+                try {
+                    const res = await fetch(`${API_URL}/locations/${id}/usage`, { credentials: 'include' });
+                    if (res.ok) {
+                        const data = await res.json();
+                        const loc = allLocations.find(l => l.id === id);
+                        usageResults.push({ id, name: loc?.libelle_long || `#${id}`, count: data.count, events: data.events });
+                    }
+                } catch (e) { console.error('Erreur vérification usage localisation', id, e); }
+            }
+
+            const inUse = usageResults.filter(r => r.count > 0);
+            const notInUse = usageResults.filter(r => r.count === 0);
+
+            // Construire le message de confirmation
+            let confirmMsg = '';
+            const totalLabel = ids.length === 1
+                ? `1 localisation`
+                : `${ids.length} localisations`;
+
+            if (inUse.length === 0) {
+                // Aucune localisation utilisée → confirmation simple
+                const names = usageResults.map(r => `• ${r.name}`).join('\n');
+                confirmMsg = `Supprimer ${totalLabel} ?\n\n${names}`;
+                if (!confirm(confirmMsg)) return;
+            } else {
+                // Au moins une localisation est utilisée → warning détaillé
+                let warningText = `⚠️ ATTENTION — ${inUse.length} localisation(s) sur ${ids.length} sont utilisées par des événements :\n\n`;
+                inUse.forEach(r => {
+                    warningText += `• ${r.name} → ${r.count} événement(s)\n`;
+                    r.events.slice(0, 3).forEach(ev => {
+                        warningText += `   - "${ev.label}" (${ev.start_date}${ev.end_date !== ev.start_date ? ' → ' + ev.end_date : ''})\n`;
+                    });
+                    if (r.events.length > 3) warningText += `   ... et ${r.events.length - 3} autre(s)\n`;
+                });
+                if (notInUse.length > 0) {
+                    warningText += `\n${notInUse.length} localisation(s) non utilisée(s) seront aussi supprimées.\n`;
+                }
+                warningText += `\nSi vous confirmez, les événements concernés afficheront "NON DÉFINI" à la place de la localisation.\n\nConfirmer la suppression ?`;
+                if (!confirm(warningText)) return;
+            }
+
+            await bulkDeleteLocalisations(ids);
+        }
+
+        async function bulkDeleteLocalisations(ids) {
+            let deleted = 0;
+            for (const id of ids) {
+                try {
+                    const res = await fetch(`${API_URL}/locations/${id}`, { method: 'DELETE', credentials: 'include' });
+                    if (res.ok) deleted++;
+                } catch (e) { console.error('Erreur suppression localisation', id, e); }
+            }
+            await loadLocations();
+            // Recharger les dates spéciales pour mettre à jour l'affichage "NON DÉFINI"
+            await loadSpecialDates();
+            const status = document.getElementById('locImportStatus');
+            if (status) status.textContent = `✅ ${deleted} localisation(s) supprimée(s).`;
+        }
+
+        async function importLocalisationsCSV() {
+            const file = document.getElementById('locCsvFile').files[0];
+            const status = document.getElementById('locImportStatus');
+            if (!file) { status.textContent = '⚠️ Aucun fichier sélectionné.'; return; }
+            status.textContent = '⏳ Lecture du fichier…';
+
+            let text = await file.text();
+            text = text.replace(/^\uFEFF/, ''); // Supprimer BOM UTF-8
+            const lines = text.split(/\r?\n/).filter(l => l.trim());
+            if (lines.length < 2) { status.textContent = '⚠️ Fichier vide ou sans données.'; return; }
+
+            // Détecter le séparateur : TAB en priorité, puis ; puis ,
+            const firstLine = lines[0];
+            const sep = firstLine.includes('\t') ? '\t'
+                      : firstLine.includes(';') ? ';'
+                      : ',';
+
+            const header = firstLine.split(sep).map(h => h.trim().toLowerCase());
+
+            const idxLL  = header.findIndex(h => h === 'libelle_long'  || h === 'libellé_long'  || h === 'll' || h.startsWith('libelle_l') || h.startsWith('libellé_l'));
+            const idxLC  = header.findIndex(h => h === 'libelle_court' || h === 'libellé_court' || h === 'lc' || h.startsWith('libelle_c') || h.startsWith('libellé_c'));
+            const idxAd  = header.findIndex(h => h === 'adresse' || h.startsWith('adress'));
+            const idxLat = header.findIndex(h => h === 'latitude' || h === 'lat');
+            const idxLng = header.findIndex(h => h === 'longitude' || h === 'long' || h === 'lng' || h === 'lon');
+
+            if (idxLL < 0 || idxLC < 0) {
+                status.innerHTML = `⚠️ Colonnes libelle_long et libelle_court introuvables.<br>
+                    <small>Séparateur : <code>${sep === '\t' ? 'TAB' : sep}</code> | En-têtes : <code>${header.join(' | ')}</code></small>`;
+                return;
+            }
+            if (idxLat < 0 || idxLng < 0) {
+                status.innerHTML = `⚠️ Colonnes latitude/longitude introuvables.<br>
+                    <small>Séparateur : <code>${sep === '\t' ? 'TAB' : sep}</code> | En-têtes : <code>${header.join(' | ')}</code></small>`;
+                return;
+            }
+
+            const parseDec = (v) => {
+                if (v === undefined || v === null) return null;
+                const s = String(v).trim().replace(',', '.');
+                const n = parseFloat(s);
+                return isNaN(n) ? null : n;
+            };
+
+            // ── Étape 1 : parser le CSV entièrement côté client ──
+            const rows = [];
+            for (let i = 1; i < lines.length; i++) {
+                const cols = lines[i].split(sep);
+                const ll = (cols[idxLL] || '').trim().toUpperCase();
+                const lc = (cols[idxLC] || '').trim().toUpperCase();
+                if (!ll || !lc) continue;
+                rows.push({
+                    libelle_long:  ll,
+                    libelle_court: lc,
+                    adresse: idxAd >= 0 ? (cols[idxAd] || '').trim().toUpperCase() : '',
+                    latitude:  parseDec(cols[idxLat]),
+                    longitude: parseDec(cols[idxLng])
+                });
+            }
+
+            if (rows.length === 0) { status.textContent = '⚠️ Aucune ligne valide trouvée.'; return; }
+
+            // ── Étape 2 : détecter les conflits CLIENT-SIDE contre allLocations ──
+            // Les données affichées dans la modale proviennent directement du CSV parsé,
+            // sans aucun aller-retour serveur susceptible de les corrompre.
+            locCsvParsedRows = {};
+            rows.forEach(r => { locCsvParsedRows[r.libelle_long] = r; });
+
+            const toInsert   = [];
+            const conflicts  = [];
+
+            rows.forEach(csvRow => {
+                const existing = allLocations.find(l => l.libelle_long === csvRow.libelle_long);
+                if (existing) {
+                    const identical =
+                        existing.libelle_court === csvRow.libelle_court &&
+                        (existing.adresse || '') === (csvRow.adresse || '') &&
+                        existing.latitude  == csvRow.latitude &&
+                        existing.longitude == csvRow.longitude;
+                    // incoming = copie stricte des données CSV (source de vérité)
+                    conflicts.push({
+                        incoming: { ...csvRow },
+                        existing: { ...existing },
+                        identical
+                    });
+                } else {
+                    toInsert.push(csvRow);
+                }
+            });
+
+            // Aperçu des 3 premières lignes parsées
+            const preview = rows.slice(0, 3).map(r =>
+                `<li><strong>${r.libelle_court}</strong> — lat: <code>${r.latitude ?? '⚠️ null'}</code>, lng: <code>${r.longitude ?? '⚠️ null'}</code></li>`
+            ).join('');
+            status.innerHTML = `⏳ Import de ${rows.length} ligne(s)… sep=<code>${sep === '\t' ? 'TAB' : sep}</code><br>
+                <small>Aperçu :<ul style="margin:3px 0 0 15px;">${preview}</ul></small>`;
+
+            // ── Étape 3 : insérer les nouvelles lignes (sans conflit) via le serveur ──
+            let inserted = 0;
+            if (toInsert.length > 0) {
+                try {
+                    const res = await fetch(`${API_URL}/locations/import`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({ rows: toInsert })
+                    });
+                    const data = await res.json();
+                    if (res.ok) {
+                        inserted = data.inserted || 0;
+                        await loadLocations(); // Rafraîchir allLocations
+                    }
+                } catch (e) {
+                    status.textContent = '❌ Erreur réseau : ' + e.message;
+                    return;
+                }
+            }
+
+            // ── Étape 4 : afficher la modale de conflit si nécessaire ──
+            if (conflicts.length > 0) {
+                const diffCount = conflicts.filter(c => !c.identical).length;
+                const sameCount = conflicts.length - diffCount;
+                const parts = [];
+                if (inserted > 0) parts.push(`${inserted} ajouté(s)`);
+                if (diffCount > 0) parts.push(`${diffCount} avec données différentes`);
+                if (sameCount > 0) parts.push(`${sameCount} déjà identiques en base`);
+                status.textContent = `⚠️ ${parts.join(' | ')} — choisissez l'action pour chaque entrée existante.`;
+                openLocConflictModal(conflicts);
+            } else {
+                status.textContent = `✅ ${inserted} localisation(s) importée(s) avec succès.`;
+            }
+        }
+
+        function openLocConflictModal(conflicts) {
+            locConflictData = conflicts.map(c => ({ ...c, action: 'keep' }));
+            renderLocConflictList();
+            document.getElementById('locConflictModal').style.display = 'block';
+        }
+
+        function closeLocConflictModal() {
+            document.getElementById('locConflictModal').style.display = 'none';
+            locConflictData = [];
+        }
+
+        function renderLocConflictList() {
+            const container = document.getElementById('locConflictList');
+            if (!container) return;
+            let html = '';
+
+            // Résumé rapide
+            const identicalCount = locConflictData.filter(c => c.identical).length;
+            const diffCount = locConflictData.length - identicalCount;
+            if (identicalCount > 0) {
+                html += `<div style="background:#e3f2fd;border:1px solid #90caf9;border-radius:6px;padding:10px;margin-bottom:15px;font-size:12px;color:#1565c0;">
+                    ℹ️ <strong>${identicalCount}</strong> entrée(s) avec des données identiques en base (marquées ✅).
+                    ${diffCount > 0 ? `<strong>${diffCount}</strong> entrée(s) avec des données différentes (marquées ⚠️).` : ''}
+                </div>`;
+            }
+
+            locConflictData.forEach((c, i) => {
+                // Recalculer identical depuis la source CSV brute (locCsvParsedRows)
+                const raw = locCsvParsedRows[c.incoming.libelle_long] || c.incoming;
+                const isIdentical =
+                    c.existing.libelle_court === raw.libelle_court &&
+                    (c.existing.adresse || '') === (raw.adresse || '') &&
+                    c.existing.latitude  == raw.latitude &&
+                    c.existing.longitude == raw.longitude;
+
+                // Comparer chaque champ pour surligner les différences
+                const diffLat = !isIdentical && c.existing.latitude != c.incoming.latitude;
+                const diffLng = !isIdentical && c.existing.longitude != c.incoming.longitude;
+                const diffAd  = !isIdentical && (c.existing.adresse || '') !== (c.incoming.adresse || '');
+                const diffLc  = !isIdentical && c.existing.libelle_court !== c.incoming.libelle_court;
+
+                const badge = isIdentical
+                    ? `<span style="background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;padding:2px 8px;border-radius:10px;font-size:11px;">✅ Données identiques</span>`
+                    : `<span style="background:#fff3e0;color:#e65100;border:1px solid #ffcc80;padding:2px 8px;border-radius:10px;font-size:11px;">⚠️ Données différentes</span>`;
+
+                const highlight = (val, isDiff) => isDiff
+                    ? `<strong style="color:#e65100;">${val}</strong>`
+                    : val;
+
+                html += `<div style="border:1px solid ${isIdentical ? '#c8e6c9' : '#ffcc80'};border-radius:8px;padding:15px;margin-bottom:15px;background:#fafafa;">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                        <span style="font-weight:bold;color:#2c3e50;">${c.incoming.libelle_long}</span>
+                        ${badge}
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;font-size:12px;">
+                        <div style="background:#fff3e0;padding:10px;border-radius:5px;">
+                            <div style="font-weight:bold;color:#e65100;margin-bottom:5px;">Données en base</div>
+                            <div>Court : ${c.existing.libelle_court}</div>
+                            <div>Adresse : ${c.existing.adresse || '-'}</div>
+                            <div>Lat : ${c.existing.latitude != null ? c.existing.latitude : '-'} / Lng : ${c.existing.longitude != null ? c.existing.longitude : '-'}</div>
+                        </div>
+                        <div style="background:#e8f5e9;padding:10px;border-radius:5px;">
+                            <div style="font-weight:bold;color:#2e7d32;margin-bottom:5px;">Données du fichier CSV</div>
+                            ${(() => {
+                                const raw = locCsvParsedRows[c.incoming.libelle_long] || c.incoming;
+                                const dLc = raw.libelle_court !== c.existing.libelle_court;
+                                const dAd = (raw.adresse||'') !== (c.existing.adresse||'');
+                                const dLat = raw.latitude != c.existing.latitude;
+                                const dLng = raw.longitude != c.existing.longitude;
+                                const hl = (v, d) => d ? `<strong style="color:#e65100;">${v}</strong>` : v;
+                                return `<div>Court : ${hl(raw.libelle_court, dLc)}</div>
+                                        <div>Adresse : ${hl(raw.adresse||'-', dAd)}</div>
+                                        <div>Lat : ${hl(raw.latitude != null ? raw.latitude : '-', dLat)} / Lng : ${hl(raw.longitude != null ? raw.longitude : '-', dLng)}</div>`;
+                            })()}
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                        <label style="font-size:12px;font-weight:bold;color:#555;">Action :</label>
+                        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;">
+                            <input type="radio" name="locConflict_${i}" value="keep" ${c.action==='keep'?'checked':''} onchange="locConflictData[${i}].action='keep'"> Conserver l'existant
+                        </label>
+                        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;">
+                            <input type="radio" name="locConflict_${i}" value="overwrite" ${c.action==='overwrite'?'checked':''} onchange="locConflictData[${i}].action='overwrite'"> Écraser avec le CSV
+                        </label>
+                        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;">
+                            <input type="radio" name="locConflict_${i}" value="manual" ${c.action==='manual'?'checked':''} onchange="locConflictData[${i}].action='manual'; showManualLocEdit(${i})"> Saisir manuellement
+                        </label>
+                    </div>
+                    <div id="manualLocEdit_${i}" style="display:none;margin-top:10px;background:#e3f2fd;padding:10px;border-radius:5px;">
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+                            <div>
+                                <label style="font-size:11px;display:block;margin-bottom:2px;">Libellé court *</label>
+                                <input type="text" id="manualCourt_${i}" value="${c.existing.libelle_court}" style="width:100%;padding:5px;text-transform:uppercase;" oninput="this.value=this.value.toUpperCase();locConflictData[${i}].incoming.libelle_court=this.value">
+                            </div>
+                            <div>
+                                <label style="font-size:11px;display:block;margin-bottom:2px;">Adresse</label>
+                                <input type="text" id="manualAdresse_${i}" value="${c.existing.adresse||''}" style="width:100%;padding:5px;text-transform:uppercase;" oninput="this.value=this.value.toUpperCase();locConflictData[${i}].incoming.adresse=this.value">
+                            </div>
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                            <div>
+                                <label style="font-size:11px;display:block;margin-bottom:2px;">Latitude</label>
+                                <input type="number" id="manualLat_${i}" value="${c.incoming.latitude!=null?c.incoming.latitude:''}" step="any" style="width:100%;padding:5px;" oninput="locConflictData[${i}].incoming.latitude=parseFloat(this.value)||null">
+                            </div>
+                            <div>
+                                <label style="font-size:11px;display:block;margin-bottom:2px;">Longitude</label>
+                                <input type="number" id="manualLng_${i}" value="${c.incoming.longitude!=null?c.incoming.longitude:''}" step="any" style="width:100%;padding:5px;" oninput="locConflictData[${i}].incoming.longitude=parseFloat(this.value)||null">
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+            });
+            container.innerHTML = html;
+        }
+
+        function showManualLocEdit(i) {
+            const div = document.getElementById(`manualLocEdit_${i}`);
+            if (div) div.style.display = 'block';
+        }
+
+        function applyAllLocConflicts(action) {
+            locConflictData.forEach((c, i) => {
+                c.action = action;
+                const radios = document.querySelectorAll(`input[name="locConflict_${i}"]`);
+                radios.forEach(r => { r.checked = (r.value === action); });
+                const manualDiv = document.getElementById(`manualLocEdit_${i}`);
+                if (manualDiv) manualDiv.style.display = 'none';
+            });
+        }
+
+        async function resolveLocConflicts() {
+            let updated = 0;
+            let errors = 0;
+
+            for (const c of locConflictData) {
+                if (c.action === 'keep') continue;
+
+                // Source de vérité : données CSV stockées côté client
+                const csvRow = locCsvParsedRows[c.incoming.libelle_long];
+
+                // Données à écrire selon l'action
+                const payload = c.action === 'manual'
+                    ? {
+                        libelle_long:  c.incoming.libelle_long,
+                        libelle_court: c.incoming.libelle_court,
+                        adresse:       c.incoming.adresse,
+                        latitude:      c.incoming.latitude,
+                        longitude:     c.incoming.longitude
+                      }
+                    : {  // 'overwrite' → on prend STRICTEMENT les valeurs du CSV parsé
+                        libelle_long:  csvRow.libelle_long,
+                        libelle_court: csvRow.libelle_court,
+                        adresse:       csvRow.adresse,
+                        latitude:      csvRow.latitude,
+                        longitude:     csvRow.longitude
+                      };
+
+                // Appel direct PUT /api/locations/:id (l'ID vient de l'entrée existante en base)
+                try {
+                    const res = await fetch(`${API_URL}/locations/${c.existing.id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify(payload)
+                    });
+                    if (res.ok) updated++;
+                    else { errors++; console.error('Erreur PUT location', c.existing.id, await res.text()); }
+                } catch (e) {
+                    errors++;
+                    console.error('Erreur réseau PUT location:', e);
+                }
+            }
+
+            closeLocConflictModal();
+            await loadLocations();
+            const status = document.getElementById('locImportStatus');
+            if (status) {
+                if (errors > 0) {
+                    status.textContent = `⚠️ ${updated} mise(s) à jour, ${errors} erreur(s).`;
+                } else {
+                    status.textContent = `✅ ${updated} localisation(s) mise(s) à jour avec les données du CSV.`;
+                }
+            }
+        }
+
+        // ========== FIN LOCALISATIONS ==========
+
+        // ========== CARTE ÉVÉNEMENTS/DÉPLACEMENTS ==========
+
+        let eventsMap = null;
+        let eventsMapMarkers = [];
+        let mapSelectedParticipants = []; // [{id, nom, prenom}]
+
+        function initEventsMap() {
+            if (eventsMap) return;
+
+            // Date de début par défaut : 1er janvier de l'année en cours
+            const startEl = document.getElementById('mapStartDate');
+            if (startEl && !startEl.value) {
+                startEl.value = `${new Date().getFullYear()}-01-01`;
+            }
+
+            if (!window.L) {
+                const script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+                script.onload = () => { _createMap(); loadEventsMap(); };
+                document.head.appendChild(script);
+            } else {
+                _createMap();
+                loadEventsMap();
+            }
+        }
+
+        function _createMap() {
+            eventsMap = L.map('eventsMapContainer', { zoomControl: true }).setView([46.6, 2.3], 6);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+                maxZoom: 18
+            }).addTo(eventsMap);
+            populateMapLocationFilter();
+        }
+
+        function populateMapLocationFilter() {
+            const sel = document.getElementById('mapLocationFilter');
+            if (!sel) return;
+            sel.innerHTML = '<option value="">— Toutes les localisations —</option>';
+            allLocations.filter(l => l.latitude && l.longitude).forEach(l => {
+                const opt = document.createElement('option');
+                opt.value = l.id;
+                opt.textContent = `${l.libelle_court} – ${l.libelle_long}`;
+                sel.appendChild(opt);
+            });
+        }
+
+        // ── Tag-input participants pour la carte ──
+        function renderMapParticipantTags() {
+            const container = document.getElementById('mapParticipantsContainer');
+            const input = document.getElementById('mapParticipantInput');
+            if (!container || !input) return;
+            // Supprimer les tags existants
+            container.querySelectorAll('.map-participant-tag').forEach(t => t.remove());
+            mapSelectedParticipants.forEach((p, i) => {
+                const tag = document.createElement('span');
+                tag.className = 'map-participant-tag';
+                tag.style.cssText = 'background:#3f51b5;color:white;border-radius:10px;padding:2px 8px;font-size:11px;display:flex;align-items:center;gap:4px;white-space:nowrap;';
+                tag.innerHTML = `${p.prenom} ${(p.nom||'').toUpperCase()} <span onclick="removeMapParticipant(${i})" style="cursor:pointer;font-size:14px;line-height:1;">&times;</span>`;
+                container.insertBefore(tag, input);
+            });
+        }
+
+        function removeMapParticipant(i) {
+            mapSelectedParticipants.splice(i, 1);
+            renderMapParticipantTags();
+        }
+
+        function addMapParticipant(user) {
+            if (mapSelectedParticipants.find(p => p.id === user.id)) return;
+            mapSelectedParticipants.push(user);
+            renderMapParticipantTags();
+            document.getElementById('mapParticipantInput').value = '';
+            document.getElementById('mapParticipantDropdown').style.display = 'none';
+        }
+
+        function filterMapParticipants(query) {
+            const dropdown = document.getElementById('mapParticipantDropdown');
+            if (!dropdown) return;
+            if (!query || query.length < 1) { dropdown.style.display = 'none'; return; }
+            const q = query.toLowerCase();
+            const matched = users.filter(u => {
+                const full = `${u.prenom||''} ${u.nom||''} ${u.email||''}`.toLowerCase();
+                return full.includes(q) && !mapSelectedParticipants.find(p => p.id === u.id);
+            }).slice(0, 8);
+            if (matched.length === 0) { dropdown.style.display = 'none'; return; }
+            dropdown.innerHTML = matched.map(u => {
+                const name = `${u.prenom||''} ${(u.nom||'').toUpperCase()}`.trim() || u.username;
+                return `<div onclick='addMapParticipant(${JSON.stringify({id:u.id,nom:u.nom||"",prenom:u.prenom||""})})' style="padding:8px 12px;cursor:pointer;font-size:12px;" onmouseover="this.style.background='#f5f5f5'" onmouseleave="this.style.background='white'">${name}</div>`;
+            }).join('');
+            dropdown.style.display = 'block';
+        }
+
+        function handleMapParticipantKeydown(e) {
+            if (e.key === 'Backspace' && e.target.value === '' && mapSelectedParticipants.length > 0) {
+                mapSelectedParticipants.pop();
+                renderMapParticipantTags();
+            }
+            if (e.key === 'Escape') document.getElementById('mapParticipantDropdown').style.display = 'none';
+        }
+
+        document.addEventListener('click', function(e) {
+            const container = document.getElementById('mapParticipantsContainer');
+            const dropdown = document.getElementById('mapParticipantDropdown');
+            if (dropdown && container && !container.contains(e.target) && !dropdown.contains(e.target)) {
+                dropdown.style.display = 'none';
+            }
+        });
+
+        async function loadEventsMap() {
+            if (!eventsMap) { initEventsMap(); return; }
+
+            const startDate = document.getElementById('mapStartDate').value;
+            const endDate   = document.getElementById('mapEndDate').value;
+            const locFilter = document.getElementById('mapLocationFilter').value;
+
+            const params = new URLSearchParams();
+            if (startDate) params.set('startDate', startDate);
+            if (endDate)   params.set('endDate', endDate);
+
+            try {
+                const res = await fetch(`${API_URL}/reporting/events-map?${params}`, { credentials: 'include' });
+                if (!res.ok) return;
+                const data = await res.json();
+                let events = data.events || [];
+
+                // Filtre localisation
+                if (locFilter) events = events.filter(e => e.location_id == locFilter);
+
+                // Filtre participants (client-side)
+                if (mapSelectedParticipants.length > 0) {
+                    events = events.filter(ev => {
+                        const partIds = (ev.participants_ids || []);
+                        const partNames = (ev.participants || []).map(n => n.toLowerCase());
+                        return mapSelectedParticipants.every(sel => {
+                            const selName = `${sel.prenom||''} ${(sel.nom||'').toUpperCase()}`.trim().toLowerCase();
+                            return partNames.some(n => n.includes(selName) || selName.includes(n));
+                        });
+                    });
+                }
+
+                renderMapMarkers(events);
+            } catch (e) {
+                console.error('Erreur chargement carte événements:', e);
+            }
+        }
+
+        function renderMapMarkers(events) {
+            eventsMapMarkers.forEach(m => eventsMap.removeLayer(m));
+            eventsMapMarkers = [];
+
+            const countEl = document.getElementById('mapEventCount');
+            if (countEl) countEl.textContent = events.length > 0
+                ? `${events.length} événement(s) affiché(s)`
+                : 'Aucun événement géolocalisé sur cette période.';
+
+            if (events.length === 0) {
+                document.getElementById('eventsMapLegend').style.display = 'none';
+                return;
+            }
+
+            // Grouper par localisation
+            const byLoc = {};
+            events.forEach(e => {
+                const key = `${e.location_id}`;
+                if (!byLoc[key]) byLoc[key] = { lat: e.latitude, lng: e.longitude, libelle: e.libelle_court, adresse: e.adresse, events: [] };
+                byLoc[key].events.push(e);
+            });
+
+            const bounds = [];
+
+            Object.values(byLoc).forEach(loc => {
+                const count = loc.events.length;
+                const icon = L.divIcon({
+                    className: '',
+                    html: `<div style="background:#3f51b5;color:white;border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.35);cursor:pointer;">${count}</div>`,
+                    iconSize: [34, 34], iconAnchor: [17, 17], popupAnchor: [0, -18]
+                });
+
+                let popupHtml = `<div style="max-height:300px;overflow-y:auto;">
+                    <div style="font-weight:bold;color:#283593;font-size:13px;margin-bottom:6px;border-bottom:1px solid #e0e0e0;padding-bottom:4px;">📍 ${loc.libelle}</div>
+                    ${loc.adresse ? `<div style="color:#555;font-size:11px;margin-bottom:8px;">${loc.adresse}</div>` : ''}
+                    <div style="font-size:11px;color:#3f51b5;font-weight:bold;margin-bottom:6px;">${count} événement(s)</div>`;
+
+                loc.events.forEach(ev => {
+                    const dateRange = ev.end_date && ev.end_date !== ev.start_date
+                        ? `${formatDateFRClient(ev.start_date)} → ${formatDateFRClient(ev.end_date)}`
+                        : formatDateFRClient(ev.start_date);
+                    const period = ev.period === 'AM' ? ' ☀️ Matin' : ev.period === 'PM' ? ' 🌙 Après-midi' : '';
+                    const parts = ev.participants && ev.participants.length > 0
+                        ? `<div style="color:#777;margin-top:2px;">👥 ${ev.participants.join(', ')}</div>` : '';
+                    const creator = ev.creator_prenom
+                        ? `<div style="color:#999;font-size:10px;">${ev.creator_prenom} ${(ev.creator_nom||'').toUpperCase()}</div>` : '';
+                    popupHtml += `<div style="border:1px solid #e8eaf6;border-radius:5px;padding:7px;margin-bottom:6px;background:#fafafa;">
+                        <div style="font-weight:bold;color:#1565c0;">${ev.label}${period}</div>
+                        <div style="color:#555;margin-top:2px;">📅 ${dateRange}</div>
+                        ${parts}${creator}
+                    </div>`;
+                });
+                popupHtml += '</div>';
+
+                const marker = L.marker([loc.lat, loc.lng], { icon })
+                    .addTo(eventsMap)
+                    .bindPopup(popupHtml, { maxWidth: 300 });
+
+                eventsMapMarkers.push(marker);
+                bounds.push([loc.lat, loc.lng]);
+            });
+
+            if (bounds.length > 0) eventsMap.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 });
+
+            const legend = document.getElementById('eventsMapLegend');
+            const legendItems = document.getElementById('eventsMapLegendItems');
+            if (legend && legendItems) {
+                legendItems.innerHTML = Object.values(byLoc).map(loc =>
+                    `<span style="background:#e8eaf6;border:1px solid #9fa8da;border-radius:12px;padding:2px 10px;white-space:nowrap;"><strong>${loc.libelle}</strong> — ${loc.events.length} evt</span>`
+                ).join('');
+                legend.style.display = 'block';
+            }
+        }
+
+        function formatDateFRClient(dateStr) {
+            if (!dateStr) return '';
+            const [y, m, d] = dateStr.split('-');
+            return `${d}/${m}/${y}`;
+        }
+
+        function resetMapFilters() {
+            document.getElementById('mapStartDate').value = `${new Date().getFullYear()}-01-01`;
+            document.getElementById('mapEndDate').value = '';
+            document.getElementById('mapLocationFilter').value = '';
+            mapSelectedParticipants = [];
+            renderMapParticipantTags();
+            if (eventsMap) loadEventsMap();
+        }
+
+        // ========== FIN CARTE ÉVÉNEMENTS/DÉPLACEMENTS ==========
+
+        // ========== MODALE CARTE (depuis Planification → Gérer mes événements) ==========
+
+        let eventModalMap = null;
+        let eventModalMapMarkers = [];
+        let modalMapSelectedParticipants = [];
+
+        function openEventMapModal() {
+            const modal = document.getElementById('eventMapModal');
+            if (!modal) return;
+            modal.style.display = 'block';
+
+            // Date de début par défaut : 1er janvier de l'année en cours
+            const startEl = document.getElementById('modalMapStartDate');
+            if (startEl && !startEl.value) startEl.value = `${new Date().getFullYear()}-01-01`;
+
+            // Peupler le filtre localisations
+            const sel = document.getElementById('modalMapLocationFilter');
+            if (sel) {
+                sel.innerHTML = '<option value="">— Toutes les localisations —</option>';
+                allLocations.filter(l => l.latitude && l.longitude).forEach(l => {
+                    const opt = document.createElement('option');
+                    opt.value = l.id;
+                    opt.textContent = `${l.libelle_court} – ${l.libelle_long}`;
+                    sel.appendChild(opt);
+                });
+            }
+
+            // Initialiser la carte Leaflet
+            if (!window.L) {
+                const script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+                script.onload = () => { _createModalMap(); loadModalEventsMap(); };
+                document.head.appendChild(script);
+            } else {
+                if (!eventModalMap) _createModalMap();
+                else eventModalMap.invalidateSize();
+                loadModalEventsMap();
+            }
+        }
+
+        function _createModalMap() {
+            eventModalMap = L.map('eventMapModalContainer', { zoomControl: true }).setView([46.6, 2.3], 6);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+                maxZoom: 18
+            }).addTo(eventModalMap);
+        }
+
+        function closeEventMapModal() {
+            document.getElementById('eventMapModal').style.display = 'none';
+        }
+
+        async function loadModalEventsMap() {
+            if (!eventModalMap) return;
+
+            const startDate = document.getElementById('modalMapStartDate').value;
+            const endDate   = document.getElementById('modalMapEndDate').value;
+            const locFilter = document.getElementById('modalMapLocationFilter').value;
+
+            const params = new URLSearchParams();
+            if (startDate) params.set('startDate', startDate);
+            if (endDate)   params.set('endDate', endDate);
+
+            try {
+                const res = await fetch(`${API_URL}/reporting/events-map?${params}`, { credentials: 'include' });
+                if (!res.ok) return;
+                let events = (await res.json()).events || [];
+
+                if (locFilter) events = events.filter(e => e.location_id == locFilter);
+
+                if (modalMapSelectedParticipants.length > 0) {
+                    events = events.filter(ev => {
+                        const partNames = (ev.participants || []).map(n => n.toLowerCase());
+                        return modalMapSelectedParticipants.every(sel => {
+                            const selName = `${sel.prenom||''} ${(sel.nom||'').toUpperCase()}`.trim().toLowerCase();
+                            return partNames.some(n => n.includes(selName) || selName.includes(n));
+                        });
+                    });
+                }
+
+                renderModalMapMarkers(events);
+                // Forcer Leaflet à recalculer la taille après affichage
+                setTimeout(() => eventModalMap.invalidateSize(), 50);
+            } catch (e) { console.error('Erreur chargement carte modale:', e); }
+        }
+
+        function renderModalMapMarkers(events) {
+            eventModalMapMarkers.forEach(m => eventModalMap.removeLayer(m));
+            eventModalMapMarkers = [];
+
+            const countEl = document.getElementById('modalMapEventCount');
+            if (countEl) countEl.textContent = events.length > 0
+                ? `${events.length} événement(s)`
+                : 'Aucun événement géolocalisé.';
+
+            const legend = document.getElementById('modalMapLegend');
+            const legendItems = document.getElementById('modalMapLegendItems');
+            if (events.length === 0) { if (legend) legend.style.display = 'none'; return; }
+
+            const byLoc = {};
+            events.forEach(e => {
+                const key = `${e.location_id}`;
+                if (!byLoc[key]) byLoc[key] = { lat: e.latitude, lng: e.longitude, libelle: e.libelle_court, adresse: e.adresse, events: [] };
+                byLoc[key].events.push(e);
+            });
+
+            const bounds = [];
+            Object.values(byLoc).forEach(loc => {
+                const count = loc.events.length;
+                const icon = L.divIcon({
+                    className: '',
+                    html: `<div style="background:#3f51b5;color:white;border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.35);cursor:pointer;">${count}</div>`,
+                    iconSize: [34, 34], iconAnchor: [17, 17], popupAnchor: [0, -18]
+                });
+
+                let popupHtml = `<div style="max-height:280px;overflow-y:auto;">
+                    <div style="font-weight:bold;color:#283593;font-size:13px;margin-bottom:6px;border-bottom:1px solid #e0e0e0;padding-bottom:4px;">📍 ${loc.libelle}</div>
+                    ${loc.adresse ? `<div style="color:#555;font-size:11px;margin-bottom:8px;">${loc.adresse}</div>` : ''}
+                    <div style="font-size:11px;color:#3f51b5;font-weight:bold;margin-bottom:6px;">${count} événement(s)</div>`;
+
+                loc.events.forEach(ev => {
+                    const dateRange = ev.end_date && ev.end_date !== ev.start_date
+                        ? `${formatDateFRClient(ev.start_date)} → ${formatDateFRClient(ev.end_date)}`
+                        : formatDateFRClient(ev.start_date);
+                    const period = ev.period === 'AM' ? ' ☀️' : ev.period === 'PM' ? ' 🌙' : '';
+                    const parts = ev.participants && ev.participants.length > 0
+                        ? `<div style="color:#777;margin-top:2px;font-size:10px;">👥 ${ev.participants.join(', ')}</div>` : '';
+                    popupHtml += `<div style="border:1px solid #e8eaf6;border-radius:5px;padding:7px;margin-bottom:6px;background:#fafafa;">
+                        <div style="font-weight:bold;color:#1565c0;">${ev.label}${period}</div>
+                        <div style="color:#555;margin-top:2px;font-size:11px;">📅 ${dateRange}</div>${parts}
+                    </div>`;
+                });
+                popupHtml += '</div>';
+
+                const marker = L.marker([loc.lat, loc.lng], { icon })
+                    .addTo(eventModalMap)
+                    .bindPopup(popupHtml, { maxWidth: 300 });
+                eventModalMapMarkers.push(marker);
+                bounds.push([loc.lat, loc.lng]);
+            });
+
+            if (bounds.length > 0) eventModalMap.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 });
+
+            if (legend && legendItems) {
+                legendItems.innerHTML = Object.values(byLoc).map(loc =>
+                    `<span style="background:#e8eaf6;border:1px solid #9fa8da;border-radius:12px;padding:2px 10px;white-space:nowrap;"><strong>${loc.libelle}</strong> — ${loc.events.length} evt</span>`
+                ).join('');
+                legend.style.display = 'block';
+            }
+        }
+
+        function resetModalMapFilters() {
+            document.getElementById('modalMapStartDate').value = `${new Date().getFullYear()}-01-01`;
+            document.getElementById('modalMapEndDate').value = '';
+            document.getElementById('modalMapLocationFilter').value = '';
+            modalMapSelectedParticipants = [];
+            renderModalMapParticipantTags();
+            if (eventModalMap) loadModalEventsMap();
+        }
+
+        // Tag-input participants (modal carte)
+        function renderModalMapParticipantTags() {
+            const container = document.getElementById('modalMapParticipantsContainer');
+            const input = document.getElementById('modalMapParticipantInput');
+            if (!container || !input) return;
+            container.querySelectorAll('.modal-map-tag').forEach(t => t.remove());
+            modalMapSelectedParticipants.forEach((p, i) => {
+                const tag = document.createElement('span');
+                tag.className = 'modal-map-tag';
+                tag.style.cssText = 'background:#3f51b5;color:white;border-radius:10px;padding:2px 8px;font-size:11px;display:flex;align-items:center;gap:4px;white-space:nowrap;';
+                tag.innerHTML = `${p.prenom} ${(p.nom||'').toUpperCase()} <span onclick="removeModalMapParticipant(${i})" style="cursor:pointer;font-size:14px;line-height:1;">&times;</span>`;
+                container.insertBefore(tag, input);
+            });
+        }
+
+        function removeModalMapParticipant(i) {
+            modalMapSelectedParticipants.splice(i, 1);
+            renderModalMapParticipantTags();
+        }
+
+        function addModalMapParticipant(user) {
+            if (modalMapSelectedParticipants.find(p => p.id === user.id)) return;
+            modalMapSelectedParticipants.push(user);
+            renderModalMapParticipantTags();
+            document.getElementById('modalMapParticipantInput').value = '';
+            document.getElementById('modalMapParticipantDropdown').style.display = 'none';
+        }
+
+        function filterModalMapParticipants(query) {
+            const dropdown = document.getElementById('modalMapParticipantDropdown');
+            if (!dropdown) return;
+            if (!query || query.length < 1) { dropdown.style.display = 'none'; return; }
+            const q = query.toLowerCase();
+            const matched = users.filter(u => {
+                const full = `${u.prenom||''} ${u.nom||''} ${u.email||''}`.toLowerCase();
+                return full.includes(q) && !modalMapSelectedParticipants.find(p => p.id === u.id);
+            }).slice(0, 8);
+            if (matched.length === 0) { dropdown.style.display = 'none'; return; }
+            dropdown.innerHTML = matched.map(u => {
+                const name = `${u.prenom||''} ${(u.nom||'').toUpperCase()}`.trim() || u.username;
+                return `<div onclick='addModalMapParticipant(${JSON.stringify({id:u.id,nom:u.nom||"",prenom:u.prenom||""})})' style="padding:8px 12px;cursor:pointer;font-size:12px;" onmouseover="this.style.background='#f5f5f5'" onmouseleave="this.style.background='white'">${name}</div>`;
+            }).join('');
+            dropdown.style.display = 'block';
+        }
+
+        function handleModalMapParticipantKeydown(e) {
+            if (e.key === 'Backspace' && e.target.value === '' && modalMapSelectedParticipants.length > 0) {
+                modalMapSelectedParticipants.pop(); renderModalMapParticipantTags();
+            }
+            if (e.key === 'Escape') document.getElementById('modalMapParticipantDropdown').style.display = 'none';
+        }
+
+        document.addEventListener('click', function(e) {
+            const c = document.getElementById('modalMapParticipantsContainer');
+            const d = document.getElementById('modalMapParticipantDropdown');
+            if (d && c && !c.contains(e.target) && !d.contains(e.target)) d.style.display = 'none';
+        });
+
+        // ========== FIN MODALE CARTE ==========
 
         // ── Toggle sections Reporting ──────────────────────────────────────
         function toggleReportingSection(bodyId, iconId) {
@@ -15671,9 +16785,23 @@
             if (section.style.display === 'none') {
                 section.style.display = 'block';
                 icon.textContent = '▼';
+                // Afficher les contrôles de l'en-tête Planification
+                if (sectionId === 'ganttDisplaySection') {
+                    const ctrl = document.getElementById('ganttHeaderControls');
+                    const btns = document.getElementById('ganttHeaderButtons');
+                    if (ctrl) ctrl.style.display = 'flex';
+                    if (btns) btns.style.display = 'flex';
+                }
             } else {
                 section.style.display = 'none';
                 icon.textContent = '▶';
+                // Masquer les contrôles de l'en-tête Planification
+                if (sectionId === 'ganttDisplaySection') {
+                    const ctrl = document.getElementById('ganttHeaderControls');
+                    const btns = document.getElementById('ganttHeaderButtons');
+                    if (ctrl) ctrl.style.display = 'none';
+                    if (btns) btns.style.display = 'none';
+                }
             }
         }
 
@@ -16387,7 +17515,11 @@
 
                             const renderBadges = (list, suffix = '') => list.map(sd => {
                                 const cfg = sd.config;
-                                const lbl = cfg.label || sd.summary || 'JF';
+                                const eventLabel = cfg.label || sd.summary || 'JF';
+                                const locCourt = cfg.locationLibelleCourt
+                                    ? cfg.locationLibelleCourt
+                                    : (cfg.eventId ? 'NON DÉFINI' : null);  // custom event sans localisation
+                                const lbl = locCourt ? `${locCourt} | ${eventLabel}` : eventLabel;
                                 return `<span title="${lbl}${suffix}" style="font-size: 7px; padding: 1px 3px; border-radius: 3px; font-weight: bold; background-color: ${cfg.bgColor || '#ffeb3b'}; color: ${cfg.textColor || '#000'}; border: 1px solid ${cfg.borderColor || '#fbc02d'};">${lbl}</span>`;
                             }).join('');
 
@@ -16652,7 +17784,11 @@
                             for (const sd of allSpecialDates) {
                                 if (!sd.config) continue;
                                 const cfg = sd.config;
-                                const displayLabel = cfg.label || sd.summary || 'Événement';
+                                const eventLabel = cfg.label || sd.summary || 'Événement';
+                                const locCourt = cfg.locationLibelleCourt
+                                    ? cfg.locationLibelleCourt
+                                    : (cfg.eventId ? 'NON DÉFINI' : null);  // custom event sans localisation
+                                const displayLabel = locCourt ? `${locCourt} | ${eventLabel}` : eventLabel;
                                 const evtPeriod = sd.period || 'FULL';
                                 const periodSuffix = evtPeriod === 'AM' ? ' ☀️' : evtPeriod === 'PM' ? ' 🌙' : '';
                                 const participantsTooltip = cfg.participants && cfg.participants.length > 0 ? `\n👥 ${cfg.participants.join(', ')}` : '';
@@ -17825,6 +18961,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
         // Ouvrir la modal de gestion des événements
         async function openMyEventsModal() {
             document.getElementById('myEventsModalContainer').style.display = 'block';
+            populateLocationSelects();
             await loadMyEvents();
         }
         
@@ -17946,6 +19083,10 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             // Reset période
             document.getElementById('myEventPeriodFull').checked = true;
             document.getElementById('myEventPeriodSection').style.display = 'none';
+            
+            // Reset localisation
+            const locSel = document.getElementById('myEventLocationId');
+            if (locSel) locSel.value = '';
             
             // Reset participants
             myEventSelectedParticipants = [];
@@ -18214,6 +19355,12 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 </div>`;
             }
             
+            // Préfixe localisation
+            const locMy = event.location_id
+                ? (allLocations.find(l => l.id === event.location_id)?.libelle_court || 'NON DÉFINI')
+                : null;
+            const myEventDisplayLabel = locMy ? `${locMy} | ${event.label}` : event.label;
+
             return `<div style="background: white; padding: 12px; border-radius: 6px; margin-bottom: 6px; border-left: 4px solid ${config.borderColor || '#fbc02d'}; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
                     <div style="flex: 1;">
@@ -18221,7 +19368,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                             <span style="display: inline-block; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: bold; 
                                 background-color: ${config.bgColor || '#ffeb3b'}; 
                                 color: ${config.textColor || '#000'}; 
-                                border: 2px solid ${config.borderColor || '#fbc02d'};">${event.label}</span>
+                                border: 2px solid ${config.borderColor || '#fbc02d'};">${myEventDisplayLabel}</span>
                             ${creatorInfo}
                         </div>
                         <div style="font-size: 11px; color: #666;">
@@ -18259,6 +19406,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             const bgColor = document.getElementById('myEventBgColor').value;
             const textColor = document.getElementById('myEventTextColor').value;
             const borderColor = document.getElementById('myEventBorderColor').value;
+            const location_id = document.getElementById('myEventLocationId')?.value || null;
             
             if (!startDate) { alert('Veuillez sélectionner une date de début'); return; }
             if (!label) { alert('Veuillez saisir un libellé'); return; }
@@ -18281,7 +19429,8 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                         label,
                         config: { bgColor, textColor, borderColor },
                         participants: myEventSelectedParticipants.map(p => p.id),
-                        period
+                        period,
+                        location_id: location_id || null
                     })
                 });
                 
@@ -18329,6 +19478,10 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 document.getElementById('myEventPeriodSection').style.display = 'none';
                 document.getElementById('myEventPeriodFull').checked = true;
             }
+            
+            // Pré-remplir la localisation
+            const locSel = document.getElementById('myEventLocationId');
+            if (locSel) locSel.value = event.location_id || '';
             
             // Charger les participants existants
             myEventSelectedParticipants = (event.participants || []).map(p => ({
@@ -18387,6 +19540,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             const bgColor = document.getElementById('myEventBgColor').value;
             const textColor = document.getElementById('myEventTextColor').value;
             const borderColor = document.getElementById('myEventBorderColor').value;
+            const location_id = document.getElementById('myEventLocationId')?.value || null;
             
             if (!startDate || !label) { alert('Date de début et libellé requis'); return; }
             
@@ -18402,7 +19556,8 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 label,
                 config: { bgColor, textColor, borderColor },
                 participants: myEventSelectedParticipants.map(p => p.id),
-                period
+                period,
+                location_id: location_id || null
             };
             
             // Si admin, inclure le créateur sélectionné
@@ -19421,7 +20576,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
     <div id="eventsCalendarModal" class="modal">
         <div class="modal-content" style="max-width: 1200px; width: 95%;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                <h3 style="margin: 0; color: #00bcd4;">📆 Calendrier des congés et événements</h3>
+                <h3 style="margin: 0; color: #00bcd4;">Calendrier des congés et événements</h3>
                 <span onclick="closeEventsCalendarModal()" style="cursor: pointer; font-size: 28px; color: #7f8c8d;">&times;</span>
             </div>
             
@@ -19591,8 +20746,8 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
     <!-- Modal Demande d'affectation -->
     <div id="requestModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10000; overflow-y: auto;">
         <div style="background-color: white; max-width: 700px; margin: 50px auto; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #1D70B7; padding-bottom: 10px;">
-                <h2 style="color: #2c3e50; margin: 0;">Faire une demande d'affectation</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="color: #2c3e50; margin: 0; flex: 1;">Faire une demande d'affectation</h2>
                 <span onclick="closeRequestModal()" style="cursor: pointer; font-size: 28px; color: #7f8c8d;">&times;</span>
             </div>
             <form id="requestForm" onsubmit="submitRequestForm(event)">
@@ -20091,6 +21246,14 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     </div>
                     <div id="editEventParticipantDropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ddd; border-radius: 0 0 8px 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); max-height: 200px; overflow-y: auto; z-index: 10010;"></div>
                 </div>
+
+                <!-- Localisation -->
+                <div style="margin-bottom: 15px;">
+                    <label style="font-size: 12px; font-weight: bold; color: #333;">📍 Localisation :</label>
+                    <select id="editCustomEventLocationId" style="width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="">— Aucune localisation —</option>
+                    </select>
+                </div>
                 
                 <!-- Couleurs -->
                 <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px;">
@@ -20279,7 +21442,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
         <div style="position: relative; background-color: white; margin: 3% auto; padding: 30px; width: 95%; max-width: 900px; border-radius: 12px; max-height: 90vh; overflow-y: auto;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <div>
-                    <h2 style="color: #ff9800; margin: 0;">✏️ <span id="myEventsModalTitle">Mes événements personnalisés</span></h2>
+                    <h2 style="color: #ff9800; margin: 0;"><span id="myEventsModalTitle">Mes événements personnalisés</span></h2>
                     <p style="color: #7f8c8d; font-size: 12px; margin: 5px 0 0 0;">Créez des événements qui s'afficheront sur le planning</p>
                 </div>
                 <span onclick="closeMyEventsModal()" style="cursor: pointer; font-size: 28px; color: #7f8c8d;">&times;</span>
@@ -20325,6 +21488,13 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                         </div>
                         <div id="myEventParticipantDropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ddd; border-radius: 0 0 8px 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); max-height: 200px; overflow-y: auto; z-index: 10010;"></div>
                     </div>
+                </div>
+                <!-- Localisation -->
+                <div style="margin-top: 8px;">
+                    <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px;">📍 Localisation</label>
+                    <select id="myEventLocationId" style="width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
+                        <option value="">— Aucune localisation —</option>
+                    </select>
                 </div>
 
                 <!-- Sélecteur demi-journée — visible uniquement si début = fin -->
@@ -20392,7 +21562,10 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 <p style="color: #999; font-size: 12px; font-style: italic; text-align: center; padding: 20px;">Chargement...</p>
             </div>
             
-            <div style="display: flex; justify-content: flex-end; margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;">
+                <button onclick="openEventMapModal()" style="background-color: #3f51b5; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px;">
+                    🗺️ Carte des Événements / Déplacements
+                </button>
                 <button onclick="closeMyEventsModal()" style="background-color: #95a5a6; color: white; padding: 10px 25px;">
                     Fermer
                 </button>
@@ -20797,38 +21970,41 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     <span style="font-size: 24px;">⚠️</span>
                     <div>
                         <strong style="color: #c62828; font-size: 14px;">Ce bon de commande est SOLDÉ et en SURCONSOMMATION</strong>
-                        <div style="font-size: 12px; color: #666; margin-top: 3px;">
-                            <span id="bdcUoEnTrop">0</span> UO en trop doivent être réaffectées vers un autre BDC
+                        <div style="font-size: 12px; color: #555; margin-top: 3px;">
+                            Merci de régulariser en reportant la surconsommation de <strong id="bdcUoEnTrop">0</strong> UO sur un autre bon de commande.
                         </div>
                     </div>
                 </div>
-                
-                <!-- Zone d'erreur si régularisation impossible -->
-                <div id="bdcRegularisationError" style="display: none; background: #fff; padding: 12px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #e74c3c; color: #c62828;">
-                </div>
-                
-                <div style="display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap;">
-                    <div style="flex: 1; min-width: 250px;">
-                        <label style="display: block; font-weight: bold; margin-bottom: 5px; font-size: 12px; color: #495057;">
-                            Réaffecter vers le BDC (même titulaire) :
-                        </label>
-                        <select id="bdcCibleRegularisation" onchange="updateBdcRegularisationInfo()" style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 6px; font-size: 13px;">
-                            <option value="">-- Sélectionner un BDC cible --</option>
-                        </select>
+
+                <!-- Formulaire de régularisation technique -->
+                <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #ffcdd2;">
+                    <div style="font-size: 13px; font-weight: bold; color: #b71c1c; margin-bottom: 12px;">
+                        Créer une ligne de déplacement technique de régularisation
                     </div>
-                    <div style="text-align: center; padding: 10px; background: white; border-radius: 8px; min-width: 150px;">
-                        <div style="font-size: 11px; color: #666;">Sélectionnés</div>
-                        <div style="font-size: 20px; font-weight: bold; color: #e74c3c;">
-                            <span id="bdcNbDeplacementsSelectionnes">0</span> dépl.
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                        <div>
+                            <label style="font-size: 11px; font-weight: bold; color: #555; display: block; margin-bottom: 4px;">Bon de commande cible *</label>
+                            <select id="bdcCibleRegularisation" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;font-size:12px;">
+                                <option value="">-- Sélectionner un BDC --</option>
+                            </select>
                         </div>
-                        <div style="font-size: 14px; font-weight: bold; color: #c62828;">
-                            <span id="bdcUoSelectionnees">0</span> UO
+                        <div>
+                            <label style="font-size: 11px; font-weight: bold; color: #555; display: block; margin-bottom: 4px;">Date de début *</label>
+                            <input type="date" id="bdcRegulDateDebut" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;font-size:12px;box-sizing:border-box;">
                         </div>
                     </div>
-                </div>
-                
-                <!-- Warning si sélection différente des UO en trop -->
-                <div id="bdcSelectionWarning" style="display: none; margin-top: 10px; padding: 8px; background: #fff3e0; border-radius: 6px; color: #e65100; font-size: 12px;">
+                    <div style="margin-bottom: 12px;">
+                        <label style="font-size: 11px; font-weight: bold; color: #555; display: block; margin-bottom: 4px;">Commentaire</label>
+                        <input type="text" id="bdcRegulCommentaire" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;font-size:12px;box-sizing:border-box;" placeholder="Régularisation du bon de commande ... qui était en surconsommation">
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                        <div style="background:#ffebee;border-radius:6px;padding:8px 14px;font-size:12px;color:#c62828;font-weight:bold;">
+                            UO à régulariser : <span id="bdcRegulUo">0</span>
+                        </div>
+                        <button onclick="creerLigneRegularisationTechnique()" style="background:#c62828;color:white;border:none;padding:9px 20px;border-radius:5px;cursor:pointer;font-weight:bold;font-size:13px;">
+                            ✅ Créer la ligne de régularisation
+                        </button>
+                    </div>
                 </div>
             </div>
             
@@ -20853,9 +22029,6 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             
             <!-- Boutons -->
             <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; padding-top: 15px; border-top: 2px solid #eee;">
-                <button id="bdcValidateRegularisationBtn" onclick="validateBdcRegularisation()" style="display: none; padding: 12px 25px; background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%); color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">
-                    ✅ Valider la réaffectation
-                </button>
                 <button onclick="closeBdcDeplacementsModal()" style="padding: 12px 25px; background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%); color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">
                     Fermer
                 </button>
@@ -20944,14 +22117,17 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
     <div id="astreintesModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); z-index: 10003; justify-content: center; align-items: center;">
         <div style="background: white; padding: 25px; border-radius: 12px; max-width: 900px; width: 95%; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #9c27b0; padding-bottom: 10px;">
-                <h3 style="color: #9c27b0; margin: 0;" id="astreintesModalTitle">🕐 Gérer mes astreintes/HNO</h3>
+                <h3 style="color: #9c27b0; margin: 0;" id="astreintesModalTitle">Gérer mes astreintes/HNO</h3>
                 <span onclick="closeAstreintesModal()" style="cursor: pointer; font-size: 28px; color: #7f8c8d;">&times;</span>
             </div>
             
             <!-- Formulaire d'ajout -->
             <div style="background: #f3e5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                <h4 style="margin: 0 0 15px 0; color: #7b1fa2;" id="astreintesFormTitle">Ajouter une astreinte/HNO</h4>
-                
+                <div style="display: flex; align-items: center; gap: 10px; cursor: pointer;" onclick="toggleAstreinteForm()">
+                    <span id="astreinteFormIcon" style="font-size: 13px; color: #7b1fa2; transition: transform 0.2s;">▶</span>
+                    <h4 style="margin: 0; color: #7b1fa2;" id="astreintesFormTitle">Ajouter une astreinte/HNO</h4>
+                </div>
+                <div id="astreinteFormBody" style="display: none; margin-top: 15px;">
                 <!-- Sélection expert (admin seulement) -->
                 <div id="astreintesExpertSelect" style="display: none; margin-bottom: 15px;">
                     <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #333;">Expert *</label>
@@ -21027,6 +22203,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                         🔄 Réinitialiser
                     </button>
                 </div>
+                </div><!-- /astreinteFormBody -->
             </div>
             
             <!-- Liste des astreintes/HNO -->
@@ -21035,6 +22212,74 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 <div id="astreintesTreeView" style="max-height: 400px; overflow-y: auto;">
                     <p style="color: #999; text-align: center;">Chargement...</p>
                 </div>
+            </div>
+        </div>
+    </div>
+    <!-- Modal résolution conflits localisation -->
+
+    <!-- Modal Carte des Événements / Déplacements (depuis Planification) -->
+    <div id="eventMapModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.65);z-index:11100;overflow:hidden;">
+        <div style="background:white;margin:2% auto;width:94%;max-width:1200px;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.35);display:flex;flex-direction:column;max-height:94vh;">
+            <!-- Header -->
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 24px;border-bottom:2px solid #3f51b5;">
+                <h3 style="margin:0;color:#283593;">🗺️ Suivi géographique des événements / déplacements</h3>
+                <span onclick="closeEventMapModal()" style="cursor:pointer;font-size:28px;color:#7f8c8d;line-height:1;">&times;</span>
+            </div>
+            <!-- Filtres -->
+            <div style="padding:14px 24px;border-bottom:1px solid #eee;display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;">
+                <div>
+                    <label style="font-size:12px;color:#555;display:block;margin-bottom:4px;">Date de début</label>
+                    <input type="date" id="modalMapStartDate" style="padding:7px;border:1px solid #9fa8da;border-radius:4px;">
+                </div>
+                <div>
+                    <label style="font-size:12px;color:#555;display:block;margin-bottom:4px;">Date de fin</label>
+                    <input type="date" id="modalMapEndDate" style="padding:7px;border:1px solid #9fa8da;border-radius:4px;">
+                </div>
+                <div>
+                    <label style="font-size:12px;color:#555;display:block;margin-bottom:4px;">Localisation</label>
+                    <select id="modalMapLocationFilter" style="padding:7px;border:1px solid #9fa8da;border-radius:4px;min-width:200px;">
+                        <option value="">— Toutes les localisations —</option>
+                    </select>
+                </div>
+                <div style="position:relative;">
+                    <label style="font-size:12px;color:#555;display:block;margin-bottom:4px;">👥 Participants</label>
+                    <div id="modalMapParticipantsContainer" style="display:flex;flex-wrap:wrap;gap:4px;padding:4px 6px;border:1px solid #9fa8da;border-radius:4px;min-height:36px;min-width:200px;max-width:300px;align-items:center;background:white;cursor:text;" onclick="document.getElementById('modalMapParticipantInput').focus()">
+                        <input type="text" id="modalMapParticipantInput" placeholder="Nom ou prénom…"
+                            style="border:none;outline:none;flex:1;min-width:80px;padding:2px 0;font-size:12px;"
+                            oninput="filterModalMapParticipants(this.value)"
+                            onfocus="filterModalMapParticipants(this.value)"
+                            onkeydown="handleModalMapParticipantKeydown(event)">
+                    </div>
+                    <div id="modalMapParticipantDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #ddd;border-radius:0 0 8px 8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);max-height:180px;overflow-y:auto;z-index:11200;"></div>
+                </div>
+                <div style="display:flex;gap:8px;align-items:flex-end;">
+                    <button onclick="loadModalEventsMap()" style="background:#3f51b5;color:white;border:none;padding:8px 18px;border-radius:4px;cursor:pointer;font-weight:bold;">🗺️ Afficher</button>
+                    <button onclick="resetModalMapFilters()" style="background:#78909c;color:white;border:none;padding:8px 14px;border-radius:4px;cursor:pointer;">🔄</button>
+                </div>
+                <div id="modalMapEventCount" style="font-size:12px;color:#555;padding:8px 0;"></div>
+            </div>
+            <!-- Carte -->
+            <div style="flex:1;padding:16px 24px 8px;overflow:hidden;">
+                <div id="eventMapModalContainer" style="height:480px;border-radius:8px;border:1px solid #90caf9;"></div>
+            </div>
+            <!-- Légende -->
+            <div id="modalMapLegend" style="display:none;padding:8px 24px 16px;">
+                <div id="modalMapLegendItems" style="display:flex;flex-wrap:wrap;gap:8px;font-size:11px;"></div>
+            </div>
+        </div>
+    </div>
+    <div id="locConflictModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:11000;overflow-y:auto;">
+        <div style="background:white;max-width:900px;margin:40px auto;padding:30px;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.3);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                <h3 style="color:#c0392b;margin:0;">⚠️ Conflits détectés lors de l'import</h3>
+                <span onclick="closeLocConflictModal()" style="cursor:pointer;font-size:28px;color:#7f8c8d;">&times;</span>
+            </div>
+            <p style="color:#555;font-size:13px;margin-bottom:20px;">Pour chaque localisation en conflit, choisissez l'action à effectuer :</p>
+            <div id="locConflictList"></div>
+            <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:25px;border-top:1px solid #eee;padding-top:15px;">
+                <button onclick="applyAllLocConflicts('keep')" style="background:#27ae60;color:white;padding:8px 18px;border:none;border-radius:4px;cursor:pointer;">✅ Tout conserver</button>
+                <button onclick="applyAllLocConflicts('overwrite')" style="background:#e74c3c;color:white;padding:8px 18px;border:none;border-radius:4px;cursor:pointer;">🔄 Tout écraser</button>
+                <button onclick="resolveLocConflicts()" style="background:#3f51b5;color:white;padding:8px 18px;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">💾 Appliquer les choix</button>
             </div>
         </div>
     </div>
