@@ -1171,6 +1171,107 @@
                 </div>
             </div>
 
+            <!-- Section Suivi des connexions -->
+            <div class="form-section" style="background-color: #e8f5e9; border-left: 4px solid #2e7d32; margin-top: 20px;">
+                <div style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 0;"
+                     onclick="toggleReportingSection('reportingConnexionsBody', 'reportingConnexionsIcon')">
+                    <span id="reportingConnexionsIcon" style="font-size: 13px; color: #2e7d32; transition: transform 0.2s;">▶</span>
+                    <h3 style="color: #2e7d32; border-left: none; margin: 0;">Suivi des connexions utilisateurs</h3>
+                </div>
+                <div id="reportingConnexionsBody" style="display: none; margin-top: 15px;">
+
+                    <!-- Toggle mode de période -->
+                    <div style="display: flex; gap: 20px; align-items: center; margin-bottom: 14px;">
+                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; font-weight: bold; color: #2e7d32;">
+                            <input type="radio" name="connexionsPeriodMode" id="connexionsModeMonth" value="month" checked onchange="toggleConnexionsPeriodMode('month')"> Période mensuelle
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; font-weight: bold; color: #2e7d32;">
+                            <input type="radio" name="connexionsPeriodMode" id="connexionsModeInterval" value="free" onchange="toggleConnexionsPeriodMode('free')"> Intervalle libre
+                        </label>
+                    </div>
+
+                    <!-- Filtres -->
+                    <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end; margin-bottom: 15px;">
+
+                        <!-- Mode mensuel -->
+                        <div id="connexionsMonthBlock">
+                            <label style="font-size: 12px; color: #555; display: block; margin-bottom: 5px;">Mois / Année</label>
+                            <div style="display: flex; gap: 5px;">
+                                <select id="connexionsMonth" style="padding: 7px; border: 1px solid #a5d6a7; border-radius: 4px;">
+                                    <option value="01">Janvier</option>
+                                    <option value="02">Février</option>
+                                    <option value="03">Mars</option>
+                                    <option value="04">Avril</option>
+                                    <option value="05">Mai</option>
+                                    <option value="06">Juin</option>
+                                    <option value="07">Juillet</option>
+                                    <option value="08">Août</option>
+                                    <option value="09">Septembre</option>
+                                    <option value="10">Octobre</option>
+                                    <option value="11">Novembre</option>
+                                    <option value="12">Décembre</option>
+                                </select>
+                                <select id="connexionsYear" style="padding: 7px; border: 1px solid #a5d6a7; border-radius: 4px;">
+                                    <option value="2024">2024</option>
+                                    <option value="2025">2025</option>
+                                    <option value="2026">2026</option>
+                                    <option value="2027">2027</option>
+                                    <option value="2028">2028</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Mode intervalle libre -->
+                        <div id="connexionsIntervalBlock" style="display: none;">
+                            <label style="font-size: 12px; color: #555; display: block; margin-bottom: 5px;">Intervalle libre</label>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <input type="date" id="connexionsStart" style="padding: 7px; border: 1px solid #a5d6a7; border-radius: 4px;">
+                                <span style="color: #555; font-size: 13px;">→</span>
+                                <input type="date" id="connexionsEnd" style="padding: 7px; border: 1px solid #a5d6a7; border-radius: 4px;">
+                            </div>
+                        </div>
+
+                        <!-- Sélection utilisateurs -->
+                        <div>
+                            <label style="font-size: 12px; color: #555; display: block; margin-bottom: 5px;">Utilisateurs</label>
+                            <select id="connexionsUserSelect" multiple style="width: 250px; height: 80px; border: 1px solid #a5d6a7; border-radius: 4px; padding: 4px;">
+                                <!-- Rempli dynamiquement -->
+                            </select>
+                            <div style="font-size: 10px; color: #999; margin-top: 2px;">Ctrl+clic pour sélection multiple</div>
+                        </div>
+
+                        <!-- Bouton -->
+                        <div>
+                            <button onclick="generateConnexionsReport()" style="background-color: #2e7d32; color: white; padding: 10px 25px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                                📊 Générer
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Résultats -->
+                    <div id="connexionsReportResult" style="display: none;">
+                        <p style="font-size: 13px; color: #2e7d32; font-weight: bold; margin-bottom: 10px;">
+                            Total : <span id="connexionsTotalCount">0</span> connexion(s) sur la période
+                        </p>
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr style="background-color: #c8e6c9;">
+                                        <th style="color: #1b5e20;">Utilisateur</th>
+                                        <th style="color: #1b5e20;">Login</th>
+                                        <th style="color: #1b5e20;">Profil</th>
+                                        <th style="color: #1b5e20;">Nb connexions</th>
+                                        <th style="color: #1b5e20;">Dernière connexion</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="connexionsReportBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
         </div><!-- fin onglet reporting -->
 
     <!-- SECTION CARTE ÉVÉNEMENTS/DÉPLACEMENTS -->
@@ -2028,36 +2129,6 @@
             </div>
             <div class="button-group">
                 <button onclick="addUser()">Créer l'utilisateur</button>
-            </div>
-        </div>
-    </div>
-    
-    <!-- SECTION 6: Logs de connexion (nouveau) -->
-    <div class="form-section" style="background-color: #f3e5f5; border-left: 4px solid #9c27b0;">
-        <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleAdminSection('logsSection')">
-            <h3 style="color: #6a1b9a; border-left: none; margin: 0;">
-                <span id="logsSectionIcon">▶</span> Logs de connexion (20 dernières)
-            </h3>
-            <button onclick="event.stopPropagation(); loadConnectionLogs();" style="padding: 8px 15px; background-color: #9c27b0; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px;">
-                🔄 Rafraîchir
-            </button>
-        </div>
-        <div id="logsSection" style="margin-top: 15px; display: none;">
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Identifiant</th>
-                            <th>Nom</th>
-                            <th>Prénom</th>
-                            <th>Profil</th>
-                            <th>Date et heure</th>
-                        </tr>
-                    </thead>
-                    <tbody id="connectionLogsList">
-                        <tr><td colspan="5" style="text-align:center; color: #7f8c8d;">Chargement...</td></tr>
-                    </tbody>
-                </table>
             </div>
         </div>
     </div>
@@ -4290,7 +4361,7 @@
             
             // Charger les paramètres puis démarrer le timer
             loadSettingsForDeplacements().then(() => {
-                startDeplacementsInactivityTimer(deplacementsInactivityTimeout);
+                startInactivityTimer(inactivityTimeout);
             });
             
             // Démarrer le polling des utilisateurs connectés
@@ -4303,12 +4374,12 @@
                 if (response.ok) {
                     const settings = await response.json();
                     // Le timeout est en MINUTES dans les paramètres
-                    deplacementsInactivityTimeout = settings.inactivity_timeout || 5;
-                    console.log('⚙️ Timeout inactivité déplacements:', deplacementsInactivityTimeout, 'minutes');
+                    inactivityTimeout = settings.inactivity_timeout || 5;
+                    console.log('⚙️ Timeout inactivité déplacements:', inactivityTimeout, 'minutes');
                 }
             } catch (error) {
                 console.error('Erreur chargement settings:', error);
-                deplacementsInactivityTimeout = 5; // 5 minutes par défaut
+                inactivityTimeout = 5; // 5 minutes par défaut
             }
         }
         
@@ -4360,7 +4431,7 @@
             console.log('📅 Retour à l\'application Planification');
             
             // Arrêter le timer de déplacements
-            stopDeplacementsInactivityTimer();
+            stopInactivityTimer();
             
             // Arrêter le polling des utilisateurs connectés
             if (deplacementsOnlineUsersInterval) {
@@ -4388,101 +4459,7 @@
             alert('Recherche - Fonctionnalité en cours de développement');
         }
         
-        // Variables pour le timer déplacements
-        let deplacementsTimerInterval = null;
-        let deplacementsTimeRemaining = 0;
-        let deplacementsInactivityTimeout = 5; // 5 minutes par défaut
-        let deplacementsLastActivityTime = Date.now();
         let deplacementsOnlineUsersInterval = null;
-        
-        function startDeplacementsInactivityTimer(timeoutMinutes) {
-            stopDeplacementsInactivityTimer(); // Arrêter le timer existant
-            
-            deplacementsInactivityTimeout = timeoutMinutes;
-            deplacementsTimeRemaining = timeoutMinutes * 60; // Convertir en secondes
-            deplacementsLastActivityTime = Date.now();
-            
-            console.log(`🚗 Timer déplacements démarré: ${timeoutMinutes} minutes`);
-            
-            // Afficher le timer
-            updateDeplacementsTimerDisplay();
-            
-            // Mettre à jour l'affichage chaque seconde
-            deplacementsTimerInterval = setInterval(() => {
-                const elapsedSeconds = Math.floor((Date.now() - deplacementsLastActivityTime) / 1000);
-                deplacementsTimeRemaining = (deplacementsInactivityTimeout * 60) - elapsedSeconds;
-                
-                if (deplacementsTimeRemaining <= 0) {
-                    console.log('⏰ Timer déplacements terminé! Déconnexion...');
-                    clearInterval(deplacementsTimerInterval);
-                    deplacementsTimerInterval = null;
-                    showDeplacementsInactivityModal();
-                } else {
-                    updateDeplacementsTimerDisplay();
-                    
-                    // Changer la couleur si moins de 1 minute restante
-                    const timerDisplay = document.getElementById('deplacementsTimerDisplay');
-                    if (timerDisplay) {
-                        if (deplacementsTimeRemaining <= 60) {
-                            timerDisplay.style.color = '#e74c3c';
-                        } else if (deplacementsTimeRemaining <= 120) {
-                            timerDisplay.style.color = '#f39c12';
-                        } else {
-                            timerDisplay.style.color = '#2c3e50';
-                        }
-                    }
-                }
-            }, 1000);
-            
-            // Réinitialiser le timer sur activité (clic ou touche)
-            const container = document.getElementById('deplacementsContainer');
-            container.addEventListener('mousedown', resetDeplacementsTimer, true);
-            container.addEventListener('keypress', resetDeplacementsTimer, true);
-        }
-        
-        function stopDeplacementsInactivityTimer() {
-            if (deplacementsTimerInterval) {
-                clearInterval(deplacementsTimerInterval);
-                deplacementsTimerInterval = null;
-            }
-            
-            // Retirer les event listeners
-            const container = document.getElementById('deplacementsContainer');
-            if (container) {
-                container.removeEventListener('mousedown', resetDeplacementsTimer, true);
-                container.removeEventListener('keypress', resetDeplacementsTimer, true);
-            }
-        }
-        
-        function resetDeplacementsTimer() {
-            deplacementsLastActivityTime = Date.now();
-            deplacementsTimeRemaining = deplacementsInactivityTimeout * 60;
-            
-            // Réinitialiser la couleur
-            const timerDisplay = document.getElementById('deplacementsTimerDisplay');
-            if (timerDisplay) {
-                timerDisplay.style.color = '#2c3e50';
-            }
-        }
-        
-        function updateDeplacementsTimerDisplay() {
-            const minutes = Math.floor(deplacementsTimeRemaining / 60);
-            const seconds = deplacementsTimeRemaining % 60;
-            document.getElementById('deplacementsTimerMinutes').textContent = String(minutes).padStart(2, '0');
-            document.getElementById('deplacementsTimerSeconds').textContent = String(seconds).padStart(2, '0');
-        }
-        
-        function showDeplacementsInactivityModal() {
-            const wantsToStay = confirm(`Vous êtes inactif depuis ${deplacementsInactivityTimeout} minutes.\n\nVoulez-vous rester connecté ?`);
-            
-            if (wantsToStay) {
-                // Redémarrer le timer
-                startDeplacementsInactivityTimer(deplacementsInactivityTimeout);
-            } else {
-                // Déconnecter
-                logoutFromDeplacements(true);
-            }
-        }
         
         function startDeplacementsOnlineUsersPolling() {
             // Charger immédiatement
@@ -4632,7 +4609,7 @@
         async function logoutFromDeplacements(auto = false) {
             if (auto) {
                 // Déconnexion automatique (timeout)
-                stopDeplacementsInactivityTimer();
+                stopInactivityTimer();
                 if (deplacementsOnlineUsersInterval) {
                     clearInterval(deplacementsOnlineUsersInterval);
                 }
@@ -4692,7 +4669,7 @@
             sessionStorage.setItem('selectedApp', 'planification');
             
             // Arrêter le timer de déplacements
-            stopDeplacementsInactivityTimer();
+            stopInactivityTimer();
             
             // Arrêter le polling des utilisateurs connectés de l'app déplacements
             if (deplacementsOnlineUsersInterval) {
@@ -4757,7 +4734,7 @@
             sessionStorage.removeItem('selectedApp');
             
             // Arrêter le timer
-            stopDeplacementsInactivityTimer();
+            stopInactivityTimer();
             
             // Arrêter le polling des utilisateurs connectés
             if (deplacementsOnlineUsersInterval) {
@@ -6435,6 +6412,9 @@
                 document.getElementById('loginButton').textContent = 'Continuer';
                 document.getElementById('loginError').style.display = 'none';
                 document.getElementById('loginError').textContent = '';
+
+                // Rafraîchir le numéro de version affiché sur la mire de login
+                loadVersion();
                 
             } catch (error) {
                 console.error('Erreur logout:', error);
@@ -6596,6 +6576,11 @@
         async function loadResources() {
             try {
                 const response = await fetch(`${API_URL}/resources`, { credentials: 'include' });
+                if (response.status === 401) {
+                    console.warn('Session expirée lors du chargement des ressources');
+                    await performLogout();
+                    return;
+                }
                 if (!response.ok) throw new Error('Erreur chargement ressources');
                 resources = await response.json();
                 
@@ -7335,6 +7320,11 @@
         async function loadSchedule() {
             try {
                 const response = await fetch(`${API_URL}/schedule`, { credentials: 'include' });
+                if (response.status === 401) {
+                    console.warn('Session expirée lors du chargement du planning');
+                    await performLogout();
+                    return;
+                }
                 if (!response.ok) throw new Error('Erreur chargement planification');
                 scheduleData = await response.json();
                 // Sauvegarder une copie pour détecter les changements
@@ -9151,11 +9141,10 @@
                 // Récupérer les logs de connexion de l'utilisateur
                 let userLogs = [];
                 try {
-                    const logsResponse = await fetch(`${API_URL}/logs/connections`, { credentials: 'include' });
+                    const logsResponse = await fetch(`${API_URL}/reporting/connections?dateStart=2000-01-01&dateEnd=2099-12-31&userIds=${userId}`, { credentials: 'include' });
                     if (logsResponse.ok) {
                         const logsData = await logsResponse.json();
-                        // Filtrer les logs pour cet utilisateur
-                        userLogs = (logsData.logs || []).filter(log => log.username === user.username);
+                        userLogs = (logsData.rows || []);
                     }
                 } catch (e) {
                     console.log('Erreur chargement logs:', e);
@@ -11247,8 +11236,128 @@
             } catch (error) {
                 console.error('Erreur chargement experts reporting:', error);
             }
+            // Initialiser le suivi des connexions
+            initConnexionsReporting();
         }
         
+        // ========== SUIVI DES CONNEXIONS (REPORTING) ==========
+
+        async function initConnexionsReporting() {
+            // Initialiser mois/année courant
+            const now = new Date();
+            const monthSel = document.getElementById('connexionsMonth');
+            const yearSel  = document.getElementById('connexionsYear');
+            if (monthSel) monthSel.value = String(now.getMonth() + 1).padStart(2, '0');
+            if (yearSel)  yearSel.value  = String(now.getFullYear());
+
+            // Peupler le select utilisateurs depuis /api/users
+            const userSel = document.getElementById('connexionsUserSelect');
+            if (!userSel) return;
+            try {
+                const res = await fetch(`${API_URL}/users`, { credentials: 'include' });
+                if (!res.ok) return;
+                const users = await res.json();
+                userSel.innerHTML = '';
+                users.sort((a, b) => `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`))
+                     .forEach(u => {
+                    const opt = document.createElement('option');
+                    opt.value = u.id;
+                    opt.textContent = `${u.prenom} ${u.nom} (${u.username})`;
+                    opt.selected = true;
+                    userSel.appendChild(opt);
+                });
+            } catch (e) {
+                console.error('Erreur init connexions reporting:', e);
+            }
+        }
+
+        function toggleConnexionsPeriodMode(mode) {
+            const monthBlock    = document.getElementById('connexionsMonthBlock');
+            const intervalBlock = document.getElementById('connexionsIntervalBlock');
+            if (!monthBlock || !intervalBlock) return;
+            if (mode === 'month') {
+                monthBlock.style.display    = 'block';
+                intervalBlock.style.display = 'none';
+            } else {
+                monthBlock.style.display    = 'none';
+                intervalBlock.style.display = 'block';
+            }
+        }
+
+        async function generateConnexionsReport() {
+            const mode = document.querySelector('input[name="connexionsPeriodMode"]:checked')?.value || 'month';
+
+            let dateStart, dateEnd;
+            if (mode === 'month') {
+                const month = document.getElementById('connexionsMonth')?.value;
+                const year  = document.getElementById('connexionsYear')?.value;
+                if (!month || !year) return;
+                dateStart = `${year}-${month}-01`;
+                // Dernier jour du mois
+                dateEnd = new Date(Number(year), Number(month), 0).toISOString().slice(0, 10);
+            } else {
+                dateStart = document.getElementById('connexionsStart')?.value;
+                dateEnd   = document.getElementById('connexionsEnd')?.value;
+                if (!dateStart || !dateEnd) { alert('Veuillez renseigner les deux dates.'); return; }
+            }
+
+            const userSel = document.getElementById('connexionsUserSelect');
+            const userIds = userSel
+                ? Array.from(userSel.selectedOptions).map(o => o.value).join(',')
+                : '';
+
+            const params = new URLSearchParams({ dateStart, dateEnd });
+            if (userIds) params.set('userIds', userIds);
+
+            try {
+                const res = await fetch(`${API_URL}/reporting/connections?${params}`, { credentials: 'include' });
+                if (!res.ok) { console.error('Erreur reporting connexions', res.status); return; }
+                const data = await res.json();
+                const rows = data.rows || [];
+
+                const totalEl = document.getElementById('connexionsTotalCount');
+                const tbody   = document.getElementById('connexionsReportBody');
+                const result  = document.getElementById('connexionsReportResult');
+
+                const total = rows.reduce((s, r) => s + (r.nb_connexions || 0), 0);
+                if (totalEl) totalEl.textContent = total;
+                if (result)  result.style.display = 'block';
+
+                if (!tbody) return;
+                tbody.innerHTML = '';
+
+                if (rows.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;padding:20px;">Aucune connexion sur cette période</td></tr>';
+                    return;
+                }
+
+                const profileLabel = p => p === 'admin' ? 'Administrateur' : p === 'expert' ? 'Expert Métier' : 'Utilisateur';
+
+                rows.forEach(r => {
+                    let derniereConn = '—';
+                    if (r.derniere_connexion) {
+                        let t = r.derniere_connexion;
+                        if (!t.endsWith('Z') && !t.includes('+')) t += 'Z';
+                        derniereConn = new Date(t).toLocaleString('fr-FR', {
+                            timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit',
+                            day: '2-digit', hour: '2-digit', minute: '2-digit'
+                        });
+                    }
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${r.prenom || ''} ${r.nom || ''}</td>
+                        <td>${r.username}</td>
+                        <td>${profileLabel(r.profile)}</td>
+                        <td style="text-align:center;font-weight:bold;">${r.nb_connexions}</td>
+                        <td>${derniereConn}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (e) {
+                console.error('Erreur génération rapport connexions:', e);
+            }
+        }
+
         // Filtrer les experts du reporting par fonction
         function filterReportingExpertsByFonction() {
             const fonctionSelect = document.getElementById('reportingFonctionFilter');
@@ -13026,8 +13135,11 @@
         };
         
         // Éditer un événement personnalisé
-        window.editCustomEvent = function(eventId) {
+        window.editCustomEvent = async function(eventId) {
             console.log('🔧 editCustomEvent appelé avec ID:', eventId);
+            if (allLocations.length === 0) {
+                await loadLocations();
+            }
             const event = customEvents.find(e => e.id === eventId);
             if (!event) {
                 console.error('Événement non trouvé:', eventId);
@@ -13954,7 +14066,6 @@
             if (tabName === 'admin') {
                 loadUsers();
                 loadEmailConfig();
-                loadConnectionLogs();  // NOUVEAU
                 loadAppVersion();      // NOUVEAU
                 
                 // Rafraîchir les statuts de connexion toutes les 30 secondes
@@ -14482,35 +14593,71 @@
             console.log('Timer d\'inactivité arrêté');
         }
 
+        let _inactivityCountdownTimer = null;
+        let _inactivityDisconnecting = false;
+
         async function showInactivityModal() {
             console.log('🔔 showInactivityModal appelé');
-            
-            // Arrêter le timer
+
+            if (_inactivityDisconnecting) return;
+
+            // Suspendre le timer principal (déjà arrêté via clearInterval, mais on s'assure)
             if (inactivityCountdownInterval) {
                 clearInterval(inactivityCountdownInterval);
                 inactivityCountdownInterval = null;
             }
-            
-            console.log(`⏱️ Timer d'inactivité expiré après ${inactivityTimeout} minutes`);
-            
-            const wantsToStay = confirm(`Vous êtes inactif depuis ${inactivityTimeout} minutes.\n\nVoulez-vous rester connecté ?`);
-            console.log(`👤 Choix utilisateur: ${wantsToStay ? 'Rester connecté' : 'Se déconnecter'}`);
-            
-            if (wantsToStay) {
-                // Redémarrer le timer
-                console.log('🔄 Redémarrage du timer');
-                startInactivityTimer(inactivityTimeout);
-            } else {
-                // L'utilisateur a choisi de se déconnecter
-                console.log('👋 Déconnexion en cours...');
-                stopInactivityTimer();
-                
-                // Enregistrer les logs des affectations en attente (sans envoyer d'email)
-                await saveAssignmentLogs();
-                
-                // Déconnexion
-                await performLogout();
+
+            // Mettre à jour le message
+            const minutesEl = document.getElementById('inactivityModalMinutes');
+            if (minutesEl) minutesEl.textContent = inactivityTimeout;
+
+            // Afficher la modale
+            const modal = document.getElementById('inactivityModal');
+            if (modal) modal.classList.add('active');
+
+            // Lancer le countdown de 15 secondes
+            let remaining = 15;
+            const countdownEl = document.getElementById('inactivityCountdown');
+            if (countdownEl) countdownEl.textContent = remaining;
+
+            _inactivityCountdownTimer = setInterval(async () => {
+                remaining--;
+                if (countdownEl) countdownEl.textContent = remaining;
+
+                if (remaining <= 0) {
+                    clearInterval(_inactivityCountdownTimer);
+                    _inactivityCountdownTimer = null;
+                    await disconnectNow();
+                }
+            }, 1000);
+        }
+
+        function hideInactivityModal() {
+            if (_inactivityCountdownTimer) {
+                clearInterval(_inactivityCountdownTimer);
+                _inactivityCountdownTimer = null;
             }
+            const modal = document.getElementById('inactivityModal');
+            if (modal) modal.classList.remove('active');
+        }
+
+        function stayConnected() {
+            hideInactivityModal();
+            _inactivityDisconnecting = false;
+            console.log('🔄 Utilisateur souhaite rester connecté — relance du timer');
+            startInactivityTimer(inactivityTimeout);
+        }
+
+        async function disconnectNow() {
+            if (_inactivityDisconnecting) return;
+            _inactivityDisconnecting = true;
+
+            hideInactivityModal();
+            stopInactivityTimer();
+            console.log('👋 Déconnexion automatique par inactivité');
+
+            await saveAssignmentLogs();
+            await performLogout();
         }
 
         // ========== GESTION DES NOTIFICATIONS D'AFFECTATION ==========
@@ -15224,188 +15371,6 @@
 
         // ========== GESTION DES LOGS DE CONNEXION ==========
 
-        async function loadConnectionLogs() {
-            try {
-                const response = await fetch(`${API_URL}/logs/connections`, { credentials: 'include' });
-                if (!response.ok) {
-                    console.error('Erreur réponse logs:', response.status);
-                    return;
-                }
-                
-                const data = await response.json();
-                console.log('Logs reçus:', data);
-                
-                const tbody = document.getElementById('connectionLogsList');
-                if (!tbody) {
-                    console.error('Élément connectionLogsList non trouvé');
-                    return;
-                }
-                
-                tbody.innerHTML = '';
-                
-                if (!data.logs || data.logs.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color: #7f8c8d;">Aucun log de connexion enregistré</td></tr>';
-                    return;
-                }
-                
-                console.log(`${data.logs.length} logs trouvés`);
-                
-                data.logs.forEach(log => {
-                    const tr = document.createElement('tr');
-                    
-                    // Corriger le décalage horaire
-                    let loginTime = log.login_time;
-                    if (!loginTime.endsWith('Z') && !loginTime.includes('+')) {
-                        loginTime += 'Z';
-                    }
-                    
-                    const loginDate = new Date(loginTime).toLocaleString('fr-FR', {
-                        timeZone: 'Europe/Paris',
-                        year: 'numeric',
-                        month: '2-digit',
-                        day: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        second: '2-digit'
-                    });
-                    
-                    const profileLabel = log.profile === 'admin' ? 'Administrateur' : 
-                                         log.profile === 'expert' ? 'Expert Métier' : 'Utilisateur';
-                    
-                    tr.innerHTML = `
-                        <td>${log.username}</td>
-                        <td>${log.nom}</td>
-                        <td>${log.prenom}</td>
-                        <td>${profileLabel}</td>
-                        <td>${loginDate}</td>
-                    `;
-                    tbody.appendChild(tr);
-                });
-            } catch (error) {
-                console.error('Erreur chargement logs:', error);
-                const tbody = document.getElementById('connectionLogsList');
-                if (tbody) {
-                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color: #e74c3c;">Erreur lors du chargement des logs</td></tr>';
-                }
-            }
-        }
-
-        async function showLogDetails(logId) {
-            const modal = document.getElementById('logDetailsModal');
-            if (!modal) return;
-            
-            try {
-                const response = await fetch(`${API_URL}/connection-logs/${logId}`, {
-                    credentials: 'include'
-                });
-                
-                const log = await response.json();
-                
-                if (!log) {
-                    alert('Log non trouvé');
-                    return;
-                }
-                
-                // Corriger le décalage horaire : ajouter 'Z' pour indiquer UTC si pas déjà présent
-                let loginTime = log.login_time;
-                if (!loginTime.endsWith('Z') && !loginTime.includes('+')) {
-                    loginTime += 'Z';
-                }
-                
-                document.getElementById('logDetailsUsername').textContent = log.username;
-                document.getElementById('logDetailsDate').textContent = new Date(loginTime).toLocaleString('fr-FR', {
-                    timeZone: 'Europe/Paris',
-                    year: 'numeric',
-                    month: '2-digit',
-                    day: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit'
-                });
-                
-                const contentDiv = document.getElementById('logDetailsContent');
-                
-                if (!log.modifications || log.modifications === '') {
-                    contentDiv.innerHTML = '<p style="color: #7f8c8d; font-style: italic;">Aucune action enregistrée pour cette session</p>';
-                } else {
-                    try {
-                        const actions = JSON.parse(log.modifications);
-                        if (actions.length === 0) {
-                            contentDiv.innerHTML = '<p style="color: #7f8c8d; font-style: italic;">Aucune action enregistrée pour cette session</p>';
-                        } else {
-                            // Format tableau : Horodatage | Action réalisée
-                            let html = `
-                                <div style="max-height: 500px; overflow-y: auto;">
-                                    <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-                                        <thead>
-                                            <tr style="background-color: #1D70B7; color: white;">
-                                                <th style="padding: 8px; text-align: left; border: 1px solid #bdc3c7; width: 180px;">Horodatage</th>
-                                                <th style="padding: 8px; text-align: left; border: 1px solid #bdc3c7;">Action réalisée</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                            `;
-                            
-                            actions.forEach((action, index) => {
-                                // Corriger le décalage horaire
-                                let timestamp = action.timestamp;
-                                if (!timestamp.endsWith('Z') && !timestamp.includes('+')) {
-                                    timestamp += 'Z';
-                                }
-                                
-                                const dateTime = new Date(timestamp).toLocaleString('fr-FR', {
-                                    timeZone: 'Europe/Paris',
-                                    year: 'numeric',
-                                    month: '2-digit',
-                                    day: '2-digit',
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                    second: '2-digit'
-                                });
-                                
-                                // Construire la description de l'action
-                                let actionDescription = action.action;
-                                if (action.details && Object.keys(action.details).length > 0) {
-                                    const detailsText = Object.entries(action.details)
-                                        .map(([key, value]) => {
-                                            if (typeof value === 'object') {
-                                                return `${key}: ${JSON.stringify(value)}`;
-                                            }
-                                            return `${key}: ${value}`;
-                                        })
-                                        .join(', ');
-                                    actionDescription += ` (${detailsText})`;
-                                }
-                                
-                                const bgColor = index % 2 === 0 ? '#f8f9fa' : 'white';
-                                html += `
-                                    <tr style="background-color: ${bgColor};">
-                                        <td style="padding: 8px; border: 1px solid #e0e0e0; font-family: monospace; white-space: nowrap;">${dateTime}</td>
-                                        <td style="padding: 8px; border: 1px solid #e0e0e0;">${actionDescription}</td>
-                                    </tr>
-                                `;
-                            });
-                            
-                            html += `
-                                        </tbody>
-                                    </table>
-                                </div>
-                            `;
-                            contentDiv.innerHTML = html;
-                        }
-                    } catch (e) {
-                        // Si ce n'est pas du JSON, afficher comme texte brut (ancien format)
-                        contentDiv.innerHTML = `<pre style="white-space: pre-wrap; font-size: 12px;">${log.modifications}</pre>`;
-                    }
-                }
-                
-                modal.classList.add('active');
-            } catch (error) {
-                console.error('Erreur chargement détail log:', error);
-                alert('Erreur lors du chargement des détails');
-            }
-        }
-
         function closeLogDetailsModal() {
             const modal = document.getElementById('logDetailsModal');
             if (modal) modal.classList.remove('active');
@@ -15515,6 +15480,11 @@
         async function loadLocations() {
             try {
                 const res = await fetch(`${API_URL}/locations`, { credentials: 'include' });
+                if (res.status === 401) {
+                    console.warn('Session expirée lors du chargement des localisations');
+                    await performLogout();
+                    return;
+                }
                 if (!res.ok) return;
                 const data = await res.json();
                 allLocations = data.locations || [];
@@ -18960,6 +18930,9 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
         
         // Ouvrir la modal de gestion des événements
         async function openMyEventsModal() {
+            if (allLocations.length === 0) {
+                await loadLocations();
+            }
             document.getElementById('myEventsModalContainer').style.display = 'block';
             populateLocationSelects();
             await loadMyEvents();
@@ -22089,6 +22062,31 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             <div class="button-group" style="display: flex; gap: 10px; justify-content: flex-end; padding-top: 15px; border-top: 1px solid #eee;">
                 <button onclick="saveDeplacement()" style="padding: 12px 25px; font-size: 14px;">✅ Enregistrer</button>
                 <button onclick="closeEditDeplacementModal()" style="background-color: #95a5a6; padding: 12px 25px; font-size: 14px;">❌ Annuler</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal inactivité -->
+    <div id="inactivityModal" class="modal">
+        <div class="modal-content" style="max-width: 420px; text-align: center;">
+            <div style="font-size: 48px; margin-bottom: 15px;">⏳</div>
+            <h3 style="color: #e74c3c; margin-bottom: 10px;">Session inactive</h3>
+            <p style="color: #555; margin-bottom: 20px;" id="inactivityModalMessage">
+                Vous êtes inactif depuis <strong id="inactivityModalMinutes">?</strong> minutes.<br>
+                Vous allez être déconnecté automatiquement.
+            </p>
+            <div style="background: #fdf2f2; border: 2px solid #e74c3c; border-radius: 50px; padding: 12px 20px; display: inline-block; margin-bottom: 25px;">
+                <span style="font-size: 18px; font-weight: bold; color: #e74c3c;">
+                    Déconnexion dans <span id="inactivityCountdown" style="font-size: 24px; font-weight: 900;">15</span> s
+                </span>
+            </div>
+            <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+                <button onclick="stayConnected()" style="background: linear-gradient(135deg, #27ae60 0%, #229954 100%); color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: bold; cursor: pointer;">
+                    ✅ Rester connecté
+                </button>
+                <button onclick="disconnectNow()" style="background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 14px; cursor: pointer;">
+                    🚪 Se déconnecter
+                </button>
             </div>
         </div>
     </div>
