@@ -3209,44 +3209,39 @@ app.get('/api/active-sessions', requireAuth, async (req, res) => {
 });
 
 // Récupération des logs de connexion (20 derniers)
-app.get('/api/logs/connections', requireAdmin, (req, res) => {
-    database.all(
-        `SELECT id, user_id, username, nom, prenom, profile, login_time, modifications 
-         FROM connection_logs 
-         ORDER BY login_time DESC 
-         LIMIT 20`,
-        [],
-        (err, logs) => {
-            if (err) {
-                console.error('Erreur récupération logs:', err);
-                res.status(500).json({ error: err.message });
-            } else {
-                res.json({ logs });
-            }
-        }
-    );
-});
+// Reporting : suivi des connexions par utilisateur sur une période
+app.get('/api/reporting/connections', requireAdmin, (req, res) => {
+    const { dateStart, dateEnd, userIds } = req.query;
+    if (!dateStart || !dateEnd) {
+        return res.status(400).json({ error: 'dateStart et dateEnd requis' });
+    }
 
-// Récupération d'un log spécifique par ID
-app.get('/api/connection-logs/:id', requireAdmin, (req, res) => {
-    const { id } = req.params;
-    
-    database.get(
-        `SELECT id, user_id, username, nom, prenom, profile, login_time, modifications 
-         FROM connection_logs 
-         WHERE id = ?`,
-        [id],
-        (err, log) => {
-            if (err) {
-                console.error('Erreur récupération log:', err);
-                res.status(500).json({ error: err.message });
-            } else if (!log) {
-                res.status(404).json({ error: 'Log non trouvé' });
-            } else {
-                res.json(log);
-            }
+    let sql = `
+        SELECT username, nom, prenom, profile,
+               COUNT(*) as nb_connexions,
+               MAX(login_time) as derniere_connexion
+        FROM connection_logs
+        WHERE DATE(login_time) >= ? AND DATE(login_time) <= ?
+    `;
+    const params = [dateStart, dateEnd];
+
+    if (userIds && userIds.trim() !== '') {
+        const ids = userIds.split(',').map(id => id.trim()).filter(Boolean);
+        if (ids.length > 0) {
+            sql += ` AND user_id IN (${ids.map(() => '?').join(',')})`;
+            params.push(...ids);
         }
-    );
+    }
+
+    sql += ' GROUP BY user_id, username, nom, prenom, profile ORDER BY nb_connexions DESC';
+
+    database.all(sql, params, (err, rows) => {
+        if (err) {
+            console.error('Erreur reporting connexions:', err);
+            return res.status(500).json({ error: err.message });
+        }
+        res.json({ rows });
+    });
 });
 
 // Récupération des logs d'actions filtrés par utilisateur
@@ -10107,6 +10102,10 @@ app.get('/api/reporting/events-map', requireAuth, async (req, res) => {
 // ========== FIN ROUTES MFA ==========
 
 // Route catch-all pour servir index.html (doit être la DERNIÈRE route API)
+app.get('/mobile', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'mobile.html'));
+});
+
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
