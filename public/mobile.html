@@ -246,10 +246,10 @@ let state = {
 function detectCapabilities() {
   const w = window.innerWidth;
   const views = ['day'];
-  if (w >= 400) views.push('week');
-  if (w >= 768) views.push('month');
+  if (w >= 320) views.push('week');   // tous les smartphones modernes
+  if (w >= 600) views.push('month');  // grandes phablettes / tablettes
   state.availableViews = views;
-  state.view = w >= 768 ? 'month' : (w >= 400 ? 'week' : 'day');
+  state.view = w >= 600 ? 'month' : 'week';
 }
 
 /* ---- DATE UTILS ---- */
