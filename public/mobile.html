@@ -245,12 +245,16 @@ let state = {
 /* ---- DEVICE ---- */
 function detectCapabilities() {
   const w = window.innerWidth;
-  const views = ['day'];
-  if (w >= 320) views.push('week');   // tous les smartphones modernes
-  if (w >= 600) views.push('month');  // grandes phablettes / tablettes
+  const views = ['day', 'week', 'month']; // toujours les 3 vues disponibles
   state.availableViews = views;
-  state.view = w >= 600 ? 'month' : 'week';
+  // Vue par défaut selon largeur (portrait iPhone ~390px, paysage ~844px)
+  state.view = window.innerWidth >= 600 ? 'month' : 'week';
 }
+
+// Réévaluer la vue par défaut si orientation change (ne pas écraser la vue en cours)
+window.addEventListener('orientationchange', () => {
+  setTimeout(() => { renderToolbar(); }, 150); // laisser le temps au navigateur de recalculer
+});
 
 /* ---- DATE UTILS ---- */
 function toYMD(d) {
