@@ -269,24 +269,36 @@ function getWeekNum(d) {
 }
 
 /* ---- SCHEDULE HELPERS ---- */
-function getPlanningCode(resourceId, date, period) {
-  const rid = String(resourceId);
-  const availKey = `${rid}_avail_${date}`;
-  if (state.schedule[availKey] === '3') return { code:'conge', label:'🏖️ Congés', color:'#bdc3c7' };
-  const actKey = `${rid}_act_${date}_${period}`;
-  const code = state.schedule[actKey];
-  if (!code) return null;
+function getPlanningCode(resourceId, dateStr, period) {
+  // dateStr : "YYYY-MM-DD", period : "AM" | "PM"
+  const dateKey  = `${dateStr}_${period}`;
+  const availKey = `${resourceId}_available_${dateKey}`;
+  const actKey   = `${resourceId}_activity_${dateKey}`;
+  const locKey   = `${resourceId}_localisation_${dateKey}`;
+
+  const availValue = state.schedule[availKey] || '1';
+  const actValue   = state.schedule[actKey]   || '1';
+  const locValue   = state.schedule[locKey]   || '-';
+
+  if (availValue === '3') {
+    return { code:'conge', label:'🏖️ Congés', color:'#bdc3c7', loc:'-' };
+  }
+
   const labels = {'1':'❓ Indisponible','2':'⏳ En attente','3':'📞 SAMU Déploiement','4':'📞 SAMU Dev. usages','5':'📄 ANS Déploiement','6':'👨‍🏫 ANS Dev. usages','7':'☑️ Qualification','8':'📖 Divers'};
   const colors = {'1':'#95a5a6','2':'#9b59b6','3':'#e67e22','4':'#d35400','5':'#3498db','6':'#2980b9','7':'#e74c3c','8':'#16a085'};
-  return { code, label: labels[code]||code, color: colors[code]||'#7f8c8d' };
+
+  return { code: actValue, label: labels[actValue]||'?', color: colors[actValue]||'#7f8c8d', loc: locValue };
 }
-// Alias pour compatibilité avec le code existant
+// Alias utilisés dans les vues
 function getAct(rid, ds, period) {
   const r = getPlanningCode(rid, ds, period);
   return (r && r.code !== 'conge') ? r.code : null;
 }
 function isConge(rid, ds) {
-  return state.schedule[`${String(rid)}_avail_${ds}`] === '3';
+  // Vérifier AM ou PM — congé si l'un ou l'autre est marqué
+  const rAM = state.schedule[`${rid}_available_${ds}_AM`];
+  const rPM = state.schedule[`${rid}_available_${ds}_PM`];
+  return rAM === '3' || rPM === '3';
 }
 
 /* ---- USER HEADER ---- */
@@ -350,7 +362,7 @@ async function loadData() {
   console.log('resourceId sélectionné:', state.selectedResourceId, typeof state.selectedResourceId);
   if (state.selectedResourceId) {
     const today = toYMD(new Date());
-    const key = `${String(state.selectedResourceId)}_act_${today}_AM`;
+    const key = `${String(state.selectedResourceId)}_activity_${today}_AM`;
     console.log('Exemple de clé cherchée:', key);
     console.log('Valeur trouvée:', state.schedule[key]);
   }
@@ -442,6 +454,13 @@ function renderView() {
   c.innerHTML = '';
   const rid = state.selectedResourceId;
   if (!rid) { c.appendChild(el('div','no-data','Aucun expert sélectionné')); return; }
+  // [DEBUG] — à supprimer une fois validé
+  const currentDateStr = toYMD(state.cursor);
+  const testKey = `${rid}_activity_${currentDateStr}_AM`;
+  console.log('[DEBUG] clé testée:', testKey);
+  console.log('[DEBUG] valeur trouvée:', state.schedule[testKey]);
+  console.log('[DEBUG] 5 premières clés scheduleData:', Object.keys(state.schedule).slice(0, 5));
+  // [/DEBUG]
   if (state.view==='day')   renderDay(c, rid);
   else if (state.view==='week')  renderWeek(c, rid);
   else renderMonth(c, rid);
