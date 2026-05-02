@@ -587,6 +587,13 @@ function initDB() {
                             }
                         });
                     }
+
+                    // Migration: ajouter is_rh si elle n'existe pas
+                    const rhCol = columns.find(col => col.name === 'is_rh');
+                    if (!rhCol) {
+                        database.run(`ALTER TABLE users ADD COLUMN is_rh INTEGER DEFAULT 0`);
+                        console.log('Migration: Ajout colonne is_rh à users');
+                    }
                     
                     // Migration: ajouter trigramme si elle n'existe pas
                     const trigrammeCol = columns.find(col => col.name === 'trigramme');
@@ -2649,6 +2656,7 @@ app.get('/api/users', requireAdmin, (req, res) => {
     database.all(`
         SELECT u.*, r.trigramme as resource_trigramme,
                COALESCE(u.trigramme, r.trigramme) as trigramme,
+               r.astreinte_volontaire,
                (SELECT MAX(login_time) FROM connection_logs WHERE user_id = u.id) as last_login
         FROM users u 
         LEFT JOIN resources r ON u.resource_id = r.id
@@ -2714,7 +2722,7 @@ app.get('/api/users/amoa-ced', requireAuth, (req, res) => {
 });
 
 app.post('/api/users', requireAdmin, async (req, res) => {
-    const { username, password, nom, prenom, email, telephone, is_admin, is_expert, is_user, resource_id, has_reporting_access, amoa_ced, sendEmail: shouldSendEmail } = req.body;
+    const { username, password, nom, prenom, email, telephone, is_admin, is_expert, is_user, is_rh, resource_id, has_reporting_access, amoa_ced, sendEmail: shouldSendEmail } = req.body;
     
     if (!username || !password) {
         return res.status(400).json({ error: 'Username et password requis' });
@@ -2723,9 +2731,9 @@ app.post('/api/users', requireAdmin, async (req, res) => {
     const hashedPassword = hashPassword(password);
     
     database.run(
-        `INSERT INTO users (username, password, nom, prenom, email, telephone, is_admin, is_expert, is_user, resource_id, has_reporting_access, amoa_ced) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [username, hashedPassword, nom, prenom, email, telephone || null, is_admin ? 1 : 0, is_expert ? 1 : 0, is_user ? 1 : 0, resource_id || null, has_reporting_access ? 1 : 0, amoa_ced ? 1 : 0],
+        `INSERT INTO users (username, password, nom, prenom, email, telephone, is_admin, is_expert, is_user, is_rh, resource_id, has_reporting_access, amoa_ced) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [username, hashedPassword, nom, prenom, email, telephone || null, is_admin ? 1 : 0, is_expert ? 1 : 0, is_user ? 1 : 0, is_rh ? 1 : 0, resource_id || null, has_reporting_access ? 1 : 0, amoa_ced ? 1 : 0],
         async function(err) {
             if (err) {
                 console.error('Erreur ajout user:', err);
@@ -2784,7 +2792,7 @@ app.post('/api/users', requireAdmin, async (req, res) => {
 });
 
 app.put('/api/users/:id', requireAdmin, (req, res) => {
-    const { nom, prenom, email, trigramme, is_admin, is_expert, is_user, resource_id, has_reporting_access, amoa_ced } = req.body;
+    const { nom, prenom, email, trigramme, is_admin, is_expert, is_user, is_rh, resource_id, has_reporting_access, amoa_ced } = req.body;
     const { id } = req.params;
     
     // Convertir resource_id en integer ou null
@@ -2813,9 +2821,9 @@ app.put('/api/users/:id', requireAdmin, (req, res) => {
     
     database.run(
         `UPDATE users 
-         SET nom = ?, prenom = ?, email = ?, trigramme = ?, is_admin = ?, is_expert = ?, is_user = ?, resource_id = ?, has_reporting_access = ?, amoa_ced = ?
+         SET nom = ?, prenom = ?, email = ?, trigramme = ?, is_admin = ?, is_expert = ?, is_user = ?, is_rh = ?, resource_id = ?, has_reporting_access = ?, amoa_ced = ?
          WHERE id = ?`,
-        [nom, prenom, email, finalTrigramme, is_admin ? 1 : 0, is_expert ? 1 : 0, is_user ? 1 : 0, finalResourceId, has_reporting_access ? 1 : 0, amoa_ced ? 1 : 0, id],
+        [nom, prenom, email, finalTrigramme, is_admin ? 1 : 0, is_expert ? 1 : 0, is_user ? 1 : 0, is_rh ? 1 : 0, finalResourceId, has_reporting_access ? 1 : 0, amoa_ced ? 1 : 0, id],
         (err) => {
             if (err) {
                 console.error('Erreur update user:', err);
@@ -2917,6 +2925,32 @@ app.post('/api/users/:id/reporting-access', requireAdmin, (req, res) => {
             }
         }
     );
+});
+
+app.post('/api/users/:id/rh-access', requireAdmin, (req, res) => {
+    const { hasAccess } = req.body;
+    database.run(
+        'UPDATE users SET is_rh = ? WHERE id = ?',
+        [hasAccess ? 1 : 0, req.params.id],
+        (err) => err
+            ? res.status(500).json({ error: err.message })
+            : res.json({ success: true })
+    );
+});
+
+app.post('/api/users/:id/astreinte-access', requireAdmin, (req, res) => {
+    const { hasAccess } = req.body;
+    database.get('SELECT resource_id FROM users WHERE id = ?', [req.params.id], (err, user) => {
+        if (err || !user?.resource_id)
+            return res.status(400).json({ error: 'Pas de ressource associée' });
+        database.run(
+            'UPDATE resources SET astreinte_volontaire = ? WHERE id = ?',
+            [hasAccess ? 1 : 0, user.resource_id],
+            (err2) => err2
+                ? res.status(500).json({ error: err2.message })
+                : res.json({ success: true })
+        );
+    });
 });
 
 app.post('/api/users/:id/amoa-ced', requireAdmin, (req, res) => {
