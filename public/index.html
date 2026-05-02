@@ -9,7 +9,7 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: Arial, sans-serif; background-color: #f5f5f5; padding: 10px; }
-        .container { max-width: 1800px; margin: 0 auto; background-color: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden; display: none; }
+        .container { max-width: 100%; margin: 0; background-color: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden; display: none; }
         .tabs { display: flex; background-color: #2c3e50; border-bottom: 3px solid #1D70B7; }
         
         /* Header fixe en haut */
@@ -555,9 +555,9 @@
                     <div class="form-group"><label>Taux de MAD (%) *</label><input type="number" id="taux" placeholder="100" min="0" max="100"></div>
                 </div>
                 <div class="form-row">
-                    <div class="form-group"><label>SAMU de rattachement *</label><input type="text" id="samu" placeholder="Ex: SAMU 75"></div>
+                    <div class="form-group"><label>SAMU de rattachement *</label><select id="samu"><option value="">-- Choisir un SAMU --</option></select></div>
                     <div class="form-group"><label>Date début MAD *</label><input type="date" id="dateDebut"></div>
-                    <div class="form-group"><label>ES de rattachement</label><input type="text" id="esRattachement" placeholder="Ex: CHU Paris"></div>
+                    <div class="form-group"><label>ES de rattachement</label><input type="text" id="esRattachement" readonly placeholder="Auto-rempli selon le SAMU choisi" style="background-color: #f5f5f5; cursor: not-allowed;"></div>
                     <div class="form-group"><label>Fonction</label><input type="text" id="fonction" placeholder="Ex: Médecin, Infirmier..."></div>
                 </div>
                 <div class="button-group">
@@ -2109,14 +2109,9 @@
                             <input type="checkbox" id="adminProfileUser">
                             <label for="adminProfileUser">Utilisateur</label>
                         </div>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>Options d'accès</label>
-                    <div class="checkbox-group">
                         <div class="checkbox-item">
-                            <input type="checkbox" id="adminUserAmoaCed">
-                            <label for="adminUserAmoaCed" title="Accès à la Plateforme de suivi des déplacements">AMOA CED</label>
+                            <input type="checkbox" id="adminProfileRh">
+                            <label for="adminProfileRh">RH</label>
                         </div>
                     </div>
                 </div>
@@ -2151,9 +2146,11 @@
                             <th onclick="sortTable('users', 3)">Login</th>
                             <th onclick="sortTable('users', 4)">Email</th>
                             <th class="no-sort">Téléphone</th>
-                            <th onclick="sortTable('users', 6)">Rôle</th>
+                            <th onclick="sortTable('users', 6)">Profil(s)</th>
                             <th class="no-sort" title="Accès à l'onglet Reporting">Reporting</th>
                             <th class="no-sort" title="Accès à la Plateforme de suivi des déplacements">AMOA CED</th>
+                            <th class="no-sort" title="Validation RH">Validation RH</th>
+                            <th class="no-sort" title="Accès astreintes (experts uniquement)">Astreinte</th>
                             <th onclick="sortTable('users', 9)">Actif</th>
                             <th onclick="sortTable('users', 10)">Dernière connexion</th>
                             <th class="no-sort">Actions</th>
@@ -2550,10 +2547,10 @@
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
                 <div class="form-group"><label>Trigramme</label><input type="text" id="editTrigramme" maxlength="3"></div>
-                <div class="form-group"><label>SAMU</label><input type="text" id="editSamu"></div>
+                <div class="form-group"><label>SAMU</label><select id="editSamu"><option value="">-- Choisir un SAMU --</option></select></div>
                 <div class="form-group"><label>Fonction</label><input type="text" id="editFonction" placeholder="Ex: Médecin..."></div>
             </div>
-            <div class="form-group"><label>ES de rattachement</label><input type="text" id="editEsRattachement" placeholder="Ex: CHU Paris"></div>
+            <div class="form-group"><label>ES de rattachement</label><input type="text" id="editEsRattachement" readonly placeholder="Auto-rempli selon le SAMU choisi" style="background-color: #f5f5f5; cursor: not-allowed;"></div>
             
             <!-- Section Historique des taux de MAD -->
             <div style="margin-top: 20px; padding: 15px; background: #e3f2fd; border-radius: 8px;">
@@ -2867,14 +2864,9 @@
                         <input type="checkbox" id="editUserIsUser">
                         <label for="editUserIsUser">Utilisateur</label>
                     </div>
-                </div>
-            </div>
-            <div class="form-group">
-                <label>Options d'accès</label>
-                <div class="checkbox-group">
                     <div class="checkbox-item">
-                        <input type="checkbox" id="editUserAmoaCed">
-                        <label for="editUserAmoaCed" title="Accès à la Plateforme de suivi des déplacements">AMOA CED</label>
+                        <input type="checkbox" id="editProfileRh">
+                        <label for="editProfileRh">RH</label>
                     </div>
                 </div>
             </div>
@@ -8917,15 +8909,15 @@
             const is_admin = document.getElementById('adminProfileAdmin').checked;
             const is_expert = document.getElementById('adminProfileExpert').checked;
             const is_user = document.getElementById('adminProfileUser').checked;
+            const is_rh = document.getElementById('adminProfileRh').checked;
             const resource_id = document.getElementById('adminUserResource').value || null;
-            const amoa_ced = document.getElementById('adminUserAmoaCed').checked;
 
             if (!username || !password || !nom || !prenom || !email) {
                 alert('Veuillez remplir tous les champs requis');
                 return;
             }
 
-            if (!is_admin && !is_expert && !is_user) {
+            if (!is_admin && !is_expert && !is_user && !is_rh) {
                 alert('Veuillez sélectionner au moins un profil');
                 return;
             }
@@ -8943,7 +8935,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({ username, password, nom, prenom, email, telephone, is_admin, is_expert, is_user, resource_id, amoa_ced, sendEmail })
+                    body: JSON.stringify({ username, password, nom, prenom, email, telephone, is_admin, is_expert, is_user, is_rh, resource_id, sendEmail })
                 });
 
                 if (!response.ok) {
@@ -8970,8 +8962,8 @@
                 document.getElementById('adminProfileAdmin').checked = false;
                 document.getElementById('adminProfileExpert').checked = false;
                 document.getElementById('adminProfileUser').checked = false;
+                document.getElementById('adminProfileRh').checked = false;
                 document.getElementById('adminUserResource').value = '';
-                document.getElementById('adminUserAmoaCed').checked = false;
                 document.getElementById('expertResourceGroup').style.display = 'none';
                 
                 await loadUsers();
@@ -9010,10 +9002,13 @@
                     trigramme = (u.prenom.charAt(0) + u.nom.substring(0, 2)).toUpperCase();
                 }
                 
-                // Définir la couleur du badge selon le rôle principal
-                let badgeColor = '#3498db'; // Bleu par défaut (utilisateur)
-                if (u.is_admin === 1) badgeColor = '#e74c3c'; // Rouge pour admin
-                else if (u.is_expert === 1) badgeColor = '#f39c12'; // Orange pour expert
+                // Badges colorés par profil
+                const profileBadges = [];
+                if (u.is_admin === 1)  profileBadges.push(`<span style="background-color:#e74c3c;color:white;padding:2px 7px;border-radius:3px;font-size:11px;white-space:nowrap;">Admin</span>`);
+                if (u.is_expert === 1) profileBadges.push(`<span style="background-color:#f39c12;color:white;padding:2px 7px;border-radius:3px;font-size:11px;white-space:nowrap;">Expert Métier</span>`);
+                if (u.is_user === 1)   profileBadges.push(`<span style="background-color:#3498db;color:white;padding:2px 7px;border-radius:3px;font-size:11px;white-space:nowrap;">Utilisateur</span>`);
+                if (u.is_rh === 1)     profileBadges.push(`<span style="background-color:#8e44ad;color:white;padding:2px 7px;border-radius:3px;font-size:11px;white-space:nowrap;">RH</span>`);
+                const profileBadgesHtml = profileBadges.length ? profileBadges.join(' ') : '<span style="color:#bdc3c7;font-size:11px;">—</span>';
                 
                 // Formater la dernière connexion
                 let lastLoginDisplay = '-';
@@ -9032,9 +9027,21 @@
                 row.innerHTML = `
                     <td style="cursor: pointer; color: #1D70B7; font-weight: bold;" onclick="showUserDetails(${u.id})">${u.nom}</td>
                     <td>${u.prenom}</td><td style="font-weight: bold; letter-spacing: 1px;">${trigramme}</td><td>${u.username}</td><td>${u.email}</td><td>${u.telephone || '-'}</td>
-                    <td><span style="background-color: ${badgeColor}; color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px;">${roleText}</span></td>
+                    <td><div style="display:flex;flex-wrap:wrap;gap:3px;">${profileBadgesHtml}</div></td>
                     <td style="text-align: center;"><input type="checkbox" ${u.has_reporting_access === 1 || u.is_admin === 1 ? 'checked' : ''} ${u.is_admin === 1 ? 'disabled title="Les admins ont toujours accès"' : ''} onchange="toggleReportingAccess(${u.id}, this.checked)" style="width: 18px; height: 18px; cursor: ${u.is_admin === 1 ? 'not-allowed' : 'pointer'};"></td>
                     <td style="text-align: center;"><input type="checkbox" ${u.amoa_ced === 1 ? 'checked' : ''} onchange="toggleAmoaCed(${u.id}, this.checked)" style="width: 18px; height: 18px; cursor: pointer;" title="Accès Plateforme de suivi des déplacements"></td>
+                    <td style="text-align: center;">${(() => {
+                        const canHaveRh = u.is_admin === 1 || u.is_user === 1 || u.is_rh === 1;
+                        return canHaveRh
+                            ? `<input type="checkbox" ${u.is_rh === 1 ? 'checked' : ''} onchange="toggleRhAccess(${u.id}, this.checked)" style="width:18px;height:18px;cursor:pointer;" title="Validation RH">`
+                            : `<input type="checkbox" disabled title="Réservé aux profils Admin, Utilisateur et RH" style="width:18px;height:18px;cursor:not-allowed;opacity:0.4;">`;
+                    })()}</td>
+                    <td style="text-align: center;">${(() => {
+                        const canHaveAstreinte = u.is_expert === 1 && u.resource_id;
+                        return canHaveAstreinte
+                            ? `<input type="checkbox" ${u.astreinte_volontaire === 1 ? 'checked' : ''} onchange="toggleAstreinteAccess(${u.id}, this.checked)" style="width:18px;height:18px;cursor:pointer;" title="Volontaire astreinte">`
+                            : `<input type="checkbox" disabled title="${u.is_expert === 1 ? 'Aucune ressource associée' : 'Réservé aux Experts Métier'}" style="width:18px;height:18px;cursor:not-allowed;opacity:0.4;">`;
+                    })()}</td>
                     <td><label class="toggle-switch"><input type="checkbox" ${u.actif ? 'checked' : ''} onchange="toggleUserActive(${u.id})"><span class="slider"></span></label></td>
                     <td style="font-size: 11px; white-space: nowrap;">${lastLoginDisplay}</td>
                     <td>
@@ -9073,7 +9080,38 @@
             } catch (error) {
                 console.error('Erreur:', error);
                 alert('Erreur lors de la modification de l\'accès au reporting');
-                // Recharger pour remettre l'état correct
+                await loadUsers();
+            }
+        }
+
+        async function toggleRhAccess(id, hasAccess) {
+            try {
+                const r = await fetch(`${API_URL}/users/${id}/rh-access`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ hasAccess })
+                });
+                if (!r.ok) throw new Error();
+                await loadUsers();
+            } catch {
+                alert('Erreur modification accès RH');
+                await loadUsers();
+            }
+        }
+
+        async function toggleAstreinteAccess(userId, hasAccess) {
+            try {
+                const r = await fetch(`${API_URL}/users/${userId}/astreinte-access`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ hasAccess })
+                });
+                if (!r.ok) throw new Error();
+                await loadUsers();
+            } catch {
+                alert('Erreur modification accès astreinte');
                 await loadUsers();
             }
         }
@@ -13871,7 +13909,7 @@
             document.getElementById('editUserIsAdmin').checked = user.is_admin === 1;
             document.getElementById('editUserIsExpert').checked = user.is_expert === 1;
             document.getElementById('editUserIsUser').checked = user.is_user === 1;
-            document.getElementById('editUserAmoaCed').checked = user.amoa_ced === 1;
+            document.getElementById('editProfileRh').checked = user.is_rh === 1;
             document.getElementById('editUserActif').checked = user.actif === 1;
 
             // Charger les ressources dans le select EN PREMIER
@@ -13920,7 +13958,7 @@
             const is_admin = document.getElementById('editUserIsAdmin').checked ? 1 : 0;
             const is_expert = document.getElementById('editUserIsExpert').checked ? 1 : 0;
             const is_user = document.getElementById('editUserIsUser').checked ? 1 : 0;
-            const amoa_ced = document.getElementById('editUserAmoaCed').checked ? 1 : 0;
+            const is_rh = document.getElementById('editProfileRh').checked ? 1 : 0;
             const actif = document.getElementById('editUserActif').checked ? 1 : 0;
             
             console.log('💾 Sauvegarde utilisateur:', {
@@ -13937,7 +13975,7 @@
                 return;
             }
 
-            if (!is_admin && !is_expert && !is_user) {
+            if (!is_admin && !is_expert && !is_user && !is_rh) {
                 alert('Veuillez sélectionner au moins un profil');
                 return;
             }
@@ -13952,7 +13990,7 @@
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({ username, nom, prenom, email, trigramme, resource_id, is_admin, is_expert, is_user, amoa_ced, actif })
+                    body: JSON.stringify({ username, nom, prenom, email, trigramme, resource_id, is_admin, is_expert, is_user, is_rh, actif })
                 });
 
                 if (!response.ok) {
@@ -15512,6 +15550,40 @@
                 });
                 if (current) sel.value = current;
             });
+
+            // Peupler les selects SAMU depuis allLocations
+            const samuOptions = '<option value="">-- Choisir un SAMU --</option>' +
+                [...allLocations]
+                    .sort((a, b) => (a.libelle_court||'').localeCompare(b.libelle_court||''))
+                    .map(l => `<option value="${l.libelle_court}">${l.libelle_court}</option>`)
+                    .join('');
+            ['samu', 'editSamu'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.innerHTML = samuOptions;
+            });
+
+            // Listener SAMU → ES auto-remplissage (ajout)
+            const samuSel = document.getElementById('samu');
+            if (samuSel && !samuSel._listenerSet) {
+                samuSel._listenerSet = true;
+                samuSel.addEventListener('change', function() {
+                    const selected = allLocations.find(l => l.libelle_court === this.value);
+                    const adresse = selected?.adresse || '';
+                    const es = adresse.includes(',') ? adresse.split(',')[0].trim() : adresse.trim();
+                    document.getElementById('esRattachement').value = es;
+                });
+            }
+            // Listener SAMU → ES auto-remplissage (modification)
+            const editSamuSel = document.getElementById('editSamu');
+            if (editSamuSel && !editSamuSel._listenerSet) {
+                editSamuSel._listenerSet = true;
+                editSamuSel.addEventListener('change', function() {
+                    const selected = allLocations.find(l => l.libelle_court === this.value);
+                    const adresse = selected?.adresse || '';
+                    const es = adresse.includes(',') ? adresse.split(',')[0].trim() : adresse.trim();
+                    document.getElementById('editEsRattachement').value = es;
+                });
+            }
         }
 
         let locSortCol = 'libelle_long';
