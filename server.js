@@ -6254,10 +6254,55 @@ app.get('/api/custom-events', requireAdmin, async (req, res) => {
 });
 
 // Lister les événements personnalisés de l'utilisateur connecté (pour experts/utilisateurs)
-app.get('/api/my-custom-events', requireAuth, async (req, res) => {
+// Endpoint mobile : événements filtrés par resource_id (pour admin consultant un expert)
+app.get('/api/mobile-events', requireAuth, async (req, res) => {
     try {
+        const resourceId = req.query.resourceId ? Number(req.query.resourceId) : null;
         const userId = req.session.userId;
         const isAdmin = req.session.activeProfile === 'admin';
+
+        let query, params;
+        if (resourceId) {
+            // Tous les profils peuvent consulter les événements d'un expert par resourceId
+            query = `
+                SELECT ce.*, u.nom as creator_nom, u.prenom as creator_prenom,
+                       l.libelle_court as location_libelle_court
+                FROM custom_events ce
+                LEFT JOIN users u ON ce.created_by = u.id
+                LEFT JOIN locations l ON ce.location_id = l.id
+                WHERE u.resource_id = ?
+                ORDER BY ce.start_date
+            `;
+            params = [resourceId];
+        } else {
+            // Expert/user : ses propres événements
+            query = `
+                SELECT ce.*, u.nom as creator_nom, u.prenom as creator_prenom,
+                       l.libelle_court as location_libelle_court
+                FROM custom_events ce
+                LEFT JOIN users u ON ce.created_by = u.id
+                LEFT JOIN locations l ON ce.location_id = l.id
+                WHERE ce.created_by = ?
+                ORDER BY ce.start_date
+            `;
+            params = [userId];
+        }
+
+        const events = await new Promise((resolve, reject) => {
+            database.all(query, params, (err, rows) => {
+                if (err) reject(err); else resolve(rows || []);
+            });
+        });
+
+        res.json({ events });
+    } catch (e) {
+        console.error('Erreur mobile-events:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.get('/api/my-custom-events', requireAuth, async (req, res) => {
+    try {
         
         // Vérifier si la colonne created_by existe
         const columns = await new Promise((resolve, reject) => {

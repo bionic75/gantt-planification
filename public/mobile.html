@@ -348,10 +348,15 @@ async function doLogout() {
 /* ---- DATA ---- */
 async function loadData() {
   showLoading('Chargement…');
+  const rid = state.selectedResourceId;
+  const evUrl = rid
+    ? `/api/mobile-events?resourceId=${rid}`
+    : `/api/mobile-events`;
+
   const [rR, sR, eR] = await Promise.all([
     api('/api/resources'),
     api('/api/schedule'),
-    api('/api/my-custom-events'),
+    api(evUrl),
   ]);
   if (rR.status===401 || sR.status===401) {
     sessionStorage.removeItem('ans_mob_user');
@@ -372,6 +377,15 @@ async function loadData() {
   const ev = eR.ok ? await eR.json() : {events:[]};
   state.events = ev.events || [];
   return true;
+}
+
+async function reloadEventsForResource(resourceId) {
+  const evUrl = resourceId ? `/api/mobile-events?resourceId=${resourceId}` : `/api/mobile-events`;
+  try {
+    const r = await api(evUrl);
+    const ev = r.ok ? await r.json() : {events:[]};
+    state.events = ev.events || [];
+  } catch(e) { state.events = []; }
 }
 
 /* ---- SCREENS ---- */
@@ -429,7 +443,6 @@ function getPeriodLabel() {
 
 function buildExpertSelect() {
   const row = document.getElementById('expertRow');
-  if (state.user.activeProfile !== 'admin') { row.classList.add('hidden'); return; }
   row.classList.remove('hidden');
   const sel = document.getElementById('expertSelect');
   sel.innerHTML = '';
@@ -440,7 +453,11 @@ function buildExpertSelect() {
     if (r.id === state.selectedResourceId) opt.selected = true;
     sel.appendChild(opt);
   });
-  sel.onchange = () => { state.selectedResourceId = Number(sel.value); renderView(); };
+  sel.onchange = () => {
+    state.selectedResourceId = Number(sel.value);
+    reloadEventsForResource(state.selectedResourceId);
+    renderView();
+  };
 }
 
 /* ---- NAVIGATION ---- */
@@ -686,17 +703,18 @@ async function init() {
     showLogin(); return;
   }
 
-  if (user.activeProfile!=='expert' && user.activeProfile!=='admin') {
-    state.user = user;
-    showAccessDenied(); return;
-  }
-
+  // Tous les profils ont accès à l'app mobile
   state.user = user;
   state.selectedResourceId = user.resourceId || null;
 
   const ok = await loadData();
   if (!ok) return;
-  if (!state.selectedResourceId && state.resources.length) state.selectedResourceId = state.resources[0].id;
+
+  // Si pas de resourceId propre → premier expert de la liste
+  if (!state.selectedResourceId && state.resources.length) {
+    state.selectedResourceId = state.resources[0].id;
+  }
+
   showPlanning();
 }
 
@@ -717,13 +735,13 @@ document.getElementById('loginBtn').onclick = async () => {
   const user = await doLogin(username, password);
   btn.disabled=false; btn.textContent='Se connecter';
   if (!user) { errEl.textContent='Identifiants invalides.'; return; }
-  if (user.activeProfile!=='expert' && user.activeProfile!=='admin') {
-    state.user=user; showAccessDenied(); return;
-  }
-  state.user=user; state.selectedResourceId=user.resourceId||null;
+  state.user = user;
+  state.selectedResourceId = user.resourceId || null;
   const ok = await loadData();
   if (!ok) return;
-  if (!state.selectedResourceId && state.resources.length) state.selectedResourceId=state.resources[0].id;
+  if (!state.selectedResourceId && state.resources.length) {
+    state.selectedResourceId = state.resources[0].id;
+  }
   showPlanning();
 };
 
