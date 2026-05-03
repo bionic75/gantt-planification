@@ -6254,47 +6254,19 @@ app.get('/api/custom-events', requireAdmin, async (req, res) => {
 });
 
 // Lister les événements personnalisés de l'utilisateur connecté (pour experts/utilisateurs)
-// Endpoint mobile : événements filtrés par resource_id (créateur OU participant)
+// Endpoint mobile : tous les événements (pas de filtrage par expert)
 app.get('/api/mobile-events', requireAuth, async (req, res) => {
     try {
-        const resourceId = req.query.resourceId ? Number(req.query.resourceId) : null;
-        const userId = req.session.userId;
+        const events = await new Promise((resolve, reject) => {
+            database.all(`
+                SELECT DISTINCT ce.*,
+                       l.libelle_court as location_libelle_court
+                FROM custom_events ce
+                LEFT JOIN locations l ON ce.location_id = l.id
+                ORDER BY ce.start_date
+            `, [], (err, rows) => err ? reject(err) : resolve(rows || []));
+        });
 
-        let events;
-        if (resourceId) {
-            // Événements créés par l'utilisateur lié à cette ressource
-            // OU événements dont l'utilisateur lié à cette ressource est participant
-            events = await new Promise((resolve, reject) => {
-                database.all(`
-                    SELECT DISTINCT ce.*,
-                           l.libelle_court as location_libelle_court
-                    FROM custom_events ce
-                    LEFT JOIN locations l ON ce.location_id = l.id
-                    WHERE ce.created_by IN (SELECT id FROM users WHERE resource_id = ?)
-                       OR ce.id IN (
-                           SELECT cep.event_id FROM custom_event_participants cep
-                           JOIN users u ON cep.user_id = u.id
-                           WHERE u.resource_id = ?
-                       )
-                    ORDER BY ce.start_date
-                `, [resourceId, resourceId], (err, rows) => err ? reject(err) : resolve(rows || []));
-            });
-        } else {
-            // Fallback : événements créés par ou incluant l'utilisateur connecté
-            events = await new Promise((resolve, reject) => {
-                database.all(`
-                    SELECT DISTINCT ce.*,
-                           l.libelle_court as location_libelle_court
-                    FROM custom_events ce
-                    LEFT JOIN locations l ON ce.location_id = l.id
-                    WHERE ce.created_by = ?
-                       OR ce.id IN (SELECT event_id FROM custom_event_participants WHERE user_id = ?)
-                    ORDER BY ce.start_date
-                `, [userId, userId], (err, rows) => err ? reject(err) : resolve(rows || []));
-            });
-        }
-
-        // Charger les participants pour chaque événement
         for (const event of events) {
             try {
                 event.participants = await new Promise((resolve, reject) => {
@@ -6311,6 +6283,7 @@ app.get('/api/mobile-events', requireAuth, async (req, res) => {
             } catch(e) { event.participants = []; }
         }
 
+        console.log(`[mobile-events] ${events.length} événements retournés`);
         res.json({ events });
     } catch (e) {
         console.error('Erreur mobile-events:', e);
