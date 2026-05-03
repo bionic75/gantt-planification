@@ -6254,45 +6254,62 @@ app.get('/api/custom-events', requireAdmin, async (req, res) => {
 });
 
 // Lister les événements personnalisés de l'utilisateur connecté (pour experts/utilisateurs)
-// Endpoint mobile : événements filtrés par resource_id (pour admin consultant un expert)
+// Endpoint mobile : événements filtrés par resource_id (créateur OU participant)
 app.get('/api/mobile-events', requireAuth, async (req, res) => {
     try {
         const resourceId = req.query.resourceId ? Number(req.query.resourceId) : null;
         const userId = req.session.userId;
-        const isAdmin = req.session.activeProfile === 'admin';
 
-        let query, params;
+        let events;
         if (resourceId) {
-            // Tous les profils peuvent consulter les événements d'un expert par resourceId
-            query = `
-                SELECT ce.*, u.nom as creator_nom, u.prenom as creator_prenom,
-                       l.libelle_court as location_libelle_court
-                FROM custom_events ce
-                LEFT JOIN users u ON ce.created_by = u.id
-                LEFT JOIN locations l ON ce.location_id = l.id
-                WHERE u.resource_id = ?
-                ORDER BY ce.start_date
-            `;
-            params = [resourceId];
+            // Événements créés par l'utilisateur lié à cette ressource
+            // OU événements dont l'utilisateur lié à cette ressource est participant
+            events = await new Promise((resolve, reject) => {
+                database.all(`
+                    SELECT DISTINCT ce.*,
+                           l.libelle_court as location_libelle_court
+                    FROM custom_events ce
+                    LEFT JOIN locations l ON ce.location_id = l.id
+                    WHERE ce.created_by IN (SELECT id FROM users WHERE resource_id = ?)
+                       OR ce.id IN (
+                           SELECT cep.event_id FROM custom_event_participants cep
+                           JOIN users u ON cep.user_id = u.id
+                           WHERE u.resource_id = ?
+                       )
+                    ORDER BY ce.start_date
+                `, [resourceId, resourceId], (err, rows) => err ? reject(err) : resolve(rows || []));
+            });
         } else {
-            // Expert/user : ses propres événements
-            query = `
-                SELECT ce.*, u.nom as creator_nom, u.prenom as creator_prenom,
-                       l.libelle_court as location_libelle_court
-                FROM custom_events ce
-                LEFT JOIN users u ON ce.created_by = u.id
-                LEFT JOIN locations l ON ce.location_id = l.id
-                WHERE ce.created_by = ?
-                ORDER BY ce.start_date
-            `;
-            params = [userId];
+            // Fallback : événements créés par ou incluant l'utilisateur connecté
+            events = await new Promise((resolve, reject) => {
+                database.all(`
+                    SELECT DISTINCT ce.*,
+                           l.libelle_court as location_libelle_court
+                    FROM custom_events ce
+                    LEFT JOIN locations l ON ce.location_id = l.id
+                    WHERE ce.created_by = ?
+                       OR ce.id IN (SELECT event_id FROM custom_event_participants WHERE user_id = ?)
+                    ORDER BY ce.start_date
+                `, [userId, userId], (err, rows) => err ? reject(err) : resolve(rows || []));
+            });
         }
 
-        const events = await new Promise((resolve, reject) => {
-            database.all(query, params, (err, rows) => {
-                if (err) reject(err); else resolve(rows || []);
-            });
-        });
+        // Charger les participants pour chaque événement
+        for (const event of events) {
+            try {
+                event.participants = await new Promise((resolve, reject) => {
+                    database.all(
+                        `SELECT cep.user_id, u.nom, u.prenom
+                         FROM custom_event_participants cep
+                         JOIN users u ON cep.user_id = u.id
+                         WHERE cep.event_id = ?
+                         ORDER BY u.nom, u.prenom`,
+                        [event.id],
+                        (err, rows) => err ? reject(err) : resolve(rows || [])
+                    );
+                });
+            } catch(e) { event.participants = []; }
+        }
 
         res.json({ events });
     } catch (e) {
@@ -10227,7 +10244,14 @@ app.get('/api/reporting/events-map', requireAuth, async (req, res) => {
 
 // Route catch-all pour servir index.html (doit être la DERNIÈRE route API)
 app.get('/mobile', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'mobile.html'));
+    const ua = req.headers['user-agent'] || '';
+    const isMobile = /android|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile/i.test(ua);
+    if (isMobile) {
+        res.sendFile(path.join(__dirname, 'public', 'mobile.html'));
+    } else {
+        // Desktop → redirige vers l'app principale (MFA demandé normalement)
+        res.redirect('/');
+    }
 });
 
 app.get('*', (req, res) => {
