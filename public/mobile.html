@@ -323,13 +323,16 @@ async function api(path, opts={}) { return fetch(path, {credentials:'include',..
 
 /* ---- AUTH ---- */
 async function doLogin(username, password) {
-  // Essayer tous les profils reconnus par le serveur
-  for (const profile of ['admin', 'expert', 'user', 'rh']) {
+  // Le serveur valide uniquement ces 3 profils (is_admin, is_expert, is_user)
+  // Un utilisateur RH a is_user=1 — on se connecte avec profil 'user'
+  for (const profile of ['admin', 'expert', 'user']) {
     const r = await api('/api/login', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({username, password, profile}),
     });
+    if (r.status === 401) break; // mauvais mot de passe, inutile de continuer
+    if (r.status === 403) continue; // profil non autorisé pour cet utilisateur
     if (r.ok) {
       const data = await r.json();
       if (data.success && data.user) {
@@ -337,9 +340,6 @@ async function doLogin(username, password) {
         return data.user;
       }
     }
-    // 401 = mauvais mot de passe → inutile de continuer
-    if (r.status === 401) break;
-    // 403 = profil non autorisé → on essaie le suivant
   }
   return null;
 }
