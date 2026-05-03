@@ -348,15 +348,11 @@ async function doLogout() {
 /* ---- DATA ---- */
 async function loadData() {
   showLoading('Chargement…');
-  const rid = state.selectedResourceId;
-  const evUrl = rid
-    ? `/api/mobile-events?resourceId=${rid}`
-    : `/api/mobile-events`;
 
-  const [rR, sR, eR] = await Promise.all([
+  // 1. Charger resources et schedule en parallèle
+  const [rR, sR] = await Promise.all([
     api('/api/resources'),
     api('/api/schedule'),
-    api(evUrl),
   ]);
   if (rR.status===401 || sR.status===401) {
     sessionStorage.removeItem('ans_mob_user');
@@ -365,17 +361,14 @@ async function loadData() {
   }
   state.resources = (await rR.json()).filter(r => r.actif);
   state.schedule  = await sR.json();
-  // Debug planning data
-  console.log('scheduleData sample:', Object.entries(state.schedule).slice(0, 5));
-  console.log('resourceId sélectionné:', state.selectedResourceId, typeof state.selectedResourceId);
-  if (state.selectedResourceId) {
-    const today = toYMD(new Date());
-    const key = `${String(state.selectedResourceId)}_activity_${today}_AM`;
-    console.log('Exemple de clé cherchée:', key);
-    console.log('Valeur trouvée:', state.schedule[key]);
+
+  // 2. Résoudre le resourceId maintenant qu'on a la liste des ressources
+  if (!state.selectedResourceId && state.resources.length) {
+    state.selectedResourceId = state.resources[0].id;
   }
-  const ev = eR.ok ? await eR.json() : {events:[]};
-  state.events = ev.events || [];
+
+  // 3. Charger les événements avec le bon resourceId
+  await reloadEventsForResource(state.selectedResourceId);
   return true;
 }
 
@@ -703,18 +696,11 @@ async function init() {
     showLogin(); return;
   }
 
-  // Tous les profils ont accès à l'app mobile
   state.user = user;
   state.selectedResourceId = user.resourceId || null;
 
   const ok = await loadData();
   if (!ok) return;
-
-  // Si pas de resourceId propre → premier expert de la liste
-  if (!state.selectedResourceId && state.resources.length) {
-    state.selectedResourceId = state.resources[0].id;
-  }
-
   showPlanning();
 }
 
@@ -739,9 +725,6 @@ document.getElementById('loginBtn').onclick = async () => {
   state.selectedResourceId = user.resourceId || null;
   const ok = await loadData();
   if (!ok) return;
-  if (!state.selectedResourceId && state.resources.length) {
-    state.selectedResourceId = state.resources[0].id;
-  }
   showPlanning();
 };
 
