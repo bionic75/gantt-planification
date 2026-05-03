@@ -323,18 +323,28 @@ async function api(path, opts={}) { return fetch(path, {credentials:'include',..
 
 /* ---- AUTH ---- */
 async function doLogin(username, password) {
-  // Le serveur valide uniquement ces 3 profils (is_admin, is_expert, is_user)
-  // Un utilisateur RH a is_user=1 — on se connecte avec profil 'user'
+  // Le serveur valide uniquement admin, expert, user
+  // On tente dans l'ordre — 401=mauvais mdp, 403=profil non autorisé
   for (const profile of ['admin', 'expert', 'user']) {
-    const r = await api('/api/login', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({username, password, profile}),
-    });
-    if (r.status === 401) break; // mauvais mot de passe, inutile de continuer
-    if (r.status === 403) continue; // profil non autorisé pour cet utilisateur
+    let r, data;
+    try {
+      r = await api('/api/login', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({username, password, profile}),
+      });
+      data = await r.json();
+    } catch(e) { continue; }
+
+    if (r.status === 401) { console.log('[LOGIN] 401 mauvais mot de passe'); break; }
+    if (r.status === 403) { console.log('[LOGIN] 403 profil non autorisé pour', profile); continue; }
+
     if (r.ok) {
-      const data = await r.json();
+      // MFA requis → on le signale mais on arrête la boucle (bon mdp trouvé)
+      if (data.mfaRequired) {
+        // Sur mobile on ne gère pas le MFA — afficher un message dédié
+        return { mfaRequired: true };
+      }
       if (data.success && data.user) {
         sessionStorage.setItem('ans_mob_user', JSON.stringify(data.user));
         return data.user;
@@ -722,6 +732,10 @@ document.getElementById('loginBtn').onclick = async () => {
   const user = await doLogin(username, password);
   btn.disabled=false; btn.textContent='Se connecter';
   if (!user) { errEl.textContent='Identifiants invalides.'; return; }
+  if (user.mfaRequired) {
+    errEl.textContent='Authentification MFA requise. Veuillez vous connecter depuis l\'application principale.';
+    return;
+  }
   if (user.activeProfile!=='expert' && user.activeProfile!=='admin') {
     state.user=user; showAccessDenied(); return;
   }
