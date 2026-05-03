@@ -734,6 +734,8 @@ function initDB() {
             database.run(`INSERT OR IGNORE INTO settings (key, value) VALUES ('inactivity_enabled', 'false')`);
             database.run(`INSERT OR IGNORE INTO settings (key, value) VALUES ('inactivity_timeout', '15')`);
             database.run(`INSERT OR IGNORE INTO settings (key, value) VALUES ('favicon', 'calendrier')`);
+            database.run(`INSERT OR IGNORE INTO settings (key, value) VALUES ('help_publication_enabled', 'false')`);
+            database.run(`INSERT OR IGNORE INTO settings (key, value) VALUES ('help_publication_version', '')`);
             console.log('✅ Table settings initialisée');
         }
     });
@@ -1345,7 +1347,7 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// Endpoint de login dédié à l'app mobile — bypass MFA, session isolée
+// Endpoint de login dédié à l'app mobile (avec MFA)
 app.post('/api/mobile-login', async (req, res) => {
     const { username, password } = req.body;
 
@@ -1381,7 +1383,30 @@ app.post('/api/mobile-login', async (req, res) => {
             return res.status(403).json({ error: 'Aucun profil valide' });
         }
 
-        // MFA bypassé pour l'app mobile — login direct
+        // Vérifier si MFA est requis
+        const mfaConfig = await getMfaConfig();
+        if (mfaConfig && mfaConfig.enabled) {
+            const profileNeedsMfa =
+                (profile === 'admin'  && mfaConfig.profileAdmin)  ||
+                (profile === 'expert' && mfaConfig.profileExpert) ||
+                (profile === 'user'   && mfaConfig.profileUser);
+
+            if (profileNeedsMfa) {
+                const mfaStillValid = await checkMfaValidity(user.id, mfaConfig.frequency);
+                if (!mfaStillValid) {
+                    const totpConfigured = await isUserTotpConfigured(user.id);
+                    let mfaMethod = mfaConfig.method === 'both' ? 'choice' : mfaConfig.method;
+                    return res.json({
+                        mfaRequired: true,
+                        mfaMethod,
+                        totpConfigured,
+                        pendingUserId: user.id,
+                        pendingProfile: profile
+                    });
+                }
+            }
+        }
+
         await completeLogin(req, res, user, profile);
 
     } catch (error) {
@@ -7610,6 +7635,54 @@ function createNotification(expertResourceId, date, period, activityName, reques
 }
 
 // Servir les fichiers statiques APRÈS les routes API pour éviter les conflits
+// Route /aide.html — sert le HTML custom depuis settings si présent, sinon le fichier statique
+// DOIT être avant app.use(express.static(...))
+app.get('/aide.html', (req, res) => {
+    database.get(`SELECT value FROM settings WHERE key = 'help_html_content'`, (err, row) => {
+        if (row?.value) {
+            res.setHeader('Content-Type', 'text/html; charset=utf-8');
+            res.send(row.value);
+        } else {
+            res.sendFile(path.join(__dirname, 'public', 'aide.html'));
+        }
+    });
+});
+
+// POST /api/help/upload — stocke le contenu HTML dans settings
+app.post('/api/help/upload', requireAdmin, (req, res) => {
+    const { content } = req.body;
+    if (!content || !content.trim().startsWith('<!')) {
+        return res.status(400).json({ error: 'Contenu HTML invalide' });
+    }
+    database.run(
+        `INSERT OR REPLACE INTO settings (key, value) VALUES ('help_html_content', ?)`,
+        [content],
+        (err) => {
+            if (err) return res.status(500).json({ error: err.message });
+            database.run(
+                `INSERT OR REPLACE INTO settings (key, value) VALUES ('help_html_updated_at', ?)`,
+                [new Date().toISOString()],
+                () => res.json({ success: true })
+            );
+        }
+    );
+});
+
+// DELETE /api/help/upload — supprime le HTML custom
+app.delete('/api/help/upload', requireAdmin, (req, res) => {
+    database.run(
+        `DELETE FROM settings WHERE key IN ('help_html_content', 'help_html_updated_at')`,
+        (err) => err ? res.status(500).json({ error: err.message }) : res.json({ success: true })
+    );
+});
+
+// GET /api/help/info — métadonnées du fichier d'aide (sans le contenu)
+app.get('/api/help/info', requireAdmin, (req, res) => {
+    database.get(`SELECT value FROM settings WHERE key = 'help_html_updated_at'`, (err, row) => {
+        res.json({ exists: !!row, updatedAt: row?.value || null });
+    });
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ========== API BONS DE COMMANDE ET DÉPLACEMENTS ==========

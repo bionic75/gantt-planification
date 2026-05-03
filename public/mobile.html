@@ -181,7 +181,9 @@ input{font-family:Arial,sans-serif;}
           <div class="login-card-title">Plateforme de Planification</div>
           <div class="login-card-sub">Gestion opérationnelle des ressources</div>
         </div>
-        <div class="login-card-body">
+
+        <!-- Formulaire identifiants -->
+        <div id="loginForm" class="login-card-body">
           <div class="login-field">
             <label for="loginUser">Identifiant</label>
             <input type="text" id="loginUser" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="votre.identifiant">
@@ -193,6 +195,34 @@ input{font-family:Arial,sans-serif;}
           <button class="login-btn" id="loginBtn">Se connecter</button>
           <div id="loginError"></div>
         </div>
+
+        <!-- Étape MFA -->
+        <div id="mfaForm" class="login-card-body hidden">
+          <div style="text-align:center;margin-bottom:16px;">
+            <div style="font-size:40px;margin-bottom:8px;">🔐</div>
+            <div style="font-size:15px;font-weight:bold;color:#2c3e50;margin-bottom:6px;">Vérification en deux étapes</div>
+            <div id="mfaInstructions" style="font-size:12px;color:#6F6F6E;line-height:1.5;"></div>
+          </div>
+          <div id="mfaMethodChoice" style="display:none;gap:8px;margin-bottom:16px;">
+            <button onclick="mfaSelectMethod('email')" style="width:100%;min-height:44px;border:2px solid #1D70B7;border-radius:8px;background:#fff;color:#1D70B7;font-weight:bold;font-size:13px;margin-bottom:8px;cursor:pointer;">📧 Recevoir un code par email</button>
+            <button onclick="mfaSelectMethod('totp')" style="width:100%;min-height:44px;border:2px solid #1D70B7;border-radius:8px;background:#fff;color:#1D70B7;font-weight:bold;font-size:13px;cursor:pointer;">📱 Utiliser l'application Authenticator</button>
+          </div>
+          <div id="mfaSendEmailBlock" style="display:none;margin-bottom:14px;text-align:center;">
+            <button id="mfaSendBtn" onclick="mfaSendEmail()" style="min-height:44px;padding:0 24px;border:2px solid #1D70B7;border-radius:8px;background:#fff;color:#1D70B7;font-weight:bold;font-size:13px;cursor:pointer;">📧 Envoyer le code par email</button>
+          </div>
+          <div id="mfaCodeBlock" style="display:none;">
+            <div class="login-field">
+              <label for="mfaCodeInput">Code de vérification</label>
+              <input type="text" id="mfaCodeInput" inputmode="numeric" autocomplete="one-time-code" placeholder="000000" maxlength="6" style="text-align:center;font-size:24px;font-family:monospace;letter-spacing:8px;">
+            </div>
+            <button class="login-btn" onclick="mfaVerify()">Valider le code</button>
+          </div>
+          <div id="mfaError" style="margin-top:10px;color:#D60B51;font-size:13px;text-align:center;font-weight:bold;"></div>
+          <div style="text-align:center;margin-top:14px;">
+            <button onclick="mfaBack()" style="background:none;color:#6F6F6E;font-size:12px;text-decoration:underline;cursor:pointer;border:none;">← Retour à la connexion</button>
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -321,7 +351,116 @@ function el(tag, cls, text) { const e=document.createElement(tag); if(cls)e.clas
 /* ---- FETCH ---- */
 async function api(path, opts={}) { return fetch(path, {credentials:'include',...opts}); }
 
-/* ---- AUTH ---- */
+/* ---- MFA STATE ---- */
+let _mfa = { pendingUserId: null, pendingProfile: null, method: null };
+
+function showMfaStep(data) {
+  _mfa.pendingUserId  = data.pendingUserId;
+  _mfa.pendingProfile = data.pendingProfile;
+  _mfa.method         = data.mfaMethod;
+
+  document.getElementById('loginForm').classList.add('hidden');
+  document.getElementById('mfaForm').classList.remove('hidden');
+  document.getElementById('mfaError').textContent = '';
+
+  const instrEl = document.getElementById('mfaInstructions');
+  const choiceEl = document.getElementById('mfaMethodChoice');
+  const sendEl   = document.getElementById('mfaSendEmailBlock');
+  const codeEl   = document.getElementById('mfaCodeBlock');
+
+  choiceEl.style.display = 'none';
+  sendEl.style.display   = 'none';
+  codeEl.style.display   = 'none';
+
+  if (data.mfaMethod === 'choice') {
+    instrEl.textContent = 'Choisissez votre méthode de vérification :';
+    choiceEl.style.display = 'flex';
+    choiceEl.style.flexDirection = 'column';
+  } else if (data.mfaMethod === 'email') {
+    instrEl.textContent = 'Un code de vérification va être envoyé à votre adresse email.';
+    sendEl.style.display = 'block';
+  } else if (data.mfaMethod === 'totp') {
+    instrEl.textContent = 'Saisissez le code à 6 chiffres affiché dans votre application Authenticator.';
+    codeEl.style.display = 'block';
+    document.getElementById('mfaCodeInput').focus();
+  }
+}
+
+function mfaSelectMethod(method) {
+  _mfa.method = method;
+  const instrEl = document.getElementById('mfaInstructions');
+  document.getElementById('mfaMethodChoice').style.display = 'none';
+  document.getElementById('mfaError').textContent = '';
+
+  if (method === 'email') {
+    instrEl.textContent = 'Un code de vérification va être envoyé à votre adresse email.';
+    document.getElementById('mfaSendEmailBlock').style.display = 'block';
+  } else {
+    instrEl.textContent = 'Saisissez le code à 6 chiffres affiché dans votre application Authenticator.';
+    document.getElementById('mfaCodeBlock').style.display = 'block';
+    document.getElementById('mfaCodeInput').focus();
+  }
+}
+
+async function mfaSendEmail() {
+  const btn = document.getElementById('mfaSendBtn');
+  btn.disabled = true;
+  btn.textContent = 'Envoi en cours…';
+  document.getElementById('mfaError').textContent = '';
+  try {
+    const r = await api('/api/mfa/send-code', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ userId: _mfa.pendingUserId }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Erreur envoi');
+    document.getElementById('mfaSendEmailBlock').style.display = 'none';
+    document.getElementById('mfaCodeBlock').style.display = 'block';
+    document.getElementById('mfaInstructions').textContent = 'Code envoyé ! Saisissez-le ci-dessous (valable 10 minutes).';
+    document.getElementById('mfaCodeInput').focus();
+  } catch(e) {
+    document.getElementById('mfaError').textContent = e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '📧 Envoyer le code par email';
+  }
+}
+
+async function mfaVerify() {
+  const code = document.getElementById('mfaCodeInput').value.trim();
+  const errEl = document.getElementById('mfaError');
+  errEl.textContent = '';
+  if (!code) { errEl.textContent = 'Veuillez saisir le code.'; return; }
+  try {
+    const r = await api('/api/mfa/verify', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ userId: _mfa.pendingUserId, code, profile: _mfa.pendingProfile }),
+    });
+    const data = await r.json();
+    if (!r.ok) { errEl.textContent = data.error || 'Code invalide'; return; }
+    // Login complet
+    if (data.success && data.user) {
+      sessionStorage.setItem('ans_mob_user', JSON.stringify(data.user));
+      state.user = data.user;
+      state.selectedResourceId = data.user.resourceId || null;
+      const ok = await loadData();
+      if (ok) showPlanning();
+    }
+  } catch(e) {
+    errEl.textContent = 'Erreur réseau. Réessayez.';
+  }
+}
+
+function mfaBack() {
+  _mfa = { pendingUserId: null, pendingProfile: null, method: null };
+  document.getElementById('mfaForm').classList.add('hidden');
+  document.getElementById('loginForm').classList.remove('hidden');
+  document.getElementById('mfaCodeInput').value = '';
+  document.getElementById('mfaError').textContent = '';
+  document.getElementById('loginError').textContent = '';
+}
 async function doLogin(username, password) {
   try {
     const r = await api('/api/mobile-login', {
@@ -330,13 +469,18 @@ async function doLogin(username, password) {
       body: JSON.stringify({username, password}),
     });
     const data = await r.json();
+    if (r.status === 401) return { error: 'Identifiants invalides.' };
+    if (r.status === 403) return { error: 'Aucun profil valide pour ce compte.' };
+    if (r.ok && data.mfaRequired) return data;
     if (r.ok && data.success && data.user) {
       sessionStorage.setItem('ans_mob_user', JSON.stringify(data.user));
       return data.user;
     }
-    console.log('[LOGIN] Échec:', r.status, data.error);
-  } catch(e) { console.error('[LOGIN] Erreur réseau:', e); }
-  return null;
+    return { error: data.error || 'Erreur de connexion.' };
+  } catch(e) {
+    console.error('[LOGIN] Erreur réseau:', e);
+    return { error: 'Erreur réseau.' };
+  }
 }
 
 async function doLogout() {
@@ -727,11 +871,14 @@ document.getElementById('loginBtn').onclick = async () => {
   if (!username||!password) { errEl.textContent='Identifiants requis.'; return; }
   const btn = document.getElementById('loginBtn');
   btn.disabled=true; btn.textContent='Connexion…';
-  const user = await doLogin(username, password);
+  const result = await doLogin(username, password);
   btn.disabled=false; btn.textContent='Se connecter';
-  if (!user) { errEl.textContent='Identifiants invalides.'; return; }
-  state.user = user;
-  state.selectedResourceId = user.resourceId || null;
+  if (!result) { errEl.textContent='Erreur de connexion.'; return; }
+  if (result.error) { errEl.textContent = result.error; return; }
+  if (result.mfaRequired) { showMfaStep(result); return; }
+  // Login direct réussi
+  state.user = result;
+  state.selectedResourceId = result.resourceId || null;
   const ok = await loadData();
   if (!ok) return;
   showPlanning();
@@ -739,6 +886,9 @@ document.getElementById('loginBtn').onclick = async () => {
 
 document.getElementById('loginPass').addEventListener('keydown', e => {
   if (e.key==='Enter') document.getElementById('loginBtn').click();
+});
+document.getElementById('mfaCodeInput').addEventListener('keydown', e => {
+  if (e.key==='Enter') mfaVerify();
 });
 
 init();

@@ -483,6 +483,20 @@
                 <button class="tab-btn" id="adminTab" onclick="switchTab('admin', event)" style="display:none;">Administration</button>
                 <button class="tab-btn" id="astreintesGestionTab" onclick="switchTab('astreintesGestion', event)" style="display:none;">🧪 Astreintes (expérimental)</button>
                 
+                <!-- Bouton d'aide en ligne -->
+                <button id="helpBtn" onclick="openHelp()" title="Aide en ligne" style="
+                    padding: 8px 15px;
+                    background-color: #5c6bc0;
+                    color: white;
+                    border: none;
+                    cursor: pointer;
+                    font-size: 18px;
+                    font-weight: bold;
+                    transition: all 0.3s;
+                    border-radius: 4px;
+                    margin-right: 5px;
+                ">?</button>
+                
                 <!-- Bouton de recherche avancée (visible pour tous les profils) -->
                 <button id="searchBtn" onclick="openSearchModal()" title="Recherche avancée" style="
                     padding: 8px 15px;
@@ -1336,6 +1350,33 @@
                 <button onclick="saveFavicon()" style="white-space: nowrap;">💾 Sauvegarder</button>
             </div>
             
+            <!-- Administration de l'aide en ligne -->
+            <div style="margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #d0d0d0;">
+                <label style="font-weight: bold; color: #3949ab; font-size: 14px;">📖 Administration de l'aide en ligne</label>
+
+                <!-- Publication de version -->
+                <div style="display: flex; align-items: center; gap: 10px; margin: 12px 0; padding: 10px; background: #e8eaf6; border-radius: 6px;">
+                    <input type="checkbox" id="helpPublicationEnabled" style="width: auto; margin: 0; cursor: pointer;">
+                    <label for="helpPublicationEnabled" style="cursor: pointer; margin: 0;">
+                        Publier les nouveautés de la version <strong id="currentVersionLabel"></strong> — afficher la popup à la prochaine connexion de chaque utilisateur
+                    </label>
+                    <button onclick="saveHelpPublication()" style="white-space: nowrap; background-color: #3949ab; color: white;">💾 Sauvegarder</button>
+                </div>
+
+                <!-- Upload de la page d'aide -->
+                <div style="margin-top: 12px;">
+                    <p style="font-size: 12px; color: #555; margin-bottom: 8px;">Uploadez un fichier HTML qui remplacera la page d'aide en ligne. Peu importe son nom, il sera servi à l'URL <code>/aide.html</code>.</p>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="file" id="helpFileInput" accept=".html" style="flex: 1;">
+                        <button onclick="uploadHelpFile()" style="background-color: #43a047; color: white; white-space: nowrap;">📤 Uploader</button>
+                    </div>
+                    <div id="helpUploadStatus" style="margin-top: 8px; font-size: 12px;"></div>
+                </div>
+
+                <!-- Fichier actuel -->
+                <div id="helpCurrentFile" style="margin-top: 12px; font-size: 12px; color: #555; font-style: italic;">Chargement...</div>
+            </div>
+
             <!-- Sauvegarde base de données -->
             <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #d0d0d0;">
                 <label>Sauvegarde de la base de données</label>
@@ -3278,6 +3319,9 @@
             await loadSchoolHolidays(); // Charger les congés scolaires pour tous les profils
             await loadSpecialDates(); // Charger les dates particulières pour tous les profils
             await loadLocations(); // Charger les localisations
+
+            // Vérifier popup nouveautés version
+            checkHelpVersionPopup();
             
             // Démarrer le suivi des utilisateurs connectés en temps réel
             startOnlineUsersPolling();
@@ -14307,6 +14351,13 @@
                     if (settings.favicon) {
                         applyFavicon(settings.favicon);
                     }
+
+                    // Aide en ligne — version label et publication
+                    const vLabel = document.getElementById('currentVersionLabel');
+                    if (vLabel && settings.app_version) vLabel.textContent = settings.app_version;
+                    const helpPub = document.getElementById('helpPublicationEnabled');
+                    if (helpPub) helpPub.checked = settings.help_publication_enabled === 'true';
+                    loadHelpFileInfo();
                     
                     // Démarrer le compteur d'inactivité si activé (pour tous les utilisateurs)
                     if (settings.inactivity_enabled === 'true') {
@@ -14320,6 +14371,109 @@
             } catch (error) {
                 console.error('Erreur chargement settings:', error);
             }
+        }
+
+        function openHelp(anchor) {
+            const url = anchor ? `/aide.html#${anchor}` : '/aide.html';
+            window.open(url, '_blank', 'width=1200,height=800');
+        }
+
+        async function saveHelpPublication() {
+            const enabled = document.getElementById('helpPublicationEnabled').checked;
+            try {
+                const vRes = await fetch(`${API_URL}/settings`, { credentials: 'include' });
+                const vData = await vRes.json();
+                const version = vData.app_version || '';
+                await fetch(`${API_URL}/settings`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+                    body: JSON.stringify({ key: 'help_publication_enabled', value: enabled ? 'true' : 'false' })
+                });
+                await fetch(`${API_URL}/settings`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+                    body: JSON.stringify({ key: 'help_publication_version', value: version })
+                });
+                alert(enabled ? `Publication activée pour la version ${version}` : 'Publication désactivée');
+            } catch(e) { alert('Erreur sauvegarde'); }
+        }
+
+        async function uploadHelpFile() {
+            const file = document.getElementById('helpFileInput').files[0];
+            if (!file) return alert('Sélectionnez un fichier HTML');
+            const status = document.getElementById('helpUploadStatus');
+            status.textContent = 'Upload en cours...';
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const res = await fetch(`${API_URL}/help/upload`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+                        body: JSON.stringify({ content: e.target.result })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        status.style.color = 'green';
+                        status.textContent = '✅ Page d\'aide mise à jour avec succès';
+                        loadHelpFileInfo();
+                    } else { throw new Error(data.error); }
+                } catch(e) { status.style.color = 'red'; status.textContent = '❌ Erreur : ' + e.message; }
+            };
+            reader.readAsText(file);
+        }
+
+        async function loadHelpFileInfo() {
+            try {
+                const res = await fetch(`${API_URL}/help/info`, { credentials: 'include' });
+                const data = await res.json();
+                const el = document.getElementById('helpCurrentFile');
+                if (!el) return;
+                if (data.exists) {
+                    const d = new Date(data.updatedAt);
+                    el.innerHTML = `📄 Page d'aide active — mise à jour le ${d.toLocaleDateString('fr-FR')} à ${d.toLocaleTimeString('fr-FR')} — <button onclick="deleteHelpFile()" style="background:none;border:none;color:#c0392b;cursor:pointer;text-decoration:underline;font-size:12px;padding:0;">🗑️ Supprimer (revenir à la page par défaut)</button>`;
+                } else {
+                    el.textContent = 'Page d\'aide par défaut (aucun fichier uploadé)';
+                }
+            } catch(e) {
+                const el = document.getElementById('helpCurrentFile');
+                if (el) el.textContent = 'Impossible de vérifier le fichier';
+            }
+        }
+
+        async function deleteHelpFile() {
+            if (!confirm('Supprimer la page d\'aide uploadée et revenir à la page par défaut ?')) return;
+            try {
+                await fetch(`${API_URL}/help/upload`, { method: 'DELETE', credentials: 'include' });
+                loadHelpFileInfo();
+            } catch(e) { alert('Erreur suppression'); }
+        }
+
+        async function checkHelpVersionPopup() {
+            try {
+                const res = await fetch(`${API_URL}/settings`, { credentials: 'include' });
+                const settings = await res.json();
+                const pubEnabled = settings.help_publication_enabled === 'true';
+                const pubVersion = settings.help_publication_version || '';
+                if (!pubEnabled || !pubVersion) return;
+                const seenKey = `help_seen_${currentUser.userId}_${pubVersion}`;
+                if (localStorage.getItem(seenKey)) return;
+                localStorage.setItem(seenKey, 'true');
+                document.getElementById('helpVersionModalTitle').textContent = pubVersion;
+                try {
+                    const helpRes = await fetch('/aide.html');
+                    const html = await helpRes.text();
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const section = doc.getElementById('section-notes-version');
+                    document.getElementById('helpVersionModalContent').innerHTML = section
+                        ? section.outerHTML
+                        : '<p>Consultez la page d\'aide pour les détails de cette version.</p>';
+                } catch(e) {
+                    document.getElementById('helpVersionModalContent').innerHTML = '<p>Consultez la page d\'aide pour les détails de cette version.</p>';
+                }
+                document.getElementById('helpVersionModal').classList.add('active');
+            } catch(e) { console.warn('Impossible de vérifier la popup aide:', e); }
+        }
+
+        function closeHelpVersionModal() {
+            document.getElementById('helpVersionModal').classList.remove('active');
         }
 
         function toggleInactivityTimeout() {
@@ -22134,6 +22288,21 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             <div class="button-group" style="display: flex; gap: 10px; justify-content: flex-end; padding-top: 15px; border-top: 1px solid #eee;">
                 <button onclick="saveDeplacement()" style="padding: 12px 25px; font-size: 14px;">✅ Enregistrer</button>
                 <button onclick="closeEditDeplacementModal()" style="background-color: #95a5a6; padding: 12px 25px; font-size: 14px;">❌ Annuler</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal nouveautés version -->
+    <div id="helpVersionModal" class="modal" style="z-index: 10000;">
+        <div class="modal-content" style="max-width: 900px; max-height: 85vh; overflow-y: auto; padding: 0;">
+            <div style="position: sticky; top: 0; background: #2c3e50; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 1;">
+                <h3 style="margin: 0; color: white;">🆕 Nouveautés de la version <span id="helpVersionModalTitle"></span></h3>
+                <button onclick="closeHelpVersionModal()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; line-height: 1;">✕</button>
+            </div>
+            <div id="helpVersionModalContent" style="padding: 20px; overflow-y: auto;"></div>
+            <div style="padding: 15px 20px; border-top: 1px solid #eee; text-align: right; background: #f9f9f9;">
+                <button onclick="closeHelpVersionModal()" style="background-color: #1D70B7; color: white;">✅ J'ai pris connaissance des nouveautés</button>
+                <button onclick="openHelp('section-notes-version')" style="background-color: #5c6bc0; color: white; margin-left: 10px;">📖 Voir l'aide complète</button>
             </div>
         </div>
     </div>
