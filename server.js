@@ -1390,7 +1390,8 @@ app.post('/api/mobile-login', async (req, res) => {
     }
 });
 
-
+// Fonction pour compléter le login
+async function completeLogin(req, res, user, profile) {
     req.session.userId = user.id;
     req.session.username = user.username;
     req.session.nom = user.nom;
