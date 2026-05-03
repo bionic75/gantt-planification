@@ -1345,8 +1345,52 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// Fonction pour compléter le login
-async function completeLogin(req, res, user, profile) {
+// Endpoint de login dédié à l'app mobile — bypass MFA, session isolée
+app.post('/api/mobile-login', async (req, res) => {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+        return res.status(400).json({ error: 'Username et password requis' });
+    }
+
+    const hashedPassword = hashPassword(password);
+
+    try {
+        const user = await new Promise((resolve, reject) => {
+            database.get(
+                `SELECT u.*, r.trigramme 
+                 FROM users u 
+                 LEFT JOIN resources r ON r.id = u.resource_id 
+                 WHERE u.username = ? AND u.password = ? AND u.actif = 1`,
+                [username, hashedPassword],
+                (err, row) => { if (err) reject(err); else resolve(row); }
+            );
+        });
+
+        if (!user) {
+            return res.status(401).json({ error: 'Identifiants incorrects' });
+        }
+
+        // Déterminer le profil actif (priorité : admin > expert > user)
+        let profile = null;
+        if (user.is_admin === 1)  profile = 'admin';
+        else if (user.is_expert === 1) profile = 'expert';
+        else if (user.is_user === 1)   profile = 'user';
+
+        if (!profile) {
+            return res.status(403).json({ error: 'Aucun profil valide' });
+        }
+
+        // MFA bypassé pour l'app mobile — login direct
+        await completeLogin(req, res, user, profile);
+
+    } catch (error) {
+        console.error('Erreur mobile-login:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+
     req.session.userId = user.id;
     req.session.username = user.username;
     req.session.nom = user.nom;
