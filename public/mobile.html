@@ -360,6 +360,8 @@ async function loadData() {
     return false;
   }
   state.resources = (await rR.json()).filter(r => r.actif);
+  console.log('[DEBUG] resources chargées:', state.resources.map(r => `id=${r.id} ${r.prenom} ${r.nom}`));
+  console.log('[DEBUG] selectedResourceId avant résolution:', state.selectedResourceId);
   state.schedule  = await sR.json();
 
   // 2. Résoudre le resourceId maintenant qu'on a la liste des ressources
@@ -374,22 +376,14 @@ async function loadData() {
 }
 
 async function reloadEventsForResource(resourceId) {
-  const evUrl = resourceId ? `/api/mobile-events?resourceId=${resourceId}` : `/api/mobile-events`;
-  console.log('[EVENTS] Chargement URL:', evUrl);
   try {
-    const r = await api(evUrl);
-    console.log('[EVENTS] Status HTTP:', r.status);
+    const r = await api('/api/mobile-events');
     const ev = r.ok ? await r.json() : {events:[]};
-    console.log('[EVENTS] Réponse brute:', ev);
     state.events = ev.events || [];
     console.log('[EVENTS] Nombre événements chargés:', state.events.length);
-    if (state.events.length > 0) {
-      console.log('[EVENTS] Premier événement:', state.events[0]);
-      console.log('[EVENTS] start_date exemple:', state.events[0].start_date, 'end_date:', state.events[0].end_date);
-    }
-  } catch(e) { 
+  } catch(e) {
     console.error('[EVENTS] Erreur:', e);
-    state.events = []; 
+    state.events = [];
   }
 }
 
@@ -460,7 +454,6 @@ function buildExpertSelect() {
   });
   sel.onchange = () => {
     state.selectedResourceId = Number(sel.value);
-    reloadEventsForResource(state.selectedResourceId);
     renderView();
   };
 }
