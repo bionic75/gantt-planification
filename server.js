@@ -7015,14 +7015,21 @@ app.get('/api/version', (req, res) => {
 
 app.put('/api/settings', requireAuth, requireAdmin, (req, res) => {
     const { key, value } = req.body;
-    
-    database.run(
-        'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
-        [key, value],
+    database.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [key, value],
         function(err) {
-            if (err) {
-                return res.status(500).json({ error: err.message });
-            }
+            if (err) return res.status(500).json({ error: err.message });
+            logUserAction(req, 'Mise à jour paramètre', { key, value });
+            res.json({ success: true, key, value });
+        }
+    );
+});
+
+// Alias POST pour saveHelpPublication et autres appels front
+app.post('/api/settings', requireAuth, requireAdmin, (req, res) => {
+    const { key, value } = req.body;
+    database.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [key, value],
+        function(err) {
+            if (err) return res.status(500).json({ error: err.message });
             logUserAction(req, 'Mise à jour paramètre', { key, value });
             res.json({ success: true, key, value });
         }
