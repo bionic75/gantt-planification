@@ -758,8 +758,8 @@
                         </button>
                         <button onclick="event.stopPropagation(); openMyEventsModal();" 
                                 style="padding: 8px 15px; height: 38px; background-color: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; display: flex; align-items: center;" 
-                                title="Gérer mes événements personnalisés">
-                            Gérer mes événements
+                                title="Gérer les événements">
+                            Gérer les événements
                         </button>
                         <button onclick="event.stopPropagation(); openEventsCalendarModal();" 
                                 style="padding: 8px 15px; height: 38px; background-color: #00bcd4; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; display: flex; align-items: center;" 
@@ -19155,12 +19155,61 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
         let isAdminViewingAllEvents = false;
         
         // Ouvrir la modal de gestion des événements
+        function toggleNeedsResources() {
+            const checked = document.getElementById('myEventNeedsResources').checked;
+            document.getElementById('myEventResourcesPanel').style.display = checked ? 'block' : 'none';
+        }
+
+        function updateResourcesCounter() {
+            const count = document.getElementById('myEventResourcesCount')?.value || '1';
+            document.getElementById('myEventResourcesCountDisplay').textContent = count;
+        }
+
+        async function populateNotifyUsersSelect() {
+            try {
+                const res = await fetch(`${API_URL}/users`, { credentials: 'include' });
+                const data = await res.json();
+                const select = document.getElementById('myEventNotifyUsers');
+                if (!select) return;
+                select.innerHTML = (data.users || data || [])
+                    .filter(u => u.actif === 1 && u.email)
+                    .sort((a, b) => `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`))
+                    .map(u => `<option value="${u.id}" data-email="${u.email}" data-nom="${u.nom}" data-prenom="${u.prenom}">${(u.nom || '').toUpperCase()} ${u.prenom || ''}</option>`)
+                    .join('');
+            } catch(e) { console.error('Erreur chargement utilisateurs:', e); }
+        }
+
+        async function joinEventAsParticipant(eventId) {
+            try {
+                const res = await fetch(`${API_URL}/my-custom-events/${eventId}/join`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Erreur');
+                if (data.planningUpdated) {
+                    const msg = `✅ Vous avez été inscrit(e) comme participant à "${data.eventLabel}".\n\n` +
+                        `⚡ Votre planning a été mis à jour automatiquement :\n` +
+                        `• Disponibilité : passée à "En attente" (code 2)\n` +
+                        `• Affectation : passée à "Divers" (code 8) par défaut\n\n` +
+                        `💡 Nous vous invitons à vérifier votre planning et à sélectionner un code d'affectation plus précis si nécessaire (ex: SAMU Déploiement, ANS Déploiement...).`;
+                    alert(msg);
+                    await loadSchedule();
+                    setTimeout(() => updateGantt(), 100);
+                }
+                await loadMyEvents();
+            } catch(e) {
+                alert('Erreur lors de l\'inscription : ' + e.message);
+            }
+        }
+
         async function openMyEventsModal() {
             if (allLocations.length === 0) {
                 await loadLocations();
             }
             document.getElementById('myEventsModalContainer').style.display = 'block';
             populateLocationSelects();
+            populateNotifyUsersSelect();
             await loadMyEvents();
         }
         
@@ -19207,6 +19256,8 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
         function removeMyEventParticipant(userId) {
             myEventSelectedParticipants = myEventSelectedParticipants.filter(p => p.id !== userId);
             renderMyEventParticipantTags();
+            const cntEl = document.getElementById('myEventParticipantCount');
+            if (cntEl) cntEl.textContent = myEventSelectedParticipants.length;
         }
         
         function addMyEventParticipant(user) {
@@ -19216,6 +19267,8 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             const input = document.getElementById('myEventParticipantInput');
             if (input) { input.value = ''; input.focus(); }
             document.getElementById('myEventParticipantDropdown').style.display = 'none';
+            const cntEl = document.getElementById('myEventParticipantCount');
+            if (cntEl) cntEl.textContent = myEventSelectedParticipants.length;
         }
         
         function filterMyEventParticipants(query) {
@@ -19292,6 +19345,20 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             renderMyEventParticipantTags();
             const participantInput = document.getElementById('myEventParticipantInput');
             if (participantInput) participantInput.value = '';
+
+            // Reset champs "Besoin de ressources"
+            const needsRes = document.getElementById('myEventNeedsResources');
+            if (needsRes) needsRes.checked = false;
+            const resPanel = document.getElementById('myEventResourcesPanel');
+            if (resPanel) resPanel.style.display = 'none';
+            const resCount = document.getElementById('myEventResourcesCount');
+            if (resCount) resCount.value = '1';
+            const cntEl = document.getElementById('myEventParticipantCount');
+            if (cntEl) cntEl.textContent = '0';
+            const cntDisp = document.getElementById('myEventResourcesCountDisplay');
+            if (cntDisp) cntDisp.textContent = '1';
+            const notifySelect = document.getElementById('myEventNotifyUsers');
+            if (notifySelect) Array.from(notifySelect.options).forEach(o => o.selected = false);
             
             const creatorSection = document.getElementById('myEventCreatorSection');
             if (creatorSection) creatorSection.style.display = 'none';
@@ -19575,7 +19642,9 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                         </div>
                         ${participantsHtml}
                     </div>
-                    <div style="display: flex; gap: 5px;">
+                    <div style="display: flex; gap: 5px; flex-wrap: wrap; align-items: center;">
+                        ${currentUser && currentUser.activeProfile === 'expert' && event.participants && !event.participants.some(p => p.id === currentUser.userId) ? 
+                            `<button onclick="joinEventAsParticipant(${event.id})" style="background: #27ae60; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;" title="Me déclarer participant">✋ Participer</button>` : ''}
                         <button onclick="editMyEvent(${event.id})" style="background: #ff9800; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;">✏️</button>
                         <button onclick="deleteMyEvent(${event.id})" style="background: #e53935; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;">🗑️</button>
                     </div>
@@ -19617,6 +19686,13 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 ? (document.querySelector('input[name="myEventPeriod"]:checked')?.value || 'FULL')
                 : 'FULL';
             
+            const needs_resources = document.getElementById('myEventNeedsResources')?.checked || false;
+            const resources_count = parseInt(document.getElementById('myEventResourcesCount')?.value || '1');
+            const notifySelect = document.getElementById('myEventNotifyUsers');
+            const notify_user_ids = notifySelect
+                ? Array.from(notifySelect.selectedOptions).map(o => parseInt(o.value))
+                : [];
+
             try {
                 const response = await fetch(`${API_URL}/my-custom-events`, {
                     method: 'POST',
@@ -19629,7 +19705,10 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                         config: { bgColor, textColor, borderColor },
                         participants: myEventSelectedParticipants.map(p => p.id),
                         period,
-                        location_id: location_id || null
+                        location_id: location_id || null,
+                        needs_resources,
+                        resources_count,
+                        notify_user_ids
                     })
                 });
                 
@@ -21694,6 +21773,32 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     <select id="myEventLocationId" style="width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
                         <option value="">— Aucune localisation —</option>
                     </select>
+                </div>
+
+                <!-- Besoin de ressources -->
+                <div style="margin-top: 10px; padding: 10px; background: #e8f5e9; border-radius: 6px; border: 1px solid #a5d6a7;">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                        <input type="checkbox" id="myEventNeedsResources" style="width: auto; margin: 0; cursor: pointer;" onchange="toggleNeedsResources()">
+                        <label for="myEventNeedsResources" style="cursor: pointer; font-size: 12px; color: #2e7d32; font-weight: bold; margin: 0;">Besoin de ressources</label>
+                    </div>
+                    <div id="myEventResourcesPanel" style="display: none;">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                            <label style="font-size: 12px; color: #2e7d32; white-space: nowrap;">Nombre de ressources nécessaires :</label>
+                            <select id="myEventResourcesCount" style="width: 80px; padding: 4px;" onchange="updateResourcesCounter()">
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4">4</option>
+                                <option value="5">5</option>
+                            </select>
+                            <span style="font-size: 12px; color: #555;">— Participants renseignés : <strong id="myEventParticipantCount">0</strong> / <strong id="myEventResourcesCountDisplay">1</strong></span>
+                        </div>
+                        <div style="margin-bottom: 8px;">
+                            <label style="font-size: 12px; color: #2e7d32; display: block; margin-bottom: 4px;">📧 Envoyer une demande de mobilisation à :</label>
+                            <select id="myEventNotifyUsers" multiple style="width: 100%; height: 100px; padding: 4px; border: 1px solid #a5d6a7; border-radius: 4px; font-size: 12px;"></select>
+                            <p style="font-size: 11px; color: #666; margin: 4px 0 0 0;">Ctrl+clic pour sélectionner plusieurs personnes</p>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Sélecteur demi-journée — visible uniquement si début = fin -->
