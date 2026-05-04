@@ -6326,80 +6326,42 @@ app.get('/api/my-custom-events', requireAuth, async (req, res) => {
     try {
         const userId = req.session.userId;
         const isAdmin = req.session.activeProfile === 'admin';
-        
-        // Vérifier si la colonne created_by existe
-        const columns = await new Promise((resolve, reject) => {
-            database.all("PRAGMA table_info(custom_events)", (err, cols) => {
-                if (err) reject(err);
-                else resolve(cols || []);
-            });
-        });
-        
-        const hasCreatedBy = columns.some(col => col.name === 'created_by');
-        
-        let query;
-        let params;
-        
-        if (hasCreatedBy) {
-            if (isAdmin) {
-                // Admin voit tous les événements
-                query = `
-                    SELECT ce.*, u.nom as creator_nom, u.prenom as creator_prenom, r.trigramme as creator_trigramme,
-                           l.libelle_long as location_libelle_long, l.libelle_court as location_libelle_court
-                    FROM custom_events ce
-                    LEFT JOIN users u ON ce.created_by = u.id
-                    LEFT JOIN resources r ON u.resource_id = r.id
-                    LEFT JOIN locations l ON ce.location_id = l.id
-                    ORDER BY ce.start_date
-                `;
-                params = [];
-            } else {
-                // Les autres ne voient que leurs propres événements
-                query = `
-                    SELECT ce.*, u.nom as creator_nom, u.prenom as creator_prenom, r.trigramme as creator_trigramme,
-                           l.libelle_long as location_libelle_long, l.libelle_court as location_libelle_court
-                    FROM custom_events ce
-                    LEFT JOIN users u ON ce.created_by = u.id
-                    LEFT JOIN resources r ON u.resource_id = r.id
-                    LEFT JOIN locations l ON ce.location_id = l.id
-                    WHERE ce.created_by = ?
-                    ORDER BY ce.start_date
-                `;
-                params = [userId];
-            }
-        } else {
-            query = `SELECT * FROM custom_events ORDER BY start_date`;
-            params = [];
-        }
-        
+
+        // Tous les profils voient tous les événements
+        // La colonne is_creator est calculée côté serveur pour le contrôle d'accès côté client
         const events = await new Promise((resolve, reject) => {
-            database.all(query, params, (err, rows) => {
-                if (err) reject(err);
-                else resolve(rows || []);
-            });
+            database.all(`
+                SELECT ce.*,
+                       u.nom as creator_nom, u.prenom as creator_prenom,
+                       r.trigramme as creator_trigramme,
+                       l.libelle_long as location_libelle_long,
+                       l.libelle_court as location_libelle_court,
+                       CASE WHEN ce.created_by = ? THEN 1 ELSE 0 END as is_creator
+                FROM custom_events ce
+                LEFT JOIN users u ON ce.created_by = u.id
+                LEFT JOIN resources r ON u.resource_id = r.id
+                LEFT JOIN locations l ON ce.location_id = l.id
+                ORDER BY ce.start_date
+            `, [userId], (err, rows) => err ? reject(err) : resolve(rows || []));
         });
-        
+
         // Charger les participants pour chaque événement
         for (const event of events) {
             try {
-                const participants = await new Promise((resolve, reject) => {
+                event.participants = await new Promise((resolve, reject) => {
                     database.all(
                         `SELECT cep.user_id, u.nom, u.prenom, u.email, u.profile_photo
                          FROM custom_event_participants cep
                          JOIN users u ON cep.user_id = u.id
                          WHERE cep.event_id = ?
                          ORDER BY u.nom, u.prenom`,
-                        [event.id],
-                        (err, rows) => err ? reject(err) : resolve(rows || [])
+                        [event.id], (err, rows) => err ? reject(err) : resolve(rows || [])
                     );
                 });
-                event.participants = participants;
-            } catch (e) {
-                event.participants = [];
-            }
+            } catch(e) { event.participants = []; }
         }
-        
-        res.json({ events, isAdmin });
+
+        res.json({ events, isAdmin, userId });
     } catch (error) {
         console.error('Erreur liste mes événements personnalisés:', error);
         res.status(500).json({ error: error.message });
@@ -6504,7 +6466,7 @@ app.post('/api/my-custom-events', requireAuth, async (req, res) => {
             ? formatDateFR(startDate)
             : `du ${formatDateFR(startDate)} au ${formatDateFR(endDate || startDate)}`;
 
-        // --- PARTIE 6 : Email ICS aux participants à la création ---
+        // --- PARTIE 6 : Email simple de notification aux participants à la création (sans ICS) ---
         if (participants && participants.length > 0) {
             const participantPlaceholders = participants.map(() => '?').join(',');
             const participantUsers = await new Promise((resolve, reject) => {
@@ -6514,52 +6476,39 @@ app.post('/api/my-custom-events', requireAuth, async (req, res) => {
                 );
             });
 
-            const icsBatchId = generateICSUid();
+            const notifBatchId = generateICSUid();
             for (const participant of participantUsers) {
                 const attendeeName = `${participant.prenom} ${participant.nom}`;
-                const htmlInvitation = `
+                const htmlNotif = `
                     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                         <div style="background-color: #ff9800; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
-                            <h2 style="color: white; margin: 0;">Invitation — ${label}</h2>
+                            <h2 style="color: white; margin: 0;">📅 ${label}</h2>
                         </div>
                         <div style="background-color: #f9f9f9; padding: 20px; border: 1px solid #e0e0e0;">
                             <p>Bonjour <strong>${attendeeName}</strong>,</p>
-                            <p>Vous avez été ajouté(e) comme participant(e) à l'événement suivant :</p>
+                            <p>Vous avez été ajouté(e) comme participant(e) à l'événement suivant sur la Plateforme de Planification ANS :</p>
                             <div style="background: white; border-left: 4px solid #ff9800; padding: 15px; margin: 15px 0; border-radius: 0 8px 8px 0;">
                                 <p style="margin: 5px 0;"><strong>📋 Événement :</strong> ${label}</p>
                                 <p style="margin: 5px 0;"><strong>📅 Date(s) :</strong> ${dateRangeLabel}</p>
                                 ${locLabel ? `<p style="margin: 5px 0;"><strong>📍 Lieu :</strong> ${locLabel}</p>` : ''}
                                 <p style="margin: 5px 0;"><strong>👤 Organisateur :</strong> ${creatorFullName}</p>
                             </div>
-                            <p>Une invitation calendrier est jointe à ce message.</p>
+                            <p>Pour confirmer votre participation ou obtenir plus d'informations, connectez-vous à la plateforme.</p>
                             <p>Cordialement,<br><strong>${creatorFullName}</strong><br><em>Via la Plateforme de Planification ANS</em></p>
                         </div>
                     </div>`;
-                const icsContent = buildICS({
-                    uid: generateICSUid(),
-                    summary: label,
-                    description: `Événement: ${label}\\nOrganisateur: ${creatorFullName}${locLabel ? '\\nLieu: ' + locLabel : ''}`,
-                    location: locLabel,
-                    dtstart: formatDateICS(startDate, 8, 0),
-                    dtend: formatDateICS(endDate || startDate, 18, 0),
-                    organizer: creatorMail,
-                    organizerName: creatorFullName,
-                    attendee: participant.email,
-                    attendeeName,
-                    method: 'REQUEST'
-                });
                 await enqueueEmail({
-                    batchId: icsBatchId,
+                    batchId: notifBatchId,
                     recipientEmail: participant.email,
                     recipientName: attendeeName,
                     senderName: creatorFullName,
                     senderEmail: creatorMail,
-                    subject: `Invitation — ${label} — ${dateRangeLabel}`,
-                    htmlBody: htmlInvitation,
-                    icsContent,
-                    icsMethod: 'REQUEST',
-                    icsFilename: 'invitation.ics',
-                    actionType: 'event_invitation'
+                    subject: `Vous êtes participant(e) — ${label} — ${dateRangeLabel}`,
+                    htmlBody: htmlNotif,
+                    icsContent: null,
+                    icsMethod: null,
+                    icsFilename: null,
+                    actionType: 'event_notification'
                 });
             }
         }

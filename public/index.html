@@ -19203,6 +19203,32 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             }
         }
 
+        async function editMyEventParticipantsOnly(eventId) {
+            // Ouvre le formulaire d'édition mais désactive tout sauf les participants
+            await editMyEvent(eventId);
+            // Désactiver les champs non-participants
+            ['myEventStartDate','myEventEndDate','myEventLabel','myEventBgColor',
+             'myEventTextColor','myEventBorderColor','myEventLocationId',
+             'myEventNeedsResources','myEventResourcesCount'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) { el.disabled = true; el.style.opacity = '0.5'; }
+            });
+            ['myEventPeriodFull','myEventPeriodAM','myEventPeriodPM'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) { el.disabled = true; }
+            });
+            // Masquer les templates et couleurs
+            document.getElementById('myEventActionBtn').textContent = '💾 Enregistrer les participants';
+            // Afficher un bandeau info
+            const formBody = document.getElementById('myEventFormBody');
+            if (formBody) {
+                const banner = document.createElement('div');
+                banner.id = 'participantsOnlyBanner';
+                banner.style.cssText = 'background:#fff3e0;border:1px solid #ff9800;border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:#e65100;';
+                banner.innerHTML = '👥 Mode lecture — vous pouvez uniquement modifier les <strong>participants</strong> de cet événement.';
+                formBody.insertBefore(banner, formBody.firstChild);
+            }
+        }
         async function openMyEventsModal() {
             if (allLocations.length === 0) {
                 await loadLocations();
@@ -19221,6 +19247,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
         
         // === PARTICIPANTS ÉVÉNEMENTS ===
         let myEventSelectedParticipants = []; // [{id, nom, prenom, email}]
+        let myEventsCurrentUserId = null; // userId retourné par l'API
         
         function getParticipantInitials(prenom, nom) {
             return ((prenom || '')[0] || '').toUpperCase() + ((nom || '')[0] || '').toUpperCase();
@@ -19324,6 +19351,20 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
         
         // Réinitialiser le formulaire
         function resetMyEventForm() {
+            // Nettoyer le mode "participants seulement"
+            const banner = document.getElementById('participantsOnlyBanner');
+            if (banner) banner.remove();
+            ['myEventStartDate','myEventEndDate','myEventLabel','myEventBgColor',
+             'myEventTextColor','myEventBorderColor','myEventLocationId',
+             'myEventNeedsResources','myEventResourcesCount'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) { el.disabled = false; el.style.opacity = ''; }
+            });
+            ['myEventPeriodFull','myEventPeriodAM','myEventPeriodPM'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.disabled = false;
+            });
+
             document.getElementById('myEventStartDate').value = '';
             document.getElementById('myEventEndDate').value = '';
             document.getElementById('myEventLabel').value = '';
@@ -19433,13 +19474,14 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     const data = await response.json();
                     myEvents = data.events || [];
                     isAdminViewingAllEvents = data.isAdmin || false;
-                    
-                    // Mettre à jour le titre selon le profil
+                    // Stocker l'userId retourné par l'API pour les contrôles d'accès
+                    myEventsCurrentUserId = data.userId || null;
+
                     const titleEl = document.getElementById('myEventsModalTitle');
                     if (titleEl) {
-                        titleEl.textContent = isAdminViewingAllEvents ? 'Tous les événements personnalisés' : 'Mes événements personnalisés';
+                        titleEl.textContent = 'Événements';
                     }
-                    
+
                     renderMyEventsTable();
                 }
             } catch (error) {
@@ -19600,9 +19642,9 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             const endStr = endDate.toLocaleDateString('fr-FR');
             const dateDisplay = startStr === endStr ? startStr : `${startStr} - ${endStr}`;
             
-            // Nom du créateur
+            // Nom du créateur (toujours visible)
             const creatorFullName = ((event.creator_prenom || '') + ' ' + (event.creator_nom || '').toUpperCase()).trim() || 'Système';
-            const creatorInfo = isAdminViewingAllEvents ? `<span style="font-size: 10px; color: #666;">👤 ${creatorFullName}</span>` : '';
+            const creatorInfo = `<span style="font-size: 10px; color: #888;">👤 ${creatorFullName}</span>`;
             
             // Participants
             let participantsHtml = '';
@@ -19645,8 +19687,8 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     <div style="display: flex; gap: 5px; flex-wrap: wrap; align-items: center;">
                         ${currentUser && currentUser.activeProfile === 'expert' && event.participants && !event.participants.some(p => p.id === currentUser.userId) ? 
                             `<button onclick="joinEventAsParticipant(${event.id})" style="background: #27ae60; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;" title="Me déclarer participant">✋ Participer</button>` : ''}
-                        <button onclick="editMyEvent(${event.id})" style="background: #ff9800; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;">✏️</button>
-                        <button onclick="deleteMyEvent(${event.id})" style="background: #e53935; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;">🗑️</button>
+                        ${event.is_creator ? `<button onclick="editMyEvent(${event.id})" style="background: #ff9800; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;" title="Modifier l'événement">✏️</button>` : `<button onclick="editMyEventParticipantsOnly(${event.id})" style="background: #78909c; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;" title="Modifier uniquement les participants">👥</button>`}
+                        ${event.is_creator ? `<button onclick="deleteMyEvent(${event.id})" style="background: #e53935; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;" title="Supprimer l'événement">🗑️</button>` : ''}
                     </div>
                 </div>
             </div>`
