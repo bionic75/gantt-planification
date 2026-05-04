@@ -14384,6 +14384,7 @@
                 const vRes = await fetch(`${API_URL}/settings`, { credentials: 'include' });
                 const vData = await vRes.json();
                 const version = vData.app_version || '';
+
                 await fetch(`${API_URL}/settings`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
                     body: JSON.stringify({ key: 'help_publication_enabled', value: enabled ? 'true' : 'false' })
@@ -14392,7 +14393,14 @@
                     method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
                     body: JSON.stringify({ key: 'help_publication_version', value: version })
                 });
-                alert(enabled ? `Publication activée pour la version ${version}` : 'Publication désactivée');
+                // Stocker un timestamp unique de publication → force la réaffichage pour tous les utilisateurs
+                const pubTimestamp = Date.now().toString();
+                await fetch(`${API_URL}/settings`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+                    body: JSON.stringify({ key: 'help_publication_timestamp', value: pubTimestamp })
+                });
+
+                alert(enabled ? `Publication activée pour la version ${version}.\nLa popup s'affichera à la prochaine connexion de chaque utilisateur.` : 'Publication désactivée.');
             } catch(e) { alert('Erreur sauvegarde'); }
         }
 
@@ -14451,23 +14459,49 @@
                 const settings = await res.json();
                 const pubEnabled = settings.help_publication_enabled === 'true';
                 const pubVersion = settings.help_publication_version || '';
+                const pubTimestamp = settings.help_publication_timestamp || pubVersion;
+
                 if (!pubEnabled || !pubVersion) return;
-                const seenKey = `help_seen_${currentUser.userId}_${pubVersion}`;
+
+                // La clé inclut le timestamp → chaque nouvelle publication force le réaffichage
+                const seenKey = `help_seen_${currentUser.userId}_${pubTimestamp}`;
                 if (localStorage.getItem(seenKey)) return;
                 localStorage.setItem(seenKey, 'true');
+
                 document.getElementById('helpVersionModalTitle').textContent = pubVersion;
+
+                // Charger aide.html et extraire UNIQUEMENT le bloc de la version publiée
                 try {
                     const helpRes = await fetch('/aide.html');
                     const html = await helpRes.text();
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(html, 'text/html');
-                    const section = doc.getElementById('section-notes-version');
-                    document.getElementById('helpVersionModalContent').innerHTML = section
-                        ? section.outerHTML
-                        : '<p>Consultez la page d\'aide pour les détails de cette version.</p>';
+
+                    // Chercher le bloc de version par son texte (strong dans .card)
+                    let versionBlock = null;
+                    const cards = doc.querySelectorAll('#section-notes-version .card, #section-notes-version [class*="card"]');
+                    for (const card of cards) {
+                        const strong = card.querySelector('strong');
+                        if (strong && strong.textContent.trim() === pubVersion) {
+                            versionBlock = card;
+                            break;
+                        }
+                    }
+
+                    if (versionBlock) {
+                        document.getElementById('helpVersionModalContent').innerHTML = versionBlock.outerHTML;
+                    } else {
+                        // Fallback : toute la section notes de version
+                        const section = doc.getElementById('section-notes-version');
+                        document.getElementById('helpVersionModalContent').innerHTML = section
+                            ? section.outerHTML
+                            : `<p>Consultez la page d'aide pour les détails de la version ${pubVersion}.</p>`;
+                    }
                 } catch(e) {
-                    document.getElementById('helpVersionModalContent').innerHTML = '<p>Consultez la page d\'aide pour les détails de cette version.</p>';
+                    document.getElementById('helpVersionModalContent').innerHTML =
+                        `<p>Consultez la page d'aide pour les détails de la version ${pubVersion}.</p>`;
                 }
+
                 document.getElementById('helpVersionModal').classList.add('active');
             } catch(e) { console.warn('Impossible de vérifier la popup aide:', e); }
         }
