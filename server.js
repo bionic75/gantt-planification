@@ -6318,6 +6318,8 @@ app.get('/api/mobile-events', requireAuth, async (req, res) => {
 
 app.get('/api/my-custom-events', requireAuth, async (req, res) => {
     try {
+        const userId = req.session.userId;
+        const isAdmin = req.session.activeProfile === 'admin';
         
         // Vérifier si la colonne created_by existe
         const columns = await new Promise((resolve, reject) => {
