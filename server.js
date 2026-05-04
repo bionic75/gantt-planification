@@ -6594,6 +6594,7 @@ app.post('/api/my-custom-events/:id/join', requireAuth, async (req, res) => {
     const userId = req.session.userId;
     const resourceId = req.session.resourceId;
     const isExpert = req.session.activeProfile === 'expert';
+    console.log(`[JOIN] userId=${userId} resourceId=${resourceId} isExpert=${isExpert} eventId=${eventId}`);
 
     try {
         const event = await new Promise((resolve, reject) => {
@@ -6637,8 +6638,10 @@ app.post('/api/my-custom-events/:id/join', requireAuth, async (req, res) => {
                     });
                     const availVal = availRow?.value || '1';
                     const actVal = actRow?.value || '1';
+                    // available → toujours '2' si était '1'
                     const newAvail = availVal === '1' ? '2' : availVal;
-                    const newAct = actVal === '2' ? '8' : actVal;
+                    // activity → '8' seulement si était '1' (sinon on conserve)
+                    const newAct = actVal === '1' ? '8' : actVal;
                     const changed = newAvail !== availVal || newAct !== actVal;
                     if (changed) {
                         await new Promise(resolve => {
