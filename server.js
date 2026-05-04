@@ -1111,6 +1111,12 @@ function initDB() {
                     else console.log('✅ Migration: location_id ajouté à custom_events');
                 });
             }
+            if (!colNames.includes('needs_resources')) {
+                database.run(`ALTER TABLE custom_events ADD COLUMN needs_resources INTEGER DEFAULT 0`);
+            }
+            if (!colNames.includes('resources_count')) {
+                database.run(`ALTER TABLE custom_events ADD COLUMN resources_count INTEGER DEFAULT 1`);
+            }
         }
     });
 
@@ -6442,23 +6448,26 @@ app.post('/api/custom-events', requireAdmin, async (req, res) => {
 // Ajouter un événement personnalisé (utilisateurs/experts via pop-up planification)
 app.post('/api/my-custom-events', requireAuth, async (req, res) => {
     try {
-        const { startDate, endDate, label, config, participants, period, location_id } = req.body;
+        const { startDate, endDate, label, config, participants, period,
+                location_id, needs_resources, resources_count, notify_user_ids } = req.body;
         const createdBy = req.session.userId;
-        
+
         if (!startDate || !label) {
             return res.status(400).json({ error: 'Date de début et libellé requis' });
         }
 
         const finalPeriod = (period && startDate === (endDate || startDate)) ? period : 'FULL';
-        
+
         const eventId = await new Promise((resolve, reject) => {
             database.run(
-                `INSERT INTO custom_events (label, start_date, end_date, config, created_by, period, location_id) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                [label, startDate, endDate || startDate, JSON.stringify(config), createdBy, finalPeriod, location_id || null],
+                `INSERT INTO custom_events (label, start_date, end_date, config, created_by, period, location_id, needs_resources, resources_count)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [label, startDate, endDate || startDate, JSON.stringify(config), createdBy, finalPeriod,
+                 location_id || null, needs_resources ? 1 : 0, resources_count || 1],
                 function(err) { if (err) reject(err); else resolve(this.lastID); }
             );
         });
-        
+
         // Sauvegarder les participants
         if (participants && Array.isArray(participants) && participants.length > 0) {
             for (const userId of participants) {
@@ -6475,17 +6484,237 @@ app.post('/api/my-custom-events', requireAuth, async (req, res) => {
                 }
             }
         }
-        
+
+        // --- Récupérer localisation et créateur (communs aux deux blocs email) ---
+        let locLabel = '';
+        if (location_id) {
+            const loc = await new Promise(resolve => {
+                database.get(`SELECT libelle_long, libelle_court FROM locations WHERE id = ?`,
+                    [location_id], (err, row) => resolve(row));
+            });
+            locLabel = loc?.libelle_long || loc?.libelle_court || '';
+        }
+        const creatorInfo = await new Promise(resolve => {
+            database.get(`SELECT nom, prenom, email FROM users WHERE id = ?`,
+                [createdBy], (err, row) => resolve(row));
+        });
+        const creatorFullName = creatorInfo ? `${creatorInfo.prenom} ${creatorInfo.nom}` : 'Plateforme ANS';
+        const creatorMail = creatorInfo?.email || '';
+        const dateRangeLabel = startDate === (endDate || startDate)
+            ? formatDateFR(startDate)
+            : `du ${formatDateFR(startDate)} au ${formatDateFR(endDate || startDate)}`;
+
+        // --- PARTIE 6 : Email ICS aux participants à la création ---
+        if (participants && participants.length > 0) {
+            const participantPlaceholders = participants.map(() => '?').join(',');
+            const participantUsers = await new Promise((resolve, reject) => {
+                database.all(
+                    `SELECT id, nom, prenom, email FROM users WHERE id IN (${participantPlaceholders}) AND actif = 1 AND email IS NOT NULL AND email != ''`,
+                    participants, (err, rows) => err ? reject(err) : resolve(rows || [])
+                );
+            });
+
+            const icsBatchId = generateICSUid();
+            for (const participant of participantUsers) {
+                const attendeeName = `${participant.prenom} ${participant.nom}`;
+                const htmlInvitation = `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                        <div style="background-color: #ff9800; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
+                            <h2 style="color: white; margin: 0;">Invitation — ${label}</h2>
+                        </div>
+                        <div style="background-color: #f9f9f9; padding: 20px; border: 1px solid #e0e0e0;">
+                            <p>Bonjour <strong>${attendeeName}</strong>,</p>
+                            <p>Vous avez été ajouté(e) comme participant(e) à l'événement suivant :</p>
+                            <div style="background: white; border-left: 4px solid #ff9800; padding: 15px; margin: 15px 0; border-radius: 0 8px 8px 0;">
+                                <p style="margin: 5px 0;"><strong>📋 Événement :</strong> ${label}</p>
+                                <p style="margin: 5px 0;"><strong>📅 Date(s) :</strong> ${dateRangeLabel}</p>
+                                ${locLabel ? `<p style="margin: 5px 0;"><strong>📍 Lieu :</strong> ${locLabel}</p>` : ''}
+                                <p style="margin: 5px 0;"><strong>👤 Organisateur :</strong> ${creatorFullName}</p>
+                            </div>
+                            <p>Une invitation calendrier est jointe à ce message.</p>
+                            <p>Cordialement,<br><strong>${creatorFullName}</strong><br><em>Via la Plateforme de Planification ANS</em></p>
+                        </div>
+                    </div>`;
+                const icsContent = buildICS({
+                    uid: generateICSUid(),
+                    summary: label,
+                    description: `Événement: ${label}\\nOrganisateur: ${creatorFullName}${locLabel ? '\\nLieu: ' + locLabel : ''}`,
+                    location: locLabel,
+                    dtstart: formatDateICS(startDate, 8, 0),
+                    dtend: formatDateICS(endDate || startDate, 18, 0),
+                    organizer: creatorMail,
+                    organizerName: creatorFullName,
+                    attendee: participant.email,
+                    attendeeName,
+                    method: 'REQUEST'
+                });
+                await enqueueEmail({
+                    batchId: icsBatchId,
+                    recipientEmail: participant.email,
+                    recipientName: attendeeName,
+                    senderName: creatorFullName,
+                    senderEmail: creatorMail,
+                    subject: `Invitation — ${label} — ${dateRangeLabel}`,
+                    htmlBody: htmlInvitation,
+                    icsContent,
+                    icsMethod: 'REQUEST',
+                    icsFilename: 'invitation.ics',
+                    actionType: 'event_invitation'
+                });
+            }
+        }
+
+        // --- PARTIE 4 : Emails de mobilisation ---
+        if (needs_resources && notify_user_ids && notify_user_ids.length > 0) {
+            const placeholders = notify_user_ids.map(() => '?').join(',');
+            const usersToNotify = await new Promise((resolve, reject) => {
+                database.all(
+                    `SELECT id, nom, prenom, email FROM users WHERE id IN (${placeholders}) AND actif = 1 AND email IS NOT NULL AND email != ''`,
+                    notify_user_ids, (err, rows) => err ? reject(err) : resolve(rows || [])
+                );
+            });
+
+            const batchId = generateICSUid();
+            for (const user of usersToNotify) {
+                const attendeeName = `${user.prenom} ${user.nom}`;
+                const htmlBody = `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                        <div style="background-color: #1D70B7; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
+                            <h2 style="color: white; margin: 0;">Demande de mobilisation</h2>
+                        </div>
+                        <div style="background-color: #f9f9f9; padding: 20px; border: 1px solid #e0e0e0;">
+                            <p>Bonjour <strong>${attendeeName}</strong>,</p>
+                            <p>Un événement a été créé sur la Plateforme de Planification ANS et nous souhaiterions savoir si vous êtes disponible pour y participer.</p>
+                            <div style="background: white; border-left: 4px solid #1D70B7; padding: 15px; margin: 15px 0; border-radius: 0 8px 8px 0;">
+                                <p style="margin: 5px 0;"><strong>📋 Événement :</strong> ${label}</p>
+                                <p style="margin: 5px 0;"><strong>📅 Date(s) :</strong> ${dateRangeLabel}</p>
+                                <p style="margin: 5px 0;"><strong>📍 Lieu :</strong> ${locLabel || 'Non précisée'}</p>
+                                <p style="margin: 5px 0;"><strong>👤 Organisateur :</strong> ${creatorFullName}</p>
+                            </div>
+                            <p>Si vous êtes disponible et souhaitez participer, merci de vous connecter à la plateforme et <strong>d'inscrire votre nom dans la liste des participants</strong> de cet événement.</p>
+                            <p style="color: #666; font-size: 13px;">Cette demande est faite à titre informatif. Votre inscription est libre et sans obligation.</p>
+                            <p>Cordialement,<br><strong>${creatorFullName}</strong><br><em>Via la Plateforme de Planification ANS</em></p>
+                        </div>
+                    </div>`;
+                const icsContent = buildICS({
+                    uid: generateICSUid(),
+                    summary: label,
+                    description: `Demande de mobilisation\\nOrganisateur: ${creatorFullName}\\nLieu: ${locLabel || 'Non précisée'}`,
+                    location: locLabel || 'Non précisée',
+                    dtstart: formatDateICS(startDate, 8, 0),
+                    dtend: formatDateICS(endDate || startDate, 18, 0),
+                    organizer: creatorMail,
+                    organizerName: creatorFullName,
+                    attendee: user.email,
+                    attendeeName,
+                    method: 'REQUEST'
+                });
+                await enqueueEmail({
+                    batchId,
+                    recipientEmail: user.email,
+                    recipientName: attendeeName,
+                    senderName: creatorFullName,
+                    senderEmail: creatorMail,
+                    subject: `${label} - sollicitation`,
+                    htmlBody,
+                    icsContent,
+                    icsMethod: 'REQUEST',
+                    icsFilename: 'invitation.ics',
+                    actionType: 'mobilisation'
+                });
+            }
+        }
+
         sendTeamsNotificationFromServer('evenement', {
             name: label,
             date: `${formatDateFR(startDate)}${endDate && endDate !== startDate ? ' au ' + formatDateFR(endDate) : ''}`,
             createdBy: `${req.session.prenom} ${req.session.nom}`
         });
-        
+
         console.log(`✅ Événement personnalisé ajouté (ID: ${eventId}, period: ${finalPeriod}, ${participants?.length || 0} participant(s))`);
         res.json({ success: true, eventId });
     } catch (error) {
         console.error('Erreur ajout événement personnalisé:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// S'inscrire comme participant à un événement existant (avec maj planning expert)
+app.post('/api/my-custom-events/:id/join', requireAuth, async (req, res) => {
+    const eventId = req.params.id;
+    const userId = req.session.userId;
+    const resourceId = req.session.resourceId;
+    const isExpert = req.session.activeProfile === 'expert';
+
+    try {
+        const event = await new Promise((resolve, reject) => {
+            database.get(
+                `SELECT ce.*, l.libelle_long as location_libelle, l.libelle_court as location_court
+                 FROM custom_events ce
+                 LEFT JOIN locations l ON ce.location_id = l.id
+                 WHERE ce.id = ?`,
+                [eventId], (err, row) => err ? reject(err) : resolve(row)
+            );
+        });
+        if (!event) return res.status(404).json({ error: 'Événement introuvable' });
+
+        await new Promise((resolve, reject) => {
+            database.run(
+                `INSERT OR IGNORE INTO custom_event_participants (event_id, user_id) VALUES (?, ?)`,
+                [eventId, userId], (err) => err ? reject(err) : resolve()
+            );
+        });
+
+        let planningUpdates = [];
+        if (isExpert && resourceId) {
+            const start = new Date(event.start_date);
+            const end = new Date(event.end_date || event.start_date);
+            const dates = [];
+            for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                dates.push(d.toISOString().split('T')[0]);
+            }
+            const periods = event.period === 'AM' ? ['AM'] : event.period === 'PM' ? ['PM'] : ['AM', 'PM'];
+
+            for (const dateStr of dates) {
+                for (const period of periods) {
+                    const dateKey = `${dateStr}_${period}`;
+                    const availRow = await new Promise(resolve => {
+                        database.get(`SELECT value FROM schedule_data WHERE resource_id=? AND date_key=? AND type='available'`,
+                            [resourceId, dateKey], (err, row) => resolve(row));
+                    });
+                    const actRow = await new Promise(resolve => {
+                        database.get(`SELECT value FROM schedule_data WHERE resource_id=? AND date_key=? AND type='activity'`,
+                            [resourceId, dateKey], (err, row) => resolve(row));
+                    });
+                    const availVal = availRow?.value || '1';
+                    const actVal = actRow?.value || '1';
+                    const newAvail = availVal === '1' ? '2' : availVal;
+                    const newAct = actVal === '2' ? '8' : actVal;
+                    const changed = newAvail !== availVal || newAct !== actVal;
+                    if (changed) {
+                        await new Promise(resolve => {
+                            database.run(
+                                `INSERT INTO schedule_data (resource_id, date_key, type, value, notification) VALUES (?, ?, 'available', ?, '0')
+                                 ON CONFLICT(resource_id, date_key, type) DO UPDATE SET value = excluded.value`,
+                                [resourceId, dateKey, newAvail], resolve
+                            );
+                        });
+                        await new Promise(resolve => {
+                            database.run(
+                                `INSERT INTO schedule_data (resource_id, date_key, type, value, notification) VALUES (?, ?, 'activity', ?, '0')
+                                 ON CONFLICT(resource_id, date_key, type) DO UPDATE SET value = excluded.value`,
+                                [resourceId, dateKey, newAct], resolve
+                            );
+                        });
+                        planningUpdates.push({ dateStr, period, newAvail, newAct });
+                    }
+                }
+            }
+        }
+
+        res.json({ success: true, planningUpdated: planningUpdates.length > 0, planningUpdates, isExpert, eventLabel: event.label });
+    } catch(error) {
+        console.error('Erreur join event:', error);
         res.status(500).json({ error: error.message });
     }
 });
