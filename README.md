@@ -344,7 +344,7 @@ Au premier lancement :
 
 1. **Compte administrateur par défaut**
    - Identifiant : `admin`
-   - Mot de passe : `Admin2025!`
+   - Mot de passe : `XXX`
    - ⚠️ **Changez-le immédiatement !**
 
 2. **Configuration email** (Onglet Administration)
@@ -369,7 +369,7 @@ Au premier lancement :
 
 ### Première connexion
 
-1. **Se connecter** avec `admin` / `Admin2025!`
+1. **Se connecter** avec `admin` / `XXX`
 2. **Changer le mot de passe** :
    - Admin → Modifier l'utilisateur admin
    - Réinitialiser le mot de passe
@@ -530,7 +530,7 @@ Ressource: DUPONT Jean (JDU)
 ```json
 {
   "username": "admin",
-  "password": "Admin2025!",
+  "password": "XXX!",
   "profile": "admin"
 }
 ```
