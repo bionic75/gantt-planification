@@ -1083,6 +1083,74 @@ function initDB() {
             console.log('✅ Table astreintes_hno créée');
         }
     });
+
+    database.run(`
+        CREATE TABLE IF NOT EXISTS cra (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            resource_id INTEGER,
+            mois INTEGER NOT NULL,
+            annee INTEGER NOT NULL,
+            statut TEXT NOT NULL DEFAULT 'a_completer',
+            commentaire_expert TEXT,
+            submitted_at DATETIME,
+            vise_n1_at DATETIME,
+            vise_n1_by INTEGER,
+            vise_n2_at DATETIME,
+            vise_n2_by INTEGER,
+            diffuse_at DATETIME,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id),
+            UNIQUE(user_id, mois, annee)
+        )
+    `);
+
+    database.run(`
+        CREATE TABLE IF NOT EXISTS cra_signatures (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            cra_id INTEGER NOT NULL,
+            rang INTEGER NOT NULL,
+            signer_user_id INTEGER,
+            signer_name TEXT NOT NULL,
+            signer_email TEXT NOT NULL,
+            signed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            ip_address TEXT,
+            user_agent TEXT,
+            token TEXT UNIQUE,
+            token_used INTEGER DEFAULT 0,
+            token_expires_at DATETIME,
+            FOREIGN KEY (cra_id) REFERENCES cra(id) ON DELETE CASCADE
+        )
+    `);
+
+    database.run(`
+        CREATE TABLE IF NOT EXISTS cra_rh_recipients (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            resource_id INTEGER NOT NULL,
+            email TEXT NOT NULL,
+            nom TEXT,
+            UNIQUE(resource_id, email),
+            FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE
+        )
+    `);
+
+    database.run(`INSERT OR IGNORE INTO settings (key, value) VALUES ('automation_4_config', '{"enabled":false,"day":1}')`);
+
+    // Migration CRA : ajout colonne commentaire_refus
+    database.all(`PRAGMA table_info(cra)`, [], (err, cols) => {
+        if (!err && cols) {
+            const names = cols.map(c => c.name);
+            if (!names.includes('commentaire_refus')) {
+                database.run(`ALTER TABLE cra ADD COLUMN commentaire_refus TEXT`);
+            }
+            if (!names.includes('refuse_at')) {
+                database.run(`ALTER TABLE cra ADD COLUMN refuse_at DATETIME`);
+            }
+            if (!names.includes('refuse_by')) {
+                database.run(`ALTER TABLE cra ADD COLUMN refuse_by INTEGER`);
+            }
+        }
+    });
     
     // Table des localisations
     database.run(`
@@ -1216,6 +1284,10 @@ function logUserAction(req, action, details = {}) {
 }
 
 function requireAuth(req, res, next) {
+    // Mémoriser l'URL de l'app depuis les requêtes entrantes (utile pour les crons)
+    if (!global._detectedAppUrl && req.get('host')) {
+        global._detectedAppUrl = `${req.protocol}://${req.get('host')}`;
+    }
     if (!req.session || !req.session.userId) {
         return res.status(401).json({ error: 'Non authentifié' });
     }
@@ -1286,7 +1358,7 @@ app.post('/api/login', async (req, res) => {
     try {
         const user = await new Promise((resolve, reject) => {
             database.get(
-                `SELECT u.*, r.trigramme 
+                `SELECT u.*, r.trigramme, r.astreinte_volontaire 
                  FROM users u 
                  LEFT JOIN resources r ON r.id = u.resource_id 
                  WHERE u.username = ? AND u.password = ? AND u.actif = 1`,
@@ -1366,7 +1438,7 @@ app.post('/api/mobile-login', async (req, res) => {
     try {
         const user = await new Promise((resolve, reject) => {
             database.get(
-                `SELECT u.*, r.trigramme 
+                `SELECT u.*, r.trigramme, r.astreinte_volontaire 
                  FROM users u 
                  LEFT JOIN resources r ON r.id = u.resource_id 
                  WHERE u.username = ? AND u.password = ? AND u.actif = 1`,
@@ -1464,6 +1536,10 @@ async function completeLogin(req, res, user, profile) {
                     hasReportingAccess: user.has_reporting_access === 1 || user.is_admin === 1,
                     amoaCed: user.amoa_ced === 1,
                     is_amoa_ced: user.amoa_ced === 1,
+                    is_admin: user.is_admin === 1,
+                    is_expert: user.is_expert === 1,
+                    is_rh: user.is_rh === 1,
+                    astreinte_volontaire: user.astreinte_volontaire === 1,
                     defaultTab: user.default_tab || 'planning'
                 };
                 
@@ -1744,18 +1820,15 @@ app.post('/api/forgot-password', async (req, res) => {
 
 app.get('/api/check-session', (req, res) => {
     if (req.session && req.session.userId) {
-        // Récupérer le trigramme, la photo, l'email et amoa_ced depuis la base
         database.get(
-            `SELECT u.email, u.profile_photo, u.amoa_ced, r.trigramme 
+            `SELECT u.email, u.profile_photo, u.amoa_ced, u.is_admin, u.is_expert, u.is_user, u.is_rh,
+                    r.trigramme, r.astreinte_volontaire
              FROM users u 
              LEFT JOIN resources r ON r.id = u.resource_id 
              WHERE u.id = ?`,
             [req.session.userId],
             (err, userData) => {
-                if (err) {
-                    console.error('Erreur récupération données session:', err);
-                }
-                
+                if (err) console.error('Erreur récupération données session:', err);
                 res.json({
                     userId: req.session.userId,
                     username: req.session.username,
@@ -1767,7 +1840,12 @@ app.get('/api/check-session', (req, res) => {
                     trigramme: userData?.trigramme || null,
                     profilePhoto: userData?.profile_photo || null,
                     amoaCed: userData?.amoa_ced === 1,
-                    is_amoa_ced: userData?.amoa_ced === 1
+                    is_amoa_ced: userData?.amoa_ced === 1,
+                    is_admin: userData?.is_admin === 1,
+                    is_expert: userData?.is_expert === 1,
+                    is_user: userData?.is_user === 1,
+                    is_rh: userData?.is_rh === 1,
+                    astreinte_volontaire: userData?.astreinte_volontaire === 1
                 });
             }
         );
@@ -2730,7 +2808,7 @@ app.post('/api/schedule/cleanup-old-format', requireAdmin, (req, res) => {
 
 app.get('/api/users', requireAdmin, (req, res) => {
     database.all(`
-        SELECT u.*, r.trigramme as resource_trigramme,
+        SELECT u.*, r.trigramme, r.astreinte_volontaire as resource_trigramme,
                COALESCE(u.trigramme, r.trigramme) as trigramme,
                r.astreinte_volontaire,
                (SELECT MAX(login_time) FROM connection_logs WHERE user_id = u.id) as last_login
@@ -9359,6 +9437,7 @@ cron.schedule('0 * * * *', () => {
 cron.schedule('0 8 * * *', () => {
     console.log('⏰ [CRON] Exécution automatisation n°1 - ' + new Date().toLocaleString('fr-FR'));
     runAutomation1();
+    runAutomation4();
 }, {
     timezone: "Europe/Paris"
 });
@@ -9366,6 +9445,692 @@ cron.schedule('0 8 * * *', () => {
 console.log('⏰ Crons configurés: vérification horaire + automatisation n°1 à 8h00 (Europe/Paris)');
 
 // ========== FIN SYSTÈME DE CRON ==========
+
+// ========== ROUTES CRA ==========
+
+async function getCraConfig() {
+    return new Promise((resolve) => {
+        database.get(`SELECT value FROM settings WHERE key = 'automation_4_config'`,
+            (err, row) => {
+                if (err || !row) return resolve(null);
+                try { resolve(JSON.parse(row.value)); } catch { resolve(null); }
+            }
+        );
+    });
+}
+
+function buildCraEmailHtml({ title, expertNom, moisNom, craUrl, action }) {
+    return `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
+        <div style="background-color:#6a1b9a;padding:20px;border-radius:8px 8px 0 0;text-align:center;">
+            <h2 style="color:white;margin:0;">📝 Workflow CRA — ${title}</h2>
+        </div>
+        <div style="background-color:#f9f9f9;padding:20px;border:1px solid #e0e0e0;">
+            <div style="background:white;border-left:4px solid #6a1b9a;padding:15px;margin:15px 0;border-radius:0 8px 8px 0;">
+                <p style="margin:5px 0;"><strong>Expert :</strong> ${expertNom}</p>
+                <p style="margin:5px 0;"><strong>Période :</strong> ${moisNom}</p>
+            </div>
+            <p>${action}</p>
+            <div style="text-align:center;margin:20px 0;">
+                <a href="${craUrl}" style="background-color:#6a1b9a;color:white;padding:12px 30px;border-radius:6px;text-decoration:none;font-weight:bold;display:inline-block;">Accéder au CRA</a>
+            </div>
+            <p style="color:#666;font-size:12px;">Ce lien vous connecte directement à l'application sur le CRA concerné.</p>
+        </div>
+    </div>`;
+}
+
+function buildCraDocumentHtml({ cra, astreintes, signatures, moisNom }) {
+    const lignes = astreintes.map(a => `<tr>
+        <td style="padding:6px 10px;border:1px solid #ddd;">${a.type==='astreinte'?'🔔 Astreinte':'🌙 HNO'}</td>
+        <td style="padding:6px 10px;border:1px solid #ddd;">${a.date_debut}</td>
+        <td style="padding:6px 10px;border:1px solid #ddd;">${a.date_fin}</td>
+        <td style="padding:6px 10px;border:1px solid #ddd;">${a.heure_debut||''} ${a.heure_fin?'→ '+a.heure_fin:''}</td>
+        <td style="padding:6px 10px;border:1px solid #ddd;">${a.samu||''}</td>
+        <td style="padding:6px 10px;border:1px solid #ddd;">${a.objet||''}</td>
+    </tr>`).join('');
+    const sigsHtml = signatures.map(s => {
+        const rang = s.rang===1?'Expert':s.rang===2?'Administrateur N1':'Administrateur N2';
+        return `<div style="flex:1;min-width:180px;padding:15px;border:1px solid #6a1b9a;border-radius:6px;text-align:center;">
+            <div style="font-size:11px;color:#666;margin-bottom:8px;">${rang}</div>
+            <div style="font-weight:bold;color:#2c3e50;">${s.signer_name}</div>
+            <div style="font-size:11px;color:#6a1b9a;margin-top:4px;">✅ Signé électroniquement</div>
+            <div style="font-size:10px;color:#999;margin-top:4px;">${new Date(s.signed_at).toLocaleString('fr-FR')}</div>
+            <div style="font-size:9px;color:#ccc;margin-top:2px;">IP : ${s.ip_address||'N/A'}</div>
+        </div>`;
+    }).join('');
+    return `<div style="font-family:Arial,sans-serif;max-width:800px;margin:0 auto;padding:20px;">
+        <div style="text-align:center;border-bottom:3px solid #6a1b9a;padding-bottom:15px;margin-bottom:20px;">
+            <h1 style="color:#6a1b9a;margin:0;font-size:20px;">COMPTE-RENDU D'ACTIVITÉ</h1>
+            <h2 style="color:#2c3e50;margin:5px 0;font-size:16px;">${cra.expert_nom} — ${moisNom}</h2>
+            <p style="color:#666;font-size:12px;margin:0;">Agence du Numérique en Santé — Programme SI-SAMU</p>
+        </div>
+        <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+            <thead><tr style="background:#6a1b9a;color:white;">
+                <th style="padding:8px 10px;border:1px solid #4a0e7a;text-align:left;">Type</th>
+                <th style="padding:8px 10px;border:1px solid #4a0e7a;text-align:left;">Date début</th>
+                <th style="padding:8px 10px;border:1px solid #4a0e7a;text-align:left;">Date fin</th>
+                <th style="padding:8px 10px;border:1px solid #4a0e7a;text-align:left;">Heures</th>
+                <th style="padding:8px 10px;border:1px solid #4a0e7a;text-align:left;">SAMU</th>
+                <th style="padding:8px 10px;border:1px solid #4a0e7a;text-align:left;">Objet</th>
+            </tr></thead>
+            <tbody>${lignes||'<tr><td colspan="6" style="padding:15px;color:#999;text-align:center;">Aucune activité enregistrée</td></tr>'}</tbody>
+        </table>
+        ${cra.commentaire_expert?`<div style="background:#f3e5f5;padding:12px 15px;border-radius:6px;margin-bottom:20px;border-left:3px solid #6a1b9a;"><strong style="font-size:12px;color:#6a1b9a;">Commentaire de l'expert :</strong><p style="margin:5px 0 0 0;font-size:13px;">${cra.commentaire_expert}</p></div>`:''}
+        <div style="border-top:2px solid #6a1b9a;padding-top:20px;">
+            <h3 style="color:#6a1b9a;font-size:13px;margin-bottom:15px;">SIGNATURES ÉLECTRONIQUES</h3>
+            <div style="display:flex;gap:15px;flex-wrap:wrap;">${sigsHtml}</div>
+            <p style="font-size:10px;color:#999;margin-top:15px;font-style:italic;">Document généré électroniquement via la Plateforme de Planification ANS. Les signatures sont horodatées et enregistrées en base de données.</p>
+        </div>
+    </div>`;
+}
+
+app.get('/api/cra/experts-astreinte', requireAdmin, (req, res) => {
+    database.all(
+        `SELECT r.id as resource_id, r.nom, r.prenom, r.samu, r.es_rattachement, r.email, u.id as user_id
+         FROM resources r
+         LEFT JOIN users u ON u.resource_id = r.id AND u.is_expert = 1
+         WHERE r.astreinte_volontaire = 1 AND r.actif = 1
+         ORDER BY r.nom, r.prenom`,
+        (err, rows) => err ? res.status(500).json({ error: err.message }) : res.json(rows || [])
+    );
+});
+
+app.post('/api/cra/rh-recipients', requireAdmin, async (req, res) => {
+    const { recipients } = req.body;
+    try {
+        for (const [resourceId, emails] of Object.entries(recipients)) {
+            await new Promise((resolve, reject) => {
+                database.run(`DELETE FROM cra_rh_recipients WHERE resource_id = ?`, [resourceId], err => err ? reject(err) : resolve());
+            });
+            for (const email of emails) {
+                if (!email || !email.includes('@')) continue;
+                await new Promise((resolve) => {
+                    database.run(`INSERT OR IGNORE INTO cra_rh_recipients (resource_id, email) VALUES (?, ?)`, [resourceId, email.trim()], () => resolve());
+                });
+            }
+        }
+        res.json({ success: true });
+    } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/cra/my-list', requireAuth, async (req, res) => {
+    const userId = req.session.userId;
+    const isAdmin = req.session.activeProfile === 'admin';
+    try {
+        let rows;
+        if (isAdmin) {
+            // Admin : tous les CRA en attente de visa
+            rows = await new Promise((resolve, reject) => {
+                database.all(
+                    `SELECT c.*,
+                            u.prenom || ' ' || u.nom as expert_nom,
+                            u1.nom || ' ' || u1.prenom as vise_n1_nom,
+                            u2.nom || ' ' || u2.prenom as vise_n2_nom
+                     FROM cra c
+                     LEFT JOIN users u ON c.user_id = u.id
+                     LEFT JOIN users u1 ON c.vise_n1_by = u1.id
+                     LEFT JOIN users u2 ON c.vise_n2_by = u2.id
+                     WHERE c.statut IN ('soumis','vise_n1','vise_n2')
+                     ORDER BY c.annee DESC, c.mois DESC`,
+                    [], (err, rows) => err ? reject(err) : resolve(rows || [])
+                );
+            });
+        } else {
+            rows = await new Promise((resolve, reject) => {
+                database.all(
+                    `SELECT c.*, u1.nom || ' ' || u1.prenom as vise_n1_nom, u2.nom || ' ' || u2.prenom as vise_n2_nom
+                     FROM cra c
+                     LEFT JOIN users u1 ON c.vise_n1_by = u1.id
+                     LEFT JOIN users u2 ON c.vise_n2_by = u2.id
+                     WHERE c.user_id = ? ORDER BY c.annee DESC, c.mois DESC`,
+                    [userId], (err, rows) => err ? reject(err) : resolve(rows || [])
+                );
+            });
+        }
+        res.json(rows);
+    } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/cra/admin/list', requireAdmin, async (req, res) => {
+    const { user_id, statut } = req.query;
+    let where = '1=1';
+    const params = [];
+    if (user_id) { where += ' AND c.user_id = ?'; params.push(user_id); }
+    if (statut) { where += ' AND c.statut = ?'; params.push(statut); }
+    database.all(
+        `SELECT c.*, u.prenom || ' ' || u.nom as expert_nom, u1.prenom || ' ' || u1.nom as vise_n1_nom, u2.prenom || ' ' || u2.nom as vise_n2_nom
+         FROM cra c LEFT JOIN users u ON c.user_id = u.id LEFT JOIN users u1 ON c.vise_n1_by = u1.id LEFT JOIN users u2 ON c.vise_n2_by = u2.id
+         WHERE ${where} ORDER BY c.annee DESC, c.mois DESC, u.nom`,
+        params, (err, rows) => err ? res.status(500).json({ error: err.message }) : res.json(rows || [])
+    );
+});
+
+// Génération PDF CRA avec Puppeteer
+// Installer : npm install puppeteer
+let puppeteer;
+try { puppeteer = require('puppeteer'); } catch(e) { console.warn('⚠️ Puppeteer non installé — PDF CRA désactivé. Exécutez : npm install puppeteer'); }
+
+async function generateCraPdf(cra, astreintes, signatures, moisNom) {
+    if (!puppeteer) throw new Error('Puppeteer non installé. Exécutez : npm install puppeteer');
+    const html = buildCraPdfHtml({ cra, astreintes, signatures, moisNom });
+    const browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'], headless: 'new' });
+    try {
+        const page = await browser.newPage();
+        await page.setContent(html, { waitUntil: 'networkidle0' });
+        const pdf = await page.pdf({ format: 'A4', margin: { top: '15mm', right: '15mm', bottom: '20mm', left: '15mm' }, printBackground: true });
+        return pdf;
+    } finally {
+        await browser.close();
+    }
+}
+
+function buildCraPdfHtml({ cra, astreintes, signatures, moisNom }) {
+    const now = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const lignesHtml = astreintes.length ? astreintes.map((a, i) => `
+        <tr style="background:${i%2===0?'#ffffff':'#f9f4ff'};">
+            <td style="padding:6px 10px;border:1px solid #ddd;font-weight:bold;color:${a.type==='astreinte'?'#e65100':'#1565c0'};">${a.type==='astreinte'?'Astreinte':'HNO'}</td>
+            <td style="padding:6px 10px;border:1px solid #ddd;">${a.date_debut ? new Date(a.date_debut).toLocaleDateString('fr-FR') : ''}</td>
+            <td style="padding:6px 10px;border:1px solid #ddd;">${a.date_fin ? new Date(a.date_fin).toLocaleDateString('fr-FR') : ''}</td>
+            <td style="padding:6px 10px;border:1px solid #ddd;">${a.heure_debut||''} ${a.heure_fin?'→ '+a.heure_fin:''}</td>
+            <td style="padding:6px 10px;border:1px solid #ddd;">${a.samu||''}</td>
+            <td style="padding:6px 10px;border:1px solid #ddd;">${a.objet||''}</td>
+        </tr>`).join('') : `<tr><td colspan="6" style="padding:15px;text-align:center;color:#999;border:1px solid #ddd;">Aucune activité enregistrée</td></tr>`;
+
+    const sigsMap = { 1: null, 2: null, 3: null };
+    signatures.forEach(s => { sigsMap[s.rang] = s; });
+    const sigBlock = (rang, label) => {
+        const s = sigsMap[rang];
+        if (!s) return `<td style="border:1px solid #b39ddb;border-radius:6px;padding:12px;text-align:center;width:33%;">
+            <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">${label}</div>
+            <div style="height:32px;border-bottom:1px dashed #ccc;margin-bottom:8px;"></div>
+            <div style="font-size:10px;color:#bbb;">En attente</div></td>`;
+        return `<td style="border:2px solid #6a1b9a;border-radius:6px;padding:12px;text-align:center;width:33%;background:#faf5ff;">
+            <div style="font-size:10px;color:#6a1b9a;text-transform:uppercase;font-weight:bold;letter-spacing:0.5px;margin-bottom:6px;">${label}</div>
+            <div style="font-weight:bold;font-size:12px;color:#2c3e50;margin-bottom:3px;">${s.signer_name}</div>
+            <div style="font-size:10px;color:#27ae60;font-weight:bold;">Signé electroniquement</div>
+            <div style="font-size:9px;color:#888;margin-top:3px;">${new Date(s.signed_at).toLocaleString('fr-FR')}</div>
+            <div style="font-size:8px;color:#bbb;margin-top:2px;">IP : ${s.ip_address||'N/A'}</div></td>`;
+    };
+    const moisCapitalize = moisNom.charAt(0).toUpperCase() + moisNom.slice(1);
+    return `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8">
+<style>* {box-sizing:border-box;margin:0;padding:0;} body{font-family:Arial,sans-serif;font-size:12px;color:#2c3e50;}</style>
+</head><body style="padding:0;">
+  <table style="width:100%;border-bottom:3px solid #6a1b9a;padding-bottom:12px;margin-bottom:16px;">
+    <tr>
+      <td style="width:200px;vertical-align:middle;">
+        <div style="font-size:10px;font-weight:bold;color:#1D70B7;">AGENCE DU NUMÉRIQUE EN SANTÉ</div>
+        <div style="font-size:8px;color:#888;">Programme SI-SAMU</div>
+      </td>
+      <td style="text-align:center;vertical-align:middle;">
+        <div style="font-size:17px;font-weight:bold;color:#6a1b9a;text-transform:uppercase;letter-spacing:1px;">Compte-Rendu d'Activité</div>
+        <div style="font-size:13px;color:#2c3e50;margin-top:4px;">${cra.expert_nom} — ${moisCapitalize}</div>
+      </td>
+      <td style="width:160px;text-align:right;vertical-align:top;font-size:9px;color:#888;">
+        <div>Produit le ${now}</div>
+      </td>
+    </tr>
+  </table>
+  <table style="width:100%;border-collapse:collapse;margin-bottom:16px;font-size:11px;">
+    <tr style="background:#f3e5f5;">
+      <td style="padding:6px 10px;border:1px solid #d1b3e0;font-weight:bold;width:120px;">Expert</td>
+      <td style="padding:6px 10px;border:1px solid #d1b3e0;">${cra.expert_nom}</td>
+      <td style="padding:6px 10px;border:1px solid #d1b3e0;font-weight:bold;width:80px;">Période</td>
+      <td style="padding:6px 10px;border:1px solid #d1b3e0;">${moisCapitalize}</td>
+    </tr>
+  </table>
+  <div style="font-size:11px;font-weight:bold;color:#6a1b9a;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Activités Astreinte / HNO</div>
+  <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:11px;">
+    <thead><tr style="background:#6a1b9a;color:white;">
+      <th style="padding:7px 10px;border:1px solid #4a0e7a;text-align:left;">Type</th>
+      <th style="padding:7px 10px;border:1px solid #4a0e7a;text-align:left;">Date début</th>
+      <th style="padding:7px 10px;border:1px solid #4a0e7a;text-align:left;">Date fin</th>
+      <th style="padding:7px 10px;border:1px solid #4a0e7a;text-align:left;">Heures</th>
+      <th style="padding:7px 10px;border:1px solid #4a0e7a;text-align:left;">SAMU</th>
+      <th style="padding:7px 10px;border:1px solid #4a0e7a;text-align:left;">Objet</th>
+    </tr></thead>
+    <tbody>${lignesHtml}</tbody>
+  </table>
+  ${cra.commentaire_expert ? `<div style="background:#f3e5f5;border-left:4px solid #6a1b9a;padding:10px 14px;margin-bottom:20px;font-size:11px;"><strong style="color:#6a1b9a;">Commentaire :</strong> ${cra.commentaire_expert}</div>` : ''}
+  <div style="border-top:2px solid #6a1b9a;padding-top:14px;">
+    <div style="font-size:11px;font-weight:bold;color:#6a1b9a;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">Signatures Electroniques</div>
+    <table style="width:100%;border-collapse:separate;border-spacing:8px;">
+      <tr>${sigBlock(1,'Expert')}${sigBlock(2,'Administrateur N1')}${sigBlock(3,'Administrateur N2')}</tr>
+    </table>
+    <p style="font-size:8px;color:#aaa;margin-top:10px;font-style:italic;">Document généré electroniquement via la Plateforme de Planification ANS. Signatures horodatées, enregistrées en base de données avec adresse IP et navigateur du signataire.</p>
+  </div>
+</body></html>`;
+}
+
+// GET /api/cra/:id/pdf
+app.get('/api/cra/:id/pdf', requireAuth, async (req, res) => {
+    const craId = req.params.id;
+    const userId = req.session.userId;
+    const isAdmin = req.session.activeProfile === 'admin';
+    try {
+        const cra = await new Promise((resolve, reject) => {
+            database.get(`SELECT c.*, u.nom || ' ' || u.prenom as expert_nom FROM cra c LEFT JOIN users u ON c.user_id = u.id WHERE c.id = ?`,
+                [craId], (err, row) => err ? reject(err) : resolve(row));
+        });
+        if (!cra) return res.status(404).json({ error: 'CRA introuvable' });
+        if (!isAdmin && cra.user_id !== userId) return res.status(403).json({ error: 'Accès interdit' });
+        const dateStart = `${cra.annee}-${String(cra.mois).padStart(2,'0')}-01`;
+        const dateEnd   = `${cra.annee}-${String(cra.mois).padStart(2,'0')}-31`;
+        const astreintes = await new Promise((resolve, reject) => {
+            database.all(`SELECT * FROM astreintes_hno WHERE user_id=? AND date_debut>=? AND date_debut<=? ORDER BY date_debut`,
+                [cra.user_id, dateStart, dateEnd], (err, rows) => err ? reject(err) : resolve(rows||[]));
+        });
+        const signatures = await new Promise((resolve, reject) => {
+            database.all(`SELECT * FROM cra_signatures WHERE cra_id=? ORDER BY rang`,
+                [craId], (err, rows) => err ? reject(err) : resolve(rows||[]));
+        });
+        const moisNom = new Date(parseInt(cra.annee), parseInt(cra.mois)-1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+        const pdfBuffer = await generateCraPdf(cra, astreintes, signatures, moisNom);
+        const filename = `CRA_${(cra.expert_nom||'expert').replace(/\s+/g,'_')}_${moisNom.replace(/\s+/g,'_')}.pdf`;
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.send(pdfBuffer);
+    } catch(e) {
+        console.error('Erreur génération PDF CRA:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.get('/api/cra/:id', requireAuth, async (req, res) => {
+    const craId = req.params.id;
+    const userId = req.session.userId;
+    const isAdmin = req.session.activeProfile === 'admin';
+    try {
+        const cra = await new Promise((resolve, reject) => {
+            database.get(
+                `SELECT c.*, u.nom || ' ' || u.prenom as expert_nom, u.resource_id,
+                        r.es_rattachement, r.samu as expert_samu,
+                        u1.nom || ' ' || u1.prenom as vise_n1_nom, u2.nom || ' ' || u2.prenom as vise_n2_nom
+                 FROM cra c LEFT JOIN users u ON c.user_id = u.id
+                 LEFT JOIN resources r ON u.resource_id = r.id
+                 LEFT JOIN users u1 ON c.vise_n1_by = u1.id LEFT JOIN users u2 ON c.vise_n2_by = u2.id
+                 WHERE c.id = ?`,
+                [craId], (err, row) => err ? reject(err) : resolve(row)
+            );
+        });
+        if (!cra) return res.status(404).json({ error: 'CRA introuvable' });
+        if (!isAdmin && cra.user_id !== userId) return res.status(403).json({ error: 'Accès interdit' });
+        const dateStart = `${cra.annee}-${String(cra.mois).padStart(2,'0')}-01`;
+        const dateEnd = `${cra.annee}-${String(cra.mois).padStart(2,'0')}-31`;
+        const astreintes = await new Promise((resolve, reject) => {
+            database.all(`SELECT * FROM astreintes_hno WHERE user_id = ? AND date_debut >= ? AND date_debut <= ? ORDER BY date_debut`,
+                [cra.user_id, dateStart, dateEnd], (err, rows) => err ? reject(err) : resolve(rows || []));
+        });
+        const signatures = await new Promise((resolve, reject) => {
+            database.all(`SELECT * FROM cra_signatures WHERE cra_id = ? ORDER BY rang`,
+                [craId], (err, rows) => err ? reject(err) : resolve(rows || []));
+        });
+        res.json({ ...cra, astreintes_hno: astreintes, signatures });
+    } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Remplacer les lignes astreintes/HNO d'un CRA (DELETE mois puis INSERT)
+app.post('/api/cra/:id/astreintes', requireAuth, async (req, res) => {
+    const craId = req.params.id;
+    const userId = req.session.userId;
+    const { lignes } = req.body;
+
+    try {
+        const cra = await new Promise((resolve, reject) => {
+            database.get(`SELECT * FROM cra WHERE id = ? AND user_id = ?`, [craId, userId],
+                (err, row) => err ? reject(err) : resolve(row));
+        });
+        if (!cra) return res.status(404).json({ error: 'CRA introuvable' });
+        if (cra.statut !== 'a_completer') return res.status(400).json({ error: 'CRA non modifiable dans ce statut' });
+
+        // Supprimer toutes les lignes du mois concerné pour cet utilisateur
+        const dateStart = `${cra.annee}-${String(cra.mois).padStart(2,'0')}-01`;
+        const dateEnd   = `${cra.annee}-${String(cra.mois).padStart(2,'0')}-31`;
+        await new Promise((resolve, reject) => {
+            database.run(
+                `DELETE FROM astreintes_hno WHERE user_id = ? AND date_debut >= ? AND date_debut <= ?`,
+                [userId, dateStart, dateEnd],
+                err => err ? reject(err) : resolve()
+            );
+        });
+
+        // Insérer les nouvelles lignes
+        for (const l of (lignes || [])) {
+            await new Promise((resolve, reject) => {
+                database.run(
+                    `INSERT INTO astreintes_hno (user_id, type, date_debut, date_fin, heure_debut, heure_fin, samu, objet)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [userId, l.type, l.date_debut, l.date_fin, l.heure_debut || null, l.heure_fin || null, l.samu || null, l.objet],
+                    err => err ? reject(err) : resolve()
+                );
+            });
+        }
+        res.json({ success: true, inserted: (lignes || []).length });
+    } catch(e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/cra/:id/submit', requireAuth, async (req, res) => {
+    const craId = req.params.id;
+    const userId = req.session.userId;
+    const { commentaire } = req.body;
+    try {
+        const cra = await new Promise((resolve, reject) => {
+            database.get(`SELECT * FROM cra WHERE id = ? AND user_id = ?`, [craId, userId], (err, row) => err ? reject(err) : resolve(row));
+        });
+        if (!cra) return res.status(404).json({ error: 'CRA introuvable' });
+        if (cra.statut !== 'a_completer') return res.status(400).json({ error: 'CRA déjà soumis' });
+        const now = new Date().toISOString();
+        await new Promise((resolve, reject) => {
+            database.run(`UPDATE cra SET statut = 'soumis', submitted_at = ?, commentaire_expert = ? WHERE id = ?`,
+                [now, commentaire || null, craId], err => err ? reject(err) : resolve());
+        });
+        await new Promise((resolve, reject) => {
+            database.run(
+                `INSERT INTO cra_signatures (cra_id, rang, signer_user_id, signer_name, signer_email, signed_at, ip_address, user_agent, token_used) VALUES (?, 1, ?, ?, ?, ?, ?, ?, 1)`,
+                [craId, userId, `${req.session.prenom} ${req.session.nom}`, req.session.email || '', now, req.ip, req.headers['user-agent'] || ''],
+                err => err ? reject(err) : resolve()
+            );
+        });
+        const config = await getCraConfig();
+        if (config?.admin_n1_email) {
+            const moisNom = new Date(cra.annee, cra.mois - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+            const appUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
+            await enqueueEmail({
+                batchId: generateICSUid(), recipientEmail: config.admin_n1_email, recipientName: config.admin_n1_nom,
+                senderName: `${req.session.prenom} ${req.session.nom}`, senderEmail: req.session.email || '',
+                subject: `CRA ${moisNom} — visa niveau 1 requis — ${req.session.prenom} ${req.session.nom}`,
+                htmlBody: buildCraEmailHtml({ title: 'Visa niveau 1 requis', expertNom: `${req.session.prenom} ${req.session.nom}`, moisNom, craUrl: `${appUrl}/?tab=cra&cra_id=${craId}`, action: 'Le CRA a été soumis par l\'expert et nécessite votre visa de niveau 1.' }),
+                actionType: 'cra_visa_n1'
+            });
+        }
+        res.json({ success: true });
+    } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/cra/:id/visa/:niveau', requireAdmin, async (req, res) => {
+    const craId = req.params.id;
+    const niveau = req.params.niveau;
+    const userId = req.session.userId;
+    const now = new Date().toISOString();
+    try {
+        const cra = await new Promise((resolve, reject) => {
+            database.get(`SELECT c.*, u.email as expert_email, u.prenom || ' ' || u.nom as expert_nom FROM cra c LEFT JOIN users u ON c.user_id = u.id WHERE c.id = ?`,
+                [craId], (err, row) => err ? reject(err) : resolve(row));
+        });
+        if (!cra) return res.status(404).json({ error: 'CRA introuvable' });
+        const expectedStatut = niveau === 'n1' ? 'soumis' : 'vise_n1';
+        if (cra.statut !== expectedStatut) return res.status(400).json({ error: `Statut incorrect (${cra.statut})` });
+        const newStatut = niveau === 'n1' ? 'vise_n1' : 'vise_n2';
+        const rang = niveau === 'n1' ? 2 : 3;
+        const updateField = niveau === 'n1' ? 'vise_n1_at = ?, vise_n1_by = ?' : 'vise_n2_at = ?, vise_n2_by = ?';
+        await new Promise((resolve, reject) => {
+            database.run(`UPDATE cra SET statut = ?, ${updateField} WHERE id = ?`, [newStatut, now, userId, craId], err => err ? reject(err) : resolve());
+        });
+        await new Promise((resolve, reject) => {
+            database.run(`INSERT INTO cra_signatures (cra_id, rang, signer_user_id, signer_name, signer_email, signed_at, ip_address, user_agent, token_used) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+                [craId, rang, userId, `${req.session.prenom} ${req.session.nom}`, req.session.email || '', now, req.ip, req.headers['user-agent'] || ''],
+                err => err ? reject(err) : resolve()
+            );
+        });
+        const config = await getCraConfig();
+        const appUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
+        const craUrl = `${appUrl}/?tab=cra&cra_id=${craId}`;
+        const moisNom = new Date(cra.annee, cra.mois - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+        const signerNom = `${req.session.prenom} ${req.session.nom}`;
+        if (niveau === 'n1' && config?.admin_n2_email) {
+            await enqueueEmail({
+                batchId: generateICSUid(), recipientEmail: config.admin_n2_email, recipientName: config.admin_n2_nom,
+                senderName: signerNom, senderEmail: req.session.email || '',
+                subject: `CRA ${moisNom} — visa niveau 2 requis — ${cra.expert_nom}`,
+                htmlBody: buildCraEmailHtml({ title: 'Visa niveau 2 requis', expertNom: cra.expert_nom, moisNom, craUrl, action: `Le CRA a été visé par ${signerNom} (N1) et nécessite votre visa de niveau 2.` }),
+                actionType: 'cra_visa_n2'
+            });
+        } else if (niveau === 'n2' && cra.expert_email) {
+            await enqueueEmail({
+                batchId: generateICSUid(), recipientEmail: cra.expert_email, recipientName: cra.expert_nom,
+                senderName: signerNom, senderEmail: req.session.email || '',
+                subject: `CRA ${moisNom} — doublement visé, prêt à diffuser`,
+                htmlBody: buildCraEmailHtml({ title: 'CRA doublement visé', expertNom: cra.expert_nom, moisNom, craUrl, action: 'Votre CRA a été visé par les deux niveaux d\'administration. Il sera prochainement diffusé à la RH de votre établissement.' }),
+                actionType: 'cra_vise_n2'
+            });
+        }
+        res.json({ success: true });
+    } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/cra/:id/refuser/:niveau — refuser et renvoyer à l'expert
+app.post('/api/cra/:id/refuser/:niveau', requireAdmin, async (req, res) => {
+    const craId = req.params.id;
+    const niveau = req.params.niveau; // 'n1' ou 'n2'
+    const { commentaire } = req.body;
+    const userId = req.session.userId;
+    const now = new Date().toISOString();
+
+    if (!commentaire || !commentaire.trim()) {
+        return res.status(400).json({ error: 'Un commentaire de refus est obligatoire' });
+    }
+
+    try {
+        const cra = await new Promise((resolve, reject) => {
+            database.get(
+                `SELECT c.*, u.email as expert_email, u.prenom || ' ' || u.nom as expert_nom
+                 FROM cra c LEFT JOIN users u ON c.user_id = u.id WHERE c.id = ?`,
+                [craId], (err, row) => err ? reject(err) : resolve(row)
+            );
+        });
+        if (!cra) return res.status(404).json({ error: 'CRA introuvable' });
+
+        const expectedStatut = niveau === 'n1' ? 'soumis' : 'vise_n1';
+        if (cra.statut !== expectedStatut) {
+            return res.status(400).json({ error: `Statut incorrect (${cra.statut})` });
+        }
+
+        // Remettre à l'état a_completer + enregistrer le commentaire de refus
+        await new Promise((resolve, reject) => {
+            database.run(
+                `UPDATE cra SET statut = 'a_completer', submitted_at = NULL,
+                 commentaire_refus = ?, refuse_at = ?, refuse_by = ?,
+                 vise_n1_at = NULL, vise_n1_by = NULL, vise_n2_at = NULL, vise_n2_by = NULL
+                 WHERE id = ?`,
+                [commentaire.trim(), now, userId, craId],
+                err => err ? reject(err) : resolve()
+            );
+        });
+
+        // Supprimer les signatures existantes pour ce CRA (repart de zéro)
+        await new Promise((resolve, reject) => {
+            database.run(`DELETE FROM cra_signatures WHERE cra_id = ?`, [craId], err => err ? reject(err) : resolve());
+        });
+
+        // Notifier l'expert par email
+        const config = await getCraConfig();
+        const appUrl = process.env.APP_URL || global._detectedAppUrl || 'http://localhost:3000';
+        const craUrl = `${appUrl}/?tab=cra&cra_id=${craId}`;
+        const moisNom = new Date(parseInt(cra.annee), parseInt(cra.mois)-1, 1)
+            .toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+        const refuseurNom = `${req.session.prenom} ${req.session.nom}`;
+        const niveauLabel = niveau === 'n1' ? 'niveau 1' : 'niveau 2';
+
+        if (cra.expert_email) {
+            await enqueueEmail({
+                batchId: generateICSUid(),
+                recipientEmail: cra.expert_email,
+                recipientName: cra.expert_nom,
+                senderName: refuseurNom,
+                senderEmail: req.session.email || emailConfig?.user || '',
+                subject: `CRA ${moisNom} — refusé par le viseur ${niveauLabel}, modifications requises`,
+                htmlBody: buildCraEmailHtml({
+                    title: `CRA refusé — modifications requises`,
+                    expertNom: cra.expert_nom,
+                    moisNom,
+                    craUrl,
+                    action: `Votre CRA a été refusé par <strong>${refuseurNom}</strong> (viseur ${niveauLabel}).<br><br>
+                        <div style="background:#fff3cd;border-left:4px solid #f39c12;padding:12px 16px;border-radius:0 6px 6px 0;margin:10px 0;">
+                            <strong>Motif du refus :</strong><br>${commentaire.trim()}
+                        </div><br>
+                        Merci de vous connecter pour corriger votre CRA et le soumettre à nouveau.`
+                }),
+                actionType: 'cra_refuse'
+            });
+        }
+
+        res.json({ success: true, message: `CRA renvoyé à l'expert avec motif de refus` });
+    } catch(e) {
+        console.error('Erreur refus CRA:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/cra/:id/diffuser', requireAdmin, async (req, res) => {
+    const craId = req.params.id;
+    const now = new Date().toISOString();
+    try {
+        const cra = await new Promise((resolve, reject) => {
+            database.get(
+                `SELECT c.*, r.id as resource_id, u.prenom || ' ' || u.nom as expert_nom, u.email as expert_email
+                 FROM cra c LEFT JOIN users u ON c.user_id = u.id LEFT JOIN resources r ON u.resource_id = r.id WHERE c.id = ?`,
+                [craId], (err, row) => err ? reject(err) : resolve(row)
+            );
+        });
+        if (!cra) return res.status(404).json({ error: 'CRA introuvable' });
+        if (cra.statut !== 'vise_n2') return res.status(400).json({ error: 'CRA non encore doublement visé' });
+        const rhRecipients = await new Promise((resolve, reject) => {
+            database.all(`SELECT email, nom FROM cra_rh_recipients WHERE resource_id = ?`, [cra.resource_id], (err, rows) => err ? reject(err) : resolve(rows || []));
+        });
+        const signatures = await new Promise((resolve, reject) => {
+            database.all(`SELECT * FROM cra_signatures WHERE cra_id = ? ORDER BY rang`, [craId], (err, rows) => err ? reject(err) : resolve(rows || []));
+        });
+        const dateStart = `${cra.annee}-${String(cra.mois).padStart(2,'0')}-01`;
+        const dateEnd = `${cra.annee}-${String(cra.mois).padStart(2,'0')}-31`;
+        const astreintes = await new Promise((resolve, reject) => {
+            database.all(`SELECT * FROM astreintes_hno WHERE user_id = ? AND date_debut >= ? AND date_debut <= ? ORDER BY date_debut`,
+                [cra.user_id, dateStart, dateEnd], (err, rows) => err ? reject(err) : resolve(rows || []));
+        });
+        const moisNom = new Date(cra.annee, cra.mois - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+        const craHtml = buildCraDocumentHtml({ cra, astreintes, signatures, moisNom });
+        const batchId = generateICSUid();
+        for (const rh of rhRecipients) {
+            await enqueueEmail({
+                batchId, recipientEmail: rh.email, recipientName: rh.nom || rh.email,
+                senderName: `${req.session.prenom} ${req.session.nom}`, senderEmail: req.session.email || '',
+                subject: `CRA ${moisNom} — ${cra.expert_nom}`,
+                htmlBody: craHtml, actionType: 'cra_diffusion'
+            });
+        }
+        await new Promise((resolve, reject) => {
+            database.run(`UPDATE cra SET statut = 'diffuse', diffuse_at = ? WHERE id = ?`, [now, craId], err => err ? reject(err) : resolve());
+        });
+        res.json({ success: true, sent: rhRecipients.length });
+    } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+async function runAutomation4() {
+    console.log('⏰ [CRON] Vérification automatisation n°4 (CRA)...');
+    try {
+        const config = await getCraConfig();
+        if (!config?.enabled) return;
+        const now = new Date();
+        if (now.getDate() !== config.day) return;
+        const targetDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const targetMois = targetDate.getMonth() + 1;
+        const targetAnnee = targetDate.getFullYear();
+        const experts = await new Promise((resolve, reject) => {
+            database.all(
+                `SELECT r.id as resource_id, r.nom, r.prenom, r.samu, u.id as user_id, u.email
+                 FROM resources r JOIN users u ON u.resource_id = r.id AND u.is_expert = 1
+                 WHERE r.astreinte_volontaire = 1 AND r.actif = 1`,
+                (err, rows) => err ? reject(err) : resolve(rows || [])
+            );
+        });
+        const appUrl = process.env.APP_URL || global._detectedAppUrl || 'http://localhost:3000';
+        let sent = 0;
+        for (const expert of experts) {
+            // INSERT si inexistant, puis toujours SELECT l'id (lastID non fiable sur IGNORE)
+            await new Promise((resolve, reject) => {
+                database.run(
+                    `INSERT OR IGNORE INTO cra (user_id, resource_id, mois, annee, statut) VALUES (?, ?, ?, ?, 'a_completer')`,
+                    [expert.user_id, expert.resource_id, targetMois, targetAnnee],
+                    err => err ? reject(err) : resolve()
+                );
+            });
+            const cra = await new Promise((resolve, reject) => {
+                database.get(
+                    `SELECT id, statut FROM cra WHERE user_id = ? AND mois = ? AND annee = ?`,
+                    [expert.user_id, targetMois, targetAnnee],
+                    (e, row) => e ? reject(e) : resolve(row)
+                );
+            });
+            const craId = cra?.id;
+            if (!cra || cra.statut !== 'a_completer' || !expert.email) continue;
+            const moisNom = targetDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+            const expertNom = `${expert.prenom} ${expert.nom}`;
+            await enqueueEmail({
+                batchId: generateICSUid(), recipientEmail: expert.email, recipientName: expertNom,
+                senderName: 'Plateforme de Planification ANS', senderEmail: emailConfig?.user || '',
+                subject: `Action requise — CRA ${moisNom} à compléter`,
+                htmlBody: buildCraEmailHtml({ title: `CRA ${moisNom} à compléter`, expertNom, moisNom, craUrl: `${appUrl}/?tab=cra&cra_id=${craId}`, action: `Votre compte-rendu d'activité pour le mois de ${moisNom} est disponible et attend votre validation. Merci de vous connecter pour le compléter et le soumettre.` }),
+                actionType: 'cra_rappel'
+            });
+            sent++;
+        }
+        console.log(`✅ [CRON] Automation n°4 : ${sent} rappel(s) CRA envoyé(s)`);
+
+        // Notifier les admins viseurs des CRA en attente de leur validation
+        const pendingN1 = await new Promise((resolve, reject) => {
+            database.all(`SELECT COUNT(*) as nb FROM cra WHERE statut = 'soumis'`,
+                [], (err, rows) => err ? reject(err) : resolve(rows[0]?.nb || 0));
+        });
+        const pendingN2 = await new Promise((resolve, reject) => {
+            database.all(`SELECT COUNT(*) as nb FROM cra WHERE statut = 'vise_n1'`,
+                [], (err, rows) => err ? reject(err) : resolve(rows[0]?.nb || 0));
+        });
+
+        if (pendingN1 > 0 && config.admin_n1_email) {
+            await enqueueEmail({
+                batchId: generateICSUid(),
+                recipientEmail: config.admin_n1_email,
+                recipientName: config.admin_n1_nom || '',
+                senderName: 'Plateforme de Planification ANS',
+                senderEmail: emailConfig?.user || '',
+                subject: `${pendingN1} CRA en attente de votre visa N1`,
+                htmlBody: buildCraEmailHtml({
+                    title: `${pendingN1} CRA en attente de visa N1`,
+                    expertNom: '',
+                    moisNom: new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
+                    craUrl: `${appUrl}/?tab=cra`,
+                    action: `${pendingN1} compte(s)-rendu(s) d'activité ont été soumis par les experts et attendent votre visa de niveau 1.`
+                }),
+                actionType: 'cra_rappel_admin'
+            });
+        }
+        if (pendingN2 > 0 && config.admin_n2_email) {
+            await enqueueEmail({
+                batchId: generateICSUid(),
+                recipientEmail: config.admin_n2_email,
+                recipientName: config.admin_n2_nom || '',
+                senderName: 'Plateforme de Planification ANS',
+                senderEmail: emailConfig?.user || '',
+                subject: `${pendingN2} CRA en attente de votre visa N2`,
+                htmlBody: buildCraEmailHtml({
+                    title: `${pendingN2} CRA en attente de visa N2`,
+                    expertNom: '',
+                    moisNom: new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
+                    craUrl: `${appUrl}/?tab=cra`,
+                    action: `${pendingN2} compte(s)-rendu(s) d'activité ont été visés N1 et attendent votre visa de niveau 2.`
+                }),
+                actionType: 'cra_rappel_admin'
+            });
+        }
+    } catch(e) { console.error('❌ [CRON] Erreur automation n°4:', e); }
+}
+
+app.post('/api/automation/cra/trigger', requireAdmin, async (req, res) => {
+    try {
+        await runAutomation4();
+        res.json({ success: true, sent: 'voir logs serveur' });
+    } catch(e) { res.status(500).json({ error: e.message }); }
+});
 
 // ========== ROUTES GESTION ASTREINTES ==========
 
@@ -10137,7 +10902,7 @@ app.post('/api/mfa/verify', async (req, res) => {
         // Récupérer l'utilisateur et compléter le login
         const user = await new Promise((resolve, reject) => {
             database.get(
-                `SELECT u.*, r.trigramme 
+                `SELECT u.*, r.trigramme, r.astreinte_volontaire 
                  FROM users u 
                  LEFT JOIN resources r ON r.id = u.resource_id 
                  WHERE u.id = ?`,
@@ -10243,7 +11008,7 @@ app.post('/api/mfa/totp-confirm', async (req, res) => {
         // Récupérer l'utilisateur et compléter le login
         const user = await new Promise((resolve, reject) => {
             database.get(
-                `SELECT u.*, r.trigramme 
+                `SELECT u.*, r.trigramme, r.astreinte_volontaire 
                  FROM users u 
                  LEFT JOIN resources r ON r.id = u.resource_id 
                  WHERE u.id = ?`,

@@ -479,6 +479,10 @@
             <div class="tabs">
                 <button class="tab-btn active" onclick="switchTab('resources', event)">Ressources</button>
                 <button class="tab-btn" onclick="switchTab('planning', event)">Planification</button>
+                <button class="tab-btn" id="craTabBtn" onclick="switchTab('cra', event)" style="display: none; position: relative;">
+                    <span id="craTabLabel">Mon CRA</span>
+                    <span id="craPendingBadge" style="display:none;position:absolute;top:-8px;right:-8px;background:#e74c3c;color:white;border-radius:50%;min-width:18px;height:18px;font-size:10px;font-weight:bold;line-height:18px;text-align:center;padding:0 3px;border:2px solid #2c3e50;">0</span>
+                </button>
                 <button class="tab-btn" id="reportingTab" onclick="switchTab('reporting', event)" style="display:none;">Reporting</button>
                 <button class="tab-btn" id="adminTab" onclick="switchTab('admin', event)" style="display:none;">Administration</button>
                 <button class="tab-btn" id="astreintesGestionTab" onclick="switchTab('astreintesGestion', event)" style="display:none;">🧪 Astreintes (expérimental)</button>
@@ -791,6 +795,42 @@
         </div>
         
         <!-- ONGLET REPORTING -->
+        <div id="cra" class="tab-content">
+            <div style="padding: 20px;">
+                <h2 style="color: #6a1b9a; border-bottom: 2px solid #6a1b9a; padding-bottom: 10px;">📝 Mes Comptes-Rendus d'Activité</h2>
+                <div id="craList" style="margin-top: 20px;"><div style="text-align: center; padding: 30px; color: #999;">⏳ Chargement...</div></div>
+                <div id="craDetailPanel" style="display: none; margin-top: 20px; padding: 20px; background: #f3e5f5; border-radius: 8px; border: 1px solid #b39ddb;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3 id="craDetailTitle" style="color: #6a1b9a; margin: 0;"></h3>
+                        <button onclick="closeCraDetail()" style="background: none; border: none; font-size: 20px; cursor: pointer;">✕</button>
+                    </div>
+                    <div id="craStatusTimeline" style="margin-bottom: 20px;"></div>
+                    <div id="craDataSection" style="margin-bottom: 20px;"></div>
+                    <div style="margin-bottom: 15px;">
+                        <label style="font-size: 13px; font-weight: bold; color: #6a1b9a; display: block; margin-bottom: 5px;">💬 Commentaire de l'expert</label>
+                        <textarea id="craCommentaire" rows="3" style="width: 100%; padding: 8px; border: 1px solid #b39ddb; border-radius: 4px; font-size: 13px;" placeholder="Ajoutez des informations complémentaires si nécessaire..."></textarea>
+                    </div>
+
+                    <!-- Commentaire de refus précédent -->
+                    <div id="craRefusPanel" style="display:none; margin-bottom:15px; background:#fff3cd; border-left:4px solid #f39c12; padding:10px 14px; border-radius:0 6px 6px 0;">
+                        <div style="font-size:12px; font-weight:bold; color:#e65100; margin-bottom:4px;">⚠️ Motif de refus précédent</div>
+                        <div id="craRefusCommentaire" style="font-size:12px; color:#2c3e50;"></div>
+                        <div id="craRefusInfo" style="font-size:11px; color:#888; margin-top:4px;"></div>
+                    </div>
+
+                    <!-- Commentaire de refus du viseur -->
+                    <div id="craRefusViseurPanel" style="display:none; margin-bottom:15px;">
+                        <label style="font-size: 13px; font-weight: bold; color: #e65100; display: block; margin-bottom: 5px;">❌ Motif de refus (obligatoire)</label>
+                        <textarea id="craCommentaireRefus" rows="3" style="width: 100%; padding: 8px; border: 1px solid #f39c12; border-radius: 4px; font-size: 13px;" placeholder="Expliquez pourquoi vous refusez ce CRA..."></textarea>
+                    </div>
+                    <div id="craActionButtons" style="display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap;">
+                        <!-- Bouton PDF toujours disponible -->
+                        <button id="craPdfBtn" onclick="downloadCraPdf()" style="background:#78909c;color:white;padding:10px 18px;font-weight:bold;border:none;border-radius:4px;cursor:pointer;display:none;">📄 Télécharger PDF</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div id="reporting" class="tab-content">
             <h2>Reporting</h2>
             
@@ -2108,6 +2148,71 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Automatisation n°4: Workflow CRA -->
+            <div style="background-color: white; border: 1px solid #b39ddb; border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0;">
+                        <input type="checkbox" id="automation4Enabled" onchange="saveAutomation4Config()" style="width: 18px; height: 18px; margin: 0;">
+                        <span style="font-weight: bold; color: #6a1b9a; font-size: 14px;">📝 Automatisation n°4 : Workflow Compte-Rendu d'Activité</span>
+                    </label>
+                </div>
+                <p style="font-size: 12px; color: #666; margin: 0 0 15px 0; padding-left: 26px;">Déclenche chaque mois un rappel aux experts astreinte pour compléter leur CRA du mois précédent, puis gère le circuit de visa jusqu'à la diffusion auprès des RH.</p>
+                <div style="padding-left: 26px; display: flex; flex-direction: column; gap: 15px;">
+                    <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end;">
+                        <div style="flex: 0 0 180px;">
+                            <label style="font-size: 12px; color: #555;">Jour du mois de déclenchement</label>
+                            <select id="automation4Day" onchange="saveAutomation4Config()" style="width: 100%;"></select>
+                        </div>
+                        <div style="flex: 0 0 220px;">
+                            <label style="font-size: 12px; color: #555;">Administrateur niveau 1 (premier viseur)</label>
+                            <select id="automation4AdminN1" onchange="saveAutomation4Config()" style="width: 100%;"><option value="">-- Choisir --</option></select>
+                        </div>
+                        <div style="flex: 0 0 220px;">
+                            <label style="font-size: 12px; color: #555;">Administrateur niveau 2 (deuxième viseur)</label>
+                            <select id="automation4AdminN2" onchange="saveAutomation4Config()" style="width: 100%;"><option value="">-- Choisir --</option></select>
+                        </div>
+                    </div>
+                    <div>
+                        <label style="font-size: 12px; color: #6a1b9a; font-weight: bold; display: block; margin-bottom: 8px;">👥 Experts participants au workflow CRA (astreinte_volontaire = 1)</label>
+                        <div id="automation4ExpertsList" style="max-height: 400px; overflow-y: auto; border: 1px solid #e1bee7; border-radius: 6px;"></div>
+                    </div>
+                    <div style="padding: 15px; background-color: #f3e5f5; border-radius: 5px; border: 1px dashed #b39ddb;">
+                        <label style="font-size: 12px; font-weight: bold; color: #6a1b9a;">🧪 Test de l'automatisation</label>
+                        <p style="font-size: 11px; color: #666; margin: 5px 0 10px 0;">Envoie immédiatement les rappels CRA à tous les experts astreinte éligibles pour le mois en cours.</p>
+                        <button onclick="testAutomation4()" style="background-color: #9c27b0; color: white;">🔍 Tester maintenant</button>
+                        <div id="automation4TestResult" style="margin-top: 10px; font-size: 12px;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Signatures CRA -->
+            <div style="background: white; border: 1px solid #b39ddb; border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleAdminSection('craSignaturesSection'); if(document.getElementById('craSignaturesSection').style.display!=='none') loadCraSignatures();">
+                    <span><span id="craSignaturesSectionIcon">▶</span> ✍️ Signatures CRA</span>
+                </div>
+                <div id="craSignaturesSection" style="display: none; margin-top: 15px;">
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; align-items: flex-end;">
+                        <div>
+                            <label style="font-size: 12px; color: #555;">Expert</label>
+                            <select id="craSignFilterExpert" style="width: 200px;"><option value="">Tous les experts</option></select>
+                        </div>
+                        <div>
+                            <label style="font-size: 12px; color: #555;">Statut</label>
+                            <select id="craSignFilterStatut" style="width: 160px;">
+                                <option value="">Tous</option>
+                                <option value="a_completer">À compléter</option>
+                                <option value="soumis">Soumis</option>
+                                <option value="vise_n1">Visé N1</option>
+                                <option value="vise_n2">Visé N2</option>
+                                <option value="diffuse">Diffusé</option>
+                            </select>
+                        </div>
+                        <button onclick="loadCraSignatures()" style="background: #6a1b9a; color: white;">🔍 Rechercher</button>
+                    </div>
+                    <div id="craSignaturesTable"></div>
+                </div>
+            </div>
             
         </div>
     </div>
@@ -2361,6 +2466,90 @@
             <div id="astreintePlanningActuelContainer">
                 <p style="color: #999; font-style: italic;">Sélectionnez un mois pour afficher le planning</p>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal visualisation CRA (depuis admin) -->
+<div id="craViewerModal" class="modal" style="z-index: 10002;">
+    <div class="modal-content" style="max-width: 900px; max-height: 90vh; overflow-y: auto; padding: 0;">
+        <div style="position: sticky; top: 0; background: #6a1b9a; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 1;">
+            <h3 id="craViewerTitle" style="margin: 0; color: white; font-size: 15px;"></h3>
+            <button onclick="document.getElementById('craViewerModal').classList.remove('active')" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; line-height: 1;">✕</button>
+        </div>
+        <div id="craViewerBody" style="padding: 20px;"></div>
+        <div style="padding: 15px 20px; border-top: 1px solid #e1bee7; background: #f9f4ff; display: flex; justify-content: flex-end; gap: 10px;">
+            <button onclick="downloadCraPdf(_craViewerCurrentId)" style="background:#78909c;color:white;padding:10px 18px;font-weight:bold;border:none;border-radius:4px;cursor:pointer;">📄 Voir / Télécharger PDF</button>
+            <button onclick="document.getElementById('craViewerModal').classList.remove('active')" style="background:#6a1b9a;color:white;padding:10px 18px;border:none;border-radius:4px;cursor:pointer;">Fermer</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal saisie astreintes/HNO pour CRA -->
+<div id="craSaisieModal" class="modal" style="z-index: 10001;">
+    <div class="modal-content" style="max-width: 750px; max-height: 90vh; overflow-y: auto; padding: 0;">
+        <div style="position: sticky; top: 0; background: #6a1b9a; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 1;">
+            <h3 style="margin: 0; color: white; font-size: 15px;">📝 Compléter mon CRA — <span id="craSaisieModalTitle"></span></h3>
+            <button onclick="closeCraSaisieModal()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; line-height: 1;">✕</button>
+        </div>
+
+        <!-- Formulaire d'ajout ligne -->
+        <div style="padding: 20px; background: #f3e5f5; border-bottom: 1px solid #b39ddb;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
+                <div>
+                    <label style="display: block; margin-bottom: 4px; font-weight: bold; color: #333; font-size: 12px;">Type *</label>
+                    <select id="craSaisieType" style="width: 100%; padding: 8px; border: 1px solid #b39ddb; border-radius: 4px; font-size: 13px;">
+                        <option value="astreinte">Astreinte</option>
+                        <option value="hno">Travail HNO</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="display: block; margin-bottom: 4px; font-weight: bold; color: #333; font-size: 12px;">Date de début *</label>
+                    <input type="date" id="craSaisieDateDebut" onchange="if(!document.getElementById('craSaisieDateFin').value) document.getElementById('craSaisieDateFin').value = this.value" style="width: 100%; padding: 8px; border: 1px solid #b39ddb; border-radius: 4px; font-size: 13px;">
+                </div>
+                <div>
+                    <label style="display: block; margin-bottom: 4px; font-weight: bold; color: #333; font-size: 12px;">Date de fin *</label>
+                    <input type="date" id="craSaisieDateFin" style="width: 100%; padding: 8px; border: 1px solid #b39ddb; border-radius: 4px; font-size: 13px;">
+                </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px;">
+                <div>
+                    <label style="display: block; margin-bottom: 4px; font-weight: bold; color: #333; font-size: 12px;">Heure de début *</label>
+                    <input type="time" id="craSaisieHeureDebut" style="width: 100%; padding: 8px; border: 1px solid #b39ddb; border-radius: 4px; font-size: 13px;">
+                </div>
+                <div>
+                    <label style="display: block; margin-bottom: 4px; font-weight: bold; color: #333; font-size: 12px;">Heure de fin *</label>
+                    <input type="time" id="craSaisieHeureFin" style="width: 100%; padding: 8px; border: 1px solid #b39ddb; border-radius: 4px; font-size: 13px;">
+                </div>
+            </div>
+            <div style="margin-top: 12px;">
+                <label style="display: block; margin-bottom: 4px; font-weight: bold; color: #333; font-size: 12px;">SAMU *</label>
+                <select id="craSaisieSamu" style="width: 100%; padding: 8px; border: 1px solid #b39ddb; border-radius: 4px; font-size: 13px;">
+                    <option value="">-- Sélectionner un SAMU --</option>
+                </select>
+            </div>
+            <div style="margin-top: 12px;">
+                <label style="display: block; margin-bottom: 4px; font-weight: bold; color: #333; font-size: 12px;">Objet *</label>
+                <input type="text" id="craSaisieObjet" placeholder="Objet de l'astreinte/HNO" style="width: 100%; padding: 8px; border: 1px solid #b39ddb; border-radius: 4px; font-size: 13px;">
+            </div>
+            <div style="margin-top: 15px;">
+                <button id="craSaisieAddBtn" onclick="craSaisieAjouter()" style="background: #6a1b9a; color: white; padding: 9px 22px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px;">➕ Ajouter</button>
+                <button onclick="craSaisieResetForm()" style="background: #95a5a6; color: white; padding: 9px 18px; border: none; border-radius: 4px; cursor: pointer; margin-left: 8px; font-size: 13px;">🔄 Réinitialiser</button>
+            </div>
+        </div>
+
+        <!-- Liste des lignes saisies -->
+        <div style="padding: 20px;">
+            <h4 style="color: #6a1b9a; margin: 0 0 12px 0; font-size: 13px;">Liste des astreintes/HNO</h4>
+            <div id="craSaisieList" style="min-height: 60px; max-height: 300px; overflow-y: auto;">
+                <p style="color: #999; text-align: center; font-size: 13px; padding: 20px 0;">Aucune ligne saisie</p>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="padding: 15px 20px; border-top: 1px solid #e1bee7; background: #f9f4ff; display: flex; justify-content: flex-end; gap: 10px;">
+            <button onclick="closeCraSaisieModal()" style="background: #78909c; color: white; padding: 10px 22px; border: none; border-radius: 4px; cursor: pointer; font-size: 13px;">Fermer</button>
+            <button onclick="craSaisieTerminer()" style="background: #27ae60; color: white; padding: 10px 22px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px;">✅ Terminer</button>
         </div>
     </div>
 </div>
@@ -3054,6 +3243,26 @@
                     updateTabsVisibility();
                     updateUserDisplay();
                     updateProfileDisplay(); // Mettre à jour la photo de profil
+
+                    // Onglet CRA
+                    const craBtn = document.getElementById('craTabBtn');
+                    if (craBtn) {
+                        const showCra = currentUser.is_admin || currentUser.astreinte_volontaire;
+                        craBtn.style.display = showCra ? 'block' : 'none';
+                        document.getElementById('craTabLabel').textContent = currentUser.is_admin ? 'CRA à valider' : 'Mon CRA';
+                    }
+
+                    // Charger la config CRA pour les boutons visa
+                    fetch(`${API_URL}/settings`, { credentials: 'include' })
+                        .then(r => r.json())
+                        .then(data => {
+                            if (data.automation_4_config) {
+                                try { window._craConfig = JSON.parse(data.automation_4_config); } catch(e) {}
+                            }
+                        }).catch(() => {});
+
+                    // Badge CRA en attente
+                    loadCraPendingBadge();
                     
                     await loadResources();
                     await loadSchedule();
@@ -3312,6 +3521,15 @@
             updateTabsVisibility();
             updateUserDisplay();
             
+            // Afficher l'onglet CRA selon le profil
+            const craBtn = document.getElementById('craTabBtn');
+            if (craBtn) {
+                const showCra = currentUser.is_admin || currentUser.astreinte_volontaire;
+                craBtn.style.display = showCra ? 'block' : 'none';
+                const lbl = document.getElementById('craTabLabel');
+                if (lbl) lbl.textContent = currentUser.is_admin ? 'CRA à valider' : 'Mon CRA';
+            }
+            
             await loadResources();
             await loadSchedule();
             await loadSettings(); // Charger les paramètres d'inactivité
@@ -3322,6 +3540,18 @@
 
             // Vérifier popup nouveautés version
             checkHelpVersionPopup();
+
+            // Badge CRA en attente (admin)
+            loadCraPendingBadge();
+
+            // Charger la config CRA pour tous les profils (nécessaire pour les boutons visa)
+            fetch(`${API_URL}/settings`, { credentials: 'include' })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.automation_4_config) {
+                        try { window._craConfig = JSON.parse(data.automation_4_config); } catch(e) {}
+                    }
+                }).catch(() => {});
             
             // Démarrer le suivi des utilisateurs connectés en temps réel
             startOnlineUsersPolling();
@@ -3356,6 +3586,14 @@
                 // Si l'onglet n'est pas accessible, afficher Planification
                 switchTab('planning', null);
             }
+
+            // Deep link CRA depuis email
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('tab') === 'cra') {
+                switchTab('cra', null);
+                const craId = urlParams.get('cra_id');
+                if (craId) setTimeout(() => openCraDetail(parseInt(craId)), 500);
+            }
             
             document.getElementById('loginUsername').value = '';
             document.getElementById('loginPassword').value = '';
@@ -3367,15 +3605,10 @@
         
         // Obtenir la liste des onglets accessibles selon le profil
         function getAvailableTabsForProfile(profile) {
-            const allTabs = ['resources', 'planning', 'reporting', 'admin', 'astreintesGestion'];
-            
-            if (profile === 'admin') {
-                return allTabs;
-            } else if (profile === 'user') {
-                return ['resources', 'planning', 'reporting'];
-            } else if (profile === 'expert') {
-                return ['resources', 'planning'];
-            }
+            const allTabs = ['resources', 'planning', 'cra', 'reporting', 'admin', 'astreintesGestion'];
+            if (profile === 'admin') return allTabs;
+            else if (profile === 'user') return ['resources', 'planning', 'reporting'];
+            else if (profile === 'expert') return ['resources', 'planning', 'cra'];
             return ['resources', 'planning'];
         }
 
@@ -8771,6 +9004,8 @@
                     loadAutomation2Config();
                     // Automatisation 3 (Teams)
                     loadAutomation3Config();
+                    // Automatisation 4 (CRA)
+                    loadAutomation4Config();
                     // Configuration MFA
                     loadMfaConfig();
                 }
@@ -12137,6 +12372,842 @@
         }
         
         // Charger la configuration de l'automatisation n°3
+        // ========== AUTOMATION 4 — CRA ==========
+
+        async function loadAutomation4Config() {
+            try {
+                const res = await fetch(`${API_URL}/settings`, { credentials: 'include' });
+                const data = await res.json();
+                const config = data.automation_4_config ? JSON.parse(data.automation_4_config) : {};
+                window._craConfig = config;
+
+                document.getElementById('automation4Enabled').checked = config.enabled || false;
+
+                const daySelect = document.getElementById('automation4Day');
+                daySelect.innerHTML = Array.from({length: 28}, (_, i) =>
+                    `<option value="${i+1}" ${config.day === i+1 ? 'selected' : ''}>${i+1}</option>`
+                ).join('');
+
+                const usersRes = await fetch(`${API_URL}/users`, { credentials: 'include' });
+                const usersData = await usersRes.json();
+                const rhUsers = (usersData.users || usersData || []).filter(u => u.is_rh === 1 && u.actif === 1);
+
+                const rhOptions = '<option value="">-- Choisir --</option>' +
+                    rhUsers.map(u =>
+                        `<option value="${u.id}" data-email="${u.email}" data-nom="${u.nom}" data-prenom="${u.prenom}">${(u.nom||'').toUpperCase()} ${u.prenom||''}</option>`
+                    ).join('');
+
+                document.getElementById('automation4AdminN1').innerHTML = rhOptions;
+                document.getElementById('automation4AdminN2').innerHTML = rhOptions;
+                if (config.admin_n1_id) document.getElementById('automation4AdminN1').value = config.admin_n1_id;
+                if (config.admin_n2_id) document.getElementById('automation4AdminN2').value = config.admin_n2_id;
+
+                await loadAutomation4ExpertsList(config);
+            } catch(e) { console.error('Erreur chargement config automation4:', e); }
+        }
+
+        async function loadAutomation4ExpertsList(config = {}) {
+            try {
+                const res = await fetch(`${API_URL}/cra/experts-astreinte`, { credentials: 'include' });
+                const experts = await res.json();
+                const container = document.getElementById('automation4ExpertsList');
+                if (!experts.length) {
+                    container.innerHTML = '<p style="padding:15px;color:#999;font-size:12px;">Aucun expert avec astreinte activée.</p>';
+                    return;
+                }
+                container.innerHTML = experts.map(expert => {
+                    const savedEmails = (config.rh_recipients || {})[expert.resource_id] || [];
+                    return `<div style="padding:12px 15px;border-bottom:1px solid #f3e5f5;display:flex;flex-direction:column;gap:8px;">
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <strong style="font-size:13px;min-width:180px;">${(expert.nom||'').toUpperCase()} ${expert.prenom||''}</strong>
+                            <span style="font-size:11px;color:#666;">${expert.samu||''} — ${expert.es_rattachement||''}</span>
+                        </div>
+                        <div>
+                            <label style="font-size:11px;color:#6a1b9a;display:block;margin-bottom:4px;">📧 Destinataires RH (un email par ligne) :</label>
+                            <textarea id="rh_emails_${expert.resource_id}" placeholder="rh@etablissement.fr&#10;drh@hopital.fr"
+                                style="width:100%;height:60px;font-size:11px;padding:6px;border:1px solid #b39ddb;border-radius:4px;resize:vertical;"
+                                onchange="saveAutomation4Config()">${savedEmails.join('\n')}</textarea>
+                        </div>
+                    </div>`;
+                }).join('');
+            } catch(e) { console.error('Erreur chargement experts astreinte:', e); }
+        }
+
+        async function saveAutomation4Config() {
+            const textareas = document.querySelectorAll('[id^="rh_emails_"]');
+            const rhRecipients = {};
+            textareas.forEach(ta => {
+                const resourceId = ta.id.replace('rh_emails_', '');
+                rhRecipients[resourceId] = ta.value.split('\n').map(e => e.trim()).filter(e => e && e.includes('@'));
+            });
+            const n1Select = document.getElementById('automation4AdminN1');
+            const n2Select = document.getElementById('automation4AdminN2');
+            const n1Option = n1Select.options[n1Select.selectedIndex];
+            const n2Option = n2Select.options[n2Select.selectedIndex];
+            const config = {
+                enabled: document.getElementById('automation4Enabled').checked,
+                day: parseInt(document.getElementById('automation4Day').value) || 1,
+                admin_n1_id: n1Select.value || null,
+                admin_n1_email: n1Option?.dataset?.email || '',
+                admin_n1_nom: n1Option ? `${n1Option.dataset?.prenom||''} ${n1Option.dataset?.nom||''}` : '',
+                admin_n2_id: n2Select.value || null,
+                admin_n2_email: n2Option?.dataset?.email || '',
+                admin_n2_nom: n2Option ? `${n2Option.dataset?.prenom||''} ${n2Option.dataset?.nom||''}` : '',
+                rh_recipients: rhRecipients
+            };
+            window._craConfig = config;
+            try {
+                await fetch(`${API_URL}/settings`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+                    body: JSON.stringify({ key: 'automation_4_config', value: JSON.stringify(config) })
+                });
+                await fetch(`${API_URL}/cra/rh-recipients`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+                    body: JSON.stringify({ recipients: rhRecipients })
+                });
+            } catch(e) { console.error('Erreur sauvegarde config automation4:', e); }
+        }
+
+        async function testAutomation4() {
+            const resultDiv = document.getElementById('automation4TestResult');
+            resultDiv.textContent = '⏳ Envoi des rappels CRA en cours...';
+            try {
+                const res = await fetch(`${API_URL}/automation/cra/trigger`, { method: 'POST', credentials: 'include' });
+                const data = await res.json();
+                resultDiv.innerHTML = data.success ? `✅ ${data.sent} rappel(s) envoyé(s)` : `❌ Erreur : ${data.error}`;
+            } catch(e) { resultDiv.textContent = '❌ Erreur réseau'; }
+        }
+
+        // ========== ONGLET MON CRA ==========
+
+        async function downloadCraPdf(craId) {
+            try {
+                // Récupérer les données du CRA
+                const res = await fetch(`${API_URL}/cra/${craId}`, { credentials: 'include' });
+                if (!res.ok) { alert('Erreur chargement CRA'); return; }
+                const cra = await res.json();
+
+                const moisNom = new Date(parseInt(cra.annee), parseInt(cra.mois)-1, 1)
+                    .toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+                const moisCap = moisNom.charAt(0).toUpperCase() + moisNom.slice(1);
+                const now = new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+
+                const sigsMap = { 1: null, 2: null, 3: null };
+                (cra.signatures || []).forEach(s => { sigsMap[s.rang] = s; });
+                const sigBlock = (rang, label) => {
+                    const s = sigsMap[rang];
+                    if (!s) return `<div class="sig-box empty"><div class="sig-label">${label}</div><div class="sig-line"></div><div class="sig-pending">En attente</div></div>`;
+                    return `<div class="sig-box done"><div class="sig-label">${label}</div>
+                        <div class="sig-name">${s.signer_name}</div>
+                        <div class="sig-ok">✅ Signé électroniquement</div>
+                        <div class="sig-date">${new Date(s.signed_at).toLocaleString('fr-FR')}</div>
+                        <div class="sig-ip">IP : ${s.ip_address||'N/A'}</div></div>`;
+                };
+
+                const lignesHtml = (cra.astreintes_hno||[]).length
+                    ? (cra.astreintes_hno||[]).map((a,i) => `<tr class="${i%2?'odd':''}">
+                        <td class="type-${a.type}">${a.type==='astreinte'?'🔔 Astreinte':'🌙 HNO'}</td>
+                        <td>${a.date_debut ? new Date(a.date_debut).toLocaleDateString('fr-FR') : ''}</td>
+                        <td>${a.date_fin ? new Date(a.date_fin).toLocaleDateString('fr-FR') : ''}</td>
+                        <td>${a.heure_debut||''} ${a.heure_fin?'→ '+a.heure_fin:''}</td>
+                        <td>${a.samu||''}</td>
+                        <td>${a.objet||''}</td>
+                    </tr>`).join('')
+                    : `<tr><td colspan="6" class="empty-row">Aucune activité enregistrée</td></tr>`;
+
+                const html = `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8">
+<title>CRA ${cra.expert_nom} - ${moisCap}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:Arial,sans-serif;font-size:11px;color:#2c3e50;padding:15mm;}
+  @media print{body{padding:0;}@page{margin:15mm;}}
+  .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #6a1b9a;padding-bottom:12px;margin-bottom:14px;}
+  .header-logo{font-size:13px;font-weight:bold;color:#1D70B7;line-height:1.4;}
+  .header-logo small{font-size:9px;color:#888;display:block;}
+  .header-title{text-align:center;flex:1;padding:0 20px;}
+  .header-title h1{font-size:16px;font-weight:bold;color:#6a1b9a;text-transform:uppercase;letter-spacing:1px;}
+  .header-title h2{font-size:12px;color:#2c3e50;margin-top:4px;}
+  .header-meta{font-size:9px;color:#888;text-align:right;}
+  .info-table{width:100%;border-collapse:collapse;margin-bottom:14px;font-size:10px;}
+  .info-table td{padding:5px 8px;border:1px solid #d1b3e0;}
+  .info-table tr{background:#f3e5f5;}
+  .info-table td:first-child{font-weight:bold;width:100px;}
+  .section-title{font-size:10px;font-weight:bold;color:#6a1b9a;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;}
+  table.activites{width:100%;border-collapse:collapse;margin-bottom:16px;font-size:10px;}
+  table.activites th{background:#6a1b9a;color:white;padding:6px 8px;text-align:left;border:1px solid #4a0e7a;}
+  table.activites td{padding:5px 8px;border:1px solid #ddd;}
+  table.activites tr.odd td{background:#f9f4ff;}
+  .type-astreinte{font-weight:bold;color:#e65100;}
+  .type-hno{font-weight:bold;color:#1565c0;}
+  .empty-row{text-align:center;color:#999;padding:12px;}
+  .commentaire{background:#f3e5f5;border-left:4px solid #6a1b9a;padding:8px 12px;margin-bottom:14px;font-size:10px;}
+  .sigs{display:flex;gap:10px;margin-top:12px;}
+  .sig-box{flex:1;border:1px solid #b39ddb;border-radius:5px;padding:10px;text-align:center;}
+  .sig-box.done{border:2px solid #6a1b9a;background:#faf5ff;}
+  .sig-label{font-size:9px;color:#6a1b9a;text-transform:uppercase;font-weight:bold;margin-bottom:6px;letter-spacing:0.5px;}
+  .sig-line{height:28px;border-bottom:1px dashed #ccc;margin-bottom:6px;}
+  .sig-pending{font-size:9px;color:#bbb;}
+  .sig-name{font-weight:bold;font-size:11px;color:#2c3e50;margin-bottom:3px;}
+  .sig-ok{font-size:9px;color:#27ae60;font-weight:bold;}
+  .sig-date{font-size:9px;color:#888;margin-top:2px;}
+  .sig-ip{font-size:8px;color:#bbb;margin-top:1px;}
+  .footer-note{font-size:8px;color:#aaa;margin-top:10px;font-style:italic;border-top:1px solid #eee;padding-top:6px;}
+  .print-btn{position:fixed;top:10px;right:10px;background:#6a1b9a;color:white;border:none;padding:8px 18px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:bold;z-index:999;}
+  @media print{.print-btn{display:none;}}
+</style>
+</head><body>
+<button class="print-btn" onclick="window.print()">🖨️ Imprimer / Enregistrer PDF</button>
+
+<div class="header">
+  <div class="header-logo"><img src="data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCADgAOADASIAAhEBAxEB/8QAHQABAAIDAQEBAQAAAAAAAAAAAAcIBAUGAwIJAf/EAE4QAAEDBAADBAYDCwgHCQAAAAECAwQABQYRBxIhEzFBUQgUImFxgTJCkRUWIzU3UmJ0obGyMzZyc3WCkrMYOENEU4PCFyQnZHajwdHh/8QAHAEBAAEFAQEAAAAAAAAAAAAAAAYBAgMEBQcI/8QAOREAAgEDAgMEBggGAwAAAAAAAAECAwQRITEFEkEGUXGBExQiYZHBFTJCUqHR4fAHI2JysfE0NbL/2gAMAwEAAhEDEQA/ALl0pSgFKUoBSlKAUpSgFKUoBSlKAUpSgFKUoBSlKAUpSgFKUoBSlKAUpSgFKUoBSlKAUpSgFKUoBSlKAUpSgFKUoBSlKAUpSgFKbFKAUpSgFKUoBSlKAUpSgFKUoBSlKAUpSgFQz6TsW7NW623aHcJrcILMaSw28pLfMdlCikHXgoEn9GpmrTZvYmslxS42V3lBkskNqPchwdUK+SgDQFN2JMlh3tWJLzTgO+ZDhSftFd7hPFzKbA821PkrvMAdFMyVbcSP0XPpb9ytj4VwD7Tsd9xh9tTbzSihxCu9KgdEH4GvigLoYnkNryeytXa0P9qw50UlQ0ttQ70qHgR/+jYINbaqr8DcsdxrM2IzzurdclpjyEk9EqJ0hfuIJ0fcT5CrUUApSlAKUpQCqvekJxeu7+QS8Vxic7Bgw1lmXJYVyuPujopIUOqUpPTpokg9dVaGvzyvTi3b1PdcUVLXKdUonxJWdmqonXYXhtC7uqlWtHm5EsJ7ZedfLB8x7hcI8sTI8+WzJB2Hm31JXvz5gd7qyvo2cV7lkE44lk8j1qaGy5Clq0FvBI2pC9d6gOoPeQDvqNmsNdvwGUpHGHGikkEyyNjyLagf2UPQO0fDLe84fV54rMYtp9U0s/DvLw0pSqHgpBPHrizPtVyexXFn/VpLIAmzUgFSCRvs299AdEbV4b0NHqICl3C4S5C5EufLkvLO1OPPKWo/MndZeYKfVl97VKKi+blJ7TffzdqrdaqvQrGzpW9FKK1xq+8gF5d1biq5SenRdx3XD3ijlGJT2uadIuVr5h20KQ4Vjl8ezUeqD5aPL5irb2S5w7zaIt1gO9rFlNJdaV5gjxHgfMeBqh1Wv9GR9x3hTGQtwrS1LfQjf1Rz719pNcfj9nTjTVaKw84fvOvwK7qOo6MnlYyvcSdSlKipKBSlKAUpSgFKUoBSlKArB6QuPCy56ucyjljXZHrKdDoHB0cH26V/fqOKtLx9x37u4DIkst80u2H1trQ6lAH4RP8Ah2deaRVWqAfaPhVv+FuRDKMHt90Wvmk8nYyvMOo6KPz6K+ChVQKmH0Ysi9Uv03G316anI7ePvwdQPaHzT1/uUBYWlKUApUY8QeJjWEcULTabuQLJcYILjvL1jO9ooBw+adaCvLQI7iDJjS0OtpcbWlaFAKSpJ2CD3EGhtV7OtQpwqTXszWU+/XD80fVfnjeEqReJyFjSkyXQR5HnNfocarL6THCtUB+Tm+PR1KiuqLlzjoG+yUe95IH1T3q8j17t6qiX9heJ0bS7nRqvHpMJP3rOnnkgGu14E/lgxn9c/wChVcVXa8CfywYz+uf9CqM9R4t/wK/9kv8Ayy8dKUqh86lfuP3Cq4ybtIy3Goy5frGlTobSduBYAHaIH1tgDYHXY2N7OoEfBYeUy+Cy6g6UhwcqknyIPUVfyseTBhSVc0mHHeOtbcbCunzFd6z47UoU1TnHmS21x+ZwrzgcK1Rzpy5c76Z/IoUCCNg7FWq9F0EcK29j/fn/AN4ro8m4Z4RkDK0y7BEYeUOkiIgMug+e06389j3V7cL8SVhWNrsfrnrjSZTjrTpTyqKFaICh3bHd06Hv6dwv4jxWleW3Ik1LK+fUs4fwuraXPO3lYfyOqpSlR4kApSlAKUpQClKUApUN8V+MLtmub9ixhth2SwSiTLdHMltfilCfEjxJ6A9NGo8g8Yc+jSkvOXZmWgHZaeiN8ivd7ASR8jQFpXEIcbU24kKQoFKkkdCD4VTniBYF4xmFxsxB7Jl0qYJ+s0r2kH7CAfeDVmOF2dwc3tLjzbXqs+MQmVGKubl33KSfFJ0feCCPeeC9KHHu0iW7KGEEqZPqkogfUJJbJ9wVzD++KAgas2w3ORZb1Cu0TfbQ30vJG9c2jspPuI2D7jWFSgLuWmdHulri3KIvnjymUvNq80qGx++sqol9GfIRPxWRYHl7ftjnM3s9Syskj7Fcw+BTUtUBVn0yf58WX+zD/mqrK9Grit9zXWMLyOVqE4oItslxXRhR7mVE/UJ+ifA9O4jWL6ZP8+bL/Zh/zVVBpAI0eoqp7PwrhdDifZ+jQrLdPD6p5eqP0Yr5dQh1tTbiErQoFKkqGwQe8EVBHo2cV/us0zhuSSd3FpPLb5Lh6yUAfyaj+eB3H6w946zzVDyjifDa/Dbl0Ky1Wz6NdGv37iofpC8LVYbcjfbKyo2CW51SBv1Nwn6B/QP1T4d3lvmOBP5YMZ/XP+hVXaukCHdLdIt1wjNyYkhstvNODaVpPeDVZYnDiZgPpAY0GkuPWSXOJgyD1I9hRLaz4KH7R18wHQn3Bu03rnDq1ncv+YoSw/vLlf4r8V5lnLgSmBIUCQQ0o9DrwNV/4V8d/V4Me25sl50IQlKLk0grWRr/AGqR1J/STsnxHean+5/i6T/Ur/caoPH/AJBv+iP3V3+DWdG6hUjUXd4rc8S4zeVbWpTlTff4PYvZYMisN/jpfst3hT0H/gPBRHuI7wfca2lUDBIIUkkEHYIOiK2UHIL9BdQ7Cvl0jKR9HspbiR9gOjWxPs2/sVPijBDtDp7cPgy9VKrjww453GLMZtuaOJlQlkITcEoCXWSem3AOik+ZABHf18LGNONutIdaWlbawFJUk7Cge4g+Irh3dlVtJ8tRefRnbtL2ldx5qb8V1R9UpStQ2xSlKAUpSgFY9yeXHt0l9Gudtla078wCayKw73+JZ36u5/CaApKVrdUXXFqW4s8ylKOyonqSaV8o+gn4V9UBI/o5SXmeJrLLalBuRFeQ6B3EABQ/akVYvLLMxkGNXCyyCAiWwpsK19BXelXyUAflUJ+i9YnXrzccjcQQxHa9VZJHRTiiFK1/RAT/AI6sBQFHpkZ+HMfhymy2+w4pp1B+qpJ0R9oryqUPSNxpVpzIXphrliXVPMogdEvpACh7tjSveebyqL6A6/g/kX3tZ9AluOckSQr1WV5ciyACfclXKr4A1beqMEAgg9xq3PCDI/vmwOBNdc55bKfVpWz17RGhs/0hyq/vUBA/pk/z5sv9mH/NVUG1Ofpkg/fxZDrobadH/mqqDKqj3nsp/wBPQ8H/AJZ9NOOMuoeZcW262oKQtCilSVA7BBHcQfGr4cLLxLv3Duw3eeoKlyYSFPKA1zL1oq+ZG/nVDavFwI/JDjP6in95oyPfxDhF2lKeNVLGfc0/yO2rykxo8kNiQy272bgcRzp3yrHcoeRHnXrSqHk6eDHuX4tk/wBSv9xqg8f+Qb/oj91X9fbDzDjSjoLSUn5iqGXCC/a7hItkpJS/EdUw4CNHmQeU9PiKlHZtr+YvD5kY7RReab6a/I8KUpUoI2KtH6Lt/kXXAnrXKcLjlpkdi0T/AMFQ5kD5HmSPckVVyrI+iTb32cZvFzcSUtS5aG2t/WDaOpHzWR8q43Hoxdo2901j9+B1+CSkrtJdzz+/EmylKVCCaClKUApSlAKw73+JZ36u5/CazK+H2kPsrZdTzNuJKVDetgjRoCjSPoJ+Fdbw9wO+ZlNQIbKmLeFaenOJ/BoA7wn89XuHz1VjLbwzwO3upcj41DUpPd25U8B8lkiutabbabS20hKEJGkpSNADyAoDX4xZLfjtjjWe2NdnGjo0N/SWfFSj4knZNbKlKA1GYY7bspsD9nuaCWXdFK0/TaWO5aT4Ef8A2D0NVYz7Br7hsxSLgwXYRVpmc0k9kseGz9VX6J+Wx1q31fLrbbrSmnUJcbWNKSobBHkRQFG6lr0Z8i9QymTj769MXJvna2e55AJ0Pinm/wAIqXrhwzwSe8XX8ahpWTs9gVMj7EECs2w4RiVifTItdhhMPp+i6Uc7ifgpWyPtoCNvSqwefkVhhX+0R1yZdq50vMtja1sq0SQPEpKd68iqqoggjYII91foxXG3/hbgF9nLnXLGIbkhxXM440VMlZ81chHMfjVSd9nO2EeG2/q1xByitmt1nXGHjr7yluK2C65Pfo1kssZUiZIV0H1UJ8VqPgkeJ/8AnQq+OJ2ZjHsZttjjKK2oMZDCVEaKuVIHMfee+vLGMXx7GIyo1gs8O3Nr6r7FsBS/6Su9XzJrcUOZ2l7SS4zOMYR5YR2XVvvfyQpSlUIuKgnj/wAKZd0uDuW4zHVIlOACdDR9JzQ0HEDxVoAFPedAjrvc7UrZtLqpa1FUp/7Na6tad1T9HP8A0UDUClakKSUrQopUlQ0Ukd4I8D7q/lXeyTC8VyNwO3qwwZjw/wBqpvTn+MaV+2tTB4UcPYb3bM4xFUre9POOOp/wrUR+ypLHtHR5fag8+X7/AAI5Ls/WzpNY8ysPDrBL5m9ySxbWFtQkq1InLR+CaHiAfrK/RHz0OtXCxiywMdsMOy2xrs4sVsIQD3qPeVHzJJJJ8yazY0diLHRHjMtsMtjSG20hKUjyAHQV6Vw+IcSqXsllYitkdvh/DYWabzmT6ilKVzToilKUApSlAKUpQClRl6QuWPWDFmrbb5K2Ljcl6SttWlttJ0VKB8NnSfmfKujwvMId54etZRKcSgMRlKnBI/k1tp/CdPlsDyIoDqqVXq2SuInFe4TZsG8LsVnjr5UhDy20I6bCNo0XFa0SSdDfhsCuw4bWbiBYMmWxecni3Cwpa5it6SXlOE70Ecx5kEd52eXR8T1AEq0qvV4n5tfOLd5x2zZW/b223VraDslSGkpSE9BoHzrpFQM4xjBMquF5y0XF4RGzEWxKWtTCgo8x9oDWwR9lATDSoI4D8SJ8i9rx7JLi7KMw7hyH17KXNdWyfJQ7veNfWFe2IZpc4XEzNV3i6TZNrtcea83GW5tKezkICQkdwOjyj40BONKr3Y2eJPFR6Vdmr8uzWxtwttobeW2gHv5UhGivXTalHvPTyG5h23ihi1iyYXa+CRbItrecjyC+XHC5yEpLajpaSNdebp5A72AJrpVc8GicSsus67pBzsxWkPqZKJMxxKiQAd9Enp7VTth8S5QcZgRLvOTPnNtaekpUVBw7J3sgE9NUBtqUpQClKUApSlAKUpQClKUApSlAKUpQCiiEgqUQAOpJ8KV4z2o78F9mWAqO42pLoJ0Ckjr1+FAVhyLLLHkPFl29ZA1KmWGOVMsMMICy42kEI6EgAKUSs/HVevCW5h1WQ4M1IWIt9ivNwVPeyQ+EEI5hvQKk9/XvSB1qYMbybhHYG3GLHkWMQkPqCnA1ObHOQNDZKq3t0smI3R9rKJ0WDJXGaDrc/n6IQglQUFA60Op3QzVLetSxzwaz3pohvg9l9msVgvOF5U47aluuujtVNk8pUgIWhWgdKGtgka6/bxN/xzGpeTW+wYJMn3ZclQbW8+2AnmJH0dJSdJGypRGtfA1YaRZOHHEULuSG7belNKDbkqHIIUFADSVLbUCSAR0Pur+8N4fDiO9KRhDlqkSGgBIXHkdu6gHegpRJUAdHpvXT3UKOhUjzZi9N9NvHuINyO347L4w3uHk1zet1tQ6sdu0jmVzBKQka5Vd/XwrrYkXB7ZwxzOFiN/k3RbsRDr4eaKSgBWhr2EjxPnUjZdjXDiIp6+ZPBtMbt3fwkqW5yBaz4bJA30/ZXtj2M4A9ZJEmxW+2PW24NcjzsZfO28hJ7tg9QCD9lC30c+Tnw8bZ6ZIVg4a5euC8PI7UhSbra5D61Fvot1oLJOiOvMk+0PmO8itbw6i3DLrrlzQUHbhcLPIe6AJ7R3t2V68htQ186nrGsi4d2vHn1WK+WRi0Q1pLy2ZaS0ypwnXMrfTmO9V6Y/b8Cs8J3LbK1aokR1hRXcGVgNFrmBUebfKE7SPsoXyt6sPrRa1xs9+7xI34GcQrDYscXjeQvm2vxn3FNrdbVyqBOylWh7KgdjR14Vvso4k4xk2NZTY7VIfceRaH3G3VtFKHgEHm5d9enTvA3vpvVbHJ4HCTIYAye7ybK5FW72JuLc3skLc19ErQoBStDx33VvsYxbC2MeW3YbbBXbLkxpbjau1EhpQ8XCSVJIPnQtnRqQWZRa6bde4rnhNl4eXC0LfyvJZlsnh5SUsstcyS3oaVvs1ddlXj4VZnBHLS5h9rTY5a5luZjpYjvqSUlaW/Y2QQOu0nwFcnCx3hBOucu2Q4tgkToYWZMdt8KcaCDpRUkK2NHofKsCRxRwXGXbPj+Mv2eXAeWoLdZubTbEJJVsqWSSevMo6Hl7xQ2KNhc1pckKbb3292ev4d/QlWlaB7NcRZtLF3dyW0ot8hwtMylSkBpxY3tIVvRI0enur4tmd4Xc5rcG35XZZUp06bZamtqWs+QAOzQx+qV8OXI8LfRnRUrU3TJsetd1j2q5Xu3w58nl7CM9IShx3mVyp5Uk7O1Age+vvIsgsmOwhNvl0iW6OTypW+4E8x8kjvJ9woWKhVbilF+1tpv4d5s6Vy+NcQsKySb6lZcjgy5R+izzlC1fBKgCflW3v19s1giol3u6Q7bHW4G0OyXktpUsgnlBJ79AnXuoXTta9Op6OcGpdzTz8DY0rXTr9ZYNjTfJl1hsWtSELTLceSlopXrkIUemjsa891hS8zxOJbIlzlZHamYMwqEaQuUgNulJ0rlVvR0aFsberP6sW9cbPfu8TfUrmI/EPBJMhqNHzCxuvOrDbbaJzZUtROgAN9SSa6egq0KlF4qRa8VgUpShiFKUoBWLd/xVL/AKhf8JrKrGuwJtcoJBUSysAAbJ9k0Lo/WRVL0ceG+NZ9Zb2q/Jl9pFW02y4w+UFAUlRJ11BPQd4NZWDyrngucZhwzcmuS7a5b5nZBR6JWmOXUOAdySUdFAd515VrOEt64k4Bb58O0YDcZblwU2rmkW+R7BSkgeykDff51InCPhfkUy7XrM88KmLpdI77LLKiCtHbJ5VOKA6J0k8qU+AJ3rpVT1Ti9y6VS6ndVVKjJLkjzJvm0w0ltjXJkehoNYJeR5XU/wCS3Wk9Dv8AH+Y/CP8AxvVzeDZJnfBwXbGX8NenLkP87LmnOTtAkJ50lKSHEkBPQaPTv8pF9FTDL5j9ru18vsZ2G7dVNJZjvJ5XORHOStST1Tsr6A9em9dRQ0ONQVKjf15SXLWdPkw0+bDy9F3Gb6XP5KEf2mx+5dRp6PWZTMRu/wB6F/5mbbe2ESYC3DpLbjqAUEH81Y6e5QHmalX0prdcLpwxRGtkGVNf+6LKuyjsqcXoBezpIJ1XL5jw0kZNwIxqQxAdayKz2topaWgpccQEgrZIPXm6bSD4jXTmNEavCbm1+h4Wly1y1JyWesXhcsvjv7iI8LH/AIE55sf71a/801Nlm/1QV/2K/wDxrrgeFuBZHeOFWdWNy1zYE6SqG7ERMYUz2ym1KXyjnA79a34EjdYUbM85i8M3OFv3kT1SShcVMjsHe0CFLJKezCOp6kBW9a66NDucSgr+tKFCSbhWjJ6pezyRWdd9uh5yP9U6N/6jP7lVuOEPFpONcJL7apbyVXC2oKrQlZ32nanQTrxCFnmP6J14VsMswXIbJ6NVtsS7dJl3Vd1TLfixmy6prmCzy+zvehy7PdvffWkuPCOdcrzgKmYUiNHvNujougU0pCozjLae1KgdcpUgdN69oHxNEUVfhl5QqU7mScHVnJP+3D+Eo5X+DH9Fxa3cxyJx1anHFWGQpS1HZUS43sk+dcpwyk8MY8CV9/0G6ypClp9V9TUoBKOXrvS09d1KvCTHrrbOMWfOLsk+JAXHuLcRa4q0NLT6ynkShRGjtI6a7xXE8MJeS4ZBlsSeEsq/KkrQsLl29wKaAGtDbaunjQ2pXUa1W6lSeslSaUZqD2e0npp1N5xrbxxPAzEncRjy49ofuTzjDclRLgJDnNvZP1gfGuU4hjhMjDravDnJv3whbfrX8vyAch5ye0Gt82tcn7q7fi65keZcIrE9GwebaZDF3dT9zosNw9m2G1aXy8gIBKu/Wt1hZDg994eZnjmXYzj0m6wnWmnXoaYqniy7yJ7RBGiU76qSr6qvh1ojX4Zc06VGnGpUaqKVVqPOsSaeeWctU89Hs9T54ifdRfEXhT92ef7pmBa/We0+mXPWOvN+lvv9+6yLZaF8Y+O98Rf5kgWi0rcS2w2vlPZIc5EoT+bzEFSiOvf7tbbjDEuuRcX8Cvtrsl2dgluE46ownB2H/eiSlzp7BSO8HurF4g4plvDviJcsuxm0uXmx3cueuRm0KXpLh242sJ9pI5vaSsd3T51NW3uYyoU4U5qFaVOSjqlh8+qXc2ttjL47cH8bxvDl5TiaJNsk21xtbiBJWsLBWEhQKiVJWkkEEHwPTeiNbxbyKVlPo24neZxKpa7mGn16+mttD6Cr58u/nUbzpGeXGFdYkGDlKrLLdSpyI+HpSUcquZCStSd9D49Cem96qbsvwU3v0crNaMUbkyH7YUSwy4ypp15zSw8ORQ2FbcWoD3ADexQyVE7D1RXtbnkqmkn9mLjqpPL6+96LfBk8Vf8AVPgf2da/4majDiNv/R34ea7+3la/xrr1vOYZ1k3Dy38Mm8InpfYSxHW+GXOdxLOuUFJSAjqlO1FWuh7t10PGbCb9beEGD45Ft0y4zYSnTJENhbwbWpPMrqkHoFKIB8dUKcPprh86FGvJKTrSmtU/Z5Gs6ba95i4E7wKnZLY4VvtF/F4XJZ7Fa3V9mHgQQT+EPTmHlVoqrpi+c3xq52uN/wBh6YhS80164IS0qb6hJc32I1rv7x8asXVCJdplV9NBz5sYeOaoqnXo1t4ClKUIyKUpQCvOU72EZ17lKuzQVaHjobr0rGun4slf1K/3Gqoo9iE2/SJiuICkYhMV56lDp8fZrfzuMrETh/ByxzHJHLLnLhiKZICklKVK5irl8eXu1UR8GLrxGt0C5pwezRLk2txsyS8gHlUAeUDbie/r591dXx5k5JN4RY3IyqE1Du6rosyGWwAlOkOhOtKV9Xl8T31Ja1hbRuI0lFYbx9bL2zt0I1Sv7l0JVHJ5x91Y3S36kuYpnFuyTA3cqhMqAYadU/FUsc7bjaSSgn3jRB8iDXhwnzxnP7NLuTNsct4jSewKFuhzm9hKt7AH51QFBfuXC+4vRJhdeseSWbmCgeiudrooD85C1cp/RVvxFSH6IgKcLu6T3i5a/wDZbrVuuH06NCpVjqsrlfue68jatuIVatenSlo9eZe9bPzJMz/LLZhmOO3q5hxxIUG2mWwOd1w9yRvp4Ek+ABqNcV48In32FAvmMP2mLPWEMSg8Vp2o6BIKE7TvoVAnX7a63jnhz+Z4eiFDlsx5kWSJLAeVyodUEqSUE+GwonfmB8aiSJlN7sV1suOcU8Mts+AyEsxXpMRtbrDfRPMhY5kLAATsDroDrvvtsbahVoN45p66Zw0vctmVvrm4pV0k+WOnTKfi+hYHMr7GxnF7hfZY5mobJXycwHOruSgE+KlED5184TkEXKcWgX6GAluW0FKRvfZrHRaD8FAj5VEPpGXaVkGUWThxaCFuvvIdk68FqOkA+5KeZZ9xB8K8vR3u0rGszvfDi7r0pDy3IpJ6FxHRYG/BSOVY9ySfGsS4evU/S/b3x/Tt+vgZXxBq89F9jbP9W/6HVzeM1pt/ER3E7hbHY7bUoRlzi8ChJIBCinXQbIBO+nf4VtuLHEaPgH3M7a1O3Az+15ezdCOTk5PMHe+f9lQPl+MSst43ZbaILoTKAekMIUOji0IR7BPhsEjfnqtJluYSsjxTHbRcw4bjZFvx3FrB242Q2EFW/rjkUk769AfE10ocJoTlScdVhOS8VlP4nOlxavGNSMnh5fK/B4a+BOmb8a4+MZNNsruNS5AiqQO37cISvmQlfQcp/O13+FMU41MX5y5JGMy4yYNsfuBWqQCHA0AeQez3nff7q9vSZ/JG4P8Azcb+KvWxAf6M7iddPvckjX/KXWjGnbO1jP0erfLu/dr+hvSq3KuZQ59EubZfD9SP5/HO4TskgXCLEuUO1R06kQGS2r1heyerhQSB9HoAD39evSc8DyFOVYpCvyYTkISuf8AtXMU8q1I79Dv5d/Oq48HbvxRt2OS2cGsMS429c5SnnHkAlL3ZtgpG3U9OXkPd49/lZfFX7rJxu3SL7GRGujkdCpbKB7KHNe0B1PTfvNV4tQo0cQpxSw+jy/NfMt4TXq1synJvPesLyfyNnSlK4p2xSlKAUpSgFKUoBSlKAUpSgFeUxsvRHmUkArQpIJ7uo1XrSgK/2LgvxAsTa0WjO2YCXeUvCOp1AWR4nWvM1u8h4V5dfsDjWG65U1Nns3NUv1p9Tix2Ra5Agb69Ds+VTLSujLilxKSm2srXOF+Rzo8Lt4xcFnD6Zf5nCZvw9ZynhzCxuS+03PgsNCNKCNpQ6hASenfyqGwR7we8Cvjgpg0/A7HPt8+dGmLky+3StlKkgDkSnR34+zXfUrX9bq+idHPst5Nj1Sl6VVse0lg5HizhLGd4oq0rkeqyWnQ/FeKeZKXACNKHikhRB+O/CoysPBrMJ15ta82yGLMtdqCUx47TzjqlISQQ2CpKeVJ0AT1OhryInulX0b+tRpunB6eGqzvgx1rCjWqekktf892SEG+Bb97yO6XnM7+t5yY4XkC2+wUqJPQlxKvZSOUAAeHupJ4EuWe92y7YZkLrD8N0PE3EBe1JIKQOzSn2SNggjuNTfSsn0rdfe02xhYx4GP6Ktfu675y8/EjTHuHNxt3GG4Zw9cIqo0sOajpSrnTzJSB1I19WtFxP4Ju5Jlrl9slyiQEyQFSmXm1EKd8Vp13bGtjz2fGpopVkOIXEJqcZapY8jJPh9CcHBrRvPmcfxZxGVmWFLsMOWzFeU804HXUkp9g77h1r7tuKSovChWHLlMqkm1uwu3CTycy0KTza79e1XW0rCrioqap50Tz5mZ21NzdTGrWPIgSycHeIFjirjWjO24DK19otEdbraVL0BzEDx0APlUu4Ba7xZcVi26/XVV1uDanC7KUtSisKcUpI2rr0SQPlW+pWS4vqtwsVMfBIx29lSt3mGfixSlK1DbFKUoBSlKAUpSgFKUoBSlKAUpSgFKUoBSlKAUpSgFKUoBSlKAUpSgFKUoBSlKAUpSgFKUoBSlKAUpSgFKUoBSlKAUpSgFKUoBSlKAUpSgFKUoBSlKAUpSgFKUoBSlKAUpSgFKUoBSlKA//Z" alt="ANS" style="height:60px;width:auto;"></div>
+  <div class="header-title">
+    <h1>Compte-Rendu d'Activité</h1>
+    <h2>${cra.expert_nom||''} — ${moisCap}</h2>
+  </div>
+  <div class="header-meta">Produit le ${now}</div>
+</div>
+
+<table class="info-table">
+  <tr>
+    <td>Expert</td><td>${cra.expert_nom||''}</td>
+    <td style="font-weight:bold;width:80px;">Période</td><td>${moisCap}</td>
+  </tr>
+  <tr>
+    <td>Établissement</td><td>${cra.es_rattachement||'—'}</td>
+    <td style="font-weight:bold;">SAMU</td><td>${cra.expert_samu||'—'}</td>
+  </tr>
+  <tr>
+    <td style="font-weight:bold;">Statut</td>
+    <td colspan="3" style="color:#6a1b9a;font-weight:bold;">${{a_completer:'À compléter',soumis:'Soumis',vise_n1:'Visé N1',vise_n2:'Visé N2',diffuse:'Diffusé'}[cra.statut]||cra.statut}</td>
+  </tr>
+</table>
+
+<div class="section-title">📋 Activités Astreinte / HNO</div>
+<table class="activites">
+  <thead><tr>
+    <th>Type</th><th>Date début</th><th>Date fin</th><th>Heures</th><th>SAMU</th><th>Objet</th>
+  </tr></thead>
+  <tbody>${lignesHtml}</tbody>
+</table>
+
+${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9a;">Commentaire :</strong> ${cra.commentaire_expert}</div>` : ''}
+
+<div style="border-top:2px solid #6a1b9a;padding-top:12px;">
+  <div class="section-title">✍️ Signatures Électroniques</div>
+  <div class="sigs">
+    ${sigBlock(1,'Expert')}
+    ${sigBlock(2,'Administrateur N1')}
+    ${sigBlock(3,'Administrateur N2')}
+  </div>
+  <div class="footer-note">Document généré électroniquement via la Plateforme de Planification ANS. Signatures horodatées et enregistrées en base de données avec adresse IP et navigateur du signataire.</div>
+</div>
+</body></html>`;
+
+                const win = window.open('', '_blank');
+                if (!win) { alert('Veuillez autoriser les popups pour télécharger le PDF'); return; }
+                win.document.write(html);
+                win.document.close();
+            } catch(e) { alert('Erreur : ' + e.message); }
+        }
+
+        async function loadCraPendingBadge() {
+            if (!currentUser || !(currentUser.is_admin || currentUser.activeProfile === 'admin')) return;
+            try {
+                const res = await fetch(`${API_URL}/cra/my-list`, { credentials: 'include' });
+                const data = await res.json();
+                const badge = document.getElementById('craPendingBadge');
+                if (!badge) return;
+                if (data.length > 0) {
+                    badge.textContent = data.length;
+                    badge.style.display = 'inline-block';
+                } else {
+                    badge.style.display = 'none';
+                }
+            } catch(e) { console.warn('Erreur badge CRA:', e); }
+        }
+
+        async function loadCraList() {
+            const isAdmin = currentUser && currentUser.is_admin;
+            // Mettre à jour le titre h2
+            const h2 = document.querySelector('#cra h2');
+            if (h2) h2.textContent = isAdmin ? 'CRA à valider' : 'Mes Comptes-Rendus d\'Activité';
+            try {
+                const res = await fetch(`${API_URL}/cra/my-list`, { credentials: 'include' });
+                const data = await res.json();
+                const container = document.getElementById('craList');
+                if (!data.length) {
+                    container.innerHTML = `<p style="color:#999;text-align:center;padding:30px;">${isAdmin ? 'Aucun CRA en attente de validation.' : 'Aucun CRA disponible pour le moment.'}</p>`;
+                    return;
+                }
+                const st = {
+                    'a_completer': { label: 'À compléter', color: '#ff9800', icon: '✏️' },
+                    'soumis':      { label: 'Soumis — en attente visa N1', color: '#2196f3', icon: '📤' },
+                    'vise_n1':     { label: 'Visé N1 — en attente visa N2', color: '#9c27b0', icon: '✅' },
+                    'vise_n2':     { label: 'Visé N2 — prêt à diffuser', color: '#4caf50', icon: '✅' },
+                    'diffuse':     { label: 'Diffusé auprès de la RH', color: '#607d8b', icon: '📨' }
+                };
+                container.innerHTML = data.map(cra => {
+                    const moisNom = new Date(parseInt(cra.annee), parseInt(cra.mois) - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+                    const s = st[cra.statut] || { label: cra.statut, color: '#999', icon: '❓' };
+                    return `<div onclick="openCraDetail(${cra.id})" style="display:flex;align-items:center;justify-content:space-between;padding:15px 20px;background:white;border:1px solid #e1bee7;border-radius:8px;margin-bottom:10px;cursor:pointer;transition:box-shadow 0.2s;" onmouseover="this.style.boxShadow='0 2px 8px rgba(106,27,154,0.2)'" onmouseout="this.style.boxShadow='none'">
+                        <div>
+                            <strong style="font-size:14px;color:#2c3e50;">Compte-rendu d'activité de ${moisNom}${isAdmin && cra.expert_nom ? ` — ${cra.expert_nom}` : ''}</strong>
+                            <div style="font-size:12px;color:#666;margin-top:3px;">${cra.vise_n1_nom?`Viseur N1 : ${cra.vise_n1_nom}`:''}${cra.vise_n2_nom?` | Viseur N2 : ${cra.vise_n2_nom}`:''}</div>
+                        </div>
+                        <span style="padding:5px 12px;border-radius:12px;font-size:12px;font-weight:bold;background:${s.color}22;color:${s.color};white-space:nowrap;">${s.icon} ${s.label}</span>
+                    </div>`;
+                }).join('');
+            } catch(e) { console.error('Erreur chargement CRA:', e); }
+        }
+
+        async function openCraDetail(craId) {
+            try {
+                // Charger config CRA si pas encore disponible
+                if (!window._craConfig || !window._craConfig.admin_n1_id) {
+                    try {
+                        const cfgRes = await fetch(`${API_URL}/settings`, { credentials: 'include' });
+                        const cfgData = await cfgRes.json();
+                        if (cfgData.automation_4_config) {
+                            window._craConfig = JSON.parse(cfgData.automation_4_config);
+                        }
+                    } catch(e) { window._craConfig = {}; }
+                }
+
+                const res = await fetch(`${API_URL}/cra/${craId}`, { credentials: 'include' });
+                const cra = await res.json();
+                const moisNom = new Date(parseInt(cra.annee), parseInt(cra.mois) - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+                document.getElementById('craDetailTitle').textContent = `CRA — ${moisNom.charAt(0).toUpperCase() + moisNom.slice(1)}`;
+                document.getElementById('craCommentaire').value = cra.commentaire_expert || '';
+                // L'expert peut toujours modifier son commentaire si statut a_completer
+                document.getElementById('craCommentaire').disabled = cra.statut !== 'a_completer';
+
+                // Afficher le motif de refus précédent si présent
+                const refusPanel = document.getElementById('craRefusPanel');
+                if (cra.commentaire_refus && cra.statut === 'a_completer') {
+                    document.getElementById('craRefusCommentaire').textContent = cra.commentaire_refus;
+                    refusPanel.style.display = 'block';
+                } else {
+                    refusPanel.style.display = 'none';
+                }
+
+                // Masquer la zone refus viseur par défaut
+                document.getElementById('craRefusViseurPanel').style.display = 'none';
+                const refusViseurInput = document.getElementById('craCommentaireRefus');
+                if (refusViseurInput) refusViseurInput.value = '';
+                renderCraTimeline(cra);
+                renderCraData(cra);
+                renderCraActionButtons(cra);
+
+                // Bouton PDF
+                const pdfBtn = document.getElementById('craPdfBtn');
+                if (pdfBtn) {
+                    pdfBtn.style.display = 'inline-flex';
+                    pdfBtn.onclick = () => downloadCraPdf(cra.id);
+                }
+                document.getElementById('craDetailPanel').style.display = 'block';
+                document.getElementById('craDetailPanel').scrollIntoView({ behavior: 'smooth' });
+            } catch(e) { console.error('Erreur ouverture CRA:', e); }
+        }
+
+        function renderCraTimeline(cra) {
+            const config = window._craConfig || {};
+            const steps = [
+                { label: 'Créé',                                                  done: true,              at: cra.created_at },
+                { label: 'Soumis par l\'expert',                                  done: !!cra.submitted_at, at: cra.submitted_at },
+                { label: `Visé par ${config.admin_n1_nom || 'Viseur N1'}`,       done: !!cra.vise_n1_at,  at: cra.vise_n1_at },
+                { label: `Visé par ${config.admin_n2_nom || 'Viseur N2'}`,       done: !!cra.vise_n2_at,  at: cra.vise_n2_at },
+                { label: 'Diffusé à la RH',                                       done: !!cra.diffuse_at,  at: cra.diffuse_at }
+            ];
+            const currentStep = steps.findIndex(s => !s.done);
+
+            const timelineHtml = `
+                <div style="display:flex;gap:0;align-items:flex-start;flex-wrap:wrap;margin-bottom:14px;">
+                    ${steps.map((step, i) => {
+                        const isCurrent = i === currentStep;
+                        const bg = step.done ? '#6a1b9a' : isCurrent ? '#ff9800' : '#e0e0e0';
+                        const txtColor = step.done ? '#6a1b9a' : isCurrent ? '#e65100' : '#999';
+                        const fw = (step.done || isCurrent) ? 'bold' : 'normal';
+                        return `
+                        <div style="display:flex;align-items:flex-start;">
+                            <div style="text-align:center;min-width:110px;">
+                                <div style="width:32px;height:32px;border-radius:50%;background:${bg};color:white;display:flex;align-items:center;justify-content:center;margin:0 auto 4px;font-size:14px;">${step.done ? '✓' : i+1}</div>
+                                <div style="font-size:10px;color:${txtColor};font-weight:${fw};line-height:1.3;">${step.label}${isCurrent ? ' ⏳' : ''}</div>
+                                ${step.at ? `<div style="font-size:9px;color:#888;margin-top:2px;">${new Date(step.at).toLocaleDateString('fr-FR')}</div>` : ''}
+                            </div>
+                            ${i < steps.length-1 ? `<div style="flex:1;height:2px;min-width:16px;background:${step.done ? '#6a1b9a' : '#e0e0e0'};margin:14px 3px 0;"></div>` : ''}
+                        </div>`;
+                    }).join('')}
+                </div>`;
+
+            // Liste des viseurs horodatée
+            const sigItems = [];
+            if (cra.submitted_at) sigItems.push({ label: 'Expert', nom: cra.expert_nom || '—', at: cra.submitted_at, color: '#6a1b9a' });
+            if (cra.vise_n1_at)   sigItems.push({ label: 'Viseur N1', nom: cra.vise_n1_nom || '—', at: cra.vise_n1_at, color: '#4caf50' });
+            if (cra.vise_n2_at)   sigItems.push({ label: 'Viseur N2', nom: cra.vise_n2_nom || '—', at: cra.vise_n2_at, color: '#2196f3' });
+
+            const fmt = dt => { const d = new Date(dt); return d.toLocaleDateString('fr-FR') + ' à ' + d.toLocaleTimeString('fr-FR'); };
+            const sigsHtml = sigItems.length ? `
+                <div style="background:white;border:1px solid #e1bee7;border-radius:6px;padding:10px 14px;margin-top:6px;font-size:12px;">
+                    <div style="font-weight:bold;color:#6a1b9a;margin-bottom:8px;font-size:11px;text-transform:uppercase;letter-spacing:0.4px;">✍️ Historique des signatures</div>
+                    ${sigItems.map(v => `<div style="display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid #f3e5f5;">
+                        <span style="font-weight:bold;color:${v.color};min-width:75px;font-size:11px;">${v.label}</span>
+                        <span style="color:#2c3e50;flex:1;font-weight:bold;">${v.nom}</span>
+                        <span style="color:#888;font-size:11px;">le ${fmt(v.at)}</span>
+                    </div>`).join('')}
+                </div>` : '';
+
+            document.getElementById('craStatusTimeline').innerHTML = timelineHtml + sigsHtml;
+        }
+
+        function renderCraData(cra) {
+            const lignes = cra.astreintes_hno || [];
+            const container = document.getElementById('craDataSection');
+            if (!lignes.length) {
+                container.innerHTML = '<p style="color:#999;font-size:12px;font-style:italic;">Aucune activité astreinte/HNO enregistrée pour ce mois.</p>';
+                return;
+            }
+            container.innerHTML = `<h4 style="color:#6a1b9a;margin:0 0 10px 0;font-size:13px;">📋 Activités enregistrées (préremplies depuis le planning)</h4>
+                <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                    <thead><tr style="background:#6a1b9a;color:white;">
+                        <th style="padding:8px;text-align:left;">Type</th><th style="padding:8px;text-align:left;">Date début</th>
+                        <th style="padding:8px;text-align:left;">Date fin</th><th style="padding:8px;text-align:left;">Heures</th>
+                        <th style="padding:8px;text-align:left;">SAMU</th><th style="padding:8px;text-align:left;">Objet</th>
+                    </tr></thead>
+                    <tbody>${lignes.map((l,i)=>`
+                        <tr style="background:${i%2?'#f9f4ff':'white'};border-bottom:1px solid #e1bee7;">
+                            <td style="padding:6px 8px;"><span style="padding:2px 6px;border-radius:4px;background:${l.type==='astreinte'?'#ff980022':'#2196f322'};color:${l.type==='astreinte'?'#e65100':'#1565c0'};font-weight:bold;font-size:11px;">${l.type==='astreinte'?'🔔 Astreinte':'🌙 HNO'}</span></td>
+                            <td style="padding:6px 8px;">${formatDateFRClient(l.date_debut)}</td>
+                            <td style="padding:6px 8px;">${formatDateFRClient(l.date_fin)}</td>
+                            <td style="padding:6px 8px;">${l.heure_debut||''} ${l.heure_fin?'→ '+l.heure_fin:''}</td>
+                            <td style="padding:6px 8px;">${l.samu||''}</td>
+                            <td style="padding:6px 8px;">${l.objet||''}</td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>`;
+        }
+
+        function formatDateFRClient(dateStr) {
+            if (!dateStr) return '';
+            return new Date(dateStr).toLocaleDateString('fr-FR');
+        }
+
+        function renderCraActionButtons(cra) {
+            const container = document.getElementById('craActionButtons');
+            const isAdmin = currentUser && (currentUser.is_admin || currentUser.activeProfile === 'admin');
+            const isOwner = currentUser && cra.user_id === currentUser.id;
+            const config = window._craConfig || {};
+            const isN1 = isAdmin && String(currentUser.id) === String(config.admin_n1_id);
+            const isN2 = isAdmin && String(currentUser.id) === String(config.admin_n2_id);
+            const isAnyAdmin = isAdmin && !config.admin_n1_id && !config.admin_n2_id;
+            console.log('[CRA] renderCraActionButtons:', {
+                userId: currentUser.id, activeProfile: currentUser.activeProfile,
+                isAdmin, isN1, isN2, isAnyAdmin,
+                admin_n1_id: config.admin_n1_id, admin_n2_id: config.admin_n2_id,
+                statut: cra.statut
+            });
+
+            let buttons = '';
+            if (cra.statut === 'a_completer' && isOwner)
+                buttons += `<button onclick="openCraSaisieModal(${cra.id}, ${cra.mois}, ${cra.annee})" style="background-color:#ff9800;color:white;padding:10px 20px;font-weight:bold;border:none;border-radius:4px;cursor:pointer;">✏️ Compléter mon CRA</button>
+                            <button onclick="submitCra(${cra.id})" style="background-color:#6a1b9a;color:white;padding:10px 20px;font-weight:bold;border:none;border-radius:4px;cursor:pointer;">📤 Valider et soumettre</button>`;
+            if (cra.statut === 'soumis' && (isN1 || isAnyAdmin)) {
+                buttons += `<button onclick="visaCra(${cra.id},'n1')" style="background-color:#4caf50;color:white;padding:10px 20px;font-weight:bold;border:none;border-radius:4px;cursor:pointer;">✅ Viser (niveau 1)</button>`;
+                buttons += `<button onclick="toggleRefusPanel('n1',${cra.id})" style="background-color:#f39c12;color:white;padding:10px 20px;font-weight:bold;border:none;border-radius:4px;cursor:pointer;">❌ Refuser</button>`;
+            }
+            if (cra.statut === 'vise_n1' && (isN2 || isAnyAdmin)) {
+                buttons += `<button onclick="visaCra(${cra.id},'n2')" style="background-color:#2196f3;color:white;padding:10px 20px;font-weight:bold;border:none;border-radius:4px;cursor:pointer;">✅ Viser (niveau 2)</button>`;
+                buttons += `<button onclick="toggleRefusPanel('n2',${cra.id})" style="background-color:#f39c12;color:white;padding:10px 20px;font-weight:bold;border:none;border-radius:4px;cursor:pointer;">❌ Refuser</button>`;
+            }
+            if (cra.statut === 'vise_n2' && isAdmin)
+                buttons += `<button onclick="diffuserCra(${cra.id})" style="background-color:#ff5722;color:white;padding:10px 20px;font-weight:bold;border:none;border-radius:4px;cursor:pointer;">📨 Diffuser auprès de la RH</button>`;
+
+            // Injecter les boutons d'action AVANT le bouton PDF (ne pas écraser le container entier)
+            let actionSpan = document.getElementById('craActionSpan');
+            if (!actionSpan) {
+                actionSpan = document.createElement('span');
+                actionSpan.id = 'craActionSpan';
+                actionSpan.style.display = 'contents';
+                container.insertBefore(actionSpan, container.firstChild);
+            }
+            actionSpan.innerHTML = buttons || '<span style="color:#999;font-size:12px;font-style:italic;">Aucune action disponible pour ce statut.</span>';
+        }
+
+        // ===== MODALE SAISIE CRA =====
+        let _craSaisieId = null;
+        let _craSaisieMois = null;
+        let _craSaisieAnnee = null;
+        let _craSaisieLines = [];
+        let _craSaisieEditIdx = null; // index de la ligne en cours d'édition
+
+        async function openCraSaisieModal(craId, mois, annee) {
+            _craSaisieId = craId;
+            _craSaisieMois = mois;
+            _craSaisieAnnee = annee;
+            _craSaisieLines = [];
+            _craSaisieEditIdx = null;
+
+            const moisNom = new Date(parseInt(annee), parseInt(mois) - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+            document.getElementById('craSaisieModalTitle').textContent = moisNom.charAt(0).toUpperCase() + moisNom.slice(1);
+
+            const pad = n => String(n).padStart(2, '0');
+            const lastDay = new Date(parseInt(annee), parseInt(mois), 0).getDate();
+            const minDate = `${annee}-${pad(mois)}-01`;
+            const maxDate = `${annee}-${pad(mois)}-${pad(lastDay)}`;
+            document.getElementById('craSaisieDateDebut').min = minDate;
+            document.getElementById('craSaisieDateDebut').max = maxDate;
+            document.getElementById('craSaisieDateFin').min = minDate;
+            document.getElementById('craSaisieDateFin').max = maxDate;
+
+            // Peupler le select SAMU depuis allLocations
+            const samuSel = document.getElementById('craSaisieSamu');
+            samuSel.innerHTML = '<option value="">-- Sélectionner un SAMU --</option>';
+            (allLocations || []).forEach(loc => {
+                const opt = document.createElement('option');
+                opt.value = loc.libelle_court || loc.libelle_long || '';
+                opt.textContent = loc.libelle_court ? `${loc.libelle_court} — ${loc.libelle_long || ''}` : loc.libelle_long;
+                samuSel.appendChild(opt);
+            });
+
+            // Charger les lignes existantes depuis la BDD pour ce mois
+            try {
+                const res = await fetch(`${API_URL}/cra/${craId}`, { credentials: 'include' });
+                const cra = await res.json();
+                _craSaisieLines = (cra.astreintes_hno || []).map(l => ({
+                    id: l.id,
+                    type: l.type,
+                    date_debut: l.date_debut,
+                    date_fin: l.date_fin,
+                    heure_debut: l.heure_debut || '',
+                    heure_fin: l.heure_fin || '',
+                    samu: l.samu || '',
+                    objet: l.objet || ''
+                }));
+            } catch(e) { _craSaisieLines = []; }
+
+            craSaisieResetForm();
+            renderCraSaisieList();
+            document.getElementById('craSaisieModal').classList.add('active');
+        }
+
+        function closeCraSaisieModal() {
+            document.getElementById('craSaisieModal').classList.remove('active');
+            _craSaisieId = null;
+            _craSaisieLines = [];
+            _craSaisieEditIdx = null;
+        }
+
+        function craSaisieResetForm() {
+            document.getElementById('craSaisieType').selectedIndex = 0;
+            document.getElementById('craSaisieSamu').selectedIndex = 0;
+            document.getElementById('craSaisieDateDebut').value = '';
+            document.getElementById('craSaisieDateFin').value = '';
+            document.getElementById('craSaisieHeureDebut').value = '';
+            document.getElementById('craSaisieHeureFin').value = '';
+            document.getElementById('craSaisieObjet').value = '';
+            _craSaisieEditIdx = null;
+            const btn = document.getElementById('craSaisieAddBtn');
+            if (btn) { btn.textContent = '➕ Ajouter'; btn.style.background = '#6a1b9a'; }
+        }
+
+        function craSaisieEditLigne(idx) {
+            const l = _craSaisieLines[idx];
+            if (!l) return;
+            _craSaisieEditIdx = idx;
+            document.getElementById('craSaisieType').value = l.type;
+            document.getElementById('craSaisieDateDebut').value = l.date_debut;
+            document.getElementById('craSaisieDateFin').value = l.date_fin;
+            document.getElementById('craSaisieHeureDebut').value = l.heure_debut;
+            document.getElementById('craSaisieHeureFin').value = l.heure_fin;
+            document.getElementById('craSaisieSamu').value = l.samu;
+            document.getElementById('craSaisieObjet').value = l.objet;
+            const btn = document.getElementById('craSaisieAddBtn');
+            if (btn) { btn.textContent = '💾 Modifier'; btn.style.background = '#e65100'; }
+            document.getElementById('craSaisieType').focus();
+        }
+
+        function craSaisieAjouter() {
+            const type       = document.getElementById('craSaisieType').value;
+            const dateDebut  = document.getElementById('craSaisieDateDebut').value;
+            const dateFin    = document.getElementById('craSaisieDateFin').value;
+            const heureDebut = document.getElementById('craSaisieHeureDebut').value;
+            const heureFin   = document.getElementById('craSaisieHeureFin').value;
+            const samu       = document.getElementById('craSaisieSamu').value;
+            const objet      = document.getElementById('craSaisieObjet').value.trim();
+
+            if (!dateDebut || !dateFin || !heureDebut || !heureFin || !samu || !objet) {
+                alert('Veuillez remplir tous les champs obligatoires (*)');
+                return;
+            }
+            if (dateFin < dateDebut) { alert('La date de fin doit être ≥ à la date de début'); return; }
+
+            const ligne = { type, date_debut: dateDebut, date_fin: dateFin, heure_debut: heureDebut, heure_fin: heureFin, samu, objet };
+            if (_craSaisieEditIdx !== null) {
+                // Conserver l'id BDD si modification d'une ligne existante
+                ligne.id = _craSaisieLines[_craSaisieEditIdx].id;
+                _craSaisieLines[_craSaisieEditIdx] = ligne;
+            } else {
+                _craSaisieLines.push(ligne);
+            }
+            renderCraSaisieList();
+            craSaisieResetForm();
+        }
+
+        function craSaisieSupprimer(idx) {
+            if (!confirm('Supprimer cette ligne ?')) return;
+            _craSaisieLines.splice(idx, 1);
+            renderCraSaisieList();
+            if (_craSaisieEditIdx === idx) craSaisieResetForm();
+        }
+
+        function renderCraSaisieList() {
+            const container = document.getElementById('craSaisieList');
+            if (!_craSaisieLines.length) {
+                container.innerHTML = '<p style="color:#999;text-align:center;font-size:13px;padding:20px 0;">Aucune ligne saisie</p>';
+                return;
+            }
+            container.innerHTML = _craSaisieLines.map((l, i) => `
+                <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:${i%2?'#f9f4ff':'white'};border:1px solid #e1bee7;border-radius:6px;margin-bottom:6px;font-size:12px;">
+                    <span style="padding:2px 8px;border-radius:4px;background:${l.type==='astreinte'?'#ff980022':'#2196f322'};color:${l.type==='astreinte'?'#e65100':'#1565c0'};font-weight:bold;white-space:nowrap;">${l.type==='astreinte'?'🔔 Astreinte':'🌙 HNO'}</span>
+                    <span style="white-space:nowrap;">${formatDateFRClient(l.date_debut)}${l.date_fin!==l.date_debut?' → '+formatDateFRClient(l.date_fin):''}</span>
+                    <span style="white-space:nowrap;color:#666;">${l.heure_debut} → ${l.heure_fin}</span>
+                    <span style="white-space:nowrap;color:#6a1b9a;font-weight:bold;">${l.samu}</span>
+                    <span style="flex:1;color:#444;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${l.objet}</span>
+                    <button onclick="craSaisieEditLigne(${i})" title="Modifier" style="background:#ff9800;color:white;border:none;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;">✏️</button>
+                    <button onclick="craSaisieSupprimer(${i})" title="Supprimer" style="background:#e53935;color:white;border:none;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;">🗑️</button>
+                </div>`).join('');
+        }
+
+        async function craSaisieTerminer() {
+            try {
+                const res = await fetch(`${API_URL}/cra/${_craSaisieId}/astreintes`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ lignes: _craSaisieLines })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Erreur');
+                closeCraSaisieModal();
+                await openCraDetail(_craSaisieId);
+            } catch(e) {
+                alert('Erreur lors de l\'enregistrement : ' + e.message);
+            }
+        }
+
+        function toggleRefusPanel(niveau, craId) {
+            const panel = document.getElementById('craRefusViseurPanel');
+            const isVisible = panel.style.display !== 'none';
+            panel.style.display = isVisible ? 'none' : 'block';
+            if (!isVisible) {
+                panel.dataset.niveau = niveau;
+                panel.dataset.craId = craId;
+                document.getElementById('craCommentaireRefus').focus();
+                // Mettre à jour le bouton de confirmation
+                let confirmBtn = document.getElementById('craRefusConfirmBtn');
+                if (!confirmBtn) {
+                    confirmBtn = document.createElement('button');
+                    confirmBtn.id = 'craRefusConfirmBtn';
+                    confirmBtn.style.cssText = 'background:#e53935;color:white;padding:9px 20px;font-weight:bold;border:none;border-radius:4px;cursor:pointer;margin-top:8px;';
+                    confirmBtn.textContent = '📨 Confirmer le refus et notifier l\'expert';
+                    confirmBtn.onclick = () => refuserCra(panel.dataset.niveau, parseInt(panel.dataset.craId));
+                    panel.appendChild(confirmBtn);
+                }
+            }
+        }
+
+        async function refuserCra(niveau, craId) {
+            const commentaire = document.getElementById('craCommentaireRefus').value.trim();
+            if (!commentaire) { alert('Le motif de refus est obligatoire.'); return; }
+            if (!confirm(`Confirmer le refus de ce CRA ? Un email sera envoyé à l'expert avec votre commentaire.`)) return;
+            try {
+                const res = await fetch(`${API_URL}/cra/${craId}/refuser/${niveau}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ commentaire })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Erreur');
+                alert('✅ CRA refusé — l\'expert a été notifié par email.');
+                document.getElementById('craRefusViseurPanel').style.display = 'none';
+                await loadCraList();
+                closeCraDetail();
+                loadCraPendingBadge();
+            } catch(e) { alert('Erreur : ' + e.message); }
+        }
+
+        async function submitCra(craId) {
+            const commentaire = document.getElementById('craCommentaire').value;
+            if (!confirm('Confirmer la soumission de votre CRA ? Il sera transmis au viseur de niveau 1.')) return;
+            try {
+                const res = await fetch(`${API_URL}/cra/${craId}/submit`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+                    body: JSON.stringify({ commentaire })
+                });
+                const data = await res.json();
+                if (data.success) { await loadCraList(); await openCraDetail(craId); }
+                else alert('Erreur : ' + data.error);
+            } catch(e) { alert('Erreur réseau'); }
+        }
+
+        async function visaCra(craId, niveau) {
+            if (!confirm(`Confirmer le visa de ${niveau === 'n1' ? 'niveau 1' : 'niveau 2'} pour ce CRA ?`)) return;
+            try {
+                const res = await fetch(`${API_URL}/cra/${craId}/visa/${niveau}`, { method: 'POST', credentials: 'include' });
+                const data = await res.json();
+                if (data.success) {
+                    await loadCraList();
+                    await openCraDetail(craId);
+                    loadCraPendingBadge(); // Rafraîchir la pastille
+                }
+                else alert('Erreur : ' + data.error);
+            } catch(e) { alert('Erreur réseau'); }
+        }
+
+        async function diffuserCra(craId) {
+            if (!confirm('Diffuser ce CRA auprès des RH de l\'ES ? Un email sera envoyé.')) return;
+            try {
+                const res = await fetch(`${API_URL}/cra/${craId}/diffuser`, { method: 'POST', credentials: 'include' });
+                const data = await res.json();
+                if (data.success) { alert('✅ CRA diffusé avec succès.'); await loadCraList(); closeCraDetail(); }
+                else alert('Erreur : ' + data.error);
+            } catch(e) { alert('Erreur réseau'); }
+        }
+
+        function closeCraDetail() {
+            document.getElementById('craDetailPanel').style.display = 'none';
+        }
+
+        let _craViewerCurrentId = null;
+
+        async function openCraModal(craId) {
+            _craViewerCurrentId = craId;
+            try {
+                const res = await fetch(`${API_URL}/cra/${craId}`, { credentials: 'include' });
+                const cra = await res.json();
+                const moisNom = new Date(parseInt(cra.annee), parseInt(cra.mois)-1, 1)
+                    .toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+                const moisCap = moisNom.charAt(0).toUpperCase() + moisNom.slice(1);
+
+                document.getElementById('craViewerTitle').textContent = `CRA — ${cra.expert_nom || ''} — ${moisCap}`;
+
+                // Signatures
+                const sigsMap = { 1: null, 2: null, 3: null };
+                (cra.signatures || []).forEach(s => { sigsMap[s.rang] = s; });
+                const fmt = dt => new Date(dt).toLocaleString('fr-FR');
+                const sigRow = (rang, label, color) => {
+                    const s = sigsMap[rang];
+                    if (!s) return `<tr><td style="padding:6px 10px;font-weight:bold;color:${color};">${label}</td><td style="padding:6px 10px;" colspan="2" style="color:#bbb;">En attente</td></tr>`;
+                    return `<tr style="background:#faf5ff;"><td style="padding:6px 10px;font-weight:bold;color:${color};">${label}</td><td style="padding:6px 10px;">${s.signer_name}</td><td style="padding:6px 10px;font-size:11px;color:#888;">${fmt(s.signed_at)}<br><span style="color:#bbb;">IP: ${s.ip_address||'N/A'}</span></td></tr>`;
+                };
+
+                // Astreintes
+                const lignes = cra.astreintes_hno || [];
+                const lignesHtml = lignes.length ? lignes.map((l, i) => `
+                    <tr style="background:${i%2?'#f9f4ff':'white'};">
+                        <td style="padding:6px 8px;"><span style="font-weight:bold;color:${l.type==='astreinte'?'#e65100':'#1565c0'};">${l.type==='astreinte'?'🔔 Astreinte':'🌙 HNO'}</span></td>
+                        <td style="padding:6px 8px;">${l.date_debut ? new Date(l.date_debut).toLocaleDateString('fr-FR') : ''}</td>
+                        <td style="padding:6px 8px;">${l.date_fin ? new Date(l.date_fin).toLocaleDateString('fr-FR') : ''}</td>
+                        <td style="padding:6px 8px;">${l.heure_debut||''} ${l.heure_fin?'→ '+l.heure_fin:''}</td>
+                        <td style="padding:6px 8px;">${l.samu||''}</td>
+                        <td style="padding:6px 8px;">${l.objet||''}</td>
+                    </tr>`).join('')
+                    : `<tr><td colspan="6" style="padding:12px;text-align:center;color:#999;">Aucune activité enregistrée</td></tr>`;
+
+                document.getElementById('craViewerBody').innerHTML = `
+                    <!-- Infos expert -->
+                    <table style="width:100%;border-collapse:collapse;margin-bottom:14px;font-size:12px;">
+                        <tr style="background:#f3e5f5;">
+                            <td style="padding:6px 10px;font-weight:bold;width:130px;border:1px solid #d1b3e0;">Expert</td>
+                            <td style="padding:6px 10px;border:1px solid #d1b3e0;">${cra.expert_nom||''}</td>
+                            <td style="padding:6px 10px;font-weight:bold;width:100px;border:1px solid #d1b3e0;">Période</td>
+                            <td style="padding:6px 10px;border:1px solid #d1b3e0;">${moisCap}</td>
+                        </tr>
+                        <tr style="background:#f3e5f5;">
+                            <td style="padding:6px 10px;font-weight:bold;border:1px solid #d1b3e0;">Établissement</td>
+                            <td style="padding:6px 10px;border:1px solid #d1b3e0;">${cra.es_rattachement||'—'}</td>
+                            <td style="padding:6px 10px;font-weight:bold;border:1px solid #d1b3e0;">SAMU</td>
+                            <td style="padding:6px 10px;border:1px solid #d1b3e0;">${cra.expert_samu||'—'}</td>
+                        </tr>
+                    </table>
+
+                    <!-- Astreintes/HNO -->
+                    <div style="font-size:11px;font-weight:bold;color:#6a1b9a;text-transform:uppercase;margin-bottom:8px;letter-spacing:0.5px;">📋 Activités Astreinte / HNO</div>
+                    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px;">
+                        <thead><tr style="background:#6a1b9a;color:white;">
+                            <th style="padding:7px 8px;text-align:left;">Type</th>
+                            <th style="padding:7px 8px;text-align:left;">Date début</th>
+                            <th style="padding:7px 8px;text-align:left;">Date fin</th>
+                            <th style="padding:7px 8px;text-align:left;">Heures</th>
+                            <th style="padding:7px 8px;text-align:left;">SAMU</th>
+                            <th style="padding:7px 8px;text-align:left;">Objet</th>
+                        </tr></thead>
+                        <tbody>${lignesHtml}</tbody>
+                    </table>
+
+                    ${cra.commentaire_expert ? `<div style="background:#f3e5f5;border-left:4px solid #6a1b9a;padding:10px 14px;margin-bottom:14px;font-size:12px;border-radius:0 6px 6px 0;"><strong style="color:#6a1b9a;">Commentaire :</strong> ${cra.commentaire_expert}</div>` : ''}
+
+                    <!-- Signatures -->
+                    <div style="font-size:11px;font-weight:bold;color:#6a1b9a;text-transform:uppercase;margin-bottom:8px;letter-spacing:0.5px;">✍️ Signatures électroniques</div>
+                    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                        <thead><tr style="background:#f3e5f5;">
+                            <th style="padding:6px 10px;text-align:left;width:130px;border:1px solid #d1b3e0;">Rôle</th>
+                            <th style="padding:6px 10px;text-align:left;border:1px solid #d1b3e0;">Signataire</th>
+                            <th style="padding:6px 10px;text-align:left;border:1px solid #d1b3e0;">Date / IP</th>
+                        </tr></thead>
+                        <tbody>
+                            ${sigRow(1,'Expert','#6a1b9a')}
+                            ${sigRow(2,'Viseur N1','#4caf50')}
+                            ${sigRow(3,'Viseur N2','#2196f3')}
+                        </tbody>
+                    </table>`;
+
+                document.getElementById('craViewerModal').classList.add('active');
+            } catch(e) {
+                alert('Erreur chargement CRA : ' + e.message);
+            }
+        }
+
+        async function loadCraSignatures() {
+            const expert = document.getElementById('craSignFilterExpert').value;
+            const statut = document.getElementById('craSignFilterStatut').value;
+            const params = new URLSearchParams();
+            if (expert) params.set('user_id', expert);
+            if (statut) params.set('statut', statut);
+            try {
+                const res = await fetch(`${API_URL}/cra/admin/list?${params}`, { credentials: 'include' });
+                const data = await res.json();
+                const container = document.getElementById('craSignaturesTable');
+                if (!data.length) { container.innerHTML = '<p style="color:#999;text-align:center;padding:20px;">Aucun CRA trouvé.</p>'; return; }
+                const stL = { 'a_completer':'✏️ À compléter','soumis':'📤 Soumis','vise_n1':'✅ Visé N1','vise_n2':'✅ Visé N2','diffuse':'📨 Diffusé' };
+                const fmt = dt => dt ? new Date(dt).toLocaleDateString('fr-FR') : '—';
+                container.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px;">
+                    <thead><tr style="background:#6a1b9a;color:white;">
+                        <th style="padding:8px;text-align:left;">Expert</th><th style="padding:8px;text-align:left;">Période</th>
+                        <th style="padding:8px;text-align:left;">Statut</th><th style="padding:8px;text-align:left;">Soumis le</th>
+                        <th style="padding:8px;text-align:left;">Visé N1</th><th style="padding:8px;text-align:left;">Visé N2</th>
+                        <th style="padding:8px;text-align:left;">Diffusé</th><th style="padding:8px;text-align:left;">Actions</th>
+                    </tr></thead>
+                    <tbody>${data.map((c,i)=>{
+                        const moisNom = new Date(c.annee,c.mois-1,1).toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+                        return `<tr style="background:${i%2?'#f9f4ff':'white'};border-bottom:1px solid #e1bee7;">
+                            <td style="padding:6px 8px;">${c.expert_nom}</td>
+                            <td style="padding:6px 8px;">${moisNom}</td>
+                            <td style="padding:6px 8px;">${stL[c.statut]||c.statut}</td>
+                            <td style="padding:6px 8px;">${fmt(c.submitted_at)}</td>
+                            <td style="padding:6px 8px;">${c.vise_n1_nom?fmt(c.vise_n1_at)+'<br><small>'+c.vise_n1_nom+'</small>':'—'}</td>
+                            <td style="padding:6px 8px;">${c.vise_n2_nom?fmt(c.vise_n2_at)+'<br><small>'+c.vise_n2_nom+'</small>':'—'}</td>
+                            <td style="padding:6px 8px;">${fmt(c.diffuse_at)}</td>
+                            <td style="padding:6px 8px;">
+                                <button onclick="openCraModal(${c.id})" style="font-size:11px;padding:3px 8px;background:#6a1b9a;color:white;border:none;border-radius:4px;cursor:pointer;">Voir</button>
+                            </td>
+                        </tr>`;
+                    }).join('')}</tbody>
+                </table>`;
+            } catch(e) { console.error('Erreur chargement signatures CRA:', e); }
+        }
+
         async function loadAutomation3Config() {
             try {
                 const response = await fetch(`${API_URL}/automation/config/3`, { credentials: 'include' });
@@ -14010,7 +15081,6 @@
                 trigramme,
                 resource_id,
                 is_expert,
-                amoa_ced,
                 selectValue: document.getElementById('editUserResourceId').value
             });
 
@@ -14167,6 +15237,11 @@
             
             if (tabName === 'astreintesGestion') {
                 initAstreintesTab();
+            }
+
+            if (tabName === 'cra') {
+                loadCraList();
+                loadCraPendingBadge();
             }
         }
 
@@ -14464,7 +15539,7 @@
                 if (!pubEnabled || !pubVersion) return;
 
                 // La clé inclut le timestamp → chaque nouvelle publication force le réaffichage
-                const seenKey = `help_seen_${currentUser.userId}_${pubTimestamp}`;
+                const seenKey = `help_seen_${currentUser.id}_${pubTimestamp}`;
                 if (localStorage.getItem(seenKey)) return;
                 localStorage.setItem(seenKey, 'true');
 
@@ -19719,7 +20794,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                         ${participantsHtml}
                     </div>
                     <div style="display: flex; gap: 5px; flex-wrap: wrap; align-items: center;">
-                        ${currentUser && currentUser.activeProfile === 'expert' && event.participants && !event.participants.some(p => p.id === currentUser.userId) ? 
+                        ${currentUser && currentUser.activeProfile === 'expert' && event.participants && !event.participants.some(p => p.id === currentUser.id) ? 
                             `<button onclick="joinEventAsParticipant(${event.id})" style="background: #27ae60; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;" title="Me déclarer participant">✋ Participer</button>` : ''}
                         ${event.is_creator ? `<button onclick="editMyEvent(${event.id})" style="background: #ff9800; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;" title="Modifier l'événement">✏️</button>` : `<button onclick="editMyEventParticipantsOnly(${event.id})" style="background: #78909c; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;" title="Modifier uniquement les participants">👥</button>`}
                         ${event.is_creator ? `<button onclick="deleteMyEvent(${event.id})" style="background: #e53935; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;" title="Supprimer l'événement">🗑️</button>` : ''}
