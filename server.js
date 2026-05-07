@@ -10126,10 +10126,80 @@ async function runAutomation4() {
 }
 
 app.post('/api/automation/cra/trigger', requireAdmin, async (req, res) => {
+    const logs = [];
+    const log = (msg) => { logs.push(msg); console.log('[CRA TEST]', msg); };
     try {
-        await runAutomation4();
-        res.json({ success: true, sent: 'voir logs serveur' });
-    } catch(e) { res.status(500).json({ error: e.message }); }
+        const config = await getCraConfig();
+        log(`Config : enabled=${config?.enabled}, day=${config?.day}`);
+        if (!config?.enabled) { log('⛔ Automation désactivée — cocher la case et sauvegarder'); return res.json({ success: true, sent: 0, logs }); }
+
+        const now = new Date();
+        log(`Jour actuel : ${now.getDate()} (configuré : ${config.day}) — vérification ignorée en mode test`);
+
+        const targetDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const targetMois = targetDate.getMonth() + 1;
+        const targetAnnee = targetDate.getFullYear();
+        log(`Mois cible : ${targetMois}/${targetAnnee}`);
+
+        const experts = await new Promise((resolve, reject) => {
+            database.all(
+                `SELECT r.id as resource_id, r.nom, r.prenom, u.id as user_id, u.email
+                 FROM resources r JOIN users u ON u.resource_id = r.id AND u.is_expert = 1
+                 WHERE r.astreinte_volontaire = 1 AND r.actif = 1`,
+                (err, rows) => err ? reject(err) : resolve(rows || [])
+            );
+        });
+        log(`Experts astreinte trouvés : ${experts.length}`);
+        experts.forEach(e => log(`  • ${e.prenom} ${e.nom} — email: ${e.email || '⚠️ MANQUANT'}`));
+
+        const appUrl = process.env.APP_URL || global._detectedAppUrl || 'http://localhost:3000';
+        log(`URL app : ${appUrl}`);
+        log(`SMTP expéditeur : ${emailConfig?.user || '⚠️ non configuré'}`);
+
+        let sent = 0;
+        for (const expert of experts) {
+            await new Promise((resolve, reject) => {
+                database.run(`INSERT OR IGNORE INTO cra (user_id, resource_id, mois, annee, statut) VALUES (?, ?, ?, ?, 'a_completer')`,
+                    [expert.user_id, expert.resource_id, targetMois, targetAnnee], err => err ? reject(err) : resolve());
+            });
+            const cra = await new Promise((resolve, reject) => {
+                database.get(`SELECT id, statut FROM cra WHERE user_id = ? AND mois = ? AND annee = ?`,
+                    [expert.user_id, targetMois, targetAnnee], (e, row) => e ? reject(e) : resolve(row));
+            });
+            log(`  ${expert.prenom} ${expert.nom} → CRA id=${cra?.id} statut=${cra?.statut}`);
+            if (!cra || cra.statut !== 'a_completer') { log(`    ↳ Skip (statut=${cra?.statut}, déjà soumis)`); continue; }
+            if (!expert.email) { log(`    ↳ Skip (email manquant)`); continue; }
+
+            const moisNom = targetDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+            const expertNom = `${expert.prenom} ${expert.nom}`;
+            try {
+                await enqueueEmail({
+                    batchId: generateICSUid(), recipientEmail: expert.email, recipientName: expertNom,
+                    senderName: 'Plateforme de Planification ANS', senderEmail: emailConfig?.user || '',
+                    subject: `[TEST] CRA ${moisNom} — action requise`,
+                    htmlBody: buildCraEmailHtml({ title: `[TEST] CRA ${moisNom} à compléter`, expertNom, moisNom,
+                        craUrl: `${appUrl}/?tab=cra&cra_id=${cra.id}`,
+                        action: `[EMAIL DE TEST] Votre compte-rendu d'activité pour ${moisNom} est disponible.` }),
+                    actionType: 'cra_rappel'
+                });
+                log(`    ✅ Email mis en queue → ${expert.email}`);
+                sent++;
+            } catch(emailErr) {
+                log(`    ❌ Erreur enqueueEmail : ${emailErr.message}`);
+            }
+        }
+
+        log(`─── Bilan ───`);
+        log(`Admin N1 : ${config.admin_n1_email || '⚠️ non configuré'}`);
+        log(`Admin N2 : ${config.admin_n2_email || '⚠️ non configuré'}`);
+        log(`Destinataires RH : ${JSON.stringify(config.rh_recipients || {})}`);
+        log(`Total emails : ${sent} rappel(s) mis en queue`);
+
+        res.json({ success: true, sent, logs });
+    } catch(e) {
+        log(`❌ Erreur fatale : ${e.message}`);
+        res.status(500).json({ error: e.message, logs });
+    }
 });
 
 // ========== ROUTES GESTION ASTREINTES ==========
