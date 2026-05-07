@@ -12470,12 +12470,54 @@
 
         async function testAutomation4() {
             const resultDiv = document.getElementById('automation4TestResult');
-            resultDiv.textContent = '⏳ Envoi des rappels CRA en cours...';
+            resultDiv.textContent = '⏳ Test en cours...';
             try {
                 const res = await fetch(`${API_URL}/automation/cra/trigger`, { method: 'POST', credentials: 'include' });
                 const data = await res.json();
-                resultDiv.innerHTML = data.success ? `✅ ${data.sent} rappel(s) envoyé(s)` : `❌ Erreur : ${data.error}`;
-            } catch(e) { resultDiv.textContent = '❌ Erreur réseau'; }
+                const logs = data.logs || [];
+                const hasError = logs.some(l => l.includes('❌') || l.includes('⚠️'));
+
+                resultDiv.innerHTML = data.success
+                    ? `✅ ${data.sent} email(s) mis en queue — <button onclick="showCraTestLogs()" style="background:none;border:none;color:#6a1b9a;cursor:pointer;text-decoration:underline;font-size:12px;">📋 Voir les logs détaillés</button>`
+                    : `❌ Erreur — <button onclick="showCraTestLogs()" style="background:none;border:none;color:#e53935;cursor:pointer;text-decoration:underline;font-size:12px;">📋 Voir les logs</button>`;
+
+                window._lastCraTestLogs = logs;
+            } catch(e) {
+                resultDiv.textContent = '❌ Erreur réseau : ' + e.message;
+            }
+        }
+
+        function showCraTestLogs() {
+            const logs = window._lastCraTestLogs || [];
+            // Créer modale si inexistante
+            let modal = document.getElementById('craTestLogsModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'craTestLogsModal';
+                modal.className = 'modal';
+                modal.style.zIndex = '10010';
+                modal.innerHTML = `
+                    <div class="modal-content" style="max-width:700px;max-height:80vh;overflow-y:auto;padding:0;">
+                        <div style="position:sticky;top:0;background:#2c3e50;color:white;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;">
+                            <strong>📋 Logs — Test Automation CRA</strong>
+                            <button onclick="document.getElementById('craTestLogsModal').classList.remove('active')" style="background:none;border:none;color:white;font-size:20px;cursor:pointer;">✕</button>
+                        </div>
+                        <div id="craTestLogsBody" style="padding:16px;font-family:monospace;font-size:12px;line-height:1.8;background:#1e1e2e;color:#cdd6f4;"></div>
+                        <div style="padding:12px 20px;border-top:1px solid #eee;text-align:right;">
+                            <button onclick="document.getElementById('craTestLogsModal').classList.remove('active')" style="background:#6a1b9a;color:white;padding:8px 18px;border:none;border-radius:4px;cursor:pointer;">Fermer</button>
+                        </div>
+                    </div>`;
+                document.body.appendChild(modal);
+            }
+            document.getElementById('craTestLogsBody').innerHTML = logs.map(l => {
+                let color = '#cdd6f4';
+                if (l.includes('✅')) color = '#a6e3a1';
+                else if (l.includes('❌') || l.includes('⚠️')) color = '#f38ba8';
+                else if (l.includes('───')) color = '#89b4fa';
+                else if (l.startsWith('  •') || l.startsWith('  ')) color = '#cba6f7';
+                return `<div style="color:${color};padding:1px 0;">${l.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`;
+            }).join('');
+            modal.classList.add('active');
         }
 
         // ========== ONGLET MON CRA ==========
