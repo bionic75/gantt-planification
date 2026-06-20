@@ -43,6 +43,19 @@
         #loginUsername:focus, #loginPassword:focus, #loginProfile:focus { border-color: #1D70B7 !important; box-shadow: 0 0 8px rgba(0, 0, 145, 0.3) !important; }
         .form-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; }
         .button-group { display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap; }
+
+        /* Tag-input pour affectation SAMU (expert principal / secondaire) */
+        .samu-tag-box { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 6px; border: 1px solid #bdc3c7; border-radius: 4px; min-height: 36px; align-items: center; background: white; cursor: text; }
+        .samu-tag-input { border: none !important; outline: none; flex: 1; min-width: 100px; padding: 4px 2px !important; font-size: 12px; box-shadow: none !important; }
+        .samu-tag { display: inline-flex; align-items: center; gap: 4px; border-radius: 14px; padding: 3px 8px 3px 10px; font-size: 11px; font-weight: bold; white-space: nowrap; color: white; }
+        .samu-tag.principal { background-color: #1565c0; }
+        .samu-tag.secondaire { background-color: #78909c; }
+        .samu-tag .samu-tag-remove { cursor: pointer; font-size: 14px; line-height: 1; margin-left: 2px; opacity: 0.85; }
+        .samu-tag .samu-tag-remove:hover { opacity: 1; }
+        .samu-tag-dropdown { display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ddd; border-radius: 0 0 6px 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); max-height: 180px; overflow-y: auto; z-index: 1500; }
+        .samu-tag-dropdown-item { padding: 7px 12px; cursor: pointer; font-size: 12px; border-bottom: 1px solid #f5f5f5; }
+        .samu-tag-dropdown-item:hover { background: #f0f4f8; }
+        .samu-tag-dropdown-empty { padding: 10px 12px; font-size: 11px; color: #999; font-style: italic; }
         button { padding: 10px 20px; background-color: #1D70B7; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: background-color 0.3s; }
         button:hover { background-color: #2980b9; }
         button.delete { background-color: #D60B51; padding: 5px 10px; font-size: 12px; }
@@ -63,6 +76,8 @@
         th.resource-label:hover { background-color: #34495e; }
         th.resource-label::after { content: none; }
         th.day-header::after { content: none; }
+        th.week-number-header::after { content: none; }
+        th.week-number-header { cursor: default !important; }
         /* Tableau reporting - pas de flèches par défaut */
         #reportingTable th { cursor: default; }
         #reportingTable th::after { content: none; }
@@ -478,6 +493,7 @@
             </div>
             <div class="tabs">
                 <button class="tab-btn active" onclick="switchTab('resources', event)">Ressources</button>
+                <button class="tab-btn" id="evenementsTabBtn" onclick="switchTab('evenements', event)">Événements</button>
                 <button class="tab-btn" onclick="switchTab('planning', event)">Planification</button>
                 <button class="tab-btn" id="craTabBtn" onclick="switchTab('cra', event)" style="display: none; position: relative;">
                     <span id="craTabLabel">Mon CRA</span>
@@ -578,6 +594,28 @@
                     <div class="form-group"><label>ES de rattachement</label><input type="text" id="esRattachement" readonly placeholder="Auto-rempli selon le SAMU choisi" style="background-color: #f5f5f5; cursor: not-allowed;"></div>
                     <div class="form-group"><label>Fonction</label><input type="text" id="fonction" placeholder="Ex: Médecin, Infirmier..."></div>
                 </div>
+                <div class="form-row" style="grid-template-columns: 1fr 1fr;">
+                    <div class="form-group" style="position: relative;">
+                        <label>🅿️ Expert principal sur le(s) SAMU</label>
+                        <div id="samuTags_add_principal" class="samu-tag-box" onclick="document.getElementById('samuInput_add_principal').focus()">
+                            <input type="text" id="samuInput_add_principal" placeholder="Taper le nom d'un SAMU..." class="samu-tag-input"
+                                oninput="filterSamuOptions('add_principal', this.value)"
+                                onfocus="filterSamuOptions('add_principal', this.value)"
+                                onkeydown="handleSamuTagKeydown('add_principal', event)">
+                        </div>
+                        <div id="samuDropdown_add_principal" class="samu-tag-dropdown"></div>
+                    </div>
+                    <div class="form-group" style="position: relative;">
+                        <label>🅢 Expert secondaire sur le(s) SAMU</label>
+                        <div id="samuTags_add_secondaire" class="samu-tag-box" onclick="document.getElementById('samuInput_add_secondaire').focus()">
+                            <input type="text" id="samuInput_add_secondaire" placeholder="Taper le nom d'un SAMU..." class="samu-tag-input"
+                                oninput="filterSamuOptions('add_secondaire', this.value)"
+                                onfocus="filterSamuOptions('add_secondaire', this.value)"
+                                onkeydown="handleSamuTagKeydown('add_secondaire', event)">
+                        </div>
+                        <div id="samuDropdown_add_secondaire" class="samu-tag-dropdown"></div>
+                    </div>
+                </div>
                 <div class="button-group">
                     <button onclick="addResource()">Ajouter la ressource</button>
                     <button class="export-btn" onclick="exportResourcesToExcel()">Exporter (Excel)</button>
@@ -594,17 +632,170 @@
                             <th onclick="sortTable('resources', 2)">Trigramme</th>
                             <th onclick="sortTable('resources', 3)">Taux MAD</th>
                             <th onclick="sortTable('resources', 4)">SAMU</th>
-                            <th onclick="sortTable('resources', 5)">ES rattachement</th>
-                            <th onclick="sortTable('resources', 6)">Fonction</th>
-                            <th onclick="sortTable('resources', 7)">Début MAD</th>
-                            <th onclick="sortTable('resources', 8)">Fin MAD</th>
-                            <th onclick="sortTable('resources', 9)">Statut</th>
+                            <th onclick="sortTable('resources', 5)">🅿️ Affectation(s) SAMU principales</th>
+                            <th onclick="sortTable('resources', 6)">🅢 Affectation(s) SAMU secondaires</th>
+                            <th onclick="sortTable('resources', 7)">ES rattachement</th>
+                            <th onclick="sortTable('resources', 8)">Fonction</th>
+                            <th onclick="sortTable('resources', 9)">Début MAD</th>
+                            <th onclick="sortTable('resources', 10)">Fin MAD</th>
+                            <th onclick="sortTable('resources', 11)">Statut</th>
                             <th class="no-sort">Actif</th>
                             <th class="no-sort">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="resourcesList"></tbody>
                 </table>
+            </div>
+        </div>
+        
+        <div id="evenements" class="tab-content">
+            <h2><span id="myEventsModalTitle">Mes événements personnalisés</span></h2>
+            <p style="color: #7f8c8d; font-size: 12px; margin: -10px 0 15px 0;">Créez des événements qui s'afficheront sur le planning</p>
+
+            <!-- Formulaire d'ajout -->
+            <div style="background: #fff3e0; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                <div style="display: flex; align-items: center; gap: 10px; cursor: pointer;" onclick="toggleMyEventForm()">
+                    <span id="myEventFormIcon" style="font-size: 13px; color: #e65100; transition: transform 0.2s;">▶</span>
+                    <h3 style="color: #e65100; margin: 0; font-size: 14px;">➕ Ajouter un événement</h3>
+                </div>
+                <div id="myEventFormBody" style="display: none; margin-top: 15px;">
+                
+                <!-- Sélecteur de créateur (uniquement visible pour les admins en mode édition) -->
+                <div id="myEventCreatorSection" style="display: none; margin-bottom: 15px; background: #e3f2fd; padding: 10px; border-radius: 5px;">
+                    <label style="font-size: 11px; color: #1565c0; display: block; margin-bottom: 5px; font-weight: bold;">👤 Modifier le créateur</label>
+                    <select id="myEventCreator" style="width: 100%; max-width: 300px; padding: 6px; border: 1px solid #90caf9; border-radius: 4px;">
+                        <!-- Options remplies dynamiquement -->
+                    </select>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr 2fr 2fr; gap: 10px; align-items: start;">
+                    <div>
+                        <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px;">Date de début *</label>
+                        <input type="date" id="myEventStartDate" style="width: 100%; padding: 6px;" onchange="prefillMyEventEndDate(); updateMyEventPeriodVisibility()">
+                    </div>
+                    <div>
+                        <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px;">Date de fin</label>
+                        <input type="date" id="myEventEndDate" style="width: 100%; padding: 6px;" onchange="updateMyEventPeriodVisibility()">
+                    </div>
+                    <div>
+                        <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px;">Libellé *</label>
+                        <input type="text" id="myEventLabel" placeholder="Ex: FORMATION, RÉUNION..." style="width: 100%; padding: 6px; text-transform: uppercase;" oninput="this.value = this.value.toUpperCase(); updateMyEventPreview()">
+                    </div>
+                    <div style="position: relative;">
+                        <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px;">👥 Participant(s)</label>
+                        <div id="myEventParticipantsContainer" style="display: flex; flex-wrap: wrap; gap: 4px; padding: 3px 6px; border: 1px solid #ccc; border-radius: 4px; min-height: 32px; align-items: center; background: white; cursor: text;" onclick="document.getElementById('myEventParticipantInput').focus()">
+                            <input type="text" id="myEventParticipantInput" placeholder="Nom ou email..." 
+                                style="border: none; outline: none; flex: 1; min-width: 80px; padding: 3px 0; font-size: 12px;" 
+                                oninput="filterMyEventParticipants(this.value)"
+                                onfocus="filterMyEventParticipants(this.value)"
+                                onkeydown="handleParticipantKeydown(event)">
+                        </div>
+                        <div id="myEventParticipantDropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ddd; border-radius: 0 0 8px 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); max-height: 200px; overflow-y: auto; z-index: 10010;"></div>
+                    </div>
+                </div>
+                <!-- Localisation -->
+                <div style="margin-top: 8px;">
+                    <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px;">📍 Localisation</label>
+                    <select id="myEventLocationId" style="width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
+                        <option value="">— Aucune localisation —</option>
+                    </select>
+                </div>
+
+                <!-- Besoin de ressources -->
+                <div style="margin-top: 10px; padding: 10px; background: #e8f5e9; border-radius: 6px; border: 1px solid #a5d6a7;">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                        <input type="checkbox" id="myEventNeedsResources" style="width: auto; margin: 0; cursor: pointer;" onchange="toggleNeedsResources()">
+                        <label for="myEventNeedsResources" style="cursor: pointer; font-size: 12px; color: #2e7d32; font-weight: bold; margin: 0;">Besoin de ressources</label>
+                    </div>
+                    <div id="myEventResourcesPanel" style="display: none;">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                            <label style="font-size: 12px; color: #2e7d32; white-space: nowrap;">Nombre de ressources nécessaires :</label>
+                            <select id="myEventResourcesCount" style="width: 80px; padding: 4px;" onchange="updateResourcesCounter()">
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4">4</option>
+                                <option value="5">5</option>
+                            </select>
+                            <span style="font-size: 12px; color: #555;">— Participants renseignés : <strong id="myEventParticipantCount">0</strong> / <strong id="myEventResourcesCountDisplay">1</strong></span>
+                        </div>
+                        <div style="margin-bottom: 8px;">
+                            <label style="font-size: 12px; color: #2e7d32; display: block; margin-bottom: 4px;">📧 Envoyer une demande de mobilisation à :</label>
+                            <select id="myEventNotifyUsers" multiple style="width: 100%; height: 100px; padding: 4px; border: 1px solid #a5d6a7; border-radius: 4px; font-size: 12px;"></select>
+                            <p style="font-size: 11px; color: #666; margin: 4px 0 0 0;">Ctrl+clic pour sélectionner plusieurs personnes</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sélecteur demi-journée — visible uniquement si début = fin -->
+                <div id="myEventPeriodSection" style="display: none; margin-top: 8px; padding: 8px 12px; background: #e8f4fd; border-radius: 6px; border: 1px solid #bee3f8;">
+                    <label style="font-size: 11px; color: #1565c0; font-weight: bold; display: block; margin-bottom: 6px;">🕐 Demi-journée</label>
+                    <div style="display: flex; gap: 8px;">
+                        <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 12px;">
+                            <input type="radio" name="myEventPeriod" id="myEventPeriodFull" value="FULL" checked> Journée entière
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 12px;">
+                            <input type="radio" name="myEventPeriod" id="myEventPeriodAM" value="AM"> Matin (AM)
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 12px;">
+                            <input type="radio" name="myEventPeriod" id="myEventPeriodPM" value="PM"> Après-midi (PM)
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Ligne couleurs -->
+                <div style="display: flex; align-items: end; gap: 10px; margin-top: 10px;">
+                    <div>
+                        <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px;">Fond</label>
+                        <input type="color" id="myEventBgColor" value="#ffeb3b" style="width: 40px; height: 32px; padding: 0; border: 1px solid #ccc; cursor: pointer;" onchange="updateMyEventPreview()">
+                    </div>
+                    <div>
+                        <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px;">Texte</label>
+                        <input type="color" id="myEventTextColor" value="#000000" style="width: 40px; height: 32px; padding: 0; border: 1px solid #ccc; cursor: pointer;" onchange="updateMyEventPreview()">
+                    </div>
+                    <div>
+                        <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px;">Bordure</label>
+                        <input type="color" id="myEventBorderColor" value="#000000" style="width: 40px; height: 32px; padding: 0; border: 1px solid #ccc; cursor: pointer;" onchange="updateMyEventPreview()">
+                    </div>
+                </div>
+                
+                <!-- Templates prédéfinis -->
+                <div style="margin-top: 10px; padding: 10px; background: #fff3e0; border-radius: 5px;">
+                    <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 8px;">📋 Templates prédéfinis (cliquez pour appliquer) :</label>
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                        <span onclick="applyMyEventTemplate('formation')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: rgb(255, 234, 0); color: rgb(0, 8, 255); border: 2px solid rgb(0, 0, 0); display: inline-flex; align-items: center; justify-content: center;" title="Cliquez pour appliquer ce template">FORMATION</span>
+                        <span onclick="applyMyEventTemplate('mes')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: rgb(255, 234, 0); color: rgb(210, 9, 6); border: 2px solid rgb(0, 0, 0); display: inline-flex; align-items: center; justify-content: center;" title="Cliquez pour appliquer ce template">MISE EN SERVICE</span>
+                        <span onclick="applyMyEventTemplate('apd')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: rgb(255, 234, 0); color: rgb(194, 5, 154); border: 2px solid rgb(0, 0, 0); display: inline-flex; align-items: center; justify-content: center;" title="Cliquez pour appliquer ce template">ACCOMP. POST DÉM.</span>
+                        <span onclick="applyMyEventTemplate('visite')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: rgb(0, 17, 255); color: rgb(255, 255, 255); border: 2px solid rgb(0, 0, 0); display: inline-flex; align-items: center; justify-content: center;" title="Cliquez pour appliquer ce template">VISITE TERRAIN</span>
+                        <span onclick="applyMyEventTemplate('congres')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: rgb(223, 240, 216); color: rgb(66, 118, 69); border: 2px solid rgb(0, 0, 0); display: inline-flex; align-items: center; justify-content: center;" title="Cliquez pour appliquer ce template">CONGRÈS</span>
+                        <span onclick="applyMyEventTemplate('libre')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: #fff; color: #333; border: 2px dashed #999; display: inline-flex; align-items: center; justify-content: center;" title="Réinitialiser les couleurs">🎨 Libre</span>
+                    </div>
+                </div>
+                
+                <!-- Prévisualisation -->
+                <div style="margin-top: 10px; display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 12px; color: #666;">Prévisualisation :</span>
+                    <span id="myEventPreview" style="display: inline-block; padding: 3px 8px; border-radius: 8px; font-size: 11px; font-weight: bold; background-color: #ffeb3b; color: #000; border: 2px solid #000;">LIBELLÉ</span>
+                </div>
+                
+                <!-- Bouton Ajouter / Modifier en bas à droite -->
+                <div style="display: flex; justify-content: flex-end; margin-top: 15px;">
+                    <button onclick="addMyEvent()" id="myEventActionBtn" style="background-color: #ff9800; color: white; padding: 8px 20px; white-space: nowrap; font-size: 13px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer;">
+                        ➕ Ajouter
+                    </button>
+                </div>
+                </div><!-- fin myEventFormBody -->
+            </div>
+            
+            <!-- Liste des événements -->
+            <div id="myEventsTableContainer" style="max-height: 50vh; overflow-y: auto;">
+                <p style="color: #999; font-size: 12px; font-style: italic; text-align: center; padding: 20px;">Chargement...</p>
+            </div>
+            
+            <div style="display: flex; justify-content: flex-start; align-items: center; margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;">
+                <button onclick="openEventMapModal()" style="background-color: #3f51b5; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px;">
+                    🗺️ Carte des Événements / Déplacements
+                </button>
             </div>
         </div>
         
@@ -759,11 +950,6 @@
                                 style="padding: 8px 15px; height: 38px; background-color: #2196f3; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center;" 
                                 title="Vue calendrier mensuel">
                             📅
-                        </button>
-                        <button onclick="event.stopPropagation(); openMyEventsModal();" 
-                                style="padding: 8px 15px; height: 38px; background-color: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; display: flex; align-items: center;" 
-                                title="Gérer les événements">
-                            Gérer les événements
                         </button>
                         <button onclick="event.stopPropagation(); openEventsCalendarModal();" 
                                 style="padding: 8px 15px; height: 38px; background-color: #00bcd4; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; display: flex; align-items: center;" 
@@ -1350,49 +1536,66 @@
         <div id="settingsSection" style="margin-top: 15px; display: none;">
             
             <!-- Version de l'application -->
-            <div style="display: flex; align-items: flex-end; gap: 10px; margin-bottom: 15px;">
-                <div style="flex: 1;">
-                    <label>Version de l'application</label>
-                    <input type="text" id="appVersionInput" placeholder="Ex: v1.0.0">
+            <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 8px 10px; background: #eef1fb; border-radius: 5px; margin-bottom: 6px;" onclick="toggleAdminSubSection('subAppVersion')">
+                <strong style="color: #3949ab; font-size: 13px;"><span id="subAppVersionSubIcon">▶</span> 🏷️ Version de l'application</strong>
+            </div>
+            <div id="subAppVersion" style="display: none; padding: 10px 5px 15px 5px;">
+                <div style="display: flex; align-items: flex-end; gap: 10px;">
+                    <div style="flex: 1;">
+                        <label>Version de l'application</label>
+                        <input type="text" id="appVersionInput" placeholder="Ex: v1.0.0">
+                    </div>
+                    <button onclick="saveAppVersion()" style="white-space: nowrap;">💾 Sauvegarder</button>
                 </div>
-                <button onclick="saveAppVersion()" style="white-space: nowrap;">💾 Sauvegarder</button>
             </div>
             
             <!-- Compteur d'inactivité -->
-            <div style="display: flex; align-items: flex-end; gap: 10px; margin-bottom: 15px;">
-                <div style="flex: 1;">
-                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 8px;">
-                        <input type="checkbox" id="inactivityEnabled" onchange="toggleInactivityTimeout()" style="width: auto; margin: 0;">
-                        <span>Activer le compteur d'inactivité</span>
-                    </label>
-                    <select id="inactivityTimeout">
-                        <option value="5">5 minutes</option>
-                        <option value="10">10 minutes</option>
-                        <option value="15" selected>15 minutes</option>
-                        <option value="30">30 minutes</option>
-                        <option value="60">60 minutes</option>
-                    </select>
+            <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 8px 10px; background: #eef1fb; border-radius: 5px; margin-bottom: 6px;" onclick="toggleAdminSubSection('subInactivity')">
+                <strong style="color: #3949ab; font-size: 13px;"><span id="subInactivitySubIcon">▶</span> ⏱️ Compteur d'inactivité</strong>
+            </div>
+            <div id="subInactivity" style="display: none; padding: 10px 5px 15px 5px;">
+                <div style="display: flex; align-items: flex-end; gap: 10px;">
+                    <div style="flex: 1;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 8px;">
+                            <input type="checkbox" id="inactivityEnabled" onchange="toggleInactivityTimeout()" style="width: auto; margin: 0;">
+                            <span>Activer le compteur d'inactivité</span>
+                        </label>
+                        <select id="inactivityTimeout">
+                            <option value="5">5 minutes</option>
+                            <option value="10">10 minutes</option>
+                            <option value="15" selected>15 minutes</option>
+                            <option value="30">30 minutes</option>
+                            <option value="60">60 minutes</option>
+                        </select>
+                    </div>
+                    <button onclick="saveInactivityConfig()" style="white-space: nowrap;">💾 Sauvegarder</button>
                 </div>
-                <button onclick="saveInactivityConfig()" style="white-space: nowrap;">💾 Sauvegarder</button>
             </div>
             
             <!-- Favicon -->
-            <div style="display: flex; align-items: flex-end; gap: 10px; margin-bottom: 15px;">
-                <div style="flex: 1;">
-                    <label>Icône de l'application (favicon)</label>
-                    <select id="faviconSelect">
-                        <option value="calendrier">📅 Calendrier</option>
-                        <option value="gantt">📊 Gantt</option>
-                        <option value="grille">⊞ Grille</option>
-                        <option value="timeline">⏱️ Timeline</option>
-                    </select>
+            <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 8px 10px; background: #eef1fb; border-radius: 5px; margin-bottom: 6px;" onclick="toggleAdminSubSection('subFavicon')">
+                <strong style="color: #3949ab; font-size: 13px;"><span id="subFaviconSubIcon">▶</span> 🖼️ Icône de l'application (favicon)</strong>
+            </div>
+            <div id="subFavicon" style="display: none; padding: 10px 5px 15px 5px;">
+                <div style="display: flex; align-items: flex-end; gap: 10px;">
+                    <div style="flex: 1;">
+                        <label>Icône de l'application (favicon)</label>
+                        <select id="faviconSelect">
+                            <option value="calendrier">📅 Calendrier</option>
+                            <option value="gantt">📊 Gantt</option>
+                            <option value="grille">⊞ Grille</option>
+                            <option value="timeline">⏱️ Timeline</option>
+                        </select>
+                    </div>
+                    <button onclick="saveFavicon()" style="white-space: nowrap;">💾 Sauvegarder</button>
                 </div>
-                <button onclick="saveFavicon()" style="white-space: nowrap;">💾 Sauvegarder</button>
             </div>
             
             <!-- Administration de l'aide en ligne -->
-            <div style="margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #d0d0d0;">
-                <label style="font-weight: bold; color: #3949ab; font-size: 14px;">📖 Administration de l'aide en ligne</label>
+            <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 8px 10px; background: #eef1fb; border-radius: 5px; margin-bottom: 6px;" onclick="toggleAdminSubSection('subAideEnLigne')">
+                <strong style="color: #3949ab; font-size: 13px;"><span id="subAideEnLigneSubIcon">▶</span> 📖 Administration de l'aide en ligne</strong>
+            </div>
+            <div id="subAideEnLigne" style="display: none; padding: 10px 5px 15px 5px;">
 
                 <!-- Publication de version -->
                 <div style="display: flex; align-items: center; gap: 10px; margin: 12px 0; padding: 10px; background: #e8eaf6; border-radius: 6px;">
@@ -1418,8 +1621,10 @@
             </div>
 
             <!-- Sauvegarde base de données -->
-            <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #d0d0d0;">
-                <label>Sauvegarde de la base de données</label>
+            <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 8px 10px; background: #eef1fb; border-radius: 5px; margin-bottom: 6px;" onclick="toggleAdminSubSection('subBackup')">
+                <strong style="color: #3949ab; font-size: 13px;"><span id="subBackupSubIcon">▶</span> 💽 Sauvegarde de la base de données</strong>
+            </div>
+            <div id="subBackup" style="display: none; padding: 10px 5px 15px 5px;">
                 <div style="display: flex; gap: 10px; margin: 10px 0;">
                     <button onclick="backupFullDatabase()" class="export-btn" style="flex: 1;">📥 Télécharger le backup (CSV)</button>
                     <button onclick="backupDatabaseSQL()" class="export-btn" style="flex: 1; background-color: #6c757d;">📥 Télécharger le backup (SQL)</button>
@@ -1428,13 +1633,15 @@
             </div>
             
             <!-- Purge des logs -->
-            <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #d0d0d0; background-color: #fff3e0; padding: 15px; border-radius: 5px;">
-                <label style="color: #e65100; font-weight: bold;">⚠️ Purge complète des logs</label>
-                <p style="font-size: 12px; color: #e65100; margin: 10px 0;">
+            <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 8px 10px; background: #fff3e0; border-radius: 5px; margin-bottom: 6px;" onclick="toggleAdminSubSection('subPurgeLogs')">
+                <strong style="color: #e65100; font-size: 13px;"><span id="subPurgeLogsSubIcon">▶</span> ⚠️ Purge complète des logs</strong>
+            </div>
+            <div id="subPurgeLogs" style="display: none; padding: 10px 5px 15px 5px; background-color: #fff3e0; border-radius: 5px;">
+                <p style="font-size: 12px; color: #e65100; margin: 0 0 10px 0;">
                     Cette action supprime <strong>TOUS</strong> les logs de connexion et de modifications de planning pour <strong>TOUS</strong> les utilisateurs. 
                     <strong>Cette action est IRRÉVERSIBLE !</strong>
                 </p>
-                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <div style="display: flex; gap: 10px;">
                     <button onclick="purgeAllConnectionLogs()" style="flex: 1; background-color: #ff6b6b; color: white;" onmouseover="this.style.backgroundColor='#ee5a52'" onmouseout="this.style.backgroundColor='#ff6b6b'">
                         🗑️ Purger logs de connexion
                     </button>
@@ -1448,9 +1655,11 @@
             </div>
             
             <!-- Purge des notifications -->
-            <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #d0d0d0; background-color: #ffebee; padding: 15px; border-radius: 5px;">
-                <label style="color: #c62828; font-weight: bold;">🔔 Nettoyage des notifications</label>
-                <p style="font-size: 12px; color: #c62828; margin: 10px 0;">
+            <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 8px 10px; background: #ffebee; border-radius: 5px; margin-bottom: 6px;" onclick="toggleAdminSubSection('subPurgeNotifs')">
+                <strong style="color: #c62828; font-size: 13px;"><span id="subPurgeNotifsSubIcon">▶</span> 🔔 Nettoyage des notifications</strong>
+            </div>
+            <div id="subPurgeNotifs" style="display: none; padding: 10px 5px 15px 5px; background-color: #ffebee; border-radius: 5px;">
+                <p style="font-size: 12px; color: #c62828; margin: 0 0 10px 0;">
                     Supprime <strong>TOUTES</strong> les notifications de tous les experts. 
                     Utile pour nettoyer les anciennes notifications obsolètes.
                 </p>
@@ -1842,13 +2051,14 @@
             
             <!-- Automatisation n°1: Rappel disponibilités -->
             <div style="background-color: white; border: 1px solid #ffcc80; border-radius: 8px; padding: 15px; margin-bottom: 15px;">
-                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 15px;">
                     <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0;">
                         <input type="checkbox" id="automation1Enabled" onchange="saveAutomation1Config()" style="width: 18px; height: 18px; margin: 0;">
                         <span style="font-weight: bold; color: #e65100; font-size: 14px;">📧 Automatisation n°1 : Rappel de saisie des disponibilités</span>
                     </label>
+                    <span onclick="toggleAdminSubSection('automation1Body')" style="cursor: pointer; font-size: 14px; color: #e65100; padding: 2px 8px;" title="Réduire / développer"><span id="automation1BodySubIcon">▶</span></span>
                 </div>
-                
+                <div id="automation1Body" style="display: none;">
                 <p style="font-size: 12px; color: #666; margin: 0 0 15px 0; padding-left: 26px;">
                     Envoie automatiquement un email aux experts qui n'ont pas renseigné leurs disponibilités pour le mois M+1, 
                     X jours avant la fin du mois en cours.
@@ -1890,16 +2100,19 @@
                     </button>
                     <div id="automation1TestResult" style="margin-top: 10px; font-size: 12px;"></div>
                 </div>
+                </div><!-- /automation1Body -->
             </div>
             
             <!-- Automatisation n°2: Sauvegarde des plannings mensuels -->
             <div style="background-color: white; border: 1px solid #ffcc80; border-radius: 8px; padding: 15px; margin-bottom: 15px;">
-                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 15px;">
                     <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0;">
                         <input type="checkbox" id="automation2Enabled" onchange="saveAutomation2Config()" style="width: 18px; height: 18px; margin: 0;">
                         <span style="font-weight: bold; color: #e65100; font-size: 14px;">📊 Automatisation n°2 : Sauvegarde des plannings mensuels</span>
                     </label>
+                    <span onclick="toggleAdminSubSection('automation2Body')" style="cursor: pointer; font-size: 14px; color: #e65100; padding: 2px 8px;" title="Réduire / développer"><span id="automation2BodySubIcon">▶</span></span>
                 </div>
+                <div id="automation2Body" style="display: none;">
                 
                 <p style="font-size: 12px; color: #666; margin: 0 0 15px 0; padding-left: 26px;">
                     Envoie automatiquement un fichier de sauvegarde du planning aux destinataires sélectionnés selon la fréquence choisie.
@@ -2084,6 +2297,7 @@
                     </button>
                     <div id="automation2TestResult" style="margin-top: 10px; font-size: 12px;"></div>
                 </div>
+                </div><!-- /automation2Body -->
             </div>
             
             <!-- Automatisation n°3: Notifications Teams -->
@@ -2151,12 +2365,14 @@
 
             <!-- Automatisation n°4: Workflow CRA -->
             <div style="background-color: white; border: 1px solid #b39ddb; border-radius: 8px; padding: 15px; margin-bottom: 15px;">
-                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 15px;">
                     <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0;">
                         <input type="checkbox" id="automation4Enabled" onchange="saveAutomation4Config()" style="width: 18px; height: 18px; margin: 0;">
                         <span style="font-weight: bold; color: #6a1b9a; font-size: 14px;">📝 Automatisation n°4 : Workflow Compte-Rendu d'Activité</span>
                     </label>
+                    <span onclick="toggleAdminSubSection('automation4Body')" style="cursor: pointer; font-size: 14px; color: #6a1b9a; padding: 2px 8px;" title="Réduire / développer"><span id="automation4BodySubIcon">▶</span></span>
                 </div>
+                <div id="automation4Body" style="display: none;">
                 <p style="font-size: 12px; color: #666; margin: 0 0 15px 0; padding-left: 26px;">Déclenche chaque mois un rappel aux experts astreinte pour compléter leur CRA du mois précédent, puis gère le circuit de visa jusqu'à la diffusion auprès des RH.</p>
                 <div style="padding-left: 26px; display: flex; flex-direction: column; gap: 15px;">
                     <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end;">
@@ -2184,6 +2400,7 @@
                         <div id="automation4TestResult" style="margin-top: 10px; font-size: 12px;"></div>
                     </div>
                 </div>
+                </div><!-- /automation4Body -->
             </div>
 
             <!-- Signatures CRA -->
@@ -2781,6 +2998,30 @@
                 <div class="form-group"><label>Fonction</label><input type="text" id="editFonction" placeholder="Ex: Médecin..."></div>
             </div>
             <div class="form-group"><label>ES de rattachement</label><input type="text" id="editEsRattachement" readonly placeholder="Auto-rempli selon le SAMU choisi" style="background-color: #f5f5f5; cursor: not-allowed;"></div>
+
+            <!-- Affectations SAMU multiples (expert principal / secondaire) -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px;">
+                <div class="form-group" style="position: relative;">
+                    <label>🅿️ Expert principal sur le(s) SAMU</label>
+                    <div id="samuTags_edit_principal" class="samu-tag-box" onclick="document.getElementById('samuInput_edit_principal').focus()">
+                        <input type="text" id="samuInput_edit_principal" placeholder="Taper le nom d'un SAMU..." class="samu-tag-input"
+                            oninput="filterSamuOptions('edit_principal', this.value)"
+                            onfocus="filterSamuOptions('edit_principal', this.value)"
+                            onkeydown="handleSamuTagKeydown('edit_principal', event)">
+                    </div>
+                    <div id="samuDropdown_edit_principal" class="samu-tag-dropdown"></div>
+                </div>
+                <div class="form-group" style="position: relative;">
+                    <label>🅢 Expert secondaire sur le(s) SAMU</label>
+                    <div id="samuTags_edit_secondaire" class="samu-tag-box" onclick="document.getElementById('samuInput_edit_secondaire').focus()">
+                        <input type="text" id="samuInput_edit_secondaire" placeholder="Taper le nom d'un SAMU..." class="samu-tag-input"
+                            oninput="filterSamuOptions('edit_secondaire', this.value)"
+                            onfocus="filterSamuOptions('edit_secondaire', this.value)"
+                            onkeydown="handleSamuTagKeydown('edit_secondaire', event)">
+                    </div>
+                    <div id="samuDropdown_edit_secondaire" class="samu-tag-dropdown"></div>
+                </div>
+            </div>
             
             <!-- Section Historique des taux de MAD -->
             <div style="margin-top: 20px; padding: 15px; background: #e3f2fd; border-radius: 8px;">
@@ -3605,11 +3846,11 @@
         
         // Obtenir la liste des onglets accessibles selon le profil
         function getAvailableTabsForProfile(profile) {
-            const allTabs = ['resources', 'planning', 'cra', 'reporting', 'admin', 'astreintesGestion'];
+            const allTabs = ['resources', 'evenements', 'planning', 'cra', 'reporting', 'admin', 'astreintesGestion'];
             if (profile === 'admin') return allTabs;
-            else if (profile === 'user') return ['resources', 'planning', 'reporting'];
-            else if (profile === 'expert') return ['resources', 'planning', 'cra'];
-            return ['resources', 'planning'];
+            else if (profile === 'user') return ['resources', 'evenements', 'planning', 'reporting'];
+            else if (profile === 'expert') return ['resources', 'evenements', 'planning', 'cra'];
+            return ['resources', 'evenements', 'planning'];
         }
 
         function showLoginError(message) {
@@ -6573,7 +6814,7 @@
                 'deplacementsModal', 'logoutConfirmModal', 'myEventsModal', 'astreintesModal',
                 'requestModal', 'monthlyCalendarModal', 'diagnosticModal', 'localisationsManagementModal',
                 // Modales sans classe .modal
-                'sendEmailModalContainer', 'myEventsModalContainer', 'editCustomEventModal',
+                'sendEmailModalContainer', 'editCustomEventModal',
                 'confirmationModal', 'notificationsModal', 'searchModal',
                 'planificationLogoutModal', 'deplacementsLogoutModal',
                 'mfaModal', 'totpSetupModal', 'totpVerifyModal',
@@ -6856,12 +7097,152 @@
                 // Charger le cache MAD avant d'afficher les ressources
                 await loadAllMadHistoryCache();
                 console.log('✅ Cache MAD chargé');
+
+                // Charger les affectations SAMU (expert principal / secondaire)
+                await loadResourceSamuAssignments();
                 
                 displayResources();
                 updateResourceFilter();
             } catch (error) {
                 console.error('Erreur:', error);
             }
+        }
+
+        // === AFFECTATIONS SAMU (expert principal / secondaire) ===
+
+        let resourceSamuAssignments = {}; // { [resourceId]: { principal: [samu...], secondaire: [samu...] } }
+        let samuTagState = { add_principal: [], add_secondaire: [], edit_principal: [], edit_secondaire: [] };
+        const SAMU_TAG_PAIRS = { add_principal: 'add_secondaire', add_secondaire: 'add_principal', edit_principal: 'edit_secondaire', edit_secondaire: 'edit_principal' };
+
+        async function loadResourceSamuAssignments() {
+            try {
+                const response = await fetch(`${API_URL}/resource-samu-assignments`, { credentials: 'include' });
+                if (!response.ok) return;
+                const rows = await response.json();
+                const map = {};
+                rows.forEach(row => {
+                    if (!map[row.resource_id]) map[row.resource_id] = { principal: [], secondaire: [] };
+                    map[row.resource_id][row.role].push(row.samu);
+                });
+                resourceSamuAssignments = map;
+            } catch (e) {
+                console.error('Erreur chargement affectations SAMU:', e);
+            }
+        }
+
+        function renderSamuTags(key) {
+            const box = document.getElementById(`samuTags_${key}`);
+            const input = document.getElementById(`samuInput_${key}`);
+            if (!box || !input) return;
+            box.querySelectorAll('.samu-tag').forEach(t => t.remove());
+            const role = key.endsWith('_principal') ? 'principal' : 'secondaire';
+            (samuTagState[key] || []).forEach(samu => {
+                const tag = document.createElement('span');
+                tag.className = `samu-tag ${role}`;
+                tag.innerHTML = `<span>${samu}</span><span class="samu-tag-remove" onclick="removeSamuTag('${key}', '${samu.replace(/'/g, "\\'")}')" title="Retirer">&times;</span>`;
+                box.insertBefore(tag, input);
+            });
+        }
+
+        function addSamuTag(key, samu) {
+            if (!samu) return;
+            if (!samuTagState[key]) samuTagState[key] = [];
+            if (samuTagState[key].includes(samu)) return;
+            samuTagState[key].push(samu);
+            // Retirer du champ opposé (un SAMU ne peut être que principal OU secondaire à la fois)
+            const oppositeKey = SAMU_TAG_PAIRS[key];
+            if (oppositeKey && samuTagState[oppositeKey]) {
+                samuTagState[oppositeKey] = samuTagState[oppositeKey].filter(s => s !== samu);
+                renderSamuTags(oppositeKey);
+            }
+            renderSamuTags(key);
+            const input = document.getElementById(`samuInput_${key}`);
+            if (input) { input.value = ''; input.focus(); }
+            const dropdown = document.getElementById(`samuDropdown_${key}`);
+            if (dropdown) dropdown.style.display = 'none';
+        }
+
+        function removeSamuTag(key, samu) {
+            if (!samuTagState[key]) return;
+            samuTagState[key] = samuTagState[key].filter(s => s !== samu);
+            renderSamuTags(key);
+        }
+
+        function filterSamuOptions(key, query) {
+            const dropdown = document.getElementById(`samuDropdown_${key}`);
+            if (!dropdown) return;
+            const q = (query || '').toLowerCase().trim();
+            const oppositeKey = SAMU_TAG_PAIRS[key];
+            const excluded = new Set([...(samuTagState[key] || []), ...(oppositeKey ? (samuTagState[oppositeKey] || []) : [])]);
+            const options = [...allLocations]
+                .map(l => l.libelle_court)
+                .filter(Boolean)
+                .filter((v, i, arr) => arr.indexOf(v) === i) // unique
+                .filter(samu => !excluded.has(samu))
+                .filter(samu => !q || samu.toLowerCase().includes(q))
+                .sort((a, b) => a.localeCompare(b))
+                .slice(0, 10);
+
+            if (options.length === 0) {
+                dropdown.innerHTML = '<div class="samu-tag-dropdown-empty">Aucun SAMU disponible</div>';
+                dropdown.style.display = 'block';
+                return;
+            }
+            dropdown.innerHTML = options.map(samu =>
+                `<div class="samu-tag-dropdown-item" onclick="addSamuTag('${key}', '${samu.replace(/'/g, "\\'")}')">${samu}</div>`
+            ).join('');
+            dropdown.style.display = 'block';
+        }
+
+        function handleSamuTagKeydown(key, e) {
+            if (e.key === 'Backspace' && e.target.value === '' && (samuTagState[key] || []).length > 0) {
+                samuTagState[key].pop();
+                renderSamuTags(key);
+            }
+            if (e.key === 'Escape') {
+                const dropdown = document.getElementById(`samuDropdown_${key}`);
+                if (dropdown) dropdown.style.display = 'none';
+            }
+        }
+
+        // Fermer les dropdowns SAMU si clic en dehors
+        document.addEventListener('click', function(e) {
+            ['add_principal', 'add_secondaire', 'edit_principal', 'edit_secondaire'].forEach(key => {
+                const box = document.getElementById(`samuTags_${key}`);
+                const dropdown = document.getElementById(`samuDropdown_${key}`);
+                if (dropdown && box && !box.contains(e.target) && !dropdown.contains(e.target)) {
+                    dropdown.style.display = 'none';
+                }
+            });
+        });
+
+        async function saveSamuAssignmentsForResource(resourceId, principalArr, secondaireArr) {
+            try {
+                await fetch(`${API_URL}/resources/${resourceId}/samu-assignments`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ principal: principalArr || [], secondaire: secondaireArr || [] })
+                });
+                resourceSamuAssignments[resourceId] = { principal: principalArr || [], secondaire: secondaireArr || [] };
+            } catch (e) {
+                console.error('Erreur sauvegarde affectations SAMU:', e);
+            }
+        }
+
+        function buildSamuAssignmentsBadgesHtml(resourceId, role) {
+            const assign = resourceSamuAssignments[resourceId];
+            if (!assign) return '<span style="color:#bbb;font-size:11px;">-</span>';
+            const list = role === 'secondaire' ? assign.secondaire : assign.principal;
+            if (!list || !list.length) return '<span style="color:#bbb;font-size:11px;">-</span>';
+            const color = role === 'secondaire' ? '#78909c' : '#1565c0';
+            const icon = role === 'secondaire' ? '🅢' : '🅿️';
+            let html = '<div style="display:flex; flex-wrap:wrap; gap:3px;">';
+            list.forEach(samu => {
+                html += `<span style="background:${color};color:white;font-size:9px;padding:1px 6px;border-radius:8px;">${icon} ${samu}</span>`;
+            });
+            html += '</div>';
+            return html;
         }
 
         function updateResourceFilter() {
@@ -7025,6 +7406,15 @@
             return date.toLocaleDateString('fr-FR');
         }
 
+        // Calcule le numéro de semaine ISO 8601 pour une date donnée
+        function getISOWeekNumber(date) {
+            const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+            const dayNum = d.getUTCDay() || 7;
+            d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+            const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+            return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+        }
+
         async function addResource() {
             const nom = document.getElementById('nom').value.trim();
             const prenom = document.getElementById('prenom').value.trim();
@@ -7061,6 +7451,13 @@
                     const errorData = await response.json();
                     throw new Error(errorData.error || 'Erreur ajout ressource');
                 }
+
+                const newResourceData = await response.json();
+
+                // Enregistrer les affectations SAMU (expert principal / secondaire) saisies dans le formulaire
+                if (newResourceData && newResourceData.id) {
+                    await saveSamuAssignmentsForResource(newResourceData.id, samuTagState.add_principal, samuTagState.add_secondaire);
+                }
                 
                 showSyncStatus();
                 logModification("Modification du planning");
@@ -7069,6 +7466,11 @@
                     const el = document.getElementById(id);
                     if (el) el.value = '';
                 });
+                // Réinitialiser les tags SAMU du formulaire d'ajout
+                samuTagState.add_principal = [];
+                samuTagState.add_secondaire = [];
+                renderSamuTags('add_principal');
+                renderSamuTags('add_secondaire');
                 updateGantt();
             } catch (error) {
                 console.error('Erreur:', error);
@@ -7098,6 +7500,8 @@
                     <td>${r.trigramme}</td>
                     <td>${r.taux}%</td>
                     <td>${r.samu}</td>
+                    <td>${buildSamuAssignmentsBadgesHtml(r.id, 'principal')}</td>
+                    <td>${buildSamuAssignmentsBadgesHtml(r.id, 'secondaire')}</td>
                     <td>${r.es_rattachement || '-'}</td>
                     <td>${r.fonction || '-'}</td>
                     <td>${formatDate(madDates.dateDebut || r.date_debut)}</td>
@@ -7126,6 +7530,13 @@
             document.getElementById('editSamu').value = resource.samu;
             document.getElementById('editEsRattachement').value = resource.es_rattachement || '';
             document.getElementById('editFonction').value = resource.fonction || '';
+
+            // Pré-remplir les affectations SAMU (expert principal / secondaire)
+            const assign = resourceSamuAssignments[id] || { principal: [], secondaire: [] };
+            samuTagState.edit_principal = [...assign.principal];
+            samuTagState.edit_secondaire = [...assign.secondaire];
+            renderSamuTags('edit_principal');
+            renderSamuTags('edit_secondaire');
             
             // Charger l'historique MAD
             await loadMadHistory(id);
@@ -7541,6 +7952,10 @@
                     const errorData = await response.json();
                     throw new Error(errorData.error || 'Erreur modification');
                 }
+
+                // Enregistrer les affectations SAMU (expert principal / secondaire)
+                await saveSamuAssignmentsForResource(currentEditId, samuTagState.edit_principal, samuTagState.edit_secondaire);
+
                 showSyncStatus();
                 logModification("Modification du planning");
                 await loadResources();
@@ -7556,6 +7971,8 @@
             document.getElementById('editModal').classList.remove('active');
             currentEditId = null;
             currentResourceMadHistory = [];
+            samuTagState.edit_principal = [];
+            samuTagState.edit_secondaire = [];
         }
 
         async function toggleActive(id) {
@@ -8417,15 +8834,37 @@
             let dailyDispo = Array(lastDay * 2).fill(0); // x2 pour AM/PM
             let dailyAffect = Array(lastDay * 2).fill(0); // x2 pour AM/PM
 
-            let html = '<table class="gantt-table"><thead><tr>';
-            html += '<th class="resource-header" style="z-index: 50;" rowspan="2" onclick="sortGanttResources()" style="cursor: pointer;">Ressource</th>';
-            html += `<th class="resource-label" style="z-index: 49; vertical-align: middle; padding: 4px;" rowspan="2">
+            let html = '<table class="gantt-table"><thead>';
+
+            // ====== Ligne N° de semaine (nouvelle) ======
+            html += '<tr>';
+            html += '<th class="resource-header" style="z-index: 50; cursor: pointer;" rowspan="3" onclick="sortGanttResources()">Ressource</th>';
+            html += `<th class="resource-label" style="z-index: 49; vertical-align: middle; padding: 4px;" rowspan="3">
                 <div style="display: flex; flex-direction: column; height: 60px; justify-content: space-between;">
                     <div style="flex: 1; display: flex; align-items: center; justify-content: center;">Disponibilité</div>
                     <div style="flex: 1; display: flex; align-items: center; justify-content: center;">Affectation</div>
                     <div style="flex: 1; display: flex; align-items: center; justify-content: center;">Localisation</div>
                 </div>
             </th>`;
+            {
+                let wDay = 1;
+                let wIndex = 0;
+                while (wDay <= lastDay) {
+                    const wDate = new Date(year, month, wDay);
+                    const wn = getISOWeekNumber(wDate);
+                    let wCount = 0;
+                    while (wDay <= lastDay && getISOWeekNumber(new Date(year, month, wDay)) === wn) {
+                        wCount++;
+                        wDay++;
+                    }
+                    const wBg = (wIndex % 2 === 0) ? '#2c3e50' : '#3d566e';
+                    html += `<th class="week-number-header" colspan="${wCount * 2}" style="background-color: ${wBg}; color: white; font-size: 10px; font-weight: bold; padding: 4px 0; letter-spacing: 0.5px; z-index: 19;">Sem. ${wn}</th>`;
+                    wIndex++;
+                }
+            }
+            html += '</tr>';
+
+            html += '<tr>';
             
             // En-têtes avec AM/PM pour chaque jour
             const today = new Date();
@@ -8453,7 +8892,7 @@
             
             // Sous-en-tête AM/PM
             html += '<tr>';
-            // Plus besoin des cellules vides pour les 2 premières colonnes car rowspan="2"
+            // Plus besoin des cellules vides pour les 2 premières colonnes car rowspan="3"
             for (let day = 1; day <= lastDay; day++) {
                 const date = new Date(year, month, day);
                 const isWeekend = date.getDay() === 0 || date.getDay() === 6;
@@ -8587,11 +9026,18 @@
                 const profilePhoto = user?.profile_photo || null;
                 const trigramme = resource.trigramme || '?';
                 
-                // Construire le tooltip avec fonction et ES de rattachement
+                // Construire le tooltip avec fonction, ES de rattachement et affectations SAMU
                 const tooltipParts = [];
                 tooltipParts.push(`${resource.prenom} ${resource.nom.toUpperCase()}`);
                 if (resource.fonction) tooltipParts.push(`Fonction: ${resource.fonction}`);
                 if (resource.es_rattachement) tooltipParts.push(`ES: ${resource.es_rattachement}`);
+                const samuAssign = resourceSamuAssignments[resource.id];
+                if (samuAssign && samuAssign.principal && samuAssign.principal.length) {
+                    tooltipParts.push(`🅿️ Principal: ${samuAssign.principal.join(', ')}`);
+                }
+                if (samuAssign && samuAssign.secondaire && samuAssign.secondaire.length) {
+                    tooltipParts.push(`🅢 Secondaire: ${samuAssign.secondaire.join(', ')}`);
+                }
                 const photoTooltip = tooltipParts.join('\n');
 
                 html += `<tr data-resource-name="${resource.nom} ${resource.prenom}">
@@ -15285,6 +15731,10 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                 loadCraList();
                 loadCraPendingBadge();
             }
+
+            if (tabName === 'evenements') {
+                openMyEventsModal();
+            }
         }
 
         async function loadEmailConfig() {
@@ -16785,6 +17235,16 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                 section.style.display = 'none';
                 icon.textContent = '▶';
             }
+        }
+
+        // Pliage/dépliage des sous-catégories à l'intérieur d'une section d'administration
+        function toggleAdminSubSection(subId) {
+            const sub = document.getElementById(subId);
+            const icon = document.getElementById(subId + 'SubIcon');
+            if (!sub) return;
+            const isHidden = sub.style.display === 'none';
+            sub.style.display = isHidden ? 'block' : 'none';
+            if (icon) icon.textContent = isHidden ? '▼' : '▶';
         }
 
         // ========== LOCALISATIONS ==========
@@ -18300,9 +18760,10 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             let html = '<table style="width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed;">';
             
             html += '<thead><tr>';
+            html += `<th style="width: 8%; padding: 10px; background-color: #2c3e50; color: white; border: 1px solid #bdc3c7; font-size: 10px;">Sem.</th>`;
             dayNames.forEach((day, index) => {
                 const isWeekend = index === 0 || index === 6;
-                html += `<th style="width: 14.28%; padding: 10px; background-color: ${isWeekend ? '#ffc107' : '#1D70B7'}; color: ${isWeekend ? '#333' : 'white'}; border: 1px solid #bdc3c7;">${day}</th>`;
+                html += `<th style="width: 13.14%; padding: 10px; background-color: ${isWeekend ? '#ffc107' : '#1D70B7'}; color: ${isWeekend ? '#333' : 'white'}; border: 1px solid #bdc3c7;">${day}</th>`;
             });
             html += '</tr></thead><tbody>';
             
@@ -18312,10 +18773,20 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             
             for (let week = 0; week < numWeeks; week++) {
                 html += '<tr>';
+
+                // Calculer le numéro de semaine ISO à partir du premier jour réel de cette ligne
+                let weekRefDay = day;
+                if (week === 0 && startDayOfWeek > 0) {
+                    // Première ligne partielle : se référer au 1er du mois
+                    weekRefDay = 1;
+                }
+                const weekRefDate = new Date(year, month, Math.min(weekRefDay, lastDay));
+                const weekNum = getISOWeekNumber(weekRefDate);
+                html += `<td style="width: 8%; padding: 5px; border: 1px solid #bdc3c7; background-color: #ecf0f1; text-align: center; vertical-align: middle; font-weight: bold; color: #2c3e50; font-size: 11px;">${weekNum}</td>`;
                 
                 for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {
                     if ((week === 0 && dayOfWeek < startDayOfWeek) || day > lastDay) {
-                        html += '<td style="width: 14.28%; padding: 15px; border: 1px solid #bdc3c7; background-color: #f5f5f5;"></td>';
+                        html += '<td style="width: 13.14%; padding: 15px; border: 1px solid #bdc3c7; background-color: #f5f5f5;"></td>';
                     } else {
                         // CORRECTION : Format correct YYYY-MM-DD avec padding et month+1
                         const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -18350,7 +18821,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                         const amAstrHno = getAstrHnoForCell(resourceId, dateKey, 'AM');
                         const pmAstrHno = getAstrHnoForCell(resourceId, dateKey, 'PM');
                         
-                        html += `<td style="width: 14.28%; padding: 5px; border: 1px solid #bdc3c7; ${isWeekend ? 'background-color: #fff8e1;' : isToday ? 'background-color: #d4edda;' : ''} vertical-align: top;">
+                        html += `<td style="width: 13.14%; padding: 5px; border: 1px solid #bdc3c7; ${isWeekend ? 'background-color: #fff8e1;' : isToday ? 'background-color: #d4edda;' : ''} vertical-align: top;">
                             <div style="font-weight: bold; text-align: center; margin-bottom: 5px; padding: 3px; background-color: ${isToday ? '#28a745' : '#34495e'}; color: white; border-radius: 3px;">${day}</div>
                             <div style="position: relative; font-size: 10px; margin-bottom: 3px; padding: 5px; background-color: ${amStatus.color}; color: white; border-radius: 3px;">
                                 <strong>AM:</strong> ${amStatus.label}${amAstrHno}
@@ -18774,9 +19245,10 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             
             // En-tête des jours de la semaine avec largeur fixe
             html += '<thead><tr>';
+            html += `<th style="width: 6%; padding: 10px; background-color: #2c3e50; color: white; border: 1px solid #bdc3c7; font-weight: bold; font-size: 10px;">Sem.</th>`;
             dayNames.forEach((day, index) => {
                 const isWeekend = index === 0 || index === 6;
-                html += `<th style="width: 14.28%; padding: 10px; background-color: ${isWeekend ? '#ffc107' : '#1D70B7'}; color: ${isWeekend ? '#333' : 'white'}; border: 1px solid #bdc3c7; font-weight: bold;">${day}</th>`;
+                html += `<th style="width: 13.43%; padding: 10px; background-color: ${isWeekend ? '#ffc107' : '#1D70B7'}; color: ${isWeekend ? '#333' : 'white'}; border: 1px solid #bdc3c7; font-weight: bold;">${day}</th>`;
             });
             html += '</tr></thead><tbody>';
             
@@ -18786,10 +19258,15 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             
             for (let week = 0; week < numWeeks; week++) {
                 html += '<tr>';
+
+                // Cellule numéro de semaine (ISO 8601), calculée sur la date réelle de début de ligne
+                const rowFirstDate = new Date(year, month, 1 - startDayOfWeek + week * 7);
+                const rowWeekNum = getISOWeekNumber(rowFirstDate);
+                html += `<td style="width: 6%; padding: 5px; border: 1px solid #bdc3c7; background-color: #ecf0f1; text-align: center; vertical-align: middle; font-weight: bold; color: #2c3e50; font-size: 12px;">${rowWeekNum}</td>`;
                 
                 for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {
                     if ((week === 0 && dayOfWeek < startDayOfWeek) || day > lastDay) {
-                        html += '<td style="width: 14.28%; padding: 10px; border: 1px solid #bdc3c7; background-color: #f5f5f5; min-height: 100px; vertical-align: top;"></td>';
+                        html += '<td style="width: 13.43%; padding: 10px; border: 1px solid #bdc3c7; background-color: #f5f5f5; min-height: 100px; vertical-align: top;"></td>';
                     } else {
                         // CORRECTION : Format correct YYYY-MM-DD avec padding et month+1
                         const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -18881,7 +19358,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                             }
                         }
                         
-                        html += `<td style="width: 14.28%; padding: 5px; border: 1px solid #bdc3c7; ${isWeekend ? 'background-color: #fff8e1;' : isToday ? 'background-color: #d4edda;' : ''} vertical-align: top; min-height: 100px;">
+                        html += `<td style="width: 13.43%; padding: 5px; border: 1px solid #bdc3c7; ${isWeekend ? 'background-color: #fff8e1;' : isToday ? 'background-color: #d4edda;' : ''} vertical-align: top; min-height: 100px;">
                             <div style="font-weight: bold; text-align: center; margin-bottom: 4px; padding: 4px; background-color: ${isToday ? '#28a745' : '#34495e'}; color: white; border-radius: 3px; font-size: 13px;">${day}</div>
                             
                             ${eventsHTML}
@@ -19232,10 +19709,17 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
 
             // Charger la liste des experts
             loadExpertsForRequest();
+
+            // Réinitialiser les destinataires (tag-input)
+            requestSelectedExperts = [];
+            renderRequestExpertTags();
+            const expertsInput = document.getElementById('requestExpertsInput');
+            if (expertsInput) expertsInput.value = '';
             
-            // Réinitialiser les dates
-            document.getElementById('requestStartDate').value = '';
-            document.getElementById('requestEndDate').value = '';
+            // Dates par défaut : début = aujourd'hui, fin = même date que le début
+            const todayStr = new Date().toISOString().split('T')[0];
+            document.getElementById('requestStartDate').value = todayStr;
+            document.getElementById('requestEndDate').value = todayStr;
             document.getElementById('requestStartPeriod').value = 'Matin';
             document.getElementById('requestEndPeriod').value = 'Après-midi';
             document.getElementById('dateError').style.display = 'none';
@@ -19243,53 +19727,106 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             document.getElementById('requestModal').style.display = 'block';
         }
 
+        // Aligne automatiquement la date de fin sur la date de début choisie
+        function prefillRequestEndDate() {
+            const startVal = document.getElementById('requestStartDate').value;
+            if (startVal) {
+                document.getElementById('requestEndDate').value = startVal;
+            }
+        }
+
         function closeRequestModal() {
             document.getElementById('requestModal').style.display = 'none';
         }
+
+        // === DESTINATAIRES "Faire une demande" — tag-input autocomplete ===
+        let requestAllExperts = []; // experts actifs ET avec email
+        let requestSelectedExperts = []; // [{id, prenom, nom, trigramme, email}]
 
         function loadExpertsForRequest() {
             fetch('/api/resources')
                 .then(response => response.json())
                 .then(data => {
-                    const expertsList = document.getElementById('requestExpertsList');
-                    expertsList.innerHTML = '';
-                    
-                    // Filtrer uniquement les ressources actives
-                    const activeExperts = data.filter(r => r.actif === 1);
-                    
-                    if (activeExperts.length === 0) {
-                        expertsList.innerHTML = '<p style="color: #7f8c8d;">Aucun expert disponible</p>';
-                        return;
-                    }
-
-                    activeExperts.forEach(expert => {
-                        const div = document.createElement('div');
-                        div.style.padding = '8px';
-                        div.style.marginBottom = '5px';
-                        div.style.backgroundColor = 'white';
-                        div.style.borderRadius = '4px';
-                        
-                        const emailDisplay = expert.email ? 
-                            `<span style="color: #27ae60; font-size: 11px;">✓ ${expert.email}</span>` : 
-                            `<span style="color: #e74c3c; font-size: 11px;">✗ Pas d'email</span>`;
-                        
-                        div.innerHTML = `
-                            <label style="display: flex; align-items: center; cursor: pointer; margin: 0;">
-                                <input type="checkbox" value="${expert.id}" style="width: auto; margin-right: 10px;" ${!expert.email ? 'disabled' : ''}>
-                                <div style="flex: 1;">
-                                    <div style="font-weight: normal;">${expert.prenom} ${expert.nom} (${expert.trigramme})</div>
-                                    ${emailDisplay}
-                                </div>
-                            </label>
-                        `;
-                        expertsList.appendChild(div);
-                    });
+                    // Ne proposer que les experts actifs ET disposant d'une adresse email
+                    requestAllExperts = data.filter(r => r.actif === 1 && r.email && r.email.trim());
                 })
                 .catch(error => {
                     console.error('Erreur chargement experts:', error);
                     alert('Erreur lors du chargement des experts');
                 });
         }
+
+        function renderRequestExpertTags() {
+            const box = document.getElementById('requestExpertsTags');
+            const input = document.getElementById('requestExpertsInput');
+            if (!box || !input) return;
+            box.querySelectorAll('.samu-tag').forEach(t => t.remove());
+            requestSelectedExperts.forEach(expert => {
+                const tag = document.createElement('span');
+                tag.className = 'samu-tag principal';
+                tag.innerHTML = `<span>${expert.prenom} ${expert.nom} (${expert.trigramme})</span><span class="samu-tag-remove" onclick="removeRequestExpert(${expert.id})" title="Retirer">&times;</span>`;
+                box.insertBefore(tag, input);
+            });
+        }
+
+        function addRequestExpert(id) {
+            if (requestSelectedExperts.some(e => e.id === id)) return;
+            const expert = requestAllExperts.find(e => e.id === id);
+            if (!expert) return;
+            requestSelectedExperts.push(expert);
+            renderRequestExpertTags();
+            const input = document.getElementById('requestExpertsInput');
+            if (input) { input.value = ''; input.focus(); }
+            const dropdown = document.getElementById('requestExpertsDropdown');
+            if (dropdown) dropdown.style.display = 'none';
+        }
+
+        function removeRequestExpert(id) {
+            requestSelectedExperts = requestSelectedExperts.filter(e => e.id !== id);
+            renderRequestExpertTags();
+        }
+
+        function filterRequestExperts(query) {
+            const dropdown = document.getElementById('requestExpertsDropdown');
+            if (!dropdown) return;
+            const q = (query || '').toLowerCase().trim();
+            const selectedIds = new Set(requestSelectedExperts.map(e => e.id));
+            const options = requestAllExperts
+                .filter(e => !selectedIds.has(e.id))
+                .filter(e => !q || `${e.prenom} ${e.nom} ${e.trigramme}`.toLowerCase().includes(q))
+                .sort((a, b) => `${a.nom}${a.prenom}`.localeCompare(`${b.nom}${b.prenom}`))
+                .slice(0, 10);
+
+            if (options.length === 0) {
+                dropdown.innerHTML = '<div class="samu-tag-dropdown-empty">Aucun expert disponible</div>';
+                dropdown.style.display = 'block';
+                return;
+            }
+            dropdown.innerHTML = options.map(e =>
+                `<div class="samu-tag-dropdown-item" onclick="addRequestExpert(${e.id})">${e.prenom} ${e.nom} (${e.trigramme}) — <span style="color:#27ae60;">${e.email}</span></div>`
+            ).join('');
+            dropdown.style.display = 'block';
+        }
+
+        function handleRequestExpertsKeydown(e) {
+            if (e.key === 'Backspace' && e.target.value === '' && requestSelectedExperts.length > 0) {
+                requestSelectedExperts.pop();
+                renderRequestExpertTags();
+            }
+            if (e.key === 'Escape') {
+                const dropdown = document.getElementById('requestExpertsDropdown');
+                if (dropdown) dropdown.style.display = 'none';
+            }
+        }
+
+        // Fermer le dropdown destinataires si clic en dehors
+        document.addEventListener('click', function(e) {
+            const box = document.getElementById('requestExpertsTags');
+            const dropdown = document.getElementById('requestExpertsDropdown');
+            if (dropdown && box && !box.contains(e.target) && !dropdown.contains(e.target)) {
+                dropdown.style.display = 'none';
+            }
+        });
 
         function validateDates() {
             const startDate = document.getElementById('requestStartDate').value;
@@ -19318,13 +19855,12 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
 
             if (!validateDates()) return;
 
-            const checkedBoxes = document.querySelectorAll('#requestExpertsList input[type="checkbox"]:checked');
-            if (checkedBoxes.length === 0) {
+            if (requestSelectedExperts.length === 0) {
                 alert('Veuillez sélectionner au moins un expert.');
                 return;
             }
 
-            const selectedExperts = Array.from(checkedBoxes).map(cb => parseInt(cb.value));
+            const selectedExperts = requestSelectedExperts.map(e => e.id);
 
             const requestData = {
                 fromName: document.getElementById('requestFrom').value,
@@ -19718,6 +20254,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             
             const tabLabels = {
                 'resources': '📋 Ressources',
+                'evenements': '📅 Événements',
                 'planning': '📅 Planification',
                 'reporting': '📊 Reporting',
                 'admin': '⚙️ Administration',
@@ -20384,15 +20921,13 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             if (allLocations.length === 0) {
                 await loadLocations();
             }
-            document.getElementById('myEventsModalContainer').style.display = 'block';
             populateLocationSelects();
             populateNotifyUsersSelect();
             await loadMyEvents();
         }
         
-        // Fermer la modal
+        // Conservé pour compatibilité — l'onglet Événements n'a plus de modale à fermer
         function closeMyEventsModal() {
-            document.getElementById('myEventsModalContainer').style.display = 'none';
             resetMyEventForm();
         }
         
@@ -22226,11 +22761,15 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     <label>De (Expéditeur)</label>
                     <input type="text" id="requestFrom" readonly style="background-color: #ecf0f1;">
                 </div>
-                <div class="form-group">
+                <div class="form-group" style="position: relative;">
                     <label>Destinataires (Experts) *</label>
-                    <div id="requestExpertsList" style="max-height: 200px; overflow-y: auto; border: 1px solid #bdc3c7; border-radius: 4px; padding: 10px; background-color: #f9f9f9;">
-                        <!-- Les checkboxes seront ajoutées dynamiquement -->
+                    <div id="requestExpertsTags" class="samu-tag-box" onclick="document.getElementById('requestExpertsInput').focus()">
+                        <input type="text" id="requestExpertsInput" placeholder="Taper le nom d'un expert..." class="samu-tag-input"
+                            oninput="filterRequestExperts(this.value)"
+                            onfocus="filterRequestExperts(this.value)"
+                            onkeydown="handleRequestExpertsKeydown(event)">
                     </div>
+                    <div id="requestExpertsDropdown" class="samu-tag-dropdown"></div>
                 </div>
                 <div class="form-group">
                     <label>Sujet *</label>
@@ -22241,7 +22780,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                         <div>
                             <label style="font-size: 12px; color: #7f8c8d;">Début</label>
-                            <input type="date" id="requestStartDate" required onchange="validateDates()">
+                            <input type="date" id="requestStartDate" required onchange="prefillRequestEndDate(); validateDates()">
                             <select id="requestStartPeriod" style="margin-top: 5px;" required>
                                 <option value="Matin">Matin</option>
                                 <option value="Après-midi">Après-midi</option>
@@ -22908,167 +23447,6 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
         </div>
     </div>
 
-    <!-- Modal Gérer mes événements personnalisés -->
-    <div id="myEventsModalContainer" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); z-index: 10002;">
-        <div style="position: relative; background-color: white; margin: 3% auto; padding: 30px; width: 95%; max-width: 900px; border-radius: 12px; max-height: 90vh; overflow-y: auto;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <div>
-                    <h2 style="color: #ff9800; margin: 0;"><span id="myEventsModalTitle">Mes événements personnalisés</span></h2>
-                    <p style="color: #7f8c8d; font-size: 12px; margin: 5px 0 0 0;">Créez des événements qui s'afficheront sur le planning</p>
-                </div>
-                <span onclick="closeMyEventsModal()" style="cursor: pointer; font-size: 28px; color: #7f8c8d;">&times;</span>
-            </div>
-            
-            <!-- Formulaire d'ajout -->
-            <div style="background: #fff3e0; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                <div style="display: flex; align-items: center; gap: 10px; cursor: pointer;" onclick="toggleMyEventForm()">
-                    <span id="myEventFormIcon" style="font-size: 13px; color: #e65100; transition: transform 0.2s;">▶</span>
-                    <h3 style="color: #e65100; margin: 0; font-size: 14px;">➕ Ajouter un événement</h3>
-                </div>
-                <div id="myEventFormBody" style="display: none; margin-top: 15px;">
-                
-                <!-- Sélecteur de créateur (uniquement visible pour les admins en mode édition) -->
-                <div id="myEventCreatorSection" style="display: none; margin-bottom: 15px; background: #e3f2fd; padding: 10px; border-radius: 5px;">
-                    <label style="font-size: 11px; color: #1565c0; display: block; margin-bottom: 5px; font-weight: bold;">👤 Modifier le créateur</label>
-                    <select id="myEventCreator" style="width: 100%; max-width: 300px; padding: 6px; border: 1px solid #90caf9; border-radius: 4px;">
-                        <!-- Options remplies dynamiquement -->
-                    </select>
-                </div>
-                
-                <div style="display: grid; grid-template-columns: 1fr 1fr 2fr 2fr; gap: 10px; align-items: start;">
-                    <div>
-                        <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px;">Date de début *</label>
-                        <input type="date" id="myEventStartDate" style="width: 100%; padding: 6px;" onchange="prefillMyEventEndDate(); updateMyEventPeriodVisibility()">
-                    </div>
-                    <div>
-                        <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px;">Date de fin</label>
-                        <input type="date" id="myEventEndDate" style="width: 100%; padding: 6px;" onchange="updateMyEventPeriodVisibility()">
-                    </div>
-                    <div>
-                        <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px;">Libellé *</label>
-                        <input type="text" id="myEventLabel" placeholder="Ex: FORMATION, RÉUNION..." style="width: 100%; padding: 6px; text-transform: uppercase;" oninput="this.value = this.value.toUpperCase(); updateMyEventPreview()">
-                    </div>
-                    <div style="position: relative;">
-                        <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px;">👥 Participant(s)</label>
-                        <div id="myEventParticipantsContainer" style="display: flex; flex-wrap: wrap; gap: 4px; padding: 3px 6px; border: 1px solid #ccc; border-radius: 4px; min-height: 32px; align-items: center; background: white; cursor: text;" onclick="document.getElementById('myEventParticipantInput').focus()">
-                            <input type="text" id="myEventParticipantInput" placeholder="Nom ou email..." 
-                                style="border: none; outline: none; flex: 1; min-width: 80px; padding: 3px 0; font-size: 12px;" 
-                                oninput="filterMyEventParticipants(this.value)"
-                                onfocus="filterMyEventParticipants(this.value)"
-                                onkeydown="handleParticipantKeydown(event)">
-                        </div>
-                        <div id="myEventParticipantDropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ddd; border-radius: 0 0 8px 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); max-height: 200px; overflow-y: auto; z-index: 10010;"></div>
-                    </div>
-                </div>
-                <!-- Localisation -->
-                <div style="margin-top: 8px;">
-                    <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px;">📍 Localisation</label>
-                    <select id="myEventLocationId" style="width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
-                        <option value="">— Aucune localisation —</option>
-                    </select>
-                </div>
-
-                <!-- Besoin de ressources -->
-                <div style="margin-top: 10px; padding: 10px; background: #e8f5e9; border-radius: 6px; border: 1px solid #a5d6a7;">
-                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                        <input type="checkbox" id="myEventNeedsResources" style="width: auto; margin: 0; cursor: pointer;" onchange="toggleNeedsResources()">
-                        <label for="myEventNeedsResources" style="cursor: pointer; font-size: 12px; color: #2e7d32; font-weight: bold; margin: 0;">Besoin de ressources</label>
-                    </div>
-                    <div id="myEventResourcesPanel" style="display: none;">
-                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                            <label style="font-size: 12px; color: #2e7d32; white-space: nowrap;">Nombre de ressources nécessaires :</label>
-                            <select id="myEventResourcesCount" style="width: 80px; padding: 4px;" onchange="updateResourcesCounter()">
-                                <option value="1">1</option>
-                                <option value="2">2</option>
-                                <option value="3">3</option>
-                                <option value="4">4</option>
-                                <option value="5">5</option>
-                            </select>
-                            <span style="font-size: 12px; color: #555;">— Participants renseignés : <strong id="myEventParticipantCount">0</strong> / <strong id="myEventResourcesCountDisplay">1</strong></span>
-                        </div>
-                        <div style="margin-bottom: 8px;">
-                            <label style="font-size: 12px; color: #2e7d32; display: block; margin-bottom: 4px;">📧 Envoyer une demande de mobilisation à :</label>
-                            <select id="myEventNotifyUsers" multiple style="width: 100%; height: 100px; padding: 4px; border: 1px solid #a5d6a7; border-radius: 4px; font-size: 12px;"></select>
-                            <p style="font-size: 11px; color: #666; margin: 4px 0 0 0;">Ctrl+clic pour sélectionner plusieurs personnes</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Sélecteur demi-journée — visible uniquement si début = fin -->
-                <div id="myEventPeriodSection" style="display: none; margin-top: 8px; padding: 8px 12px; background: #e8f4fd; border-radius: 6px; border: 1px solid #bee3f8;">
-                    <label style="font-size: 11px; color: #1565c0; font-weight: bold; display: block; margin-bottom: 6px;">🕐 Demi-journée</label>
-                    <div style="display: flex; gap: 8px;">
-                        <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 12px;">
-                            <input type="radio" name="myEventPeriod" id="myEventPeriodFull" value="FULL" checked> Journée entière
-                        </label>
-                        <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 12px;">
-                            <input type="radio" name="myEventPeriod" id="myEventPeriodAM" value="AM"> Matin (AM)
-                        </label>
-                        <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 12px;">
-                            <input type="radio" name="myEventPeriod" id="myEventPeriodPM" value="PM"> Après-midi (PM)
-                        </label>
-                    </div>
-                </div>
-                
-                <!-- Ligne couleurs -->
-                <div style="display: flex; align-items: end; gap: 10px; margin-top: 10px;">
-                    <div>
-                        <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px;">Fond</label>
-                        <input type="color" id="myEventBgColor" value="#ffeb3b" style="width: 40px; height: 32px; padding: 0; border: 1px solid #ccc; cursor: pointer;" onchange="updateMyEventPreview()">
-                    </div>
-                    <div>
-                        <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px;">Texte</label>
-                        <input type="color" id="myEventTextColor" value="#000000" style="width: 40px; height: 32px; padding: 0; border: 1px solid #ccc; cursor: pointer;" onchange="updateMyEventPreview()">
-                    </div>
-                    <div>
-                        <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px;">Bordure</label>
-                        <input type="color" id="myEventBorderColor" value="#000000" style="width: 40px; height: 32px; padding: 0; border: 1px solid #ccc; cursor: pointer;" onchange="updateMyEventPreview()">
-                    </div>
-                </div>
-                
-                <!-- Templates prédéfinis -->
-                <div style="margin-top: 10px; padding: 10px; background: #fff3e0; border-radius: 5px;">
-                    <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 8px;">📋 Templates prédéfinis (cliquez pour appliquer) :</label>
-                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                        <span onclick="applyMyEventTemplate('formation')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: rgb(255, 234, 0); color: rgb(0, 8, 255); border: 2px solid rgb(0, 0, 0); display: inline-flex; align-items: center; justify-content: center;" title="Cliquez pour appliquer ce template">FORMATION</span>
-                        <span onclick="applyMyEventTemplate('mes')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: rgb(255, 234, 0); color: rgb(210, 9, 6); border: 2px solid rgb(0, 0, 0); display: inline-flex; align-items: center; justify-content: center;" title="Cliquez pour appliquer ce template">MISE EN SERVICE</span>
-                        <span onclick="applyMyEventTemplate('apd')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: rgb(255, 234, 0); color: rgb(194, 5, 154); border: 2px solid rgb(0, 0, 0); display: inline-flex; align-items: center; justify-content: center;" title="Cliquez pour appliquer ce template">ACCOMP. POST DÉM.</span>
-                        <span onclick="applyMyEventTemplate('visite')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: rgb(0, 17, 255); color: rgb(255, 255, 255); border: 2px solid rgb(0, 0, 0); display: inline-flex; align-items: center; justify-content: center;" title="Cliquez pour appliquer ce template">VISITE TERRAIN</span>
-                        <span onclick="applyMyEventTemplate('congres')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: rgb(223, 240, 216); color: rgb(66, 118, 69); border: 2px solid rgb(0, 0, 0); display: inline-flex; align-items: center; justify-content: center;" title="Cliquez pour appliquer ce template">CONGRÈS</span>
-                        <span onclick="applyMyEventTemplate('libre')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: #fff; color: #333; border: 2px dashed #999; display: inline-flex; align-items: center; justify-content: center;" title="Réinitialiser les couleurs">🎨 Libre</span>
-                    </div>
-                </div>
-                
-                <!-- Prévisualisation -->
-                <div style="margin-top: 10px; display: flex; align-items: center; gap: 10px;">
-                    <span style="font-size: 12px; color: #666;">Prévisualisation :</span>
-                    <span id="myEventPreview" style="display: inline-block; padding: 3px 8px; border-radius: 8px; font-size: 11px; font-weight: bold; background-color: #ffeb3b; color: #000; border: 2px solid #000;">LIBELLÉ</span>
-                </div>
-                
-                <!-- Bouton Ajouter / Modifier en bas à droite -->
-                <div style="display: flex; justify-content: flex-end; margin-top: 15px;">
-                    <button onclick="addMyEvent()" id="myEventActionBtn" style="background-color: #ff9800; color: white; padding: 8px 20px; white-space: nowrap; font-size: 13px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer;">
-                        ➕ Ajouter
-                    </button>
-                </div>
-                </div><!-- fin myEventFormBody -->
-            </div>
-            
-            <!-- Liste des événements -->
-            <div id="myEventsTableContainer" style="max-height: 40vh; overflow-y: auto;">
-                <p style="color: #999; font-size: 12px; font-style: italic; text-align: center; padding: 20px;">Chargement...</p>
-            </div>
-            
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;">
-                <button onclick="openEventMapModal()" style="background-color: #3f51b5; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px;">
-                    🗺️ Carte des Événements / Déplacements
-                </button>
-                <button onclick="closeMyEventsModal()" style="background-color: #95a5a6; color: white; padding: 10px 25px;">
-                    Fermer
-                </button>
-            </div>
-        </div>
-    </div>
 
     <!-- CONTAINER POUR L'APPLICATION DÉPLACEMENTS -->
     <div id="deplacementsContainer" class="container" style="display: none;">
