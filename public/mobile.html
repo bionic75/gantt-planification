@@ -102,7 +102,9 @@ input{font-family:Arial,sans-serif;}
 
 /* ===== VUE MOIS ===== */
 .month-title{font-size:16px;font-weight:bold;color:#2c3e50;border-bottom:2px solid #1D70B7;padding-bottom:8px;margin-bottom:12px;text-transform:capitalize;}
-.month-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
+.month-grid{display:grid;grid-template-columns:24px repeat(7,1fr);gap:3px;}
+.month-week-hdr{background:transparent;}
+.month-week-num{display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:bold;color:#fff;background:#1D70B7;border-radius:6px;min-height:46px;}
 .month-hdr-cell{text-align:center;font-size:10px;font-weight:bold;color:#6F6F6E;padding:3px 0 5px;text-transform:uppercase;}
 .month-cell{background:#fff;border-radius:6px;min-height:46px;padding:4px;display:flex;flex-direction:column;align-items:center;gap:2px;box-shadow:0 1px 3px rgba(0,0,0,0.06);cursor:pointer;}
 .month-cell:active{opacity:0.8;}
@@ -576,7 +578,7 @@ function renderToolbar() {
 
 function getPeriodLabel() {
   const c = state.cursor;
-  if (state.view==='day') return c.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+  if (state.view==='day') return c.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'}) + ` (Sem ${getWeekNum(c)})`;
   if (state.view==='week') {
     const mon=weekMonday(c), fri=addDays(mon,4);
     return `Sem ${getWeekNum(mon)} — ${mon.getDate()} ${MONTHS[mon.getMonth()].slice(0,3)} › ${fri.getDate()} ${MONTHS[fri.getMonth()].slice(0,3)}`;
@@ -727,25 +729,41 @@ function renderMonth(container, rid) {
   container.appendChild(title);
 
   const grid = el('div','month-grid');
+  grid.appendChild(el('div','month-hdr-cell month-week-hdr',''));
   ['L','M','M','J','V','S','D'].forEach(h => { const c=el('div','month-hdr-cell',h); grid.appendChild(c); });
-  for (let i=0;i<startDow;i++) { grid.appendChild(el('div','month-cell empty')); }
 
-  for (let day=1; day<=lastDay.getDate(); day++) {
-    const d = new Date(y,m,day), ds = toYMD(d);
-    const cg = isConge(rid,ds), actAM = getAct(rid,ds,'AM'), actPM = getAct(rid,ds,'PM');
-    const cell = el('div','month-cell'+(isToday(d)?' today':'')+(cg?' conge':''));
+  const totalCells = startDow + lastDay.getDate();
+  const numRows = Math.ceil(totalCells / 7);
 
-    const num = el('div','month-day-num', String(day));
-    cell.appendChild(num);
+  for (let row = 0; row < numRows; row++) {
+    // Cellule numéro de semaine (ISO 8601, calculée sur la date réelle du début de ligne)
+    const rowFirstDate = new Date(y, m, 1 - startDow + row*7);
+    const wn = getWeekNum(rowFirstDate);
+    grid.appendChild(el('div','month-week-num', String(wn)));
 
-    const dots = el('div','month-dots-row');
-    if (actAM) { const dot=el('div','mdot'); dot.style.background=ACTIVITIES[actAM].color; dots.appendChild(dot); }
-    if (actPM) { const dot=el('div','mdot'); dot.style.background=ACTIVITIES[actPM].color; dots.appendChild(dot); }
-    if (cg && !actAM && !actPM) { const dot=el('div','mdot'); dot.style.background='#bdc3c7'; dots.appendChild(dot); }
-    cell.appendChild(dots);
+    for (let col = 0; col < 7; col++) {
+      const idx = row*7 + col;
+      const day = idx - startDow + 1;
+      if (day < 1 || day > lastDay.getDate()) {
+        grid.appendChild(el('div','month-cell empty'));
+        continue;
+      }
+      const d = new Date(y,m,day), ds = toYMD(d);
+      const cg = isConge(rid,ds), actAM = getAct(rid,ds,'AM'), actPM = getAct(rid,ds,'PM');
+      const cell = el('div','month-cell'+(isToday(d)?' today':'')+(cg?' conge':''));
 
-    cell.onclick = () => { state.cursor=d; state.view='day'; renderToolbar(); renderView(); };
-    grid.appendChild(cell);
+      const num = el('div','month-day-num', String(day));
+      cell.appendChild(num);
+
+      const dots = el('div','month-dots-row');
+      if (actAM) { const dot=el('div','mdot'); dot.style.background=ACTIVITIES[actAM].color; dots.appendChild(dot); }
+      if (actPM) { const dot=el('div','mdot'); dot.style.background=ACTIVITIES[actPM].color; dots.appendChild(dot); }
+      if (cg && !actAM && !actPM) { const dot=el('div','mdot'); dot.style.background='#bdc3c7'; dots.appendChild(dot); }
+      cell.appendChild(dots);
+
+      cell.onclick = () => { state.cursor=d; state.view='day'; renderToolbar(); renderView(); };
+      grid.appendChild(cell);
+    }
   }
 
   container.appendChild(grid);

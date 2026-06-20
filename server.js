@@ -822,6 +822,25 @@ function initDB() {
             console.log('✅ Table resource_mad_particularites créée');
         }
     });
+
+    // Table pour les affectations SAMU multiples (expert principal / secondaire) par ressource
+    database.run(`
+        CREATE TABLE IF NOT EXISTS resource_samu_assignments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            resource_id INTEGER NOT NULL,
+            samu TEXT NOT NULL,
+            role TEXT NOT NULL CHECK(role IN ('principal','secondaire')),
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(resource_id, samu),
+            FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE
+        )
+    `, (err) => {
+        if (err) {
+            console.error('Erreur création table resource_samu_assignments:', err);
+        } else {
+            console.log('✅ Table resource_samu_assignments créée');
+        }
+    });
     
     // Table pour les indisponibilités d'astreinte (conservée pour compatibilité)
     database.run(`
@@ -2015,11 +2034,78 @@ app.delete('/api/resources/:id', requireAdmin, (req, res) => {
             // Supprimer aussi l'historique MAD et les particularités
             database.run('DELETE FROM resource_mad_particularites WHERE resource_id = ?', [id]);
             database.run('DELETE FROM resource_mad_history WHERE resource_id = ?', [id]);
+            database.run('DELETE FROM resource_samu_assignments WHERE resource_id = ?', [id]);
             database.run('DELETE FROM schedule_data WHERE resource_id = ?', [id], (err2) => {
                 if (err2) console.error('Erreur suppression schedule:', err2);
                 res.json({ success: true });
             });
         }
+    });
+});
+
+// ========== ROUTES AFFECTATIONS SAMU (expert principal / secondaire) ==========
+
+// Récupérer toutes les affectations SAMU (toutes ressources, pour affichage liste)
+app.get('/api/resource-samu-assignments', requireAuth, (req, res) => {
+    database.all(
+        `SELECT id, resource_id, samu, role FROM resource_samu_assignments ORDER BY samu`,
+        (err, rows) => {
+            if (err) {
+                console.error('Erreur récup affectations SAMU:', err);
+                return res.status(500).json({ error: err.message });
+            }
+            res.json(rows || []);
+        }
+    );
+});
+
+// Récupérer les affectations SAMU d'une ressource spécifique
+app.get('/api/resources/:id/samu-assignments', requireAuth, (req, res) => {
+    const { id } = req.params;
+    database.all(
+        `SELECT id, resource_id, samu, role FROM resource_samu_assignments WHERE resource_id = ? ORDER BY samu`,
+        [id],
+        (err, rows) => {
+            if (err) {
+                console.error('Erreur récup affectations SAMU ressource:', err);
+                return res.status(500).json({ error: err.message });
+            }
+            res.json(rows || []);
+        }
+    );
+});
+
+// Remplacer toutes les affectations SAMU d'une ressource (principal + secondaire)
+app.put('/api/resources/:id/samu-assignments', requireAdmin, (req, res) => {
+    const { id } = req.params;
+    const principal = Array.isArray(req.body.principal) ? req.body.principal : [];
+    const secondaire = Array.isArray(req.body.secondaire) ? req.body.secondaire : [];
+
+    database.serialize(() => {
+        database.run('DELETE FROM resource_samu_assignments WHERE resource_id = ?', [id], (delErr) => {
+            if (delErr) {
+                console.error('Erreur suppression affectations SAMU:', delErr);
+                return res.status(500).json({ error: delErr.message });
+            }
+
+            const stmt = database.prepare(
+                `INSERT OR IGNORE INTO resource_samu_assignments (resource_id, samu, role) VALUES (?, ?, ?)`
+            );
+            principal.forEach(samu => {
+                if (samu && samu.trim()) stmt.run(id, samu.trim(), 'principal');
+            });
+            secondaire.forEach(samu => {
+                if (samu && samu.trim()) stmt.run(id, samu.trim(), 'secondaire');
+            });
+            stmt.finalize((finErr) => {
+                if (finErr) {
+                    console.error('Erreur insertion affectations SAMU:', finErr);
+                    return res.status(500).json({ error: finErr.message });
+                }
+                logUserAction(req, 'Modification affectations SAMU', { resourceId: id, principal, secondaire });
+                res.json({ success: true });
+            });
+        });
     });
 });
 
