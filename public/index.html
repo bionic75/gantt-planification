@@ -789,15 +789,16 @@
                 </div><!-- fin myEventFormBody -->
             </div>
             
-            <!-- Liste des événements -->
-            <div id="myEventsTableContainer" style="max-height: 50vh; overflow-y: auto;">
-                <p style="color: #999; font-size: 12px; font-style: italic; text-align: center; padding: 20px;">Chargement...</p>
-            </div>
-            
-            <div style="display: flex; justify-content: flex-start; align-items: center; margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;">
+            <!-- Bouton carte — au-dessus de la liste -->
+            <div style="display: flex; justify-content: flex-start; align-items: center; margin-bottom: 15px;">
                 <button onclick="openEventMapModal()" style="background-color: #3f51b5; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px;">
                     🗺️ Carte des Événements / Déplacements
                 </button>
+            </div>
+
+            <!-- Liste des événements -->
+            <div id="myEventsTableContainer">
+                <p style="color: #999; font-size: 12px; font-style: italic; text-align: center; padding: 20px;">Chargement...</p>
             </div>
         </div>
         
