@@ -9,7 +9,7 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: Arial, sans-serif; background-color: #f5f5f5; padding: 10px; }
-        .container { max-width: 100%; margin: 0; background-color: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden; display: none; }
+        .container { max-width: 100%; margin: 0; background-color: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden; display: none; min-height: calc(100vh - 20px); }
         .tabs { display: flex; background-color: #2c3e50; border-bottom: 3px solid #1D70B7; }
         
         /* Header fixe en haut */
@@ -20243,7 +20243,10 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             
             // Remplir la liste des onglets disponibles selon le profil
             populateDefaultTabSelect();
-            
+
+            // Charger la section SAMU si expert
+            loadProfileSamuSection();
+
             modal.style.display = 'block';
         }
         
@@ -20343,6 +20346,121 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             document.getElementById('passwordMatch').textContent = '';
         }
         
+        // ===== PROFIL EXPERT — SAMU =====
+        const _profileSamuSelected = { principal: [], secondaire: [] };
+
+        async function loadProfileSamuSection() {
+            const section = document.getElementById('profileSamuSection');
+            if (!currentUser || currentUser.activeProfile !== 'expert' || !currentUser.resourceId) {
+                section.style.display = 'none';
+                return;
+            }
+            section.style.display = 'block';
+
+            // Réinitialiser
+            _profileSamuSelected.principal = [];
+            _profileSamuSelected.secondaire = [];
+            renderProfileSamuTags('principal');
+            renderProfileSamuTags('secondaire');
+            document.getElementById('profileSamuSaveMsg').style.display = 'none';
+
+            try {
+                const r = await fetch(`${API_URL}/resources/${currentUser.resourceId}/samu-assignments`, { credentials: 'include' });
+                if (!r.ok) return;
+                const rows = await r.json();
+                rows.forEach(row => {
+                    if (row.role === 'principal') _profileSamuSelected.principal.push(row.samu);
+                    else _profileSamuSelected.secondaire.push(row.samu);
+                });
+                renderProfileSamuTags('principal');
+                renderProfileSamuTags('secondaire');
+            } catch(e) { console.error('Erreur chargement SAMU profil:', e); }
+        }
+
+        function renderProfileSamuTags(role) {
+            const box = document.getElementById(`profileSamuTags_${role}`);
+            const input = document.getElementById(`profileSamuInput_${role}`);
+            // Supprimer les anciens tags (pas l'input)
+            Array.from(box.children).forEach(c => { if (c !== input) c.remove(); });
+            _profileSamuSelected[role].forEach(samu => {
+                const tag = document.createElement('span');
+                tag.className = `samu-tag ${role}`;
+                tag.innerHTML = `${samu}<span class="samu-tag-remove" onclick="removeProfileSamuTag('${role}','${samu}')">&times;</span>`;
+                box.insertBefore(tag, input);
+            });
+        }
+
+        function removeProfileSamuTag(role, samu) {
+            _profileSamuSelected[role] = _profileSamuSelected[role].filter(s => s !== samu);
+            renderProfileSamuTags(role);
+        }
+
+        function filterProfileSamuDropdown(role) {
+            const input = document.getElementById(`profileSamuInput_${role}`);
+            const dropdown = document.getElementById(`profileSamuDropdown_${role}`);
+            const q = input.value.trim().toLowerCase();
+            const SAMU_LIST_ALL = [
+                "SAMU 01","SAMU 02","SAMU 03","SAMU 04","SAMU 05","SAMU 06","SAMU 07","SAMU 08","SAMU 09","SAMU 10",
+                "SAMU 11","SAMU 12","SAMU 13","SAMU 14","SAMU 15","SAMU 16","SAMU 17","SAMU 18","SAMU 19",
+                "SAMU 21","SAMU 22","SAMU 23","SAMU 24","SAMU 25","SAMU 26","SAMU 27","SAMU 28","SAMU 29","SAMU 30",
+                "SAMU 31","SAMU 32","SAMU 33","SAMU 34","SAMU 35","SAMU 36","SAMU 37","SAMU 38",
+                "SAMU 40","SAMU 41","SAMU 42","SAMU 43","SAMU 44","SAMU 45","SAMU 46","SAMU 47","SAMU 48","SAMU 49","SAMU 50",
+                "SAMU 51","SAMU 52","SAMU 53","SAMU 54","SAMU 55","SAMU 56","SAMU 57",
+                "SAMU 59","SAMU 60","SAMU 61","SAMU 62","SAMU 63","SAMU 64A","SAMU 64B","SAMU 65","SAMU 66","SAMU 67","SAMU 68","SAMU 69",
+                "SAMU 71","SAMU 72","SAMU 73","SAMU 74","SAMU 75","SAMU 76A","SAMU 76B","SAMU 77","SAMU 78","SAMU 79","SAMU 80",
+                "SAMU 81","SAMU 82","SAMU 83","SAMU 84","SAMU 85","SAMU 86","SAMU 87","SAMU 88","SAMU 89",
+                "SAMU 91","SAMU 92","SAMU 93","SAMU 94","SAMU 95",
+                "SAMU 971","SAMU 972","SAMU 973","SAMU 974","SAMU 976",
+                "SAMU 2A","SAMU 2B"
+            ];
+            const filtered = SAMU_LIST_ALL.filter(s =>
+                s.toLowerCase().includes(q) && !_profileSamuSelected[role].includes(s)
+            );
+            if (!filtered.length) { dropdown.style.display = 'none'; return; }
+            dropdown.innerHTML = filtered.slice(0, 20).map(s =>
+                `<div class="samu-tag-dropdown-item" onmousedown="addProfileSamuTag('${role}','${s}')">${s}</div>`
+            ).join('');
+            dropdown.style.display = 'block';
+        }
+
+        function addProfileSamuTag(role, samu) {
+            if (!_profileSamuSelected[role].includes(samu)) {
+                _profileSamuSelected[role].push(samu);
+                renderProfileSamuTags(role);
+            }
+            document.getElementById(`profileSamuInput_${role}`).value = '';
+            document.getElementById(`profileSamuDropdown_${role}`).style.display = 'none';
+        }
+
+        function handleProfileSamuKeydown(e, role) {
+            if (e.key === 'Enter' || e.key === ',') {
+                e.preventDefault();
+                const val = document.getElementById(`profileSamuInput_${role}`).value.trim();
+                if (val) addProfileSamuTag(role, val);
+            } else if (e.key === 'Escape') {
+                document.getElementById(`profileSamuDropdown_${role}`).style.display = 'none';
+            }
+        }
+
+        async function saveProfileSamuAssignments() {
+            try {
+                const r = await fetch(`${API_URL}/me/samu-assignments`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        principal: _profileSamuSelected.principal,
+                        secondaire: _profileSamuSelected.secondaire
+                    })
+                });
+                if (!r.ok) { const d = await r.json(); alert('Erreur: ' + (d.error || 'inconnue')); return; }
+                const msg = document.getElementById('profileSamuSaveMsg');
+                msg.style.display = 'block';
+                setTimeout(() => { msg.style.display = 'none'; }, 3000);
+            } catch(e) { alert('Erreur réseau: ' + e.message); }
+        }
+        // ===== /PROFIL EXPERT — SAMU =====
+
         function handlePhotoSelect(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -22915,6 +23033,39 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 </button>
             </div>
             
+            <!-- Section Affectations SAMU — visible pour les experts uniquement -->
+            <div id="profileSamuSection" style="display:none;">
+                <h3 style="color: #2c3e50; font-size: 16px; margin: 30px 0 10px 0; border-left: 3px solid #e67e22; padding-left: 10px;">🏥 Mes affectations SAMU</h3>
+                <div style="margin: 10px 0 6px 0;">
+                    <label style="display:block; margin-bottom:5px; color:#2c3e50; font-weight:bold; font-size:13px;">🅿️ Expert principal sur le(s) SAMU</label>
+                    <div style="position:relative;">
+                        <div id="profileSamuTags_principal" class="samu-tag-box" onclick="document.getElementById('profileSamuInput_principal').focus()">
+                            <input type="text" id="profileSamuInput_principal" placeholder="Taper le nom d'un SAMU..." class="samu-tag-input"
+                                oninput="filterProfileSamuDropdown('principal')"
+                                onfocus="filterProfileSamuDropdown('principal')"
+                                onkeydown="handleProfileSamuKeydown(event,'principal')">
+                        </div>
+                        <div id="profileSamuDropdown_principal" class="samu-tag-dropdown"></div>
+                    </div>
+                </div>
+                <div style="margin: 10px 0 6px 0;">
+                    <label style="display:block; margin-bottom:5px; color:#2c3e50; font-weight:bold; font-size:13px;">🅢 Expert secondaire sur le(s) SAMU</label>
+                    <div style="position:relative;">
+                        <div id="profileSamuTags_secondaire" class="samu-tag-box" onclick="document.getElementById('profileSamuInput_secondaire').focus()">
+                            <input type="text" id="profileSamuInput_secondaire" placeholder="Taper le nom d'un SAMU..." class="samu-tag-input"
+                                oninput="filterProfileSamuDropdown('secondaire')"
+                                onfocus="filterProfileSamuDropdown('secondaire')"
+                                onkeydown="handleProfileSamuKeydown(event,'secondaire')">
+                        </div>
+                        <div id="profileSamuDropdown_secondaire" class="samu-tag-dropdown"></div>
+                    </div>
+                </div>
+                <div id="profileSamuSaveMsg" style="font-size:12px;color:#27ae60;margin-top:4px;display:none;">✅ Affectations sauvegardées</div>
+                <button onclick="saveProfileSamuAssignments()" style="margin-top:10px;background:#e67e22;color:white;border:none;border-radius:5px;padding:10px 20px;font-size:14px;font-weight:bold;cursor:pointer;width:100%;">
+                    💾 Enregistrer mes affectations SAMU
+                </button>
+            </div>
+
             <!-- Section Paramétrage de l'affichage à l'ouverture -->
             <h3 style="color: #2c3e50; font-size: 16px; margin: 30px 0 10px 0; border-left: 3px solid #9b59b6; padding-left: 10px;">⚙️ Paramétrer l'affichage à l'ouverture</h3>
             <div style="margin: 20px 0;">

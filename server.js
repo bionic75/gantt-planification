@@ -2109,6 +2109,32 @@ app.put('/api/resources/:id/samu-assignments', requireAdmin, (req, res) => {
     });
 });
 
+// Mettre à jour ses propres affectations SAMU (expert sur sa propre ressource)
+app.put('/api/me/samu-assignments', requireAuth, (req, res) => {
+    const resourceId = req.session.resourceId;
+    if (!resourceId) {
+        return res.status(403).json({ error: 'Aucune ressource associée à ce compte' });
+    }
+    const principal = Array.isArray(req.body.principal) ? req.body.principal : [];
+    const secondaire = Array.isArray(req.body.secondaire) ? req.body.secondaire : [];
+
+    database.serialize(() => {
+        database.run('DELETE FROM resource_samu_assignments WHERE resource_id = ?', [resourceId], (delErr) => {
+            if (delErr) return res.status(500).json({ error: delErr.message });
+            const stmt = database.prepare(
+                `INSERT OR IGNORE INTO resource_samu_assignments (resource_id, samu, role) VALUES (?, ?, ?)`
+            );
+            principal.forEach(samu => { if (samu && samu.trim()) stmt.run(resourceId, samu.trim(), 'principal'); });
+            secondaire.forEach(samu => { if (samu && samu.trim()) stmt.run(resourceId, samu.trim(), 'secondaire'); });
+            stmt.finalize((finErr) => {
+                if (finErr) return res.status(500).json({ error: finErr.message });
+                logUserAction(req, 'Modification propres affectations SAMU', { resourceId, principal, secondaire });
+                res.json({ success: true });
+            });
+        });
+    });
+});
+
 // ========== ROUTES HISTORIQUE TAUX MAD ==========
 
 // Récupérer l'historique MAD d'une ressource
