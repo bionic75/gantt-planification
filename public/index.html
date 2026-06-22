@@ -29,9 +29,11 @@
         .header-spacer {
             height: 110px; /* Ajuster selon la hauteur réelle du header */
         }
-        .tab-btn { flex: 1; padding: 15px; background-color: #2c3e50; color: white; border: none; cursor: pointer; font-size: 14px; font-weight: bold; transition: all 0.3s; }
+        .tab-btn { flex: 1; padding: 15px; background-color: #2c3e50; color: white; border: none; cursor: grab; font-size: 14px; font-weight: bold; transition: all 0.3s; }
         .tab-btn:hover { background-color: #34495e; }
         .tab-btn.active { background-color: #1D70B7; border-bottom: 4px solid #2980b9; }
+        .tab-btn.tab-dragging { opacity: 0.4; cursor: grabbing; pointer-events: none; }
+        .tab-btn.tab-drag-over { background-color: #3d5a73; box-shadow: inset 0 0 0 2px #5dade2; }
         .tab-content { display: none; padding: 20px; animation: fadeIn 0.3s; }
         .tab-content.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -493,17 +495,17 @@
                 <span class="user-info-name" id="userDisplayName" style="margin-left: 15px;"></span>
                 <span class="user-info-role" id="userDisplayRole"></span>
             </div>
-            <div class="tabs">
-                <button class="tab-btn active" onclick="switchTab('resources', event)">Ressources</button>
-                <button class="tab-btn" id="evenementsTabBtn" onclick="switchTab('evenements', event)">Événements</button>
-                <button class="tab-btn" onclick="switchTab('planning', event)">Planification</button>
-                <button class="tab-btn" id="craTabBtn" onclick="switchTab('cra', event)" style="display: none; position: relative;">
+            <div class="tabs" id="mainTabsContainer">
+                <button class="tab-btn active" draggable="true" data-tab="resources" onclick="switchTab('resources', event)">Ressources</button>
+                <button class="tab-btn" draggable="true" data-tab="evenements" id="evenementsTabBtn" onclick="switchTab('evenements', event)">Événements</button>
+                <button class="tab-btn" draggable="true" data-tab="planning" onclick="switchTab('planning', event)">Planification</button>
+                <button class="tab-btn" draggable="true" data-tab="cra" id="craTabBtn" onclick="switchTab('cra', event)" style="display: none; position: relative;">
                     <span id="craTabLabel">CRA</span>
                     <span id="craPendingBadge" style="display:none;position:absolute;top:-8px;right:-8px;background:#e74c3c;color:white;border-radius:50%;min-width:18px;height:18px;font-size:10px;font-weight:bold;line-height:18px;text-align:center;padding:0 3px;border:2px solid #2c3e50;">0</span>
                 </button>
-                <button class="tab-btn" id="reportingTab" onclick="switchTab('reporting', event)" style="display:none;">Reporting</button>
-                <button class="tab-btn" id="adminTab" onclick="switchTab('admin', event)" style="display:none;">Administration</button>
-                <button class="tab-btn" id="astreintesGestionTab" onclick="switchTab('astreintesGestion', event)" style="display:none;">🧪 Astreintes (expérimental)</button>
+                <button class="tab-btn" draggable="true" data-tab="reporting" id="reportingTab" onclick="switchTab('reporting', event)" style="display:none;">Reporting</button>
+                <button class="tab-btn" draggable="true" data-tab="admin" id="adminTab" onclick="switchTab('admin', event)" style="display:none;">Administration</button>
+                <button class="tab-btn" draggable="true" data-tab="astreintesGestion" id="astreintesGestionTab" onclick="switchTab('astreintesGestion', event)" style="display:none;">🧪 Astreintes (expérimental)</button>
                 
                 <!-- Bouton d'aide en ligne -->
                 <button id="helpBtn" onclick="openHelp()" title="Aide en ligne" style="
@@ -3871,10 +3873,14 @@
                 updateGantt();
             }
             
+            // Restaurer l'ordre des onglets + activer le drag & drop
+            restoreTabOrder();
+            initTabDragDrop();
+
             // Afficher l'onglet par défaut selon la préférence de l'utilisateur
             const defaultTab = currentUser.defaultTab || 'planning'; // Planification par défaut
             const availableTabs = getAvailableTabsForProfile(currentUser.activeProfile);
-            
+
             // Vérifier que l'onglet par défaut est accessible pour ce profil
             if (availableTabs.includes(defaultTab)) {
                 switchTab(defaultTab, null);
@@ -15888,6 +15894,85 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
         // Variable pour stocker l'intervalle de rafraîchissement des statuts
         let activeSessionsRefreshInterval = null;
         
+        // ========== DRAG & DROP DES ONGLETS ==========
+        let _tabDragSrc = null;
+
+        function initTabDragDrop() {
+            const container = document.getElementById('mainTabsContainer');
+            if (!container) return;
+            let _tabDragOver = null;
+
+            // Dragstart / dragend sur chaque bouton
+            container.querySelectorAll('button.tab-btn[data-tab]').forEach(btn => {
+                btn.addEventListener('dragstart', e => {
+                    _tabDragSrc = btn;
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', btn.dataset.tab);
+                    // setTimeout pour capturer le ghost avant d'appliquer l'opacité
+                    setTimeout(() => btn.classList.add('tab-dragging'), 0);
+                });
+                btn.addEventListener('dragend', () => {
+                    btn.classList.remove('tab-dragging');
+                    container.querySelectorAll('.tab-drag-over').forEach(el => el.classList.remove('tab-drag-over'));
+                    _tabDragSrc = null;
+                    _tabDragOver = null;
+                });
+            });
+
+            // dragover : mémoriser la cible courante (e.target dans drop peut pointer le conteneur)
+            container.addEventListener('dragover', e => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                const target = e.target.closest('button.tab-btn[data-tab]');
+                container.querySelectorAll('.tab-drag-over').forEach(el => el.classList.remove('tab-drag-over'));
+                if (target && target !== _tabDragSrc && target.style.display !== 'none') {
+                    target.classList.add('tab-drag-over');
+                    _tabDragOver = target;
+                } else {
+                    _tabDragOver = null;
+                }
+            });
+
+            // drop : utiliser _tabDragOver au lieu de e.target
+            container.addEventListener('drop', e => {
+                e.preventDefault();
+                const target = _tabDragOver;
+                if (!_tabDragSrc || !target || _tabDragSrc === target) return;
+                const buttons = [...container.querySelectorAll('button.tab-btn[data-tab]')];
+                const srcIdx = buttons.indexOf(_tabDragSrc);
+                const tgtIdx = buttons.indexOf(target);
+                if (srcIdx < tgtIdx) {
+                    container.insertBefore(_tabDragSrc, target.nextElementSibling);
+                } else {
+                    container.insertBefore(_tabDragSrc, target);
+                }
+                saveTabOrder();
+            });
+        }
+
+        function saveTabOrder() {
+            const container = document.getElementById('mainTabsContainer');
+            if (!container || !currentUser) return;
+            const order = [...container.querySelectorAll('button.tab-btn[data-tab]')].map(b => b.dataset.tab);
+            localStorage.setItem(`tabOrder_${currentUser.id}`, JSON.stringify(order));
+        }
+
+        function restoreTabOrder() {
+            const container = document.getElementById('mainTabsContainer');
+            if (!container || !currentUser) return;
+            const saved = localStorage.getItem(`tabOrder_${currentUser.id}`);
+            if (!saved) return;
+            let order;
+            try { order = JSON.parse(saved); } catch { return; }
+            // Récupérer le bouton help (non-draggable, reste en dernière position)
+            const helpBtn = document.getElementById('helpBtn');
+            order.forEach(tabName => {
+                const btn = container.querySelector(`button.tab-btn[data-tab="${tabName}"]`);
+                if (btn) container.insertBefore(btn, helpBtn || null);
+            });
+        }
+        // ========== /DRAG & DROP DES ONGLETS ==========
+
         function switchTab(tabName, event) {
             document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
