@@ -1125,6 +1125,11 @@ function initDB() {
         )
     `);
 
+    // Migration : colonne archived sur cra
+    database.run(`ALTER TABLE cra ADD COLUMN archived INTEGER DEFAULT 0`, () => {});
+    // Migration : colonne rien_a_declarer sur cra
+    database.run(`ALTER TABLE cra ADD COLUMN rien_a_declarer INTEGER DEFAULT 0`, () => {});
+
     database.run(`
         CREATE TABLE IF NOT EXISTS cra_signatures (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1935,11 +1940,12 @@ app.get('/api/user/email-by-resource/:resourceId', requireAuth, (req, res) => {
 
 app.get('/api/resources', requireAuth, (req, res) => {
     database.all(`
-        SELECT 
+        SELECT
             r.*,
-            u.email as user_email
+            u.email as user_email,
+            u.id as user_id
         FROM resources r
-        LEFT JOIN users u ON u.resource_id = r.id
+        LEFT JOIN users u ON u.resource_id = r.id AND u.is_expert = 1
         ORDER BY r.nom, r.prenom
     `, (err, rows) => {
         if (err) {
@@ -2061,6 +2067,17 @@ app.get('/api/resource-samu-assignments', requireAuth, (req, res) => {
 });
 
 // Récupérer les affectations SAMU d'une ressource spécifique
+app.get('/api/resources/experts-map', requireAuth, (req, res) => {
+    database.all(
+        `SELECT r.id, r.nom, r.prenom, r.trigramme, r.es_rattachement, r.samu, u.profile_photo
+         FROM resources r
+         LEFT JOIN users u ON u.resource_id = r.id AND u.is_expert = 1
+         WHERE r.es_rattachement IS NOT NULL AND r.es_rattachement != ''`,
+        [],
+        (err, rows) => err ? res.status(500).json({ error: err.message }) : res.json(rows || [])
+    );
+});
+
 app.get('/api/resources/:id/samu-assignments', requireAuth, (req, res) => {
     const { id } = req.params;
     database.all(
@@ -3218,6 +3235,15 @@ app.post('/api/users/:id/astreinte-access', requireAdmin, (req, res) => {
                 : res.json({ success: true })
         );
     });
+});
+
+app.post('/api/resources/:id/astreinte', requireAdmin, (req, res) => {
+    const { hasAccess } = req.body;
+    database.run(
+        'UPDATE resources SET astreinte_volontaire = ? WHERE id = ?',
+        [hasAccess ? 1 : 0, req.params.id],
+        (err) => err ? res.status(500).json({ error: err.message }) : res.json({ success: true })
+    );
 });
 
 app.post('/api/users/:id/amoa-ced', requireAdmin, (req, res) => {
@@ -6527,13 +6553,13 @@ app.get('/api/my-custom-events', requireAuth, async (req, res) => {
                        r.trigramme as creator_trigramme,
                        l.libelle_long as location_libelle_long,
                        l.libelle_court as location_libelle_court,
-                       CASE WHEN ce.created_by = ? THEN 1 ELSE 0 END as is_creator
+                       CASE WHEN (ce.created_by = ? OR ? = 1) THEN 1 ELSE 0 END as is_creator
                 FROM custom_events ce
                 LEFT JOIN users u ON ce.created_by = u.id
                 LEFT JOIN resources r ON u.resource_id = r.id
                 LEFT JOIN locations l ON ce.location_id = l.id
                 ORDER BY ce.start_date
-            `, [userId], (err, rows) => err ? reject(err) : resolve(rows || []));
+            `, [userId, isAdmin ? 1 : 0], (err, rows) => err ? reject(err) : resolve(rows || []));
         });
 
         // Charger les participants pour chaque événement
@@ -9704,16 +9730,63 @@ app.get('/api/cra/my-list', requireAuth, async (req, res) => {
 });
 
 app.get('/api/cra/admin/list', requireAdmin, async (req, res) => {
-    const { user_id, statut } = req.query;
-    let where = '1=1';
+    const { user_id, statut, mois, annee } = req.query;
+    let where = '(c.archived IS NULL OR c.archived = 0)';
     const params = [];
     if (user_id) { where += ' AND c.user_id = ?'; params.push(user_id); }
     if (statut) { where += ' AND c.statut = ?'; params.push(statut); }
+    if (mois) { where += ' AND c.mois = ?'; params.push(mois); }
+    if (annee) { where += ' AND c.annee = ?'; params.push(annee); }
     database.all(
         `SELECT c.*, u.prenom || ' ' || u.nom as expert_nom, u1.prenom || ' ' || u1.nom as vise_n1_nom, u2.prenom || ' ' || u2.nom as vise_n2_nom
          FROM cra c LEFT JOIN users u ON c.user_id = u.id LEFT JOIN users u1 ON c.vise_n1_by = u1.id LEFT JOIN users u2 ON c.vise_n2_by = u2.id
          WHERE ${where} ORDER BY c.annee DESC, c.mois DESC, u.nom`,
         params, (err, rows) => err ? res.status(500).json({ error: err.message }) : res.json(rows || [])
+    );
+});
+
+// Liste tous les experts ayant au moins un CRA (actifs ou non) — pour le filtre Signatures CRA
+app.get('/api/cra/all-experts', requireAdmin, (req, res) => {
+    database.all(
+        `SELECT DISTINCT u.id as user_id, u.nom, u.prenom
+         FROM cra c JOIN users u ON c.user_id = u.id
+         ORDER BY u.nom, u.prenom`,
+        (err, rows) => err ? res.status(500).json({ error: err.message }) : res.json(rows || [])
+    );
+});
+
+// Archiver un CRA
+app.post('/api/cra/:id/archive', requireAdmin, (req, res) => {
+    database.run('UPDATE cra SET archived = 1 WHERE id = ?', [req.params.id], (err) => {
+        if (err) return res.status(500).json({ error: err.message });
+        logUserAction(req, 'Archivage CRA', { craId: req.params.id });
+        res.json({ success: true });
+    });
+});
+
+// Liste des CRA archivés
+app.get('/api/cra/admin/archives', requireAdmin, (req, res) => {
+    const { user_id, mois, annee } = req.query;
+    let where = 'c.archived = 1';
+    const params = [];
+    if (user_id) { where += ' AND c.user_id = ?'; params.push(user_id); }
+    if (mois) { where += ' AND c.mois = ?'; params.push(mois); }
+    if (annee) { where += ' AND c.annee = ?'; params.push(annee); }
+    database.all(
+        `SELECT c.*, u.prenom || ' ' || u.nom as expert_nom, u1.prenom || ' ' || u1.nom as vise_n1_nom, u2.prenom || ' ' || u2.nom as vise_n2_nom
+         FROM cra c LEFT JOIN users u ON c.user_id = u.id LEFT JOIN users u1 ON c.vise_n1_by = u1.id LEFT JOIN users u2 ON c.vise_n2_by = u2.id
+         WHERE ${where} ORDER BY c.annee DESC, c.mois DESC, u.nom`,
+        params, (err, rows) => err ? res.status(500).json({ error: err.message }) : res.json(rows || [])
+    );
+});
+
+// Déclarer "rien à déclarer" pour un CRA
+app.post('/api/cra/:id/rien-a-declarer', requireAuth, (req, res) => {
+    const { id } = req.params;
+    database.run(
+        `UPDATE cra SET rien_a_declarer = 1, statut = 'soumis', submitted_at = datetime('now') WHERE id = ? AND (user_id = ? OR ? = 'admin')`,
+        [id, req.session.userId, req.session.activeProfile],
+        (err) => err ? res.status(500).json({ error: err.message }) : res.json({ success: true })
     );
 });
 
