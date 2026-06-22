@@ -18463,9 +18463,10 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             });
             Object.values(byES).forEach(loc => {
                 const exps = loc.experts;
-                // Décaler légèrement si plusieurs experts au même point
                 exps.forEach((exp, i) => {
-                    const offsetLng = (i - (exps.length - 1) / 2) * 0.003;
+                    // Décaler les experts : légèrement au sud + étalement horizontal pour éviter la superposition avec les pastilles d'événements
+                    const offsetLat = -0.025;
+                    const offsetLng = (i - (exps.length - 1) / 2) * 0.04;
                     const initials = `${(exp.prenom||'')[0]||''}${(exp.nom||'')[0]||''}`.toUpperCase();
                     const photoHtml = exp.profile_photo
                         ? `<img src="${exp.profile_photo}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid white;">`
@@ -18483,7 +18484,8 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                         <div style="font-size:11px;color:#555;">🏥 ${exp.es_rattachement}</div>
                         ${exp.samu ? `<div style="font-size:11px;color:#555;">🚑 ${exp.samu}</div>` : ''}
                     </div>`;
-                    const marker = L.marker([exp.latitude, exp.longitude + offsetLng], { icon, zIndexOffset: 500 })
+                    // zIndexOffset négatif : experts toujours sous les pastilles d'événements
+                    const marker = L.marker([exp.latitude + offsetLat, exp.longitude + offsetLng], { icon, zIndexOffset: -100 })
                         .addTo(eventModalMap)
                         .bindPopup(popupHtml, { maxWidth: 220 });
                     eventModalMapMarkers.push(marker);
