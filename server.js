@@ -10327,15 +10327,17 @@ app.post('/api/automation/cra/trigger', requireAdmin, async (req, res) => {
         const targetAnnee = targetDate.getFullYear();
         log(`Mois cible : ${targetMois}/${targetAnnee}`);
 
-        const experts = await new Promise((resolve, reject) => {
-            database.all(
-                `SELECT r.id as resource_id, r.nom, r.prenom, u.id as user_id, u.email
-                 FROM resources r JOIN users u ON u.resource_id = r.id AND u.is_expert = 1
-                 WHERE r.astreinte_volontaire = 1 AND r.actif = 1`,
-                (err, rows) => err ? reject(err) : resolve(rows || [])
-            );
+        const filterUserId = req.body?.user_id ? parseInt(req.body.user_id) : null;
+        let query = `SELECT r.id as resource_id, r.nom, r.prenom, u.id as user_id, u.email
+                     FROM resources r JOIN users u ON u.resource_id = r.id AND u.is_expert = 1
+                     WHERE r.astreinte_volontaire = 1 AND r.actif = 1`;
+        const params = [];
+        if (filterUserId) { query += ` AND u.id = ?`; params.push(filterUserId); }
+
+        let experts = await new Promise((resolve, reject) => {
+            database.all(query, params, (err, rows) => err ? reject(err) : resolve(rows || []));
         });
-        log(`Experts astreinte trouvés : ${experts.length}`);
+        log(`Experts astreinte trouvés : ${experts.length}${filterUserId ? ` (filtré sur user_id=${filterUserId})` : ''}`);
         experts.forEach(e => log(`  • ${e.prenom} ${e.nom} — email: ${e.email || '⚠️ MANQUANT'}`));
 
         const appUrl = process.env.APP_URL || global._detectedAppUrl || 'http://localhost:3000';
