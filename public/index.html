@@ -8110,17 +8110,15 @@
         // Vérifie si une ressource a une astreinte/HNO pour une date et période données
         function getAstreinteForCell(resourceId, dateKey, period) {
             if (!allAstreintesHno || allAstreintesHno.length === 0) return null;
-            
-            const cellDate = new Date(dateKey);
-            
+
             for (const a of allAstreintesHno) {
                 if (a.resource_id !== resourceId) continue;
-                
-                const dateDebut = new Date(a.date_debut);
-                const dateFin = new Date(a.date_fin);
-                
-                // Vérifier si la date est dans la période
-                if (cellDate < dateDebut || cellDate > dateFin) continue;
+
+                // Comparer en chaînes YYYY-MM-DD pour éviter les décalages UTC/local
+                const dateDebutStr = (a.date_debut || '').substring(0, 10);
+                const dateFinStr = (a.date_fin || '').substring(0, 10);
+
+                if (dateKey < dateDebutStr || dateKey > dateFinStr) continue;
                 
                 const heures = a.heure_debut && a.heure_fin ? `${a.heure_debut}-${a.heure_fin}` : '';
                 
