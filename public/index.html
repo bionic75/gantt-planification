@@ -991,94 +991,83 @@
             <div style="padding: 20px;">
                 <h2 style="color: #6a1b9a; border-bottom: 2px solid #6a1b9a; padding-bottom: 10px;">📝 CRA — Comptes-Rendus d'Activité</h2>
 
-                <!-- Signatures CRA (admin uniquement) -->
-                <div id="craSignaturesBlock" style="display:none; background:white; border:1px solid #b39ddb; border-radius:8px; padding:15px; margin-bottom:20px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="toggleCraSignaturesPanel()">
-                        <span style="font-weight:bold; color:#6a1b9a;"><span id="craSignaturesPanelIcon">▶</span> ✍️ Signatures CRA</span>
+                <!-- ===== ADMIN : 3 catégories ===== -->
+                <div id="craAdminSections" style="display:none; margin-top:20px;">
+                    <!-- En cours de traitement -->
+                    <div style="background:#fff3e0;border:1px solid #ffb74d;border-radius:8px;padding:15px;margin-bottom:16px;">
+                        <h3 style="color:#e65100;margin:0 0 12px;font-size:15px;">📋 CRA en cours de traitement</h3>
+                        <div id="craAdminEnCours"><div style="text-align:center;padding:20px;color:#999;">⏳ Chargement...</div></div>
                     </div>
-                    <div id="craSignaturesPanelBody" style="display:none; margin-top:15px;">
-                        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:15px; align-items:flex-end;">
-                            <div>
-                                <label style="font-size:12px;color:#555;">Expert</label>
-                                <select id="craSignFilterExpert" style="width:200px;"><option value="">Tous les experts</option></select>
-                            </div>
-                            <div>
-                                <label style="font-size:12px;color:#555;">Mois</label>
+                    <!-- CRA signés -->
+                    <div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:15px;margin-bottom:16px;">
+                        <h3 style="color:#2e7d32;margin:0 0 12px;font-size:15px;">✅ CRA signés</h3>
+                        <!-- Filtres -->
+                        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;align-items:flex-end;">
+                            <div><label style="font-size:12px;color:#555;">Expert</label>
+                                <select id="craSignFilterExpert" style="width:200px;"><option value="">Tous les experts</option></select></div>
+                            <div><label style="font-size:12px;color:#555;">Mois</label>
                                 <select id="craSignFilterMois" style="width:130px;">
                                     <option value="">Tous</option>
                                     <option value="1">Janvier</option><option value="2">Février</option><option value="3">Mars</option>
                                     <option value="4">Avril</option><option value="5">Mai</option><option value="6">Juin</option>
                                     <option value="7">Juillet</option><option value="8">Août</option><option value="9">Septembre</option>
                                     <option value="10">Octobre</option><option value="11">Novembre</option><option value="12">Décembre</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label style="font-size:12px;color:#555;">Année</label>
-                                <select id="craSignFilterAnnee" style="width:100px;">
-                                    <option value="">Toutes</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label style="font-size:12px;color:#555;">Statut</label>
-                                <select id="craSignFilterStatut" style="width:160px;">
-                                    <option value="">Tous</option>
-                                    <option value="a_completer">À compléter</option>
-                                    <option value="soumis">Soumis</option>
-                                    <option value="vise_n1">Visé N1</option>
-                                    <option value="vise_n2">Visé N2</option>
-                                    <option value="diffuse">Diffusé</option>
-                                </select>
-                            </div>
-                            <button onclick="loadCraSignatures()" style="background:#6a1b9a;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-weight:bold;">🔍 Rechercher</button>
+                                </select></div>
+                            <div><label style="font-size:12px;color:#555;">Année</label>
+                                <select id="craSignFilterAnnee" style="width:100px;"><option value="">Toutes</option></select></div>
+                            <button onclick="loadCraSignatures()" style="background:#2e7d32;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-weight:bold;">🔍 Rechercher</button>
                         </div>
-                        <div id="craSignaturesTable"></div>
+                        <div id="craSignaturesTable"><div style="text-align:center;padding:20px;color:#999;">⏳ Chargement...</div></div>
+                    </div>
+                    <!-- CRA archivés (collapsible) -->
+                    <div style="background:#f3f4f6;border:1px solid #b0bec5;border-radius:8px;padding:15px;margin-bottom:16px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="toggleCraAdminArchivesPanel()">
+                            <h3 style="color:#546e7a;margin:0;font-size:15px;"><span id="craAdminArchivesIcon">▶</span> 🗄️ CRA archivés</h3>
+                        </div>
+                        <div id="craAdminArchivesBody" style="display:none;margin-top:12px;">
+                            <!-- Filtres archives -->
+                            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;align-items:flex-end;">
+                                <div><label style="font-size:12px;color:#555;">Expert</label>
+                                    <select id="craArchiveFilterExpert" style="width:200px;"><option value="">Tous les experts</option></select></div>
+                                <div><label style="font-size:12px;color:#555;">Mois</label>
+                                    <select id="craArchiveFilterMois" style="width:130px;">
+                                        <option value="">Tous</option>
+                                        <option value="1">Janvier</option><option value="2">Février</option><option value="3">Mars</option>
+                                        <option value="4">Avril</option><option value="5">Mai</option><option value="6">Juin</option>
+                                        <option value="7">Juillet</option><option value="8">Août</option><option value="9">Septembre</option>
+                                        <option value="10">Octobre</option><option value="11">Novembre</option><option value="12">Décembre</option>
+                                    </select></div>
+                                <div><label style="font-size:12px;color:#555;">Année</label>
+                                    <select id="craArchiveFilterAnnee" style="width:100px;"><option value="">Toutes</option></select></div>
+                                <button onclick="loadCraArchives()" style="background:#546e7a;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-weight:bold;">🔍 Rechercher</button>
+                            </div>
+                            <div id="craArchivesTable"></div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Archives CRA (admin uniquement) -->
-                <div id="craArchivesBlock" style="display:none; background:white; border:1px solid #b0bec5; border-radius:8px; padding:15px; margin-bottom:20px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="toggleCraArchivesPanel()">
-                        <span style="font-weight:bold; color:#546e7a;"><span id="craArchivesPanelIcon">▶</span> 🗄️ Archives CRA</span>
-                    </div>
-                    <div id="craArchivesPanelBody" style="display:none; margin-top:15px;">
-                        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:15px; align-items:flex-end;">
-                            <div>
-                                <label style="font-size:12px;color:#555;">Expert</label>
-                                <select id="craArchiveFilterExpert" style="width:200px;"><option value="">Tous les experts</option></select>
-                            </div>
-                            <div>
-                                <label style="font-size:12px;color:#555;">Mois</label>
-                                <select id="craArchiveFilterMois" style="width:130px;">
-                                    <option value="">Tous</option>
-                                    <option value="1">Janvier</option><option value="2">Février</option><option value="3">Mars</option>
-                                    <option value="4">Avril</option><option value="5">Mai</option><option value="6">Juin</option>
-                                    <option value="7">Juillet</option><option value="8">Août</option><option value="9">Septembre</option>
-                                    <option value="10">Octobre</option><option value="11">Novembre</option><option value="12">Décembre</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label style="font-size:12px;color:#555;">Année</label>
-                                <select id="craArchiveFilterAnnee" style="width:100px;"><option value="">Toutes</option></select>
-                            </div>
-                            <button onclick="loadCraArchives()" style="background:#546e7a;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-weight:bold;">🔍 Rechercher</button>
-                        </div>
-                        <div id="craArchivesTable"></div>
-                    </div>
-                </div>
-
-                <!-- Sous-rubriques CRA expert (masquées pour admin) -->
+                <!-- ===== EXPERT : 2 catégories ===== -->
                 <div id="craExpertSections" style="display:none; margin-top:20px;">
                     <div style="background:#fff3e0;border:1px solid #ffb74d;border-radius:8px;padding:15px;margin-bottom:16px;">
-                        <h3 style="color:#e65100;margin:0 0 12px;font-size:15px;">📋 Mon compte-rendu d'activité en cours</h3>
+                        <h3 style="color:#e65100;margin:0 0 12px;font-size:15px;">📋 CRA en cours de traitement</h3>
                         <div id="craListEnCours"><div style="text-align:center;padding:20px;color:#999;">⏳ Chargement...</div></div>
                     </div>
-                    <div style="background:#f3f4f6;border:1px solid #ccc;border-radius:8px;padding:15px;margin-bottom:16px;">
-                        <h3 style="color:#546e7a;margin:0 0 12px;font-size:15px;">🗂️ Mes comptes-rendus d'activité passés</h3>
-                        <div id="craListPasse"><div style="text-align:center;padding:20px;color:#999;">⏳ Chargement...</div></div>
+                    <div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:15px;margin-bottom:16px;">
+                        <h3 style="color:#2e7d32;margin:0 0 12px;font-size:15px;">✅ CRA signés</h3>
+                        <div id="craListSignes"><div style="text-align:center;padding:20px;color:#999;">⏳ Chargement...</div></div>
                     </div>
                 </div>
-                <!-- Liste CRA admin (inchangée) -->
-                <div id="craList" style="margin-top: 20px;"></div>
+
+                <!-- ===== RH : lecture seule, CRA signés uniquement ===== -->
+                <div id="craRhSections" style="display:none; margin-top:20px;">
+                    <div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:15px;margin-bottom:16px;">
+                        <h3 style="color:#2e7d32;margin:0 0 12px;font-size:15px;">✅ CRA signés</h3>
+                        <div id="craRhSignes"><div style="text-align:center;padding:20px;color:#999;">⏳ Chargement...</div></div>
+                    </div>
+                </div>
+
+                <!-- Compatibilité (non utilisé, conservé pour les refs JS) -->
+                <div id="craList" style="display:none;"></div>
                 <div id="craDetailPanel" style="display: none; margin-top: 20px; padding: 20px; background: #f3e5f5; border-radius: 8px; border: 1px solid #b39ddb;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                         <h3 id="craDetailTitle" style="color: #6a1b9a; margin: 0;"></h3>
@@ -2467,6 +2456,10 @@
                             <label style="font-size: 12px; color: #555;">Administrateur niveau 2 (deuxième viseur)</label>
                             <select id="automation4AdminN2" onchange="saveAutomation4Config()" style="width: 100%;"><option value="">-- Choisir --</option></select>
                         </div>
+                        <div style="flex: 0 0 260px;">
+                            <label style="font-size: 12px; color: #555;">DRH ANS (un ou plusieurs, Ctrl+clic)</label>
+                            <select id="automation4DrhAns" multiple onchange="saveAutomation4Config()" style="width: 100%; height: 72px; border: 1px solid #b39ddb; border-radius: 4px; padding: 4px;"></select>
+                        </div>
                     </div>
                     <div>
                         <label style="font-size: 12px; color: #6a1b9a; font-weight: bold; display: block; margin-bottom: 8px;">👥 Experts participants au workflow CRA (astreinte_volontaire = 1)</label>
@@ -3080,6 +3073,13 @@
                 </div>
             </div>
             
+            <!-- Contacts RH de l'ES -->
+            <div style="margin-top: 16px;">
+                <label style="font-size:13px;font-weight:bold;color:#6a1b9a;display:block;margin-bottom:6px;">📧 Contacts RH de l'ES <span style="font-size:11px;font-weight:normal;color:#888;">(un email par ligne)</span></label>
+                <textarea id="editContactsRh" placeholder="rh@etablissement.fr&#10;drh@hopital.fr" rows="3"
+                    style="width:100%;font-size:12px;padding:8px;border:1px solid #b39ddb;border-radius:4px;resize:vertical;box-sizing:border-box;"></textarea>
+            </div>
+
             <!-- Section Historique des taux de MAD -->
             <div style="margin-top: 20px; padding: 15px; background: #e3f2fd; border-radius: 8px;">
                 <h4 style="margin: 0 0 15px 0; color: #1565c0;">📊 Historique des taux de MAD</h4>
@@ -3517,6 +3517,7 @@
 
                 if (data.userId) {
                     currentUser = data;
+                    currentUser.id = data.userId; // alias pour compatibilité
                     console.log('✅ Session restaurée:', currentUser);
                     console.log('📷 Photo dans session:', currentUser.profilePhoto ? 'OUI' : 'NON');
                     
@@ -3545,7 +3546,7 @@
                     // Onglet CRA
                     const craBtn = document.getElementById('craTabBtn');
                     if (craBtn) {
-                        const showCra = currentUser.is_admin || currentUser.astreinte_volontaire;
+                        const showCra = currentUser.is_admin || currentUser.astreinte_volontaire || currentUser.is_rh;
                         craBtn.style.display = showCra ? 'block' : 'none';
                         document.getElementById('craTabLabel').textContent = 'CRA';
                     }
@@ -3782,6 +3783,7 @@
         // Finaliser le login après validation MFA ou sans MFA
         async function completeFinalLogin(user, selectedApp) {
             currentUser = user;
+            currentUser.id = user.userId || user.id; // alias pour compatibilité
             currentUser.selectedApp = selectedApp;
             console.log('👤 Current user après login:', currentUser);
             console.log('📛 Trigramme:', currentUser.trigramme);
@@ -3822,7 +3824,7 @@
             // Afficher l'onglet CRA selon le profil
             const craBtn = document.getElementById('craTabBtn');
             if (craBtn) {
-                const showCra = currentUser.is_admin || currentUser.astreinte_volontaire;
+                const showCra = currentUser.is_admin || currentUser.astreinte_volontaire || currentUser.is_rh;
                 craBtn.style.display = showCra ? 'block' : 'none';
                 const lbl = document.getElementById('craTabLabel');
                 if (lbl) lbl.textContent = currentUser.is_admin ? 'CRA à valider' : 'Mes CRA';
@@ -3911,6 +3913,7 @@
             if (profile === 'admin') return allTabs;
             else if (profile === 'user') return ['resources', 'evenements', 'planning', 'reporting'];
             else if (profile === 'expert') return ['resources', 'evenements', 'planning', 'cra'];
+            else if (profile === 'rh') return ['resources', 'evenements', 'planning', 'cra'];
             return ['resources', 'evenements', 'planning'];
         }
 
@@ -7597,6 +7600,7 @@
             document.getElementById('editSamu').value = resource.samu;
             document.getElementById('editEsRattachement').value = resource.es_rattachement || '';
             document.getElementById('editFonction').value = resource.fonction || '';
+            document.getElementById('editContactsRh').value = resource.contacts_rh || '';
 
             // Pré-remplir les affectations SAMU (expert principal / secondaire)
             const assign = resourceSamuAssignments[id] || { principal: [], secondaire: [] };
@@ -8012,7 +8016,8 @@
                         date_debut: null, // Les dates sont maintenant gérées dans l'historique MAD
                         date_fin: null,
                         es_rattachement: document.getElementById('editEsRattachement').value || null,
-                        fonction: document.getElementById('editFonction').value || null
+                        fonction: document.getElementById('editFonction').value || null,
+                        contacts_rh: document.getElementById('editContactsRh').value.trim() || null
                     })
                 });
                 if (!response.ok) {
@@ -12918,6 +12923,14 @@
                 if (config.admin_n1_id) document.getElementById('automation4AdminN1').value = config.admin_n1_id;
                 if (config.admin_n2_id) document.getElementById('automation4AdminN2').value = config.admin_n2_id;
 
+                // DRH ANS : multi-select parmi les profils RH
+                const drhSel = document.getElementById('automation4DrhAns');
+                drhSel.innerHTML = rhUsers.map(u =>
+                    `<option value="${u.id}" data-email="${u.email}" data-nom="${u.nom}" data-prenom="${u.prenom}">${(u.nom||'').toUpperCase()} ${u.prenom||''}</option>`
+                ).join('');
+                const savedDrhIds = config.drh_ans_ids || [];
+                Array.from(drhSel.options).forEach(opt => { opt.selected = savedDrhIds.includes(parseInt(opt.value)); });
+
                 await loadAutomation4ExpertsList(config);
             } catch(e) { console.error('Erreur chargement config automation4:', e); }
         }
@@ -12932,34 +12945,26 @@
                     return;
                 }
                 container.innerHTML = experts.map(expert => {
-                    const savedEmails = (config.rh_recipients || {})[expert.resource_id] || [];
-                    return `<div style="padding:12px 15px;border-bottom:1px solid #f3e5f5;display:flex;flex-direction:column;gap:8px;">
-                        <div style="display:flex;align-items:center;gap:10px;">
-                            <strong style="font-size:13px;min-width:180px;">${(expert.nom||'').toUpperCase()} ${expert.prenom||''}</strong>
-                            <span style="font-size:11px;color:#666;">${expert.samu||''} — ${expert.es_rattachement||''}</span>
-                        </div>
-                        <div>
-                            <label style="font-size:11px;color:#6a1b9a;display:block;margin-bottom:4px;">📧 Destinataires RH (un email par ligne) :</label>
-                            <textarea id="rh_emails_${expert.resource_id}" placeholder="rh@etablissement.fr&#10;drh@hopital.fr"
-                                style="width:100%;height:60px;font-size:11px;padding:6px;border:1px solid #b39ddb;border-radius:4px;resize:vertical;"
-                                onchange="saveAutomation4Config()">${savedEmails.join('\n')}</textarea>
-                        </div>
+                    return `<div style="padding:10px 15px;border-bottom:1px solid #f3e5f5;display:flex;align-items:center;gap:10px;">
+                        <strong style="font-size:13px;min-width:180px;">${(expert.nom||'').toUpperCase()} ${expert.prenom||''}</strong>
+                        <span style="font-size:11px;color:#666;">${expert.samu||''} — ${expert.es_rattachement||''}</span>
+                        <span style="font-size:11px;color:#9c27b0;margin-left:auto;">📧 Contacts RH définis dans la fiche ressource</span>
                     </div>`;
                 }).join('');
             } catch(e) { console.error('Erreur chargement experts astreinte:', e); }
         }
 
         async function saveAutomation4Config() {
-            const textareas = document.querySelectorAll('[id^="rh_emails_"]');
-            const rhRecipients = {};
-            textareas.forEach(ta => {
-                const resourceId = ta.id.replace('rh_emails_', '');
-                rhRecipients[resourceId] = ta.value.split('\n').map(e => e.trim()).filter(e => e && e.includes('@'));
-            });
             const n1Select = document.getElementById('automation4AdminN1');
             const n2Select = document.getElementById('automation4AdminN2');
+            const drhSel   = document.getElementById('automation4DrhAns');
             const n1Option = n1Select.options[n1Select.selectedIndex];
             const n2Option = n2Select.options[n2Select.selectedIndex];
+            const drhAnsIds = drhSel ? Array.from(drhSel.selectedOptions).map(o => parseInt(o.value)) : [];
+            const drhAnsInfos = drhSel ? Array.from(drhSel.selectedOptions).map(o => ({
+                id: parseInt(o.value), email: o.dataset.email || '',
+                nom: `${o.dataset.prenom||''} ${o.dataset.nom||''}`.trim()
+            })) : [];
             const config = {
                 enabled: document.getElementById('automation4Enabled').checked,
                 day: parseInt(document.getElementById('automation4Day').value) || 1,
@@ -12969,17 +12974,14 @@
                 admin_n2_id: n2Select.value || null,
                 admin_n2_email: n2Option?.dataset?.email || '',
                 admin_n2_nom: n2Option ? `${n2Option.dataset?.prenom||''} ${n2Option.dataset?.nom||''}` : '',
-                rh_recipients: rhRecipients
+                drh_ans_ids: drhAnsIds,
+                drh_ans_infos: drhAnsInfos
             };
             window._craConfig = config;
             try {
                 await fetch(`${API_URL}/settings`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
                     body: JSON.stringify({ key: 'automation_4_config', value: JSON.stringify(config) })
-                });
-                await fetch(`${API_URL}/cra/rh-recipients`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
-                    body: JSON.stringify({ recipients: rhRecipients })
                 });
             } catch(e) { console.error('Erreur sauvegarde config automation4:', e); }
         }
@@ -13191,14 +13193,18 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
         }
 
         async function loadCraPendingBadge() {
-            if (!currentUser || !(currentUser.is_admin || currentUser.activeProfile === 'admin')) return;
+            const isAdmin = currentUser && (currentUser.is_admin || currentUser.activeProfile === 'admin');
+            const isExpert = currentUser && (currentUser.astreinte_volontaire || currentUser.activeProfile === 'expert');
+            if (!currentUser || (!isAdmin && !isExpert)) return;
             try {
                 const res = await fetch(`${API_URL}/cra/my-list`, { credentials: 'include' });
                 const data = await res.json();
                 const badge = document.getElementById('craPendingBadge');
                 if (!badge) return;
-                if (data.length > 0) {
-                    badge.textContent = data.length;
+                // CRA "en cours de traitement" : non archivés et statut != diffuse
+                const enCours = data.filter(c => !c.archived && c.statut !== 'diffuse').length;
+                if (enCours > 0) {
+                    badge.textContent = enCours;
                     badge.style.display = 'inline-block';
                 } else {
                     badge.style.display = 'none';
@@ -13220,51 +13226,137 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                 'diffuse':     { label: 'Diffusé auprès de la RH', color: '#607d8b', icon: '📨' }
             };
 
-            const makeCraCard = (cra, borderColor) => {
+            const makeCraCard = (cra, borderColor, extraButtons = '') => {
                 const moisNom = new Date(parseInt(cra.annee), parseInt(cra.mois) - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
-                const s = st[cra.statut] || { label: cra.statut, color: '#999', icon: '❓' };
-                return `<div onclick="openCraDetail(${cra.id})" style="display:flex;align-items:center;justify-content:space-between;padding:15px 20px;background:white;border:1px solid ${borderColor};border-radius:8px;margin-bottom:10px;cursor:pointer;transition:box-shadow 0.2s;" onmouseover="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.15)'" onmouseout="this.style.boxShadow='none'">
-                    <div>
+                let s = st[cra.statut] || { label: cra.statut, color: '#999', icon: '❓' };
+                // Badge "Modifier" si déjà soumis une fois (refuse_at positionné lors du rappel ou du refus)
+                if (cra.statut === 'a_completer' && cra.refuse_at) {
+                    s = { label: 'Modifier', color: '#ff9800', icon: '✏️' };
+                }
+                return `<div style="display:flex;align-items:center;justify-content:space-between;padding:15px 20px;background:white;border:1px solid ${borderColor};border-radius:8px;margin-bottom:10px;transition:box-shadow 0.2s;" onmouseover="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.15)'" onmouseout="this.style.boxShadow='none'">
+                    <div style="flex:1;cursor:pointer;" onclick="openCraDetail(${cra.id})">
                         <strong style="font-size:14px;color:#2c3e50;">Compte-rendu d'activité de ${moisNom}${isAdmin && cra.expert_nom ? ` — ${cra.expert_nom}` : ''}</strong>
                         <div style="font-size:12px;color:#666;margin-top:3px;">${cra.vise_n1_nom?`Viseur N1 : ${cra.vise_n1_nom}`:''}${cra.vise_n2_nom?` | Viseur N2 : ${cra.vise_n2_nom}`:''}</div>
                     </div>
-                    <span style="padding:5px 12px;border-radius:12px;font-size:12px;font-weight:bold;background:${s.color}22;color:${s.color};white-space:nowrap;">${s.icon} ${s.label}</span>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="padding:5px 12px;border-radius:12px;font-size:12px;font-weight:bold;background:${s.color}22;color:${s.color};white-space:nowrap;">${s.icon} ${s.label}</span>
+                        ${extraButtons}
+                    </div>
                 </div>`;
             };
+
+            const archiveBtn = (craId) => isAdmin
+                ? `<button onclick="event.stopPropagation();archiveCraExpert(${craId})" title="Archiver ce CRA" style="background:#546e7a;color:white;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px;">🗄️ Archiver</button>`
+                : '';
+
+            const unarchiveBtn = (craId) => isAdmin
+                ? `<button onclick="event.stopPropagation();unarchiveCra(${craId})" title="Désarchiver ce CRA" style="background:#ff9800;color:white;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px;">↩️ Désarchiver</button>`
+                : '';
+
+            // Masquer toutes les sections
+            ['craAdminSections','craExpertSections','craRhSections','craList'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = 'none';
+            });
+
+            const isRh = currentUser && currentUser.is_rh && !isAdmin;
+            const isExpert = !isAdmin && !isRh;
 
             try {
                 const res = await fetch(`${API_URL}/cra/my-list`, { credentials: 'include' });
                 const data = await res.json();
 
                 if (isAdmin) {
-                    // Mode admin : liste unique
-                    document.getElementById('craExpertSections').style.display = 'none';
-                    const container = document.getElementById('craList');
-                    container.style.display = 'block';
-                    if (!data.length) {
-                        container.innerHTML = `<p style="color:#999;text-align:center;padding:30px;">Aucun CRA en attente de validation.</p>`;
-                        return;
+                    // === ADMIN : 3 catégories ===
+                    document.getElementById('craAdminSections').style.display = 'block';
+
+                    const enCours = data.filter(c => !c.archived && c.statut !== 'diffuse');
+
+                    document.getElementById('craAdminEnCours').innerHTML = enCours.length
+                        ? enCours.map(c => makeCraCard(c, '#ffb74d', archiveBtn(c.id))).join('')
+                        : `<p style="color:#999;text-align:center;padding:15px;">Aucun CRA en cours de traitement.</p>`;
+
+                    // Section "CRA signés" : tableau avec filtres, chargé via loadCraSignatures()
+                    await populateCraSignFilterExperts();
+                    populateCraYearFilter('craSignFilterAnnee');
+                    await loadCraSignatures();
+
+                    // Archives : recharger si panneau déjà ouvert
+                    const archBody = document.getElementById('craAdminArchivesBody');
+                    if (archBody && archBody.style.display !== 'none') {
+                        loadCraArchives();
                     }
-                    container.innerHTML = data.map(cra => makeCraCard(cra, '#e1bee7')).join('');
+
+                } else if (isRh) {
+                    // === RH : CRA signés uniquement, lecture seule ===
+                    document.getElementById('craRhSections').style.display = 'block';
+
+                    const signes = data.filter(c => !c.archived && c.statut === 'diffuse');
+                    document.getElementById('craRhSignes').innerHTML = signes.length
+                        ? signes.map(c => makeCraCard(c, '#a5d6a7')).join('')
+                        : `<p style="color:#999;text-align:center;padding:15px;">Aucun CRA signé.</p>`;
+
                 } else {
-                    // Mode expert : 2 sous-rubriques
-                    document.getElementById('craList').style.display = 'none';
+                    // === EXPERT : 2 catégories ===
                     document.getElementById('craExpertSections').style.display = 'block';
 
-                    const enCours = data.filter(c => c.statut !== 'diffuse');
-                    const passes  = data.filter(c => c.statut === 'diffuse');
+                    const enCours = data.filter(c => !c.archived && c.statut !== 'diffuse');
+                    const signes  = data.filter(c => !c.archived && c.statut === 'diffuse');
 
-                    const encDiv = document.getElementById('craListEnCours');
-                    encDiv.innerHTML = enCours.length
+                    document.getElementById('craListEnCours').innerHTML = enCours.length
                         ? enCours.map(c => makeCraCard(c, '#ffb74d')).join('')
-                        : `<p style="color:#999;text-align:center;padding:15px;">Aucun CRA en cours pour le moment.</p>`;
+                        : `<p style="color:#999;text-align:center;padding:15px;">Aucun CRA en cours.</p>`;
 
-                    const pasDiv = document.getElementById('craListPasse');
-                    pasDiv.innerHTML = passes.length
-                        ? passes.map(c => makeCraCard(c, '#b0bec5')).join('')
-                        : `<p style="color:#999;text-align:center;padding:15px;">Aucun CRA validé dans l'historique.</p>`;
+                    document.getElementById('craListSignes').innerHTML = signes.length
+                        ? signes.map(c => makeCraCard(c, '#a5d6a7')).join('')
+                        : `<p style="color:#999;text-align:center;padding:15px;">Aucun CRA signé.</p>`;
                 }
             } catch(e) { console.error('Erreur chargement CRA:', e); }
+        }
+
+        function toggleCraAdminArchivesPanel() {
+            const body = document.getElementById('craAdminArchivesBody');
+            const icon = document.getElementById('craAdminArchivesIcon');
+            const open = body.style.display === 'none';
+            body.style.display = open ? 'block' : 'none';
+            icon.textContent = open ? '▼' : '▶';
+            if (open) {
+                populateCraSignFilterExperts('craArchiveFilterExpert');
+                populateCraYearFilter('craArchiveFilterAnnee');
+                loadCraArchives();
+            }
+        }
+
+        async function recallCra(craId) {
+            if (!confirm('Retirer votre soumission pour corriger ce CRA ?\n\nIl repassera en statut "À compléter" et vous pourrez le modifier avant de le soumettre à nouveau.')) return;
+            try {
+                const res = await fetch(`${API_URL}/cra/${craId}/recall`, { method: 'POST', credentials: 'include' });
+                const data = await res.json();
+                if (data.success) {
+                    await loadCraList();
+                    // Rouvrir automatiquement le modal de saisie
+                    const cra = window._currentCraId === craId ? null : null; // forcer rechargement
+                    openCraDetail(craId);
+                } else {
+                    alert(data.error || 'Erreur lors du rappel du CRA');
+                }
+            } catch(e) { alert('Erreur lors du rappel du CRA'); }
+        }
+
+        async function archiveCraExpert(craId) {
+            if (!confirm('Archiver ce CRA ?')) return;
+            try {
+                const res = await fetch(`${API_URL}/cra/${craId}/archive`, { method: 'POST', credentials: 'include' });
+                if ((await res.json()).success) await loadCraList();
+            } catch(e) { alert('Erreur archivage CRA'); }
+        }
+
+        async function unarchiveCra(craId) {
+            if (!confirm('Désarchiver ce CRA ? Il retournera dans sa catégorie d\'origine.')) return;
+            try {
+                const res = await fetch(`${API_URL}/cra/${craId}/unarchive`, { method: 'POST', credentials: 'include' });
+                if ((await res.json()).success) { await loadCraList(); await loadCraArchives(); }
+            } catch(e) { alert('Erreur désarchivage CRA'); }
         }
 
         async function openCraDetail(craId) {
@@ -13402,7 +13494,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
         function renderCraActionButtons(cra) {
             const container = document.getElementById('craActionButtons');
             const isAdmin = currentUser && (currentUser.is_admin || currentUser.activeProfile === 'admin');
-            const isOwner = currentUser && cra.user_id === currentUser.id;
+            const isOwner = currentUser && String(cra.user_id) === String(currentUser.id);
             const config = window._craConfig || {};
             const isN1 = isAdmin && String(currentUser.id) === String(config.admin_n1_id);
             const isN2 = isAdmin && String(currentUser.id) === String(config.admin_n2_id);
@@ -13415,9 +13507,14 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             });
 
             let buttons = '';
-            if (cra.statut === 'a_completer' && isOwner)
-                buttons += `<button onclick="openCraSaisieModal(${cra.id}, ${cra.mois}, ${cra.annee})" style="background-color:#ff9800;color:white;padding:10px 20px;font-weight:bold;border:none;border-radius:4px;cursor:pointer;">✏️ Compléter mon CRA</button>
+            if (cra.statut === 'a_completer' && isOwner) {
+                const dejaEnvoye = !!cra.refuse_at;
+                const lblCompleter = dejaEnvoye ? '✏️ Corriger/Compléter mon CRA' : '✏️ Compléter mon CRA';
+                buttons += `<button onclick="openCraSaisieModal(${cra.id}, ${cra.mois}, ${cra.annee})" style="background-color:#ff9800;color:white;padding:10px 20px;font-weight:bold;border:none;border-radius:4px;cursor:pointer;">${lblCompleter}</button>
                             <button onclick="submitCra(${cra.id})" style="background-color:#6a1b9a;color:white;padding:10px 20px;font-weight:bold;border:none;border-radius:4px;cursor:pointer;">📤 Valider et soumettre</button>`;
+            }
+            if (cra.statut === 'soumis' && isOwner && !isAdmin)
+                buttons += `<button onclick="recallCra(${cra.id})" style="background-color:#ff9800;color:white;padding:10px 20px;font-weight:bold;border:none;border-radius:4px;cursor:pointer;">✏️ Corriger/Compléter mon CRA</button>`;
             if (cra.statut === 'soumis' && (isN1 || isAnyAdmin)) {
                 buttons += `<button onclick="visaCra(${cra.id},'n1')" style="background-color:#4caf50;color:white;padding:10px 20px;font-weight:bold;border:none;border-radius:4px;cursor:pointer;">✅ Viser (niveau 1)</button>`;
                 buttons += `<button onclick="toggleRefusPanel('n1',${cra.id})" style="background-color:#f39c12;color:white;padding:10px 20px;font-weight:bold;border:none;border-radius:4px;cursor:pointer;">❌ Refuser</button>`;
@@ -13426,8 +13523,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                 buttons += `<button onclick="visaCra(${cra.id},'n2')" style="background-color:#2196f3;color:white;padding:10px 20px;font-weight:bold;border:none;border-radius:4px;cursor:pointer;">✅ Viser (niveau 2)</button>`;
                 buttons += `<button onclick="toggleRefusPanel('n2',${cra.id})" style="background-color:#f39c12;color:white;padding:10px 20px;font-weight:bold;border:none;border-radius:4px;cursor:pointer;">❌ Refuser</button>`;
             }
-            if (cra.statut === 'vise_n2' && isAdmin)
-                buttons += `<button onclick="diffuserCra(${cra.id})" style="background-color:#ff5722;color:white;padding:10px 20px;font-weight:bold;border:none;border-radius:4px;cursor:pointer;">📨 Diffuser auprès de la RH</button>`;
+            // La diffusion est automatique au visa N2 — pas de bouton manuel
 
             // Bouton "Rien à déclarer" : expert propriétaire, statut a_completer uniquement
             const rienBtn = document.getElementById('craRienADeclarerBtn');
@@ -13772,9 +13868,41 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                             ${sigRow(2,'Viseur N1','#4caf50')}
                             ${sigRow(3,'Viseur N2','#2196f3')}
                         </tbody>
-                    </table>`;
+                    </table>
+                    <div id="craDiffusionLogSection"></div>`;
 
                 document.getElementById('craViewerModal').classList.add('active');
+
+                // Charger le log de diffusion
+                try {
+                    const logRes = await fetch(`${API_URL}/cra/${craId}/diffusion-log`, { credentials: 'include' });
+                    const logData = await logRes.json();
+                    const logContainer = document.getElementById('craDiffusionLogSection');
+                    if (logData && logData.length > 0) {
+                        const fmtDt = dt => new Date(dt).toLocaleString('fr-FR');
+                        const typeLabel = t => t === 'drh_ans' ? 'DRH ANS' : 'DRH ES';
+                        const typeColor = t => t === 'drh_ans' ? '#1a237e' : '#2e7d32';
+                        logContainer.innerHTML = `
+                            <div style="font-size:11px;font-weight:bold;color:#1a237e;text-transform:uppercase;margin:16px 0 8px;letter-spacing:0.5px;">📨 Diffusion du CRA validé et signé</div>
+                            <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                                <thead><tr style="background:#1a237e;color:white;">
+                                    <th style="padding:7px 10px;text-align:left;">Destinataire</th>
+                                    <th style="padding:7px 10px;text-align:left;">Email</th>
+                                    <th style="padding:7px 10px;text-align:left;">Type</th>
+                                    <th style="padding:7px 10px;text-align:left;">Date d'envoi</th>
+                                </tr></thead>
+                                <tbody>
+                                    ${logData.map((r, i) => `
+                                    <tr style="background:${i%2?'#e8eaf6':'white'};">
+                                        <td style="padding:6px 10px;">${r.recipient_name || '—'}</td>
+                                        <td style="padding:6px 10px;">${r.recipient_email}</td>
+                                        <td style="padding:6px 10px;"><span style="color:${typeColor(r.recipient_type)};font-weight:bold;">${typeLabel(r.recipient_type)}</span></td>
+                                        <td style="padding:6px 10px;color:#555;">${fmtDt(r.sent_at)}</td>
+                                    </tr>`).join('')}
+                                </tbody>
+                            </table>`;
+                    }
+                } catch(e) { /* log non critique */ }
             } catch(e) {
                 alert('Erreur chargement CRA : ' + e.message);
             }
@@ -13782,23 +13910,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
 
         // ===== ONGLET CRA : Signatures, Archives, Rien à déclarer =====
 
-        function toggleCraSignaturesPanel() {
-            const body = document.getElementById('craSignaturesPanelBody');
-            const icon = document.getElementById('craSignaturesPanelIcon');
-            const open = body.style.display === 'none';
-            body.style.display = open ? 'block' : 'none';
-            icon.textContent = open ? '▼' : '▶';
-            if (open) { populateCraSignFilterExperts(); populateCraYearFilter('craSignFilterAnnee'); loadCraSignatures(); }
-        }
-
-        function toggleCraArchivesPanel() {
-            const body = document.getElementById('craArchivesPanelBody');
-            const icon = document.getElementById('craArchivesPanelIcon');
-            const open = body.style.display === 'none';
-            body.style.display = open ? 'block' : 'none';
-            icon.textContent = open ? '▼' : '▶';
-            if (open) { populateCraSignFilterExperts('craArchiveFilterExpert'); populateCraYearFilter('craArchiveFilterAnnee'); loadCraArchives(); }
-        }
+        function toggleCraArchivesPanel() { toggleCraAdminArchivesPanel(); }
 
         async function populateCraSignFilterExperts(selectId = 'craSignFilterExpert') {
             try {
@@ -13848,7 +13960,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                         <td style="padding:6px 8px;">${fmt(c.diffuse_at)}</td>
                         <td style="padding:6px 8px;white-space:nowrap;">
                             <button onclick="openCraModal(${c.id})" style="font-size:11px;padding:3px 8px;background:#6a1b9a;color:white;border:none;border-radius:4px;cursor:pointer;margin-right:4px;">Voir</button>
-                            ${!isArchive ? `<button onclick="confirmArchiveCra(${c.id},'${(c.expert_nom||'').replace(/'/g,'\\\'')}')" style="font-size:11px;padding:3px 8px;background:#546e7a;color:white;border:none;border-radius:4px;cursor:pointer;">🗄️ Archiver</button>` : ''}
+                            ${!isArchive ? `<button onclick="confirmArchiveCra(${c.id},'${(c.expert_nom||'').replace(/'/g,'\\\'')}')" style="font-size:11px;padding:3px 8px;background:#546e7a;color:white;border:none;border-radius:4px;cursor:pointer;">🗄️ Archiver</button>` : `<button onclick="unarchiveCra(${c.id})" style="font-size:11px;padding:3px 8px;background:#ff9800;color:white;border:none;border-radius:4px;cursor:pointer;">↩️ Désarchiver</button>`}
                         </td>
                     </tr>`;
                 }).join('')}</tbody>
@@ -13856,20 +13968,18 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
         }
 
         async function loadCraSignatures() {
-            const expert = document.getElementById('craSignFilterExpert').value;
-            const statut = document.getElementById('craSignFilterStatut').value;
-            const mois   = document.getElementById('craSignFilterMois').value;
-            const annee  = document.getElementById('craSignFilterAnnee').value;
-            const params = new URLSearchParams();
+            const expert = document.getElementById('craSignFilterExpert')?.value || '';
+            const mois   = document.getElementById('craSignFilterMois')?.value || '';
+            const annee  = document.getElementById('craSignFilterAnnee')?.value || '';
+            const params = new URLSearchParams({ statut: 'diffuse' });
             if (expert) params.set('user_id', expert);
-            if (statut) params.set('statut', statut);
             if (mois)   params.set('mois', mois);
             if (annee)  params.set('annee', annee);
             try {
                 const res = await fetch(`${API_URL}/cra/admin/list?${params}`, { credentials: 'include' });
                 const data = await res.json();
                 renderCraSignaturesTable(data, document.getElementById('craSignaturesTable'));
-            } catch(e) { console.error('Erreur chargement signatures CRA:', e); }
+            } catch(e) { console.error('Erreur chargement CRA signés:', e); }
         }
 
         async function loadCraArchives() {
@@ -16022,12 +16132,6 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             if (tabName === 'cra') {
                 loadCraList();
                 loadCraPendingBadge();
-                // Afficher les blocs admin (Signatures, Archives) uniquement pour les admins
-                const isAdm = currentUser && (currentUser.is_admin || currentUser.activeProfile === 'admin');
-                const sigBlock = document.getElementById('craSignaturesBlock');
-                const archBlock = document.getElementById('craArchivesBlock');
-                if (sigBlock)  sigBlock.style.display  = isAdm ? 'block' : 'none';
-                if (archBlock) archBlock.style.display = isAdm ? 'block' : 'none';
             }
 
             if (tabName === 'evenements') {
@@ -18497,6 +18601,25 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
         }
 
         let _expertsMapData = null;
+        let _showExpertMarkers = true;
+
+        function toggleExpertsMapLayer() {
+            _showExpertMarkers = !_showExpertMarkers;
+            const btn = document.getElementById('toggleExpertsMapBtn');
+            if (btn) {
+                btn.textContent = `👤 Experts : ${_showExpertMarkers ? 'ON' : 'OFF'}`;
+                btn.style.background = _showExpertMarkers ? '#6a1b9a' : '#90a4ae';
+            }
+            if (eventModalMap && eventModalMapMarkers.length > 0) {
+                // Re-render sans recharger les données
+                renderModalMapMarkers(
+                    _lastMapEvents || [],
+                    _showExpertMarkers ? (_expertsMapData || []) : []
+                );
+            }
+        }
+
+        let _lastMapEvents = [];
 
         async function loadModalEventsMap() {
             if (!eventModalMap) return;
@@ -18543,7 +18666,8 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                     });
                 }
 
-                renderModalMapMarkers(events, _expertsMapData || []);
+                _lastMapEvents = events;
+                renderModalMapMarkers(events, _showExpertMarkers ? (_expertsMapData || []) : []);
                 setTimeout(() => eventModalMap.invalidateSize(), 50);
             } catch (e) { console.error('Erreur chargement carte modale:', e); }
         }
@@ -24675,6 +24799,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 <div style="display:flex;gap:8px;align-items:flex-end;">
                     <button onclick="loadModalEventsMap()" style="background:#3f51b5;color:white;border:none;padding:8px 18px;border-radius:4px;cursor:pointer;font-weight:bold;">🗺️ Afficher</button>
                     <button onclick="resetModalMapFilters()" style="background:#78909c;color:white;border:none;padding:8px 14px;border-radius:4px;cursor:pointer;">🔄</button>
+                    <button id="toggleExpertsMapBtn" onclick="toggleExpertsMapLayer()" style="background:#6a1b9a;color:white;border:none;padding:8px 14px;border-radius:4px;cursor:pointer;font-weight:bold;" title="Afficher/masquer les pastilles experts">👤 Experts : ON</button>
                 </div>
                 <div id="modalMapEventCount" style="font-size:12px;color:#555;padding:8px 0;"></div>
             </div>

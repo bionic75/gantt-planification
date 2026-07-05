@@ -10,6 +10,7 @@ console.log('✅ SQLite3 importé');
 import path from 'path';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
+import bcrypt from 'bcrypt';
 import session from 'express-session';
 console.log('✅ Session importé');
 import nodemailer from 'nodemailer';
@@ -117,9 +118,23 @@ const dbRead = new sqlite3.Database(DB_FILE, sqlite3.OPEN_READONLY, (err) => {
     }
 });
 
-// Hash password
-function hashPassword(password) {
-    return crypto.createHash('sha256').update(password).digest('hex');
+// Hash password (bcrypt, coût 12)
+async function hashPassword(password) {
+    return bcrypt.hash(password, 12);
+}
+
+// Vérifier un mot de passe — supporte l'ancien SHA-256 et le nouveau bcrypt
+// Retourne { ok: bool, needsRehash: bool }
+async function verifyPassword(plain, stored) {
+    if (!stored) return { ok: false, needsRehash: false };
+    if (stored.startsWith('$2b$') || stored.startsWith('$2a$')) {
+        const ok = await bcrypt.compare(plain, stored);
+        return { ok, needsRehash: false };
+    }
+    // Ancien hash SHA-256
+    const sha = crypto.createHash('sha256').update(plain).digest('hex');
+    const ok = sha === stored;
+    return { ok, needsRehash: ok }; // si correct → migrer vers bcrypt
 }
 
 // Formater une date en français
@@ -495,6 +510,11 @@ function initDB() {
                     database.run(`ALTER TABLE resources ADD COLUMN astreinte_date_activation TEXT`);
                     console.log('Migration: Ajout colonne astreinte_date_activation à resources');
                 }
+                const contactsRhCol = columns.find(col => col.name === 'contacts_rh');
+                if (!contactsRhCol) {
+                    database.run(`ALTER TABLE resources ADD COLUMN contacts_rh TEXT`);
+                    console.log('Migration: Ajout colonne contacts_rh à resources');
+                }
             }
         });
     }
@@ -611,11 +631,11 @@ function initDB() {
                 }
             });
             
-            database.get('SELECT * FROM users WHERE username = ?', ['admin'], (err, row) => {
+            database.get('SELECT * FROM users WHERE username = ?', ['admin'], async (err, row) => {
                 if (!row) {
-                    const hashedPwd = hashPassword('Admin2025!');
+                    const hashedPwd = await hashPassword('Admin2025!');
                     database.run(
-                        `INSERT INTO users (username, password, nom, prenom, email, is_admin) 
+                        `INSERT INTO users (username, password, nom, prenom, email, is_admin)
                          VALUES (?, ?, ?, ?, ?, ?)`,
                         ['admin', hashedPwd, 'Admin', 'Système', 'admin@example.com', 1],
                         () => console.log('Compte admin créé')
@@ -1149,6 +1169,18 @@ function initDB() {
     `);
 
     database.run(`
+        CREATE TABLE IF NOT EXISTS cra_diffusion_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            cra_id INTEGER NOT NULL,
+            recipient_email TEXT NOT NULL,
+            recipient_name TEXT,
+            recipient_type TEXT DEFAULT 'rh_es',
+            sent_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (cra_id) REFERENCES cra(id) ON DELETE CASCADE
+        )
+    `);
+
+    database.run(`
         CREATE TABLE IF NOT EXISTS cra_rh_recipients (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             resource_id INTEGER NOT NULL,
@@ -1378,25 +1410,25 @@ app.post('/api/login', async (req, res) => {
         return res.status(400).json({ error: 'Username, password et profil requis' });
     }
 
-    const hashedPassword = hashPassword(password);
-    
     try {
         const user = await new Promise((resolve, reject) => {
             database.get(
-                `SELECT u.*, r.trigramme, r.astreinte_volontaire 
-                 FROM users u 
-                 LEFT JOIN resources r ON r.id = u.resource_id 
-                 WHERE u.username = ? AND u.password = ? AND u.actif = 1`,
-                [username, hashedPassword],
-                (err, row) => {
-                    if (err) reject(err);
-                    else resolve(row);
-                }
+                `SELECT u.*, r.trigramme, r.astreinte_volontaire
+                 FROM users u
+                 LEFT JOIN resources r ON r.id = u.resource_id
+                 WHERE u.username = ? AND u.actif = 1`,
+                [username],
+                (err, row) => { if (err) reject(err); else resolve(row); }
             );
         });
-        
-        if (!user) {
-            return res.status(401).json({ error: 'Identifiants incorrects' });
+
+        if (!user) return res.status(401).json({ error: 'Identifiants incorrects' });
+
+        const { ok, needsRehash } = await verifyPassword(password, user.password);
+        if (!ok) return res.status(401).json({ error: 'Identifiants incorrects' });
+        if (needsRehash) {
+            const newHash = await hashPassword(password);
+            database.run('UPDATE users SET password = ? WHERE id = ?', [newHash, user.id]);
         }
         
         let profileValid = false;
@@ -1458,22 +1490,25 @@ app.post('/api/mobile-login', async (req, res) => {
         return res.status(400).json({ error: 'Username et password requis' });
     }
 
-    const hashedPassword = hashPassword(password);
-
     try {
         const user = await new Promise((resolve, reject) => {
             database.get(
-                `SELECT u.*, r.trigramme, r.astreinte_volontaire 
-                 FROM users u 
-                 LEFT JOIN resources r ON r.id = u.resource_id 
-                 WHERE u.username = ? AND u.password = ? AND u.actif = 1`,
-                [username, hashedPassword],
+                `SELECT u.*, r.trigramme, r.astreinte_volontaire
+                 FROM users u
+                 LEFT JOIN resources r ON r.id = u.resource_id
+                 WHERE u.username = ? AND u.actif = 1`,
+                [username],
                 (err, row) => { if (err) reject(err); else resolve(row); }
             );
         });
 
-        if (!user) {
-            return res.status(401).json({ error: 'Identifiants incorrects' });
+        if (!user) return res.status(401).json({ error: 'Identifiants incorrects' });
+
+        const { ok: mobileOk, needsRehash: mobileRehash } = await verifyPassword(password, user.password);
+        if (!mobileOk) return res.status(401).json({ error: 'Identifiants incorrects' });
+        if (mobileRehash) {
+            const newHash = await hashPassword(password);
+            database.run('UPDATE users SET password = ? WHERE id = ?', [newHash, user.id]);
         }
 
         // Déterminer le profil actif (priorité : admin > expert > user)
@@ -1762,7 +1797,7 @@ app.post('/api/forgot-password', async (req, res) => {
             
             // Générer un mot de passe temporaire
             const tempPassword = crypto.randomBytes(4).toString('hex').toUpperCase();
-            const hashedPassword = hashPassword(tempPassword);
+            const hashedPassword = await hashPassword(tempPassword);
             
             // Mettre à jour le mot de passe
             database.run(
@@ -2004,14 +2039,14 @@ app.post('/api/resources', requireAdmin, (req, res) => {
 });
 
 app.put('/api/resources/:id', requireAdmin, (req, res) => {
-    const { nom, prenom, trigramme, email, telephone, taux, samu, date_debut, date_fin, es_rattachement, fonction } = req.body;
+    const { nom, prenom, trigramme, email, telephone, taux, samu, date_debut, date_fin, es_rattachement, fonction, contacts_rh } = req.body;
     const { id } = req.params;
-    
+
     database.run(
-        `UPDATE resources 
-         SET nom = ?, prenom = ?, trigramme = ?, email = ?, telephone = ?, taux = ?, samu = ?, date_debut = ?, date_fin = ?, es_rattachement = ?, fonction = ?
+        `UPDATE resources
+         SET nom = ?, prenom = ?, trigramme = ?, email = ?, telephone = ?, taux = ?, samu = ?, date_debut = ?, date_fin = ?, es_rattachement = ?, fonction = ?, contacts_rh = ?
          WHERE id = ?`,
-        [nom, prenom, trigramme, email || null, telephone || null, taux, samu, date_debut || null, date_fin || null, es_rattachement || null, fonction || null, id],
+        [nom, prenom, trigramme, email || null, telephone || null, taux, samu, date_debut || null, date_fin || null, es_rattachement || null, fonction || null, contacts_rh || null, id],
         (err) => {
             if (err) {
                 console.error('Erreur update resource:', err);
@@ -3012,10 +3047,10 @@ app.post('/api/users', requireAdmin, async (req, res) => {
         return res.status(400).json({ error: 'Username et password requis' });
     }
 
-    const hashedPassword = hashPassword(password);
-    
+    const hashedPassword = await hashPassword(password);
+
     database.run(
-        `INSERT INTO users (username, password, nom, prenom, email, telephone, is_admin, is_expert, is_user, is_rh, resource_id, has_reporting_access, amoa_ced) 
+        `INSERT INTO users (username, password, nom, prenom, email, telephone, is_admin, is_expert, is_user, is_rh, resource_id, has_reporting_access, amoa_ced)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [username, hashedPassword, nom, prenom, email, telephone || null, is_admin ? 1 : 0, is_expert ? 1 : 0, is_user ? 1 : 0, is_rh ? 1 : 0, resource_id || null, has_reporting_access ? 1 : 0, amoa_ced ? 1 : 0],
         async function(err) {
@@ -3273,8 +3308,8 @@ app.post('/api/users/:id/reset-password', requireAdmin, async (req, res) => {
         return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 6 caractères' });
     }
     
-    const hashedPassword = hashPassword(newPassword);
-    
+    const hashedPassword = await hashPassword(newPassword);
+
     database.get('SELECT * FROM users WHERE id = ?', [id], async (err, user) => {
         if (err) {
             console.error('Erreur récupération user:', err);
@@ -3327,47 +3362,40 @@ app.post('/api/users/:id/reset-password', requireAdmin, async (req, res) => {
     });
 });
 
-app.post('/api/users/change-password', requireAuth, (req, res) => {
+app.post('/api/users/change-password', requireAuth, async (req, res) => {
     const { oldPassword, newPassword } = req.body;
-    
+
     if (!oldPassword || !newPassword) {
         return res.status(400).json({ error: 'Ancien et nouveau mot de passe requis' });
     }
-    
+
     if (newPassword.length < 6) {
         return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 6 caractères' });
     }
-    
-    const hashedOldPassword = hashPassword(oldPassword);
-    const hashedNewPassword = hashPassword(newPassword);
-    
-    database.get(
-        'SELECT * FROM users WHERE id = ? AND password = ?',
-        [req.session.userId, hashedOldPassword],
-        (err, user) => {
-            if (err) {
-                console.error('Erreur vérification password:', err);
-                return res.status(500).json({ error: err.message });
-            }
-            
-            if (!user) {
-                return res.status(401).json({ error: 'Ancien mot de passe incorrect' });
-            }
-            
-            database.run(
-                'UPDATE users SET password = ? WHERE id = ?',
+
+    try {
+        const user = await new Promise((resolve, reject) =>
+            database.get('SELECT * FROM users WHERE id = ?', [req.session.userId],
+                (err, row) => err ? reject(err) : resolve(row))
+        );
+        if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
+
+        const { ok } = await verifyPassword(oldPassword, user.password);
+        if (!ok) return res.status(401).json({ error: 'Ancien mot de passe incorrect' });
+
+        const hashedNewPassword = await hashPassword(newPassword);
+
+        await new Promise((resolve, reject) =>
+            database.run('UPDATE users SET password = ? WHERE id = ?',
                 [hashedNewPassword, req.session.userId],
-                (err) => {
-                    if (err) {
-                        console.error('Erreur changement password:', err);
-                        return res.status(500).json({ error: err.message });
-                    }
-                    
-                    res.json({ success: true });
-                }
-            );
-        }
-    );
+                (err) => err ? reject(err) : resolve())
+        );
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Erreur changement password:', error);
+        res.status(500).json({ error: error.message });
+    }
 });
 
 // ==================== API EMAIL CONFIG ====================
@@ -7687,7 +7715,7 @@ app.post('/api/profile/photo', requireAuth, (req, res) => {
 });
 
 // Changer le mot de passe de l'utilisateur connecté
-app.post('/api/profile/change-password', requireAuth, (req, res) => {
+app.post('/api/profile/change-password', requireAuth, async (req, res) => {
     const { newPassword } = req.body;
     
     if (!newPassword) {
@@ -7706,8 +7734,8 @@ app.post('/api/profile/change-password', requireAuth, (req, res) => {
     }
     
     // Hasher le nouveau mot de passe
-    const hashedPassword = hashPassword(newPassword);
-    
+    const hashedPassword = await hashPassword(newPassword);
+
     database.run(
         `UPDATE users SET password = ? WHERE id = ?`,
         [hashedPassword, req.session.userId],
@@ -9617,7 +9645,7 @@ function buildCraEmailHtml({ title, expertNom, moisNom, craUrl, action }) {
     </div>`;
 }
 
-function buildCraDocumentHtml({ cra, astreintes, signatures, moisNom }) {
+function buildCraDocumentHtml({ cra, astreintes, signatures, moisNom, esRattachement }) {
     const lignes = astreintes.map(a => `<tr>
         <td style="padding:6px 10px;border:1px solid #ddd;">${a.type==='astreinte'?'🔔 Astreinte':'🌙 HNO'}</td>
         <td style="padding:6px 10px;border:1px solid #ddd;">${a.date_debut}</td>
@@ -9627,7 +9655,7 @@ function buildCraDocumentHtml({ cra, astreintes, signatures, moisNom }) {
         <td style="padding:6px 10px;border:1px solid #ddd;">${a.objet||''}</td>
     </tr>`).join('');
     const sigsHtml = signatures.map(s => {
-        const rang = s.rang===1?'Expert':s.rang===2?'Administrateur N1':'Administrateur N2';
+        const rang = s.rang===1 ? 'Expert' : s.rang===2 ? 'VISA N+1' : 'VISA N+2';
         return `<div style="flex:1;min-width:180px;padding:15px;border:1px solid #6a1b9a;border-radius:6px;text-align:center;">
             <div style="font-size:11px;color:#666;margin-bottom:8px;">${rang}</div>
             <div style="font-weight:bold;color:#2c3e50;">${s.signer_name}</div>
@@ -9636,26 +9664,55 @@ function buildCraDocumentHtml({ cra, astreintes, signatures, moisNom }) {
             <div style="font-size:9px;color:#ccc;margin-top:2px;">IP : ${s.ip_address||'N/A'}</div>
         </div>`;
     }).join('');
+
+    const esInfo = esRattachement ? `<p style="color:#444;font-size:13px;margin:4px 0 0 0;">Établissement de rattachement : <strong>${esRattachement}</strong></p>` : '';
+
     return `<div style="font-family:Arial,sans-serif;max-width:800px;margin:0 auto;padding:20px;">
-        <div style="text-align:center;border-bottom:3px solid #6a1b9a;padding-bottom:15px;margin-bottom:20px;">
-            <h1 style="color:#6a1b9a;margin:0;font-size:20px;">COMPTE-RENDU D'ACTIVITÉ</h1>
-            <h2 style="color:#2c3e50;margin:5px 0;font-size:16px;">${cra.expert_nom} — ${moisNom}</h2>
-            <p style="color:#666;font-size:12px;margin:0;">Agence du Numérique en Santé — Programme SI-SAMU</p>
+
+        <!-- EN-TÊTE ANS -->
+        <div style="background:#1a237e;padding:16px 24px;border-radius:6px 6px 0 0;display:flex;align-items:center;gap:18px;margin-bottom:0;">
+            <div style="flex:0 0 auto;">
+                <img src="https://esante.gouv.fr/sites/default/files/media_entity/article/logo-ans-blanc.png"
+                     alt="ANS" height="48"
+                     style="display:block;"
+                     onerror="this.style.display='none'">
+            </div>
+            <div>
+                <div style="color:white;font-size:15px;font-weight:bold;letter-spacing:0.5px;">AGENCE DU NUMÉRIQUE EN SANTÉ</div>
+                <div style="color:#90caf9;font-size:11px;margin-top:2px;">Programme SI-SAMU</div>
+            </div>
         </div>
+
+        <!-- TITRE DU DOCUMENT -->
+        <div style="text-align:center;border:1px solid #1a237e;border-top:none;padding:18px 15px 14px;margin-bottom:20px;">
+            <h1 style="color:#1a237e;margin:0;font-size:19px;letter-spacing:1px;">COMPTE-RENDU D'ACTIVITÉ</h1>
+            <h2 style="color:#2c3e50;margin:6px 0 4px;font-size:16px;">${cra.expert_nom} — ${moisNom}</h2>
+            ${esInfo}
+        </div>
+
+        <!-- MESSAGE CONVENTION -->
+        <div style="background:#e8eaf6;border-left:4px solid #1a237e;padding:12px 16px;border-radius:0 6px 6px 0;margin-bottom:20px;font-size:12px;color:#333;">
+            Ce document est transmis dans le cadre de la <strong>convention liant l'Agence du Numérique en Santé (ANS) et ${esRattachement||"l'établissement de santé de rattachement de l'expert"}</strong>, relative à la mise à disposition d'un expert dans le cadre du programme SI-SAMU.<br>
+            Il atteste de l'activité réalisée par l'expert pour la période concernée et a été signé électroniquement par les parties habilitées.
+        </div>
+
+        <!-- TABLEAU DES ACTIVITÉS -->
         <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
-            <thead><tr style="background:#6a1b9a;color:white;">
-                <th style="padding:8px 10px;border:1px solid #4a0e7a;text-align:left;">Type</th>
-                <th style="padding:8px 10px;border:1px solid #4a0e7a;text-align:left;">Date début</th>
-                <th style="padding:8px 10px;border:1px solid #4a0e7a;text-align:left;">Date fin</th>
-                <th style="padding:8px 10px;border:1px solid #4a0e7a;text-align:left;">Heures</th>
-                <th style="padding:8px 10px;border:1px solid #4a0e7a;text-align:left;">SAMU</th>
-                <th style="padding:8px 10px;border:1px solid #4a0e7a;text-align:left;">Objet</th>
+            <thead><tr style="background:#1a237e;color:white;">
+                <th style="padding:8px 10px;border:1px solid #0d1757;text-align:left;">Type</th>
+                <th style="padding:8px 10px;border:1px solid #0d1757;text-align:left;">Date début</th>
+                <th style="padding:8px 10px;border:1px solid #0d1757;text-align:left;">Date fin</th>
+                <th style="padding:8px 10px;border:1px solid #0d1757;text-align:left;">Heures</th>
+                <th style="padding:8px 10px;border:1px solid #0d1757;text-align:left;">SAMU</th>
+                <th style="padding:8px 10px;border:1px solid #0d1757;text-align:left;">Objet</th>
             </tr></thead>
             <tbody>${lignes||'<tr><td colspan="6" style="padding:15px;color:#999;text-align:center;">Aucune activité enregistrée</td></tr>'}</tbody>
         </table>
         ${cra.commentaire_expert?`<div style="background:#f3e5f5;padding:12px 15px;border-radius:6px;margin-bottom:20px;border-left:3px solid #6a1b9a;"><strong style="font-size:12px;color:#6a1b9a;">Commentaire de l'expert :</strong><p style="margin:5px 0 0 0;font-size:13px;">${cra.commentaire_expert}</p></div>`:''}
-        <div style="border-top:2px solid #6a1b9a;padding-top:20px;">
-            <h3 style="color:#6a1b9a;font-size:13px;margin-bottom:15px;">SIGNATURES ÉLECTRONIQUES</h3>
+
+        <!-- SIGNATURES -->
+        <div style="border-top:2px solid #1a237e;padding-top:20px;">
+            <h3 style="color:#1a237e;font-size:13px;letter-spacing:0.5px;margin-bottom:15px;">SIGNATURES ÉLECTRONIQUES</h3>
             <div style="display:flex;gap:15px;flex-wrap:wrap;">${sigsHtml}</div>
             <p style="font-size:10px;color:#999;margin-top:15px;font-style:italic;">Document généré électroniquement via la Plateforme de Planification ANS. Les signatures sont horodatées et enregistrées en base de données.</p>
         </div>
@@ -9693,11 +9750,13 @@ app.post('/api/cra/rh-recipients', requireAdmin, async (req, res) => {
 
 app.get('/api/cra/my-list', requireAuth, async (req, res) => {
     const userId = req.session.userId;
-    const isAdmin = req.session.activeProfile === 'admin';
+    const profile = req.session.activeProfile;
+    const isAdmin = profile === 'admin';
+    const isRh    = profile === 'rh';
     try {
         let rows;
         if (isAdmin) {
-            // Admin : tous les CRA en attente de visa
+            // Admin : tous les CRA non archivés (toutes statuts)
             rows = await new Promise((resolve, reject) => {
                 database.all(
                     `SELECT c.*,
@@ -9708,12 +9767,30 @@ app.get('/api/cra/my-list', requireAuth, async (req, res) => {
                      LEFT JOIN users u ON c.user_id = u.id
                      LEFT JOIN users u1 ON c.vise_n1_by = u1.id
                      LEFT JOIN users u2 ON c.vise_n2_by = u2.id
-                     WHERE c.statut IN ('soumis','vise_n1','vise_n2')
+                     WHERE (c.archived IS NULL OR c.archived = 0)
+                     ORDER BY c.annee DESC, c.mois DESC`,
+                    [], (err, rows) => err ? reject(err) : resolve(rows || [])
+                );
+            });
+        } else if (isRh) {
+            // RH : tous les CRA signés (diffuse), non archivés, lecture seule
+            rows = await new Promise((resolve, reject) => {
+                database.all(
+                    `SELECT c.*,
+                            u.prenom || ' ' || u.nom as expert_nom,
+                            u1.nom || ' ' || u1.prenom as vise_n1_nom,
+                            u2.nom || ' ' || u2.prenom as vise_n2_nom
+                     FROM cra c
+                     LEFT JOIN users u ON c.user_id = u.id
+                     LEFT JOIN users u1 ON c.vise_n1_by = u1.id
+                     LEFT JOIN users u2 ON c.vise_n2_by = u2.id
+                     WHERE c.statut = 'diffuse' AND (c.archived IS NULL OR c.archived = 0)
                      ORDER BY c.annee DESC, c.mois DESC`,
                     [], (err, rows) => err ? reject(err) : resolve(rows || [])
                 );
             });
         } else {
+            // Expert : ses propres CRA
             rows = await new Promise((resolve, reject) => {
                 database.all(
                     `SELECT c.*, u1.nom || ' ' || u1.prenom as vise_n1_nom, u2.nom || ' ' || u2.prenom as vise_n2_nom
@@ -9760,6 +9837,14 @@ app.post('/api/cra/:id/archive', requireAdmin, (req, res) => {
     database.run('UPDATE cra SET archived = 1 WHERE id = ?', [req.params.id], (err) => {
         if (err) return res.status(500).json({ error: err.message });
         logUserAction(req, 'Archivage CRA', { craId: req.params.id });
+        res.json({ success: true });
+    });
+});
+
+app.post('/api/cra/:id/unarchive', requireAdmin, (req, res) => {
+    database.run('UPDATE cra SET archived = 0 WHERE id = ?', [req.params.id], (err) => {
+        if (err) return res.status(500).json({ error: err.message });
+        logUserAction(req, 'Désarchivage CRA', { craId: req.params.id });
         res.json({ success: true });
     });
 });
@@ -9921,6 +10006,19 @@ app.get('/api/cra/:id/pdf', requireAuth, async (req, res) => {
     }
 });
 
+app.get('/api/cra/:id/diffusion-log', requireAuth, async (req, res) => {
+    const craId = req.params.id;
+    try {
+        const rows = await new Promise((resolve, reject) => {
+            database.all(
+                `SELECT recipient_email, recipient_name, recipient_type, sent_at FROM cra_diffusion_log WHERE cra_id = ? ORDER BY sent_at`,
+                [craId], (err, rows) => err ? reject(err) : resolve(rows || [])
+            );
+        });
+        res.json(rows);
+    } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get('/api/cra/:id', requireAuth, async (req, res) => {
     const craId = req.params.id;
     const userId = req.session.userId;
@@ -9941,11 +10039,21 @@ app.get('/api/cra/:id', requireAuth, async (req, res) => {
         if (!cra) return res.status(404).json({ error: 'CRA introuvable' });
         if (!isAdmin && cra.user_id !== userId) return res.status(403).json({ error: 'Accès interdit' });
         const dateStart = `${cra.annee}-${String(cra.mois).padStart(2,'0')}-01`;
-        const dateEnd = `${cra.annee}-${String(cra.mois).padStart(2,'0')}-31`;
-        const astreintes = await new Promise((resolve, reject) => {
-            database.all(`SELECT * FROM astreintes_hno WHERE user_id = ? AND date_debut >= ? AND date_debut <= ? ORDER BY date_debut`,
-                [cra.user_id, dateStart, dateEnd], (err, rows) => err ? reject(err) : resolve(rows || []));
+        const dateEnd   = `${cra.annee}-${String(cra.mois).padStart(2,'0')}-31`;
+        const rawAstreintes = await new Promise((resolve, reject) => {
+            // Inclure les astreintes qui chevauchent le mois (pas seulement celles débutant dans le mois)
+            database.all(
+                `SELECT * FROM astreintes_hno WHERE user_id = ? AND date_debut <= ? AND date_fin >= ? ORDER BY date_debut`,
+                [cra.user_id, dateEnd, dateStart],
+                (err, rows) => err ? reject(err) : resolve(rows || [])
+            );
         });
+        // Clipper les dates au mois en cours : ne montrer que la portion qui appartient au mois
+        const astreintes = rawAstreintes.map(a => ({
+            ...a,
+            date_debut: a.date_debut < dateStart ? dateStart : a.date_debut,
+            date_fin:   a.date_fin   > dateEnd   ? dateEnd   : a.date_fin
+        }));
         const signatures = await new Promise((resolve, reject) => {
             database.all(`SELECT * FROM cra_signatures WHERE cra_id = ? ORDER BY rang`,
                 [craId], (err, rows) => err ? reject(err) : resolve(rows || []));
@@ -10034,6 +10142,32 @@ app.post('/api/cra/:id/submit', requireAuth, async (req, res) => {
     } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// Rappel CRA : l'expert retire sa soumission avant tout visa
+app.post('/api/cra/:id/recall', requireAuth, async (req, res) => {
+    const craId = req.params.id;
+    const userId = req.session.userId;
+    try {
+        const cra = await new Promise((resolve, reject) => {
+            database.get(`SELECT * FROM cra WHERE id = ?`, [craId], (err, row) => err ? reject(err) : resolve(row));
+        });
+        if (!cra) return res.status(404).json({ error: 'CRA introuvable' });
+        if (cra.user_id !== userId) return res.status(403).json({ error: 'Non autorisé' });
+        if (cra.statut !== 'soumis') return res.status(400).json({ error: 'Le CRA ne peut être rappelé que si son statut est "soumis"' });
+        await new Promise((resolve, reject) => {
+            database.run(
+                `UPDATE cra SET statut = 'a_completer', submitted_at = NULL, refuse_at = datetime('now') WHERE id = ?`,
+                [craId], err => err ? reject(err) : resolve()
+            );
+        });
+        // Supprimer la signature de soumission initiale
+        await new Promise((resolve, reject) => {
+            database.run(`DELETE FROM cra_signatures WHERE cra_id = ? AND rang = 1`, [craId], err => err ? reject(err) : resolve());
+        });
+        logUserAction(req, 'Rappel CRA (correction)', { craId });
+        res.json({ success: true });
+    } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.post('/api/cra/:id/visa/:niveau', requireAdmin, async (req, res) => {
     const craId = req.params.id;
     const niveau = req.params.niveau;
@@ -10072,14 +10206,100 @@ app.post('/api/cra/:id/visa/:niveau', requireAdmin, async (req, res) => {
                 htmlBody: buildCraEmailHtml({ title: 'Visa niveau 2 requis', expertNom: cra.expert_nom, moisNom, craUrl, action: `Le CRA a été visé par ${signerNom} (N1) et nécessite votre visa de niveau 2.` }),
                 actionType: 'cra_visa_n2'
             });
-        } else if (niveau === 'n2' && cra.expert_email) {
-            await enqueueEmail({
-                batchId: generateICSUid(), recipientEmail: cra.expert_email, recipientName: cra.expert_nom,
-                senderName: signerNom, senderEmail: req.session.email || '',
-                subject: `CRA ${moisNom} — doublement visé, prêt à diffuser`,
-                htmlBody: buildCraEmailHtml({ title: 'CRA doublement visé', expertNom: cra.expert_nom, moisNom, craUrl, action: 'Votre CRA a été visé par les deux niveaux d\'administration. Il sera prochainement diffusé à la RH de votre établissement.' }),
-                actionType: 'cra_vise_n2'
+        } else if (niveau === 'n2') {
+            // Diffusion automatique dès le visa N2
+            const diffuseNow = new Date().toISOString();
+            // Récupérer la ressource pour les contacts RH de l'ES
+            const resourceRow = await new Promise((resolve, reject) => {
+                database.get(
+                    `SELECT r.id, r.contacts_rh, r.es_rattachement FROM resources r JOIN users u ON u.resource_id = r.id WHERE u.id = ?`,
+                    [cra.user_id], (err, row) => err ? reject(err) : resolve(row)
+                );
             });
+            // Contacts RH ES depuis la fiche ressource (fallback : cra_rh_recipients)
+            const esRattachement = resourceRow?.es_rattachement || '';
+            let rhEsRecipients = [];
+            if (resourceRow?.contacts_rh) {
+                rhEsRecipients = resourceRow.contacts_rh.split('\n').map(e => e.trim()).filter(e => e.includes('@')).map(e => ({ email: e, nom: '' }));
+            } else if (resourceRow?.id) {
+                rhEsRecipients = await new Promise((resolve, reject) => {
+                    database.all(`SELECT email, nom FROM cra_rh_recipients WHERE resource_id = ?`, [resourceRow.id], (err, rows) => err ? reject(err) : resolve(rows || []));
+                });
+            }
+            // Contacts DRH ANS depuis la config automation
+            const drhAnsRecipients = (config.drh_ans_infos || []).filter(d => d.email);
+
+            const allRhRecipients = [...rhEsRecipients, ...drhAnsRecipients];
+
+            // Construire le document CRA
+            const signatures = await new Promise((resolve, reject) => {
+                database.all(`SELECT * FROM cra_signatures WHERE cra_id = ? ORDER BY rang`, [craId], (err, rows) => err ? reject(err) : resolve(rows || []));
+            });
+            const dateStart = `${cra.annee}-${String(cra.mois).padStart(2,'0')}-01`;
+            const dateEnd   = `${cra.annee}-${String(cra.mois).padStart(2,'0')}-31`;
+            const rawAstreintes = await new Promise((resolve, reject) => {
+                database.all(
+                    `SELECT * FROM astreintes_hno WHERE user_id = ? AND date_debut <= ? AND date_fin >= ? ORDER BY date_debut`,
+                    [cra.user_id, dateEnd, dateStart],
+                    (err, rows) => err ? reject(err) : resolve(rows || [])
+                );
+            });
+            const astreintes = rawAstreintes.map(a => ({
+                ...a,
+                date_debut: a.date_debut < dateStart ? dateStart : a.date_debut,
+                date_fin:   a.date_fin   > dateEnd   ? dateEnd   : a.date_fin
+            }));
+            const craHtml = buildCraDocumentHtml({ cra, astreintes, signatures, moisNom, esRattachement });
+            const batchId = generateICSUid();
+            const moisAnnee = new Date(cra.annee, cra.mois - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+            const rhSubject = `AGENCE DU NUMERIQUE EN SANTE - ${cra.expert_nom} - ${moisAnnee} - Compte-Rendu d'Activité`;
+
+            // Envoi aux destinataires RH
+            for (const rh of allRhRecipients) {
+                await enqueueEmail({
+                    batchId, recipientEmail: rh.email, recipientName: rh.nom || rh.email,
+                    senderName: signerNom, senderEmail: req.session.email || '',
+                    subject: rhSubject,
+                    htmlBody: craHtml, actionType: 'cra_diffusion'
+                });
+            }
+
+            // Notification à l'expert
+            if (cra.expert_email) {
+                await enqueueEmail({
+                    batchId: generateICSUid(), recipientEmail: cra.expert_email, recipientName: cra.expert_nom,
+                    senderName: signerNom, senderEmail: req.session.email || '',
+                    subject: `CRA ${moisNom} — diffusé auprès de la RH`,
+                    htmlBody: buildCraEmailHtml({ title: 'CRA diffusé', expertNom: cra.expert_nom, moisNom, craUrl, action: `Votre CRA a été doublement visé et diffusé auprès de la RH (${allRhRecipients.length} destinataire(s)).` }),
+                    actionType: 'cra_diffusion_expert'
+                });
+            }
+
+            // Enregistrer le log de diffusion
+            for (const rh of rhEsRecipients) {
+                await new Promise((resolve, reject) => {
+                    database.run(
+                        `INSERT INTO cra_diffusion_log (cra_id, recipient_email, recipient_name, recipient_type, sent_at) VALUES (?, ?, ?, 'rh_es', ?)`,
+                        [craId, rh.email, rh.nom || rh.email, diffuseNow], err => err ? reject(err) : resolve()
+                    );
+                });
+            }
+            for (const rh of drhAnsRecipients) {
+                await new Promise((resolve, reject) => {
+                    database.run(
+                        `INSERT INTO cra_diffusion_log (cra_id, recipient_email, recipient_name, recipient_type, sent_at) VALUES (?, ?, ?, 'drh_ans', ?)`,
+                        [craId, rh.email, rh.nom || rh.email, diffuseNow], err => err ? reject(err) : resolve()
+                    );
+                });
+            }
+
+            // Marquer comme diffusé
+            await new Promise((resolve, reject) => {
+                database.run(`UPDATE cra SET statut = 'diffuse', diffuse_at = ? WHERE id = ?`, [diffuseNow, craId], err => err ? reject(err) : resolve());
+            });
+
+            logUserAction(req, 'CRA diffusé automatiquement après visa N2', { craId, recipients: allRhRecipients.length });
+            return res.json({ success: true, diffused: true, sent: allRhRecipients.length });
         }
         res.json({ success: true });
     } catch(e) { res.status(500).json({ error: e.message }); }
@@ -10174,16 +10394,22 @@ app.post('/api/cra/:id/diffuser', requireAdmin, async (req, res) => {
     try {
         const cra = await new Promise((resolve, reject) => {
             database.get(
-                `SELECT c.*, r.id as resource_id, u.prenom || ' ' || u.nom as expert_nom, u.email as expert_email
+                `SELECT c.*, r.id as resource_id, r.contacts_rh, r.es_rattachement,
+                        u.prenom || ' ' || u.nom as expert_nom, u.email as expert_email
                  FROM cra c LEFT JOIN users u ON c.user_id = u.id LEFT JOIN resources r ON u.resource_id = r.id WHERE c.id = ?`,
                 [craId], (err, row) => err ? reject(err) : resolve(row)
             );
         });
         if (!cra) return res.status(404).json({ error: 'CRA introuvable' });
         if (cra.statut !== 'vise_n2') return res.status(400).json({ error: 'CRA non encore doublement visé' });
-        const rhRecipients = await new Promise((resolve, reject) => {
-            database.all(`SELECT email, nom FROM cra_rh_recipients WHERE resource_id = ?`, [cra.resource_id], (err, rows) => err ? reject(err) : resolve(rows || []));
-        });
+        let rhRecipients;
+        if (cra.contacts_rh) {
+            rhRecipients = cra.contacts_rh.split('\n').map(e => e.trim()).filter(e => e && e.includes('@')).map(e => ({ email: e, nom: '' }));
+        } else {
+            rhRecipients = await new Promise((resolve, reject) => {
+                database.all(`SELECT email, nom FROM cra_rh_recipients WHERE resource_id = ?`, [cra.resource_id], (err, rows) => err ? reject(err) : resolve(rows || []));
+            });
+        }
         const signatures = await new Promise((resolve, reject) => {
             database.all(`SELECT * FROM cra_signatures WHERE cra_id = ? ORDER BY rang`, [craId], (err, rows) => err ? reject(err) : resolve(rows || []));
         });
@@ -10194,14 +10420,24 @@ app.post('/api/cra/:id/diffuser', requireAdmin, async (req, res) => {
                 [cra.user_id, dateStart, dateEnd], (err, rows) => err ? reject(err) : resolve(rows || []));
         });
         const moisNom = new Date(cra.annee, cra.mois - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
-        const craHtml = buildCraDocumentHtml({ cra, astreintes, signatures, moisNom });
+        const esRattachement = cra.es_rattachement || '';
+        const craHtml = buildCraDocumentHtml({ cra, astreintes, signatures, moisNom, esRattachement });
+        const rhSubject = `AGENCE DU NUMERIQUE EN SANTE - ${cra.expert_nom} - ${moisNom} - Compte-Rendu d'Activité`;
         const batchId = generateICSUid();
         for (const rh of rhRecipients) {
             await enqueueEmail({
                 batchId, recipientEmail: rh.email, recipientName: rh.nom || rh.email,
                 senderName: `${req.session.prenom} ${req.session.nom}`, senderEmail: req.session.email || '',
-                subject: `CRA ${moisNom} — ${cra.expert_nom}`,
+                subject: rhSubject,
                 htmlBody: craHtml, actionType: 'cra_diffusion'
+            });
+        }
+        for (const rh of rhRecipients) {
+            await new Promise((resolve, reject) => {
+                database.run(
+                    `INSERT INTO cra_diffusion_log (cra_id, recipient_email, recipient_name, recipient_type, sent_at) VALUES (?, ?, ?, 'rh_es', ?)`,
+                    [craId, rh.email, rh.nom || rh.email, now], err => err ? reject(err) : resolve()
+                );
             });
         }
         await new Promise((resolve, reject) => {
