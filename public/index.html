@@ -579,7 +579,7 @@
             <h2>Gestion des Ressources</h2>
             <div id="syncStatus" class="sync-status" style="display:none;">Données synchronisées</div>
             
-            <div class="form-section">
+            <div class="form-section" id="addResourceFormSection">
                 <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="togglePlanningSection('addResourceSection')">
                     <h3 style="border-left: none; margin: 0;">
                         <span id="addResourceSectionIcon">▶</span> Ajouter une nouvelle ressource
@@ -620,7 +620,18 @@
                         <div id="samuDropdown_add_secondaire" class="samu-tag-dropdown"></div>
                     </div>
                 </div>
-                <div class="button-group">
+                <!-- Dispositif Astreintes -->
+                <div style="margin-top:16px;padding:12px;background:#fff8e1;border:1px solid #ffe082;border-radius:6px;">
+                    <label style="font-size:13px;font-weight:bold;color:#e65100;display:flex;align-items:center;gap:10px;cursor:pointer;">
+                        <input type="checkbox" id="addAstreinteVolontaire" onchange="toggleAddAstreinteDate()" style="width:16px;height:16px;">
+                        🔔 Participe au dispositif Astreintes/HNO
+                    </label>
+                    <div id="addAstreinteDateBlock" style="display:none;margin-top:10px;">
+                        <label style="font-size:12px;color:#555;display:block;margin-bottom:4px;">📅 Date de démarrage du régime d'astreintes *</label>
+                        <input type="date" id="addAstreinteDate" style="padding:6px 10px;border:1px solid #ffe082;border-radius:4px;font-size:13px;">
+                    </div>
+                </div>
+                <div class="button-group" style="margin-top:12px;">
                     <button onclick="addResource()">Ajouter la ressource</button>
                     <button class="export-btn" onclick="exportResourcesToExcel()">Exporter (Excel)</button>
                 </div>
@@ -1060,9 +1071,43 @@
 
                 <!-- ===== RH : lecture seule, CRA signés uniquement ===== -->
                 <div id="craRhSections" style="display:none; margin-top:20px;">
+                    <!-- CRA signés RH -->
                     <div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:15px;margin-bottom:16px;">
                         <h3 style="color:#2e7d32;margin:0 0 12px;font-size:15px;">✅ CRA signés</h3>
-                        <div id="craRhSignes"><div style="text-align:center;padding:20px;color:#999;">⏳ Chargement...</div></div>
+                        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px;">
+                            <div><label style="font-size:11px;color:#555;display:block;margin-bottom:3px;">Expert</label>
+                                <select id="craRhFilterExpert" style="width:200px;font-size:12px;padding:4px;border:1px solid #ccc;border-radius:4px;"><option value="">Tous les experts</option></select></div>
+                            <div><label style="font-size:11px;color:#555;display:block;margin-bottom:3px;">Mois</label>
+                                <select id="craRhFilterMois" style="font-size:12px;padding:4px;border:1px solid #ccc;border-radius:4px;">
+                                    <option value="">Tous</option>
+                                    ${[['01','Janvier'],['02','Février'],['03','Mars'],['04','Avril'],['05','Mai'],['06','Juin'],['07','Juillet'],['08','Août'],['09','Septembre'],['10','Octobre'],['11','Novembre'],['12','Décembre']].map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}
+                                </select></div>
+                            <div><label style="font-size:11px;color:#555;display:block;margin-bottom:3px;">Année</label>
+                                <select id="craRhFilterAnnee" style="font-size:12px;padding:4px;border:1px solid #ccc;border-radius:4px;"><option value="">Toutes</option></select></div>
+                            <button onclick="loadCraSignaturesRh()" style="background:#2e7d32;color:white;border:none;border-radius:4px;padding:6px 14px;font-size:12px;cursor:pointer;">🔍 Rechercher</button>
+                        </div>
+                        <div id="craRhSignesTable"><div style="text-align:center;padding:20px;color:#999;">⏳ Chargement...</div></div>
+                    </div>
+                    <!-- CRA archivés RH -->
+                    <div style="background:#f5f7f7;border:1px solid #cfd8dc;border-radius:8px;padding:15px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="toggleRhArchivesPanel()">
+                            <h3 style="color:#546e7a;margin:0;font-size:15px;"><span id="craRhArchivesIcon">▶</span> 🗄️ CRA archivés</h3>
+                        </div>
+                        <div id="craRhArchivesBody" style="display:none;margin-top:12px;">
+                            <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px;">
+                                <div><label style="font-size:11px;color:#555;display:block;margin-bottom:3px;">Expert</label>
+                                    <select id="craRhArchiveFilterExpert" style="width:200px;font-size:12px;padding:4px;border:1px solid #ccc;border-radius:4px;"><option value="">Tous les experts</option></select></div>
+                                <div><label style="font-size:11px;color:#555;display:block;margin-bottom:3px;">Mois</label>
+                                    <select id="craRhArchiveFilterMois" style="font-size:12px;padding:4px;border:1px solid #ccc;border-radius:4px;">
+                                        <option value="">Tous</option>
+                                        ${[['01','Janvier'],['02','Février'],['03','Mars'],['04','Avril'],['05','Mai'],['06','Juin'],['07','Juillet'],['08','Août'],['09','Septembre'],['10','Octobre'],['11','Novembre'],['12','Décembre']].map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}
+                                    </select></div>
+                                <div><label style="font-size:11px;color:#555;display:block;margin-bottom:3px;">Année</label>
+                                    <select id="craRhArchiveFilterAnnee" style="font-size:12px;padding:4px;border:1px solid #ccc;border-radius:4px;"><option value="">Toutes</option></select></div>
+                                <button onclick="loadCraArchivesRh()" style="background:#546e7a;color:white;border:none;border-radius:4px;padding:6px 14px;font-size:12px;cursor:pointer;">🔍 Rechercher</button>
+                            </div>
+                            <div id="craRhArchivesTable"></div>
+                        </div>
                     </div>
                 </div>
 
@@ -3073,6 +3118,18 @@
                 </div>
             </div>
             
+            <!-- Dispositif Astreintes -->
+            <div style="margin-top:16px;padding:12px;background:#fff8e1;border:1px solid #ffe082;border-radius:6px;">
+                <label style="font-size:13px;font-weight:bold;color:#e65100;display:flex;align-items:center;gap:10px;cursor:pointer;">
+                    <input type="checkbox" id="editAstreinteVolontaire" onchange="toggleEditAstreinteDate()" style="width:16px;height:16px;">
+                    🔔 Participe au dispositif Astreintes/HNO
+                </label>
+                <div id="editAstreinteDateBlock" style="display:none;margin-top:10px;">
+                    <label style="font-size:12px;color:#555;display:block;margin-bottom:4px;">📅 Date de démarrage du régime d'astreintes *</label>
+                    <input type="date" id="editAstreinteDate" style="padding:6px 10px;border:1px solid #ffe082;border-radius:4px;font-size:13px;">
+                </div>
+            </div>
+
             <!-- Contacts RH de l'ES -->
             <div style="margin-top: 16px;">
                 <label style="font-size:13px;font-weight:bold;color:#6a1b9a;display:block;margin-bottom:6px;">📧 Contacts RH de l'ES <span style="font-size:11px;font-weight:normal;color:#888;">(un email par ligne)</span></label>
@@ -3664,8 +3721,9 @@
                         const profile = data.profiles[0];
                         const option = document.createElement('option');
                         option.value = profile;
-                        option.textContent = profile === 'admin' ? 'Administrateur' : 
-                                           profile === 'expert' ? 'Expert Métier' : 
+                        option.textContent = profile === 'admin' ? 'Administrateur' :
+                                           profile === 'expert' ? 'Expert Métier' :
+                                           profile === 'rh' ? 'Ressources Humaines' :
                                            'Utilisateur';
                         profileSelect.appendChild(option);
                         document.getElementById('profileSelectGroup').style.display = 'none';
@@ -3675,8 +3733,9 @@
                         data.profiles.forEach(profile => {
                             const option = document.createElement('option');
                             option.value = profile;
-                            option.textContent = profile === 'admin' ? 'Administrateur' : 
-                                               profile === 'expert' ? 'Expert Métier' : 
+                            option.textContent = profile === 'admin' ? 'Administrateur' :
+                                               profile === 'expert' ? 'Expert Métier' :
+                                               profile === 'rh' ? 'Ressources Humaines' :
                                                'Utilisateur';
                             profileSelect.appendChild(option);
                         });
@@ -3827,7 +3886,7 @@
                 const showCra = currentUser.is_admin || currentUser.astreinte_volontaire || currentUser.is_rh;
                 craBtn.style.display = showCra ? 'block' : 'none';
                 const lbl = document.getElementById('craTabLabel');
-                if (lbl) lbl.textContent = currentUser.is_admin ? 'CRA à valider' : 'Mes CRA';
+                if (lbl) lbl.textContent = currentUser.is_rh ? 'CRA' : (currentUser.is_admin ? 'CRA à valider' : 'Mes CRA');
             }
             
             await loadResources();
@@ -3913,7 +3972,7 @@
             if (profile === 'admin') return allTabs;
             else if (profile === 'user') return ['resources', 'evenements', 'planning', 'reporting'];
             else if (profile === 'expert') return ['resources', 'evenements', 'planning', 'cra'];
-            else if (profile === 'rh') return ['resources', 'evenements', 'planning', 'cra'];
+            else if (profile === 'rh') return ['resources', 'cra'];
             return ['resources', 'evenements', 'planning'];
         }
 
@@ -4320,10 +4379,10 @@
                 requestBtn.style.display = 'none';
             }
             
-            // Afficher le bouton d'envoi d'email pour tous les profils (admin, user, expert)
+            // Afficher le bouton d'envoi d'email (masqué pour le profil RH)
             const sendEmailBtn = document.getElementById('sendEmailBtn');
-            sendEmailBtn.style.display = 'inline-block';
-            updatePendingEmailBadge(); // Mettre à jour le badge
+            sendEmailBtn.style.display = currentUser.activeProfile === 'rh' ? 'none' : 'inline-block';
+            if (currentUser.activeProfile !== 'rh') updatePendingEmailBadge();
             
             // Démarrer la vérification des notifications pour les experts
             if (currentUser.activeProfile === 'expert') {
@@ -4367,6 +4426,23 @@
                 loadSpecialDatesFiles();
                 loadCustomEvents();
                 populateLocationSelects();
+            } else if (currentUser.activeProfile === 'rh') {
+                resourcesTab.style.display = 'block';
+                planningTab.style.display = 'none';
+                reportingTab.style.display = 'none';
+                adminTab.style.display = 'none';
+                if (astreintesGestionTab) astreintesGestionTab.style.display = 'none';
+                astreintesBtn.style.display = 'none';
+                const evenementsTab = document.querySelector('.tab-btn[onclick*="evenements"]');
+                if (evenementsTab) evenementsTab.style.display = 'none';
+                const addResSection = document.getElementById('addResourceFormSection');
+                if (addResSection) addResSection.style.display = 'none';
+                // Masquer loupe et enveloppe
+                const searchBtn = document.getElementById('searchBtn');
+                if (searchBtn) searchBtn.style.display = 'none';
+                const sendEmailBtn = document.getElementById('sendEmailBtn');
+                if (sendEmailBtn) sendEmailBtn.style.display = 'none';
+                switchTab('resources', null);
             } else if (currentUser.activeProfile === 'expert' || currentUser.activeProfile === 'user') {
                 resourcesTab.style.display = 'none';
                 planningTab.style.display = 'block';
@@ -4813,7 +4889,15 @@
                 alert('Veuillez remplir les dates');
                 return;
             }
-            
+
+            // Validation date d'adhésion astreinte
+            if (currentUser && currentUser.activeProfile === 'expert' && currentUser.astreinte_date_activation) {
+                if (date_debut < currentUser.astreinte_date_activation) {
+                    alert(`Vous ne pouvez pas saisir d'activité avant votre date d'adhésion au dispositif astreintes (${new Date(currentUser.astreinte_date_activation).toLocaleDateString('fr-FR')}).`);
+                    return;
+                }
+            }
+
             // Heures obligatoires pour astreintes et HNO
             if (!heure_debut || !heure_fin) {
                 alert('Veuillez remplir les heures de début et de fin');
@@ -7484,6 +7568,12 @@
             return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
         }
 
+        function toggleAddAstreinteDate() {
+            const checked = document.getElementById('addAstreinteVolontaire').checked;
+            document.getElementById('addAstreinteDateBlock').style.display = checked ? 'block' : 'none';
+            if (!checked) document.getElementById('addAstreinteDate').value = '';
+        }
+
         async function addResource() {
             const nom = document.getElementById('nom').value.trim();
             const prenom = document.getElementById('prenom').value.trim();
@@ -7493,9 +7583,15 @@
             const dateDebut = document.getElementById('dateDebut').value;
             const esRattachement = document.getElementById('esRattachement').value.trim();
             const fonction = document.getElementById('fonction').value.trim();
+            const astreinteVolontaire = document.getElementById('addAstreinteVolontaire').checked;
+            const astreinteDate = document.getElementById('addAstreinteDate').value;
 
             if (!nom || !prenom || !trigramme || !taux || !samu || !dateDebut) {
                 alert('Remplissez tous les champs obligatoires (*)');
+                return;
+            }
+            if (astreinteVolontaire && !astreinteDate) {
+                alert('Veuillez saisir la date de démarrage du régime d\'astreintes');
                 return;
             }
 
@@ -7504,7 +7600,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({ 
+                    body: JSON.stringify({
                         nom, prenom, trigramme,
                         email: null,
                         telephone: null,
@@ -7512,7 +7608,9 @@
                         date_debut: dateDebut,
                         date_fin: null,
                         es_rattachement: esRattachement || null,
-                        fonction: fonction || null
+                        fonction: fonction || null,
+                        astreinte_volontaire: astreinteVolontaire ? 1 : 0,
+                        astreinte_date_activation: astreinteDate || null
                     })
                 });
                 
@@ -7540,6 +7638,10 @@
                 samuTagState.add_secondaire = [];
                 renderSamuTags('add_principal');
                 renderSamuTags('add_secondaire');
+                // Réinitialiser le bloc astreinte
+                document.getElementById('addAstreinteVolontaire').checked = false;
+                document.getElementById('addAstreinteDate').value = '';
+                document.getElementById('addAstreinteDateBlock').style.display = 'none';
                 updateGantt();
             } catch (error) {
                 console.error('Erreur:', error);
@@ -7576,11 +7678,18 @@
                     <td>${formatDate(madDates.dateDebut || r.date_debut)}</td>
                     <td>${formatDate(madDates.dateFin || r.date_fin)}</td>
                     <td><span class="date-badge ${status.class}">${status.text}</span></td>
-                    <td style="text-align:center;"><input type="checkbox" ${r.astreinte_volontaire ? 'checked' : ''} onchange="toggleAstreinteByResource(${r.id}, this.checked)" style="width:18px;height:18px;cursor:pointer;" title="${r.user_id ? 'Accès astreinte/CRA' : 'Marquer comme expert astreinte (créez un compte utilisateur pour accès CRA)'}"></td>
-                    <td><label class="toggle-switch"><input type="checkbox" ${r.actif ? 'checked' : ''} onchange="toggleActive(${r.id})"><span class="slider"></span></label></td>
+                    ${currentUser && currentUser.activeProfile !== 'rh'
+                        ? `<td style="text-align:center;"><input type="checkbox" ${r.astreinte_volontaire ? 'checked' : ''} onchange="toggleAstreinteByResource(${r.id}, this.checked)" style="width:18px;height:18px;cursor:pointer;" title="${r.user_id ? 'Accès astreinte/CRA' : 'Marquer comme expert astreinte (créez un compte utilisateur pour accès CRA)'}"></td>`
+                        : `<td style="text-align:center;"><input type="checkbox" ${r.astreinte_volontaire ? 'checked' : ''} disabled style="width:18px;height:18px;opacity:0.5;cursor:not-allowed;" title="${r.astreinte_volontaire ? 'Participe au dispositif astreintes' : 'Ne participe pas au dispositif astreintes'}"></td>`}
+                    ${currentUser && currentUser.activeProfile !== 'rh'
+                        ? `<td><label class="toggle-switch"><input type="checkbox" ${r.actif ? 'checked' : ''} onchange="toggleActive(${r.id})"><span class="slider"></span></label></td>`
+                        : `<td style="text-align:center;"><span style="font-size:11px;padding:2px 8px;border-radius:10px;font-weight:bold;background:${r.actif ? '#e8f5e9' : '#ffebee'};color:${r.actif ? '#2e7d32' : '#c62828'};">${r.actif ? 'Actif' : 'Inactif'}</span></td>`}
                     <td>
-                        <button class="edit" onclick="openEditModal(${r.id})">Modifier</button>
-                        <button class="delete" onclick="deleteResource(${r.id})">Supprimer</button>
+                        ${currentUser && currentUser.activeProfile === 'rh'
+                            ? `<button class="edit" onclick="openViewModalRh(${r.id})">Voir</button>`
+                            : `<button class="edit" onclick="openEditModal(${r.id})">Modifier</button>
+                               <button class="delete" onclick="deleteResource(${r.id})">Supprimer</button>`
+                        }
                     </td>
                 `;
             });
@@ -7593,6 +7702,14 @@
             const resource = resources.find(r => r.id === id);
             if (!resource) return;
             currentEditId = id;
+            // Réinitialiser la modale en mode édition
+            document.getElementById('editModal').querySelector('h3').textContent = 'Modifier la ressource';
+            const btnGroup = document.getElementById('editModal').querySelector('.modal-button-group');
+            btnGroup.innerHTML = `<button onclick="closeEditModal()" style="background-color:#95a5a6;">Annuler</button><button onclick="saveResourceEdit()">Enregistrer</button>`;
+            const inputs = document.getElementById('editModal').querySelectorAll('input:not([type=hidden]):not([readonly]), textarea, select');
+            inputs.forEach(el => { el.disabled = false; el.style.background = ''; el.style.cursor = ''; });
+            const addMadBtn = document.getElementById('editModal').querySelector('button[onclick="openAddMadModal()"]');
+            if (addMadBtn) addMadBtn.style.display = '';
             document.getElementById('editResourceId').value = id;
             document.getElementById('editNom').value = resource.nom;
             document.getElementById('editPrenom').value = resource.prenom;
@@ -7601,6 +7718,11 @@
             document.getElementById('editEsRattachement').value = resource.es_rattachement || '';
             document.getElementById('editFonction').value = resource.fonction || '';
             document.getElementById('editContactsRh').value = resource.contacts_rh || '';
+            // Pré-remplir astreinte
+            const astrChk = document.getElementById('editAstreinteVolontaire');
+            astrChk.checked = !!resource.astreinte_volontaire;
+            document.getElementById('editAstreinteDate').value = resource.astreinte_date_activation || '';
+            document.getElementById('editAstreinteDateBlock').style.display = resource.astreinte_volontaire ? 'block' : 'none';
 
             // Pré-remplir les affectations SAMU (expert principal / secondaire)
             const assign = resourceSamuAssignments[id] || { principal: [], secondaire: [] };
@@ -7615,6 +7737,50 @@
             document.getElementById('editModal').classList.add('active');
         }
         
+        async function openViewModalRh(id) {
+            await openEditModal(id);
+            const modal = document.getElementById('editModal');
+            modal.querySelector('h3').textContent = 'Détail de la ressource';
+            // Désactiver tous les champs de saisie
+            modal.querySelectorAll('input:not([type=hidden]), textarea, select').forEach(el => {
+                el.disabled = true; el.style.background = '#f5f5f5'; el.style.cursor = 'not-allowed';
+            });
+            // Masquer les tags SAMU interactifs
+            modal.querySelectorAll('.samu-tag-box .samu-tag-input, .samu-tag-dropdown').forEach(el => el.style.display = 'none');
+            modal.querySelectorAll('.samu-tag span[onclick]').forEach(el => el.style.display = 'none');
+            // Remplacer le bloc astreinte par un affichage lecture seule
+            const resource = resources.find(r => r.id === id);
+            const astrBlock = modal.querySelector('#editAstreinteDateBlock').parentElement;
+            if (resource) {
+                const dateStr = resource.astreinte_date_activation
+                    ? new Date(resource.astreinte_date_activation).toLocaleDateString('fr-FR')
+                    : '—';
+                const since = resource.astreinte_date_activation
+                    ? (() => {
+                        const d = new Date(resource.astreinte_date_activation);
+                        const now = new Date();
+                        const months = (now.getFullYear() - d.getFullYear()) * 12 + now.getMonth() - d.getMonth();
+                        return months > 0 ? ` (depuis ${months} mois)` : '';
+                    })()
+                    : '';
+                astrBlock.innerHTML = resource.astreinte_volontaire
+                    ? `<div style="padding:10px;background:#fff8e1;border:1px solid #ffe082;border-radius:6px;">
+                         <span style="font-weight:bold;color:#e65100;">🔔 Participe au dispositif Astreintes/HNO</span><br>
+                         <span style="font-size:12px;color:#555;margin-top:6px;display:block;">📅 Régime actif depuis le <strong>${dateStr}</strong>${since}</span>
+                       </div>`
+                    : `<div style="padding:10px;background:#f5f5f5;border:1px solid #ddd;border-radius:6px;color:#999;">
+                         🔕 Ne participe pas au dispositif Astreintes/HNO
+                       </div>`;
+            }
+            // Masquer le bouton "Ajouter un taux de MAD"
+            const addMadBtn = modal.querySelector('button[onclick="openAddMadModal()"]');
+            if (addMadBtn) addMadBtn.style.display = 'none';
+            // Masquer les boutons d'action dans l'historique MAD
+            modal.querySelectorAll('#madHistoryContainer button, #madHistoryContainer td:last-child').forEach(el => el.style.display = 'none');
+            // Boutons de pied de modale : uniquement Fermer
+            modal.querySelector('.modal-button-group').innerHTML = `<button onclick="closeEditModal()" style="background:#95a5a6;">Fermer</button>`;
+        }
+
         async function loadMadHistory(resourceId) {
             const container = document.getElementById('madHistoryContainer');
             container.innerHTML = '<p style="color: #666; font-size: 12px;">Chargement...</p>';
@@ -8017,7 +8183,9 @@
                         date_fin: null,
                         es_rattachement: document.getElementById('editEsRattachement').value || null,
                         fonction: document.getElementById('editFonction').value || null,
-                        contacts_rh: document.getElementById('editContactsRh').value.trim() || null
+                        contacts_rh: document.getElementById('editContactsRh').value.trim() || null,
+                        astreinte_volontaire: document.getElementById('editAstreinteVolontaire').checked,
+                        astreinte_date_activation: document.getElementById('editAstreinteDate').value || null
                     })
                 });
                 if (!response.ok) {
@@ -8037,6 +8205,12 @@
                 console.error('Erreur:', error);
                 alert('Erreur lors de la modification: ' + error.message);
             }
+        }
+
+        function toggleEditAstreinteDate() {
+            const checked = document.getElementById('editAstreinteVolontaire').checked;
+            document.getElementById('editAstreinteDateBlock').style.display = checked ? 'block' : 'none';
+            if (!checked) document.getElementById('editAstreinteDate').value = '';
         }
 
         function closeEditModal() {
@@ -13213,10 +13387,10 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
         }
 
         async function loadCraList() {
-            const isAdmin = currentUser && currentUser.is_admin;
+            const isAdmin = currentUser && currentUser.activeProfile === 'admin';
             // Mettre à jour le titre h2
             const h2 = document.querySelector('#cra h2');
-            if (h2) h2.textContent = isAdmin ? 'CRA à valider' : 'Mes CRA';
+            if (h2) h2.textContent = currentUser?.is_rh ? 'CRA' : (isAdmin ? 'CRA à valider' : 'Mes CRA');
 
             const st = {
                 'a_completer': { label: 'À compléter', color: '#ff9800', icon: '✏️' },
@@ -13288,13 +13462,13 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                     }
 
                 } else if (isRh) {
-                    // === RH : CRA signés uniquement, lecture seule ===
+                    // === RH : CRA signés + archivés, lecture seule ===
                     document.getElementById('craRhSections').style.display = 'block';
-
-                    const signes = data.filter(c => !c.archived && c.statut === 'diffuse');
-                    document.getElementById('craRhSignes').innerHTML = signes.length
-                        ? signes.map(c => makeCraCard(c, '#a5d6a7')).join('')
-                        : `<p style="color:#999;text-align:center;padding:15px;">Aucun CRA signé.</p>`;
+                    await populateCraSignFilterExperts('craRhFilterExpert');
+                    await populateCraSignFilterExperts('craRhArchiveFilterExpert');
+                    populateCraYearFilter('craRhFilterAnnee');
+                    populateCraYearFilter('craRhArchiveFilterAnnee');
+                    await loadCraSignaturesRh();
 
                 } else {
                     // === EXPERT : 2 catégories ===
@@ -13933,7 +14107,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             }
         }
 
-        function renderCraSignaturesTable(data, container, isArchive = false) {
+        function renderCraSignaturesTable(data, container, isArchive = false, readOnly = false) {
             if (!data.length) { container.innerHTML = '<p style="color:#999;text-align:center;padding:20px;">Aucun CRA trouvé.</p>'; return; }
             const stL = { 'a_completer':'✏️ À compléter','soumis':'📤 Soumis','vise_n1':'✅ Visé N1','vise_n2':'✅ Visé N2','diffuse':'📨 Diffusé' };
             const fmt = dt => dt ? new Date(dt).toLocaleDateString('fr-FR') : '—';
@@ -13960,11 +14134,50 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                         <td style="padding:6px 8px;">${fmt(c.diffuse_at)}</td>
                         <td style="padding:6px 8px;white-space:nowrap;">
                             <button onclick="openCraModal(${c.id})" style="font-size:11px;padding:3px 8px;background:#6a1b9a;color:white;border:none;border-radius:4px;cursor:pointer;margin-right:4px;">Voir</button>
-                            ${!isArchive ? `<button onclick="confirmArchiveCra(${c.id},'${(c.expert_nom||'').replace(/'/g,'\\\'')}')" style="font-size:11px;padding:3px 8px;background:#546e7a;color:white;border:none;border-radius:4px;cursor:pointer;">🗄️ Archiver</button>` : `<button onclick="unarchiveCra(${c.id})" style="font-size:11px;padding:3px 8px;background:#ff9800;color:white;border:none;border-radius:4px;cursor:pointer;">↩️ Désarchiver</button>`}
+                            ${!readOnly ? (!isArchive ? `<button onclick="confirmArchiveCra(${c.id},'${(c.expert_nom||'').replace(/'/g,'\\\'')}')" style="font-size:11px;padding:3px 8px;background:#546e7a;color:white;border:none;border-radius:4px;cursor:pointer;">🗄️ Archiver</button>` : `<button onclick="unarchiveCra(${c.id})" style="font-size:11px;padding:3px 8px;background:#ff9800;color:white;border:none;border-radius:4px;cursor:pointer;">↩️ Désarchiver</button>`) : ''}
                         </td>
                     </tr>`;
                 }).join('')}</tbody>
             </table>`;
+        }
+
+        async function loadCraSignaturesRh() {
+            const expert = document.getElementById('craRhFilterExpert')?.value || '';
+            const mois   = document.getElementById('craRhFilterMois')?.value || '';
+            const annee  = document.getElementById('craRhFilterAnnee')?.value || '';
+            const params = new URLSearchParams({ statut: 'diffuse' });
+            if (expert) params.set('user_id', expert);
+            if (mois)   params.set('mois', mois);
+            if (annee)  params.set('annee', annee);
+            try {
+                const res = await fetch(`${API_URL}/cra/admin/list?${params}`, { credentials: 'include' });
+                const data = await res.json();
+                renderCraSignaturesTable(data, document.getElementById('craRhSignesTable'), false, true);
+            } catch(e) { console.error('Erreur chargement CRA signés RH:', e); }
+        }
+
+        async function loadCraArchivesRh() {
+            const expert = document.getElementById('craRhArchiveFilterExpert')?.value || '';
+            const mois   = document.getElementById('craRhArchiveFilterMois')?.value || '';
+            const annee  = document.getElementById('craRhArchiveFilterAnnee')?.value || '';
+            const params = new URLSearchParams();
+            if (expert) params.set('user_id', expert);
+            if (mois)   params.set('mois', mois);
+            if (annee)  params.set('annee', annee);
+            try {
+                const res = await fetch(`${API_URL}/cra/admin/archives?${params}`, { credentials: 'include' });
+                const data = await res.json();
+                renderCraSignaturesTable(data, document.getElementById('craRhArchivesTable'), true, true);
+            } catch(e) { console.error('Erreur chargement archives CRA RH:', e); }
+        }
+
+        function toggleRhArchivesPanel() {
+            const body = document.getElementById('craRhArchivesBody');
+            const icon = document.getElementById('craRhArchivesIcon');
+            const open = body.style.display === 'none';
+            body.style.display = open ? 'block' : 'none';
+            icon.textContent = open ? '▼' : '▶';
+            if (open && !document.getElementById('craRhArchivesTable').innerHTML) loadCraArchivesRh();
         }
 
         async function loadCraSignatures() {
@@ -20737,6 +20950,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 'resources': '📋 Ressources',
                 'evenements': '📅 Événements',
                 'planning': '📅 Planification',
+                'cra': '📋 CRA',
                 'reporting': '📊 Reporting',
                 'admin': '⚙️ Administration',
                 'astreintesGestion': '🧪 Astreintes'
@@ -20776,7 +20990,9 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     // Notification toast
                     const tabLabels = {
                         'resources': 'Ressources',
+                        'evenements': 'Événements',
                         'planning': 'Planification',
+                        'cra': 'CRA',
                         'reporting': 'Reporting',
                         'admin': 'Administration',
                         'astreintesGestion': 'Astreintes'

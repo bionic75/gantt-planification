@@ -1435,6 +1435,7 @@ app.post('/api/login', async (req, res) => {
         if (profile === 'admin' && user.is_admin === 1) profileValid = true;
         if (profile === 'expert' && user.is_expert === 1) profileValid = true;
         if (profile === 'user' && user.is_user === 1) profileValid = true;
+        if (profile === 'rh' && user.is_rh === 1) profileValid = true;
         
         if (!profileValid) {
             return res.status(403).json({ error: 'Profil non autorisé' });
@@ -1600,6 +1601,7 @@ async function completeLogin(req, res, user, profile) {
                     is_expert: user.is_expert === 1,
                     is_rh: user.is_rh === 1,
                     astreinte_volontaire: user.astreinte_volontaire === 1,
+                    astreinte_date_activation: user.astreinte_date_activation || null,
                     defaultTab: user.default_tab || 'planning'
                 };
                 
@@ -1882,9 +1884,9 @@ app.get('/api/check-session', (req, res) => {
     if (req.session && req.session.userId) {
         database.get(
             `SELECT u.email, u.profile_photo, u.amoa_ced, u.is_admin, u.is_expert, u.is_user, u.is_rh,
-                    r.trigramme, r.astreinte_volontaire
-             FROM users u 
-             LEFT JOIN resources r ON r.id = u.resource_id 
+                    r.trigramme, r.astreinte_volontaire, r.astreinte_date_activation
+             FROM users u
+             LEFT JOIN resources r ON r.id = u.resource_id
              WHERE u.id = ?`,
             [req.session.userId],
             (err, userData) => {
@@ -1905,7 +1907,8 @@ app.get('/api/check-session', (req, res) => {
                     is_expert: userData?.is_expert === 1,
                     is_user: userData?.is_user === 1,
                     is_rh: userData?.is_rh === 1,
-                    astreinte_volontaire: userData?.astreinte_volontaire === 1
+                    astreinte_volontaire: userData?.astreinte_volontaire === 1,
+                    astreinte_date_activation: userData?.astreinte_date_activation || null
                 });
             }
         );
@@ -1923,7 +1926,7 @@ app.get('/api/user/profiles', (req, res) => {
     }
     
     database.get(
-        'SELECT is_admin, is_expert, is_user, actif, amoa_ced FROM users WHERE username = ?',
+        'SELECT is_admin, is_expert, is_user, is_rh, actif, amoa_ced FROM users WHERE username = ?',
         [username],
         (err, user) => {
             if (err) {
@@ -1943,7 +1946,8 @@ app.get('/api/user/profiles', (req, res) => {
             if (user.is_admin === 1) profiles.push('admin');
             if (user.is_expert === 1) profiles.push('expert');
             if (user.is_user === 1) profiles.push('user');
-            
+            if (user.is_rh === 1) profiles.push('rh');
+
             res.json({ profiles, amoaCed: user.amoa_ced === 1 });
         }
     );
@@ -1998,16 +2002,16 @@ app.get('/api/resources', requireAuth, (req, res) => {
 });
 
 app.post('/api/resources', requireAdmin, (req, res) => {
-    const { nom, prenom, trigramme, email, telephone, taux, samu, date_debut, date_fin, es_rattachement, fonction } = req.body;
-    
+    const { nom, prenom, trigramme, email, telephone, taux, samu, date_debut, date_fin, es_rattachement, fonction, astreinte_volontaire, astreinte_date_activation } = req.body;
+
     if (!nom || !prenom || !trigramme || !taux || !samu) {
         return res.status(400).json({ error: 'Champs obligatoires manquants' });
     }
 
     database.run(
-        `INSERT INTO resources (nom, prenom, trigramme, email, telephone, taux, samu, date_debut, date_fin, es_rattachement, fonction) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [nom, prenom, trigramme, email || null, telephone || null, taux, samu, date_debut || null, date_fin || null, es_rattachement || null, fonction || null],
+        `INSERT INTO resources (nom, prenom, trigramme, email, telephone, taux, samu, date_debut, date_fin, es_rattachement, fonction, astreinte_volontaire, astreinte_date_activation)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [nom, prenom, trigramme, email || null, telephone || null, taux, samu, date_debut || null, date_fin || null, es_rattachement || null, fonction || null, astreinte_volontaire ? 1 : 0, astreinte_date_activation || null],
         function(err) {
             if (err) {
                 console.error('Erreur ajout resource:', err);
@@ -2039,14 +2043,14 @@ app.post('/api/resources', requireAdmin, (req, res) => {
 });
 
 app.put('/api/resources/:id', requireAdmin, (req, res) => {
-    const { nom, prenom, trigramme, email, telephone, taux, samu, date_debut, date_fin, es_rattachement, fonction, contacts_rh } = req.body;
+    const { nom, prenom, trigramme, email, telephone, taux, samu, date_debut, date_fin, es_rattachement, fonction, contacts_rh, astreinte_volontaire, astreinte_date_activation } = req.body;
     const { id } = req.params;
 
     database.run(
         `UPDATE resources
-         SET nom = ?, prenom = ?, trigramme = ?, email = ?, telephone = ?, taux = ?, samu = ?, date_debut = ?, date_fin = ?, es_rattachement = ?, fonction = ?, contacts_rh = ?
+         SET nom = ?, prenom = ?, trigramme = ?, email = ?, telephone = ?, taux = ?, samu = ?, date_debut = ?, date_fin = ?, es_rattachement = ?, fonction = ?, contacts_rh = ?, astreinte_volontaire = ?, astreinte_date_activation = ?
          WHERE id = ?`,
-        [nom, prenom, trigramme, email || null, telephone || null, taux, samu, date_debut || null, date_fin || null, es_rattachement || null, fonction || null, contacts_rh || null, id],
+        [nom, prenom, trigramme, email || null, telephone || null, taux, samu, date_debut || null, date_fin || null, es_rattachement || null, fonction || null, contacts_rh || null, astreinte_volontaire ? 1 : 0, astreinte_date_activation || null, id],
         (err) => {
             if (err) {
                 console.error('Erreur update resource:', err);
@@ -7766,7 +7770,7 @@ app.put('/api/users/:id/default-tab', requireAuth, (req, res) => {
     }
     
     // Liste des onglets valides
-    const validTabs = ['resources', 'planning', 'reporting', 'admin', 'astreintesGestion'];
+    const validTabs = ['resources', 'planning', 'evenements', 'cra', 'reporting', 'admin', 'astreintesGestion'];
     if (!validTabs.includes(defaultTab)) {
         return res.status(400).json({ error: 'Onglet invalide' });
     }
@@ -9806,7 +9810,18 @@ app.get('/api/cra/my-list', requireAuth, async (req, res) => {
     } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get('/api/cra/admin/list', requireAdmin, async (req, res) => {
+function requireAdminOrRh(req, res, next) {
+    if (!req.session || !req.session.userId ||
+        (req.session.activeProfile !== 'admin' && req.session.activeProfile !== 'rh')) {
+        return res.status(403).json({ error: 'Accès réservé aux administrateurs et RH' });
+    }
+    if (activeSessions.has(req.session.userId)) {
+        activeSessions.get(req.session.userId).lastActivity = Date.now();
+    }
+    next();
+}
+
+app.get('/api/cra/admin/list', requireAdminOrRh, async (req, res) => {
     const { user_id, statut, mois, annee } = req.query;
     let where = '(c.archived IS NULL OR c.archived = 0)';
     const params = [];
@@ -9823,10 +9838,12 @@ app.get('/api/cra/admin/list', requireAdmin, async (req, res) => {
 });
 
 // Liste tous les experts ayant au moins un CRA (actifs ou non) — pour le filtre Signatures CRA
-app.get('/api/cra/all-experts', requireAdmin, (req, res) => {
+app.get('/api/cra/all-experts', requireAdminOrRh, (req, res) => {
     database.all(
         `SELECT DISTINCT u.id as user_id, u.nom, u.prenom
-         FROM cra c JOIN users u ON c.user_id = u.id
+         FROM users u
+         JOIN resources r ON u.resource_id = r.id
+         WHERE r.astreinte_volontaire = 1
          ORDER BY u.nom, u.prenom`,
         (err, rows) => err ? res.status(500).json({ error: err.message }) : res.json(rows || [])
     );
@@ -9850,7 +9867,7 @@ app.post('/api/cra/:id/unarchive', requireAdmin, (req, res) => {
 });
 
 // Liste des CRA archivés
-app.get('/api/cra/admin/archives', requireAdmin, (req, res) => {
+app.get('/api/cra/admin/archives', requireAdminOrRh, (req, res) => {
     const { user_id, mois, annee } = req.query;
     let where = 'c.archived = 1';
     const params = [];
@@ -9983,7 +10000,7 @@ app.get('/api/cra/:id/pdf', requireAuth, async (req, res) => {
                 [craId], (err, row) => err ? reject(err) : resolve(row));
         });
         if (!cra) return res.status(404).json({ error: 'CRA introuvable' });
-        if (!isAdmin && cra.user_id !== userId) return res.status(403).json({ error: 'Accès interdit' });
+        if (!isAdmin && req.session.activeProfile !== 'rh' && cra.user_id !== userId) return res.status(403).json({ error: 'Accès interdit' });
         const dateStart = `${cra.annee}-${String(cra.mois).padStart(2,'0')}-01`;
         const dateEnd   = `${cra.annee}-${String(cra.mois).padStart(2,'0')}-31`;
         const astreintes = await new Promise((resolve, reject) => {
@@ -10037,7 +10054,7 @@ app.get('/api/cra/:id', requireAuth, async (req, res) => {
             );
         });
         if (!cra) return res.status(404).json({ error: 'CRA introuvable' });
-        if (!isAdmin && cra.user_id !== userId) return res.status(403).json({ error: 'Accès interdit' });
+        if (!isAdmin && req.session.activeProfile !== 'rh' && cra.user_id !== userId) return res.status(403).json({ error: 'Accès interdit' });
         const dateStart = `${cra.annee}-${String(cra.mois).padStart(2,'0')}-01`;
         const dateEnd   = `${cra.annee}-${String(cra.mois).padStart(2,'0')}-31`;
         const rawAstreintes = await new Promise((resolve, reject) => {
