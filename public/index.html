@@ -1004,6 +1004,25 @@
 
                 <!-- ===== ADMIN : 3 catégories ===== -->
                 <div id="craAdminSections" style="display:none; margin-top:20px;">
+                    <!-- CRA à lancer -->
+                    <div style="background:#e3f2fd;border:1px solid #90caf9;border-radius:8px;padding:15px;margin-bottom:16px;">
+                        <h3 style="color:#1565c0;margin:0 0 12px;font-size:15px;">🚀 CRA à lancer</h3>
+                        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+                            <div>
+                                <label style="font-size:12px;color:#555;display:block;margin-bottom:4px;">Expert</label>
+                                <select id="craLancerExpert" style="width:240px;padding:6px;border:1px solid #90caf9;border-radius:4px;font-size:13px;">
+                                    <option value="">— Choisir un expert —</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="font-size:12px;color:#555;display:block;margin-bottom:4px;">Mois / Année</label>
+                                <select id="craLancerMoisAnnee" style="width:180px;padding:6px;border:1px solid #90caf9;border-radius:4px;font-size:13px;">
+                                    <option value="">— Choisir une période —</option>
+                                </select>
+                            </div>
+                            <button onclick="lancerCra()" style="background:#1565c0;color:white;border:none;padding:8px 18px;border-radius:4px;cursor:pointer;font-size:13px;font-weight:bold;">▶ Lancer le CRA</button>
+                        </div>
+                    </div>
                     <!-- En cours de traitement -->
                     <div style="background:#fff3e0;border:1px solid #ffb74d;border-radius:8px;padding:15px;margin-bottom:16px;">
                         <h3 style="color:#e65100;margin:0 0 12px;font-size:15px;">📋 CRA en cours de traitement</h3>
@@ -2488,21 +2507,21 @@
                 <div id="automation4Body" style="display: none;">
                 <p style="font-size: 12px; color: #666; margin: 0 0 15px 0; padding-left: 26px;">Déclenche chaque mois un rappel aux experts astreinte pour compléter leur CRA du mois précédent, puis gère le circuit de visa jusqu'à la diffusion auprès des RH.</p>
                 <div style="padding-left: 26px; display: flex; flex-direction: column; gap: 15px;">
-                    <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end;">
-                        <div style="flex: 0 0 180px;">
-                            <label style="font-size: 12px; color: #555;">Jour du mois de déclenchement</label>
+                    <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-start;">
+                        <div style="flex: 0 0 180px; display: flex; flex-direction: column;">
+                            <label style="font-size: 12px; color: #555; min-height: 34px; display: flex; align-items: flex-end; padding-bottom: 4px;">Jour du mois de déclenchement</label>
                             <select id="automation4Day" onchange="saveAutomation4Config()" style="width: 100%;"></select>
                         </div>
-                        <div style="flex: 0 0 220px;">
-                            <label style="font-size: 12px; color: #555;">Administrateur niveau 1 (premier viseur)</label>
+                        <div style="flex: 0 0 220px; display: flex; flex-direction: column;">
+                            <label style="font-size: 12px; color: #555; min-height: 34px; display: flex; align-items: flex-end; padding-bottom: 4px;">Administrateur niveau 1 (premier viseur)</label>
                             <select id="automation4AdminN1" onchange="saveAutomation4Config()" style="width: 100%;"><option value="">-- Choisir --</option></select>
                         </div>
-                        <div style="flex: 0 0 220px;">
-                            <label style="font-size: 12px; color: #555;">Administrateur niveau 2 (deuxième viseur)</label>
+                        <div style="flex: 0 0 220px; display: flex; flex-direction: column;">
+                            <label style="font-size: 12px; color: #555; min-height: 34px; display: flex; align-items: flex-end; padding-bottom: 4px;">Administrateur niveau 2 (deuxième viseur)</label>
                             <select id="automation4AdminN2" onchange="saveAutomation4Config()" style="width: 100%;"><option value="">-- Choisir --</option></select>
                         </div>
-                        <div style="flex: 0 0 260px;">
-                            <label style="font-size: 12px; color: #555;">DRH ANS (un ou plusieurs, Ctrl+clic)</label>
+                        <div style="flex: 0 0 260px; display: flex; flex-direction: column;">
+                            <label style="font-size: 12px; color: #555; min-height: 34px; display: flex; align-items: flex-end; padding-bottom: 4px;">DRH ANS (un ou plusieurs, Ctrl+clic)</label>
                             <select id="automation4DrhAns" multiple onchange="saveAutomation4Config()" style="width: 100%; height: 72px; border: 1px solid #b39ddb; border-radius: 4px; padding: 4px;"></select>
                         </div>
                     </div>
@@ -2610,7 +2629,7 @@
                             <th class="no-sort" title="Accès à la Plateforme de suivi des déplacements">AMOA CED</th>
                             <th class="no-sort" title="Validation RH">Validation RH</th>
                             <th onclick="sortTable('users', 9)">Actif</th>
-                            <th onclick="sortTable('users', 10)">Dernière connexion</th>
+                            <th onclick="sortTable('users', 11)">Dernière connexion</th>
                             <th class="no-sort">Actions</th>
                         </tr>
                     </thead>
@@ -3886,7 +3905,7 @@
                 const showCra = currentUser.is_admin || currentUser.astreinte_volontaire || currentUser.is_rh;
                 craBtn.style.display = showCra ? 'block' : 'none';
                 const lbl = document.getElementById('craTabLabel');
-                if (lbl) lbl.textContent = currentUser.is_rh ? 'CRA' : (currentUser.is_admin ? 'CRA à valider' : 'Mes CRA');
+                if (lbl) lbl.textContent = 'CRA';
             }
             
             await loadResources();
@@ -9535,9 +9554,16 @@
             const rows = Array.from(tbody.rows);
             const isAscending = !sortDirection[columnIndex];
             sortDirection[columnIndex] = isAscending;
+            // Converts dd/MM/yyyy HH:mm:ss to sortable string yyyy/MM/dd HH:mm:ss
+            function toSortable(val) {
+                const m = val.match(/^(\d{2})\/(\d{2})\/(\d{4})(.*)/);
+                return m ? m[3] + '/' + m[2] + '/' + m[1] + m[4] : val;
+            }
             rows.sort((a, b) => {
                 let aVal = a.cells[columnIndex].textContent.toLowerCase().trim();
                 let bVal = b.cells[columnIndex].textContent.toLowerCase().trim();
+                aVal = toSortable(aVal);
+                bVal = toSortable(bVal);
                 if (!isNaN(aVal) && !isNaN(bVal)) {
                     aVal = parseFloat(aVal);
                     bVal = parseFloat(bVal);
@@ -13390,7 +13416,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             const isAdmin = currentUser && currentUser.activeProfile === 'admin';
             // Mettre à jour le titre h2
             const h2 = document.querySelector('#cra h2');
-            if (h2) h2.textContent = currentUser?.is_rh ? 'CRA' : (isAdmin ? 'CRA à valider' : 'Mes CRA');
+            if (h2) h2.textContent = isAdmin ? 'COMPTE-RENDU D\'ACTIVITE' : 'CRA';
 
             const st = {
                 'a_completer': { label: 'À compléter', color: '#ff9800', icon: '✏️' },
@@ -13443,6 +13469,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                 if (isAdmin) {
                     // === ADMIN : 3 catégories ===
                     document.getElementById('craAdminSections').style.display = 'block';
+                    await initCraLancer();
 
                     const enCours = data.filter(c => !c.archived && c.statut !== 'diffuse');
 
@@ -14178,6 +14205,72 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             body.style.display = open ? 'block' : 'none';
             icon.textContent = open ? '▼' : '▶';
             if (open && !document.getElementById('craRhArchivesTable').innerHTML) loadCraArchivesRh();
+        }
+
+        async function initCraLancer() {
+            // Remplir la liste des experts (tous)
+            const expertSel = document.getElementById('craLancerExpert');
+            if (!expertSel) return;
+            try {
+                const r = await fetch(`${API_URL}/cra/all-experts-full`, { credentials: 'include' });
+                const experts = await r.json();
+                expertSel.innerHTML = '<option value="">— Choisir un expert —</option>';
+                experts.forEach(e => {
+                    const opt = document.createElement('option');
+                    opt.value = e.user_id;
+                    opt.textContent = `${e.nom} ${e.prenom}`;
+                    expertSel.appendChild(opt);
+                });
+            } catch(e) { console.warn('Erreur chargement experts CRA lancer:', e); }
+
+            // Remplir mois/année : 12 mois passés + mois courant
+            const periodSel = document.getElementById('craLancerMoisAnnee');
+            if (!periodSel) return;
+            periodSel.innerHTML = '<option value="">— Choisir une période —</option>';
+            const now = new Date();
+            for (let i = 12; i >= 0; i--) {
+                const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                const m = d.getMonth() + 1;
+                const y = d.getFullYear();
+                const label = d.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+                const opt = document.createElement('option');
+                opt.value = `${m}:${y}`;
+                opt.textContent = label.charAt(0).toUpperCase() + label.slice(1);
+                if (i === 0) opt.selected = true;
+                periodSel.appendChild(opt);
+            }
+        }
+
+        async function lancerCra() {
+            const userId = document.getElementById('craLancerExpert')?.value;
+            const period = document.getElementById('craLancerMoisAnnee')?.value;
+            if (!userId || !period) {
+                alert('Veuillez sélectionner un expert et une période.');
+                return;
+            }
+            const [mois, annee] = period.split(':');
+            const btn = document.querySelector('[onclick="lancerCra()"]');
+            if (btn) { btn.disabled = true; btn.textContent = '⏳ Lancement...'; }
+            try {
+                const r = await fetch(`${API_URL}/cra/launch`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: parseInt(userId), mois: parseInt(mois), annee: parseInt(annee) })
+                });
+                const data = await r.json();
+                if (!r.ok) {
+                    alert(`⚠️ Impossible de lancer le CRA :\n${data.error}`);
+                } else {
+                    document.getElementById('craLancerExpert').value = '';
+                    document.getElementById('craLancerMoisAnnee').value = '';
+                    await loadCraList();
+                }
+            } catch(e) {
+                alert('Erreur réseau lors du lancement du CRA.');
+            } finally {
+                if (btn) { btn.disabled = false; btn.textContent = '▶ Lancer le CRA'; }
+            }
         }
 
         async function loadCraSignatures() {

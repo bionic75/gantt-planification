@@ -9838,6 +9838,53 @@ app.get('/api/cra/admin/list', requireAdminOrRh, async (req, res) => {
 });
 
 // Liste tous les experts ayant au moins un CRA (actifs ou non) — pour le filtre Signatures CRA
+// Tous les experts sans filtre astreinte (pour "CRA à lancer")
+app.get('/api/cra/all-experts-full', requireAdmin, (req, res) => {
+    database.all(
+        `SELECT DISTINCT u.id as user_id, u.nom, u.prenom
+         FROM users u
+         JOIN resources r ON u.resource_id = r.id
+         WHERE u.is_expert = 1 AND r.actif = 1
+         ORDER BY u.nom, u.prenom`,
+        (err, rows) => err ? res.status(500).json({ error: err.message }) : res.json(rows || [])
+    );
+});
+
+// Lancer manuellement un CRA pour un expert et un mois/année
+app.post('/api/cra/launch', requireAdmin, async (req, res) => {
+    const { user_id, mois, annee } = req.body;
+    if (!user_id || !mois || !annee) return res.status(400).json({ error: 'Paramètres manquants' });
+    try {
+        const expert = await new Promise((resolve, reject) => {
+            database.get(
+                `SELECT u.id as user_id, u.nom, u.prenom, r.id as resource_id
+                 FROM users u JOIN resources r ON u.resource_id = r.id
+                 WHERE u.id = ? AND u.is_expert = 1`,
+                [user_id], (err, row) => err ? reject(err) : resolve(row)
+            );
+        });
+        if (!expert) return res.status(404).json({ error: 'Expert introuvable' });
+        const existing = await new Promise((resolve, reject) => {
+            database.get(
+                `SELECT id, statut FROM cra WHERE user_id = ? AND mois = ? AND annee = ?`,
+                [user_id, mois, annee], (err, row) => err ? reject(err) : resolve(row)
+            );
+        });
+        if (existing) {
+            const label = existing.statut === 'diffuse' ? 'signé' : 'en cours de traitement';
+            return res.status(409).json({ error: `Un CRA ${label} existe déjà pour cet expert sur cette période.` });
+        }
+        await new Promise((resolve, reject) => {
+            database.run(
+                `INSERT INTO cra (user_id, resource_id, mois, annee, statut) VALUES (?, ?, ?, ?, 'a_completer')`,
+                [expert.user_id, expert.resource_id, mois, annee],
+                err => err ? reject(err) : resolve()
+            );
+        });
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get('/api/cra/all-experts', requireAdminOrRh, (req, res) => {
     database.all(
         `SELECT DISTINCT u.id as user_id, u.nom, u.prenom
