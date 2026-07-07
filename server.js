@@ -9942,7 +9942,13 @@ app.post('/api/cra/:id/rien-a-declarer', requireAuth, (req, res) => {
 // Génération PDF CRA avec Puppeteer
 // Installer : npm install puppeteer
 let puppeteer;
-try { puppeteer = require('puppeteer'); } catch(e) { console.warn('⚠️ Puppeteer non installé — PDF CRA désactivé. Exécutez : npm install puppeteer'); }
+// Puppeteer v22+ est ESM-only : import() dynamique obligatoire
+import('puppeteer').then(mod => {
+    puppeteer = mod.default;
+    console.log('✅ Puppeteer chargé (ESM)');
+}).catch(e => {
+    console.warn('⚠️ Puppeteer non installé — PDF CRA désactivé. Exécutez : npm install puppeteer');
+});
 
 async function generateCraPdf(cra, astreintes, signatures, moisNom) {
     if (!puppeteer) throw new Error('Puppeteer non installé. Exécutez : npm install puppeteer');
@@ -10029,7 +10035,7 @@ function buildCraPdfHtml({ cra, astreintes, signatures, moisNom }) {
   <div style="border-top:2px solid #6a1b9a;padding-top:14px;">
     <div style="font-size:11px;font-weight:bold;color:#6a1b9a;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">Signatures Electroniques</div>
     <table style="width:100%;border-collapse:separate;border-spacing:8px;">
-      <tr>${sigBlock(1,'Expert')}${sigBlock(2,'Administrateur N1')}${sigBlock(3,'Administrateur N2')}</tr>
+      <tr>${sigBlock(1,'Expert')}${sigBlock(2,'Visa N+1')}${sigBlock(3,'Visa N+2')}</tr>
     </table>
     <p style="font-size:8px;color:#aaa;margin-top:10px;font-style:italic;">Document généré electroniquement via la Plateforme de Planification ANS. Signatures horodatées, enregistrées en base de données avec adresse IP et navigateur du signataire.</p>
   </div>

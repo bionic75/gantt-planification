@@ -2610,7 +2610,7 @@
     <div class="form-section" style="margin-top: 20px; background-color: #fce4ec; border-left: 4px solid #e91e63;">
         <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleAdminSection('usersListSection')">
             <h3 style="color: #880e4f; border-left: none; margin: 0;">
-                <span id="usersListSectionIcon">▶</span> Liste des utilisateurs
+                <span id="usersListSectionIcon">▶</span> Liste des utilisateurs <span id="usersListCount" style="font-size:12px;font-weight:normal;color:#ad1457;"></span>
             </h3>
         </div>
         <div id="usersListSection" style="margin-top: 15px; display: none;">
@@ -9968,7 +9968,15 @@
         async function displayUsers() {
             const tbody = document.getElementById('usersList');
             tbody.innerHTML = '';
-            
+
+            // Mettre à jour le compteur actifs / total
+            const countEl = document.getElementById('usersListCount');
+            if (countEl) {
+                const total = users.length;
+                const actifs = users.filter(u => u.actif).length;
+                countEl.textContent = `(${actifs} actif${actifs > 1 ? 's' : ''} / ${total} au total)`;
+            }
+
             // Trier les utilisateurs par ordre alphabétique (nom, puis prénom)
             const sortedUsers = [...users].sort((a, b) => {
                 const nameA = `${a.nom} ${a.prenom}`.toLowerCase();
@@ -13378,8 +13386,8 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
   <div class="section-title">✍️ Signatures Électroniques</div>
   <div class="sigs">
     ${sigBlock(1,'Expert')}
-    ${sigBlock(2,'Administrateur N1')}
-    ${sigBlock(3,'Administrateur N2')}
+    ${sigBlock(2,'Visa N+1')}
+    ${sigBlock(3,'Visa N+2')}
   </div>
   <div class="footer-note">Document généré électroniquement via la Plateforme de Planification ANS. Signatures horodatées et enregistrées en base de données avec adresse IP et navigateur du signataire.</div>
 </div>
@@ -20333,12 +20341,13 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             const startDayOfWeek = firstDay.getDay();
             
             let html = '<table style="width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed;">';
-            
-            // En-tête des jours de la semaine
+
+            // En-tête : colonne semaine + 7 jours
             html += '<thead><tr>';
+            html += `<th style="width: 38px; padding: 10px 4px; background-color: #546e7a; color: white; border: 1px solid #bdc3c7; font-weight: bold; font-size: 10px; text-align: center;">Sem.</th>`;
             dayNames.forEach((day, index) => {
                 const isWeekend = index === 0 || index === 6;
-                html += `<th style="width: 14.28%; padding: 10px; background-color: ${isWeekend ? '#ffc107' : '#00bcd4'}; color: ${isWeekend ? '#333' : 'white'}; border: 1px solid #bdc3c7; font-weight: bold;">${day}</th>`;
+                html += `<th style="padding: 10px; background-color: ${isWeekend ? '#ffc107' : '#00bcd4'}; color: ${isWeekend ? '#333' : 'white'}; border: 1px solid #bdc3c7; font-weight: bold;">${day}</th>`;
             });
             html += '</tr></thead><tbody>';
             
@@ -20347,11 +20356,16 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             const numWeeks = Math.ceil(totalDays / 7);
             
             for (let week = 0; week < numWeeks; week++) {
-                html += '<tr>';
-                
+                // Calculer le numéro de semaine ISO pour cette ligne
+                const firstDayOfWeekRow = week === 0
+                    ? new Date(year, month, 1)
+                    : new Date(year, month, week * 7 - startDayOfWeek + 1);
+                const weekNum = getISOWeekNumber(firstDayOfWeekRow);
+                html += `<tr><td style="width: 38px; padding: 4px 2px; border: 1px solid #bdc3c7; background-color: #eceff1; color: #546e7a; font-weight: bold; font-size: 11px; text-align: center; vertical-align: middle;">${weekNum}</td>`;
+
                 for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {
                     if ((week === 0 && dayOfWeek < startDayOfWeek) || day > lastDay) {
-                        html += '<td style="width: 14.28%; padding: 10px; border: 1px solid #bdc3c7; background-color: #f5f5f5; min-height: 100px; vertical-align: top;"></td>';
+                        html += '<td style="padding: 10px; border: 1px solid #bdc3c7; background-color: #f5f5f5; min-height: 100px; vertical-align: top;"></td>';
                     } else {
                         const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                         const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
@@ -20411,7 +20425,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                         else if (isWeekend) bgColor = 'background-color: #fff8e1;';
                         else if (hasContent) bgColor = 'background-color: #fafafa;';
                         
-                        html += `<td style="width: 14.28%; padding: 8px; border: 1px solid #bdc3c7; ${bgColor} vertical-align: top; min-height: 90px;">
+                        html += `<td style="padding: 8px; border: 1px solid #bdc3c7; ${bgColor} vertical-align: top; min-height: 90px;">
                             <div style="font-weight: bold; font-size: 14px; margin-bottom: 6px; color: ${isToday ? '#00bcd4' : '#333'};">${day}</div>
                             ${eventsHTML}
                         </td>`;
