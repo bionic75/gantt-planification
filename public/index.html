@@ -1074,6 +1074,16 @@
                             <div id="craArchivesTable"></div>
                         </div>
                     </div>
+                    <!-- CRA supprimés (collapsible) -->
+                    <div style="background:#fce4ec;border:1px solid #f48fb1;border-radius:8px;padding:15px;margin-bottom:16px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="toggleCraDeletedPanel()">
+                            <h3 style="color:#880e4f;margin:0;font-size:15px;"><span id="craDeletedIcon">▶</span> 🗑️ CRA supprimés</h3>
+                            <button id="purgeToutBtn" onclick="event.stopPropagation();purgeTousCraDeleted()" style="background:#c62828;color:white;border:none;padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px;display:none;">🗑️ Purger tout</button>
+                        </div>
+                        <div id="craDeletedBody" style="display:none;margin-top:12px;">
+                            <div id="craDeletedTable"><p style="color:#999;text-align:center;padding:15px;">Chargement...</p></div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- ===== EXPERT : 2 catégories ===== -->
@@ -2811,6 +2821,7 @@
         <div id="craViewerBody" style="padding: 20px;"></div>
         <div style="padding: 15px 20px; border-top: 1px solid #e1bee7; background: #f9f4ff; display: flex; justify-content: flex-end; gap: 10px;">
             <button onclick="downloadCraPdf(_craViewerCurrentId)" style="background:#78909c;color:white;padding:10px 18px;font-weight:bold;border:none;border-radius:4px;cursor:pointer;">📄 Voir / Télécharger PDF</button>
+            <button onclick="resendCraEmail()" id="resendCraEmailBtn" style="background:#1565c0;color:white;padding:10px 18px;font-weight:bold;border:none;border-radius:4px;cursor:pointer;display:none;">📧 Renvoyer l'email</button>
             <button onclick="document.getElementById('craViewerModal').classList.remove('active')" style="background:#6a1b9a;color:white;padding:10px 18px;border:none;border-radius:4px;cursor:pointer;">Fermer</button>
         </div>
     </div>
@@ -2906,7 +2917,7 @@
         <div class="modal-content" style="max-width: 450px; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); padding: 0; overflow: hidden;">
             <!-- Header avec logo -->
             <div style="background-color: white; padding: 30px 40px; text-align: center; border-bottom: 4px solid #1D70B7;">
-                <img src="data:image/webp;base64,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" alt="Agence du Numérique en Santé" style="max-width: 280px; height: auto;">
+                <img src="data:image/webp;base64,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" alt="Agence du Numérique en Santé" style="max-width: 380px; height: auto;">
                 <h2 style="color: #1D70B7; margin-top: 20px; margin-bottom: 5px; font-size: 24px; font-weight: 600;">Plateforme de Planification</h2>
                 <p style="color: #6F6F6E; font-size: 14px; margin: 0;">Gestion opérationnelle des ressources</p>
             </div>
@@ -7058,28 +7069,24 @@
                     throw new Error('Erreur serveur lors de la déconnexion');
                 }
                 
-                // Arrêter le timer d'inactivité
+                // Stopper tous les timers et pollings
                 stopInactivityTimer();
-                
-                // Arrêter la vérification des notifications
-                if (notificationCheckInterval) {
-                    clearInterval(notificationCheckInterval);
-                    notificationCheckInterval = null;
-                }
-                
+                if (notificationCheckInterval) { clearInterval(notificationCheckInterval); notificationCheckInterval = null; }
+                if (onlineUsersInterval) { clearInterval(onlineUsersInterval); onlineUsersInterval = null; }
+
                 currentUser = null;
-                pendingAssignments = {}; // Réinitialiser les affectations en attente
-                
+                pendingAssignments = {};
+                availableProfiles = [];
+                loginStep = 'credentials';
+
                 console.log('✅ Déconnexion réussie');
-                
+
                 // Rediriger vers la page de login
                 document.getElementById('loginPage').classList.add('active');
                 document.querySelector('.container').style.display = 'none';
                 document.getElementById('adminTab').style.display = 'none';
                 document.getElementById('userInfo').style.display = 'none';
-                loginStep = 'credentials';
-                availableProfiles = [];
-                
+
                 // Réinitialiser complètement le formulaire de login
                 document.getElementById('loginUsername').value = '';
                 document.getElementById('loginPassword').value = '';
@@ -7089,6 +7096,10 @@
                 document.getElementById('loginButton').textContent = 'Continuer';
                 document.getElementById('loginError').style.display = 'none';
                 document.getElementById('loginError').textContent = '';
+
+                // Masquer le timer d'inactivité sur la mire de login
+                const timerDisplay = document.getElementById('inactivityTimerDisplay');
+                if (timerDisplay) timerDisplay.style.display = 'none';
 
                 // Rafraîchir le numéro de version affiché sur la mire de login
                 loadVersion();
@@ -10039,10 +10050,21 @@
                         <button class="edit" onclick="openEditUserModal(${u.id})" style="background-color: #3498db; margin-right: 5px;">Modifier</button>
                         <button class="edit" onclick="openResetPasswordModal(${u.id})">Reset MDP</button>
                         <button class="edit" onclick="resetUserTotp(${u.id}, '${u.prenom} ${u.nom}')" style="background-color: #9c27b0;" title="Réinitialiser l'appairage TOTP (changement de téléphone)">Reset TOTP</button>
-                        <button class="delete" onclick="deleteUser(${u.id})">Supprimer</button>
+                        <button onclick="forceLogoutUser(${u.id}, '${u.prenom} ${u.nom}')" style="background:#e65100;color:white;border:none;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer;margin:2px;" title="Déconnecter immédiatement cet utilisateur">⏏ Déco</button><button class="delete" onclick="deleteUser(${u.id})">Supprimer</button>
                     </td>
                 `;
             });
+        }
+
+        async function forceLogoutUser(id, nom) {
+            if (!confirm(`Forcer la déconnexion de ${nom} ?`)) return;
+            try {
+                const res = await fetch(`${API_URL}/users/${id}/force-logout`, { method: 'POST', credentials: 'include' });
+                const data = await res.json();
+                if (data.success) {
+                    alert(data.wasConnected ? `✅ ${nom} a été déconnecté(e).` : `ℹ️ ${nom} n'était pas connecté(e).`);
+                } else { alert('Erreur : ' + (data.error || 'inconnue')); }
+            } catch(e) { alert('Erreur réseau : ' + e.message); }
         }
 
         async function toggleUserActive(id) {
@@ -13536,6 +13558,104 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             }
         }
 
+        function toggleCraDeletedPanel() {
+            const body = document.getElementById('craDeletedBody');
+            const icon = document.getElementById('craDeletedIcon');
+            const open = body.style.display === 'none';
+            body.style.display = open ? 'block' : 'none';
+            icon.textContent = open ? '▼' : '▶';
+            if (open) loadCraDeleted();
+            else { const pb = document.getElementById('purgeToutBtn'); if (pb) pb.style.display = 'none'; }
+        }
+
+        async function loadCraDeleted() {
+            const container = document.getElementById('craDeletedTable');
+            container.innerHTML = '<p style="color:#999;text-align:center;padding:15px;">⏳ Chargement...</p>';
+            try {
+                const res = await fetch(`${API_URL}/cra/admin/deleted`, { credentials: 'include' });
+                const data = await res.json();
+                const purgeBtn = document.getElementById('purgeToutBtn');
+                if (!data.length) {
+                    container.innerHTML = '<p style="color:#999;text-align:center;padding:15px;">Aucun CRA supprimé.</p>';
+                    if (purgeBtn) purgeBtn.style.display = 'none';
+                    return;
+                }
+                if (purgeBtn) purgeBtn.style.display = 'inline-block';
+                const stL = { 'a_completer':'✏️ À compléter','soumis':'📤 Soumis','vise_n1':'✅ Visé N1','vise_n2':'✅ Visé N2','diffuse':'📨 Diffusé' };
+                const fmt = dt => dt ? new Date(dt).toLocaleDateString('fr-FR') : '—';
+                container.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px;">
+                    <thead><tr style="background:#880e4f;color:white;">
+                        <th style="padding:8px;text-align:left;">Expert</th>
+                        <th style="padding:8px;text-align:left;">Période</th>
+                        <th style="padding:8px;text-align:left;">Statut avant suppression</th>
+                        <th style="padding:8px;text-align:left;">Était archivé</th>
+                        <th style="padding:8px;text-align:left;">Actions</th>
+                    </tr></thead>
+                    <tbody>${data.map((c, i) => {
+                        const moisNom = new Date(c.annee, c.mois - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+                        const statutLabel = stL[c.pre_delete_statut] || c.pre_delete_statut || '—';
+                        const wasArchived = c.pre_delete_archived ? 'Oui' : 'Non';
+                        const restoreLabel = c.pre_delete_archived ? '↩️ Vers Archives' : (c.pre_delete_statut === 'diffuse' ? '↩️ Vers Signés' : '↩️ Vers En cours');
+                        return `<tr style="background:${i%2?'#fce4ec':'white'};border-bottom:1px solid #f48fb1;">
+                            <td style="padding:6px 8px;">${c.expert_nom || '—'}</td>
+                            <td style="padding:6px 8px;">${moisNom}</td>
+                            <td style="padding:6px 8px;">${statutLabel}</td>
+                            <td style="padding:6px 8px;">${wasArchived}</td>
+                            <td style="padding:6px 8px;white-space:nowrap;">
+                                <button onclick="restoreDeletedCra(${c.id})" style="font-size:11px;padding:3px 8px;background:#388e3c;color:white;border:none;border-radius:4px;cursor:pointer;margin-right:4px;">${restoreLabel}</button>
+                                <button onclick="purgeCra(${c.id})" style="font-size:11px;padding:3px 8px;background:#b71c1c;color:white;border:none;border-radius:4px;cursor:pointer;">🗑️ Purger</button>
+                            </td>
+                        </tr>`;
+                    }).join('')}</tbody>
+                </table>`;
+            } catch(e) { console.error('Erreur chargement CRA supprimés:', e); }
+        }
+
+        async function softDeleteCra(craId, mois, annee, btn) {
+            // Le nom expert peut être passé via data-nom sur le bouton
+            const expertNom = (btn || event?.target)?.dataset?.nom || '';
+            const moisNom = new Date(annee, mois - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+            if (!confirm(`Supprimer le CRA de ${expertNom} — ${moisNom} ?\n\nIl sera déplacé dans "CRA supprimés" et pourra être restauré ou purgé définitivement.`)) return;
+            const res = await fetch(`${API_URL}/cra/${craId}/soft-delete`, { method: 'POST', credentials: 'include' });
+            if (res.ok) {
+                await loadCraArchives();
+                const deletedBody = document.getElementById('craDeletedBody');
+                if (deletedBody.style.display !== 'none') await loadCraDeleted();
+            } else {
+                const d = await res.json();
+                alert('Erreur : ' + d.error);
+            }
+        }
+
+        async function restoreDeletedCra(craId) {
+            if (!confirm('Restaurer ce CRA dans sa section d\'origine ?')) return;
+            const res = await fetch(`${API_URL}/cra/${craId}/restore-deleted`, { method: 'POST', credentials: 'include' });
+            if (res.ok) {
+                await loadCraDeleted();
+                await loadCraList();
+            } else {
+                const d = await res.json();
+                alert('Erreur : ' + d.error);
+            }
+        }
+
+        async function purgeCra(craId) {
+            if (!confirm('⚠️ Purger définitivement ce CRA ?\n\nCette action est irréversible.')) return;
+            const res = await fetch(`${API_URL}/cra/${craId}/purge`, { method: 'DELETE', credentials: 'include' });
+            if (res.ok) { await loadCraDeleted(); }
+            else { const d = await res.json(); alert('Erreur : ' + d.error); }
+        }
+
+        async function purgeTousCraDeleted() {
+            if (!confirm('⚠️ Purger TOUS les CRA supprimés ?\n\nCette action est irréversible.')) return;
+            const res = await fetch(`${API_URL}/cra/admin/deleted`, { credentials: 'include' });
+            const data = await res.json();
+            for (const c of data) {
+                await fetch(`${API_URL}/cra/${c.id}/purge`, { method: 'DELETE', credentials: 'include' });
+            }
+            await loadCraDeleted();
+        }
+
         async function recallCra(craId) {
             if (!confirm('Retirer votre soumission pour corriger ce CRA ?\n\nIl repassera en statut "À compléter" et vous pourrez le modifier avant de le soumettre à nouveau.')) return;
             try {
@@ -13675,7 +13795,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                 container.innerHTML = '<p style="color:#999;font-size:12px;font-style:italic;">Aucune activité astreinte/HNO enregistrée pour ce mois.</p>';
                 return;
             }
-            container.innerHTML = `<h4 style="color:#6a1b9a;margin:0 0 10px 0;font-size:13px;">📋 Activités enregistrées (préremplies depuis le planning)</h4>
+            container.innerHTML = `<h4 style="color:#6a1b9a;margin:0 0 10px 0;font-size:13px;">📋 Activités enregistrées</h4>
                 <table style="width:100%;border-collapse:collapse;font-size:12px;">
                     <thead><tr style="background:#6a1b9a;color:white;">
                         <th style="padding:8px;text-align:left;">Type</th><th style="padding:8px;text-align:left;">Date début</th>
@@ -13981,6 +14101,58 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             } catch(e) { alert('Erreur réseau'); }
         }
 
+        async function resendCraEmail() {
+            const craId = _craViewerCurrentId;
+            if (!craId) return;
+            if (!confirm('Renvoyer l\'email avec le CRA en pièce jointe à tous les destinataires précédents ?')) return;
+            const btn = document.getElementById('resendCraEmailBtn');
+            btn.disabled = true; btn.textContent = '⏳ Envoi...';
+            try {
+                const res = await fetch(`${API_URL}/cra/${craId}/diffusion-resend-all`, { method: 'POST', credentials: 'include' });
+                const data = await res.json();
+                if (data.success) {
+                    alert(`✅ Email renvoyé à ${data.sent} destinataire(s).`);
+                } else { alert('Erreur : ' + (data.error || 'inconnue')); }
+            } catch(e) { alert('Erreur réseau : ' + e.message); }
+            finally { btn.disabled = false; btn.textContent = '📧 Renvoyer l\'email'; }
+        }
+
+        async function resendCraDiffusion(craId, logId) {
+            if (!confirm('Renvoyer cet email de diffusion ?')) return;
+            try {
+                const res = await fetch(`${API_URL}/cra/${craId}/diffusion-resend/${logId}`, { method: 'POST', credentials: 'include' });
+                const data = await res.json();
+                if (data.success) { alert("✅ Email remis en file d'envoi."); }
+                else { alert('Erreur : ' + (data.error || 'inconnue')); }
+            } catch(e) { alert('Erreur réseau : ' + e.message); }
+        }
+
+        async function showDiffusionStatus(craId, btn) {
+            try {
+                const res = await fetch(`${API_URL}/cra/${craId}/diffusion-log`, { credentials: 'include' });
+                const logData = await res.json();
+                if (!logData || logData.length === 0) { alert('Aucune information de diffusion.'); return; }
+                const fmtDt = dt => dt ? new Date(dt).toLocaleString('fr-FR') : '—';
+                const rows = logData.map(r => {
+                    const st = r.email_status;
+                    const icon = st === 'sent' ? '✅ Envoyé' : st === 'failed' ? '❌ Échec' : st === 'pending' ? '⏳ En attente' : '❓ Inconnu';
+                    const err = r.error_message ? `<br><small style="color:#c62828;">${r.error_message}</small>` : '';
+                    const resend = (st === 'failed' || st === 'pending') ? `<button onclick="resendCraDiffusion(${craId},${r.id});this.closest('.status-popup').remove();" style="font-size:10px;padding:2px 6px;background:#c62828;color:white;border:none;border-radius:3px;cursor:pointer;">Renvoyer</button>` : '';
+                    return `<tr><td style="padding:5px 8px;">${r.recipient_name||'—'}</td><td style="padding:5px 8px;">${r.recipient_email}</td><td style="padding:5px 8px;">${fmtDt(r.sent_at)}</td><td style="padding:5px 8px;">${icon}${err} ${resend}</td></tr>`;
+                }).join('');
+                const popup = document.createElement('div');
+                popup.className = 'status-popup';
+                popup.style.cssText = 'position:fixed;z-index:9999;background:white;border:1px solid #ccc;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.2);padding:16px;min-width:520px;max-width:700px;';
+                const rect = btn.getBoundingClientRect();
+                popup.style.top = Math.min(rect.bottom + 4, window.innerHeight - 300) + 'px';
+                popup.style.left = Math.max(rect.left - 200, 10) + 'px';
+                popup.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><strong style="color:#1a237e;">📨 Statut de diffusion</strong><button onclick="this.closest('.status-popup').remove()" style="background:none;border:none;font-size:18px;cursor:pointer;">✕</button></div><table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="background:#1a237e;color:white;"><th style="padding:6px 8px;text-align:left;">Destinataire</th><th style="padding:6px 8px;text-align:left;">Email</th><th style="padding:6px 8px;text-align:left;">Date envoi</th><th style="padding:6px 8px;text-align:left;">Statut</th></tr></thead><tbody>${rows}</tbody></table>`;
+                document.querySelectorAll('.status-popup').forEach(p => p.remove());
+                document.body.appendChild(popup);
+                setTimeout(() => document.addEventListener('click', function h(e){if(!popup.contains(e.target)&&e.target!==btn){popup.remove();document.removeEventListener('click',h);}},100));
+            } catch(e) { alert('Erreur chargement statut : ' + e.message); }
+        }
+
         async function diffuserCra(craId) {
             if (!confirm('Diffuser ce CRA auprès des RH de l\'ES ? Un email sera envoyé.')) return;
             try {
@@ -14081,6 +14253,9 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                     <div id="craDiffusionLogSection"></div>`;
 
                 document.getElementById('craViewerModal').classList.add('active');
+                // Afficher le bouton Renvoyer uniquement si CRA diffusé
+                const resendBtn = document.getElementById('resendCraEmailBtn');
+                if (resendBtn) resendBtn.style.display = cra.statut === 'diffuse' ? 'inline-block' : 'none';
 
                 // Charger le log de diffusion
                 try {
@@ -14098,16 +14273,20 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                                     <th style="padding:7px 10px;text-align:left;">Destinataire</th>
                                     <th style="padding:7px 10px;text-align:left;">Email</th>
                                     <th style="padding:7px 10px;text-align:left;">Type</th>
-                                    <th style="padding:7px 10px;text-align:left;">Date d'envoi</th>
+                                    <th style="padding:7px 10px;text-align:left;">Date d'envoi</th><th style="padding:7px 10px;text-align:left;">Statut</th>
                                 </tr></thead>
                                 <tbody>
-                                    ${logData.map((r, i) => `
-                                    <tr style="background:${i%2?'#e8eaf6':'white'};">
+                                    ${logData.map((r, i) => {
+                                        const emailSt = r.email_status;
+                                        const stIcon = emailSt === 'sent' ? '<span title="Email envoyé" style="color:#2e7d32;font-size:14px;">✅</span>' : emailSt === 'failed' ? '<span title="Échec : '+r.error_message+'" style="color:#c62828;font-size:14px;">❌</span>' : emailSt === 'pending' ? '<span title="En attente" style="color:#e65100;font-size:14px;">⏳</span>' : '<span title="Statut inconnu" style="color:#999;">❓</span>';
+                                        const resendBtn = (emailSt === 'failed' || emailSt === 'pending') ? `<button onclick="resendCraDiffusion(${craId}, ${r.id})" style="font-size:10px;padding:2px 6px;background:#c62828;color:white;border:none;border-radius:3px;cursor:pointer;margin-left:6px;">Renvoyer</button>` : '';
+                                        return `<tr style="background:${i%2?'#e8eaf6':'white'};">
                                         <td style="padding:6px 10px;">${r.recipient_name || '—'}</td>
                                         <td style="padding:6px 10px;">${r.recipient_email}</td>
                                         <td style="padding:6px 10px;"><span style="color:${typeColor(r.recipient_type)};font-weight:bold;">${typeLabel(r.recipient_type)}</span></td>
                                         <td style="padding:6px 10px;color:#555;">${fmtDt(r.sent_at)}</td>
-                                    </tr>`).join('')}
+                                        <td style="padding:6px 10px;">${stIcon}${resendBtn}</td>
+                                    </tr>`;}).join('')}
                                 </tbody>
                             </table>`;
                     }
@@ -14166,10 +14345,10 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                         <td style="padding:6px 8px;">${fmt(c.submitted_at)}</td>
                         <td style="padding:6px 8px;">${c.vise_n1_nom ? fmt(c.vise_n1_at)+'<br><small>'+c.vise_n1_nom+'</small>' : '—'}</td>
                         <td style="padding:6px 8px;">${c.vise_n2_nom ? fmt(c.vise_n2_at)+'<br><small>'+c.vise_n2_nom+'</small>' : '—'}</td>
-                        <td style="padding:6px 8px;">${fmt(c.diffuse_at)}</td>
+                        <td style="padding:6px 8px;" id="diffuse-cell-${c.id}">${fmt(c.diffuse_at)}<br><button onclick="showDiffusionStatus(${c.id}, this)" style="font-size:10px;padding:2px 6px;background:#1a237e;color:white;border:none;border-radius:3px;cursor:pointer;margin-top:3px;">📧 Statut</button></td>
                         <td style="padding:6px 8px;white-space:nowrap;">
                             <button onclick="openCraModal(${c.id})" style="font-size:11px;padding:3px 8px;background:#6a1b9a;color:white;border:none;border-radius:4px;cursor:pointer;margin-right:4px;">Voir</button>
-                            ${!readOnly ? (!isArchive ? `<button onclick="confirmArchiveCra(${c.id},'${(c.expert_nom||'').replace(/'/g,'\\\'')}')" style="font-size:11px;padding:3px 8px;background:#546e7a;color:white;border:none;border-radius:4px;cursor:pointer;">🗄️ Archiver</button>` : `<button onclick="unarchiveCra(${c.id})" style="font-size:11px;padding:3px 8px;background:#ff9800;color:white;border:none;border-radius:4px;cursor:pointer;">↩️ Désarchiver</button>`) : ''}
+                            ${!readOnly ? (!isArchive ? `<button onclick="confirmArchiveCra(${c.id},'${(c.expert_nom||'').replace(/'/g,'\\\'')}')" style="font-size:11px;padding:3px 8px;background:#546e7a;color:white;border:none;border-radius:4px;cursor:pointer;">🗄️ Archiver</button>` : `<button onclick="unarchiveCra(${c.id})" style="font-size:11px;padding:3px 8px;background:#ff9800;color:white;border:none;border-radius:4px;cursor:pointer;margin-right:4px;">↩️ Désarchiver</button><button onclick="softDeleteCra(${c.id}, ${c.mois}, ${c.annee})" data-nom="${(c.expert_nom||'').replace(/"/g,'&quot;')}" style="font-size:11px;padding:3px 8px;background:#b71c1c;color:white;border:none;border-radius:4px;cursor:pointer;">🗑️ Supprimer</button>`) : ''}
                         </td>
                     </tr>`;
                 }).join('')}</tbody>
@@ -21716,38 +21895,65 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             try {
                 // 1. Vérifier que la session est toujours valide
                 const sessionResponse = await fetch(`${API_URL}/check-session`, { credentials: 'include' });
-                
+
                 if (!sessionResponse.ok) {
-                    console.log('❌ Session expirée - Redirection vers login');
-                    window.location.href = '/login.html';
+                    console.log('❌ Session expirée après réveil - déconnexion propre');
+                    stopInactivityTimer();
+                    if (notificationCheckInterval) { clearInterval(notificationCheckInterval); notificationCheckInterval = null; }
+                    if (onlineUsersInterval) { clearInterval(onlineUsersInterval); onlineUsersInterval = null; }
+                    currentUser = null;
+                    pendingAssignments = {};
+                    document.getElementById('loginPage').classList.add('active');
+                    document.querySelector('.container').style.display = 'none';
+                    document.getElementById('userInfo').style.display = 'none';
+                    loginStep = 'credentials';
+                    availableProfiles = [];
+                    document.getElementById('loginUsername').value = '';
+                    document.getElementById('loginPassword').value = '';
+                    document.getElementById('loginProfile').value = '';
+                    document.getElementById('profileSelectGroup').style.display = 'none';
+                    document.getElementById('appSelectGroup').style.display = 'none';
+                    document.getElementById('loginButton').textContent = 'Continuer';
+                    document.getElementById('loginError').style.display = 'none';
                     return;
                 }
-                
-                // 2. Recharger les utilisateurs connectés
+
+                // 2. Session toujours valide : resynchroniser le timer d'inactivité
+                if (currentUser && inactivityTimeout && lastActivityTime) {
+                    const elapsedSeconds = Math.floor((Date.now() - lastActivityTime) / 1000);
+                    inactivityTimeRemaining = (inactivityTimeout * 60) - elapsedSeconds;
+                    if (inactivityTimeRemaining <= 0) {
+                        showInactivityModal();
+                    } else {
+                        updateTimerDisplay();
+                    }
+                }
+
+                // 3. Recharger les utilisateurs connectés
                 console.log('👥 Rechargement des utilisateurs connectés...');
                 await loadOnlineUsers();
-                
-                // 3. Redémarrer le polling si nécessaire
+
+                // 4. Redémarrer le polling si nécessaire
                 if (!onlineUsersInterval) {
                     startOnlineUsersPolling();
                 }
-                
-                // 4. Recharger les données du planning si on est sur l'onglet Planification
+
+                // 5. Recharger les données du planning si on est sur l'onglet Planification
                 const planningTab = document.getElementById('planning');
                 if (planningTab && planningTab.style.display !== 'none') {
                     console.log('📅 Rechargement du planning...');
                     await loadSchedule();
                     updateGantt();
                 }
-                
-                // 5. Recharger les astreintes/HNO
+
+                // 6. Recharger les astreintes/HNO
                 if (typeof loadAllAstreintesHno === 'function') {
                     console.log('🕐 Rechargement des astreintes/HNO...');
                     await loadAllAstreintesHno();
                 }
-                
+
                 console.log('✅ Rechargement terminé après réveil');
-                
+
             } catch (error) {
                 console.error('❌ Erreur lors du rechargement après réveil:', error);
             }

@@ -31,6 +31,9 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Faire confiance au proxy (OVH, nginx) pour récupérer la vraie IP client via X-Forwarded-For
+app.set('trust proxy', true);
+
 // Middleware
 app.use(cors({
     origin: true,
@@ -1145,10 +1148,20 @@ function initDB() {
         )
     `);
 
-    // Migration : colonne archived sur cra
-    database.run(`ALTER TABLE cra ADD COLUMN archived INTEGER DEFAULT 0`, () => {});
-    // Migration : colonne rien_a_declarer sur cra
-    database.run(`ALTER TABLE cra ADD COLUMN rien_a_declarer INTEGER DEFAULT 0`, () => {});
+    // Migration : email_batch_id sur cra_diffusion_log
+    database.run(`ALTER TABLE cra_diffusion_log ADD COLUMN email_batch_id TEXT`, () => {});
+    database.run(`ALTER TABLE email_queue ADD COLUMN pdf_attachment TEXT`, () => {});
+    database.run(`ALTER TABLE email_queue ADD COLUMN pdf_filename TEXT`, () => {});
+    // Migration : colonnes CRA (chaînées pour éviter SQLITE_BUSY)
+    database.run(`ALTER TABLE cra ADD COLUMN archived INTEGER DEFAULT 0`, () => {
+        database.run(`ALTER TABLE cra ADD COLUMN rien_a_declarer INTEGER DEFAULT 0`, () => {
+            database.run(`ALTER TABLE cra ADD COLUMN deleted INTEGER DEFAULT 0`, () => {
+                database.run(`ALTER TABLE cra ADD COLUMN pre_delete_statut TEXT`, () => {
+                    database.run(`ALTER TABLE cra ADD COLUMN pre_delete_archived INTEGER`, () => {});
+                });
+            });
+        });
+    });
 
     database.run(`
         CREATE TABLE IF NOT EXISTS cra_signatures (
@@ -1176,6 +1189,7 @@ function initDB() {
             recipient_name TEXT,
             recipient_type TEXT DEFAULT 'rh_es',
             sent_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            email_batch_id TEXT,
             FOREIGN KEY (cra_id) REFERENCES cra(id) ON DELETE CASCADE
         )
     `);
@@ -1259,6 +1273,8 @@ function initDB() {
             ics_content TEXT,
             ics_method TEXT,
             ics_filename TEXT,
+            pdf_attachment TEXT,
+            pdf_filename TEXT,
             status TEXT DEFAULT 'pending',
             attempts INTEGER DEFAULT 0,
             max_attempts INTEGER DEFAULT 3,
@@ -3168,6 +3184,15 @@ app.put('/api/users/:id', requireAdmin, (req, res) => {
     );
 });
 
+// Forcer la déconnexion d'un utilisateur (supprime sa session active)
+app.post('/api/users/:id/force-logout', requireAdmin, (req, res) => {
+    const targetId = parseInt(req.params.id);
+    if (targetId === req.session.userId) return res.status(400).json({ error: 'Vous ne pouvez pas vous déconnecter vous-même.' });
+    const deleted = activeSessions.delete(targetId);
+    logUserAction(req, 'Force déconnexion utilisateur', { targetUserId: targetId });
+    res.json({ success: true, wasConnected: deleted });
+});
+
 app.delete('/api/users/:id', requireAdmin, (req, res) => {
     const { id } = req.params;
     
@@ -3874,12 +3899,12 @@ function getReusableTransporter() {
 }
 
 // Ajouter un email à la file d'attente
-function enqueueEmail({ batchId, recipientEmail, recipientName, senderName, senderEmail, subject, htmlBody, icsContent, icsMethod, icsFilename, actionType, resourceId }) {
+function enqueueEmail({ batchId, recipientEmail, recipientName, senderName, senderEmail, subject, htmlBody, icsContent, icsMethod, icsFilename, pdfAttachment, pdfFilename, actionType, resourceId }) {
     return new Promise((resolve, reject) => {
         database.run(
-            `INSERT INTO email_queue (batch_id, recipient_email, recipient_name, sender_name, sender_email, subject, html_body, ics_content, ics_method, ics_filename, action_type, resource_id, next_retry_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
-            [batchId, recipientEmail, recipientName, senderName, senderEmail, subject, htmlBody, icsContent || null, icsMethod || null, icsFilename || null, actionType || 'new', resourceId || null],
+            `INSERT INTO email_queue (batch_id, recipient_email, recipient_name, sender_name, sender_email, subject, html_body, ics_content, ics_method, ics_filename, pdf_attachment, pdf_filename, action_type, resource_id, next_retry_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+            [batchId, recipientEmail, recipientName, senderName, senderEmail, subject, htmlBody, icsContent || null, icsMethod || null, icsFilename || null, pdfAttachment || null, pdfFilename || null, actionType || 'new', resourceId || null],
             function(err) {
                 if (err) reject(err);
                 else resolve(this.lastID);
@@ -3994,6 +4019,26 @@ async function processEmailQueue() {
                     content: email.ics_content
                 };
             }
+            const attachments = [];
+            // Logo ANS inline (CID) pour les emails CRA
+            if (email.action_type === 'cra_diffusion') {
+                try {
+                    attachments.push({
+                        filename: 'logo-ans.webp',
+                        path: new URL('./public/logo-ans.webp', import.meta.url).pathname,
+                        cid: 'ans-logo',
+                        contentType: 'image/webp'
+                    });
+                } catch(e) { /* logo non critique */ }
+            }
+            if (email.pdf_attachment) {
+                attachments.push({
+                    filename: email.pdf_filename || 'CRA.pdf',
+                    content: Buffer.from(email.pdf_attachment, 'base64'),
+                    contentType: 'application/pdf'
+                });
+            }
+            if (attachments.length > 0) mailOptions.attachments = attachments;
             
             // ÉTAPE 3 : Envoi SMTP — aucun verrou BDD tenu pendant cet appel réseau
             try {
@@ -9649,7 +9694,8 @@ function buildCraEmailHtml({ title, expertNom, moisNom, craUrl, action }) {
     </div>`;
 }
 
-function buildCraDocumentHtml({ cra, astreintes, signatures, moisNom, esRattachement }) {
+const ANS_LOGO_B64 = 'data:image/webp;base64,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';
+function buildCraDocumentHtml({ cra, astreintes, signatures, moisNom, esRattachement, appUrl = '', logoSrc = ANS_LOGO_B64 }) {
     const lignes = astreintes.map(a => `<tr>
         <td style="padding:6px 10px;border:1px solid #ddd;">${a.type==='astreinte'?'🔔 Astreinte':'🌙 HNO'}</td>
         <td style="padding:6px 10px;border:1px solid #ddd;">${a.date_debut}</td>
@@ -9660,13 +9706,13 @@ function buildCraDocumentHtml({ cra, astreintes, signatures, moisNom, esRattache
     </tr>`).join('');
     const sigsHtml = signatures.map(s => {
         const rang = s.rang===1 ? 'Expert' : s.rang===2 ? 'VISA N+1' : 'VISA N+2';
-        return `<div style="flex:1;min-width:180px;padding:15px;border:1px solid #6a1b9a;border-radius:6px;text-align:center;">
+        return `<td style="width:33.33%;padding:14px;border:1px solid #6a1b9a;border-radius:6px;text-align:center;vertical-align:top;">
             <div style="font-size:11px;color:#666;margin-bottom:8px;">${rang}</div>
             <div style="font-weight:bold;color:#2c3e50;">${s.signer_name}</div>
             <div style="font-size:11px;color:#6a1b9a;margin-top:4px;">✅ Signé électroniquement</div>
             <div style="font-size:10px;color:#999;margin-top:4px;">${new Date(s.signed_at).toLocaleString('fr-FR')}</div>
             <div style="font-size:9px;color:#ccc;margin-top:2px;">IP : ${s.ip_address||'N/A'}</div>
-        </div>`;
+        </td>`;
     }).join('');
 
     const esInfo = esRattachement ? `<p style="color:#444;font-size:13px;margin:4px 0 0 0;">Établissement de rattachement : <strong>${esRattachement}</strong></p>` : '';
@@ -9676,10 +9722,7 @@ function buildCraDocumentHtml({ cra, astreintes, signatures, moisNom, esRattache
         <!-- EN-TÊTE ANS -->
         <div style="background:#1a237e;padding:16px 24px;border-radius:6px 6px 0 0;display:flex;align-items:center;gap:18px;margin-bottom:0;">
             <div style="flex:0 0 auto;">
-                <img src="https://esante.gouv.fr/sites/default/files/media_entity/article/logo-ans-blanc.png"
-                     alt="ANS" height="48"
-                     style="display:block;"
-                     onerror="this.style.display='none'">
+                <img src="${logoSrc}" alt="ANS" height="48" style="display:block;">
             </div>
             <div>
                 <div style="color:white;font-size:15px;font-weight:bold;letter-spacing:0.5px;">AGENCE DU NUMÉRIQUE EN SANTÉ</div>
@@ -9717,7 +9760,7 @@ function buildCraDocumentHtml({ cra, astreintes, signatures, moisNom, esRattache
         <!-- SIGNATURES -->
         <div style="border-top:2px solid #1a237e;padding-top:20px;">
             <h3 style="color:#1a237e;font-size:13px;letter-spacing:0.5px;margin-bottom:15px;">SIGNATURES ÉLECTRONIQUES</h3>
-            <div style="display:flex;gap:15px;flex-wrap:wrap;">${sigsHtml}</div>
+            <table style="width:100%;border-collapse:separate;border-spacing:12px 0;table-layout:fixed;"><tr>${sigsHtml}</tr></table>
             <p style="font-size:10px;color:#999;margin-top:15px;font-style:italic;">Document généré électroniquement via la Plateforme de Planification ANS. Les signatures sont horodatées et enregistrées en base de données.</p>
         </div>
     </div>`;
@@ -9771,7 +9814,7 @@ app.get('/api/cra/my-list', requireAuth, async (req, res) => {
                      LEFT JOIN users u ON c.user_id = u.id
                      LEFT JOIN users u1 ON c.vise_n1_by = u1.id
                      LEFT JOIN users u2 ON c.vise_n2_by = u2.id
-                     WHERE (c.archived IS NULL OR c.archived = 0)
+                     WHERE (c.archived IS NULL OR c.archived = 0) AND (c.deleted IS NULL OR c.deleted = 0)
                      ORDER BY c.annee DESC, c.mois DESC`,
                     [], (err, rows) => err ? reject(err) : resolve(rows || [])
                 );
@@ -9788,7 +9831,7 @@ app.get('/api/cra/my-list', requireAuth, async (req, res) => {
                      LEFT JOIN users u ON c.user_id = u.id
                      LEFT JOIN users u1 ON c.vise_n1_by = u1.id
                      LEFT JOIN users u2 ON c.vise_n2_by = u2.id
-                     WHERE c.statut = 'diffuse' AND (c.archived IS NULL OR c.archived = 0)
+                     WHERE c.statut = 'diffuse' AND (c.archived IS NULL OR c.archived = 0) AND (c.deleted IS NULL OR c.deleted = 0)
                      ORDER BY c.annee DESC, c.mois DESC`,
                     [], (err, rows) => err ? reject(err) : resolve(rows || [])
                 );
@@ -9866,7 +9909,7 @@ app.post('/api/cra/launch', requireAdmin, async (req, res) => {
         if (!expert) return res.status(404).json({ error: 'Expert introuvable' });
         const existing = await new Promise((resolve, reject) => {
             database.get(
-                `SELECT id, statut FROM cra WHERE user_id = ? AND mois = ? AND annee = ?`,
+                `SELECT id, statut FROM cra WHERE user_id = ? AND mois = ? AND annee = ? AND (deleted IS NULL OR deleted = 0)`,
                 [user_id, mois, annee], (err, row) => err ? reject(err) : resolve(row)
             );
         });
@@ -9913,10 +9956,65 @@ app.post('/api/cra/:id/unarchive', requireAdmin, (req, res) => {
     });
 });
 
+// Supprimer (soft delete) un CRA archivé
+app.post('/api/cra/:id/soft-delete', requireAdmin, (req, res) => {
+    database.get('SELECT statut, archived FROM cra WHERE id = ? AND (deleted IS NULL OR deleted = 0)', [req.params.id], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!row) return res.status(404).json({ error: 'CRA introuvable' });
+        database.run(
+            'UPDATE cra SET deleted = 1, pre_delete_statut = ?, pre_delete_archived = ? WHERE id = ?',
+            [row.statut, row.archived, req.params.id],
+            (err2) => {
+                if (err2) return res.status(500).json({ error: err2.message });
+                logUserAction(req, 'Suppression (soft) CRA', { craId: req.params.id });
+                res.json({ success: true });
+            }
+        );
+    });
+});
+
+// Restaurer un CRA supprimé
+app.post('/api/cra/:id/restore-deleted', requireAdmin, (req, res) => {
+    database.get('SELECT pre_delete_statut, pre_delete_archived FROM cra WHERE id = ? AND deleted = 1', [req.params.id], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!row) return res.status(404).json({ error: 'CRA supprimé introuvable' });
+        database.run(
+            'UPDATE cra SET deleted = 0, statut = ?, archived = ?, pre_delete_statut = NULL, pre_delete_archived = NULL WHERE id = ?',
+            [row.pre_delete_statut || 'a_completer', row.pre_delete_archived || 0, req.params.id],
+            (err2) => {
+                if (err2) return res.status(500).json({ error: err2.message });
+                logUserAction(req, 'Restauration CRA supprimé', { craId: req.params.id });
+                res.json({ success: true });
+            }
+        );
+    });
+});
+
+// Purger définitivement un CRA supprimé
+app.delete('/api/cra/:id/purge', requireAdmin, (req, res) => {
+    database.run('DELETE FROM cra WHERE id = ? AND deleted = 1', [req.params.id], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        if (this.changes === 0) return res.status(404).json({ error: 'CRA non trouvé ou non supprimé' });
+        logUserAction(req, 'Purge définitive CRA', { craId: req.params.id });
+        res.json({ success: true });
+    });
+});
+
+// Liste des CRA supprimés
+app.get('/api/cra/admin/deleted', requireAdmin, (req, res) => {
+    database.all(
+        `SELECT c.*, u.prenom || ' ' || u.nom as expert_nom
+         FROM cra c LEFT JOIN users u ON c.user_id = u.id
+         WHERE c.deleted = 1
+         ORDER BY c.annee DESC, c.mois DESC, u.nom`,
+        (err, rows) => err ? res.status(500).json({ error: err.message }) : res.json(rows || [])
+    );
+});
+
 // Liste des CRA archivés
 app.get('/api/cra/admin/archives', requireAdminOrRh, (req, res) => {
     const { user_id, mois, annee } = req.query;
-    let where = 'c.archived = 1';
+    let where = 'c.archived = 1 AND (c.deleted IS NULL OR c.deleted = 0)';
     const params = [];
     if (user_id) { where += ' AND c.user_id = ?'; params.push(user_id); }
     if (mois) { where += ' AND c.mois = ?'; params.push(mois); }
@@ -10081,11 +10179,120 @@ app.get('/api/cra/:id/diffusion-log', requireAuth, async (req, res) => {
     try {
         const rows = await new Promise((resolve, reject) => {
             database.all(
-                `SELECT recipient_email, recipient_name, recipient_type, sent_at FROM cra_diffusion_log WHERE cra_id = ? ORDER BY sent_at`,
+                `SELECT d.id, d.recipient_email, d.recipient_name, d.recipient_type, d.sent_at, d.email_batch_id,
+                        eq.status as email_status, eq.error_message, eq.processed_at
+                 FROM cra_diffusion_log d
+                 LEFT JOIN email_queue eq ON eq.batch_id = d.email_batch_id AND eq.recipient_email = d.recipient_email
+                 WHERE d.cra_id = ? ORDER BY d.sent_at`,
                 [craId], (err, rows) => err ? reject(err) : resolve(rows || [])
             );
         });
         res.json(rows);
+    } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Renvoyer le CRA à tous les destinataires précédents
+app.post('/api/cra/:id/diffusion-resend-all', requireAdmin, async (req, res) => {
+    const craId = req.params.id;
+    try {
+        const [cra, logs] = await Promise.all([
+            new Promise((resolve, reject) => database.get(
+                `SELECT c.*, u.prenom || ' ' || u.nom as expert_nom FROM cra c LEFT JOIN users u ON c.user_id = u.id WHERE c.id = ?`,
+                [craId], (err, row) => err ? reject(err) : resolve(row)
+            )),
+            new Promise((resolve, reject) => database.all(
+                `SELECT DISTINCT recipient_email, recipient_name FROM cra_diffusion_log WHERE cra_id = ?`,
+                [craId], (err, rows) => err ? reject(err) : resolve(rows || [])
+            ))
+        ]);
+        if (!cra) return res.status(404).json({ error: 'CRA introuvable' });
+        if (logs.length === 0) return res.status(400).json({ error: 'Aucun destinataire trouvé dans le log de diffusion' });
+
+        const moisNom = new Date(cra.annee, cra.mois - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+        const moisNomCap = moisNom.charAt(0).toUpperCase() + moisNom.slice(1);
+        const [astreintes, signatures, resourceRow] = await Promise.all([
+            new Promise((resolve, reject) => database.all(
+                `SELECT * FROM astreintes_hno WHERE user_id = ? AND date_debut >= ? AND date_debut <= ? ORDER BY date_debut`,
+                [cra.user_id, `${cra.annee}-${String(cra.mois).padStart(2,'0')}-01`, `${cra.annee}-${String(cra.mois).padStart(2,'0')}-31`],
+                (err, r) => err ? reject(err) : resolve(r || [])
+            )),
+            new Promise((resolve, reject) => database.all(`SELECT * FROM cra_signatures WHERE cra_id = ? ORDER BY rang`, [craId], (err, r) => err ? reject(err) : resolve(r || []))),
+            new Promise((resolve, reject) => database.get(`SELECT es_rattachement FROM resources WHERE id = ?`, [cra.resource_id], (err, r) => err ? reject(err) : resolve(r)))
+        ]);
+        const craHtml = buildCraDocumentHtml({ cra, astreintes, signatures, moisNom, esRattachement: resourceRow?.es_rattachement || '', appUrl: process.env.APP_URL || `${req.protocol}://${req.get('host')}`, logoSrc: 'cid:ans-logo' });
+        const craHtmlPdf = buildCraDocumentHtml({ cra, astreintes, signatures, moisNom, esRattachement: resourceRow?.es_rattachement || '' });
+        const subject = `AGENCE DU NUMERIQUE EN SANTE - ${cra.expert_nom} - ${moisNom} - Compte-Rendu d'Activité (Renvoi)`;
+        const pdfFilename = `CRA_${(cra.expert_nom||'').replace(/\s+/g,'_')}_${moisNomCap}.pdf`;
+
+        let pdfBase64 = null;
+        if (puppeteer) {
+            try {
+                const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+                const page = await browser.newPage();
+                await page.setContent(craHtmlPdf, { waitUntil: 'networkidle0' });
+                const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '10mm', bottom: '10mm', left: '10mm', right: '10mm' } });
+                await browser.close();
+                pdfBase64 = Buffer.from(pdfBuffer).toString('base64');
+            } catch(e) { console.warn('⚠️ PDF non généré pour renvoi:', e.message); }
+        }
+
+        const newBatchId = generateICSUid();
+        for (const dest of logs) {
+            await enqueueEmail({
+                batchId: newBatchId, recipientEmail: dest.recipient_email, recipientName: dest.recipient_name,
+                senderName: `${req.session.prenom} ${req.session.nom}`, senderEmail: req.session.email || '',
+                subject, htmlBody: craHtml, pdfAttachment: pdfBase64, pdfFilename: pdfBase64 ? pdfFilename : null,
+                actionType: 'cra_diffusion'
+            });
+        }
+        logUserAction(req, 'Renvoi email diffusion CRA (tous destinataires)', { craId, count: logs.length });
+        res.json({ success: true, sent: logs.length });
+    } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Renvoyer un email de diffusion CRA en échec
+app.post('/api/cra/:id/diffusion-resend/:logId', requireAdmin, async (req, res) => {
+    const { id: craId, logId } = req.params;
+    try {
+        const [cra, logEntry] = await Promise.all([
+            new Promise((resolve, reject) => database.get(
+                `SELECT c.*, u.prenom || ' ' || u.nom as expert_nom, u.email as expert_email
+                 FROM cra c LEFT JOIN users u ON c.user_id = u.id WHERE c.id = ?`,
+                [craId], (err, row) => err ? reject(err) : resolve(row)
+            )),
+            new Promise((resolve, reject) => database.get(
+                `SELECT * FROM cra_diffusion_log WHERE id = ?`, [logId],
+                (err, row) => err ? reject(err) : resolve(row)
+            ))
+        ]);
+        if (!cra || !logEntry) return res.status(404).json({ error: 'CRA ou log introuvable' });
+        const moisNom = new Date(cra.annee, cra.mois - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+        const newBatchId = generateICSUid();
+        const signatures = await new Promise((resolve, reject) =>
+            database.all(`SELECT * FROM cra_signatures WHERE cra_id = ? ORDER BY rang`, [craId], (err, r) => err ? reject(err) : resolve(r || []))
+        );
+        const dateStart = `${cra.annee}-${String(cra.mois).padStart(2,'0')}-01`;
+        const dateEnd   = `${cra.annee}-${String(cra.mois).padStart(2,'0')}-31`;
+        const astreintes = await new Promise((resolve, reject) =>
+            database.all(`SELECT * FROM astreintes_hno WHERE user_id = ? AND date_debut <= ? AND date_fin >= ? ORDER BY date_debut`,
+                [cra.user_id, dateEnd, dateStart], (err, r) => err ? reject(err) : resolve(r || []))
+        );
+        const resourceRow = await new Promise((resolve, reject) =>
+            database.get(`SELECT es_rattachement FROM resources WHERE id = ?`, [cra.resource_id], (err, r) => err ? reject(err) : resolve(r))
+        );
+        const craHtml = buildCraDocumentHtml({ cra, astreintes, signatures, moisNom, esRattachement: resourceRow?.es_rattachement || '', appUrl: process.env.APP_URL || `${req.protocol}://${req.get('host')}`, logoSrc: 'cid:ans-logo' });
+        const rhSubject = `AGENCE DU NUMERIQUE EN SANTE - ${cra.expert_nom} - ${moisNom} - Compte-Rendu d'Activité (Renvoi)`;
+        await enqueueEmail({
+            batchId: newBatchId, recipientEmail: logEntry.recipient_email, recipientName: logEntry.recipient_name,
+            senderName: req.session.prenom + ' ' + req.session.nom, senderEmail: req.session.email || '',
+            subject: rhSubject, htmlBody: craHtml, actionType: 'cra_diffusion'
+        });
+        await new Promise((resolve, reject) =>
+            database.run(`UPDATE cra_diffusion_log SET email_batch_id = ?, sent_at = datetime('now') WHERE id = ?`,
+                [newBatchId, logId], err => err ? reject(err) : resolve())
+        );
+        logUserAction(req, 'Renvoi email diffusion CRA', { craId, logId });
+        res.json({ success: true });
     } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -10319,7 +10526,7 @@ app.post('/api/cra/:id/visa/:niveau', requireAdmin, async (req, res) => {
                 date_debut: a.date_debut < dateStart ? dateStart : a.date_debut,
                 date_fin:   a.date_fin   > dateEnd   ? dateEnd   : a.date_fin
             }));
-            const craHtml = buildCraDocumentHtml({ cra, astreintes, signatures, moisNom, esRattachement });
+            const craHtml = buildCraDocumentHtml({ cra, astreintes, signatures, moisNom, esRattachement, appUrl: process.env.APP_URL || `${req.protocol}://${req.get('host')}`, logoSrc: 'cid:ans-logo' });
             const batchId = generateICSUid();
             const moisAnnee = new Date(cra.annee, cra.mois - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
             const rhSubject = `AGENCE DU NUMERIQUE EN SANTE - ${cra.expert_nom} - ${moisAnnee} - Compte-Rendu d'Activité`;
@@ -10345,20 +10552,20 @@ app.post('/api/cra/:id/visa/:niveau', requireAdmin, async (req, res) => {
                 });
             }
 
-            // Enregistrer le log de diffusion
+            // Enregistrer le log de diffusion (avec le batch_id pour suivre le statut email)
             for (const rh of rhEsRecipients) {
                 await new Promise((resolve, reject) => {
                     database.run(
-                        `INSERT INTO cra_diffusion_log (cra_id, recipient_email, recipient_name, recipient_type, sent_at) VALUES (?, ?, ?, 'rh_es', ?)`,
-                        [craId, rh.email, rh.nom || rh.email, diffuseNow], err => err ? reject(err) : resolve()
+                        `INSERT INTO cra_diffusion_log (cra_id, recipient_email, recipient_name, recipient_type, sent_at, email_batch_id) VALUES (?, ?, ?, 'rh_es', ?, ?)`,
+                        [craId, rh.email, rh.nom || rh.email, diffuseNow, batchId], err => err ? reject(err) : resolve()
                     );
                 });
             }
             for (const rh of drhAnsRecipients) {
                 await new Promise((resolve, reject) => {
                     database.run(
-                        `INSERT INTO cra_diffusion_log (cra_id, recipient_email, recipient_name, recipient_type, sent_at) VALUES (?, ?, ?, 'drh_ans', ?)`,
-                        [craId, rh.email, rh.nom || rh.email, diffuseNow], err => err ? reject(err) : resolve()
+                        `INSERT INTO cra_diffusion_log (cra_id, recipient_email, recipient_name, recipient_type, sent_at, email_batch_id) VALUES (?, ?, ?, 'drh_ans', ?, ?)`,
+                        [craId, rh.email, rh.nom || rh.email, diffuseNow, batchId], err => err ? reject(err) : resolve()
                     );
                 });
             }
@@ -10491,15 +10698,36 @@ app.post('/api/cra/:id/diffuser', requireAdmin, async (req, res) => {
         });
         const moisNom = new Date(cra.annee, cra.mois - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
         const esRattachement = cra.es_rattachement || '';
-        const craHtml = buildCraDocumentHtml({ cra, astreintes, signatures, moisNom, esRattachement });
+        const craHtml = buildCraDocumentHtml({ cra, astreintes, signatures, moisNom, esRattachement, appUrl: process.env.APP_URL || `${req.protocol}://${req.get('host')}`, logoSrc: 'cid:ans-logo' });
+        const craHtmlPdf = buildCraDocumentHtml({ cra, astreintes, signatures, moisNom, esRattachement });
         const rhSubject = `AGENCE DU NUMERIQUE EN SANTE - ${cra.expert_nom} - ${moisNom} - Compte-Rendu d'Activité`;
         const batchId = generateICSUid();
+        const moisNomCap = moisNom.charAt(0).toUpperCase() + moisNom.slice(1);
+        const pdfFilename = `CRA_${(cra.expert_nom||'').replace(/\s+/g,'_')}_${moisNomCap}.pdf`;
+
+        // Générer le PDF avec Puppeteer si disponible
+        let pdfBase64 = null;
+        if (puppeteer) {
+            try {
+                const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+                const page = await browser.newPage();
+                await page.setContent(craHtmlPdf, { waitUntil: 'networkidle0' });
+                const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '10mm', bottom: '10mm', left: '10mm', right: '10mm' } });
+                await browser.close();
+                pdfBase64 = Buffer.from(pdfBuffer).toString('base64');
+                console.log(`📄 PDF CRA généré: ${pdfFilename} (${Math.round(pdfBuffer.length/1024)}Ko)`);
+            } catch(pdfErr) {
+                console.warn('⚠️ Génération PDF échouée, email sans pièce jointe:', pdfErr.message);
+            }
+        }
+
         for (const rh of rhRecipients) {
             await enqueueEmail({
                 batchId, recipientEmail: rh.email, recipientName: rh.nom || rh.email,
                 senderName: `${req.session.prenom} ${req.session.nom}`, senderEmail: req.session.email || '',
-                subject: rhSubject,
-                htmlBody: craHtml, actionType: 'cra_diffusion'
+                subject: rhSubject, htmlBody: craHtml,
+                pdfAttachment: pdfBase64, pdfFilename: pdfBase64 ? pdfFilename : null,
+                actionType: 'cra_diffusion'
             });
         }
         for (const rh of rhRecipients) {
@@ -11823,17 +12051,34 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Serveur Ecoute
-app.listen(PORT, () => {
-    console.log(`🚀 Serveur démarré sur le port ${PORT}`);
-    console.log(`👤 Compte admin: admin / Admin2025!`);
-    console.log(`⏰ Automatisations programmées actives`);
-    
-    // Préchauffer la connexion SMTP après 5 secondes (laisser le temps à la config de se charger)
-    setTimeout(async () => {
-        await warmupSMTPConnection();
-    }, 5000);
-});
+// Serveur Ecoute — avec auto-kill si le port est déjà pris
+function startServer() {
+    const server = app.listen(PORT, () => {
+        console.log(`🚀 Serveur démarré sur le port ${PORT}`);
+        console.log(`👤 Compte admin: admin / Admin2025!`);
+        console.log(`⏰ Automatisations programmées actives`);
+        setTimeout(async () => { await warmupSMTPConnection(); }, 5000);
+    });
+
+    server.on('error', async (err) => {
+        if (err.code === 'EADDRINUSE') {
+            console.warn(`⚠️  Port ${PORT} occupé — tentative de libération...`);
+            try {
+                const { execSync } = await import('child_process');
+                execSync(`lsof -ti :${PORT} | xargs kill -9`);
+                console.log(`✅ Port ${PORT} libéré — redémarrage dans 1s...`);
+                setTimeout(() => startServer(), 1000);
+            } catch(e) {
+                console.error(`❌ Impossible de libérer le port ${PORT} :`, e.message);
+                process.exit(1);
+            }
+        } else {
+            console.error('❌ Erreur serveur :', err);
+            process.exit(1);
+        }
+    });
+}
+startServer();
 
 // Fonction pour préchauffer la connexion SMTP (pool du worker uniquement)
 async function warmupSMTPConnection() {
