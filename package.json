@@ -24,6 +24,7 @@
     "express-session": "^1.17.3",
     "node-cron": "^3.0.3",
     "nodemailer": "^7.0.9",
+    "puppeteer": "^25.3.0",
     "qrcode": "^1.5.4",
     "sqlite": "^5.0.1",
     "sqlite3": "^5.1.6"
