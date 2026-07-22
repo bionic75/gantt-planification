@@ -10208,45 +10208,64 @@ app.post('/api/cra/:id/diffusion-resend-all', requireAdmin, async (req, res) => 
         if (!cra) return res.status(404).json({ error: 'CRA introuvable' });
         if (logs.length === 0) return res.status(400).json({ error: 'Aucun destinataire trouvé dans le log de diffusion' });
 
-        const moisNom = new Date(cra.annee, cra.mois - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
-        const moisNomCap = moisNom.charAt(0).toUpperCase() + moisNom.slice(1);
-        const [astreintes, signatures, resourceRow] = await Promise.all([
-            new Promise((resolve, reject) => database.all(
-                `SELECT * FROM astreintes_hno WHERE user_id = ? AND date_debut >= ? AND date_debut <= ? ORDER BY date_debut`,
-                [cra.user_id, `${cra.annee}-${String(cra.mois).padStart(2,'0')}-01`, `${cra.annee}-${String(cra.mois).padStart(2,'0')}-31`],
-                (err, r) => err ? reject(err) : resolve(r || [])
-            )),
-            new Promise((resolve, reject) => database.all(`SELECT * FROM cra_signatures WHERE cra_id = ? ORDER BY rang`, [craId], (err, r) => err ? reject(err) : resolve(r || []))),
-            new Promise((resolve, reject) => database.get(`SELECT es_rattachement FROM resources WHERE id = ?`, [cra.resource_id], (err, r) => err ? reject(err) : resolve(r)))
-        ]);
-        const craHtml = buildCraDocumentHtml({ cra, astreintes, signatures, moisNom, esRattachement: resourceRow?.es_rattachement || '', appUrl: process.env.APP_URL || `${req.protocol}://${req.get('host')}`, logoSrc: 'cid:ans-logo' });
-        const craHtmlPdf = buildCraDocumentHtml({ cra, astreintes, signatures, moisNom, esRattachement: resourceRow?.es_rattachement || '' });
-        const subject = `AGENCE DU NUMERIQUE EN SANTE - ${cra.expert_nom} - ${moisNom} - Compte-Rendu d'Activité (Renvoi)`;
-        const pdfFilename = `CRA_${(cra.expert_nom||'').replace(/\s+/g,'_')}_${moisNomCap}.pdf`;
-
-        let pdfBase64 = null;
-        if (puppeteer) {
-            try {
-                const browser = await puppeteer.launch({ executablePath: process.env.PUPPETEER_EXECUTABLE_PATH, headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
-                const page = await browser.newPage();
-                await page.setContent(craHtmlPdf, { waitUntil: 'networkidle0' });
-                const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '10mm', bottom: '10mm', left: '10mm', right: '10mm' } });
-                await browser.close();
-                pdfBase64 = Buffer.from(pdfBuffer).toString('base64');
-            } catch(e) { console.warn('⚠️ PDF non généré pour renvoi:', e.message); }
-        }
-
-        const newBatchId = generateICSUid();
-        for (const dest of logs) {
-            await enqueueEmail({
-                batchId: newBatchId, recipientEmail: dest.recipient_email, recipientName: dest.recipient_name,
-                senderName: `${req.session.prenom} ${req.session.nom}`, senderEmail: req.session.email || '',
-                subject, htmlBody: craHtml, pdfAttachment: pdfBase64, pdfFilename: pdfBase64 ? pdfFilename : null,
-                actionType: 'cra_diffusion'
-            });
-        }
-        logUserAction(req, 'Renvoi email diffusion CRA (tous destinataires)', { craId, count: logs.length });
+        // Répondre immédiatement : la génération PDF (Puppeteer) peut prendre plusieurs
+        // dizaines de secondes et ferait sinon expirer le proxy Render (504). L'envoi
+        // réel des emails passe de toute façon par la file d'attente asynchrone.
         res.json({ success: true, sent: logs.length });
+
+        const senderName = `${req.session.prenom} ${req.session.nom}`;
+        const senderEmail = req.session.email || '';
+        const appUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
+
+        (async () => {
+            try {
+                const moisNom = new Date(cra.annee, cra.mois - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+                const moisNomCap = moisNom.charAt(0).toUpperCase() + moisNom.slice(1);
+                const [astreintes, signatures, resourceRow] = await Promise.all([
+                    new Promise((resolve, reject) => database.all(
+                        `SELECT * FROM astreintes_hno WHERE user_id = ? AND date_debut >= ? AND date_debut <= ? ORDER BY date_debut`,
+                        [cra.user_id, `${cra.annee}-${String(cra.mois).padStart(2,'0')}-01`, `${cra.annee}-${String(cra.mois).padStart(2,'0')}-31`],
+                        (err, r) => err ? reject(err) : resolve(r || [])
+                    )),
+                    new Promise((resolve, reject) => database.all(`SELECT * FROM cra_signatures WHERE cra_id = ? ORDER BY rang`, [craId], (err, r) => err ? reject(err) : resolve(r || []))),
+                    new Promise((resolve, reject) => database.get(`SELECT es_rattachement FROM resources WHERE id = ?`, [cra.resource_id], (err, r) => err ? reject(err) : resolve(r)))
+                ]);
+                const craHtml = buildCraDocumentHtml({ cra, astreintes, signatures, moisNom, esRattachement: resourceRow?.es_rattachement || '', appUrl, logoSrc: 'cid:ans-logo' });
+                const craHtmlPdf = buildCraDocumentHtml({ cra, astreintes, signatures, moisNom, esRattachement: resourceRow?.es_rattachement || '' });
+                const subject = `AGENCE DU NUMERIQUE EN SANTE - ${cra.expert_nom} - ${moisNom} - Compte-Rendu d'Activité (Renvoi)`;
+                const pdfFilename = `CRA_${(cra.expert_nom||'').replace(/\s+/g,'_')}_${moisNomCap}.pdf`;
+
+                let pdfBase64 = null;
+                if (puppeteer) {
+                    try {
+                        const browser = await puppeteer.launch({ executablePath: process.env.PUPPETEER_EXECUTABLE_PATH, headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+                        const page = await browser.newPage();
+                        await page.setContent(craHtmlPdf, { waitUntil: 'networkidle0' });
+                        const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '10mm', bottom: '10mm', left: '10mm', right: '10mm' } });
+                        await browser.close();
+                        pdfBase64 = Buffer.from(pdfBuffer).toString('base64');
+                        console.log(`📄 PDF CRA généré pour renvoi: ${pdfFilename} (${Math.round(pdfBuffer.length/1024)}Ko)`);
+                    } catch(e) { console.warn('⚠️ PDF non généré pour renvoi:', e.message); }
+                } else {
+                    console.warn('⚠️ Puppeteer non chargé — renvoi CRA sans PDF');
+                }
+
+                const newBatchId = generateICSUid();
+                for (const dest of logs) {
+                    await enqueueEmail({
+                        batchId: newBatchId, recipientEmail: dest.recipient_email, recipientName: dest.recipient_name,
+                        senderName, senderEmail,
+                        subject, htmlBody: craHtml, pdfAttachment: pdfBase64, pdfFilename: pdfBase64 ? pdfFilename : null,
+                        actionType: 'cra_diffusion'
+                    });
+                }
+                console.log(`✅ Renvoi CRA ${craId}: ${logs.length} email(s) mis en file (PDF: ${pdfBase64 ? 'oui' : 'non'})`);
+            } catch (bgErr) {
+                console.error(`❌ Renvoi CRA ${craId}: échec en arrière-plan:`, bgErr.message);
+            }
+        })();
+
+        logUserAction(req, 'Renvoi email diffusion CRA (tous destinataires)', { craId, count: logs.length });
     } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -10267,6 +10286,7 @@ app.post('/api/cra/:id/diffusion-resend/:logId', requireAdmin, async (req, res) 
         ]);
         if (!cra || !logEntry) return res.status(404).json({ error: 'CRA ou log introuvable' });
         const moisNom = new Date(cra.annee, cra.mois - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+        const moisNomCap = moisNom.charAt(0).toUpperCase() + moisNom.slice(1);
         const newBatchId = generateICSUid();
         const signatures = await new Promise((resolve, reject) =>
             database.all(`SELECT * FROM cra_signatures WHERE cra_id = ? ORDER BY rang`, [craId], (err, r) => err ? reject(err) : resolve(r || []))
@@ -10281,18 +10301,53 @@ app.post('/api/cra/:id/diffusion-resend/:logId', requireAdmin, async (req, res) 
             database.get(`SELECT es_rattachement FROM resources WHERE id = ?`, [cra.resource_id], (err, r) => err ? reject(err) : resolve(r))
         );
         const craHtml = buildCraDocumentHtml({ cra, astreintes, signatures, moisNom, esRattachement: resourceRow?.es_rattachement || '', appUrl: process.env.APP_URL || `${req.protocol}://${req.get('host')}`, logoSrc: 'cid:ans-logo' });
+        const craHtmlPdf = buildCraDocumentHtml({ cra, astreintes, signatures, moisNom, esRattachement: resourceRow?.es_rattachement || '' });
         const rhSubject = `AGENCE DU NUMERIQUE EN SANTE - ${cra.expert_nom} - ${moisNom} - Compte-Rendu d'Activité (Renvoi)`;
-        await enqueueEmail({
-            batchId: newBatchId, recipientEmail: logEntry.recipient_email, recipientName: logEntry.recipient_name,
-            senderName: req.session.prenom + ' ' + req.session.nom, senderEmail: req.session.email || '',
-            subject: rhSubject, htmlBody: craHtml, actionType: 'cra_diffusion'
-        });
+        const pdfFilename = `CRA_${(cra.expert_nom||'').replace(/\s+/g,'_')}_${moisNomCap}.pdf`;
+
         await new Promise((resolve, reject) =>
             database.run(`UPDATE cra_diffusion_log SET email_batch_id = ?, sent_at = datetime('now') WHERE id = ?`,
                 [newBatchId, logId], err => err ? reject(err) : resolve())
         );
         logUserAction(req, 'Renvoi email diffusion CRA', { craId, logId });
+
+        // Répondre immédiatement : la génération PDF (Puppeteer) peut prendre plusieurs
+        // dizaines de secondes et ferait sinon expirer le proxy Render (504). L'envoi
+        // réel de l'email passe de toute façon par la file d'attente asynchrone.
         res.json({ success: true });
+
+        const senderName = req.session.prenom + ' ' + req.session.nom;
+        const senderEmail = req.session.email || '';
+
+        (async () => {
+            let pdfBase64 = null;
+            if (puppeteer) {
+                try {
+                    const browser = await puppeteer.launch({ executablePath: process.env.PUPPETEER_EXECUTABLE_PATH, headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+                    const page = await browser.newPage();
+                    await page.setContent(craHtmlPdf, { waitUntil: 'networkidle0' });
+                    const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '10mm', bottom: '10mm', left: '10mm', right: '10mm' } });
+                    await browser.close();
+                    pdfBase64 = Buffer.from(pdfBuffer).toString('base64');
+                    console.log(`📄 PDF CRA généré pour renvoi: ${pdfFilename} (${Math.round(pdfBuffer.length/1024)}Ko)`);
+                } catch(e) { console.warn('⚠️ PDF non généré pour renvoi:', e.message); }
+            } else {
+                console.warn('⚠️ Puppeteer non chargé — renvoi CRA sans PDF');
+            }
+
+            try {
+                await enqueueEmail({
+                    batchId: newBatchId, recipientEmail: logEntry.recipient_email, recipientName: logEntry.recipient_name,
+                    senderName, senderEmail,
+                    subject: rhSubject, htmlBody: craHtml,
+                    pdfAttachment: pdfBase64, pdfFilename: pdfBase64 ? pdfFilename : null,
+                    actionType: 'cra_diffusion'
+                });
+                console.log(`✅ Renvoi CRA ${craId} (log ${logId}) mis en file (PDF: ${pdfBase64 ? 'oui' : 'non'})`);
+            } catch (bgErr) {
+                console.error(`❌ Renvoi CRA ${craId} (log ${logId}): échec mise en file en arrière-plan:`, bgErr.message);
+            }
+        })();
     } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -10705,31 +10760,6 @@ app.post('/api/cra/:id/diffuser', requireAdmin, async (req, res) => {
         const moisNomCap = moisNom.charAt(0).toUpperCase() + moisNom.slice(1);
         const pdfFilename = `CRA_${(cra.expert_nom||'').replace(/\s+/g,'_')}_${moisNomCap}.pdf`;
 
-        // Générer le PDF avec Puppeteer si disponible
-        let pdfBase64 = null;
-        if (puppeteer) {
-            try {
-                const browser = await puppeteer.launch({ executablePath: process.env.PUPPETEER_EXECUTABLE_PATH, headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
-                const page = await browser.newPage();
-                await page.setContent(craHtmlPdf, { waitUntil: 'networkidle0' });
-                const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '10mm', bottom: '10mm', left: '10mm', right: '10mm' } });
-                await browser.close();
-                pdfBase64 = Buffer.from(pdfBuffer).toString('base64');
-                console.log(`📄 PDF CRA généré: ${pdfFilename} (${Math.round(pdfBuffer.length/1024)}Ko)`);
-            } catch(pdfErr) {
-                console.warn('⚠️ Génération PDF échouée, email sans pièce jointe:', pdfErr.message);
-            }
-        }
-
-        for (const rh of rhRecipients) {
-            await enqueueEmail({
-                batchId, recipientEmail: rh.email, recipientName: rh.nom || rh.email,
-                senderName: `${req.session.prenom} ${req.session.nom}`, senderEmail: req.session.email || '',
-                subject: rhSubject, htmlBody: craHtml,
-                pdfAttachment: pdfBase64, pdfFilename: pdfBase64 ? pdfFilename : null,
-                actionType: 'cra_diffusion'
-            });
-        }
         for (const rh of rhRecipients) {
             await new Promise((resolve, reject) => {
                 database.run(
@@ -10741,7 +10771,48 @@ app.post('/api/cra/:id/diffuser', requireAdmin, async (req, res) => {
         await new Promise((resolve, reject) => {
             database.run(`UPDATE cra SET statut = 'diffuse', diffuse_at = ? WHERE id = ?`, [now, craId], err => err ? reject(err) : resolve());
         });
+
+        // Répondre immédiatement : la génération PDF (Puppeteer) peut prendre plusieurs
+        // dizaines de secondes et ferait sinon expirer le proxy Render (504). L'envoi
+        // réel des emails passe de toute façon par la file d'attente asynchrone.
         res.json({ success: true, sent: rhRecipients.length });
+
+        const senderName = `${req.session.prenom} ${req.session.nom}`;
+        const senderEmail = req.session.email || '';
+
+        (async () => {
+            let pdfBase64 = null;
+            if (puppeteer) {
+                try {
+                    const browser = await puppeteer.launch({ executablePath: process.env.PUPPETEER_EXECUTABLE_PATH, headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+                    const page = await browser.newPage();
+                    await page.setContent(craHtmlPdf, { waitUntil: 'networkidle0' });
+                    const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '10mm', bottom: '10mm', left: '10mm', right: '10mm' } });
+                    await browser.close();
+                    pdfBase64 = Buffer.from(pdfBuffer).toString('base64');
+                    console.log(`📄 PDF CRA généré: ${pdfFilename} (${Math.round(pdfBuffer.length/1024)}Ko)`);
+                } catch(pdfErr) {
+                    console.warn('⚠️ Génération PDF échouée, email sans pièce jointe:', pdfErr.message);
+                }
+            } else {
+                console.warn('⚠️ Puppeteer non chargé — diffusion CRA sans PDF');
+            }
+
+            try {
+                for (const rh of rhRecipients) {
+                    await enqueueEmail({
+                        batchId, recipientEmail: rh.email, recipientName: rh.nom || rh.email,
+                        senderName, senderEmail,
+                        subject: rhSubject, htmlBody: craHtml,
+                        pdfAttachment: pdfBase64, pdfFilename: pdfBase64 ? pdfFilename : null,
+                        actionType: 'cra_diffusion'
+                    });
+                }
+                console.log(`✅ Diffusion CRA ${craId}: ${rhRecipients.length} email(s) mis en file (PDF: ${pdfBase64 ? 'oui' : 'non'})`);
+            } catch (bgErr) {
+                console.error(`❌ Diffusion CRA ${craId}: échec mise en file en arrière-plan:`, bgErr.message);
+            }
+        })();
     } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
