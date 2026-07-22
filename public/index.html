@@ -3503,6 +3503,28 @@
 
     <script>
         const API_URL = '/api';
+
+        // Intercepteur global : détecte les sessions terminées par force-logout
+        (function() {
+            const _origFetch = window.fetch;
+            window.fetch = async function(...args) {
+                const response = await _origFetch.apply(this, args);
+                if (response.status === 401) {
+                    const clone = response.clone();
+                    try {
+                        const data = await clone.json();
+                        if (data.error === 'SESSION_TERMINATED') {
+                            document.getElementById('loginPage').classList.add('active');
+                            setTimeout(() => {
+                                alert('⚠️ Votre session a été fermée par un administrateur. Veuillez vous reconnecter.');
+                            }, 50);
+                        }
+                    } catch(e) { /* réponse non-JSON, on ignore */ }
+                }
+                return response;
+            };
+        })();
+
         let resources = [];
         let scheduleData = {};
         let oldScheduleData = {}; // Pour comparer les changements
