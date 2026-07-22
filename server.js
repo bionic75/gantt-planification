@@ -1,4 +1,4 @@
-// v1.11.33
+// v1.11.34
 import express from 'express';
 console.log('✅ Express importé');
 import cors from 'cors';
@@ -9909,13 +9909,13 @@ app.post('/api/cra/launch', requireAdmin, async (req, res) => {
         if (!expert) return res.status(404).json({ error: 'Expert introuvable' });
         const existing = await new Promise((resolve, reject) => {
             database.get(
-                `SELECT id, statut, deleted FROM cra WHERE user_id = ? AND mois = ? AND annee = ?`,
+                `SELECT id, statut FROM cra WHERE user_id = ? AND mois = ? AND annee = ? AND (deleted IS NULL OR deleted = 0)`,
                 [user_id, mois, annee], (err, row) => err ? reject(err) : resolve(row)
             );
         });
         if (existing) {
-            const label = existing.deleted ? 'supprimé' : existing.statut === 'diffuse' ? 'signé' : 'en cours de traitement';
-            return res.status(409).json({ error: `Un CRA ${label} existe déjà pour cet expert sur cette période. Restaurez-le depuis la rubrique "CRA supprimés" si nécessaire.` });
+            const label = existing.statut === 'diffuse' ? 'signé' : 'en cours de traitement';
+            return res.status(409).json({ error: `Un CRA ${label} existe déjà pour cet expert sur cette période.` });
         }
         await new Promise((resolve, reject) => {
             database.run(
