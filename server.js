@@ -1,6 +1,4 @@
-// v1.11.39
-import { createRequire } from 'module';
-const _require = createRequire(import.meta.url);
+// v1.11.41
 import express from 'express';
 console.log('✅ Express importé');
 import cors from 'cors';
@@ -12146,7 +12144,7 @@ app.get('*', (req, res) => {
 });
 
 // Serveur Ecoute — avec auto-kill si le port est déjà pris
-function startServer(attempt = 1) {
+async function startServer(attempt = 1) {
     if (attempt > 3) {
         console.error(`❌ Impossible de démarrer après 3 tentatives. Libérez le port ${PORT} manuellement puis relancez.`);
         process.exit(1);
@@ -12154,7 +12152,7 @@ function startServer(attempt = 1) {
 
     // Libérer le port AVANT d'écouter pour éviter la boucle infinie
     try {
-        const { execSync } = _require('child_process');
+        const { execSync } = await import('child_process');
         const pids = execSync(`lsof -ti :${PORT} 2>/dev/null || true`).toString().trim();
         if (pids) {
             console.warn(`⚠️  Port ${PORT} occupé (PID ${pids.replace(/\n/g,' ')}) — libération...`);

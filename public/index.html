@@ -1,4 +1,4 @@
-<!-- v1.11.32 -->
+<!-- v1.11.33 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -686,19 +686,19 @@
                 
                 <div style="display: grid; grid-template-columns: 1fr 1fr 2fr 2fr; gap: 10px; align-items: start;">
                     <div>
-                        <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px;">Date de début *</label>
-                        <input type="date" id="myEventStartDate" style="width: 100%; padding: 6px;" onchange="prefillMyEventEndDate(); updateMyEventPeriodVisibility()">
+                        <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px; line-height: 14px; height: 14px;">Date de début *</label>
+                        <input type="date" id="myEventStartDate" style="width: 100%; padding: 5px 6px; height: 32px; box-sizing: border-box;" onchange="prefillMyEventEndDate(); updateMyEventPeriodVisibility()">
                     </div>
                     <div>
-                        <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px;">Date de fin</label>
-                        <input type="date" id="myEventEndDate" style="width: 100%; padding: 6px;" onchange="updateMyEventPeriodVisibility()">
+                        <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px; line-height: 14px; height: 14px;">Date de fin</label>
+                        <input type="date" id="myEventEndDate" style="width: 100%; padding: 5px 6px; height: 32px; box-sizing: border-box;" onchange="updateMyEventPeriodVisibility()">
                     </div>
                     <div>
-                        <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px;">Libellé *</label>
-                        <input type="text" id="myEventLabel" placeholder="Ex: FORMATION, RÉUNION..." style="width: 100%; padding: 6px; text-transform: uppercase;" oninput="this.value = this.value.toUpperCase(); updateMyEventPreview()">
+                        <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px; line-height: 14px; height: 14px;">Libellé *</label>
+                        <input type="text" id="myEventLabel" placeholder="Ex: FORMATION, RÉUNION..." style="width: 100%; padding: 5px 6px; height: 32px; box-sizing: border-box; text-transform: uppercase;" oninput="this.value = this.value.toUpperCase(); updateMyEventPreview()">
                     </div>
                     <div style="position: relative;">
-                        <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px;">👥 Participant(s)</label>
+                        <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px; line-height: 14px; height: 14px;">👥 Participant(s)</label>
                         <div id="myEventParticipantsContainer" style="display: flex; flex-wrap: wrap; gap: 4px; padding: 3px 6px; border: 1px solid #ccc; border-radius: 4px; min-height: 32px; align-items: center; background: white; cursor: text;" onclick="document.getElementById('myEventParticipantInput').focus()">
                             <input type="text" id="myEventParticipantInput" placeholder="Nom ou email..." 
                                 style="border: none; outline: none; flex: 1; min-width: 80px; padding: 3px 0; font-size: 12px;" 
