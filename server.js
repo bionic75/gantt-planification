@@ -12143,25 +12143,12 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Serveur Ecoute — avec auto-kill si le port est déjà pris
+// Serveur Ecoute — réessaie si le port n'est pas encore libéré par le process précédent
 async function startServer(attempt = 1) {
     if (attempt > 3) {
         console.error(`❌ Impossible de démarrer après 3 tentatives. Libérez le port ${PORT} manuellement puis relancez.`);
         process.exit(1);
     }
-
-    // Libérer le port AVANT d'écouter pour éviter la boucle infinie
-    try {
-        const { execSync } = await import('child_process');
-        const pids = execSync(`lsof -ti :${PORT} 2>/dev/null || true`).toString().trim();
-        if (pids) {
-            console.warn(`⚠️  Port ${PORT} occupé (PID ${pids.replace(/\n/g,' ')}) — libération...`);
-            try { execSync(`kill -9 ${pids.replace(/\n/g,' ')} 2>/dev/null`); } catch(e) {}
-            console.log(`✅ Port ${PORT} libéré — démarrage dans 1s...`);
-            setTimeout(() => startServer(attempt + 1), 1000);
-            return;
-        }
-    } catch(e) { /* lsof non disponible, on continue */ }
 
     const server = app.listen(PORT, () => {
         console.log(`🚀 Serveur démarré sur le port ${PORT}`);
