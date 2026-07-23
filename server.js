@@ -1,4 +1,4 @@
-// v1.11.36
+// v1.11.37
 import express from 'express';
 console.log('✅ Express importé');
 import cors from 'cors';
@@ -6432,6 +6432,12 @@ database.run(`
                 else console.log('✅ Migration: period ajouté à custom_events');
             });
         }
+        if (!colNames.includes('grist')) {
+            database.run(`ALTER TABLE custom_events ADD COLUMN grist INTEGER DEFAULT 0`, (e) => {
+                if (e) console.error('Erreur migration grist:', e);
+                else console.log('✅ Migration: grist ajouté à custom_events');
+            });
+        }
     });
 });
 
@@ -6719,7 +6725,7 @@ app.post('/api/custom-events', requireAdmin, async (req, res) => {
 app.post('/api/my-custom-events', requireAuth, async (req, res) => {
     try {
         const { startDate, endDate, label, config, participants, period,
-                location_id, needs_resources, resources_count, notify_user_ids } = req.body;
+                location_id, needs_resources, resources_count, notify_user_ids, grist } = req.body;
         const createdBy = req.session.userId;
 
         if (!startDate || !label) {
@@ -6730,10 +6736,10 @@ app.post('/api/my-custom-events', requireAuth, async (req, res) => {
 
         const eventId = await new Promise((resolve, reject) => {
             database.run(
-                `INSERT INTO custom_events (label, start_date, end_date, config, created_by, period, location_id, needs_resources, resources_count)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                `INSERT INTO custom_events (label, start_date, end_date, config, created_by, period, location_id, needs_resources, resources_count, grist)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [label, startDate, endDate || startDate, JSON.stringify(config), createdBy, finalPeriod,
-                 location_id || null, needs_resources ? 1 : 0, resources_count || 1],
+                 location_id || null, needs_resources ? 1 : 0, resources_count || 1, grist ? 1 : 0],
                 function(err) { if (err) reject(err); else resolve(this.lastID); }
             );
         });
@@ -6983,23 +6989,23 @@ app.post('/api/my-custom-events/:id/join', requireAuth, async (req, res) => {
 app.put('/api/custom-events/:id', requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
-        const { startDate, endDate, label, config, createdBy, participants, period, location_id } = req.body;
+        const { startDate, endDate, label, config, createdBy, participants, period, location_id, grist } = req.body;
 
         const finalPeriod = (period && startDate === (endDate || startDate)) ? period : 'FULL';
 
         if (createdBy !== undefined) {
             await new Promise((resolve, reject) => {
                 database.run(
-                    `UPDATE custom_events SET label = ?, start_date = ?, end_date = ?, config = ?, created_by = ?, period = ?, location_id = ? WHERE id = ?`,
-                    [label, startDate, endDate || startDate, JSON.stringify(config), createdBy, finalPeriod, location_id || null, id],
+                    `UPDATE custom_events SET label = ?, start_date = ?, end_date = ?, config = ?, created_by = ?, period = ?, location_id = ?, grist = ? WHERE id = ?`,
+                    [label, startDate, endDate || startDate, JSON.stringify(config), createdBy, finalPeriod, location_id || null, grist ? 1 : 0, id],
                     (err) => err ? reject(err) : resolve()
                 );
             });
         } else {
             await new Promise((resolve, reject) => {
                 database.run(
-                    `UPDATE custom_events SET label = ?, start_date = ?, end_date = ?, config = ?, period = ?, location_id = ? WHERE id = ?`,
-                    [label, startDate, endDate || startDate, JSON.stringify(config), finalPeriod, location_id || null, id],
+                    `UPDATE custom_events SET label = ?, start_date = ?, end_date = ?, config = ?, period = ?, location_id = ?, grist = ? WHERE id = ?`,
+                    [label, startDate, endDate || startDate, JSON.stringify(config), finalPeriod, location_id || null, grist ? 1 : 0, id],
                     (err) => err ? reject(err) : resolve()
                 );
             });
@@ -7033,7 +7039,7 @@ app.put('/api/custom-events/:id', requireAdmin, async (req, res) => {
 app.put('/api/my-custom-events/:id', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
-        const { startDate, endDate, label, config, participants, period, location_id } = req.body;
+        const { startDate, endDate, label, config, participants, period, location_id, grist } = req.body;
         const userId = req.session.userId;
         const isAdmin = req.session.activeProfile === 'admin';
         
@@ -7052,8 +7058,8 @@ app.put('/api/my-custom-events/:id', requireAuth, async (req, res) => {
         
         await new Promise((resolve, reject) => {
             database.run(
-                `UPDATE custom_events SET label = ?, start_date = ?, end_date = ?, config = ?, period = ?, location_id = ? WHERE id = ?`,
-                [label, startDate, endDate || startDate, JSON.stringify(config), finalPeriod, location_id || null, id],
+                `UPDATE custom_events SET label = ?, start_date = ?, end_date = ?, config = ?, period = ?, location_id = ?, grist = ? WHERE id = ?`,
+                [label, startDate, endDate || startDate, JSON.stringify(config), finalPeriod, location_id || null, grist ? 1 : 0, id],
                 (err) => { if (err) reject(err); else resolve(); }
             );
         });
