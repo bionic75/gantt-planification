@@ -1,4 +1,6 @@
-// v1.11.38
+// v1.11.39
+import { createRequire } from 'module';
+const _require = createRequire(import.meta.url);
 import express from 'express';
 console.log('✅ Express importé');
 import cors from 'cors';
@@ -12144,7 +12146,25 @@ app.get('*', (req, res) => {
 });
 
 // Serveur Ecoute — avec auto-kill si le port est déjà pris
-function startServer() {
+function startServer(attempt = 1) {
+    if (attempt > 3) {
+        console.error(`❌ Impossible de démarrer après 3 tentatives. Libérez le port ${PORT} manuellement puis relancez.`);
+        process.exit(1);
+    }
+
+    // Libérer le port AVANT d'écouter pour éviter la boucle infinie
+    try {
+        const { execSync } = _require('child_process');
+        const pids = execSync(`lsof -ti :${PORT} 2>/dev/null || true`).toString().trim();
+        if (pids) {
+            console.warn(`⚠️  Port ${PORT} occupé (PID ${pids.replace(/\n/g,' ')}) — libération...`);
+            try { execSync(`kill -9 ${pids.replace(/\n/g,' ')} 2>/dev/null`); } catch(e) {}
+            console.log(`✅ Port ${PORT} libéré — démarrage dans 1s...`);
+            setTimeout(() => startServer(attempt + 1), 1000);
+            return;
+        }
+    } catch(e) { /* lsof non disponible, on continue */ }
+
     const server = app.listen(PORT, () => {
         console.log(`🚀 Serveur démarré sur le port ${PORT}`);
         console.log(`👤 Compte admin: admin / Admin2025!`);
@@ -12152,24 +12172,17 @@ function startServer() {
         setTimeout(async () => { await warmupSMTPConnection(); }, 5000);
     });
 
-    server.on('error', async (err) => {
+    server.on('error', (err) => {
         if (err.code === 'EADDRINUSE') {
-            console.warn(`⚠️  Port ${PORT} occupé — tentative de libération...`);
-            try {
-                const { execSync } = await import('child_process');
-                execSync(`lsof -ti :${PORT} | xargs kill -9`);
-                console.log(`✅ Port ${PORT} libéré — redémarrage dans 1s...`);
-                setTimeout(() => startServer(), 1000);
-            } catch(e) {
-                console.error(`❌ Impossible de libérer le port ${PORT} :`, e.message);
-                process.exit(1);
-            }
+            console.warn(`⚠️  Port ${PORT} encore occupé — nouvelle tentative dans 2s...`);
+            setTimeout(() => startServer(attempt + 1), 2000);
         } else {
             console.error('❌ Erreur serveur :', err);
             process.exit(1);
         }
     });
 }
+
 startServer();
 
 // Fonction pour préchauffer la connexion SMTP (pool du worker uniquement)
