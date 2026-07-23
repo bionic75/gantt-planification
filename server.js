@@ -1,4 +1,4 @@
-// v1.11.35
+// v1.11.36
 import express from 'express';
 console.log('✅ Express importé');
 import cors from 'cors';
@@ -65,6 +65,7 @@ app.use(session({
 
 // Map pour tracker les utilisateurs connectés (userId -> { lastActivity, profile })
 const activeSessions = new Map();
+const forcedLogoutSet = new Set(); // userId en attente de déconnexion forcée
 
 // Nettoyer les sessions inactives toutes les minutes (timeout 15 min)
 setInterval(() => {
@@ -1365,12 +1366,19 @@ function requireAuth(req, res, next) {
     if (!req.session || !req.session.userId) {
         return res.status(401).json({ error: 'Non authentifié' });
     }
-    // Vérifier que la session est toujours active (force-logout)
-    if (!activeSessions.has(req.session.userId)) {
+    // Vérifier force-logout explicite (admin a forcé la déconnexion)
+    if (forcedLogoutSet.has(req.session.userId)) {
+        forcedLogoutSet.delete(req.session.userId);
+        activeSessions.delete(req.session.userId);
         req.session.destroy(() => {});
         return res.status(401).json({ error: 'SESSION_TERMINATED', message: 'Votre session a été fermée par un administrateur.' });
     }
-    activeSessions.get(req.session.userId).lastActivity = Date.now();
+    // Re-enregistrer silencieusement si absent (inactivité longue ou redémarrage serveur)
+    if (!activeSessions.has(req.session.userId)) {
+        activeSessions.set(req.session.userId, { userId: req.session.userId, lastActivity: Date.now() });
+    } else {
+        activeSessions.get(req.session.userId).lastActivity = Date.now();
+    }
     next();
 }
 
@@ -3191,9 +3199,11 @@ app.put('/api/users/:id', requireAdmin, (req, res) => {
 app.post('/api/users/:id/force-logout', requireAdmin, (req, res) => {
     const targetId = parseInt(req.params.id);
     if (targetId === req.session.userId) return res.status(400).json({ error: 'Vous ne pouvez pas vous déconnecter vous-même.' });
-    const deleted = activeSessions.delete(targetId);
+    forcedLogoutSet.add(targetId); // déclenchera SESSION_TERMINATED à la prochaine requête de l'utilisateur
+    const wasConnected = activeSessions.has(targetId);
+    activeSessions.delete(targetId);
     logUserAction(req, 'Force déconnexion utilisateur', { targetUserId: targetId });
-    res.json({ success: true, wasConnected: deleted });
+    res.json({ success: true, wasConnected });
 });
 
 app.delete('/api/users/:id', requireAdmin, (req, res) => {
