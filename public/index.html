@@ -743,6 +743,12 @@
                     </div>
                 </div>
 
+                <!-- GRIST -->
+                <div style="margin-top: 8px; display: flex; align-items: center; gap: 8px;">
+                    <input type="checkbox" id="myEventGrist" style="width: auto; margin: 0; cursor: pointer;">
+                    <label for="myEventGrist" style="cursor: pointer; font-size: 12px; color: #555; font-weight: bold; margin: 0;">GRIST</label>
+                </div>
+
                 <!-- Sélecteur demi-journée — visible uniquement si début = fin -->
                 <div id="myEventPeriodSection" style="display: none; margin-top: 8px; padding: 8px 12px; background: #e8f4fd; border-radius: 6px; border: 1px solid #bee3f8;">
                     <label style="font-size: 11px; color: #1565c0; font-weight: bold; display: block; margin-bottom: 6px;">🕐 Demi-journée</label>
@@ -1911,6 +1917,12 @@
                         <select id="customEventLocationId" style="width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
                             <option value="">— Aucune localisation —</option>
                         </select>
+                    </div>
+
+                    <!-- GRIST -->
+                    <div style="margin-top: 8px; display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" id="customEventGrist" style="width: auto; margin: 0; cursor: pointer;">
+                        <label for="customEventGrist" style="cursor: pointer; font-size: 12px; color: #555; font-weight: bold; margin: 0;">GRIST</label>
                     </div>
 
                     <!-- Sélecteur demi-journée — visible uniquement si début = fin -->
@@ -15311,7 +15323,8 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             const period = isSameDay
                 ? (document.querySelector('input[name="customEventPeriod"]:checked')?.value || 'FULL')
                 : 'FULL';
-            
+            const grist = document.getElementById('customEventGrist')?.checked || false;
+
             try {
                 const response = await fetch(`${API_URL}/my-custom-events`, {
                     method: 'POST',
@@ -15324,16 +15337,18 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                         config: { bgColor, textColor, borderColor },
                         participants: adminEventSelectedParticipants.map(p => p.id),
                         period,
-                        location_id: location_id || null
+                        location_id: location_id || null,
+                        grist
                     })
                 });
-                
+
                 if (response.ok) {
                     document.getElementById('customEventStartDate').value = '';
                     document.getElementById('customEventEndDate').value = '';
                     document.getElementById('customEventLabel').value = '';
                     document.getElementById('customEventPeriodFull').checked = true;
                     document.getElementById('customEventPeriodSection').style.display = 'none';
+                    if (document.getElementById('customEventGrist')) document.getElementById('customEventGrist').checked = false;
                     const locSel = document.getElementById('customEventLocationId');
                     if (locSel) locSel.value = '';
                     adminEventSelectedParticipants = [];
@@ -15488,6 +15503,10 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                             📅 ${dateDisplay} <span style="color: #999;">(${diffDays} jour${diffDays > 1 ? 's' : ''})</span>
                         </div>
                         ${participantsHtml}
+                        <div style="margin-top:4px;display:flex;align-items:center;gap:5px;">
+                            <input type="checkbox" ${event.grist ? 'checked' : ''} disabled style="margin:0;cursor:default;opacity:0.5;">
+                            <span style="font-size:10px;color:#aaa;font-weight:bold;">GRIST</span>
+                        </div>
                     </div>
                     <div style="display: flex; gap: 5px;">
                         <button onclick="window.editCustomEvent(${event.id})" style="background: #1e88e5; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;">✏️</button>
@@ -15696,7 +15715,11 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                     editLocSel.appendChild(opt);
                 });
             }
-            
+
+            // Pré-remplir GRIST
+            const editGristCb = document.getElementById('editCustomEventGrist');
+            if (editGristCb) editGristCb.checked = !!event.grist;
+
             document.getElementById('editCustomEventModal').style.display = 'block';
         };
         
@@ -15841,9 +15864,10 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             const textColor = document.getElementById('editCustomEventTextColor').value;
             const borderColor = document.getElementById('editCustomEventBorderColor').value;
             const location_id = document.getElementById('editCustomEventLocationId')?.value || null;
-            
+            const grist = document.getElementById('editCustomEventGrist')?.checked || false;
+
             if (!startDate || !label) { alert('Veuillez remplir tous les champs obligatoires'); return; }
-            
+
             const finalEndDate = endDate || startDate;
             const isSameDay = finalEndDate === startDate;
             const period = isSameDay
@@ -15857,7 +15881,8 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                 config: { bgColor, textColor, borderColor },
                 participants: editEventSelectedParticipants.map(p => p.id),
                 period,
-                location_id: location_id || null
+                location_id: location_id || null,
+                grist
             };
             
             if (currentUser && currentUser.activeProfile === 'admin') {
@@ -22516,6 +22541,10 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                             📅 ${dateDisplay} <span style="color: #999;">(${diffDays} jour${diffDays > 1 ? 's' : ''})</span>
                         </div>
                         ${participantsHtml}
+                        <div style="margin-top:4px;display:flex;align-items:center;gap:5px;">
+                            <input type="checkbox" ${event.grist ? 'checked' : ''} disabled style="margin:0;cursor:default;opacity:0.5;">
+                            <span style="font-size:10px;color:#aaa;font-weight:bold;">GRIST</span>
+                        </div>
                     </div>
                     <div style="display: flex; gap: 5px; flex-wrap: wrap; align-items: center;">
                         ${currentUser && currentUser.activeProfile === 'expert' && event.participants && !event.participants.some(p => p.id === currentUser.id) ? 
@@ -22567,6 +22596,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             const notify_user_ids = notifySelect
                 ? Array.from(notifySelect.selectedOptions).map(o => parseInt(o.value))
                 : [];
+            const grist = document.getElementById('myEventGrist')?.checked || false;
 
             try {
                 const response = await fetch(`${API_URL}/my-custom-events`, {
@@ -22583,7 +22613,8 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                         location_id: location_id || null,
                         needs_resources,
                         resources_count,
-                        notify_user_ids
+                        notify_user_ids,
+                        grist
                     })
                 });
                 
@@ -22635,13 +22666,17 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             // Pré-remplir la localisation
             const locSel = document.getElementById('myEventLocationId');
             if (locSel) locSel.value = event.location_id || '';
-            
+
+            // Pré-remplir GRIST
+            const gristCb = document.getElementById('myEventGrist');
+            if (gristCb) gristCb.checked = !!event.grist;
+
             // Charger les participants existants
             myEventSelectedParticipants = (event.participants || []).map(p => ({
                 id: p.user_id, nom: p.nom, prenom: p.prenom, email: p.email
             }));
             renderMyEventParticipantTags();
-            
+
             editingMyEventId = eventId;
             
             // Gestion du sélecteur de créateur (uniquement pour les admins)
@@ -22694,9 +22729,10 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             const textColor = document.getElementById('myEventTextColor').value;
             const borderColor = document.getElementById('myEventBorderColor').value;
             const location_id = document.getElementById('myEventLocationId')?.value || null;
-            
+            const grist = document.getElementById('myEventGrist')?.checked || false;
+
             if (!startDate || !label) { alert('Date de début et libellé requis'); return; }
-            
+
             const finalEndDate = endDate || startDate;
             const isSameDay = finalEndDate === startDate;
             const period = isSameDay
@@ -22710,7 +22746,8 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 config: { bgColor, textColor, borderColor },
                 participants: myEventSelectedParticipants.map(p => p.id),
                 period,
-                location_id: location_id || null
+                location_id: location_id || null,
+                grist
             };
             
             // Si admin, inclure le créateur sélectionné
@@ -24444,7 +24481,13 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                         <option value="">— Aucune localisation —</option>
                     </select>
                 </div>
-                
+
+                <!-- GRIST -->
+                <div style="margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+                    <input type="checkbox" id="editCustomEventGrist" style="width: auto; margin: 0; cursor: pointer;">
+                    <label for="editCustomEventGrist" style="cursor: pointer; font-size: 12px; color: #555; font-weight: bold; margin: 0;">GRIST</label>
+                </div>
+
                 <!-- Couleurs -->
                 <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px;">
                     <div>
