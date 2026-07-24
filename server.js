@@ -10074,7 +10074,7 @@ async function generateCraPdf(cra, astreintes, signatures, moisNom) {
     const browser = await puppeteer.launch({ executablePath: process.env.PUPPETEER_EXECUTABLE_PATH, args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'], headless: 'new', protocolTimeout: 120000 });
     try {
         const page = await browser.newPage();
-        await page.setContent(html, { waitUntil: 'networkidle0' });
+        await page.setContent(html, { waitUntil: 'domcontentloaded' });
         const pdf = await page.pdf({ format: 'A4', margin: { top: '15mm', right: '15mm', bottom: '20mm', left: '15mm' }, printBackground: true });
         return pdf;
     } finally {
@@ -10260,7 +10260,7 @@ app.post('/api/cra/:id/diffusion-resend-all', requireAdmin, async (req, res) => 
                     try {
                         const browser = await puppeteer.launch({ executablePath: process.env.PUPPETEER_EXECUTABLE_PATH, headless: true, protocolTimeout: 120000, args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'] });
                         const page = await browser.newPage();
-                        await page.setContent(craHtmlPdf, { waitUntil: 'networkidle0' });
+                        await page.setContent(craHtmlPdf, { waitUntil: 'domcontentloaded' });
                         const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '10mm', bottom: '10mm', left: '10mm', right: '10mm' } });
                         await browser.close();
                         pdfBase64 = Buffer.from(pdfBuffer).toString('base64');
@@ -10348,7 +10348,7 @@ app.post('/api/cra/:id/diffusion-resend/:logId', requireAdmin, async (req, res) 
                 try {
                     const browser = await puppeteer.launch({ executablePath: process.env.PUPPETEER_EXECUTABLE_PATH, headless: true, protocolTimeout: 120000, args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'] });
                     const page = await browser.newPage();
-                    await page.setContent(craHtmlPdf, { waitUntil: 'networkidle0' });
+                    await page.setContent(craHtmlPdf, { waitUntil: 'domcontentloaded' });
                     const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '10mm', bottom: '10mm', left: '10mm', right: '10mm' } });
                     await browser.close();
                     pdfBase64 = Buffer.from(pdfBuffer).toString('base64');
@@ -10805,15 +10805,16 @@ app.post('/api/cra/:id/diffuser', requireAdmin, async (req, res) => {
             let pdfBase64 = null;
             if (puppeteer) {
                 try {
-                    const browser = await puppeteer.launch({ executablePath: process.env.PUPPETEER_EXECUTABLE_PATH, headless: true, protocolTimeout: 120000, args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'] });
+                    const browser = await puppeteer.launch({ executablePath: process.env.PUPPETEER_EXECUTABLE_PATH, headless: true, protocolTimeout: 180000, args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'] });
                     const page = await browser.newPage();
-                    await page.setContent(craHtmlPdf, { waitUntil: 'networkidle0' });
+                    page.setDefaultNavigationTimeout(120000);
+                    await page.setContent(craHtmlPdf, { waitUntil: 'domcontentloaded' });
                     const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '10mm', bottom: '10mm', left: '10mm', right: '10mm' } });
                     await browser.close();
                     pdfBase64 = Buffer.from(pdfBuffer).toString('base64');
                     console.log(`📄 PDF CRA généré: ${pdfFilename} (${Math.round(pdfBuffer.length/1024)}Ko)`);
                 } catch(pdfErr) {
-                    console.warn('⚠️ Génération PDF échouée, email sans pièce jointe:', pdfErr.message);
+                    console.error('❌ Génération PDF échouée, email sans pièce jointe:', pdfErr.message);
                 }
             } else {
                 console.warn('⚠️ Puppeteer non chargé — diffusion CRA sans PDF');
