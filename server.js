@@ -1,4 +1,4 @@
-// v1.11.42
+// v1.11.43
 import express from 'express';
 console.log('✅ Express importé');
 import cors from 'cors';
@@ -1164,6 +1164,9 @@ function initDB() {
             });
         });
     });
+    database.run(`ALTER TABLE cra ADD COLUMN pdf_filename TEXT`, () => {});
+    // Créer le répertoire de stockage des PDFs CRA
+    import('fs').then(({ mkdirSync }) => { try { mkdirSync('./data/pdfs', { recursive: true }); } catch(e) {} });
 
     database.run(`
         CREATE TABLE IF NOT EXISTS cra_signatures (
@@ -9889,7 +9892,11 @@ app.get('/api/cra/admin/list', requireAdminOrRh, async (req, res) => {
     let where = '(c.archived IS NULL OR c.archived = 0)';
     const params = [];
     if (user_id) { where += ' AND c.user_id = ?'; params.push(user_id); }
-    if (statut) { where += ' AND c.statut = ?'; params.push(statut); }
+    if (statut) {
+        const statuts = statut.split(',').map(s => s.trim()).filter(Boolean);
+        if (statuts.length === 1) { where += ' AND c.statut = ?'; params.push(statuts[0]); }
+        else { where += ` AND c.statut IN (${statuts.map(() => '?').join(',')})`; params.push(...statuts); }
+    }
     if (mois) { where += ' AND c.mois = ?'; params.push(mois); }
     if (annee) { where += ' AND c.annee = ?'; params.push(annee); }
     database.all(
@@ -10240,7 +10247,6 @@ app.post('/api/cra/:id/diffusion-resend-all', requireAdmin, async (req, res) => 
         (async () => {
             try {
                 const moisNom = new Date(cra.annee, cra.mois - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
-                const moisNomCap = moisNom.charAt(0).toUpperCase() + moisNom.slice(1);
                 const [astreintes, signatures, resourceRow] = await Promise.all([
                     new Promise((resolve, reject) => database.all(
                         `SELECT * FROM astreintes_hno WHERE user_id = ? AND date_debut >= ? AND date_debut <= ? ORDER BY date_debut`,
@@ -10251,23 +10257,18 @@ app.post('/api/cra/:id/diffusion-resend-all', requireAdmin, async (req, res) => 
                     new Promise((resolve, reject) => database.get(`SELECT es_rattachement FROM resources WHERE id = ?`, [cra.resource_id], (err, r) => err ? reject(err) : resolve(r)))
                 ]);
                 const craHtml = buildCraDocumentHtml({ cra, astreintes, signatures, moisNom, esRattachement: resourceRow?.es_rattachement || '', appUrl, logoSrc: 'cid:ans-logo' });
-                const craHtmlPdf = buildCraDocumentHtml({ cra, astreintes, signatures, moisNom, esRattachement: resourceRow?.es_rattachement || '' });
                 const subject = `AGENCE DU NUMERIQUE EN SANTE - ${cra.expert_nom} - ${moisNom} - Compte-Rendu d'Activité (Renvoi)`;
-                const pdfFilename = `CRA_${(cra.expert_nom||'').replace(/\s+/g,'_')}_${moisNomCap}.pdf`;
 
+                // Utiliser le PDF sauvegardé sur disque si disponible
                 let pdfBase64 = null;
-                if (puppeteer) {
+                let pdfFilenameUsed = cra.pdf_filename || null;
+                if (pdfFilenameUsed) {
                     try {
-                        const browser = await puppeteer.launch({ executablePath: process.env.PUPPETEER_EXECUTABLE_PATH, headless: true, protocolTimeout: 120000, args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'] });
-                        const page = await browser.newPage();
-                        await page.setContent(craHtmlPdf, { waitUntil: 'domcontentloaded' });
-                        const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '10mm', bottom: '10mm', left: '10mm', right: '10mm' } });
-                        await browser.close();
-                        pdfBase64 = Buffer.from(pdfBuffer).toString('base64');
-                        console.log(`📄 PDF CRA généré pour renvoi: ${pdfFilename} (${Math.round(pdfBuffer.length/1024)}Ko)`);
-                    } catch(e) { console.warn('⚠️ PDF non généré pour renvoi:', e.message); }
-                } else {
-                    console.warn('⚠️ Puppeteer non chargé — renvoi CRA sans PDF');
+                        const { readFileSync } = await import('fs');
+                        const pdfBuffer = readFileSync(`./data/pdfs/${pdfFilenameUsed}`);
+                        pdfBase64 = pdfBuffer.toString('base64');
+                        console.log(`📄 PDF CRA chargé depuis disque pour renvoi: ${pdfFilenameUsed}`);
+                    } catch(e) { console.warn('⚠️ PDF sur disque introuvable, renvoi sans PDF:', e.message); pdfFilenameUsed = null; }
                 }
 
                 const newBatchId = generateICSUid();
@@ -10276,9 +10277,8 @@ app.post('/api/cra/:id/diffusion-resend-all', requireAdmin, async (req, res) => 
                     const ccEmails = otherDests.length > 0 ? otherDests.map(d => d.recipient_email).join(', ') : null;
                     await enqueueEmail({
                         batchId: newBatchId, recipientEmail: firstDest.recipient_email, recipientName: firstDest.recipient_name,
-                        ccEmails,
-                        senderName, senderEmail,
-                        subject, htmlBody: craHtml, pdfAttachment: pdfBase64, pdfFilename: pdfBase64 ? pdfFilename : null,
+                        ccEmails, senderName, senderEmail,
+                        subject, htmlBody: craHtml, pdfAttachment: pdfBase64, pdfFilename: pdfFilenameUsed,
                         actionType: 'cra_diffusion'
                     });
                 }
@@ -10562,97 +10562,18 @@ app.post('/api/cra/:id/visa/:niveau', requireAdmin, async (req, res) => {
                 actionType: 'cra_visa_n2'
             });
         } else if (niveau === 'n2') {
-            // Diffusion automatique dès le visa N2
-            const diffuseNow = new Date().toISOString();
-            // Récupérer la ressource pour les contacts RH de l'ES
-            const resourceRow = await new Promise((resolve, reject) => {
-                database.get(
-                    `SELECT r.id, r.contacts_rh, r.es_rattachement FROM resources r JOIN users u ON u.resource_id = r.id WHERE u.id = ?`,
-                    [cra.user_id], (err, row) => err ? reject(err) : resolve(row)
-                );
-            });
-            // Contacts RH ES depuis la fiche ressource (fallback : cra_rh_recipients)
-            const esRattachement = resourceRow?.es_rattachement || '';
-            let rhEsRecipients = [];
-            if (resourceRow?.contacts_rh) {
-                rhEsRecipients = resourceRow.contacts_rh.split('\n').map(e => e.trim()).filter(e => e.includes('@')).map(e => ({ email: e, nom: '' }));
-            } else if (resourceRow?.id) {
-                rhEsRecipients = await new Promise((resolve, reject) => {
-                    database.all(`SELECT email, nom FROM cra_rh_recipients WHERE resource_id = ?`, [resourceRow.id], (err, rows) => err ? reject(err) : resolve(rows || []));
-                });
-            }
-            // Contacts DRH ANS depuis la config automation
-            const drhAnsRecipients = (config.drh_ans_infos || []).filter(d => d.email);
-
-            const allRhRecipients = [...rhEsRecipients, ...drhAnsRecipients];
-
-            // Construire le document CRA
-            const signatures = await new Promise((resolve, reject) => {
-                database.all(`SELECT * FROM cra_signatures WHERE cra_id = ? ORDER BY rang`, [craId], (err, rows) => err ? reject(err) : resolve(rows || []));
-            });
-            const dateStart = `${cra.annee}-${String(cra.mois).padStart(2,'0')}-01`;
-            const dateEnd   = `${cra.annee}-${String(cra.mois).padStart(2,'0')}-31`;
-            const astreintes = await new Promise((resolve, reject) => {
-                database.all(
-                    `SELECT * FROM astreintes_hno WHERE user_id = ? AND date_debut >= ? AND date_debut <= ? ORDER BY date_debut`,
-                    [cra.user_id, dateStart, dateEnd],
-                    (err, rows) => err ? reject(err) : resolve(rows || [])
-                );
-            });
-            const craHtml = buildCraDocumentHtml({ cra, astreintes, signatures, moisNom, esRattachement, appUrl: process.env.APP_URL || `${req.protocol}://${req.get('host')}`, logoSrc: 'cid:ans-logo' });
-            const batchId = generateICSUid();
-            const moisAnnee = new Date(cra.annee, cra.mois - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
-            const rhSubject = `AGENCE DU NUMERIQUE EN SANTE - ${cra.expert_nom} - ${moisAnnee} - Compte-Rendu d'Activité`;
-
-            // Envoi aux destinataires RH — un seul email, tous visibles en CC
-            if (allRhRecipients.length > 0) {
-                const [firstRh, ...otherRh] = allRhRecipients;
-                const ccEmails = otherRh.length > 0 ? otherRh.map(r => r.email).join(', ') : null;
-                await enqueueEmail({
-                    batchId, recipientEmail: firstRh.email, recipientName: firstRh.nom || firstRh.email,
-                    ccEmails,
-                    senderName: signerNom, senderEmail: req.session.email || '',
-                    subject: rhSubject,
-                    htmlBody: craHtml, actionType: 'cra_diffusion'
-                });
-            }
-
-            // Notification à l'expert
+            // Visa N2 → le CRA passe en "vise_n2", la diffusion est manuelle via le bouton "A diffuser"
+            // Notification à l'expert que son CRA est prêt à être diffusé
             if (cra.expert_email) {
                 await enqueueEmail({
                     batchId: generateICSUid(), recipientEmail: cra.expert_email, recipientName: cra.expert_nom,
                     senderName: signerNom, senderEmail: req.session.email || '',
-                    subject: `CRA ${moisNom} — diffusé auprès de la RH`,
-                    htmlBody: buildCraEmailHtml({ title: 'CRA diffusé', expertNom: cra.expert_nom, moisNom, craUrl, action: `Votre CRA a été doublement visé et diffusé auprès de la RH (${allRhRecipients.length} destinataire(s)).` }),
-                    actionType: 'cra_diffusion_expert'
+                    subject: `CRA ${moisNom} — doublement visé, en attente de diffusion`,
+                    htmlBody: buildCraEmailHtml({ title: 'CRA visé N2', expertNom: cra.expert_nom, moisNom, craUrl, action: `Votre CRA a été doublement visé par ${signerNom}. Il sera prochainement diffusé auprès de la RH.` }),
+                    actionType: 'cra_visa_n2'
                 });
             }
-
-            // Enregistrer le log de diffusion (avec le batch_id pour suivre le statut email)
-            for (const rh of rhEsRecipients) {
-                await new Promise((resolve, reject) => {
-                    database.run(
-                        `INSERT INTO cra_diffusion_log (cra_id, recipient_email, recipient_name, recipient_type, sent_at, email_batch_id) VALUES (?, ?, ?, 'rh_es', ?, ?)`,
-                        [craId, rh.email, rh.nom || rh.email, diffuseNow, batchId], err => err ? reject(err) : resolve()
-                    );
-                });
-            }
-            for (const rh of drhAnsRecipients) {
-                await new Promise((resolve, reject) => {
-                    database.run(
-                        `INSERT INTO cra_diffusion_log (cra_id, recipient_email, recipient_name, recipient_type, sent_at, email_batch_id) VALUES (?, ?, ?, 'drh_ans', ?, ?)`,
-                        [craId, rh.email, rh.nom || rh.email, diffuseNow, batchId], err => err ? reject(err) : resolve()
-                    );
-                });
-            }
-
-            // Marquer comme diffusé
-            await new Promise((resolve, reject) => {
-                database.run(`UPDATE cra SET statut = 'diffuse', diffuse_at = ? WHERE id = ?`, [diffuseNow, craId], err => err ? reject(err) : resolve());
-            });
-
-            logUserAction(req, 'CRA diffusé automatiquement après visa N2', { craId, recipients: allRhRecipients.length });
-            return res.json({ success: true, diffused: true, sent: allRhRecipients.length });
+            logUserAction(req, 'CRA visé N2 — en attente de diffusion manuelle', { craId });
         }
         res.json({ success: true });
     } catch(e) { res.status(500).json({ error: e.message }); }
@@ -10741,99 +10662,179 @@ app.post('/api/cra/:id/refuser/:niveau', requireAdmin, async (req, res) => {
     }
 });
 
-app.post('/api/cra/:id/diffuser', requireAdmin, async (req, res) => {
+// GET /api/cra/:id/diffusion-recipients — destinataires pré-remplis pour la popup diffusion
+app.get('/api/cra/:id/diffusion-recipients', requireAdmin, async (req, res) => {
     const craId = req.params.id;
-    const now = new Date().toISOString();
     try {
         const cra = await new Promise((resolve, reject) => {
             database.get(
-                `SELECT c.*, r.id as resource_id, r.contacts_rh, r.es_rattachement,
-                        u.prenom || ' ' || u.nom as expert_nom, u.email as expert_email
+                `SELECT c.*, r.id as resource_id, r.contacts_rh, u.email as expert_email, u.prenom || ' ' || u.nom as expert_nom
+                 FROM cra c LEFT JOIN users u ON c.user_id = u.id LEFT JOIN resources r ON u.resource_id = r.id WHERE c.id = ?`,
+                [craId], (err, row) => err ? reject(err) : resolve(row)
+            );
+        });
+        if (!cra) return res.status(404).json({ error: 'CRA introuvable' });
+        const config = await getCraConfig();
+        let rhEs = [];
+        if (cra.contacts_rh) {
+            rhEs = cra.contacts_rh.split('\n').map(e => e.trim()).filter(e => e.includes('@')).map(e => ({ email: e, nom: '' }));
+        } else if (cra.resource_id) {
+            rhEs = await new Promise((resolve, reject) => {
+                database.all(`SELECT email, nom FROM cra_rh_recipients WHERE resource_id = ?`, [cra.resource_id], (err, rows) => err ? reject(err) : resolve(rows || []));
+            });
+        }
+        const drhAns = (config?.drh_ans_infos || []).filter(d => d.email).map(d => ({ email: d.email, nom: d.nom || '' }));
+        const expert = cra.expert_email ? [{ email: cra.expert_email, nom: cra.expert_nom || '' }] : [];
+        res.json({ expert, rh_es: rhEs, drh_ans: drhAns });
+    } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/cra/:id/prepare-pdf — génère le PDF et le sauvegarde sur disque
+app.post('/api/cra/:id/prepare-pdf', requireAdmin, async (req, res) => {
+    const craId = req.params.id;
+    try {
+        if (!puppeteer) return res.status(503).json({ error: 'Puppeteer non disponible' });
+        const cra = await new Promise((resolve, reject) => {
+            database.get(
+                `SELECT c.*, r.es_rattachement, u.prenom || ' ' || u.nom as expert_nom, u.nom as expert_nom_seul, u.prenom as expert_prenom
+                 FROM cra c LEFT JOIN users u ON c.user_id = u.id LEFT JOIN resources r ON u.resource_id = r.id WHERE c.id = ?`,
+                [craId], (err, row) => err ? reject(err) : resolve(row)
+            );
+        });
+        if (!cra) return res.status(404).json({ error: 'CRA introuvable' });
+        if (!['vise_n2', 'diffuse'].includes(cra.statut)) return res.status(400).json({ error: 'CRA non encore doublement visé' });
+
+        const [astreintes, signatures] = await Promise.all([
+            new Promise((resolve, reject) => database.all(
+                `SELECT * FROM astreintes_hno WHERE user_id = ? AND date_debut >= ? AND date_debut <= ? ORDER BY date_debut`,
+                [cra.user_id, `${cra.annee}-${String(cra.mois).padStart(2,'0')}-01`, `${cra.annee}-${String(cra.mois).padStart(2,'0')}-31`],
+                (err, rows) => err ? reject(err) : resolve(rows || [])
+            )),
+            new Promise((resolve, reject) => database.all(`SELECT * FROM cra_signatures WHERE cra_id = ? ORDER BY rang`, [craId], (err, rows) => err ? reject(err) : resolve(rows || [])))
+        ]);
+        const moisNom = new Date(cra.annee, cra.mois - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+        const craHtmlPdf = buildCraDocumentHtml({ cra, astreintes, signatures, moisNom, esRattachement: cra.es_rattachement || '' });
+
+        const now = new Date();
+        const ts = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}${String(now.getSeconds()).padStart(2,'0')}`;
+        const nomSafe = (cra.expert_nom_seul || '').replace(/\s+/g,'_').toUpperCase();
+        const prenomSafe = (cra.expert_prenom || '').replace(/\s+/g,'_');
+        const moisCap = moisNom.charAt(0).toUpperCase() + moisNom.slice(1).replace(/\s+/g,'_');
+        const pdfFilename = `SI-SAMU_CRA_${nomSafe}_${prenomSafe}_${moisCap}_${ts}.pdf`;
+        const pdfPath = `./data/pdfs/${pdfFilename}`;
+
+        const { mkdirSync } = await import('fs');
+        try { mkdirSync('./data/pdfs', { recursive: true }); } catch(e) {}
+
+        const browser = await puppeteer.launch({ executablePath: process.env.PUPPETEER_EXECUTABLE_PATH, headless: true, protocolTimeout: 180000, args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'] });
+        const page = await browser.newPage();
+        page.setDefaultNavigationTimeout(120000);
+        await page.setContent(craHtmlPdf, { waitUntil: 'domcontentloaded' });
+        const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '10mm', bottom: '10mm', left: '10mm', right: '10mm' } });
+        await browser.close();
+
+        const { writeFileSync } = await import('fs');
+        writeFileSync(pdfPath, pdfBuffer);
+        await new Promise((resolve, reject) => database.run(`UPDATE cra SET pdf_filename = ? WHERE id = ?`, [pdfFilename, craId], err => err ? reject(err) : resolve()));
+        console.log(`📄 PDF CRA sauvegardé: ${pdfFilename} (${Math.round(pdfBuffer.length/1024)}Ko)`);
+        res.json({ success: true, pdfFilename });
+    } catch(e) {
+        console.error('❌ Erreur génération PDF CRA:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/cra/:id/diffuser', requireAdmin, async (req, res) => {
+    const craId = req.params.id;
+    const now = new Date().toISOString();
+    // recipients: { expert:[{email,nom}], rh_es:[{email,nom}], drh_ans:[{email,nom}] }
+    const { recipients, pdfFilename } = req.body;
+    try {
+        const cra = await new Promise((resolve, reject) => {
+            database.get(
+                `SELECT c.*, r.es_rattachement, u.prenom || ' ' || u.nom as expert_nom, u.email as expert_email
                  FROM cra c LEFT JOIN users u ON c.user_id = u.id LEFT JOIN resources r ON u.resource_id = r.id WHERE c.id = ?`,
                 [craId], (err, row) => err ? reject(err) : resolve(row)
             );
         });
         if (!cra) return res.status(404).json({ error: 'CRA introuvable' });
         if (cra.statut !== 'vise_n2') return res.status(400).json({ error: 'CRA non encore doublement visé' });
-        let rhRecipients;
-        if (cra.contacts_rh) {
-            rhRecipients = cra.contacts_rh.split('\n').map(e => e.trim()).filter(e => e && e.includes('@')).map(e => ({ email: e, nom: '' }));
-        } else {
-            rhRecipients = await new Promise((resolve, reject) => {
-                database.all(`SELECT email, nom FROM cra_rh_recipients WHERE resource_id = ?`, [cra.resource_id], (err, rows) => err ? reject(err) : resolve(rows || []));
-            });
+        if (!pdfFilename) return res.status(400).json({ error: 'PDF non généré — veuillez d\'abord générer le PDF' });
+
+        // Charger le PDF depuis le disque
+        let pdfBase64 = null;
+        try {
+            const { readFileSync } = await import('fs');
+            const pdfBuffer = readFileSync(`./data/pdfs/${pdfFilename}`);
+            pdfBase64 = pdfBuffer.toString('base64');
+        } catch(e) {
+            return res.status(400).json({ error: `Fichier PDF introuvable: ${pdfFilename}` });
         }
-        const signatures = await new Promise((resolve, reject) => {
-            database.all(`SELECT * FROM cra_signatures WHERE cra_id = ? ORDER BY rang`, [craId], (err, rows) => err ? reject(err) : resolve(rows || []));
-        });
-        const dateStart = `${cra.annee}-${String(cra.mois).padStart(2,'0')}-01`;
-        const dateEnd = `${cra.annee}-${String(cra.mois).padStart(2,'0')}-31`;
-        const astreintes = await new Promise((resolve, reject) => {
-            database.all(`SELECT * FROM astreintes_hno WHERE user_id = ? AND date_debut >= ? AND date_debut <= ? ORDER BY date_debut`,
-                [cra.user_id, dateStart, dateEnd], (err, rows) => err ? reject(err) : resolve(rows || []));
-        });
+
+        const [astreintes, signatures] = await Promise.all([
+            new Promise((resolve, reject) => database.all(
+                `SELECT * FROM astreintes_hno WHERE user_id = ? AND date_debut >= ? AND date_debut <= ? ORDER BY date_debut`,
+                [cra.user_id, `${cra.annee}-${String(cra.mois).padStart(2,'0')}-01`, `${cra.annee}-${String(cra.mois).padStart(2,'0')}-31`],
+                (err, rows) => err ? reject(err) : resolve(rows || [])
+            )),
+            new Promise((resolve, reject) => database.all(`SELECT * FROM cra_signatures WHERE cra_id = ? ORDER BY rang`, [craId], (err, rows) => err ? reject(err) : resolve(rows || [])))
+        ]);
         const moisNom = new Date(cra.annee, cra.mois - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
-        const esRattachement = cra.es_rattachement || '';
-        const craHtml = buildCraDocumentHtml({ cra, astreintes, signatures, moisNom, esRattachement, appUrl: process.env.APP_URL || `${req.protocol}://${req.get('host')}`, logoSrc: 'cid:ans-logo' });
-        const craHtmlPdf = buildCraDocumentHtml({ cra, astreintes, signatures, moisNom, esRattachement });
+        const craHtml = buildCraDocumentHtml({ cra, astreintes, signatures, moisNom, esRattachement: cra.es_rattachement || '', appUrl: process.env.APP_URL || `${req.protocol}://${req.get('host')}`, logoSrc: 'cid:ans-logo' });
         const rhSubject = `AGENCE DU NUMERIQUE EN SANTE - ${cra.expert_nom} - ${moisNom} - Compte-Rendu d'Activité`;
         const batchId = generateICSUid();
-        const moisNomCap = moisNom.charAt(0).toUpperCase() + moisNom.slice(1);
-        const pdfFilename = `CRA_${(cra.expert_nom||'').replace(/\s+/g,'_')}_${moisNomCap}.pdf`;
-
-        for (const rh of rhRecipients) {
-            await new Promise((resolve, reject) => {
-                database.run(
-                    `INSERT INTO cra_diffusion_log (cra_id, recipient_email, recipient_name, recipient_type, sent_at) VALUES (?, ?, ?, 'rh_es', ?)`,
-                    [craId, rh.email, rh.nom || rh.email, now], err => err ? reject(err) : resolve()
-                );
-            });
-        }
-        await new Promise((resolve, reject) => {
-            database.run(`UPDATE cra SET statut = 'diffuse', diffuse_at = ? WHERE id = ?`, [now, craId], err => err ? reject(err) : resolve());
-        });
-
-        // Répondre immédiatement : la génération PDF (Puppeteer) peut prendre plusieurs
-        // dizaines de secondes et ferait sinon expirer le proxy Render (504). L'envoi
-        // réel des emails passe de toute façon par la file d'attente asynchrone.
-        res.json({ success: true, sent: rhRecipients.length });
-
         const senderName = `${req.session.prenom} ${req.session.nom}`;
         const senderEmail = req.session.email || '';
 
-        (async () => {
-            let pdfBase64 = null;
-            if (puppeteer) {
-                try {
-                    const browser = await puppeteer.launch({ executablePath: process.env.PUPPETEER_EXECUTABLE_PATH, headless: true, protocolTimeout: 120000, args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'] });
-                    const page = await browser.newPage();
-                    await page.setContent(craHtmlPdf, { waitUntil: 'domcontentloaded' });
-                    const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '10mm', bottom: '10mm', left: '10mm', right: '10mm' } });
-                    await browser.close();
-                    pdfBase64 = Buffer.from(pdfBuffer).toString('base64');
-                    console.log(`📄 PDF CRA généré: ${pdfFilename} (${Math.round(pdfBuffer.length/1024)}Ko)`);
-                } catch(pdfErr) {
-                    console.warn('⚠️ Génération PDF échouée, email sans pièce jointe:', pdfErr.message);
-                }
-            } else {
-                console.warn('⚠️ Puppeteer non chargé — diffusion CRA sans PDF');
-            }
+        const allRhRecipients = [...(recipients?.rh_es || []), ...(recipients?.drh_ans || [])];
+        const expertRecipients = recipients?.expert || [];
+        const totalSent = allRhRecipients.length + expertRecipients.length;
 
-            try {
-                for (const rh of rhRecipients) {
-                    await enqueueEmail({
-                        batchId, recipientEmail: rh.email, recipientName: rh.nom || rh.email,
-                        senderName, senderEmail,
-                        subject: rhSubject, htmlBody: craHtml,
-                        pdfAttachment: pdfBase64, pdfFilename: pdfBase64 ? pdfFilename : null,
-                        actionType: 'cra_diffusion'
-                    });
-                }
-                console.log(`✅ Diffusion CRA ${craId}: ${rhRecipients.length} email(s) mis en file (PDF: ${pdfBase64 ? 'oui' : 'non'})`);
-            } catch (bgErr) {
-                console.error(`❌ Diffusion CRA ${craId}: échec mise en file en arrière-plan:`, bgErr.message);
-            }
-        })();
+        // Email RH (RH ES + DRH ANS) avec PDF en pièce jointe
+        if (allRhRecipients.length > 0) {
+            const [firstRh, ...otherRh] = allRhRecipients;
+            const ccEmails = otherRh.length > 0 ? otherRh.map(r => r.email).join(', ') : null;
+            await enqueueEmail({
+                batchId, recipientEmail: firstRh.email, recipientName: firstRh.nom || firstRh.email,
+                ccEmails, senderName, senderEmail,
+                subject: rhSubject, htmlBody: craHtml,
+                pdfAttachment: pdfBase64, pdfFilename,
+                actionType: 'cra_diffusion'
+            });
+        }
+
+        // Email à l'expert (sans PDF)
+        for (const exp of expertRecipients) {
+            const appUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
+            await enqueueEmail({
+                batchId: generateICSUid(), recipientEmail: exp.email, recipientName: exp.nom || exp.email,
+                senderName, senderEmail,
+                subject: `CRA ${moisNom} — diffusé auprès de la RH`,
+                htmlBody: buildCraEmailHtml({ title: 'CRA diffusé', expertNom: cra.expert_nom, moisNom, craUrl: `${appUrl}/?tab=cra`, action: `Votre CRA a été doublement visé et diffusé auprès de la RH (${allRhRecipients.length} destinataire(s)).` }),
+                actionType: 'cra_diffusion_expert'
+            });
+        }
+
+        // Log de diffusion
+        for (const rh of (recipients?.rh_es || [])) {
+            await new Promise((resolve, reject) => database.run(
+                `INSERT INTO cra_diffusion_log (cra_id, recipient_email, recipient_name, recipient_type, sent_at, email_batch_id) VALUES (?, ?, ?, 'rh_es', ?, ?)`,
+                [craId, rh.email, rh.nom || rh.email, now, batchId], err => err ? reject(err) : resolve()
+            ));
+        }
+        for (const rh of (recipients?.drh_ans || [])) {
+            await new Promise((resolve, reject) => database.run(
+                `INSERT INTO cra_diffusion_log (cra_id, recipient_email, recipient_name, recipient_type, sent_at, email_batch_id) VALUES (?, ?, ?, 'drh_ans', ?, ?)`,
+                [craId, rh.email, rh.nom || rh.email, now, batchId], err => err ? reject(err) : resolve()
+            ));
+        }
+
+        await new Promise((resolve, reject) => {
+            database.run(`UPDATE cra SET statut = 'diffuse', diffuse_at = ?, pdf_filename = ? WHERE id = ?`, [now, pdfFilename, craId], err => err ? reject(err) : resolve());
+        });
+
+        logUserAction(req, 'CRA diffusé manuellement', { craId, sent: totalSent, pdfFilename });
+        res.json({ success: true, sent: totalSent });
     } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
