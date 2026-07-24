@@ -1,4 +1,4 @@
-// v1.11.41
+// v1.11.42
 import express from 'express';
 console.log('✅ Express importé');
 import cors from 'cors';
@@ -10805,16 +10805,15 @@ app.post('/api/cra/:id/diffuser', requireAdmin, async (req, res) => {
             let pdfBase64 = null;
             if (puppeteer) {
                 try {
-                    const browser = await puppeteer.launch({ executablePath: process.env.PUPPETEER_EXECUTABLE_PATH, headless: true, protocolTimeout: 180000, args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'] });
+                    const browser = await puppeteer.launch({ executablePath: process.env.PUPPETEER_EXECUTABLE_PATH, headless: true, protocolTimeout: 120000, args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'] });
                     const page = await browser.newPage();
-                    page.setDefaultNavigationTimeout(120000);
                     await page.setContent(craHtmlPdf, { waitUntil: 'domcontentloaded' });
                     const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '10mm', bottom: '10mm', left: '10mm', right: '10mm' } });
                     await browser.close();
                     pdfBase64 = Buffer.from(pdfBuffer).toString('base64');
                     console.log(`📄 PDF CRA généré: ${pdfFilename} (${Math.round(pdfBuffer.length/1024)}Ko)`);
                 } catch(pdfErr) {
-                    console.error('❌ Génération PDF échouée, email sans pièce jointe:', pdfErr.message);
+                    console.warn('⚠️ Génération PDF échouée, email sans pièce jointe:', pdfErr.message);
                 }
             } else {
                 console.warn('⚠️ Puppeteer non chargé — diffusion CRA sans PDF');
