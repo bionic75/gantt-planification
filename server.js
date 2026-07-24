@@ -1,4 +1,4 @@
-// v1.11.43
+// v1.14.7
 import express from 'express';
 console.log('✅ Express importé');
 import cors from 'cors';
@@ -1948,6 +1948,25 @@ app.get('/api/check-session', (req, res) => {
 });
 
 // Route pour obtenir les profils disponibles d'un utilisateur
+// POST /api/switch-profile — changer de profil sans se déconnecter
+app.post('/api/switch-profile', requireAuth, (req, res) => {
+    const { profile } = req.body;
+    const userId = req.session.userId;
+    database.get('SELECT is_admin, is_expert, is_user, is_rh FROM users WHERE id = ?', [userId], (err, user) => {
+        if (err || !user) return res.status(500).json({ error: 'Utilisateur introuvable' });
+        const valid = [];
+        if (user.is_admin === 1) valid.push('admin');
+        if (user.is_expert === 1) valid.push('expert');
+        if (user.is_user === 1) valid.push('user');
+        if (user.is_rh === 1) valid.push('rh');
+        if (!valid.includes(profile)) return res.status(403).json({ error: 'Profil non autorisé' });
+        req.session.activeProfile = profile;
+        if (activeSessions.has(userId)) activeSessions.get(userId).profile = profile;
+        console.log(`🔄 ${req.session.username} a switché vers le profil: ${profile}`);
+        res.json({ success: true, activeProfile: profile });
+    });
+});
+
 app.get('/api/user/profiles', (req, res) => {
     const { username } = req.query;
     
@@ -10374,6 +10393,61 @@ app.post('/api/cra/:id/diffusion-resend/:logId', requireAdmin, async (req, res) 
     } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// GET /api/cra/pdf-saved/:filename — sert un PDF sauvegardé sur disque (doit être avant /api/cra/:id)
+app.get('/api/cra/pdf-saved/:filename', requireAdminOrRh, async (req, res) => {
+    const filename = path.basename(req.params.filename);
+    const filepath = path.join(__dirname, 'data', 'pdfs', filename);
+    // Servir directement si le fichier existe
+    if (fs.existsSync(filepath)) {
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+        return res.send(fs.readFileSync(filepath));
+    }
+    // Fichier absent : retrouver le CRA et régénérer
+    try {
+        const cra = await new Promise((resolve, reject) => database.get(
+            `SELECT c.*, r.es_rattachement, u.prenom || ' ' || u.nom as expert_nom, u.nom as expert_nom_seul, u.prenom as expert_prenom
+             FROM cra c LEFT JOIN users u ON c.user_id = u.id LEFT JOIN resources r ON u.resource_id = r.id
+             WHERE c.pdf_filename = ?`,
+            [filename], (err, row) => err ? reject(err) : resolve(row)
+        ));
+        if (!cra) return res.status(404).json({ error: 'CRA introuvable pour ce fichier' });
+        if (!puppeteer) return res.status(503).json({ error: 'Puppeteer non disponible pour la régénération' });
+
+        const [astreintes, signatures] = await Promise.all([
+            new Promise((resolve, reject) => database.all(
+                `SELECT * FROM astreintes_hno WHERE user_id = ? AND date_debut >= ? AND date_debut <= ? ORDER BY date_debut`,
+                [cra.user_id, `${cra.annee}-${String(cra.mois).padStart(2,'0')}-01`, `${cra.annee}-${String(cra.mois).padStart(2,'0')}-31`],
+                (err, rows) => err ? reject(err) : resolve(rows || [])
+            )),
+            new Promise((resolve, reject) => database.all(
+                `SELECT * FROM cra_signatures WHERE cra_id = ? ORDER BY rang`, [cra.id],
+                (err, rows) => err ? reject(err) : resolve(rows || [])
+            ))
+        ]);
+
+        const moisNom = new Date(cra.annee, cra.mois - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+        const craHtmlPdf = buildCraDocumentHtml({ cra, astreintes, signatures, moisNom, esRattachement: cra.es_rattachement || '' });
+
+        fs.mkdirSync(path.join(__dirname, 'data', 'pdfs'), { recursive: true });
+        const browser = await puppeteer.launch({ executablePath: process.env.PUPPETEER_EXECUTABLE_PATH, headless: true, protocolTimeout: 180000, args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'] });
+        const page = await browser.newPage();
+        page.setDefaultNavigationTimeout(120000);
+        await page.setContent(craHtmlPdf, { waitUntil: 'domcontentloaded' });
+        const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '10mm', bottom: '10mm', left: '10mm', right: '10mm' } });
+        await browser.close();
+
+        fs.writeFileSync(filepath, pdfBuffer);
+        console.log(`📄 PDF CRA régénéré depuis reprise : ${filename}`);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+        res.send(pdfBuffer);
+    } catch(e) {
+        console.error('[pdf-saved] Erreur régénération:', e.message);
+        res.status(500).json({ error: 'Erreur lors de la régénération du PDF' });
+    }
+});
+
 app.get('/api/cra/:id', requireAuth, async (req, res) => {
     const craId = req.params.id;
     const userId = req.session.userId;
@@ -10690,7 +10764,7 @@ app.get('/api/cra/:id/diffusion-recipients', requireAdmin, async (req, res) => {
 });
 
 // POST /api/cra/:id/prepare-pdf — génère le PDF et le sauvegarde sur disque
-app.post('/api/cra/:id/prepare-pdf', requireAdmin, async (req, res) => {
+app.post('/api/cra/:id/prepare-pdf', requireAdminOrRh, async (req, res) => {
     const craId = req.params.id;
     try {
         if (!puppeteer) return res.status(503).json({ error: 'Puppeteer non disponible' });
