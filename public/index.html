@@ -1,4 +1,4 @@
-<!-- v1.11.35 -->
+<!-- v1.11.36 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -14244,6 +14244,14 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
         let _diffuserPdfFilename = null;
         let _diffuserAllUsers = [];
 
+        // Expositions globales nécessaires pour onclick dans HTML dynamique
+        window.openDiffuserModal = (...a) => openDiffuserModal(...a);
+        window.addDiffuserChip = (...a) => addDiffuserChip(...a);
+        window.filterDiffuserSuggestions = (...a) => filterDiffuserSuggestions(...a);
+        window.diffuserInputKeydown = (...a) => diffuserInputKeydown(...a);
+        window.generateCraPdfForDiffusion = () => generateCraPdfForDiffusion();
+        window.sendCraDiffusion = () => sendCraDiffusion();
+
         async function openDiffuserModal(craId) {
             _diffuserCraId = craId;
             _diffuserPdfFilename = null;
@@ -14571,8 +14579,8 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                         <td style="padding:6px 8px;">${c.vise_n2_nom ? fmt(c.vise_n2_at)+'<br><small>'+c.vise_n2_nom+'</small>' : '—'}</td>
                         <td style="padding:6px 8px;" id="diffuse-cell-${c.id}">${c.statut === 'vise_n2' ? `<button onclick="openDiffuserModal(${c.id})" style="font-size:11px;padding:3px 10px;background:#e65100;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">📤 A diffuser</button>` : (fmt(c.diffuse_at) + `<br><button onclick="showDiffusionStatus(${c.id}, this)" style="font-size:10px;padding:2px 6px;background:#1a237e;color:white;border:none;border-radius:3px;cursor:pointer;margin-top:3px;">📧 Statut</button>`)}</td>
                         <td style="padding:6px 8px;white-space:nowrap;">
-                            <button onclick="openCraModal(${c.id})" style="font-size:11px;padding:3px 8px;background:#6a1b9a;color:white;border:none;border-radius:4px;cursor:pointer;margin-right:4px;">Voir</button>
-                            ${!readOnly && c.statut === 'diffuse' ? (!isArchive ? `<button onclick="confirmArchiveCra(${c.id},'${(c.expert_nom||'').replace(/'/g,'\\\'')}')" style="font-size:11px;padding:3px 8px;background:#546e7a;color:white;border:none;border-radius:4px;cursor:pointer;">🗄️ Archiver</button>` : `<button onclick="unarchiveCra(${c.id})" style="font-size:11px;padding:3px 8px;background:#ff9800;color:white;border:none;border-radius:4px;cursor:pointer;margin-right:4px;">↩️ Désarchiver</button><button onclick="softDeleteCra(${c.id}, ${c.mois}, ${c.annee})" data-nom="${(c.expert_nom||'').replace(/"/g,'&quot;')}" style="font-size:11px;padding:3px 8px;background:#b71c1c;color:white;border:none;border-radius:4px;cursor:pointer;">🗑️ Supprimer</button>`) : ''}
+                            <button onclick="openCraModal(${c.id})" style="font-size:11px;padding:3px 8px;background:#6a1b9a;color:white;border:none;border-radius:4px;cursor:pointer;margin-right:4px;height:26px;box-sizing:border-box;">Voir</button>
+                            ${!readOnly && c.statut === 'diffuse' ? (!isArchive ? `<button onclick="confirmArchiveCra(${c.id},'${(c.expert_nom||'').replace(/'/g,'\\\'')}')" style="font-size:11px;padding:3px 8px;background:#546e7a;color:white;border:none;border-radius:4px;cursor:pointer;height:26px;box-sizing:border-box;">🗄️ Archiver</button>` : `<button onclick="unarchiveCra(${c.id})" style="font-size:11px;padding:3px 8px;background:#ff9800;color:white;border:none;border-radius:4px;cursor:pointer;margin-right:4px;">↩️ Désarchiver</button><button onclick="softDeleteCra(${c.id}, ${c.mois}, ${c.annee})" data-nom="${(c.expert_nom||'').replace(/"/g,'&quot;')}" style="font-size:11px;padding:3px 8px;background:#b71c1c;color:white;border:none;border-radius:4px;cursor:pointer;">🗑️ Supprimer</button>`) : ''}
                         </td>
                     </tr>`;
                 }).join('')}</tbody>
