@@ -1,4 +1,4 @@
-<!-- v1.11.34 -->
+<!-- v1.11.35 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -2824,6 +2824,58 @@
 </div>
 
 <!-- Modal visualisation CRA (depuis admin) -->
+<!-- Modal diffusion CRA -->
+<div id="craDiffuserModal" class="modal" style="z-index: 10003;">
+    <div class="modal-content" style="max-width: 700px; max-height: 90vh; overflow-y: auto; padding: 0;">
+        <div style="position: sticky; top: 0; background: #e65100; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 1;">
+            <h3 id="craDiffuserTitle" style="margin: 0; color: white; font-size: 15px;">📤 Diffuser le CRA</h3>
+            <button onclick="document.getElementById('craDiffuserModal').classList.remove('active')" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; line-height: 1;">✕</button>
+        </div>
+        <div style="padding: 20px;">
+            <!-- Section Expert -->
+            <div style="margin-bottom: 16px;">
+                <div style="font-size: 11px; font-weight: bold; color: #6a1b9a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">👤 Expert</div>
+                <div id="diffuserChipsExpert" style="display: flex; flex-wrap: wrap; gap: 6px; min-height: 36px; padding: 6px; border: 1px solid #ccc; border-radius: 6px; background: #fafafa; align-items: center;"></div>
+                <div style="display: flex; gap: 6px; margin-top: 6px;">
+                    <input type="text" id="diffuserInputExpert" placeholder="Ajouter email expert..." style="flex: 1; padding: 5px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px;" oninput="filterDiffuserSuggestions('expert', this.value)" onkeydown="diffuserInputKeydown(event,'expert')">
+                    <div id="diffuserDropdownExpert" style="display:none;position:absolute;background:white;border:1px solid #ddd;border-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,0.15);max-height:150px;overflow-y:auto;z-index:10050;min-width:250px;"></div>
+                    <button onclick="addDiffuserChip('expert')" style="padding: 5px 10px; background: #6a1b9a; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">+</button>
+                </div>
+            </div>
+            <!-- Section RH ES -->
+            <div style="margin-bottom: 16px;">
+                <div style="font-size: 11px; font-weight: bold; color: #2e7d32; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">🏥 RH ES</div>
+                <div id="diffuserChipsRhEs" style="display: flex; flex-wrap: wrap; gap: 6px; min-height: 36px; padding: 6px; border: 1px solid #ccc; border-radius: 6px; background: #fafafa; align-items: center;"></div>
+                <div style="display: flex; gap: 6px; margin-top: 6px; position: relative;">
+                    <input type="text" id="diffuserInputRhEs" placeholder="Ajouter email RH ES..." style="flex: 1; padding: 5px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px;" oninput="filterDiffuserSuggestions('rh_es', this.value)" onkeydown="diffuserInputKeydown(event,'rh_es')">
+                    <div id="diffuserDropdownRhEs" style="display:none;position:absolute;top:100%;left:0;right:40px;background:white;border:1px solid #ddd;border-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,0.15);max-height:150px;overflow-y:auto;z-index:10050;"></div>
+                    <button onclick="addDiffuserChip('rh_es')" style="padding: 5px 10px; background: #2e7d32; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">+</button>
+                </div>
+            </div>
+            <!-- Section DRH ANS -->
+            <div style="margin-bottom: 20px;">
+                <div style="font-size: 11px; font-weight: bold; color: #1a237e; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">🏛️ DRH ANS</div>
+                <div id="diffuserChipsDrhAns" style="display: flex; flex-wrap: wrap; gap: 6px; min-height: 36px; padding: 6px; border: 1px solid #ccc; border-radius: 6px; background: #fafafa; align-items: center;"></div>
+                <div style="display: flex; gap: 6px; margin-top: 6px; position: relative;">
+                    <input type="text" id="diffuserInputDrhAns" placeholder="Ajouter email DRH ANS..." style="flex: 1; padding: 5px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px;" oninput="filterDiffuserSuggestions('drh_ans', this.value)" onkeydown="diffuserInputKeydown(event,'drh_ans')">
+                    <div id="diffuserDropdownDrhAns" style="display:none;position:absolute;top:100%;left:0;right:40px;background:white;border:1px solid #ddd;border-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,0.15);max-height:150px;overflow-y:auto;z-index:10050;"></div>
+                    <button onclick="addDiffuserChip('drh_ans')" style="padding: 5px 10px; background: #1a237e; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">+</button>
+                </div>
+            </div>
+            <!-- Génération PDF -->
+            <div style="background: #fff8e1; border: 1px solid #ffe082; border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+                <div style="font-size: 12px; font-weight: bold; color: #e65100; margin-bottom: 10px;">📄 Génération du PDF</div>
+                <div id="diffuserPdfStatus" style="font-size: 12px; color: #666; margin-bottom: 10px;">Cliquez sur "Générer le PDF" pour préparer la pièce jointe.</div>
+                <button id="diffuserBtnGenPdf" onclick="generateCraPdfForDiffusion()" style="background: #f57c00; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold;">📄 Générer le PDF</button>
+            </div>
+        </div>
+        <div style="padding: 15px 20px; border-top: 1px solid #ffe0b2; background: #fff3e0; display: flex; justify-content: flex-end; gap: 10px;">
+            <button onclick="document.getElementById('craDiffuserModal').classList.remove('active')" style="background: #90a4ae; color: white; padding: 10px 18px; border: none; border-radius: 4px; cursor: pointer;">Annuler</button>
+            <button id="diffuserBtnEnvoyer" onclick="sendCraDiffusion()" disabled style="background: #bdbdbd; color: white; padding: 10px 18px; border: none; border-radius: 4px; cursor: not-allowed; font-weight: bold;">📧 Envoyer</button>
+        </div>
+    </div>
+</div>
+
 <div id="craViewerModal" class="modal" style="z-index: 10002;">
     <div class="modal-content" style="max-width: 900px; max-height: 90vh; overflow-y: auto; padding: 0;">
         <div style="position: sticky; top: 0; background: #6a1b9a; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 1;">
@@ -14187,14 +14239,152 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             } catch(e) { alert('Erreur chargement statut : ' + e.message); }
         }
 
-        async function diffuserCra(craId) {
-            if (!confirm('Diffuser ce CRA auprès des RH de l\'ES ? Un email sera envoyé.')) return;
+        // ===== DIFFUSION CRA — NOUVELLE LOGIQUE =====
+        let _diffuserCraId = null;
+        let _diffuserPdfFilename = null;
+        let _diffuserAllUsers = [];
+
+        async function openDiffuserModal(craId) {
+            _diffuserCraId = craId;
+            _diffuserPdfFilename = null;
+            // Reset UI
+            ['Expert','RhEs','DrhAns'].forEach(s => { document.getElementById(`diffuserChips${s}`).innerHTML = ''; document.getElementById(`diffuserInput${s.replace(/([A-Z])/g,'_$1').toLowerCase().replace(/^_/,'')}`).value = ''; });
+            document.getElementById('diffuserPdfStatus').innerHTML = 'Cliquez sur "Générer le PDF" pour préparer la pièce jointe.';
+            document.getElementById('diffuserPdfStatus').style.color = '#666';
+            document.getElementById('diffuserBtnGenPdf').disabled = false;
+            document.getElementById('diffuserBtnGenPdf').textContent = '📄 Générer le PDF';
+            const btn = document.getElementById('diffuserBtnEnvoyer');
+            btn.disabled = true; btn.style.background = '#bdbdbd'; btn.style.cursor = 'not-allowed';
+
+            // Charger la liste des utilisateurs pour autocomplétion
             try {
-                const res = await fetch(`${API_URL}/cra/${craId}/diffuser`, { method: 'POST', credentials: 'include' });
+                const res = await fetch(`${API_URL}/users`, { credentials: 'include' });
+                _diffuserAllUsers = (await res.json()) || [];
+            } catch(e) { _diffuserAllUsers = []; }
+
+            // Charger les destinataires pré-remplis
+            try {
+                const res = await fetch(`${API_URL}/cra/${craId}/diffusion-recipients`, { credentials: 'include' });
                 const data = await res.json();
-                if (data.success) { alert('✅ CRA diffusé avec succès.'); await loadCraList(); closeCraDetail(); }
-                else alert('Erreur : ' + data.error);
-            } catch(e) { alert('Erreur réseau'); }
+                const cra = await (await fetch(`${API_URL}/cra/${craId}`, { credentials: 'include' })).json();
+                const moisNom = new Date(parseInt(cra.annee), parseInt(cra.mois)-1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+                document.getElementById('craDiffuserTitle').textContent = `📤 Diffuser le CRA — ${cra.expert_nom || ''} — ${moisNom.charAt(0).toUpperCase()+moisNom.slice(1)}`;
+                (data.expert || []).forEach(r => addDiffuserChipData('expert', r.email, r.nom));
+                (data.rh_es || []).forEach(r => addDiffuserChipData('rh_es', r.email, r.nom));
+                (data.drh_ans || []).forEach(r => addDiffuserChipData('drh_ans', r.email, r.nom));
+            } catch(e) { console.error('Erreur chargement destinataires:', e); }
+
+            document.getElementById('craDiffuserModal').classList.add('active');
+        }
+
+        function _sectionConfig(section) {
+            return { expert: { container: 'diffuserChipsExpert', input: 'diffuserInputExpert', dropdown: 'diffuserDropdownExpert', color: '#6a1b9a' },
+                     rh_es:  { container: 'diffuserChipsRhEs',   input: 'diffuserInputRhEs',   dropdown: 'diffuserDropdownRhEs',   color: '#2e7d32' },
+                     drh_ans:{ container: 'diffuserChipsDrhAns', input: 'diffuserInputDrhAns', dropdown: 'diffuserDropdownDrhAns', color: '#1a237e' } }[section];
+        }
+
+        function addDiffuserChipData(section, email, nom) {
+            const cfg = _sectionConfig(section);
+            if (!cfg || !email) return;
+            const container = document.getElementById(cfg.container);
+            // Éviter doublons
+            if ([...container.querySelectorAll('[data-email]')].some(c => c.dataset.email === email)) return;
+            const chip = document.createElement('span');
+            chip.dataset.email = email;
+            chip.dataset.nom = nom || '';
+            chip.style.cssText = `display:inline-flex;align-items:center;gap:4px;background:${cfg.color}18;border:1px solid ${cfg.color}55;border-radius:14px;padding:2px 8px 2px 10px;font-size:11px;color:${cfg.color};`;
+            chip.innerHTML = `<span title="${email}">${nom ? nom + ' &lt;' + email + '&gt;' : email}</span><button onclick="this.parentElement.remove()" style="background:none;border:none;cursor:pointer;color:${cfg.color};font-size:13px;line-height:1;padding:0 0 0 2px;" title="Supprimer">×</button>`;
+            container.appendChild(chip);
+        }
+
+        function addDiffuserChip(section) {
+            const cfg = _sectionConfig(section);
+            const input = document.getElementById(cfg.input);
+            const val = input.value.trim();
+            if (!val || !val.includes('@')) { input.style.border = '1px solid #e53935'; setTimeout(() => input.style.border = '1px solid #ccc', 1500); return; }
+            addDiffuserChipData(section, val, '');
+            input.value = '';
+            document.getElementById(cfg.dropdown).style.display = 'none';
+        }
+
+        function diffuserInputKeydown(e, section) {
+            if (e.key === 'Enter') { e.preventDefault(); addDiffuserChip(section); }
+        }
+
+        function filterDiffuserSuggestions(section, query) {
+            const cfg = _sectionConfig(section);
+            const dropdown = document.getElementById(cfg.dropdown);
+            if (!query || query.length < 2) { dropdown.style.display = 'none'; return; }
+            const q = query.toLowerCase();
+            const matches = _diffuserAllUsers.filter(u => u.email && (u.email.toLowerCase().includes(q) || (u.nom||'').toLowerCase().includes(q) || (u.prenom||'').toLowerCase().includes(q))).slice(0, 8);
+            if (!matches.length) { dropdown.style.display = 'none'; return; }
+            dropdown.innerHTML = matches.map(u => `<div onclick="addDiffuserChipData('${section}','${u.email}','${(u.prenom||'')+' '+(u.nom||'')}');document.getElementById('${cfg.input}').value='';document.getElementById('${cfg.dropdown}').style.display='none';" style="padding:7px 12px;cursor:pointer;font-size:12px;border-bottom:1px solid #f0f0f0;" onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background=''"><strong>${u.prenom||''} ${u.nom||''}</strong> <span style="color:#999;">${u.email}</span></div>`).join('');
+            dropdown.style.display = 'block';
+        }
+
+        function getDiffuserRecipients() {
+            const get = (containerId) => [...document.getElementById(containerId).querySelectorAll('[data-email]')].map(c => ({ email: c.dataset.email, nom: c.dataset.nom }));
+            return { expert: get('diffuserChipsExpert'), rh_es: get('diffuserChipsRhEs'), drh_ans: get('diffuserChipsDrhAns') };
+        }
+
+        async function generateCraPdfForDiffusion() {
+            const btn = document.getElementById('diffuserBtnGenPdf');
+            const status = document.getElementById('diffuserPdfStatus');
+            btn.disabled = true;
+            btn.textContent = '⏳ Génération en cours...';
+            status.innerHTML = '⏳ Génération du PDF en cours, veuillez patienter (30-60s)...';
+            status.style.color = '#e65100';
+            try {
+                const res = await fetch(`${API_URL}/cra/${_diffuserCraId}/prepare-pdf`, { method: 'POST', credentials: 'include' });
+                const data = await res.json();
+                if (data.success) {
+                    _diffuserPdfFilename = data.pdfFilename;
+                    status.innerHTML = `✅ PDF généré : <strong>${data.pdfFilename}</strong>`;
+                    status.style.color = '#2e7d32';
+                    btn.textContent = '🔄 Regénérer le PDF';
+                    btn.disabled = false;
+                    const envBtn = document.getElementById('diffuserBtnEnvoyer');
+                    envBtn.disabled = false; envBtn.style.background = '#1565c0'; envBtn.style.cursor = 'pointer';
+                } else {
+                    status.innerHTML = `❌ Erreur : ${data.error}`;
+                    status.style.color = '#c62828';
+                    btn.textContent = '📄 Réessayer';
+                    btn.disabled = false;
+                }
+            } catch(e) {
+                status.innerHTML = `❌ Erreur réseau : ${e.message}`;
+                status.style.color = '#c62828';
+                btn.textContent = '📄 Réessayer';
+                btn.disabled = false;
+            }
+        }
+
+        async function sendCraDiffusion() {
+            if (!_diffuserPdfFilename) { alert('Veuillez d\'abord générer le PDF.'); return; }
+            const recipients = getDiffuserRecipients();
+            const totalRh = recipients.rh_es.length + recipients.drh_ans.length;
+            if (totalRh === 0) { alert('Veuillez ajouter au moins un destinataire RH ES ou DRH ANS.'); return; }
+            const btn = document.getElementById('diffuserBtnEnvoyer');
+            btn.disabled = true; btn.textContent = '⏳ Envoi en cours...';
+            try {
+                const res = await fetch(`${API_URL}/cra/${_diffuserCraId}/diffuser`, {
+                    method: 'POST', credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ recipients, pdfFilename: _diffuserPdfFilename })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert(`✅ CRA diffusé — ${data.sent} email(s) envoyé(s).`);
+                    document.getElementById('craDiffuserModal').classList.remove('active');
+                    await loadCraSignatures();
+                } else {
+                    alert('Erreur : ' + data.error);
+                    btn.disabled = false; btn.textContent = '📧 Envoyer';
+                }
+            } catch(e) {
+                alert('Erreur réseau : ' + e.message);
+                btn.disabled = false; btn.textContent = '📧 Envoyer';
+            }
         }
 
         function closeCraDetail() {
@@ -14379,10 +14569,10 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                         <td style="padding:6px 8px;">${fmt(c.submitted_at)}</td>
                         <td style="padding:6px 8px;">${c.vise_n1_nom ? fmt(c.vise_n1_at)+'<br><small>'+c.vise_n1_nom+'</small>' : '—'}</td>
                         <td style="padding:6px 8px;">${c.vise_n2_nom ? fmt(c.vise_n2_at)+'<br><small>'+c.vise_n2_nom+'</small>' : '—'}</td>
-                        <td style="padding:6px 8px;" id="diffuse-cell-${c.id}">${fmt(c.diffuse_at)}<br><button onclick="showDiffusionStatus(${c.id}, this)" style="font-size:10px;padding:2px 6px;background:#1a237e;color:white;border:none;border-radius:3px;cursor:pointer;margin-top:3px;">📧 Statut</button></td>
+                        <td style="padding:6px 8px;" id="diffuse-cell-${c.id}">${c.statut === 'vise_n2' ? `<button onclick="openDiffuserModal(${c.id})" style="font-size:11px;padding:3px 10px;background:#e65100;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">📤 A diffuser</button>` : (fmt(c.diffuse_at) + `<br><button onclick="showDiffusionStatus(${c.id}, this)" style="font-size:10px;padding:2px 6px;background:#1a237e;color:white;border:none;border-radius:3px;cursor:pointer;margin-top:3px;">📧 Statut</button>`)}</td>
                         <td style="padding:6px 8px;white-space:nowrap;">
                             <button onclick="openCraModal(${c.id})" style="font-size:11px;padding:3px 8px;background:#6a1b9a;color:white;border:none;border-radius:4px;cursor:pointer;margin-right:4px;">Voir</button>
-                            ${!readOnly ? (!isArchive ? `<button onclick="confirmArchiveCra(${c.id},'${(c.expert_nom||'').replace(/'/g,'\\\'')}')" style="font-size:11px;padding:3px 8px;background:#546e7a;color:white;border:none;border-radius:4px;cursor:pointer;">🗄️ Archiver</button>` : `<button onclick="unarchiveCra(${c.id})" style="font-size:11px;padding:3px 8px;background:#ff9800;color:white;border:none;border-radius:4px;cursor:pointer;margin-right:4px;">↩️ Désarchiver</button><button onclick="softDeleteCra(${c.id}, ${c.mois}, ${c.annee})" data-nom="${(c.expert_nom||'').replace(/"/g,'&quot;')}" style="font-size:11px;padding:3px 8px;background:#b71c1c;color:white;border:none;border-radius:4px;cursor:pointer;">🗑️ Supprimer</button>`) : ''}
+                            ${!readOnly && c.statut === 'diffuse' ? (!isArchive ? `<button onclick="confirmArchiveCra(${c.id},'${(c.expert_nom||'').replace(/'/g,'\\\'')}')" style="font-size:11px;padding:3px 8px;background:#546e7a;color:white;border:none;border-radius:4px;cursor:pointer;">🗄️ Archiver</button>` : `<button onclick="unarchiveCra(${c.id})" style="font-size:11px;padding:3px 8px;background:#ff9800;color:white;border:none;border-radius:4px;cursor:pointer;margin-right:4px;">↩️ Désarchiver</button><button onclick="softDeleteCra(${c.id}, ${c.mois}, ${c.annee})" data-nom="${(c.expert_nom||'').replace(/"/g,'&quot;')}" style="font-size:11px;padding:3px 8px;background:#b71c1c;color:white;border:none;border-radius:4px;cursor:pointer;">🗑️ Supprimer</button>`) : ''}
                         </td>
                     </tr>`;
                 }).join('')}</tbody>
@@ -14498,7 +14688,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             const expert = document.getElementById('craSignFilterExpert')?.value || '';
             const mois   = document.getElementById('craSignFilterMois')?.value || '';
             const annee  = document.getElementById('craSignFilterAnnee')?.value || '';
-            const params = new URLSearchParams({ statut: 'diffuse' });
+            const params = new URLSearchParams({ statut: 'vise_n2,diffuse' });
             if (expert) params.set('user_id', expert);
             if (mois)   params.set('mois', mois);
             if (annee)  params.set('annee', annee);
