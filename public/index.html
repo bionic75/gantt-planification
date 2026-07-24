@@ -1,4 +1,4 @@
-<!-- v1.11.36 -->
+<!-- v1.14.7 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -493,7 +493,13 @@
                     </div>
                 </div>
                 <span class="user-info-name" id="userDisplayName" style="margin-left: 15px;"></span>
-                <span class="user-info-role" id="userDisplayRole"></span>
+                <span class="user-info-role" id="userDisplayRole" style="cursor:default;"></span>
+                <div id="profileSwitcher" style="display:none;position:relative;margin-left:4px;">
+                    <button id="profileSwitcherBtn" onclick="toggleProfileDropdown()" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);color:white;padding:2px 7px;border-radius:10px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px;">
+                        <span id="profileSwitcherLabel"></span><span style="font-size:9px;">▼</span>
+                    </button>
+                    <div id="profileDropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;background:white;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.2);min-width:160px;z-index:9999;overflow:hidden;" id="profileDropdown"></div>
+                </div>
             </div>
             <div class="tabs" id="mainTabsContainer">
                 <button class="tab-btn active" draggable="true" data-tab="resources" onclick="switchTab('resources', event)">Ressources</button>
@@ -3719,7 +3725,7 @@
                     // Onglet CRA
                     const craBtn = document.getElementById('craTabBtn');
                     if (craBtn) {
-                        const showCra = currentUser.is_admin || currentUser.astreinte_volontaire || currentUser.is_rh;
+                        const showCra = currentUser.is_admin || (currentUser.astreinte_volontaire && currentUser.activeProfile !== 'user') || currentUser.is_rh;
                         craBtn.style.display = showCra ? 'block' : 'none';
                         document.getElementById('craTabLabel').textContent = 'CRA';
                     }
@@ -3999,7 +4005,7 @@
             // Afficher l'onglet CRA selon le profil
             const craBtn = document.getElementById('craTabBtn');
             if (craBtn) {
-                const showCra = currentUser.is_admin || currentUser.astreinte_volontaire || currentUser.is_rh;
+                const showCra = currentUser.is_admin || (currentUser.astreinte_volontaire && currentUser.activeProfile !== 'user') || currentUser.is_rh;
                 craBtn.style.display = showCra ? 'block' : 'none';
                 const lbl = document.getElementById('craTabLabel');
                 if (lbl) lbl.textContent = 'CRA';
@@ -4476,6 +4482,34 @@
             document.getElementById('userDisplayName').textContent = userName;
             document.getElementById('userDisplayRole').textContent = roleName;
             document.getElementById('userInfo').style.display = 'flex';
+
+            // Sélecteur de profil multi-profil
+            const profileLabels = { admin:'Administrateur', expert:'Expert Métier', user:'Utilisateur', rh:'RH' };
+            const profileColors = { admin:'#c0392b', expert:'#e67e22', user:'#2980b9', rh:'#8e44ad' };
+            const availProfiles = [];
+            if (currentUser.is_admin) availProfiles.push('admin');
+            if (currentUser.is_expert) availProfiles.push('expert');
+            if (currentUser.is_rh) availProfiles.push('rh');
+            if (currentUser.is_user) availProfiles.push('user');
+            const switcher = document.getElementById('profileSwitcher');
+            const switcherLabel = document.getElementById('profileSwitcherLabel');
+            if (availProfiles.length > 1 && switcher) {
+                switcherLabel.textContent = profileLabels[currentUser.activeProfile] || currentUser.activeProfile;
+                document.getElementById('userDisplayRole').style.display = 'none';
+                switcher.style.display = 'inline-flex';
+                const dropdown = document.getElementById('profileDropdown');
+                dropdown.innerHTML = availProfiles.map(p => {
+                    const isActive = p === currentUser.activeProfile;
+                    return `<div onclick="switchToProfile('${p}')" style="padding:10px 16px;font-size:13px;color:#222;cursor:pointer;display:flex;align-items:center;gap:10px;border-bottom:1px solid #eee;background:${isActive ? '#f0f4ff' : 'white'};transition:background .15s;" onmouseover="this.style.background='#e8eeff'" onmouseout="this.style.background='${isActive ? '#f0f4ff' : 'white'}'">
+                        <span style="width:10px;height:10px;border-radius:50%;background:${profileColors[p]};display:inline-block;flex-shrink:0;box-shadow:0 0 0 2px ${isActive ? profileColors[p]+'44' : 'transparent'};"></span>
+                        <span style="flex:1;font-weight:${isActive ? '600' : '400'};">${profileLabels[p] || p}</span>
+                        ${isActive ? '<span style="color:#27ae60;font-size:14px;font-weight:bold;">✓</span>' : ''}
+                    </div>`;
+                }).join('');
+            } else if (switcher) {
+                switcher.style.display = 'none';
+                document.getElementById('userDisplayRole').style.display = '';
+            }
             
             // Stocker les infos utilisateur pour la modal de demande
             currentUserInfo = {
@@ -4559,26 +4593,22 @@
                 const sendEmailBtn = document.getElementById('sendEmailBtn');
                 if (sendEmailBtn) sendEmailBtn.style.display = 'none';
                 switchTab('resources', null);
-            } else if (currentUser.activeProfile === 'expert' || currentUser.activeProfile === 'user') {
+            } else if (currentUser.activeProfile === 'expert') {
                 resourcesTab.style.display = 'none';
                 planningTab.style.display = 'block';
-                // Afficher le reporting si l'utilisateur a l'accès
-                if (currentUser.hasReportingAccess) {
-                    reportingTab.style.display = 'block';
-                    loadReportingExperts();
-                } else {
-                    reportingTab.style.display = 'none';
-                }
+                reportingTab.style.display = 'none';
                 adminTab.style.display = 'none';
-                // Masquer l'onglet gestion astreintes pour non-admin
+                if (astreintesGestionTab) astreintesGestionTab.style.display = 'block';
+                astreintesBtn.style.display = 'inline-block';
+                astreintesBtnText.textContent = 'Gérer mes astreintes/HNO';
+                switchTab('planning', null);
+            } else if (currentUser.activeProfile === 'user') {
+                resourcesTab.style.display = 'none';
+                planningTab.style.display = 'block';
+                reportingTab.style.display = 'none';
+                adminTab.style.display = 'none';
                 if (astreintesGestionTab) astreintesGestionTab.style.display = 'none';
-                // Afficher le bouton astreintes pour expert seulement
-                if (currentUser.activeProfile === 'expert') {
-                    astreintesBtn.style.display = 'inline-block';
-                    astreintesBtnText.textContent = 'Gérer mes astreintes/HNO';
-                } else {
-                    astreintesBtn.style.display = 'none';
-                }
+                astreintesBtn.style.display = 'none';
                 switchTab('planning', null);
             }
         }
@@ -14244,19 +14274,17 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
         let _diffuserPdfFilename = null;
         let _diffuserAllUsers = [];
 
-        // Expositions globales nécessaires pour onclick dans HTML dynamique
-        window.openDiffuserModal = (...a) => openDiffuserModal(...a);
-        window.addDiffuserChip = (...a) => addDiffuserChip(...a);
-        window.filterDiffuserSuggestions = (...a) => filterDiffuserSuggestions(...a);
-        window.diffuserInputKeydown = (...a) => diffuserInputKeydown(...a);
-        window.generateCraPdfForDiffusion = () => generateCraPdfForDiffusion();
-        window.sendCraDiffusion = () => sendCraDiffusion();
-
         async function openDiffuserModal(craId) {
             _diffuserCraId = craId;
             _diffuserPdfFilename = null;
             // Reset UI
-            ['Expert','RhEs','DrhAns'].forEach(s => { document.getElementById(`diffuserChips${s}`).innerHTML = ''; document.getElementById(`diffuserInput${s.replace(/([A-Z])/g,'_$1').toLowerCase().replace(/^_/,'')}`).value = ''; });
+            ['expert','rh_es','drh_ans'].forEach(s => {
+                const cfg = _sectionConfig(s);
+                const container = document.getElementById(cfg.container);
+                const input = document.getElementById(cfg.input);
+                if (container) container.innerHTML = '';
+                if (input) input.value = '';
+            });
             document.getElementById('diffuserPdfStatus').innerHTML = 'Cliquez sur "Générer le PDF" pour préparer la pièce jointe.';
             document.getElementById('diffuserPdfStatus').style.color = '#666';
             document.getElementById('diffuserBtnGenPdf').disabled = false;
@@ -14347,7 +14375,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                 const data = await res.json();
                 if (data.success) {
                     _diffuserPdfFilename = data.pdfFilename;
-                    status.innerHTML = `✅ PDF généré : <strong>${data.pdfFilename}</strong>`;
+                    status.innerHTML = `✅ PDF prêt : <a href="${API_URL}/cra/pdf-saved/${encodeURIComponent(data.pdfFilename)}" target="_blank" style="color:#1565c0;font-weight:bold;">📄 ${data.pdfFilename}</a>`;
                     status.style.color = '#2e7d32';
                     btn.textContent = '🔄 Regénérer le PDF';
                     btn.disabled = false;
@@ -14397,6 +14425,87 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
 
         function closeCraDetail() {
             document.getElementById('craDetailPanel').style.display = 'none';
+        }
+
+        function toggleProfileDropdown() {
+            const dd = document.getElementById('profileDropdown');
+            if (!dd) return;
+            const isOpen = dd.style.display !== 'none';
+            dd.style.display = isOpen ? 'none' : 'block';
+            if (!isOpen) {
+                setTimeout(() => document.addEventListener('click', function h(e) {
+                    if (!document.getElementById('profileSwitcher').contains(e.target)) {
+                        dd.style.display = 'none';
+                        document.removeEventListener('click', h);
+                    }
+                }), 50);
+            }
+        }
+
+        async function switchToProfile(profile) {
+            if (profile === currentUser.activeProfile) {
+                document.getElementById('profileDropdown').style.display = 'none';
+                return;
+            }
+            try {
+                const res = await fetch(`${API_URL}/switch-profile`, {
+                    method: 'POST', credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ profile })
+                });
+                const data = await res.json();
+                if (!data.success) { alert('Erreur : ' + (data.error || 'Impossible de changer de profil')); return; }
+                currentUser.activeProfile = profile;
+                document.getElementById('profileDropdown').style.display = 'none';
+                // Mettre à jour le badge et réinitialiser l'interface
+                updateUserDisplay();
+                updateTabsVisibility();
+                const craBtn = document.getElementById('craTabBtn');
+                if (craBtn) {
+                    const showCra = currentUser.is_admin || (currentUser.astreinte_volontaire && profile !== 'user') || currentUser.is_rh;
+                    craBtn.style.display = showCra ? 'block' : 'none';
+                }
+            } catch(e) { alert('Erreur réseau : ' + e.message); }
+        }
+
+        async function openPdfWithFallback(craId, pdfFilename) {
+            // Vérifier si le fichier existe (seulement si on a un nom)
+            if (pdfFilename) {
+                const check = await fetch(`${API_URL}/cra/pdf-saved/${encodeURIComponent(pdfFilename)}`, { method: 'HEAD', credentials: 'include' });
+                if (check.ok) {
+                    window.open(`${API_URL}/cra/pdf-saved/${encodeURIComponent(pdfFilename)}`, '_blank');
+                    return;
+                }
+            }
+            // Fichier absent ou jamais créé : afficher popup et régénérer
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;';
+            overlay.innerHTML = `<div style="background:white;border-radius:10px;padding:32px 40px;text-align:center;max-width:380px;box-shadow:0 8px 32px rgba(0,0,0,.3);">
+                <div style="font-size:36px;margin-bottom:14px;">⏳</div>
+                <div style="font-weight:bold;font-size:15px;color:#333;margin-bottom:10px;">Création du PDF en cours</div>
+                <div style="font-size:13px;color:#666;line-height:1.5;">Le fichier PDF n'existe pas sur le serveur et est en cours de création.<br>Veuillez patienter (30-60 secondes)…</div>
+                <div style="margin-top:18px;height:4px;background:#e0e0e0;border-radius:2px;overflow:hidden;">
+                    <div style="height:100%;background:#6a1b9a;animation:pdfProgress 40s linear forwards;" id="_pdfProgressBar"></div>
+                </div>
+            </div>
+            <style>@keyframes pdfProgress{from{width:0%}to{width:95%}}</style>`;
+            document.body.appendChild(overlay);
+            try {
+                const res = await fetch(`${API_URL}/cra/${craId}/prepare-pdf`, { method: 'POST', credentials: 'include' });
+                const data = await res.json();
+                document.body.removeChild(overlay);
+                if (data.success) {
+                    // Rebinder le bouton avec le nouveau nom pour éviter les régénérations successives
+                    const pdfBtn = document.querySelector('#craViewerModal button[onclick^="downloadCraPdf"]');
+                    if (pdfBtn) pdfBtn.onclick = () => openPdfWithFallback(craId, data.pdfFilename);
+                    window.open(`${API_URL}/cra/pdf-saved/${encodeURIComponent(data.pdfFilename)}`, '_blank');
+                } else {
+                    alert('Erreur lors de la génération du PDF : ' + (data.error || 'Erreur inconnue'));
+                }
+            } catch(e) {
+                document.body.removeChild(overlay);
+                alert('Erreur réseau lors de la génération du PDF : ' + e.message);
+            }
         }
 
         let _craViewerCurrentId = null;
@@ -14485,9 +14594,20 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                     <div id="craDiffusionLogSection"></div>`;
 
                 document.getElementById('craViewerModal').classList.add('active');
-                // Afficher le bouton Renvoyer uniquement si CRA diffusé
+                // Bouton PDF : ouvre le fichier sauvegardé si disponible, sinon régénère avec popup
+                const pdfBtn = document.querySelector('#craViewerModal button[onclick^="downloadCraPdf"]');
+                if (pdfBtn) {
+                    if (cra.statut === 'diffuse' || cra.statut === 'vise_n2') {
+                        pdfBtn.onclick = () => openPdfWithFallback(craId, cra.pdf_filename || null);
+                    } else {
+                        pdfBtn.onclick = () => downloadCraPdf(craId);
+                    }
+                }
+                // Bouton "Renvoyer l'email" : admin uniquement, CRA diffusé uniquement
                 const resendBtn = document.getElementById('resendCraEmailBtn');
-                if (resendBtn) resendBtn.style.display = cra.statut === 'diffuse' ? 'inline-block' : 'none';
+                if (resendBtn) {
+                    resendBtn.style.display = (currentUser.activeProfile === 'admin' && cra.statut === 'diffuse') ? 'inline-block' : 'none';
+                }
 
                 // Charger le log de diffusion
                 try {
@@ -16676,7 +16796,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             const config = {
                 host: document.getElementById('smtpHost').value,
                 port: parseInt(document.getElementById('smtpPort').value),
-                secure: false, // Par défaut false pour STARTTLS (port 587)
+                secure: parseInt(document.getElementById('smtpPort').value) === 465, // true pour SSL (465), false pour STARTTLS (587)
                 user: document.getElementById('smtpUser').value,
                 password: document.getElementById('smtpPassword').value
             };
