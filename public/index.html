@@ -511,7 +511,7 @@
                 </button>
                 <button class="tab-btn" draggable="true" data-tab="reporting" id="reportingTab" onclick="switchTab('reporting', event)" style="display:none;">Reporting</button>
                 <button class="tab-btn" draggable="true" data-tab="admin" id="adminTab" onclick="switchTab('admin', event)" style="display:none;">Administration</button>
-                <button class="tab-btn" draggable="true" data-tab="astreintesGestion" id="astreintesGestionTab" onclick="switchTab('astreintesGestion', event)" style="display:none;">🧪 Astreintes (expérimental)</button>
+                <button class="tab-btn" draggable="true" data-tab="astreintesGestion" id="astreintesGestionTab" onclick="switchTab('astreintesGestion', event)" style="display:none;">Astreintes</button>
                 
                 <!-- Bouton d'aide en ligne -->
                 <button id="helpBtn" onclick="openHelp()" title="Aide en ligne" style="
@@ -14710,34 +14710,68 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             if (!data.length) { container.innerHTML = '<p style="color:#999;text-align:center;padding:20px;">Aucun CRA trouvé.</p>'; return; }
             const stL = { 'a_completer':'✏️ À compléter','soumis':'📤 Soumis','vise_n1':'✅ Visé N1','vise_n2':'✅ Visé N2','diffuse':'📨 Diffusé' };
             const fmt = dt => dt ? new Date(dt).toLocaleDateString('fr-FR') : '—';
+            const hdrColor = isArchive ? '#546e7a' : '#6a1b9a';
+            const thStyle = `padding:8px;text-align:left;cursor:pointer;user-select:none;`;
+            const thNoSort = `padding:8px;text-align:left;`;
+            const buildRows = (rows) => rows.map((c,i) => {
+                const moisNom = new Date(c.annee, c.mois-1, 1).toLocaleDateString('fr-FR', {month:'long', year:'numeric'});
+                return `<tr style="background:${i%2?(isArchive?'#f5f7f7':'#f9f4ff'):'white'};border-bottom:1px solid ${isArchive?'#cfd8dc':'#e1bee7'};">
+                    <td style="padding:6px 8px;">${c.expert_nom||'—'}</td>
+                    <td style="padding:6px 8px;" data-sort="${c.annee*100+c.mois}">${moisNom}</td>
+                    <td style="padding:6px 8px;">${stL[c.statut]||c.statut}</td>
+                    <td style="padding:6px 8px;" data-sort="${c.submitted_at||''}">${fmt(c.submitted_at)}</td>
+                    <td style="padding:6px 8px;" data-sort="${c.vise_n1_at||''}">${c.vise_n1_nom ? fmt(c.vise_n1_at)+'<br><small>'+c.vise_n1_nom+'</small>' : '—'}</td>
+                    <td style="padding:6px 8px;" data-sort="${c.vise_n2_at||''}">${c.vise_n2_nom ? fmt(c.vise_n2_at)+'<br><small>'+c.vise_n2_nom+'</small>' : '—'}</td>
+                    <td style="padding:6px 8px;" id="diffuse-cell-${c.id}" data-sort="${c.diffuse_at||''}">${c.statut === 'vise_n2' ? `<button onclick="openDiffuserModal(${c.id})" style="font-size:11px;padding:3px 10px;background:#e65100;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">📤 A diffuser</button>` : (fmt(c.diffuse_at) + `<br><button onclick="showDiffusionStatus(${c.id}, this)" style="font-size:10px;padding:2px 6px;background:#1a237e;color:white;border:none;border-radius:3px;cursor:pointer;margin-top:3px;">📧 Statut</button>`)}</td>
+                    <td style="padding:6px 8px;white-space:nowrap;">
+                        <button onclick="openCraModal(${c.id})" style="font-size:11px;padding:3px 8px;background:#6a1b9a;color:white;border:none;border-radius:4px;cursor:pointer;margin-right:4px;height:26px;box-sizing:border-box;">Voir</button>
+                        ${!readOnly && c.statut === 'diffuse' ? (!isArchive ? `<button onclick="confirmArchiveCra(${c.id},'${(c.expert_nom||'').replace(/'/g,'\\\'')}')" style="font-size:11px;padding:3px 8px;background:#546e7a;color:white;border:none;border-radius:4px;cursor:pointer;height:26px;box-sizing:border-box;">🗄️ Archiver</button>` : `<button onclick="unarchiveCra(${c.id})" style="font-size:11px;padding:3px 8px;background:#ff9800;color:white;border:none;border-radius:4px;cursor:pointer;margin-right:4px;">↩️ Désarchiver</button><button onclick="softDeleteCra(${c.id}, ${c.mois}, ${c.annee})" data-nom="${(c.expert_nom||'').replace(/"/g,'&quot;')}" style="font-size:11px;padding:3px 8px;background:#b71c1c;color:white;border:none;border-radius:4px;cursor:pointer;">🗑️ Supprimer</button>`) : ''}
+                    </td>
+                </tr>`;
+            }).join('');
             container.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px;">
-                <thead><tr style="background:${isArchive?'#546e7a':'#6a1b9a'};color:white;">
-                    <th style="padding:8px;text-align:left;">Expert</th>
-                    <th style="padding:8px;text-align:left;">Période</th>
-                    <th style="padding:8px;text-align:left;">Statut</th>
-                    <th style="padding:8px;text-align:left;">Soumis le</th>
-                    <th style="padding:8px;text-align:left;">Visé N1</th>
-                    <th style="padding:8px;text-align:left;">Visé N2</th>
-                    <th style="padding:8px;text-align:left;">Diffusé</th>
-                    <th style="padding:8px;text-align:left;">Actions</th>
+                <thead><tr style="background:${hdrColor};color:white;">
+                    <th style="${thStyle}">Expert ▲▼</th>
+                    <th style="${thStyle}">Période ▲▼</th>
+                    <th style="${thStyle}">Statut ▲▼</th>
+                    <th style="${thStyle}">Soumis le ▲▼</th>
+                    <th style="${thStyle}">Visé N1 ▲▼</th>
+                    <th style="${thStyle}">Visé N2 ▲▼</th>
+                    <th style="${thStyle}">Diffusé ▲▼</th>
+                    <th style="${thNoSort}">Actions</th>
                 </tr></thead>
-                <tbody>${data.map((c,i) => {
-                    const moisNom = new Date(c.annee, c.mois-1, 1).toLocaleDateString('fr-FR', {month:'long', year:'numeric'});
-                    return `<tr style="background:${i%2?(isArchive?'#f5f7f7':'#f9f4ff'):'white'};border-bottom:1px solid ${isArchive?'#cfd8dc':'#e1bee7'};">
-                        <td style="padding:6px 8px;">${c.expert_nom||'—'}</td>
-                        <td style="padding:6px 8px;">${moisNom}</td>
-                        <td style="padding:6px 8px;">${stL[c.statut]||c.statut}</td>
-                        <td style="padding:6px 8px;">${fmt(c.submitted_at)}</td>
-                        <td style="padding:6px 8px;">${c.vise_n1_nom ? fmt(c.vise_n1_at)+'<br><small>'+c.vise_n1_nom+'</small>' : '—'}</td>
-                        <td style="padding:6px 8px;">${c.vise_n2_nom ? fmt(c.vise_n2_at)+'<br><small>'+c.vise_n2_nom+'</small>' : '—'}</td>
-                        <td style="padding:6px 8px;" id="diffuse-cell-${c.id}">${c.statut === 'vise_n2' ? `<button onclick="openDiffuserModal(${c.id})" style="font-size:11px;padding:3px 10px;background:#e65100;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">📤 A diffuser</button>` : (fmt(c.diffuse_at) + `<br><button onclick="showDiffusionStatus(${c.id}, this)" style="font-size:10px;padding:2px 6px;background:#1a237e;color:white;border:none;border-radius:3px;cursor:pointer;margin-top:3px;">📧 Statut</button>`)}</td>
-                        <td style="padding:6px 8px;white-space:nowrap;">
-                            <button onclick="openCraModal(${c.id})" style="font-size:11px;padding:3px 8px;background:#6a1b9a;color:white;border:none;border-radius:4px;cursor:pointer;margin-right:4px;height:26px;box-sizing:border-box;">Voir</button>
-                            ${!readOnly && c.statut === 'diffuse' ? (!isArchive ? `<button onclick="confirmArchiveCra(${c.id},'${(c.expert_nom||'').replace(/'/g,'\\\'')}')" style="font-size:11px;padding:3px 8px;background:#546e7a;color:white;border:none;border-radius:4px;cursor:pointer;height:26px;box-sizing:border-box;">🗄️ Archiver</button>` : `<button onclick="unarchiveCra(${c.id})" style="font-size:11px;padding:3px 8px;background:#ff9800;color:white;border:none;border-radius:4px;cursor:pointer;margin-right:4px;">↩️ Désarchiver</button><button onclick="softDeleteCra(${c.id}, ${c.mois}, ${c.annee})" data-nom="${(c.expert_nom||'').replace(/"/g,'&quot;')}" style="font-size:11px;padding:3px 8px;background:#b71c1c;color:white;border:none;border-radius:4px;cursor:pointer;">🗑️ Supprimer</button>`) : ''}
-                        </td>
-                    </tr>`;
-                }).join('')}</tbody>
+                <tbody>${buildRows(data)}</tbody>
             </table>`;
+            // Tri client-side sur les 7 premières colonnes
+            const table = container.querySelector('table');
+            const tbody = table.querySelector('tbody');
+            const ths = table.querySelectorAll('thead th');
+            const sortState = { col: -1, asc: true };
+            ths.forEach((th, idx) => {
+                if (idx >= 7) return; // pas de tri sur Actions
+                th.addEventListener('click', () => {
+                    const asc = sortState.col === idx ? !sortState.asc : true;
+                    sortState.col = idx; sortState.asc = asc;
+                    ths.forEach((h, i) => {
+                        if (i >= 7) return;
+                        h.textContent = h.textContent.replace(/ [▲▼↑↓]+$/, '') + ' ▲▼';
+                    });
+                    th.textContent = th.textContent.replace(/ [▲▼↑↓]+$/, '') + (asc ? ' ▲' : ' ▼');
+                    const rows = Array.from(tbody.querySelectorAll('tr'));
+                    rows.sort((a, b) => {
+                        const cellA = a.querySelectorAll('td')[idx];
+                        const cellB = b.querySelectorAll('td')[idx];
+                        const va = (cellA?.dataset.sort ?? cellA?.textContent ?? '').trim();
+                        const vb = (cellB?.dataset.sort ?? cellB?.textContent ?? '').trim();
+                        return asc ? va.localeCompare(vb, 'fr', {numeric:true}) : vb.localeCompare(va, 'fr', {numeric:true});
+                    });
+                    rows.forEach(r => tbody.appendChild(r));
+                    // Restaurer les couleurs alternées
+                    Array.from(tbody.querySelectorAll('tr')).forEach((r, i) => {
+                        r.style.background = i%2 ? (isArchive?'#f5f7f7':'#f9f4ff') : 'white';
+                    });
+                });
+            });
         }
 
         async function loadCraSignaturesRh() {
