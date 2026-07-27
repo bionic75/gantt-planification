@@ -357,11 +357,26 @@ tr:nth-child(even) td { background: #f9f9f9; }
   <h2>🆕 Notes de version</h2>
   <p>Historique des évolutions de la Plateforme de Planification ANS.</p>
 
-  <!-- v1.14.8 -->
+  <!-- v1.14.10 -->
   <div class="card card-green" style="margin-bottom:16px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-      <strong style="font-size:16px;">v1.14.8</strong>
+      <strong style="font-size:16px;">v1.14.10</strong>
       <span class="badge badge-current">Actuelle</span>
+      <span style="color:#888; font-size:13px;">Juillet 2026</span>
+    </div>
+    <ul>
+      <li>↔️ <strong>Redimensionnement des colonnes</strong> : dans les onglets <em>Ressources</em>, <em>CRA</em> et <em>Administration</em>, il est possible d'ajuster manuellement la largeur de chaque colonne par glisser-déposer sur le bord droit de l'en-tête. La colonne adjacente se rétrécit automatiquement pour conserver la largeur totale du tableau.</li>
+      <li>👁 <strong>Masquage/affichage des colonnes</strong> : un clic droit sur un en-tête de colonne ouvre un menu contextuel permettant de masquer la colonne sélectionnée ou de réafficher une colonne précédemment masquée. L'état est <strong>mémorisé entre les sessions</strong> (rechargement de la page inclus) via le stockage local du navigateur.</li>
+      <li>🔢 <strong>Tri des colonnes CRA corrigé</strong> : le tri par clic sur les en-têtes des tableaux CRA fonctionne correctement sur toutes les colonnes concernées ; la colonne "Actions" est exclue du tri.</li>
+      <li>📋 <strong>Liste CRA — experts filtrés</strong> : dans l'onglet CRA, la liste "CRA à lancer" n'affiche que les experts pour lesquels l'astreinte volontaire a été activée (paramètre géré dans l'onglet Ressources).</li>
+      <li>🏷️ <strong>Renommage de l'onglet Astreintes</strong> : l'onglet "Astreintes (expérimental)" a été renommé "Astreintes" (suppression du suffixe et de l'émoticône de crayon).</li>
+    </ul>
+  </div>
+
+  <!-- v1.14.8 -->
+  <div class="card card-blue" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v1.14.8</strong>
       <span style="color:#888; font-size:13px;">Juillet 2026</span>
     </div>
     <ul>
