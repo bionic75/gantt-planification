@@ -1,4 +1,4 @@
-<!-- v1.14.8 -->
+<!-- v1.14.10 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -7863,6 +7863,7 @@
                     </td>
                 `;
             });
+            makeColResizable(document.getElementById('resourcesTable'));
         }
 
         // Variable pour stocker l'historique MAD de la ressource en cours d'édition
@@ -9699,6 +9700,145 @@
             if (totalRow) tbody.appendChild(totalRow);
         }
 
+        // Feuille de style dédiée aux colonnes masquées
+        (function() {
+            const s = document.createElement('style');
+            s.id = 'col-hide-styles';
+            document.head.appendChild(s);
+        })();
+
+        let _colTblSeq = 0;
+        function addColContextMenu(table) {
+            if (table._colCtxMenu) return;
+            table._colCtxMenu = true;
+            if (!table.dataset.coltblId) table.dataset.coltblId = 'coltbl-' + (++_colTblSeq);
+            const tblId = table.dataset.coltblId;
+            const styleSheet = document.getElementById('col-hide-styles').sheet;
+            const lsKey = 'col-hide:' + tblId;
+            const saved = JSON.parse(localStorage.getItem(lsKey) || '[]');
+            const hiddenCols = new Set(saved); // 1-based nth-child indices
+
+            const saveState = () => localStorage.setItem(lsKey, JSON.stringify([...hiddenCols]));
+
+            const applyHideRules = () => {
+                // Supprimer toutes les règles de ce tableau
+                for (let i = styleSheet.cssRules.length - 1; i >= 0; i--) {
+                    if (styleSheet.cssRules[i].selectorText?.includes(tblId)) styleSheet.deleteRule(i);
+                }
+                hiddenCols.forEach(nth => {
+                    styleSheet.insertRule(
+                        `[data-coltbl-id="${tblId}"] td:nth-child(${nth}),` +
+                        `[data-coltbl-id="${tblId}"] th:nth-child(${nth}) { display:none !important; }`,
+                        styleSheet.cssRules.length
+                    );
+                });
+            };
+
+            const removeMenu = () => document.querySelector('.col-ctx-menu')?.remove();
+
+            const ths = Array.from(table.querySelectorAll('thead tr:first-child th'));
+            ths.forEach((th, idx) => {
+                const nth = idx + 1; // nth-child est 1-based
+                th.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    removeMenu();
+                    const menu = document.createElement('div');
+                    menu.className = 'col-ctx-menu';
+                    menu.style.cssText = 'position:fixed;z-index:10000;background:white;border:1px solid #ccc;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.2);padding:4px 0;min-width:220px;font-size:13px;';
+                    // Positionner sans déborder
+                    const mw = 220, mh = 200;
+                    menu.style.left = Math.min(e.clientX, window.innerWidth - mw - 8) + 'px';
+                    menu.style.top  = Math.min(e.clientY, window.innerHeight - mh - 8) + 'px';
+
+                    const item = (text, color, fn) => {
+                        const d = document.createElement('div');
+                        d.textContent = text;
+                        d.style.cssText = `padding:8px 14px;cursor:pointer;color:${color||'#222'};`;
+                        d.onmouseenter = () => d.style.background = '#f0f4ff';
+                        d.onmouseleave = () => d.style.background = '';
+                        d.onclick = fn;
+                        return d;
+                    };
+                    const sep = () => { const d = document.createElement('div'); d.style.cssText = 'border-top:1px solid #eee;margin:3px 0;'; return d; };
+
+                    const label = (th.querySelector('.cra-th-label')?.textContent || th.textContent.replace(/[▲▼↑↓]/g,'').replace('col-resize-handle','').trim()).split('\n')[0].trim();
+
+                    // Masquer la colonne courante (sauf si déjà masquée)
+                    if (!hiddenCols.has(nth)) {
+                        menu.appendChild(item(`👁 Masquer "${label}"`, '#c62828', () => {
+                            hiddenCols.add(nth); applyHideRules(); saveState(); removeMenu();
+                        }));
+                    }
+
+                    // Colonnes masquées à réafficher
+                    if (hiddenCols.size > 0) {
+                        menu.appendChild(sep());
+                        const hdr = document.createElement('div');
+                        hdr.textContent = 'Colonnes masquées :';
+                        hdr.style.cssText = 'padding:3px 14px;font-size:11px;color:#888;font-weight:bold;text-transform:uppercase;letter-spacing:.5px;';
+                        menu.appendChild(hdr);
+                        hiddenCols.forEach(hNth => {
+                            const hTh = ths[hNth - 1];
+                            const hLabel = (hTh.querySelector('.cra-th-label')?.textContent || hTh.textContent.replace(/[▲▼↑↓]/g,'').trim()).split('\n')[0].trim();
+                            menu.appendChild(item(`↩ Afficher "${hLabel}"`, '#1d70b7', () => {
+                                hiddenCols.delete(hNth); applyHideRules(); saveState(); removeMenu();
+                            }));
+                        });
+                    }
+
+                    if (!menu.children.length) { removeMenu(); return; }
+                    document.body.appendChild(menu);
+                    setTimeout(() => document.addEventListener('click', removeMenu, { once: true }), 0);
+                });
+            });
+
+            // Restaurer l'état sauvegardé
+            if (hiddenCols.size > 0) applyHideRules();
+        }
+
+        function makeColResizable(table) {
+            if (!table || table._colResizable) return;
+            table._colResizable = true;
+            table.style.tableLayout = 'fixed';
+            const ths = Array.from(table.querySelectorAll('thead tr:first-child th'));
+            // Fixer les largeurs naturelles courantes
+            ths.forEach(th => { th.style.width = th.offsetWidth + 'px'; th.style.position = 'relative'; });
+            // Ajouter les poignées de resize (sauf la dernière colonne)
+            ths.slice(0, -1).forEach((th, idx) => {
+                if (th.querySelector('.col-resize-handle')) return;
+                const handle = document.createElement('div');
+                handle.className = 'col-resize-handle';
+                handle.style.cssText = 'position:absolute;right:0;top:0;width:6px;height:100%;cursor:col-resize;z-index:2;background:transparent;';
+                handle.addEventListener('mousedown', (e) => {
+                    e.preventDefault(); e.stopPropagation();
+                    const startX = e.clientX;
+                    const startW = th.offsetWidth;
+                    const nextTh = ths[idx + 1];
+                    const startNextW = nextTh ? nextTh.offsetWidth : 0;
+                    const onMove = (mv) => {
+                        const delta = mv.clientX - startX;
+                        const newW = Math.max(40, startW + delta);
+                        const actualDelta = newW - startW;
+                        if (nextTh) {
+                            const newNextW = startNextW - actualDelta;
+                            if (newNextW < 40) return;
+                            nextTh.style.width = newNextW + 'px';
+                        }
+                        th.style.width = newW + 'px';
+                    };
+                    const onUp = () => {
+                        document.removeEventListener('mousemove', onMove);
+                        document.removeEventListener('mouseup', onUp);
+                    };
+                    document.addEventListener('mousemove', onMove);
+                    document.addEventListener('mouseup', onUp);
+                });
+                th.appendChild(handle);
+            });
+            // Menu clic droit pour masquer/afficher les colonnes
+            addColContextMenu(table);
+        }
+
         function sortTable(tableId, columnIndex) {
             const table = document.getElementById(tableId + 'Table');
             const tbody = table.tBodies[0];
@@ -10194,6 +10334,7 @@
                     </td>
                 `;
             });
+            makeColResizable(document.getElementById('usersTable'));
         }
 
         async function forceLogoutUser(id, nom) {
@@ -13748,6 +13889,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                         </tr>`;
                     }).join('')}</tbody>
                 </table>`;
+                makeColResizable(container.querySelector('table'));
             } catch(e) { console.error('Erreur chargement CRA supprimés:', e); }
         }
 
@@ -14729,34 +14871,37 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                     </td>
                 </tr>`;
             }).join('');
-            container.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px;">
-                <thead><tr style="background:${hdrColor};color:white;">
-                    <th style="${thStyle}">Expert ▲▼</th>
-                    <th style="${thStyle}">Période ▲▼</th>
-                    <th style="${thStyle}">Statut ▲▼</th>
-                    <th style="${thStyle}">Soumis le ▲▼</th>
-                    <th style="${thStyle}">Visé N1 ▲▼</th>
-                    <th style="${thStyle}">Visé N2 ▲▼</th>
-                    <th style="${thStyle}">Diffusé ▲▼</th>
-                    <th style="${thNoSort}">Actions</th>
-                </tr></thead>
+            const cols = ['Expert','Période','Statut','Soumis le','Visé N1','Visé N2','Diffusé'];
+            const thsHtml = cols.map(label =>
+                `<th style="${thStyle}"><span class="cra-th-label">${label}</span><span class="cra-th-icon" style="font-size:10px;margin-left:4px;opacity:0.7;">▲▼</span></th>`
+            ).join('') + `<th style="${thNoSort}">Actions</th>`;
+            container.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;">
+                <thead><tr style="background:${hdrColor};color:white;">${thsHtml}</tr></thead>
                 <tbody>${buildRows(data)}</tbody>
             </table>`;
-            // Tri client-side sur les 7 premières colonnes
             const table = container.querySelector('table');
             const tbody = table.querySelector('tbody');
-            const ths = table.querySelectorAll('thead th');
+            const ths = Array.from(table.querySelectorAll('thead th'));
+            // Fixer les largeurs naturelles pour table-layout:fixed
+            ths.forEach(th => { th.style.width = th.offsetWidth + 'px'; });
+            // Tri client-side
             const sortState = { col: -1, asc: true };
             ths.forEach((th, idx) => {
-                if (idx >= 7) return; // pas de tri sur Actions
-                th.addEventListener('click', () => {
+                if (idx >= 7) return;
+                th.style.cursor = 'col-resize'; // sera affiné par le label
+                const label = th.querySelector('.cra-th-label');
+                const icon  = th.querySelector('.cra-th-icon');
+                label.style.cursor = 'pointer';
+                label.addEventListener('click', () => {
                     const asc = sortState.col === idx ? !sortState.asc : true;
                     sortState.col = idx; sortState.asc = asc;
                     ths.forEach((h, i) => {
                         if (i >= 7) return;
-                        h.textContent = h.textContent.replace(/ [▲▼↑↓]+$/, '') + ' ▲▼';
+                        h.querySelector('.cra-th-icon').textContent = '▲▼';
+                        h.querySelector('.cra-th-icon').style.opacity = '0.7';
                     });
-                    th.textContent = th.textContent.replace(/ [▲▼↑↓]+$/, '') + (asc ? ' ▲' : ' ▼');
+                    icon.textContent = asc ? '▲' : '▼';
+                    icon.style.opacity = '1';
                     const rows = Array.from(tbody.querySelectorAll('tr'));
                     rows.sort((a, b) => {
                         const cellA = a.querySelectorAll('td')[idx];
@@ -14766,12 +14911,47 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                         return asc ? va.localeCompare(vb, 'fr', {numeric:true}) : vb.localeCompare(va, 'fr', {numeric:true});
                     });
                     rows.forEach(r => tbody.appendChild(r));
-                    // Restaurer les couleurs alternées
                     Array.from(tbody.querySelectorAll('tr')).forEach((r, i) => {
                         r.style.background = i%2 ? (isArchive?'#f5f7f7':'#f9f4ff') : 'white';
                     });
                 });
             });
+            // Redimensionnement des colonnes (partagé avec makeColResizable,
+            // mais ths déjà positionnés — on attache juste les handles manuellement
+            // pour éviter que makeColResizable écrase les largeurs déjà fixées)
+            ths.slice(0, -1).forEach((th, idx) => {
+                if (th.querySelector('.col-resize-handle')) return;
+                const handle = document.createElement('div');
+                handle.className = 'col-resize-handle';
+                handle.style.cssText = 'position:absolute;right:0;top:0;width:6px;height:100%;cursor:col-resize;z-index:2;background:transparent;';
+                handle.addEventListener('mousedown', (e) => {
+                    e.preventDefault(); e.stopPropagation();
+                    const startX = e.clientX;
+                    const startW = th.offsetWidth;
+                    const nextTh = ths[idx + 1];
+                    const startNextW = nextTh ? nextTh.offsetWidth : 0;
+                    const onMove = (mv) => {
+                        const delta = mv.clientX - startX;
+                        const newW = Math.max(40, startW + delta);
+                        const actualDelta = newW - startW;
+                        if (nextTh) {
+                            const newNextW = startNextW - actualDelta;
+                            if (newNextW < 40) return;
+                            nextTh.style.width = newNextW + 'px';
+                        }
+                        th.style.width = newW + 'px';
+                    };
+                    const onUp = () => {
+                        document.removeEventListener('mousemove', onMove);
+                        document.removeEventListener('mouseup', onUp);
+                    };
+                    document.addEventListener('mousemove', onMove);
+                    document.addEventListener('mouseup', onUp);
+                });
+                th.appendChild(handle);
+            });
+            // Menu clic droit masquer/afficher colonnes
+            addColContextMenu(table);
         }
 
         async function loadCraSignaturesRh() {
@@ -18766,6 +18946,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             });
             html += '</tbody></table>';
             container.innerHTML = html;
+            makeColResizable(container.querySelector('table'));
         }
 
         function toggleSelectAllLoc(checkbox) {
