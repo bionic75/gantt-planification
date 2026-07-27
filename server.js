@@ -9934,7 +9934,7 @@ app.get('/api/cra/all-experts-full', requireAdmin, (req, res) => {
         `SELECT DISTINCT u.id as user_id, u.nom, u.prenom
          FROM users u
          JOIN resources r ON u.resource_id = r.id
-         WHERE u.is_expert = 1 AND r.actif = 1
+         WHERE u.is_expert = 1 AND r.actif = 1 AND r.astreinte_volontaire = 1
          ORDER BY u.nom, u.prenom`,
         (err, rows) => err ? res.status(500).json({ error: err.message }) : res.json(rows || [])
     );
