@@ -1,4 +1,4 @@
-<!-- v1.14.7 -->
+<!-- v1.14.8 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -2996,11 +2996,11 @@
             <div style="padding: 40px;">
                 <div class="form-group">
                     <label style="color: #2c3e50; font-weight: 600; font-size: 14px;">Identifiant</label>
-                    <input type="text" id="loginUsername" placeholder="Votre login" style="border: 2px solid #e0e0e0; padding: 12px; font-size: 14px; transition: all 0.3s;">
+                    <input type="text" id="loginUsername" name="username" autocomplete="off" placeholder="Votre login" style="border: 2px solid #e0e0e0; padding: 12px; font-size: 14px; transition: all 0.3s;" onfocus="tryFillCredentials()">
                 </div>
                 <div class="form-group">
                     <label style="color: #2c3e50; font-weight: 600; font-size: 14px;">Mot de passe</label>
-                    <input type="password" id="loginPassword" placeholder="Votre mot de passe" style="border: 2px solid #e0e0e0; padding: 12px; font-size: 14px; transition: all 0.3s;">
+                    <input type="password" id="loginPassword" name="password" autocomplete="current-password" placeholder="Votre mot de passe" style="border: 2px solid #e0e0e0; padding: 12px; font-size: 14px; transition: all 0.3s;">
                     <div style="text-align: right; margin-top: 8px;">
                         <a href="#" onclick="showForgotPassword(); return false;" style="color: #1D70B7; font-size: 13px; text-decoration: none; font-weight: 500; transition: all 0.3s;">Mot de passe oublié ?</a>
                     </div>
@@ -3961,8 +3961,32 @@
             }
         }
         
+        let _credFilled = false;
+        async function tryFillCredentials() {
+            if (_credFilled || !window.PasswordCredential) return;
+            try {
+                const cred = await navigator.credentials.get({ password: true, mediation: 'optional' });
+                if (cred) {
+                    document.getElementById('loginUsername').value = cred.id;
+                    document.getElementById('loginPassword').value = cred.password;
+                    _credFilled = true;
+                }
+            } catch(e) { /* silencieux si refusé ou non supporté */ }
+        }
+
         // Finaliser le login après validation MFA ou sans MFA
         async function completeFinalLogin(user, selectedApp) {
+            // Proposer à Chrome d'enregistrer les identifiants (Credential Management API)
+            if (window.PasswordCredential) {
+                try {
+                    const cred = new PasswordCredential({
+                        id: document.getElementById('loginUsername').value.trim(),
+                        password: document.getElementById('loginPassword').value,
+                        name: user.prenom + ' ' + user.nom
+                    });
+                    navigator.credentials.store(cred);
+                } catch(e) { /* silencieux */ }
+            }
             currentUser = user;
             currentUser.id = user.userId || user.id; // alias pour compatibilité
             currentUser.selectedApp = selectedApp;
@@ -13843,11 +13867,15 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                 renderCraData(cra);
                 renderCraActionButtons(cra);
 
-                // Bouton PDF
+                // Bouton PDF : fichier sauvegardé si disponible, sinon régénère (admin/RH) ou message (expert)
                 const pdfBtn = document.getElementById('craPdfBtn');
                 if (pdfBtn) {
                     pdfBtn.style.display = 'inline-flex';
-                    pdfBtn.onclick = () => downloadCraPdf(cra.id);
+                    if (cra.statut === 'diffuse' || cra.statut === 'vise_n2') {
+                        pdfBtn.onclick = () => openPdfWithFallback(cra.id, cra.pdf_filename || null);
+                    } else {
+                        pdfBtn.onclick = () => downloadCraPdf(cra.id);
+                    }
                 }
                 document.getElementById('craDetailPanel').style.display = 'block';
                 document.getElementById('craDetailPanel').scrollIntoView({ behavior: 'smooth' });
@@ -14253,7 +14281,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                     const st = r.email_status;
                     const icon = st === 'sent' ? '✅ Envoyé' : st === 'failed' ? '❌ Échec' : st === 'pending' ? '⏳ En attente' : '❓ Inconnu';
                     const err = r.error_message ? `<br><small style="color:#c62828;">${r.error_message}</small>` : '';
-                    const resend = (st === 'failed' || st === 'pending') ? `<button onclick="resendCraDiffusion(${craId},${r.id});this.closest('.status-popup').remove();" style="font-size:10px;padding:2px 6px;background:#c62828;color:white;border:none;border-radius:3px;cursor:pointer;">Renvoyer</button>` : '';
+                    const resend = (st === 'failed' || st === 'pending') && currentUser.activeProfile !== 'rh' ? `<button onclick="resendCraDiffusion(${craId},${r.id});this.closest('.status-popup').remove();" style="font-size:10px;padding:2px 6px;background:#c62828;color:white;border:none;border-radius:3px;cursor:pointer;">Renvoyer</button>` : '';
                     return `<tr><td style="padding:5px 8px;">${r.recipient_name||'—'}</td><td style="padding:5px 8px;">${r.recipient_email}</td><td style="padding:5px 8px;">${fmtDt(r.sent_at)}</td><td style="padding:5px 8px;">${icon}${err} ${resend}</td></tr>`;
                 }).join('');
                 const popup = document.createElement('div');
@@ -14477,7 +14505,12 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                     return;
                 }
             }
-            // Fichier absent ou jamais créé : afficher popup et régénérer
+            // Fichier absent : les experts ne peuvent pas régénérer
+            if (currentUser.activeProfile === 'expert') {
+                alert('Le fichier PDF de ce CRA n\'est pas encore disponible. Contactez un administrateur pour le générer.');
+                return;
+            }
+            // Fichier absent ou jamais créé : afficher popup et régénérer (admin/RH)
             const overlay = document.createElement('div');
             overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;';
             overlay.innerHTML = `<div style="background:white;border-radius:10px;padding:32px 40px;text-align:center;max-width:380px;box-shadow:0 8px 32px rgba(0,0,0,.3);">
@@ -14631,7 +14664,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                                     ${logData.map((r, i) => {
                                         const emailSt = r.email_status;
                                         const stIcon = emailSt === 'sent' ? '<span title="Email envoyé" style="color:#2e7d32;font-size:14px;">✅</span>' : emailSt === 'failed' ? '<span title="Échec : '+r.error_message+'" style="color:#c62828;font-size:14px;">❌</span>' : emailSt === 'pending' ? '<span title="En attente" style="color:#e65100;font-size:14px;">⏳</span>' : '<span title="Statut inconnu" style="color:#999;">❓</span>';
-                                        const resendBtn = (emailSt === 'failed' || emailSt === 'pending') ? `<button onclick="resendCraDiffusion(${craId}, ${r.id})" style="font-size:10px;padding:2px 6px;background:#c62828;color:white;border:none;border-radius:3px;cursor:pointer;margin-left:6px;">Renvoyer</button>` : '';
+                                        const resendBtn = (emailSt === 'failed' || emailSt === 'pending') && currentUser.activeProfile !== 'rh' ? `<button onclick="resendCraDiffusion(${craId}, ${r.id})" style="font-size:10px;padding:2px 6px;background:#c62828;color:white;border:none;border-radius:3px;cursor:pointer;margin-left:6px;">Renvoyer</button>` : '';
                                         return `<tr style="background:${i%2?'#e8eaf6':'white'};">
                                         <td style="padding:6px 10px;">${r.recipient_name || '—'}</td>
                                         <td style="padding:6px 10px;">${r.recipient_email}</td>

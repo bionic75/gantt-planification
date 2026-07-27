@@ -1,4 +1,4 @@
-// v1.14.7
+// v1.14.8
 import express from 'express';
 console.log('✅ Express importé');
 import cors from 'cors';
@@ -1629,6 +1629,7 @@ async function completeLogin(req, res, user, profile) {
                     is_amoa_ced: user.amoa_ced === 1,
                     is_admin: user.is_admin === 1,
                     is_expert: user.is_expert === 1,
+                    is_user: user.is_user === 1,
                     is_rh: user.is_rh === 1,
                     astreinte_volontaire: user.astreinte_volontaire === 1,
                     astreinte_date_activation: user.astreinte_date_activation || null,
@@ -10394,7 +10395,7 @@ app.post('/api/cra/:id/diffusion-resend/:logId', requireAdmin, async (req, res) 
 });
 
 // GET /api/cra/pdf-saved/:filename — sert un PDF sauvegardé sur disque (doit être avant /api/cra/:id)
-app.get('/api/cra/pdf-saved/:filename', requireAdminOrRh, async (req, res) => {
+app.get('/api/cra/pdf-saved/:filename', requireAuth, async (req, res) => {
     const filename = path.basename(req.params.filename);
     const filepath = path.join(__dirname, 'data', 'pdfs', filename);
     // Servir directement si le fichier existe
