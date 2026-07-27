@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aide en ligne — Plateforme de Planification ANS</title>
+<style>
+*, ::before, ::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Arial, sans-serif; font-size: 14px; color: #2c3e50; background: #f5f5f5; display: flex; flex-direction: column; height: 100vh; }
+#aide-header { flex-shrink: 0; background: #2c3e50; border-bottom: 3px solid #1d70b7; padding: 0 20px; height: 56px; display: flex; align-items: center; gap: 16px; z-index: 100; }
+#aide-header img { height: 36px; width: auto; }
+#aide-header h1 { color: #fff; font-size: 16px; font-weight: bold; flex: 1; }
+.back-btn { background: #1d70b7; color: #fff; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; white-space: nowrap; }
+.back-btn:hover { background: #2980b9; }
+#aide-body { display: flex; flex: 1; overflow: hidden; }
+#aide-sidebar { width: 240px; flex-shrink: 0; background: #fff; border-right: 1px solid #e0e0e0; overflow-y: auto; padding: 16px 0; }
+#aide-sidebar h3 { font-size: 11px; font-weight: bold; color: #888; text-transform: uppercase; letter-spacing: 0.5px; padding: 0 16px 8px; }
+#aide-sidebar ul { list-style: none; }
+#aide-sidebar ul li a { display: block; padding: 8px 16px; font-size: 13px; color: #2c3e50; text-decoration: none; border-left: 3px solid transparent; transition: 0.15s; }
+#aide-sidebar ul li a:hover { background: #f0f4ff; border-left-color: #1d70b7; color: #1d70b7; }
+#aide-content { flex: 1; overflow-y: auto; padding: 32px 40px; }
+section { margin-bottom: 48px; }
+section h2 { font-size: 20px; color: #2c3e50; border-bottom: 2px solid #1d70b7; padding-bottom: 8px; margin-bottom: 20px; }
+section h3 { font-size: 15px; color: #2c3e50; border-left: 3px solid #1d70b7; padding-left: 10px; margin: 20px 0 10px; }
+p { line-height: 1.7; margin-bottom: 10px; color: #444; }
+ul, ol { padding-left: 20px; margin-bottom: 10px; }
+li { line-height: 1.8; }
+code { background: #ecf0f1; padding: 2px 6px; border-radius: 3px; font-size: 12px; color: #c0392b; }
+.card { background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,.08); padding: 16px 20px; margin-bottom: 12px; }
+.card-blue { border-left: 4px solid #1d70b7; }
+.card-green { border-left: 4px solid #27ae60; }
+.card-orange { border-left: 4px solid #f39c12; }
+.card-purple { border-left: 4px solid #8e44ad; }
+.card-red { border-left: 4px solid #d60b51; }
+table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 13px; }
+th { background: #2c3e50; color: #fff; padding: 10px 12px; text-align: left; }
+td { padding: 8px 12px; border-bottom: 1px solid #e0e0e0; vertical-align: middle; }
+tr:nth-child(even) td { background: #f9f9f9; }
+.badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: bold; color: #fff; }
+.badge-admin { background: #e74c3c; }
+.badge-expert { background: #f39c12; }
+.badge-user { background: #3498db; }
+.badge-rh { background: #8e44ad; }
+.badge-current { background: #27ae60; }
+.color-dot { display: inline-block; width: 14px; height: 14px; border-radius: 50%; vertical-align: middle; margin-right: 6px; }
+.note { background: #e8f4f8; border-left: 4px solid #1d70b7; padding: 10px 14px; border-radius: 0 6px 6px 0; margin: 10px 0; font-size: 13px; }
+.warning { background: #fff3cd; border-left: 4px solid #f39c12; padding: 10px 14px; border-radius: 0 6px 6px 0; margin: 10px 0; font-size: 13px; }
+.url-chip { display: inline-block; background: #2c3e50; color: #fff; font-family: monospace; font-size: 13px; padding: 4px 12px; border-radius: 4px; margin: 4px 0; }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #f0f0f0; }
+::-webkit-scrollbar-thumb { background: #bdc3c7; border-radius: 3px; }
+</style>
+</head>
+<body>
+<header id="aide-header">
+  <img src="data:image/webp;base64,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" alt="ANS">
+  <h1>Aide en ligne — Plateforme de Planification</h1>
+  <button class="back-btn">← Retour à l'application</button>
+</header>
+
+<div id="aide-body">
+
+<!-- SIDEBAR -->
+<nav id="aide-sidebar">
+  <h3>Sommaire</h3>
+  <ul>
+    <li><a href="#section-presentation">🏠 Présentation générale</a></li>
+    <li><a href="#section-ressources">👥 Gestion des Ressources</a></li>
+    <li><a href="#section-planification">📅 Planification</a></li>
+    <li><a href="#section-cra">📋 Compte Rendu d'Activité</a></li>
+    <li><a href="#section-reporting">📊 Reporting</a></li>
+    <li><a href="#section-administration">⚙️ Administration</a></li>
+    <li><a href="#section-mobile">📱 Application mobile</a></li>
+    <li><a href="#section-notes-version">🆕 Notes de version</a></li>
+  </ul>
+</nav>
+
+<!-- CONTENT -->
+<main id="aide-content">
+
+<!-- ===================== 1. PRÉSENTATION ===================== -->
+<section id="section-presentation">
+  <h2>🏠 Présentation générale</h2>
+
+  <h3>Objectif de la plateforme</h3>
+  <p>La Plateforme de Planification ANS est un outil de gestion opérationnelle des ressources humaines dédié aux équipes SI-SAMU. Elle permet de :</p>
+  <ul>
+    <li>Planifier les affectations des experts métier sur des activités SAMU/ANS</li>
+    <li>Gérer les congés, disponibilités et événements personnalisés</li>
+    <li>Produire des rapports de disponibilité, d'astreinte et de connexion</li>
+    <li>Administrer les utilisateurs, les paramètres et les localisations</li>
+  </ul>
+
+  <h3>Profils utilisateurs</h3>
+  <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px;">
+    <div class="card card-red" style="flex:1; min-width:180px;">
+      <span class="badge badge-admin">Administrateur</span>
+      <p style="margin-top:8px; font-size:13px;">Accès complet à tous les onglets et paramètres. Gère les utilisateurs, les ressources et la configuration. Valide et diffuse les CRA.</p>
+    </div>
+    <div class="card card-orange" style="flex:1; min-width:180px;">
+      <span class="badge badge-expert">Expert Métier</span>
+      <p style="margin-top:8px; font-size:13px;">Consulte et saisit son planning. Accède à ses astreintes/HNO et signe son compte rendu d'activité (CRA).</p>
+    </div>
+    <div class="card card-blue" style="flex:1; min-width:180px;">
+      <span class="badge badge-user">Utilisateur</span>
+      <p style="margin-top:8px; font-size:13px;">Accès en lecture au planning et aux ressources selon les droits attribués. Pas d'accès au CRA.</p>
+    </div>
+    <div class="card card-purple" style="flex:1; min-width:180px;">
+      <span class="badge badge-rh">RH</span>
+      <p style="margin-top:8px; font-size:13px;">Consulte les CRA signés et diffusés. Peut visualiser le PDF du CRA. Accès en lecture uniquement (pas d'action de renvoi d'email).</p>
+    </div>
+  </div>
+
+  <h3>Changement de profil sans déconnexion</h3>
+  <p>Lorsqu'un compte dispose de plusieurs profils (ex. Administrateur <em>et</em> Expert), un sélecteur de profil apparaît dans l'en-tête à droite du nom d'utilisateur. Un clic sur le bouton <strong>▼</strong> ouvre la liste des profils disponibles. La sélection d'un profil recharge les onglets et les droits immédiatement, sans déconnexion ni rechargement de page.</p>
+  <div class="note">Le profil actif est conservé en session. Une déconnexion/reconnexion repart sur le profil par défaut du compte.</div>
+
+  <h3>Navigation générale</h3>
+  <p>La navigation s'effectue via les onglets en haut de l'écran. La visibilité de chaque onglet dépend du profil actif :</p>
+  <table>
+    <thead><tr><th>Onglet</th><th>Contenu</th><th>Admin</th><th>Expert</th><th>Utilisateur</th><th>RH</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Ressources</strong></td><td>Fiche de chaque expert</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+      <tr><td><strong>Événements</strong></td><td>Création, liste et carte des événements</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+      <tr><td><strong>Planification</strong></td><td>Gantt mensuel AM/PM par expert</td><td>✅</td><td>✅</td><td>✅</td><td>—</td></tr>
+      <tr><td><strong>CRA</strong></td><td>Compte rendu d'activité (signature, diffusion)</td><td>✅</td><td>✅ (si astreinte volontaire)</td><td>—</td><td>✅</td></tr>
+      <tr><td><strong>Astreintes</strong></td><td>Gestion des astreintes et HNO</td><td>✅</td><td>✅</td><td>—</td><td>—</td></tr>
+      <tr><td><strong>Reporting</strong></td><td>Disponibilités, HNO, événements, connexions</td><td>✅</td><td>—</td><td>selon droits</td><td>—</td></tr>
+      <tr><td><strong>Administration</strong></td><td>Paramètres, utilisateurs, localisations</td><td>✅</td><td>—</td><td>—</td><td>—</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ===================== 2. RESSOURCES ===================== -->
+<section id="section-ressources">
+  <h2>👥 Gestion des Ressources</h2>
+
+  <h3>Ajouter une ressource</h3>
+  <p>Dans l'onglet <strong>Ressources</strong>, cliquez sur le bouton <strong>+ Ajouter une ressource</strong>. Renseignez :</p>
+  <ul>
+    <li><strong>Nom / Prénom / Trigramme</strong> — identifiants de l'expert</li>
+    <li><strong>SAMU de rattachement</strong> — sélectionné depuis la liste des localisations</li>
+    <li><strong>ES de rattachement</strong> — rempli automatiquement depuis l'adresse de la localisation choisie</li>
+    <li><strong>Taux de MAD</strong> — pourcentage de mise à disposition (0–100%)</li>
+    <li><strong>Date de début</strong> — date d'entrée dans le dispositif</li>
+    <li><strong>Fonction / Expertise</strong> — rôle métier</li>
+  </ul>
+
+  <h3>Modifier une ressource</h3>
+  <p>Cliquez sur le nom d'un expert dans le tableau pour ouvrir sa fiche de modification. Tous les champs sont éditables.</p>
+
+  <h3>Affectations SAMU (Expert principal / secondaire)</h3>
+  <p>En plus du SAMU de rattachement, chaque MAD peut être affecté à un ou plusieurs SAMU pour le déploiement opérationnel ou l'accompagnement "après-vente" :</p>
+  <ul>
+    <li><strong>🅿️ Expert principal</strong> — champ libre avec autocomplétion ; tapez les premiers caractères pour faire apparaître la liste des SAMU et ajouter ceux où l'expert officie en tant que référent principal</li>
+    <li><strong>🅢 Expert secondaire</strong> — même principe, pour les SAMU où l'expert intervient en second niveau</li>
+  </ul>
+  <p>Ces champs sont disponibles à la fois lors de l'<strong>ajout</strong> d'une ressource et dans la fenêtre <strong>Modifier</strong>. Un SAMU déjà sélectionné en principal n'est pas proposé en secondaire (et inversement). Les affectations s'affichent dans le tableau "Ressources" sur deux colonnes dédiées, et apparaissent également au survol de la pastille trigramme dans le planning.</p>
+
+  <h3>Taux de MAD</h3>
+  <div class="note">Le taux de MAD (Mise À Disposition) représente la part du temps de l'expert consacré à la mission SI-SAMU. Il est exprimé en pourcentage et peut varier de 0 à 100%.</div>
+
+  <h3>Photo de profil</h3>
+  <p>Chaque expert peut disposer d'une photo de profil (format JPG/PNG, max 2 Mo). Elle s'affiche dans la pastille en haut à droite une fois connecté.</p>
+</section>
+
+<!-- ===================== 3. PLANIFICATION ===================== -->
+<section id="section-planification">
+  <h2>📅 Planification</h2>
+
+  <h3>Lecture du Gantt</h3>
+  <p>Le Gantt affiche un mois complet. Chaque ligne correspond à un expert. Chaque jour est découpé en deux demi-journées :</p>
+  <ul>
+    <li><strong>AM</strong> — Matin (colonne supérieure)</li>
+    <li><strong>PM</strong> — Après-midi (colonne inférieure)</li>
+  </ul>
+  <p>Une ligne d'en-tête supplémentaire affiche le <strong>numéro de semaine</strong> (norme ISO 8601), avec une légère alternance de couleur entre deux semaines contiguës pour faciliter la lecture. Cette numérotation est également reprise sur le planning individuel imprimable, la vue "Agenda mensuel" et les vues mobiles.</p>
+
+  <h3>Codes d'activité</h3>
+  <table>
+    <thead><tr><th>Code</th><th>Couleur</th><th>Libellé</th></tr></thead>
+    <tbody>
+      <tr><td><strong>1</strong></td><td><span class="color-dot" style="background:#95a5a6;"></span>#95a5a6</td><td>❓ Indisponible</td></tr>
+      <tr><td><strong>2</strong></td><td><span class="color-dot" style="background:#9b59b6;"></span>#9b59b6</td><td>⏳ En attente</td></tr>
+      <tr><td><strong>3</strong></td><td><span class="color-dot" style="background:#e67e22;"></span>#e67e22</td><td>📞 SAMU Déploiement</td></tr>
+      <tr><td><strong>4</strong></td><td><span class="color-dot" style="background:#d35400;"></span>#d35400</td><td>📞 SAMU Dev. usages</td></tr>
+      <tr><td><strong>5</strong></td><td><span class="color-dot" style="background:#3498db;"></span>#3498db</td><td>📄 ANS Déploiement</td></tr>
+      <tr><td><strong>6</strong></td><td><span class="color-dot" style="background:#2980b9;"></span>#2980b9</td><td>👨‍🏫 ANS Dev. usages</td></tr>
+      <tr><td><strong>7</strong></td><td><span class="color-dot" style="background:#e74c3c;"></span>#e74c3c</td><td>☑️ Qualification</td></tr>
+      <tr><td><strong>8</strong></td><td><span class="color-dot" style="background:#16a085;"></span>#16a085</td><td>📖 Divers</td></tr>
+    </tbody>
+  </table>
+  <p>Les congés sont affichés avec un fond grisé (<span class="color-dot" style="background:#bdc3c7;"></span>#bdc3c7) et l'icône 🏖️.</p>
+
+  <h3>Saisie et modification d'une affectation</h3>
+  <p>Cliquez sur une cellule du Gantt pour ouvrir le panneau de saisie. Sélectionnez le code d'activité souhaité pour la demi-journée. La modification est immédiate et synchronisée.</p>
+  <div class="note">Seuls les profils <span class="badge badge-admin">Admin</span> et <span class="badge badge-expert">Expert Métier</span> peuvent modifier les affectations.</div>
+
+  <h3>Navigation</h3>
+  <p>Utilisez les chevrons <strong>◀ ▶</strong> pour naviguer d'un mois à l'autre. Le bouton <strong>Aujourd'hui</strong> revient au mois courant.</p>
+
+  <h3>Événements personnalisés</h3>
+  <p>Les événements (déplacements, formations, réunions…) sont créés via le bouton <strong>📅 Mes événements</strong>. Ils apparaissent dans le Gantt sous forme de bandeaux colorés.</p>
+</section>
+
+<!-- ===================== 4. CRA ===================== -->
+<section id="section-cra">
+  <h2>📋 Compte Rendu d'Activité (CRA)</h2>
+
+  <h3>Présentation</h3>
+  <p>Le CRA est un document mensuel qui récapitule l'activité d'astreinte et HNO d'un expert. Il suit un circuit de validation électronique et est diffusé par email aux interlocuteurs RH.</p>
+  <div class="note">L'onglet CRA est accessible aux profils <span class="badge badge-admin">Admin</span>, <span class="badge badge-expert">Expert Métier</span> (si déclaré volontaire aux astreintes) et <span class="badge badge-rh">RH</span>.</div>
+
+  <h3>Circuit de validation</h3>
+  <table>
+    <thead><tr><th>Statut</th><th>Description</th><th>Action disponible</th></tr></thead>
+    <tbody>
+      <tr><td><strong>À compléter</strong></td><td>CRA créé, en cours de saisie par l'expert</td><td>Expert : signer et soumettre</td></tr>
+      <tr><td><strong>Soumis</strong></td><td>Signé par l'expert, en attente de visa N1</td><td>Admin N1 : viser ou refuser</td></tr>
+      <tr><td><strong>Visé N1</strong></td><td>Validé par le premier viseur</td><td>Admin N2 : viser ou refuser</td></tr>
+      <tr><td><strong>Visé N2</strong></td><td>Validé par les deux viseurs</td><td>Admin : diffuser</td></tr>
+      <tr><td><strong>Diffusé</strong></td><td>Emails envoyés aux destinataires RH</td><td>Admin : renvoyer les emails</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Refus et retour à l'expert</h3>
+  <p>Un viseur (N1 ou N2) peut refuser un CRA avec un commentaire obligatoire. Le CRA repasse au statut <em>À compléter</em> et l'expert reçoit un email avec le motif du refus mis en évidence.</p>
+
+  <h3>Téléchargement du PDF</h3>
+  <p>Un bouton <strong>📄 Voir / Télécharger PDF</strong> est disponible dans la fenêtre CRA pour les statuts <em>Visé N2</em> et <em>Diffusé</em> :</p>
+  <ul>
+    <li>Si le fichier PDF a déjà été généré, il s'ouvre directement dans un nouvel onglet du navigateur.</li>
+    <li>Si le fichier est absent du serveur, un message de chargement s'affiche et le PDF est régénéré automatiquement à partir des données du CRA, puis ouvert.</li>
+  </ul>
+  <div class="note">Le profil <span class="badge badge-expert">Expert</span> voit le bouton PDF mais ne peut pas relancer une régénération. Si le PDF est absent, un message invite à contacter un administrateur.</div>
+
+  <h3>Diffusion par email</h3>
+  <p>Lorsqu'un CRA est au statut <em>Visé N2</em>, l'administrateur peut lancer la diffusion via le bouton <strong>📧 A diffuser</strong>. Les emails sont envoyés aux destinataires DRH configurés (DRH ES et DRH ANS).</p>
+  <p>Le tableau de diffusion affiche pour chaque destinataire :</p>
+  <ul>
+    <li>Le nom et l'adresse email</li>
+    <li>La date et l'heure d'envoi</li>
+    <li>Le statut : ✅ Envoyé / ❌ Échec / ⏳ En attente / ❓ Inconnu</li>
+  </ul>
+  <div class="note">Le bouton <strong>Renvoyer</strong> est disponible uniquement pour le profil <span class="badge badge-admin">Administrateur</span> lorsque le statut est Échec ou En attente. Le profil <span class="badge badge-rh">RH</span> consulte le tableau de diffusion en lecture seule.</div>
+
+  <h3>Vue expert</h3>
+  <p>L'expert accède à ses CRA dans l'onglet CRA. Pour les CRA au statut <em>Diffusé</em> ou <em>Visé N2</em>, le bouton <strong>Télécharger PDF</strong> ouvre le fichier PDF enregistré sur le serveur.</p>
+</section>
+
+<!-- ===================== 5. REPORTING ===================== -->
+<section id="section-reporting">
+  <h2>📊 Reporting</h2>
+
+  <h3>Disponibilités</h3>
+  <p>Tableau de synthèse des disponibilités par expert et par période. Permet de visualiser les taux d'occupation et les jours libres.</p>
+
+  <h3>HNO / Astreintes</h3>
+  <p>Suivi des heures hors-normes et des volontaires aux astreintes. Filtrable par expert et par période.</p>
+
+  <h3>Suivi des événements</h3>
+  <p>Liste de tous les événements personnalisés sur la période sélectionnée, avec leurs participants et localisations.</p>
+
+  <h3>Suivi des connexions</h3>
+  <p>Rapport du nombre de connexions par utilisateur sur une période donnée (mois ou intervalle libre). Accessible aux administrateurs uniquement.</p>
+  <p>Filtres disponibles :</p>
+  <ul>
+    <li>Période mensuelle (mois + année) ou intervalle libre (date début → date fin)</li>
+    <li>Sélection multi-utilisateurs (Ctrl+clic)</li>
+  </ul>
+</section>
+
+<!-- ===================== 6. ADMINISTRATION ===================== -->
+<section id="section-administration">
+  <h2>⚙️ Administration</h2>
+
+  <h3>Paramétrages divers</h3>
+  <ul>
+    <li><strong>Version</strong> — numéro de version affiché sur la mire de login</li>
+    <li><strong>Inactivité</strong> — délai avant déconnexion automatique (en minutes)</li>
+    <li><strong>Favicon</strong> — icône affichée dans l'onglet du navigateur</li>
+    <li><strong>Aide en ligne</strong> — publication des nouveautés et upload d'une page d'aide personnalisée</li>
+  </ul>
+
+  <h3>Administration de l'aide en ligne</h3>
+  <p>Deux fonctions sont disponibles :</p>
+  <ul>
+    <li><strong>Publication de version</strong> — active une popup "Nouveautés" affichée à chaque utilisateur lors de sa prochaine connexion</li>
+    <li><strong>Upload d'une page d'aide</strong> — remplace la page <code>/aide.html</code> par un fichier HTML personnalisé uploadé</li>
+  </ul>
+  <div class="note">La popup de nouveautés n'est affichée qu'une seule fois par utilisateur par version (mémorisée localement).</div>
+
+  <h3>Jours et événements spéciaux</h3>
+  <p>Configurez les jours fériés, les vacances scolaires et les événements récurrents qui s'affichent dans le Gantt.</p>
+
+  <h3>Gestion des utilisateurs</h3>
+  <p>Créez, modifiez et désactivez les comptes utilisateurs. Attribuez les profils et les droits :</p>
+  <table>
+    <thead><tr><th>Colonne</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td>Reporting</td><td>Accès à l'onglet Reporting</td></tr>
+      <tr><td>AMOA CED</td><td>Accès à la plateforme de suivi des déplacements</td></tr>
+      <tr><td>Validation RH</td><td>Droits de validation RH (Admin et Utilisateur uniquement)</td></tr>
+      <tr><td>Astreinte</td><td>Volontaire aux astreintes (Experts avec ressource associée)</td></tr>
+    </tbody>
+  </table>
+  <div class="note">Un compte peut avoir plusieurs profils simultanément (ex. Administrateur + Expert). Le changement de profil actif se fait via le sélecteur dans l'en-tête, sans déconnexion.</div>
+
+  <h3>Localisations</h3>
+  <p>Gérez les lieux (SAMU, établissements) avec leurs coordonnées GPS pour l'affichage sur carte.</p>
+
+  <h3>SMTP et notifications</h3>
+  <p>Configurez le serveur d'envoi d'emails pour les notifications automatiques (affectations, MFA, backup). Le champ <strong>Port</strong> détermine automatiquement le mode de chiffrement : port 465 → SSL/TLS direct ; port 587 ou autre → STARTTLS.</p>
+  <div class="warning">Le port 587 (STARTTLS) peut être bloqué sur certains réseaux mobiles (partage de connexion). Si l'envoi d'emails échoue avec une erreur de connexion, vérifiez que le port n'est pas filtré par l'opérateur.</div>
+</section>
+
+<!-- ===================== 7. MOBILE ===================== -->
+<section id="section-mobile">
+  <h2>📱 Application mobile</h2>
+
+  <h3>Accès</h3>
+  <p>L'application mobile est accessible à l'URL :</p>
+  <div class="url-chip">/mobile</div>
+  <div class="note">Sur un appareil mobile (smartphone/tablette), l'URL <code>/mobile</code> affiche automatiquement l'interface optimisée. Sur un ordinateur, elle redirige vers la page de connexion principale.</div>
+
+  <h3>Connexion</h3>
+  <p>Utilisez vos identifiants habituels. Le MFA est supporté (email ou application Authenticator). La session mobile est indépendante de la session desktop.</p>
+
+  <h3>Vues disponibles</h3>
+  <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:12px;">
+    <div class="card card-blue" style="flex:1; min-width:150px; text-align:center;">
+      <div style="font-size:28px;">📅</div>
+      <strong>Jour</strong>
+      <p style="font-size:12px; margin-top:4px;">AM et PM d'une journée, avec événements du jour</p>
+    </div>
+    <div class="card card-green" style="flex:1; min-width:150px; text-align:center;">
+      <div style="font-size:28px;">📆</div>
+      <strong>Semaine</strong>
+      <p style="font-size:12px; margin-top:4px;">Grille Lun→Ven avec points colorés AM/PM</p>
+    </div>
+    <div class="card card-orange" style="flex:1; min-width:150px; text-align:center;">
+      <div style="font-size:28px;">🗓️</div>
+      <strong>Mois</strong>
+      <p style="font-size:12px; margin-top:4px;">Calendrier mensuel avec indicateurs colorés</p>
+    </div>
+  </div>
+
+  <h3>Sélection de l'expert</h3>
+  <p>Un menu déroulant permet de consulter le planning de n'importe quel expert actif. Par défaut, l'expert connecté voit son propre planning.</p>
+
+  <h3>Événements</h3>
+  <p>Les événements de la période sélectionnée sont affichés en bas de chaque vue sous forme de cartes. Tous les événements sont visibles pour tous les profils connectés.</p>
+</section>
+
+<!-- ===================== 8. NOTES DE VERSION ===================== -->
+<section id="section-notes-version">
+  <h2>🆕 Notes de version</h2>
+  <p>Historique des évolutions de la Plateforme de Planification ANS.</p>
+
+  <!-- v1.14.8 -->
+  <div class="card card-green" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v1.14.8</strong>
+      <span class="badge badge-current">Actuelle</span>
+      <span style="color:#888; font-size:13px;">Juillet 2026</span>
+    </div>
+    <ul>
+      <li>🔒 <strong>Profil RH — consultation CRA en lecture seule</strong> : le bouton "Renvoyer" est masqué pour le profil RH dans le tableau de diffusion et dans la popup de statut d'envoi. Le profil RH consulte les informations de diffusion sans pouvoir déclencher de renvoi d'email.</li>
+    </ul>
+  </div>
+
+  <!-- v1.14.7 -->
+  <div class="card card-blue" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v1.14.7</strong>
+      <span style="color:#888; font-size:13px;">Juillet 2026</span>
+    </div>
+    <ul>
+      <li>👤 <strong>Sélecteur de profil multi-compte</strong> : les comptes disposant de plusieurs profils (Admin, Expert, Utilisateur, RH) peuvent basculer d'un profil à l'autre directement depuis l'en-tête, sans déconnexion. Les onglets et droits se mettent à jour instantanément.</li>
+      <li>📋 <strong>Conformité onglets par profil</strong> :
+        <ul style="margin-top:6px; margin-left:16px; line-height:2;">
+          <li>Profil <strong>Utilisateur</strong> : suppression de l'onglet CRA (le CRA est produit par les experts et validé par les admins)</li>
+          <li>Profil <strong>Expert Métier</strong> : ajout de l'onglet Astreintes pour la gestion des astreintes/HNO</li>
+        </ul>
+      </li>
+      <li>📄 <strong>PDF du CRA — gestion intelligente</strong> :
+        <ul style="margin-top:6px; margin-left:16px; line-height:2;">
+          <li>Si le fichier PDF existe sur le serveur, il s'ouvre directement (pas de régénération inutile)</li>
+          <li>Si le fichier est absent, il est régénéré automatiquement avec une popup "PDF en cours de création…" pendant la génération</li>
+          <li>Après régénération, le bouton PDF est rebind avec le nouveau nom de fichier pour éviter les régénérations répétées</li>
+        </ul>
+      </li>
+      <li>📧 <strong>Diffusion CRA — bouton "A diffuser"</strong> : correction d'un bug empêchant l'ouverture de la popup de diffusion (récursion infinie sur l'assignation des fonctions globales).</li>
+      <li>👁️ <strong>Profil RH — accès au PDF</strong> : le profil RH peut désormais consulter le PDF d'un CRA diffusé via le bouton "Voir / Télécharger PDF".</li>
+      <li>🔐 <strong>SMTP — détection automatique du chiffrement</strong> : le mode SSL/TLS est sélectionné automatiquement selon le port configuré (465 → SSL, autre → STARTTLS), sans configuration manuelle.</li>
+      <li>🌐 <strong>Correction autocomplétion Chrome</strong> : les champs de connexion sont configurés pour éviter que Chrome propose des adresses email à la place des identifiants de la plateforme.</li>
+    </ul>
+  </div>
+
+  <!-- v1.11.31 -->
+  <div class="card" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v1.11.31</strong>
+      <span style="color:#888; font-size:13px;">Juin 2026</span>
+    </div>
+    <ul>
+      <li>📝 <strong>Workflow CRA — refus et historique des signatures</strong> :
+        <ul style="margin-top:6px; margin-left:16px; line-height:2;">
+          <li><strong>Refus motivé</strong> — chaque viseur (N1 ou N2) peut désormais refuser un CRA avec un commentaire obligatoire ; le CRA repasse au statut <em>À compléter</em> et l'expert reçoit un email avec le motif du refus mis en évidence</li>
+          <li><strong>Permissions de visa corrigées</strong> — seul l'administrateur configuré comme viseur N1 ou N2 (dans Administration → Automation n°4) voit le bouton de validation correspondant</li>
+          <li><strong>Historique des signatures</strong> — chaque étape (Expert, Viseur N1, Viseur N2) affiche désormais le nom du signataire et la date/heure exacte de signature</li>
+          <li><strong>Document PDF</strong> — bouton 📄 disponible à tout moment du circuit pour visualiser/imprimer le CRA en l'état, avec logo ANS, établissement de rattachement et blocs de signature</li>
+          <li><strong>Pastille de notification</strong> — badge sur l'onglet "CRA à valider" indiquant le nombre de CRA en attente, visible dès la connexion</li>
+        </ul>
+      </li>
+      <li>📍 <strong>Affectations SAMU multiples par expert</strong> :
+        <ul style="margin-top:6px; margin-left:16px; line-height:2;">
+          <li>Chaque MAD peut désormais être rattaché à plusieurs SAMU, avec un rôle <strong>🅿️ Principal</strong> ou <strong>🅢 Secondaire</strong> par SAMU</li>
+          <li>Saisie via un champ libre avec autocomplétion dans le formulaire d'ajout et dans la fenêtre "Modifier" d'une ressource</li>
+          <li>Le tableau "Ressources" affiche désormais 2 colonnes dédiées : <em>Affectation(s) SAMU principales</em> et <em>Affectation(s) SAMU secondaires</em></li>
+          <li>Ces affectations apparaissent également au survol de la pastille trigramme dans le planning</li>
+        </ul>
+      </li>
+      <li>📅 <strong>Numéros de semaine sur les plannings</strong> — une ligne ou colonne "Sem. N" (numérotation ISO 8601) a été ajoutée sur le planning principal, le planning individuel imprimable, la vue "Agenda mensuel" et les vues mobiles</li>
+      <li>🗂️ <strong>Nouvel onglet "Événements"</strong> — la gestion des événements personnalisés quitte la fenêtre popup et devient un onglet à part entière, positionné à gauche de "Planification", regroupant la création, la liste et la carte des événements</li>
+      <li>⚙️ <strong>Ergonomie de l'Administration</strong> — les blocs de "Paramétrages divers" et les automatisations n°1, n°2 et n°4 sont désormais pliables/dépliables individuellement, pour une navigation plus claire dans l'onglet Administration</li>
+      <li>✉️ <strong>Demande d'affectation simplifiée</strong> — dans "Faire une demande", le champ destinataires devient un champ libre avec autocomplétion des experts (seuls ceux disposant d'une adresse email sont proposés) ; la date de fin se cale automatiquement sur la date de début choisie</li>
+    </ul>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v1.11.27</strong>
+      <span style="color:#888; font-size:13px;">Mai 2026</span>
+    </div>
+    <ul>
+      <li>📅 <strong>Affectation aux événements</strong> — module "Gérer les événements" entièrement refondu : visibilité complète tous profils, droits différenciés créateur/autres, déclaration de participation ✋ avec mise à jour automatique du planning, besoin de ressources, notifications email.</li>
+    </ul>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v1.11.23</strong>
+      <span style="color:#888; font-size:13px;">Mai 2026</span>
+    </div>
+    <ul>
+      <li>📖 <strong>Aide en ligne</strong> — nouvelle page d'aide accessible via le bouton <strong>?</strong> dans le header, avec popup "Nouveautés version" à la connexion</li>
+      <li>📱 <strong>Application mobile</strong> — webapp optimisée pour smartphones et tablettes (vues Jour / Semaine / Mois, MFA, sélection expert)</li>
+      <li>📊 <strong>Suivi des connexions</strong> — nouveau rapport dans l'onglet Reporting avec filtres par période et par utilisateur</li>
+      <li>👥 <strong>Profil RH</strong> — nouveau profil utilisateur dédié à la validation RH, avec colonne dédiée dans la liste des utilisateurs</li>
+      <li>📍 <strong>SAMU / ES depuis localisations</strong> — le SAMU de rattachement est sélectionné depuis la table des localisations, l'ES est rempli automatiquement</li>
+      <li>🔐 <strong>Gestion de session améliorée</strong> — déconnexion automatique par inactivité avec modale de compte à rebours</li>
+    </ul>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v1.0.0</strong>
+      <span style="color:#888; font-size:13px;">Lancement initial</span>
+    </div>
+    <ul>
+      <li>🚀 Lancement de la Plateforme de Planification SI-SAMU</li>
+      <li>📅 Gantt mensuel AM/PM avec 8 codes d'activité</li>
+      <li>👥 Gestion des ressources et des utilisateurs</li>
+      <li>📊 Reporting des disponibilités</li>
+      <li>⚙️ Administration et paramétrage complet</li>
+    </ul>
+  </div>
+
+</section>
+
+</main>
+</div>
+
+</body>
+</html>
