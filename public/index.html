@@ -1,4 +1,4 @@
-<!-- v1.14.10 -->
+<!-- v1.14.11 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -574,6 +574,14 @@
                     ">0</span>
                 </button>
                 
+                <!-- Sélecteur d'applications -->
+                <div id="appSwitcher" style="display:none;position:relative;margin-right:6px;">
+                    <button id="appSwitcherBtn" onclick="toggleAppSwitcherDropdown()" title="Changer d'application" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);color:white;padding:4px 10px;border-radius:10px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px;">
+                        <span>🔀</span><span id="appSwitcherLabel">Applications</span><span style="font-size:9px;">▼</span>
+                    </button>
+                    <div id="appSwitcherDropdown" style="display:none;position:absolute;top:calc(100% + 4px);right:0;background:white;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.2);min-width:240px;z-index:9999;overflow:hidden;"></div>
+                </div>
+
                 <button class="logout-icon" onclick="logout()" title="Déconnexion"></button>
             </div>
         </div>
@@ -2634,6 +2642,19 @@
         </div>
     </div>
     
+    <!-- SECTION: Configuration des accès aux applications -->
+    <div class="form-section" style="margin-top: 20px; background-color: #e8eaf6; border-left: 4px solid #3f51b5;">
+        <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleAdminSection('appAccessSection'); if(document.getElementById('appAccessSection').style.display!=='none') loadAppAccessSection();">
+            <h3 style="color: #1a237e; border-left: none; margin: 0;">
+                <span id="appAccessSectionIcon">▶</span> 🔀 Configuration des accès aux applications
+            </h3>
+        </div>
+        <div id="appAccessSection" style="margin-top: 15px; display: none;">
+            <p style="color:#555;font-size:13px;margin-bottom:16px;">Gérez ici quels utilisateurs ont accès aux applications supplémentaires disponibles sur la plateforme.</p>
+            <div id="appAccessContent"><p style="color:#999;font-style:italic;font-size:13px;">Chargement…</p></div>
+        </div>
+    </div>
+
     <!-- SECTION 6: Liste des utilisateurs (repliable) -->
     <div class="form-section" style="margin-top: 20px; background-color: #fce4ec; border-left: 4px solid #e91e63;">
         <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleAdminSection('usersListSection')">
@@ -2654,7 +2675,6 @@
                             <th class="no-sort">Téléphone</th>
                             <th onclick="sortTable('users', 6)">Profil(s)</th>
                             <th class="no-sort" title="Accès à l'onglet Reporting">Reporting</th>
-                            <th class="no-sort" title="Accès à la Plateforme de suivi des déplacements">AMOA CED</th>
                             <th class="no-sort" title="Validation RH">Validation RH</th>
                             <th onclick="sortTable('users', 9)">Actif</th>
                             <th onclick="sortTable('users', 11)">Dernière connexion</th>
@@ -3012,13 +3032,6 @@
                         <option value="admin">Administrateur</option>
                         <option value="expert">Expert Métier</option>
                         <option value="user">Utilisateur</option>
-                    </select>
-                </div>
-                <div class="form-group" id="appSelectGroup" style="display:none;">
-                    <label style="color: #2c3e50; font-weight: 600; font-size: 14px;">Sélectionnez l'application</label>
-                    <select id="loginApp" style="border: 2px solid #e0e0e0; padding: 12px; font-size: 14px;">
-                        <option value="planification">📅 Plateforme de planification</option>
-                        <option value="deplacements">🚗 Plateforme de suivi des déplacements</option>
                     </select>
                 </div>
                 <div id="loginError" class="error-message"></div>
@@ -3705,7 +3718,7 @@
                     console.log('📱 Application sauvegardée:', savedApp);
                     
                     // Si l'utilisateur était sur l'application déplacements et qu'il a le droit AMOA_CED
-                    if (savedApp === 'deplacements' && currentUser.amoaCed) {
+                    if (savedApp === 'deplacements' && (currentUser.availableApps || []).includes('deplacements')) {
                         console.log('🚗 Restauration vers la Plateforme de suivi des déplacements');
                         document.getElementById('loginPage').classList.remove('active');
                         currentUser.selectedApp = 'deplacements';
@@ -3720,6 +3733,7 @@
                     
                     updateTabsVisibility();
                     updateUserDisplay();
+                    updateAppSwitcher();
                     updateProfileDisplay(); // Mettre à jour la photo de profil
 
                     // Onglet CRA
@@ -3864,15 +3878,6 @@
                         document.getElementById('profileSelectGroup').style.display = 'block';
                     }
                     
-                    // Afficher le sélecteur d'application si AMOA_CED
-                    if (data.amoaCed) {
-                        document.getElementById('appSelectGroup').style.display = 'block';
-                        console.log('🚗 Utilisateur AMOA_CED: affichage du choix d\'application');
-                    } else {
-                        document.getElementById('appSelectGroup').style.display = 'none';
-                        document.getElementById('loginApp').value = 'planification';
-                    }
-                    
                     document.getElementById('loginButton').textContent = 'Se connecter';
                     loginStep = 'profile';
                 } else {
@@ -3888,7 +3893,7 @@
             const username = document.getElementById('loginUsername').value.trim();
             const password = document.getElementById('loginPassword').value;
             const profile = document.getElementById('loginProfile').value;
-            const selectedApp = document.getElementById('loginApp').value || 'planification';
+            const selectedApp = 'planification';
 
             console.log('🔐 loginWithProfile - username:', username, ', profile:', profile, ', app:', selectedApp);
 
@@ -3964,12 +3969,12 @@
         let _credFilled = false;
         async function tryFillCredentials() {
             if (_credFilled || !window.PasswordCredential) return;
+            _credFilled = true; // Bloquer dès le lancement pour éviter les réouvertures
             try {
                 const cred = await navigator.credentials.get({ password: true, mediation: 'optional' });
                 if (cred) {
                     document.getElementById('loginUsername').value = cred.id;
                     document.getElementById('loginPassword').value = cred.password;
-                    _credFilled = true;
                 }
             } catch(e) { /* silencieux si refusé ou non supporté */ }
         }
@@ -4025,7 +4030,8 @@
             
             updateTabsVisibility();
             updateUserDisplay();
-            
+            updateAppSwitcher();
+
             // Afficher l'onglet CRA selon le profil
             const craBtn = document.getElementById('craTabBtn');
             if (craBtn) {
@@ -4367,7 +4373,6 @@
             // Réinitialiser le formulaire de login
             document.getElementById('loginPassword').value = '';
             document.getElementById('profileSelectGroup').style.display = 'none';
-            document.getElementById('appSelectGroup').style.display = 'none';
             document.getElementById('loginButton').textContent = 'Continuer';
             loginStep = 'credentials';
         }
@@ -4639,72 +4644,41 @@
 
         async function logout() {
             console.log('🚪 Début de la déconnexion');
-            
-            // Si l'utilisateur a le droit AMOA_CED, proposer le choix entre déconnexion et changement d'application
-            if (currentUser && currentUser.amoaCed) {
-                openPlanificationLogoutModal();
-                return;
-            }
-            
-            // Sinon, demander la confirmation simple de déconnexion
-            if (!confirm('Voulez-vous vraiment vous déconnecter ?')) {
-                console.log('❌ Déconnexion annulée par l\'utilisateur');
-                return;
-            }
-            
-            // Enregistrer les logs des affectations en attente (sans envoyer d'email)
+            if (!confirm('Voulez-vous vraiment vous déconnecter ?')) return;
             await saveAssignmentLogs();
-            
-            // Procéder à la déconnexion
             await performLogout();
         }
-        
-        // Modal de choix de déconnexion pour l'application Planification
-        function openPlanificationLogoutModal() {
-            document.getElementById('planificationLogoutModal').style.display = 'flex';
-        }
-        
-        function closePlanificationLogoutModal() {
-            document.getElementById('planificationLogoutModal').style.display = 'none';
-        }
-        
-        async function confirmLogoutFromPlanification() {
-            closePlanificationLogoutModal();
-            
-            // Nettoyer le sessionStorage
-            sessionStorage.removeItem('selectedApp');
-            
-            // Arrêter le timer
-            stopInactivityTimer();
-            
-            // Arrêter le polling des utilisateurs connectés
-            if (onlineUsersInterval) {
-                clearInterval(onlineUsersInterval);
+
+        // Basculer vers une application depuis le sélecteur
+        function switchToApp(appKey) {
+            document.getElementById('appSwitcherDropdown').style.display = 'none';
+            if (appKey === 'deplacements') {
+                stopInactivityTimer();
+                if (onlineUsersInterval) { clearInterval(onlineUsersInterval); onlineUsersInterval = null; }
+                document.querySelector('.container').style.display = 'none';
+                showDeplacementsApp();
             }
-            
-            // Enregistrer les logs des affectations en attente
-            await saveAssignmentLogs();
-            
-            // Procéder à la déconnexion
-            await performLogout();
         }
-        
-        function goToDeplacementsApp() {
-            closePlanificationLogoutModal();
-            
-            // Arrêter le timer de planification
-            stopInactivityTimer();
-            
-            // Arrêter le polling des utilisateurs connectés de planification
-            if (onlineUsersInterval) {
-                clearInterval(onlineUsersInterval);
-            }
-            
-            // Masquer l'application planification
-            document.querySelector('.container').style.display = 'none';
-            
-            // Afficher l'application déplacements
-            showDeplacementsApp();
+
+        function toggleAppSwitcherDropdown() {
+            const dd = document.getElementById('appSwitcherDropdown');
+            dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function updateAppSwitcher() {
+            const apps = (currentUser && currentUser.availableApps) || [];
+            const switcher = document.getElementById('appSwitcher');
+            const dd = document.getElementById('appSwitcherDropdown');
+            if (apps.length === 0) { switcher.style.display = 'none'; return; }
+            switcher.style.display = 'block';
+            const APP_LABELS = { deplacements: { label: 'Suivi des déplacements', icon: '🚗' } };
+            dd.innerHTML = apps.map(key => {
+                const def = APP_LABELS[key] || { label: key, icon: '📱' };
+                return `<div onclick="switchToApp('${key}')" style="padding:10px 16px;cursor:pointer;display:flex;align-items:center;gap:10px;font-size:13px;color:#222;" onmouseenter="this.style.background='#f0f4ff'" onmouseleave="this.style.background=''">
+                    <span style="font-size:18px;">${def.icon}</span><span>${def.label}</span>
+                </div>`;
+            }).join('');
+            setTimeout(() => document.addEventListener('click', () => { dd.style.display = 'none'; }, { once: true }), 0);
         }
         
         // ============== FONCTIONS POUR LES ASTREINTES/HNO ==============
@@ -7134,7 +7108,7 @@
                 // Modales sans classe .modal
                 'sendEmailModalContainer', 'editCustomEventModal',
                 'confirmationModal', 'notificationsModal', 'searchModal',
-                'planificationLogoutModal', 'deplacementsLogoutModal',
+                'deplacementsLogoutModal',
                 'mfaModal', 'totpSetupModal', 'totpVerifyModal',
                 'debugLogsModal', 'editSpecialDatesModal'
             ];
@@ -7228,11 +7202,14 @@
                 document.getElementById('userInfo').style.display = 'none';
 
                 // Réinitialiser complètement le formulaire de login
-                document.getElementById('loginUsername').value = '';
+                _credFilled = false;
+                const unField = document.getElementById('loginUsername');
+                unField.value = '';
+                // Déclencher la popup d'identifiants une fois la mire affichée
+                setTimeout(() => { unField.focus(); tryFillCredentials(); }, 300);
                 document.getElementById('loginPassword').value = '';
                 document.getElementById('loginProfile').value = '';
                 document.getElementById('profileSelectGroup').style.display = 'none';
-                document.getElementById('appSelectGroup').style.display = 'none';
                 document.getElementById('loginButton').textContent = 'Continuer';
                 document.getElementById('loginError').style.display = 'none';
                 document.getElementById('loginError').textContent = '';
@@ -9687,7 +9664,8 @@
             const tbody = document.getElementById('ganttBody');
             if (!tbody) return;
             const totalRow = tbody.querySelector('.total-row');
-            const rows = Array.from(tbody.querySelectorAll('tr:not(.total-row)'));
+            const holidayRow = tbody.querySelector('.school-holidays-row');
+            const rows = Array.from(tbody.querySelectorAll('tr:not(.total-row):not(.school-holidays-row)'));
             const isAscending = !sortDirection['gantt_resources'];
             sortDirection['gantt_resources'] = isAscending;
             rows.sort((a, b) => {
@@ -9696,6 +9674,7 @@
                 return isAscending ? aName.localeCompare(bName) : bName.localeCompare(aName);
             });
             tbody.innerHTML = '';
+            if (holidayRow) tbody.appendChild(holidayRow);
             rows.forEach(row => tbody.appendChild(row));
             if (totalRow) tbody.appendChild(totalRow);
         }
@@ -10317,7 +10296,6 @@
                     <td>${u.prenom}</td><td style="font-weight: bold; letter-spacing: 1px;">${trigramme}</td><td>${u.username}</td><td>${u.email}</td><td>${u.telephone || '-'}</td>
                     <td><div style="display:flex;flex-wrap:wrap;gap:3px;">${profileBadgesHtml}</div></td>
                     <td style="text-align: center;"><input type="checkbox" ${u.has_reporting_access === 1 || u.is_admin === 1 ? 'checked' : ''} ${u.is_admin === 1 ? 'disabled title="Les admins ont toujours accès"' : ''} onchange="toggleReportingAccess(${u.id}, this.checked)" style="width: 18px; height: 18px; cursor: ${u.is_admin === 1 ? 'not-allowed' : 'pointer'};"></td>
-                    <td style="text-align: center;"><input type="checkbox" ${u.amoa_ced === 1 ? 'checked' : ''} onchange="toggleAmoaCed(${u.id}, this.checked)" style="width: 18px; height: 18px; cursor: pointer;" title="Accès Plateforme de suivi des déplacements"></td>
                     <td style="text-align: center;">${(() => {
                         const canHaveRh = u.is_admin === 1 || u.is_user === 1 || u.is_rh === 1;
                         return canHaveRh
@@ -10426,23 +10404,98 @@
             }
         }
 
-        async function toggleAmoaCed(id, hasAccess) {
+        // ===== CONFIGURATION DES ACCÈS AUX APPLICATIONS =====
+        let _appAccessData = {};
+
+        async function loadAppAccessSection() {
             try {
-                const response = await fetch(`${API_URL}/users/${id}/amoa-ced`, {
-                    method: 'POST',
+                const res = await fetch(`${API_URL}/app-access`, { credentials: 'include' });
+                _appAccessData = await res.json();
+                renderAppAccessSection();
+            } catch(e) { console.error('Erreur chargement app-access:', e); }
+        }
+
+        function renderAppAccessSection() {
+            const container = document.getElementById('appAccessContent');
+            if (!container) return;
+            const APP_LABELS = { deplacements: { label: 'Plateforme de suivi des déplacements', icon: '🚗' } };
+            container.innerHTML = Object.entries(_appAccessData).map(([key, app]) => `
+                <div style="border:1px solid #e0e0e0;border-radius:8px;padding:16px;margin-bottom:16px;">
+                    <h4 style="margin:0 0 12px;color:#1a237e;font-size:14px;">${APP_LABELS[key]?.icon || '📱'} ${APP_LABELS[key]?.label || key}</h4>
+                    <div style="margin-bottom:12px;">
+                        <label style="font-size:12px;font-weight:bold;color:#555;display:block;margin-bottom:4px;">Ajouter un utilisateur</label>
+                        <div style="position:relative;display:flex;gap:8px;align-items:flex-start;">
+                            <div style="flex:1;position:relative;">
+                                <input type="text" id="appAccessSearch_${key}" placeholder="Nom, prénom ou email…"
+                                    oninput="searchAppAccessUsers('${key}')"
+                                    autocomplete="off"
+                                    style="width:100%;padding:8px 10px;border:1px solid #ccc;border-radius:4px;font-size:13px;box-sizing:border-box;">
+                                <div id="appAccessSuggestions_${key}" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #ccc;border-radius:0 0 4px 4px;box-shadow:0 4px 12px rgba(0,0,0,.15);z-index:100;max-height:200px;overflow-y:auto;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <label style="font-size:12px;font-weight:bold;color:#555;display:block;margin-bottom:6px;">Utilisateurs autorisés (${app.users.length})</label>
+                        ${app.users.length === 0
+                            ? '<p style="color:#999;font-size:13px;font-style:italic;">Aucun utilisateur autorisé</p>'
+                            : `<div style="display:flex;flex-wrap:wrap;gap:6px;">${app.users.map(u => `
+                                <span style="display:inline-flex;align-items:center;gap:6px;background:#e8eaf6;border-radius:20px;padding:4px 10px 4px 12px;font-size:13px;">
+                                    ${u.nom.toUpperCase()} ${u.prenom}
+                                    <button onclick="removeAppAccess('${key}',${u.id})" style="background:none;border:none;cursor:pointer;color:#c62828;font-size:16px;line-height:1;padding:0;" title="Retirer">×</button>
+                                </span>`).join('')}</div>`
+                        }
+                    </div>
+                </div>`).join('');
+        }
+
+        let _appAccessSearchTimer = null;
+        async function searchAppAccessUsers(appKey) {
+            const q = document.getElementById(`appAccessSearch_${appKey}`).value.trim();
+            const sugDiv = document.getElementById(`appAccessSuggestions_${appKey}`);
+            clearTimeout(_appAccessSearchTimer);
+            if (q.length < 2) { sugDiv.style.display = 'none'; return; }
+            _appAccessSearchTimer = setTimeout(async () => {
+                try {
+                    const res = await fetch(`${API_URL}/users/search?q=${encodeURIComponent(q)}`, { credentials: 'include' });
+                    const users = await res.json();
+                    if (!users.length) { sugDiv.style.display = 'none'; return; }
+                    // Exclure déjà autorisés
+                    const existing = new Set((_appAccessData[appKey]?.users || []).map(u => u.id));
+                    const filtered = users.filter(u => !existing.has(u.id));
+                    if (!filtered.length) { sugDiv.style.display = 'none'; return; }
+                    sugDiv.innerHTML = filtered.map(u => `
+                        <div onclick="addAppAccess('${appKey}',${u.id},'${u.nom.replace(/'/g,"\\'")} ${u.prenom.replace(/'/g,"\\'")}')"
+                            style="padding:8px 12px;cursor:pointer;font-size:13px;"
+                            onmouseenter="this.style.background='#f0f4ff'" onmouseleave="this.style.background=''">
+                            <strong>${u.nom.toUpperCase()} ${u.prenom}</strong>
+                            <span style="color:#888;font-size:11px;margin-left:6px;">${u.username}${u.email ? ' — ' + u.email : ''}</span>
+                        </div>`).join('');
+                    sugDiv.style.display = 'block';
+                } catch(e) {}
+            }, 250);
+        }
+
+        async function addAppAccess(appKey, userId, label) {
+            try {
+                const res = await fetch(`${API_URL}/app-access/${appKey}/users`, {
+                    method: 'POST', credentials: 'include',
                     headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({ hasAccess })
+                    body: JSON.stringify({ userId })
                 });
-                if (!response.ok) throw new Error('Erreur modification accès AMOA CED');
-                await loadUsers();
-                showSyncStatus();
-            } catch (error) {
-                console.error('Erreur:', error);
-                alert('Erreur lors de la modification de l\'accès AMOA CED');
-                // Recharger pour remettre l'état correct
-                await loadUsers();
-            }
+                if (!(await res.json()).success) throw new Error();
+                document.getElementById(`appAccessSearch_${appKey}`).value = '';
+                document.getElementById(`appAccessSuggestions_${appKey}`).style.display = 'none';
+                await loadAppAccessSection();
+            } catch(e) { alert('Erreur lors de l\'ajout'); }
+        }
+
+        async function removeAppAccess(appKey, userId) {
+            if (!confirm('Retirer cet utilisateur ?')) return;
+            try {
+                const res = await fetch(`${API_URL}/app-access/${appKey}/users/${userId}`, { method: 'DELETE', credentials: 'include' });
+                if (!(await res.json()).success) throw new Error();
+                await loadAppAccessSection();
+            } catch(e) { alert('Erreur lors de la suppression'); }
         }
 
         async function resetUserTotp(userId, userName) {
@@ -14627,14 +14680,8 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                 if (!data.success) { alert('Erreur : ' + (data.error || 'Impossible de changer de profil')); return; }
                 currentUser.activeProfile = profile;
                 document.getElementById('profileDropdown').style.display = 'none';
-                // Mettre à jour le badge et réinitialiser l'interface
-                updateUserDisplay();
-                updateTabsVisibility();
-                const craBtn = document.getElementById('craTabBtn');
-                if (craBtn) {
-                    const showCra = currentUser.is_admin || (currentUser.astreinte_volontaire && profile !== 'user') || currentUser.is_rh;
-                    craBtn.style.display = showCra ? 'block' : 'none';
-                }
+                // Recharger la page pour garantir une interface cohérente avec le nouveau profil
+                location.reload();
             } catch(e) { alert('Erreur réseau : ' + e.message); }
         }
 
@@ -22525,7 +22572,6 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     document.getElementById('loginPassword').value = '';
                     document.getElementById('loginProfile').value = '';
                     document.getElementById('profileSelectGroup').style.display = 'none';
-                    document.getElementById('appSelectGroup').style.display = 'none';
                     document.getElementById('loginButton').textContent = 'Continuer';
                     document.getElementById('loginError').style.display = 'none';
                     return;
@@ -25798,24 +25844,6 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
     </div>
 
     <!-- Modal de choix de déconnexion pour l'application Planification -->
-    <div id="planificationLogoutModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); z-index: 10003; justify-content: center; align-items: center;">
-        <div style="background: white; padding: 30px; border-radius: 12px; max-width: 450px; width: 90%; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
-            <h3 style="color: #2c3e50; margin-bottom: 20px; font-size: 18px;">Que souhaitez-vous faire ?</h3>
-            <div style="display: flex; flex-direction: column; gap: 12px;">
-                <button onclick="goToDeplacementsApp()" style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); color: white; padding: 15px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 10px;">
-                    <span style="font-size: 20px;">🚗</span>
-                    <span>Aller sur Plateforme de suivi des déplacements</span>
-                </button>
-                <button onclick="confirmLogoutFromPlanification()" style="background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); color: white; padding: 15px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 10px;">
-                    <span style="font-size: 20px;">🚪</span>
-                    <span>Se déconnecter</span>
-                </button>
-                <button onclick="closePlanificationLogoutModal()" style="background: #95a5a6; color: white; padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px;">
-                    Annuler
-                </button>
-            </div>
-        </div>
-    </div>
 
     <!-- Modal Gérer les Astreintes/HNO -->
     <div id="astreintesModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); z-index: 10003; justify-content: center; align-items: center;">
