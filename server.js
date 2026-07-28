@@ -1,4 +1,4 @@
-// v1.14.8
+// v1.14.11
 import express from 'express';
 console.log('✅ Express importé');
 import cors from 'cors';
@@ -1266,6 +1266,31 @@ function initDB() {
 
     // Table file d'attente d'emails
     database.run(`
+        CREATE TABLE IF NOT EXISTS app_user_access (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            app_key TEXT NOT NULL,
+            user_id INTEGER NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(app_key, user_id),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+    `, (err) => {
+        if (err) {
+            console.error('Erreur création table app_user_access:', err);
+        } else {
+            console.log('✅ Table app_user_access créée');
+            // Migration: copier les amoa_ced existants
+            database.run(`
+                INSERT OR IGNORE INTO app_user_access (app_key, user_id)
+                SELECT 'deplacements', id FROM users WHERE amoa_ced = 1
+            `, (migErr) => {
+                if (migErr) console.error('Migration app_user_access:', migErr);
+                else console.log('✅ Migration amoa_ced → app_user_access terminée');
+            });
+        }
+    });
+
+        database.run(`
         CREATE TABLE IF NOT EXISTS email_queue (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             batch_id TEXT NOT NULL,
@@ -1625,8 +1650,6 @@ async function completeLogin(req, res, user, profile) {
                     activeProfile: profile,
                     resourceId: user.resource_id,
                     hasReportingAccess: user.has_reporting_access === 1 || user.is_admin === 1,
-                    amoaCed: user.amoa_ced === 1,
-                    is_amoa_ced: user.amoa_ced === 1,
                     is_admin: user.is_admin === 1,
                     is_expert: user.is_expert === 1,
                     is_user: user.is_user === 1,
@@ -1635,12 +1658,15 @@ async function completeLogin(req, res, user, profile) {
                     astreinte_date_activation: user.astreinte_date_activation || null,
                     defaultTab: user.default_tab || 'planning'
                 };
-                
-                res.json({ 
-                    success: true,
-                    user: userResponse
+
+                database.all('SELECT app_key FROM app_user_access WHERE user_id = ?', [user.id], (err2, appRows) => {
+                    const availableApps = (appRows || []).map(r => r.app_key);
+                    userResponse.availableApps = availableApps;
+                    userResponse.amoaCed = availableApps.includes('deplacements');
+                    userResponse.is_amoa_ced = userResponse.amoaCed;
+                    res.json({ success: true, user: userResponse });
+                    resolve();
                 });
-                resolve();
             }
         );
     });
@@ -1985,20 +2011,23 @@ app.get('/api/user/profiles', (req, res) => {
             }
             
             if (!user) {
-                return res.json({ profiles: [], amoaCed: false });
+                return res.json({ profiles: [], amoaCed: false, availableApps: [] });
             }
-            
+
             if (user.actif !== 1) {
-                return res.json({ profiles: [], error: 'Compte désactivé', amoaCed: false });
+                return res.json({ profiles: [], error: 'Compte désactivé', amoaCed: false, availableApps: [] });
             }
-            
+
             const profiles = [];
             if (user.is_admin === 1) profiles.push('admin');
             if (user.is_expert === 1) profiles.push('expert');
             if (user.is_user === 1) profiles.push('user');
             if (user.is_rh === 1) profiles.push('rh');
 
-            res.json({ profiles, amoaCed: user.amoa_ced === 1 });
+            database.all('SELECT app_key FROM app_user_access WHERE user_id = (SELECT id FROM users WHERE username = ?)', [username], (err2, rows) => {
+                const availableApps = (rows || []).map(r => r.app_key);
+                res.json({ profiles, amoaCed: availableApps.includes('deplacements'), availableApps });
+            });
         }
     );
 });
@@ -3363,6 +3392,70 @@ app.post('/api/users/:id/amoa-ced', requireAdmin, (req, res) => {
             }
         }
     );
+});
+
+// ==================== ACCÈS AUX APPLICATIONS ====================
+
+const APP_DEFINITIONS = {
+    deplacements: { label: 'Plateforme de suivi des déplacements', icon: '🚗' }
+};
+
+// GET /api/app-access — liste des apps avec leurs utilisateurs autorisés (admin)
+app.get('/api/app-access', requireAdmin, (req, res) => {
+    database.all(`
+        SELECT a.app_key, a.user_id, u.nom, u.prenom, u.email, u.username
+        FROM app_user_access a
+        JOIN users u ON u.id = a.user_id
+        ORDER BY a.app_key, u.nom, u.prenom
+    `, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        const result = {};
+        for (const [key, def] of Object.entries(APP_DEFINITIONS)) {
+            result[key] = { ...def, users: [] };
+        }
+        (rows || []).forEach(r => {
+            if (result[r.app_key]) result[r.app_key].users.push({ id: r.user_id, nom: r.nom, prenom: r.prenom, email: r.email, username: r.username });
+        });
+        res.json(result);
+    });
+});
+
+// POST /api/app-access/:app/users — ajouter un utilisateur à une app (admin)
+app.post('/api/app-access/:app/users', requireAdmin, (req, res) => {
+    const { app } = req.params;
+    const { userId } = req.body;
+    if (!APP_DEFINITIONS[app]) return res.status(400).json({ error: 'Application inconnue' });
+    database.run('INSERT OR IGNORE INTO app_user_access (app_key, user_id) VALUES (?, ?)', [app, userId], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        // Synchroniser amoa_ced pour compatibilité
+        if (app === 'deplacements') database.run('UPDATE users SET amoa_ced = 1 WHERE id = ?', [userId]);
+        res.json({ success: true });
+    });
+});
+
+// DELETE /api/app-access/:app/users/:userId — retirer un utilisateur d'une app (admin)
+app.delete('/api/app-access/:app/users/:userId', requireAdmin, (req, res) => {
+    const { app, userId } = req.params;
+    database.run('DELETE FROM app_user_access WHERE app_key = ? AND user_id = ?', [app, userId], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        if (app === 'deplacements') database.run('UPDATE users SET amoa_ced = 0 WHERE id = ?', [userId]);
+        res.json({ success: true });
+    });
+});
+
+// GET /api/users/search — recherche d'utilisateurs pour autocomplete (admin)
+app.get('/api/users/search', requireAdmin, (req, res) => {
+    const q = (req.query.q || '').trim();
+    if (q.length < 2) return res.json([]);
+    const like = `%${q}%`;
+    database.all(`
+        SELECT id, nom, prenom, email, username FROM users
+        WHERE actif = 1 AND (nom LIKE ? OR prenom LIKE ? OR email LIKE ? OR username LIKE ?)
+        ORDER BY nom, prenom LIMIT 20
+    `, [like, like, like, like], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows || []);
+    });
 });
 
 app.post('/api/users/:id/reset-password', requireAdmin, async (req, res) => {
