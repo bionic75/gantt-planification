@@ -446,7 +446,15 @@
 <body>
     <div class="container">
         <!-- Conteneur des utilisateurs connectés en temps réel -->
-        <div id="onlineUsersContainer" style="display: none; position: fixed; top: 10px; right: 120px; background: #fff; padding: 6px 12px; border-radius: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 1001; cursor: pointer;" onclick="toggleOnlineUsersTooltip(event)">
+        <!-- Sélecteur d'applications (planification → autre) -->
+        <div id="appSwitcher" style="display:none;position:fixed;top:10px;right:340px;z-index:1001;height:32px;">
+            <button id="appSwitcherBtn" onclick="toggleAppSwitcherDropdown()" title="Changer d'application" style="height:32px;box-sizing:border-box;background:#fff;border:none;color:#2c3e50;padding:0 14px;border-radius:20px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(0,0,0,0.2);white-space:nowrap;">
+                <span>🔀</span><span style="font-weight:600;">Applications</span><span style="font-size:9px;color:#888;">▼</span>
+            </button>
+            <div id="appSwitcherDropdown" style="display:none;position:absolute;top:calc(100% + 4px);right:0;background:white;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.2);min-width:240px;z-index:9999;overflow:hidden;"></div>
+        </div>
+
+        <div id="onlineUsersContainer" style="display: none; position: fixed; top: 10px; right: 120px; height: 32px; box-sizing: border-box; background: #fff; padding: 0 12px; border-radius: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 1001; cursor: pointer; display: flex; align-items: center;" onclick="toggleOnlineUsersTooltip(event)">
             <div style="display: flex; align-items: center; gap: 4px;">
                 <span style="font-size: 12px; color: #27ae60; margin-right: 4px;">●</span>
                 <div id="onlineUsersAvatars" style="display: flex; align-items: center;"></div>
@@ -461,10 +469,10 @@
             <div id="onlineUsersTooltipList" style="max-height: 200px; overflow-y: auto;"></div>
         </div>
         
-        <div class="inactivity-timer" id="inactivityTimerDisplay" style="display: none; position: fixed; top: 10px; right: 10px; background: #fff; padding: 8px 15px; border-radius: 5px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 1001; font-size: 14px; font-weight: bold; color: #2c3e50;">
-            ⏱️ <span id="timerMinutes">00</span>:<span id="timerSeconds">00</span>
+        <div class="inactivity-timer" id="inactivityTimerDisplay" style="display: none; position: fixed; top: 10px; right: 10px; background: #fff; height: 32px; box-sizing: border-box; padding: 0 12px; border-radius: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 1001; font-size: 13px; font-weight: bold; color: #2c3e50; white-space: nowrap; align-items: center;">
+            ⏱ <span id="timerMinutes">00</span>:<span id="timerSeconds">00</span>
         </div>
-        
+
         <!-- Header fixe -->
         <div class="fixed-header">
             <div class="user-info" id="userInfo" style="display: none;">
@@ -574,14 +582,6 @@
                     ">0</span>
                 </button>
                 
-                <!-- Sélecteur d'applications -->
-                <div id="appSwitcher" style="display:none;position:relative;margin-right:6px;">
-                    <button id="appSwitcherBtn" onclick="toggleAppSwitcherDropdown()" title="Changer d'application" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);color:white;padding:4px 10px;border-radius:10px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px;">
-                        <span>🔀</span><span id="appSwitcherLabel">Applications</span><span style="font-size:9px;">▼</span>
-                    </button>
-                    <div id="appSwitcherDropdown" style="display:none;position:absolute;top:calc(100% + 4px);right:0;background:white;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.2);min-width:240px;z-index:9999;overflow:hidden;"></div>
-                </div>
-
                 <button class="logout-icon" onclick="logout()" title="Déconnexion"></button>
             </div>
         </div>
@@ -2642,11 +2642,35 @@
         </div>
     </div>
     
+    <!-- SECTION: Clés API publiques -->
+    <div class="form-section" style="margin-top: 20px; background-color: #e8f5e9; border-left: 4px solid #2e7d32;">
+        <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleAdminSection('apiKeysSection'); if(document.getElementById('apiKeysSection').style.display!=='none') loadApiKeys();">
+            <h3 style="color: #1b5e20; border-left: none; margin: 0;">
+                <span id="apiKeysSectionIcon">▶</span> Clés API — accès données événements
+            </h3>
+        </div>
+        <div id="apiKeysSection" style="margin-top: 15px; display: none;">
+            <p style="color:#555;font-size:13px;margin-bottom:12px;">Générez des clés API pour exposer les événements à des applications tierces via <code>GET /api/public/events</code> avec le header <code>X-Api-Key</code>.</p>
+            <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;">
+                <input type="text" id="apiKeyLabel" placeholder="Libellé (ex: Grist, Power BI…)" style="padding:6px 10px;border:1px solid #a5d6a7;border-radius:4px;font-size:13px;flex:1;max-width:320px;">
+                <button onclick="createApiKey()" style="background:#2e7d32;color:white;border:none;padding:7px 16px;border-radius:4px;cursor:pointer;font-size:13px;font-weight:bold;">+ Générer une clé</button>
+            </div>
+            <div id="apiKeyNewDisplay" style="display:none;margin-bottom:14px;padding:12px 14px;background:#f1f8e9;border:1px solid #aed581;border-radius:6px;">
+                <div style="font-size:12px;color:#33691e;font-weight:bold;margin-bottom:6px;">✅ Clé générée — copiez-la maintenant, elle ne sera plus affichée :</div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <code id="apiKeyValue" style="font-size:13px;background:#fff;padding:6px 10px;border:1px solid #c5e1a5;border-radius:4px;flex:1;word-break:break-all;"></code>
+                    <button onclick="copyApiKey()" style="background:#558b2f;color:white;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px;white-space:nowrap;">📋 Copier</button>
+                </div>
+            </div>
+            <div id="apiKeysTableContainer"><p style="color:#999;font-style:italic;font-size:13px;">Chargement…</p></div>
+        </div>
+    </div>
+
     <!-- SECTION: Configuration des accès aux applications -->
     <div class="form-section" style="margin-top: 20px; background-color: #e8eaf6; border-left: 4px solid #3f51b5;">
         <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleAdminSection('appAccessSection'); if(document.getElementById('appAccessSection').style.display!=='none') loadAppAccessSection();">
             <h3 style="color: #1a237e; border-left: none; margin: 0;">
-                <span id="appAccessSectionIcon">▶</span> 🔀 Configuration des accès aux applications
+                <span id="appAccessSectionIcon">▶</span> Configuration des accès aux applications
             </h3>
         </div>
         <div id="appAccessSection" style="margin-top: 15px; display: none;">
@@ -2984,6 +3008,12 @@
             <button onclick="craSaisieTerminer()" style="background: #27ae60; color: white; padding: 10px 22px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px;">✅ Terminer</button>
         </div>
     </div>
+</div>
+
+<!-- Menu contextuel clic droit sur cellules Gantt -->
+<div id="ganttContextMenu" style="display:none;position:fixed;z-index:99999;background:#fff;border:1px solid #ddd;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.18);padding:4px 0;min-width:240px;font-size:13px;">
+    <div id="ganttContextMenuHeader" style="padding:6px 14px 4px;font-size:11px;color:#888;border-bottom:1px solid #eee;margin-bottom:2px;font-weight:600;"></div>
+    <div id="ganttContextMenuItems"></div>
 </div>
 
 <!-- MODAL pour afficher les détails des logs -->
@@ -3516,6 +3546,21 @@
         </div>
     </div>
 
+    <!-- Modale confirmation mot de passe réinitialisé -->
+    <div id="passwordConfirmModal" class="modal">
+        <div class="modal-content" style="max-width:460px;text-align:center;">
+            <h3 style="color:#2e7d32;margin-bottom:8px;">✅ Mot de passe réinitialisé</h3>
+            <p id="passwordConfirmEmailMsg" style="font-size:13px;color:#555;margin-bottom:16px;"></p>
+            <p style="font-size:13px;color:#333;margin-bottom:8px;font-weight:bold;">Nouveau mot de passe :</p>
+            <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:20px;">
+                <code id="passwordConfirmValue" style="font-size:20px;letter-spacing:3px;background:#f5f5f5;border:2px solid #a5d6a7;border-radius:6px;padding:10px 18px;color:#1b5e20;font-family:monospace;"></code>
+                <button onclick="copyConfirmedPassword()" id="copyConfirmBtn" style="background:#2e7d32;color:white;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;font-size:13px;white-space:nowrap;">📋 Copier</button>
+            </div>
+            <p style="font-size:11px;color:#e53935;margin-bottom:20px;">⚠️ Notez ce mot de passe — il ne sera plus affiché.</p>
+            <button onclick="document.getElementById('passwordConfirmModal').classList.remove('active')" style="background:#546e7a;color:white;border:none;padding:8px 24px;border-radius:6px;cursor:pointer;font-size:13px;">Fermer</button>
+        </div>
+    </div>
+
     <div id="editUserModal" class="modal">
         <div class="modal-content" style="max-width: 700px;">
             <h3>Modifier l'utilisateur</h3>
@@ -3823,9 +3868,17 @@
             try {
                 console.log('📡 Appel API /user/profiles...');
                 const response = await fetch(`${API_URL}/user/profiles?username=${encodeURIComponent(username)}`, {
-                    credentials: 'include'
+                    credentials: 'include',
+                    cache: 'no-store'
                 });
-                const data = await response.json();
+                let data;
+                try {
+                    data = await response.json();
+                } catch(parseErr) {
+                    const rawText = await response.text().catch(() => '(vide)');
+                    console.error('❌ Échec parsing JSON profils - status:', response.status, '- body:', rawText);
+                    throw new Error(`Réponse non-JSON du serveur (status ${response.status})`);
+                }
                 console.log('📡 Réponse /user/profiles:', data);
 
                 if (data.profiles && data.profiles.length > 0) {
@@ -3841,7 +3894,6 @@
                         // Sélectionner automatiquement le profil unique
                         const uniqueProfile = data.profiles[0];
                         document.getElementById('loginProfile').value = uniqueProfile;
-                        document.getElementById('loginApp').value = 'planification';
                         
                         // Se connecter directement
                         await loginWithProfile();
@@ -3908,10 +3960,20 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
+                    cache: 'no-store',
                     body: JSON.stringify({ username, password, profile })
                 });
 
-                const data = await response.json();
+                console.log('📡 Réponse /login - status:', response.status);
+                let data;
+                try {
+                    data = await response.json();
+                } catch(parseErr) {
+                    const rawText = await response.text().catch(() => '(vide)');
+                    console.error('❌ Échec parsing JSON login - status:', response.status, '- body:', rawText);
+                    showLoginError(`Erreur serveur (${response.status}) — consultez la console`);
+                    return;
+                }
 
                 if (response.ok) {
                     // Vérifier si MFA est requis
@@ -3962,10 +4024,10 @@
                 }
             } catch (error) {
                 console.error('Erreur login:', error);
-                showLoginError('Erreur de connexion');
+                showLoginError('Erreur de connexion — ' + (error.message || 'vérifiez la console'));
             }
         }
-        
+
         let _credFilled = false;
         async function tryFillCredentials() {
             if (_credFilled || !window.PasswordCredential) return;
@@ -4640,6 +4702,8 @@
                 astreintesBtn.style.display = 'none';
                 switchTab('planning', null);
             }
+            // Un utilisateur avec is_admin voit l'onglet Administration uniquement s'il est connecté en profil admin
+            if (currentUser.is_admin && currentUser.activeProfile === 'admin' && adminTab) adminTab.style.display = 'block';
         }
 
         async function logout() {
@@ -4647,6 +4711,19 @@
             if (!confirm('Voulez-vous vraiment vous déconnecter ?')) return;
             await saveAssignmentLogs();
             await performLogout();
+        }
+
+        // Retour vers Planification depuis l'app Déplacements
+        function backToPlanification() {
+            sessionStorage.setItem('selectedApp', 'planification');
+            document.getElementById('deplacementsContainer').style.display = 'none';
+            document.getElementById('deplacementsTimerDisplay').style.display = 'none';
+            document.getElementById('deplacementsOnlineUsersContainer').style.display = 'none';
+            document.getElementById('backToPlanificationBtn').style.display = 'none';
+            document.querySelector('.container').style.display = 'block';
+            updateTabsVisibility();
+            updateUserDisplay();
+            updateAppSwitcher();
         }
 
         // Basculer vers une application depuis le sélecteur
@@ -4662,7 +4739,11 @@
 
         function toggleAppSwitcherDropdown() {
             const dd = document.getElementById('appSwitcherDropdown');
-            dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+            const isOpen = dd.style.display !== 'none';
+            dd.style.display = isOpen ? 'none' : 'block';
+            if (!isOpen) {
+                setTimeout(() => document.addEventListener('click', () => { dd.style.display = 'none'; }, { once: true }), 0);
+            }
         }
 
         function updateAppSwitcher() {
@@ -4678,7 +4759,6 @@
                     <span style="font-size:18px;">${def.icon}</span><span>${def.label}</span>
                 </div>`;
             }).join('');
-            setTimeout(() => document.addEventListener('click', () => { dd.style.display = 'none'; }, { once: true }), 0);
         }
         
         // ============== FONCTIONS POUR LES ASTREINTES/HNO ==============
@@ -5157,9 +5237,10 @@
             // Afficher le premier onglet et charger les données
             switchDeplacementsTab('planification');
             
-            // Afficher le timer et les utilisateurs connectés
+            // Afficher le timer, les utilisateurs connectés et le bouton retour Planification
             document.getElementById('deplacementsTimerDisplay').style.display = 'block';
-            document.getElementById('deplacementsOnlineUsersContainer').style.display = 'block';
+            document.getElementById('deplacementsOnlineUsersContainer').style.display = 'flex';
+            document.getElementById('backToPlanificationBtn').style.display = 'block';
             
             // Charger les paramètres puis démarrer le timer
             loadSettingsForDeplacements().then(() => {
@@ -5498,7 +5579,7 @@
             
             // Afficher le timer et les utilisateurs connectés de l'app principale
             document.getElementById('inactivityTimerDisplay').style.display = 'block';
-            document.getElementById('onlineUsersContainer').style.display = 'block';
+            document.getElementById('onlineUsersContainer').style.display = 'flex';
             
             // Recharger les données pour s'assurer que tout est à jour
             await loadResources();
@@ -7826,7 +7907,10 @@
                     <td>${formatDate(madDates.dateFin || r.date_fin)}</td>
                     <td><span class="date-badge ${status.class}">${status.text}</span></td>
                     ${currentUser && currentUser.activeProfile !== 'rh'
-                        ? `<td style="text-align:center;"><input type="checkbox" ${r.astreinte_volontaire ? 'checked' : ''} onchange="toggleAstreinteByResource(${r.id}, this.checked)" style="width:18px;height:18px;cursor:pointer;" title="${r.user_id ? 'Accès astreinte/CRA' : 'Marquer comme expert astreinte (créez un compte utilisateur pour accès CRA)'}"></td>`
+                        ? `<td style="text-align:center;">
+                             <input type="checkbox" ${r.astreinte_volontaire ? 'checked' : ''} onchange="toggleAstreinteByResource(${r.id}, this.checked)" style="width:18px;height:18px;cursor:pointer;" title="${r.user_id ? 'Accès astreinte/CRA' : 'Marquer comme expert astreinte (créez un compte utilisateur pour accès CRA)'}">
+                             ${r.astreinte_volontaire && !r.user_id ? '<span title="Aucun compte utilisateur lié — n\'apparaîtra pas dans le dropdown CRA" style="color:#e53935;font-size:12px;margin-left:2px;cursor:help;">⚠️</span>' : ''}
+                           </td>`
                         : `<td style="text-align:center;"><input type="checkbox" ${r.astreinte_volontaire ? 'checked' : ''} disabled style="width:18px;height:18px;opacity:0.5;cursor:not-allowed;" title="${r.astreinte_volontaire ? 'Participe au dispositif astreintes' : 'Ne participe pas au dispositif astreintes'}"></td>`}
                     ${currentUser && currentUser.activeProfile !== 'rh'
                         ? `<td><label class="toggle-switch"><input type="checkbox" ${r.actif ? 'checked' : ''} onchange="toggleActive(${r.id})"><span class="slider"></span></label></td>`
@@ -8434,73 +8518,295 @@
             }
         }
 
-        // Vérifie si une ressource a une astreinte/HNO pour une date et période données
-        function getAstreinteForCell(resourceId, dateKey, period) {
-            if (!allAstreintesHno || allAstreintesHno.length === 0) return null;
-
+        // Retourne TOUTES les astreintes/HNOs d'une ressource pour une cellule (dateKey + période)
+        function getAstreintesForCell(resourceId, dateKey, period) {
+            if (!allAstreintesHno || allAstreintesHno.length === 0) return [];
+            const results = [];
             for (const a of allAstreintesHno) {
                 if (a.resource_id !== resourceId) continue;
-
-                // Comparer en chaînes YYYY-MM-DD pour éviter les décalages UTC/local
                 const dateDebutStr = (a.date_debut || '').substring(0, 10);
-                const dateFinStr = (a.date_fin || '').substring(0, 10);
-
+                const dateFinStr   = (a.date_fin   || '').substring(0, 10);
                 if (dateKey < dateDebutStr || dateKey > dateFinStr) continue;
-                
-                const heures = a.heure_debut && a.heure_fin ? `${a.heure_debut}-${a.heure_fin}` : '';
-                
-                // Pour les astreintes, vérifier aussi les heures si disponibles
-                if (a.type === 'astreinte') {
-                    if (a.heure_debut && a.heure_fin) {
-                        const heureDebut = parseInt(a.heure_debut.split(':')[0]);
-                        const heureFin = parseInt(a.heure_fin.split(':')[0]);
-                        
-                        // AM = avant 12h, PM = après 12h
-                        if (period === 'AM' && (heureDebut < 12 || (heureDebut < 14 && heureFin > 6))) {
-                            return { type: 'astreinte', objet: a.objet, samu: a.tous_samu ? 'Tous SAMU' : a.samu, heures };
-                        } else if (period === 'PM' && (heureDebut >= 12 || heureFin > 12)) {
-                            return { type: 'astreinte', objet: a.objet, samu: a.tous_samu ? 'Tous SAMU' : a.samu, heures };
-                        }
-                    } else {
-                        // Pas d'heures définies, afficher sur toutes les demi-journées
-                        return { type: 'astreinte', objet: a.objet, samu: a.tous_samu ? 'Tous SAMU' : a.samu, heures };
+
+                const isFirstDay = dateKey === dateDebutStr;
+                const isLastDay  = dateKey === dateFinStr;
+                const heures = a.heure_debut && a.heure_fin ? `${a.heure_debut}–${a.heure_fin}` : '';
+
+                // Déterminer si l'entrée couvre cette demi-journée
+                let covers = false;
+                if (a.heure_debut && a.heure_fin) {
+                    const hD = parseInt(a.heure_debut.split(':')[0]);
+                    const hF = parseInt(a.heure_fin.split(':')[0]);
+                    if (!isFirstDay && !isLastDay) {
+                        covers = true; // jour intermédiaire → AM et PM couverts
+                    } else if (period === 'AM') {
+                        covers = isFirstDay ? hD < 12 : true;
+                        if (isLastDay) covers = covers && hF > 0;
+                    } else { // PM
+                        covers = isLastDay ? hF > 12 || (hF === 12 && (a.heure_fin.split(':')[1] || '0') > '0') : true;
+                        if (isFirstDay) covers = covers && hD < 24;
                     }
+                } else {
+                    covers = true; // pas d'heures → toutes les demi-journées
                 }
-                
-                // Pour HNO, vérifier l'heure
-                if (a.type === 'hno' && a.heure_debut && a.heure_fin) {
-                    const heureDebut = parseInt(a.heure_debut.split(':')[0]);
-                    const heureFin = parseInt(a.heure_fin.split(':')[0]);
-                    
-                    // AM = avant 12h, PM = après 12h
-                    if (period === 'AM') {
-                        // Si l'heure de début est avant 12h ou l'heure de fin est après 6h et avant 14h
-                        if (heureDebut < 12 || (heureDebut < 14 && heureFin > 6)) {
-                            return { type: 'hno', objet: a.objet, samu: a.tous_samu ? 'Tous SAMU' : a.samu, heures };
-                        }
-                    } else if (period === 'PM') {
-                        // Si l'heure de début est après 11h ou l'heure de fin est après 12h
-                        if (heureDebut >= 12 || heureFin > 12) {
-                            return { type: 'hno', objet: a.objet, samu: a.tous_samu ? 'Tous SAMU' : a.samu, heures };
-                        }
-                    }
+                if (covers) {
+                    results.push({ id: a.id, type: a.type, objet: a.objet, samu: a.tous_samu ? 'Tous SAMU' : (a.samu || ''), heures,
+                        date_debut: a.date_debut, date_fin: a.date_fin, heure_debut: a.heure_debut || '', heure_fin: a.heure_fin || '' });
                 }
             }
-            
-            return null;
+            return results;
+        }
+
+        // Compat alias (utilisé par le code CRA)
+        function getAstreinteForCell(resourceId, dateKey, period) {
+            const r = getAstreintesForCell(resourceId, dateKey, period);
+            return r.length ? r[0] : null;
         }
 
         // Génère le HTML de la pastille astreinte/HNO
-        function getAstreinteBadgeHtml(astreinte) {
-            if (!astreinte) return '';
-            
-            const label = astreinte.type === 'astreinte' ? 'ASTR' : 'HNO';
-            const heuresInfo = astreinte.heures ? `\n${astreinte.heures}` : '';
-            const tooltip = astreinte.type === 'astreinte' 
-                ? `Astreinte: ${astreinte.objet}${heuresInfo}\n${astreinte.samu}`
-                : `HNO: ${astreinte.objet}${heuresInfo}\n${astreinte.samu}`;
-            
-            return `<span class="astreinte-badge" title="${tooltip.replace(/"/g, '&quot;')}">${label}</span>`;
+        function getAstreinteBadgeHtml(astreintes) {
+            if (!astreintes || (Array.isArray(astreintes) && astreintes.length === 0)) return '';
+            // Compat : accepte objet unique ou tableau
+            const list = Array.isArray(astreintes) ? astreintes : [astreintes];
+            if (list.length === 0) return '';
+            const hasAstr = list.some(a => a.type === 'astreinte');
+            const hasHno  = list.some(a => a.type === 'hno');
+            const tooltip = list.map(a =>
+                `${a.type === 'astreinte' ? '🔔 Astreinte' : '⏰ HNO'}${a.heures ? ' ' + a.heures : ''}: ${a.objet || ''}${a.samu ? ' | ' + a.samu : ''}`
+            ).join('\n').replace(/"/g, '&quot;');
+            if (hasAstr && hasHno) {
+                return `<span class="astreinte-badge" style="white-space:pre;line-height:1.3;padding:1px 3px;" title="${tooltip}">ASTR\nHNO</span>`;
+            }
+            const label = hasAstr ? 'ASTR' : 'HNO';
+            return `<span class="astreinte-badge" title="${tooltip}">${label}</span>`;
+        }
+
+        // === Menu contextuel clic droit Gantt ===
+        let _ganttCtxMenuData = null;
+
+        function closeGanttContextMenu() {
+            const menu = document.getElementById('ganttContextMenu');
+            if (menu) menu.style.display = 'none';
+            _ganttCtxMenuData = null;
+        }
+
+        // Listener unique sur document — survit aux re-rendus du gantt
+        document.addEventListener('contextmenu', function(e) {
+            // Vérifier qu'on est bien dans #ganttWrapper
+            if (!e.target.closest('#ganttWrapper')) return;
+
+            const td = e.target.closest('td[data-date]');
+            if (!td) return;
+            const tr = td.closest('tr[data-resource-id]');
+            if (!tr) return;
+
+            const userId = tr.getAttribute('data-user-id');
+            const resourceId = tr.getAttribute('data-resource-id');
+            const resourceName = tr.getAttribute('data-resource-name') || '';
+
+            // Vérification des droits
+            const isAdmin = currentUser && currentUser.is_admin;
+            const isOwnRow = currentUser && userId && String(currentUser.id) === String(userId);
+            if (!isAdmin && !isOwnRow) return;
+
+            if (!userId) {
+                // Ressource sans compte utilisateur lié
+                if (!isAdmin) return;
+                // Admin voit le menu mais avec message d'avertissement
+            }
+
+            e.preventDefault();
+            const dateAttr = td.getAttribute('data-date'); // format YYYY-M-D
+            const parts = dateAttr.split('-');
+            const year = parseInt(parts[0]);
+            const month = parseInt(parts[1]);
+            const day = parseInt(parts[2]);
+
+            const period = td.getAttribute('data-period') || 'AM';
+            const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+            // Astreintes déjà présentes sur cette cellule
+            const cellAstreintes = getAstreintesForCell(parseInt(resourceId), dateStr, period);
+
+            _ganttCtxMenuData = { userId, resourceId, resourceName, year, month, day, period, dateStr, cellAstreintes };
+
+            // Construire les items du menu dynamiquement
+            const itemsEl = document.getElementById('ganttContextMenuItems');
+            const mkItem = (icon, text, color, fn, disabled) => {
+                const d = document.createElement('div');
+                d.style.cssText = `padding:9px 16px;display:flex;align-items:center;gap:8px;color:${disabled?'#aaa':(color||'#222')};cursor:${disabled?'default':'pointer'};`;
+                d.innerHTML = `<span>${icon}</span><span>${text}</span>`;
+                if (!disabled) { d.onmouseover = () => d.style.background='#f5f5f5'; d.onmouseout = () => d.style.background=''; d.onclick = fn; }
+                return d;
+            };
+            const mkSep = () => { const s = document.createElement('div'); s.style.cssText='border-top:1px solid #eee;margin:3px 0;'; return s; };
+
+            // Afficher un état "chargement" pendant la vérification du verrou
+            itemsEl.innerHTML = '<div style="padding:8px 16px;color:#888;font-size:12px;">⏳ Vérification…</div>';
+
+            // Vérification async du verrou CRA
+            fetch(`${API_URL}/astreintes-hno/lock-check?user_id=${userId}&mois=${month}&annee=${year}`, { credentials: 'include' })
+                .then(r => r.json()).catch(() => ({ locked: false }))
+                .then(lock => {
+                    // Re-vérifier que le menu est toujours ouvert pour ce même contexte
+                    if (!_ganttCtxMenuData || _ganttCtxMenuData.userId !== userId) return;
+                    itemsEl.innerHTML = '';
+                    if (lock.locked) {
+                        const statLabel = { soumis:'soumis',vise_n1:'visé N1',vise_n2:'visé N2',diffuse:'diffusé/signé' }[lock.statut] || lock.statut;
+                        itemsEl.appendChild(mkItem('🔒', `CRA ${statLabel} — modifications verrouillées`, '#b71c1c', null, true));
+                    } else {
+                        if (cellAstreintes.length === 0) {
+                            itemsEl.appendChild(mkItem('➕', 'Ajouter une astreinte / HNO', '#6a1b9a', () => ganttContextMenuAction('add')));
+                        } else {
+                            cellAstreintes.forEach((a, i) => {
+                                const label = a.type === 'astreinte' ? '🔔 Astreinte' : '⏰ HNO';
+                                const short = (a.objet || '').substring(0, 22) + ((a.objet||'').length > 22 ? '…' : '');
+                                if (i > 0) itemsEl.appendChild(mkSep());
+                                itemsEl.appendChild(mkItem('✏️', `Modifier — ${label} ${short}`, '#1565c0', () => ganttContextMenuAction('edit', a)));
+                                itemsEl.appendChild(mkItem('🗑️', `Supprimer — ${label} ${short}`, '#c62828', () => ganttContextMenuAction('delete', a)));
+                            });
+                            itemsEl.appendChild(mkSep());
+                            itemsEl.appendChild(mkItem('➕', 'Ajouter une astreinte / HNO', '#6a1b9a', () => ganttContextMenuAction('add')));
+                        }
+                    }
+                });
+
+            const menu = document.getElementById('ganttContextMenu');
+            document.getElementById('ganttContextMenuHeader').textContent =
+                `${resourceName} — ${String(day).padStart(2,'0')}/${String(month).padStart(2,'0')}/${year} (${period})`;
+            menu.style.display = 'block';
+            const vw = window.innerWidth, vh = window.innerHeight;
+            let x = e.clientX, y = e.clientY;
+            const menuH = Math.min(cellAstreintes.length * 80 + 80, 300);
+            if (x + 250 > vw) x = vw - 255;
+            if (y + menuH > vh) y = vh - menuH - 8;
+            menu.style.left = x + 'px';
+            menu.style.top = y + 'px';
+
+            setTimeout(() => document.addEventListener('click', closeGanttContextMenu, { once: true }), 0);
+        });
+
+        function initGanttContextMenu() { /* listener désormais sur document — pas besoin d'init par rendu */ }
+
+        async function ganttContextMenuAction(action, entry) {
+            const data = _ganttCtxMenuData ? { ..._ganttCtxMenuData } : null;
+            closeGanttContextMenu();
+            if (!data) return;
+            if (action === 'add') {
+                await openGanttAstreinteModal(data);
+            } else if (action === 'edit') {
+                await openGanttAstreinteModal(data, entry);
+            } else if (action === 'delete') {
+                await deleteGanttAstreinte(entry, data);
+            }
+        }
+
+        async function deleteGanttAstreinte(entry, data) {
+            const label = entry.type === 'astreinte' ? 'Astreinte' : 'HNO';
+            if (!confirm(`Supprimer cette ${label} ?\n${entry.objet || ''} | ${entry.samu || ''}\n${entry.date_debut} → ${entry.date_fin}`)) return;
+            try {
+                const res = await fetch(`${API_URL}/astreintes-hno/${entry.id}`, { method: 'DELETE', credentials: 'include' });
+                if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || res.status); }
+                await loadAllAstreintesForPlanning();
+                updateGantt();
+            } catch(e) { alert('Erreur suppression : ' + e.message); }
+        }
+
+        let _ganttAstreinteCtx = null; // contexte sauvegardé pour la sauvegarde directe
+
+        async function openGanttAstreinteModal(data, editEntry) {
+            const snap = { ...data };
+            if (!snap.userId) {
+                alert('Cette ressource n\'a pas de compte utilisateur associé.');
+                return;
+            }
+            try {
+                // Charger les astreintes existantes directement (sans CRA)
+                const res = await fetch(`${API_URL}/astreintes-hno/direct?user_id=${snap.userId}&mois=${snap.month}&annee=${snap.year}`, { credentials: 'include' });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    alert('Erreur chargement astreintes : ' + (err.error || res.status));
+                    return;
+                }
+                const lignes = await res.json();
+
+                // Préparer le modal en mode direct (sans CRA)
+                _craSaisieId = null;
+                _craSaisieFromGantt = true;
+                _ganttAstreinteCtx = snap;
+                _craSaisieLines = lignes.map(l => ({
+                    id: l.id, type: l.type, date_debut: l.date_debut, date_fin: l.date_fin,
+                    heure_debut: l.heure_debut || '', heure_fin: l.heure_fin || '',
+                    samu: l.samu || '', objet: l.objet || ''
+                }));
+                _craSaisieEditIdx = null;
+
+                // Titre
+                const moisNom = new Date(snap.year, snap.month - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+                document.querySelector('#craSaisieModal h3').innerHTML =
+                    `➕/🗑️ Astreinte/HNO — <span id="craSaisieModalTitle">${snap.resourceName} — ${moisNom}</span>`;
+
+                // Bornes du mois pour les champs date
+                const pad = n => String(n).padStart(2, '0');
+                const lastDay = new Date(snap.year, snap.month, 0).getDate();
+                const minDate = `${snap.year}-${pad(snap.month)}-01`;
+                const maxDate = `${snap.year}-${pad(snap.month)}-${pad(lastDay)}`;
+                document.getElementById('craSaisieDateDebut').min = minDate;
+                document.getElementById('craSaisieDateDebut').max = maxDate;
+                document.getElementById('craSaisieDateFin').min = minDate;
+                document.getElementById('craSaisieDateFin').max = maxDate;
+
+                // Peupler le select SAMU
+                const samuSel = document.getElementById('craSaisieSamu');
+                samuSel.innerHTML = '<option value="">-- Sélectionner un SAMU --</option>';
+                (allLocations || []).forEach(loc => {
+                    const opt = document.createElement('option');
+                    opt.value = loc.libelle_court || loc.libelle_long || '';
+                    opt.textContent = loc.libelle_court ? `${loc.libelle_court} — ${loc.libelle_long || ''}` : loc.libelle_long;
+                    samuSel.appendChild(opt);
+                });
+
+                craSaisieResetForm();
+                renderCraSaisieList();
+
+                const hDebut = document.getElementById('craSaisieHeureDebut');
+                const hFin   = document.getElementById('craSaisieHeureFin');
+
+                if (editEntry) {
+                    // Mode édition : pré-remplir avec l'entrée existante
+                    const idx = _craSaisieLines.findIndex(l => l.id === editEntry.id);
+                    if (idx >= 0) {
+                        craSaisieEditLigne(idx);
+                    } else {
+                        // Entrée pas encore dans la liste locale (vient d'allAstreintesHno) → l'ajouter temporairement
+                        document.getElementById('craSaisieType').value    = editEntry.type;
+                        document.getElementById('craSaisieDateDebut').value = (editEntry.date_debut || '').substring(0, 10);
+                        document.getElementById('craSaisieDateFin').value   = (editEntry.date_fin   || '').substring(0, 10);
+                        hDebut.value = editEntry.heure_debut || '';
+                        hFin.value   = editEntry.heure_fin   || '';
+                        document.getElementById('craSaisieSamu').value  = editEntry.samu  || '';
+                        document.getElementById('craSaisieObjet').value = editEntry.objet || '';
+                        _craSaisieEditIdx = null;
+                    }
+                    // Contraintes horaires selon période cliquée
+                    if (snap.period === 'AM') { hDebut.min='00:00'; hDebut.max='11:59'; hFin.min='00:00'; hFin.max='11:59'; }
+                    else                       { hDebut.min='12:00'; hDebut.max='23:59'; hFin.min='12:00'; hFin.max='23:59'; }
+                } else {
+                    // Mode ajout : pré-remplir la date et les heures selon AM/PM
+                    document.getElementById('craSaisieDateDebut').value = snap.dateStr;
+                    document.getElementById('craSaisieDateFin').value   = snap.dateStr;
+                    if (snap.period === 'AM') {
+                        hDebut.min='00:00'; hDebut.max='11:59'; hFin.min='00:00'; hFin.max='11:59';
+                        hDebut.value='00:00'; hFin.value='11:59';
+                    } else {
+                        hDebut.min='12:00'; hDebut.max='23:59'; hFin.min='12:00'; hFin.max='23:59';
+                        hDebut.value='12:00'; hFin.value='23:59';
+                    }
+                }
+
+                document.getElementById('craSaisieModal').classList.add('active');
+            } catch(e) {
+                alert('Erreur : ' + e.message);
+            }
         }
 
         // Flag pour savoir si un envoi d'email est en cours (pour protéger saveSchedule)
@@ -9426,7 +9732,7 @@
                 }
                 const photoTooltip = tooltipParts.join('\n');
 
-                html += `<tr data-resource-name="${resource.nom} ${resource.prenom}">
+                html += `<tr data-resource-name="${resource.nom} ${resource.prenom}" data-resource-id="${resource.id}" data-user-id="${resource.user_id || ''}">
                     <td class="resource-header">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
@@ -9587,10 +9893,10 @@
                         const actDisplayTooltip = availValue === '3' ? '🏖️ Congés - Aucune affectation possible' : actTooltip;
                         
                         // Vérifier s'il y a une astreinte/HNO pour cette cellule
-                        const astreinteInfo = getAstreinteForCell(resource.id, dateKey, period);
+                        const astreinteInfo = getAstreintesForCell(resource.id, dateKey, period);
                         const astreinteBadge = getAstreinteBadgeHtml(astreinteInfo);
                         
-                        html += `<td class="${cellClass} ${borderClass}" data-date="${year}-${month+1}-${day}" style="min-width: 50px; max-width: 50px; width: 50px; position: relative;">
+                        html += `<td class="${cellClass} ${borderClass}" data-date="${year}-${month+1}-${day}" data-period="${period}" style="min-width: 50px; max-width: 50px; width: 50px; position: relative;">
                             ${astreinteBadge}
                             <div class="gantt-cell-content">
                                 <div class="gantt-cell-row${rowDisabledClass}" style="background-color: ${isAccessible ? availBg : '#d0d0d0'}; color: white; font-size: 11px; min-height: 20px;" onclick="${isAccessible ? `toggleAvailability(${resource.id}, '${dateKey}', '${period}')` : 'return false;'}" title="${availTooltip} (${period})">${availValue === '3' ? '🏖️' : availValue}</div>
@@ -9635,7 +9941,8 @@
             html += '</tr></tbody></table>';
 
             document.getElementById('ganttWrapper').innerHTML = html;
-            
+            initGanttContextMenu();
+
             // Scroll automatique vers le jour actuel UNIQUEMENT au premier chargement
             if (isFirstPlanningLoad) {
                 setTimeout(() => {
@@ -10407,6 +10714,92 @@
         // ===== CONFIGURATION DES ACCÈS AUX APPLICATIONS =====
         let _appAccessData = {};
 
+        // ===== CLÉS API =====
+        async function loadApiKeys() {
+            const container = document.getElementById('apiKeysTableContainer');
+            if (!container) return;
+            try {
+                const res = await fetch(`${API_URL}/admin/api-keys`, { credentials: 'include' });
+                const keys = await res.json();
+                if (!keys.length) {
+                    container.innerHTML = '<p style="color:#999;font-style:italic;font-size:13px;">Aucune clé API générée.</p>';
+                    return;
+                }
+                container.innerHTML = `
+                    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                        <thead><tr style="background:#c8e6c9;">
+                            <th style="padding:7px 10px;text-align:left;border-bottom:1px solid #a5d6a7;">Libellé</th>
+                            <th style="padding:7px 10px;text-align:left;border-bottom:1px solid #a5d6a7;">Préfixe</th>
+                            <th style="padding:7px 10px;text-align:left;border-bottom:1px solid #a5d6a7;">Créée le</th>
+                            <th style="padding:7px 10px;text-align:left;border-bottom:1px solid #a5d6a7;">Dernière utilisation</th>
+                            <th style="padding:7px 10px;text-align:left;border-bottom:1px solid #a5d6a7;">Statut</th>
+                            <th style="padding:7px 10px;border-bottom:1px solid #a5d6a7;"></th>
+                        </tr></thead>
+                        <tbody>
+                        ${keys.map(k => `
+                            <tr style="border-bottom:1px solid #e8f5e9;${k.revoked ? 'opacity:0.5;' : ''}">
+                                <td style="padding:6px 10px;font-weight:bold;">${k.label}</td>
+                                <td style="padding:6px 10px;"><code style="font-size:12px;">${k.key_prefix}</code></td>
+                                <td style="padding:6px 10px;color:#666;">${k.created_at ? new Date(k.created_at).toLocaleDateString('fr-FR') : '—'}</td>
+                                <td style="padding:6px 10px;color:#666;">${k.last_used_at ? new Date(k.last_used_at).toLocaleString('fr-FR') : 'Jamais'}</td>
+                                <td style="padding:6px 10px;">
+                                    <span style="padding:2px 8px;border-radius:10px;font-size:11px;font-weight:bold;background:${k.revoked ? '#ffebee' : '#e8f5e9'};color:${k.revoked ? '#c62828' : '#2e7d32'};">
+                                        ${k.revoked ? 'Révoquée' : 'Active'}
+                                    </span>
+                                </td>
+                                <td style="padding:6px 10px;text-align:right;">
+                                    ${!k.revoked ? `<button onclick="revokeApiKey(${k.id})" style="background:#e53935;color:white;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px;">Révoquer</button>` : ''}
+                                </td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>`;
+            } catch(e) {
+                container.innerHTML = '<p style="color:#e53935;font-size:13px;">Erreur chargement des clés API.</p>';
+            }
+        }
+
+        async function createApiKey() {
+            const label = document.getElementById('apiKeyLabel')?.value.trim();
+            if (!label) { alert('Veuillez saisir un libellé pour la clé.'); return; }
+            try {
+                const res = await fetch(`${API_URL}/admin/api-keys`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ label })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Erreur');
+                document.getElementById('apiKeyValue').textContent = data.key;
+                document.getElementById('apiKeyNewDisplay').style.display = 'block';
+                document.getElementById('apiKeyLabel').value = '';
+                await loadApiKeys();
+            } catch(e) {
+                alert('Erreur : ' + e.message);
+            }
+        }
+
+        function copyApiKey() {
+            const val = document.getElementById('apiKeyValue')?.textContent;
+            if (!val) return;
+            navigator.clipboard.writeText(val).then(() => {
+                const btn = document.querySelector('[onclick="copyApiKey()"]');
+                if (btn) { btn.textContent = '✅ Copié'; setTimeout(() => { btn.textContent = '📋 Copier'; }, 2000); }
+            });
+        }
+
+        async function revokeApiKey(id) {
+            if (!confirm('Révoquer cette clé API ? Les applications qui l\'utilisent n\'auront plus accès.')) return;
+            try {
+                const res = await fetch(`${API_URL}/admin/api-keys/${id}`, { method: 'DELETE', credentials: 'include' });
+                if (!res.ok) throw new Error();
+                await loadApiKeys();
+            } catch(e) {
+                alert('Erreur lors de la révocation.');
+            }
+        }
+        // ===== FIN CLÉS API =====
+
         async function loadAppAccessSection() {
             try {
                 const res = await fetch(`${API_URL}/app-access`, { credentials: 'include' });
@@ -10604,23 +10997,23 @@
                                 </thead>
                                 <tbody>
                                     ${userLogs.slice(0, 10).map(log => {
-                                        let loginTime = log.login_time;
-                                        if (!loginTime.endsWith('Z') && !loginTime.includes('+')) {
-                                            loginTime += 'Z';
+                                        let loginDate = '—';
+                                        const rawTime = log.derniere_connexion || log.login_time;
+                                        if (rawTime) {
+                                            let loginTime = rawTime;
+                                            if (!loginTime.endsWith('Z') && !loginTime.includes('+')) loginTime += 'Z';
+                                            loginDate = new Date(loginTime).toLocaleString('fr-FR', {
+                                                timeZone: 'Europe/Paris',
+                                                year: 'numeric', month: '2-digit', day: '2-digit',
+                                                hour: '2-digit', minute: '2-digit'
+                                            });
                                         }
-                                        const loginDate = new Date(loginTime).toLocaleString('fr-FR', {
-                                            timeZone: 'Europe/Paris',
-                                            year: 'numeric',
-                                            month: '2-digit',
-                                            day: '2-digit',
-                                            hour: '2-digit',
-                                            minute: '2-digit'
-                                        });
-                                        const profileLabel = log.profile === 'admin' ? 'Administrateur' : 
+                                        const profileLabel = log.profile === 'admin' ? 'Administrateur' :
                                                            log.profile === 'expert' ? 'Expert Métier' : 'Utilisateur';
+                                        const nbCo = log.nb_connexions ? ` (×${log.nb_connexions})` : '';
                                         return `
                                             <tr>
-                                                <td style="padding: 8px; border: 1px solid #b0d8e8;">${loginDate}</td>
+                                                <td style="padding: 8px; border: 1px solid #b0d8e8;">${loginDate}${nbCo}</td>
                                                 <td style="padding: 8px; border: 1px solid #b0d8e8;">${profileLabel}</td>
                                             </tr>
                                         `;
@@ -14301,6 +14694,21 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             document.getElementById('craSaisieType').focus();
         }
 
+        // Vérifie les chevauchements date+heure pour le même type (retourne l'entrée en conflit ou null)
+        function findAstreinteConflict(newLigne, skipIdx) {
+            const newStart = newLigne.date_debut + 'T' + (newLigne.heure_debut || '00:00');
+            const newEnd   = newLigne.date_fin   + 'T' + (newLigne.heure_fin   || '23:59');
+            for (let i = 0; i < _craSaisieLines.length; i++) {
+                if (i === skipIdx) continue;
+                const l = _craSaisieLines[i];
+                if (l.type !== newLigne.type) continue; // seul le même type génère un conflit
+                const lStart = l.date_debut + 'T' + (l.heure_debut || '00:00');
+                const lEnd   = l.date_fin   + 'T' + (l.heure_fin   || '23:59');
+                if (newStart < lEnd && newEnd > lStart) return l;
+            }
+            return null;
+        }
+
         function craSaisieAjouter() {
             const type       = document.getElementById('craSaisieType').value;
             const dateDebut  = document.getElementById('craSaisieDateDebut').value;
@@ -14315,10 +14723,22 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                 return;
             }
             if (dateFin < dateDebut) { alert('La date de fin doit être ≥ à la date de début'); return; }
+            if (heureFin <= heureDebut && dateDebut === dateFin) { alert('L\'heure de fin doit être > à l\'heure de début'); return; }
 
             const ligne = { type, date_debut: dateDebut, date_fin: dateFin, heure_debut: heureDebut, heure_fin: heureFin, samu, objet };
+            const skipIdx = _craSaisieEditIdx !== null ? _craSaisieEditIdx : -1;
+            const conflict = findAstreinteConflict(ligne, skipIdx);
+            if (conflict) {
+                const typeLabel = type === 'astreinte' ? 'Astreinte' : 'HNO';
+                const conflictDates = conflict.date_debut === conflict.date_fin
+                    ? formatDateFRClient(conflict.date_debut)
+                    : `${formatDateFRClient(conflict.date_debut)} → ${formatDateFRClient(conflict.date_fin)}`;
+                const msg = `⚠️ Conflit détecté\n\nUn(e) ${typeLabel} existe déjà sur cette période :\n📅 ${conflictDates}  ⏰ ${conflict.heure_debut}–${conflict.heure_fin}\n📝 ${conflict.objet}\n\nModifiez les dates/heures ou supprimez l'entrée existante.`;
+                alert(msg);
+                return;
+            }
+
             if (_craSaisieEditIdx !== null) {
-                // Conserver l'id BDD si modification d'une ligne existante
                 ligne.id = _craSaisieLines[_craSaisieEditIdx].id;
                 _craSaisieLines[_craSaisieEditIdx] = ligne;
             } else {
@@ -14353,18 +14773,40 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                 </div>`).join('');
         }
 
+        let _craSaisieFromGantt = false; // true si la modale a été ouverte depuis le gantt
+
         async function craSaisieTerminer() {
             try {
-                const res = await fetch(`${API_URL}/cra/${_craSaisieId}/astreintes`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({ lignes: _craSaisieLines })
-                });
+                let res;
+                if (_craSaisieFromGantt && _ganttAstreinteCtx) {
+                    // Sauvegarde directe sans CRA
+                    const ctx = _ganttAstreinteCtx;
+                    res = await fetch(`${API_URL}/astreintes-hno/direct`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({ user_id: ctx.userId, mois: ctx.month, annee: ctx.year, lignes: _craSaisieLines })
+                    });
+                } else {
+                    res = await fetch(`${API_URL}/cra/${_craSaisieId}/astreintes`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({ lignes: _craSaisieLines })
+                    });
+                }
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'Erreur');
+                const fromGantt = _craSaisieFromGantt;
                 closeCraSaisieModal();
-                await openCraDetail(_craSaisieId);
+                _craSaisieFromGantt = false;
+                _ganttAstreinteCtx = null;
+                if (fromGantt) {
+                    await loadAllAstreintesForPlanning();
+                    updateGantt();
+                } else {
+                    await openCraDetail(_craSaisieId);
+                }
             } catch(e) {
                 alert('Erreur lors de l\'enregistrement : ' + e.message);
             }
@@ -16879,6 +17321,23 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             document.getElementById('cleanupResultModal').style.display = 'none';
         }
 
+        function showPasswordConfirmModal(password, emailSent) {
+            document.getElementById('passwordConfirmValue').textContent = password;
+            document.getElementById('passwordConfirmEmailMsg').textContent = emailSent
+                ? '📧 Un email a également été envoyé à l\'utilisateur.'
+                : '⚠️ Aucun email envoyé — communiquez ce mot de passe manuellement.';
+            document.getElementById('passwordConfirmModal').classList.add('active');
+        }
+
+        function copyConfirmedPassword() {
+            const val = document.getElementById('passwordConfirmValue')?.textContent;
+            if (!val) return;
+            navigator.clipboard.writeText(val).then(() => {
+                const btn = document.getElementById('copyConfirmBtn');
+                if (btn) { btn.textContent = '✅ Copié !'; setTimeout(() => { btn.textContent = '📋 Copier'; }, 2000); }
+            });
+        }
+
         function openResetPasswordModal(id) {
             currentResetUserId = id;
             document.getElementById('resetPasswordModal').classList.add('active');
@@ -16913,17 +17372,8 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                     throw new Error(data.error || 'Erreur réinitialisation');
                 }
                 
-                if (sendEmail) {
-                    if (data.emailSent) {
-                        alert('✅ Mot de passe réinitialisé avec succès ! Un email a été envoyé à l\'utilisateur.');
-                    } else {
-                        alert('⚠️ Mot de passe réinitialisé mais l\'email n\'a pas pu être envoyé. Veuillez communiquer le mot de passe manuellement : ' + newPassword);
-                    }
-                } else {
-                    alert('✅ Mot de passe réinitialisé avec succès ! Mot de passe : ' + newPassword);
-                }
-                
                 closeResetPasswordModal();
+                showPasswordConfirmModal(newPassword, sendEmail && data.emailSent);
                 showSyncStatus();
                 logModification("Modification du planning");
             } catch (error) {
@@ -17857,7 +18307,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             // Afficher le timer
             const timerDisplay = document.getElementById('inactivityTimerDisplay');
             if (timerDisplay) {
-                timerDisplay.style.display = 'block';
+                timerDisplay.style.display = 'flex';
                 updateTimerDisplay();
             }
             
@@ -25286,7 +25736,12 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
     <!-- CONTAINER POUR L'APPLICATION DÉPLACEMENTS -->
     <div id="deplacementsContainer" class="container" style="display: none;">
         <!-- Conteneur des utilisateurs connectés en temps réel -->
-        <div id="deplacementsOnlineUsersContainer" style="display: none; position: fixed; top: 10px; right: 120px; background: #fff; padding: 6px 12px; border-radius: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 1001; cursor: pointer;" onclick="toggleDeplacementsOnlineUsersTooltip(event)">
+        <!-- Retour vers Planification (vignette fixe) -->
+        <button id="backToPlanificationBtn" onclick="backToPlanification()" style="display:none;position:fixed;top:10px;right:340px;z-index:1001;background:#fff;border:none;color:#2c3e50;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);white-space:nowrap;">
+            🔀 Planification
+        </button>
+
+        <div id="deplacementsOnlineUsersContainer" style="display: none; position: fixed; top: 10px; right: 120px; height: 32px; box-sizing: border-box; background: #fff; padding: 0 12px; border-radius: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 1001; cursor: pointer; display: flex; align-items: center;" onclick="toggleDeplacementsOnlineUsersTooltip(event)">
             <div style="display: flex; align-items: center; gap: 4px;">
                 <span style="font-size: 12px; color: #27ae60; margin-right: 4px;">●</span>
                 <div id="deplacementsOnlineUsersAvatars" style="display: flex; align-items: center;"></div>
@@ -25301,8 +25756,8 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             <div id="deplacementsOnlineUsersTooltipList" style="max-height: 200px; overflow-y: auto;"></div>
         </div>
         
-        <div class="inactivity-timer" id="deplacementsTimerDisplay" style="display: none; position: fixed; top: 10px; right: 10px; background: #fff; padding: 8px 15px; border-radius: 5px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 1001; font-size: 14px; font-weight: bold; color: #2c3e50;">
-            ⏱️ <span id="deplacementsTimerMinutes">05</span>:<span id="deplacementsTimerSeconds">00</span>
+        <div class="inactivity-timer" id="deplacementsTimerDisplay" style="display: none; position: fixed; top: 10px; right: 10px; background: #fff; padding: 6px 12px; border-radius: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 1001; font-size: 13px; font-weight: bold; color: #2c3e50; white-space: nowrap;">
+            ⏱ <span id="deplacementsTimerMinutes">05</span>:<span id="deplacementsTimerSeconds">00</span>
         </div>
         
         <!-- Header fixe -->
@@ -25341,10 +25796,10 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 <button class="logout-icon" onclick="logoutFromDeplacements()" title="Déconnexion"></button>
             </div>
         </div>
-        
+
         <!-- Espaceur pour compenser le header fixe -->
         <div class="header-spacer"></div>
-        
+
         <!-- Onglet Planification des déplacements -->
         <div id="deplacementsPlanificationTab" class="tab-content active">
             <h2>Mes déplacements</h2>
