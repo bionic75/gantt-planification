@@ -357,11 +357,27 @@ tr:nth-child(even) td { background: #f9f9f9; }
   <h2>🆕 Notes de version</h2>
   <p>Historique des évolutions de la Plateforme de Planification ANS.</p>
 
-  <!-- v1.14.10 -->
+  <!-- v1.15.00 -->
   <div class="card card-green" style="margin-bottom:16px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-      <strong style="font-size:16px;">v1.14.10</strong>
+      <strong style="font-size:16px;">v1.15.00</strong>
       <span class="badge badge-current">Actuelle</span>
+      <span style="color:#888; font-size:13px;">Juillet 2026</span>
+    </div>
+    <ul>
+      <li>🔑 <strong>API publique événements</strong> : nouvelle route sécurisée <code>GET /api/public/events</code> exposant les événements (date, objet, lieu, détail lieu, horaire matin/après-midi/journée entière, participants, flag GRIST). L'accès est contrôlé par des clés API générées et gérées depuis l'onglet Administration (section <em>Clés API</em>) — création avec libellé, copie en un clic, révocation. Les clés sont stockées sous forme de hash SHA-256 ; la valeur brute n'est affichée qu'une seule fois à la génération.</li>
+      <li>🔐 <strong>Correction connexion expert après réinitialisation de mot de passe</strong> : correction d'un bug bloquant la connexion automatique lorsqu'un expert ne dispose que d'un seul profil (l'élément <code>loginApp</code> absent du DOM provoquait une erreur silencieuse). Les messages d'erreur de connexion sont désormais plus précis. La réponse <code>/api/user/profiles</code> n'est plus mise en cache par le navigateur (<code>Cache-Control: no-store</code>).</li>
+      <li>🖥️ <strong>Popup confirmation réinitialisation mot de passe</strong> : remplacement de l'alerte navigateur par une modale dédiée affichant le nouveau mot de passe en monospace avec bouton <em>Copier</em>. Le mot de passe n'est affiché qu'une seule fois.</li>
+      <li>🛡️ <strong>Onglet Administration masqué en profil RH</strong> : un compte disposant à la fois des rôles Administrateur et RH ne voit plus l'onglet Administration lorsqu'il est connecté en profil RH.</li>
+      <li>⏱️ <strong>Timer d'inactivité aligné</strong> : la vignette du compte à rebours d'inactivité (en haut à droite) a désormais la même hauteur que les autres éléments de la barre de navigation (32 px).</li>
+      <li>🐛 <strong>Correction pop-up détail utilisateur</strong> : correction de l'erreur <em>Cannot read properties of undefined (reading 'endsWith')</em> lors de l'ouverture de la pop-up de détail d'un compte dans l'onglet Administration.</li>
+    </ul>
+  </div>
+
+  <!-- v1.14.10 -->
+  <div class="card card-blue" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v1.14.10</strong>
       <span style="color:#888; font-size:13px;">Juillet 2026</span>
     </div>
     <ul>

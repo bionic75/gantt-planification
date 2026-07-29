@@ -1245,6 +1245,23 @@ function initDB() {
         else console.log('✅ Table locations créée');
     });
 
+    // Table clés API publiques
+    database.run(`
+        CREATE TABLE IF NOT EXISTS api_keys (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            label TEXT NOT NULL,
+            key_hash TEXT NOT NULL UNIQUE,
+            key_prefix TEXT NOT NULL,
+            created_by INTEGER,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            last_used_at DATETIME,
+            revoked INTEGER DEFAULT 0
+        )
+    `, (err) => {
+        if (err) console.error('Erreur création table api_keys:', err);
+        else console.log('✅ Table api_keys créée ou existante');
+    });
+
     // Migration : ajouter location_id à custom_events si absente
     database.all(`PRAGMA table_info(custom_events)`, [], (err, columns) => {
         if (!err && columns) {
@@ -1948,24 +1965,28 @@ app.get('/api/check-session', (req, res) => {
             [req.session.userId],
             (err, userData) => {
                 if (err) console.error('Erreur récupération données session:', err);
-                res.json({
-                    userId: req.session.userId,
-                    username: req.session.username,
-                    nom: req.session.nom,
-                    prenom: req.session.prenom,
-                    email: userData?.email || null,
-                    activeProfile: req.session.activeProfile,
-                    resourceId: req.session.resourceId,
-                    trigramme: userData?.trigramme || null,
-                    profilePhoto: userData?.profile_photo || null,
-                    amoaCed: userData?.amoa_ced === 1,
-                    is_amoa_ced: userData?.amoa_ced === 1,
-                    is_admin: userData?.is_admin === 1,
-                    is_expert: userData?.is_expert === 1,
-                    is_user: userData?.is_user === 1,
-                    is_rh: userData?.is_rh === 1,
-                    astreinte_volontaire: userData?.astreinte_volontaire === 1,
-                    astreinte_date_activation: userData?.astreinte_date_activation || null
+                database.all('SELECT app_key FROM app_user_access WHERE user_id = ?', [req.session.userId], (err2, appRows) => {
+                    const availableApps = (appRows || []).map(r => r.app_key);
+                    res.json({
+                        userId: req.session.userId,
+                        username: req.session.username,
+                        nom: req.session.nom,
+                        prenom: req.session.prenom,
+                        email: userData?.email || null,
+                        activeProfile: req.session.activeProfile,
+                        resourceId: req.session.resourceId,
+                        trigramme: userData?.trigramme || null,
+                        profilePhoto: userData?.profile_photo || null,
+                        availableApps,
+                        amoaCed: availableApps.includes('deplacements'),
+                        is_amoa_ced: availableApps.includes('deplacements'),
+                        is_admin: userData?.is_admin === 1,
+                        is_expert: userData?.is_expert === 1,
+                        is_user: userData?.is_user === 1,
+                        is_rh: userData?.is_rh === 1,
+                        astreinte_volontaire: userData?.astreinte_volontaire === 1,
+                        astreinte_date_activation: userData?.astreinte_date_activation || null
+                    });
                 });
             }
         );
@@ -1995,8 +2016,9 @@ app.post('/api/switch-profile', requireAuth, (req, res) => {
 });
 
 app.get('/api/user/profiles', (req, res) => {
+    res.set('Cache-Control', 'no-store');
     const { username } = req.query;
-    
+
     if (!username) {
         return res.status(400).json({ error: 'Username requis' });
     }
@@ -2135,12 +2157,15 @@ app.put('/api/resources/:id', requireAdmin, (req, res) => {
                 console.error('Erreur update resource:', err);
                 res.status(500).json({ error: err.message });
             } else {
-                logUserAction(req, 'Modification ressource', { 
-                    resourceId: id, 
-                    nom, 
-                    prenom, 
-                    trigramme 
+                logUserAction(req, 'Modification ressource', {
+                    resourceId: id,
+                    nom,
+                    prenom,
+                    trigramme
                 });
+                if (astreinte_volontaire) {
+                    database.run('UPDATE users SET is_expert = 1 WHERE resource_id = ?', [id], () => {});
+                }
                 res.json({ success: true });
             }
         }
@@ -3368,10 +3393,22 @@ app.post('/api/users/:id/astreinte-access', requireAdmin, (req, res) => {
 
 app.post('/api/resources/:id/astreinte', requireAdmin, (req, res) => {
     const { hasAccess } = req.body;
+    const resourceId = req.params.id;
     database.run(
         'UPDATE resources SET astreinte_volontaire = ? WHERE id = ?',
-        [hasAccess ? 1 : 0, req.params.id],
-        (err) => err ? res.status(500).json({ error: err.message }) : res.json({ success: true })
+        [hasAccess ? 1 : 0, resourceId],
+        (err) => {
+            if (err) return res.status(500).json({ error: err.message });
+            if (hasAccess) {
+                database.run(
+                    'UPDATE users SET is_expert = 1 WHERE resource_id = ?',
+                    [resourceId],
+                    () => res.json({ success: true })
+                );
+            } else {
+                res.json({ success: true });
+            }
+        }
     );
 });
 
@@ -8946,6 +8983,34 @@ app.get('/api/liste-samu', requireAuth, (req, res) => {
 
 // ========== API ASTREINTES ET HNO ==========
 
+// Helper : vérifie si les astreintes/HNO d'un utilisateur pour un mois sont verrouillées par un CRA signé
+function checkCraLock(userId, mois, annee) {
+    return new Promise((resolve, reject) => {
+        database.get(
+            `SELECT statut FROM cra WHERE user_id = ? AND mois = ? AND annee = ? AND (deleted IS NULL OR deleted = 0)`,
+            [userId, mois, annee],
+            (err, row) => {
+                if (err) return reject(err);
+                const locked = row && row.statut !== 'a_completer';
+                resolve({ locked: !!locked, statut: row ? row.statut : null });
+            }
+        );
+    });
+}
+
+// Vérification du verrouillage CRA pour un utilisateur+mois — admin ou self
+app.get('/api/astreintes-hno/lock-check', requireAuth, async (req, res) => {
+    const { user_id, mois, annee } = req.query;
+    if (!user_id || !mois || !annee) return res.status(400).json({ error: 'Paramètres manquants' });
+    const isAdmin = req.session.activeProfile === 'admin';
+    const isSelf = String(req.session.userId) === String(user_id);
+    if (!isAdmin && !isSelf) return res.status(403).json({ error: 'Accès refusé' });
+    try {
+        const lock = await checkCraLock(user_id, mois, annee);
+        res.json(lock);
+    } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // Récupérer les astreintes/HNO de l'utilisateur connecté
 app.get('/api/mes-astreintes', requireAuth, (req, res) => {
     database.all(`
@@ -9019,25 +9084,33 @@ app.get('/api/experts-list', requireAuth, (req, res) => {
 });
 
 // Créer une astreinte/HNO
-app.post('/api/astreintes', requireAuth, (req, res) => {
+app.post('/api/astreintes', requireAuth, async (req, res) => {
     const { user_id, type, date_debut, date_fin, heure_debut, heure_fin, samu, tous_samu, objet } = req.body;
-    
+
     // Vérifier les droits
     const targetUserId = req.session.activeProfile === 'admin' ? (user_id || req.session.userId) : req.session.userId;
-    
+
     if (!type || !date_debut || !date_fin || !objet) {
         return res.status(400).json({ error: 'Type, dates et objet sont requis' });
     }
-    
+
+    // Vérification du verrou CRA
+    const mois = parseInt(date_debut.split('-')[1]);
+    const annee = parseInt(date_debut.split('-')[0]);
+    try {
+        const lock = await checkCraLock(targetUserId, mois, annee);
+        if (lock.locked) return res.status(403).json({ error: `Modification impossible : un CRA ${lock.statut} existe pour ce mois. Supprimez-le d'abord pour libérer la saisie.` });
+    } catch(e) { return res.status(500).json({ error: e.message }); }
+
     // Heures obligatoires pour astreintes ET HNO
     if (!heure_debut || !heure_fin) {
         return res.status(400).json({ error: 'Heures de début et fin requises' });
     }
-    
+
     if (!tous_samu && !samu) {
         return res.status(400).json({ error: 'SAMU requis ou cocher "Tous les SAMU"' });
     }
-    
+
     database.run(
         `INSERT INTO astreintes_hno (user_id, type, date_debut, date_fin, heure_debut, heure_fin, samu, tous_samu, objet) 
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -9063,29 +9136,32 @@ app.post('/api/astreintes', requireAuth, (req, res) => {
 });
 
 // Modifier une astreinte/HNO
-app.put('/api/astreintes/:id', requireAuth, (req, res) => {
+app.put('/api/astreintes/:id', requireAuth, async (req, res) => {
     const id = req.params.id;
     const { type, date_debut, date_fin, heure_debut, heure_fin, samu, tous_samu, objet } = req.body;
-    
-    // Vérifier que l'astreinte appartient à l'utilisateur (sauf admin)
+
+    try {
+        const row = await new Promise((resolve, reject) =>
+            database.get(`SELECT user_id, date_debut FROM astreintes_hno WHERE id = ?`, [id], (err, r) => err ? reject(err) : resolve(r))
+        );
+        if (!row) return res.status(404).json({ error: 'Astreinte non trouvée' });
+        if (row.user_id !== req.session.userId && req.session.activeProfile !== 'admin') return res.status(403).json({ error: 'Non autorisé' });
+
+        const mois = parseInt(row.date_debut.split('-')[1]);
+        const annee = parseInt(row.date_debut.split('-')[0]);
+        const lock = await checkCraLock(row.user_id, mois, annee);
+        if (lock.locked) return res.status(403).json({ error: `Modification impossible : un CRA ${lock.statut} existe pour ce mois.` });
+    } catch(e) { return res.status(500).json({ error: e.message }); }
+
+    // Récupérer à nouveau pour le UPDATE (simplifié)
     database.get(`SELECT user_id FROM astreintes_hno WHERE id = ?`, [id], (err, row) => {
-        if (err) {
-            return res.status(500).json({ error: err.message });
-        }
-        
-        if (!row) {
-            return res.status(404).json({ error: 'Astreinte non trouvée' });
-        }
-        
-        if (row.user_id !== req.session.userId && req.session.activeProfile !== 'admin') {
-            return res.status(403).json({ error: 'Non autorisé' });
-        }
-        
+        if (err || !row) return res.status(500).json({ error: err?.message || 'Astreinte non trouvée' });
+
         // Heures obligatoires pour astreintes ET HNO
         if (!heure_debut || !heure_fin) {
             return res.status(400).json({ error: 'Heures de début et fin requises' });
         }
-        
+
         database.run(
             `UPDATE astreintes_hno 
              SET type = ?, date_debut = ?, date_fin = ?, heure_debut = ?, heure_fin = ?, samu = ?, tous_samu = ?, objet = ?, updated_at = CURRENT_TIMESTAMP
@@ -9103,31 +9179,23 @@ app.put('/api/astreintes/:id', requireAuth, (req, res) => {
 });
 
 // Supprimer une astreinte/HNO
-app.delete('/api/astreintes/:id', requireAuth, (req, res) => {
+app.delete('/api/astreintes/:id', requireAuth, async (req, res) => {
     const id = req.params.id;
-    
-    // Vérifier que l'astreinte appartient à l'utilisateur (sauf admin)
-    database.get(`SELECT user_id FROM astreintes_hno WHERE id = ?`, [id], (err, row) => {
-        if (err) {
-            return res.status(500).json({ error: err.message });
-        }
-        
-        if (!row) {
-            return res.status(404).json({ error: 'Astreinte non trouvée' });
-        }
-        
-        if (row.user_id !== req.session.userId && req.session.activeProfile !== 'admin') {
-            return res.status(403).json({ error: 'Non autorisé' });
-        }
-        
-        database.run(`DELETE FROM astreintes_hno WHERE id = ?`, [id], function(err) {
-            if (err) {
-                console.error('Erreur suppression astreinte:', err);
-                return res.status(500).json({ error: err.message });
-            }
-            res.json({ message: 'Astreinte/HNO supprimée' });
-        });
-    });
+    try {
+        const row = await new Promise((resolve, reject) =>
+            database.get(`SELECT user_id, date_debut FROM astreintes_hno WHERE id = ?`, [id], (err, r) => err ? reject(err) : resolve(r))
+        );
+        if (!row) return res.status(404).json({ error: 'Astreinte non trouvée' });
+        if (row.user_id !== req.session.userId && req.session.activeProfile !== 'admin') return res.status(403).json({ error: 'Non autorisé' });
+        const mois = parseInt(row.date_debut.split('-')[1]);
+        const annee = parseInt(row.date_debut.split('-')[0]);
+        const lock = await checkCraLock(row.user_id, mois, annee);
+        if (lock.locked) return res.status(403).json({ error: `Suppression impossible : un CRA ${lock.statut} existe pour ce mois.` });
+        await new Promise((resolve, reject) =>
+            database.run(`DELETE FROM astreintes_hno WHERE id = ?`, [id], err => err ? reject(err) : resolve())
+        );
+        res.json({ message: 'Astreinte/HNO supprimée' });
+    } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // Reporting HNO/Astreintes
@@ -10024,12 +10092,18 @@ app.get('/api/cra/admin/list', requireAdminOrRh, async (req, res) => {
 // Tous les experts sans filtre astreinte (pour "CRA à lancer")
 app.get('/api/cra/all-experts-full', requireAdmin, (req, res) => {
     database.all(
-        `SELECT DISTINCT u.id as user_id, u.nom, u.prenom
-         FROM users u
-         JOIN resources r ON u.resource_id = r.id
-         WHERE u.is_expert = 1 AND r.actif = 1 AND r.astreinte_volontaire = 1
-         ORDER BY u.nom, u.prenom`,
-        (err, rows) => err ? res.status(500).json({ error: err.message }) : res.json(rows || [])
+        `SELECT DISTINCT
+             u.id as user_id,
+             COALESCE(NULLIF(u.nom,''), r.nom) as nom,
+             COALESCE(NULLIF(u.prenom,''), r.prenom) as prenom
+         FROM resources r
+         LEFT JOIN users u ON u.resource_id = r.id
+         WHERE r.actif = 1 AND r.astreinte_volontaire = 1 AND u.id IS NOT NULL
+         ORDER BY nom, prenom`,
+        (err, rows) => {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json(rows || []);
+        }
     );
 });
 
@@ -10077,6 +10151,118 @@ app.get('/api/cra/all-experts', requireAdminOrRh, (req, res) => {
          ORDER BY u.nom, u.prenom`,
         (err, rows) => err ? res.status(500).json({ error: err.message }) : res.json(rows || [])
     );
+});
+
+// Supprimer une astreinte/HNO par son id — admin ou propriétaire
+app.delete('/api/astreintes-hno/:id', requireAuth, async (req, res) => {
+    const id = req.params.id;
+    const isAdmin = req.session.activeProfile === 'admin';
+    const sessionUserId = req.session.userId;
+    try {
+        const row = await new Promise((resolve, reject) =>
+            database.get(`SELECT * FROM astreintes_hno WHERE id = ?`, [id], (err, r) => err ? reject(err) : resolve(r))
+        );
+        if (!row) return res.status(404).json({ error: 'Entrée introuvable' });
+        if (!isAdmin && String(row.user_id) !== String(sessionUserId)) return res.status(403).json({ error: 'Accès refusé' });
+        const mois = parseInt((row.date_debut || '').split('-')[1]);
+        const annee = parseInt((row.date_debut || '').split('-')[0]);
+        const lock = await checkCraLock(row.user_id, mois, annee).catch(() => ({ locked: false }));
+        if (lock.locked) return res.status(403).json({ error: `Suppression impossible : un CRA ${lock.statut} existe pour ce mois.` });
+        await new Promise((resolve, reject) =>
+            database.run(`DELETE FROM astreintes_hno WHERE id = ?`, [id], err => err ? reject(err) : resolve())
+        );
+        res.json({ success: true });
+    } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Lecture directe des astreintes/HNO pour un utilisateur+mois (sans CRA) — admin ou self
+app.get('/api/astreintes-hno/direct', requireAuth, async (req, res) => {
+    const { user_id, mois, annee } = req.query;
+    if (!user_id || !mois || !annee) return res.status(400).json({ error: 'Paramètres manquants' });
+    const isAdmin = req.session.activeProfile === 'admin';
+    const isSelf = String(req.session.userId) === String(user_id);
+    if (!isAdmin && !isSelf) return res.status(403).json({ error: 'Accès refusé' });
+    const pad = n => String(n).padStart(2, '0');
+    const dateStart = `${annee}-${pad(mois)}-01`;
+    const dateEnd   = `${annee}-${pad(mois)}-31`;
+    try {
+        const rows = await new Promise((resolve, reject) => {
+            database.all(
+                `SELECT * FROM astreintes_hno WHERE user_id = ? AND date_debut >= ? AND date_debut <= ? ORDER BY date_debut`,
+                [user_id, dateStart, dateEnd],
+                (err, rows) => err ? reject(err) : resolve(rows || [])
+            );
+        });
+        res.json(rows);
+    } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Sauvegarde directe des astreintes/HNO pour un utilisateur+mois (sans CRA) — admin ou self
+app.post('/api/astreintes-hno/direct', requireAuth, async (req, res) => {
+    const { user_id, mois, annee, lignes } = req.body;
+    if (!user_id || !mois || !annee) return res.status(400).json({ error: 'Paramètres manquants' });
+    const isAdmin = req.session.activeProfile === 'admin';
+    const isSelf = String(req.session.userId) === String(user_id);
+    if (!isAdmin && !isSelf) return res.status(403).json({ error: 'Accès refusé' });
+    const lock = await checkCraLock(user_id, mois, annee).catch(() => ({ locked: false }));
+    if (lock.locked) return res.status(403).json({ error: `Modification impossible : un CRA ${lock.statut} existe pour ce mois. Supprimez-le d'abord pour libérer la saisie.` });
+    const pad = n => String(n).padStart(2, '0');
+    const dateStart = `${annee}-${pad(mois)}-01`;
+    const dateEnd   = `${annee}-${pad(mois)}-31`;
+    try {
+        await new Promise((resolve, reject) => {
+            database.run(
+                `DELETE FROM astreintes_hno WHERE user_id = ? AND date_debut >= ? AND date_debut <= ?`,
+                [user_id, dateStart, dateEnd],
+                err => err ? reject(err) : resolve()
+            );
+        });
+        for (const l of (lignes || [])) {
+            await new Promise((resolve, reject) => {
+                database.run(
+                    `INSERT INTO astreintes_hno (user_id, type, date_debut, date_fin, heure_debut, heure_fin, samu, objet)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [user_id, l.type, l.date_debut, l.date_fin, l.heure_debut || null, l.heure_fin || null, l.samu || null, l.objet],
+                    err => err ? reject(err) : resolve()
+                );
+            });
+        }
+        res.json({ success: true, inserted: (lignes || []).length });
+    } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Trouver ou créer un CRA pour un utilisateur/mois (admin ou expert sur son propre CRA)
+app.get('/api/cra/find-or-create', requireAuth, async (req, res) => {
+    const { user_id, mois, annee } = req.query;
+    if (!user_id || !mois || !annee) return res.status(400).json({ error: 'Paramètres manquants' });
+    const isAdmin = req.session.activeProfile === 'admin';
+    const isSelf = String(req.session.userId) === String(user_id);
+    if (!isAdmin && !isSelf) return res.status(403).json({ error: 'Accès refusé' });
+    try {
+        const existing = await new Promise((resolve, reject) => {
+            database.get(
+                `SELECT id, statut FROM cra WHERE user_id = ? AND mois = ? AND annee = ? AND (deleted IS NULL OR deleted = 0)`,
+                [user_id, mois, annee], (err, row) => err ? reject(err) : resolve(row)
+            );
+        });
+        if (existing) return res.json({ id: existing.id, statut: existing.statut, created: false });
+        // Créer un nouveau CRA
+        const expert = await new Promise((resolve, reject) => {
+            database.get(
+                `SELECT u.id as user_id, r.id as resource_id FROM users u JOIN resources r ON u.resource_id = r.id WHERE u.id = ?`,
+                [user_id], (err, row) => err ? reject(err) : resolve(row)
+            );
+        });
+        if (!expert) return res.status(404).json({ error: 'Utilisateur introuvable' });
+        const newId = await new Promise((resolve, reject) => {
+            database.run(
+                `INSERT INTO cra (user_id, resource_id, mois, annee, statut) VALUES (?, ?, ?, ?, 'a_completer')`,
+                [expert.user_id, expert.resource_id, mois, annee],
+                function(err) { err ? reject(err) : resolve(this.lastID); }
+            );
+        });
+        res.json({ id: newId, statut: 'a_completer', created: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // Archiver un CRA
@@ -10588,24 +10774,29 @@ app.get('/api/cra/:id', requireAuth, async (req, res) => {
 // Remplacer les lignes astreintes/HNO d'un CRA (DELETE mois puis INSERT)
 app.post('/api/cra/:id/astreintes', requireAuth, async (req, res) => {
     const craId = req.params.id;
-    const userId = req.session.userId;
+    const sessionUserId = req.session.userId;
+    const isAdmin = req.session.activeProfile === 'admin';
     const { lignes } = req.body;
 
     try {
         const cra = await new Promise((resolve, reject) => {
-            database.get(`SELECT * FROM cra WHERE id = ? AND user_id = ?`, [craId, userId],
+            database.get(`SELECT * FROM cra WHERE id = ?`, [craId],
                 (err, row) => err ? reject(err) : resolve(row));
         });
         if (!cra) return res.status(404).json({ error: 'CRA introuvable' });
+        // Seul l'admin ou le propriétaire du CRA peut modifier
+        if (!isAdmin && cra.user_id !== sessionUserId) return res.status(403).json({ error: 'Accès interdit' });
         if (cra.statut !== 'a_completer') return res.status(400).json({ error: 'CRA non modifiable dans ce statut' });
 
-        // Supprimer toutes les lignes du mois concerné pour cet utilisateur
+        const targetUserId = cra.user_id;
+
+        // Supprimer toutes les lignes du mois concerné pour l'utilisateur du CRA
         const dateStart = `${cra.annee}-${String(cra.mois).padStart(2,'0')}-01`;
         const dateEnd   = `${cra.annee}-${String(cra.mois).padStart(2,'0')}-31`;
         await new Promise((resolve, reject) => {
             database.run(
                 `DELETE FROM astreintes_hno WHERE user_id = ? AND date_debut >= ? AND date_debut <= ?`,
-                [userId, dateStart, dateEnd],
+                [targetUserId, dateStart, dateEnd],
                 err => err ? reject(err) : resolve()
             );
         });
@@ -10616,7 +10807,7 @@ app.post('/api/cra/:id/astreintes', requireAuth, async (req, res) => {
                 database.run(
                     `INSERT INTO astreintes_hno (user_id, type, date_debut, date_fin, heure_debut, heure_fin, samu, objet)
                      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-                    [userId, l.type, l.date_debut, l.date_fin, l.heure_debut || null, l.heure_fin || null, l.samu || null, l.objet],
+                    [targetUserId, l.type, l.date_debut, l.date_fin, l.heure_debut || null, l.heure_fin || null, l.samu || null, l.objet],
                     err => err ? reject(err) : resolve()
                 );
             });
@@ -12295,6 +12486,116 @@ app.get('/api/reporting/events-map', requireAuth, async (req, res) => {
 // ========== FIN ROUTES LOCALISATIONS ==========
 
 // ========== FIN ROUTES MFA ==========
+
+// ========== API PUBLIQUE (clé API) ==========
+
+function requireApiKey(req, res, next) {
+    const apiKey = req.headers['x-api-key'] || req.query.api_key;
+    if (!apiKey) return res.status(401).json({ error: 'Clé API manquante (header X-Api-Key ou paramètre api_key)' });
+    const keyHash = crypto.createHash('sha256').update(apiKey).digest('hex');
+    database.get(
+        `SELECT id FROM api_keys WHERE key_hash = ? AND revoked = 0`,
+        [keyHash],
+        (err, row) => {
+            if (err || !row) return res.status(401).json({ error: 'Clé API invalide ou révoquée' });
+            database.run(`UPDATE api_keys SET last_used_at = CURRENT_TIMESTAMP WHERE id = ?`, [row.id]);
+            next();
+        }
+    );
+}
+
+// Créer une clé API (admin uniquement)
+app.post('/api/admin/api-keys', requireAdmin, (req, res) => {
+    const { label } = req.body;
+    if (!label) return res.status(400).json({ error: 'Libellé requis' });
+    const rawKey = 'ans_' + crypto.randomBytes(24).toString('hex');
+    const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
+    const keyPrefix = rawKey.substring(0, 12) + '...';
+    database.run(
+        `INSERT INTO api_keys (label, key_hash, key_prefix, created_by) VALUES (?, ?, ?, ?)`,
+        [label, keyHash, keyPrefix, req.session.userId],
+        function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ success: true, id: this.lastID, key: rawKey, prefix: keyPrefix, label });
+        }
+    );
+});
+
+// Lister les clés API (admin uniquement)
+app.get('/api/admin/api-keys', requireAdmin, (req, res) => {
+    database.all(
+        `SELECT ak.id, ak.label, ak.key_prefix, ak.created_at, ak.last_used_at, ak.revoked,
+                u.nom as creator_nom, u.prenom as creator_prenom
+         FROM api_keys ak LEFT JOIN users u ON ak.created_by = u.id
+         ORDER BY ak.created_at DESC`,
+        (err, rows) => err ? res.status(500).json({ error: err.message }) : res.json(rows || [])
+    );
+});
+
+// Révoquer une clé API (admin uniquement)
+app.delete('/api/admin/api-keys/:id', requireAdmin, (req, res) => {
+    database.run(
+        `UPDATE api_keys SET revoked = 1 WHERE id = ?`,
+        [req.params.id],
+        (err) => err ? res.status(500).json({ error: err.message }) : res.json({ success: true })
+    );
+});
+
+// Endpoint public événements
+app.get('/api/public/events', requireApiKey, async (req, res) => {
+    try {
+        const { from, to } = req.query;
+        let where = `WHERE 1=1`;
+        const params = [];
+        if (from) { where += ` AND ce.end_date >= ?`; params.push(from); }
+        if (to)   { where += ` AND ce.start_date <= ?`; params.push(to); }
+
+        const events = await new Promise((resolve, reject) => {
+            database.all(
+                `SELECT ce.id, ce.label as objet, ce.start_date, ce.end_date, ce.period,
+                        CASE WHEN ce.grist = 1 THEN 1 ELSE 0 END as grist,
+                        l.libelle_long as lieu, l.libelle_court as lieu_court, l.adresse as detail_lieu
+                 FROM custom_events ce
+                 LEFT JOIN locations l ON ce.location_id = l.id
+                 ${where}
+                 ORDER BY ce.start_date, ce.end_date`,
+                params,
+                (err, rows) => err ? reject(err) : resolve(rows || [])
+            );
+        });
+
+        // Charger les participants pour chaque événement
+        for (const ev of events) {
+            const participants = await new Promise((resolve, reject) => {
+                database.all(
+                    `SELECT u.nom, u.prenom, r.trigramme
+                     FROM custom_event_participants cep
+                     JOIN users u ON cep.user_id = u.id
+                     LEFT JOIN resources r ON u.resource_id = r.id
+                     WHERE cep.event_id = ?
+                     ORDER BY u.nom, u.prenom`,
+                    [ev.id],
+                    (err, rows) => err ? reject(err) : resolve(rows || [])
+                );
+            });
+            const periodLabel = { AM: 'Matin', PM: 'Après-midi', FULL: 'Journée entière' }[ev.period] || ev.period;
+            ev.horaire = periodLabel;
+            ev.participants = participants.map(p => ({
+                nom: p.nom,
+                prenom: p.prenom,
+                trigramme: p.trigramme || null
+            }));
+            delete ev.period;
+        }
+
+        res.json({ events, count: events.length });
+    } catch (error) {
+        console.error('Erreur API publique événements:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ========== FIN API PUBLIQUE ==========
 
 // Route catch-all pour servir index.html (doit être la DERNIÈRE route API)
 app.get('/mobile', (req, res) => {
