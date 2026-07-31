@@ -13172,7 +13172,8 @@
                 if (!month || !year) return;
                 dateStart = `${year}-${month}-01`;
                 // Dernier jour du mois
-                dateEnd = new Date(Number(year), Number(month), 0).toISOString().slice(0, 10);
+                const _lastDay = new Date(Number(year), Number(month), 0);
+                dateEnd = `${_lastDay.getFullYear()}-${String(_lastDay.getMonth()+1).padStart(2,'0')}-${String(_lastDay.getDate()).padStart(2,'0')}`;
             } else {
                 dateStart = document.getElementById('connexionsStart')?.value;
                 dateEnd   = document.getElementById('connexionsEnd')?.value;
