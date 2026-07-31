@@ -357,8 +357,24 @@ tr:nth-child(even) td { background: #f9f9f9; }
   <h2>🆕 Notes de version</h2>
   <p>Historique des évolutions de la Plateforme de Planification ANS.</p>
 
-  <!-- v1.15.20 -->
+  <!-- v1.15.40 -->
   <div class="card card-green" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v1.15.40</strong>
+      <span class="badge badge-current">Actuelle</span>
+      <span style="color:#888; font-size:13px;">Juillet 2026</span>
+    </div>
+    <ul>
+      <li>🔔 <strong>Son de notification push</strong> : un bip discret (2 tons, ~0,6 s) retentit à la réception d'un message push. Paramétrable dans l'onglet <em>Administration → Son de notification push</em> : activation/désactivation, son personnalisé (fichier .mp3 ou .wav, max 3 s) téléversé localement, bouton "Tester" et retour au son par défaut.</li>
+      <li>📬 <strong>File d'attente des messages reçus</strong> : si plusieurs messages arrivent pendant qu'une notification est affichée, ils s'enchaînent automatiquement (badge rouge "+N" indique le nombre en attente). Répondre ou fermer passe immédiatement au message suivant.</li>
+      <li>📍 <strong>Auto-coche GRIST</strong> : la case GRIST se coche automatiquement lorsque le libellé est <em>MISE EN SERVICE</em>, <em>VISITE TERRAIN</em>, <em>CONGRES</em> ou <em>VISITE METIER</em> (saisie libre ou sélection d'un template).</li>
+      <li>🗺️ <strong>Géocodage et vérification cartographique des localisations</strong> : lors de la création ou modification d'une localisation, saisir l'adresse propose des suggestions Nominatim (OpenStreetMap) qui remplissent automatiquement la latitude et la longitude. Le bouton "Vérifier sur la carte" ouvre une carte Leaflet avec un repère déplaçable — glisser le repère ou cliquer sur la carte met à jour les coordonnées.</li>
+      <li>➕ <strong>Création de localisation depuis le formulaire événement</strong> : le lien « Localisation introuvable ? Créer… » sous le sélecteur de localisation ouvre une modale complète (géocodage + carte inclus) ; la nouvelle localisation est créée en base et sélectionnée automatiquement.</li>
+    </ul>
+  </div>
+
+  <!-- v1.15.20 -->
+  <div class="card card-blue" style="margin-bottom:16px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
       <strong style="font-size:16px;">v1.15.20</strong>
       <span class="badge badge-current">Actuelle</span>
