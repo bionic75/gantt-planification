@@ -67,6 +67,9 @@ app.use(session({
 const activeSessions = new Map();
 const forcedLogoutSet = new Set(); // userId en attente de déconnexion forcée
 
+// Map SSE pour les messages push (userId -> res)
+const sseClients = new Map();
+
 // Nettoyer les sessions inactives toutes les minutes (timeout 15 min)
 setInterval(() => {
     const now = Date.now();
@@ -1640,7 +1643,9 @@ async function completeLogin(req, res, user, profile) {
     activeSessions.set(user.id, {
         lastActivity: Date.now(),
         profile: profile,
-        username: user.username
+        username: user.username,
+        fullName: `${user.prenom || ''} ${user.nom || ''}`.trim() || user.username,
+        profilePhoto: user.profile_photo || null
     });
     console.log(`🟢 Session active pour ${user.username} (userId: ${user.id})`);
     
@@ -3694,6 +3699,56 @@ app.get('/api/system/version', (req, res) => {
             res.json({ version: '1.0.0' });
         }
     });
+});
+
+// ── SSE : connexion persistante pour les messages push ──────────────────────
+app.get('/api/sse', requireAuth, (req, res) => {
+    const userId = req.session.userId;
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    sseClients.set(userId, res);
+
+    // Heartbeat toutes les 25 s pour maintenir la connexion
+    const heartbeat = setInterval(() => {
+        if (res.writableEnded) { clearInterval(heartbeat); return; }
+        res.write(': heartbeat\n\n');
+    }, 25000);
+
+    req.on('close', () => {
+        clearInterval(heartbeat);
+        sseClients.delete(userId);
+    });
+});
+
+// ── POST /api/push-message ───────────────────────────────────────────────────
+app.post('/api/push-message', requireAuth, (req, res) => {
+    const fromUserId = req.session.userId;
+    const { toUserId, message } = req.body;
+
+    if (!toUserId || !message || !message.trim()) {
+        return res.status(400).json({ error: 'Paramètres manquants' });
+    }
+
+    const targetRes = sseClients.get(Number(toUserId));
+    if (!targetRes || targetRes.writableEnded) {
+        return res.status(404).json({ error: 'Destinataire non connecté ou hors ligne' });
+    }
+
+    // Récupérer le nom de l'expéditeur depuis la session / DB
+    const fromSession = activeSessions.get(fromUserId);
+    const payload = JSON.stringify({
+        fromUserId,
+        fromName: fromSession?.fullName || fromSession?.username || `Utilisateur #${fromUserId}`,
+        fromPhoto: fromSession?.profilePhoto || null,
+        message: message.trim(),
+        sentAt: new Date().toISOString()
+    });
+
+    targetRes.write(`event: push-message\ndata: ${payload}\n\n`);
+    res.json({ ok: true });
 });
 
 // Endpoint pour récupérer les sessions actives (utilisateurs connectés) - accessible à tous les utilisateurs authentifiés
