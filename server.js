@@ -12356,7 +12356,7 @@ app.get('/api/locations', requireAuth, (req, res) => {
 });
 
 // Créer une localisation
-app.post('/api/locations', requireAdmin, (req, res) => {
+app.post('/api/locations', requireAuth, (req, res) => {
     const { libelle_long, libelle_court, adresse, latitude, longitude } = req.body;
     if (!libelle_long || !libelle_court) {
         return res.status(400).json({ error: 'Libellé long et libellé court requis' });
