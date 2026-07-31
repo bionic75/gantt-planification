@@ -811,6 +811,7 @@
                         <span onclick="applyMyEventTemplate('vftSite')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: #2e7d32; color: #ffffff; border: 2px solid #1b5e20; display: inline-flex; align-items: center; justify-content: center;" title="Cliquez pour appliquer ce template">VFT SUR SITE</span>
                         <span onclick="applyMyEventTemplate('verifPrereq')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: #546e7a; color: #ffffff; border: 2px solid #263238; display: inline-flex; align-items: center; justify-content: center;" title="Cliquez pour appliquer ce template">VERIF PREREQUIS</span>
                         <span onclick="applyMyEventTemplate('visiteOb')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: #e65100; color: #ffffff; border: 2px solid #bf360c; display: inline-flex; align-items: center; justify-content: center;" title="Cliquez pour appliquer ce template">VISITE OB</span>
+                        <span onclick="applyMyEventTemplate('visitePostMes')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: #0277bd; color: #ffffff; border: 2px solid #01579b; display: inline-flex; align-items: center; justify-content: center;" title="Cliquez pour appliquer ce template">VISITE POST MES</span>
                         <span onclick="applyMyEventTemplate('libre')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: #fff; color: #333; border: 2px dashed #999; display: inline-flex; align-items: center; justify-content: center;" title="Réinitialiser les couleurs">🎨 Libre</span>
                     </div>
                 </div>
@@ -2027,6 +2028,7 @@
                         <span onclick="applyCustomEventTemplate('vftSite')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: #2e7d32; color: #ffffff; border: 2px solid #1b5e20; display: inline-flex; align-items: center; justify-content: center;" title="Cliquez pour appliquer ce template">VFT SUR SITE</span>
                         <span onclick="applyCustomEventTemplate('verifPrereq')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: #546e7a; color: #ffffff; border: 2px solid #263238; display: inline-flex; align-items: center; justify-content: center;" title="Cliquez pour appliquer ce template">VERIF PREREQUIS</span>
                         <span onclick="applyCustomEventTemplate('visiteOb')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: #e65100; color: #ffffff; border: 2px solid #bf360c; display: inline-flex; align-items: center; justify-content: center;" title="Cliquez pour appliquer ce template">VISITE OB</span>
+                        <span onclick="applyCustomEventTemplate('visitePostMes')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: #0277bd; color: #ffffff; border: 2px solid #01579b; display: inline-flex; align-items: center; justify-content: center;" title="Cliquez pour appliquer ce template">VISITE POST MES</span>
                         <span onclick="applyCustomEventTemplate('libre')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: #fff; color: #333; border: 2px dashed #999; display: inline-flex; align-items: center; justify-content: center;" title="Réinitialiser les couleurs">🎨 Libre</span>
                     </div>
                 </div>
@@ -3856,7 +3858,9 @@
                     
                     // Démarrer le suivi des utilisateurs connectés en temps réel
                     startOnlineUsersPolling();
-                    
+                    // Restaurer les conversations de messagerie en cours
+                    setTimeout(_chatRestoreSessions, 400);
+
                     setCurrentMonth();
                 } else {
                     document.getElementById('loginPage').classList.add('active');
@@ -16279,6 +16283,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             vftSite: { bg: '#2e7d32', text: '#ffffff', border: '#1b5e20', label: 'VFT SUR SITE' },
             verifPrereq: { bg: '#546e7a', text: '#ffffff', border: '#263238', label: 'VERIF PREREQUIS' },
             visiteOb: { bg: '#e65100', text: '#ffffff', border: '#bf360c', label: 'VISITE OB' },
+            visitePostMes: { bg: '#0277bd', text: '#ffffff', border: '#01579b', label: 'VISITE POST MES' },
             libre: { bg: '#ffeb3b', text: '#000000', border: '#000000', label: '' }
         };
         
@@ -23236,6 +23241,43 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
 
         let _chatPanels = {};  // { [userId]: { name, photo, el, minimized, unread } }
 
+        // ── Persistance sessionStorage ───────────────────────────────────────────
+        const _CHAT_HIST_KEY = uid => `pcp_hist_${uid}`;
+        const _CHAT_META_KEY = 'pcp_open_panels';
+
+        function _chatSaveMsg(userId, entry) {
+            try {
+                const key = _CHAT_HIST_KEY(userId);
+                const hist = JSON.parse(sessionStorage.getItem(key) || '[]');
+                hist.push(entry);
+                // Conserver max 200 messages par conversation
+                if (hist.length > 200) hist.splice(0, hist.length - 200);
+                sessionStorage.setItem(key, JSON.stringify(hist));
+            } catch(e) {}
+        }
+
+        function _chatSaveMeta() {
+            try {
+                const meta = Object.values(_chatPanels).map(p => ({
+                    userId: p.userId, name: p.name, photo: p.photo, minimized: p.minimized
+                }));
+                sessionStorage.setItem(_CHAT_META_KEY, JSON.stringify(meta));
+            } catch(e) {}
+        }
+
+        function _chatRestoreSessions() {
+            try {
+                const meta = JSON.parse(sessionStorage.getItem(_CHAT_META_KEY) || '[]');
+                meta.forEach(m => {
+                    const p = _getOrCreateChatPanel(m.userId, m.name, m.photo);
+                    // Rejouer l'historique
+                    const hist = JSON.parse(sessionStorage.getItem(_CHAT_HIST_KEY(m.userId)) || '[]');
+                    hist.forEach(h => _chatAddBubble(m.userId, h.text, h.senderName, h.senderPhoto, h.time, h.isOwn, true));
+                    if (m.minimized) _chatToggleMin(m.userId);
+                });
+            } catch(e) {}
+        }
+
         function _chatPanelRight(idx) {
             return CHAT_R0 + idx * (CHAT_W + CHAT_GAP);
         }
@@ -23308,10 +23350,12 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
 
             document.body.appendChild(el);
             entry.el = el;
+            _chatSaveMeta();
             return entry;
         }
 
-        function _chatAddBubble(userId, text, senderName, senderPhoto, time, isOwn) {
+        function _chatAddBubble(userId, text, senderName, senderPhoto, time, isOwn, noSave) {
+            if (!noSave) _chatSaveMsg(userId, { text, senderName, senderPhoto, time, isOwn });
             const box = document.getElementById(`pcpMsgs_${userId}`);
             if (!box) return;
             const t = time ? new Date(time).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : '';
@@ -23363,6 +23407,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 const box = document.getElementById(`pcpMsgs_${userId}`);
                 if (box) box.scrollTop = box.scrollHeight;
             }
+            _chatSaveMeta();
         }
 
         function _closeChatPanel(userId) {
@@ -23370,7 +23415,9 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             if (!p) return;
             p.el?.remove();
             delete _chatPanels[userId];
+            try { sessionStorage.removeItem(_CHAT_HIST_KEY(userId)); } catch(e) {}
             _rebuildChatPositions();
+            _chatSaveMeta();
         }
 
         // Message REÇU via SSE
