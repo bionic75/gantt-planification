@@ -709,7 +709,7 @@
                     </div>
                     <div>
                         <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px; line-height: 14px; height: 14px;">Libellé *</label>
-                        <input type="text" id="myEventLabel" placeholder="Ex: FORMATION, RÉUNION..." style="width: 100%; padding: 5px 6px; height: 32px; box-sizing: border-box; text-transform: uppercase;" oninput="this.value = this.value.toUpperCase(); updateMyEventPreview()">
+                        <input type="text" id="myEventLabel" placeholder="Ex: FORMATION, RÉUNION..." style="width: 100%; padding: 5px 6px; height: 32px; box-sizing: border-box; text-transform: uppercase;" oninput="this.value = this.value.toUpperCase(); updateMyEventPreview(); autoCheckGristByLabel(this.value, 'myEventGrist')">
                     </div>
                     <div style="position: relative;">
                         <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px; line-height: 14px; height: 14px;">👥 Participant(s)</label>
@@ -729,6 +729,9 @@
                     <select id="myEventLocationId" style="width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
                         <option value="">— Aucune localisation —</option>
                     </select>
+                    <div style="text-align:right;margin-top:3px;">
+                        <a href="#" onclick="openNewLocationModal('myEventLocationId'); return false;" style="font-size:11px;color:#3f51b5;text-decoration:none;">➕ Localisation introuvable ? Créer…</a>
+                    </div>
                 </div>
 
                 <!-- Besoin de ressources -->
@@ -1915,7 +1918,7 @@
                         </div>
                         <div>
                             <label style="font-size: 11px; color: #1565c0; display: block; margin-bottom: 3px;">Libellé *</label>
-                            <input type="text" id="customEventLabel" placeholder="Ex: FORMATION, RÉUNION..." style="width: 100%; padding: 6px; text-transform: uppercase;" oninput="this.value = this.value.toUpperCase(); updateCustomEventPreview()">
+                            <input type="text" id="customEventLabel" placeholder="Ex: FORMATION, RÉUNION..." style="width: 100%; padding: 6px; text-transform: uppercase;" oninput="this.value = this.value.toUpperCase(); updateCustomEventPreview(); autoCheckGristByLabel(this.value, 'customEventGrist')">
                         </div>
                         <div style="position: relative;">
                             <label style="font-size: 11px; color: #1565c0; display: block; margin-bottom: 3px;">👥 Participant(s)</label>
@@ -1935,6 +1938,9 @@
                         <select id="customEventLocationId" style="width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
                             <option value="">— Aucune localisation —</option>
                         </select>
+                        <div style="text-align:right;margin-top:3px;">
+                            <a href="#" onclick="openNewLocationModal('customEventLocationId'); return false;" style="font-size:11px;color:#3f51b5;text-decoration:none;">➕ Localisation introuvable ? Créer…</a>
+                        </div>
                     </div>
 
                     <!-- GRIST -->
@@ -2038,11 +2044,12 @@
                             <input type="text" id="locCourt" placeholder="Ex: CHB" style="width:100%;padding:6px;text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()">
                         </div>
                     </div>
-                    <div style="margin-bottom: 10px;">
+                    <div style="margin-bottom: 10px; position:relative;">
                         <label style="font-size: 12px; color: #283593; display: block; margin-bottom: 3px;">Adresse</label>
-                        <input type="text" id="locAdresse" placeholder="Ex: 1 RUE DE LA PAIX, 75001 PARIS" style="width:100%;padding:6px;text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()">
+                        <input type="text" id="locAdresse" placeholder="Ex: 1 RUE DE LA PAIX, 75001 PARIS" style="width:100%;padding:6px;text-transform:uppercase;" oninput="this.value=this.value.toUpperCase(); scheduleGeocode('locAdresse','locLat','locLng','locGeoSuggest')" autocomplete="off">
+                        <div id="locGeoSuggest" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #9fa8da;border-radius:0 0 6px 6px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:5000;max-height:160px;overflow-y:auto;"></div>
                     </div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
                         <div>
                             <label style="font-size: 12px; color: #283593; display: block; margin-bottom: 3px;">Latitude</label>
                             <input type="number" id="locLat" placeholder="Ex: 44.8378" step="any" style="width:100%;padding:6px;">
@@ -2051,6 +2058,9 @@
                             <label style="font-size: 12px; color: #283593; display: block; margin-bottom: 3px;">Longitude</label>
                             <input type="number" id="locLng" placeholder="Ex: -0.5792" step="any" style="width:100%;padding:6px;">
                         </div>
+                    </div>
+                    <div style="margin-bottom:15px;">
+                        <button type="button" onclick="openVerifyMapModal('locLat','locLng')" style="background:#1565c0;color:white;padding:6px 14px;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🗺️ Vérifier sur la carte</button>
                     </div>
                     <div style="display: flex; gap: 10px;">
                         <button onclick="saveLocalisation()" style="background:#3f51b5;color:white;padding:8px 20px;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">💾 Enregistrer</button>
@@ -16255,8 +16265,9 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             
             if (template.label) {
                 document.getElementById('customEventLabel').value = template.label;
+                autoCheckGristByLabel(template.label, 'customEventGrist');
             }
-            
+
             updateCustomEventPreview();
         }
         
@@ -22976,6 +22987,16 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             tooltip.style.display = onlineUsersTooltipVisible ? 'block' : 'none';
         }
         
+        // Fermer les suggestions de géocodage en cliquant ailleurs
+        document.addEventListener('click', function(e) {
+            ['locGeoSuggest', 'newLocGeoSuggest'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el && !el.contains(e.target) && e.target.id !== 'locAdresse' && e.target.id !== 'newLocAdresse') {
+                    el.style.display = 'none';
+                }
+            });
+        });
+
         // Fermer le tooltip en cliquant ailleurs
         document.addEventListener('click', function(event) {
             const tooltip = document.getElementById('onlineUsersTooltip');
@@ -22987,6 +23008,172 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             }
         });
         
+        // ── Auto-check GRIST selon libellé ──────────────────────────────────────
+        const GRIST_AUTO_LABELS = ['MISE EN SERVICE', 'VISITE TERRAIN', 'CONGRES', 'VISITE METIER'];
+        function autoCheckGristByLabel(label, cbId) {
+            const cb = document.getElementById(cbId);
+            if (!cb) return;
+            const match = GRIST_AUTO_LABELS.some(l => label.trim().toUpperCase() === l);
+            if (match) cb.checked = true;
+        }
+
+        // ── Géocodage adresse → lat/lng (Nominatim) ─────────────────────────────
+        let _geocodeTimers = {};
+        function scheduleGeocode(adresseId, latId, lngId, suggestId) {
+            clearTimeout(_geocodeTimers[adresseId]);
+            _geocodeTimers[adresseId] = setTimeout(() => runGeocode(adresseId, latId, lngId, suggestId), 800);
+        }
+
+        async function runGeocode(adresseId, latId, lngId, suggestId) {
+            const addr = (document.getElementById(adresseId)?.value || '').trim();
+            const suggestDiv = document.getElementById(suggestId);
+            if (!suggestDiv) return;
+            if (addr.length < 5) { suggestDiv.style.display = 'none'; return; }
+            try {
+                const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}&limit=5&addressdetails=0`;
+                const res = await fetch(url, { headers: { 'Accept-Language': 'fr' } });
+                const results = await res.json();
+                if (!results.length) { suggestDiv.style.display = 'none'; return; }
+                suggestDiv.innerHTML = results.map((r, i) =>
+                    `<div data-lat="${r.lat}" data-lng="${r.lon}" data-i="${i}"
+                        onclick="_applyGeoSuggest(this,'${adresseId}','${latId}','${lngId}','${suggestId}')"
+                        style="padding:7px 10px;font-size:12px;cursor:pointer;border-bottom:1px solid #e8eaf6;color:#283593;"
+                        onmouseover="this.style.background='#e8eaf6'" onmouseout="this.style.background=''">${r.display_name}</div>`
+                ).join('');
+                suggestDiv.style.display = 'block';
+            } catch(e) { suggestDiv.style.display = 'none'; }
+        }
+
+        function _applyGeoSuggest(el, adresseId, latId, lngId, suggestId) {
+            const lat = parseFloat(el.dataset.lat);
+            const lng = parseFloat(el.dataset.lng);
+            const addrEl = document.getElementById(adresseId);
+            const label = el.textContent.trim().toUpperCase();
+            if (addrEl) addrEl.value = label;
+            const latEl = document.getElementById(latId);
+            const lngEl = document.getElementById(lngId);
+            if (latEl) latEl.value = lat.toFixed(6);
+            if (lngEl) lngEl.value = lng.toFixed(6);
+            document.getElementById(suggestId).style.display = 'none';
+        }
+
+        // ── Modale vérification carte avec pin draggable ─────────────────────────
+        let _verifyMap = null, _verifyMarker = null, _verifyLatId = null, _verifyLngId = null;
+
+        function openVerifyMapModal(latId, lngId) {
+            _verifyLatId = latId;
+            _verifyLngId = lngId;
+            const lat = parseFloat(document.getElementById(latId)?.value) || 46.6;
+            const lng = parseFloat(document.getElementById(lngId)?.value) || 2.3;
+            const modal = document.getElementById('verifyMapModal');
+            modal.style.display = 'flex';
+
+            const initMap = () => {
+                if (_verifyMap) { _verifyMap.remove(); _verifyMap = null; }
+                _verifyMap = L.map('verifyMapContainer').setView([lat, lng], lat === 46.6 ? 5 : 14);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap',
+                    maxZoom: 19
+                }).addTo(_verifyMap);
+                _verifyMarker = L.marker([lat, lng], { draggable: true }).addTo(_verifyMap);
+                _updateVerifyCoords(lat, lng);
+                _verifyMarker.on('dragend', function() {
+                    const pos = _verifyMarker.getLatLng();
+                    _updateVerifyCoords(pos.lat, pos.lng);
+                });
+                _verifyMarker.on('drag', function() {
+                    const pos = _verifyMarker.getLatLng();
+                    _updateVerifyCoords(pos.lat, pos.lng);
+                });
+                // clic sur la carte déplace aussi le marker
+                _verifyMap.on('click', function(e) {
+                    _verifyMarker.setLatLng(e.latlng);
+                    _updateVerifyCoords(e.latlng.lat, e.latlng.lng);
+                });
+                setTimeout(() => _verifyMap.invalidateSize(), 100);
+            };
+
+            if (window.L) {
+                initMap();
+            } else {
+                const s = document.createElement('script');
+                s.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+                s.onload = initMap;
+                document.head.appendChild(s);
+            }
+        }
+
+        function _updateVerifyCoords(lat, lng) {
+            const el = document.getElementById('verifyMapCoords');
+            if (el) el.textContent = `Lat : ${lat.toFixed(6)}  Lng : ${lng.toFixed(6)}`;
+        }
+
+        function confirmVerifyMap() {
+            if (!_verifyMarker) return;
+            const pos = _verifyMarker.getLatLng();
+            const latEl = document.getElementById(_verifyLatId);
+            const lngEl = document.getElementById(_verifyLngId);
+            if (latEl) latEl.value = pos.lat.toFixed(6);
+            if (lngEl) lngEl.value = pos.lng.toFixed(6);
+            closeVerifyMapModal();
+        }
+
+        function closeVerifyMapModal() {
+            document.getElementById('verifyMapModal').style.display = 'none';
+            if (_verifyMap) { _verifyMap.remove(); _verifyMap = null; _verifyMarker = null; }
+        }
+
+        // ── Modale création localisation depuis formulaire événement ─────────────
+        function openNewLocationModal(targetSelectId) {
+            document.getElementById('newLocTargetSelect').value = targetSelectId;
+            document.getElementById('newLocLong').value = '';
+            document.getElementById('newLocCourt').value = '';
+            document.getElementById('newLocAdresse').value = '';
+            document.getElementById('newLocLat').value = '';
+            document.getElementById('newLocLng').value = '';
+            document.getElementById('newLocGeoSuggest').style.display = 'none';
+            document.getElementById('newLocationModal').style.display = 'flex';
+            setTimeout(() => document.getElementById('newLocLong').focus(), 50);
+        }
+
+        function closeNewLocationModal() {
+            document.getElementById('newLocationModal').style.display = 'none';
+        }
+
+        async function saveNewLocation() {
+            const libelle_long = document.getElementById('newLocLong').value.trim().toUpperCase();
+            const libelle_court = document.getElementById('newLocCourt').value.trim().toUpperCase();
+            const adresse = document.getElementById('newLocAdresse').value.trim().toUpperCase();
+            const latitude = document.getElementById('newLocLat').value;
+            const longitude = document.getElementById('newLocLng').value;
+            const targetSelectId = document.getElementById('newLocTargetSelect').value;
+
+            if (!libelle_long || !libelle_court) {
+                alert('Le libellé long et le libellé court sont obligatoires.');
+                return;
+            }
+            try {
+                const res = await fetch(`${API_URL}/locations`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ libelle_long, libelle_court, adresse: adresse || null, latitude: latitude || null, longitude: longitude || null })
+                });
+                const data = await res.json();
+                if (!res.ok) { alert('Erreur : ' + (data.error || res.status)); return; }
+                closeNewLocationModal();
+                // Recharger les localisations et sélectionner la nouvelle
+                await loadLocations();
+                const newId = data.id;
+                if (newId && targetSelectId) {
+                    const sel = document.getElementById(targetSelectId);
+                    if (sel) sel.value = newId;
+                }
+            } catch(e) {
+                alert('Erreur réseau : ' + e.message);
+            }
+        }
+
         // ── Messages push ────────────────────────────────────────────────────────
 
         let _pushSSE = null;
@@ -23573,8 +23760,9 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             // Toujours écraser le libellé avec celui du template (sauf "Libre" qui laisse le champ libre)
             if (template.label) {
                 document.getElementById('myEventLabel').value = template.label;
+                autoCheckGristByLabel(template.label, 'myEventGrist');
             }
-            
+
             updateMyEventPreview();
         }
         
@@ -26716,6 +26904,66 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 <button onclick="applyAllLocConflicts('keep')" style="background:#27ae60;color:white;padding:8px 18px;border:none;border-radius:4px;cursor:pointer;">✅ Tout conserver</button>
                 <button onclick="applyAllLocConflicts('overwrite')" style="background:#e74c3c;color:white;padding:8px 18px;border:none;border-radius:4px;cursor:pointer;">🔄 Tout écraser</button>
                 <button onclick="resolveLocConflicts()" style="background:#3f51b5;color:white;padding:8px 18px;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">💾 Appliquer les choix</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ Modale création localisation depuis formulaire événement ══ -->
+    <div id="newLocationModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:20000;align-items:center;justify-content:center;">
+        <div style="background:white;border-radius:12px;padding:24px;width:480px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.25);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                <h3 style="margin:0;color:#283593;font-size:15px;">📍 Nouvelle localisation</h3>
+                <span onclick="closeNewLocationModal()" style="cursor:pointer;font-size:22px;color:#aaa;line-height:1;">&times;</span>
+            </div>
+            <input type="hidden" id="newLocTargetSelect">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+                <div>
+                    <label style="font-size:12px;color:#283593;display:block;margin-bottom:3px;">Libellé long *</label>
+                    <input type="text" id="newLocLong" placeholder="Ex: CENTRE HOSPITALIER DE BORDEAUX" style="width:100%;padding:6px;border:1px solid #9fa8da;border-radius:4px;text-transform:uppercase;box-sizing:border-box;" oninput="this.value=this.value.toUpperCase()">
+                </div>
+                <div>
+                    <label style="font-size:12px;color:#283593;display:block;margin-bottom:3px;">Libellé court *</label>
+                    <input type="text" id="newLocCourt" placeholder="Ex: CHB" style="width:100%;padding:6px;border:1px solid #9fa8da;border-radius:4px;text-transform:uppercase;box-sizing:border-box;" oninput="this.value=this.value.toUpperCase()">
+                </div>
+            </div>
+            <div style="margin-bottom:10px;position:relative;">
+                <label style="font-size:12px;color:#283593;display:block;margin-bottom:3px;">Adresse</label>
+                <input type="text" id="newLocAdresse" placeholder="Ex: 1 RUE DE LA PAIX, 75001 PARIS" style="width:100%;padding:6px;border:1px solid #9fa8da;border-radius:4px;text-transform:uppercase;box-sizing:border-box;" oninput="this.value=this.value.toUpperCase(); scheduleGeocode('newLocAdresse','newLocLat','newLocLng','newLocGeoSuggest')" autocomplete="off">
+                <div id="newLocGeoSuggest" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #9fa8da;border-radius:0 0 6px 6px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:5000;max-height:160px;overflow-y:auto;"></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px;">
+                <div>
+                    <label style="font-size:12px;color:#283593;display:block;margin-bottom:3px;">Latitude</label>
+                    <input type="number" id="newLocLat" placeholder="Ex: 44.8378" step="any" style="width:100%;padding:6px;border:1px solid #9fa8da;border-radius:4px;box-sizing:border-box;">
+                </div>
+                <div>
+                    <label style="font-size:12px;color:#283593;display:block;margin-bottom:3px;">Longitude</label>
+                    <input type="number" id="newLocLng" placeholder="Ex: -0.5792" step="any" style="width:100%;padding:6px;border:1px solid #9fa8da;border-radius:4px;box-sizing:border-box;">
+                </div>
+            </div>
+            <div style="margin-bottom:16px;">
+                <button type="button" onclick="openVerifyMapModal('newLocLat','newLocLng')" style="background:#1565c0;color:white;padding:6px 14px;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🗺️ Vérifier sur la carte</button>
+            </div>
+            <div style="display:flex;gap:10px;justify-content:flex-end;">
+                <button onclick="closeNewLocationModal()" style="background:#95a5a6;color:white;padding:8px 18px;border:none;border-radius:4px;cursor:pointer;">Annuler</button>
+                <button onclick="saveNewLocation()" style="background:#3f51b5;color:white;padding:8px 18px;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">💾 Créer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ Modale vérification carte (pin draggable) ══ -->
+    <div id="verifyMapModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:21000;align-items:center;justify-content:center;">
+        <div style="background:white;border-radius:12px;overflow:hidden;width:640px;max-width:95vw;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
+            <div style="padding:14px 18px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e0e0e0;">
+                <span style="font-weight:bold;color:#283593;font-size:14px;">🗺️ Vérification / ajustement des coordonnées</span>
+                <span onclick="closeVerifyMapModal()" style="cursor:pointer;font-size:22px;color:#aaa;line-height:1;">&times;</span>
+            </div>
+            <div id="verifyMapContainer" style="height:380px;width:100%;"></div>
+            <div style="padding:12px 18px;display:flex;align-items:center;gap:16px;border-top:1px solid #e0e0e0;background:#f5f5f5;">
+                <span style="font-size:12px;color:#555;">Faites glisser le repère pour affiner la position</span>
+                <span id="verifyMapCoords" style="font-size:12px;font-family:monospace;color:#1565c0;flex:1;"></span>
+                <button onclick="confirmVerifyMap()" style="background:#3f51b5;color:white;padding:7px 20px;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">✅ Confirmer</button>
+                <button onclick="closeVerifyMapModal()" style="background:#95a5a6;color:white;padding:7px 14px;border:none;border-radius:4px;cursor:pointer;">Annuler</button>
             </div>
         </div>
     </div>
