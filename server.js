@@ -12437,7 +12437,7 @@ app.get('/api/reporting/events-map', requireAuth, async (req, res) => {
     const { startDate, endDate } = req.query;
     try {
         let sql = `
-            SELECT ce.id, ce.label, ce.start_date, ce.end_date, ce.period, ce.created_by,
+            SELECT ce.id, ce.label, ce.start_date, ce.end_date, ce.period, ce.created_by, ce.config,
                    l.id as location_id, l.libelle_long, l.libelle_court, l.adresse,
                    l.latitude, l.longitude,
                    u.nom as creator_nom, u.prenom as creator_prenom
