@@ -1817,7 +1817,35 @@
                 </div>
                 <input type="email" id="backupEmail" placeholder="Adresse email pour recevoir le backup (optionnel)">
             </div>
-            
+
+            <!-- Son de notification push -->
+            <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:8px 10px;background:#eef1fb;border-radius:5px;margin-bottom:6px;" onclick="toggleAdminSubSection('subNotifSound'); loadNotifSoundAdminUI();">
+                <strong style="color:#3949ab;font-size:13px;"><span id="subNotifSoundSubIcon">▶</span> 🔔 Son de notification push</strong>
+            </div>
+            <div id="subNotifSound" style="display:none;padding:10px 5px 15px 5px;">
+                <div style="background:#e8eaf6;border-radius:8px;padding:14px 16px;">
+                    <!-- Activation -->
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+                        <input type="checkbox" id="notifSoundEnabled" style="width:16px;height:16px;cursor:pointer;"
+                            onchange="saveNotifSoundEnabled(this.checked)">
+                        <label for="notifSoundEnabled" style="font-size:13px;font-weight:bold;color:#283593;cursor:pointer;margin:0;">Activer le son de notification</label>
+                        <button onclick="previewNotifSound()" style="margin-left:auto;background:#3f51b5;color:white;border:none;padding:5px 14px;border-radius:4px;cursor:pointer;font-size:12px;">▶ Tester</button>
+                    </div>
+                    <!-- Son personnalisé -->
+                    <div style="border-top:1px solid #c5cae9;padding-top:12px;">
+                        <label style="font-size:12px;color:#283593;font-weight:bold;display:block;margin-bottom:6px;">🎵 Son personnalisé (mp3 ou wav, durée max ~3 s recommandée)</label>
+                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                            <input type="file" id="notifSoundFile" accept=".mp3,.wav,audio/mpeg,audio/wav"
+                                onchange="handleNotifSoundUpload(this)"
+                                style="font-size:12px;flex:1;min-width:200px;">
+                            <button onclick="resetNotifSound()" style="background:#e53935;color:white;border:none;padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px;white-space:nowrap;">🔄 Remettre le son par défaut</button>
+                        </div>
+                        <div id="notifSoundStatus" style="margin-top:8px;font-size:12px;color:#888;">🎵 Son par défaut</div>
+                        <p style="font-size:11px;color:#7986cb;margin:6px 0 0 0;">Le son est stocké localement dans ce navigateur. Chaque utilisateur peut configurer le sien.</p>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
     
@@ -23192,9 +23220,32 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             };
         }
 
+        // ── File d'attente des messages reçus ───────────────────────────────────
+        let _pushMessageQueue = [];
+        let _pushMessageShowing = false;
+        let _pushAutoDismissTimer = null;
+
         function showPushMessageReceived(msg) {
+            _pushMessageQueue.push(msg);
+            if (!_pushMessageShowing) _showNextPushMessage();
+        }
+
+        function _dismissCurrentPushModal() {
+            clearTimeout(_pushAutoDismissTimer);
             const existing = document.getElementById('pushMessageReceiveModal');
             if (existing) existing.remove();
+            _pushMessageShowing = false;
+            // Légère pause avant le suivant pour que l'œil suive
+            setTimeout(_showNextPushMessage, 300);
+        }
+
+        function _showNextPushMessage() {
+            if (_pushMessageQueue.length === 0) { _pushMessageShowing = false; return; }
+            _pushMessageShowing = true;
+            const msg = _pushMessageQueue.shift();
+            const remaining = _pushMessageQueue.length;
+
+            playNotifSound();
 
             const modal = document.createElement('div');
             modal.id = 'pushMessageReceiveModal';
@@ -23204,15 +23255,19 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 ? `<img src="${msg.fromPhoto}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid #3f51b5;flex-shrink:0;">`
                 : `<div style="width:36px;height:36px;border-radius:50%;background:#3f51b5;color:white;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:bold;flex-shrink:0;">${(msg.fromName||'?')[0].toUpperCase()}</div>`;
 
+            const queueBadge = remaining > 0
+                ? `<span style="background:#e53935;color:white;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:bold;margin-left:6px;">+${remaining}</span>`
+                : '';
+
             const escapedMsg = msg.message.replace(/</g,'&lt;').replace(/>/g,'&gt;');
             modal.innerHTML = `
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
                     ${photoHtml}
                     <div style="flex:1;">
-                        <div style="font-weight:bold;color:#283593;font-size:13px;">✉️ ${msg.fromName}</div>
+                        <div style="font-weight:bold;color:#283593;font-size:13px;">✉️ ${msg.fromName}${queueBadge}</div>
                         <div style="font-size:10px;color:#888;">${new Date(msg.sentAt).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</div>
                     </div>
-                    <span onclick="this.closest('#pushMessageReceiveModal').remove()" style="cursor:pointer;font-size:20px;color:#aaa;line-height:1;">&times;</span>
+                    <span onclick="_dismissCurrentPushModal()" style="cursor:pointer;font-size:20px;color:#aaa;line-height:1;">&times;</span>
                 </div>
                 <div style="font-size:13px;color:#2c3e50;line-height:1.5;background:#f5f7ff;border-radius:6px;padding:10px;margin-bottom:8px;">${escapedMsg}</div>
                 <textarea id="pushMessageReplyText" placeholder="Répondre…" maxlength="300" rows="2"
@@ -23220,14 +23275,91 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 <div style="display:flex;gap:8px;">
                     <button onclick="sendPushReply(${msg.fromUserId}, 'pushMessageReplyText', 'pushMessageReceiveModal')"
                         style="flex:1;background:#3f51b5;color:white;border:none;padding:7px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:bold;">↩️ Répondre</button>
-                    <button onclick="this.closest('#pushMessageReceiveModal').remove()"
+                    <button onclick="_dismissCurrentPushModal()"
                         style="background:#e0e0e0;color:#333;border:none;padding:7px 14px;border-radius:6px;cursor:pointer;font-size:12px;">Fermer</button>
                 </div>`;
 
             document.body.appendChild(modal);
 
-            // Auto-dismiss après 15 s
-            setTimeout(() => { if (modal.parentNode) modal.remove(); }, 15000);
+            // Auto-dismiss après 15 s puis passage au suivant
+            _pushAutoDismissTimer = setTimeout(_dismissCurrentPushModal, 15000);
+        }
+
+        // ── Son de notification push ─────────────────────────────────────────────
+        function playNotifSound() {
+            try {
+                if (localStorage.getItem('notifSoundEnabled') === 'false') return;
+                const customData = localStorage.getItem('notifSoundData');
+                if (customData) {
+                    const audio = new Audio(customData);
+                    audio.volume = 0.7;
+                    audio.play().catch(() => {});
+                } else {
+                    _playDefaultBeep();
+                }
+            } catch(e) {}
+        }
+
+        function _playDefaultBeep() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.type = 'sine';
+                // Deux tons courts façon messagerie
+                osc.frequency.setValueAtTime(880, ctx.currentTime);
+                osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.12);
+                gain.gain.setValueAtTime(0.0, ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.35, ctx.currentTime + 0.04);
+                gain.gain.setValueAtTime(0.35, ctx.currentTime + 0.10);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.55);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 0.6);
+                setTimeout(() => ctx.close(), 700);
+            } catch(e) {}
+        }
+
+        function previewNotifSound() { playNotifSound(); }
+
+        function loadNotifSoundAdminUI() {
+            const cb = document.getElementById('notifSoundEnabled');
+            if (cb) cb.checked = localStorage.getItem('notifSoundEnabled') !== 'false';
+            const status = document.getElementById('notifSoundStatus');
+            if (status) {
+                const hasCustom = !!localStorage.getItem('notifSoundData');
+                status.textContent = hasCustom ? '🎵 Son personnalisé chargé' : '🎵 Son par défaut';
+                status.style.color = hasCustom ? '#2e7d32' : '#888';
+            }
+        }
+
+        function saveNotifSoundEnabled(val) {
+            localStorage.setItem('notifSoundEnabled', val ? 'true' : 'false');
+        }
+
+        function handleNotifSoundUpload(input) {
+            const file = input.files[0];
+            if (!file) return;
+            if (file.size > 3 * 1024 * 1024) {
+                alert('Fichier trop volumineux (max 3 Mo — privilégiez un son court de 2-3 s).');
+                input.value = '';
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = e => {
+                localStorage.setItem('notifSoundData', e.target.result);
+                loadNotifSoundAdminUI();
+                alert('Son personnalisé enregistré. Cliquez sur "Tester" pour vérifier.');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function resetNotifSound() {
+            localStorage.removeItem('notifSoundData');
+            const fi = document.getElementById('notifSoundFile');
+            if (fi) fi.value = '';
+            loadNotifSoundAdminUI();
         }
 
         function openSendPushMessage(toUserId, toName, toPhoto) {
@@ -23283,7 +23415,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     body: JSON.stringify({ toUserId, message })
                 });
                 if (res.ok) {
-                    document.getElementById(modalId)?.remove();
+                    _dismissCurrentPushModal(); // passe au message suivant dans la file
                 } else {
                     const err = await res.json();
                     alert('Erreur : ' + (err.error || 'Envoi impossible'));
