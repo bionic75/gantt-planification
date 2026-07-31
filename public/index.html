@@ -3690,6 +3690,7 @@
                     try {
                         const data = await clone.json();
                         if (data.error === 'SESSION_TERMINATED') {
+                            if (typeof _chatCloseAll === 'function') _chatCloseAll();
                             document.getElementById('loginPage').classList.add('active');
                             setTimeout(() => {
                                 alert('⚠️ Votre session a été fermée par un administrateur. Veuillez vous reconnecter.');
@@ -7263,6 +7264,8 @@
         
         // Fonction séparée pour effectuer la déconnexion
         async function performLogout() {
+            // Fermer tous les panneaux de chat et effacer leur historique
+            _chatCloseAll();
             // Fermer tous les modals/popups ouverts
             closeAllModals();
             
@@ -23420,6 +23423,15 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             _chatSaveMeta();
         }
 
+        function _chatCloseAll() {
+            Object.keys(_chatPanels).forEach(uid => {
+                _chatPanels[uid]?.el?.remove();
+                try { sessionStorage.removeItem(_CHAT_HIST_KEY(uid)); } catch(e) {}
+            });
+            _chatPanels = {};
+            try { sessionStorage.removeItem(_CHAT_META_KEY); } catch(e) {}
+        }
+
         // Message REÇU via SSE
         function showPushMessageReceived(msg) {
             playNotifSound();
@@ -23620,6 +23632,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
 
                 if (!sessionResponse.ok) {
                     console.log('❌ Session expirée après réveil - déconnexion propre');
+                    _chatCloseAll();
                     stopInactivityTimer();
                     if (notificationCheckInterval) { clearInterval(notificationCheckInterval); notificationCheckInterval = null; }
                     if (onlineUsersInterval) { clearInterval(onlineUsersInterval); onlineUsersInterval = null; }
