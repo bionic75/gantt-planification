@@ -357,11 +357,23 @@ tr:nth-child(even) td { background: #f9f9f9; }
   <h2>🆕 Notes de version</h2>
   <p>Historique des évolutions de la Plateforme de Planification ANS.</p>
 
-  <!-- v1.15.01 -->
+  <!-- v1.15.10 -->
   <div class="card card-green" style="margin-bottom:16px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-      <strong style="font-size:16px;">v1.15.01</strong>
+      <strong style="font-size:16px;">v1.15.10</strong>
       <span class="badge badge-current">Actuelle</span>
+      <span style="color:#888; font-size:13px;">Juillet 2026</span>
+    </div>
+    <ul>
+      <li>💬 <strong>Messagerie push entre utilisateurs connectés</strong> : depuis le panneau "Utilisateurs connectés" (en haut à droite), cliquez sur ✉️ à droite d'un utilisateur pour lui envoyer un message instantané. Le message s'affiche en temps réel sur son écran sous forme de notification en bas à droite (auto-fermeture après 15 s). La notification inclut un champ de <strong>réponse directe</strong> — il est possible de répondre sans quitter l'écran courant. La communication utilise une connexion SSE (Server-Sent Events) persistante, sans nécessiter de WebSocket ni de dépendance supplémentaire.</li>
+      <li>📅 <strong>Onglet Événements — filtre par libellé</strong> : nouveau menu déroulant "Libellé" dans la barre "Trier / Filtrer par", peuplé depuis les templates prédéfinis. Correction du bug où le libellé n'était pas mis à jour lors du changement de template si le champ était déjà rempli.</li>
+    </ul>
+  </div>
+
+  <!-- v1.15.01 -->
+  <div class="card card-blue" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v1.15.01</strong>
       <span style="color:#888; font-size:13px;">Juillet 2026</span>
     </div>
     <ul>

@@ -16245,8 +16245,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             document.getElementById('customEventTextColor').value = template.text;
             document.getElementById('customEventBorderColor').value = template.border;
             
-            // Si un libellé est défini dans le template et que le champ est vide, on le pré-remplit
-            if (template.label && !document.getElementById('customEventLabel').value) {
+            if (template.label) {
                 document.getElementById('customEventLabel').value = template.label;
             }
             
@@ -22944,7 +22943,15 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     <div style="font-size: 12px; font-weight: 500; color: #2c3e50; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${fullName}</div>
                     <div style="font-size: 10px; color: ${bgColor};">${profileLabel}</div>
                 </div>`;
-                
+
+                // Bouton message — masqué pour soi-même
+                if (currentUser && user.userId !== currentUser.id) {
+                    const photoArg = user.profilePhoto ? `'${user.profilePhoto}'` : 'null';
+                    html += `<button onclick="openSendPushMessage(${user.userId}, '${fullName.replace(/'/g,"\\'")}', ${photoArg})"
+                        title="Envoyer un message"
+                        style="flex-shrink:0;background:#e8eaf6;color:#3f51b5;border:none;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;">✉️</button>`;
+                }
+
                 html += `</div>`;
             });
             
@@ -22972,10 +22979,152 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             }
         });
         
+        // ── Messages push ────────────────────────────────────────────────────────
+
+        let _pushSSE = null;
+
+        function initPushSSE() {
+            if (_pushSSE) _pushSSE.close();
+            _pushSSE = new EventSource(`${API_URL}/sse`, { withCredentials: true });
+            _pushSSE.addEventListener('push-message', e => {
+                try {
+                    const msg = JSON.parse(e.data);
+                    showPushMessageReceived(msg);
+                } catch(_) {}
+            });
+            _pushSSE.onerror = () => {
+                // Reconnexion automatique gérée par le navigateur
+            };
+        }
+
+        function showPushMessageReceived(msg) {
+            const existing = document.getElementById('pushMessageReceiveModal');
+            if (existing) existing.remove();
+
+            const modal = document.createElement('div');
+            modal.id = 'pushMessageReceiveModal';
+            modal.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:99999;max-width:320px;background:white;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.25);padding:16px 20px;border-left:4px solid #3f51b5;animation:slideInRight .3s ease;';
+
+            const photoHtml = msg.fromPhoto
+                ? `<img src="${msg.fromPhoto}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid #3f51b5;flex-shrink:0;">`
+                : `<div style="width:36px;height:36px;border-radius:50%;background:#3f51b5;color:white;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:bold;flex-shrink:0;">${(msg.fromName||'?')[0].toUpperCase()}</div>`;
+
+            const escapedMsg = msg.message.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            modal.innerHTML = `
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                    ${photoHtml}
+                    <div style="flex:1;">
+                        <div style="font-weight:bold;color:#283593;font-size:13px;">✉️ ${msg.fromName}</div>
+                        <div style="font-size:10px;color:#888;">${new Date(msg.sentAt).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</div>
+                    </div>
+                    <span onclick="this.closest('#pushMessageReceiveModal').remove()" style="cursor:pointer;font-size:20px;color:#aaa;line-height:1;">&times;</span>
+                </div>
+                <div style="font-size:13px;color:#2c3e50;line-height:1.5;background:#f5f7ff;border-radius:6px;padding:10px;margin-bottom:8px;">${escapedMsg}</div>
+                <textarea id="pushMessageReplyText" placeholder="Répondre…" maxlength="300" rows="2"
+                    style="width:100%;border:1px solid #c5cae9;border-radius:6px;padding:8px;font-size:12px;resize:none;box-sizing:border-box;margin-bottom:8px;"></textarea>
+                <div style="display:flex;gap:8px;">
+                    <button onclick="sendPushReply(${msg.fromUserId}, 'pushMessageReplyText', 'pushMessageReceiveModal')"
+                        style="flex:1;background:#3f51b5;color:white;border:none;padding:7px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:bold;">↩️ Répondre</button>
+                    <button onclick="this.closest('#pushMessageReceiveModal').remove()"
+                        style="background:#e0e0e0;color:#333;border:none;padding:7px 14px;border-radius:6px;cursor:pointer;font-size:12px;">Fermer</button>
+                </div>`;
+
+            document.body.appendChild(modal);
+
+            // Auto-dismiss après 15 s
+            setTimeout(() => { if (modal.parentNode) modal.remove(); }, 15000);
+        }
+
+        function openSendPushMessage(toUserId, toName, toPhoto) {
+            document.getElementById('onlineUsersTooltip').style.display = 'none';
+            onlineUsersTooltipVisible = false;
+
+            const existing = document.getElementById('pushMessageSendModal');
+            if (existing) existing.remove();
+
+            const modal = document.createElement('div');
+            modal.id = 'pushMessageSendModal';
+            modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:99998;display:flex;align-items:center;justify-content:center;';
+
+            const photoHtml = toPhoto
+                ? `<img src="${toPhoto}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid #3f51b5;flex-shrink:0;">`
+                : `<div style="width:40px;height:40px;border-radius:50%;background:#3f51b5;color:white;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:bold;flex-shrink:0;">${(toName||'?')[0].toUpperCase()}</div>`;
+
+            modal.innerHTML = `
+                <div style="background:white;border-radius:12px;padding:24px;width:360px;max-width:95vw;box-shadow:0 8px 32px rgba(0,0,0,0.25);">
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+                        ${photoHtml}
+                        <div style="flex:1;">
+                            <div style="font-weight:bold;color:#283593;font-size:15px;">✉️ Message à</div>
+                            <div style="font-size:13px;color:#555;">${toName}</div>
+                        </div>
+                        <span onclick="document.getElementById('pushMessageSendModal').remove()" style="cursor:pointer;font-size:24px;color:#aaa;line-height:1;">&times;</span>
+                    </div>
+                    <textarea id="pushMessageText" placeholder="Votre message…" maxlength="300" rows="4"
+                        style="width:100%;border:1px solid #c5cae9;border-radius:8px;padding:10px;font-size:13px;resize:none;box-sizing:border-box;"></textarea>
+                    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;">
+                        <button onclick="document.getElementById('pushMessageSendModal').remove()" style="background:#e0e0e0;color:#333;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:12px;">Annuler</button>
+                        <button onclick="sendPushMessage(${toUserId})" style="background:#3f51b5;color:white;border:none;padding:8px 20px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:bold;">✉️ Envoyer</button>
+                    </div>
+                </div>`;
+
+            document.body.appendChild(modal);
+            setTimeout(() => modal.querySelector('#pushMessageText')?.focus(), 50);
+
+            // Envoi sur Entrée + Ctrl
+            modal.querySelector('#pushMessageText').addEventListener('keydown', e => {
+                if (e.key === 'Enter' && e.ctrlKey) sendPushMessage(toUserId);
+            });
+        }
+
+        async function sendPushReply(toUserId, textareaId, modalId) {
+            const message = document.getElementById(textareaId)?.value?.trim();
+            if (!message) return;
+            try {
+                const res = await fetch(`${API_URL}/push-message`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ toUserId, message })
+                });
+                if (res.ok) {
+                    document.getElementById(modalId)?.remove();
+                } else {
+                    const err = await res.json();
+                    alert('Erreur : ' + (err.error || 'Envoi impossible'));
+                }
+            } catch(e) {
+                alert('Erreur réseau : ' + e.message);
+            }
+        }
+
+        async function sendPushMessage(toUserId) {
+            const message = document.getElementById('pushMessageText')?.value?.trim();
+            if (!message) return;
+
+            try {
+                const res = await fetch(`${API_URL}/push-message`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ toUserId, message })
+                });
+                if (res.ok) {
+                    document.getElementById('pushMessageSendModal')?.remove();
+                } else {
+                    const err = await res.json();
+                    alert('Erreur : ' + (err.error || 'Envoi impossible'));
+                }
+            } catch(e) {
+                alert('Erreur réseau : ' + e.message);
+            }
+        }
+
         // Démarrer la mise à jour périodique des utilisateurs connectés
         function startOnlineUsersPolling() {
             loadOnlineUsers();
             onlineUsersInterval = setInterval(loadOnlineUsers, 30000); // Toutes les 30 secondes
+            initPushSSE(); // Connexion SSE pour les messages push
         }
         
         // Arrêter la mise à jour périodique
@@ -22984,6 +23133,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 clearInterval(onlineUsersInterval);
                 onlineUsersInterval = null;
             }
+            if (_pushSSE) { _pushSSE.close(); _pushSSE = null; }
         }
         
         // ========== DÉTECTION DE RÉVEIL ET RECONNEXION AUTOMATIQUE ==========
@@ -23412,8 +23562,8 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             document.getElementById('myEventTextColor').value = template.text;
             document.getElementById('myEventBorderColor').value = template.border;
             
-            // Si un libellé est défini dans le template et que le champ est vide, on le pré-remplit
-            if (template.label && !document.getElementById('myEventLabel').value) {
+            // Toujours écraser le libellé avec celui du template (sauf "Libre" qui laisse le champ libre)
+            if (template.label) {
                 document.getElementById('myEventLabel').value = template.label;
             }
             
@@ -23505,10 +23655,12 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
             const currentYear = new Date().getFullYear();
             
-            // Appliquer les filtres localisation et participant
+            // Appliquer les filtres libellé, localisation et participant
             const locFilterVal = (document.getElementById('myEventsLocFilter')?.value || '').toString();
             const partFilterVal = (document.getElementById('myEventsParticipantFilter')?.value || '').toLowerCase().trim();
+            const _labelFilterVal = (document.getElementById('myEventsLabelFilter')?.value || '');
             const filteredEvents = myEvents.filter(ev => {
+                if (_labelFilterVal && ev.label !== _labelFilterVal) return false;
                 if (locFilterVal && (ev.location_id || '').toString() !== locFilterVal) return false;
                 if (partFilterVal) {
                     const parts = (ev.participants || []).map(p => (typeof p === 'string' ? p : `${p.prenom||''} ${p.nom||''}`).toLowerCase());
@@ -23538,11 +23690,23 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             const locOptions = (allLocations || []).map(l =>
                 `<option value="${l.id}"${locFilterVal === l.id.toString() ? ' selected' : ''}>${l.libelle_court || l.libelle_long}</option>`
             ).join('');
+            const labelFilterVal = (document.getElementById('myEventsLabelFilter')?.value || '');
+            const templateLabelOptions = Object.values(eventTemplates)
+                .filter(t => t.label)
+                .map(t => `<option value="${t.label}"${labelFilterVal === t.label ? ' selected' : ''}>${t.label}</option>`)
+                .join('');
             let html = `<div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; padding: 10px; background: #f5f5f5; border-radius: 8px; align-items: flex-end;">
                 <span style="font-size: 12px; color: #666; display: flex; align-items: center;">Trier / Filtrer par :</span>
                 <button onclick="toggleMyEventsSortYear()" style="background: #ff9800; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;">
                     Année ${myEventsSortYear === 'desc' ? '▼ (récent → ancien)' : '▲ (ancien → récent)'}
                 </button>
+                <div style="display:flex;flex-direction:column;gap:2px;">
+                    <label style="font-size:10px;color:#888;">Libellé</label>
+                    <select id="myEventsLabelFilter" onchange="renderMyEventsTable()" style="padding:4px 8px;border:1px solid #ccc;border-radius:4px;font-size:11px;min-width:160px;">
+                        <option value=""${!labelFilterVal ? ' selected' : ''}>— Tous —</option>
+                        ${templateLabelOptions}
+                    </select>
+                </div>
                 <div style="display:flex;flex-direction:column;gap:2px;">
                     <label style="font-size:10px;color:#888;">Localisation</label>
                     <select id="myEventsLocFilter" onchange="renderMyEventsTable()" style="padding:4px 8px;border:1px solid #ccc;border-radius:4px;font-size:11px;min-width:160px;">
