@@ -23220,138 +23220,185 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             };
         }
 
-        // ── Panneau de fil de discussion push ───────────────────────────────────
-        let _chatThread = [];          // [{fromUserId, fromName, fromPhoto, message, sentAt}]
-        let _chatReplyToId   = null;
-        let _chatReplyToName = null;
+        // ── Panneaux de conversation push (multi-utilisateurs) ──────────────────
+        // Chaque conversation avec un utilisateur = 1 panneau indépendant.
+        // Les panneaux s'empilent de droite à gauche.
 
-        function showPushMessageReceived(msg) {
-            _chatThread.push(msg);
-            playNotifSound();
-            const panel = document.getElementById('pushChatPanel');
-            if (!panel) {
-                _buildChatPanel();
-            } else {
-                _appendChatBubble(msg);
-                _chatScrollBottom();
-                _chatUpdateHeader();
-            }
-            _chatSetReplyTarget(msg.fromUserId, msg.fromName);
+        const CHAT_W   = 300;  // largeur d'un panneau en px
+        const CHAT_GAP = 10;   // espace entre panneaux
+        const CHAT_BOT = 24;   // distance du bas de l'écran
+        const CHAT_R0  = 24;   // distance du bord droit pour le 1er panneau
+
+        let _chatPanels = {};  // { [userId]: { name, photo, el, minimized, unread } }
+
+        function _chatPanelRight(idx) {
+            return CHAT_R0 + idx * (CHAT_W + CHAT_GAP);
         }
 
-        function _buildChatPanel() {
-            const panel = document.createElement('div');
-            panel.id = 'pushChatPanel';
-            panel.style.cssText = [
-                'position:fixed;bottom:24px;right:24px;z-index:99999',
-                'width:320px;max-height:480px',
-                'background:white;border-radius:12px',
+        function _rebuildChatPositions() {
+            Object.values(_chatPanels).forEach((p, i) => {
+                if (p.el) p.el.style.right = _chatPanelRight(i) + 'px';
+            });
+        }
+
+        function _chatAvatar(name, photo, sz, border) {
+            const b = border ? `border:2px solid ${border};` : '';
+            if (photo) return `<img src="${photo}" style="width:${sz}px;height:${sz}px;border-radius:50%;object-fit:cover;flex-shrink:0;${b}">`;
+            const bg = border ? 'rgba(255,255,255,0.25)' : '#9fa8da';
+            const col = border ? 'white' : 'white';
+            return `<div style="width:${sz}px;height:${sz}px;border-radius:50%;background:${bg};color:${col};display:flex;align-items:center;justify-content:center;font-size:${Math.round(sz*.45)}px;font-weight:bold;flex-shrink:0;${b}">${(name||'?')[0].toUpperCase()}</div>`;
+        }
+
+        function _getOrCreateChatPanel(userId, name, photo) {
+            if (_chatPanels[userId]) return _chatPanels[userId];
+
+            const idx = Object.keys(_chatPanels).length;
+            const entry = { userId, name, photo, minimized: false, unread: 0, el: null };
+            _chatPanels[userId] = entry;
+
+            const el = document.createElement('div');
+            el.id = `pcp_${userId}`;
+            el.style.cssText = [
+                'position:fixed', `bottom:${CHAT_BOT}px`, `right:${_chatPanelRight(idx)}px`,
+                `width:${CHAT_W}px`, 'z-index:99999',
+                'background:white', 'border-radius:12px',
                 'box-shadow:0 8px 32px rgba(0,0,0,0.28)',
-                'display:flex;flex-direction:column',
-                'animation:slideInRight .25s ease',
-                'font-family:inherit'
+                'display:flex', 'flex-direction:column',
+                'animation:slideInRight .22s ease', 'font-family:inherit'
             ].join(';');
 
-            panel.innerHTML = `
-                <!-- En-tête -->
-                <div style="background:#3f51b5;border-radius:12px 12px 0 0;padding:10px 14px;display:flex;align-items:center;gap:8px;flex-shrink:0;">
-                    <span style="font-size:15px;">✉️</span>
-                    <span id="pushChatHeaderTitle" style="color:white;font-size:13px;font-weight:bold;flex:1;">Messages reçus</span>
-                    <span id="pushChatBadge" style="display:none;background:#e53935;color:white;border-radius:10px;padding:1px 8px;font-size:10px;font-weight:bold;"></span>
-                    <span onclick="_closeChatPanel()" title="Fermer" style="cursor:pointer;color:rgba(255,255,255,0.75);font-size:20px;line-height:1;margin-left:4px;">&times;</span>
+            el.innerHTML = `
+                <div id="pcpHead_${userId}" onclick="_chatToggleMin(${userId})"
+                    style="background:#3f51b5;border-radius:12px 12px 0 0;padding:9px 12px;
+                           display:flex;align-items:center;gap:8px;cursor:pointer;flex-shrink:0;user-select:none;">
+                    ${_chatAvatar(name, photo, 26, 'rgba(255,255,255,0.5)')}
+                    <span style="color:white;font-size:12px;font-weight:bold;flex:1;
+                                 white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${name}</span>
+                    <span id="pcpBadge_${userId}" style="display:none;background:#e53935;color:white;
+                          border-radius:10px;padding:1px 7px;font-size:10px;font-weight:bold;"></span>
+                    <span id="pcpMinIco_${userId}" style="color:rgba(255,255,255,.7);font-size:13px;line-height:1;"
+                          title="Réduire">—</span>
+                    <span onclick="event.stopPropagation();_closeChatPanel(${userId})"
+                          style="cursor:pointer;color:rgba(255,255,255,.7);font-size:18px;line-height:1;margin-left:2px;"
+                          title="Fermer">&times;</span>
                 </div>
-                <!-- Fil de messages -->
-                <div id="pushChatMessages" style="flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:10px;min-height:80px;max-height:280px;"></div>
-                <!-- Barre de réponse -->
-                <div style="padding:10px 12px;border-top:1px solid #e8eaf6;flex-shrink:0;">
-                    <div id="pushChatReplyLabel" style="font-size:11px;color:#7986cb;margin-bottom:5px;"></div>
-                    <div style="display:flex;gap:6px;align-items:flex-end;">
-                        <textarea id="pushChatReplyText" placeholder="Votre réponse…" maxlength="500" rows="2"
-                            style="flex:1;border:1px solid #c5cae9;border-radius:6px;padding:7px 9px;font-size:12px;resize:none;box-sizing:border-box;font-family:inherit;"
-                            onkeydown="if(event.key==='Enter'&&event.ctrlKey){_sendChatReply();event.preventDefault();}"></textarea>
-                        <button onclick="_sendChatReply()" title="Envoyer (Ctrl+Entrée)"
-                            style="background:#3f51b5;color:white;border:none;border-radius:6px;padding:8px 12px;cursor:pointer;font-size:16px;line-height:1;flex-shrink:0;">↩</button>
+                <div id="pcpBody_${userId}" style="display:flex;flex-direction:column;max-height:420px;">
+                    <div id="pcpMsgs_${userId}"
+                         style="flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;
+                                gap:8px;min-height:60px;max-height:290px;"></div>
+                    <div style="padding:8px 10px;border-top:1px solid #e8eaf6;flex-shrink:0;">
+                        <div style="display:flex;gap:6px;align-items:flex-end;">
+                            <textarea id="pcpTxt_${userId}" placeholder="Votre message… (Ctrl+↵)"
+                                maxlength="500" rows="2"
+                                style="flex:1;border:1px solid #c5cae9;border-radius:6px;padding:6px 8px;
+                                       font-size:12px;resize:none;box-sizing:border-box;font-family:inherit;"
+                                onkeydown="if(event.key==='Enter'&&event.ctrlKey){_chatSend(${userId});event.preventDefault();}">
+                            </textarea>
+                            <button onclick="_chatSend(${userId})" title="Envoyer (Ctrl+↵)"
+                                style="background:#3f51b5;color:white;border:none;border-radius:6px;
+                                       padding:8px 10px;cursor:pointer;font-size:15px;flex-shrink:0;">↩</button>
+                        </div>
                     </div>
                 </div>`;
 
-            document.body.appendChild(panel);
-
-            // Rendre tous les messages déjà reçus
-            _chatThread.forEach(m => _appendChatBubble(m));
-            _chatScrollBottom();
-            _chatUpdateHeader();
+            document.body.appendChild(el);
+            entry.el = el;
+            return entry;
         }
 
-        function _appendChatBubble(msg) {
-            const container = document.getElementById('pushChatMessages');
-            if (!container) return;
+        function _chatAddBubble(userId, text, senderName, senderPhoto, time, isOwn) {
+            const box = document.getElementById(`pcpMsgs_${userId}`);
+            if (!box) return;
+            const t = time ? new Date(time).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : '';
+            const safe = text.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            const bbl = document.createElement('div');
 
-            const avatar = msg.fromPhoto
-                ? `<img src="${msg.fromPhoto}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0;">`
-                : `<div style="width:28px;height:28px;border-radius:50%;background:#3f51b5;color:white;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;flex-shrink:0;">${(msg.fromName||'?')[0].toUpperCase()}</div>`;
-
-            const time = new Date(msg.sentAt).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
-            const safe  = msg.message.replace(/</g,'&lt;').replace(/>/g,'&gt;');
-            const safeName = (msg.fromName||'').replace(/'/g,"\\'");
-
-            const bubble = document.createElement('div');
-            bubble.style.cssText = 'display:flex;gap:8px;align-items:flex-start;';
-            bubble.innerHTML = `
-                ${avatar}
-                <div style="flex:1;min-width:0;">
-                    <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:3px;flex-wrap:wrap;">
-                        <span style="font-size:11px;font-weight:bold;color:#283593;">${msg.fromName}</span>
-                        <span style="font-size:10px;color:#bbb;">${time}</span>
-                        <button onclick="_chatSetReplyTarget(${msg.fromUserId},'${safeName}')"
-                            title="Répondre à ${msg.fromName}"
-                            style="margin-left:auto;background:none;border:none;color:#9fa8da;cursor:pointer;font-size:12px;padding:0 2px;line-height:1;">↩</button>
-                    </div>
-                    <div style="background:#f0f2ff;border-radius:4px 10px 10px 10px;padding:7px 10px;font-size:12px;color:#2c3e50;line-height:1.5;word-break:break-word;">${safe}</div>
-                </div>`;
-            container.appendChild(bubble);
-        }
-
-        function _chatScrollBottom() {
-            const c = document.getElementById('pushChatMessages');
-            if (c) c.scrollTop = c.scrollHeight;
-        }
-
-        function _chatUpdateHeader() {
-            const badge = document.getElementById('pushChatBadge');
-            const title = document.getElementById('pushChatHeaderTitle');
-            const n = _chatThread.length;
-            if (badge) {
-                badge.textContent = `${n} msg`;
-                badge.style.display = n > 1 ? 'inline' : 'none';
+            if (isOwn) {
+                bbl.style.cssText = 'display:flex;justify-content:flex-end;';
+                bbl.innerHTML = `
+                    <div style="max-width:82%;">
+                        <div style="text-align:right;font-size:10px;color:#ccc;margin-bottom:2px;">${t}</div>
+                        <div style="background:#3f51b5;color:white;border-radius:10px 3px 10px 10px;
+                                    padding:7px 10px;font-size:12px;line-height:1.5;word-break:break-word;">${safe}</div>
+                    </div>`;
+            } else {
+                bbl.style.cssText = 'display:flex;gap:6px;align-items:flex-start;';
+                bbl.innerHTML = `
+                    ${_chatAvatar(senderName, senderPhoto, 24, null)}
+                    <div style="max-width:82%;">
+                        <div style="font-size:10px;color:#ccc;margin-bottom:2px;">${t}</div>
+                        <div style="background:#f0f2ff;color:#2c3e50;border-radius:3px 10px 10px 10px;
+                                    padding:7px 10px;font-size:12px;line-height:1.5;word-break:break-word;">${safe}</div>
+                    </div>`;
             }
-            if (title && _chatThread.length) {
-                // Lister les expéditeurs uniques
-                const senders = [...new Set(_chatThread.map(m => m.fromName))];
-                title.textContent = senders.length === 1 ? senders[0] : `${senders.slice(0,-1).join(', ')} et ${senders.at(-1)}`;
+            box.appendChild(bbl);
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function _chatToggleMin(userId) {
+            const p = _chatPanels[userId];
+            if (!p) return;
+            p.minimized = !p.minimized;
+            const body  = document.getElementById(`pcpBody_${userId}`);
+            const ico   = document.getElementById(`pcpMinIco_${userId}`);
+            const badge = document.getElementById(`pcpBadge_${userId}`);
+            const head  = document.getElementById(`pcpHead_${userId}`);
+            if (p.minimized) {
+                if (body) body.style.display = 'none';
+                if (ico)  ico.textContent = '▲';
+                if (p.el) p.el.style.borderRadius = '12px';
+                if (head) head.style.borderRadius = '12px';
+            } else {
+                if (body) body.style.display = '';
+                if (ico)  ico.textContent = '—';
+                if (p.el) p.el.style.borderRadius = '12px';
+                if (head) head.style.borderRadius = '12px 12px 0 0';
+                if (badge){ badge.textContent = ''; badge.style.display = 'none'; }
+                p.unread = 0;
+                const box = document.getElementById(`pcpMsgs_${userId}`);
+                if (box) box.scrollTop = box.scrollHeight;
             }
         }
 
-        function _chatSetReplyTarget(userId, name) {
-            _chatReplyToId   = userId;
-            _chatReplyToName = name;
-            const lbl = document.getElementById('pushChatReplyLabel');
-            if (lbl) lbl.textContent = `↩ Répondre à ${name}`;
-            document.getElementById('pushChatReplyText')?.focus();
+        function _closeChatPanel(userId) {
+            const p = _chatPanels[userId];
+            if (!p) return;
+            p.el?.remove();
+            delete _chatPanels[userId];
+            _rebuildChatPositions();
         }
 
-        async function _sendChatReply() {
-            const message = document.getElementById('pushChatReplyText')?.value?.trim();
-            if (!message || !_chatReplyToId) return;
+        // Message REÇU via SSE
+        function showPushMessageReceived(msg) {
+            playNotifSound();
+            const p = _getOrCreateChatPanel(msg.fromUserId, msg.fromName, msg.fromPhoto);
+            _chatAddBubble(msg.fromUserId, msg.message, msg.fromName, msg.fromPhoto, msg.sentAt, false);
+            if (p.minimized) {
+                // Badge + ré-ouverture
+                p.unread++;
+                const badge = document.getElementById(`pcpBadge_${msg.fromUserId}`);
+                if (badge){ badge.textContent = p.unread; badge.style.display = 'inline'; }
+            }
+        }
+
+        // Envoi depuis le panneau
+        async function _chatSend(toUserId) {
+            const p = _chatPanels[toUserId];
+            if (!p) return;
+            const ta = document.getElementById(`pcpTxt_${toUserId}`);
+            const message = ta?.value?.trim();
+            if (!message) return;
             try {
                 const res = await fetch(`${API_URL}/push-message`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({ toUserId: _chatReplyToId, message })
+                    body: JSON.stringify({ toUserId, message })
                 });
                 if (res.ok) {
-                    const ta = document.getElementById('pushChatReplyText');
-                    if (ta) ta.value = '';
+                    ta.value = '';
+                    // Ajouter notre propre bulle à droite
+                    _chatAddBubble(toUserId, message, null, null, new Date().toISOString(), true);
                 } else {
                     const err = await res.json();
                     alert('Erreur : ' + (err.error || 'Envoi impossible'));
@@ -23359,13 +23406,6 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             } catch(e) {
                 alert('Erreur réseau : ' + e.message);
             }
-        }
-
-        function _closeChatPanel() {
-            document.getElementById('pushChatPanel')?.remove();
-            _chatThread = [];
-            _chatReplyToId = null;
-            _chatReplyToName = null;
         }
 
         // ── Son de notification push ─────────────────────────────────────────────
@@ -23446,88 +23486,14 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
         }
 
         function openSendPushMessage(toUserId, toName, toPhoto) {
+            // Fermer le tooltip utilisateurs
             document.getElementById('onlineUsersTooltip').style.display = 'none';
             onlineUsersTooltipVisible = false;
-
-            const existing = document.getElementById('pushMessageSendModal');
-            if (existing) existing.remove();
-
-            const modal = document.createElement('div');
-            modal.id = 'pushMessageSendModal';
-            modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:99998;display:flex;align-items:center;justify-content:center;';
-
-            const photoHtml = toPhoto
-                ? `<img src="${toPhoto}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid #3f51b5;flex-shrink:0;">`
-                : `<div style="width:40px;height:40px;border-radius:50%;background:#3f51b5;color:white;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:bold;flex-shrink:0;">${(toName||'?')[0].toUpperCase()}</div>`;
-
-            modal.innerHTML = `
-                <div style="background:white;border-radius:12px;padding:24px;width:360px;max-width:95vw;box-shadow:0 8px 32px rgba(0,0,0,0.25);">
-                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
-                        ${photoHtml}
-                        <div style="flex:1;">
-                            <div style="font-weight:bold;color:#283593;font-size:15px;">✉️ Message à</div>
-                            <div style="font-size:13px;color:#555;">${toName}</div>
-                        </div>
-                        <span onclick="document.getElementById('pushMessageSendModal').remove()" style="cursor:pointer;font-size:24px;color:#aaa;line-height:1;">&times;</span>
-                    </div>
-                    <textarea id="pushMessageText" placeholder="Votre message…" maxlength="300" rows="4"
-                        style="width:100%;border:1px solid #c5cae9;border-radius:8px;padding:10px;font-size:13px;resize:none;box-sizing:border-box;"></textarea>
-                    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;">
-                        <button onclick="document.getElementById('pushMessageSendModal').remove()" style="background:#e0e0e0;color:#333;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:12px;">Annuler</button>
-                        <button onclick="sendPushMessage(${toUserId})" style="background:#3f51b5;color:white;border:none;padding:8px 20px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:bold;">✉️ Envoyer</button>
-                    </div>
-                </div>`;
-
-            document.body.appendChild(modal);
-            setTimeout(() => modal.querySelector('#pushMessageText')?.focus(), 50);
-
-            // Envoi sur Entrée + Ctrl
-            modal.querySelector('#pushMessageText').addEventListener('keydown', e => {
-                if (e.key === 'Enter' && e.ctrlKey) sendPushMessage(toUserId);
-            });
-        }
-
-        async function sendPushReply(toUserId, textareaId, modalId) {
-            const message = document.getElementById(textareaId)?.value?.trim();
-            if (!message) return;
-            try {
-                const res = await fetch(`${API_URL}/push-message`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({ toUserId, message })
-                });
-                if (res.ok) {
-                    document.getElementById(modalId)?.remove();
-                } else {
-                    const err = await res.json();
-                    alert('Erreur : ' + (err.error || 'Envoi impossible'));
-                }
-            } catch(e) {
-                alert('Erreur réseau : ' + e.message);
-            }
-        }
-
-        async function sendPushMessage(toUserId) {
-            const message = document.getElementById('pushMessageText')?.value?.trim();
-            if (!message) return;
-
-            try {
-                const res = await fetch(`${API_URL}/push-message`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({ toUserId, message })
-                });
-                if (res.ok) {
-                    document.getElementById('pushMessageSendModal')?.remove();
-                } else {
-                    const err = await res.json();
-                    alert('Erreur : ' + (err.error || 'Envoi impossible'));
-                }
-            } catch(e) {
-                alert('Erreur réseau : ' + e.message);
-            }
+            // Ouvrir (ou mettre le focus sur) le panneau de conversation
+            _getOrCreateChatPanel(toUserId, toName, toPhoto);
+            const p = _chatPanels[toUserId];
+            if (p?.minimized) _chatToggleMin(toUserId);
+            setTimeout(() => document.getElementById(`pcpTxt_${toUserId}`)?.focus(), 60);
         }
 
         // Démarrer la mise à jour périodique des utilisateurs connectés
