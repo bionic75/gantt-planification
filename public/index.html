@@ -23220,69 +23220,152 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             };
         }
 
-        // ── File d'attente des messages reçus ───────────────────────────────────
-        let _pushMessageQueue = [];
-        let _pushMessageShowing = false;
-        let _pushAutoDismissTimer = null;
+        // ── Panneau de fil de discussion push ───────────────────────────────────
+        let _chatThread = [];          // [{fromUserId, fromName, fromPhoto, message, sentAt}]
+        let _chatReplyToId   = null;
+        let _chatReplyToName = null;
 
         function showPushMessageReceived(msg) {
-            _pushMessageQueue.push(msg);
-            if (!_pushMessageShowing) _showNextPushMessage();
-        }
-
-        function _dismissCurrentPushModal() {
-            clearTimeout(_pushAutoDismissTimer);
-            const existing = document.getElementById('pushMessageReceiveModal');
-            if (existing) existing.remove();
-            _pushMessageShowing = false;
-            // Légère pause avant le suivant pour que l'œil suive
-            setTimeout(_showNextPushMessage, 300);
-        }
-
-        function _showNextPushMessage() {
-            if (_pushMessageQueue.length === 0) { _pushMessageShowing = false; return; }
-            _pushMessageShowing = true;
-            const msg = _pushMessageQueue.shift();
-            const remaining = _pushMessageQueue.length;
-
+            _chatThread.push(msg);
             playNotifSound();
+            const panel = document.getElementById('pushChatPanel');
+            if (!panel) {
+                _buildChatPanel();
+            } else {
+                _appendChatBubble(msg);
+                _chatScrollBottom();
+                _chatUpdateHeader();
+            }
+            _chatSetReplyTarget(msg.fromUserId, msg.fromName);
+        }
 
-            const modal = document.createElement('div');
-            modal.id = 'pushMessageReceiveModal';
-            modal.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:99999;max-width:320px;background:white;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.25);padding:16px 20px;border-left:4px solid #3f51b5;animation:slideInRight .3s ease;';
+        function _buildChatPanel() {
+            const panel = document.createElement('div');
+            panel.id = 'pushChatPanel';
+            panel.style.cssText = [
+                'position:fixed;bottom:24px;right:24px;z-index:99999',
+                'width:320px;max-height:480px',
+                'background:white;border-radius:12px',
+                'box-shadow:0 8px 32px rgba(0,0,0,0.28)',
+                'display:flex;flex-direction:column',
+                'animation:slideInRight .25s ease',
+                'font-family:inherit'
+            ].join(';');
 
-            const photoHtml = msg.fromPhoto
-                ? `<img src="${msg.fromPhoto}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid #3f51b5;flex-shrink:0;">`
-                : `<div style="width:36px;height:36px;border-radius:50%;background:#3f51b5;color:white;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:bold;flex-shrink:0;">${(msg.fromName||'?')[0].toUpperCase()}</div>`;
-
-            const queueBadge = remaining > 0
-                ? `<span style="background:#e53935;color:white;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:bold;margin-left:6px;">+${remaining}</span>`
-                : '';
-
-            const escapedMsg = msg.message.replace(/</g,'&lt;').replace(/>/g,'&gt;');
-            modal.innerHTML = `
-                <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-                    ${photoHtml}
-                    <div style="flex:1;">
-                        <div style="font-weight:bold;color:#283593;font-size:13px;">✉️ ${msg.fromName}${queueBadge}</div>
-                        <div style="font-size:10px;color:#888;">${new Date(msg.sentAt).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</div>
-                    </div>
-                    <span onclick="_dismissCurrentPushModal()" style="cursor:pointer;font-size:20px;color:#aaa;line-height:1;">&times;</span>
+            panel.innerHTML = `
+                <!-- En-tête -->
+                <div style="background:#3f51b5;border-radius:12px 12px 0 0;padding:10px 14px;display:flex;align-items:center;gap:8px;flex-shrink:0;">
+                    <span style="font-size:15px;">✉️</span>
+                    <span id="pushChatHeaderTitle" style="color:white;font-size:13px;font-weight:bold;flex:1;">Messages reçus</span>
+                    <span id="pushChatBadge" style="display:none;background:#e53935;color:white;border-radius:10px;padding:1px 8px;font-size:10px;font-weight:bold;"></span>
+                    <span onclick="_closeChatPanel()" title="Fermer" style="cursor:pointer;color:rgba(255,255,255,0.75);font-size:20px;line-height:1;margin-left:4px;">&times;</span>
                 </div>
-                <div style="font-size:13px;color:#2c3e50;line-height:1.5;background:#f5f7ff;border-radius:6px;padding:10px;margin-bottom:8px;">${escapedMsg}</div>
-                <textarea id="pushMessageReplyText" placeholder="Répondre…" maxlength="300" rows="2"
-                    style="width:100%;border:1px solid #c5cae9;border-radius:6px;padding:8px;font-size:12px;resize:none;box-sizing:border-box;margin-bottom:8px;"></textarea>
-                <div style="display:flex;gap:8px;">
-                    <button onclick="sendPushReply(${msg.fromUserId}, 'pushMessageReplyText', 'pushMessageReceiveModal')"
-                        style="flex:1;background:#3f51b5;color:white;border:none;padding:7px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:bold;">↩️ Répondre</button>
-                    <button onclick="_dismissCurrentPushModal()"
-                        style="background:#e0e0e0;color:#333;border:none;padding:7px 14px;border-radius:6px;cursor:pointer;font-size:12px;">Fermer</button>
+                <!-- Fil de messages -->
+                <div id="pushChatMessages" style="flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:10px;min-height:80px;max-height:280px;"></div>
+                <!-- Barre de réponse -->
+                <div style="padding:10px 12px;border-top:1px solid #e8eaf6;flex-shrink:0;">
+                    <div id="pushChatReplyLabel" style="font-size:11px;color:#7986cb;margin-bottom:5px;"></div>
+                    <div style="display:flex;gap:6px;align-items:flex-end;">
+                        <textarea id="pushChatReplyText" placeholder="Votre réponse…" maxlength="500" rows="2"
+                            style="flex:1;border:1px solid #c5cae9;border-radius:6px;padding:7px 9px;font-size:12px;resize:none;box-sizing:border-box;font-family:inherit;"
+                            onkeydown="if(event.key==='Enter'&&event.ctrlKey){_sendChatReply();event.preventDefault();}"></textarea>
+                        <button onclick="_sendChatReply()" title="Envoyer (Ctrl+Entrée)"
+                            style="background:#3f51b5;color:white;border:none;border-radius:6px;padding:8px 12px;cursor:pointer;font-size:16px;line-height:1;flex-shrink:0;">↩</button>
+                    </div>
                 </div>`;
 
-            document.body.appendChild(modal);
+            document.body.appendChild(panel);
 
-            // Auto-dismiss après 15 s puis passage au suivant
-            _pushAutoDismissTimer = setTimeout(_dismissCurrentPushModal, 15000);
+            // Rendre tous les messages déjà reçus
+            _chatThread.forEach(m => _appendChatBubble(m));
+            _chatScrollBottom();
+            _chatUpdateHeader();
+        }
+
+        function _appendChatBubble(msg) {
+            const container = document.getElementById('pushChatMessages');
+            if (!container) return;
+
+            const avatar = msg.fromPhoto
+                ? `<img src="${msg.fromPhoto}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0;">`
+                : `<div style="width:28px;height:28px;border-radius:50%;background:#3f51b5;color:white;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;flex-shrink:0;">${(msg.fromName||'?')[0].toUpperCase()}</div>`;
+
+            const time = new Date(msg.sentAt).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+            const safe  = msg.message.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            const safeName = (msg.fromName||'').replace(/'/g,"\\'");
+
+            const bubble = document.createElement('div');
+            bubble.style.cssText = 'display:flex;gap:8px;align-items:flex-start;';
+            bubble.innerHTML = `
+                ${avatar}
+                <div style="flex:1;min-width:0;">
+                    <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:3px;flex-wrap:wrap;">
+                        <span style="font-size:11px;font-weight:bold;color:#283593;">${msg.fromName}</span>
+                        <span style="font-size:10px;color:#bbb;">${time}</span>
+                        <button onclick="_chatSetReplyTarget(${msg.fromUserId},'${safeName}')"
+                            title="Répondre à ${msg.fromName}"
+                            style="margin-left:auto;background:none;border:none;color:#9fa8da;cursor:pointer;font-size:12px;padding:0 2px;line-height:1;">↩</button>
+                    </div>
+                    <div style="background:#f0f2ff;border-radius:4px 10px 10px 10px;padding:7px 10px;font-size:12px;color:#2c3e50;line-height:1.5;word-break:break-word;">${safe}</div>
+                </div>`;
+            container.appendChild(bubble);
+        }
+
+        function _chatScrollBottom() {
+            const c = document.getElementById('pushChatMessages');
+            if (c) c.scrollTop = c.scrollHeight;
+        }
+
+        function _chatUpdateHeader() {
+            const badge = document.getElementById('pushChatBadge');
+            const title = document.getElementById('pushChatHeaderTitle');
+            const n = _chatThread.length;
+            if (badge) {
+                badge.textContent = `${n} msg`;
+                badge.style.display = n > 1 ? 'inline' : 'none';
+            }
+            if (title && _chatThread.length) {
+                // Lister les expéditeurs uniques
+                const senders = [...new Set(_chatThread.map(m => m.fromName))];
+                title.textContent = senders.length === 1 ? senders[0] : `${senders.slice(0,-1).join(', ')} et ${senders.at(-1)}`;
+            }
+        }
+
+        function _chatSetReplyTarget(userId, name) {
+            _chatReplyToId   = userId;
+            _chatReplyToName = name;
+            const lbl = document.getElementById('pushChatReplyLabel');
+            if (lbl) lbl.textContent = `↩ Répondre à ${name}`;
+            document.getElementById('pushChatReplyText')?.focus();
+        }
+
+        async function _sendChatReply() {
+            const message = document.getElementById('pushChatReplyText')?.value?.trim();
+            if (!message || !_chatReplyToId) return;
+            try {
+                const res = await fetch(`${API_URL}/push-message`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ toUserId: _chatReplyToId, message })
+                });
+                if (res.ok) {
+                    const ta = document.getElementById('pushChatReplyText');
+                    if (ta) ta.value = '';
+                } else {
+                    const err = await res.json();
+                    alert('Erreur : ' + (err.error || 'Envoi impossible'));
+                }
+            } catch(e) {
+                alert('Erreur réseau : ' + e.message);
+            }
+        }
+
+        function _closeChatPanel() {
+            document.getElementById('pushChatPanel')?.remove();
+            _chatThread = [];
+            _chatReplyToId = null;
+            _chatReplyToName = null;
         }
 
         // ── Son de notification push ─────────────────────────────────────────────
@@ -23415,7 +23498,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     body: JSON.stringify({ toUserId, message })
                 });
                 if (res.ok) {
-                    _dismissCurrentPushModal(); // passe au message suivant dans la file
+                    document.getElementById(modalId)?.remove();
                 } else {
                     const err = await res.json();
                     alert('Erreur : ' + (err.error || 'Envoi impossible'));
