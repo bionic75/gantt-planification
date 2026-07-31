@@ -357,11 +357,23 @@ tr:nth-child(even) td { background: #f9f9f9; }
   <h2>🆕 Notes de version</h2>
   <p>Historique des évolutions de la Plateforme de Planification ANS.</p>
 
-  <!-- v1.15.10 -->
+  <!-- v1.15.20 -->
   <div class="card card-green" style="margin-bottom:16px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-      <strong style="font-size:16px;">v1.15.10</strong>
+      <strong style="font-size:16px;">v1.15.20</strong>
       <span class="badge badge-current">Actuelle</span>
+      <span style="color:#888; font-size:13px;">Juillet 2026</span>
+    </div>
+    <ul>
+      <li>🔧 <strong>Correction bouton "Modifier" onglet Ressources</strong> : la modale d'édition s'ouvre maintenant immédiatement au clic, sans attendre le chargement de l'historique MAD. Ajout d'un rechargement automatique des ressources si la liste est vide au moment du clic.</li>
+      <li>🔐 <strong>Correction "Accès réservé aux administrateurs" lors de l'édition d'une ressource</strong> : restauration du profil administrateur depuis la mémoire serveur lorsqu'il est absent de la session (survient après un redémarrage serveur sans reconnexion). Stabilisation de la connexion SSE des messages push pour éviter la corruption de session.</li>
+    </ul>
+  </div>
+
+  <!-- v1.15.10 -->
+  <div class="card card-blue" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v1.15.10</strong>
       <span style="color:#888; font-size:13px;">Juillet 2026</span>
     </div>
     <ul>

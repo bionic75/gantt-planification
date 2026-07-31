@@ -1423,7 +1423,11 @@ function requireAuth(req, res, next) {
     }
     // Re-enregistrer silencieusement si absent (inactivité longue ou redémarrage serveur)
     if (!activeSessions.has(req.session.userId)) {
-        activeSessions.set(req.session.userId, { userId: req.session.userId, lastActivity: Date.now() });
+        activeSessions.set(req.session.userId, {
+            userId: req.session.userId,
+            lastActivity: Date.now(),
+            profile: req.session.activeProfile || null
+        });
     } else {
         activeSessions.get(req.session.userId).lastActivity = Date.now();
     }
@@ -1431,7 +1435,15 @@ function requireAuth(req, res, next) {
 }
 
 function requireAdmin(req, res, next) {
-    if (!req.session || !req.session.userId || req.session.activeProfile !== 'admin') {
+    if (!req.session || !req.session.userId) {
+        return res.status(403).json({ error: 'Accès réservé aux administrateurs' });
+    }
+    // Fallback : si activeProfile absent de la session, le restaurer depuis activeSessions
+    if (!req.session.activeProfile) {
+        const cached = activeSessions.get(req.session.userId);
+        if (cached?.profile) req.session.activeProfile = cached.profile;
+    }
+    if (req.session.activeProfile !== 'admin') {
         return res.status(403).json({ error: 'Accès réservé aux administrateurs' });
     }
     // Mettre à jour l'activité de la session
@@ -3704,6 +3716,11 @@ app.get('/api/system/version', (req, res) => {
 // ── SSE : connexion persistante pour les messages push ──────────────────────
 app.get('/api/sse', requireAuth, (req, res) => {
     const userId = req.session.userId;
+
+    // Empêcher express-session de tenter d'écrire Set-Cookie après flushHeaders
+    // (les headers sont déjà envoyés sur une connexion SSE persistante)
+    req.session.save = (cb) => { if (cb) cb(null); };
+
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');

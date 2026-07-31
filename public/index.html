@@ -7939,8 +7939,15 @@
         let currentResourceMadHistory = [];
 
         async function openEditModal(id) {
+            // Si resources est vide (ex: après rechargement de page), recharger d'abord
+            if (!resources || resources.length === 0) {
+                await loadResources();
+            }
             const resource = resources.find(r => r.id === id);
-            if (!resource) return;
+            if (!resource) {
+                console.error('[openEditModal] Ressource introuvable pour id=', id, ', resources=', resources.length);
+                return;
+            }
             currentEditId = id;
             // Réinitialiser la modale en mode édition
             document.getElementById('editModal').querySelector('h3').textContent = 'Modifier la ressource';
@@ -7970,11 +7977,12 @@
             samuTagState.edit_secondaire = [...assign.secondaire];
             renderSamuTags('edit_principal');
             renderSamuTags('edit_secondaire');
-            
-            // Charger l'historique MAD
-            await loadMadHistory(id);
-            
+
+            // Ouvrir la modale AVANT le chargement async de l'historique MAD
             document.getElementById('editModal').classList.add('active');
+
+            // Charger l'historique MAD (après ouverture pour ne pas bloquer)
+            await loadMadHistory(id);
         }
         
         async function openViewModalRh(id) {
