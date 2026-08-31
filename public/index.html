@@ -1062,12 +1062,19 @@
                     </div>
                     <!-- En cours de traitement -->
                     <div style="background:#fff3e0;border:1px solid #ffb74d;border-radius:8px;padding:15px;margin-bottom:16px;">
-                        <h3 style="color:#e65100;margin:0 0 12px;font-size:15px;">📋 CRA en cours de traitement</h3>
-                        <div id="craAdminEnCours"><div style="text-align:center;padding:20px;color:#999;">⏳ Chargement...</div></div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="toggleCraAdminSection('enCours')">
+                            <h3 style="color:#e65100;margin:0;font-size:15px;"><span id="craAdminEnCoursIcon">▼</span> 📋 CRA en cours de traitement</h3>
+                        </div>
+                        <div id="craAdminEnCoursBody" style="margin-top:12px;">
+                            <div id="craAdminEnCours"><div style="text-align:center;padding:20px;color:#999;">⏳ Chargement...</div></div>
+                        </div>
                     </div>
                     <!-- CRA signés -->
                     <div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:15px;margin-bottom:16px;">
-                        <h3 style="color:#2e7d32;margin:0 0 12px;font-size:15px;">✅ CRA signés</h3>
+                        <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="toggleCraAdminSection('signes')">
+                            <h3 style="color:#2e7d32;margin:0;font-size:15px;"><span id="craAdminSignesIcon">▼</span> ✅ CRA signés</h3>
+                        </div>
+                        <div id="craAdminSignesBody" style="margin-top:12px;">
                         <!-- Filtres -->
                         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;align-items:flex-end;">
                             <div><label style="font-size:12px;color:#555;">Expert</label>
@@ -1085,6 +1092,7 @@
                             <button onclick="loadCraSignatures()" style="background:#2e7d32;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-weight:bold;">🔍 Rechercher</button>
                         </div>
                         <div id="craSignaturesTable"><div style="text-align:center;padding:20px;color:#999;">⏳ Chargement...</div></div>
+                        </div><!-- /craAdminSignesBody -->
                     </div>
                     <!-- CRA archivés (collapsible) -->
                     <div style="background:#f3f4f6;border:1px solid #b0bec5;border-radius:8px;padding:15px;margin-bottom:16px;">
@@ -1126,12 +1134,20 @@
                 <!-- ===== EXPERT : 2 catégories ===== -->
                 <div id="craExpertSections" style="display:none; margin-top:20px;">
                     <div style="background:#fff3e0;border:1px solid #ffb74d;border-radius:8px;padding:15px;margin-bottom:16px;">
-                        <h3 style="color:#e65100;margin:0 0 12px;font-size:15px;">📋 CRA en cours de traitement</h3>
-                        <div id="craListEnCours"><div style="text-align:center;padding:20px;color:#999;">⏳ Chargement...</div></div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="toggleCraExpertSection('enCours')">
+                            <h3 style="color:#e65100;margin:0;font-size:15px;"><span id="craExpertEnCoursIcon">▼</span> 📋 CRA en cours de traitement</h3>
+                        </div>
+                        <div id="craExpertEnCoursBody" style="margin-top:12px;">
+                            <div id="craListEnCours"><div style="text-align:center;padding:20px;color:#999;">⏳ Chargement...</div></div>
+                        </div>
                     </div>
                     <div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:15px;margin-bottom:16px;">
-                        <h3 style="color:#2e7d32;margin:0 0 12px;font-size:15px;">✅ CRA signés</h3>
-                        <div id="craListSignes"><div style="text-align:center;padding:20px;color:#999;">⏳ Chargement...</div></div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="toggleCraExpertSection('signes')">
+                            <h3 style="color:#2e7d32;margin:0;font-size:15px;"><span id="craExpertSignesIcon">▼</span> ✅ CRA signés</h3>
+                        </div>
+                        <div id="craExpertSignesBody" style="margin-top:12px;">
+                            <div id="craListSignes"><div style="text-align:center;padding:20px;color:#999;">⏳ Chargement...</div></div>
+                        </div>
                     </div>
                 </div>
 
@@ -14357,6 +14373,26 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             } catch(e) { console.error('Erreur chargement CRA:', e); }
         }
 
+        function toggleCraAdminSection(which) {
+            const ids = { enCours: ['craAdminEnCoursBody','craAdminEnCoursIcon'], signes: ['craAdminSignesBody','craAdminSignesIcon'] };
+            const [bodyId, iconId] = ids[which];
+            const body = document.getElementById(bodyId);
+            const icon = document.getElementById(iconId);
+            const open = body.style.display === 'none';
+            body.style.display = open ? 'block' : 'none';
+            icon.textContent = open ? '▼' : '▶';
+        }
+
+        function toggleCraExpertSection(which) {
+            const ids = { enCours: ['craExpertEnCoursBody','craExpertEnCoursIcon'], signes: ['craExpertSignesBody','craExpertSignesIcon'] };
+            const [bodyId, iconId] = ids[which];
+            const body = document.getElementById(bodyId);
+            const icon = document.getElementById(iconId);
+            const open = body.style.display === 'none';
+            body.style.display = open ? 'block' : 'none';
+            icon.textContent = open ? '▼' : '▶';
+        }
+
         function toggleCraAdminArchivesPanel() {
             const body = document.getElementById('craAdminArchivesBody');
             const icon = document.getElementById('craAdminArchivesIcon');
@@ -15441,7 +15477,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                     <td style="padding:6px 8px;" id="diffuse-cell-${c.id}" data-sort="${c.diffuse_at||''}">${c.statut === 'vise_n2' ? `<button onclick="openDiffuserModal(${c.id})" style="font-size:11px;padding:3px 10px;background:#e65100;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">📤 A diffuser</button>` : (fmt(c.diffuse_at) + `<br><button onclick="showDiffusionStatus(${c.id}, this)" style="font-size:10px;padding:2px 6px;background:#1a237e;color:white;border:none;border-radius:3px;cursor:pointer;margin-top:3px;">📧 Statut</button>`)}</td>
                     <td style="padding:6px 8px;white-space:nowrap;">
                         <button onclick="openCraModal(${c.id})" style="font-size:11px;padding:3px 8px;background:#6a1b9a;color:white;border:none;border-radius:4px;cursor:pointer;margin-right:4px;height:26px;box-sizing:border-box;">Voir</button>
-                        ${!readOnly && c.statut === 'diffuse' ? (!isArchive ? `<button onclick="confirmArchiveCra(${c.id},'${(c.expert_nom||'').replace(/'/g,'\\\'')}')" style="font-size:11px;padding:3px 8px;background:#546e7a;color:white;border:none;border-radius:4px;cursor:pointer;height:26px;box-sizing:border-box;">🗄️ Archiver</button>` : `<button onclick="unarchiveCra(${c.id})" style="font-size:11px;padding:3px 8px;background:#ff9800;color:white;border:none;border-radius:4px;cursor:pointer;margin-right:4px;">↩️ Désarchiver</button><button onclick="softDeleteCra(${c.id}, ${c.mois}, ${c.annee})" data-nom="${(c.expert_nom||'').replace(/"/g,'&quot;')}" style="font-size:11px;padding:3px 8px;background:#b71c1c;color:white;border:none;border-radius:4px;cursor:pointer;">🗑️ Supprimer</button>`) : ''}
+                        ${!readOnly ? (isArchive ? `<button onclick="unarchiveCra(${c.id})" style="font-size:11px;padding:3px 8px;background:#ff9800;color:white;border:none;border-radius:4px;cursor:pointer;margin-right:4px;">↩️ Désarchiver</button><button onclick="softDeleteCra(${c.id}, ${c.mois}, ${c.annee})" data-nom="${(c.expert_nom||'').replace(/"/g,'&quot;')}" style="font-size:11px;padding:3px 8px;background:#b71c1c;color:white;border:none;border-radius:4px;cursor:pointer;">🗑️ Supprimer</button>` : (c.statut === 'diffuse' ? `<button onclick="confirmArchiveCra(${c.id},'${(c.expert_nom||'').replace(/'/g,'\\\'')}')" style="font-size:11px;padding:3px 8px;background:#546e7a;color:white;border:none;border-radius:4px;cursor:pointer;height:26px;box-sizing:border-box;">🗄️ Archiver</button>` : '')) : ''}
                     </td>
                 </tr>`;
             }).join('');
