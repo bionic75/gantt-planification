@@ -10862,13 +10862,13 @@ app.post('/api/cra/:id/astreintes', requireAuth, async (req, res) => {
 
         const targetUserId = cra.user_id;
 
-        // Supprimer toutes les lignes du mois concerné pour l'utilisateur du CRA
+        // Supprimer toutes les lignes qui chevauchent le mois (même condition que le GET)
         const dateStart = `${cra.annee}-${String(cra.mois).padStart(2,'0')}-01`;
         const dateEnd   = `${cra.annee}-${String(cra.mois).padStart(2,'0')}-31`;
         await new Promise((resolve, reject) => {
             database.run(
-                `DELETE FROM astreintes_hno WHERE user_id = ? AND date_debut >= ? AND date_debut <= ?`,
-                [targetUserId, dateStart, dateEnd],
+                `DELETE FROM astreintes_hno WHERE user_id = ? AND date_debut <= ? AND date_fin >= ?`,
+                [targetUserId, dateEnd, dateStart],
                 err => err ? reject(err) : resolve()
             );
         });
