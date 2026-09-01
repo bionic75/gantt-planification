@@ -14919,6 +14919,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'Erreur');
                 const fromGantt = _craSaisieFromGantt;
+                const savedCraId = _craSaisieId;
                 closeCraSaisieModal();
                 _craSaisieFromGantt = false;
                 _ganttAstreinteCtx = null;
@@ -14926,7 +14927,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                     await loadAllAstreintesForPlanning();
                     updateGantt();
                 } else {
-                    await openCraDetail(_craSaisieId);
+                    await openCraDetail(savedCraId);
                 }
             } catch(e) {
                 alert('Erreur lors de l\'enregistrement : ' + e.message);
