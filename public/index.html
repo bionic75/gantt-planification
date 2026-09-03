@@ -1,4 +1,4 @@
-<!-- v1.14.11 -->
+<!-- v1.15.32 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -3339,7 +3339,7 @@
                 <div class="form-group"><label>SAMU</label><select id="editSamu"><option value="">-- Choisir un SAMU --</option></select></div>
                 <div class="form-group"><label>Fonction</label><input type="text" id="editFonction" placeholder="Ex: Médecin..."></div>
             </div>
-            <div class="form-group"><label>ES de rattachement</label><input type="text" id="editEsRattachement" readonly placeholder="Auto-rempli selon le SAMU choisi" style="background-color: #f5f5f5; cursor: not-allowed;"></div>
+            <div class="form-group"><label>ES de rattachement</label><input type="text" id="editEsRattachement" placeholder="Auto-rempli selon le SAMU choisi, ou saisir manuellement"></div>
 
             <!-- Affectations SAMU multiples (expert principal / secondaire) -->
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px;">
@@ -17928,19 +17928,6 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                 }
             });
             
-            // Appliquer également aux champs SAMU
-            const samuFields = [
-                'samu',      // Création ressource
-                'editSamu'   // Édition ressource
-            ];
-            
-            samuFields.forEach(fieldId => {
-                const field = document.getElementById(fieldId);
-                if (field) {
-                    field.addEventListener('input', autoUppercaseNom);
-                    field.addEventListener('blur', autoUppercaseNom);
-                }
-            });
         });
 
         // ==================== NOUVELLES FONCTIONS ====================
