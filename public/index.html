@@ -8044,6 +8044,10 @@
             if (!resources || resources.length === 0) {
                 await loadResources();
             }
+            // Si allLocations est vide, recharger (nécessaire pour le dropdown SAMU et l'autocomplétion)
+            if (!allLocations || allLocations.length === 0) {
+                await loadLocations();
+            }
             const resource = resources.find(r => r.id === id);
             if (!resource) {
                 console.error('[openEditModal] Ressource introuvable pour id=', id, ', resources=', resources.length);
