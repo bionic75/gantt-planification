@@ -9980,14 +9980,19 @@ function buildCraDocumentHtml({ cra, astreintes, signatures, moisNom, esRattache
         <td style="padding:5px 8px;border:1px solid #ddd;white-space:nowrap;">${a.samu||''}</td>
         <td style="padding:5px 8px;border:1px solid #ddd;">${a.objet||''}</td>
     </tr>`).join('');
-    const sigsHtml = signatures.map(s => {
+    // Si la signature expert (rang=1) est absente mais le CRA a été soumis, l'injecter depuis les données CRA
+    let effectiveSigs = [...signatures];
+    if (!effectiveSigs.find(s => s.rang === 1) && cra.submitted_at) {
+        effectiveSigs.unshift({ rang: 1, signer_name: cra.expert_nom || '—', signed_at: cra.submitted_at, ip_address: null, _synthetic: true });
+    }
+    const sigsHtml = effectiveSigs.map(s => {
         const rang = s.rang===1 ? 'Expert' : s.rang===2 ? 'VISA N+1' : 'VISA N+2';
         return `<td style="width:33.33%;padding:14px;border:1px solid #6a1b9a;border-radius:6px;text-align:center;vertical-align:top;">
             <div style="font-size:11px;color:#666;margin-bottom:8px;">${rang}</div>
             <div style="font-weight:bold;color:#2c3e50;">${s.signer_name}</div>
             <div style="font-size:11px;color:#6a1b9a;margin-top:4px;">✅ Signé électroniquement</div>
             <div style="font-size:10px;color:#999;margin-top:4px;">${new Date(s.signed_at).toLocaleString('fr-FR')}</div>
-            <div style="font-size:9px;color:#ccc;margin-top:2px;">IP : ${s.ip_address||'N/A'}</div>
+            ${!s._synthetic ? `<div style="font-size:9px;color:#ccc;margin-top:2px;">IP : ${s.ip_address||'N/A'}</div>` : ''}
         </td>`;
     }).join('');
 
