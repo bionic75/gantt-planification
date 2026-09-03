@@ -120,6 +120,23 @@
         /* Planning astreinte généré - pas de flèches */
         #astreintePlanningTable th::after { content: none; }
         #astreintePlanningActuelContainer th::after { content: none; }
+        /* Tables CRA — flèches gérées via classe sortable/asc/desc */
+        #craSignaturesTable th::after { content: none; }
+        #craArchivesTable th::after { content: none; }
+        #craRhSignesTable th::after { content: none; }
+        #craRhArchivesTable th::after { content: none; }
+        #craSignaturesTable th.sortable::after { content: " ▲▼"; font-size: 10px; opacity: 0.7; }
+        #craSignaturesTable th.sortable.asc::after { content: " ▲"; font-size: 10px; opacity: 1; }
+        #craSignaturesTable th.sortable.desc::after { content: " ▼"; font-size: 10px; opacity: 1; }
+        #craArchivesTable th.sortable::after { content: " ▲▼"; font-size: 10px; opacity: 0.7; }
+        #craArchivesTable th.sortable.asc::after { content: " ▲"; font-size: 10px; opacity: 1; }
+        #craArchivesTable th.sortable.desc::after { content: " ▼"; font-size: 10px; opacity: 1; }
+        #craRhSignesTable th.sortable::after { content: " ▲▼"; font-size: 10px; opacity: 0.7; }
+        #craRhSignesTable th.sortable.asc::after { content: " ▲"; font-size: 10px; opacity: 1; }
+        #craRhSignesTable th.sortable.desc::after { content: " ▼"; font-size: 10px; opacity: 1; }
+        #craRhArchivesTable th.sortable::after { content: " ▲▼"; font-size: 10px; opacity: 0.7; }
+        #craRhArchivesTable th.sortable.asc::after { content: " ▲"; font-size: 10px; opacity: 1; }
+        #craRhArchivesTable th.sortable.desc::after { content: " ▼"; font-size: 10px; opacity: 1; }
         /* Tableau localisations — flèches gérées en JS, supprimer celles du CSS */
         #localisationsTableContainer th::after { content: none; }
         #localisationsTableContainer th { cursor: default; }
@@ -15484,35 +15501,24 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             }).join('');
             const cols = ['Expert','Période','Statut','Soumis le','Visé N1','Visé N2','Diffusé'];
             const thsHtml = cols.map(label =>
-                `<th style="${thStyle}"><span class="cra-th-label">${label}</span><span class="cra-th-icon" style="font-size:10px;margin-left:4px;opacity:0.7;">▲▼</span></th>`
-            ).join('') + `<th style="${thNoSort}">Actions</th>`;
-            container.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;">
+                `<th class="sortable" style="${thStyle}">${label}</th>`
+            ).join('') + `<th class="no-sort" style="${thNoSort}">Actions</th>`;
+            container.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px;">
                 <thead><tr style="background:${hdrColor};color:white;">${thsHtml}</tr></thead>
                 <tbody>${buildRows(data)}</tbody>
             </table>`;
             const table = container.querySelector('table');
             const tbody = table.querySelector('tbody');
             const ths = Array.from(table.querySelectorAll('thead th'));
-            // Fixer les largeurs naturelles pour table-layout:fixed
-            ths.forEach(th => { th.style.width = th.offsetWidth + 'px'; });
             // Tri client-side
             const sortState = { col: -1, asc: true };
             ths.forEach((th, idx) => {
-                if (idx >= 7) return;
-                th.style.cursor = 'col-resize'; // sera affiné par le label
-                const label = th.querySelector('.cra-th-label');
-                const icon  = th.querySelector('.cra-th-icon');
-                label.style.cursor = 'pointer';
-                label.addEventListener('click', () => {
+                if (!th.classList.contains('sortable')) return;
+                th.addEventListener('click', () => {
                     const asc = sortState.col === idx ? !sortState.asc : true;
                     sortState.col = idx; sortState.asc = asc;
-                    ths.forEach((h, i) => {
-                        if (i >= 7) return;
-                        h.querySelector('.cra-th-icon').textContent = '▲▼';
-                        h.querySelector('.cra-th-icon').style.opacity = '0.7';
-                    });
-                    icon.textContent = asc ? '▲' : '▼';
-                    icon.style.opacity = '1';
+                    ths.forEach(h => { h.classList.remove('asc','desc'); });
+                    th.classList.add(asc ? 'asc' : 'desc');
                     const rows = Array.from(tbody.querySelectorAll('tr'));
                     rows.sort((a, b) => {
                         const cellA = a.querySelectorAll('td')[idx];
