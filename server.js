@@ -10426,13 +10426,27 @@ app.get('/api/cra/admin/archives', requireAdminOrRh, (req, res) => {
 });
 
 // Déclarer "rien à déclarer" pour un CRA
-app.post('/api/cra/:id/rien-a-declarer', requireAuth, (req, res) => {
+app.post('/api/cra/:id/rien-a-declarer', requireAuth, async (req, res) => {
     const { id } = req.params;
-    database.run(
-        `UPDATE cra SET rien_a_declarer = 1, statut = 'soumis', submitted_at = datetime('now') WHERE id = ? AND (user_id = ? OR ? = 'admin')`,
-        [id, req.session.userId, req.session.activeProfile],
-        (err) => err ? res.status(500).json({ error: err.message }) : res.json({ success: true })
-    );
+    const now = new Date().toISOString();
+    try {
+        await new Promise((resolve, reject) => {
+            database.run(
+                `UPDATE cra SET rien_a_declarer = 1, statut = 'soumis', submitted_at = ? WHERE id = ? AND (user_id = ? OR ? = 'admin')`,
+                [now, id, req.session.userId, req.session.activeProfile],
+                err => err ? reject(err) : resolve()
+            );
+        });
+        // Insérer la signature rang=1 (expert) — absente sinon dans cra_signatures
+        await new Promise((resolve, reject) => {
+            database.run(
+                `INSERT OR IGNORE INTO cra_signatures (cra_id, rang, signer_user_id, signer_name, signer_email, signed_at, ip_address, user_agent, token_used) VALUES (?, 1, ?, ?, ?, ?, ?, ?, 1)`,
+                [id, req.session.userId, `${req.session.prenom} ${req.session.nom}`, req.session.email || '', now, req.ip, req.headers['user-agent'] || ''],
+                err => err ? reject(err) : resolve()
+            );
+        });
+        res.json({ success: true });
+    } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // Génération PDF CRA avec Puppeteer
