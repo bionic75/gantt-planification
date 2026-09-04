@@ -2675,63 +2675,6 @@
         </div>
     </div>
     
-    <!-- SECTION 5: Ajouter un nouvel utilisateur (repliable) -->
-    <div class="form-section" style="background-color: #e3f2fd; border-left: 4px solid #2196f3;">
-        <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleAdminSection('addUserSection')">
-            <h3 style="color: #1565c0; border-left: none; margin: 0;">
-                <span id="addUserSectionIcon">▶</span> Ajouter un nouvel utilisateur
-            </h3>
-        </div>
-        <div id="addUserSection" style="margin-top: 15px; display: none;">
-            <div class="form-row">
-                <div class="form-group"><label>Nom *</label><input type="text" id="adminUserNom" placeholder="Nom"></div>
-                <div class="form-group"><label>Prénom *</label><input type="text" id="adminUserPrenom" placeholder="Prénom"></div>
-                <div class="form-group"><label>Login (prenom.nom) *</label><input type="text" id="adminUserUsername" placeholder="prenom.nom"></div>
-                <div class="form-group"><label>Email *</label><input type="email" id="adminUserEmail" placeholder="email@example.com"></div>
-            </div>
-            <div class="form-row">
-                <div class="form-group"><label>Téléphone</label><input type="tel" id="adminUserTelephone" placeholder="+33 6 XX XX XX XX"></div>
-                <div class="form-group">
-                    <label>Mot de passe *</label>
-                    <div style="display: flex; gap: 5px;">
-                        <input type="password" id="adminUserPassword" placeholder="Mot de passe" style="flex: 1;">
-                        <button type="button" onclick="generatePassword()" style="padding: 8px 12px; background-color: #9b59b6;" title="Générer un mot de passe">🔑</button>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>Profils * (au moins un requis)</label>
-                    <div class="checkbox-group">
-                        <div class="checkbox-item">
-                            <input type="checkbox" id="adminProfileAdmin">
-                            <label for="adminProfileAdmin">Administrateur</label>
-                        </div>
-                        <div class="checkbox-item">
-                            <input type="checkbox" id="adminProfileExpert">
-                            <label for="adminProfileExpert">Expert Métier</label>
-                        </div>
-                        <div class="checkbox-item">
-                            <input type="checkbox" id="adminProfileUser">
-                            <label for="adminProfileUser">Utilisateur</label>
-                        </div>
-                        <div class="checkbox-item">
-                            <input type="checkbox" id="adminProfileRh">
-                            <label for="adminProfileRh">RH</label>
-                        </div>
-                    </div>
-                </div>
-                <div class="form-group" id="expertResourceGroup" style="display:none;">
-                    <label>Ressource associée (pour Expert Métier)</label>
-                    <select id="adminUserResource">
-                        <option value="">-- Sélectionner une ressource --</option>
-                    </select>
-                </div>
-            </div>
-            <div class="button-group">
-                <button onclick="addUser()">Créer l'utilisateur</button>
-            </div>
-        </div>
-    </div>
-    
     <!-- SECTION: Clés API publiques -->
     <div class="form-section" style="margin-top: 20px; background-color: #e8f5e9; border-left: 4px solid #2e7d32;">
         <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleAdminSection('apiKeysSection'); if(document.getElementById('apiKeysSection').style.display!=='none') loadApiKeys();">
@@ -2769,14 +2712,64 @@
         </div>
     </div>
 
-    <!-- SECTION 6: Liste des utilisateurs (repliable) -->
+    <!-- SECTION 6: Gestion des utilisateurs (repliable) -->
     <div class="form-section" style="margin-top: 20px; background-color: #fce4ec; border-left: 4px solid #e91e63;">
         <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleAdminSection('usersListSection')">
             <h3 style="color: #880e4f; border-left: none; margin: 0;">
-                <span id="usersListSectionIcon">▶</span> Liste des utilisateurs <span id="usersListCount" style="font-size:12px;font-weight:normal;color:#ad1457;"></span>
+                <span id="usersListSectionIcon">▶</span> Gestion des utilisateurs <span id="usersListCount" style="font-size:12px;font-weight:normal;color:#ad1457;"></span>
             </h3>
         </div>
         <div id="usersListSection" style="margin-top: 15px; display: none;">
+            <!-- Formulaire de création d'utilisateur -->
+            <div style="background:#e3f2fd;border:1px solid #90caf9;border-radius:8px;padding:15px;margin-bottom:20px;">
+                <h4 style="color:#1565c0;margin:0 0 12px 0;font-size:14px;">➕ Ajouter un nouvel utilisateur</h4>
+                <div class="form-row">
+                    <div class="form-group"><label>Nom *</label><input type="text" id="adminUserNom" placeholder="Nom"></div>
+                    <div class="form-group"><label>Prénom *</label><input type="text" id="adminUserPrenom" placeholder="Prénom"></div>
+                    <div class="form-group"><label>Login (prenom.nom) *</label><input type="text" id="adminUserUsername" placeholder="prenom.nom"></div>
+                    <div class="form-group"><label>Email *</label><input type="email" id="adminUserEmail" placeholder="email@example.com"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>Téléphone</label><input type="tel" id="adminUserTelephone" placeholder="+33 6 XX XX XX XX"></div>
+                    <div class="form-group">
+                        <label>Mot de passe *</label>
+                        <div style="display: flex; gap: 5px;">
+                            <input type="password" id="adminUserPassword" placeholder="Mot de passe" style="flex: 1;">
+                            <button type="button" onclick="generatePassword()" style="padding: 8px 12px; background-color: #9b59b6;" title="Générer un mot de passe">🔑</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Profils * (au moins un requis)</label>
+                        <div class="checkbox-group">
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="adminProfileAdmin">
+                                <label for="adminProfileAdmin">Administrateur</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="adminProfileExpert">
+                                <label for="adminProfileExpert">Expert Métier</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="adminProfileUser">
+                                <label for="adminProfileUser">Utilisateur</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="adminProfileRh">
+                                <label for="adminProfileRh">RH</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group" id="expertResourceGroup" style="display:none;">
+                        <label>Ressource associée (pour Expert Métier)</label>
+                        <select id="adminUserResource">
+                            <option value="">-- Sélectionner une ressource --</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="button-group">
+                    <button onclick="addUser()">Créer l'utilisateur</button>
+                </div>
+            </div>
             <div class="table-container">
                 <table id="usersTable">
                     <thead>
