@@ -10014,6 +10014,7 @@ function buildCraDocumentHtml({ cra, astreintes, signatures, moisNom, esRattache
         <!-- TITRE DU DOCUMENT -->
         <div style="text-align:center;border:1px solid #1a237e;border-top:none;padding:18px 15px 14px;margin-bottom:20px;">
             <h1 style="color:#1a237e;margin:0;font-size:19px;letter-spacing:1px;">COMPTE-RENDU D'ACTIVITÉ</h1>
+            <div style="color:#1a237e;font-size:12px;font-style:italic;margin:4px 0 6px;">Activités exceptionnelles, astreintes et interventions en heures ou jours non ouvrés</div>
             <h2 style="color:#2c3e50;margin:6px 0 4px;font-size:16px;">${cra.expert_nom} — ${moisNom}</h2>
             ${esInfo}
         </div>
@@ -10022,6 +10023,19 @@ function buildCraDocumentHtml({ cra, astreintes, signatures, moisNom, esRattache
         <div style="background:#e8eaf6;border-left:4px solid #1a237e;padding:12px 16px;border-radius:0 6px 6px 0;margin-bottom:20px;font-size:12px;color:#333;">
             Ce document est transmis dans le cadre de la <strong>convention liant l'Agence du Numérique en Santé (ANS) et ${esRattachement||"l'établissement de santé de rattachement de l'expert"}</strong>, relative à la mise à disposition d'un expert dans le cadre du programme SI-SAMU.<br>
             Il atteste de l'activité réalisée par l'expert pour la période concernée et a été signé électroniquement par les parties habilitées.
+            <br><br>
+            <strong>Pour rappel, le cadre de la convention tripartite relative à ces activités est le suivant :</strong><br><br>
+            Sont dénommées « activités exceptionnelles » les prestations que l'agent mis à disposition peut être amené à réaliser, pour les besoins de l'ANS, en dehors de ses horaires habituels de travail, dans le cadre des missions suivantes et de façon non exhaustives :
+            <ul style="margin:6px 0 6px 16px;padding:0;">
+                <li>Les maintenances programmées des infrastructures et applications ;</li>
+                <li>L'accompagnement des SAMU-SAS dans les phases de post-démarrage des outils SI-SAMU ;</li>
+                <li>Le renfort capacitaire et organisationnel des équipes du support SI-SAMU.</li>
+            </ul>
+            Ces activités exceptionnelles peuvent relever :
+            <ul style="margin:6px 0 0 16px;padding:0;">
+                <li>Soit d'un régime d'astreinte, entendu comme une période durant laquelle l'agent, sans être sur son lieu de travail ni à la disposition permanente et immédiate de l'Agence, a l'obligation d'être en mesure d'intervenir pour effectuer un travail au service des missions visées à l'article 2 ;</li>
+                <li>Soit d'interventions ponctuelles réalisées en heures ou jours non ouvrés, notamment en soirée, la nuit, les samedis, dimanches ou jours fériés, que l'agent soit placé ou non en situation d'astreinte préalable.</li>
+            </ul>
         </div>
 
         <!-- TABLEAU DES ACTIVITÉS -->
