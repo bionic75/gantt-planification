@@ -1,4 +1,4 @@
-// v1.15.52
+// v1.15.53
 import express from 'express';
 console.log('✅ Express importé');
 import cors from 'cors';
@@ -10291,7 +10291,8 @@ app.post('/api/cra/launch', requireAdmin, async (req, res) => {
     try {
         const expert = await new Promise((resolve, reject) => {
             database.get(
-                `SELECT u.id as user_id, u.nom, u.prenom, r.id as resource_id
+                `SELECT u.id as user_id, u.nom, u.prenom, r.id as resource_id,
+                        r.is_mad_volante, r.date_debut as mad_date_debut, r.date_fin_mad
                  FROM users u JOIN resources r ON u.resource_id = r.id
                  WHERE u.id = ? AND u.is_expert = 1`,
                 [user_id], (err, row) => err ? reject(err) : resolve(row)
@@ -10315,6 +10316,81 @@ app.post('/api/cra/launch', requireAdmin, async (req, res) => {
                 err => err ? reject(err) : resolve()
             );
         });
+
+        // Pour les MAD volantes : pré-remplir les astreintes/HNO depuis le planning du mois
+        if (expert.is_mad_volante) {
+            const activityObjets = {
+                '3': 'SAMU (Déploiement)', '4': 'SAMU (Dev. usages)',
+                '5': 'ANS (Déploiement)',  '6': 'ANS (Dev. usages)',
+                '7': 'Qualification',       '8': 'Divers'
+            };
+            const pad = n => String(n).padStart(2, '0');
+            const monthPrefix = `${annee}-${pad(mois)}-`;
+
+            // Lire les affectations du planning pour ce mois
+            const scheduleRows = await new Promise((resolve, reject) => {
+                database.all(
+                    `SELECT date_key, type, value FROM schedule_data
+                     WHERE resource_id = ? AND date_key LIKE ? AND type IN ('activity', 'available', 'localisation')
+                     ORDER BY date_key`,
+                    [expert.resource_id, `${monthPrefix}%`],
+                    (err, rows) => err ? reject(err) : resolve(rows || [])
+                );
+            });
+
+            // Indexer par date_key (e.g. "2026-09-01_AM")
+            const byKey = {};
+            scheduleRows.forEach(r => {
+                if (!byKey[r.date_key]) byKey[r.date_key] = {};
+                byKey[r.date_key][r.type] = r.value;
+            });
+
+            // Regrouper les demi-journées consécutives de même objet en une seule ligne
+            const halfDays = Object.keys(byKey).sort();
+            // Collecter les blocs : {date, period, objet, samu}
+            const blocs = [];
+            for (const dk of halfDays) {
+                const actVal = byKey[dk].activity;
+                const availVal = byKey[dk].available;
+                if (!actVal || parseInt(actVal) < 3) continue;  // pas d'affectation réelle
+                if (availVal !== '2') continue;                  // disponibilité non verte
+                const [datePart, period] = dk.split('_');
+                const objet = activityObjets[actVal] || 'Activité';
+                blocs.push({ date: datePart, period, objet });
+            }
+
+            // Fusionner les demi-journées AM+PM du même jour et même objet en journée complète
+            const merged = [];
+            let i = 0;
+            while (i < blocs.length) {
+                const b = blocs[i];
+                if (b.period === 'AM' && i + 1 < blocs.length) {
+                    const next = blocs[i + 1];
+                    if (next.date === b.date && next.period === 'PM' && next.objet === b.objet) {
+                        merged.push({ date_debut: b.date, date_fin: b.date, heure_debut: '08:00', heure_fin: '18:00', objet: b.objet });
+                        i += 2;
+                        continue;
+                    }
+                }
+                const hd = b.period === 'AM' ? '08:00' : '13:00';
+                const hf = b.period === 'AM' ? '12:00' : '18:00';
+                merged.push({ date_debut: b.date, date_fin: b.date, heure_debut: hd, heure_fin: hf, objet: b.objet });
+                i++;
+            }
+
+            // Insérer dans astreintes_hno
+            for (const entry of merged) {
+                await new Promise((resolve, reject) => {
+                    database.run(
+                        `INSERT INTO astreintes_hno (user_id, type, date_debut, date_fin, heure_debut, heure_fin, objet)
+                         VALUES (?, 'hno', ?, ?, ?, ?, ?)`,
+                        [expert.user_id, entry.date_debut, entry.date_fin, entry.heure_debut, entry.heure_fin, entry.objet],
+                        err => err ? reject(err) : resolve()
+                    );
+                });
+            }
+        }
+
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
