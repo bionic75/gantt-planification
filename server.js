@@ -522,6 +522,21 @@ function initDB() {
                     database.run(`ALTER TABLE resources ADD COLUMN contacts_rh TEXT`);
                     console.log('Migration: Ajout colonne contacts_rh à resources');
                 }
+                const madVolanteCol = columns.find(col => col.name === 'is_mad_volante');
+                if (!madVolanteCol) {
+                    database.run(`ALTER TABLE resources ADD COLUMN is_mad_volante INTEGER DEFAULT 0`);
+                    console.log('Migration: Ajout colonne is_mad_volante à resources');
+                }
+                const dateFinMadCol = columns.find(col => col.name === 'date_fin_mad');
+                if (!dateFinMadCol) {
+                    database.run(`ALTER TABLE resources ADD COLUMN date_fin_mad TEXT`);
+                    console.log('Migration: Ajout colonne date_fin_mad à resources');
+                }
+                const joursMaxMadCol = columns.find(col => col.name === 'jours_max_mad');
+                if (!joursMaxMadCol) {
+                    database.run(`ALTER TABLE resources ADD COLUMN jours_max_mad INTEGER`);
+                    console.log('Migration: Ajout colonne jours_max_mad à resources');
+                }
             }
         });
     }
@@ -2120,16 +2135,24 @@ app.get('/api/resources', requireAuth, (req, res) => {
 });
 
 app.post('/api/resources', requireAdmin, (req, res) => {
-    const { nom, prenom, trigramme, email, telephone, taux, samu, date_debut, date_fin, es_rattachement, fonction, astreinte_volontaire, astreinte_date_activation } = req.body;
+    const { nom, prenom, trigramme, email, telephone, taux, samu, date_debut, date_fin, es_rattachement, fonction, astreinte_volontaire, astreinte_date_activation, is_mad_volante, date_fin_mad, jours_max_mad } = req.body;
 
-    if (!nom || !prenom || !trigramme || !taux || !samu) {
+    if (!nom || !prenom || !trigramme || !samu) {
         return res.status(400).json({ error: 'Champs obligatoires manquants' });
     }
+    if (!is_mad_volante && !taux) {
+        return res.status(400).json({ error: 'Champs obligatoires manquants' });
+    }
+    if (is_mad_volante && (!date_fin_mad || !jours_max_mad)) {
+        return res.status(400).json({ error: 'Date de fin et jours max obligatoires pour une MAD volante' });
+    }
+
+    const tauxVal = is_mad_volante ? 0 : parseFloat(taux);
 
     database.run(
-        `INSERT INTO resources (nom, prenom, trigramme, email, telephone, taux, samu, date_debut, date_fin, es_rattachement, fonction, astreinte_volontaire, astreinte_date_activation)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [nom, prenom, trigramme, email || null, telephone || null, taux, samu, date_debut || null, date_fin || null, es_rattachement || null, fonction || null, astreinte_volontaire ? 1 : 0, astreinte_date_activation || null],
+        `INSERT INTO resources (nom, prenom, trigramme, email, telephone, taux, samu, date_debut, date_fin, es_rattachement, fonction, astreinte_volontaire, astreinte_date_activation, is_mad_volante, date_fin_mad, jours_max_mad)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [nom, prenom, trigramme, email || null, telephone || null, tauxVal, samu, date_debut || null, date_fin || null, es_rattachement || null, fonction || null, astreinte_volontaire ? 1 : 0, astreinte_date_activation || null, is_mad_volante ? 1 : 0, date_fin_mad || null, jours_max_mad || null],
         function(err) {
             if (err) {
                 console.error('Erreur ajout resource:', err);
@@ -2161,14 +2184,15 @@ app.post('/api/resources', requireAdmin, (req, res) => {
 });
 
 app.put('/api/resources/:id', requireAdmin, (req, res) => {
-    const { nom, prenom, trigramme, email, telephone, taux, samu, date_debut, date_fin, es_rattachement, fonction, contacts_rh, astreinte_volontaire, astreinte_date_activation } = req.body;
+    const { nom, prenom, trigramme, email, telephone, taux, samu, date_debut, date_fin, es_rattachement, fonction, contacts_rh, astreinte_volontaire, astreinte_date_activation, is_mad_volante, date_fin_mad, jours_max_mad } = req.body;
     const { id } = req.params;
+    const tauxVal = is_mad_volante ? 0 : (parseFloat(taux) || 0);
 
     database.run(
         `UPDATE resources
-         SET nom = ?, prenom = ?, trigramme = ?, email = ?, telephone = ?, taux = ?, samu = ?, date_debut = ?, date_fin = ?, es_rattachement = ?, fonction = ?, contacts_rh = ?, astreinte_volontaire = ?, astreinte_date_activation = ?
+         SET nom = ?, prenom = ?, trigramme = ?, email = ?, telephone = ?, taux = ?, samu = ?, date_debut = ?, date_fin = ?, es_rattachement = ?, fonction = ?, contacts_rh = ?, astreinte_volontaire = ?, astreinte_date_activation = ?, is_mad_volante = ?, date_fin_mad = ?, jours_max_mad = ?
          WHERE id = ?`,
-        [nom, prenom, trigramme, email || null, telephone || null, taux, samu, date_debut || null, date_fin || null, es_rattachement || null, fonction || null, contacts_rh || null, astreinte_volontaire ? 1 : 0, astreinte_date_activation || null, id],
+        [nom, prenom, trigramme, email || null, telephone || null, tauxVal, samu, date_debut || null, date_fin || null, es_rattachement || null, fonction || null, contacts_rh || null, astreinte_volontaire ? 1 : 0, astreinte_date_activation || null, is_mad_volante ? 1 : 0, date_fin_mad || null, jours_max_mad || null, id],
         (err) => {
             if (err) {
                 console.error('Erreur update resource:', err);

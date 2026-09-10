@@ -630,7 +630,14 @@
                     <div class="form-group"><label>Nom *</label><input type="text" id="nom" placeholder="Nom"></div>
                     <div class="form-group"><label>Prénom *</label><input type="text" id="prenom" placeholder="Prénom"></div>
                     <div class="form-group"><label>Trigramme *</label><input type="text" id="trigramme" placeholder="XXX" maxlength="3"></div>
-                    <div class="form-group"><label>Taux de MAD (%) *</label><input type="number" id="taux" placeholder="100" min="0" max="100"></div>
+                    <div class="form-group" id="addTauxGroup"><label>Taux de MAD (%) *</label><input type="number" id="taux" placeholder="100" min="0" max="100"></div>
+                    <div class="form-group" id="addDateFinMadGroup" style="display:none;"><label>Date de fin MAD *</label><input type="date" id="dateFinMad"></div>
+                    <div class="form-group" id="addJoursMaxGroup" style="display:none;"><label>Jours max sur la période *</label><input type="number" id="joursMaxMad" placeholder="Ex: 20" min="1"></div>
+                </div>
+                <!-- Case MAD volante -->
+                <div style="margin-bottom:10px;padding:10px 14px;background:#f3e5f5;border:1px solid #ce93d8;border-radius:6px;display:flex;align-items:center;gap:10px;">
+                    <input type="checkbox" id="addMadVolante" onchange="toggleMadVolanteFields('add')" style="width:16px;height:16px;cursor:pointer;">
+                    <label for="addMadVolante" style="font-size:13px;font-weight:bold;color:#6a1b9a;cursor:pointer;margin:0;">🪁 MAD volante <span style="font-weight:normal;color:#888;font-size:12px;">(contrat à durée déterminée avec un nombre de jours maximum)</span></label>
                 </div>
                 <div class="form-row">
                     <div class="form-group"><label>SAMU de rattachement *</label><select id="samu"><option value="">-- Choisir un SAMU --</option></select></div>
@@ -3333,6 +3340,16 @@
                 <div class="form-group"><label>Fonction</label><input type="text" id="editFonction" placeholder="Ex: Médecin..."></div>
             </div>
             <div class="form-group"><label>ES de rattachement</label><input type="text" id="editEsRattachement" placeholder="Auto-rempli selon le SAMU choisi, ou saisir manuellement"></div>
+
+            <!-- MAD volante -->
+            <div style="margin-top:10px;padding:10px 14px;background:#f3e5f5;border:1px solid #ce93d8;border-radius:6px;display:flex;align-items:center;gap:10px;">
+                <input type="checkbox" id="editMadVolante" onchange="toggleMadVolanteFields('edit')" style="width:16px;height:16px;cursor:pointer;">
+                <label for="editMadVolante" style="font-size:13px;font-weight:bold;color:#6a1b9a;cursor:pointer;margin:0;">🪁 MAD volante <span style="font-weight:normal;color:#888;font-size:12px;">(contrat à durée déterminée avec un nombre de jours maximum)</span></label>
+            </div>
+            <div id="editMadVolanteFields" style="display:none;margin-top:10px;grid-template-columns:1fr 1fr;gap:15px;">
+                <div class="form-group"><label>Date de fin MAD *</label><input type="date" id="editDateFinMad"></div>
+                <div class="form-group"><label>Jours max sur la période *</label><input type="number" id="editJoursMaxMad" placeholder="Ex: 20" min="1"></div>
+            </div>
 
             <!-- Affectations SAMU multiples (expert principal / secondaire) -->
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px;">
@@ -7904,11 +7921,32 @@
             if (!checked) document.getElementById('addAstreinteDate').value = '';
         }
 
+        function toggleMadVolanteFields(prefix) {
+            const checked = document.getElementById(`${prefix}MadVolante`).checked;
+            if (prefix === 'add') {
+                document.getElementById('addTauxGroup').style.display = checked ? 'none' : '';
+                document.getElementById('addDateFinMadGroup').style.display = checked ? '' : 'none';
+                document.getElementById('addJoursMaxGroup').style.display = checked ? '' : 'none';
+                if (!checked) {
+                    document.getElementById('dateFinMad').value = '';
+                    document.getElementById('joursMaxMad').value = '';
+                } else {
+                    document.getElementById('taux').value = '';
+                }
+            } else {
+                const fieldsDiv = document.getElementById('editMadVolanteFields');
+                fieldsDiv.style.display = checked ? 'grid' : 'none';
+            }
+        }
+
         async function addResource() {
             const nom = document.getElementById('nom').value.trim();
             const prenom = document.getElementById('prenom').value.trim();
             const trigramme = document.getElementById('trigramme').value.trim().toUpperCase();
+            const madVolante = document.getElementById('addMadVolante').checked;
             const taux = document.getElementById('taux').value;
+            const dateFinMad = document.getElementById('dateFinMad').value;
+            const joursMaxMad = document.getElementById('joursMaxMad').value;
             const samu = document.getElementById('samu').value.trim();
             const dateDebut = document.getElementById('dateDebut').value;
             const esRattachement = document.getElementById('esRattachement').value.trim();
@@ -7916,8 +7954,16 @@
             const astreinteVolontaire = document.getElementById('addAstreinteVolontaire').checked;
             const astreinteDate = document.getElementById('addAstreinteDate').value;
 
-            if (!nom || !prenom || !trigramme || !taux || !samu || !dateDebut) {
+            if (!nom || !prenom || !trigramme || !samu || !dateDebut) {
                 alert('Remplissez tous les champs obligatoires (*)');
+                return;
+            }
+            if (!madVolante && !taux) {
+                alert('Remplissez le taux de MAD');
+                return;
+            }
+            if (madVolante && (!dateFinMad || !joursMaxMad)) {
+                alert('Remplissez la date de fin et les jours max pour une MAD volante');
                 return;
             }
             if (astreinteVolontaire && !astreinteDate) {
@@ -7934,13 +7980,16 @@
                         nom, prenom, trigramme,
                         email: null,
                         telephone: null,
-                        taux: parseFloat(taux), samu, actif: 1,
+                        taux: madVolante ? 0 : parseFloat(taux), samu, actif: 1,
                         date_debut: dateDebut,
                         date_fin: null,
                         es_rattachement: esRattachement || null,
                         fonction: fonction || null,
                         astreinte_volontaire: astreinteVolontaire ? 1 : 0,
-                        astreinte_date_activation: astreinteDate || null
+                        astreinte_date_activation: astreinteDate || null,
+                        is_mad_volante: madVolante ? 1 : 0,
+                        date_fin_mad: dateFinMad || null,
+                        jours_max_mad: joursMaxMad ? parseInt(joursMaxMad) : null
                     })
                 });
                 
@@ -7999,7 +8048,7 @@
                     <td>${r.nom}</td>
                     <td>${r.prenom}</td>
                     <td>${r.trigramme}</td>
-                    <td>${r.taux}%</td>
+                    <td>${r.is_mad_volante ? `<span style="background:#f3e5f5;color:#6a1b9a;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:bold;white-space:nowrap;">🪁 MAD volante<br><span style="font-weight:normal;font-size:10px;">${r.jours_max_mad ? r.jours_max_mad + ' j max' : ''}</span></span>` : `${r.taux}%`}</td>
                     <td>${r.samu}</td>
                     <td>${buildSamuAssignmentsBadgesHtml(r.id, 'principal')}</td>
                     <td>${buildSamuAssignmentsBadgesHtml(r.id, 'secondaire')}</td>
@@ -8063,6 +8112,13 @@
             document.getElementById('editEsRattachement').value = resource.es_rattachement || '';
             document.getElementById('editFonction').value = resource.fonction || '';
             document.getElementById('editContactsRh').value = resource.contacts_rh || '';
+            // Pré-remplir MAD volante
+            const madVolanteChk = document.getElementById('editMadVolante');
+            madVolanteChk.checked = !!resource.is_mad_volante;
+            document.getElementById('editDateFinMad').value = resource.date_fin_mad || '';
+            document.getElementById('editJoursMaxMad').value = resource.jours_max_mad || '';
+            document.getElementById('editMadVolanteFields').style.display = resource.is_mad_volante ? 'grid' : 'none';
+
             // Pré-remplir astreinte
             const astrChk = document.getElementById('editAstreinteVolontaire');
             astrChk.checked = !!resource.astreinte_volontaire;
@@ -8531,7 +8587,10 @@
                         fonction: document.getElementById('editFonction').value || null,
                         contacts_rh: document.getElementById('editContactsRh').value.trim() || null,
                         astreinte_volontaire: document.getElementById('editAstreinteVolontaire').checked,
-                        astreinte_date_activation: document.getElementById('editAstreinteDate').value || null
+                        astreinte_date_activation: document.getElementById('editAstreinteDate').value || null,
+                        is_mad_volante: document.getElementById('editMadVolante').checked ? 1 : 0,
+                        date_fin_mad: document.getElementById('editDateFinMad').value || null,
+                        jours_max_mad: document.getElementById('editJoursMaxMad').value ? parseInt(document.getElementById('editJoursMaxMad').value) : null
                     })
                 });
                 if (!response.ok) {
