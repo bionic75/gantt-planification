@@ -1,4 +1,4 @@
-<!-- v1.15.34 -->
+<!-- v1.15.35 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -9049,19 +9049,21 @@
         }
 
         function countMadVolanteConsumedDays(resourceId, dateDebut, dateFin) {
-            // Count all half-days with an affectation (activity != '1') within the MAD period
+            // Consumed when disponibilité='2' (vert) AND affectation not in ['1','2'] (affectation réelle)
             let consumed = 0;
             const start = dateDebut ? new Date(dateDebut) : null;
             const end = dateFin ? new Date(dateFin) : null;
             for (const key of Object.keys(scheduleData)) {
-                // Keys: "<id>_activity_<date>_<period>"
                 const m = key.match(/^(\d+)_activity_(\d{4}-\d{2}-\d{2})_(AM|PM)$/);
                 if (!m) continue;
                 if (parseInt(m[1]) !== resourceId) continue;
                 const d = new Date(m[2]);
                 if (start && d < start) continue;
                 if (end && d > end) continue;
-                if (scheduleData[key] && scheduleData[key] !== '1') consumed += 0.5;
+                const actValue = scheduleData[key];
+                if (!actValue || actValue === '1' || actValue === '2') continue;
+                const availKey = `${resourceId}_available_${m[2]}_${m[3]}`;
+                if (scheduleData[availKey] === '2') consumed += 0.5;
             }
             return consumed;
         }
@@ -9939,14 +9941,14 @@
                                             : `<span style="color: white; font-weight: bold; font-size: 14px;">${trigramme}</span>`
                                         }
                                     </div>
-                                    ${isMadVolante ? `<span style="position:absolute;bottom:-4px;right:-4px;font-size:13px;line-height:1;" title="MAD volante">🪁</span>` : ''}
+                                    ${isMadVolante ? `<span style="position:absolute;bottom:-5px;right:-6px;line-height:1;" title="MAD volante"><svg width="18" height="10" viewBox="0 0 18 10" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 7 C6 7 3 5 1 2 C2 4 4 8 9 9 C14 8 16 4 17 2 C15 5 12 7 9 7Z" fill="#9c27b0"/><path d="M9 7 C7 6 5 4 4 2 C5 3 7 5 9 5 C11 5 13 3 14 2 C13 4 11 6 9 7Z" fill="#ce93d8"/></svg></span>` : ''}
                                 </div>
                                 <!-- Informations -->
                                 <div style="text-align: left;">
                                     <strong>${resource.nom.toUpperCase()} ${resource.prenom}</strong><br>
                                     <small>${resource.trigramme}</small><br>
                                     ${isMadVolante
-                                        ? `<small style="font-size:10px;color:${madRemaining <= madJoursMax * 0.2 ? '#e53935' : madRemaining <= madJoursMax * 0.5 ? '#fb8c00' : '#6a1b9a'};">🪁 ${madRemaining} j restants / ${madJoursMax} j max</small>`
+                                        ? `<small style="font-size:10px;color:${madRemaining <= madJoursMax * 0.2 ? '#e53935' : madRemaining <= madJoursMax * 0.5 ? '#fb8c00' : '#6a1b9a'};">${madRemaining} j restants / ${madJoursMax} j max</small>`
                                         : `<small style="font-size: 10px; color: #bdc3c7;">Jours: ${dispoCount}/${expectedDays}</small>`
                                     }
                                 </div>
