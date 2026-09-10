@@ -1,4 +1,4 @@
-<!-- v1.15.35 -->
+<!-- v1.15.36 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -8048,7 +8048,7 @@
                     <td>${r.nom}</td>
                     <td>${r.prenom}</td>
                     <td>${r.trigramme}</td>
-                    <td>${r.is_mad_volante ? `<span style="background:#f3e5f5;color:#6a1b9a;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:bold;white-space:nowrap;">🪁 MAD volante<br><span style="font-weight:normal;font-size:10px;">${r.jours_max_mad ? r.jours_max_mad + ' j max' : ''}</span></span>` : `${r.taux}%`}</td>
+                    <td>${r.is_mad_volante ? `<span style="background:#f3e5f5;color:#6a1b9a;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:bold;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;"><svg width="16" height="9" viewBox="0 0 18 10" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 7 C6 7 3 5 1 2 C2 4 4 8 9 9 C14 8 16 4 17 2 C15 5 12 7 9 7Z" fill="#9c27b0"/><path d="M9 7 C7 6 5 4 4 2 C5 3 7 5 9 5 C11 5 13 3 14 2 C13 4 11 6 9 7Z" fill="#ce93d8"/></svg> MAD volante<br><span style="font-weight:normal;font-size:10px;">${r.jours_max_mad ? r.jours_max_mad + ' j max' : ''}</span></span>` : `${r.taux}%`}</td>
                     <td>${r.samu}</td>
                     <td>${buildSamuAssignmentsBadgesHtml(r.id, 'principal')}</td>
                     <td>${buildSamuAssignmentsBadgesHtml(r.id, 'secondaire')}</td>
