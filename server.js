@@ -1,4 +1,4 @@
-// v1.15.32
+// v1.15.33
 import express from 'express';
 console.log('✅ Express importé');
 import cors from 'cors';
@@ -6706,6 +6706,21 @@ database.run(`
     else console.log('✅ Table custom_event_participants créée ou existante');
 });
 
+database.run(`
+    CREATE TABLE IF NOT EXISTS custom_event_external_participants (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        event_id INTEGER NOT NULL,
+        nom TEXT,
+        prenom TEXT,
+        email TEXT,
+        added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (event_id) REFERENCES custom_events(id) ON DELETE CASCADE
+    )
+`, (err) => {
+    if (err) console.error('Erreur création table custom_event_external_participants:', err);
+    else console.log('✅ Table custom_event_external_participants créée ou existante');
+});
+
 // ========== SUIVI DES ÉVÉNEMENTS (REPORTING) ==========
 
 app.get('/api/custom-events/search', requireAuth, async (req, res) => {
@@ -6821,6 +6836,8 @@ app.get('/api/custom-events', requireAdmin, async (req, res) => {
         });
         
         // Charger les participants pour chaque événement
+        const allEventIds = events.map(e => e.id);
+        const externalByEvent = await loadExternalParticipants(allEventIds);
         for (const event of events) {
             try {
                 const participants = await new Promise((resolve, reject) => {
@@ -6835,11 +6852,13 @@ app.get('/api/custom-events', requireAdmin, async (req, res) => {
                     );
                 });
                 event.participants = participants;
+                event.external_participants = externalByEvent[event.id] || [];
             } catch (e) {
                 event.participants = [];
+                event.external_participants = [];
             }
         }
-        
+
         res.json({ events });
     } catch (error) {
         console.error('Erreur liste événements personnalisés:', error);
@@ -6924,6 +6943,12 @@ app.get('/api/my-custom-events', requireAuth, async (req, res) => {
             } catch(e) { event.participants = []; }
         }
 
+        const allEventIds = events.map(e => e.id);
+        const externalByEvent = await loadExternalParticipants(allEventIds);
+        for (const event of events) {
+            event.external_participants = externalByEvent[event.id] || [];
+        }
+
         res.json({ events, isAdmin, userId });
     } catch (error) {
         console.error('Erreur liste mes événements personnalisés:', error);
@@ -6931,18 +6956,51 @@ app.get('/api/my-custom-events', requireAuth, async (req, res) => {
     }
 });
 
+// Helper : sauvegarder participants externes d'un événement
+async function saveExternalParticipants(eventId, externalParticipants) {
+    await new Promise((resolve, reject) => {
+        database.run(`DELETE FROM custom_event_external_participants WHERE event_id = ?`, [eventId], err => err ? reject(err) : resolve());
+    });
+    if (Array.isArray(externalParticipants)) {
+        for (const ep of externalParticipants) {
+            if (!ep.nom && !ep.email) continue;
+            await new Promise((resolve, reject) => {
+                database.run(`INSERT INTO custom_event_external_participants (event_id, nom, prenom, email) VALUES (?, ?, ?, ?)`,
+                    [eventId, ep.nom || null, ep.prenom || null, ep.email || null], err => err ? reject(err) : resolve());
+            });
+        }
+    }
+}
+
+// Helper : charger participants externes d'une liste d'événements
+async function loadExternalParticipants(eventIds) {
+    if (!eventIds.length) return {};
+    const rows = await new Promise((resolve, reject) => {
+        database.all(
+            `SELECT event_id, id, nom, prenom, email FROM custom_event_external_participants WHERE event_id IN (${eventIds.map(() => '?').join(',')}) ORDER BY nom, prenom`,
+            eventIds, (err, rows) => err ? reject(err) : resolve(rows || [])
+        );
+    });
+    const byEvent = {};
+    for (const r of rows) {
+        if (!byEvent[r.event_id]) byEvent[r.event_id] = [];
+        byEvent[r.event_id].push({ external: true, ext_id: r.id, nom: r.nom, prenom: r.prenom, email: r.email });
+    }
+    return byEvent;
+}
+
 // Ajouter un événement personnalisé (admin via interface admin)
 app.post('/api/custom-events', requireAdmin, async (req, res) => {
     try {
-        const { startDate, endDate, label, config, participants, period, location_id } = req.body;
+        const { startDate, endDate, label, config, participants, external_participants, period, location_id } = req.body;
         const createdBy = req.session.userId;
-        
+
         if (!startDate || !label) {
             return res.status(400).json({ error: 'Date de début et libellé requis' });
         }
 
         const finalPeriod = (period && startDate === (endDate || startDate)) ? period : 'FULL';
-        
+
         const eventId = await new Promise((resolve, reject) => {
             database.run(
                 `INSERT INTO custom_events (label, start_date, end_date, config, created_by, period, location_id) VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -6950,7 +7008,7 @@ app.post('/api/custom-events', requireAdmin, async (req, res) => {
                 function(err) { if (err) reject(err); else resolve(this.lastID); }
             );
         });
-        
+
         if (participants && Array.isArray(participants) && participants.length > 0) {
             for (const userId of participants) {
                 try {
@@ -6961,7 +7019,8 @@ app.post('/api/custom-events', requireAdmin, async (req, res) => {
                 } catch (e) { console.error(`❌ Erreur ajout participant ${userId}:`, e.message); }
             }
         }
-        
+        await saveExternalParticipants(eventId, external_participants || []);
+
         console.log(`✅ Événement admin ajouté (ID: ${eventId}, period: ${finalPeriod})`);
         res.json({ success: true, eventId });
     } catch (error) {
@@ -6973,7 +7032,7 @@ app.post('/api/custom-events', requireAdmin, async (req, res) => {
 // Ajouter un événement personnalisé (utilisateurs/experts via pop-up planification)
 app.post('/api/my-custom-events', requireAuth, async (req, res) => {
     try {
-        const { startDate, endDate, label, config, participants, period,
+        const { startDate, endDate, label, config, participants, external_participants, period,
                 location_id, needs_resources, resources_count, notify_user_ids, grist } = req.body;
         const createdBy = req.session.userId;
 
@@ -7009,6 +7068,7 @@ app.post('/api/my-custom-events', requireAuth, async (req, res) => {
                 }
             }
         }
+        await saveExternalParticipants(eventId, external_participants || []);
 
         // --- Récupérer localisation et créateur (communs aux deux blocs email) ---
         let locLabel = '';
@@ -7238,7 +7298,7 @@ app.post('/api/my-custom-events/:id/join', requireAuth, async (req, res) => {
 app.put('/api/custom-events/:id', requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
-        const { startDate, endDate, label, config, createdBy, participants, period, location_id, grist } = req.body;
+        const { startDate, endDate, label, config, createdBy, participants, external_participants, period, location_id, grist } = req.body;
 
         const finalPeriod = (period && startDate === (endDate || startDate)) ? period : 'FULL';
 
@@ -7276,7 +7336,8 @@ app.put('/api/custom-events/:id', requireAdmin, async (req, res) => {
                 }
             }
         }
-        
+        await saveExternalParticipants(id, external_participants || []);
+
         res.json({ success: true });
     } catch (error) {
         console.error('Erreur modification événement personnalisé:', error);
@@ -7288,7 +7349,7 @@ app.put('/api/custom-events/:id', requireAdmin, async (req, res) => {
 app.put('/api/my-custom-events/:id', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
-        const { startDate, endDate, label, config, participants, period, location_id, grist } = req.body;
+        const { startDate, endDate, label, config, participants, external_participants, period, location_id, grist } = req.body;
         const userId = req.session.userId;
         const isAdmin = req.session.activeProfile === 'admin';
         
@@ -7329,7 +7390,8 @@ app.put('/api/my-custom-events/:id', requireAuth, async (req, res) => {
                 }
             }
         }
-        
+        await saveExternalParticipants(id, external_participants || []);
+
         res.json({ success: true });
     } catch (error) {
         console.error('Erreur modification mon événement personnalisé:', error);
