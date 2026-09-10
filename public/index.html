@@ -1,4 +1,4 @@
-<!-- v1.15.32 -->
+<!-- v1.15.33 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -16450,7 +16450,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
         }
         
         // ========== GESTION PARTICIPANTS ADMIN (copie exacte de la pop-up Planification) ==========
-        let adminEventSelectedParticipants = []; // [{id, nom, prenom, email}]
+        let adminEventSelectedParticipants = []; // [{id, nom, prenom, email, external?}]
         
         function getAdminEventParticipantInitials(prenom, nom) {
             return ((prenom || '')[0] || '').toUpperCase() + ((nom || '')[0] || '').toUpperCase();
@@ -16468,40 +16468,58 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             const input = document.getElementById('adminEventParticipantInput');
             if (!container || !input) return;
             container.querySelectorAll('.participant-tag').forEach(t => t.remove());
-            adminEventSelectedParticipants.forEach(p => {
+            adminEventSelectedParticipants.forEach((p, idx) => {
                 const tag = document.createElement('span');
                 tag.className = 'participant-tag';
-                const displayName = `${p.prenom || ''} ${(p.nom || '').toUpperCase()}`.trim();
-                const initials = getAdminEventParticipantInitials(p.prenom, p.nom);
-                const color = getAdminEventParticipantColor(displayName);
-                tag.innerHTML = `<span style="display:inline-flex;align-items:center;gap:4px;background:#f0f0f0;border:1px solid #ddd;border-radius:15px;padding:2px 8px 2px 2px;font-size:11px;white-space:nowrap;">
-                    <span style="width:20px;height:20px;border-radius:50%;background:${color};color:white;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:bold;">${initials}</span>
+                const displayName = `${p.prenom || ''} ${(p.nom || '').toUpperCase()}`.trim() || p.email || '?';
+                const initials = p.external ? '✉' : getAdminEventParticipantInitials(p.prenom, p.nom);
+                const color = p.external ? '#78909c' : getAdminEventParticipantColor(displayName);
+                const bg = p.external ? '#eceff1' : '#f0f0f0';
+                const border = p.external ? '#b0bec5' : '#ddd';
+                const title = p.external ? (p.email ? `Invité externe — ${p.email}` : 'Invité externe') : '';
+                tag.innerHTML = `<span title="${title}" style="display:inline-flex;align-items:center;gap:4px;background:${bg};border:1px solid ${border};border-radius:15px;padding:2px 8px 2px 2px;font-size:11px;white-space:nowrap;">
+                    <span style="width:20px;height:20px;border-radius:50%;background:${color};color:white;display:inline-flex;align-items:center;justify-content:center;font-size:${p.external?'10px':'9px'};font-weight:bold;">${initials}</span>
                     <span style="color:#333;">${displayName}</span>
-                    <span onclick="removeAdminEventParticipant(${p.id})" style="cursor:pointer;color:#999;font-size:14px;line-height:1;margin-left:2px;" title="Retirer">&times;</span>
+                    <span onclick="removeAdminEventParticipant(${idx})" style="cursor:pointer;color:#999;font-size:14px;line-height:1;margin-left:2px;" title="Retirer">&times;</span>
                 </span>`;
                 container.insertBefore(tag, input);
             });
         }
-        
-        function removeAdminEventParticipant(userId) {
-            adminEventSelectedParticipants = adminEventSelectedParticipants.filter(p => p.id !== userId);
+
+        function removeAdminEventParticipant(idx) {
+            adminEventSelectedParticipants.splice(idx, 1);
             renderAdminEventParticipantTags();
         }
-        
+
         function addAdminEventParticipant(user) {
-            if (adminEventSelectedParticipants.some(p => p.id === user.id)) return;
-            adminEventSelectedParticipants.push({ id: user.id, nom: user.nom, prenom: user.prenom, email: user.email });
+            if (!user.external && adminEventSelectedParticipants.some(p => !p.external && p.id === user.id)) return;
+            adminEventSelectedParticipants.push(user);
             renderAdminEventParticipantTags();
             const input = document.getElementById('adminEventParticipantInput');
             if (input) { input.value = ''; input.focus(); }
             document.getElementById('adminEventParticipantDropdown').style.display = 'none';
         }
-        
+
+        function addAdminEventExternalParticipant(rawInput) {
+            const q = (rawInput || '').trim();
+            if (!q) return;
+            // Détecter si c'est un email
+            const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(q);
+            const entry = isEmail
+                ? { external: true, nom: '', prenom: '', email: q }
+                : { external: true, nom: q, prenom: '', email: '' };
+            adminEventSelectedParticipants.push(entry);
+            renderAdminEventParticipantTags();
+            const input = document.getElementById('adminEventParticipantInput');
+            if (input) { input.value = ''; input.focus(); }
+            document.getElementById('adminEventParticipantDropdown').style.display = 'none';
+        }
+
         function filterAdminEventParticipants(query) {
             const dropdown = document.getElementById('adminEventParticipantDropdown');
             if (!dropdown) return;
             const q = (query || '').toLowerCase().trim();
-            const selectedIds = new Set(adminEventSelectedParticipants.map(p => p.id));
+            const selectedIds = new Set(adminEventSelectedParticipants.filter(p => !p.external).map(p => p.id));
             const filtered = users.filter(u => {
                 if (selectedIds.has(u.id)) return false;
                 if (!q) return true;
@@ -16509,15 +16527,15 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                 const email = (u.email || '').toLowerCase();
                 return fullName.includes(q) || email.includes(q);
             }).slice(0, 8);
-            if (filtered.length === 0) { dropdown.style.display = 'none'; return; }
-            dropdown.innerHTML = filtered.map(u => {
+
+            let html = filtered.map(u => {
                 const displayName = `${u.prenom || ''} ${(u.nom || '').toUpperCase()}`.trim() || u.username;
                 const email = u.email || '';
                 const initials = getAdminEventParticipantInitials(u.prenom, u.nom);
                 const color = getAdminEventParticipantColor(displayName);
                 const isExpert = u.is_expert ? '<span style="background:#ffe0b2;color:#e65100;padding:1px 6px;border-radius:8px;font-size:9px;margin-left:6px;">Expert</span>' : '';
-                return `<div onclick='addAdminEventParticipant(${JSON.stringify({id:u.id,nom:u.nom||"",prenom:u.prenom||"",email:u.email||""})})' 
-                    style="display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;border-bottom:1px solid #f5f5f5;transition:background 0.15s;" 
+                return `<div onclick='addAdminEventParticipant(${JSON.stringify({id:u.id,nom:u.nom||"",prenom:u.prenom||"",email:u.email||""})})'
+                    style="display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;border-bottom:1px solid #f5f5f5;transition:background 0.15s;"
                     onmouseenter="this.style.background='#f5f5f5'" onmouseleave="this.style.background='white'">
                     <span style="width:32px;height:32px;border-radius:50%;background:${color};color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:bold;flex-shrink:0;">${initials}</span>
                     <div style="flex:1;min-width:0;">
@@ -16526,10 +16544,31 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                     </div>
                 </div>`;
             }).join('');
+
+            if (q) {
+                const safeQ = q.replace(/'/g, "\\'");
+                html += `<div onclick="addAdminEventExternalParticipant('${safeQ}')"
+                    style="display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;border-top:1px dashed #e0e0e0;background:#f9f9f9;transition:background 0.15s;"
+                    onmouseenter="this.style.background='#eceff1'" onmouseleave="this.style.background='#f9f9f9'">
+                    <span style="width:32px;height:32px;border-radius:50%;background:#78909c;color:white;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">✉</span>
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-size:12px;font-weight:500;color:#546e7a;">➕ Ajouter comme invité externe</div>
+                        <div style="font-size:11px;color:#78909c;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${q}</div>
+                    </div>
+                </div>`;
+            }
+
+            if (!html) { dropdown.style.display = 'none'; return; }
+            dropdown.innerHTML = html;
             dropdown.style.display = 'block';
         }
-        
+
         function handleAdminEventParticipantKeydown(e) {
+            if (e.key === 'Enter' && e.target.value.trim()) {
+                addAdminEventExternalParticipant(e.target.value);
+                e.preventDefault();
+                return;
+            }
             if (e.key === 'Backspace' && e.target.value === '' && adminEventSelectedParticipants.length > 0) {
                 adminEventSelectedParticipants.pop();
                 renderAdminEventParticipantTags();
@@ -16578,7 +16617,8 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                         endDate: finalEndDate,
                         label,
                         config: { bgColor, textColor, borderColor },
-                        participants: adminEventSelectedParticipants.map(p => p.id),
+                        participants: adminEventSelectedParticipants.filter(p => !p.external).map(p => p.id),
+                        external_participants: adminEventSelectedParticipants.filter(p => p.external).map(p => ({nom:p.nom,prenom:p.prenom,email:p.email})),
                         period,
                         location_id: location_id || null,
                         grist
@@ -16911,9 +16951,10 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             }
             
             // Charger les participants existants
-            editEventSelectedParticipants = (event.participants || []).map(p => ({
-                id: p.user_id, nom: p.nom, prenom: p.prenom, email: p.email
-            }));
+            editEventSelectedParticipants = [
+                ...(event.participants || []).map(p => ({ id: p.user_id, nom: p.nom, prenom: p.prenom, email: p.email })),
+                ...(event.external_participants || []).map(p => ({ external: true, nom: p.nom, prenom: p.prenom, email: p.email }))
+            ];
             renderEditEventParticipantTags();
             
             // Gestion du champ créateur (uniquement pour les admins)
@@ -17017,40 +17058,57 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             const input = document.getElementById('editEventParticipantInput');
             if (!container || !input) return;
             container.querySelectorAll('.participant-tag').forEach(t => t.remove());
-            editEventSelectedParticipants.forEach(p => {
+            editEventSelectedParticipants.forEach((p, idx) => {
                 const tag = document.createElement('span');
                 tag.className = 'participant-tag';
-                const displayName = `${p.prenom || ''} ${(p.nom || '').toUpperCase()}`.trim();
-                const initials = getEditEventParticipantInitials(p.prenom, p.nom);
-                const color = getEditEventParticipantColor(displayName);
-                tag.innerHTML = `<span style="display:inline-flex;align-items:center;gap:4px;background:#f0f0f0;border:1px solid #ddd;border-radius:15px;padding:2px 8px 2px 2px;font-size:11px;white-space:nowrap;">
-                    <span style="width:20px;height:20px;border-radius:50%;background:${color};color:white;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:bold;">${initials}</span>
+                const displayName = `${p.prenom || ''} ${(p.nom || '').toUpperCase()}`.trim() || p.email || '?';
+                const initials = p.external ? '✉' : getEditEventParticipantInitials(p.prenom, p.nom);
+                const color = p.external ? '#78909c' : getEditEventParticipantColor(displayName);
+                const bg = p.external ? '#eceff1' : '#f0f0f0';
+                const border = p.external ? '#b0bec5' : '#ddd';
+                const title = p.external ? (p.email ? `Invité externe — ${p.email}` : 'Invité externe') : '';
+                tag.innerHTML = `<span title="${title}" style="display:inline-flex;align-items:center;gap:4px;background:${bg};border:1px solid ${border};border-radius:15px;padding:2px 8px 2px 2px;font-size:11px;white-space:nowrap;">
+                    <span style="width:20px;height:20px;border-radius:50%;background:${color};color:white;display:inline-flex;align-items:center;justify-content:center;font-size:${p.external?'10px':'9px'};font-weight:bold;">${initials}</span>
                     <span style="color:#333;">${displayName}</span>
-                    <span onclick="removeEditEventParticipant(${p.id})" style="cursor:pointer;color:#999;font-size:14px;line-height:1;margin-left:2px;" title="Retirer">&times;</span>
+                    <span onclick="removeEditEventParticipant(${idx})" style="cursor:pointer;color:#999;font-size:14px;line-height:1;margin-left:2px;" title="Retirer">&times;</span>
                 </span>`;
                 container.insertBefore(tag, input);
             });
         }
-        
-        function removeEditEventParticipant(userId) {
-            editEventSelectedParticipants = editEventSelectedParticipants.filter(p => p.id !== userId);
+
+        function removeEditEventParticipant(idx) {
+            editEventSelectedParticipants.splice(idx, 1);
             renderEditEventParticipantTags();
         }
-        
+
         function addEditEventParticipant(user) {
-            if (editEventSelectedParticipants.some(p => p.id === user.id)) return;
-            editEventSelectedParticipants.push({ id: user.id, nom: user.nom, prenom: user.prenom, email: user.email });
+            if (!user.external && editEventSelectedParticipants.some(p => !p.external && p.id === user.id)) return;
+            editEventSelectedParticipants.push(user);
             renderEditEventParticipantTags();
             const input = document.getElementById('editEventParticipantInput');
             if (input) { input.value = ''; input.focus(); }
             document.getElementById('editEventParticipantDropdown').style.display = 'none';
         }
-        
+
+        function addEditEventExternalParticipant(rawInput) {
+            const q = (rawInput || '').trim();
+            if (!q) return;
+            const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(q);
+            const entry = isEmail
+                ? { external: true, nom: '', prenom: '', email: q }
+                : { external: true, nom: q, prenom: '', email: '' };
+            editEventSelectedParticipants.push(entry);
+            renderEditEventParticipantTags();
+            const input = document.getElementById('editEventParticipantInput');
+            if (input) { input.value = ''; input.focus(); }
+            document.getElementById('editEventParticipantDropdown').style.display = 'none';
+        }
+
         function filterEditEventParticipants(query) {
             const dropdown = document.getElementById('editEventParticipantDropdown');
             if (!dropdown) return;
             const q = (query || '').toLowerCase().trim();
-            const selectedIds = new Set(editEventSelectedParticipants.map(p => p.id));
+            const selectedIds = new Set(editEventSelectedParticipants.filter(p => !p.external).map(p => p.id));
             const filtered = users.filter(u => {
                 if (selectedIds.has(u.id)) return false;
                 if (!q) return true;
@@ -17058,15 +17116,15 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                 const email = (u.email || '').toLowerCase();
                 return fullName.includes(q) || email.includes(q);
             }).slice(0, 8);
-            if (filtered.length === 0) { dropdown.style.display = 'none'; return; }
-            dropdown.innerHTML = filtered.map(u => {
+
+            let html = filtered.map(u => {
                 const displayName = `${u.prenom || ''} ${(u.nom || '').toUpperCase()}`.trim() || u.username;
                 const email = u.email || '';
                 const initials = getEditEventParticipantInitials(u.prenom, u.nom);
                 const color = getEditEventParticipantColor(displayName);
                 const isExpert = u.is_expert ? '<span style="background:#ffe0b2;color:#e65100;padding:1px 6px;border-radius:8px;font-size:9px;margin-left:6px;">Expert</span>' : '';
-                return `<div onclick='addEditEventParticipant(${JSON.stringify({id:u.id,nom:u.nom||"",prenom:u.prenom||"",email:u.email||""})})' 
-                    style="display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;border-bottom:1px solid #f5f5f5;transition:background 0.15s;" 
+                return `<div onclick='addEditEventParticipant(${JSON.stringify({id:u.id,nom:u.nom||"",prenom:u.prenom||"",email:u.email||""})})'
+                    style="display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;border-bottom:1px solid #f5f5f5;transition:background 0.15s;"
                     onmouseenter="this.style.background='#f5f5f5'" onmouseleave="this.style.background='white'">
                     <span style="width:32px;height:32px;border-radius:50%;background:${color};color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:bold;flex-shrink:0;">${initials}</span>
                     <div style="flex:1;min-width:0;">
@@ -17075,10 +17133,31 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                     </div>
                 </div>`;
             }).join('');
+
+            if (q) {
+                const safeQ = q.replace(/'/g, "\\'");
+                html += `<div onclick="addEditEventExternalParticipant('${safeQ}')"
+                    style="display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;border-top:1px dashed #e0e0e0;background:#f9f9f9;transition:background 0.15s;"
+                    onmouseenter="this.style.background='#eceff1'" onmouseleave="this.style.background='#f9f9f9'">
+                    <span style="width:32px;height:32px;border-radius:50%;background:#78909c;color:white;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">✉</span>
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-size:12px;font-weight:500;color:#546e7a;">➕ Ajouter comme invité externe</div>
+                        <div style="font-size:11px;color:#78909c;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${q}</div>
+                    </div>
+                </div>`;
+            }
+
+            if (!html) { dropdown.style.display = 'none'; return; }
+            dropdown.innerHTML = html;
             dropdown.style.display = 'block';
         }
-        
+
         function handleEditEventParticipantKeydown(e) {
+            if (e.key === 'Enter' && e.target.value.trim()) {
+                addEditEventExternalParticipant(e.target.value);
+                e.preventDefault();
+                return;
+            }
             if (e.key === 'Backspace' && e.target.value === '' && editEventSelectedParticipants.length > 0) {
                 editEventSelectedParticipants.pop();
                 renderEditEventParticipantTags();
@@ -17122,7 +17201,8 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                 endDate: finalEndDate,
                 label,
                 config: { bgColor, textColor, borderColor },
-                participants: editEventSelectedParticipants.map(p => p.id),
+                participants: editEventSelectedParticipants.filter(p => !p.external).map(p => p.id),
+                external_participants: editEventSelectedParticipants.filter(p => p.external).map(p => ({nom:p.nom,prenom:p.prenom,email:p.email})),
                 period,
                 location_id: location_id || null,
                 grist
@@ -23915,31 +23995,34 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             const input = document.getElementById('myEventParticipantInput');
             if (!container || !input) return;
             container.querySelectorAll('.participant-tag').forEach(t => t.remove());
-            myEventSelectedParticipants.forEach(p => {
+            myEventSelectedParticipants.forEach((p, idx) => {
                 const tag = document.createElement('span');
                 tag.className = 'participant-tag';
-                const displayName = `${p.prenom || ''} ${(p.nom || '').toUpperCase()}`.trim();
-                const initials = getParticipantInitials(p.prenom, p.nom);
-                const color = getParticipantColor(displayName);
-                tag.innerHTML = `<span style="display:inline-flex;align-items:center;gap:4px;background:#f0f0f0;border:1px solid #ddd;border-radius:15px;padding:2px 8px 2px 2px;font-size:11px;white-space:nowrap;">
-                    <span style="width:20px;height:20px;border-radius:50%;background:${color};color:white;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:bold;">${initials}</span>
+                const displayName = `${p.prenom || ''} ${(p.nom || '').toUpperCase()}`.trim() || p.email || '?';
+                const initials = p.external ? '✉' : getParticipantInitials(p.prenom, p.nom);
+                const color = p.external ? '#78909c' : getParticipantColor(displayName);
+                const bg = p.external ? '#eceff1' : '#f0f0f0';
+                const border = p.external ? '#b0bec5' : '#ddd';
+                const title = p.external ? (p.email ? `Invité externe — ${p.email}` : 'Invité externe') : '';
+                tag.innerHTML = `<span title="${title}" style="display:inline-flex;align-items:center;gap:4px;background:${bg};border:1px solid ${border};border-radius:15px;padding:2px 8px 2px 2px;font-size:11px;white-space:nowrap;">
+                    <span style="width:20px;height:20px;border-radius:50%;background:${color};color:white;display:inline-flex;align-items:center;justify-content:center;font-size:${p.external?'10px':'9px'};font-weight:bold;">${initials}</span>
                     <span style="color:#333;">${displayName}</span>
-                    <span onclick="removeMyEventParticipant(${p.id})" style="cursor:pointer;color:#999;font-size:14px;line-height:1;margin-left:2px;" title="Retirer">&times;</span>
+                    <span onclick="removeMyEventParticipant(${idx})" style="cursor:pointer;color:#999;font-size:14px;line-height:1;margin-left:2px;" title="Retirer">&times;</span>
                 </span>`;
                 container.insertBefore(tag, input);
             });
         }
-        
-        function removeMyEventParticipant(userId) {
-            myEventSelectedParticipants = myEventSelectedParticipants.filter(p => p.id !== userId);
+
+        function removeMyEventParticipant(idx) {
+            myEventSelectedParticipants.splice(idx, 1);
             renderMyEventParticipantTags();
             const cntEl = document.getElementById('myEventParticipantCount');
             if (cntEl) cntEl.textContent = myEventSelectedParticipants.length;
         }
-        
+
         function addMyEventParticipant(user) {
-            if (myEventSelectedParticipants.some(p => p.id === user.id)) return;
-            myEventSelectedParticipants.push({ id: user.id, nom: user.nom, prenom: user.prenom, email: user.email });
+            if (!user.external && myEventSelectedParticipants.some(p => !p.external && p.id === user.id)) return;
+            myEventSelectedParticipants.push(user);
             renderMyEventParticipantTags();
             const input = document.getElementById('myEventParticipantInput');
             if (input) { input.value = ''; input.focus(); }
@@ -23947,12 +24030,28 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             const cntEl = document.getElementById('myEventParticipantCount');
             if (cntEl) cntEl.textContent = myEventSelectedParticipants.length;
         }
-        
+
+        function addMyEventExternalParticipant(rawInput) {
+            const q = (rawInput || '').trim();
+            if (!q) return;
+            const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(q);
+            const entry = isEmail
+                ? { external: true, nom: '', prenom: '', email: q }
+                : { external: true, nom: q, prenom: '', email: '' };
+            myEventSelectedParticipants.push(entry);
+            renderMyEventParticipantTags();
+            const input = document.getElementById('myEventParticipantInput');
+            if (input) { input.value = ''; input.focus(); }
+            document.getElementById('myEventParticipantDropdown').style.display = 'none';
+            const cntEl = document.getElementById('myEventParticipantCount');
+            if (cntEl) cntEl.textContent = myEventSelectedParticipants.length;
+        }
+
         function filterMyEventParticipants(query) {
             const dropdown = document.getElementById('myEventParticipantDropdown');
             if (!dropdown) return;
             const q = (query || '').toLowerCase().trim();
-            const selectedIds = new Set(myEventSelectedParticipants.map(p => p.id));
+            const selectedIds = new Set(myEventSelectedParticipants.filter(p => !p.external).map(p => p.id));
             const filtered = users.filter(u => {
                 if (selectedIds.has(u.id)) return false;
                 if (!q) return true;
@@ -23960,15 +24059,15 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 const email = (u.email || '').toLowerCase();
                 return fullName.includes(q) || email.includes(q);
             }).slice(0, 8);
-            if (filtered.length === 0) { dropdown.style.display = 'none'; return; }
-            dropdown.innerHTML = filtered.map(u => {
+
+            let html = filtered.map(u => {
                 const displayName = `${u.prenom || ''} ${(u.nom || '').toUpperCase()}`.trim() || u.username;
                 const email = u.email || '';
                 const initials = getParticipantInitials(u.prenom, u.nom);
                 const color = getParticipantColor(displayName);
                 const isExpert = u.is_expert ? '<span style="background:#ffe0b2;color:#e65100;padding:1px 6px;border-radius:8px;font-size:9px;margin-left:6px;">Expert</span>' : '';
-                return `<div onclick='addMyEventParticipant(${JSON.stringify({id:u.id,nom:u.nom||"",prenom:u.prenom||"",email:u.email||""})})' 
-                    style="display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;border-bottom:1px solid #f5f5f5;transition:background 0.15s;" 
+                return `<div onclick='addMyEventParticipant(${JSON.stringify({id:u.id,nom:u.nom||"",prenom:u.prenom||"",email:u.email||""})})'
+                    style="display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;border-bottom:1px solid #f5f5f5;transition:background 0.15s;"
                     onmouseenter="this.style.background='#f5f5f5'" onmouseleave="this.style.background='white'">
                     <span style="width:32px;height:32px;border-radius:50%;background:${color};color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:bold;flex-shrink:0;">${initials}</span>
                     <div style="flex:1;min-width:0;">
@@ -23977,10 +24076,31 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     </div>
                 </div>`;
             }).join('');
+
+            if (q) {
+                const safeQ = q.replace(/'/g, "\\'");
+                html += `<div onclick="addMyEventExternalParticipant('${safeQ}')"
+                    style="display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;border-top:1px dashed #e0e0e0;background:#f9f9f9;transition:background 0.15s;"
+                    onmouseenter="this.style.background='#eceff1'" onmouseleave="this.style.background='#f9f9f9'">
+                    <span style="width:32px;height:32px;border-radius:50%;background:#78909c;color:white;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">✉</span>
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-size:12px;font-weight:500;color:#546e7a;">➕ Ajouter comme invité externe</div>
+                        <div style="font-size:11px;color:#78909c;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${q}</div>
+                    </div>
+                </div>`;
+            }
+
+            if (!html) { dropdown.style.display = 'none'; return; }
+            dropdown.innerHTML = html;
             dropdown.style.display = 'block';
         }
-        
+
         function handleParticipantKeydown(e) {
+            if (e.key === 'Enter' && e.target.value.trim()) {
+                addMyEventExternalParticipant(e.target.value);
+                e.preventDefault();
+                return;
+            }
             if (e.key === 'Backspace' && e.target.value === '' && myEventSelectedParticipants.length > 0) {
                 myEventSelectedParticipants.pop();
                 renderMyEventParticipantTags();
@@ -24451,7 +24571,8 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                         endDate: finalEndDate,
                         label,
                         config: { bgColor, textColor, borderColor },
-                        participants: myEventSelectedParticipants.map(p => p.id),
+                        participants: myEventSelectedParticipants.filter(p => !p.external).map(p => p.id),
+                        external_participants: myEventSelectedParticipants.filter(p => p.external).map(p => ({nom:p.nom,prenom:p.prenom,email:p.email})),
                         period,
                         location_id: location_id || null,
                         needs_resources,
@@ -24515,9 +24636,10 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             if (gristCb) gristCb.checked = !!event.grist;
 
             // Charger les participants existants
-            myEventSelectedParticipants = (event.participants || []).map(p => ({
-                id: p.user_id, nom: p.nom, prenom: p.prenom, email: p.email
-            }));
+            myEventSelectedParticipants = [
+                ...(event.participants || []).map(p => ({ id: p.user_id, nom: p.nom, prenom: p.prenom, email: p.email })),
+                ...(event.external_participants || []).map(p => ({ external: true, nom: p.nom, prenom: p.prenom, email: p.email }))
+            ];
             renderMyEventParticipantTags();
 
             editingMyEventId = eventId;
@@ -24591,7 +24713,8 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 endDate: finalEndDate,
                 label,
                 config: { bgColor, textColor, borderColor },
-                participants: myEventSelectedParticipants.map(p => p.id),
+                participants: myEventSelectedParticipants.filter(p => !p.external).map(p => p.id),
+                external_participants: myEventSelectedParticipants.filter(p => p.external).map(p => ({nom:p.nom,prenom:p.prenom,email:p.email})),
                 period,
                 location_id: location_id || null,
                 grist
