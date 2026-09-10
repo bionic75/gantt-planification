@@ -1,4 +1,4 @@
-<!-- v1.15.54 -->
+<!-- v1.15.56 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -3045,6 +3045,7 @@
                 <div>
                     <label style="display: block; margin-bottom: 4px; font-weight: bold; color: #333; font-size: 12px;">Type *</label>
                     <select id="craSaisieType" style="width: 100%; padding: 8px; border: 1px solid #b39ddb; border-radius: 4px; font-size: 13px;">
+                        <option value="activite_courante">Activité courante</option>
                         <option value="astreinte">Astreinte</option>
                         <option value="hno">Travail HNO</option>
                     </select>
@@ -5081,8 +5082,8 @@
         }
         
         function buildAstreinteItem(a) {
-            const typeLabel = a.type === 'astreinte' ? '🔔 Astreinte' : '⏰ HNO';
-            const typeColor = a.type === 'astreinte' ? '#ff9800' : '#2196f3';
+            const typeLabel = a.type === 'astreinte' ? '🔔 Astreinte' : a.type === 'activite_courante' ? '✅ Activité courante' : '⏰ HNO';
+            const typeColor = a.type === 'astreinte' ? '#ff9800' : a.type === 'activite_courante' ? '#2e7d32' : '#2196f3';
             const dateDebut = formatDateFr(a.date_debut);
             const dateFin = formatDateFr(a.date_fin);
             const periode = dateDebut === dateFin ? dateDebut : `${dateDebut} - ${dateFin}`;
@@ -8744,12 +8745,16 @@
             if (list.length === 0) return '';
             const hasAstr = list.some(a => a.type === 'astreinte');
             const hasHno  = list.some(a => a.type === 'hno');
+            const hasAct  = list.some(a => a.type === 'activite_courante');
+            const typeIcon = a => a.type === 'astreinte' ? '🔔 Astreinte' : a.type === 'activite_courante' ? '✅ Activité courante' : '⏰ HNO';
             const tooltip = list.map(a =>
-                `${a.type === 'astreinte' ? '🔔 Astreinte' : '⏰ HNO'}${a.heures ? ' ' + a.heures : ''}: ${a.objet || ''}${a.samu ? ' | ' + a.samu : ''}`
+                `${typeIcon(a)}${a.heures ? ' ' + a.heures : ''}: ${a.objet || ''}${a.samu ? ' | ' + a.samu : ''}`
             ).join('\n').replace(/"/g, '&quot;');
-            if (hasAstr && hasHno) {
-                return `<span class="astreinte-badge" style="white-space:pre;line-height:1.3;padding:1px 3px;" title="${tooltip}">ASTR\nHNO</span>`;
+            const kinds = [hasAstr && 'ASTR', hasHno && 'HNO'].filter(Boolean);
+            if (kinds.length > 1) {
+                return `<span class="astreinte-badge" style="white-space:pre;line-height:1.3;padding:1px 3px;" title="${tooltip}">${kinds.join('\n')}</span>`;
             }
+            if (!hasAstr && !hasHno) return '';
             const label = hasAstr ? 'ASTR' : 'HNO';
             return `<span class="astreinte-badge" title="${tooltip}">${label}</span>`;
         }
@@ -8831,7 +8836,7 @@
                             itemsEl.appendChild(mkItem('➕', 'Ajouter une astreinte / HNO', '#6a1b9a', () => ganttContextMenuAction('add')));
                         } else {
                             cellAstreintes.forEach((a, i) => {
-                                const label = a.type === 'astreinte' ? '🔔 Astreinte' : '⏰ HNO';
+                                const label = a.type === 'astreinte' ? '🔔 Astreinte' : a.type === 'activite_courante' ? '✅ Activité courante' : '⏰ HNO';
                                 const short = (a.objet || '').substring(0, 22) + ((a.objet||'').length > 22 ? '…' : '');
                                 if (i > 0) itemsEl.appendChild(mkSep());
                                 itemsEl.appendChild(mkItem('✏️', `Modifier — ${label} ${short}`, '#1565c0', () => ganttContextMenuAction('edit', a)));
@@ -8874,7 +8879,7 @@
         }
 
         async function deleteGanttAstreinte(entry, data) {
-            const label = entry.type === 'astreinte' ? 'Astreinte' : 'HNO';
+            const label = entry.type === 'astreinte' ? 'Astreinte' : entry.type === 'activite_courante' ? 'Activité courante' : 'HNO';
             if (!confirm(`Supprimer cette ${label} ?\n${entry.objet || ''} | ${entry.samu || ''}\n${entry.date_debut} → ${entry.date_fin}`)) return;
             try {
                 const res = await fetch(`${API_URL}/astreintes-hno/${entry.id}`, { method: 'DELETE', credentials: 'include' });
@@ -14269,7 +14274,7 @@
 
                 const lignesHtml = (cra.astreintes_hno||[]).length
                     ? (cra.astreintes_hno||[]).map((a,i) => `<tr class="${i%2?'odd':''}">
-                        <td class="type-${a.type}">${a.type==='astreinte'?'🔔 Astreinte':'🌙 HNO'}</td>
+                        <td class="type-${a.type}">${a.type==='astreinte'?'🔔 Astreinte':a.type==='activite_courante'?'✅ Activité courante':'🌙 HNO'}</td>
                         <td>${a.date_debut ? new Date(a.date_debut).toLocaleDateString('fr-FR') : ''}</td>
                         <td>${a.date_fin ? new Date(a.date_fin).toLocaleDateString('fr-FR') : ''}</td>
                         <td>${a.heure_debut||''} ${a.heure_fin?'→ '+a.heure_fin:''}</td>
@@ -14781,7 +14786,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                     </tr></thead>
                     <tbody>${lignes.map((l,i)=>`
                         <tr style="background:${i%2?'#f9f4ff':'white'};border-bottom:1px solid #e1bee7;">
-                            <td style="padding:6px 8px;"><span style="padding:2px 6px;border-radius:4px;background:${l.type==='astreinte'?'#ff980022':'#2196f322'};color:${l.type==='astreinte'?'#e65100':'#1565c0'};font-weight:bold;font-size:11px;">${l.type==='astreinte'?'🔔 Astreinte':'🌙 HNO'}</span></td>
+                            <td style="padding:6px 8px;"><span style="padding:2px 6px;border-radius:4px;background:${l.type==='astreinte'?'#ff980022':l.type==='activite_courante'?'#2e7d3222':'#2196f322'};color:${l.type==='astreinte'?'#e65100':l.type==='activite_courante'?'#2e7d32':'#1565c0'};font-weight:bold;font-size:11px;">${l.type==='astreinte'?'🔔 Astreinte':l.type==='activite_courante'?'✅ Activité courante':'🌙 HNO'}</span></td>
                             <td style="padding:6px 8px;">${formatDateFRClient(l.date_debut)}</td>
                             <td style="padding:6px 8px;">${formatDateFRClient(l.date_fin)}</td>
                             <td style="padding:6px 8px;">${l.heure_debut||''} ${l.heure_fin?'→ '+l.heure_fin:''}</td>
@@ -14974,7 +14979,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             const skipIdx = _craSaisieEditIdx !== null ? _craSaisieEditIdx : -1;
             const conflict = findAstreinteConflict(ligne, skipIdx);
             if (conflict) {
-                const typeLabel = type === 'astreinte' ? 'Astreinte' : 'HNO';
+                const typeLabel = type === 'astreinte' ? 'Astreinte' : type === 'activite_courante' ? 'Activité courante' : 'HNO';
                 const conflictDates = conflict.date_debut === conflict.date_fin
                     ? formatDateFRClient(conflict.date_debut)
                     : `${formatDateFRClient(conflict.date_debut)} → ${formatDateFRClient(conflict.date_fin)}`;
@@ -15008,7 +15013,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             }
             container.innerHTML = _craSaisieLines.map((l, i) => `
                 <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:${i%2?'#f9f4ff':'white'};border:1px solid #e1bee7;border-radius:6px;margin-bottom:6px;font-size:12px;">
-                    <span style="padding:2px 8px;border-radius:4px;background:${l.type==='astreinte'?'#ff980022':'#2196f322'};color:${l.type==='astreinte'?'#e65100':'#1565c0'};font-weight:bold;white-space:nowrap;">${l.type==='astreinte'?'🔔 Astreinte':'🌙 HNO'}</span>
+                    <span style="padding:2px 8px;border-radius:4px;background:${l.type==='astreinte'?'#ff980022':l.type==='activite_courante'?'#2e7d3222':'#2196f322'};color:${l.type==='astreinte'?'#e65100':l.type==='activite_courante'?'#2e7d32':'#1565c0'};font-weight:bold;white-space:nowrap;">${l.type==='astreinte'?'🔔 Astreinte':l.type==='activite_courante'?'✅ Activité courante':'🌙 HNO'}</span>
                     <span style="white-space:nowrap;">${formatDateFRClient(l.date_debut)}${l.date_fin!==l.date_debut?' → '+formatDateFRClient(l.date_fin):''}</span>
                     <span style="white-space:nowrap;color:#666;">${l.heure_debut} → ${l.heure_fin}</span>
                     <span style="white-space:nowrap;color:#6a1b9a;font-weight:bold;">${l.samu}</span>
@@ -15445,7 +15450,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                 const lignes = cra.astreintes_hno || [];
                 const lignesHtml = lignes.length ? lignes.map((l, i) => `
                     <tr style="background:${i%2?'#f9f4ff':'white'};">
-                        <td style="padding:6px 8px;"><span style="font-weight:bold;color:${l.type==='astreinte'?'#e65100':'#1565c0'};">${l.type==='astreinte'?'🔔 Astreinte':'🌙 HNO'}</span></td>
+                        <td style="padding:6px 8px;"><span style="font-weight:bold;color:${l.type==='astreinte'?'#e65100':l.type==='activite_courante'?'#2e7d32':'#1565c0'};">${l.type==='astreinte'?'🔔 Astreinte':l.type==='activite_courante'?'✅ Activité courante':'🌙 HNO'}</span></td>
                         <td style="padding:6px 8px;">${l.date_debut ? new Date(l.date_debut).toLocaleDateString('fr-FR') : ''}</td>
                         <td style="padding:6px 8px;">${l.date_fin ? new Date(l.date_fin).toLocaleDateString('fr-FR') : ''}</td>
                         <td style="padding:6px 8px;">${l.heure_debut||''} ${l.heure_fin?'→ '+l.heure_fin:''}</td>
@@ -20740,8 +20745,12 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             modalMapSelectedParticipants.forEach((p, i) => {
                 const tag = document.createElement('span');
                 tag.className = 'modal-map-tag';
-                tag.style.cssText = 'background:#3f51b5;color:white;border-radius:10px;padding:2px 8px;font-size:11px;display:flex;align-items:center;gap:4px;white-space:nowrap;';
-                tag.innerHTML = `${p.prenom} ${(p.nom||'').toUpperCase()} <span onclick="removeModalMapParticipant(${i})" style="cursor:pointer;font-size:14px;line-height:1;">&times;</span>`;
+                const label = p.external
+                    ? (p.email || `${p.prenom||''} ${(p.nom||'').toUpperCase()}`.trim() || '?')
+                    : `${p.prenom||''} ${(p.nom||'').toUpperCase()}`.trim();
+                const bg = p.external ? '#78909c' : '#3f51b5';
+                tag.style.cssText = `background:${bg};color:white;border-radius:10px;padding:2px 8px;font-size:11px;display:flex;align-items:center;gap:4px;white-space:nowrap;`;
+                tag.innerHTML = `${p.external ? '✉ ' : ''}${label} <span onclick="removeModalMapParticipant(${i})" style="cursor:pointer;font-size:14px;line-height:1;">&times;</span>`;
                 container.insertBefore(tag, input);
             });
         }
@@ -20751,9 +20760,9 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             renderModalMapParticipantTags();
         }
 
-        function addModalMapParticipant(user) {
-            if (modalMapSelectedParticipants.find(p => p.id === user.id)) return;
-            modalMapSelectedParticipants.push(user);
+        function addModalMapParticipant(participant) {
+            if (!participant.external && modalMapSelectedParticipants.find(p => !p.external && p.id === participant.id)) return;
+            modalMapSelectedParticipants.push(participant);
             renderModalMapParticipantTags();
             document.getElementById('modalMapParticipantInput').value = '';
             document.getElementById('modalMapParticipantDropdown').style.display = 'none';
@@ -20763,16 +20772,48 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             const dropdown = document.getElementById('modalMapParticipantDropdown');
             if (!dropdown) return;
             if (!query || query.length < 1) { dropdown.style.display = 'none'; return; }
-            const q = query.toLowerCase();
-            const matched = users.filter(u => {
-                const full = `${u.prenom||''} ${u.nom||''} ${u.email||''}`.toLowerCase();
-                return full.includes(q) && !modalMapSelectedParticipants.find(p => p.id === u.id);
-            }).slice(0, 8);
-            if (matched.length === 0) { dropdown.style.display = 'none'; return; }
-            dropdown.innerHTML = matched.map(u => {
+            const q = query.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+            const normStr = s => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+            // Utilisateurs enregistrés
+            const matchedUsers = users.filter(u => {
+                const full = normStr(`${u.prenom||''} ${u.nom||''} ${u.email||''}`);
+                return full.includes(q) && !modalMapSelectedParticipants.find(p => !p.external && p.id === u.id);
+            }).slice(0, 6);
+
+            // Invités externes depuis les événements de la carte (dédupliqués)
+            const extSeen = new Set();
+            const matchedExternal = [];
+            (_lastMapEvents || []).forEach(ev => {
+                (ev.external_participants || []).forEach(p => {
+                    const label = p.email || `${p.prenom||''} ${p.nom||''}`.trim();
+                    if (!label || extSeen.has(label)) return;
+                    if (!normStr(label).includes(q) && !normStr(`${p.prenom||''} ${p.nom||''}`).includes(q)) return;
+                    if (modalMapSelectedParticipants.find(s => s.external && (s.email === p.email || (s.nom === p.nom && s.prenom === p.prenom)))) return;
+                    extSeen.add(label);
+                    matchedExternal.push(p);
+                });
+            });
+
+            let html = '';
+            html += matchedUsers.map(u => {
                 const name = `${u.prenom||''} ${(u.nom||'').toUpperCase()}`.trim() || u.username;
-                return `<div onclick='addModalMapParticipant(${JSON.stringify({id:u.id,nom:u.nom||"",prenom:u.prenom||""})})' style="padding:8px 12px;cursor:pointer;font-size:12px;" onmouseover="this.style.background='#f5f5f5'" onmouseleave="this.style.background='white'">${name}</div>`;
+                return `<div onclick='addModalMapParticipant(${JSON.stringify({id:u.id,nom:u.nom||"",prenom:u.prenom||""})})' style="padding:8px 12px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='#f5f5f5'" onmouseleave="this.style.background='white'">
+                    <span style="width:22px;height:22px;border-radius:50%;background:#3f51b5;color:white;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:bold;flex-shrink:0;">${((u.prenom||'')[0]||'').toUpperCase()}${((u.nom||'')[0]||'').toUpperCase()}</span>
+                    ${name}
+                </div>`;
             }).join('');
+            html += matchedExternal.slice(0, 4).map(p => {
+                const label = p.email || `${p.prenom||''} ${(p.nom||'').toUpperCase()}`.trim() || '?';
+                const payload = JSON.stringify({external:true,nom:p.nom||'',prenom:p.prenom||'',email:p.email||''});
+                return `<div onclick='addModalMapParticipant(${payload})' style="padding:8px 12px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:8px;border-top:1px dashed #e0e0e0;" onmouseover="this.style.background='#eceff1'" onmouseleave="this.style.background='white'">
+                    <span style="width:22px;height:22px;border-radius:50%;background:#78909c;color:white;display:inline-flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;">✉</span>
+                    <span style="color:#546e7a;">${label}</span>
+                </div>`;
+            }).join('');
+
+            if (!html) { dropdown.style.display = 'none'; return; }
+            dropdown.innerHTML = html;
             dropdown.style.display = 'block';
         }
 
@@ -21274,11 +21315,12 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             
             if (!astreinte) return '';
             
+            if (astreinte.type === 'activite_courante') return '';
             const label = astreinte.type === 'astreinte' ? 'ASTR' : 'HNO';
-            const tooltip = astreinte.type === 'astreinte' 
+            const tooltip = astreinte.type === 'astreinte'
                 ? `Astreinte: ${astreinte.objet || ''} - ${astreinte.samu || ''}`
                 : `HNO: ${astreinte.objet || ''} - ${astreinte.heures || ''} - ${astreinte.samu || ''}`;
-            
+
             // Pastille en position absolue en haut à droite (même style que planning global)
             return `<span title="${tooltip.replace(/"/g, '&quot;')}" style="position: absolute; top: 1px; right: 1px; background: #ffeb3b; color: #d32f2f; padding: 1px 3px; border-radius: 8px; font-size: 7px; font-weight: bold; border: 1px solid #333; box-shadow: 0 1px 2px rgba(0,0,0,0.3); cursor: help; line-height: 1; z-index: 1;">${label}</span>`;
         }
