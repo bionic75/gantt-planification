@@ -1,4 +1,4 @@
-<!-- v1.15.51 -->
+<!-- v1.15.52 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -24393,8 +24393,18 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             const partFilterVal = (document.getElementById('myEventsParticipantFilter')?.value || '').toLowerCase().trim();
             const _labelFilterVal = (document.getElementById('myEventsLabelFilter')?.value || '');
             const normalize = s => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+            const templateLabelsForFilter = Object.values(eventTemplates).map(t => t.label).filter(Boolean);
             const filteredEvents = myEvents.filter(ev => {
-                if (_labelFilterVal && ev.label !== _labelFilterVal) return false;
+                if (_labelFilterVal) {
+                    if (_labelFilterVal === '__AUTRES__') {
+                        // AUTRES : label ne correspond à aucun template (accent-insensitive)
+                        const evNorm = normalize(ev.label);
+                        if (templateLabelsForFilter.some(tl => normalize(tl) === evNorm)) return false;
+                    } else {
+                        // Matching accent-insensitive sur le label sélectionné
+                        if (normalize(ev.label) !== normalize(_labelFilterVal)) return false;
+                    }
+                }
                 if (locFilterVal && (ev.location_id || '').toString() !== locFilterVal) return false;
                 if (partFilterVal) {
                     const nq = normalize(partFilterVal);
@@ -24429,12 +24439,11 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 `<option value="${l.id}"${locFilterVal === l.id.toString() ? ' selected' : ''}>${l.libelle_court || l.libelle_long}</option>`
             ).join('');
             const labelFilterVal = (document.getElementById('myEventsLabelFilter')?.value || '');
-            // Labels réels des événements (dédupliqués + triés, accent-insensitive)
-            const realLabels = [...new Set(myEvents.map(e => e.label).filter(Boolean))]
-                .sort((a, b) => a.normalize('NFD').localeCompare(b.normalize('NFD'), 'fr', { sensitivity: 'base' }));
-            const templateLabelOptions = realLabels
+            // Liste fixe des templates (ordre d'affichage des boutons), + AUTRES
+            const templateLabels = Object.values(eventTemplates).map(t => t.label).filter(Boolean);
+            const templateLabelOptions = templateLabels
                 .map(l => `<option value="${l}"${labelFilterVal === l ? ' selected' : ''}>${l}</option>`)
-                .join('');
+                .join('') + `<option value="__AUTRES__"${labelFilterVal === '__AUTRES__' ? ' selected' : ''}>— AUTRES —</option>`;
             let html = `<div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; padding: 10px; background: #f5f5f5; border-radius: 8px; align-items: flex-end;">
                 <span style="font-size: 12px; color: #666; display: flex; align-items: center;">Trier / Filtrer par :</span>
                 <button onclick="toggleMyEventsSortYear()" style="background: #ff9800; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;">
