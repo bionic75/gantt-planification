@@ -1,4 +1,4 @@
-<!-- v1.15.50 -->
+<!-- v1.15.51 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -9269,10 +9269,19 @@
             const key = period ? `${resourceId}_available_${dateKey}_${period}` : `${resourceId}_available_${dateKey}`;
             const actKey = period ? `${resourceId}_activity_${dateKey}_${period}` : `${resourceId}_activity_${dateKey}`;
             const locKey = period ? `${resourceId}_localisation_${dateKey}_${period}` : `${resourceId}_localisation_${dateKey}`;
-            
+
             const currentValue = scheduleData[key] || '1';
             let newActivityValue = '1';
-            
+
+            // Bloquer si MAD volante et quota atteint (uniquement au moment de passer en disponible)
+            if (currentValue === '1' && resource && resource.is_mad_volante && resource.jours_max_mad) {
+                const consumed = countMadVolanteConsumedDays(resourceId, resource.date_debut, resource.date_fin_mad);
+                if (consumed >= resource.jours_max_mad) {
+                    alert(`Quota MAD volante atteint : ${resource.jours_max_mad} jour(s) maximum déjà consommés sur la période du contrat.`);
+                    return;
+                }
+            }
+
             // Cycle pour Expert : 1 -> 2 -> 3 -> 1 (Indisponible -> Disponible -> Congés -> Indisponible)
             // Cycle pour Admin : 1 -> 2 -> 1 (pas d'accès aux Congés qui sont réservés aux experts)
             if (currentUser && currentUser.activeProfile === 'expert') {
@@ -9401,10 +9410,22 @@
             const locKey = period ? `${resourceId}_localisation_${dateKey}_${period}` : `${resourceId}_localisation_${dateKey}`;
             const authorKey = period ? `${resourceId}_author_${dateKey}_${period}` : `${resourceId}_author_${dateKey}`;
             const cellKey = `${resourceId}_${dateKey}_${period}`;
-            
+
             const currentValue = parseInt(scheduleData[key] || '2');
             let nextValue = currentValue + 1;
             if (nextValue > 8) nextValue = 2; // Cycle 2-8 (pas de retour à 1 car disponibilité = 2)
+
+            // Bloquer si MAD volante et quota atteint lors du passage vers une affectation réelle (>= 3)
+            if (nextValue >= 3 && currentValue < 3) {
+                const resource = resources.find(r => r.id === resourceId);
+                if (resource && resource.is_mad_volante && resource.jours_max_mad) {
+                    const consumed = countMadVolanteConsumedDays(resourceId, resource.date_debut, resource.date_fin_mad);
+                    if (consumed >= resource.jours_max_mad) {
+                        alert(`Quota MAD volante atteint : ${resource.jours_max_mad} jour(s) maximum déjà consommés sur la période du contrat.`);
+                        return;
+                    }
+                }
+            }
             
             // Ajouter cette cellule au Set des cellules modifiées dans la session
             // (pour éviter le pop-up lors des modifications suivantes)
@@ -16787,13 +16808,22 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             
             // Participants
             let participantsHtml = '';
-            if (event.participants && event.participants.length > 0) {
-                const chips = event.participants.map(p => {
-                    const name = `${p.prenom || ''} ${(p.nom || '').toUpperCase()}`.trim();
-                    const initials = getInitials(p.prenom, p.nom);
-                    const color = getColor(name);
-                    return `<span title="${name}${p.email ? ' (' + p.email + ')' : ''}" style="display:inline-flex;align-items:center;gap:3px;background:#f0f0f0;border:1px solid #e0e0e0;border-radius:12px;padding:1px 7px 1px 1px;font-size:10px;">
-                        <span style="width:16px;height:16px;border-radius:50%;background:${color};color:white;display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:bold;">${initials}</span>
+            const allParticipants = [
+                ...(event.participants || []).map(p => ({ external: false, nom: p.nom, prenom: p.prenom, email: p.email })),
+                ...(event.external_participants || []).map(p => ({ external: true, nom: p.nom, prenom: p.prenom, email: p.email }))
+            ];
+            if (allParticipants.length > 0) {
+                const chips = allParticipants.map(p => {
+                    const name = p.external
+                        ? (p.email || `${p.prenom || ''} ${(p.nom || '').toUpperCase()}`.trim() || '?')
+                        : `${p.prenom || ''} ${(p.nom || '').toUpperCase()}`.trim();
+                    const initials = p.external ? '✉' : getInitials(p.prenom, p.nom);
+                    const color = p.external ? '#78909c' : getColor(name);
+                    const bg = p.external ? '#eceff1' : '#f0f0f0';
+                    const border = p.external ? '#b0bec5' : '#e0e0e0';
+                    const titleStr = p.external ? `Invité externe : ${name}` : `${name}${p.email ? ' (' + p.email + ')' : ''}`;
+                    return `<span title="${titleStr}" style="display:inline-flex;align-items:center;gap:3px;background:${bg};border:1px solid ${border};border-radius:12px;padding:1px 7px 1px 1px;font-size:10px;">
+                        <span style="width:16px;height:16px;border-radius:50%;background:${color};color:white;display:inline-flex;align-items:center;justify-content:center;font-size:${p.external?'9px':'8px'};font-weight:bold;">${initials}</span>
                         ${name}
                     </span>`;
                 }).join(' ');
@@ -16801,7 +16831,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                     <span style="font-size:10px;color:#888;">👥</span> ${chips}
                 </div>`;
             }
-            
+
             return `<div style="background: white; padding: 12px; border-radius: 6px; margin-bottom: 6px; border-left: 4px solid ${config.borderColor || '#fbc02d'}; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
                     <div style="flex: 1;">
@@ -20557,11 +20587,17 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                 }
 
                 if (modalMapSelectedParticipants.length > 0) {
+                    const normStr = s => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
                     events = events.filter(ev => {
-                        const partNames = (ev.participants || []).map(n => n.toLowerCase());
                         return modalMapSelectedParticipants.every(sel => {
-                            const selName = `${sel.prenom||''} ${(sel.nom||'').toUpperCase()}`.trim().toLowerCase();
-                            return partNames.some(n => n.includes(selName) || selName.includes(n));
+                            const selName = normStr(`${sel.prenom||''} ${sel.nom||''}`);
+                            const inInternal = (ev.participants || []).some(p =>
+                                normStr(`${p.prenom||''} ${p.nom||''}`).includes(selName) || normStr(p.nom||'').includes(selName)
+                            );
+                            const inExternal = (ev.external_participants || []).some(p =>
+                                normStr(`${p.prenom||''} ${p.nom||''}`).includes(selName) || normStr(p.email||'').includes(selName)
+                            );
+                            return inInternal || inExternal;
                         });
                     });
                 }
@@ -24356,12 +24392,17 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             const locFilterVal = (document.getElementById('myEventsLocFilter')?.value || '').toString();
             const partFilterVal = (document.getElementById('myEventsParticipantFilter')?.value || '').toLowerCase().trim();
             const _labelFilterVal = (document.getElementById('myEventsLabelFilter')?.value || '');
+            const normalize = s => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
             const filteredEvents = myEvents.filter(ev => {
                 if (_labelFilterVal && ev.label !== _labelFilterVal) return false;
                 if (locFilterVal && (ev.location_id || '').toString() !== locFilterVal) return false;
                 if (partFilterVal) {
-                    const parts = (ev.participants || []).map(p => (typeof p === 'string' ? p : `${p.prenom||''} ${p.nom||''}`).toLowerCase());
-                    if (!parts.some(p => p.includes(partFilterVal))) return false;
+                    const nq = normalize(partFilterVal);
+                    const internalMatch = (ev.participants || []).some(p => normalize(`${p.prenom||''} ${p.nom||''}`).includes(nq));
+                    const externalMatch = (ev.external_participants || []).some(p =>
+                        normalize(`${p.prenom||''} ${p.nom||''}`).includes(nq) || normalize(p.email||'').includes(nq)
+                    );
+                    if (!internalMatch && !externalMatch) return false;
                 }
                 return true;
             });
@@ -24388,9 +24429,11 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 `<option value="${l.id}"${locFilterVal === l.id.toString() ? ' selected' : ''}>${l.libelle_court || l.libelle_long}</option>`
             ).join('');
             const labelFilterVal = (document.getElementById('myEventsLabelFilter')?.value || '');
-            const templateLabelOptions = Object.values(eventTemplates)
-                .filter(t => t.label)
-                .map(t => `<option value="${t.label}"${labelFilterVal === t.label ? ' selected' : ''}>${t.label}</option>`)
+            // Labels réels des événements (dédupliqués + triés, accent-insensitive)
+            const realLabels = [...new Set(myEvents.map(e => e.label).filter(Boolean))]
+                .sort((a, b) => a.normalize('NFD').localeCompare(b.normalize('NFD'), 'fr', { sensitivity: 'base' }));
+            const templateLabelOptions = realLabels
+                .map(l => `<option value="${l}"${labelFilterVal === l ? ' selected' : ''}>${l}</option>`)
                 .join('');
             let html = `<div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; padding: 10px; background: #f5f5f5; border-radius: 8px; align-items: flex-end;">
                 <span style="font-size: 12px; color: #666; display: flex; align-items: center;">Trier / Filtrer par :</span>
@@ -24499,13 +24542,22 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             
             // Participants
             let participantsHtml = '';
-            if (event.participants && event.participants.length > 0) {
-                const chips = event.participants.map(p => {
-                    const name = `${p.prenom || ''} ${(p.nom || '').toUpperCase()}`.trim();
-                    const initials = getParticipantInitials(p.prenom, p.nom);
-                    const color = getParticipantColor(name);
-                    return `<span title="${name}${p.email ? ' (' + p.email + ')' : ''}" style="display:inline-flex;align-items:center;gap:3px;background:#f0f0f0;border:1px solid #e0e0e0;border-radius:12px;padding:1px 7px 1px 1px;font-size:10px;">
-                        <span style="width:16px;height:16px;border-radius:50%;background:${color};color:white;display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:bold;">${initials}</span>
+            const allParts = [
+                ...(event.participants || []).map(p => ({ external: false, nom: p.nom, prenom: p.prenom, email: p.email })),
+                ...(event.external_participants || []).map(p => ({ external: true, nom: p.nom, prenom: p.prenom, email: p.email }))
+            ];
+            if (allParts.length > 0) {
+                const chips = allParts.map(p => {
+                    const name = p.external
+                        ? (p.email || `${p.prenom || ''} ${(p.nom || '').toUpperCase()}`.trim() || '?')
+                        : `${p.prenom || ''} ${(p.nom || '').toUpperCase()}`.trim();
+                    const initials = p.external ? '✉' : getParticipantInitials(p.prenom, p.nom);
+                    const color = p.external ? '#78909c' : getParticipantColor(name);
+                    const bg = p.external ? '#eceff1' : '#f0f0f0';
+                    const border = p.external ? '#b0bec5' : '#e0e0e0';
+                    const titleStr = p.external ? `Invité externe : ${name}` : `${name}${p.email ? ' (' + p.email + ')' : ''}`;
+                    return `<span title="${titleStr}" style="display:inline-flex;align-items:center;gap:3px;background:${bg};border:1px solid ${border};border-radius:12px;padding:1px 7px 1px 1px;font-size:10px;">
+                        <span style="width:16px;height:16px;border-radius:50%;background:${color};color:white;display:inline-flex;align-items:center;justify-content:center;font-size:${p.external?'9px':'8px'};font-weight:bold;">${initials}</span>
                         ${name}
                     </span>`;
                 }).join(' ');
