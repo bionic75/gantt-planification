@@ -1,4 +1,4 @@
-<!-- v1.15.53 -->
+<!-- v1.15.54 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -24468,6 +24468,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     <input type="text" id="myEventsParticipantFilter" list="myEventsParticipantList" placeholder="Nom ou prénom…" value="${partFilterVal.replace(/"/g,'&quot;')}" oninput="renderMyEventsTable()" style="padding:4px 8px;border:1px solid #ccc;border-radius:4px;font-size:11px;min-width:180px;">
                     <datalist id="myEventsParticipantList">
                         ${(users || []).map(u => { const label = `${(u.prenom||'')} ${(u.nom||'')}`.trim(); return label ? `<option value="${label}">` : ''; }).join('')}
+                        ${[...new Set(myEvents.flatMap(ev => (ev.external_participants || []).map(p => (p.email || `${p.prenom||''} ${p.nom||''}`.trim()).trim()).filter(Boolean)))].map(name => `<option value="${name}">`).join('')}
                     </datalist>
                 </div>
             </div>`;
