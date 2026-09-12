@@ -1,4 +1,4 @@
-// v1.15.56
+// v1.15.57
 import express from 'express';
 console.log('✅ Express importé');
 import cors from 'cors';
@@ -782,6 +782,20 @@ function initDB() {
             console.log('✅ Table settings initialisée');
         }
     });
+
+    database.run(`
+        CREATE TABLE IF NOT EXISTS pending_push_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            to_user_id INTEGER NOT NULL,
+            from_user_id INTEGER NOT NULL,
+            from_name TEXT,
+            from_photo TEXT,
+            message TEXT NOT NULL,
+            sent_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (to_user_id) REFERENCES users(id),
+            FOREIGN KEY (from_user_id) REFERENCES users(id)
+        )
+    `, err => { if (err) console.error('Erreur création table pending_push_messages:', err); });
 
     database.run(`
         CREATE TABLE IF NOT EXISTS pending_notifications (
@@ -3804,6 +3818,26 @@ app.get('/api/sse', requireAuth, (req, res) => {
 
     sseClients.set(userId, res);
 
+    // Livrer les messages en attente pour cet utilisateur
+    database.all(
+        `SELECT * FROM pending_push_messages WHERE to_user_id = ? ORDER BY sent_at ASC`,
+        [userId],
+        (err, rows) => {
+            if (err || !rows || rows.length === 0) return;
+            rows.forEach(row => {
+                const payload = JSON.stringify({
+                    fromUserId: row.from_user_id,
+                    fromName: row.from_name,
+                    fromPhoto: row.from_photo,
+                    message: row.message,
+                    sentAt: row.sent_at
+                });
+                res.write(`event: push-message\ndata: ${payload}\n\n`);
+            });
+            database.run(`DELETE FROM pending_push_messages WHERE to_user_id = ?`, [userId]);
+        }
+    );
+
     // Heartbeat toutes les 25 s pour maintenir la connexion
     const heartbeat = setInterval(() => {
         if (res.writableEnded) { clearInterval(heartbeat); return; }
@@ -3825,23 +3859,34 @@ app.post('/api/push-message', requireAuth, (req, res) => {
         return res.status(400).json({ error: 'Paramètres manquants' });
     }
 
-    const targetRes = sseClients.get(Number(toUserId));
-    if (!targetRes || targetRes.writableEnded) {
-        return res.status(404).json({ error: 'Destinataire non connecté ou hors ligne' });
-    }
-
-    // Récupérer le nom de l'expéditeur depuis la session / DB
     const fromSession = activeSessions.get(fromUserId);
+    const fromName = fromSession?.fullName || fromSession?.username || `Utilisateur #${fromUserId}`;
+    const fromPhoto = fromSession?.profilePhoto || null;
+    const sentAt = new Date().toISOString();
+
     const payload = JSON.stringify({
-        fromUserId,
-        fromName: fromSession?.fullName || fromSession?.username || `Utilisateur #${fromUserId}`,
-        fromPhoto: fromSession?.profilePhoto || null,
+        fromUserId, fromName, fromPhoto,
         message: message.trim(),
-        sentAt: new Date().toISOString()
+        sentAt
     });
 
-    targetRes.write(`event: push-message\ndata: ${payload}\n\n`);
-    res.json({ ok: true });
+    const targetRes = sseClients.get(Number(toUserId));
+    if (targetRes && !targetRes.writableEnded) {
+        // Livraison immédiate via SSE
+        targetRes.write(`event: push-message\ndata: ${payload}\n\n`);
+        return res.json({ ok: true });
+    }
+
+    // Destinataire pas connecté en SSE → stocker le message pour livraison différée
+    database.run(
+        `INSERT INTO pending_push_messages (to_user_id, from_user_id, from_name, from_photo, message, sent_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [Number(toUserId), fromUserId, fromName, fromPhoto, message.trim(), sentAt],
+        err => {
+            if (err) return res.status(500).json({ error: 'Impossible de stocker le message' });
+            res.json({ ok: true, pending: true });
+        }
+    );
 });
 
 // Endpoint pour récupérer les sessions actives (utilisateurs connectés) - accessible à tous les utilisateurs authentifiés
