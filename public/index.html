@@ -1,4 +1,4 @@
-<!-- v1.15.58 -->
+<!-- v1.15.59 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -24646,8 +24646,8 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     <div style="display: flex; gap: 5px; flex-wrap: wrap; align-items: center;">
                         ${currentUser && currentUser.activeProfile === 'expert' && event.participants && !event.participants.some(p => p.id === currentUser.id) ? 
                             `<button onclick="joinEventAsParticipant(${event.id})" style="background: #27ae60; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;" title="Me déclarer participant">✋ Participer</button>` : ''}
-                        ${event.is_creator ? `<button onclick="editMyEvent(${event.id})" style="background: #ff9800; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;" title="Modifier l'événement">✏️</button>` : `<button onclick="editMyEventParticipantsOnly(${event.id})" style="background: #78909c; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;" title="Modifier uniquement les participants">👥</button>`}
-                        ${event.is_creator ? `<button onclick="deleteMyEvent(${event.id})" style="background: #e53935; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;" title="Supprimer l'événement">🗑️</button>` : ''}
+                        <button onclick="editMyEvent(${event.id})" style="background: #ff9800; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;" title="Modifier l'événement">✏️</button>
+                        ${(currentUser && currentUser.activeProfile === 'admin') ? `<button onclick="deleteMyEvent(${event.id})" style="background: #e53935; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;" title="Supprimer l'événement">🗑️</button>` : ''}
                     </div>
                 </div>
             </div>`
