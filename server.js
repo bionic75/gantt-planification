@@ -1,4 +1,4 @@
-// v1.15.58
+// v1.15.59
 import express from 'express';
 console.log('✅ Express importé');
 import cors from 'cors';
@@ -7015,6 +7015,7 @@ app.get('/api/my-custom-events', requireAuth, async (req, res) => {
                        r.trigramme as creator_trigramme,
                        l.libelle_long as location_libelle_long,
                        l.libelle_court as location_libelle_court,
+                       1 as can_edit,
                        CASE WHEN (ce.created_by = ? OR ? = 1) THEN 1 ELSE 0 END as is_creator
                 FROM custom_events ce
                 LEFT JOIN users u ON ce.created_by = u.id
@@ -7450,16 +7451,7 @@ app.put('/api/my-custom-events/:id', requireAuth, async (req, res) => {
         const userId = req.session.userId;
         const isAdmin = req.session.activeProfile === 'admin';
         
-        if (!isAdmin) {
-            const event = await new Promise((resolve, reject) => {
-                database.get(`SELECT created_by FROM custom_events WHERE id = ?`, [id], (err, row) => {
-                    if (err) reject(err); else resolve(row);
-                });
-            });
-            if (!event || event.created_by !== userId) {
-                return res.status(403).json({ error: 'Vous ne pouvez modifier que vos propres événements' });
-            }
-        }
+        // Modification ouverte à tous les utilisateurs authentifiés
 
         const finalPeriod = (period && startDate === (endDate || startDate)) ? period : 'FULL';
         
@@ -7516,25 +7508,9 @@ app.delete('/api/custom-events/:id', requireAdmin, async (req, res) => {
 });
 
 // Supprimer un événement personnalisé (utilisateur - seulement ses propres événements)
-app.delete('/api/my-custom-events/:id', requireAuth, async (req, res) => {
+app.delete('/api/my-custom-events/:id', requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
-        const userId = req.session.userId;
-        const isAdmin = req.session.activeProfile === 'admin';
-        
-        // Vérifier que l'événement appartient à l'utilisateur (sauf admin)
-        if (!isAdmin) {
-            const event = await new Promise((resolve, reject) => {
-                database.get(`SELECT created_by FROM custom_events WHERE id = ?`, [id], (err, row) => {
-                    if (err) reject(err);
-                    else resolve(row);
-                });
-            });
-            
-            if (!event || event.created_by !== userId) {
-                return res.status(403).json({ error: 'Vous ne pouvez supprimer que vos propres événements' });
-            }
-        }
         
         await new Promise((resolve, reject) => {
             database.run(`DELETE FROM custom_events WHERE id = ?`, [id], (err) => {
