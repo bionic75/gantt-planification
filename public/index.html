@@ -1,4 +1,4 @@
-<!-- v1.15.60 -->
+<!-- v1.15.64 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -24397,8 +24397,9 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             const partFilterVal = document.getElementById('myEventsParticipantFilter')?.value.trim().toLowerCase() || '';
             const dateDebutFilter = document.getElementById('myEventsDateDebut')?.value || '';
             const dateFinFilter = document.getElementById('myEventsDateFin')?.value || '';
+            const normLabel = s => (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
             return (myEvents || []).filter(ev => {
-                if (labelFilter && ev.label !== labelFilter) return false;
+                if (labelFilter && normLabel(ev.label) !== normLabel(labelFilter)) return false;
                 if (locFilter && ev.location !== locFilter) return false;
                 if (dateDebutFilter && ev.start_date < dateDebutFilter) return false;
                 if (dateFinFilter && ev.end_date > dateFinFilter) return false;
