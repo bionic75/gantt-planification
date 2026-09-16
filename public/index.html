@@ -1,4 +1,4 @@
-<!-- v1.15.59 -->
+<!-- v1.15.60 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -845,6 +845,7 @@
                         <span onclick="applyMyEventTemplate('verifPrereq')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: #546e7a; color: #ffffff; border: 2px solid #263238; display: inline-flex; align-items: center; justify-content: center;" title="Cliquez pour appliquer ce template">VERIF PREREQUIS</span>
                         <span onclick="applyMyEventTemplate('visiteOb')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: #e65100; color: #ffffff; border: 2px solid #bf360c; display: inline-flex; align-items: center; justify-content: center;" title="Cliquez pour appliquer ce template">VISITE OB</span>
                         <span onclick="applyMyEventTemplate('visitePostMes')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: #0277bd; color: #ffffff; border: 2px solid #01579b; display: inline-flex; align-items: center; justify-content: center;" title="Cliquez pour appliquer ce template">VISITE POST MES</span>
+                        <span onclick="applyMyEventTemplate('reunionLancement')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: #1565c0; color: #ffffff; border: 2px solid #0d47a1; display: inline-flex; align-items: center; justify-content: center;" title="Cliquez pour appliquer ce template">RÉUNION DE LANCEMENT STRATÉGIQUE</span>
                         <span onclick="applyMyEventTemplate('libre')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: #fff; color: #333; border: 2px dashed #999; display: inline-flex; align-items: center; justify-content: center;" title="Réinitialiser les couleurs">🎨 Libre</span>
                     </div>
                 </div>
@@ -1587,66 +1588,6 @@
                 </div><!-- fin reportingEventsBody -->
             </div>
 
-            <!-- Section Carte des événements/déplacements -->
-            <div class="form-section" style="background-color: #e8eaf6; border-left: 4px solid #3f51b5; margin-top: 20px;">
-                <div style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 0;"
-                     onclick="toggleReportingSection('reportingMapBody', 'reportingMapIcon'); if(document.getElementById('reportingMapBody').style.display!=='none') initEventsMap()">
-                    <span id="reportingMapIcon" style="font-size: 13px; color: #283593; transition: transform 0.2s;">▶</span>
-                    <h3 style="color: #283593; border-left: none; margin: 0;">Suivi géographique des événements / déplacements</h3>
-                </div>
-                <div id="reportingMapBody" style="display: none; margin-top: 15px;">
-
-                    <!-- Filtres -->
-                    <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end; margin-bottom: 15px;">
-                        <div>
-                            <label style="font-size: 12px; color: #555; display: block; margin-bottom: 4px;">Date de début</label>
-                            <input type="date" id="mapStartDate" style="padding: 7px; border: 1px solid #9fa8da; border-radius: 4px;">
-                        </div>
-                        <div>
-                            <label style="font-size: 12px; color: #555; display: block; margin-bottom: 4px;">Date de fin</label>
-                            <input type="date" id="mapEndDate" style="padding: 7px; border: 1px solid #9fa8da; border-radius: 4px;">
-                        </div>
-                        <div>
-                            <label style="font-size: 12px; color: #555; display: block; margin-bottom: 4px;">Localisation</label>
-                            <select id="mapLocationFilter" style="padding: 7px; border: 1px solid #9fa8da; border-radius: 4px; min-width: 220px;">
-                                <option value="">— Toutes les localisations —</option>
-                            </select>
-                        </div>
-                        <!-- Recherche par utilisateur/participant -->
-                        <div style="position:relative;">
-                            <label style="font-size: 12px; color: #555; display: block; margin-bottom: 4px;">👥 Participants</label>
-                            <div id="mapParticipantsContainer" style="display:flex;flex-wrap:wrap;gap:4px;padding:4px 6px;border:1px solid #9fa8da;border-radius:4px;min-height:36px;min-width:220px;max-width:320px;align-items:center;background:white;cursor:text;" onclick="document.getElementById('mapParticipantInput').focus()">
-                                <input type="text" id="mapParticipantInput" placeholder="Nom ou prénom…"
-                                    style="border:none;outline:none;flex:1;min-width:80px;padding:2px 0;font-size:12px;"
-                                    oninput="filterMapParticipants(this.value)"
-                                    onfocus="filterMapParticipants(this.value)"
-                                    onkeydown="handleMapParticipantKeydown(event)">
-                            </div>
-                            <div id="mapParticipantDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #ddd;border-radius:0 0 8px 8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);max-height:200px;overflow-y:auto;z-index:1000;"></div>
-                        </div>
-                        <div>
-                            <button onclick="loadEventsMap()" style="background:#3f51b5;color:white;border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-weight:bold;">
-                                🗺️ Afficher
-                            </button>
-                            <button onclick="resetMapFilters()" style="background:#78909c;color:white;border:none;padding:8px 15px;border-radius:4px;cursor:pointer;margin-left:6px;">
-                                🔄 Réinitialiser
-                            </button>
-                        </div>
-                        <div id="mapEventCount" style="font-size:12px;color:#555;padding:8px 0;"></div>
-                    </div>
-
-                    <!-- Carte -->
-                    <div id="eventsMapContainer"></div>
-
-                    <!-- Légende -->
-                    <div id="eventsMapLegend" style="display:none;margin-top:12px;padding:10px;background:#f5f5f5;border-radius:6px;font-size:11px;">
-                        <strong style="color:#283593;">Événements affichés :</strong>
-                        <div id="eventsMapLegendItems" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;"></div>
-                    </div>
-
-                </div>
-            </div>
-
             <!-- Section Suivi des connexions -->
             <div class="form-section" style="background-color: #e8f5e9; border-left: 4px solid #2e7d32; margin-top: 20px;">
                 <div style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 0;"
@@ -2079,6 +2020,7 @@
                         <span onclick="applyCustomEventTemplate('verifPrereq')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: #546e7a; color: #ffffff; border: 2px solid #263238; display: inline-flex; align-items: center; justify-content: center;" title="Cliquez pour appliquer ce template">VERIF PREREQUIS</span>
                         <span onclick="applyCustomEventTemplate('visiteOb')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: #e65100; color: #ffffff; border: 2px solid #bf360c; display: inline-flex; align-items: center; justify-content: center;" title="Cliquez pour appliquer ce template">VISITE OB</span>
                         <span onclick="applyCustomEventTemplate('visitePostMes')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: #0277bd; color: #ffffff; border: 2px solid #01579b; display: inline-flex; align-items: center; justify-content: center;" title="Cliquez pour appliquer ce template">VISITE POST MES</span>
+                        <span onclick="applyCustomEventTemplate('reunionLancement')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: #1565c0; color: #ffffff; border: 2px solid #0d47a1; display: inline-flex; align-items: center; justify-content: center;" title="Cliquez pour appliquer ce template">RÉUNION DE LANCEMENT STRATÉGIQUE</span>
                         <span onclick="applyCustomEventTemplate('libre')" style="cursor: pointer; padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background-color: #fff; color: #333; border: 2px dashed #999; display: inline-flex; align-items: center; justify-content: center;" title="Réinitialiser les couleurs">🎨 Libre</span>
                     </div>
                 </div>
@@ -16467,6 +16409,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             verifPrereq: { bg: '#546e7a', text: '#ffffff', border: '#263238', label: 'VERIF PREREQUIS' },
             visiteOb: { bg: '#e65100', text: '#ffffff', border: '#bf360c', label: 'VISITE OB' },
             visitePostMes: { bg: '#0277bd', text: '#ffffff', border: '#01579b', label: 'VISITE POST MES' },
+            reunionLancement: { bg: '#1565c0', text: '#ffffff', border: '#0d47a1', label: 'RÉUNION DE LANCEMENT STRATÉGIQUE' },
             libre: { bg: '#ffeb3b', text: '#000000', border: '#000000', label: '' }
         };
         
@@ -24417,6 +24360,59 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             });
         }
         
+        function exportMyEventsCSV() {
+            const filtered = _getFilteredMyEvents();
+            if (!filtered.length) { alert('Aucun événement à exporter.'); return; }
+            const headers = ['Libellé','Date début','Date fin','Localisation','Participants internes','Participants externes','Description'];
+            const rows = filtered.map(ev => {
+                const internal = (ev.participants || []).map(p => `${p.prenom||''} ${p.nom||''}`.trim()).join('; ');
+                const external = (ev.external_participants || []).map(p => p.email || `${p.prenom||''} ${p.nom||''}`.trim()).join('; ');
+                return [ev.label||'', ev.start_date||'', ev.end_date||'', ev.location||'', internal, external, (ev.description||'').replace(/\n/g,' ')].map(v => `"${String(v).replace(/"/g,'""')}"`).join(',');
+            });
+            const csv = [headers.join(','), ...rows].join('\n');
+            const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+            a.download = `evenements_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+        }
+
+        function exportMyEventsHTML() {
+            const filtered = _getFilteredMyEvents();
+            if (!filtered.length) { alert('Aucun événement à exporter.'); return; }
+            const rows = filtered.map(ev => {
+                const internal = (ev.participants || []).map(p => `${p.prenom||''} ${p.nom||''}`.trim()).filter(Boolean).join(', ');
+                const external = (ev.external_participants || []).map(p => p.email || `${p.prenom||''} ${p.nom||''}`.trim()).filter(Boolean).join(', ');
+                const tpl = eventTemplates[ev.label] || {};
+                const badge = tpl.label ? `<span style="background:${tpl.bg||'#607d8b'};color:${tpl.text||'#fff'};padding:2px 8px;border-radius:4px;font-size:11px;">${tpl.label}</span>` : (ev.label||'');
+                return `<tr><td>${badge}</td><td>${ev.start_date||''}</td><td>${ev.end_date||''}</td><td>${ev.location||''}</td><td>${internal}</td><td>${external}</td><td>${(ev.description||'').replace(/\n/g,'<br>')}</td></tr>`;
+            }).join('');
+            const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Événements exportés</title><style>body{font-family:Arial,sans-serif;font-size:12px;padding:20px;}table{border-collapse:collapse;width:100%;}th{background:#1565c0;color:#fff;padding:8px;text-align:left;}td{border:1px solid #ddd;padding:6px;}tr:nth-child(even){background:#f5f5f5;}</style></head><body><h2>Événements — export du ${new Date().toLocaleDateString('fr-FR')}</h2><table><thead><tr><th>Libellé</th><th>Date début</th><th>Date fin</th><th>Localisation</th><th>Participants internes</th><th>Participants externes</th><th>Description</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
+            const blob = new Blob([html], {type:'text/html;charset=utf-8'});
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+            a.download = `evenements_${new Date().toISOString().slice(0,10)}.html`; a.click();
+        }
+
+        function _getFilteredMyEvents() {
+            const labelFilter = document.getElementById('myEventsLabelFilter')?.value || '';
+            const locFilter = document.getElementById('myEventsLocFilter')?.value || '';
+            const partFilterVal = document.getElementById('myEventsParticipantFilter')?.value.trim().toLowerCase() || '';
+            const dateDebutFilter = document.getElementById('myEventsDateDebut')?.value || '';
+            const dateFinFilter = document.getElementById('myEventsDateFin')?.value || '';
+            return (myEvents || []).filter(ev => {
+                if (labelFilter && ev.label !== labelFilter) return false;
+                if (locFilter && ev.location !== locFilter) return false;
+                if (dateDebutFilter && ev.start_date < dateDebutFilter) return false;
+                if (dateFinFilter && ev.end_date > dateFinFilter) return false;
+                if (partFilterVal) {
+                    const normStr = s => (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+                    const q = normStr(partFilterVal);
+                    const inInternal = (ev.participants||[]).some(p => normStr(`${p.prenom||''} ${p.nom||''}`).includes(q));
+                    const inExternal = (ev.external_participants||[]).some(p => normStr(p.email||`${p.prenom||''} ${p.nom||''}`).includes(q));
+                    if (!inInternal && !inExternal) return false;
+                }
+                return true;
+            });
+        }
+
         // Afficher les événements sous forme d'arborescence Année > Mois
         function renderMyEventsTable() {
             const container = document.getElementById('myEventsTableContainer');
@@ -24430,20 +24426,20 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
             const currentYear = new Date().getFullYear();
             
-            // Appliquer les filtres libellé, localisation et participant
+            // Appliquer les filtres libellé, localisation, participant et dates
             const locFilterVal = (document.getElementById('myEventsLocFilter')?.value || '').toString();
             const partFilterVal = (document.getElementById('myEventsParticipantFilter')?.value || '').toLowerCase().trim();
             const _labelFilterVal = (document.getElementById('myEventsLabelFilter')?.value || '');
+            const dateDebutFilter = document.getElementById('myEventsDateDebut')?.value || '';
+            const dateFinFilter = document.getElementById('myEventsDateFin')?.value || '';
             const normalize = s => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
             const templateLabelsForFilter = Object.values(eventTemplates).map(t => t.label).filter(Boolean);
             const filteredEvents = myEvents.filter(ev => {
                 if (_labelFilterVal) {
                     if (_labelFilterVal === '__AUTRES__') {
-                        // AUTRES : label ne correspond à aucun template (accent-insensitive)
                         const evNorm = normalize(ev.label);
                         if (templateLabelsForFilter.some(tl => normalize(tl) === evNorm)) return false;
                     } else {
-                        // Matching accent-insensitive sur le label sélectionné
                         if (normalize(ev.label) !== normalize(_labelFilterVal)) return false;
                     }
                 }
@@ -24456,6 +24452,8 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     );
                     if (!internalMatch && !externalMatch) return false;
                 }
+                if (dateDebutFilter && ev.start_date < dateDebutFilter) return false;
+                if (dateFinFilter && ev.end_date > dateFinFilter) return false;
                 return true;
             });
 
@@ -24512,6 +24510,21 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                         ${(users || []).map(u => { const label = `${(u.prenom||'')} ${(u.nom||'')}`.trim(); return label ? `<option value="${label}">` : ''; }).join('')}
                         ${[...new Set(myEvents.flatMap(ev => (ev.external_participants || []).map(p => (p.email || `${p.prenom||''} ${p.nom||''}`.trim()).trim()).filter(Boolean)))].map(name => `<option value="${name}">`).join('')}
                     </datalist>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:2px;">
+                    <label style="font-size:10px;color:#888;">Date début</label>
+                    <input type="date" id="myEventsDateDebut" value="${dateDebutFilter}" onchange="renderMyEventsTable()" style="padding:4px 8px;border:1px solid #ccc;border-radius:4px;font-size:11px;">
+                </div>
+                <div style="display:flex;flex-direction:column;gap:2px;">
+                    <label style="font-size:10px;color:#888;">Date fin</label>
+                    <input type="date" id="myEventsDateFin" value="${dateFinFilter}" onchange="renderMyEventsTable()" style="padding:4px 8px;border:1px solid #ccc;border-radius:4px;font-size:11px;">
+                </div>
+                <div style="display:flex;flex-direction:column;gap:2px;">
+                    <label style="font-size:10px;color:transparent;">_</label>
+                    <div style="display:flex;gap:5px;">
+                        <button onclick="exportMyEventsCSV()" title="Exporter les résultats filtrés en CSV" style="padding:4px 10px;background:#2e7d32;color:white;border:none;border-radius:4px;cursor:pointer;font-size:11px;font-weight:bold;">⬇ CSV</button>
+                        <button onclick="exportMyEventsHTML()" title="Exporter les résultats filtrés en HTML" style="padding:4px 10px;background:#1565c0;color:white;border:none;border-radius:4px;cursor:pointer;font-size:11px;font-weight:bold;">⬇ HTML</button>
+                    </div>
                 </div>
             </div>`;
             
