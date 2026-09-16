@@ -1,4 +1,4 @@
-<!-- v1.15.61 -->
+<!-- v1.15.62 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -955,7 +955,7 @@
                         <div class="legend-section">
                             <div class="legend-section-title">DISPONIBILITE</div>
                             <div class="legend-items" style="display: flex; flex-direction: column; gap: 8px;">
-                                <div class="legend-item" title="L'expert métier n'est pas disponible pour l'ANS mais vous pouvez néanmoins le solliciter en cliquant sur '<i class="fa-solid fa-envelope"></i> Faire une demande'" style="cursor: help;"><span class="color-code" style="background-color: #95a5a6;"></span> 1 - Indisponible</div>
+                                <div class="legend-item" title="L'expert métier n'est pas disponible pour l'ANS mais vous pouvez néanmoins le solliciter en cliquant sur 'Faire une demande'" style="cursor: help;"><span class="color-code" style="background-color: #95a5a6;"></span> 1 - Indisponible</div>
                                 <div class="legend-item" title="L'expert métier est disponible pour l'ANS, vous pouvez lui affecter une activité sur le planning" style="cursor: help;"><span class="color-code" style="background-color: #27ae60;"></span> 2 - Disponible pour l'ANS</div>
                                 <div class="legend-item" title="L'expert métier n'est absolument pas disponible pour l'ANS" style="cursor: help;"><span class="color-code" style="background-color: #00bcd4;"></span> 3 - <i class="fa-solid fa-umbrella-beach"></i> Congés</div>
                             </div>
@@ -965,7 +965,7 @@
                             <div class="legend-section-title">AFFECTATION (1-4)</div>
                             <div class="legend-items" style="display: flex; flex-direction: column; gap: 8px;">
                                 <div class="legend-item" title="Pas d'affectation possible" style="cursor: help;"><span class="color-code" style="background-color: #95a5a6;"></span> 1 - <i class="fa-solid fa-circle-question" style="color:#555"></i> Indisponible</div>
-                                <div class="legend-item" title="L'expert attend que vous lui affectiez une activité" style="cursor: help;"><span class="color-code" style="background-color: #9b59b6;"></span> 2 - ⏳ En attente d'affectation</div>
+                                <div class="legend-item" title="L'expert attend que vous lui affectiez une activité" style="cursor: help;"><span class="color-code" style="background-color: #9b59b6;"></span> 2 - <i class="fa-solid fa-hourglass-half" style="color:#9b59b6"></i> En attente d'affectation</div>
                                 <div class="legend-item" title="L'expert travaille aux activités opérationnelles de déploiement du bandeau de communication" style="cursor: help;"><span class="color-code" style="background-color: #e67e22;"></span> 3 - <i class="fa-solid fa-phone"></i> SAMU (Déploiement)</div>
                                 <div class="legend-item" title="L'expert travaille aux activités liées à l'utilisation du bandeau de communication (démonstration, formation, accompagnement post démarrage, visite de site, ...)" style="cursor: help;"><span class="color-code" style="background-color: #d35400;"></span> 4 - <i class="fa-solid fa-phone"></i> SAMU (Dev. usages)</div>
                             </div>
@@ -1095,7 +1095,7 @@
                             <h3 style="color:#e65100;margin:0;font-size:15px;"><span id="craAdminEnCoursIcon"><i class="fa-solid fa-caret-down"></i></span> <i class="fa-solid fa-clipboard-list"></i> CRA en cours de traitement</h3>
                         </div>
                         <div id="craAdminEnCoursBody" style="margin-top:12px;">
-                            <div id="craAdminEnCours"><div style="text-align:center;padding:20px;color:#999;">⏳ Chargement...</div></div>
+                            <div id="craAdminEnCours"><div style="text-align:center;padding:20px;color:#999;"><i class="fa-solid fa-spinner fa-spin" style="color:#999"></i> Chargement...</div></div>
                         </div>
                     </div>
                     <!-- CRA signés -->
@@ -1120,7 +1120,7 @@
                                 <select id="craSignFilterAnnee" style="width:100px;"><option value="">Toutes</option></select></div>
                             <button onclick="loadCraSignatures()" style="background:#2e7d32;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-weight:bold;"><i class="fa-solid fa-magnifying-glass"></i> Rechercher</button>
                         </div>
-                        <div id="craSignaturesTable"><div style="text-align:center;padding:20px;color:#999;">⏳ Chargement...</div></div>
+                        <div id="craSignaturesTable"><div style="text-align:center;padding:20px;color:#999;"><i class="fa-solid fa-spinner fa-spin" style="color:#999"></i> Chargement...</div></div>
                         </div><!-- /craAdminSignesBody -->
                     </div>
                     <!-- CRA archivés (collapsible) -->
@@ -1167,7 +1167,7 @@
                             <h3 style="color:#e65100;margin:0;font-size:15px;"><span id="craExpertEnCoursIcon"><i class="fa-solid fa-caret-down"></i></span> <i class="fa-solid fa-clipboard-list"></i> Mes CRA en cours de traitement</h3>
                         </div>
                         <div id="craExpertEnCoursBody" style="margin-top:12px;">
-                            <div id="craListEnCours"><div style="text-align:center;padding:20px;color:#999;">⏳ Chargement...</div></div>
+                            <div id="craListEnCours"><div style="text-align:center;padding:20px;color:#999;"><i class="fa-solid fa-spinner fa-spin" style="color:#999"></i> Chargement...</div></div>
                         </div>
                     </div>
                     <div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:15px;margin-bottom:16px;">
@@ -1175,7 +1175,7 @@
                             <h3 style="color:#2e7d32;margin:0;font-size:15px;"><span id="craExpertSignesIcon"><i class="fa-solid fa-caret-down"></i></span> <i class="fa-solid fa-circle-check" style="color:#2e7d32"></i> Mes CRA signés</h3>
                         </div>
                         <div id="craExpertSignesBody" style="margin-top:12px;">
-                            <div id="craListSignes"><div style="text-align:center;padding:20px;color:#999;">⏳ Chargement...</div></div>
+                            <div id="craListSignes"><div style="text-align:center;padding:20px;color:#999;"><i class="fa-solid fa-spinner fa-spin" style="color:#999"></i> Chargement...</div></div>
                         </div>
                     </div>
                 </div>
@@ -1197,7 +1197,7 @@
                                 <select id="craRhFilterAnnee" style="font-size:12px;padding:4px;border:1px solid #ccc;border-radius:4px;"><option value="">Toutes</option></select></div>
                             <button onclick="loadCraSignaturesRh()" style="background:#2e7d32;color:white;border:none;border-radius:4px;padding:6px 14px;font-size:12px;cursor:pointer;"><i class="fa-solid fa-magnifying-glass"></i> Rechercher</button>
                         </div>
-                        <div id="craRhSignesTable"><div style="text-align:center;padding:20px;color:#999;">⏳ Chargement...</div></div>
+                        <div id="craRhSignesTable"><div style="text-align:center;padding:20px;color:#999;"><i class="fa-solid fa-spinner fa-spin" style="color:#999"></i> Chargement...</div></div>
                     </div>
                     <!-- CRA archivés RH -->
                     <div style="background:#f5f7f7;border:1px solid #cfd8dc;border-radius:8px;padding:15px;">
@@ -1488,7 +1488,7 @@
                         <div style="display: flex; flex-direction: column; gap: 5px; align-items: flex-start;">
                             <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
                                 <input type="checkbox" id="hnoReportingShowHno" checked style="margin: 0;">
-                                <span style="font-size: 12px;">⏰ HNO</span>
+                                <span style="font-size: 12px;"><i class="fa-solid fa-clock" style="color:#1565c0"></i> HNO</span>
                             </label>
                             <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
                                 <input type="checkbox" id="hnoReportingShowAstreintes" checked style="margin: 0;">
@@ -1733,7 +1733,7 @@
             
             <!-- Compteur d'inactivité -->
             <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 8px 10px; background: #eef1fb; border-radius: 5px; margin-bottom: 6px;" onclick="toggleAdminSubSection('subInactivity')">
-                <strong style="color: #3949ab; font-size: 13px;"><span id="subInactivitySubIcon"><i class="fa-solid fa-caret-right"></i></span> ⏱️ Compteur d'inactivité</strong>
+                <strong style="color: #3949ab; font-size: 13px;"><span id="subInactivitySubIcon"><i class="fa-solid fa-caret-right"></i></span> <i class="fa-solid fa-stopwatch"></i> Compteur d'inactivité</strong>
             </div>
             <div id="subInactivity" style="display: none; padding: 10px 5px 15px 5px;">
                 <div style="display: flex; align-items: flex-end; gap: 10px;">
@@ -2357,7 +2357,7 @@
                 
                 <!-- Ligne 2: Fréquence -->
                 <div style="padding-left: 26px; margin-bottom: 15px;">
-                    <label style="font-size: 12px; color: #555; font-weight: bold; display: block; margin-bottom: 8px;">⏰ Fréquence d'envoi</label>
+                    <label style="font-size: 12px; color: #555; font-weight: bold; display: block; margin-bottom: 8px;"><i class="fa-solid fa-clock"></i> Fréquence d'envoi</label>
                     <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end;">
                         <div style="flex: 0 0 150px;">
                             <select id="automation2Frequency" onchange="updateAutomation2FrequencyOptions(); saveAutomation2Config()" style="width: 100%;">
@@ -4817,7 +4817,7 @@
             const dd = document.getElementById('appSwitcherDropdown');
             if (apps.length === 0) { switcher.style.display = 'none'; return; }
             switcher.style.display = 'block';
-            const APP_LABELS = { deplacements: { label: 'Suivi des déplacements', icon: '🚗' } };
+            const APP_LABELS = { deplacements: { label: 'Suivi des déplacements', icon: '<i class="fa-solid fa-car"></i>' } };
             dd.innerHTML = apps.map(key => {
                 const def = APP_LABELS[key] || { label: key, icon: '📱' };
                 return `<div onclick="switchToApp('${key}')" style="padding:10px 16px;cursor:pointer;display:flex;align-items:center;gap:10px;font-size:13px;color:#222;" onmouseenter="this.style.background='#f0f4ff'" onmouseleave="this.style.background=''">
@@ -4970,7 +4970,7 @@
                 Object.keys(byExpert[expertName]).sort((a, b) => b - a).forEach(year => {
                     html += `<div style="margin-bottom: 5px;">
                         <div onclick="toggleTreeNode(this)" style="cursor: pointer; padding: 6px; background: #ce93d8; border-radius: 4px; display: flex; align-items: center; gap: 5px;">
-                            <span class="tree-arrow">▶</span> 📅 ${year}
+                            <span class="tree-arrow">▶</span> <i class="fa-solid fa-calendar-days"></i> ${year}
                         </div>
                         <div class="tree-content" style="display: none; margin-left: 20px; margin-top: 5px;">`;
                     
@@ -5004,7 +5004,7 @@
             Object.keys(byYear).sort((a, b) => b - a).forEach(year => {
                 html += `<div style="margin-bottom: 10px;">
                     <div onclick="toggleTreeNode(this)" style="cursor: pointer; padding: 8px; background: #e1bee7; border-radius: 4px; font-weight: bold; display: flex; align-items: center; gap: 5px;">
-                        <span class="tree-arrow">▶</span> 📅 ${year}
+                        <span class="tree-arrow">▶</span> <i class="fa-solid fa-calendar-days"></i> ${year}
                     </div>
                     <div class="tree-content" style="display: none; margin-left: 20px; margin-top: 5px;">`;
                 
@@ -5029,7 +5029,7 @@
         }
         
         function buildAstreinteItem(a) {
-            const typeLabel = a.type === 'astreinte' ? '🔔 Astreinte' : a.type === 'activite_courante' ? '✅ Activité courante' : '⏰ HNO';
+            const typeLabel = a.type === 'astreinte' ? '<i class="fa-solid fa-bell" style="color:#e65100"></i> Astreinte' : a.type === 'activite_courante' ? '<i class="fa-solid fa-circle-check" style="color:#2e7d32"></i> Activité courante' : '<i class="fa-solid fa-clock" style="color:#1565c0"></i> HNO';
             const typeColor = a.type === 'astreinte' ? '#ff9800' : a.type === 'activite_courante' ? '#2e7d32' : '#2196f3';
             const dateDebut = formatDateFr(a.date_debut);
             const dateFin = formatDateFr(a.date_fin);
@@ -5044,8 +5044,8 @@
                         <span style="background: ${typeColor}; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px;">${typeLabel}</span>
                         <div style="margin-top: 5px; font-weight: bold;">${a.objet}</div>
                         <div style="font-size: 12px; color: #666; margin-top: 3px;">
-                            📅 ${periode}${heures}<br>
-                            🏥 ${samuInfo}
+                            <i class="fa-solid fa-calendar-days"></i> ${periode}${heures}<br>
+                            <i class="fa-solid fa-hospital"></i> ${samuInfo}
                         </div>
                     </div>
                     <div style="display: flex; gap: 5px;">
@@ -5585,7 +5585,7 @@
                         <h3 style="margin-bottom: 20px; color: #2c3e50;">Que souhaitez-vous faire ?</h3>
                         <div style="display: flex; flex-direction: column; gap: 15px;">
                             <button onclick="goToPlanificationApp()" style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); color: white; padding: 15px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 10px;">
-                                <span style="font-size: 24px;">📅</span>
+                                <span style="font-size: 24px;"><i class="fa-solid fa-calendar-days"></i></span>
                                 <span>Aller sur la Plateforme de planification</span>
                             </button>
                             <button onclick="confirmLogoutFromDeplacements()" style="background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); color: white; padding: 15px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 10px;">
@@ -8116,7 +8116,7 @@
                 astrBlock.innerHTML = resource.astreinte_volontaire
                     ? `<div style="padding:10px;background:#fff8e1;border:1px solid #ffe082;border-radius:6px;">
                          <span style="font-weight:bold;color:#e65100;">🔔 Participe au dispositif Astreintes/HNO</span><br>
-                         <span style="font-size:12px;color:#555;margin-top:6px;display:block;">📅 Régime actif depuis le <strong>${dateStr}</strong>${since}</span>
+                         <span style="font-size:12px;color:#555;margin-top:6px;display:block;"><i class="fa-solid fa-calendar-days"></i> Régime actif depuis le <strong>${dateStr}</strong>${since}</span>
                        </div>`
                     : `<div style="padding:10px;background:#f5f5f5;border:1px solid #ddd;border-radius:6px;color:#999;">
                          🔕 Ne participe pas au dispositif Astreintes/HNO
@@ -8205,7 +8205,7 @@
                     <td style="padding: 8px;">${dateFinStr}</td>
                     <td style="padding: 8px; text-align: center; font-weight: bold; color: ${mad.taux === 0 ? '#e74c3c' : '#2e7d32'};">${mad.taux}%</td>
                     <td style="padding: 8px; text-align: center;">
-                        <button onclick="openParticularitesModal(${mad.id})" style="background: #9c27b0; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 10px; margin-right: 3px;" title="Gérer les particularités">📅</button>
+                        <button onclick="openParticularitesModal(${mad.id})" style="background: #9c27b0; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 10px; margin-right: 3px;" title="Gérer les particularités"><i class="fa-solid fa-calendar-days"></i></button>
                         <button onclick="openEditMadModal(${mad.id})" style="background: #1e88e5; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 10px; margin-right: 3px;" title="Modifier">✏️</button>
                         ${showDelete ? `<button onclick="deleteMadHistory(${mad.id})" style="background: #e53935; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 10px;" title="Supprimer">🗑️</button>` : ''}
                     </td>
@@ -8693,7 +8693,7 @@
             const hasAstr = list.some(a => a.type === 'astreinte');
             const hasHno  = list.some(a => a.type === 'hno');
             const hasAct  = list.some(a => a.type === 'activite_courante');
-            const typeIcon = a => a.type === 'astreinte' ? '🔔 Astreinte' : a.type === 'activite_courante' ? '✅ Activité courante' : '⏰ HNO';
+            const typeIcon = a => a.type === 'astreinte' ? '<i class="fa-solid fa-bell" style="color:#e65100"></i> Astreinte' : a.type === 'activite_courante' ? '<i class="fa-solid fa-circle-check" style="color:#2e7d32"></i> Activité courante' : '<i class="fa-solid fa-clock" style="color:#1565c0"></i> HNO';
             const tooltip = list.map(a =>
                 `${typeIcon(a)}${a.heures ? ' ' + a.heures : ''}: ${a.objet || ''}${a.samu ? ' | ' + a.samu : ''}`
             ).join('\n').replace(/"/g, '&quot;');
@@ -8783,7 +8783,7 @@
                             itemsEl.appendChild(mkItem('➕', 'Ajouter une astreinte / HNO', '#6a1b9a', () => ganttContextMenuAction('add')));
                         } else {
                             cellAstreintes.forEach((a, i) => {
-                                const label = a.type === 'astreinte' ? '🔔 Astreinte' : a.type === 'activite_courante' ? '✅ Activité courante' : '⏰ HNO';
+                                const label = a.type === 'astreinte' ? '<i class="fa-solid fa-bell" style="color:#e65100"></i> Astreinte' : a.type === 'activite_courante' ? '<i class="fa-solid fa-circle-check" style="color:#2e7d32"></i> Activité courante' : '<i class="fa-solid fa-clock" style="color:#1565c0"></i> HNO';
                                 const short = (a.objet || '').substring(0, 22) + ((a.objet||'').length > 22 ? '…' : '');
                                 if (i > 0) itemsEl.appendChild(mkSep());
                                 itemsEl.appendChild(mkItem('✏️', `Modifier — ${label} ${short}`, '#1565c0', () => ganttContextMenuAction('edit', a)));
@@ -9450,7 +9450,7 @@
                         ${warningMessage}
                         
                         <div style="background-color: #f8f9fa; border-radius: 5px; padding: 15px; margin-bottom: 20px;">
-                            <p style="margin: 5px 0;"><strong>📅 Date :</strong> ${dateFormatted} (${periodLabel})</p>
+                            <p style="margin: 5px 0;"><strong><i class="fa-solid fa-calendar-days"></i> Date :</strong> ${dateFormatted} (${periodLabel})</p>
                             <p style="margin: 5px 0;"><strong>👤 Expert :</strong> ${resource.prenom} ${resource.nom}</p>
                             <p style="margin: 5px 0;"><strong>📋 Affectation :</strong> ${currentActivityLabel}</p>
                             ${currentLocation ? `<p style="margin: 5px 0;"><strong>📍 Localisation :</strong> ${currentLocation}</p>` : ''}
@@ -9541,14 +9541,14 @@
                 title.textContent = `Où êtes-vous disponible ?${periodLabel}`;
                 
                 const availabilityOptions = [
-                    { label: '🏠 Je suis en télétravail', value: '🏠 Télétravail', color: '#3498db' },
-                    { label: '🗼 Je suis à PSC', value: '🗼 PSC', color: '#9b59b6' },
-                    { label: '🚗 Je peux me déplacer', value: '🚗 Déplacement', color: '#16a085' }
+                    { label: '<i class="fa-solid fa-house"></i> Je suis en télétravail', value: '🏠 Télétravail', color: '#3498db' },
+                    { label: '<i class="fa-solid fa-person"></i> Je suis à PSC', value: '🗼 PSC', color: '#9b59b6' },
+                    { label: '<i class="fa-solid fa-car"></i> Je peux me déplacer', value: '🚗 Déplacement', color: '#16a085' }
                 ];
-                
+
                 availabilityOptions.forEach(opt => {
                     const btn = document.createElement('button');
-                    btn.textContent = opt.label;
+                    btn.innerHTML = opt.label;
                     btn.style.backgroundColor = opt.color;
                     btn.style.padding = '15px';
                     btn.onclick = () => setLocalisation(opt.value);
@@ -9562,19 +9562,19 @@
                 const isSamuActivity = activityValue === '3' || activityValue === '4';
                 
                 const activityOptions = [
-                    { label: '🏠 Télétravail', value: '🏠 Télétravail', color: '#3498db' },
-                    { label: '🗼 PSC', value: '🗼 PSC', color: '#9b59b6' },
-                    { label: '🎤 Autres (Congrès, CFARM, EHESP...)', value: '🎤 Autres', color: '#16a085' }
+                    { label: '<i class="fa-solid fa-house"></i> Télétravail', value: '🏠 Télétravail', color: '#3498db' },
+                    { label: '<i class="fa-solid fa-person"></i> PSC', value: '🗼 PSC', color: '#9b59b6' },
+                    { label: '<i class="fa-solid fa-microphone"></i> Autres (Congrès, CFARM, EHESP...)', value: '🎤 Autres', color: '#16a085' }
                 ];
-                
+
                 // Ajouter l'option SAMU seulement si c'est une affectation SAMU
                 if (isSamuActivity) {
-                    activityOptions.splice(1, 0, { label: '🚨 SAMU (cliquer pour sélectionner)', value: 'SAMU_SELECT', color: '#e67e22' });
+                    activityOptions.splice(1, 0, { label: '<i class="fa-solid fa-circle-exclamation"></i> SAMU (cliquer pour sélectionner)', value: 'SAMU_SELECT', color: '#e67e22' });
                 }
-                
+
                 activityOptions.forEach(opt => {
                     const btn = document.createElement('button');
-                    btn.textContent = opt.label;
+                    btn.innerHTML = opt.label;
                     btn.style.backgroundColor = opt.color;
                     btn.style.padding = '15px';
                     if (opt.value === 'SAMU_SELECT') {
@@ -9790,7 +9790,7 @@
                 html += `<tr class="school-holidays-row" style="background-color: #f5f5f5;">
                     <td class="resource-header" style="background-color: #9EA158; vertical-align: top; padding-top: 8px;">
                         <div style="display: flex; align-items: center; gap: 10px;">
-                            <span style="font-size: 24px;">📅</span>
+                            <span style="font-size: 24px;"><i class="fa-solid fa-calendar-days"></i></span>
                             <div style="color: white;">
                                 <strong style="font-size: 11px;">Congés scolaires, jours fériés, événements particuliers, ...</strong>
                             </div>
@@ -9998,24 +9998,24 @@
                         let locDisplay = '-';
                         if (availValue === '3') {
                             // Congés : afficher l'icône plage
-                            locDisplay = '🏖️';
+                            locDisplay = '<i class="fa-solid fa-umbrella-beach" style="color:#0097a7"></i>';
                         } else if (availValue === '2' && actValue !== '1') {
                             const locDisplayMap = {
-                                '🏠 Télétravail': '🏠 TT',
-                                '🗼 PSC': '🗼 PSC',
-                                '🚗 Déplacement': '🚗 Dép',
-                                '📞 Télétravail': '🏠 TT',
-                                '🚨 SAMU': '🚨 SAMU',
-                                '🎤 Autres': '🎤 Aut'
+                                '🏠 Télétravail': '<i class="fa-solid fa-house"></i> TT',
+                                '🗼 PSC': '<i class="fa-solid fa-person"></i> PSC',
+                                '🚗 Déplacement': '<i class="fa-solid fa-car"></i> Dép',
+                                '📞 Télétravail': '<i class="fa-solid fa-house"></i> TT',
+                                '🚨 SAMU': '<i class="fa-solid fa-circle-exclamation" style="color:#c62828"></i> SAMU',
+                                '🎤 Autres': '<i class="fa-solid fa-microphone"></i> Aut'
                             };
-                            
+
                             // Gérer les SAMU avec numéro (format "🚨 SAMU XX")
                             if (locValue.startsWith('🚨 SAMU')) {
                                 const samuMatch = locValue.match(/SAMU (\w+)/);
                                 if (samuMatch) {
-                                    locDisplay = `🚨 ${samuMatch[1]}`;
+                                    locDisplay = `<i class="fa-solid fa-circle-exclamation" style="color:#c62828"></i> ${samuMatch[1]}`;
                                 } else {
-                                    locDisplay = '🚨 SAMU';
+                                    locDisplay = '<i class="fa-solid fa-circle-exclamation" style="color:#c62828"></i> SAMU';
                                 }
                             } else {
                                 locDisplay = locDisplayMap[locValue] || (locValue.substring(0, 8) + (locValue.length > 8 ? '...' : ''));
@@ -10987,7 +10987,7 @@
         function renderAppAccessSection() {
             const container = document.getElementById('appAccessContent');
             if (!container) return;
-            const APP_LABELS = { deplacements: { label: 'Plateforme de suivi des déplacements', icon: '🚗' } };
+            const APP_LABELS = { deplacements: { label: 'Plateforme de suivi des déplacements', icon: '<i class="fa-solid fa-car"></i>' } };
             container.innerHTML = Object.entries(_appAccessData).map(([key, app]) => `
                 <div style="border:1px solid #e0e0e0;border-radius:8px;padding:16px;margin-bottom:16px;">
                     <h4 style="margin:0 0 12px;color:#1a237e;font-size:14px;">${APP_LABELS[key]?.icon || '📱'} ${APP_LABELS[key]?.label || key}</h4>
@@ -11973,9 +11973,9 @@
                 statusDiv.innerHTML = '<span style="color: #4CAF50;">✅ Congés scolaires importés avec succès</span>';
                 infoDiv.innerHTML = `
                     <strong>Résumé de l'import :</strong><br>
-                    📅 Zone A : ${zoneACounts} période(s)<br>
-                    📅 Zone B : ${zoneBCounts} période(s)<br>
-                    📅 Zone C : ${zoneCCounts} période(s)
+                    <i class="fa-solid fa-calendar-days"></i> Zone A : ${zoneACounts} période(s)<br>
+                    <i class="fa-solid fa-calendar-days"></i> Zone B : ${zoneBCounts} période(s)<br>
+                    <i class="fa-solid fa-calendar-days"></i> Zone C : ${zoneCCounts} période(s)
                     ${unknownCounts > 0 ? `<br>⚠️ ${unknownCounts} événement(s) ignoré(s) (zone non détectée)` : ''}
                 `;
                 
@@ -12018,9 +12018,9 @@
                     if (data.holidays) {
                         schoolHolidays = data.holidays;
                         console.log('📅 Congés scolaires chargés:', schoolHolidays);
-                        console.log('📅 Zone A:', schoolHolidays.zoneA?.length, 'périodes');
-                        console.log('📅 Zone B:', schoolHolidays.zoneB?.length, 'périodes');
-                        console.log('📅 Zone C:', schoolHolidays.zoneC?.length, 'périodes');
+                        console.log('<i class="fa-solid fa-calendar-days"></i> Zone A:', schoolHolidays.zoneA?.length, 'périodes');
+                        console.log('<i class="fa-solid fa-calendar-days"></i> Zone B:', schoolHolidays.zoneB?.length, 'périodes');
+                        console.log('<i class="fa-solid fa-calendar-days"></i> Zone C:', schoolHolidays.zoneC?.length, 'périodes');
                         
                         // Mettre à jour l'info dans l'admin
                         updateSchoolHolidaysInfo();
@@ -12048,9 +12048,9 @@
             if (totalA + totalB + totalC > 0) {
                 infoDiv.innerHTML = `
                     <strong>Congés actuellement chargés :</strong><br>
-                    📅 Zone A : ${totalA} période(s)<br>
-                    📅 Zone B : ${totalB} période(s)<br>
-                    📅 Zone C : ${totalC} période(s)
+                    <i class="fa-solid fa-calendar-days"></i> Zone A : ${totalA} période(s)<br>
+                    <i class="fa-solid fa-calendar-days"></i> Zone B : ${totalB} période(s)<br>
+                    <i class="fa-solid fa-calendar-days"></i> Zone C : ${totalC} période(s)
                 `;
             } else {
                 infoDiv.innerHTML = '<em>Aucun congé scolaire chargé</em>';
@@ -14221,7 +14221,7 @@
 
                 const lignesHtml = (cra.astreintes_hno||[]).length
                     ? (cra.astreintes_hno||[]).map((a,i) => `<tr class="${i%2?'odd':''}">
-                        <td class="type-${a.type}">${a.type==='astreinte'?'🔔 Astreinte':a.type==='activite_courante'?'✅ Activité courante':'🌙 HNO'}</td>
+                        <td class="type-${a.type}">${a.type==='astreinte'?'<i class="fa-solid fa-bell" style="color:#e65100"></i> Astreinte':a.type==='activite_courante'?'<i class="fa-solid fa-circle-check" style="color:#2e7d32"></i> Activité courante':'<i class="fa-solid fa-clock" style="color:#1565c0"></i> HNO'}</td>
                         <td>${a.date_debut ? new Date(a.date_debut).toLocaleDateString('fr-FR') : ''}</td>
                         <td>${a.date_fin ? new Date(a.date_fin).toLocaleDateString('fr-FR') : ''}</td>
                         <td>${a.heure_debut||''} ${a.heure_fin?'→ '+a.heure_fin:''}</td>
@@ -14494,7 +14494,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
 
         async function loadCraDeleted() {
             const container = document.getElementById('craDeletedTable');
-            container.innerHTML = '<p style="color:#999;text-align:center;padding:15px;">⏳ Chargement...</p>';
+            container.innerHTML = '<p style="color:#999;text-align:center;padding:15px;"><i class="fa-solid fa-spinner fa-spin" style="color:#999"></i> Chargement...</p>';
             try {
                 const res = await fetch(`${API_URL}/cra/admin/deleted`, { credentials: 'include' });
                 const data = await res.json();
@@ -14733,7 +14733,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                     </tr></thead>
                     <tbody>${lignes.map((l,i)=>`
                         <tr style="background:${i%2?'#f9f4ff':'white'};border-bottom:1px solid #e1bee7;">
-                            <td style="padding:6px 8px;"><span style="padding:2px 6px;border-radius:4px;background:${l.type==='astreinte'?'#ff980022':l.type==='activite_courante'?'#2e7d3222':'#2196f322'};color:${l.type==='astreinte'?'#e65100':l.type==='activite_courante'?'#2e7d32':'#1565c0'};font-weight:bold;font-size:11px;">${l.type==='astreinte'?'🔔 Astreinte':l.type==='activite_courante'?'✅ Activité courante':'🌙 HNO'}</span></td>
+                            <td style="padding:6px 8px;"><span style="padding:2px 6px;border-radius:4px;background:${l.type==='astreinte'?'#ff980022':l.type==='activite_courante'?'#2e7d3222':'#2196f322'};color:${l.type==='astreinte'?'#e65100':l.type==='activite_courante'?'#2e7d32':'#1565c0'};font-weight:bold;font-size:11px;">${l.type==='astreinte'?'<i class="fa-solid fa-bell"></i> Astreinte':l.type==='activite_courante'?'<i class="fa-solid fa-circle-check"></i> Activité courante':'<i class="fa-solid fa-clock"></i> HNO'}</span></td>
                             <td style="padding:6px 8px;">${formatDateFRClient(l.date_debut)}</td>
                             <td style="padding:6px 8px;">${formatDateFRClient(l.date_fin)}</td>
                             <td style="padding:6px 8px;">${l.heure_debut||''} ${l.heure_fin?'→ '+l.heure_fin:''}</td>
@@ -14960,7 +14960,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             }
             container.innerHTML = _craSaisieLines.map((l, i) => `
                 <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:${i%2?'#f9f4ff':'white'};border:1px solid #e1bee7;border-radius:6px;margin-bottom:6px;font-size:12px;">
-                    <span style="padding:2px 8px;border-radius:4px;background:${l.type==='astreinte'?'#ff980022':l.type==='activite_courante'?'#2e7d3222':'#2196f322'};color:${l.type==='astreinte'?'#e65100':l.type==='activite_courante'?'#2e7d32':'#1565c0'};font-weight:bold;white-space:nowrap;">${l.type==='astreinte'?'🔔 Astreinte':l.type==='activite_courante'?'✅ Activité courante':'🌙 HNO'}</span>
+                    <span style="padding:2px 8px;border-radius:4px;background:${l.type==='astreinte'?'#ff980022':l.type==='activite_courante'?'#2e7d3222':'#2196f322'};color:${l.type==='astreinte'?'#e65100':l.type==='activite_courante'?'#2e7d32':'#1565c0'};font-weight:bold;white-space:nowrap;">${l.type==='astreinte'?'<i class="fa-solid fa-bell"></i> Astreinte':l.type==='activite_courante'?'<i class="fa-solid fa-circle-check"></i> Activité courante':'<i class="fa-solid fa-clock"></i> HNO'}</span>
                     <span style="white-space:nowrap;">${formatDateFRClient(l.date_debut)}${l.date_fin!==l.date_debut?' → '+formatDateFRClient(l.date_fin):''}</span>
                     <span style="white-space:nowrap;color:#666;">${l.heure_debut} → ${l.heure_fin}</span>
                     <span style="white-space:nowrap;color:#6a1b9a;font-weight:bold;">${l.samu}</span>
@@ -15397,7 +15397,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                 const lignes = cra.astreintes_hno || [];
                 const lignesHtml = lignes.length ? lignes.map((l, i) => `
                     <tr style="background:${i%2?'#f9f4ff':'white'};">
-                        <td style="padding:6px 8px;"><span style="font-weight:bold;color:${l.type==='astreinte'?'#e65100':l.type==='activite_courante'?'#2e7d32':'#1565c0'};">${l.type==='astreinte'?'🔔 Astreinte':l.type==='activite_courante'?'✅ Activité courante':'🌙 HNO'}</span></td>
+                        <td style="padding:6px 8px;"><span style="font-weight:bold;color:${l.type==='astreinte'?'#e65100':l.type==='activite_courante'?'#2e7d32':'#1565c0'};">${l.type==='astreinte'?'<i class="fa-solid fa-bell"></i> Astreinte':l.type==='activite_courante'?'<i class="fa-solid fa-circle-check"></i> Activité courante':'<i class="fa-solid fa-clock"></i> HNO'}</span></td>
                         <td style="padding:6px 8px;">${l.date_debut ? new Date(l.date_debut).toLocaleDateString('fr-FR') : ''}</td>
                         <td style="padding:6px 8px;">${l.date_fin ? new Date(l.date_fin).toLocaleDateString('fr-FR') : ''}</td>
                         <td style="padding:6px 8px;">${l.heure_debut||''} ${l.heure_fin?'→ '+l.heure_fin:''}</td>
@@ -15904,7 +15904,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                             // Déterminer le type
                             let typeLabel = log.target_month || 'Notification';
                             const typeIcons = {
-                                'affectation': '📅 Affectation',
+                                'affectation': '<i class="fa-solid fa-calendar-days"></i> Affectation',
                                 'demande': '✉️ Demande',
                                 'astreinte': '🔔 Astreinte/HNO',
                                 'evenement': '📆 Événement'
@@ -16796,7 +16796,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                             <span style="font-size: 10px; color: #666;">👤 ${creatorFullName}</span>
                         </div>
                         <div style="font-size: 11px; color: #666;">
-                            📅 ${dateDisplay} <span style="color: #999;">(${diffDays} jour${diffDays > 1 ? 's' : ''})</span>
+                            <i class="fa-solid fa-calendar-days"></i> ${dateDisplay} <span style="color: #999;">(${diffDays} jour${diffDays > 1 ? 's' : ''})</span>
                         </div>
                         ${participantsHtml}
                         <div style="margin-top:4px;display:flex;align-items:center;gap:5px;width:fit-content;">
@@ -16865,7 +16865,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                 
                 html += `<div style="margin-bottom: 10px;">
                     <div onclick="toggleCustomEventsTreeNode(this)" style="cursor: pointer; padding: 10px; background: linear-gradient(135deg, #1565c0 0%, #0d47a1 100%); border-radius: 6px; font-weight: bold; color: white; display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                        <span class="tree-arrow">${yearArrow}</span> 📅 ${year}
+                        <span class="tree-arrow">${yearArrow}</span> <i class="fa-solid fa-calendar-days"></i> ${year}
                         <span style="font-size: 11px; font-weight: normal; margin-left: auto; background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 10px;">
                             ${Object.values(byYear[year]).flat().length} événement(s)
                         </span>
@@ -18986,7 +18986,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                 html += `<strong style="font-size: 14px; color: #2c3e50;">${data.expertPrenom} ${data.expertNom}</strong>`;
                 html += `<br><span style="font-size: 12px; color: #7f8c8d;">${data.expertEmail || 'Pas d\'email'}</span>`;
                 html += `<br><span style="font-size: 11px;">`;
-                if (newCount > 0) html += `<span style="color: #27ae60;">📅 ${newCount} nouvelle(s)</span> `;
+                if (newCount > 0) html += `<span style="color: #27ae60;"><i class="fa-solid fa-calendar-days"></i> ${newCount} nouvelle(s)</span> `;
                 if (modCount > 0) html += `<span style="color: #ff9800;">🔄 ${modCount} modification(s)</span> `;
                 if (delCount > 0) html += `<span style="color: #D60B51;">❌ ${delCount} suppression(s)</span>`;
                 html += `</span>`;
@@ -19017,7 +19017,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                     const dateStr = dateObj.toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit' });
                     const periodStr = assignment.period === 'AM' ? 'Matin' : 'Après-midi';
                     
-                    let typeIcon = '📅';
+                    let typeIcon = '<i class="fa-solid fa-calendar-days"></i>';
                     let rowBg = 'white';
                     if (assignment.actionType === 'modified') { typeIcon = '🔄'; rowBg = '#fff8e1'; }
                     if (assignment.actionType === 'deleted') { typeIcon = '❌'; rowBg = '#fde8e8'; }
@@ -20370,14 +20370,14 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                     const dateRange = ev.end_date && ev.end_date !== ev.start_date
                         ? `${formatDateFRClient(ev.start_date)} → ${formatDateFRClient(ev.end_date)}`
                         : formatDateFRClient(ev.start_date);
-                    const period = ev.period === 'AM' ? ' ☀️ Matin' : ev.period === 'PM' ? ' 🌙 Après-midi' : '';
+                    const period = ev.period === 'AM' ? ' <i class="fa-solid fa-sun" style="color:#f9a825"></i> Matin' : ev.period === 'PM' ? ' <i class="fa-solid fa-moon" style="color:#7986cb"></i> Après-midi' : '';
                     const parts = ev.participants && ev.participants.length > 0
                         ? `<div style="color:#777;margin-top:2px;">👥 ${ev.participants.join(', ')}</div>` : '';
                     const creator = ev.creator_prenom
                         ? `<div style="color:#999;font-size:10px;">${ev.creator_prenom} ${(ev.creator_nom||'').toUpperCase()}</div>` : '';
                     popupHtml += `<div style="border:1px solid #e8eaf6;border-radius:5px;padding:7px;margin-bottom:6px;background:#fafafa;">
                         <div style="font-weight:bold;color:#1565c0;">${ev.label}${period}</div>
-                        <div style="color:#555;margin-top:2px;">📅 ${dateRange}</div>
+                        <div style="color:#555;margin-top:2px;"><i class="fa-solid fa-calendar-days"></i> ${dateRange}</div>
                         ${parts}${creator}
                     </div>`;
                 });
@@ -20637,7 +20637,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                     const dateRange = ev.end_date && ev.end_date !== ev.start_date
                         ? `${formatDateFRClient(ev.start_date)} → ${formatDateFRClient(ev.end_date)}`
                         : formatDateFRClient(ev.start_date);
-                    const period = ev.period === 'AM' ? ' ☀️' : ev.period === 'PM' ? ' 🌙' : '';
+                    const period = ev.period === 'AM' ? ' <i class="fa-solid fa-sun" style="color:#f9a825"></i>' : ev.period === 'PM' ? ' <i class="fa-solid fa-moon" style="color:#7986cb"></i>' : '';
                     const parts = ev.participants && ev.participants.length > 0
                         ? `<div style="color:#777;margin-top:2px;font-size:10px;">👥 ${ev.participants.join(', ')}</div>` : '';
                     let evCfg = {};
@@ -20650,7 +20650,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                         ${badge}
                         <div style="flex:1;">
                             <div style="font-weight:bold;color:${badgeBg === '#ffffff' || badgeBg === '#fff' ? '#333' : badgeBg};">${ev.label}${period}</div>
-                            <div style="color:#555;margin-top:2px;font-size:11px;">📅 ${dateRange}</div>${parts}
+                            <div style="color:#555;margin-top:2px;font-size:11px;"><i class="fa-solid fa-calendar-days"></i> ${dateRange}</div>${parts}
                         </div>
                     </div>`;
                 });
@@ -20907,7 +20907,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             const participantIds = eventsReportingSelectedParticipants.map(p => p.id).join(',');
 
             const resultsDiv = document.getElementById('eventsReportingResults');
-            resultsDiv.innerHTML = '<p style="text-align:center;color:#999;padding:30px;">⏳ Chargement...</p>';
+            resultsDiv.innerHTML = '<p style="text-align:center;color:#999;padding:30px;"><i class="fa-solid fa-spinner fa-spin" style="color:#999"></i> Chargement...</p>';
             document.getElementById('eventsReportingExportButtons').style.display = 'none';
 
             const params = new URLSearchParams();
@@ -20941,7 +20941,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                     </tr></thead><tbody>`;
 
                 const formatDate = d => { if (!d) return '-'; const [y,m,j] = d.split('-'); return `${j}/${m}/${y}`; };
-                const periodLabel = p => p === 'AM' ? '☀️ Matin' : p === 'PM' ? '🌙 Après-midi' : 'Journée entière';
+                const periodLabel = p => p === 'AM' ? '<i class="fa-solid fa-sun" style="color:#f9a825"></i> Matin' : p === 'PM' ? '<i class="fa-solid fa-moon" style="color:#7986cb"></i> Après-midi' : 'Journée entière';
 
                 events.forEach((evt, i) => {
                     const cfg = evt.config ? (typeof evt.config === 'string' ? JSON.parse(evt.config) : evt.config) : {};
@@ -21779,7 +21779,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                             ${eventsHTML}
                             
                             <div style="margin-bottom: 5px;">
-                                <div style="font-size: 10px; font-weight: bold; color: #2c3e50; margin-bottom: 3px;">☀️ Matin:</div>
+                                <div style="font-size: 10px; font-weight: bold; color: #2c3e50; margin-bottom: 3px;"><i class="fa-solid fa-sun" style="color:#f9a825"></i> Matin:</div>
                                 <div style="display: flex; flex-wrap: wrap; gap: 3px;">
                                     ${amExperts.length > 0 
                                         ? amExperts.map(expert => 
@@ -21790,7 +21790,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                             </div>
                             
                             <div>
-                                <div style="font-size: 10px; font-weight: bold; color: #2c3e50; margin-bottom: 3px;">🌙 A-midi:</div>
+                                <div style="font-size: 10px; font-weight: bold; color: #2c3e50; margin-bottom: 3px;"><i class="fa-solid fa-moon" style="color:#7986cb"></i> A-midi:</div>
                                 <div style="display: flex; flex-wrap: wrap; gap: 3px;">
                                     ${pmExperts.length > 0 
                                         ? pmExperts.map(expert => 
@@ -22035,7 +22035,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                                     : (cfg.eventId ? 'NON DÉFINI' : null);  // custom event sans localisation
                                 const displayLabel = locCourt ? `${locCourt} | ${eventLabel}` : eventLabel;
                                 const evtPeriod = sd.period || 'FULL';
-                                const periodSuffix = evtPeriod === 'AM' ? ' ☀️' : evtPeriod === 'PM' ? ' 🌙' : '';
+                                const periodSuffix = evtPeriod === 'AM' ? ' <i class="fa-solid fa-sun" style="color:#f9a825"></i>' : evtPeriod === 'PM' ? ' <i class="fa-solid fa-moon" style="color:#7986cb"></i>' : '';
                                 const participantsTooltip = cfg.participants && cfg.participants.length > 0 ? `\n👥 ${cfg.participants.join(', ')}` : '';
                                 eventsHTML += `<div title="${displayLabel}${participantsTooltip}" style="font-size: 9px; padding: 3px 5px; border-radius: 4px; font-weight: bold; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: help; background-color: ${cfg.bgColor || '#ffeb3b'}; color: ${cfg.textColor || '#000'}; border: 1px solid ${cfg.borderColor || '#fbc02d'};">${displayLabel}${periodSuffix}</div>`;
                             }
@@ -22678,8 +22678,8 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             
             const tabLabels = {
                 'resources': '📋 Ressources',
-                'evenements': '📅 Événements',
-                'planning': '📅 Planification',
+                'evenements': '<i class="fa-solid fa-calendar-days"></i> Événements',
+                'planning': '<i class="fa-solid fa-calendar-days"></i> Planification',
                 'cra': '📋 CRA',
                 'reporting': '📊 Reporting',
                 'admin': '⚙️ Administration',
@@ -24401,8 +24401,9 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             const partFilterVal = document.getElementById('myEventsParticipantFilter')?.value.trim().toLowerCase() || '';
             const dateDebutFilter = document.getElementById('myEventsDateDebut')?.value || '';
             const dateFinFilter = document.getElementById('myEventsDateFin')?.value || '';
+            const normStr = s => (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
             return (myEvents || []).filter(ev => {
-                if (labelFilter && ev.label !== labelFilter) return false;
+                if (labelFilter && normStr(ev.label) !== normStr(labelFilter)) return false;
                 if (locFilter && ev.location !== locFilter) return false;
                 if (dateDebutFilter && ev.start_date < dateDebutFilter) return false;
                 if (dateFinFilter && ev.end_date > dateFinFilter) return false;
@@ -24547,7 +24548,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 
                 html += `<div style="margin-bottom: 10px;">
                     <div onclick="toggleMyEventsTreeNode(this)" style="cursor: pointer; padding: 10px; background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%); border-radius: 6px; font-weight: bold; color: white; display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                        <span class="tree-arrow">${yearArrow}</span> 📅 ${year}
+                        <span class="tree-arrow">${yearArrow}</span> <i class="fa-solid fa-calendar-days"></i> ${year}
                         <span style="font-size: 11px; font-weight: normal; margin-left: auto; background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 10px;">
                             ${Object.values(byYear[year]).flat().length} événement(s)
                         </span>
@@ -24652,7 +24653,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                             ${creatorInfo}
                         </div>
                         <div style="font-size: 11px; color: #666;">
-                            📅 ${dateDisplay} <span style="color: #999;">(${diffDays} jour${diffDays > 1 ? 's' : ''})</span>
+                            <i class="fa-solid fa-calendar-days"></i> ${dateDisplay} <span style="color: #999;">(${diffDays} jour${diffDays > 1 ? 's' : ''})</span>
                         </div>
                         ${participantsHtml}
                         <div style="margin-top:4px;display:flex;align-items:center;gap:5px;width:fit-content;">
@@ -25190,7 +25191,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             const samedisColor = samedisCount > 1 ? '#e74c3c' : (samedisCount === 1 ? '#27ae60' : '#666');
             const dimanchesColor = dimanchesCount > 1 ? '#e74c3c' : (dimanchesCount === 1 ? '#27ae60' : '#666');
             
-            let html = `<h4 style="color: #e65100; margin-bottom: 10px; text-transform: capitalize;">📅 ${monthName}</h4>`;
+            let html = `<h4 style="color: #e65100; margin-bottom: 10px; text-transform: capitalize;"><i class="fa-solid fa-calendar-days"></i> ${monthName}</h4>`;
             
             // Compteurs mensuels
             html += `<div style="display: flex; gap: 15px; margin-bottom: 15px; flex-wrap: wrap;">
