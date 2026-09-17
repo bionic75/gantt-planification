@@ -10848,7 +10848,13 @@ app.get('/api/cra/:id/diffusion-log', requireAuth, async (req, res) => {
                 `SELECT d.id, d.recipient_email, d.recipient_name, d.recipient_type, d.sent_at, d.email_batch_id,
                         eq.status as email_status, eq.error_message, eq.processed_at
                  FROM cra_diffusion_log d
-                 LEFT JOIN email_queue eq ON eq.batch_id = d.email_batch_id AND eq.recipient_email = d.recipient_email
+                 LEFT JOIN (
+                     SELECT batch_id,
+                            MAX(CASE WHEN status='sent' THEN 'sent' WHEN status='failed' THEN 'failed' ELSE status END) as status,
+                            MAX(error_message) as error_message,
+                            MAX(processed_at) as processed_at
+                     FROM email_queue GROUP BY batch_id
+                 ) eq ON eq.batch_id = d.email_batch_id
                  WHERE d.cra_id = ? ORDER BY d.sent_at`,
                 [craId], (err, rows) => err ? reject(err) : resolve(rows || [])
             );
