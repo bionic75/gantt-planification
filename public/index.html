@@ -1,4 +1,4 @@
-<!-- v1.15.64 -->
+<!-- v1.15.65 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -24425,8 +24425,10 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             }
             
             const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
-            const currentYear = new Date().getFullYear();
-            
+            const _now = new Date();
+            const currentYear = _now.getFullYear();
+            const currentMonth = _now.getMonth();
+
             // Appliquer les filtres libellé, localisation, participant et dates
             const locFilterVal = (document.getElementById('myEventsLocFilter')?.value || '').toString();
             const partFilterVal = (document.getElementById('myEventsParticipantFilter')?.value || '').toLowerCase().trim();
@@ -24554,15 +24556,20 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 sortedMonths.forEach(month => {
                     const monthEvents = byYear[year][month];
 
-                    // Garder le mois ouvert si c'est celui qui vient d'être édité
+                    // Garder le mois ouvert si c'est celui qui vient d'être édité, ou si c'est le mois courant
                     const isEditOpen = _myEventsEditOpenNode
                         && _myEventsEditOpenNode.year === parseInt(year)
                         && _myEventsEditOpenNode.month === parseInt(month);
-                    const monthDisplay = isEditOpen ? 'block' : 'none';
-                    const monthArrow = isEditOpen ? '▼' : '▶';
+                    const isCurrentMonth = isCurrentYear && parseInt(month) === currentMonth;
+                    const monthDisplay = (isEditOpen || isCurrentMonth) ? 'block' : 'none';
+                    const monthArrow = (isEditOpen || isCurrentMonth) ? '▼' : '▶';
+                    const monthBg = isCurrentMonth
+                        ? 'linear-gradient(135deg, #f57c00 0%, #e65100 100%)'
+                        : 'linear-gradient(135deg, #ffb74d 0%, #ffa726 100%)';
+                    const monthColor = isCurrentMonth ? 'white' : '#333';
 
                     html += `<div style="margin-bottom: 8px;">
-                        <div onclick="toggleMyEventsTreeNode(this)" style="cursor: pointer; padding: 8px 12px; background: linear-gradient(135deg, #ffb74d 0%, #ffa726 100%); border-radius: 5px; display: flex; align-items: center; gap: 8px; color: #333;">
+                        <div onclick="toggleMyEventsTreeNode(this)" style="cursor: pointer; padding: 8px 12px; background: ${monthBg}; border-radius: 5px; display: flex; align-items: center; gap: 8px; color: ${monthColor}; ${isCurrentMonth ? 'box-shadow: 0 2px 6px rgba(230,81,0,0.4);' : ''}">
                             <span class="tree-arrow">${monthArrow}</span> ${monthNames[month]}
                             <span style="font-size: 10px; margin-left: auto; background: rgba(0,0,0,0.1); padding: 2px 6px; border-radius: 8px;">
                                 ${monthEvents.length} événement(s)
