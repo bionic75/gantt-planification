@@ -1,4 +1,4 @@
-<!-- v1.15.66 -->
+<!-- v1.15.67 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -11066,6 +11066,7 @@
                 document.getElementById(`appAccessSearch_${appKey}`).value = '';
                 document.getElementById(`appAccessSuggestions_${appKey}`).style.display = 'none';
                 await loadAppAccessSection();
+                await refreshCurrentUserApps();
             } catch(e) { alert('Erreur lors de l\'ajout'); }
         }
 
@@ -11075,7 +11076,20 @@
                 const res = await fetch(`${API_URL}/app-access/${appKey}/users/${userId}`, { method: 'DELETE', credentials: 'include' });
                 if (!(await res.json()).success) throw new Error();
                 await loadAppAccessSection();
+                await refreshCurrentUserApps();
             } catch(e) { alert('Erreur lors de la suppression'); }
+        }
+
+        async function refreshCurrentUserApps() {
+            try {
+                const r = await fetch(`${API_URL}/check-session`, { credentials: 'include' });
+                if (!r.ok) return;
+                const data = await r.json();
+                if (data && data.availableApps) {
+                    currentUser.availableApps = data.availableApps;
+                    updateAppSwitcher();
+                }
+            } catch(e) {}
         }
 
         async function resetUserTotp(userId, userName) {
