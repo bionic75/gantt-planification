@@ -1,4 +1,4 @@
-<!-- v1.15.69 -->
+<!-- v1.15.70 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -27862,9 +27862,20 @@ function _aColById(id) {
 // ── Accès au filtre list avec initialisation ──────────────────────────────────
 function _aGetListFilter(col) {
     if (!_analyseFilters[col] || !Array.isArray(_analyseFilters[col].groups)) {
-        _analyseFilters[col] = { groups: [{ tokens: [] }] };
+        _analyseFilters[col] = { groups: [{ tokens: [] }], ops: [] };
     }
+    if (!_analyseFilters[col].ops) _analyseFilters[col].ops = [];
     return _analyseFilters[col];
+}
+
+// Basculer l'opérateur (ET↔OU) entre deux groupes
+function _aToggleOp(colId, opIdx) {
+    const col = _aColById(colId);
+    if (!col) return;
+    const f = _aGetListFilter(col);
+    f.ops[opIdx] = (f.ops[opIdx] === 'OR') ? 'AND' : 'OR';
+    _aRefreshBuilder(col);
+    analyseApplyFilters();
 }
 function _aListActive(col) {
     const f = _analyseFilters[col];
@@ -28019,27 +28030,73 @@ function _aRefreshBuilder(col) {
     const id = _aId(col);
     const hasTokens = f.groups.some(g => g.tokens.length > 0);
 
-    if (!hasTokens) {
+    if (!hasTokens && f.groups.length <= 1) {
         el.innerHTML = '<div style="font-size:11px; color:#9fa8da; padding:4px 2px; font-style:italic;">Aucun filtre actif — recherchez une valeur ci-dessus ou glissez-déposez entre groupes</div>';
+        analyseUpdateActiveCount();
         return;
     }
 
     f.groups.forEach((group, gi) => {
-        // Séparateur ET entre groupes
+        // ── Séparateur ET/OU togglable entre groupes ──────────────────────
         if (gi > 0) {
-            const andSep = document.createElement('div');
-            andSep.style.cssText = 'display:flex; align-items:center; gap:6px; margin:6px 0;';
-            andSep.innerHTML = `<div style="flex:1; height:1px; background:#9fa8da;"></div>
-                <span style="background:#283593; color:white; padding:2px 14px; border-radius:12px; font-size:11px; font-weight:bold; letter-spacing:1px;">ET</span>
-                <div style="flex:1; height:1px; background:#9fa8da;"></div>`;
-            el.appendChild(andSep);
+            const op = f.ops[gi - 1] || 'AND';
+            const isAnd = op === 'AND';
+            const sep = document.createElement('div');
+            sep.style.cssText = 'display:flex; align-items:center; gap:6px; margin:6px 0;';
+
+            const line1 = document.createElement('div');
+            line1.style.cssText = 'flex:1; height:1px; background:#c5cae9;';
+
+            // Toggle ET / OU
+            const toggle = document.createElement('div');
+            toggle.style.cssText = 'display:flex; border-radius:16px; overflow:hidden; border:2px solid ' + (isAnd ? '#283593' : '#6a1b9a') + '; cursor:pointer; user-select:none; flex-shrink:0;';
+            toggle.title = 'Cliquer pour basculer entre ET et OU';
+
+            const btnAnd = document.createElement('span');
+            btnAnd.textContent = 'ET';
+            btnAnd.style.cssText = `padding:3px 14px; font-size:11px; font-weight:bold; letter-spacing:1px; background:${isAnd ? '#283593' : 'white'}; color:${isAnd ? 'white' : '#283593'}; transition:background 0.15s;`;
+
+            const btnOr = document.createElement('span');
+            btnOr.textContent = 'OU';
+            btnOr.style.cssText = `padding:3px 14px; font-size:11px; font-weight:bold; letter-spacing:1px; background:${!isAnd ? '#6a1b9a' : 'white'}; color:${!isAnd ? 'white' : '#6a1b9a'}; transition:background 0.15s;`;
+
+            toggle.appendChild(btnAnd);
+            toggle.appendChild(btnOr);
+            toggle.onclick = () => _aToggleOp(id, gi - 1);
+
+            const line2 = document.createElement('div');
+            line2.style.cssText = 'flex:1; height:1px; background:#c5cae9;';
+
+            sep.appendChild(line1);
+            sep.appendChild(toggle);
+            sep.appendChild(line2);
+            el.appendChild(sep);
         }
 
-        // Boîte de groupe (zone de drop)
-        const groupBox = document.createElement('div');
-        groupBox.style.cssText = `display:flex; flex-wrap:wrap; align-items:center; gap:4px; min-height:38px; padding:6px 8px; background:${group.tokens.length ? '#e8eaf6' : '#f5f5ff'}; border:2px dashed ${group.tokens.length ? '#9fa8da' : '#c5cae9'}; border-radius:8px; transition:border-color 0.15s, background 0.15s;`;
+        // ── En-tête du groupe : numéro + bouton suppression ───────────────
+        const groupHeader = document.createElement('div');
+        groupHeader.style.cssText = 'display:flex; align-items:center; gap:6px; margin-bottom:4px;';
+        const groupLabel = document.createElement('span');
+        groupLabel.style.cssText = 'font-size:10px; color:#7986cb; font-weight:bold;';
+        groupLabel.textContent = `Groupe ${gi + 1}`;
+        groupHeader.appendChild(groupLabel);
 
-        // Activer drop sur la boîte
+        // Bouton supprimer ce groupe (toujours visible)
+        const delGroup = document.createElement('button');
+        delGroup.textContent = '🗑 Supprimer ce groupe';
+        delGroup.style.cssText = 'background:none; border:none; color:#e53935; font-size:10px; cursor:pointer; padding:0 4px; opacity:0.7;';
+        delGroup.onmouseenter = () => delGroup.style.opacity = '1';
+        delGroup.onmouseleave = () => delGroup.style.opacity = '0.7';
+        delGroup.onclick = () => _aListRemoveGroup(col, gi);
+        groupHeader.appendChild(delGroup);
+        el.appendChild(groupHeader);
+
+        // ── Boîte de groupe (zone de drop) ───────────────────────────────
+        const groupBox = document.createElement('div');
+        const bgGroup = group.tokens.length ? '#e8eaf6' : '#f5f5ff';
+        const bdGroup = group.tokens.length ? '#9fa8da' : '#c5cae9';
+        groupBox.style.cssText = `display:flex; flex-wrap:wrap; align-items:center; gap:4px; min-height:38px; padding:6px 8px; background:${bgGroup}; border:2px dashed ${bdGroup}; border-radius:8px; transition:border-color 0.15s, background 0.15s; margin-bottom:2px;`;
+
         groupBox.addEventListener('dragover', e => {
             e.preventDefault();
             if (_aDrag && (_aDrag.col !== col || _aDrag.gi !== gi)) {
@@ -28048,26 +28105,24 @@ function _aRefreshBuilder(col) {
             }
         });
         groupBox.addEventListener('dragleave', () => {
-            groupBox.style.background = group.tokens.length ? '#e8eaf6' : '#f5f5ff';
-            groupBox.style.borderColor = group.tokens.length ? '#9fa8da' : '#c5cae9';
+            groupBox.style.background = bgGroup;
+            groupBox.style.borderColor = bdGroup;
         });
         groupBox.addEventListener('drop', e => {
             e.preventDefault();
-            groupBox.style.background = group.tokens.length ? '#e8eaf6' : '#f5f5ff';
-            groupBox.style.borderColor = group.tokens.length ? '#9fa8da' : '#c5cae9';
+            groupBox.style.background = bgGroup; groupBox.style.borderColor = bdGroup;
             if (!_aDrag || _aDrag.col !== col) return;
             const { gi: fromGi, ti: fromTi } = _aDrag;
-            if (fromGi === gi) return; // même groupe, ignoré
+            if (fromGi === gi) return;
             const token = f.groups[fromGi].tokens.splice(fromTi, 1)[0];
             f.groups[gi].tokens.push(token);
-            // Nettoyer groupes vides (sauf le premier)
             _aCleanGroups(col);
             _aRefreshBuilder(col);
             analyseApplyFilters();
             _aDrag = null;
         });
 
-        // Chips (tokens) dans le groupe
+        // ── Chips dans le groupe ──────────────────────────────────────────
         group.tokens.forEach((token, ti) => {
             // Séparateur OU
             if (ti > 0) {
@@ -28077,96 +28132,80 @@ function _aRefreshBuilder(col) {
                 groupBox.appendChild(orSep);
             }
 
-            // Zone de drop AVANT ce chip (indicateur de position)
+            // Drop zone avant ce chip
             const dropBefore = document.createElement('div');
             dropBefore.style.cssText = 'width:4px; min-height:24px; border-radius:2px; transition:width 0.15s, background 0.15s;';
-            dropBefore.addEventListener('dragover', e => {
-                e.preventDefault(); e.stopPropagation();
-                dropBefore.style.width = '3px';
-                dropBefore.style.background = '#3f51b5';
-            });
-            dropBefore.addEventListener('dragleave', () => {
-                dropBefore.style.width = '4px';
-                dropBefore.style.background = '';
-            });
-            dropBefore.addEventListener('drop', e => {
-                e.preventDefault(); e.stopPropagation();
-                dropBefore.style.width = '4px'; dropBefore.style.background = '';
-                if (!_aDrag || _aDrag.col !== col) return;
-                _aMoveToken(col, _aDrag.gi, _aDrag.ti, gi, ti);
-                _aDrag = null;
-            });
+            dropBefore.addEventListener('dragover', e => { e.preventDefault(); e.stopPropagation(); dropBefore.style.width = '3px'; dropBefore.style.background = '#3f51b5'; });
+            dropBefore.addEventListener('dragleave', () => { dropBefore.style.width = '4px'; dropBefore.style.background = ''; });
+            dropBefore.addEventListener('drop', e => { e.preventDefault(); e.stopPropagation(); dropBefore.style.width = '4px'; dropBefore.style.background = ''; if (!_aDrag || _aDrag.col !== col) return; _aMoveToken(col, _aDrag.gi, _aDrag.ti, gi, ti); _aDrag = null; });
             groupBox.appendChild(dropBefore);
 
             // Chip
             const chip = document.createElement('div');
             chip.draggable = true;
             chip.style.cssText = 'display:flex; align-items:center; gap:5px; background:#3f51b5; color:white; padding:4px 10px; border-radius:14px; font-size:11px; cursor:grab; user-select:none; white-space:nowrap; box-shadow:0 1px 3px rgba(0,0,0,0.2); transition:opacity 0.15s;';
-            chip.title = token;
+            chip.title = token + '\n(cliquer × pour supprimer, glisser pour déplacer)';
 
-            const label = document.createElement('span');
-            label.textContent = token.length > 28 ? token.substring(0, 26) + '…' : token;
-            chip.appendChild(label);
+            const lbl = document.createElement('span');
+            lbl.textContent = token.length > 30 ? token.substring(0, 28) + '…' : token;
+            chip.appendChild(lbl);
 
             const rm = document.createElement('span');
             rm.textContent = '×';
-            rm.style.cssText = 'cursor:pointer; font-size:14px; line-height:1; opacity:0.75; padding:0 1px;';
-            rm.onmouseenter = () => rm.style.opacity = '1';
-            rm.onmouseleave = () => rm.style.opacity = '0.75';
+            rm.style.cssText = 'cursor:pointer; font-size:15px; line-height:1; opacity:0.7; padding:0 2px; border-left:1px solid rgba(255,255,255,0.3); margin-left:3px;';
+            rm.title = 'Supprimer "' + token + '"';
+            rm.onmouseenter = () => { rm.style.opacity = '1'; rm.style.background = 'rgba(255,255,255,0.2)'; rm.style.borderRadius = '50%'; };
+            rm.onmouseleave = () => { rm.style.opacity = '0.7'; rm.style.background = ''; rm.style.borderRadius = ''; };
             rm.onclick = (e) => { e.stopPropagation(); _aListRemoveToken(col, gi, ti); };
             chip.appendChild(rm);
 
-            chip.addEventListener('dragstart', e => {
-                _aDrag = { col, gi, ti };
-                chip.style.opacity = '0.4';
-                e.dataTransfer.effectAllowed = 'move';
-                e.dataTransfer.setData('text/plain', token);
-            });
-            chip.addEventListener('dragend', () => {
-                chip.style.opacity = '1';
-                _aDrag = null;
-            });
-
+            chip.addEventListener('dragstart', e => { _aDrag = { col, gi, ti }; chip.style.opacity = '0.4'; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', token); });
+            chip.addEventListener('dragend', () => { chip.style.opacity = '1'; _aDrag = null; });
             groupBox.appendChild(chip);
         });
 
-        // Drop zone APRÈS le dernier chip
+        // Drop zone après le dernier chip
         const dropAfter = document.createElement('div');
-        dropAfter.style.cssText = 'width:4px; min-height:24px; border-radius:2px; transition:width 0.15s, background 0.15s;';
-        dropAfter.addEventListener('dragover', e => {
-            e.preventDefault(); e.stopPropagation();
-            dropAfter.style.width = '3px'; dropAfter.style.background = '#3f51b5';
-        });
-        dropAfter.addEventListener('dragleave', () => {
-            dropAfter.style.width = '4px'; dropAfter.style.background = '';
-        });
-        dropAfter.addEventListener('drop', e => {
-            e.preventDefault(); e.stopPropagation();
-            dropAfter.style.width = '4px'; dropAfter.style.background = '';
-            if (!_aDrag || _aDrag.col !== col) return;
-            _aMoveToken(col, _aDrag.gi, _aDrag.ti, gi, group.tokens.length);
-            _aDrag = null;
-        });
+        dropAfter.style.cssText = 'width:4px; min-height:24px; border-radius:2px; transition:width 0.15s, background 0.15s; flex:1; min-width:4px;';
+        dropAfter.addEventListener('dragover', e => { e.preventDefault(); e.stopPropagation(); dropAfter.style.background = '#3f51b5'; dropAfter.style.minWidth = '20px'; });
+        dropAfter.addEventListener('dragleave', () => { dropAfter.style.background = ''; dropAfter.style.minWidth = '4px'; });
+        dropAfter.addEventListener('drop', e => { e.preventDefault(); e.stopPropagation(); dropAfter.style.background = ''; dropAfter.style.minWidth = '4px'; if (!_aDrag || _aDrag.col !== col) return; _aMoveToken(col, _aDrag.gi, _aDrag.ti, gi, group.tokens.length); _aDrag = null; });
         groupBox.appendChild(dropAfter);
+
+        if (group.tokens.length === 0) {
+            const hint = document.createElement('span');
+            hint.style.cssText = 'font-size:11px; color:#bbb; font-style:italic; pointer-events:none;';
+            hint.textContent = 'Glissez des valeurs ici ou recherchez ci-dessus';
+            groupBox.appendChild(hint);
+        }
 
         el.appendChild(groupBox);
     });
 
-    // Boutons d'action
+    // ── Boutons d'action globaux ──────────────────────────────────────────
     const actions = document.createElement('div');
-    actions.style.cssText = 'display:flex; gap:8px; margin-top:8px; justify-content:flex-end; flex-wrap:wrap;';
-    actions.innerHTML = `
-        <button onclick="_aListAddGroup('${_aId(col)}')" style="background:none; border:1.5px solid #3f51b5; color:#3f51b5; padding:3px 12px; border-radius:12px; cursor:pointer; font-size:11px; font-weight:bold;" title="Ajouter un groupe connecté par ET">＋ ET (nouveau groupe)</button>
-        <button onclick="_aListClear('${_aId(col)}')" style="background:none; border:1.5px solid #e53935; color:#e53935; padding:3px 12px; border-radius:12px; cursor:pointer; font-size:11px;">✕ Effacer tout</button>`;
-    el.appendChild(actions);
+    actions.style.cssText = 'display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; align-items:center;';
 
+    // Boutons + nouveau groupe (ET et OU)
+    const addGroup = document.createElement('div');
+    addGroup.style.cssText = 'display:flex; border-radius:16px; overflow:hidden; border:1.5px solid #3f51b5;';
+    addGroup.innerHTML = `<button onclick="_aListAddGroup('${id}','AND')" style="background:white; border:none; color:#283593; padding:4px 12px; cursor:pointer; font-size:11px; font-weight:bold;" title="Ajouter un groupe lié par ET">＋ groupe ET</button><button onclick="_aListAddGroup('${id}','OR')" style="background:white; border:none; color:#6a1b9a; padding:4px 12px; cursor:pointer; font-size:11px; font-weight:bold; border-left:1px solid #c5cae9;" title="Ajouter un groupe lié par OU">＋ groupe OU</button>`;
+    actions.appendChild(addGroup);
+
+    const clearAll = document.createElement('button');
+    clearAll.textContent = '✕ Effacer tout';
+    clearAll.style.cssText = 'background:none; border:1.5px solid #e53935; color:#e53935; padding:4px 12px; border-radius:12px; cursor:pointer; font-size:11px; margin-left:auto;';
+    clearAll.onclick = () => _aListClear(id);
+    actions.appendChild(clearAll);
+
+    el.appendChild(actions);
     analyseUpdateActiveCount();
 }
 
 // ── Opérations sur les filtres list ──────────────────────────────────────────
 function _aListAddToken(col, token, groupIdx) {
     const f = _aGetListFilter(col);
-    while (f.groups.length <= groupIdx) f.groups.push({ tokens: [] });
+    while (f.groups.length <= groupIdx) { f.groups.push({ tokens: [] }); f.ops.push('AND'); }
     if (!f.groups[groupIdx].tokens.includes(token)) f.groups[groupIdx].tokens.push(token);
 }
 
@@ -28179,11 +28218,24 @@ function _aListRemoveToken(col, gi, ti) {
     analyseApplyFilters();
 }
 
-function _aListAddGroup(colId) {
+function _aListRemoveGroup(col, gi) {
+    const f = _analyseFilters[col];
+    if (!f || f.groups.length <= 1) { _aListClear(_aId(col)); return; }
+    f.groups.splice(gi, 1);
+    // Retirer l'opérateur associé (ops[gi-1] relie le groupe précédent à celui-ci)
+    if (f.ops.length >= gi && gi > 0) f.ops.splice(gi - 1, 1);
+    else if (f.ops.length > 0) f.ops.splice(0, 1);
+    _aCleanGroups(col);
+    _aRefreshBuilder(col);
+    analyseApplyFilters();
+}
+
+function _aListAddGroup(colId, op) {
     const col = _aColById(colId);
     if (!col) return;
     const f = _aGetListFilter(col);
     f.groups.push({ tokens: [] });
+    f.ops.push(op || 'AND');
     _aRefreshBuilder(col);
 }
 
@@ -28198,17 +28250,24 @@ function _aListClear(colId) {
 function _aCleanGroups(col) {
     const f = _analyseFilters[col];
     if (!f) return;
-    // Garder au moins un groupe (vide) et supprimer les groupes vides intermédiaires
-    f.groups = f.groups.filter((g, i) => g.tokens.length > 0 || i === 0);
-    if (f.groups.length === 0) f.groups = [{ tokens: [] }];
-    if (f.groups.every(g => g.tokens.length === 0)) delete _analyseFilters[col];
+    // Supprimer les groupes vides tout en maintenant ops en cohérence
+    const newGroups = [];
+    const newOps = [];
+    f.groups.forEach((g, i) => {
+        if (g.tokens.length > 0) {
+            if (newGroups.length > 0) newOps.push(f.ops[i - 1] || 'AND');
+            newGroups.push(g);
+        }
+    });
+    if (newGroups.length === 0) { delete _analyseFilters[col]; return; }
+    f.groups = newGroups;
+    f.ops = newOps;
 }
 
 function _aMoveToken(col, fromGi, fromTi, toGi, toTi) {
     const f = _aGetListFilter(col);
     const token = f.groups[fromGi].tokens.splice(fromTi, 1)[0];
-    while (f.groups.length <= toGi) f.groups.push({ tokens: [] });
-    // Ajuster l'index si même groupe et on a supprimé avant
+    while (f.groups.length <= toGi) { f.groups.push({ tokens: [] }); f.ops.push('AND'); }
     let insertAt = (fromGi === toGi && fromTi < toTi) ? toTi - 1 : toTi;
     insertAt = Math.max(0, Math.min(insertAt, f.groups[toGi].tokens.length));
     f.groups[toGi].tokens.splice(insertAt, 0, token);
@@ -28256,14 +28315,20 @@ function analyseApplyFilters() {
             const type = _analyseColTypes[col];
 
             if (type === 'list') {
-                // Structure : { groups: [{tokens:[...]}, ...] }
-                // S\u00e9mantique : ET entre groupes, OU au sein de chaque groupe
                 if (!f.groups) continue;
-                const activeGroups = f.groups.filter(g => g.tokens.length > 0);
+                const activeGroups = f.groups.map((g, i) => ({ tokens: g.tokens, origIdx: i })).filter(g => g.tokens.length > 0);
                 if (activeGroups.length === 0) continue;
                 const rowToks = new Set(val.split(/\s*;\s*/).map(t => t.trim()).filter(Boolean));
-                // Chaque groupe doit avoir au moins un token qui correspond (AND entre groupes, OR dans groupe)
-                if (!activeGroups.every(g => g.tokens.some(t => rowToks.has(t)))) return false;
+                // \u00c9valuation gauche-droite selon ops[]
+                // ops[i] est l'op\u00e9rateur entre groupes[i] et groupes[i+1] dans la liste d'origine
+                // On recalcule sur les groupes actifs avec leurs op\u00e9rateurs
+                let result = activeGroups[0].tokens.some(t => rowToks.has(t));
+                for (let gi = 1; gi < activeGroups.length; gi++) {
+                    const op = (f.ops && f.ops[activeGroups[gi].origIdx - 1]) || 'AND';
+                    const gMatch = activeGroups[gi].tokens.some(t => rowToks.has(t));
+                    result = op === 'OR' ? (result || gMatch) : (result && gMatch);
+                }
+                if (!result) return false;
             } else if (type === 'enum') {
                 if (val !== f) return false;
             } else {
