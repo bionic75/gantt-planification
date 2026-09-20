@@ -1,4 +1,4 @@
-<!-- v1.15.68 -->
+<!-- v1.15.69 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -27796,11 +27796,13 @@ function analyseHandleFile(file) {
             _analyseColTypes = {};
             _analyseColValues = {};
             for (const col of _analyseHeaders) {
-                const samples = rows.slice(0, Math.min(500, rows.length)).map(r => (r[col] || '').toString().trim());
+                // Échantillon plus large pour la détection (jusqu'à 2000 lignes)
+                const samples = rows.slice(0, Math.min(2000, rows.length)).map(r => (r[col] || '').toString().trim());
                 const nonEmpty = samples.filter(v => v !== '');
-                // Détecter liste (séparateur ' ; ' ou ';')
+                // Détecter liste (séparateur ';') — seuil abaissé à 0.1 pour capter les colonnes
+                // où beaucoup de cellules n'ont qu'une seule valeur (pas de ';')
                 const listCount = nonEmpty.filter(v => /\s*;\s*/.test(v)).length;
-                if (listCount / Math.max(nonEmpty.length, 1) > 0.3) {
+                if (listCount / Math.max(nonEmpty.length, 1) > 0.1) {
                     _analyseColTypes[col] = 'list';
                     const tokens = new Set();
                     rows.forEach(r => {
@@ -27938,23 +27940,33 @@ function _buildListWidget(parentDiv, col, vals) {
     inp.style.cssText = 'width:100%; padding:5px 10px; border:1.5px solid #9fa8da; border-radius:6px; font-size:12px; box-sizing:border-box; outline:none;';
 
     const sugBox = document.createElement('div');
-    sugBox.style.cssText = 'display:none; position:absolute; top:100%; left:0; right:0; background:white; border:1px solid #9fa8da; border-top:none; border-radius:0 0 8px 8px; max-height:180px; overflow-y:auto; z-index:200; box-shadow:0 6px 16px rgba(0,0,0,0.12);';
+    sugBox.style.cssText = 'display:none; position:absolute; top:100%; left:0; right:0; background:white; border:1px solid #9fa8da; border-top:none; border-radius:0 0 8px 8px; max-height:320px; overflow-y:auto; z-index:200; box-shadow:0 6px 16px rgba(0,0,0,0.12);';
 
     const refreshSuggestions = (q) => {
         const f = _aGetListFilter(col);
         const used = new Set(f.groups.flatMap(g => g.tokens));
-        const matches = (q ? vals.filter(v => v.toLowerCase().includes(q.toLowerCase())) : vals).filter(v => !used.has(v));
-        if (!matches.length) { sugBox.style.display = 'none'; return; }
+        const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+        const qn = norm(q || '');
+        const matches = (qn ? vals.filter(v => norm(v).includes(qn)) : vals).filter(v => !used.has(v));
+        if (!matches.length) {
+            sugBox.innerHTML = '<div style="padding:8px 12px; color:#999; font-size:12px; font-style:italic;">Aucune valeur disponible</div>';
+            sugBox.style.display = 'block';
+            return;
+        }
         sugBox.innerHTML = '';
-        matches.slice(0, 80).forEach(v => {
+
+        // Afficher toutes les valeurs (sans limite) — la hauteur est contrainte par max-height
+        const SHOW_MAX = 500; // filet de sécurité pour les très grosses listes
+        const toShow = matches.slice(0, SHOW_MAX);
+        toShow.forEach(v => {
             const item = document.createElement('div');
-            item.style.cssText = 'padding:6px 12px; font-size:12px; cursor:pointer;';
+            item.style.cssText = 'padding:6px 12px; font-size:12px; cursor:pointer; border-bottom:1px solid #f0f0f0;';
             item.textContent = v;
             item.onmouseenter = () => item.style.background = '#e8eaf6';
             item.onmouseleave = () => item.style.background = '';
-            item.onmousedown = (e) => { // mousedown pour ne pas perdre le focus
+            item.onmousedown = (e) => {
                 e.preventDefault();
-                _aListAddToken(col, v, 0); // ajoute dans le 1er groupe
+                _aListAddToken(col, v, 0);
                 inp.value = '';
                 sugBox.style.display = 'none';
                 _aRefreshBuilder(col);
@@ -27962,6 +27974,19 @@ function _buildListWidget(parentDiv, col, vals) {
             };
             sugBox.appendChild(item);
         });
+        // Indicateur si tronqué
+        if (matches.length > SHOW_MAX) {
+            const more = document.createElement('div');
+            more.style.cssText = 'padding:6px 12px; font-size:11px; color:#9fa8da; font-style:italic; background:#f8f9ff;';
+            more.textContent = `… et ${(matches.length - SHOW_MAX).toLocaleString('fr-FR')} autres — affinez la recherche`;
+            sugBox.appendChild(more);
+        }
+        // Compteur total
+        const counter = document.createElement('div');
+        counter.style.cssText = 'padding:4px 12px; font-size:10px; color:#bbb; background:#fafafa; border-top:1px solid #eee; text-align:right;';
+        counter.textContent = `${matches.length.toLocaleString('fr-FR')} valeur(s) disponible(s)`;
+        sugBox.appendChild(counter);
+
         sugBox.style.display = 'block';
     };
 
