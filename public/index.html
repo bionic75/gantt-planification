@@ -1,4 +1,4 @@
-<!-- v1.15.67 -->
+<!-- v1.15.68 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -27698,14 +27698,25 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
 // Tout le traitement est local (FileReader + SheetJS)
 // ═══════════════════════════════════════════════════════
 
-let _analyseData = [];          // toutes les lignes (objets)
-let _analyseHeaders = [];       // noms de colonnes
-let _analyseColTypes = {};      // 'list' | 'enum' | 'date' | 'text'
-let _analyseColValues = {};     // valeurs uniques (ou tokens pour 'list')
-let _analyseFilters = {};       // filtres actifs { col: value/[] }
+let _analyseData = [];
+let _analyseHeaders = [];
+let _analyseColTypes = {};
+let _analyseColValues = {};
+// Filtres : col -> null | scalar (enum/text/date) | { groups:[{tokens:[]},...] } (list)
+let _analyseFilters = {};
 let _analysePage = 1;
 let _analysePageSize = 100;
-let _analyseVisibleCols = [];   // colonnes cochées
+let _analyseVisibleCols = [];
+
+// ── Drag & drop état global pour les filtres list ─────
+let _aDrag = null; // { col, gi, ti } token en cours de glisser
+
+// ── Map col -> {builderEl, vals} pour refresh ciblé ──
+const _aListMap = new Map();
+
+// ── Compteur d'ID pour éviter les conflits de noms ───
+let _aColSeq = 0;
+const _aColId = new Map(); // col -> identifiant sûr
 
 function showAnalyseApp() {
     document.getElementById('analyseContainer').style.display = 'block';
@@ -27721,6 +27732,10 @@ function analyseReset() {
     _analyseFilters = {};
     _analysePage = 1;
     _analyseVisibleCols = [];
+    _aListMap.clear();
+    _aColId.clear();
+    _aColSeq = 0;
+    _aDrag = null;
     document.getElementById('analyseDropZone').style.display = 'flex';
     document.getElementById('analyseWorkspace').style.display = 'none';
     document.getElementById('analyseFileName').textContent = '';
@@ -27832,100 +27847,349 @@ function analyseHandleFile(file) {
     }
 }
 
+// ── Helpers ID sûr pour les colonnes ─────────────────────────────────────────
+function _aId(col) {
+    if (!_aColId.has(col)) _aColId.set(col, 'ac' + (_aColSeq++));
+    return _aColId.get(col);
+}
+function _aColById(id) {
+    for (const [c, i] of _aColId) if (i === id) return c;
+    return null;
+}
+
+// ── Accès au filtre list avec initialisation ──────────────────────────────────
+function _aGetListFilter(col) {
+    if (!_analyseFilters[col] || !Array.isArray(_analyseFilters[col].groups)) {
+        _analyseFilters[col] = { groups: [{ tokens: [] }] };
+    }
+    return _analyseFilters[col];
+}
+function _aListActive(col) {
+    const f = _analyseFilters[col];
+    return f && Array.isArray(f.groups) && f.groups.some(g => g.tokens.length > 0);
+}
+
+// ── Render panneau de filtres ─────────────────────────────────────────────────
 function analyseRenderFilters() {
+    _aListMap.clear();
+    _aColId.clear();
+    _aColSeq = 0;
+
     const panel = document.getElementById('analyseFiltersPanel');
     panel.innerHTML = '';
+
     for (const col of _analyseHeaders) {
         const type = _analyseColTypes[col];
         const vals = _analyseColValues[col] || [];
         const div = document.createElement('div');
-        div.style.cssText = 'background:#f8f9ff; border:1px solid #e0e4ff; border-radius:8px; padding:8px 10px;';
 
-        const label = document.createElement('div');
-        label.style.cssText = 'font-size:10px; color:#5c6bc0; font-weight:bold; margin-bottom:5px; text-transform:uppercase; letter-spacing:0.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
-        label.title = col;
-        label.textContent = col;
-        div.appendChild(label);
-
-        if (type === 'enum') {
-            const sel = document.createElement('select');
-            sel.style.cssText = 'width:100%; padding:4px 6px; border:1px solid #c5cae9; border-radius:4px; font-size:12px; background:white;';
-            sel.innerHTML = `<option value="">— Tous —</option>` + vals.map(v => `<option value="${v.replace(/"/g,'&quot;')}">${v}</option>`).join('');
-            if (_analyseFilters[col]) sel.value = _analyseFilters[col];
-            sel.onchange = () => { _analyseFilters[col] = sel.value || null; _analysePage = 1; analyseApplyFilters(); };
-            div.appendChild(sel);
-        } else if (type === 'list') {
-            const searchDiv = document.createElement('div');
-            searchDiv.style.cssText = 'position:relative;';
-            const inp = document.createElement('input');
-            inp.type = 'text';
-            inp.placeholder = 'Rechercher dans la liste…';
-            inp.style.cssText = 'width:100%; padding:4px 6px; border:1px solid #c5cae9; border-radius:4px; font-size:12px; box-sizing:border-box;';
-            inp.value = (_analyseFilters[col] && _analyseFilters[col]._search) || '';
-
-            const dropdown = document.createElement('div');
-            dropdown.style.cssText = 'display:none; position:absolute; top:100%; left:0; right:0; background:white; border:1px solid #c5cae9; border-radius:0 0 6px 6px; max-height:180px; overflow-y:auto; z-index:50; box-shadow:0 4px 8px rgba(0,0,0,0.1);';
-
-            const renderDropdown = (q) => {
-                const filtered = q ? vals.filter(v => v.toLowerCase().includes(q.toLowerCase())) : vals;
-                dropdown.innerHTML = filtered.slice(0, 100).map(v => {
-                    const active = _analyseFilters[col] && _analyseFilters[col]._token === v;
-                    return `<div onclick="analyseSelectListToken('${col.replace(/'/g,"\\'")}','${v.replace(/'/g,"\\'")}')"
-                        style="padding:5px 10px; font-size:12px; cursor:pointer; background:${active ? '#e8eaf6' : 'white'}; color:${active ? '#3f51b5' : '#222'};"
-                        onmouseenter="this.style.background='#f3f4ff'" onmouseleave="this.style.background='${active ? '#e8eaf6' : 'white'}'">
-                        ${v}
-                    </div>`;
-                }).join('') || '<div style="padding:8px;color:#999;font-size:12px;">Aucun résultat</div>';
-            };
-
-            inp.addEventListener('focus', () => { renderDropdown(inp.value); dropdown.style.display = 'block'; });
-            inp.addEventListener('input', () => { renderDropdown(inp.value); dropdown.style.display = 'block'; });
-            inp.addEventListener('keydown', (e) => { if (e.key === 'Escape') dropdown.style.display = 'none'; });
-
-            // Fermer si clic en dehors
-            document.addEventListener('click', (e) => { if (!searchDiv.contains(e.target)) dropdown.style.display = 'none'; });
-
-            // Afficher la valeur sélectionnée
-            if (_analyseFilters[col] && _analyseFilters[col]._token) {
-                inp.value = _analyseFilters[col]._token;
-                inp.style.background = '#e8eaf6';
-            }
-
-            const clearBtn = document.createElement('span');
-            clearBtn.textContent = '✕';
-            clearBtn.style.cssText = 'position:absolute; right:6px; top:50%; transform:translateY(-50%); cursor:pointer; color:#999; font-size:12px; display:' + (_analyseFilters[col] ? 'block' : 'none') + ';';
-            clearBtn.onclick = (e) => { e.stopPropagation(); delete _analyseFilters[col]; inp.value = ''; inp.style.background = 'white'; clearBtn.style.display = 'none'; _analysePage = 1; analyseApplyFilters(); analyseUpdateActiveCount(); };
-
-            searchDiv.appendChild(inp);
-            searchDiv.appendChild(dropdown);
-            searchDiv.appendChild(clearBtn);
-            div.appendChild(searchDiv);
-
-            // Stocker référence pour la maj
-            inp._col = col;
-            inp._clearBtn = clearBtn;
-            inp._dropdown = dropdown;
-            inp._vals = vals;
-            inp._renderDropdown = renderDropdown;
+        if (type === 'list') {
+            // Widget large (2 colonnes)
+            div.style.cssText = 'background:#f0f2ff; border:1px solid #c5cae9; border-radius:10px; padding:10px 12px; grid-column: span 2;';
+            _buildListWidget(div, col, vals);
         } else {
-            const inp = document.createElement('input');
-            inp.type = type === 'date' ? 'date' : 'text';
-            inp.placeholder = type === 'date' ? 'Date (AAAA-MM-JJ)' : 'Recherche libre…';
-            inp.style.cssText = 'width:100%; padding:4px 6px; border:1px solid #c5cae9; border-radius:4px; font-size:12px; box-sizing:border-box;';
-            if (_analyseFilters[col]) inp.value = _analyseFilters[col];
-            inp.addEventListener('input', () => { _analyseFilters[col] = inp.value || null; _analysePage = 1; analyseApplyFilters(); });
-            div.appendChild(inp);
-        }
+            div.style.cssText = 'background:#f8f9ff; border:1px solid #e0e4ff; border-radius:8px; padding:8px 10px;';
 
+            const lbl = document.createElement('div');
+            lbl.style.cssText = 'font-size:10px; color:#5c6bc0; font-weight:bold; margin-bottom:5px; text-transform:uppercase; letter-spacing:0.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
+            lbl.title = col; lbl.textContent = col;
+            div.appendChild(lbl);
+
+            if (type === 'enum') {
+                const sel = document.createElement('select');
+                sel.style.cssText = 'width:100%; padding:4px 6px; border:1px solid #c5cae9; border-radius:4px; font-size:12px; background:white;';
+                sel.innerHTML = `<option value="">— Tous —</option>` + vals.map(v => `<option value="${v.replace(/"/g,'&quot;')}">${v}</option>`).join('');
+                if (_analyseFilters[col]) sel.value = _analyseFilters[col];
+                sel.onchange = () => { _analyseFilters[col] = sel.value || null; _analysePage = 1; analyseApplyFilters(); };
+                div.appendChild(sel);
+            } else {
+                const inp = document.createElement('input');
+                inp.type = type === 'date' ? 'date' : 'text';
+                inp.placeholder = type === 'date' ? 'Recherche date…' : 'Recherche libre…';
+                inp.style.cssText = 'width:100%; padding:4px 6px; border:1px solid #c5cae9; border-radius:4px; font-size:12px; box-sizing:border-box;';
+                if (_analyseFilters[col]) inp.value = _analyseFilters[col];
+                inp.addEventListener('input', () => { _analyseFilters[col] = inp.value || null; _analysePage = 1; analyseApplyFilters(); });
+                div.appendChild(inp);
+            }
+        }
         panel.appendChild(div);
     }
 }
 
-function analyseSelectListToken(col, token) {
-    _analyseFilters[col] = { _token: token, _search: token };
-    _analysePage = 1;
+// ── Widget query-builder drag & drop pour colonnes list ───────────────────────
+function _buildListWidget(parentDiv, col, vals) {
+    const id = _aId(col);
+    _aListMap.set(col, { builderEl: null, vals });
+
+    // Titre
+    const hdr = document.createElement('div');
+    hdr.style.cssText = 'display:flex; align-items:center; gap:8px; margin-bottom:8px;';
+    hdr.innerHTML = `<span style="font-size:10px; color:#3f51b5; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1;" title="${col}">${col}</span>
+        <span style="font-size:10px; background:#7986cb; color:white; padding:1px 7px; border-radius:10px; white-space:nowrap;">multi-valeurs · ET/OU</span>`;
+    parentDiv.appendChild(hdr);
+
+    // Recherche + autocomplete
+    const searchWrap = document.createElement('div');
+    searchWrap.style.cssText = 'position:relative; margin-bottom:10px;';
+
+    const inp = document.createElement('input');
+    inp.type = 'text';
+    inp.placeholder = 'Rechercher une valeur à ajouter dans le filtre…';
+    inp.style.cssText = 'width:100%; padding:5px 10px; border:1.5px solid #9fa8da; border-radius:6px; font-size:12px; box-sizing:border-box; outline:none;';
+
+    const sugBox = document.createElement('div');
+    sugBox.style.cssText = 'display:none; position:absolute; top:100%; left:0; right:0; background:white; border:1px solid #9fa8da; border-top:none; border-radius:0 0 8px 8px; max-height:180px; overflow-y:auto; z-index:200; box-shadow:0 6px 16px rgba(0,0,0,0.12);';
+
+    const refreshSuggestions = (q) => {
+        const f = _aGetListFilter(col);
+        const used = new Set(f.groups.flatMap(g => g.tokens));
+        const matches = (q ? vals.filter(v => v.toLowerCase().includes(q.toLowerCase())) : vals).filter(v => !used.has(v));
+        if (!matches.length) { sugBox.style.display = 'none'; return; }
+        sugBox.innerHTML = '';
+        matches.slice(0, 80).forEach(v => {
+            const item = document.createElement('div');
+            item.style.cssText = 'padding:6px 12px; font-size:12px; cursor:pointer;';
+            item.textContent = v;
+            item.onmouseenter = () => item.style.background = '#e8eaf6';
+            item.onmouseleave = () => item.style.background = '';
+            item.onmousedown = (e) => { // mousedown pour ne pas perdre le focus
+                e.preventDefault();
+                _aListAddToken(col, v, 0); // ajoute dans le 1er groupe
+                inp.value = '';
+                sugBox.style.display = 'none';
+                _aRefreshBuilder(col);
+                analyseApplyFilters();
+            };
+            sugBox.appendChild(item);
+        });
+        sugBox.style.display = 'block';
+    };
+
+    inp.addEventListener('focus', () => refreshSuggestions(inp.value));
+    inp.addEventListener('input', () => refreshSuggestions(inp.value));
+    inp.addEventListener('keydown', e => { if (e.key === 'Escape') sugBox.style.display = 'none'; });
+    inp.addEventListener('blur', () => setTimeout(() => { sugBox.style.display = 'none'; }, 150));
+
+    searchWrap.appendChild(inp);
+    searchWrap.appendChild(sugBox);
+    parentDiv.appendChild(searchWrap);
+
+    // Zone query builder
+    const builder = document.createElement('div');
+    builder.id = 'listBuilder_' + id;
+    parentDiv.appendChild(builder);
+
+    _aListMap.set(col, { builderEl: builder, vals });
+    _aRefreshBuilder(col);
+}
+
+// Re-rend uniquement la zone builder d'une colonne list
+function _aRefreshBuilder(col) {
+    const info = _aListMap.get(col);
+    if (!info || !info.builderEl) return;
+    const el = info.builderEl;
+    el.innerHTML = '';
+
+    const f = _aGetListFilter(col);
+    const id = _aId(col);
+    const hasTokens = f.groups.some(g => g.tokens.length > 0);
+
+    if (!hasTokens) {
+        el.innerHTML = '<div style="font-size:11px; color:#9fa8da; padding:4px 2px; font-style:italic;">Aucun filtre actif — recherchez une valeur ci-dessus ou glissez-déposez entre groupes</div>';
+        return;
+    }
+
+    f.groups.forEach((group, gi) => {
+        // Séparateur ET entre groupes
+        if (gi > 0) {
+            const andSep = document.createElement('div');
+            andSep.style.cssText = 'display:flex; align-items:center; gap:6px; margin:6px 0;';
+            andSep.innerHTML = `<div style="flex:1; height:1px; background:#9fa8da;"></div>
+                <span style="background:#283593; color:white; padding:2px 14px; border-radius:12px; font-size:11px; font-weight:bold; letter-spacing:1px;">ET</span>
+                <div style="flex:1; height:1px; background:#9fa8da;"></div>`;
+            el.appendChild(andSep);
+        }
+
+        // Boîte de groupe (zone de drop)
+        const groupBox = document.createElement('div');
+        groupBox.style.cssText = `display:flex; flex-wrap:wrap; align-items:center; gap:4px; min-height:38px; padding:6px 8px; background:${group.tokens.length ? '#e8eaf6' : '#f5f5ff'}; border:2px dashed ${group.tokens.length ? '#9fa8da' : '#c5cae9'}; border-radius:8px; transition:border-color 0.15s, background 0.15s;`;
+
+        // Activer drop sur la boîte
+        groupBox.addEventListener('dragover', e => {
+            e.preventDefault();
+            if (_aDrag && (_aDrag.col !== col || _aDrag.gi !== gi)) {
+                groupBox.style.background = '#c5cae9';
+                groupBox.style.borderColor = '#3f51b5';
+            }
+        });
+        groupBox.addEventListener('dragleave', () => {
+            groupBox.style.background = group.tokens.length ? '#e8eaf6' : '#f5f5ff';
+            groupBox.style.borderColor = group.tokens.length ? '#9fa8da' : '#c5cae9';
+        });
+        groupBox.addEventListener('drop', e => {
+            e.preventDefault();
+            groupBox.style.background = group.tokens.length ? '#e8eaf6' : '#f5f5ff';
+            groupBox.style.borderColor = group.tokens.length ? '#9fa8da' : '#c5cae9';
+            if (!_aDrag || _aDrag.col !== col) return;
+            const { gi: fromGi, ti: fromTi } = _aDrag;
+            if (fromGi === gi) return; // même groupe, ignoré
+            const token = f.groups[fromGi].tokens.splice(fromTi, 1)[0];
+            f.groups[gi].tokens.push(token);
+            // Nettoyer groupes vides (sauf le premier)
+            _aCleanGroups(col);
+            _aRefreshBuilder(col);
+            analyseApplyFilters();
+            _aDrag = null;
+        });
+
+        // Chips (tokens) dans le groupe
+        group.tokens.forEach((token, ti) => {
+            // Séparateur OU
+            if (ti > 0) {
+                const orSep = document.createElement('span');
+                orSep.style.cssText = 'font-size:10px; color:#7986cb; font-weight:bold; padding:0 2px; user-select:none;';
+                orSep.textContent = 'OU';
+                groupBox.appendChild(orSep);
+            }
+
+            // Zone de drop AVANT ce chip (indicateur de position)
+            const dropBefore = document.createElement('div');
+            dropBefore.style.cssText = 'width:4px; min-height:24px; border-radius:2px; transition:width 0.15s, background 0.15s;';
+            dropBefore.addEventListener('dragover', e => {
+                e.preventDefault(); e.stopPropagation();
+                dropBefore.style.width = '3px';
+                dropBefore.style.background = '#3f51b5';
+            });
+            dropBefore.addEventListener('dragleave', () => {
+                dropBefore.style.width = '4px';
+                dropBefore.style.background = '';
+            });
+            dropBefore.addEventListener('drop', e => {
+                e.preventDefault(); e.stopPropagation();
+                dropBefore.style.width = '4px'; dropBefore.style.background = '';
+                if (!_aDrag || _aDrag.col !== col) return;
+                _aMoveToken(col, _aDrag.gi, _aDrag.ti, gi, ti);
+                _aDrag = null;
+            });
+            groupBox.appendChild(dropBefore);
+
+            // Chip
+            const chip = document.createElement('div');
+            chip.draggable = true;
+            chip.style.cssText = 'display:flex; align-items:center; gap:5px; background:#3f51b5; color:white; padding:4px 10px; border-radius:14px; font-size:11px; cursor:grab; user-select:none; white-space:nowrap; box-shadow:0 1px 3px rgba(0,0,0,0.2); transition:opacity 0.15s;';
+            chip.title = token;
+
+            const label = document.createElement('span');
+            label.textContent = token.length > 28 ? token.substring(0, 26) + '…' : token;
+            chip.appendChild(label);
+
+            const rm = document.createElement('span');
+            rm.textContent = '×';
+            rm.style.cssText = 'cursor:pointer; font-size:14px; line-height:1; opacity:0.75; padding:0 1px;';
+            rm.onmouseenter = () => rm.style.opacity = '1';
+            rm.onmouseleave = () => rm.style.opacity = '0.75';
+            rm.onclick = (e) => { e.stopPropagation(); _aListRemoveToken(col, gi, ti); };
+            chip.appendChild(rm);
+
+            chip.addEventListener('dragstart', e => {
+                _aDrag = { col, gi, ti };
+                chip.style.opacity = '0.4';
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', token);
+            });
+            chip.addEventListener('dragend', () => {
+                chip.style.opacity = '1';
+                _aDrag = null;
+            });
+
+            groupBox.appendChild(chip);
+        });
+
+        // Drop zone APRÈS le dernier chip
+        const dropAfter = document.createElement('div');
+        dropAfter.style.cssText = 'width:4px; min-height:24px; border-radius:2px; transition:width 0.15s, background 0.15s;';
+        dropAfter.addEventListener('dragover', e => {
+            e.preventDefault(); e.stopPropagation();
+            dropAfter.style.width = '3px'; dropAfter.style.background = '#3f51b5';
+        });
+        dropAfter.addEventListener('dragleave', () => {
+            dropAfter.style.width = '4px'; dropAfter.style.background = '';
+        });
+        dropAfter.addEventListener('drop', e => {
+            e.preventDefault(); e.stopPropagation();
+            dropAfter.style.width = '4px'; dropAfter.style.background = '';
+            if (!_aDrag || _aDrag.col !== col) return;
+            _aMoveToken(col, _aDrag.gi, _aDrag.ti, gi, group.tokens.length);
+            _aDrag = null;
+        });
+        groupBox.appendChild(dropAfter);
+
+        el.appendChild(groupBox);
+    });
+
+    // Boutons d'action
+    const actions = document.createElement('div');
+    actions.style.cssText = 'display:flex; gap:8px; margin-top:8px; justify-content:flex-end; flex-wrap:wrap;';
+    actions.innerHTML = `
+        <button onclick="_aListAddGroup('${_aId(col)}')" style="background:none; border:1.5px solid #3f51b5; color:#3f51b5; padding:3px 12px; border-radius:12px; cursor:pointer; font-size:11px; font-weight:bold;" title="Ajouter un groupe connecté par ET">＋ ET (nouveau groupe)</button>
+        <button onclick="_aListClear('${_aId(col)}')" style="background:none; border:1.5px solid #e53935; color:#e53935; padding:3px 12px; border-radius:12px; cursor:pointer; font-size:11px;">✕ Effacer tout</button>`;
+    el.appendChild(actions);
+
+    analyseUpdateActiveCount();
+}
+
+// ── Opérations sur les filtres list ──────────────────────────────────────────
+function _aListAddToken(col, token, groupIdx) {
+    const f = _aGetListFilter(col);
+    while (f.groups.length <= groupIdx) f.groups.push({ tokens: [] });
+    if (!f.groups[groupIdx].tokens.includes(token)) f.groups[groupIdx].tokens.push(token);
+}
+
+function _aListRemoveToken(col, gi, ti) {
+    const f = _analyseFilters[col];
+    if (!f) return;
+    f.groups[gi].tokens.splice(ti, 1);
+    _aCleanGroups(col);
+    _aRefreshBuilder(col);
     analyseApplyFilters();
-    analyseRenderFilters();
+}
+
+function _aListAddGroup(colId) {
+    const col = _aColById(colId);
+    if (!col) return;
+    const f = _aGetListFilter(col);
+    f.groups.push({ tokens: [] });
+    _aRefreshBuilder(col);
+}
+
+function _aListClear(colId) {
+    const col = _aColById(colId);
+    if (!col) return;
+    delete _analyseFilters[col];
+    _aRefreshBuilder(col);
+    analyseApplyFilters();
+}
+
+function _aCleanGroups(col) {
+    const f = _analyseFilters[col];
+    if (!f) return;
+    // Garder au moins un groupe (vide) et supprimer les groupes vides intermédiaires
+    f.groups = f.groups.filter((g, i) => g.tokens.length > 0 || i === 0);
+    if (f.groups.length === 0) f.groups = [{ tokens: [] }];
+    if (f.groups.every(g => g.tokens.length === 0)) delete _analyseFilters[col];
+}
+
+function _aMoveToken(col, fromGi, fromTi, toGi, toTi) {
+    const f = _aGetListFilter(col);
+    const token = f.groups[fromGi].tokens.splice(fromTi, 1)[0];
+    while (f.groups.length <= toGi) f.groups.push({ tokens: [] });
+    // Ajuster l'index si même groupe et on a supprimé avant
+    let insertAt = (fromGi === toGi && fromTi < toTi) ? toTi - 1 : toTi;
+    insertAt = Math.max(0, Math.min(insertAt, f.groups[toGi].tokens.length));
+    f.groups[toGi].tokens.splice(insertAt, 0, token);
+    _aCleanGroups(col);
+    _aRefreshBuilder(col);
+    analyseApplyFilters();
 }
 
 function analyseRenderColumnCheckboxes() {
@@ -27962,19 +28226,21 @@ function analyseApplyFilters() {
     const filtered = _analyseData.filter(row => {
         for (const col of _analyseHeaders) {
             const f = _analyseFilters[col];
-            if (!f) continue;
+            if (!f || f === null) continue;
             const val = (row[col] || '').toString();
             const type = _analyseColTypes[col];
 
             if (type === 'list') {
-                if (!f._token) continue;
-                const tokens = val.split(/\s*;\s*/).map(t => t.trim());
-                if (!tokens.some(t => t === f._token)) return false;
+                // Structure : { groups: [{tokens:[...]}, ...] }
+                // S\u00e9mantique : ET entre groupes, OU au sein de chaque groupe
+                if (!f.groups) continue;
+                const activeGroups = f.groups.filter(g => g.tokens.length > 0);
+                if (activeGroups.length === 0) continue;
+                const rowToks = new Set(val.split(/\s*;\s*/).map(t => t.trim()).filter(Boolean));
+                // Chaque groupe doit avoir au moins un token qui correspond (AND entre groupes, OR dans groupe)
+                if (!activeGroups.every(g => g.tokens.some(t => rowToks.has(t)))) return false;
             } else if (type === 'enum') {
                 if (val !== f) return false;
-            } else if (type === 'date') {
-                // Filtre texte libre sur la date
-                if (!normStr(val).includes(normStr(f))) return false;
             } else {
                 if (!normStr(val).includes(normStr(f))) return false;
             }
@@ -27994,7 +28260,16 @@ function analyseApplyFilters() {
 }
 
 function analyseUpdateActiveCount() {
-    const count = Object.values(_analyseFilters).filter(v => v !== null && v !== undefined && v !== '').length;
+    let count = 0;
+    for (const [col, f] of Object.entries(_analyseFilters)) {
+        if (!f || f === null || f === '') continue;
+        if (f.groups) {
+            // list filter: compter si au moins un token actif
+            if (f.groups.some(g => g.tokens.length > 0)) count++;
+        } else {
+            count++;
+        }
+    }
     const el = document.getElementById('analyseActiveFiltersCount');
     el.textContent = count > 0 ? `${count} filtre(s)` : 'Aucun';
     el.style.background = count > 0 ? '#3f51b5' : '#e8eaf6';
@@ -28050,6 +28325,15 @@ function analyseSetPageSize(val) {
 function analyseClearAllFilters() {
     _analyseFilters = {};
     _analysePage = 1;
+    // Rafraîchir les builders list sans reconstruire tout le panneau
+    for (const col of _analyseHeaders) {
+        if (_analyseColTypes[col] === 'list') _aRefreshBuilder(col);
+        else if (_analyseColTypes[col] === 'enum') {
+            // reset selects
+            const id = _aId(col);
+        }
+    }
+    // Re-render complet pour remettre les inputs enum/text à zéro
     analyseRenderFilters();
     analyseApplyFilters();
 }
