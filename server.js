@@ -3541,7 +3541,8 @@ app.post('/api/users/:id/amoa-ced', requireAdmin, (req, res) => {
 // ==================== ACCÈS AUX APPLICATIONS ====================
 
 const APP_DEFINITIONS = {
-    deplacements: { label: 'Plateforme de suivi des déplacements', icon: '🚗' }
+    deplacements: { label: 'Plateforme de suivi des déplacements', icon: '🚗' },
+    analyse: { label: 'Analyse des listes utilisateurs', icon: '📊' }
 };
 
 // GET /api/app-access — liste des apps avec leurs utilisateurs autorisés (admin)
