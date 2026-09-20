@@ -1,4 +1,4 @@
-<!-- v1.15.65 -->
+<!-- v1.15.66 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -7,6 +7,7 @@
     <title>Gestionnaire de Ressources et Planification des Experts Métier</title>
     <link rel="icon" type="image/svg+xml" href="/favicon-calendrier.svg" id="favicon">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body { height: 100%; }
@@ -3829,6 +3830,13 @@
                         showDeplacementsApp();
                         return;
                     }
+                    if (savedApp === 'analyse' && (currentUser.availableApps || []).includes('analyse')) {
+                        console.log('📊 Restauration vers Analyse des listes utilisateurs');
+                        document.getElementById('loginPage').classList.remove('active');
+                        currentUser.selectedApp = 'analyse';
+                        showAnalyseApp();
+                        return;
+                    }
                     
                     // Sinon, afficher l'application de planification
                     currentUser.selectedApp = 'planification';
@@ -4774,13 +4782,14 @@
             await performLogout();
         }
 
-        // Retour vers Planification depuis l'app Déplacements
+        // Retour vers Planification depuis l'app Déplacements ou Analyse
         function backToPlanification() {
             sessionStorage.setItem('selectedApp', 'planification');
             document.getElementById('deplacementsContainer').style.display = 'none';
             document.getElementById('deplacementsTimerDisplay').style.display = 'none';
             document.getElementById('deplacementsOnlineUsersContainer').style.display = 'none';
             document.getElementById('backToPlanificationBtn').style.display = 'none';
+            document.getElementById('analyseContainer').style.display = 'none';
             document.querySelector('.container').style.display = 'block';
             updateTabsVisibility();
             updateUserDisplay();
@@ -4794,7 +4803,13 @@
                 stopInactivityTimer();
                 if (onlineUsersInterval) { clearInterval(onlineUsersInterval); onlineUsersInterval = null; }
                 document.querySelector('.container').style.display = 'none';
+                document.getElementById('analyseContainer').style.display = 'none';
                 showDeplacementsApp();
+            } else if (appKey === 'analyse') {
+                document.querySelector('.container').style.display = 'none';
+                document.getElementById('deplacementsContainer').style.display = 'none';
+                sessionStorage.setItem('selectedApp', 'analyse');
+                showAnalyseApp();
             }
         }
 
@@ -4813,7 +4828,7 @@
             const dd = document.getElementById('appSwitcherDropdown');
             if (apps.length === 0) { switcher.style.display = 'none'; return; }
             switcher.style.display = 'block';
-            const APP_LABELS = { deplacements: { label: 'Suivi des déplacements', icon: '🚗' } };
+            const APP_LABELS = { deplacements: { label: 'Suivi des déplacements', icon: '🚗' }, analyse: { label: 'Analyse des listes utilisateurs', icon: '📊' } };
             dd.innerHTML = apps.map(key => {
                 const def = APP_LABELS[key] || { label: key, icon: '📱' };
                 return `<div onclick="switchToApp('${key}')" style="padding:10px 16px;cursor:pointer;display:flex;align-items:center;gap:10px;font-size:13px;color:#222;" onmouseenter="this.style.background='#f0f4ff'" onmouseleave="this.style.background=''">
@@ -10983,7 +10998,7 @@
         function renderAppAccessSection() {
             const container = document.getElementById('appAccessContent');
             if (!container) return;
-            const APP_LABELS = { deplacements: { label: 'Plateforme de suivi des déplacements', icon: '🚗' } };
+            const APP_LABELS = { deplacements: { label: 'Plateforme de suivi des déplacements', icon: '🚗' }, analyse: { label: 'Analyse des listes utilisateurs', icon: '📊' } };
             container.innerHTML = Object.entries(_appAccessData).map(([key, app]) => `
                 <div style="border:1px solid #e0e0e0;border-radius:8px;padding:16px;margin-bottom:16px;">
                     <h4 style="margin:0 0 12px;color:#1a237e;font-size:14px;">${APP_LABELS[key]?.icon || '📱'} ${APP_LABELS[key]?.label || key}</h4>
@@ -27580,7 +27595,471 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
         </div>
     </div>
 
-    <!-- ══ Modale vérification carte (pin draggable) ══ -->
+    <!-- ══ Application : Analyse des listes utilisateurs ══ -->
+<div id="analyseContainer" style="display:none; min-height:100vh; background:#f5f7fa; font-family:Arial,sans-serif;">
+
+    <!-- Header -->
+    <div style="background:#1a237e; color:white; padding:14px 24px; display:flex; align-items:center; gap:16px; position:sticky; top:0; z-index:100; box-shadow:0 2px 8px rgba(0,0,0,0.3);">
+        <button onclick="backToPlanification()" style="background:rgba(255,255,255,0.15); border:none; color:white; padding:6px 14px; border-radius:20px; cursor:pointer; font-size:12px; font-weight:600; white-space:nowrap;">← Retour</button>
+        <span style="font-size:20px;">📊</span>
+        <span style="font-size:18px; font-weight:bold;">Analyse des listes utilisateurs</span>
+        <span id="analyseFileName" style="font-size:12px; color:#90caf9; margin-left:8px;"></span>
+        <span id="analyseStatsHeader" style="font-size:12px; color:#b3e5fc; margin-left:auto;"></span>
+        <button onclick="analyseReset()" id="analyseResetBtn" style="display:none; background:rgba(255,255,255,0.15); border:none; color:white; padding:6px 14px; border-radius:20px; cursor:pointer; font-size:12px;">🔄 Nouveau fichier</button>
+    </div>
+
+    <!-- Zone de chargement -->
+    <div id="analyseDropZone" style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:calc(100vh - 60px); padding:40px;">
+        <div style="background:white; border-radius:16px; padding:60px 80px; box-shadow:0 4px 24px rgba(0,0,0,0.1); text-align:center; max-width:600px; width:100%;">
+            <div style="font-size:64px; margin-bottom:20px;">📂</div>
+            <h2 style="color:#1a237e; margin-bottom:10px;">Charger un fichier</h2>
+            <p style="color:#666; margin-bottom:24px; font-size:14px;">Formats acceptés : .xlsx, .xls, .csv<br>Le fichier reste sur votre poste — aucune donnée n'est envoyée.</p>
+            <div id="analyseDropTarget"
+                 ondragover="event.preventDefault(); this.style.borderColor='#3f51b5'; this.style.background='#e8eaf6';"
+                 ondragleave="this.style.borderColor='#90caf9'; this.style.background='#f3f8ff';"
+                 ondrop="analyseHandleDrop(event)"
+                 style="border:3px dashed #90caf9; border-radius:12px; padding:40px; background:#f3f8ff; margin-bottom:20px; cursor:pointer; transition:all 0.2s;"
+                 onclick="document.getElementById('analyseFileInput').click()">
+                <p style="color:#3f51b5; font-size:15px; margin:0;">Glissez votre fichier ici<br><span style="font-size:13px; color:#90a4ae;">ou cliquez pour parcourir</span></p>
+            </div>
+            <input type="file" id="analyseFileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="analyseHandleFile(this.files[0])">
+            <div id="analyseLoadProgress" style="display:none;">
+                <div style="background:#e3f2fd; border-radius:8px; padding:16px; text-align:center; color:#1565c0; font-size:13px;">
+                    ⏳ Chargement en cours…
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Interface d'analyse (masquée jusqu'au chargement) -->
+    <div id="analyseWorkspace" style="display:none; padding:16px 20px;">
+
+        <!-- Barre de filtres compacte + actions -->
+        <div style="background:white; border-radius:10px; padding:16px; margin-bottom:14px; box-shadow:0 1px 6px rgba(0,0,0,0.08);">
+            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+                <span style="font-weight:bold; color:#1a237e; font-size:14px;">🔍 Filtres actifs :</span>
+                <span id="analyseActiveFiltersCount" style="background:#e8eaf6; color:#3f51b5; padding:2px 10px; border-radius:12px; font-size:12px; font-weight:bold;">Aucun</span>
+                <button onclick="analyseClearAllFilters()" style="margin-left:auto; background:#ef5350; color:white; border:none; padding:5px 14px; border-radius:6px; cursor:pointer; font-size:12px;">✕ Tout effacer</button>
+                <button onclick="analyseExportCSV()" style="background:#2e7d32; color:white; border:none; padding:5px 14px; border-radius:6px; cursor:pointer; font-size:12px;">⬇ Export CSV</button>
+                <button onclick="toggleAnalyseColumns()" style="background:#5c6bc0; color:white; border:none; padding:5px 14px; border-radius:6px; cursor:pointer; font-size:12px;">⚙ Colonnes</button>
+            </div>
+
+            <!-- Panel colonnes visibles (masqué par défaut) -->
+            <div id="analyseColumnsPanel" style="display:none; background:#f5f5f5; border-radius:8px; padding:12px; margin-bottom:12px;">
+                <div style="font-size:12px; color:#555; margin-bottom:8px; font-weight:bold;">Colonnes affichées :</div>
+                <div id="analyseColumnCheckboxes" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
+            </div>
+
+            <!-- Filtres par colonne -->
+            <div id="analyseFiltersPanel" style="display:grid; gap:10px; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr));"></div>
+        </div>
+
+        <!-- Résultats -->
+        <div style="background:white; border-radius:10px; box-shadow:0 1px 6px rgba(0,0,0,0.08); overflow:hidden;">
+            <div style="padding:10px 16px; background:#e8eaf6; display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                <span id="analyseResultCount" style="font-size:13px; font-weight:bold; color:#1a237e;"></span>
+                <span style="font-size:12px; color:#666; margin-left:auto;">Page <strong id="analysePage">1</strong> / <strong id="analysePageTotal">1</strong></span>
+                <button onclick="analyseGoPage(-1)" style="background:#5c6bc0; color:white; border:none; padding:3px 12px; border-radius:4px; cursor:pointer; font-size:12px;">◀</button>
+                <button onclick="analyseGoPage(1)" style="background:#5c6bc0; color:white; border:none; padding:3px 12px; border-radius:4px; cursor:pointer; font-size:12px;">▶</button>
+                <select id="analysePageSizeSelect" onchange="analyseSetPageSize(this.value)" style="padding:3px 6px; border:1px solid #ccc; border-radius:4px; font-size:12px;">
+                    <option value="50">50 / page</option>
+                    <option value="100" selected>100 / page</option>
+                    <option value="200">200 / page</option>
+                    <option value="500">500 / page</option>
+                </select>
+            </div>
+            <div style="overflow-x:auto;">
+                <table id="analyseTable" style="width:100%; border-collapse:collapse; font-size:12px;">
+                    <thead id="analyseTableHead" style="background:#3f51b5; color:white; position:sticky; top:0;"></thead>
+                    <tbody id="analyseTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// APPLICATION ANALYSE DES LISTES UTILISATEURS
+// Tout le traitement est local (FileReader + SheetJS)
+// ═══════════════════════════════════════════════════════
+
+let _analyseData = [];          // toutes les lignes (objets)
+let _analyseHeaders = [];       // noms de colonnes
+let _analyseColTypes = {};      // 'list' | 'enum' | 'date' | 'text'
+let _analyseColValues = {};     // valeurs uniques (ou tokens pour 'list')
+let _analyseFilters = {};       // filtres actifs { col: value/[] }
+let _analysePage = 1;
+let _analysePageSize = 100;
+let _analyseVisibleCols = [];   // colonnes cochées
+
+function showAnalyseApp() {
+    document.getElementById('analyseContainer').style.display = 'block';
+    document.getElementById('backToPlanificationBtn').style.display = 'block';
+    updateAppSwitcher();
+}
+
+function analyseReset() {
+    _analyseData = [];
+    _analyseHeaders = [];
+    _analyseColTypes = {};
+    _analyseColValues = {};
+    _analyseFilters = {};
+    _analysePage = 1;
+    _analyseVisibleCols = [];
+    document.getElementById('analyseDropZone').style.display = 'flex';
+    document.getElementById('analyseWorkspace').style.display = 'none';
+    document.getElementById('analyseFileName').textContent = '';
+    document.getElementById('analyseStatsHeader').textContent = '';
+    document.getElementById('analyseResetBtn').style.display = 'none';
+    document.getElementById('analyseFileInput').value = '';
+}
+
+function analyseHandleDrop(event) {
+    event.preventDefault();
+    const dt = event.dataTransfer;
+    const file = dt.files && dt.files[0];
+    document.getElementById('analyseDropTarget').style.borderColor = '#90caf9';
+    document.getElementById('analyseDropTarget').style.background = '#f3f8ff';
+    if (file) analyseHandleFile(file);
+}
+
+function analyseHandleFile(file) {
+    if (!file) return;
+    const name = file.name.toLowerCase();
+    if (!name.endsWith('.xlsx') && !name.endsWith('.xls') && !name.endsWith('.csv')) {
+        alert('Format non supporté. Utilisez .xlsx, .xls ou .csv');
+        return;
+    }
+    document.getElementById('analyseLoadProgress').style.display = 'block';
+    document.getElementById('analyseDropTarget').style.display = 'none';
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            let workbook;
+            if (name.endsWith('.csv')) {
+                workbook = XLSX.read(e.target.result, { type: 'string', raw: false });
+            } else {
+                workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true });
+            }
+            // Prendre la 1ère feuille non vide
+            let sheet = null;
+            for (const sn of workbook.SheetNames) {
+                const s = workbook.Sheets[sn];
+                const ref = s['!ref'];
+                if (ref) {
+                    const range = XLSX.utils.decode_range(ref);
+                    if (range.e.r > 0) { sheet = s; break; }
+                }
+            }
+            if (!sheet) throw new Error('Aucune feuille de données trouvée');
+
+            const rows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false, dateNF: 'DD/MM/YYYY HH:mm' });
+            if (rows.length === 0) throw new Error('Le fichier ne contient pas de données');
+
+            _analyseHeaders = Object.keys(rows[0]);
+            _analyseData = rows;
+            _analyseFilters = {};
+            _analysePage = 1;
+
+            // Détecter le type de chaque colonne
+            _analyseColTypes = {};
+            _analyseColValues = {};
+            for (const col of _analyseHeaders) {
+                const samples = rows.slice(0, Math.min(500, rows.length)).map(r => (r[col] || '').toString().trim());
+                const nonEmpty = samples.filter(v => v !== '');
+                // Détecter liste (séparateur ' ; ' ou ';')
+                const listCount = nonEmpty.filter(v => /\s*;\s*/.test(v)).length;
+                if (listCount / Math.max(nonEmpty.length, 1) > 0.3) {
+                    _analyseColTypes[col] = 'list';
+                    const tokens = new Set();
+                    rows.forEach(r => {
+                        const v = (r[col] || '').toString();
+                        v.split(/\s*;\s*/).forEach(t => { const tt = t.trim(); if (tt) tokens.add(tt); });
+                    });
+                    _analyseColValues[col] = [...tokens].sort((a, b) => a.localeCompare(b, 'fr'));
+                } else {
+                    const allVals = rows.map(r => (r[col] || '').toString().trim());
+                    const unique = [...new Set(allVals)].filter(v => v !== '');
+                    if (unique.length <= 50 && unique.length > 0) {
+                        _analyseColTypes[col] = 'enum';
+                        _analyseColValues[col] = unique.sort((a, b) => a.localeCompare(b, 'fr'));
+                    } else {
+                        // Détecter date
+                        const dateRe = /^\d{2}\/\d{2}\/\d{4}/;
+                        const isDate = nonEmpty.length > 0 && nonEmpty.every(v => dateRe.test(v) || v === '');
+                        _analyseColTypes[col] = isDate ? 'date' : 'text';
+                        _analyseColValues[col] = [];
+                    }
+                }
+            }
+
+            _analyseVisibleCols = [..._analyseHeaders];
+
+            document.getElementById('analyseFileName').textContent = '📄 ' + file.name;
+            document.getElementById('analyseResetBtn').style.display = 'inline-block';
+            document.getElementById('analyseDropZone').style.display = 'none';
+            document.getElementById('analyseWorkspace').style.display = 'block';
+
+            analyseRenderFilters();
+            analyseRenderColumnCheckboxes();
+            analyseApplyFilters();
+        } catch(err) {
+            alert('Erreur lors du chargement : ' + err.message);
+            document.getElementById('analyseLoadProgress').style.display = 'none';
+            document.getElementById('analyseDropTarget').style.display = 'block';
+        }
+    };
+    if (name.endsWith('.csv')) {
+        reader.readAsText(file, 'UTF-8');
+    } else {
+        reader.readAsArrayBuffer(file);
+    }
+}
+
+function analyseRenderFilters() {
+    const panel = document.getElementById('analyseFiltersPanel');
+    panel.innerHTML = '';
+    for (const col of _analyseHeaders) {
+        const type = _analyseColTypes[col];
+        const vals = _analyseColValues[col] || [];
+        const div = document.createElement('div');
+        div.style.cssText = 'background:#f8f9ff; border:1px solid #e0e4ff; border-radius:8px; padding:8px 10px;';
+
+        const label = document.createElement('div');
+        label.style.cssText = 'font-size:10px; color:#5c6bc0; font-weight:bold; margin-bottom:5px; text-transform:uppercase; letter-spacing:0.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
+        label.title = col;
+        label.textContent = col;
+        div.appendChild(label);
+
+        if (type === 'enum') {
+            const sel = document.createElement('select');
+            sel.style.cssText = 'width:100%; padding:4px 6px; border:1px solid #c5cae9; border-radius:4px; font-size:12px; background:white;';
+            sel.innerHTML = `<option value="">— Tous —</option>` + vals.map(v => `<option value="${v.replace(/"/g,'&quot;')}">${v}</option>`).join('');
+            if (_analyseFilters[col]) sel.value = _analyseFilters[col];
+            sel.onchange = () => { _analyseFilters[col] = sel.value || null; _analysePage = 1; analyseApplyFilters(); };
+            div.appendChild(sel);
+        } else if (type === 'list') {
+            const searchDiv = document.createElement('div');
+            searchDiv.style.cssText = 'position:relative;';
+            const inp = document.createElement('input');
+            inp.type = 'text';
+            inp.placeholder = 'Rechercher dans la liste…';
+            inp.style.cssText = 'width:100%; padding:4px 6px; border:1px solid #c5cae9; border-radius:4px; font-size:12px; box-sizing:border-box;';
+            inp.value = (_analyseFilters[col] && _analyseFilters[col]._search) || '';
+
+            const dropdown = document.createElement('div');
+            dropdown.style.cssText = 'display:none; position:absolute; top:100%; left:0; right:0; background:white; border:1px solid #c5cae9; border-radius:0 0 6px 6px; max-height:180px; overflow-y:auto; z-index:50; box-shadow:0 4px 8px rgba(0,0,0,0.1);';
+
+            const renderDropdown = (q) => {
+                const filtered = q ? vals.filter(v => v.toLowerCase().includes(q.toLowerCase())) : vals;
+                dropdown.innerHTML = filtered.slice(0, 100).map(v => {
+                    const active = _analyseFilters[col] && _analyseFilters[col]._token === v;
+                    return `<div onclick="analyseSelectListToken('${col.replace(/'/g,"\\'")}','${v.replace(/'/g,"\\'")}')"
+                        style="padding:5px 10px; font-size:12px; cursor:pointer; background:${active ? '#e8eaf6' : 'white'}; color:${active ? '#3f51b5' : '#222'};"
+                        onmouseenter="this.style.background='#f3f4ff'" onmouseleave="this.style.background='${active ? '#e8eaf6' : 'white'}'">
+                        ${v}
+                    </div>`;
+                }).join('') || '<div style="padding:8px;color:#999;font-size:12px;">Aucun résultat</div>';
+            };
+
+            inp.addEventListener('focus', () => { renderDropdown(inp.value); dropdown.style.display = 'block'; });
+            inp.addEventListener('input', () => { renderDropdown(inp.value); dropdown.style.display = 'block'; });
+            inp.addEventListener('keydown', (e) => { if (e.key === 'Escape') dropdown.style.display = 'none'; });
+
+            // Fermer si clic en dehors
+            document.addEventListener('click', (e) => { if (!searchDiv.contains(e.target)) dropdown.style.display = 'none'; });
+
+            // Afficher la valeur sélectionnée
+            if (_analyseFilters[col] && _analyseFilters[col]._token) {
+                inp.value = _analyseFilters[col]._token;
+                inp.style.background = '#e8eaf6';
+            }
+
+            const clearBtn = document.createElement('span');
+            clearBtn.textContent = '✕';
+            clearBtn.style.cssText = 'position:absolute; right:6px; top:50%; transform:translateY(-50%); cursor:pointer; color:#999; font-size:12px; display:' + (_analyseFilters[col] ? 'block' : 'none') + ';';
+            clearBtn.onclick = (e) => { e.stopPropagation(); delete _analyseFilters[col]; inp.value = ''; inp.style.background = 'white'; clearBtn.style.display = 'none'; _analysePage = 1; analyseApplyFilters(); analyseUpdateActiveCount(); };
+
+            searchDiv.appendChild(inp);
+            searchDiv.appendChild(dropdown);
+            searchDiv.appendChild(clearBtn);
+            div.appendChild(searchDiv);
+
+            // Stocker référence pour la maj
+            inp._col = col;
+            inp._clearBtn = clearBtn;
+            inp._dropdown = dropdown;
+            inp._vals = vals;
+            inp._renderDropdown = renderDropdown;
+        } else {
+            const inp = document.createElement('input');
+            inp.type = type === 'date' ? 'date' : 'text';
+            inp.placeholder = type === 'date' ? 'Date (AAAA-MM-JJ)' : 'Recherche libre…';
+            inp.style.cssText = 'width:100%; padding:4px 6px; border:1px solid #c5cae9; border-radius:4px; font-size:12px; box-sizing:border-box;';
+            if (_analyseFilters[col]) inp.value = _analyseFilters[col];
+            inp.addEventListener('input', () => { _analyseFilters[col] = inp.value || null; _analysePage = 1; analyseApplyFilters(); });
+            div.appendChild(inp);
+        }
+
+        panel.appendChild(div);
+    }
+}
+
+function analyseSelectListToken(col, token) {
+    _analyseFilters[col] = { _token: token, _search: token };
+    _analysePage = 1;
+    analyseApplyFilters();
+    analyseRenderFilters();
+}
+
+function analyseRenderColumnCheckboxes() {
+    const container = document.getElementById('analyseColumnCheckboxes');
+    container.innerHTML = _analyseHeaders.map(col => {
+        const checked = _analyseVisibleCols.includes(col);
+        return `<label style="display:flex; align-items:center; gap:4px; font-size:12px; background:${checked ? '#e8eaf6' : '#fff'}; padding:3px 8px; border-radius:12px; cursor:pointer; border:1px solid #c5cae9;">
+            <input type="checkbox" ${checked ? 'checked' : ''} onchange="analyseToggleCol('${col.replace(/'/g,"\\'")}', this.checked)" style="cursor:pointer;">
+            ${col}
+        </label>`;
+    }).join('');
+}
+
+function analyseToggleCol(col, visible) {
+    if (visible) {
+        if (!_analyseVisibleCols.includes(col)) _analyseVisibleCols.push(col);
+    } else {
+        _analyseVisibleCols = _analyseVisibleCols.filter(c => c !== col);
+    }
+    analyseRenderTable(_analyseCurrentFiltered || [], false);
+    analyseRenderColumnCheckboxes();
+}
+
+function toggleAnalyseColumns() {
+    const p = document.getElementById('analyseColumnsPanel');
+    p.style.display = p.style.display === 'none' ? 'block' : 'none';
+}
+
+let _analyseCurrentFiltered = [];
+
+function analyseApplyFilters() {
+    const normStr = s => (s || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+    const filtered = _analyseData.filter(row => {
+        for (const col of _analyseHeaders) {
+            const f = _analyseFilters[col];
+            if (!f) continue;
+            const val = (row[col] || '').toString();
+            const type = _analyseColTypes[col];
+
+            if (type === 'list') {
+                if (!f._token) continue;
+                const tokens = val.split(/\s*;\s*/).map(t => t.trim());
+                if (!tokens.some(t => t === f._token)) return false;
+            } else if (type === 'enum') {
+                if (val !== f) return false;
+            } else if (type === 'date') {
+                // Filtre texte libre sur la date
+                if (!normStr(val).includes(normStr(f))) return false;
+            } else {
+                if (!normStr(val).includes(normStr(f))) return false;
+            }
+        }
+        return true;
+    });
+
+    _analyseCurrentFiltered = filtered;
+
+    const total = _analyseData.length;
+    const shown = filtered.length;
+    document.getElementById('analyseStatsHeader').textContent = `${shown.toLocaleString('fr-FR')} / ${total.toLocaleString('fr-FR')} lignes`;
+    document.getElementById('analyseResultCount').textContent = `${shown.toLocaleString('fr-FR')} résultat(s) sur ${total.toLocaleString('fr-FR')} lignes`;
+
+    analyseUpdateActiveCount();
+    analyseRenderTable(filtered);
+}
+
+function analyseUpdateActiveCount() {
+    const count = Object.values(_analyseFilters).filter(v => v !== null && v !== undefined && v !== '').length;
+    const el = document.getElementById('analyseActiveFiltersCount');
+    el.textContent = count > 0 ? `${count} filtre(s)` : 'Aucun';
+    el.style.background = count > 0 ? '#3f51b5' : '#e8eaf6';
+    el.style.color = count > 0 ? 'white' : '#3f51b5';
+}
+
+function analyseRenderTable(data, resetPage = true) {
+    if (resetPage) _analysePage = 1;
+    const pageSize = _analysePageSize;
+    const totalPages = Math.max(1, Math.ceil(data.length / pageSize));
+    if (_analysePage > totalPages) _analysePage = totalPages;
+
+    document.getElementById('analysePage').textContent = _analysePage;
+    document.getElementById('analysePageTotal').textContent = totalPages;
+
+    const cols = _analyseVisibleCols.filter(c => _analyseHeaders.includes(c));
+    const slice = data.slice((_analysePage - 1) * pageSize, _analysePage * pageSize);
+
+    // Header
+    const thead = document.getElementById('analyseTableHead');
+    thead.innerHTML = `<tr>${cols.map(c => `<th style="padding:8px 10px; text-align:left; font-size:11px; font-weight:600; white-space:nowrap; min-width:80px; border-right:1px solid rgba(255,255,255,0.2);" title="${c}">${c}</th>`).join('')}</tr>`;
+
+    // Body
+    const tbody = document.getElementById('analyseTableBody');
+    if (slice.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="${cols.length}" style="padding:40px; text-align:center; color:#999; font-style:italic;">Aucun résultat</td></tr>`;
+        return;
+    }
+
+    const rows = slice.map((row, i) => {
+        const bg = i % 2 === 0 ? 'white' : '#f8f9ff';
+        const cells = cols.map(c => {
+            const v = (row[c] || '').toString();
+            const display = v.length > 120 ? v.substring(0, 120) + '…' : v;
+            return `<td style="padding:6px 10px; border-bottom:1px solid #f0f0f0; border-right:1px solid #f0f0f0; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px;" title="${v.replace(/"/g,'&quot;')}">${display}</td>`;
+        }).join('');
+        return `<tr style="background:${bg};" onmouseenter="this.style.background='#fffde7'" onmouseleave="this.style.background='${bg}'">${cells}</tr>`;
+    }).join('');
+    tbody.innerHTML = rows;
+}
+
+function analyseGoPage(delta) {
+    const total = Math.max(1, Math.ceil(_analyseCurrentFiltered.length / _analysePageSize));
+    _analysePage = Math.max(1, Math.min(total, _analysePage + delta));
+    analyseRenderTable(_analyseCurrentFiltered, false);
+}
+
+function analyseSetPageSize(val) {
+    _analysePageSize = parseInt(val);
+    analyseRenderTable(_analyseCurrentFiltered);
+}
+
+function analyseClearAllFilters() {
+    _analyseFilters = {};
+    _analysePage = 1;
+    analyseRenderFilters();
+    analyseApplyFilters();
+}
+
+function analyseExportCSV() {
+    if (_analyseCurrentFiltered.length === 0) { alert('Aucune donnée à exporter'); return; }
+    const cols = _analyseVisibleCols.filter(c => _analyseHeaders.includes(c));
+    const escape = v => '"' + (v || '').toString().replace(/"/g, '""') + '"';
+    const lines = [cols.map(escape).join(';')];
+    _analyseCurrentFiltered.forEach(row => {
+        lines.push(cols.map(c => escape(row[c])).join(';'));
+    });
+    const bom = '\uFEFF';
+    const blob = new Blob([bom + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'analyse_export_' + new Date().toISOString().slice(0,10) + '.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+}
+</script>
+
+<!-- ══ Modale vérification carte (pin draggable) ══ -->
     <div id="verifyMapModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:21000;align-items:center;justify-content:center;">
         <div style="background:white;border-radius:12px;overflow:hidden;width:640px;max-width:95vw;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
             <div style="padding:14px 18px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e0e0e0;">
