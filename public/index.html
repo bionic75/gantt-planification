@@ -1,4 +1,4 @@
-<!-- v1.15.70 -->
+<!-- v1.15.71 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -27656,12 +27656,24 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 <button onclick="analyseClearAllFilters()" style="margin-left:auto; background:#ef5350; color:white; border:none; padding:5px 14px; border-radius:6px; cursor:pointer; font-size:12px;">✕ Tout effacer</button>
                 <button onclick="analyseExportCSV()" style="background:#2e7d32; color:white; border:none; padding:5px 14px; border-radius:6px; cursor:pointer; font-size:12px;">⬇ Export CSV</button>
                 <button onclick="toggleAnalyseColumns()" style="background:#5c6bc0; color:white; border:none; padding:5px 14px; border-radius:6px; cursor:pointer; font-size:12px;">⚙ Colonnes</button>
+                <button onclick="toggleAnalyseDups()" id="analyseDupBtn" style="background:#ec407a; color:white; border:none; padding:5px 14px; border-radius:6px; cursor:pointer; font-size:12px;">🔁 Doublons</button>
             </div>
 
             <!-- Panel colonnes visibles (masqué par défaut) -->
             <div id="analyseColumnsPanel" style="display:none; background:#f5f5f5; border-radius:8px; padding:12px; margin-bottom:12px;">
                 <div style="font-size:12px; color:#555; margin-bottom:8px; font-weight:bold;">Colonnes affichées :</div>
                 <div id="analyseColumnCheckboxes" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
+            </div>
+
+            <!-- Panel détection des doublons -->
+            <div id="analyseDupPanel" style="display:none; background:#fce4ec; border-radius:8px; padding:12px; margin-bottom:12px; border:1px solid #f48fb1;">
+                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px;">
+                    <span style="font-size:12px; font-weight:bold; color:#880e4f;">🔁 Détection des doublons — colonnes de comparaison :</span>
+                    <button onclick="analyseDupSelectAll(true)" style="background:none; border:1px solid #e91e63; color:#e91e63; padding:2px 10px; border-radius:10px; cursor:pointer; font-size:11px;">Tout cocher</button>
+                    <button onclick="analyseDupSelectAll(false)" style="background:none; border:1px solid #999; color:#666; padding:2px 10px; border-radius:10px; cursor:pointer; font-size:11px;">Tout décocher</button>
+                    <span id="analyseDupCount" style="margin-left:auto; font-size:12px; font-weight:bold; color:#c62828;"></span>
+                </div>
+                <div id="analyseDupCheckboxes" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
             </div>
 
             <!-- Filtres par colonne -->
@@ -27707,6 +27719,9 @@ let _analyseFilters = {};
 let _analysePage = 1;
 let _analysePageSize = 100;
 let _analyseVisibleCols = [];
+// Détection doublons
+let _analyseDupCols = [];       // colonnes sélectionnées pour la clé doublon
+let _analyseDupKeys = new Set(); // clés qui apparaissent plus d'une fois
 
 // ── Drag & drop état global pour les filtres list ─────
 let _aDrag = null; // { col, gi, ti } token en cours de glisser
@@ -27736,6 +27751,10 @@ function analyseReset() {
     _aColId.clear();
     _aColSeq = 0;
     _aDrag = null;
+    _analyseDupCols = [];
+    _analyseDupKeys = new Set();
+    document.getElementById('analyseDupPanel').style.display = 'none';
+    document.getElementById('analyseDupCount').textContent = '';
     document.getElementById('analyseDropZone').style.display = 'flex';
     document.getElementById('analyseWorkspace').style.display = 'none';
     document.getElementById('analyseFileName').textContent = '';
@@ -28304,6 +28323,62 @@ function toggleAnalyseColumns() {
 
 let _analyseCurrentFiltered = [];
 
+// ── Détection des doublons ────────────────────────────────────────────────────
+function toggleAnalyseDups() {
+    const panel = document.getElementById('analyseDupPanel');
+    const isOpen = panel.style.display !== 'none';
+    panel.style.display = isOpen ? 'none' : 'block';
+    if (!isOpen) analyseBuildDupCheckboxes();
+}
+
+function analyseBuildDupCheckboxes() {
+    const container = document.getElementById('analyseDupCheckboxes');
+    container.innerHTML = '';
+    _analyseHeaders.forEach(col => {
+        const checked = _analyseDupCols.includes(col);
+        const id = 'dupck_' + _aId(col);
+        const label = document.createElement('label');
+        label.style.cssText = 'display:flex; align-items:center; gap:4px; background:' + (checked ? '#f48fb1' : '#fff') + '; border:1px solid #f48fb1; border-radius:12px; padding:3px 10px; cursor:pointer; font-size:11px; color:#880e4f; user-select:none; transition:background 0.1s;';
+        label.innerHTML = `<input type="checkbox" id="${id}" ${checked ? 'checked' : ''} style="cursor:pointer;" onchange="analyseDupToggleCol('${col.replace(/'/g,"\\'")}',this.checked)"><span>${col}</span>`;
+        container.appendChild(label);
+    });
+}
+
+function analyseDupToggleCol(col, checked) {
+    if (checked) { if (!_analyseDupCols.includes(col)) _analyseDupCols.push(col); }
+    else { _analyseDupCols = _analyseDupCols.filter(c => c !== col); }
+    analyseComputeDups();
+    analyseRenderTable(_analyseCurrentFiltered, false);
+    analyseBuildDupCheckboxes();
+}
+
+function analyseDupSelectAll(sel) {
+    _analyseDupCols = sel ? [..._analyseHeaders] : [];
+    analyseComputeDups();
+    analyseRenderTable(_analyseCurrentFiltered, false);
+    analyseBuildDupCheckboxes();
+}
+
+function analyseComputeDups() {
+    _analyseDupKeys = new Set();
+    if (_analyseDupCols.length === 0) {
+        document.getElementById('analyseDupCount').textContent = '';
+        return;
+    }
+    const counter = new Map();
+    // Calculer sur tout _analyseData (pas seulement filtered) pour détecter tous les doublons
+    _analyseData.forEach(row => {
+        const key = _analyseDupCols.map(c => (row[c] || '').toString().trim()).join('\x00');
+        counter.set(key, (counter.get(key) || 0) + 1);
+    });
+    counter.forEach((count, key) => { if (count > 1) _analyseDupKeys.add(key); });
+    const dupRows = _analyseCurrentFiltered.filter(row => {
+        const key = _analyseDupCols.map(c => (row[c] || '').toString().trim()).join('\x00');
+        return _analyseDupKeys.has(key);
+    }).length;
+    document.getElementById('analyseDupCount').textContent = dupRows > 0 ? `${dupRows.toLocaleString('fr-FR')} ligne(s) en doublon` : 'Aucun doublon détecté';
+}
+
 function analyseApplyFilters() {
     const normStr = s => (s || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
@@ -28346,6 +28421,7 @@ function analyseApplyFilters() {
     document.getElementById('analyseResultCount').textContent = `${shown.toLocaleString('fr-FR')} résultat(s) sur ${total.toLocaleString('fr-FR')} lignes`;
 
     analyseUpdateActiveCount();
+    if (_analyseDupCols.length > 0) analyseComputeDups();
     analyseRenderTable(filtered);
 }
 
@@ -28390,13 +28466,18 @@ function analyseRenderTable(data, resetPage = true) {
     }
 
     const rows = slice.map((row, i) => {
-        const bg = i % 2 === 0 ? 'white' : '#f8f9ff';
+        const isDup = _analyseDupCols.length > 0 && _analyseDupKeys.has(
+            _analyseDupCols.map(c => (row[c] || '').toString().trim()).join('\x00')
+        );
+        const bg = isDup ? '#fce4ec' : (i % 2 === 0 ? 'white' : '#f8f9ff');
+        const hoverBg = isDup ? '#f8bbd0' : '#fffde7';
+        const dupMark = isDup ? ' title="Ligne en doublon"' : '';
         const cells = cols.map(c => {
             const v = (row[c] || '').toString();
             const display = v.length > 120 ? v.substring(0, 120) + '…' : v;
-            return `<td style="padding:6px 10px; border-bottom:1px solid #f0f0f0; border-right:1px solid #f0f0f0; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px;" title="${v.replace(/"/g,'&quot;')}">${display}</td>`;
+            return `<td style="padding:6px 10px; border-bottom:1px solid ${isDup ? '#f48fb1' : '#f0f0f0'}; border-right:1px solid #f0f0f0; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px;" title="${v.replace(/"/g,'&quot;')}">${display}</td>`;
         }).join('');
-        return `<tr style="background:${bg};" onmouseenter="this.style.background='#fffde7'" onmouseleave="this.style.background='${bg}'">${cells}</tr>`;
+        return `<tr style="background:${bg};"${dupMark} onmouseenter="this.style.background='${hoverBg}'" onmouseleave="this.style.background='${bg}'">${cells}</tr>`;
     }).join('');
     tbody.innerHTML = rows;
 }
