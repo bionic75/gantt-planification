@@ -1,4 +1,4 @@
-<!-- v1.16.02 -->
+<!-- v1.16.03 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -27737,6 +27737,9 @@ let _aColSeq = 0;
 const _aColId = new Map(); // col -> identifiant sûr
 
 function showAnalyseApp() {
+    document.querySelector('.container').style.display = 'none';
+    document.getElementById('deplacementsContainer').style.display = 'none';
+    document.getElementById('loginPage').classList.remove('active');
     document.getElementById('analyseContainer').style.display = 'block';
     document.getElementById('backToPlanificationBtn').style.display = 'block';
     updateAppSwitcher();
