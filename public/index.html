@@ -1,4 +1,4 @@
-<!-- v1.16.04 -->
+<!-- v1.16.05 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -27868,7 +27868,7 @@ function analyseHandleFile(file) {
                 } else {
                     const allVals = rows.map(r => (r[col] || '').toString().trim());
                     const unique = [...new Set(allVals)].filter(v => v !== '');
-                    if (unique.length <= 50 && unique.length > 0) {
+                    if (unique.length <= 200 && unique.length > 0) {
                         _analyseColTypes[col] = 'enum';
                         _analyseColValues[col] = unique.sort((a, b) => a.localeCompare(b, 'fr'));
                     } else {
@@ -27961,8 +27961,8 @@ function analyseRenderFilters() {
         const vals = _analyseColValues[col] || [];
         const div = document.createElement('div');
 
-        if (type === 'list') {
-            // Widget large (2 colonnes)
+        if (type === 'list' || type === 'enum') {
+            // Widget large (2 colonnes) pour list ET enum
             div.style.cssText = 'background:#f0f2ff; border:1px solid #c5cae9; border-radius:10px; padding:10px 12px; grid-column: span 2;';
             _buildListWidget(div, col, vals);
         } else {
@@ -27973,22 +27973,13 @@ function analyseRenderFilters() {
             lbl.title = col; lbl.textContent = col;
             div.appendChild(lbl);
 
-            if (type === 'enum') {
-                const sel = document.createElement('select');
-                sel.style.cssText = 'width:100%; padding:4px 6px; border:1px solid #c5cae9; border-radius:4px; font-size:12px; background:white;';
-                sel.innerHTML = `<option value="">— Tous —</option>` + vals.map(v => `<option value="${v.replace(/"/g,'&quot;')}">${v}</option>`).join('');
-                if (_analyseFilters[col]) sel.value = _analyseFilters[col];
-                sel.onchange = () => { _analyseFilters[col] = sel.value || null; _analysePage = 1; analyseApplyFilters(); };
-                div.appendChild(sel);
-            } else {
-                const inp = document.createElement('input');
-                inp.type = type === 'date' ? 'date' : 'text';
-                inp.placeholder = type === 'date' ? 'Recherche date…' : 'Recherche libre…';
-                inp.style.cssText = 'width:100%; padding:4px 6px; border:1px solid #c5cae9; border-radius:4px; font-size:12px; box-sizing:border-box;';
-                if (_analyseFilters[col]) inp.value = _analyseFilters[col];
-                inp.addEventListener('input', () => { _analyseFilters[col] = inp.value || null; _analysePage = 1; analyseApplyFilters(); });
-                div.appendChild(inp);
-            }
+            const inp = document.createElement('input');
+            inp.type = type === 'date' ? 'date' : 'text';
+            inp.placeholder = type === 'date' ? 'Recherche date…' : 'Recherche libre…';
+            inp.style.cssText = 'width:100%; padding:4px 6px; border:1px solid #c5cae9; border-radius:4px; font-size:12px; box-sizing:border-box;';
+            if (_analyseFilters[col]) inp.value = _analyseFilters[col];
+            inp.addEventListener('input', () => { _analyseFilters[col] = inp.value || null; _analysePage = 1; analyseApplyFilters(); });
+            div.appendChild(inp);
         }
         panel.appendChild(div);
     }
@@ -28451,7 +28442,17 @@ function analyseApplyFilters() {
                 }
                 if (!result) return false;
             } else if (type === 'enum') {
-                if (val !== f) return false;
+                // Même structure multi-valeurs que list, mais correspondance exacte (pas de split ';')
+                if (!f.groups) { if (val !== f) return false; continue; }
+                const activeGroups = f.groups.map((g, i) => ({ tokens: g.tokens, origIdx: i })).filter(g => g.tokens.length > 0);
+                if (activeGroups.length === 0) continue;
+                let result = activeGroups[0].tokens.some(t => val === t);
+                for (let gi = 1; gi < activeGroups.length; gi++) {
+                    const op = (f.ops && f.ops[activeGroups[gi].origIdx - 1]) || 'AND';
+                    const gMatch = activeGroups[gi].tokens.some(t => val === t);
+                    result = op === 'OR' ? (result || gMatch) : (result && gMatch);
+                }
+                if (!result) return false;
             } else {
                 if (!normStr(val).includes(normStr(f))) return false;
             }
@@ -28542,15 +28543,11 @@ function analyseSetPageSize(val) {
 function analyseClearAllFilters() {
     _analyseFilters = {};
     _analysePage = 1;
-    // Rafraîchir les builders list sans reconstruire tout le panneau
+    // Rafraîchir les builders list et enum (même widget désormais)
     for (const col of _analyseHeaders) {
-        if (_analyseColTypes[col] === 'list') _aRefreshBuilder(col);
-        else if (_analyseColTypes[col] === 'enum') {
-            // reset selects
-            const id = _aId(col);
-        }
+        if (_analyseColTypes[col] === 'list' || _analyseColTypes[col] === 'enum') _aRefreshBuilder(col);
     }
-    // Re-render complet pour remettre les inputs enum/text à zéro
+    // Re-render complet pour remettre les inputs text/date à zéro
     analyseRenderFilters();
     analyseApplyFilters();
 }
