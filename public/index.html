@@ -1,4 +1,4 @@
-<!-- v1.16.01 -->
+<!-- v1.16.02 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -27648,6 +27648,9 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
     <!-- Interface d'analyse (masquée jusqu'au chargement) -->
     <div id="analyseWorkspace" style="display:none; padding:16px 20px;">
 
+        <!-- Bannière encodage CSV -->
+        <div id="analyseEncodingBanner" style="display:none; align-items:center; gap:10px; padding:8px 14px; border-radius:8px; border:1px solid; margin-bottom:12px; flex-wrap:wrap;"></div>
+
         <!-- Barre de filtres compacte + actions -->
         <div style="background:white; border-radius:10px; padding:16px; margin-bottom:14px; box-shadow:0 1px 6px rgba(0,0,0,0.08);">
             <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
@@ -27755,6 +27758,7 @@ function analyseReset() {
     _analyseDupKeys = new Set();
     document.getElementById('analyseDupPanel').style.display = 'none';
     document.getElementById('analyseDupCount').textContent = '';
+    document.getElementById('analyseEncodingBanner').style.display = 'none';
     document.getElementById('analyseDropZone').style.display = 'flex';
     document.getElementById('analyseWorkspace').style.display = 'none';
     document.getElementById('analyseFileName').textContent = '';
@@ -27772,6 +27776,32 @@ function analyseHandleDrop(event) {
     if (file) analyseHandleFile(file);
 }
 
+// Détection et décodage automatique de l'encodage d'un CSV
+function _analyseDecode(buffer) {
+    const b = new Uint8Array(buffer);
+    // BOM UTF-8 : EF BB BF
+    if (b[0] === 0xEF && b[1] === 0xBB && b[2] === 0xBF)
+        return { text: new TextDecoder('utf-8').decode(buffer), encoding: 'UTF-8 (BOM)' };
+    // BOM UTF-16 LE : FF FE
+    if (b[0] === 0xFF && b[1] === 0xFE)
+        return { text: new TextDecoder('utf-16le').decode(buffer), encoding: 'UTF-16 LE' };
+    // BOM UTF-16 BE : FE FF
+    if (b[0] === 0xFE && b[1] === 0xFF)
+        return { text: new TextDecoder('utf-16be').decode(buffer), encoding: 'UTF-16 BE' };
+    // Tentative UTF-8 strict (fatal=true lève une erreur si séquence invalide)
+    try {
+        const text = new TextDecoder('utf-8', { fatal: true }).decode(buffer);
+        // Vérification secondaire : mojibake typique (ex. "Ã©" = é UTF-8 lu Latin-1, réencodé UTF-8)
+        // Si le texte contient des séquences Ã + lettre accentuée, c'est probablement du Windows-1252
+        if (/Ã[€-ÿ]/.test(text))
+            return { text: new TextDecoder('windows-1252').decode(buffer), encoding: 'Windows-1252 (détecté via mojibake)' };
+        return { text, encoding: 'UTF-8' };
+    } catch(e) {
+        // UTF-8 invalide → Windows-1252 (superset de Latin-1, couvre tous les accents français)
+        return { text: new TextDecoder('windows-1252').decode(buffer), encoding: 'Windows-1252 / Latin-1' };
+    }
+}
+
 function analyseHandleFile(file) {
     if (!file) return;
     const name = file.name.toLowerCase();
@@ -27786,8 +27816,11 @@ function analyseHandleFile(file) {
     reader.onload = function(e) {
         try {
             let workbook;
+            let detectedEncoding = null;
             if (name.endsWith('.csv')) {
-                workbook = XLSX.read(e.target.result, { type: 'string', raw: false });
+                const { text, encoding } = _analyseDecode(e.target.result);
+                detectedEncoding = encoding;
+                workbook = XLSX.read(text, { type: 'string', raw: false });
             } else {
                 workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true });
             }
@@ -27847,10 +27880,23 @@ function analyseHandleFile(file) {
 
             _analyseVisibleCols = [..._analyseHeaders];
 
-            document.getElementById('analyseFileName').textContent = '📄 ' + file.name;
+            document.getElementById('analyseFileName').textContent = '📄 ' + file.name
+                + (detectedEncoding ? ` — encodage : ${detectedEncoding}` : '');
             document.getElementById('analyseResetBtn').style.display = 'inline-block';
             document.getElementById('analyseDropZone').style.display = 'none';
             document.getElementById('analyseWorkspace').style.display = 'block';
+
+            // Bannière encodage pour CSV
+            const encBanner = document.getElementById('analyseEncodingBanner');
+            if (detectedEncoding) {
+                const isWin = detectedEncoding.includes('Windows') || detectedEncoding.includes('Latin');
+                encBanner.style.display = 'flex';
+                encBanner.style.background = isWin ? '#fff8e1' : '#e8f5e9';
+                encBanner.style.borderColor = isWin ? '#ffca28' : '#66bb6a';
+                encBanner.innerHTML = `<span style="font-size:13px;">${isWin ? '⚠️' : '✅'} Encodage détecté : <strong>${detectedEncoding}</strong>${isWin ? ' — les accents ont été corrigés automatiquement' : ''}</span><button onclick="document.getElementById('analyseEncodingBanner').style.display='none'" style="margin-left:auto; background:none; border:none; cursor:pointer; font-size:16px; color:#999;">×</button>`;
+            } else {
+                encBanner.style.display = 'none';
+            }
 
             analyseRenderFilters();
             analyseRenderColumnCheckboxes();
@@ -27861,11 +27907,8 @@ function analyseHandleFile(file) {
             document.getElementById('analyseDropTarget').style.display = 'block';
         }
     };
-    if (name.endsWith('.csv')) {
-        reader.readAsText(file, 'UTF-8');
-    } else {
-        reader.readAsArrayBuffer(file);
-    }
+    // Toujours lire en ArrayBuffer pour pouvoir détecter l'encodage (CSV inclus)
+    reader.readAsArrayBuffer(file);
 }
 
 // ── Helpers ID sûr pour les colonnes ─────────────────────────────────────────
