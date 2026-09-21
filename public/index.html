@@ -1,4 +1,4 @@
-<!-- v1.16.03 -->
+<!-- v1.16.04 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -27796,7 +27796,7 @@ function _analyseDecode(buffer) {
         const text = new TextDecoder('utf-8', { fatal: true }).decode(buffer);
         // Vérification secondaire : mojibake typique (ex. "Ã©" = é UTF-8 lu Latin-1, réencodé UTF-8)
         // Si le texte contient des séquences Ã + lettre accentuée, c'est probablement du Windows-1252
-        if (/Ã[€-ÿ]/.test(text))
+        if (/Ã[À-ÿ]/.test(text))
             return { text: new TextDecoder('windows-1252').decode(buffer), encoding: 'Windows-1252 (détecté via mojibake)' };
         return { text, encoding: 'UTF-8' };
     } catch(e) {
