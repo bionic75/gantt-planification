@@ -12967,6 +12967,20 @@ async function startServer(attempt = 1) {
         process.exit(1);
     }
 
+    // Synchroniser la version de l'application depuis index.html → settings DB
+    try {
+        const htmlContent = fs.readFileSync(new URL('./public/index.html', import.meta.url), 'utf8');
+        const vMatch = htmlContent.match(/<!--\s*(v[\d]+\.[\d]+\.[\d]+)\s*-->/);
+        if (vMatch) {
+            const appVersion = vMatch[1];
+            database.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['app_version', appVersion], () => {
+                console.log(`📦 Version application synchronisée : ${appVersion}`);
+            });
+        }
+    } catch (e) {
+        console.warn('⚠️  Impossible de lire la version depuis index.html :', e.message);
+    }
+
     const server = app.listen(PORT, () => {
         console.log(`🚀 Serveur démarré sur le port ${PORT}`);
         console.log(`👤 Compte admin: admin / Admin2025!`);
