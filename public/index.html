@@ -1,4 +1,4 @@
-<!-- v1.16.10 -->
+<!-- v1.16.11 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -28010,7 +28010,6 @@ function _buildListWidget(parentDiv, col, vals) {
     const sugBox = document.createElement('div');
     sugBox.style.cssText = 'display:none; position:absolute; top:100%; left:0; right:0; background:white; border:1px solid #9fa8da; border-top:none; border-radius:0 0 8px 8px; max-height:320px; overflow-y:auto; z-index:200; box-shadow:0 6px 16px rgba(0,0,0,0.12);';
     // Empêcher le blur de l'input quand on clique dans le dropdown
-    sugBox.addEventListener('mousedown', (e) => e.preventDefault());
 
     // Sélection en cours dans le dropdown (Set temporaire)
     let _pendingSel = new Set();
@@ -28086,7 +28085,6 @@ function _buildListWidget(parentDiv, col, vals) {
             item.appendChild(cb); item.appendChild(lbl);
             item.onmouseenter = () => item.style.background = '#e8eaf6';
             item.onmouseleave = () => item.style.background = '';
-            cb.onmousedown = (e) => e.stopPropagation();
             cb.onchange = () => {
                 cb.checked ? _pendingSel.add(v) : _pendingSel.delete(v);
                 btnAdd.style.display = _pendingSel.size > 0 ? 'inline-block' : 'none';
@@ -28096,12 +28094,13 @@ function _buildListWidget(parentDiv, col, vals) {
             // Clic sur la ligne = ajouter immédiatement (comportement rapide)
             item.onmousedown = (e) => {
                 if (e.target === cb) return;
-                e.preventDefault();
-                _aListAddToken(col, v, 0);
-                inp.value = '';
-                sugBox.style.display = 'none';
-                _aRefreshBuilder(col);
-                analyseApplyFilters();
+                e.preventDefault(); // Garde le focus sur inp
+                // Clic sur le label = toggle la checkbox (multi-sélection)
+                cb.checked = !cb.checked;
+                cb.checked ? _pendingSel.add(v) : _pendingSel.delete(v);
+                btnAdd.style.display = _pendingSel.size > 0 ? 'inline-block' : 'none';
+                btnAdd.textContent = `Ajouter (${_pendingSel.size})`;
+                chkAll.checked = _pendingSel.size === toShow.length;
             };
             sugBox.appendChild(item);
         });
@@ -28121,7 +28120,7 @@ function _buildListWidget(parentDiv, col, vals) {
     inp.addEventListener('focus', () => refreshSuggestions(inp.value));
     inp.addEventListener('input', () => refreshSuggestions(inp.value));
     inp.addEventListener('keydown', e => { if (e.key === 'Escape') sugBox.style.display = 'none'; });
-    inp.addEventListener('blur', () => setTimeout(() => { sugBox.style.display = 'none'; _pendingSel = new Set(); }, 150));
+    inp.addEventListener('blur', (e) => { if (e.relatedTarget && sugBox.contains(e.relatedTarget)) return; setTimeout(() => { sugBox.style.display = 'none'; _pendingSel = new Set(); }, 150); });
 
     searchWrap.appendChild(inp);
     searchWrap.appendChild(sugBox);
@@ -28149,7 +28148,6 @@ function _buildListWidget(parentDiv, col, vals) {
     exclInp.style.cssText = 'width:100%; padding:5px 10px; border:1.5px solid #ef9a9a; border-radius:6px; font-size:12px; box-sizing:border-box; outline:none;';
     const exclBox = document.createElement('div');
     exclBox.style.cssText = 'display:none; position:absolute; top:100%; left:0; right:0; background:white; border:1px solid #ef9a9a; border-top:none; border-radius:0 0 8px 8px; max-height:240px; overflow-y:auto; z-index:200; box-shadow:0 6px 16px rgba(0,0,0,0.12);';
-    exclBox.addEventListener('mousedown', (e) => e.preventDefault());
 
     let _pendingExcl = new Set();
 
@@ -28204,7 +28202,6 @@ function _buildListWidget(parentDiv, col, vals) {
             item.appendChild(cb); item.appendChild(lbl);
             item.onmouseenter = () => item.style.background = '#ffebee';
             item.onmouseleave = () => item.style.background = '';
-            cb.onmousedown = e => e.stopPropagation();
             cb.onchange = () => {
                 cb.checked ? _pendingExcl.add(v) : _pendingExcl.delete(v);
                 btnE.style.display = _pendingExcl.size > 0 ? 'inline-block' : 'none';
@@ -28228,7 +28225,7 @@ function _buildListWidget(parentDiv, col, vals) {
     exclInp.addEventListener('focus', () => refreshExclSuggestions(exclInp.value));
     exclInp.addEventListener('input', () => refreshExclSuggestions(exclInp.value));
     exclInp.addEventListener('keydown', e => { if (e.key === 'Escape') exclBox.style.display = 'none'; });
-    exclInp.addEventListener('blur', () => setTimeout(() => { exclBox.style.display = 'none'; _pendingExcl = new Set(); }, 150));
+    exclInp.addEventListener('blur', (e) => { if (e.relatedTarget && exclBox.contains(e.relatedTarget)) return; setTimeout(() => { exclBox.style.display = 'none'; _pendingExcl = new Set(); }, 150); });
     exclWrap.appendChild(exclInp); exclWrap.appendChild(exclBox);
     parentDiv.appendChild(exclWrap);
 
