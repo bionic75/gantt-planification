@@ -1,4 +1,4 @@
-<!-- v1.16.06 -->
+<!-- v1.16.07 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -27927,9 +27927,10 @@ function _aColById(id) {
 // ── Accès au filtre list avec initialisation ──────────────────────────────────
 function _aGetListFilter(col) {
     if (!_analyseFilters[col] || !Array.isArray(_analyseFilters[col].groups)) {
-        _analyseFilters[col] = { groups: [{ tokens: [] }], ops: [] };
+        _analyseFilters[col] = { groups: [{ tokens: [] }], ops: [], excluded: [] };
     }
     if (!_analyseFilters[col].ops) _analyseFilters[col].ops = [];
+    if (!_analyseFilters[col].excluded) _analyseFilters[col].excluded = [];
     return _analyseFilters[col];
 }
 
@@ -27997,24 +27998,28 @@ function _buildListWidget(parentDiv, col, vals) {
         <span style="font-size:10px; background:#7986cb; color:white; padding:1px 7px; border-radius:10px; white-space:nowrap;">multi-valeurs · ET/OU</span>`;
     parentDiv.appendChild(hdr);
 
-    // Recherche + autocomplete
+    // ── Recherche inclusion avec multi-sélection ──────────────────────────────
     const searchWrap = document.createElement('div');
     searchWrap.style.cssText = 'position:relative; margin-bottom:10px;';
 
     const inp = document.createElement('input');
     inp.type = 'text';
-    inp.placeholder = 'Rechercher une valeur à ajouter dans le filtre…';
+    inp.placeholder = 'Rechercher des valeurs à inclure dans le filtre…';
     inp.style.cssText = 'width:100%; padding:5px 10px; border:1.5px solid #9fa8da; border-radius:6px; font-size:12px; box-sizing:border-box; outline:none;';
 
     const sugBox = document.createElement('div');
     sugBox.style.cssText = 'display:none; position:absolute; top:100%; left:0; right:0; background:white; border:1px solid #9fa8da; border-top:none; border-radius:0 0 8px 8px; max-height:320px; overflow-y:auto; z-index:200; box-shadow:0 6px 16px rgba(0,0,0,0.12);';
 
+    // Sélection en cours dans le dropdown (Set temporaire)
+    let _pendingSel = new Set();
+
     const refreshSuggestions = (q) => {
+        _pendingSel = new Set(); // reset sélection à chaque refresh
         const f = _aGetListFilter(col);
         const used = new Set(f.groups.flatMap(g => g.tokens));
         const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
         const qn = norm(q || '');
-        const matches = (qn ? vals.filter(v => norm(v).includes(qn)) : vals).filter(v => !used.has(v));
+        const matches = (qn ? vals.filter(v => norm(v).includes(qn)) : vals).filter(v => !used.has(v) && !(f.excluded||[]).includes(v));
         if (!matches.length) {
             sugBox.innerHTML = '<div style="padding:8px 12px; color:#999; font-size:12px; font-style:italic;">Aucune valeur disponible</div>';
             sugBox.style.display = 'block';
@@ -28022,16 +28027,62 @@ function _buildListWidget(parentDiv, col, vals) {
         }
         sugBox.innerHTML = '';
 
-        // Afficher toutes les valeurs (sans limite) — la hauteur est contrainte par max-height
-        const SHOW_MAX = 500; // filet de sécurité pour les très grosses listes
+        // Barre "Tout cocher / Ajouter sélection"
+        const selBar = document.createElement('div');
+        selBar.style.cssText = 'display:flex; align-items:center; gap:8px; padding:5px 10px; background:#f0f2ff; border-bottom:1px solid #c5cae9; position:sticky; top:0; z-index:1;';
+        const chkAll = document.createElement('input');
+        chkAll.type = 'checkbox';
+        chkAll.title = 'Tout cocher / décocher';
+        chkAll.style.cursor = 'pointer';
+        const lblAll = document.createElement('span');
+        lblAll.style.cssText = 'font-size:11px; color:#3f51b5; cursor:pointer; flex:1;';
+        lblAll.textContent = 'Tout sélectionner';
+        const btnAdd = document.createElement('button');
+        btnAdd.textContent = 'Ajouter la sélection';
+        btnAdd.style.cssText = 'background:#3f51b5; color:white; border:none; padding:3px 10px; border-radius:10px; font-size:11px; cursor:pointer; display:none; white-space:nowrap;';
+        btnAdd.onmousedown = (e) => {
+            e.preventDefault();
+            _pendingSel.forEach(v => _aListAddToken(col, v, 0));
+            _pendingSel = new Set();
+            inp.value = '';
+            sugBox.style.display = 'none';
+            _aRefreshBuilder(col);
+            analyseApplyFilters();
+        };
+        chkAll.onchange = () => {
+            const items = sugBox.querySelectorAll('.sug-item input[type=checkbox]');
+            items.forEach(cb => { cb.checked = chkAll.checked; const v = cb.dataset.val; chkAll.checked ? _pendingSel.add(v) : _pendingSel.delete(v); });
+            lblAll.textContent = chkAll.checked ? 'Tout désélectionner' : 'Tout sélectionner';
+            btnAdd.style.display = _pendingSel.size > 0 ? 'inline-block' : 'none';
+            btnAdd.textContent = `Ajouter ${_pendingSel.size} valeur(s)`;
+        };
+        lblAll.onmousedown = (e) => { e.preventDefault(); chkAll.click(); };
+        selBar.appendChild(chkAll); selBar.appendChild(lblAll); selBar.appendChild(btnAdd);
+        sugBox.appendChild(selBar);
+
+        const SHOW_MAX = 500;
         const toShow = matches.slice(0, SHOW_MAX);
         toShow.forEach(v => {
             const item = document.createElement('div');
-            item.style.cssText = 'padding:6px 12px; font-size:12px; cursor:pointer; border-bottom:1px solid #f0f0f0;';
-            item.textContent = v;
+            item.className = 'sug-item';
+            item.style.cssText = 'display:flex; align-items:center; gap:8px; padding:5px 12px; font-size:12px; cursor:pointer; border-bottom:1px solid #f0f0f0;';
+            const cb = document.createElement('input');
+            cb.type = 'checkbox'; cb.dataset.val = v; cb.style.cursor = 'pointer; flex-shrink:0;';
+            const lbl = document.createElement('span');
+            lbl.textContent = v; lbl.style.flex = '1';
+            item.appendChild(cb); item.appendChild(lbl);
             item.onmouseenter = () => item.style.background = '#e8eaf6';
             item.onmouseleave = () => item.style.background = '';
+            cb.onmousedown = (e) => e.stopPropagation();
+            cb.onchange = () => {
+                cb.checked ? _pendingSel.add(v) : _pendingSel.delete(v);
+                btnAdd.style.display = _pendingSel.size > 0 ? 'inline-block' : 'none';
+                btnAdd.textContent = `Ajouter ${_pendingSel.size} valeur(s)`;
+                chkAll.checked = _pendingSel.size === toShow.length;
+            };
+            // Clic sur la ligne = ajouter immédiatement (comportement rapide)
             item.onmousedown = (e) => {
+                if (e.target === cb) return;
                 e.preventDefault();
                 _aListAddToken(col, v, 0);
                 inp.value = '';
@@ -28041,37 +28092,136 @@ function _buildListWidget(parentDiv, col, vals) {
             };
             sugBox.appendChild(item);
         });
-        // Indicateur si tronqué
         if (matches.length > SHOW_MAX) {
             const more = document.createElement('div');
             more.style.cssText = 'padding:6px 12px; font-size:11px; color:#9fa8da; font-style:italic; background:#f8f9ff;';
             more.textContent = `… et ${(matches.length - SHOW_MAX).toLocaleString('fr-FR')} autres — affinez la recherche`;
             sugBox.appendChild(more);
         }
-        // Compteur total
         const counter = document.createElement('div');
         counter.style.cssText = 'padding:4px 12px; font-size:10px; color:#bbb; background:#fafafa; border-top:1px solid #eee; text-align:right;';
         counter.textContent = `${matches.length.toLocaleString('fr-FR')} valeur(s) disponible(s)`;
         sugBox.appendChild(counter);
-
         sugBox.style.display = 'block';
     };
 
     inp.addEventListener('focus', () => refreshSuggestions(inp.value));
     inp.addEventListener('input', () => refreshSuggestions(inp.value));
     inp.addEventListener('keydown', e => { if (e.key === 'Escape') sugBox.style.display = 'none'; });
-    inp.addEventListener('blur', () => setTimeout(() => { sugBox.style.display = 'none'; }, 150));
+    inp.addEventListener('blur', () => setTimeout(() => { sugBox.style.display = 'none'; _pendingSel = new Set(); }, 150));
 
     searchWrap.appendChild(inp);
     searchWrap.appendChild(sugBox);
     parentDiv.appendChild(searchWrap);
 
-    // Zone query builder
+    // Zone query builder inclusion
     const builder = document.createElement('div');
     builder.id = 'listBuilder_' + id;
     parentDiv.appendChild(builder);
 
-    _aListMap.set(col, { builderEl: builder, vals });
+    // ── Séparateur section Exclure ────────────────────────────────────────────
+    const exclSep = document.createElement('div');
+    exclSep.style.cssText = 'display:flex; align-items:center; gap:8px; margin:10px 0 6px;';
+    exclSep.innerHTML = `<div style="flex:1; height:1px; background:#ffcdd2;"></div>
+        <span style="font-size:10px; color:#c62828; font-weight:bold; letter-spacing:0.5px; white-space:nowrap;">⊘ EXCLURE</span>
+        <div style="flex:1; height:1px; background:#ffcdd2;"></div>`;
+    parentDiv.appendChild(exclSep);
+
+    // Recherche exclusion
+    const exclWrap = document.createElement('div');
+    exclWrap.style.cssText = 'position:relative; margin-bottom:6px;';
+    const exclInp = document.createElement('input');
+    exclInp.type = 'text';
+    exclInp.placeholder = 'Rechercher des valeurs à exclure…';
+    exclInp.style.cssText = 'width:100%; padding:5px 10px; border:1.5px solid #ef9a9a; border-radius:6px; font-size:12px; box-sizing:border-box; outline:none;';
+    const exclBox = document.createElement('div');
+    exclBox.style.cssText = 'display:none; position:absolute; top:100%; left:0; right:0; background:white; border:1px solid #ef9a9a; border-top:none; border-radius:0 0 8px 8px; max-height:240px; overflow-y:auto; z-index:200; box-shadow:0 6px 16px rgba(0,0,0,0.12);';
+
+    let _pendingExcl = new Set();
+
+    const refreshExclSuggestions = (q) => {
+        _pendingExcl = new Set();
+        const f = _aGetListFilter(col);
+        const alreadyExcl = new Set(f.excluded || []);
+        const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+        const qn = norm(q || '');
+        const matches = (qn ? vals.filter(v => norm(v).includes(qn)) : vals).filter(v => !alreadyExcl.has(v));
+        if (!matches.length) {
+            exclBox.innerHTML = '<div style="padding:8px 12px; color:#999; font-size:12px; font-style:italic;">Aucune valeur disponible</div>';
+            exclBox.style.display = 'block'; return;
+        }
+        exclBox.innerHTML = '';
+        // Barre sélection
+        const bar = document.createElement('div');
+        bar.style.cssText = 'display:flex; align-items:center; gap:8px; padding:5px 10px; background:#ffebee; border-bottom:1px solid #ef9a9a; position:sticky; top:0; z-index:1;';
+        const chkA = document.createElement('input'); chkA.type = 'checkbox'; chkA.style.cursor = 'pointer';
+        const lblA = document.createElement('span'); lblA.style.cssText = 'font-size:11px; color:#c62828; cursor:pointer; flex:1;'; lblA.textContent = 'Tout sélectionner';
+        const btnE = document.createElement('button');
+        btnE.textContent = 'Exclure la sélection';
+        btnE.style.cssText = 'background:#c62828; color:white; border:none; padding:3px 10px; border-radius:10px; font-size:11px; cursor:pointer; display:none; white-space:nowrap;';
+        btnE.onmousedown = (e) => {
+            e.preventDefault();
+            const f2 = _aGetListFilter(col);
+            if (!f2.excluded) f2.excluded = [];
+            _pendingExcl.forEach(v => { if (!f2.excluded.includes(v)) f2.excluded.push(v); });
+            _pendingExcl = new Set();
+            exclInp.value = '';
+            exclBox.style.display = 'none';
+            _aRefreshBuilder(col); analyseApplyFilters();
+        };
+        chkA.onchange = () => {
+            const items = exclBox.querySelectorAll('.excl-item input[type=checkbox]');
+            items.forEach(cb => { cb.checked = chkA.checked; chkA.checked ? _pendingExcl.add(cb.dataset.val) : _pendingExcl.delete(cb.dataset.val); });
+            lblA.textContent = chkA.checked ? 'Tout désélectionner' : 'Tout sélectionner';
+            btnE.style.display = _pendingExcl.size > 0 ? 'inline-block' : 'none';
+            btnE.textContent = `Exclure ${_pendingExcl.size} valeur(s)`;
+        };
+        lblA.onmousedown = (e) => { e.preventDefault(); chkA.click(); };
+        bar.appendChild(chkA); bar.appendChild(lblA); bar.appendChild(btnE);
+        exclBox.appendChild(bar);
+        matches.slice(0, 500).forEach(v => {
+            const item = document.createElement('div');
+            item.className = 'excl-item';
+            item.style.cssText = 'display:flex; align-items:center; gap:8px; padding:5px 12px; font-size:12px; cursor:pointer; border-bottom:1px solid #f0f0f0;';
+            const cb = document.createElement('input'); cb.type = 'checkbox'; cb.dataset.val = v; cb.style.cursor = 'pointer';
+            const lbl = document.createElement('span'); lbl.textContent = v; lbl.style.flex = '1';
+            item.appendChild(cb); item.appendChild(lbl);
+            item.onmouseenter = () => item.style.background = '#ffebee';
+            item.onmouseleave = () => item.style.background = '';
+            cb.onmousedown = e => e.stopPropagation();
+            cb.onchange = () => {
+                cb.checked ? _pendingExcl.add(v) : _pendingExcl.delete(v);
+                btnE.style.display = _pendingExcl.size > 0 ? 'inline-block' : 'none';
+                btnE.textContent = `Exclure ${_pendingExcl.size} valeur(s)`;
+                chkA.checked = _pendingExcl.size === Math.min(matches.length, 500);
+            };
+            item.onmousedown = (e) => {
+                if (e.target === cb) return;
+                e.preventDefault();
+                const f2 = _aGetListFilter(col);
+                if (!f2.excluded) f2.excluded = [];
+                if (!f2.excluded.includes(v)) f2.excluded.push(v);
+                exclInp.value = ''; exclBox.style.display = 'none';
+                _aRefreshBuilder(col); analyseApplyFilters();
+            };
+            exclBox.appendChild(item);
+        });
+        exclBox.style.display = 'block';
+    };
+
+    exclInp.addEventListener('focus', () => refreshExclSuggestions(exclInp.value));
+    exclInp.addEventListener('input', () => refreshExclSuggestions(exclInp.value));
+    exclInp.addEventListener('keydown', e => { if (e.key === 'Escape') exclBox.style.display = 'none'; });
+    exclInp.addEventListener('blur', () => setTimeout(() => { exclBox.style.display = 'none'; _pendingExcl = new Set(); }, 150));
+    exclWrap.appendChild(exclInp); exclWrap.appendChild(exclBox);
+    parentDiv.appendChild(exclWrap);
+
+    // Zone chips exclusion
+    const exclChips = document.createElement('div');
+    exclChips.id = 'exclChips_' + id;
+    parentDiv.appendChild(exclChips);
+
+    _aListMap.set(col, { builderEl: builder, exclChipsEl: exclChips, vals });
     _aRefreshBuilder(col);
 }
 
@@ -28242,7 +28392,6 @@ function _aRefreshBuilder(col) {
     const actions = document.createElement('div');
     actions.style.cssText = 'display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; align-items:center;';
 
-    // Boutons + nouveau groupe (ET et OU)
     const addGroup = document.createElement('div');
     addGroup.style.cssText = 'display:flex; border-radius:16px; overflow:hidden; border:1.5px solid #3f51b5;';
     addGroup.innerHTML = `<button onclick="_aListAddGroup('${id}','AND')" style="background:white; border:none; color:#283593; padding:4px 12px; cursor:pointer; font-size:11px; font-weight:bold;" title="Ajouter un groupe lié par ET">＋ groupe ET</button><button onclick="_aListAddGroup('${id}','OR')" style="background:white; border:none; color:#6a1b9a; padding:4px 12px; cursor:pointer; font-size:11px; font-weight:bold; border-left:1px solid #c5cae9;" title="Ajouter un groupe lié par OU">＋ groupe OU</button>`;
@@ -28255,6 +28404,41 @@ function _aRefreshBuilder(col) {
     actions.appendChild(clearAll);
 
     el.appendChild(actions);
+
+    // ── Chips d'exclusion ─────────────────────────────────────────────────
+    const info2 = _aListMap.get(col);
+    if (info2 && info2.exclChipsEl) {
+        const ec = info2.exclChipsEl;
+        ec.innerHTML = '';
+        const excl = f.excluded || [];
+        if (excl.length > 0) {
+            const exclRow = document.createElement('div');
+            exclRow.style.cssText = 'display:flex; flex-wrap:wrap; align-items:center; gap:4px; margin-top:6px;';
+            const lbl = document.createElement('span');
+            lbl.style.cssText = 'font-size:10px; color:#c62828; font-weight:bold; white-space:nowrap;';
+            lbl.textContent = '⊘ Exclus :';
+            exclRow.appendChild(lbl);
+            excl.forEach((v, ei) => {
+                const chip = document.createElement('div');
+                chip.style.cssText = 'display:flex; align-items:center; gap:4px; background:#ffebee; color:#c62828; border:1px solid #ef9a9a; padding:3px 8px; border-radius:12px; font-size:11px; white-space:nowrap;';
+                const t = document.createElement('span');
+                t.textContent = v.length > 30 ? v.substring(0,28)+'…' : v; t.title = v;
+                const rm = document.createElement('span');
+                rm.textContent = '×'; rm.style.cssText = 'cursor:pointer; font-size:14px; opacity:0.7; padding:0 2px;';
+                rm.onmouseenter = () => rm.style.opacity = '1';
+                rm.onmouseleave = () => rm.style.opacity = '0.7';
+                rm.onclick = () => {
+                    f.excluded.splice(ei, 1);
+                    if (f.excluded.length === 0 && f.groups.every(g => g.tokens.length === 0)) delete _analyseFilters[col];
+                    _aRefreshBuilder(col); analyseApplyFilters();
+                };
+                chip.appendChild(t); chip.appendChild(rm);
+                exclRow.appendChild(chip);
+            });
+            ec.appendChild(exclRow);
+        }
+    }
+
     analyseUpdateActiveCount();
 }
 
@@ -28428,9 +28612,11 @@ function analyseApplyFilters() {
 
             if (type === 'list') {
                 if (!f.groups) continue;
+                const rowToks = new Set(val.split(/\s*;\s*/).map(t => t.trim()).filter(Boolean));
+                // Exclusion prioritaire
+                if ((f.excluded||[]).some(t => rowToks.has(t))) return false;
                 const activeGroups = f.groups.map((g, i) => ({ tokens: g.tokens, origIdx: i })).filter(g => g.tokens.length > 0);
                 if (activeGroups.length === 0) continue;
-                const rowToks = new Set(val.split(/\s*;\s*/).map(t => t.trim()).filter(Boolean));
                 // \u00c9valuation gauche-droite selon ops[]
                 // ops[i] est l'op\u00e9rateur entre groupes[i] et groupes[i+1] dans la liste d'origine
                 // On recalcule sur les groupes actifs avec leurs op\u00e9rateurs
@@ -28442,8 +28628,9 @@ function analyseApplyFilters() {
                 }
                 if (!result) return false;
             } else if (type === 'enum') {
-                // Même structure multi-valeurs que list, mais correspondance exacte (pas de split ';')
                 if (!f.groups) { if (val !== f) return false; continue; }
+                // Exclusion prioritaire
+                if ((f.excluded||[]).includes(val)) return false;
                 const activeGroups = f.groups.map((g, i) => ({ tokens: g.tokens, origIdx: i })).filter(g => g.tokens.length > 0);
                 if (activeGroups.length === 0) continue;
                 let result = activeGroups[0].tokens.some(t => val === t);
@@ -28477,8 +28664,8 @@ function analyseUpdateActiveCount() {
     for (const [col, f] of Object.entries(_analyseFilters)) {
         if (!f || f === null || f === '') continue;
         if (f.groups) {
-            // list filter: compter si au moins un token actif
-            if (f.groups.some(g => g.tokens.length > 0)) count++;
+            // list/enum filter: compter si au moins un token actif OU au moins une exclusion
+            if (f.groups.some(g => g.tokens.length > 0) || (f.excluded && f.excluded.length > 0)) count++;
         } else {
             count++;
         }
