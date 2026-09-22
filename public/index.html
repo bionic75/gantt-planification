@@ -1,4 +1,4 @@
-<!-- v1.16.09 -->
+<!-- v1.16.10 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -28009,6 +28009,8 @@ function _buildListWidget(parentDiv, col, vals) {
 
     const sugBox = document.createElement('div');
     sugBox.style.cssText = 'display:none; position:absolute; top:100%; left:0; right:0; background:white; border:1px solid #9fa8da; border-top:none; border-radius:0 0 8px 8px; max-height:320px; overflow-y:auto; z-index:200; box-shadow:0 6px 16px rgba(0,0,0,0.12);';
+    // Empêcher le blur de l'input quand on clique dans le dropdown
+    sugBox.addEventListener('mousedown', (e) => e.preventDefault());
 
     // Sélection en cours dans le dropdown (Set temporaire)
     let _pendingSel = new Set();
@@ -28147,6 +28149,7 @@ function _buildListWidget(parentDiv, col, vals) {
     exclInp.style.cssText = 'width:100%; padding:5px 10px; border:1.5px solid #ef9a9a; border-radius:6px; font-size:12px; box-sizing:border-box; outline:none;';
     const exclBox = document.createElement('div');
     exclBox.style.cssText = 'display:none; position:absolute; top:100%; left:0; right:0; background:white; border:1px solid #ef9a9a; border-top:none; border-radius:0 0 8px 8px; max-height:240px; overflow-y:auto; z-index:200; box-shadow:0 6px 16px rgba(0,0,0,0.12);';
+    exclBox.addEventListener('mousedown', (e) => e.preventDefault());
 
     let _pendingExcl = new Set();
 
