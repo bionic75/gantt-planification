@@ -1,4 +1,4 @@
-<!-- v1.16.11 -->
+<!-- v1.16.12 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -27876,7 +27876,8 @@ function analyseHandleFile(file) {
                         const dateRe = /^\d{2}\/\d{2}\/\d{4}/;
                         const isDate = nonEmpty.length > 0 && nonEmpty.every(v => dateRe.test(v) || v === '');
                         _analyseColTypes[col] = isDate ? 'date' : 'text';
-                        _analyseColValues[col] = [];
+                        // Pour text : stocker les valeurs uniques triées pour les suggestions
+                        _analyseColValues[col] = isDate ? [] : unique.sort((a, b) => a.localeCompare(b, 'fr'));
                     }
                 }
             }
@@ -27974,13 +27975,72 @@ function analyseRenderFilters() {
             lbl.title = col; lbl.textContent = col;
             div.appendChild(lbl);
 
-            const inp = document.createElement('input');
-            inp.type = type === 'date' ? 'date' : 'text';
-            inp.placeholder = type === 'date' ? 'Recherche date…' : 'Recherche libre…';
-            inp.style.cssText = 'width:100%; padding:4px 6px; border:1px solid #c5cae9; border-radius:4px; font-size:12px; box-sizing:border-box;';
-            if (_analyseFilters[col]) inp.value = _analyseFilters[col];
-            inp.addEventListener('input', () => { _analyseFilters[col] = inp.value || null; _analysePage = 1; analyseApplyFilters(); });
-            div.appendChild(inp);
+            if (type === 'date') {
+                const inp = document.createElement('input');
+                inp.type = 'date';
+                inp.placeholder = 'Recherche date…';
+                inp.style.cssText = 'width:100%; padding:4px 6px; border:1px solid #c5cae9; border-radius:4px; font-size:12px; box-sizing:border-box;';
+                if (_analyseFilters[col]) inp.value = _analyseFilters[col];
+                inp.addEventListener('input', () => { _analyseFilters[col] = inp.value || null; _analysePage = 1; analyseApplyFilters(); });
+                div.appendChild(inp);
+            } else {
+                // Champ texte avec suggestions (startsWith)
+                const wrap = document.createElement('div');
+                wrap.style.cssText = 'position:relative;';
+                const inp = document.createElement('input');
+                inp.type = 'text';
+                inp.placeholder = 'Recherche libre…';
+                inp.style.cssText = 'width:100%; padding:4px 6px; border:1px solid #c5cae9; border-radius:4px; font-size:12px; box-sizing:border-box;';
+                if (_analyseFilters[col]) inp.value = _analyseFilters[col];
+
+                const sugBox = document.createElement('div');
+                sugBox.style.cssText = 'display:none; position:absolute; top:100%; left:0; right:0; background:white; border:1px solid #c5cae9; border-top:none; border-radius:0 0 6px 6px; max-height:200px; overflow-y:auto; z-index:200; box-shadow:0 4px 12px rgba(0,0,0,0.1); font-size:12px;';
+
+                const colVals = vals; // valeurs uniques pré-triées
+                const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+                const showSug = (q) => {
+                    sugBox.innerHTML = '';
+                    if (!q || !colVals.length) { sugBox.style.display = 'none'; return; }
+                    const qn = norm(q);
+                    const matches = colVals.filter(v => norm(v).startsWith(qn)).slice(0, 50);
+                    if (!matches.length) { sugBox.style.display = 'none'; return; }
+                    matches.forEach(v => {
+                        const row = document.createElement('div');
+                        row.textContent = v;
+                        row.style.cssText = 'padding:4px 8px; cursor:pointer; border-bottom:1px solid #f0f0f0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;';
+                        row.onmouseenter = () => row.style.background = '#e8eaf6';
+                        row.onmouseleave = () => row.style.background = '';
+                        row.onmousedown = (e) => {
+                            e.preventDefault();
+                            inp.value = v;
+                            _analyseFilters[col] = v;
+                            _analysePage = 1;
+                            analyseApplyFilters();
+                            sugBox.style.display = 'none';
+                        };
+                        sugBox.appendChild(row);
+                    });
+                    sugBox.style.display = 'block';
+                };
+
+                inp.addEventListener('input', () => {
+                    _analyseFilters[col] = inp.value || null;
+                    _analysePage = 1;
+                    analyseApplyFilters();
+                    showSug(inp.value);
+                });
+                inp.addEventListener('focus', () => showSug(inp.value));
+                inp.addEventListener('blur', (e) => {
+                    if (e.relatedTarget && sugBox.contains(e.relatedTarget)) return;
+                    setTimeout(() => { sugBox.style.display = 'none'; }, 150);
+                });
+                inp.addEventListener('keydown', e => { if (e.key === 'Escape') sugBox.style.display = 'none'; });
+
+                wrap.appendChild(inp);
+                wrap.appendChild(sugBox);
+                div.appendChild(wrap);
+            }
         }
         panel.appendChild(div);
     }
