@@ -1,4 +1,4 @@
-<!-- v1.16.08 -->
+<!-- v1.16.09 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -28014,7 +28014,7 @@ function _buildListWidget(parentDiv, col, vals) {
     let _pendingSel = new Set();
 
     const refreshSuggestions = (q) => {
-        _pendingSel = new Set(); // reset sélection à chaque refresh
+        // NE PAS reset _pendingSel ici — conserver la sélection entre frappes
         const f = _aGetListFilter(col);
         const used = new Set(f.groups.flatMap(g => g.tokens));
         const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -28059,15 +28059,24 @@ function _buildListWidget(parentDiv, col, vals) {
         lblAll.onmousedown = (e) => { e.preventDefault(); chkAll.click(); };
         selBar.appendChild(chkAll); selBar.appendChild(lblAll); selBar.appendChild(btnAdd);
         sugBox.appendChild(selBar);
+        // Mettre à jour btnAdd et chkAll après reconstruction (valeurs déjà dans _pendingSel)
+        // (sera recalculé après que toShow soit défini — mis à jour plus bas)
 
         const SHOW_MAX = 500;
         const toShow = matches.slice(0, SHOW_MAX);
+        // Nettoyer _pendingSel des valeurs qui ne sont plus dans la liste visible
+        for (const v of [..._pendingSel]) { if (!toShow.includes(v)) _pendingSel.delete(v); }
+        // Mettre à jour btnAdd et chkAll selon _pendingSel
+        btnAdd.style.display = _pendingSel.size > 0 ? 'inline-block' : 'none';
+        btnAdd.textContent = `Ajouter (${_pendingSel.size})`;
+        chkAll.checked = _pendingSel.size > 0 && _pendingSel.size === toShow.length;
         toShow.forEach(v => {
             const item = document.createElement('div');
             item.className = 'sug-item';
             item.style.cssText = 'display:flex; align-items:center; gap:8px; padding:6px 10px; font-size:12px; cursor:pointer; border-bottom:1px solid #f0f0f0; box-sizing:border-box;';
             const cb = document.createElement('input');
             cb.type = 'checkbox'; cb.dataset.val = v;
+            cb.checked = _pendingSel.has(v); // restaurer l'état coché
             cb.style.cssText = 'cursor:pointer; flex-shrink:0; width:14px; height:14px;';
             const lbl = document.createElement('span');
             lbl.textContent = v;
