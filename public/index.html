@@ -1,4 +1,4 @@
-<!-- v1.16.07 -->
+<!-- v1.16.08 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -28029,17 +28029,17 @@ function _buildListWidget(parentDiv, col, vals) {
 
         // Barre "Tout cocher / Ajouter sélection"
         const selBar = document.createElement('div');
-        selBar.style.cssText = 'display:flex; align-items:center; gap:8px; padding:5px 10px; background:#f0f2ff; border-bottom:1px solid #c5cae9; position:sticky; top:0; z-index:1;';
+        selBar.style.cssText = 'display:flex; align-items:center; gap:6px; padding:5px 10px; background:#f0f2ff; border-bottom:1px solid #c5cae9; position:sticky; top:0; z-index:1; box-sizing:border-box;';
         const chkAll = document.createElement('input');
         chkAll.type = 'checkbox';
         chkAll.title = 'Tout cocher / décocher';
-        chkAll.style.cursor = 'pointer';
+        chkAll.style.cssText = 'cursor:pointer; flex-shrink:0; width:14px; height:14px;';
         const lblAll = document.createElement('span');
-        lblAll.style.cssText = 'font-size:11px; color:#3f51b5; cursor:pointer; flex:1;';
+        lblAll.style.cssText = 'font-size:11px; color:#3f51b5; cursor:pointer; flex:1; white-space:nowrap;';
         lblAll.textContent = 'Tout sélectionner';
         const btnAdd = document.createElement('button');
-        btnAdd.textContent = 'Ajouter la sélection';
-        btnAdd.style.cssText = 'background:#3f51b5; color:white; border:none; padding:3px 10px; border-radius:10px; font-size:11px; cursor:pointer; display:none; white-space:nowrap;';
+        btnAdd.textContent = 'Ajouter';
+        btnAdd.style.cssText = 'background:#3f51b5; color:white; border:none; padding:3px 8px; border-radius:10px; font-size:11px; cursor:pointer; display:none; white-space:nowrap; flex-shrink:0;';
         btnAdd.onmousedown = (e) => {
             e.preventDefault();
             _pendingSel.forEach(v => _aListAddToken(col, v, 0));
@@ -28054,7 +28054,7 @@ function _buildListWidget(parentDiv, col, vals) {
             items.forEach(cb => { cb.checked = chkAll.checked; const v = cb.dataset.val; chkAll.checked ? _pendingSel.add(v) : _pendingSel.delete(v); });
             lblAll.textContent = chkAll.checked ? 'Tout désélectionner' : 'Tout sélectionner';
             btnAdd.style.display = _pendingSel.size > 0 ? 'inline-block' : 'none';
-            btnAdd.textContent = `Ajouter ${_pendingSel.size} valeur(s)`;
+            btnAdd.textContent = `Ajouter (${_pendingSel.size})`;
         };
         lblAll.onmousedown = (e) => { e.preventDefault(); chkAll.click(); };
         selBar.appendChild(chkAll); selBar.appendChild(lblAll); selBar.appendChild(btnAdd);
@@ -28065,11 +28065,13 @@ function _buildListWidget(parentDiv, col, vals) {
         toShow.forEach(v => {
             const item = document.createElement('div');
             item.className = 'sug-item';
-            item.style.cssText = 'display:flex; align-items:center; gap:8px; padding:5px 12px; font-size:12px; cursor:pointer; border-bottom:1px solid #f0f0f0;';
+            item.style.cssText = 'display:flex; align-items:center; gap:8px; padding:6px 10px; font-size:12px; cursor:pointer; border-bottom:1px solid #f0f0f0; box-sizing:border-box;';
             const cb = document.createElement('input');
-            cb.type = 'checkbox'; cb.dataset.val = v; cb.style.cursor = 'pointer; flex-shrink:0;';
+            cb.type = 'checkbox'; cb.dataset.val = v;
+            cb.style.cssText = 'cursor:pointer; flex-shrink:0; width:14px; height:14px;';
             const lbl = document.createElement('span');
-            lbl.textContent = v; lbl.style.flex = '1';
+            lbl.textContent = v;
+            lbl.style.cssText = 'flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
             item.appendChild(cb); item.appendChild(lbl);
             item.onmouseenter = () => item.style.background = '#e8eaf6';
             item.onmouseleave = () => item.style.background = '';
@@ -28077,7 +28079,7 @@ function _buildListWidget(parentDiv, col, vals) {
             cb.onchange = () => {
                 cb.checked ? _pendingSel.add(v) : _pendingSel.delete(v);
                 btnAdd.style.display = _pendingSel.size > 0 ? 'inline-block' : 'none';
-                btnAdd.textContent = `Ajouter ${_pendingSel.size} valeur(s)`;
+                btnAdd.textContent = `Ajouter (${_pendingSel.size})`;
                 chkAll.checked = _pendingSel.size === toShow.length;
             };
             // Clic sur la ligne = ajouter immédiatement (comportement rapide)
@@ -28153,12 +28155,12 @@ function _buildListWidget(parentDiv, col, vals) {
         exclBox.innerHTML = '';
         // Barre sélection
         const bar = document.createElement('div');
-        bar.style.cssText = 'display:flex; align-items:center; gap:8px; padding:5px 10px; background:#ffebee; border-bottom:1px solid #ef9a9a; position:sticky; top:0; z-index:1;';
-        const chkA = document.createElement('input'); chkA.type = 'checkbox'; chkA.style.cursor = 'pointer';
-        const lblA = document.createElement('span'); lblA.style.cssText = 'font-size:11px; color:#c62828; cursor:pointer; flex:1;'; lblA.textContent = 'Tout sélectionner';
+        bar.style.cssText = 'display:flex; align-items:center; gap:6px; padding:5px 10px; background:#ffebee; border-bottom:1px solid #ef9a9a; position:sticky; top:0; z-index:1; box-sizing:border-box;';
+        const chkA = document.createElement('input'); chkA.type = 'checkbox'; chkA.style.cssText = 'cursor:pointer; flex-shrink:0; width:14px; height:14px;';
+        const lblA = document.createElement('span'); lblA.style.cssText = 'font-size:11px; color:#c62828; cursor:pointer; flex:1; white-space:nowrap;'; lblA.textContent = 'Tout sélectionner';
         const btnE = document.createElement('button');
         btnE.textContent = 'Exclure la sélection';
-        btnE.style.cssText = 'background:#c62828; color:white; border:none; padding:3px 10px; border-radius:10px; font-size:11px; cursor:pointer; display:none; white-space:nowrap;';
+        btnE.style.cssText = 'background:#c62828; color:white; border:none; padding:3px 8px; border-radius:10px; font-size:11px; cursor:pointer; display:none; white-space:nowrap; flex-shrink:0;';
         btnE.onmousedown = (e) => {
             e.preventDefault();
             const f2 = _aGetListFilter(col);
@@ -28174,7 +28176,7 @@ function _buildListWidget(parentDiv, col, vals) {
             items.forEach(cb => { cb.checked = chkA.checked; chkA.checked ? _pendingExcl.add(cb.dataset.val) : _pendingExcl.delete(cb.dataset.val); });
             lblA.textContent = chkA.checked ? 'Tout désélectionner' : 'Tout sélectionner';
             btnE.style.display = _pendingExcl.size > 0 ? 'inline-block' : 'none';
-            btnE.textContent = `Exclure ${_pendingExcl.size} valeur(s)`;
+            btnE.textContent = `Exclure (${_pendingExcl.size})`;
         };
         lblA.onmousedown = (e) => { e.preventDefault(); chkA.click(); };
         bar.appendChild(chkA); bar.appendChild(lblA); bar.appendChild(btnE);
@@ -28182,9 +28184,11 @@ function _buildListWidget(parentDiv, col, vals) {
         matches.slice(0, 500).forEach(v => {
             const item = document.createElement('div');
             item.className = 'excl-item';
-            item.style.cssText = 'display:flex; align-items:center; gap:8px; padding:5px 12px; font-size:12px; cursor:pointer; border-bottom:1px solid #f0f0f0;';
-            const cb = document.createElement('input'); cb.type = 'checkbox'; cb.dataset.val = v; cb.style.cursor = 'pointer';
-            const lbl = document.createElement('span'); lbl.textContent = v; lbl.style.flex = '1';
+            item.style.cssText = 'display:flex; align-items:center; gap:8px; padding:6px 10px; font-size:12px; cursor:pointer; border-bottom:1px solid #f0f0f0; box-sizing:border-box;';
+            const cb = document.createElement('input'); cb.type = 'checkbox'; cb.dataset.val = v;
+            cb.style.cssText = 'cursor:pointer; flex-shrink:0; width:14px; height:14px;';
+            const lbl = document.createElement('span'); lbl.textContent = v;
+            lbl.style.cssText = 'flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
             item.appendChild(cb); item.appendChild(lbl);
             item.onmouseenter = () => item.style.background = '#ffebee';
             item.onmouseleave = () => item.style.background = '';
@@ -28192,7 +28196,7 @@ function _buildListWidget(parentDiv, col, vals) {
             cb.onchange = () => {
                 cb.checked ? _pendingExcl.add(v) : _pendingExcl.delete(v);
                 btnE.style.display = _pendingExcl.size > 0 ? 'inline-block' : 'none';
-                btnE.textContent = `Exclure ${_pendingExcl.size} valeur(s)`;
+                btnE.textContent = `Exclure (${_pendingExcl.size})`;
                 chkA.checked = _pendingExcl.size === Math.min(matches.length, 500);
             };
             item.onmousedown = (e) => {
