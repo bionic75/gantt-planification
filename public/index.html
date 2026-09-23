@@ -1,4 +1,4 @@
-<!-- v1.16.12 -->
+<!-- v1.16.13 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -27642,6 +27642,18 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     ⏳ Chargement en cours…
                 </div>
             </div>
+            <!-- Fichier sauvegardé localement -->
+            <div id="analyseSavedFileBar" style="display:none; margin-top:16px; background:#e8f5e9; border:1px solid #a5d6a7; border-radius:8px; padding:10px 14px; font-size:13px; color:#2e7d32; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <span>💾 Fichier sauvegardé :</span>
+                <span id="analyseSavedFileName" style="font-weight:bold;"></span>
+                <button onclick="analyseLoadSaved()" style="background:#388e3c; color:white; border:none; padding:4px 12px; border-radius:10px; cursor:pointer; font-size:12px; margin-left:auto;">Charger</button>
+                <button onclick="analyseDeleteSaved()" style="background:none; border:1px solid #e57373; color:#c62828; padding:4px 10px; border-radius:10px; cursor:pointer; font-size:12px;">Supprimer</button>
+            </div>
+            <!-- Case à cocher "conserver localement" -->
+            <label style="display:flex; align-items:center; gap:8px; margin-top:14px; font-size:12px; color:#666; cursor:pointer; justify-content:center;">
+                <input type="checkbox" id="analyseSaveLocalChk" style="cursor:pointer;" onchange="analyseToggleSaveLocal(this.checked)">
+                Conserver ce fichier localement (rechargement sans importation)
+            </label>
         </div>
     </div>
 
@@ -27660,6 +27672,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 <button onclick="analyseExportCSV()" style="background:#2e7d32; color:white; border:none; padding:5px 14px; border-radius:6px; cursor:pointer; font-size:12px;">⬇ Export CSV</button>
                 <button onclick="toggleAnalyseColumns()" style="background:#5c6bc0; color:white; border:none; padding:5px 14px; border-radius:6px; cursor:pointer; font-size:12px;">⚙ Colonnes</button>
                 <button onclick="toggleAnalyseDups()" id="analyseDupBtn" style="background:#ec407a; color:white; border:none; padding:5px 14px; border-radius:6px; cursor:pointer; font-size:12px;">🔁 Doublons</button>
+                <button onclick="toggleAnalyseFiltersPanel()" id="analyseFilterToggleBtn" title="Afficher / masquer les filtres" style="background:#7986cb; color:white; border:none; padding:5px 12px; border-radius:6px; cursor:pointer; font-size:14px;" aria-label="Afficher/masquer les filtres">▲</button>
             </div>
 
             <!-- Panel colonnes visibles (masqué par défaut) -->
@@ -27736,6 +27749,95 @@ const _aListMap = new Map();
 let _aColSeq = 0;
 const _aColId = new Map(); // col -> identifiant sûr
 
+// ══════════════════════════════════════════════════════════════
+//  IndexedDB — persistance locale du fichier Analyse
+// ══════════════════════════════════════════════════════════════
+const _analyseIDB = (() => {
+    const DB = 'analyseLocalFile', STORE = 'files', KEY = 'last';
+    const open = () => new Promise((res, rej) => {
+        const r = indexedDB.open(DB, 1);
+        r.onupgradeneeded = e => e.target.result.createObjectStore(STORE);
+        r.onsuccess = e => res(e.target.result);
+        r.onerror = e => rej(e.target.error);
+    });
+    return {
+        save: async (name, buffer) => {
+            const db = await open();
+            return new Promise((res, rej) => {
+                const tx = db.transaction(STORE, 'readwrite');
+                tx.objectStore(STORE).put({ name, buffer, savedAt: Date.now() }, KEY);
+                tx.oncomplete = res; tx.onerror = e => rej(e.target.error);
+            });
+        },
+        load: async () => {
+            const db = await open();
+            return new Promise((res, rej) => {
+                const r = db.transaction(STORE).objectStore(STORE).get(KEY);
+                r.onsuccess = e => res(e.target.result || null);
+                r.onerror = e => rej(e.target.error);
+            });
+        },
+        del: async () => {
+            const db = await open();
+            return new Promise((res, rej) => {
+                const tx = db.transaction(STORE, 'readwrite');
+                tx.objectStore(STORE).delete(KEY);
+                tx.oncomplete = res; tx.onerror = e => rej(e.target.error);
+            });
+        }
+    };
+})();
+
+let _analyseSaveLocal = false;
+
+async function analyseCheckSaved() {
+    try {
+        const rec = await _analyseIDB.load();
+        const bar = document.getElementById('analyseSavedFileBar');
+        if (rec) {
+            document.getElementById('analyseSavedFileName').textContent = rec.name;
+            bar.style.display = 'flex';
+        } else {
+            bar.style.display = 'none';
+        }
+    } catch(e) {}
+}
+
+async function analyseLoadSaved() {
+    try {
+        const rec = await _analyseIDB.load();
+        if (!rec) return;
+        document.getElementById('analyseLoadProgress').style.display = 'block';
+        document.getElementById('analyseDropTarget').style.display = 'none';
+        // Construire un File-like depuis le buffer sauvegardé
+        const blob = new Blob([rec.buffer]);
+        const file = new File([blob], rec.name);
+        analyseHandleFile(file, rec.buffer);
+    } catch(e) { alert('Impossible de charger le fichier sauvegardé : ' + e.message); }
+}
+
+async function analyseDeleteSaved() {
+    await _analyseIDB.del();
+    document.getElementById('analyseSavedFileBar').style.display = 'none';
+    _analyseSaveLocal = false;
+    const chk = document.getElementById('analyseSaveLocalChk');
+    if (chk) chk.checked = false;
+}
+
+function analyseToggleSaveLocal(checked) {
+    _analyseSaveLocal = checked;
+}
+
+// ── Toggle du panneau filtres ─────────────────────────────────
+let _analyseFiltersVisible = true;
+function toggleAnalyseFiltersPanel() {
+    _analyseFiltersVisible = !_analyseFiltersVisible;
+    const panel = document.getElementById('analyseFiltersPanel');
+    const btn = document.getElementById('analyseFilterToggleBtn');
+    panel.style.display = _analyseFiltersVisible ? 'grid' : 'none';
+    if (btn) btn.textContent = _analyseFiltersVisible ? '▲' : '▼';
+}
+
 function showAnalyseApp() {
     document.querySelector('.container').style.display = 'none';
     document.getElementById('deplacementsContainer').style.display = 'none';
@@ -27743,6 +27845,7 @@ function showAnalyseApp() {
     document.getElementById('analyseContainer').style.display = 'block';
     document.getElementById('backToPlanificationBtn').style.display = 'block';
     updateAppSwitcher();
+    analyseCheckSaved();
 }
 
 function analyseReset() {
@@ -27805,7 +27908,7 @@ function _analyseDecode(buffer) {
     }
 }
 
-function analyseHandleFile(file) {
+function analyseHandleFile(file, preloadedBuffer) {
     if (!file) return;
     const name = file.name.toLowerCase();
     if (!name.endsWith('.xlsx') && !name.endsWith('.xls') && !name.endsWith('.csv')) {
@@ -27815,17 +27918,16 @@ function analyseHandleFile(file) {
     document.getElementById('analyseLoadProgress').style.display = 'block';
     document.getElementById('analyseDropTarget').style.display = 'none';
 
-    const reader = new FileReader();
-    reader.onload = function(e) {
+    const processBuffer = (buffer) => {
         try {
             let workbook;
             let detectedEncoding = null;
             if (name.endsWith('.csv')) {
-                const { text, encoding } = _analyseDecode(e.target.result);
+                const { text, encoding } = _analyseDecode(buffer);
                 detectedEncoding = encoding;
                 workbook = XLSX.read(text, { type: 'string', raw: false });
             } else {
-                workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true });
+                workbook = XLSX.read(new Uint8Array(buffer), { type: 'array', cellDates: true });
             }
             // Prendre la 1ère feuille non vide
             let sheet = null;
@@ -27905,14 +28007,27 @@ function analyseHandleFile(file) {
             analyseRenderFilters();
             analyseRenderColumnCheckboxes();
             analyseApplyFilters();
+            document.getElementById('analyseLoadProgress').style.display = 'none';
+
+            // Sauvegarder dans IndexedDB si demandé
+            if (_analyseSaveLocal) {
+                _analyseIDB.save(file.name, buffer).catch(() => {});
+                analyseCheckSaved();
+            }
         } catch(err) {
             alert('Erreur lors du chargement : ' + err.message);
             document.getElementById('analyseLoadProgress').style.display = 'none';
             document.getElementById('analyseDropTarget').style.display = 'block';
         }
     };
-    // Toujours lire en ArrayBuffer pour pouvoir détecter l'encodage (CSV inclus)
-    reader.readAsArrayBuffer(file);
+
+    if (preloadedBuffer) {
+        processBuffer(preloadedBuffer);
+    } else {
+        const reader = new FileReader();
+        reader.onload = (e) => processBuffer(e.target.result);
+        reader.readAsArrayBuffer(file);
+    }
 }
 
 // ── Helpers ID sûr pour les colonnes ─────────────────────────────────────────
@@ -28714,7 +28829,17 @@ function analyseApplyFilters() {
                 }
                 if (!result) return false;
             } else {
-                if (!normStr(val).includes(normStr(f))) return false;
+                // Support des jokers * (n'importe quelle séquence) et ? (un caractère)
+                const fStr = normStr(f);
+                let match;
+                if (fStr.includes('*') || fStr.includes('?')) {
+                    const reStr = fStr.replace(/[.+^${}()|[\]\\]/g, '\\$&')
+                                      .replace(/\*/g, '.*').replace(/\?/g, '.');
+                    try { match = new RegExp(reStr, 'i').test(normStr(val)); } catch(e) { match = false; }
+                } else {
+                    match = normStr(val).includes(fStr);
+                }
+                if (!match) return false;
             }
         }
         return true;
