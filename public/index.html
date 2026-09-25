@@ -1,4 +1,4 @@
-<!-- v1.16.17 -->
+<!-- v1.16.18 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -27703,7 +27703,12 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
         <div style="background:white; border-radius:10px; box-shadow:0 1px 6px rgba(0,0,0,0.08); overflow:hidden;">
             <div style="padding:10px 16px; background:#e8eaf6; display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
                 <span id="analyseResultCount" style="font-size:13px; font-weight:bold; color:#1a237e;"></span>
-                <span style="font-size:12px; color:#666; margin-left:auto;">Page <strong id="analysePage">1</strong> / <strong id="analysePageTotal">1</strong></span>
+                <span style="font-size:12px; color:#666; margin-left:auto; display:flex; align-items:center; gap:6px;">
+                    Page <strong id="analysePage">1</strong> / <strong id="analysePageTotal">1</strong>
+                    <input id="analysePageJump" type="number" min="1" placeholder="n°" title="Aller à la page"
+                        style="width:54px; padding:2px 5px; border:1px solid #9fa8da; border-radius:4px; font-size:12px; text-align:center;"
+                        onkeydown="if(event.key==='Enter') analyseJumpPage(this.value)">
+                </span>
                 <button onclick="analyseGoPage(-1)" style="background:#5c6bc0; color:white; border:none; padding:3px 12px; border-radius:4px; cursor:pointer; font-size:12px;">◀</button>
                 <button onclick="analyseGoPage(1)" style="background:#5c6bc0; color:white; border:none; padding:3px 12px; border-radius:4px; cursor:pointer; font-size:12px;">▶</button>
                 <select id="analysePageSizeSelect" onchange="analyseSetPageSize(this.value)" style="padding:3px 6px; border:1px solid #ccc; border-radius:4px; font-size:12px;">
@@ -27959,30 +27964,33 @@ function analyseHandleFile(file, preloadedBuffer) {
                 // Échantillon plus large pour la détection (jusqu'à 2000 lignes)
                 const samples = rows.slice(0, Math.min(2000, rows.length)).map(r => (r[col] || '').toString().trim());
                 const nonEmpty = samples.filter(v => v !== '');
-                // Détecter liste (séparateur ';') — seuil abaissé à 0.1 pour capter les colonnes
-                // où beaucoup de cellules n'ont qu'une seule valeur (pas de ';')
-                const listCount = nonEmpty.filter(v => /\s*;\s*/.test(v)).length;
-                if (listCount / Math.max(nonEmpty.length, 1) > 0.1) {
-                    _analyseColTypes[col] = 'list';
-                    const tokens = new Set();
-                    rows.forEach(r => {
-                        const v = (r[col] || '').toString();
-                        v.split(/\s*;\s*/).forEach(t => { const tt = t.trim(); if (tt) tokens.add(tt); });
-                    });
-                    _analyseColValues[col] = [...tokens].sort((a, b) => a.localeCompare(b, 'fr'));
+                // ── Détecter date EN PRIORITÉ (avant liste et enum) ──────────────
+                const dateRe = /^\d{2}\/\d{2}\/\d{4}/;
+                const isDate = nonEmpty.length > 0 && nonEmpty.every(v => dateRe.test(v));
+                if (isDate) {
+                    _analyseColTypes[col] = 'date';
+                    _analyseColValues[col] = [];
                 } else {
-                    const allVals = rows.map(r => (r[col] || '').toString().trim());
-                    const unique = [...new Set(allVals)].filter(v => v !== '');
-                    if (unique.length <= 200 && unique.length > 0) {
-                        _analyseColTypes[col] = 'enum';
-                        _analyseColValues[col] = unique.sort((a, b) => a.localeCompare(b, 'fr'));
+                    // Détecter liste (séparateur ';')
+                    const listCount = nonEmpty.filter(v => /\s*;\s*/.test(v)).length;
+                    if (listCount / Math.max(nonEmpty.length, 1) > 0.1) {
+                        _analyseColTypes[col] = 'list';
+                        const tokens = new Set();
+                        rows.forEach(r => {
+                            const v = (r[col] || '').toString();
+                            v.split(/\s*;\s*/).forEach(t => { const tt = t.trim(); if (tt) tokens.add(tt); });
+                        });
+                        _analyseColValues[col] = [...tokens].sort((a, b) => a.localeCompare(b, 'fr'));
                     } else {
-                        // Détecter date
-                        const dateRe = /^\d{2}\/\d{2}\/\d{4}/;
-                        const isDate = nonEmpty.length > 0 && nonEmpty.every(v => dateRe.test(v) || v === '');
-                        _analyseColTypes[col] = isDate ? 'date' : 'text';
-                        // Pour text : stocker les valeurs uniques triées pour les suggestions
-                        _analyseColValues[col] = isDate ? [] : unique.sort((a, b) => a.localeCompare(b, 'fr'));
+                        const allVals = rows.map(r => (r[col] || '').toString().trim());
+                        const unique = [...new Set(allVals)].filter(v => v !== '');
+                        if (unique.length <= 200 && unique.length > 0) {
+                            _analyseColTypes[col] = 'enum';
+                            _analyseColValues[col] = unique.sort((a, b) => a.localeCompare(b, 'fr'));
+                        } else {
+                            _analyseColTypes[col] = 'text';
+                            _analyseColValues[col] = unique.sort((a, b) => a.localeCompare(b, 'fr'));
+                        }
                     }
                 }
             }
@@ -28081,7 +28089,41 @@ function analyseRenderFilters() {
         const vals = _analyseColValues[col] || [];
         const div = document.createElement('div');
 
-        if (type === 'list' || type === 'enum') {
+        const isBool = type === 'enum' && vals.length <= 2;
+        if (isBool) {
+            // Colonne booléenne (OUI/NON, VRAI/FAUX, 0/1…) → boutons radio simples
+            div.style.cssText = 'background:#f8f9ff; border:1px solid #e0e4ff; border-radius:8px; padding:8px 10px;';
+            const lbl = document.createElement('div');
+            lbl.style.cssText = 'font-size:10px; color:#5c6bc0; font-weight:bold; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
+            lbl.title = col; lbl.textContent = col;
+            div.appendChild(lbl);
+            const btnWrap = document.createElement('div');
+            btnWrap.style.cssText = 'display:flex; flex-wrap:wrap; gap:6px; align-items:center;';
+            const curVal = _analyseFilters[col] && !_analyseFilters[col].groups ? _analyseFilters[col] : null;
+            const makeOpt = (v, label) => {
+                const btn = document.createElement('button');
+                btn.textContent = label || v;
+                const active = curVal === v;
+                btn.style.cssText = `padding:3px 12px; border-radius:12px; border:1px solid #9fa8da; font-size:12px; cursor:pointer; background:${active ? '#3f51b5' : 'white'}; color:${active ? 'white' : '#3f51b5'};`;
+                btn.onclick = () => {
+                    if (_analyseFilters[col] === v) {
+                        delete _analyseFilters[col];
+                    } else {
+                        _analyseFilters[col] = v;
+                    }
+                    _analysePage = 1; analyseApplyFilters(); analyseRenderFilters();
+                };
+                return btn;
+            };
+            const allBtn = document.createElement('button');
+            allBtn.textContent = 'Tous';
+            const noneActive = !curVal;
+            allBtn.style.cssText = `padding:3px 12px; border-radius:12px; border:1px solid #bbb; font-size:12px; cursor:pointer; background:${noneActive ? '#5c6bc0' : '#eee'}; color:${noneActive ? 'white' : '#666'};`;
+            allBtn.onclick = () => { delete _analyseFilters[col]; _analysePage = 1; analyseApplyFilters(); analyseRenderFilters(); };
+            btnWrap.appendChild(allBtn);
+            vals.forEach(v => btnWrap.appendChild(makeOpt(v)));
+            div.appendChild(btnWrap);
+        } else if (type === 'list' || type === 'enum') {
             // Widget large (2 colonnes) pour list ET enum
             div.style.cssText = 'background:#f0f2ff; border:1px solid #c5cae9; border-radius:10px; padding:10px 12px; grid-column: span 2;';
             _buildListWidget(div, col, vals);
@@ -28094,13 +28136,54 @@ function analyseRenderFilters() {
             div.appendChild(lbl);
 
             if (type === 'date') {
-                const inp = document.createElement('input');
-                inp.type = 'date';
-                inp.placeholder = 'Recherche date…';
-                inp.style.cssText = 'width:100%; padding:4px 6px; border:1px solid #c5cae9; border-radius:4px; font-size:12px; box-sizing:border-box;';
-                if (_analyseFilters[col]) inp.value = _analyseFilters[col];
-                inp.addEventListener('input', () => { _analyseFilters[col] = inp.value || null; _analysePage = 1; analyseApplyFilters(); });
-                div.appendChild(inp);
+                // Filtre date : modes = exact | before | after | between
+                const df = _analyseFilters[col] && typeof _analyseFilters[col] === 'object' ? _analyseFilters[col] : {};
+                const mode = df.mode || 'after';
+                const dateWrap = document.createElement('div');
+                dateWrap.style.cssText = 'display:flex; flex-direction:column; gap:5px;';
+
+                // Sélecteur de mode
+                const modeWrap = document.createElement('div');
+                modeWrap.style.cssText = 'display:flex; gap:4px; flex-wrap:wrap;';
+                const modes = [['after','Après le'], ['before','Avant le'], ['between','Entre'], ['exact','Égal']];
+                modes.forEach(([m, lbl]) => {
+                    const b = document.createElement('button');
+                    b.textContent = lbl;
+                    const isActive = mode === m;
+                    b.style.cssText = `padding:2px 8px; border-radius:10px; border:1px solid #9fa8da; font-size:11px; cursor:pointer; background:${isActive?'#3f51b5':'white'}; color:${isActive?'white':'#3f51b5'}; white-space:nowrap;`;
+                    b.onclick = () => {
+                        const cur = (_analyseFilters[col] && typeof _analyseFilters[col]==='object') ? _analyseFilters[col] : {};
+                        _analyseFilters[col] = { ...cur, mode: m };
+                        _analysePage = 1; analyseApplyFilters(); analyseRenderFilters();
+                    };
+                    modeWrap.appendChild(b);
+                });
+                dateWrap.appendChild(modeWrap);
+
+                const mkDateInp = (val, placeholder, onChange) => {
+                    const i = document.createElement('input');
+                    i.type = 'date'; i.value = val || ''; i.placeholder = placeholder;
+                    i.style.cssText = 'width:100%; padding:3px 5px; border:1px solid #c5cae9; border-radius:4px; font-size:12px; box-sizing:border-box;';
+                    i.addEventListener('input', () => onChange(i.value || null));
+                    return i;
+                };
+
+                if (mode === 'between') {
+                    dateWrap.appendChild(mkDateInp(df.from, 'Du…', v => {
+                        const cur = (_analyseFilters[col]&&typeof _analyseFilters[col]==='object') ? _analyseFilters[col] : {mode:'between'};
+                        _analyseFilters[col] = {...cur, from: v}; _analysePage=1; analyseApplyFilters();
+                    }));
+                    dateWrap.appendChild(mkDateInp(df.to, 'Au…', v => {
+                        const cur = (_analyseFilters[col]&&typeof _analyseFilters[col]==='object') ? _analyseFilters[col] : {mode:'between'};
+                        _analyseFilters[col] = {...cur, to: v}; _analysePage=1; analyseApplyFilters();
+                    }));
+                } else {
+                    dateWrap.appendChild(mkDateInp(df.date, mode==='after'?'À partir du…':mode==='before'?'Jusqu'au…':'Date exacte', v => {
+                        const cur = (_analyseFilters[col]&&typeof _analyseFilters[col]==='object') ? _analyseFilters[col] : {mode};
+                        _analyseFilters[col] = {...cur, date: v}; _analysePage=1; analyseApplyFilters();
+                    }));
+                }
+                div.appendChild(dateWrap);
             } else {
                 // Champ texte avec suggestions (startsWith) + bouton ✕ pour effacer
                 const outerWrap = document.createElement('div');
@@ -28849,9 +28932,27 @@ function analyseApplyFilters() {
                     result = op === 'OR' ? (result || gMatch) : (result && gMatch);
                 }
                 if (!result) return false;
+            } else if (type === 'date' && f && typeof f === 'object' && f.mode) {
+                // Filtre date avec mode : after / before / between / exact
+                // Les dates du fichier sont au format DD/MM/YYYY HH:mm ou DD/MM/YYYY
+                const parseRowDate = s => {
+                    const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+                    return m ? new Date(`${m[3]}-${m[2]}-${m[1]}`) : null;
+                };
+                const rowD = parseRowDate(val);
+                if (!rowD) return false; // date invalide → exclure si filtre actif
+                const toD = s => s ? new Date(s) : null;
+                const { mode, date, from, to } = f;
+                if (mode === 'exact' && date) { if (rowD.toISOString().slice(0,10) !== date) return false; }
+                else if (mode === 'after'  && date) { if (rowD < toD(date)) return false; }
+                else if (mode === 'before' && date) { if (rowD > toD(date)) return false; }
+                else if (mode === 'between') {
+                    if (from && rowD < toD(from)) return false;
+                    if (to   && rowD > toD(to))   return false;
+                }
             } else {
                 // Support des jokers * (n'importe quelle séquence) et ? (un caractère)
-                const fStr = normStr(f);
+                const fStr = normStr(typeof f === 'string' ? f : '');
                 let match;
                 if (fStr.includes('*') || fStr.includes('?')) {
                     const reStr = '^' + fStr.replace(/[.+^${}()|[\]\\]/g, '\\$&')
@@ -28938,6 +29039,16 @@ function analyseRenderTable(data, resetPage = true) {
 function analyseGoPage(delta) {
     const total = Math.max(1, Math.ceil(_analyseCurrentFiltered.length / _analysePageSize));
     _analysePage = Math.max(1, Math.min(total, _analysePage + delta));
+    analyseRenderTable(_analyseCurrentFiltered, false);
+}
+
+function analyseJumpPage(val) {
+    const n = parseInt(val);
+    if (!n || isNaN(n)) return;
+    const total = Math.max(1, Math.ceil(_analyseCurrentFiltered.length / _analysePageSize));
+    _analysePage = Math.max(1, Math.min(total, n));
+    const ji = document.getElementById('analysePageJump');
+    if (ji) ji.value = '';
     analyseRenderTable(_analyseCurrentFiltered, false);
 }
 
