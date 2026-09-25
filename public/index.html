@@ -1,4 +1,4 @@
-<!-- v1.16.13 -->
+<!-- v1.16.14 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -28833,8 +28833,8 @@ function analyseApplyFilters() {
                 const fStr = normStr(f);
                 let match;
                 if (fStr.includes('*') || fStr.includes('?')) {
-                    const reStr = fStr.replace(/[.+^${}()|[\]\\]/g, '\\$&')
-                                      .replace(/\*/g, '.*').replace(/\?/g, '.');
+                    const reStr = '^' + fStr.replace(/[.+^${}()|[\]\\]/g, '\\$&')
+                                      .replace(/\*/g, '.*').replace(/\?/g, '.') + '$';
                     try { match = new RegExp(reStr, 'i').test(normStr(val)); } catch(e) { match = false; }
                 } else {
                     match = normStr(val).includes(fStr);
