@@ -1,4 +1,4 @@
-<!-- v1.16.14 -->
+<!-- v1.16.15 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -28972,6 +28972,79 @@ function analyseExportCSV() {
             </div>
         </div>
     </div>
+
+<!-- ══ Bannière de mise en production ══════════════════════════════════════ -->
+<div id="deployBanner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:99999; padding:14px 24px; text-align:center; font-size:14px; font-weight:600; box-shadow:0 2px 12px rgba(0,0,0,0.3); transition:background 0.3s;">
+    <span id="deployBannerText"></span>
+    <button id="deployBannerReload" onclick="location.reload()" style="display:none; margin-left:18px; background:white; color:#1a237e; border:none; padding:5px 16px; border-radius:20px; cursor:pointer; font-weight:700; font-size:13px;">🔄 Recharger</button>
+</div>
+
+<script>
+(function() {
+    let _knownVersion = null;
+    let _serverDown = false;
+    const INTERVAL = 30000; // 30s
+
+    async function checkVersion() {
+        try {
+            const r = await fetch('/api/version', { cache: 'no-store' });
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            const data = await r.json();
+            const v = data.version;
+
+            if (_serverDown) {
+                // Serveur revenu après une coupure → nouvelle version dispo
+                _serverDown = false;
+                showBannerNewVersion(v);
+                return;
+            }
+
+            if (_knownVersion === null) {
+                _knownVersion = v; // initialisation silencieuse
+                return;
+            }
+
+            if (v !== _knownVersion) {
+                // Version changée sans coupure détectée (rolling update rapide)
+                showBannerNewVersion(v);
+            }
+        } catch(e) {
+            if (!_serverDown) {
+                _serverDown = true;
+                showBannerDown();
+            }
+        }
+    }
+
+    function showBannerDown() {
+        const b = document.getElementById('deployBanner');
+        const t = document.getElementById('deployBannerText');
+        const btn = document.getElementById('deployBannerReload');
+        b.style.background = '#e65100';
+        b.style.color = 'white';
+        t.textContent = '⚙️  Mise en production en cours — l\'application sera de nouveau disponible dans 1 à 2 minutes. Une reconnexion sera nécessaire.';
+        btn.style.display = 'none';
+        b.style.display = 'block';
+    }
+
+    function showBannerNewVersion(v) {
+        const b = document.getElementById('deployBanner');
+        const t = document.getElementById('deployBannerText');
+        const btn = document.getElementById('deployBannerReload');
+        b.style.background = '#1b5e20';
+        b.style.color = 'white';
+        t.textContent = `✅  Nouvelle version disponible (${v}) — veuillez recharger la page et vous reconnecter.`;
+        btn.style.display = 'inline-block';
+        b.style.display = 'block';
+    }
+
+    // Démarrer le polling après 5s (laisser la page s'initialiser)
+    setTimeout(() => {
+        checkVersion(); // lecture initiale de la version
+        setInterval(checkVersion, INTERVAL);
+    }, 5000);
+})();
+</script>
 
 </body>
 </html>
