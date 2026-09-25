@@ -1,4 +1,4 @@
-<!-- v1.16.16 -->
+<!-- v1.16.17 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -4794,6 +4794,9 @@
             updateTabsVisibility();
             updateUserDisplay();
             updateAppSwitcher();
+            // Forcer le re-rendu de l'onglet actif (sinon contenu vide au retour)
+            const activeTab = document.querySelector('.tab-content.active');
+            if (activeTab) switchTab(activeTab.id, null);
         }
 
         // Basculer vers une application depuis le sélecteur
@@ -28099,17 +28102,32 @@ function analyseRenderFilters() {
                 inp.addEventListener('input', () => { _analyseFilters[col] = inp.value || null; _analysePage = 1; analyseApplyFilters(); });
                 div.appendChild(inp);
             } else {
-                // Champ texte avec suggestions (startsWith)
+                // Champ texte avec suggestions (startsWith) + bouton ✕ pour effacer
+                const outerWrap = document.createElement('div');
+                outerWrap.style.cssText = 'position:relative;';
                 const wrap = document.createElement('div');
-                wrap.style.cssText = 'position:relative;';
+                wrap.style.cssText = 'display:flex; align-items:center; gap:4px;';
                 const inp = document.createElement('input');
                 inp.type = 'text';
                 inp.placeholder = 'Recherche libre…';
-                inp.style.cssText = 'width:100%; padding:4px 6px; border:1px solid #c5cae9; border-radius:4px; font-size:12px; box-sizing:border-box;';
+                inp.style.cssText = 'flex:1; padding:4px 6px; border:1px solid #c5cae9; border-radius:4px; font-size:12px; box-sizing:border-box; min-width:0;';
                 if (_analyseFilters[col]) inp.value = _analyseFilters[col];
+                const clearBtn = document.createElement('button');
+                clearBtn.textContent = '×';
+                clearBtn.title = 'Effacer';
+                clearBtn.style.cssText = 'display:none; flex-shrink:0; background:none; border:none; color:#999; font-size:16px; cursor:pointer; padding:0 2px; line-height:1;';
+                clearBtn.onmousedown = (e) => {
+                    e.preventDefault();
+                    inp.value = '';
+                    _analyseFilters[col] = null;
+                    clearBtn.style.display = 'none';
+                    _analysePage = 1;
+                    analyseApplyFilters();
+                };
+                if (_analyseFilters[col]) clearBtn.style.display = 'inline';
 
                 const sugBox = document.createElement('div');
-                sugBox.style.cssText = 'display:none; position:absolute; top:100%; left:0; right:0; background:white; border:1px solid #c5cae9; border-top:none; border-radius:0 0 6px 6px; max-height:200px; overflow-y:auto; z-index:200; box-shadow:0 4px 12px rgba(0,0,0,0.1); font-size:12px;';
+                sugBox.style.cssText = 'display:none; position:absolute; top:100%; left:0; right:0; background:white; border:1px solid #c5cae9; border-top:none; border-radius:0 0 6px 6px; max-height:200px; overflow-y:auto; z-index:200; box-shadow:0 4px 12px rgba(0,0,0,0.1); font-size:12px; margin-top:2px;';
 
                 const colVals = vals; // valeurs uniques pré-triées
                 const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -28141,6 +28159,7 @@ function analyseRenderFilters() {
 
                 inp.addEventListener('input', () => {
                     _analyseFilters[col] = inp.value || null;
+                    clearBtn.style.display = inp.value ? 'inline' : 'none';
                     _analysePage = 1;
                     analyseApplyFilters();
                     showSug(inp.value);
@@ -28153,8 +28172,10 @@ function analyseRenderFilters() {
                 inp.addEventListener('keydown', e => { if (e.key === 'Escape') sugBox.style.display = 'none'; });
 
                 wrap.appendChild(inp);
-                wrap.appendChild(sugBox);
-                div.appendChild(wrap);
+                wrap.appendChild(clearBtn);
+                outerWrap.appendChild(wrap);
+                outerWrap.appendChild(sugBox);
+                div.appendChild(outerWrap);
             }
         }
         panel.appendChild(div);
