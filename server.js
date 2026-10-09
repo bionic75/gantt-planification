@@ -11368,6 +11368,38 @@ app.post('/api/cra/:id/refuser/:niveau', requireAdmin, async (req, res) => {
     }
 });
 
+// POST /api/cra/:id/admin-correction — admin remet CRA à zéro (reset toutes validations)
+app.post('/api/cra/:id/admin-correction', requireAdmin, async (req, res) => {
+    const craId = parseInt(req.params.id);
+    try {
+        const cra = await new Promise((resolve, reject) => {
+            database.get('SELECT * FROM cra WHERE id = ? AND (deleted IS NULL OR deleted = 0)', [craId],
+                (err, row) => err ? reject(err) : resolve(row));
+        });
+        if (!cra) return res.status(404).json({ error: 'CRA introuvable' });
+        if (cra.statut === 'vise_n2' || cra.statut === 'diffuse') {
+            return res.status(400).json({ error: 'Modification impossible : les 3 visas ont été obtenus ou le CRA a déjà été diffusé.' });
+        }
+        await new Promise((resolve, reject) => {
+            database.run(
+                `UPDATE cra SET statut = 'a_completer', submitted_at = NULL,
+                 vise_n1_at = NULL, vise_n1_by = NULL, vise_n2_at = NULL, vise_n2_by = NULL,
+                 refuse_at = NULL, commentaire_refus = NULL
+                 WHERE id = ?`,
+                [craId], err => err ? reject(err) : resolve()
+            );
+        });
+        await new Promise((resolve, reject) => {
+            database.run('DELETE FROM cra_signatures WHERE cra_id = ?', [craId],
+                err => err ? reject(err) : resolve());
+        });
+        res.json({ success: true, statut: 'a_completer' });
+    } catch(e) {
+        console.error('Erreur admin-correction CRA:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // GET /api/cra/:id/diffusion-recipients — destinataires pré-remplis pour la popup diffusion
 app.get('/api/cra/:id/diffusion-recipients', requireAdmin, async (req, res) => {
     const craId = req.params.id;
