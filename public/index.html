@@ -1,4 +1,4 @@
-<!-- v1.16.18 -->
+<!-- v1.16.19 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -14625,6 +14625,20 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             } catch(e) { alert('Erreur lors du rappel du CRA'); }
         }
 
+        async function adminCorrigerCra(craId) {
+            if (!confirm('Corriger ce CRA en tant qu\'administrateur ?\n\nToutes les validations obtenues seront réinitialisées (visas et signatures supprimés) et le CRA repassera au statut "À compléter".\n\nCette action est irréversible.')) return;
+            try {
+                const res = await fetch(`${API_URL}/cra/${craId}/admin-correction`, { method: 'POST', credentials: 'include' });
+                const data = await res.json();
+                if (data.success) {
+                    await loadCraList();
+                    openCraDetail(craId);
+                } else {
+                    alert(data.error || 'Erreur lors de la correction admin du CRA');
+                }
+            } catch(e) { alert('Erreur lors de la correction admin du CRA'); }
+        }
+
         async function archiveCraExpert(craId) {
             if (!confirm('Archiver ce CRA ?')) return;
             try {
@@ -14793,11 +14807,17 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             });
 
             let buttons = '';
-            if (cra.statut === 'a_completer' && isOwner) {
+            if (cra.statut === 'a_completer' && (isOwner || isAdmin)) {
                 const dejaEnvoye = !!cra.refuse_at;
-                const lblCompleter = dejaEnvoye ? '✏️ Corriger/Compléter mon CRA' : '✏️ Compléter mon CRA';
+                const lblCompleter = (isAdmin && !isOwner)
+                    ? '✏️ Modifier ce CRA (admin)'
+                    : (dejaEnvoye ? '✏️ Corriger/Compléter mon CRA' : '✏️ Compléter mon CRA');
                 buttons += `<button onclick="openCraSaisieModal(${cra.id}, ${cra.mois}, ${cra.annee})" style="background-color:#ff9800;color:white;padding:10px 20px;font-weight:bold;border:none;border-radius:4px;cursor:pointer;">${lblCompleter}</button>
                             <button onclick="submitCra(${cra.id})" style="background-color:#6a1b9a;color:white;padding:10px 20px;font-weight:bold;border:none;border-radius:4px;cursor:pointer;">📤 Valider et soumettre</button>`;
+            }
+            // Bouton admin-correction : admin peut remettre à zéro si statut = soumis ou vise_n1
+            if (isAdmin && cra.statut !== 'a_completer' && cra.statut !== 'vise_n2' && cra.statut !== 'diffuse') {
+                buttons += `<button onclick="adminCorrigerCra(${cra.id})" style="background-color:#e65100;color:white;padding:10px 20px;font-weight:bold;border:none;border-radius:4px;cursor:pointer;">🔧 Corriger ce CRA (admin)</button>`;
             }
             if (cra.statut === 'soumis' && isOwner && !isAdmin)
                 buttons += `<button onclick="recallCra(${cra.id})" style="background-color:#ff9800;color:white;padding:10px 20px;font-weight:bold;border:none;border-radius:4px;cursor:pointer;">✏️ Corriger/Compléter mon CRA</button>`;
