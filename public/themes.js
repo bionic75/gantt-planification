@@ -148,7 +148,7 @@
             btn.id = 'themeQuickBtn';
             btn.type = 'button';
             btn.onclick = () => Themes.setUserEnabled(userOff());
-            document.body.appendChild(btn);
+            window.GPTools.mount(btn, 2);
         }
         const meta = META[active.id];
         btn.style.display = 'flex';
