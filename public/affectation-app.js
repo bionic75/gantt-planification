@@ -104,6 +104,14 @@
         .aff-stage .dates .pr .aff-wk { width: 160px; }
         .aff-stage .dates select.aff-need { padding: 7px 8px; border: 1px solid #cfd8e6; border-radius: 8px; font-size: 13px; width: 112px; }
         .aff-section-title { margin: 20px 0 4px; font-size: 13px; font-weight: 800; color: #0f766e; text-transform: uppercase; letter-spacing: .5px; }
+        .aff-legendbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; padding: 10px 12px; border: 1px solid #dfe5ef; border-radius: 12px; background: #fff; }
+        .aff-legendbar .t { font-size: 12px; font-weight: 800; color: #0f766e; text-transform: uppercase; letter-spacing: .5px; margin-right: 4px; }
+        .aff-legendbar button.chip { display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px; border: 1px solid #cfd8e6; border-radius: 999px; background: #fff; color: #2c3e50; font-size: 12px; font-weight: 600; cursor: pointer; }
+        .aff-legendbar button.chip i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+        .aff-legendbar button.chip i.dot { border-radius: 50%; }
+        .aff-legendbar button.chip.off { opacity: .45; text-decoration: line-through; background: #f3f5f9; }
+        .aff-legendbar button.chip.off i { filter: grayscale(1); }
+        .aff-legendbar .sep { width: 1px; height: 20px; background: #dfe5ef; margin: 0 4px; }
         .aff-plan-bar { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
         .aff-plan-ctrl { display: flex; align-items: center; gap: 12px; }
         .aff-seg { display: inline-flex; border: 1px solid #cfd8e6; border-radius: 9px; overflow: hidden; background: #fff; }
@@ -111,7 +119,7 @@
         .aff-seg button + button { border-left: 1px solid #cfd8e6; }
         .aff-seg button.on { background: #0f766e; color: #fff; }
         .aff-plan { overflow: auto; max-height: calc(100vh - 230px); border: 1px solid #dfe5ef; border-radius: 12px; background: #fff; }
-        #affectationContainer table.aff-plan-table { border-collapse: separate; border-spacing: 0; width: max-content; font-size: 12px; border-radius: 0; overflow: visible; }
+        #affectationContainer table.aff-plan-table { border-collapse: separate; border-spacing: 0; width: 100%; min-width: max-content; font-size: 12px; border-radius: 0; overflow: visible; }
         #affectationContainer table.aff-plan-table th, #affectationContainer table.aff-plan-table td { cursor: default; padding: 0; }
         #affectationContainer table.aff-plan-table th::after { content: none; }
         #affectationContainer table.aff-plan-table th:hover { background: inherit; }
@@ -128,10 +136,10 @@
         .aff-plan-table tbody th.sam .n { font-weight: 700; font-size: 13px; }
         .aff-plan-table tbody th.sam .c { font-weight: 400; font-size: 11px; color: #6b7a8d; margin-top: 2px; }
         .aff-plan-table tbody tr:nth-child(even) th.sam { background: #f4f7fb; }
-        .aff-plan-table tbody td { height: 54px; padding: 0; position: relative; border-right: 1px solid #eef1f6; border-bottom: 1px solid #eef1f6; }
-        .aff-pc { display: flex; flex-direction: column; height: 54px; gap: 2px; padding: 3px 0; box-sizing: border-box; }
+        .aff-plan-table tbody td { height: 96px; padding: 0; position: relative; border-right: 1px solid #eef1f6; border-bottom: 1px solid #eef1f6; }
+        .aff-pc { display: flex; flex-direction: column; height: 96px; gap: 3px; padding: 5px 0; box-sizing: border-box; }
         .aff-pc .ph, .aff-pc .st { display: flex; flex-direction: column; gap: 1px; }
-        .aff-pc .ph { flex: 0 0 11px; } .aff-pc .st { flex: 1; min-height: 0; }
+        .aff-pc .ph { flex: 0 0 16px; gap: 2px; } .aff-pc .st { flex: 1; min-height: 0; }
         .aff-pc .b { flex: 1; min-height: 0; font-size: 10px; line-height: 12px; color: #fff; font-weight: 700; white-space: nowrap; overflow: visible; text-shadow: 0 0 2px rgba(0,0,0,.45); padding-left: 3px; }
         .aff-pc .b.hd { border-top-left-radius: 5px; border-bottom-left-radius: 5px; }
         .aff-pc .b.tl { border-top-right-radius: 5px; border-bottom-right-radius: 5px; }
@@ -175,6 +183,7 @@
     <div class="header-spacer"></div>
 
     <div id="affectationPlanningTab" class="tab-content active aff-panel">
+        <div id="affLegendBar" class="aff-legendbar"></div>
         <div class="aff-plan-bar">
             <h2 style="margin:0;">Planning des déploiements</h2>
             <div class="aff-plan-ctrl">
@@ -724,6 +733,15 @@
         return { min: addD(min, -3), max: addD(max, 7) };
     }
 
+    let hiddenKeys = new Set();
+    try { hiddenKeys = new Set(JSON.parse(localStorage.getItem('affHiddenStages') || '[]')); } catch (e) { /* stockage indisponible */ }
+    function renderLegend2() {
+        const bar = document.getElementById('affLegendBar');
+        if (!bar || !plan.config) return;
+        const chip = (k, dot) => `<button type="button" class="chip ${hiddenKeys.has(k) ? 'off' : ''}" onclick="AffectationApp.toggleStage('${k}')" title="${hiddenKeys.has(k) ? 'Afficher' : 'Masquer'} : ${esc(planDef(k).label)}"><i class="${dot ? 'dot' : ''}" style="background:${planColor(k)}"></i>${esc(planDef(k).label)}</button>`;
+        bar.innerHTML = `<span class="t">Légende</span>${PHASES.map(k => chip(k)).join('')}<span class="sep"></span>${['mise_en_service', 'mise_en_production'].map(k => chip(k, true)).join('')}<span class="sep"></span>${STEPS.map(k => chip(k)).join('')}`
+            + `<span class="aff-muted" style="margin-left:auto;font-size:11px;">Cliquer sur une rubrique pour l'afficher / la masquer</span>`;
+    }
     const PHASES = ['cadrage', 'deploiement', 'gel'];
     const STEPS = ['visite_metier', 'test_prerequis', 'vft', 'formation_relais', 'formation_utilisateurs', 'accompagnement'];
     const planColor = k => (plan.colors && plan.colors[k]) || '#888888';
@@ -734,7 +752,7 @@
     function cellContent(p, c) {
         const clickable = plan.zoom !== 'month';
         const bar = (k, x, i, isStep) => {
-            if (!(x.start <= c.to && x.end >= c.from)) return '';
+            if (hiddenKeys.has(k) || !(x.start <= c.to && x.end >= c.from)) return '';
             const head = x.start >= c.from && x.start <= c.to, tail = x.end >= c.from && x.end <= c.to;
             const def = planDef(k);
             const got = ((p.assignments || {})[k] || []).length;
@@ -748,7 +766,7 @@
         const st = STEPS.map(k => ((p.periods || {})[k] || []).map((x, i) => bar(k, x, i, true)).join('')).join('');
         let mk = '';
         [['mise_en_service', p.date_mise_en_service], ['mise_en_production', p.date_mise_en_production]].forEach(([k, d]) => {
-            if (d && d >= c.from && d <= c.to) mk += `<span class="aff-mk" title="${esc(planDef(k).label)} : ${frd(d)}"><i style="background:${planColor(k)}"></i></span>`;
+            if (d && !hiddenKeys.has(k) && d >= c.from && d <= c.to) mk += `<span class="aff-mk" title="${esc(planDef(k).label)} : ${frd(d)}"><i style="background:${planColor(k)}"></i></span>`;
         });
         if (p.date_debut >= c.from && p.date_debut <= c.to) mk += `<span class="aff-mk" style="top:auto;bottom:1px;" title="Début du projet : ${frd(p.date_debut)}"><i style="width:10px;height:10px;background:#263238"></i></span>`;
         return (ph || st || mk) ? `${mk}<div class="aff-pc"><div class="ph">${ph}</div><div class="st">${st}</div></div>` : '';
@@ -757,6 +775,7 @@
     function renderPlanning() {
         const box = document.getElementById('affPlan');
         if (!box) return;
+        renderLegend2();
         const { min, max } = planRange();
         const t = todayIso();
         const days = [];
@@ -842,6 +861,13 @@
     }
 
     const planApi = {
+        toggleStage(k) {
+            if (hiddenKeys.has(k)) hiddenKeys.delete(k); else hiddenKeys.add(k);
+            try { localStorage.setItem('affHiddenStages', JSON.stringify([...hiddenKeys])); } catch (e) { /* stockage indisponible */ }
+            const box = document.getElementById('affPlan'), left = box.scrollLeft;
+            renderPlanning();
+            box.scrollLeft = left;
+        },
         async openAssign(projectId, stageKey) {
             const p = plan.projects.find(x => x.id === projectId);
             const x = p && ((p.periods || {})[stageKey] || [])[0];
