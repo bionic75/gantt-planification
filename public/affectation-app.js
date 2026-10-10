@@ -90,9 +90,10 @@
         .aff-field label.lbl { display: block; font-size: 12px; font-weight: 700; color: #4a5b70; margin-bottom: 5px; }
         .aff-field input, .aff-field select { width: 100%; padding: 9px 10px; border: 1px solid #cfd8e6; border-radius: 8px; font-size: 14px; background: #fff; }
         .aff-field input:focus, .aff-field select:focus { outline: none; border-color: #0f766e; box-shadow: 0 0 0 3px rgba(15,118,110,.15); }
-        .aff-sug { position: absolute; left: 0; right: 0; top: 100%; z-index: 20; background: #fff; border: 1px solid #cfd8e6; border-radius: 8px; box-shadow: 0 8px 20px rgba(0,0,0,.15); max-height: 240px; overflow-y: auto; display: none; }
+        .aff-sug { position: absolute; left: 0; right: 0; top: calc(100% + 2px); z-index: 20; background: #fff; border: 1px solid #cfd8e6; border-radius: 8px; box-shadow: 0 8px 20px rgba(0,0,0,.15); max-height: 320px; overflow-y: scroll; overscroll-behavior: contain; display: none; }
+        .aff-sug .cnt { position: sticky; top: 0; background: #f3f6fb; color: #6b7a8d; font-size: 11px; padding: 5px 12px; border-bottom: 1px solid #e6ebf3; cursor: default; }
         .aff-sug div { padding: 8px 12px; font-size: 13px; cursor: pointer; }
-        .aff-sug div:hover { background: #e8f5f3; }
+        .aff-sug div:not(.cnt):hover, .aff-sug div.on { background: #e8f5f3; }
         .aff-stage { display: grid; grid-template-columns: 200px 1fr auto; gap: 8px 12px; align-items: center; padding: 8px 0; border-top: 1px solid #f0f3f8; }
         .aff-stage .name { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: #2c3e50; }
         .aff-stage .name i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; flex-shrink: 0; }
@@ -368,7 +369,7 @@
             <div class="aff-form-grid">
                 <div class="aff-field" style="position:relative;">
                     <label class="lbl" for="affSamu">Nom du SAMU *</label>
-                    <input id="affSamu" type="text" autocomplete="off" placeholder="Tapez pour rechercher une entité…" value="${esc(f.samu_name)}" oninput="AffectationApp.suggest(this.value)" onfocus="AffectationApp.suggest(this.value)">
+                    <input id="affSamu" type="text" autocomplete="off" placeholder="Tapez pour rechercher une entité…" value="${esc(f.samu_name)}" oninput="AffectationApp.suggest(this.value)" onfocus="AffectationApp.suggest(this.value)" onkeydown="AffectationApp.suggestKey(event)">
                     <div class="aff-sug" id="affSug"></div>
                 </div>
                 <div class="aff-field">
@@ -444,17 +445,41 @@
         suggest(value) {
             const box = document.getElementById('affSug');
             const q = norm(value);
-            const list = state.locations.filter(l => !q || norm(l.libelle_court).includes(q) || norm(l.libelle_long).includes(q)).slice(0, 8);
-            if (!list.length) { box.style.display = 'none'; return; }
-            box.innerHTML = list.map(l => `<div data-id="${l.id}">${esc(l.libelle_long)}</div>`).join('');
+            const list = state.locations.filter(l => !q || norm(l.libelle_court).includes(q) || norm(l.libelle_long).includes(q));
+            state.sugList = list;
+            state.sugIdx = -1;
+            if (!list.length) { box.innerHTML = '<div class="cnt">Aucune entité correspondante</div>'; box.style.display = 'block'; return; }
+            box.innerHTML = `<div class="cnt">${list.length} entité${list.length > 1 ? 's' : ''} — ↑ ↓ pour parcourir, Entrée pour choisir</div>`
+                + list.map((l, i) => `<div data-i="${i}">${esc(l.libelle_long)}</div>`).join('');
             box.style.display = 'block';
-            box.querySelectorAll('div').forEach(el => el.onmousedown = ev => {
+            box.querySelectorAll('div[data-i]').forEach(el => el.onmousedown = ev => {
                 ev.preventDefault();
-                const loc = state.locations.find(l => l.id === Number(el.dataset.id));
-                document.getElementById('affSamu').value = loc.libelle_court;
-                state.form.location_id = loc.id;
-                box.style.display = 'none';
+                adminApi.pickEntity(Number(el.dataset.i));
             });
+        },
+        pickEntity(i) {
+            const loc = (state.sugList || [])[i];
+            if (!loc) return;
+            document.getElementById('affSamu').value = loc.libelle_court;
+            state.form.location_id = loc.id;
+            document.getElementById('affSug').style.display = 'none';
+        },
+        suggestKey(e) {
+            const box = document.getElementById('affSug');
+            if (box.style.display !== 'block' && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { adminApi.suggest(e.target.value); }
+            const items = box.querySelectorAll('div[data-i]');
+            if (!items.length) return;
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                state.sugIdx = (state.sugIdx + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+                items.forEach((el, i) => el.classList.toggle('on', i === state.sugIdx));
+                items[state.sugIdx].scrollIntoView({ block: 'nearest' });
+            } else if (e.key === 'Enter' && state.sugIdx >= 0) {
+                e.preventDefault();
+                adminApi.pickEntity(state.sugIdx);
+            } else if (e.key === 'Escape') {
+                box.style.display = 'none';
+            }
         },
         addPeriod(key) {
             collectForm();
@@ -565,6 +590,10 @@
         isVisible: () => visible
     };
     Object.assign(AffectationApp, adminApi);
+    document.addEventListener('mousedown', e => {
+        const box = document.getElementById('affSug');
+        if (box && box.style.display === 'block' && !e.target.closest('.aff-field')) box.style.display = 'none';
+    });
     window.AffectationApp = AffectationApp;
     window.showAffectationApp = () => AffectationApp.show();
     window.hideAffectationApp = () => AffectationApp.hide();
