@@ -1,0 +1,19 @@
+/* Finitions visuelles : coins arrondis sur les tableaux de données
+   (exclus : planning Gantt et tableaux à en-têtes/colonnes collants, que l'overflow casserait) */
+table:not(.gantt-table):not(:has([style*="sticky"])):not(:has(.planning-sticky-header)) {
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+/* Conteneurs défilants : les coins restent arrondis même quand le tableau est plus large */
+.table-container {
+    border-radius: 10px;
+}
+
+/* Alternance de couleurs entre les lignes (spécificité nulle : les couleurs de ligne existantes restent prioritaires) */
+:where(table:not(.gantt-table):not(:has([style*="sticky"])):not(:has(.planning-sticky-header)):not(.no-zebra)) tbody tr:nth-child(even) {
+    background-color: rgba(40, 80, 140, 0.10);
+}
+:where(table:not(.gantt-table):not(:has([style*="sticky"])):not(:has(.planning-sticky-header)):not(.no-zebra)) tbody tr:hover {
+    background-color: rgba(29, 112, 183, 0.15);
+}
