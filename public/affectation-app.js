@@ -122,7 +122,10 @@
         #affectationContainer table.aff-plan-table { border-collapse: separate; border-spacing: 0; width: 100%; min-width: max-content; font-size: 12px; border-radius: 0; overflow: visible; }
         #affectationContainer table.aff-plan-table th, #affectationContainer table.aff-plan-table td { cursor: default; padding: 0; }
         #affectationContainer table.aff-plan-table th::after { content: none; }
-        #affectationContainer table.aff-plan-table th:hover { background: inherit; }
+        #affectationContainer table.aff-plan-table thead th:hover { background: inherit; }
+        #affectationContainer table.aff-plan-table tbody tr:hover { background: transparent; }
+        #affectationContainer table.aff-plan-table tbody tr th.sam, #affectationContainer table.aff-plan-table tbody tr:hover th.sam { background: #fff !important; }
+        #affectationContainer table.aff-plan-table tbody tr:nth-child(even) th.sam, #affectationContainer table.aff-plan-table tbody tr:nth-child(even):hover th.sam { background: #f4f7fb !important; }
         .aff-plan-table thead th { height: 36px; text-align: center; font-weight: 700; color: #fff; border-right: 1px solid rgba(255,255,255,.25); border-bottom: 1px solid rgba(255,255,255,.2); position: sticky; z-index: 3; white-space: nowrap; background: #34495e; }
         .aff-plan-table thead tr:nth-child(1) th { background: #263238; top: 0; font-size: 20px; letter-spacing: .5px; }
         .aff-plan-table thead tr:nth-child(2) th { background: #1D70B7; top: 28px; font-size: 17px; }
