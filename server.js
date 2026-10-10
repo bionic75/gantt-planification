@@ -3874,6 +3874,7 @@ app.post('/api/push-message', requireAuth, (req, res) => {
 
     const payload = JSON.stringify({
         fromUserId, fromName, fromPhoto,
+        fromProfile: fromSession?.profile || null,
         message: message.trim(),
         sentAt
     });
