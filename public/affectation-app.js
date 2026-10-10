@@ -94,15 +94,35 @@
         .aff-sug .cnt { position: sticky; top: 0; background: #f3f6fb; color: #6b7a8d; font-size: 11px; padding: 5px 12px; border-bottom: 1px solid #e6ebf3; cursor: default; }
         .aff-sug div { padding: 8px 12px; font-size: 13px; cursor: pointer; }
         .aff-sug div:not(.cnt):hover, .aff-sug div.on { background: #e8f5f3; }
-        .aff-stage { display: grid; grid-template-columns: 200px 1fr auto; gap: 8px 12px; align-items: center; padding: 8px 0; border-top: 1px solid #f0f3f8; }
+        .aff-stage { display: grid; grid-template-columns: 230px 1fr auto; gap: 8px 12px; align-items: center; padding: 8px 0; border-top: 1px solid #f0f3f8; }
         .aff-stage .name { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: #2c3e50; }
         .aff-stage .name i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; flex-shrink: 0; }
         .aff-stage .dates { display: flex; flex-direction: column; gap: 6px; }
-        .aff-stage .dates .pr { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-        .aff-stage .dates input { padding: 6px 6px; border: 1px solid #cfd8e6; border-radius: 8px; font-size: 13px; width: 132px; }
+        .aff-stage .dates .pr { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
+        .aff-stage .dates input { padding: 6px 6px; border: 1px solid #cfd8e6; border-radius: 8px; font-size: 13px; width: 142px; }
         .aff-stage .dates input.aff-days { width: 78px; text-align: center; }
         .aff-stage .dates .pr .aff-wk { width: 160px; }
         .aff-stage .dates select.aff-need { padding: 7px 8px; border: 1px solid #cfd8e6; border-radius: 8px; font-size: 13px; width: 112px; }
+        #affProjectModal input[type=date]::-webkit-calendar-picker-indicator, #affectationContainer input[type=date]::-webkit-calendar-picker-indicator { opacity: 0; position: absolute; right: 0; width: 34px; height: 100%; cursor: pointer; }
+        #affProjectModal input[type=date] { position: relative; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234a5b70' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='16' rx='2'/%3E%3Cpath d='M3 10h18M8 3v4M16 3v4'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; background-size: 16px; }
+        .aff-dp { position: fixed; z-index: 100000; width: 292px; background: #fff; border: 1px solid #cfd8e6; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.28); padding: 10px; font-size: 13px; color: #2c3e50; }
+        .aff-dp .hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; font-weight: 800; }
+        .aff-dp .hd button { border: none; background: #eef2f8; border-radius: 8px; width: 30px; height: 28px; cursor: pointer; font-size: 16px; color: #2c3e50; padding: 0; }
+        .aff-dp table { border-collapse: separate; border-spacing: 2px; width: 100%; table-layout: fixed; font-size: 12px; }
+        .aff-dp th { background: none !important; color: #7a8799 !important; font-weight: 700; cursor: default !important; padding: 2px 0 !important; text-align: center; }
+        .aff-dp th::after { content: none !important; }
+        .aff-dp td { padding: 0; text-align: center; }
+        .aff-dp td.wk { color: #0f766e; font-weight: 800; background: #e6f4f1; border-radius: 6px; cursor: pointer; padding: 6px 0; }
+        .aff-dp td.wk:hover { background: #cdebe5; }
+        .aff-dp td.d button { width: 100%; padding: 6px 0; border: none; background: transparent; border-radius: 6px; cursor: pointer; font-size: 12px; color: #2c3e50; }
+        .aff-dp td.d button:hover { background: #dfe9f8; }
+        .aff-dp td.d.o button { color: #aab4c3; } .aff-dp td.d.we button { color: #b8860b; }
+        .aff-dp td.d.sel button { background: #0f766e; color: #fff; font-weight: 800; } .aff-dp td.d.today button { outline: 2px solid #2e9d62; outline-offset: -2px; }
+        .aff-dp td.d.dis button { opacity: .3; cursor: not-allowed; }
+        .aff-dp .ft { display: flex; justify-content: space-between; margin-top: 6px; font-size: 11px; color: #7a8799; }
+        .aff-dp .ft button { border: none; background: none; color: #0f766e; font-weight: 700; cursor: pointer; padding: 2px 4px; }
+        .aff-bad { border-color: #e03b3b !important; background: #fff1f1 !important; box-shadow: 0 0 0 2px rgba(224,59,59,.2); }
+        .aff-modal-foot .aff-error { flex: 1; text-align: left; font-size: 12px; line-height: 1.5; max-height: 90px; overflow: auto; }
         .aff-section-title { margin: 20px 0 4px; font-size: 13px; font-weight: 800; color: #0f766e; text-transform: uppercase; letter-spacing: .5px; }
         .aff-legendbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; padding: 10px 12px; border: 1px solid #dfe5ef; border-radius: 12px; background: #fff; }
         .aff-legendbar .t { font-size: 12px; font-weight: 800; color: #0f766e; text-transform: uppercase; letter-spacing: .5px; margin-right: 4px; }
@@ -150,8 +170,10 @@
         .aff-pc .b.go { cursor: pointer; } .aff-pc .b.go:hover { filter: brightness(1.15); outline: 2px solid rgba(15,118,110,.7); outline-offset: -1px; }
         .aff-pc .b.ok { box-shadow: inset 0 -2px 0 rgba(255,255,255,.85); }
         .aff-pc .b.gel { background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.35) 0 3px, transparent 3px 6px); }
-        .aff-mk { position: absolute; top: 1px; right: 1px; width: 0; height: 0; z-index: 1; }
-        .aff-mk i { position: absolute; top: 0; right: 0; width: 16px; height: 16px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.4); }
+        .aff-mk { position: absolute; top: 2px; width: 0; height: 0; z-index: 2; }
+        .aff-mk.start { top: 0; bottom: 0; height: auto; width: 2px; margin-left: -1px; background: #263238; opacity: .85; }
+        .aff-mk.start i { left: -4px; top: -1px; width: 10px; height: 10px; border-width: 1px; }
+        .aff-mk i { position: absolute; top: 0; left: -8px; width: 16px; height: 16px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.4); }
         .aff-assign-list { max-height: 300px; overflow: auto; border: 1px solid #dfe5ef; border-radius: 10px; margin-top: 8px; }
         .aff-assign-list label { display: flex; align-items: center; gap: 10px; padding: 7px 12px; cursor: pointer; border-bottom: 1px solid #eef1f6; font-size: 13px; }
         .aff-assign-list label:nth-child(even) { background: #f6f9fc; }
@@ -246,7 +268,7 @@
     </div>
 
     <div class="modal" id="affProjectModal">
-        <div class="modal-content" style="max-width:880px; width:94%; max-height:92vh; overflow-y:auto; padding:0;">
+        <div class="modal-content" style="max-width:1180px; width:96%; max-height:92vh; overflow-y:auto; padding:0;">
             <div class="aff-modal-head">
                 <span id="affModalTitle" class="aff-card-title"></span>
                 <button type="button" class="aff-x" onclick="AffectationApp.closeProject()" aria-label="Fermer">${svg('x', 'aff-ico-sm')}</button>
@@ -561,23 +583,29 @@
         return f;
     }
 
+    // Contrôle du formulaire : liste précise des oublis (message + champ à corriger)
     function validateForm(f) {
-        if (!f.samu_name) return 'Le nom du SAMU est obligatoire.';
-        if (!f.date_debut) return 'La date de début du projet est obligatoire.';
+        const errs = [];
+        const add = (msg, sel) => errs.push({ msg, sel });
+        if (!f.samu_name) add('Nom du SAMU : à renseigner.', '#affSamu');
+        if (!f.date_debut) add('Date de début du projet : à renseigner.', '#affDebut');
         for (const k of ['mise_en_service', 'mise_en_production']) {
             const d = f['date_' + k];
-            if (d && d < f.date_debut) return `${stageDef(k).label} : la date ne peut pas précéder le début du projet.`;
+            if (d && f.date_debut && d < f.date_debut) add(`${stageDef(k).label} : la date (${d.split('-').reverse().join('/')}) précède le début du projet.`, `input[data-df="${k}"]`);
         }
-        for (const [k, list] of Object.entries(f.periods)) {
-            for (const x of list) {
-                const lbl = stageDef(k).label;
-                if (!x.start || !x.end) return `${lbl} : renseignez la date de début et la date de fin.`;
-                if (x.end < x.start) return `${lbl} : la date de fin précède la date de début.`;
-                if (x.start < f.date_debut) return `${lbl} : la période ne peut pas commencer avant le début du projet.`;
-                if (stageDef(k).resources && !x.needed) return `${lbl} : indiquez le nombre de ressources nécessaires.`;
-            }
-        }
-        return null;
+        document.querySelectorAll('#affModalBody input[data-pf="start"]').forEach(st => {
+            const k = st.dataset.pk, i = st.dataset.pi, def = stageDef(k), lbl = def.label;
+            const q = f2 => `#affModalBody input[data-pk="${k}"][data-pi="${i}"][data-pf="${f2}"]`;
+            const en = document.querySelector(q('end')), nd = document.querySelector(`#affModalBody select[data-nk="${k}"][data-ni="${i}"]`);
+            if (!st.value && !en.value && !(nd && nd.value)) return; // ligne vide : étape non utilisée
+            const n = list => list.length > 1 ? ` (période ${Number(i) + 1})` : '';
+            if (!st.value) add(`${lbl} : date de début à renseigner.`, q('start'));
+            if (!en.value) add(`${lbl} : date de fin à renseigner.`, q('end'));
+            if (st.value && en.value && en.value < st.value) add(`${lbl} : la date de fin précède la date de début.`, q('end'));
+            if (st.value && f.date_debut && st.value < f.date_debut) add(`${lbl} : commence avant le début du projet.`, q('start'));
+            if (def.resources && nd && !nd.value) add(`${lbl} : nombre de ressources nécessaires à renseigner.`, `#affModalBody select[data-nk="${k}"][data-ni="${i}"]`);
+        });
+        return errs;
     }
 
     const adminApi = {
@@ -700,10 +728,17 @@
         },
         async saveProject() {
             const f = collectForm();
-            const err = validateForm(f);
+            const errs = validateForm(f);
             const errEl = document.getElementById('affModalError');
-            errEl.textContent = err || '';
-            if (err) return;
+            document.querySelectorAll('#affModalBody .aff-bad').forEach(e => e.classList.remove('aff-bad'));
+            if (errs.length) {
+                errEl.innerHTML = errs.map(e => `• ${esc(e.msg)}`).join('<br>');
+                errs.forEach(e => { const el = document.querySelector(e.sel); if (el) el.classList.add('aff-bad'); });
+                const first = document.querySelector(errs[0].sel);
+                if (first) { first.scrollIntoView({ block: 'center', behavior: 'smooth' }); first.focus({ preventScroll: true }); }
+                return;
+            }
+            errEl.textContent = '';
             try {
                 const body = JSON.stringify({
                     samu_name: f.samu_name, location_id: f.location_id, chef_projet_id: f.chef_projet_id, date_debut: f.date_debut,
@@ -825,10 +860,13 @@
         if (!/class="b [^"]*"|class="b "/.test(ph.replace(/<div class="b" style="visibility:hidden"><\/div>/g, ''))) ph = '';
         if (!/class="b [^"]*"/.test(st.replace(/<div class="b" style="visibility:hidden"><\/div>/g, ''))) st = '';
         let mk = '';
+        const span = (utcMs(c.to) - utcMs(c.from)) / 86400000 + 1;
+        const posOf = d => ((utcMs(d) - utcMs(c.from)) / 86400000) / span * 100;
         [['mise_en_service', p.date_mise_en_service], ['mise_en_production', p.date_mise_en_production]].forEach(([k, d]) => {
-            if (d && !hiddenKeys.has(k) && d >= c.from && d <= c.to) mk += `<span class="aff-mk" title="${esc(planDef(k).label)} : ${frd(d)}"><i style="background:${planColor(k)}"></i></span>`;
+            if (d && !hiddenKeys.has(k) && d >= c.from && d <= c.to) mk += `<span class="aff-mk" style="left:${(posOf(d) + 50 / span).toFixed(2)}%" title="${esc(planDef(k).label)} : ${frd(d)}"><i style="background:${planColor(k)}"></i></span>`;
         });
-        if (p.date_debut >= c.from && p.date_debut <= c.to) mk += `<span class="aff-mk" style="top:auto;bottom:1px;" title="Début du projet : ${frd(p.date_debut)}"><i style="width:10px;height:10px;background:#263238"></i></span>`;
+        // Début du projet : trait vertical au bord gauche du jour, aligné sur le début des barres
+        if (p.date_debut >= c.from && p.date_debut <= c.to) mk += `<span class="aff-mk start" style="left:${posOf(p.date_debut).toFixed(2)}%" title="Début du projet : ${frd(p.date_debut)}"><i style="background:#263238"></i></span>`;
         return (ph || st || mk) ? `${mk}<div class="aff-pc"><div class="ph">${ph}</div><div class="st">${st}</div></div>` : '';
     }
 
@@ -952,6 +990,66 @@
         }).join('') : '<div style="padding:14px;" class="aff-muted">Aucune ressource</div>';
         document.getElementById('affAssignInfo').innerHTML = `${esc(asg.info)}<br><b>${asg.selected.size} / ${asg.needed}</b> ressource(s) affectée(s)`;
     }
+
+
+    // ---- Calendrier de saisie des dates avec numéros de semaine ----
+    const DP = { el: null, input: null, y: 0, m: 0 };
+    function dpClose() { if (DP.el) DP.el.style.display = 'none'; DP.input = null; }
+    function dpRender() {
+        const inp = DP.input;
+        const first = `${DP.y}-${String(DP.m + 1).padStart(2, '0')}-01`;
+        let day = mondayOf(first);
+        const t = todayIso(), min = inp.min || '', cur = inp.value;
+        const isEnd = inp.dataset.pf === 'end';
+        let rows = '';
+        for (let w = 0; w < 6; w++) {
+            const wk = isoWeek(day).week;
+            let cells = `<td class="wk" data-pick="${isEnd ? addD(day, 4) : day}" title="Choisir la semaine ${wk} (${isEnd ? 'vendredi' : 'lundi'})">${wk}</td>`;
+            for (let d = 0; d < 7; d++) {
+                const iso = addD(day, d), inM = +iso.slice(5, 7) === DP.m + 1;
+                cells += `<td class="d ${inM ? '' : 'o'} ${d > 4 ? 'we' : ''} ${iso === t ? 'today' : ''} ${iso === cur ? 'sel' : ''} ${min && iso < min ? 'dis' : ''}"><button type="button" data-pick="${min && iso < min ? '' : iso}">${+iso.slice(8)}</button></td>`;
+            }
+            rows += `<tr>${cells}</tr>`;
+            day = addD(day, 7);
+            if (w >= 3 && +day.slice(5, 7) !== DP.m + 1 && +addD(day, -1).slice(5, 7) !== DP.m + 1) break;
+        }
+        DP.el.innerHTML = `<div class="hd"><button type="button" data-nav="-1" aria-label="Mois précédent">‹</button><span>${cap(MONTHS[DP.m])} ${DP.y}</span><button type="button" data-nav="1" aria-label="Mois suivant">›</button></div>
+            <table><thead><tr><th title="Numéro de semaine">S</th>${['L', 'M', 'M', 'J', 'V', 'S', 'D'].map(x => `<th>${x}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>
+            <div class="ft"><button type="button" data-pick="${t}">Aujourd'hui</button><span>Cliquer sur un n° de semaine pour la choisir</span></div>`;
+    }
+    function dpOpen(input) {
+        if (!DP.el) {
+            DP.el = document.createElement('div');
+            DP.el.className = 'aff-dp';
+            DP.el.addEventListener('mousedown', e => e.preventDefault());
+            DP.el.addEventListener('click', e => {
+                const nav = e.target.closest('[data-nav]'), pick = e.target.closest('[data-pick]');
+                if (nav) { DP.m += Number(nav.dataset.nav); if (DP.m < 0) { DP.m = 11; DP.y--; } if (DP.m > 11) { DP.m = 0; DP.y++; } dpRender(); return; }
+                if (pick && pick.dataset.pick && DP.input) {
+                    const inp = DP.input;
+                    inp.value = inp.min && pick.dataset.pick < inp.min ? inp.min : pick.dataset.pick; // une semaine entamée avant le minimum se cale sur celui-ci
+                    inp.dispatchEvent(new Event('input', { bubbles: true }));
+                    inp.dispatchEvent(new Event('change', { bubbles: true }));
+                    dpClose();
+                }
+            });
+            document.body.appendChild(DP.el);
+        }
+        DP.input = input;
+        // Le calendrier s'ouvre sur la date déjà choisie ; à défaut, sur la borne basse de la période
+        const row = input.closest('.pr'), st = row && row.querySelector('input[data-pf="start"]');
+        const base = input.value || (input.dataset.pf === 'end' && st && st.value) || input.min || todayIso();
+        DP.y = +base.slice(0, 4); DP.m = +base.slice(5, 7) - 1;
+        DP.el.style.display = 'block';
+        dpRender();
+        const r = input.getBoundingClientRect(), h = DP.el.offsetHeight, w = DP.el.offsetWidth;
+        DP.el.style.left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8)) + 'px';
+        DP.el.style.top = (r.bottom + h + 8 > window.innerHeight ? Math.max(8, r.top - h - 4) : r.bottom + 4) + 'px';
+    }
+    const dpTarget = e => { const i = e.target; return i && i.matches && i.matches('input[type="date"]') && i.closest('#affProjectModal') ? i : null; };
+    document.addEventListener('mousedown', e => { const i = dpTarget(e); if (i) { e.preventDefault(); dpOpen(i); } else if (DP.el && !DP.el.contains(e.target)) dpClose(); }, true);
+    document.addEventListener('click', e => { if (dpTarget(e)) e.preventDefault(); }, true);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') dpClose(); if (e.key === 'Enter' && dpTarget(e)) { e.preventDefault(); dpOpen(e.target); } });
 
     const sync = { projectId: null, stage: null, data: null };
     const planApi = {
