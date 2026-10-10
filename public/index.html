@@ -1,4 +1,4 @@
-<!-- v1.16.30 -->
+<!-- v1.16.31 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -41,6 +41,7 @@
         #usersTable { min-width: 1350px; }
         #resourcesTable { min-width: 1500px; }
         td.ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        svg.app-ico, svg.tab-ico { vertical-align: middle !important; }
         .alert-ico { width: 1.15em; height: 1.15em; vertical-align: -0.22em; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
         .tab-ico { width: 18px; height: 18px; margin-right: 8px; vertical-align: -3px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; opacity: .9; }
         .tab-btn.tab-dragging { opacity: 0.4; cursor: grabbing; pointer-events: none; }
@@ -474,11 +475,13 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.16.30">
-    <link rel="stylesheet" href="/darkmode.css?v=1.16.30">
-    <script src="/darkmode.js?v=1.16.30"></script>
-    <script src="/themes.js?v=1.16.30" defer></script>
-    <script src="/layout-fix.js?v=1.16.30" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.16.31">
+    <link rel="stylesheet" href="/darkmode.css?v=1.16.31">
+    <script src="/darkmode.js?v=1.16.31"></script>
+    <script src="/themes.js?v=1.16.31" defer></script>
+    <script src="/layout-fix.js?v=1.16.31" defer></script>
+    <script>window.UI_ICONS_KEEP_ALERT = true;</script>
+    <script src="/ui-icons.js?v=1.16.31" defer></script>
 </head>
 <body>
     <div class="container">
@@ -16900,7 +16903,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                     // Sauvegarder le texte du parent pour identifier le nœud
                     const parent = content.previousElementSibling;
                     if (parent) {
-                        const nodeId = parent.textContent.replace(/[▶▼]/g, '').trim();
+                        const nodeId = parent.textContent.replace(/[▶▼]/g, '').replace(/\p{Extended_Pictographic}\uFE0F?/gu, '').trim();
                         customEventsExpandedNodes.add(nodeId);
                     }
                 }
@@ -16913,7 +16916,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             
             const treeHeaders = container.querySelectorAll('[onclick*="toggleCustomEventsTreeNode"]');
             treeHeaders.forEach(header => {
-                const nodeId = header.textContent.replace(/[▶▼]/g, '').trim();
+                const nodeId = header.textContent.replace(/[▶▼]/g, '').replace(/\p{Extended_Pictographic}\uFE0F?/gu, '').trim();
                 if (customEventsExpandedNodes.has(nodeId)) {
                     const content = header.nextElementSibling;
                     const arrow = header.querySelector('.tree-arrow');
@@ -24757,7 +24760,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 if (content.style.display !== 'none') {
                     const parent = content.previousElementSibling;
                     if (parent) {
-                        const nodeId = parent.textContent.replace(/[▶▼]/g, '').trim();
+                        const nodeId = parent.textContent.replace(/[▶▼]/g, '').replace(/\p{Extended_Pictographic}\uFE0F?/gu, '').trim();
                         myEventsExpandedNodes.add(nodeId);
                     }
                 }
@@ -24770,7 +24773,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             
             const treeHeaders = container.querySelectorAll('[onclick*="toggleMyEventsTreeNode"]');
             treeHeaders.forEach(header => {
-                const nodeId = header.textContent.replace(/[▶▼]/g, '').trim();
+                const nodeId = header.textContent.replace(/[▶▼]/g, '').replace(/\p{Extended_Pictographic}\uFE0F?/gu, '').trim();
                 if (myEventsExpandedNodes.has(nodeId)) {
                     const content = header.nextElementSibling;
                     const arrow = header.querySelector('.tree-arrow');
