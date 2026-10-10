@@ -156,6 +156,13 @@
         .aff-assign-list label { display: flex; align-items: center; gap: 10px; padding: 7px 12px; cursor: pointer; border-bottom: 1px solid #eef1f6; font-size: 13px; }
         .aff-assign-list label:nth-child(even) { background: #f6f9fc; }
         .aff-assign-list label input { width: auto; display: inline-block; margin: 0; }
+        .aff-sync-sec { border: 1px solid #dfe5ef; border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; }
+        .aff-sync-sec h4 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .4px; color: #0f766e; display: flex; align-items: center; gap: 8px; }
+        .aff-sync-sec h4 input, .aff-sync-row input[type=checkbox] { width: auto; display: inline-block; margin: 0; }
+        .aff-sync-row { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; border-top: 1px solid #f0f3f8; font-size: 13px; }
+        .aff-sync-row:first-of-type { border-top: none; }
+        .aff-sync-sec .aff-field { margin-top: 8px; }
+        .aff-sync-sec .aff-field input[type=text], .aff-sync-sec .aff-field input[type=date] { padding: 7px 9px; border: 1px solid #cfd8e6; border-radius: 8px; font-size: 13px; }
         .aff-av { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
         .aff-av-b { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: #e9edf3; color: #4a5b70; }
         .aff-av-b.ok { background: #d7f2e3; color: #167a45; } .aff-av-b.mid { background: #ffeccc; color: #9a5b00; }
@@ -266,8 +273,24 @@
             </div>
             <div class="aff-modal-foot">
                 <span id="affAssignError" class="aff-error"></span>
+                <button type="button" class="aff-btn" onclick="AffectationApp.openSync()" title="Reporter les ressources affectées dans la planification et les événements">Synchroniser</button>
                 <button type="button" class="aff-btn" onclick="AffectationApp.closeAssign()">Annuler</button>
                 <button type="button" class="aff-btn aff-btn-primary" onclick="AffectationApp.saveAssign()">${svg('save', 'aff-ico-sm')}Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="affSyncModal">
+        <div class="modal-content" style="max-width:640px; width:94%; max-height:92vh; overflow-y:auto; padding:0;">
+            <div class="aff-modal-head">
+                <span id="affSyncTitle" class="aff-card-title">Reporter l'affectation</span>
+                <button type="button" class="aff-x" onclick="AffectationApp.closeSync()" aria-label="Fermer">${svg('x', 'aff-ico-sm')}</button>
+            </div>
+            <div id="affSyncBody" class="aff-modal-body"></div>
+            <div class="aff-modal-foot">
+                <span id="affSyncError" class="aff-error"></span>
+                <button type="button" class="aff-btn" onclick="AffectationApp.closeSync()">Plus tard</button>
+                <button type="button" class="aff-btn aff-btn-primary" id="affSyncOk" onclick="AffectationApp.applySync()">${svg('save', 'aff-ico-sm')}Valider les modifications</button>
             </div>
         </div>
     </div>
@@ -930,7 +953,61 @@
         document.getElementById('affAssignInfo').innerHTML = `${esc(asg.info)}<br><b>${asg.selected.size} / ${asg.needed}</b> ressource(s) affectée(s)`;
     }
 
+    const sync = { projectId: null, stage: null, data: null };
     const planApi = {
+        async openSync(projectId, stageKey) {
+            sync.projectId = projectId || asg.project.id; sync.stage = stageKey || asg.stage;
+            const err = document.getElementById('affSyncError'); err.textContent = '';
+            try {
+                const d = sync.data = await api(`/affectation/projects/${sync.projectId}/sync/${sync.stage}`);
+                if (!d.resources.length) { AffectationApp.closeSync(); alert('Aucune ressource affectée à cette étape.'); return; }
+                const j = n => `${String(n / 2).replace('.', ',')} j`;
+                const rowsPlan = d.resources.map(r => {
+                    const state = r.toWrite ? `<b>${j(r.toWrite)}</b> à renseigner` : (r.done ? 'Déjà à jour dans la planification' : 'Rien à écrire');
+                    const conf = r.conflictCount ? `<div class="aff-av"><span class="aff-av-b ko" title="${esc(r.conflicts.map(c => c.key.replace('_', ' ') + ' : ' + c.reason).join('\n'))}">${j(r.conflictCount)} non modifiable(s) (conflit)</span></div>` : '';
+                    return `<label class="aff-sync-row"><input type="checkbox" data-sp="${r.id}" ${r.toWrite ? 'checked' : 'disabled'}><span><b>${esc((r.nom || '').toUpperCase())}</b> ${esc(r.prenom || '')}<br>${state}${r.done && r.toWrite ? ` · ${j(r.done)} déjà faits` : ''}${conf}</span></label>`;
+                }).join('');
+                const needPlan = d.resources.some(r => r.toWrite);
+                const ev = d.event, ex = ev.existing;
+                const partRows = d.resources.map(r => {
+                    if (!r.user_id) return `<label class="aff-sync-row"><input type="checkbox" disabled><span><b>${esc((r.nom || '').toUpperCase())}</b> ${esc(r.prenom || '')}<br><span class="aff-muted">Pas de compte utilisateur : ne peut pas être ajouté(e) à l'événement</span></span></label>`;
+                    const already = ex && ex.participants.includes(r.user_id);
+                    return `<label class="aff-sync-row"><input type="checkbox" data-su="${r.user_id}" ${already ? 'checked disabled' : 'checked'}><span><b>${esc((r.nom || '').toUpperCase())}</b> ${esc(r.prenom || '')}${already ? ' <span class="aff-muted">— déjà participant(e)</span>' : ''}</span></label>`;
+                }).join('');
+                const needEvent = !ex || d.resources.some(r => r.user_id && !ex.participants.includes(r.user_id));
+                document.getElementById('affSyncTitle').textContent = `Reporter l'affectation — ${d.samu}`;
+                document.getElementById('affSyncBody').innerHTML = `
+                    <p class="aff-muted" style="margin:0 0 12px;">Les ressources ont été affectées dans l'aide à l'affectation. Autorisez-vous le report dans la planification et les événements ?</p>
+                    <div class="aff-sync-sec"><h4><input type="checkbox" id="affSyncPlan" ${needPlan ? 'checked' : 'disabled'}>1. Planification des experts</h4>
+                        <div class="aff-muted">Du ${frd(d.start)} au ${frd(d.end)} (jours ouvrés) : activité ${esc(d.activity)} « SAMU (Déploiement) », localisation « ${esc(d.samuLoc)} », disponibilité ANS.</div>${rowsPlan}</div>
+                    <div class="aff-sync-sec"><h4><input type="checkbox" id="affSyncEvt" ${needEvent ? 'checked' : 'disabled'}>2. Événement</h4>
+                        ${ex ? `<div class="aff-muted">Événement existant : <b>${esc(ex.label)}</b> (${frd(ex.start_date)} → ${frd(ex.end_date)}). Seuls les participants manquants seront ajoutés.</div>`
+                            : `<div class="aff-field"><label class="lbl" for="affEvtLabel">Titre</label><input id="affEvtLabel" type="text" value="${esc(ev.label)}" style="width:100%;"></div>
+                               <div style="display:flex;gap:10px;flex-wrap:wrap;"><div class="aff-field"><label class="lbl">Début</label><input id="affEvtStart" type="date" value="${esc(d.start)}"></div>
+                               <div class="aff-field"><label class="lbl">Fin</label><input id="affEvtEnd" type="date" value="${esc(d.end)}"></div></div>
+                               <div class="aff-field"><span class="lbl">SAMU concerné</span> <b>${esc(d.samu)}</b>${d.locationId ? '' : ' <span class="aff-error">(entité introuvable : événement sans lieu)</span>'}</div>`}
+                        <div style="margin-top:8px;"><span class="lbl">Participants</span>${partRows}</div></div>`;
+                document.getElementById('affSyncOk').disabled = !needPlan && !needEvent;
+                document.getElementById('affSyncModal').classList.add('active');
+            } catch (e) { alert(e.message); }
+        },
+        closeSync() { document.getElementById('affSyncModal').classList.remove('active'); },
+        async applySync() {
+            const err = document.getElementById('affSyncError'); err.textContent = '';
+            const q = sel => document.querySelector(sel);
+            const body = {};
+            if (q('#affSyncPlan') && q('#affSyncPlan').checked) body.planning = { resource_ids: [...document.querySelectorAll('input[data-sp]:checked')].map(i => Number(i.dataset.sp)) };
+            if (q('#affSyncEvt') && q('#affSyncEvt').checked) {
+                body.event = { apply: true, participants: [...document.querySelectorAll('input[data-su]:checked:not(:disabled)')].map(i => Number(i.dataset.su)) };
+                if (q('#affEvtLabel')) Object.assign(body.event, { label: q('#affEvtLabel').value, startDate: q('#affEvtStart').value, endDate: q('#affEvtEnd').value });
+            }
+            if (!body.planning && !body.event) { AffectationApp.closeSync(); return; }
+            try {
+                const r = await api(`/affectation/projects/${sync.projectId}/sync/${sync.stage}`, { method: 'POST', body: JSON.stringify(body) });
+                AffectationApp.closeSync();
+                alert(`Report effectué : ${r.planning} demi-journée(s) planifiée(s)` + (r.event ? `, événement ${r.event.created ? 'créé' : 'mis à jour'} (${r.event.participants} participant(s)).` : '.'));
+            } catch (e) { err.textContent = e.message; }
+        },
         planSort(key) {
             plan.sort = plan.sort.key === key ? { key, dir: -plan.sort.dir } : { key, dir: 1 };
             const box = document.getElementById('affPlan'), left = box.scrollLeft;
@@ -975,6 +1052,7 @@
                 asg.project.assignments[asg.stage] = r.resource_ids;
                 AffectationApp.closeAssign();
                 renderPlanning();
+                if (r.resource_ids.length) AffectationApp.openSync(asg.project.id, asg.stage);
             } catch (e) { document.getElementById('affAssignError').textContent = e.message; }
         },
         planZoom(z) { plan.zoom = z; renderPlanning(); AffectationApp.planToday(); },
