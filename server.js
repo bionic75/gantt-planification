@@ -1246,6 +1246,8 @@ function initDB() {
     database.run(`ALTER TABLE email_queue ADD COLUMN pdf_filename TEXT`, () => {});
     database.run(`ALTER TABLE email_queue ADD COLUMN cc_emails TEXT`, () => {});
     // Migration : colonnes CRA (chaînées pour éviter SQLITE_BUSY)
+    database.run(`ALTER TABLE cra ADD COLUMN modifie_admin_at TEXT`, () => {});
+    database.run(`ALTER TABLE cra ADD COLUMN modifie_admin_nom TEXT`, () => {});
     database.run(`ALTER TABLE cra ADD COLUMN archived INTEGER DEFAULT 0`, () => {
         database.run(`ALTER TABLE cra ADD COLUMN rien_a_declarer INTEGER DEFAULT 0`, () => {
             database.run(`ALTER TABLE cra ADD COLUMN deleted INTEGER DEFAULT 0`, () => {
@@ -11079,11 +11081,11 @@ app.post('/api/cra/:id/rien-a-declarer', requireAuth, async (req, res) => {
     try {
         await new Promise((resolve, reject) => {
             database.run(
-                `UPDATE cra SET rien_a_declarer = 1, statut = 'soumis', submitted_at = ? WHERE id = ? AND (user_id = ? OR ? = 'admin')`,
-                [now, id, req.session.userId, req.session.activeProfile],
-                err => err ? reject(err) : resolve()
+                `UPDATE cra SET rien_a_declarer = 1, statut = 'soumis', submitted_at = ?, modifie_admin_at = NULL, modifie_admin_nom = NULL WHERE id = ? AND user_id = ? AND statut = 'a_completer'`,
+                [now, id, req.session.userId],
+                function (err) { err ? reject(err) : resolve(this.changes); }
             );
-        });
+        }).then(changes => { if (!changes) throw Object.assign(new Error('Seul l\'expert concerné peut déclarer « rien à déclarer » sur un CRA à compléter.'), { status: 403 }); });
         // Insérer la signature rang=1 (expert) — absente sinon dans cra_signatures
         await new Promise((resolve, reject) => {
             database.run(
@@ -11093,7 +11095,7 @@ app.post('/api/cra/:id/rien-a-declarer', requireAuth, async (req, res) => {
             );
         });
         res.json({ success: true });
-    } catch(e) { res.status(500).json({ error: e.message }); }
+    } catch(e) { res.status(e.status || 500).json({ error: e.message }); }
 });
 
 // Génération PDF CRA avec Puppeteer
@@ -11660,6 +11662,32 @@ app.post('/api/cra/:id/astreintes', requireAuth, async (req, res) => {
                 );
             });
         }
+        // Modification par un administrateur : l'expert doit vérifier puis soumettre à nouveau (jamais de soumission à sa place)
+        if (isAdmin && cra.user_id !== sessionUserId) {
+            const adminNom = `${req.session.prenom || ''} ${req.session.nom || ''}`.trim() || 'Administrateur';
+            const recent = cra.modifie_admin_at && (Date.now() - Date.parse(cra.modifie_admin_at)) < 30 * 60 * 1000; // pas de mail à chaque enregistrement
+            await dbRun(`UPDATE cra SET modifie_admin_at = ?, modifie_admin_nom = ?, submitted_at = NULL,
+                         vise_n1_at = NULL, vise_n1_by = NULL, vise_n2_at = NULL, vise_n2_by = NULL WHERE id = ?`, [new Date().toISOString(), adminNom, craId]);
+            await dbRun('DELETE FROM cra_signatures WHERE cra_id = ?', [craId]);
+            logUserAction(req, 'Modification CRA par administrateur', { craId: Number(craId), expertUserId: cra.user_id });
+            if (!recent) {
+                try {
+                    const ex = await dbGet('SELECT prenom, nom, email FROM users WHERE id = ?', [cra.user_id]);
+                    if (ex && ex.email) {
+                        const moisNom = new Date(cra.annee, cra.mois - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+                        const appUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
+                        await enqueueEmail({
+                            batchId: generateICSUid(), recipientEmail: ex.email, recipientName: `${ex.prenom} ${ex.nom}`,
+                            senderName: adminNom, senderEmail: req.session.email || '',
+                            subject: `CRA ${moisNom} — modifié par l'administrateur, à vérifier et soumettre`,
+                            htmlBody: buildCraEmailHtml({ title: "CRA modifié par l'administrateur", expertNom: `${ex.prenom} ${ex.nom}`, moisNom, craUrl: `${appUrl}/?tab=cra&craId=${cra.id}`,
+                                action: `${adminNom} a modifié votre CRA. Merci de le vérifier, de le corriger si besoin, puis de le soumettre à nouveau pour validation.` }),
+                            actionType: 'cra_modifie_admin'
+                        });
+                    }
+                } catch (mailErr) { console.error('Mail CRA modifié par admin:', mailErr.message); }
+            }
+        }
         res.json({ success: true, inserted: (lignes || []).length });
     } catch(e) {
         res.status(500).json({ error: e.message });
@@ -11678,7 +11706,7 @@ app.post('/api/cra/:id/submit', requireAuth, async (req, res) => {
         if (cra.statut !== 'a_completer') return res.status(400).json({ error: 'CRA déjà soumis' });
         const now = new Date().toISOString();
         await new Promise((resolve, reject) => {
-            database.run(`UPDATE cra SET statut = 'soumis', submitted_at = ?, commentaire_expert = ? WHERE id = ?`,
+            database.run(`UPDATE cra SET statut = 'soumis', submitted_at = ?, commentaire_expert = ?, modifie_admin_at = NULL, modifie_admin_nom = NULL WHERE id = ?`,
                 [now, commentaire || null, craId], err => err ? reject(err) : resolve());
         });
         await new Promise((resolve, reject) => {
