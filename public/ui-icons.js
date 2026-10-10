@@ -152,6 +152,76 @@
         nodes.forEach(convert);
     }
 
+    // ---- Infobulles : un attribut title ne peut pas afficher d'icône SVG, on affiche une bulle personnalisée ----
+    const escHtml = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    function titleToHtml(text) {
+        let out = '', last = 0, m;
+        RE.lastIndex = 0;
+        while ((m = RE.exec(text)) !== null) {
+            const entry = MAP[m[0].codePointAt(0)];
+            if (!entry || (m[0].codePointAt(0) === 0x26A0 && window.UI_ICONS_KEEP_ALERT)) continue;
+            out += escHtml(text.slice(last, m.index));
+            out += '<svg class="ui-emo" viewBox="0 0 24 24" aria-hidden="true" style="color:' + (entry[1] || 'inherit') + ';stroke:currentColor;">' + I[entry[0]] + '</svg>';
+            last = m.index + m[0].length;
+        }
+        RE.lastIndex = 0;
+        return out + escHtml(text.slice(last));
+    }
+    function hasConvertibleEmoji(text) {
+        let m, found = false;
+        RE.lastIndex = 0;
+        while ((m = RE.exec(text)) !== null) {
+            const cp = m[0].codePointAt(0);
+            if (MAP[cp] && !(cp === 0x26A0 && window.UI_ICONS_KEEP_ALERT)) { found = true; break; }
+        }
+        RE.lastIndex = 0;
+        return found;
+    }
+    let tipEl = null, tipOwner = null, tipTimer = null;
+    function hideTip() {
+        clearTimeout(tipTimer);
+        if (tipEl) tipEl.style.display = 'none';
+        if (tipOwner) {
+            const saved = tipOwner.getAttribute('data-gp-title');
+            if (saved !== null) { tipOwner.setAttribute('title', saved); tipOwner.removeAttribute('data-gp-title'); }
+            tipOwner = null;
+        }
+    }
+    function placeTip(x, y) {
+        if (!tipEl) return;
+        const w = tipEl.offsetWidth, h = tipEl.offsetHeight;
+        tipEl.style.left = Math.max(6, Math.min(x + 14, window.innerWidth - w - 8)) + 'px';
+        tipEl.style.top = (y + 22 + h > window.innerHeight ? Math.max(6, y - h - 12) : y + 22) + 'px';
+    }
+    document.addEventListener('mouseover', e => {
+        const el = e.target.closest && e.target.closest('[title]');
+        if (!el || el === tipOwner) return;
+        const text = el.getAttribute('title');
+        if (!text || !hasConvertibleEmoji(text)) return;
+        hideTip();
+        el.setAttribute('data-gp-title', text);
+        el.removeAttribute('title');
+        tipOwner = el;
+        const x = e.clientX, y = e.clientY;
+        tipTimer = setTimeout(() => {
+            if (!tipEl) {
+                tipEl = document.createElement('div');
+                tipEl.id = 'gpRichTip';
+                tipEl.style.cssText = 'position:fixed;z-index:100001;pointer-events:none;background:#fff;color:#222;border:1px solid #d5dae3;border-radius:10px;padding:7px 12px;font:13px/1.45 -apple-system,Segoe UI,Arial,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.22);max-width:380px;white-space:pre-line;';
+                document.body.appendChild(tipEl);
+            }
+            tipEl.innerHTML = titleToHtml(text);
+            tipEl.style.display = 'block';
+            placeTip(x, y);
+        }, 350);
+    }, true);
+    document.addEventListener('mousemove', e => { if (tipEl && tipEl.style.display === 'block' && tipOwner) placeTip(e.clientX, e.clientY); }, true);
+    document.addEventListener('mouseout', e => {
+        if (tipOwner && !tipOwner.contains(e.relatedTarget)) hideTip();
+    }, true);
+    document.addEventListener('mousedown', hideTip, true);
+    window.addEventListener('scroll', hideTip, true);
+
     const style = document.createElement('style');
     style.textContent = '.ui-emo{width:1.15em;height:1.15em;vertical-align:middle;margin:0 .15em;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}';
     document.head.appendChild(style);
