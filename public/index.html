@@ -1,4 +1,4 @@
-<!-- v1.16.69 -->
+<!-- v1.16.70 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -490,17 +490,17 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.16.69">
-    <link rel="stylesheet" href="/darkmode.css?v=1.16.69">
-    <link rel="stylesheet" href="/login.css?v=1.16.69">
-    <link rel="stylesheet" href="/ui-polish.css?v=1.16.69">
-    <script src="/darkmode.js?v=1.16.69"></script>
-    <script src="/themes.js?v=1.16.69" defer></script>
-    <script src="/layout-fix.js?v=1.16.69" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.16.70">
+    <link rel="stylesheet" href="/darkmode.css?v=1.16.70">
+    <link rel="stylesheet" href="/login.css?v=1.16.70">
+    <link rel="stylesheet" href="/ui-polish.css?v=1.16.70">
+    <script src="/darkmode.js?v=1.16.70"></script>
+    <script src="/themes.js?v=1.16.70" defer></script>
+    <script src="/layout-fix.js?v=1.16.70" defer></script>
     <script>window.UI_ICONS_KEEP_ALERT = true;</script>
-    <script src="/ui-icons.js?v=1.16.69" defer></script>
-    <script src="/affectation-app.js?v=1.16.69" defer></script>
-    <script src="/map-timelapse.js?v=1.16.69" defer></script>
+    <script src="/ui-icons.js?v=1.16.70" defer></script>
+    <script src="/affectation-app.js?v=1.16.70" defer></script>
+    <script src="/map-timelapse.js?v=1.16.70" defer></script>
 </head>
 <body>
     <div class="container">
@@ -15207,17 +15207,31 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
         // Ajoute les lignes de la planification (activités courantes, astreintes) sans doublon ni chevauchement
         function craSaisieCollecter() {
             const snap = l => ({ date_debut: l.date_debut, date_fin: l.date_fin, heure_debut: l.heure_debut, heure_fin: l.heure_fin, samu: l.samu, objet: l.objet });
-            let added = 0, dup = 0, conflict = 0;
+            const overlaps = (a, b) => a.type === b.type && (a.date_debut + 'T' + (a.heure_debut || '00:00')) < (b.date_fin + 'T' + (b.heure_fin || '23:59')) && (a.date_fin + 'T' + (a.heure_fin || '23:59')) > (b.date_debut + 'T' + (b.heure_debut || '00:00'));
+            let added = 0, dup = 0, replaced = 0, kept = 0;
+            const differing = []; // [{ existing, proposed }]
             _craCollected.forEach(l => {
                 const same = _craSaisieLines.find(x => x.type === l.type && x.date_debut === l.date_debut && x.date_fin === l.date_fin && x.heure_debut === l.heure_debut && x.heure_fin === l.heure_fin);
                 if (same) { if (!same.origin) { same.origin = l.origin; same.orig = snap(same); } dup++; return; } // ligne déjà saisie : on la rattache à la planification
-                if (findAstreinteConflict(l, -1)) { conflict++; return; }
+                const clash = _craSaisieLines.filter(x => overlaps(x, l));
+                if (clash.length) { differing.push({ existing: clash, proposed: l }); return; }
                 _craSaisieLines.push({ ...l, orig: snap(l) });
                 added++;
             });
+            // Lignes déjà saisies qui diffèrent de la planification : l'utilisateur choisit
+            if (differing.length) {
+                const f = l => `${formatDateFRClient(l.date_debut)}${l.date_fin !== l.date_debut ? ' → ' + formatDateFRClient(l.date_fin) : ''} ${l.heure_debut}-${l.heure_fin} ${l.samu || '(pas de SAMU)'} — ${l.objet}`;
+                const detail = differing.map(d => `• Saisi : ${d.existing.map(f).join(' / ')}\n  Planification : ${f(d.proposed)}`).join('\n');
+                if (confirm(`${differing.length} ligne(s) déjà saisie(s) ne correspondent pas à la planification :\n\n${detail}\n\nLes remplacer par les données de la planification ?\n(OK = remplacer, Annuler = conserver ce que vous avez saisi)`)) {
+                    differing.forEach(d => {
+                        d.existing.forEach(e => { const ix = _craSaisieLines.indexOf(e); if (ix >= 0) _craSaisieLines.splice(ix, 1); // remplacement par la planification : rien à reporter en retour });
+                        if (!_craSaisieLines.some(x => overlaps(x, d.proposed))) { _craSaisieLines.push({ ...d.proposed, orig: snap(d.proposed) }); replaced++; }
+                    });
+                } else kept = differing.length;
+            }
             _craSaisieLines.sort((a, b) => (a.date_debut + (a.heure_debut || '')).localeCompare(b.date_debut + (b.heure_debut || '')));
             renderCraSaisieList();
-            document.getElementById('craSaisieCollectMsg').textContent = `${added} ligne(s) ajoutée(s)` + (dup ? `, ${dup} déjà présente(s)` : '') + (conflict ? `, ${conflict} ignorée(s) (chevauchement)` : '') + '. Vérifiez et corrigez si besoin.';
+            document.getElementById('craSaisieCollectMsg').textContent = `${added} ligne(s) ajoutée(s)` + (replaced ? `, ${replaced} remplacée(s)` : '') + (dup ? `, ${dup} déjà conforme(s)` : '') + (kept ? `, ${kept} différente(s) conservée(s)` : '') + '. Vérifiez et corrigez si besoin.';
         }
 
         function closeCraSaisieModal() {
