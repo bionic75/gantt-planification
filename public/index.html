@@ -1,4 +1,4 @@
-<!-- v1.16.71 -->
+<!-- v1.16.72 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -490,17 +490,17 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.16.71">
-    <link rel="stylesheet" href="/darkmode.css?v=1.16.71">
-    <link rel="stylesheet" href="/login.css?v=1.16.71">
-    <link rel="stylesheet" href="/ui-polish.css?v=1.16.71">
-    <script src="/darkmode.js?v=1.16.71"></script>
-    <script src="/themes.js?v=1.16.71" defer></script>
-    <script src="/layout-fix.js?v=1.16.71" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.16.72">
+    <link rel="stylesheet" href="/darkmode.css?v=1.16.72">
+    <link rel="stylesheet" href="/login.css?v=1.16.72">
+    <link rel="stylesheet" href="/ui-polish.css?v=1.16.72">
+    <script src="/darkmode.js?v=1.16.72"></script>
+    <script src="/themes.js?v=1.16.72" defer></script>
+    <script src="/layout-fix.js?v=1.16.72" defer></script>
     <script>window.UI_ICONS_KEEP_ALERT = true;</script>
-    <script src="/ui-icons.js?v=1.16.71" defer></script>
-    <script src="/affectation-app.js?v=1.16.71" defer></script>
-    <script src="/map-timelapse.js?v=1.16.71" defer></script>
+    <script src="/ui-icons.js?v=1.16.72" defer></script>
+    <script src="/affectation-app.js?v=1.16.72" defer></script>
+    <script src="/map-timelapse.js?v=1.16.72" defer></script>
 </head>
 <body>
     <div class="container">
@@ -15211,7 +15211,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             let added = 0, dup = 0, replaced = 0, kept = 0;
             const differing = []; // [{ existing, proposed }]
             _craCollected.forEach(l => {
-                const same = _craSaisieLines.find(x => x.type === l.type && x.date_debut === l.date_debut && x.date_fin === l.date_fin && x.heure_debut === l.heure_debut && x.heure_fin === l.heure_fin);
+                const same = _craSaisieLines.find(x => x.type === l.type && x.date_debut === l.date_debut && x.date_fin === l.date_fin && x.heure_debut === l.heure_debut && x.heure_fin === l.heure_fin && (x.samu || '') === (l.samu || '') && (x.objet || '') === (l.objet || ''));
                 if (same) { if (!same.origin) { same.origin = l.origin; same.orig = snap(same); } dup++; return; } // ligne déjà saisie : on la rattache à la planification
                 const clash = _craSaisieLines.filter(x => overlaps(x, l));
                 if (clash.length) { differing.push({ existing: clash, proposed: l }); return; }
