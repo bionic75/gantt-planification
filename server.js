@@ -3974,6 +3974,7 @@ app.get('/api/reporting/connections', requireAdmin, (req, res) => {
                MAX(login_time) as derniere_connexion
         FROM connection_logs
         WHERE DATE(login_time) >= ? AND DATE(login_time) <= ?
+          AND COALESCE(profile, '') <> 'system'
     `;
     const params = [dateStart, dateEnd];
 

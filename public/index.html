@@ -1,4 +1,4 @@
-<!-- v1.16.36 -->
+<!-- v1.16.37 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -475,15 +475,15 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.16.36">
-    <link rel="stylesheet" href="/darkmode.css?v=1.16.36">
-    <link rel="stylesheet" href="/login.css?v=1.16.36">
-    <link rel="stylesheet" href="/ui-polish.css?v=1.16.36">
-    <script src="/darkmode.js?v=1.16.36"></script>
-    <script src="/themes.js?v=1.16.36" defer></script>
-    <script src="/layout-fix.js?v=1.16.36" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.16.37">
+    <link rel="stylesheet" href="/darkmode.css?v=1.16.37">
+    <link rel="stylesheet" href="/login.css?v=1.16.37">
+    <link rel="stylesheet" href="/ui-polish.css?v=1.16.37">
+    <script src="/darkmode.js?v=1.16.37"></script>
+    <script src="/themes.js?v=1.16.37" defer></script>
+    <script src="/layout-fix.js?v=1.16.37" defer></script>
     <script>window.UI_ICONS_KEEP_ALERT = true;</script>
-    <script src="/ui-icons.js?v=1.16.36" defer></script>
+    <script src="/ui-icons.js?v=1.16.37" defer></script>
 </head>
 <body>
     <div class="container">
@@ -1509,11 +1509,11 @@
                         <div style="display: flex; flex-direction: column; gap: 5px; align-items: flex-start;">
                             <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
                                 <input type="checkbox" id="hnoReportingShowHno" checked style="margin: 0;">
-                                <span style="font-size: 12px;">⏰ HNO</span>
+                                <span style="font-size: 12px; white-space: nowrap; display: inline-flex; align-items: center;">⏰ HNO</span>
                             </label>
                             <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
                                 <input type="checkbox" id="hnoReportingShowAstreintes" checked style="margin: 0;">
-                                <span style="font-size: 12px;">🔔 Astreintes</span>
+                                <span style="font-size: 12px; white-space: nowrap; display: inline-flex; align-items: center;">🔔 Astreintes</span>
                             </label>
                         </div>
                     </div>
@@ -13496,25 +13496,41 @@
                     return;
                 }
 
-                const profileLabel = p => p === 'admin' ? 'Administrateur' : p === 'expert' ? 'Expert Métier' : 'Utilisateur';
+                const profileLabel = p => p === 'admin' ? 'Administrateur' : p === 'expert' ? 'Expert Métier' : p === 'rh' ? 'RH' : 'Utilisateur';
+                const fmtDate = raw => {
+                    if (!raw) return '—';
+                    let t = raw;
+                    if (!t.endsWith('Z') && !t.includes('+')) t += 'Z';
+                    return new Date(t).toLocaleString('fr-FR', {
+                        timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit',
+                        day: '2-digit', hour: '2-digit', minute: '2-digit'
+                    });
+                };
 
+                // Une seule ligne par utilisateur (le serveur renvoie une ligne par profil utilisé)
+                const byUser = new Map();
                 rows.forEach(r => {
-                    let derniereConn = '—';
-                    if (r.derniere_connexion) {
-                        let t = r.derniere_connexion;
-                        if (!t.endsWith('Z') && !t.includes('+')) t += 'Z';
-                        derniereConn = new Date(t).toLocaleString('fr-FR', {
-                            timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit',
-                            day: '2-digit', hour: '2-digit', minute: '2-digit'
-                        });
-                    }
+                    const key = (r.username || '').toLowerCase();
+                    if (!byUser.has(key)) byUser.set(key, { ...r, total: 0, profiles: [], last: null });
+                    const u = byUser.get(key);
+                    u.total += r.nb_connexions || 0;
+                    u.profiles.push({ profile: r.profile, nb: r.nb_connexions || 0 });
+                    if (!u.last || (r.derniere_connexion && r.derniere_connexion > u.last)) u.last = r.derniere_connexion;
+                });
+
+                [...byUser.values()].sort((a, b) => b.total - a.total).forEach(u => {
+                    const multi = u.profiles.length > 1;
+                    const profilesHtml = u.profiles
+                        .sort((a, b) => b.nb - a.nb)
+                        .map(p => `<span style="display:inline-flex;align-items:center;gap:4px;margin-right:6px;">${profileBadgeHtml(p.profile, false) || profileLabel(p.profile)}${multi ? `<span style="font-size:11px;color:#777;">×${p.nb}</span>` : ''}</span>`)
+                        .join('');
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
-                        <td>${r.prenom || ''} ${r.nom || ''}</td>
-                        <td>${r.username}</td>
-                        <td>${profileLabel(r.profile)}</td>
-                        <td style="text-align:center;font-weight:bold;">${r.nb_connexions}</td>
-                        <td>${derniereConn}</td>
+                        <td>${u.prenom || ''} ${u.nom || ''}</td>
+                        <td>${u.username}</td>
+                        <td>${profilesHtml}</td>
+                        <td style="text-align:center;font-weight:bold;">${u.total}</td>
+                        <td>${fmtDate(u.last)}</td>
                     `;
                     tbody.appendChild(tr);
                 });
