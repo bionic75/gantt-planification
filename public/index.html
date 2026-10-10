@@ -1,4 +1,4 @@
-<!-- v1.16.68 -->
+<!-- v1.16.69 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -490,17 +490,17 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.16.68">
-    <link rel="stylesheet" href="/darkmode.css?v=1.16.68">
-    <link rel="stylesheet" href="/login.css?v=1.16.68">
-    <link rel="stylesheet" href="/ui-polish.css?v=1.16.68">
-    <script src="/darkmode.js?v=1.16.68"></script>
-    <script src="/themes.js?v=1.16.68" defer></script>
-    <script src="/layout-fix.js?v=1.16.68" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.16.69">
+    <link rel="stylesheet" href="/darkmode.css?v=1.16.69">
+    <link rel="stylesheet" href="/login.css?v=1.16.69">
+    <link rel="stylesheet" href="/ui-polish.css?v=1.16.69">
+    <script src="/darkmode.js?v=1.16.69"></script>
+    <script src="/themes.js?v=1.16.69" defer></script>
+    <script src="/layout-fix.js?v=1.16.69" defer></script>
     <script>window.UI_ICONS_KEEP_ALERT = true;</script>
-    <script src="/ui-icons.js?v=1.16.68" defer></script>
-    <script src="/affectation-app.js?v=1.16.68" defer></script>
-    <script src="/map-timelapse.js?v=1.16.68" defer></script>
+    <script src="/ui-icons.js?v=1.16.69" defer></script>
+    <script src="/affectation-app.js?v=1.16.69" defer></script>
+    <script src="/map-timelapse.js?v=1.16.69" defer></script>
 </head>
 <body>
     <div class="container">
@@ -3126,6 +3126,8 @@
             <div style="margin-top: 15px;">
                 <button id="craSaisieAddBtn" onclick="craSaisieAjouter()" style="background: #6a1b9a; color: white; padding: 9px 22px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px;">➕ Ajouter</button>
                 <button onclick="craSaisieResetForm()" style="background: #95a5a6; color: white; padding: 9px 18px; border: none; border-radius: 4px; cursor: pointer; margin-left: 8px; font-size: 13px;">🔄 Réinitialiser</button>
+                <button id="craSaisieCollectBtn" onclick="craSaisieCollecter()" style="display:none;background: #1565c0; color: white; padding: 9px 18px; border: none; border-radius: 4px; cursor: pointer; margin-left: 8px; font-size: 13px; font-weight: bold;" title="Reprend les activités courantes, astreintes et HNO marquées dans la page de planification (jour entier 9h-18h, matin 9h-12h, après-midi 14h-18h)">📥 Collecter depuis la planification</button>
+                <span id="craSaisieCollectMsg" style="margin-left:10px;font-size:12px;color:#1565c0;"></span>
             </div>
         </div>
 
@@ -15130,6 +15132,8 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
         let _craSaisieAnnee = null;
         let _craSaisieLines = [];
         let _craSaisieEditIdx = null; // index de la ligne en cours d'édition
+        let _craCollected = [];       // propositions issues de la planification (MAD volante)
+        let _craDeleted = [];         // lignes issues de la planification supprimées pendant la saisie
 
         async function openCraSaisieModal(craId, mois, annee) {
             _craSaisieId = craId;
@@ -15137,6 +15141,9 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             _craSaisieAnnee = annee;
             _craSaisieLines = [];
             _craSaisieEditIdx = null;
+            _craCollected = []; _craDeleted = [];
+            document.getElementById('craSaisieCollectBtn').style.display = 'none';
+            document.getElementById('craSaisieCollectMsg').textContent = '';
 
             const moisNom = new Date(parseInt(annee), parseInt(mois) - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
             document.getElementById('craSaisieModalTitle').textContent = moisNom.charAt(0).toUpperCase() + moisNom.slice(1);
@@ -15183,6 +15190,34 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             craSaisieResetForm();
             renderCraSaisieList();
             document.getElementById('craSaisieModal').classList.add('active');
+
+            // MAD volante : proposition de collecte depuis la planification
+            try {
+                const r = await fetch(`${API_URL}/cra/${craId}/collect`, { credentials: 'include' });
+                const d = r.ok ? await r.json() : null;
+                if (d && d.allowed) {
+                    _craCollected = d.lines || [];
+                    const b = document.getElementById('craSaisieCollectBtn');
+                    b.style.display = 'inline-block';
+                    b.textContent = `📥 Collecter depuis la planification (${_craCollected.length})`;
+                }
+            } catch (e) { /* collecte indisponible : saisie manuelle uniquement */ }
+        }
+
+        // Ajoute les lignes de la planification (activités courantes, astreintes) sans doublon ni chevauchement
+        function craSaisieCollecter() {
+            const snap = l => ({ date_debut: l.date_debut, date_fin: l.date_fin, heure_debut: l.heure_debut, heure_fin: l.heure_fin, samu: l.samu, objet: l.objet });
+            let added = 0, dup = 0, conflict = 0;
+            _craCollected.forEach(l => {
+                const same = _craSaisieLines.find(x => x.type === l.type && x.date_debut === l.date_debut && x.date_fin === l.date_fin && x.heure_debut === l.heure_debut && x.heure_fin === l.heure_fin);
+                if (same) { if (!same.origin) { same.origin = l.origin; same.orig = snap(same); } dup++; return; } // ligne déjà saisie : on la rattache à la planification
+                if (findAstreinteConflict(l, -1)) { conflict++; return; }
+                _craSaisieLines.push({ ...l, orig: snap(l) });
+                added++;
+            });
+            _craSaisieLines.sort((a, b) => (a.date_debut + (a.heure_debut || '')).localeCompare(b.date_debut + (b.heure_debut || '')));
+            renderCraSaisieList();
+            document.getElementById('craSaisieCollectMsg').textContent = `${added} ligne(s) ajoutée(s)` + (dup ? `, ${dup} déjà présente(s)` : '') + (conflict ? `, ${conflict} ignorée(s) (chevauchement)` : '') + '. Vérifiez et corrigez si besoin.';
         }
 
         function closeCraSaisieModal() {
@@ -15267,6 +15302,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
 
             if (_craSaisieEditIdx !== null) {
                 ligne.id = _craSaisieLines[_craSaisieEditIdx].id;
+                if (_craSaisieLines[_craSaisieEditIdx].origin) { ligne.origin = _craSaisieLines[_craSaisieEditIdx].origin; ligne.orig = _craSaisieLines[_craSaisieEditIdx].orig; }
                 _craSaisieLines[_craSaisieEditIdx] = ligne;
             } else {
                 _craSaisieLines.push(ligne);
@@ -15277,6 +15313,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
 
         function craSaisieSupprimer(idx) {
             if (!confirm('Supprimer cette ligne ?')) return;
+            if (_craSaisieLines[idx] && _craSaisieLines[idx].origin) _craDeleted.push(_craSaisieLines[idx].origin);
             _craSaisieLines.splice(idx, 1);
             renderCraSaisieList();
             if (_craSaisieEditIdx === idx) craSaisieResetForm();
@@ -15324,6 +15361,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                 }
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'Erreur');
+                await craProposerReport();
                 const fromGantt = _craSaisieFromGantt;
                 const savedCraId = _craSaisieId;
                 closeCraSaisieModal();
@@ -15338,6 +15376,24 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             } catch(e) {
                 alert('Erreur lors de l\'enregistrement : ' + e.message);
             }
+        }
+
+        // Corrections de lignes issues de la planification : proposer de les reporter dans la planification
+        async function craProposerReport() {
+            if (_craSaisieFromGantt || !_craSaisieId) return;
+            const keys = ['date_debut', 'date_fin', 'heure_debut', 'heure_fin'];
+            const corrections = [];
+            _craSaisieLines.forEach(l => { if (l.origin && l.orig && keys.some(k => l[k] !== l.orig[k])) corrections.push({ origin: l.origin, line: { date_debut: l.date_debut, date_fin: l.date_fin, heure_debut: l.heure_debut, heure_fin: l.heure_fin } }); });
+            _craDeleted.forEach(o => corrections.push({ origin: o, line: null }));
+            if (!corrections.length) return;
+            const nbSupp = _craDeleted.length;
+            if (!confirm(`Vous avez corrigé ${corrections.length - nbSupp} ligne(s)` + (nbSupp ? ` et supprimé ${nbSupp} ligne(s)` : '') + ` issues de la planification.\n\nReporter ces corrections dans la page de planification (activités, créneaux d'astreinte) ?`)) return;
+            try {
+                const r = await fetch(`${API_URL}/cra/${_craSaisieId}/propagate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ corrections }) });
+                const d = await r.json();
+                if (!r.ok) throw new Error(d.error || 'Erreur');
+                alert(`Planification mise à jour : ${d.activity} activité(s), ${d.astreinte} astreinte(s).` + (d.skipped && d.skipped.length ? `\n\nNon reporté :\n- ${d.skipped.join('\n- ')}` : ''));
+            } catch (e) { alert('Report dans la planification impossible : ' + e.message); }
         }
 
         function toggleRefusPanel(niveau, craId) {
