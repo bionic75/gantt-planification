@@ -100,7 +100,36 @@
         .aff-stage .dates { display: flex; flex-direction: column; gap: 6px; }
         .aff-stage .dates .pr { display: flex; align-items: center; gap: 8px; }
         .aff-stage .dates input { padding: 7px 8px; border: 1px solid #cfd8e6; border-radius: 8px; font-size: 13px; width: 150px; }
+        .aff-stage .dates input.aff-days { width: 78px; text-align: center; }
         .aff-section-title { margin: 20px 0 4px; font-size: 13px; font-weight: 800; color: #0f766e; text-transform: uppercase; letter-spacing: .5px; }
+        .aff-plan-bar { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
+        .aff-plan-ctrl { display: flex; align-items: center; gap: 12px; }
+        .aff-seg { display: inline-flex; border: 1px solid #cfd8e6; border-radius: 9px; overflow: hidden; background: #fff; }
+        .aff-seg button { border: none; background: transparent; padding: 8px 16px; font-size: 13px; font-weight: 600; color: #4a5b70; cursor: pointer; }
+        .aff-seg button + button { border-left: 1px solid #cfd8e6; }
+        .aff-seg button.on { background: #0f766e; color: #fff; }
+        .aff-plan { overflow: auto; max-height: calc(100vh - 230px); border: 1px solid #dfe5ef; border-radius: 12px; background: #fff; }
+        #affectationContainer table.aff-plan-table { border-collapse: separate; border-spacing: 0; width: max-content; font-size: 12px; border-radius: 0; overflow: visible; }
+        #affectationContainer table.aff-plan-table th, #affectationContainer table.aff-plan-table td { cursor: default; padding: 0; }
+        #affectationContainer table.aff-plan-table th::after { content: none; }
+        #affectationContainer table.aff-plan-table th:hover { background: inherit; }
+        .aff-plan-table thead th { height: 28px; text-align: center; font-weight: 700; color: #fff; border-right: 1px solid rgba(255,255,255,.25); border-bottom: 1px solid rgba(255,255,255,.2); position: sticky; z-index: 3; white-space: nowrap; background: #34495e; }
+        .aff-plan-table thead tr:nth-child(1) th { background: #263238; top: 0; }
+        .aff-plan-table thead tr:nth-child(2) th { background: #1D70B7; top: 28px; }
+        .aff-plan-table thead tr:nth-child(3) th { background: #3d6fa8; top: 56px; }
+        .aff-plan-table thead tr:nth-child(4) th { background: #4a78b0; top: 84px; font-weight: 600; }
+        .aff-plan-table thead tr:nth-child(5) th { background: #5a86ba; top: 112px; font-weight: 500; font-size: 11px; }
+        .aff-plan-table thead th.we { background: #f0b429 !important; color: #3a2d00; }
+        .aff-plan-table thead th.today { background: #2e9d62 !important; color: #fff; }
+        .aff-plan-table th.corner { left: 0; z-index: 6; min-width: 230px; max-width: 230px; background: #1D70B7 !important; text-align: left; padding-left: 14px; }
+        .aff-plan-table tbody th.sam { position: sticky; left: 0; z-index: 2; background: #fff; text-align: left; padding: 6px 12px 6px 14px; min-width: 230px; max-width: 230px; border-right: 2px solid #cfd8e6; border-bottom: 1px solid #eef1f6; color: #1f2d3d; }
+        .aff-plan-table tbody th.sam .n { font-weight: 700; font-size: 13px; }
+        .aff-plan-table tbody th.sam .c { font-weight: 400; font-size: 11px; color: #6b7a8d; margin-top: 2px; }
+        .aff-plan-table tbody tr:nth-child(even) th.sam { background: #f4f7fb; }
+        .aff-plan-table tbody td { height: 46px; border-right: 1px solid #eef1f6; border-bottom: 1px solid #eef1f6; }
+        .aff-plan-table tbody td.we { background: #fff8e6; }
+        .aff-plan-table tbody td.today { background: rgba(46,157,98,.12); box-shadow: inset 2px 0 0 #2e9d62; }
+        .aff-plan-table tbody tr:nth-child(even) td:not(.we):not(.today) { background: #f9fbfd; }
         @media (max-width: 760px) { .aff-proj { grid-template-columns: 1fr; } .aff-stage { grid-template-columns: 1fr; } }
     `;
 
@@ -128,13 +157,18 @@
     <div class="header-spacer"></div>
 
     <div id="affectationPlanningTab" class="tab-content active aff-panel">
-        <h2>Planning des déploiements</h2>
-        <div class="aff-empty">
-            <div class="aff-badge">${svg('target')}</div>
-            <h2>Aide à l'affectation opérationnelle</h2>
-            <p>Cet espace accueillera le planning des déploiements et les outils d'aide à l'affectation des experts.<br>
-               L'application est créée : les fonctionnalités arrivent prochainement.</p>
+        <div class="aff-plan-bar">
+            <h2 style="margin:0;">Planning des déploiements</h2>
+            <div class="aff-plan-ctrl">
+                <div class="aff-seg" role="group" aria-label="Échelle de temps">
+                    <button type="button" data-z="day" class="on" onclick="AffectationApp.planZoom('day')" title="Afficher à la maille jour">Jour</button>
+                    <button type="button" data-z="week" onclick="AffectationApp.planZoom('week')" title="Afficher à la maille semaine">Semaine</button>
+                    <button type="button" data-z="month" onclick="AffectationApp.planZoom('month')" title="Afficher à la maille mois">Mois</button>
+                </div>
+                <button type="button" class="aff-btn" onclick="AffectationApp.planToday()" title="Se placer sur la date du jour">${svg('planning', 'aff-ico-sm')}Aujourd'hui</button>
+            </div>
         </div>
+        <div id="affPlan" class="aff-plan"><p class="aff-muted" style="padding:18px;">Chargement…</p></div>
     </div>
 
     <div id="affectationAdminTab" class="tab-content aff-panel">
@@ -338,13 +372,28 @@
         return { id: null, samu_name: '', location_id: null, chef_projet_id: null, date_debut: '', date_mise_en_service: '', date_mise_en_production: '', periods: {} };
     }
 
+    // Durée inclusive en jours calendaires (début et fin comptés)
+    function daysBetween(a, b) {
+        if (!a || !b || b < a) return '';
+        return Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 86400000) + 1;
+    }
+    function addDaysIso(iso, n) {
+        return new Date(Date.parse(iso + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10);
+    }
+    function periodInputs(inp) {
+        const q = f => document.querySelector(`#affModalBody input[data-pk="${inp.dataset.pk || inp.dataset.dk}"][data-pi="${inp.dataset.pi || inp.dataset.di}"][data-pf="${f}"]`);
+        const days = document.querySelector(`#affModalBody input[data-dk="${inp.dataset.pk || inp.dataset.dk}"][data-di="${inp.dataset.pi || inp.dataset.di}"]`);
+        return { start: q('start'), end: q('end'), days };
+    }
+
     function periodRows(key, list) {
         const def = stageDef(key);
         const rows = (list && list.length ? list : [{ start: '', end: '' }]).map((x, i) => `
             <div class="pr">
                 <input type="date" data-pk="${key}" data-pi="${i}" data-pf="start" value="${esc(x.start)}" aria-label="Début ${esc(def.label)}" onchange="AffectationApp.startChanged(this)">
                 <span class="aff-muted">→</span>
-                <input type="date" data-pk="${key}" data-pi="${i}" data-pf="end" value="${esc(x.end)}" aria-label="Fin ${esc(def.label)}" onchange="this.dataset.auto=''">
+                <input type="date" data-pk="${key}" data-pi="${i}" data-pf="end" value="${esc(x.end)}" aria-label="Fin ${esc(def.label)}" onchange="AffectationApp.endChanged(this)">
+                <input type="number" min="1" step="1" class="aff-days" data-dk="${key}" data-di="${i}" value="${daysBetween(x.start, x.end) || ''}" placeholder="jours" title="Nombre de jours (calendaires, début et fin inclus) : la date de fin se calcule automatiquement" aria-label="Nombre de jours ${esc(def.label)}" oninput="AffectationApp.daysChanged(this)">
                 <button type="button" class="aff-x" title="Effacer cette période" onclick="AffectationApp.clearPeriod('${key}', ${i})">${svg('x', 'aff-ico-sm')}</button>
             </div>`).join('');
         const add = def.kind === 'periods' ? `<button type="button" class="aff-btn" style="align-self:flex-start;padding:5px 10px;" onclick="AffectationApp.addPeriod('${key}')">${svg('plus', 'aff-ico-sm')}Ajouter une période</button>` : '';
@@ -444,21 +493,41 @@
             // La borne haute d'une période ne peut pas précéder sa borne basse
             document.querySelectorAll('#affModalBody input[data-pf="start"]').forEach(st => { if (st.value) adminApi.startChanged(st, true); });
         },
-        // Borne basse choisie : le calendrier de la borne haute s'ouvre sur ce mois (et ne propose pas de date antérieure)
+        // Borne basse choisie : la borne haute se recalcule (nombre de jours) ou se cale sur ce jour, et le calendrier s'y ouvre
         startChanged(startInput, keepEnd) {
-            const end = document.querySelector(`#affModalBody input[data-pk="${startInput.dataset.pk}"][data-pi="${startInput.dataset.pi}"][data-pf="end"]`);
+            const { end, days } = periodInputs(startInput);
             if (!end) return;
             if (startInput.value) {
                 end.min = startInput.value;
                 if (keepEnd) return;
-                if (!end.value || end.dataset.auto === '1' || end.value < startInput.value) {
+                const n = days ? Number(days.value) : 0;
+                if (n > 0) {
+                    end.value = addDaysIso(startInput.value, n - 1);
+                    end.dataset.auto = '';
+                } else if (!end.value || end.dataset.auto === '1' || end.value < startInput.value) {
                     end.value = startInput.value;
                     end.dataset.auto = '1';
+                    if (days) days.value = 1;
+                } else if (days) {
+                    days.value = daysBetween(startInput.value, end.value);
                 }
             } else if (!keepEnd) {
                 const d = document.getElementById('affDebut').value;
                 if (d) end.min = d; else end.removeAttribute('min');
-                if (end.dataset.auto === '1') { end.value = ''; end.dataset.auto = ''; }
+                if (end.dataset.auto === '1') { end.value = ''; end.dataset.auto = ''; if (days) days.value = ''; }
+            }
+        },
+        endChanged(endInput) {
+            endInput.dataset.auto = '';
+            const { start, days } = periodInputs(endInput);
+            if (days) days.value = start && start.value ? daysBetween(start.value, endInput.value) : '';
+        },
+        daysChanged(daysInput) {
+            const { start, end } = periodInputs(daysInput);
+            const n = Math.floor(Number(daysInput.value));
+            if (start && end && start.value && n > 0) {
+                end.value = addDaysIso(start.value, n - 1);
+                end.dataset.auto = '';
             }
         },
         suggest(value) {
@@ -526,12 +595,13 @@
                 await api(f.id ? `/affectation/projects/${f.id}` : '/affectation/projects', { method: f.id ? 'PUT' : 'POST', body });
                 adminApi.closeProject();
                 await loadAdmin();
+                plan.projects = state.projects; renderPlanning();
             } catch (e) { errEl.textContent = e.message; }
         },
         async deleteProject(id) {
             const p = state.projects.find(x => x.id === id);
             if (!p || !confirm(`Supprimer le déploiement « ${p.samu_name} » ?`)) return;
-            try { await api(`/affectation/projects/${id}`, { method: 'DELETE' }); await loadAdmin(); }
+            try { await api(`/affectation/projects/${id}`, { method: 'DELETE' }); await loadAdmin(); plan.projects = state.projects; renderPlanning(); }
             catch (e) { alert(e.message); }
         },
         previewColor(key, value) { state.colors[key] = value; renderLegend(); renderProjects(); },
@@ -551,6 +621,132 @@
             msg.style.color = '#7a8799'; msg.textContent = 'Couleurs par défaut rétablies : pensez à enregistrer.';
         },
         loadAdmin
+    };
+
+
+    // ================= Planning des déploiements (grille calendaire) =================
+    const plan = { zoom: 'day', projects: [], loaded: false };
+    const MONTHS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+    const WDAY = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
+    const utcMs = iso => Date.parse(iso + 'T00:00:00Z');
+    const isoMs = ms => new Date(ms).toISOString().slice(0, 10);
+    const addD = (iso, n) => isoMs(utcMs(iso) + n * 86400000);
+    const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+    const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
+
+    function isoWeek(iso) {
+        const d = new Date(utcMs(iso));
+        const dayNum = (d.getUTCDay() + 6) % 7;
+        d.setUTCDate(d.getUTCDate() - dayNum + 3);
+        const firstThursday = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
+        const week = 1 + Math.round(((d - firstThursday) / 86400000 - 3 + ((firstThursday.getUTCDay() + 6) % 7)) / 7);
+        return { week, year: d.getUTCFullYear() };
+    }
+    const mondayOf = iso => addD(iso, -((new Date(utcMs(iso)).getUTCDay() + 6) % 7));
+
+    function group(list, keyFn, labelFn) {
+        const out = [];
+        list.forEach(item => {
+            const k = keyFn(item);
+            if (out.length && out[out.length - 1].key === k) out[out.length - 1].n++;
+            else out.push({ key: k, label: labelFn ? labelFn(item) : k, n: 1, first: item });
+        });
+        return out;
+    }
+
+    function planRange() {
+        let min = null, max = null;
+        plan.projects.forEach(p => {
+            const dates = [p.date_debut, p.date_mise_en_service, p.date_mise_en_production];
+            Object.values(p.periods || {}).forEach(l => l.forEach(x => dates.push(x.start, x.end)));
+            dates.filter(Boolean).forEach(d => { if (!min || d < min) min = d; if (!max || d > max) max = d; });
+        });
+        const t = todayIso();
+        if (!min) { min = t.slice(0, 8) + '01'; max = addD(min, 90); }
+        return { min: addD(min, -3), max: addD(max, 7) };
+    }
+
+    function renderPlanning() {
+        const box = document.getElementById('affPlan');
+        if (!box) return;
+        const { min, max } = planRange();
+        const t = todayIso();
+        const days = [];
+        for (let ms = utcMs(min); ms <= utcMs(max); ms += 86400000) days.push(isoMs(ms));
+
+        let cols, head = '';
+        const th = (cls, n, txt, extra) => `<th class="${cls || ''}" colspan="${n}" ${extra || ''}>${txt}</th>`;
+        const corner = rows => `<th class="corner" rowspan="${rows}">SAMU</th>`;
+
+        if (plan.zoom === 'day') {
+            cols = days.map(d => ({ key: d, we: [0, 6].includes(new Date(utcMs(d)).getUTCDay()), today: d === t, w: 30 }));
+            head += `<tr>${corner(5)}${group(days, d => d.slice(0, 4)).map(g => th('', g.n, g.label)).join('')}</tr>`;
+            head += `<tr>${group(days, d => d.slice(0, 7), d => cap(MONTHS[+d.slice(5, 7) - 1])).map(g => th('', g.n, g.label)).join('')}</tr>`;
+            head += `<tr>${group(days, d => { const w = isoWeek(d); return `${w.year}-${w.week}`; }, d => 'S' + isoWeek(d).week).map(g => th('', g.n, g.label)).join('')}</tr>`;
+            head += `<tr>${days.map(d => `<th class="${[0, 6].includes(new Date(utcMs(d)).getUTCDay()) ? 'we' : ''} ${d === t ? 'today' : ''}" ${d === t ? 'data-today="1"' : ''} style="min-width:30px;">${+d.slice(8)}</th>`).join('')}</tr>`;
+            head += `<tr>${days.map(d => `<th class="${[0, 6].includes(new Date(utcMs(d)).getUTCDay()) ? 'we' : ''} ${d === t ? 'today' : ''}">${WDAY[new Date(utcMs(d)).getUTCDay()]}</th>`).join('')}</tr>`;
+        } else if (plan.zoom === 'week') {
+            const mondays = [];
+            for (let m = mondayOf(min); m <= max; m = addD(m, 7)) mondays.push(m);
+            const thisMon = mondayOf(t);
+            cols = mondays.map(m => ({ key: m, we: false, today: m === thisMon, w: 64 }));
+            head += `<tr>${corner(4)}${group(mondays, m => m.slice(0, 4)).map(g => th('', g.n, g.label)).join('')}</tr>`;
+            head += `<tr>${group(mondays, m => m.slice(0, 7), m => cap(MONTHS[+m.slice(5, 7) - 1])).map(g => th('', g.n, g.label)).join('')}</tr>`;
+            head += `<tr>${mondays.map(m => `<th class="${m === thisMon ? 'today' : ''}" ${m === thisMon ? 'data-today="1"' : ''} style="min-width:64px;">S${isoWeek(m).week}</th>`).join('')}</tr>`;
+            head += `<tr>${mondays.map(m => `<th class="${m === thisMon ? 'today' : ''}" style="font-size:11px;font-weight:500;">${m.slice(8)}/${m.slice(5, 7)}</th>`).join('')}</tr>`;
+        } else {
+            const months = [];
+            for (let m = min.slice(0, 7); m <= max.slice(0, 7);) {
+                months.push(m);
+                const y = +m.slice(0, 4), mo = +m.slice(5, 7);
+                m = mo === 12 ? `${y + 1}-01` : `${y}-${String(mo + 1).padStart(2, '0')}`;
+            }
+            cols = months.map(m => ({ key: m, we: false, today: m === t.slice(0, 7), w: 100 }));
+            head += `<tr>${corner(2)}${group(months, m => m.slice(0, 4)).map(g => th('', g.n, g.label)).join('')}</tr>`;
+            head += `<tr>${months.map(m => `<th class="${m === t.slice(0, 7) ? 'today' : ''}" ${m === t.slice(0, 7) ? 'data-today="1"' : ''} style="min-width:100px;">${cap(MONTHS[+m.slice(5, 7) - 1])}</th>`).join('')}</tr>`;
+        }
+
+        // En-têtes à plusieurs niveaux : top collant propre à chaque ligne de l'en-tête
+        const rowsCount = plan.zoom === 'day' ? 5 : plan.zoom === 'week' ? 4 : 2;
+        let body;
+        if (!plan.projects.length) {
+            body = `<tr><td colspan="${cols.length + 1}" style="height:70px;text-align:center;color:#7a8799;">Aucun déploiement : créez-en dans l'onglet Administration.</td></tr>`;
+        } else {
+            const ordered = [...plan.projects].sort((a, b) => (a.samu_name || '').localeCompare(b.samu_name || '', 'fr', { numeric: true }) || a.date_debut.localeCompare(b.date_debut));
+            body = ordered.map(p => `<tr data-id="${p.id}">
+                <th class="sam"><div class="n">${esc(p.samu_name)}</div><div class="c">${esc(p.chef_projet_nom || 'Chef de projet non défini')}</div></th>
+                ${cols.map(c => `<td class="${c.we ? 'we' : ''} ${c.today ? 'today' : ''}" data-k="${c.key}"></td>`).join('')}
+            </tr>`).join('');
+        }
+        box.innerHTML = `<table class="aff-plan-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
+        // Hauteurs de lignes d'en-tête : tops dynamiques si le nombre de lignes change
+        const topStep = 28;
+        box.querySelectorAll('thead tr').forEach((tr, i) => tr.querySelectorAll('th:not(.corner)').forEach(c => { c.style.top = (i * topStep) + 'px'; }));
+        const corner_ = box.querySelector('th.corner'); if (corner_) corner_.style.top = '0px';
+        document.querySelectorAll('.aff-seg button').forEach(b => b.classList.toggle('on', b.dataset.z === plan.zoom));
+    }
+
+    async function loadPlanning() {
+        const box = document.getElementById('affPlan');
+        try {
+            const [cfg, proj] = await Promise.all([api('/affectation/config'), api('/affectation/projects')]);
+            plan.projects = proj.projects; plan.colors = cfg.colors; plan.loaded = true;
+            renderPlanning();
+            AffectationApp.planToday();
+        } catch (e) {
+            if (box) box.innerHTML = `<p class="aff-error" style="padding:18px;">Chargement impossible : ${esc(e.message)}</p>`;
+        }
+    }
+
+    const planApi = {
+        planZoom(z) { plan.zoom = z; renderPlanning(); AffectationApp.planToday(); },
+        planToday() {
+            const box = document.getElementById('affPlan');
+            const cell = box && box.querySelector('thead th[data-today]');
+            if (!cell) return;
+            box.scrollLeft = Math.max(0, cell.offsetLeft - box.clientWidth / 2 + cell.offsetWidth / 2);
+        },
+        loadPlanning
     };
 
     const AffectationApp = {
@@ -598,6 +794,7 @@
             document.getElementById('affectationPlanningTab').classList.toggle('active', !isAdmin);
             document.getElementById('affectationAdminTab').classList.toggle('active', isAdmin);
             if (isAdmin && !state.loaded) loadAdmin();
+            if (!isAdmin) loadPlanning();
         },
         search() { alert('Recherche - Fonctionnalité en cours de développement'); },
         async logout() {
@@ -608,7 +805,7 @@
         },
         isVisible: () => visible
     };
-    Object.assign(AffectationApp, adminApi);
+    Object.assign(AffectationApp, adminApi, planApi);
     document.addEventListener('mousedown', e => {
         const box = document.getElementById('affSug');
         if (box && box.style.display === 'block' && !e.target.closest('.aff-field')) box.style.display = 'none';
