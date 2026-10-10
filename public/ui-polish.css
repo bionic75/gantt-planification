@@ -1,6 +1,6 @@
 /* Finitions visuelles : coins arrondis sur les tableaux de données
    (exclus : planning Gantt et tableaux à en-têtes/colonnes collants, que l'overflow casserait) */
-table:not(.gantt-table):not(:has([style*="sticky"])):not(:has(.planning-sticky-header)) {
+table:not(.gantt-table):not(.aff-plan-table):not(:has([style*="sticky"])):not(:has(.planning-sticky-header)) {
     border-radius: 10px;
     overflow: hidden;
 }
