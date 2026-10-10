@@ -1395,6 +1395,20 @@ function initDB() {
                 if (migErr) console.error('Migration app_user_access:', migErr);
                 else console.log('✅ Migration amoa_ced → app_user_access terminée');
             });
+
+            // Application « Aide à l'affectation opérationnelle » : accès initial pour les administrateurs (une seule fois,
+            // pour que la nouvelle application soit visible ; les accès restent ensuite gérés dans l'administration)
+            database.get(`SELECT value FROM settings WHERE key = 'app_affectation_seeded'`, (seedErr, seedRow) => {
+                if (seedErr || seedRow) return;
+                database.run(`
+                    INSERT OR IGNORE INTO app_user_access (app_key, user_id)
+                    SELECT 'affectation', id FROM users WHERE is_admin = 1
+                `, (insErr) => {
+                    if (insErr) return console.error('Accès initial application affectation:', insErr);
+                    database.run(`INSERT OR REPLACE INTO settings (key, value) VALUES ('app_affectation_seeded', '1')`);
+                    console.log('✅ Accès initial « Aide à l\'affectation opérationnelle » accordé aux administrateurs');
+                });
+            });
         }
     });
 
