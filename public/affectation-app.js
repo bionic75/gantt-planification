@@ -156,6 +156,10 @@
         .aff-assign-list label { display: flex; align-items: center; gap: 10px; padding: 7px 12px; cursor: pointer; border-bottom: 1px solid #eef1f6; font-size: 13px; }
         .aff-assign-list label:nth-child(even) { background: #f6f9fc; }
         .aff-assign-list label input { width: auto; display: inline-block; margin: 0; }
+        .aff-av { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
+        .aff-av-b { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: #e9edf3; color: #4a5b70; }
+        .aff-av-b.ok { background: #d7f2e3; color: #167a45; } .aff-av-b.mid { background: #ffeccc; color: #9a5b00; }
+        .aff-av-b.ko { background: #fbd9d9; color: #b3261e; } .aff-av-b.here { background: #d9e8fb; color: #1d5fa8; }
         .aff-assign-list label.off { opacity: .45; cursor: not-allowed; }
         .aff-plan-table tbody td.we { background: #fff8e6; }
         .aff-plan-table tbody td.today { background: rgba(46,157,98,.12); box-shadow: inset 2px 0 0 #2e9d62; }
@@ -897,13 +901,26 @@
     }
 
     const asg = { project: null, stage: null, selected: new Set(), needed: 0 };
+    // Disponibilité d'une ressource sur la période (demi-journées ouvrées), d'après la planification
+    function availBadges(a) {
+        if (!asg.total) return '';
+        if (!a) return '<div class="aff-av"><span class="aff-av-b na" title="Aucune donnée de planification sur cette période">Planning non renseigné</span></div>';
+        const tone = a.free >= asg.total * 0.8 ? 'ok' : a.free > 0 ? 'mid' : 'ko';
+        const b = (n, cls, txt, tip) => n ? `<span class="aff-av-b ${cls}" title="${esc(tip)}">${txt} ${n}</span>` : '';
+        return `<div class="aff-av"><span class="aff-av-b ${tone}" title="Demi-journées disponibles pour l'ANS, sans affectation, sur ${asg.total} demi-journées ouvrées">Libre ${a.free}/${asg.total}</span>`
+            + b(a.here, 'here', 'Ce SAMU', 'Déjà affecté(e) à ce SAMU') + b(a.other, 'ko', 'Autre SAMU', 'Affecté(e) à un autre SAMU : conflit')
+            + b(a.ans, 'mid', 'ANS', 'Affecté(e) à des activités ANS / qualification / divers') + b(a.leave, 'na', 'Congés', 'Congés') + b(a.off, 'na', 'Indispo', 'Indisponible') + '</div>';
+    }
     function assignList() {
         const q = norm(document.getElementById('affAssignFilter').value);
-        const list = (plan.resources || []).filter(r => !q || norm(`${r.nom} ${r.prenom} ${r.trigramme || ''}`).includes(q));
+        const av = asg.av || {};
+        const score = r => (asg.selected.has(r.id) ? 1e6 : 0) + ((av[r.id] || {}).free || 0) * 10 + ((av[r.id] || {}).here || 0) - ((av[r.id] || {}).other || 0);
+        const list = (plan.resources || []).filter(r => !q || norm(`${r.nom} ${r.prenom} ${r.trigramme || ''}`).includes(q))
+            .sort((a, b) => score(b) - score(a) || (a.nom || '').localeCompare(b.nom || '', 'fr'));
         const full = asg.selected.size >= asg.needed;
         document.getElementById('affAssignList').innerHTML = list.length ? list.map(r => {
             const on = asg.selected.has(r.id);
-            return `<label class="${!on && full ? 'off' : ''}"><input type="checkbox" value="${r.id}" ${on ? 'checked' : ''} ${!on && full ? 'disabled' : ''} onchange="AffectationApp.assignToggle(this)"><span><b>${esc((r.nom || '').toUpperCase())}</b> ${esc(r.prenom || '')}${r.fonction ? ` <span class="aff-muted">— ${esc(r.fonction)}</span>` : ''}</span></label>`;
+            return `<label class="${!on && full ? 'off' : ''}"><input type="checkbox" value="${r.id}" ${on ? 'checked' : ''} ${!on && full ? 'disabled' : ''} onchange="AffectationApp.assignToggle(this)"><span style="flex:1;"><b>${esc((r.nom || '').toUpperCase())}</b> ${esc(r.prenom || '')}${r.fonction ? ` <span class="aff-muted">— ${esc(r.fonction)}</span>` : ''}${availBadges(av[r.id])}</span></label>`;
         }).join('') : '<div style="padding:14px;" class="aff-muted">Aucune ressource</div>';
         document.getElementById('affAssignInfo').innerHTML = `${esc(asg.info)}<br><b>${asg.selected.size} / ${asg.needed}</b> ressource(s) affectée(s)`;
     }
@@ -929,7 +946,8 @@
             try {
                 if (!plan.resources) plan.resources = (await api('/affectation/resources')).resources;
             } catch (e) { alert(e.message); return; }
-            asg.project = p; asg.stage = stageKey; asg.needed = x.needed;
+            asg.project = p; asg.stage = stageKey; asg.needed = x.needed; asg.av = null; asg.total = 0;
+            try { const r = await api(`/affectation/projects/${p.id}/availability/${stageKey}`); asg.av = r.availability; asg.total = r.total; } catch (e) { /* disponibilités indisponibles : liste sans indicateurs */ }
             asg.selected = new Set((p.assignments || {})[stageKey] || []);
             asg.info = `${p.samu_name} — ${planDef(stageKey).label} (${frd(x.start)} → ${frd(x.end)})`;
             document.getElementById('affAssignTitle').textContent = 'Affecter des ressources';
