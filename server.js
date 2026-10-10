@@ -11622,6 +11622,44 @@ app.post('/api/cra/:id/propagate', requireAuth, async (req, res) => {
     } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
 });
 
+// CRA modifié ou renvoyé par un administrateur : retour chez l'expert (visas remis à zéro, marquage, email). L'admin ne soumet jamais à la place de l'expert.
+async function craMarkAdminModified(req, cra, force) {
+    const craId = cra.id;
+    const adminNom = `${req.session.prenom || ''} ${req.session.nom || ''}`.trim() || 'Administrateur';
+    const recent = !force && cra.modifie_admin_at && (Date.now() - Date.parse(cra.modifie_admin_at)) < 30 * 60 * 1000; // pas de mail à chaque enregistrement
+    await dbRun(`UPDATE cra SET modifie_admin_at = ?, modifie_admin_nom = ?, submitted_at = NULL,
+                 vise_n1_at = NULL, vise_n1_by = NULL, vise_n2_at = NULL, vise_n2_by = NULL WHERE id = ?`, [new Date().toISOString(), adminNom, craId]);
+    await dbRun('DELETE FROM cra_signatures WHERE cra_id = ?', [craId]);
+    logUserAction(req, force ? 'CRA renvoyé à l\'expert par administrateur' : 'Modification CRA par administrateur', { craId: Number(craId), expertUserId: cra.user_id });
+    if (recent) return false;
+    try {
+        const ex = await dbGet('SELECT prenom, nom, email FROM users WHERE id = ?', [cra.user_id]);
+        if (!ex || !ex.email) return false;
+        const moisNom = new Date(cra.annee, cra.mois - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+        const appUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
+        await enqueueEmail({
+            batchId: generateICSUid(), recipientEmail: ex.email, recipientName: `${ex.prenom} ${ex.nom}`,
+            senderName: adminNom, senderEmail: req.session.email || '',
+            subject: `CRA ${moisNom} — à vérifier et soumettre`,
+            htmlBody: buildCraEmailHtml({ title: "CRA à vérifier et soumettre", expertNom: `${ex.prenom} ${ex.nom}`, moisNom, craUrl: `${appUrl}/?tab=cra&craId=${cra.id}`,
+                action: `${adminNom} a préparé ou modifié votre CRA. Merci de le vérifier, de le corriger si besoin, puis de le soumettre pour validation.` }),
+            actionType: 'cra_modifie_admin'
+        });
+        return true;
+    } catch (mailErr) { console.error('Mail CRA modifié par admin:', mailErr.message); return false; }
+}
+
+app.post('/api/cra/:id/return-to-expert', requireAdmin, async (req, res) => {
+    try {
+        const cra = await dbGet('SELECT * FROM cra WHERE id = ? AND (deleted IS NULL OR deleted = 0)', [req.params.id]);
+        if (!cra) return res.status(404).json({ error: 'CRA introuvable' });
+        if (cra.user_id === req.session.userId) return res.status(400).json({ error: 'Ce CRA est le vôtre : soumettez-le directement.' });
+        if (cra.statut !== 'a_completer') return res.status(400).json({ error: 'Seul un CRA à compléter peut être renvoyé à l\'expert.' });
+        const mailed = await craMarkAdminModified(req, cra, true);
+        res.json({ success: true, mailed });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.post('/api/cra/:id/astreintes', requireAuth, async (req, res) => {
     const craId = req.params.id;
     const sessionUserId = req.session.userId;
@@ -11662,32 +11700,7 @@ app.post('/api/cra/:id/astreintes', requireAuth, async (req, res) => {
                 );
             });
         }
-        // Modification par un administrateur : l'expert doit vérifier puis soumettre à nouveau (jamais de soumission à sa place)
-        if (isAdmin && cra.user_id !== sessionUserId) {
-            const adminNom = `${req.session.prenom || ''} ${req.session.nom || ''}`.trim() || 'Administrateur';
-            const recent = cra.modifie_admin_at && (Date.now() - Date.parse(cra.modifie_admin_at)) < 30 * 60 * 1000; // pas de mail à chaque enregistrement
-            await dbRun(`UPDATE cra SET modifie_admin_at = ?, modifie_admin_nom = ?, submitted_at = NULL,
-                         vise_n1_at = NULL, vise_n1_by = NULL, vise_n2_at = NULL, vise_n2_by = NULL WHERE id = ?`, [new Date().toISOString(), adminNom, craId]);
-            await dbRun('DELETE FROM cra_signatures WHERE cra_id = ?', [craId]);
-            logUserAction(req, 'Modification CRA par administrateur', { craId: Number(craId), expertUserId: cra.user_id });
-            if (!recent) {
-                try {
-                    const ex = await dbGet('SELECT prenom, nom, email FROM users WHERE id = ?', [cra.user_id]);
-                    if (ex && ex.email) {
-                        const moisNom = new Date(cra.annee, cra.mois - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
-                        const appUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
-                        await enqueueEmail({
-                            batchId: generateICSUid(), recipientEmail: ex.email, recipientName: `${ex.prenom} ${ex.nom}`,
-                            senderName: adminNom, senderEmail: req.session.email || '',
-                            subject: `CRA ${moisNom} — modifié par l'administrateur, à vérifier et soumettre`,
-                            htmlBody: buildCraEmailHtml({ title: "CRA modifié par l'administrateur", expertNom: `${ex.prenom} ${ex.nom}`, moisNom, craUrl: `${appUrl}/?tab=cra&craId=${cra.id}`,
-                                action: `${adminNom} a modifié votre CRA. Merci de le vérifier, de le corriger si besoin, puis de le soumettre à nouveau pour validation.` }),
-                            actionType: 'cra_modifie_admin'
-                        });
-                    }
-                } catch (mailErr) { console.error('Mail CRA modifié par admin:', mailErr.message); }
-            }
-        }
+        if (isAdmin && cra.user_id !== sessionUserId) await craMarkAdminModified(req, cra, false);
         res.json({ success: true, inserted: (lignes || []).length });
     } catch(e) {
         res.status(500).json({ error: e.message });
