@@ -1,4 +1,4 @@
-<!-- v1.16.24 -->
+<!-- v1.16.25 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -34,6 +34,7 @@
         .tab-btn:hover { background-color: #34495e; }
         .tab-btn.active { background-color: #1D70B7; border-bottom: 4px solid #2980b9; }
         .app-ico { fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+        .alert-ico { width: 1.15em; height: 1.15em; vertical-align: -0.22em; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
         .tab-ico { width: 18px; height: 18px; margin-right: 8px; vertical-align: -3px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; opacity: .9; }
         .tab-btn.tab-dragging { opacity: 0.4; cursor: grabbing; pointer-events: none; }
         .tab-btn.tab-drag-over { background-color: #3d5a73; box-shadow: inset 0 0 0 2px #5dade2; }
@@ -644,7 +645,7 @@
                 <!-- Case MAD volante -->
                 <div style="margin-bottom:10px;padding:10px 14px;background:#f3e5f5;border:1px solid #ce93d8;border-radius:6px;display:flex;align-items:center;gap:10px;">
                     <input type="checkbox" id="addMadVolante" onchange="toggleMadVolanteFields('add')" style="width:16px;height:16px;cursor:pointer;">
-                    <label for="addMadVolante" style="font-size:13px;font-weight:bold;color:#6a1b9a;cursor:pointer;margin:0;">🪁 MAD volante <span style="font-weight:normal;color:#888;font-size:12px;">(contrat à durée déterminée avec un nombre de jours maximum)</span></label>
+                    <label for="addMadVolante" style="font-size:13px;font-weight:bold;color:#6a1b9a;cursor:pointer;margin:0;"><svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:16px;height:16px;stroke:#7b1fa2;fill:#e1bee7;vertical-align:-2px;margin-right:6px;vertical-align:-3px;"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg>MAD volante <span style="font-weight:normal;color:#888;font-size:12px;">(contrat à durée déterminée avec un nombre de jours maximum)</span></label>
                 </div>
                 <div class="form-row">
                     <div class="form-group"><label>SAMU de rattachement *</label><select id="samu"><option value="">-- Choisir un SAMU --</option></select></div>
@@ -3324,7 +3325,7 @@
             <!-- MAD volante -->
             <div style="margin-top:10px;padding:10px 14px;background:#f3e5f5;border:1px solid #ce93d8;border-radius:6px;display:flex;align-items:center;gap:10px;">
                 <input type="checkbox" id="editMadVolante" onchange="toggleMadVolanteFields('edit')" style="width:16px;height:16px;cursor:pointer;">
-                <label for="editMadVolante" style="font-size:13px;font-weight:bold;color:#6a1b9a;cursor:pointer;margin:0;">🪁 MAD volante <span style="font-weight:normal;color:#888;font-size:12px;">(contrat à durée déterminée avec un nombre de jours maximum)</span></label>
+                <label for="editMadVolante" style="font-size:13px;font-weight:bold;color:#6a1b9a;cursor:pointer;margin:0;"><svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:16px;height:16px;stroke:#7b1fa2;fill:#e1bee7;vertical-align:-2px;margin-right:6px;vertical-align:-3px;"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg>MAD volante <span style="font-weight:normal;color:#888;font-size:12px;">(contrat à durée déterminée avec un nombre de jours maximum)</span></label>
             </div>
             <div id="editMadVolanteFields" style="display:none;margin-top:10px;grid-template-columns:1fr 1fr;gap:15px;">
                 <div class="form-group"><label>Date de fin MAD *</label><input type="date" id="editDateFinMad"></div>
@@ -4897,7 +4898,8 @@
             megaphone: '<path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>',
             doc: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/>',
             chart: '<path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6" rx=".6"/><rect x="12" y="8" width="3" height="10" rx=".6"/><rect x="17" y="5" width="3" height="13" rx=".6"/>',
-            key: '<path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/><path d="m15.5 7.5 3 3L22 7l-3-3"/>'
+            key: '<path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/><path d="m15.5 7.5 3 3L22 7l-3-3"/>',
+            plane: '<path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/>'
         };
         function uiIcon(name, size, style) {
             return `<svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:${size || 18}px;height:${size || 18}px;stroke:currentColor;vertical-align:-${Math.round((size || 18) * 0.2)}px;margin-right:8px;${style || ''}">${UI_ICONS[name] || ''}</svg>`;
@@ -8098,7 +8100,7 @@
                     <td>${r.nom}</td>
                     <td>${r.prenom}</td>
                     <td>${r.trigramme}</td>
-                    <td>${r.is_mad_volante ? `<span style="background:#f3e5f5;color:#6a1b9a;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:bold;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;"><svg width="16" height="9" viewBox="0 0 18 10" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 7 C6 7 3 5 1 2 C2 4 4 8 9 9 C14 8 16 4 17 2 C15 5 12 7 9 7Z" fill="#9c27b0"/><path d="M9 7 C7 6 5 4 4 2 C5 3 7 5 9 5 C11 5 13 3 14 2 C13 4 11 6 9 7Z" fill="#ce93d8"/></svg> MAD volante<br><span style="font-weight:normal;font-size:10px;">${r.jours_max_mad ? r.jours_max_mad + ' j max' : ''}</span></span>` : `${r.taux}%`}</td>
+                    <td>${r.is_mad_volante ? `<span style="background:#f3e5f5;color:#6a1b9a;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:bold;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;"><svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:14px;height:14px;stroke:#7b1fa2;fill:#e1bee7;vertical-align:-2px;"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg> MAD volante</span>` : `${r.taux}%`}</td>
                     <td>${r.samu}</td>
                     <td>${buildSamuAssignmentsBadgesHtml(r.id, 'principal')}</td>
                     <td>${buildSamuAssignmentsBadgesHtml(r.id, 'secondaire')}</td>
@@ -8110,7 +8112,7 @@
                     ${currentUser && currentUser.activeProfile !== 'rh'
                         ? `<td style="text-align:center;">
                              <input type="checkbox" ${r.astreinte_volontaire ? 'checked' : ''} onchange="toggleAstreinteByResource(${r.id}, this.checked)" style="width:18px;height:18px;cursor:pointer;" title="${r.user_id ? 'Accès astreinte/CRA' : 'Marquer comme expert astreinte (créez un compte utilisateur pour accès CRA)'}">
-                             ${r.astreinte_volontaire && !r.user_id ? '<span title="Aucun compte utilisateur lié — n\'apparaîtra pas dans le dropdown CRA" style="color:#e53935;font-size:12px;margin-left:2px;cursor:help;">⚠️</span>' : ''}
+                             ${r.astreinte_volontaire && !r.user_id ? '<span title="Aucun compte utilisateur lié — n\'apparaîtra pas dans le dropdown CRA" style="color:#f9a825;font-size:12px;margin-left:2px;cursor:help;">⚠️</span>' : ''}
                            </td>`
                         : `<td style="text-align:center;"><input type="checkbox" ${r.astreinte_volontaire ? 'checked' : ''} disabled style="width:18px;height:18px;opacity:0.5;cursor:not-allowed;" title="${r.astreinte_volontaire ? 'Participe au dispositif astreintes' : 'Ne participe pas au dispositif astreintes'}"></td>`}
                     ${currentUser && currentUser.activeProfile !== 'rh'
@@ -10017,7 +10019,7 @@
                                             : `<span style="color: white; font-weight: bold; font-size: 14px;">${trigramme}</span>`
                                         }
                                     </div>
-                                    ${isMadVolante ? `<span style="position:absolute;bottom:-5px;right:-6px;line-height:1;" title="MAD volante"><svg width="18" height="10" viewBox="0 0 18 10" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 7 C6 7 3 5 1 2 C2 4 4 8 9 9 C14 8 16 4 17 2 C15 5 12 7 9 7Z" fill="#9c27b0"/><path d="M9 7 C7 6 5 4 4 2 C5 3 7 5 9 5 C11 5 13 3 14 2 C13 4 11 6 9 7Z" fill="#ce93d8"/></svg></span>` : ''}
+                                    ${isMadVolante ? `<span style="position:absolute;bottom:-5px;right:-6px;line-height:1;" title="MAD volante"><svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:13px;height:13px;stroke:#7b1fa2;fill:#e1bee7;vertical-align:-2px;vertical-align:top;background:white;border-radius:50%;padding:1px;"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg></span>` : ''}
                                 </div>
                                 <!-- Informations -->
                                 <div style="text-align: left;">
@@ -28461,7 +28463,7 @@ function analyseRenderFilters() {
                         _analyseFilters[col] = {...cur, to: v}; _analysePage=1; analyseApplyFilters();
                     }));
                 } else {
-                    dateWrap.appendChild(mkDateInp(df.date, mode==='after'?'À partir du…':mode==='before'?'Jusqu'au…':'Date exacte', v => {
+                    dateWrap.appendChild(mkDateInp(df.date, mode==='after'?'À partir du…':mode==='before'?'Jusqu\'au…':'Date exacte', v => {
                         const cur = (_analyseFilters[col]&&typeof _analyseFilters[col]==='object') ? _analyseFilters[col] : {mode};
                         _analyseFilters[col] = {...cur, date: v}; _analysePage=1; analyseApplyFilters();
                     }));
@@ -29461,5 +29463,76 @@ function analyseExportCSV() {
 })();
 </script>
 
+
+<script>
+// Remplace les ⚠️ affichés dans la page par une icône SVG : jaune (info), orange (anomalie), rouge (bloquant)
+(function () {
+    const BODY = '<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>';
+    const SKIP = new Set(['SCRIPT', 'STYLE', 'TEXTAREA', 'OPTION', 'TITLE', 'INPUT', 'SELECT']);
+    const RE = /⚠️?/g;
+
+    function severityColor(el) {
+        const m = getComputedStyle(el).color.match(/\d+/g);
+        if (!m) return '#f9a825';
+        const [r, g, b] = m.map(Number);
+        const max = Math.max(r, g, b), min = Math.min(r, g, b);
+        if (max < 150 || (max - min) / max < 0.45) return '#f9a825';
+        let hue = 0;
+        if (max === r) hue = 60 * (((g - b) / (max - min)) % 6);
+        else if (max === g) hue = 60 * ((b - r) / (max - min) + 2);
+        else hue = 60 * ((r - g) / (max - min) + 4);
+        if (hue < 0) hue += 360;
+        if (hue < 12 || hue > 340) return '#d32f2f';
+        if (hue < 34) return '#ef6c00';
+        return '#f9a825';
+    }
+
+    function makeIcon(color) {
+        const span = document.createElement('span');
+        span.className = 'alert-ico-wrap';
+        span.innerHTML = '<svg class="alert-ico" viewBox="0 0 24 24" aria-hidden="true" style="stroke:' + color + ';fill:' + color + '33;">' + BODY + '</svg>';
+        return span.firstChild;
+    }
+
+    function convertText(node) {
+        const parent = node.parentNode;
+        if (!parent || SKIP.has(parent.nodeName) || !node.nodeValue || node.nodeValue.indexOf('⚠') === -1) return;
+        const color = severityColor(parent.nodeType === 1 ? parent : parent.parentElement || document.body);
+        const frag = document.createDocumentFragment();
+        const parts = node.nodeValue.split(RE);
+        parts.forEach((txt, i) => {
+            if (txt) frag.appendChild(document.createTextNode(txt));
+            if (i < parts.length - 1) frag.appendChild(makeIcon(color));
+        });
+        parent.replaceChild(frag, node);
+    }
+
+    function scan(root) {
+        if (root.nodeType === 3) { convertText(root); return; }
+        if (root.nodeType !== 1 || SKIP.has(root.nodeName)) return;
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+            acceptNode: n => n.nodeValue && n.nodeValue.indexOf('⚠') !== -1 && !SKIP.has(n.parentNode.nodeName) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT
+        });
+        const nodes = [];
+        while (walker.nextNode()) nodes.push(walker.currentNode);
+        nodes.forEach(convertText);
+    }
+
+    let pending = new Set(), scheduled = false;
+    function flush() {
+        scheduled = false;
+        const batch = pending; pending = new Set();
+        batch.forEach(n => { if (n.isConnected) scan(n); });
+    }
+    new MutationObserver(muts => {
+        for (const mu of muts) {
+            if (mu.type === 'characterData') pending.add(mu.target);
+            else mu.addedNodes.forEach(n => pending.add(n));
+        }
+        if (!scheduled && pending.size) { scheduled = true; setTimeout(flush, 30); }
+    }).observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+    scan(document.body);
+})();
+</script>
 </body>
 </html>
