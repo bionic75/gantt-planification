@@ -140,7 +140,7 @@
         .aff-pc { display: flex; flex-direction: column; height: 96px; gap: 3px; padding: 5px 0; box-sizing: border-box; }
         .aff-pc .ph, .aff-pc .st { display: flex; flex-direction: column; gap: 1px; }
         .aff-pc .ph { flex: 0 0 16px; gap: 2px; } .aff-pc .st { flex: 1; min-height: 0; }
-        .aff-pc .b { flex: 1; min-height: 0; font-size: 10px; line-height: 12px; color: #fff; font-weight: 700; white-space: nowrap; overflow: visible; text-shadow: 0 0 2px rgba(0,0,0,.45); padding-left: 3px; }
+        .aff-pc .b { flex: 1; min-height: 14px; max-height: 40px; box-sizing: border-box; font-size: 10px; line-height: 12px; color: #fff; font-weight: 700; white-space: nowrap; overflow: visible; text-shadow: 0 0 2px rgba(0,0,0,.45); padding-left: 3px; }
         .aff-pc .b.hd { border-top-left-radius: 5px; border-bottom-left-radius: 5px; }
         .aff-pc .b.tl { border-top-right-radius: 5px; border-bottom-right-radius: 5px; }
         .aff-pc .b.go { cursor: pointer; } .aff-pc .b.go:hover { filter: brightness(1.15); outline: 2px solid rgba(15,118,110,.7); outline-offset: -1px; }
@@ -750,17 +750,22 @@
 
     // Contenu d'une cellule : phases (bandeau haut), étapes (bandes du bas, cliquables en vue jour/semaine), jalons
     function cellContent(p, c) {
-        const clickable = plan.zoom !== 'month';
+        const clickable = true;
         const bar = (k, x, i, isStep) => {
             if (hiddenKeys.has(k) || !(x.start <= c.to && x.end >= c.from)) return '';
             const head = x.start >= c.from && x.start <= c.to, tail = x.end >= c.from && x.end <= c.to;
             const def = planDef(k);
             const got = ((p.assignments || {})[k] || []).length;
             const needed = x.needed || 0;
-            const tip = `${def.label} : ${frd(x.start)} → ${frd(x.end)}` + (isStep && needed ? ` — ${got}/${needed} ressource(s) affectée(s)` : '') + (isStep && clickable ? ' (cliquer pour affecter)' : '');
+            const tip = `${def.label} : ${frd(x.start)} → ${frd(x.end)}` + (isStep && needed ? ` — ${got}/${needed} ressource(s) affectée(s)` : '') + (isStep && needed ? ' (cliquer pour voir / affecter)' : '');
             const go = isStep && clickable && needed;
+            // Position proportionnelle dans la colonne (vue semaine / mois) : une journée reste une petite barre
+            const span = (utcMs(c.to) - utcMs(c.from)) / 86400000 + 1;
+            const o1 = (utcMs(x.start < c.from ? c.from : x.start) - utcMs(c.from)) / 86400000;
+            const o2 = (utcMs(x.end > c.to ? c.to : x.end) - utcMs(c.from)) / 86400000 + 1;
+            const pos = span > 1 ? `margin-left:${(o1 / span * 100).toFixed(2)}%;width:max(${((o2 - o1) / span * 100).toFixed(2)}%,24px);flex:0 0 auto;` : '';
             const label = head && isStep && needed ? `${got}/${needed}` : '';
-            return `<div class="b ${head ? 'hd' : ''} ${tail ? 'tl' : ''} ${go ? 'go' : ''} ${isStep && needed && got >= needed ? 'ok' : ''} ${k === 'gel' ? 'gel' : ''}" style="background:${planColor(k)}" title="${esc(tip)}" ${go ? `onclick="AffectationApp.openAssign(${p.id},'${k}')"` : ''}>${label}</div>`;
+            return `<div class="b ${head ? 'hd' : ''} ${tail ? 'tl' : ''} ${go ? 'go' : ''} ${isStep && needed && got >= needed ? 'ok' : ''} ${k === 'gel' ? 'gel' : ''}" style="background:${planColor(k)};${pos}" title="${esc(tip)}" ${go ? `onclick="AffectationApp.openAssign(${p.id},'${k}')"` : ''}>${label}</div>`;
         };
         const ph = PHASES.map(k => ((p.periods || {})[k] || []).map((x, i) => bar(k, x, i, false)).join('')).join('');
         const st = STEPS.map(k => ((p.periods || {})[k] || []).map((x, i) => bar(k, x, i, true)).join('')).join('');
