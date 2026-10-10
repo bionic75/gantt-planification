@@ -139,12 +139,11 @@
         .aff-plan-table tbody th.sam .n { font-weight: 800; font-size: 19px; line-height: 1.2; }
         .aff-plan-table tbody th.sam .c { font-weight: 500; font-size: 14px; color: #6b7a8d; margin-top: 2px; }
         .aff-plan-table tbody tr:nth-child(even) th.sam { background: #f4f7fb; }
-        .aff-plan-table tbody td { height: 96px; padding: 0; position: relative; border-right: 1px solid #eef1f6; border-bottom: 1px solid #eef1f6; }
-        .aff-pc { display: flex; flex-direction: column; height: 96px; gap: 3px; padding: 5px 0; box-sizing: border-box; }
+        .aff-plan-table tbody td { height: auto; vertical-align: top; padding: 0; position: relative; border-right: 1px solid #eef1f6; border-bottom: 1px solid #eef1f6; }
+        .aff-pc { display: flex; flex-direction: column; min-height: 96px; gap: 3px; padding: 6px 0; box-sizing: border-box; }
         .aff-pc .ph, .aff-pc .st { display: flex; flex-direction: column; gap: 1px; }
-        .aff-pc .ph { flex: 0 0 auto; gap: 2px; }
-        .aff-pc .ph .b { flex: 0 0 10px; min-height: 10px; } .aff-pc .st { flex: 1; min-height: 0; }
-        .aff-pc .b { flex: 1; min-height: 14px; max-height: 40px; box-sizing: border-box; font-size: 10px; line-height: 12px; color: #fff; font-weight: 700; white-space: nowrap; overflow: visible; text-shadow: 0 0 2px rgba(0,0,0,.45); padding-left: 3px; }
+        .aff-pc .ph { flex: 0 0 auto; gap: 3px; margin-bottom: 4px; } .aff-pc .st { flex: 0 0 auto; gap: 3px; }
+          .aff-pc .b { flex: 0 0 18px; height: 18px; min-height: 18px; max-height: 18px; box-sizing: border-box; font-size: 11px; line-height: 18px; color: #fff; font-weight: 700; white-space: nowrap; overflow: visible; text-shadow: 0 0 2px rgba(0,0,0,.45); padding-left: 3px; }
         .aff-pc .b.hd { border-top-left-radius: 5px; border-bottom-left-radius: 5px; }
         .aff-pc .b.tl { border-top-right-radius: 5px; border-bottom-right-radius: 5px; }
         .aff-pc .b.go { cursor: pointer; } .aff-pc .b.go:hover { filter: brightness(1.15); outline: 2px solid rgba(15,118,110,.7); outline-offset: -1px; }
@@ -762,7 +761,8 @@
         const bar = document.getElementById('affLegendBar');
         if (!bar || !plan.config) return;
         const chip = (k, dot) => `<button type="button" class="chip ${hiddenKeys.has(k) ? 'off' : ''}" onclick="AffectationApp.toggleStage('${k}')" title="${hiddenKeys.has(k) ? 'Afficher' : 'Masquer'} : ${esc(planDef(k).label)}"><i class="${dot ? 'dot' : ''}" style="background:${planColor(k)}"></i>${esc(planDef(k).label)}</button>`;
-        bar.innerHTML = `<span class="t">Légende</span>${PHASES.map(k => chip(k)).join('')}<span class="sep"></span>${['mise_en_service', 'mise_en_production'].map(k => chip(k, true)).join('')}<span class="sep"></span>${STEPS.map(k => chip(k)).join('')}`
+        const pastChip = `<button type="button" class="chip ${hiddenKeys.has('_past') ? 'off' : ''}" onclick="AffectationApp.toggleStage('_past')" title="${hiddenKeys.has('_past') ? 'Afficher' : 'Masquer'} les SAMU dont la date de mise en service est passée"><i class="dot" style="background:#7a8799"></i>SAMU déjà en service</button>`;
+        bar.innerHTML = `<span class="t">Légende</span>${PHASES.map(k => chip(k)).join('')}<span class="sep"></span>${['mise_en_service', 'mise_en_production'].map(k => chip(k, true)).join('')}<span class="sep"></span>${STEPS.map(k => chip(k)).join('')}<span class="sep"></span>${pastChip}`
             + `<span class="aff-muted" style="margin-left:auto;font-size:11px;">Cliquer sur une rubrique pour l'afficher / la masquer</span>`;
     }
     const PHASES = ['cadrage', 'deploiement', 'gel'];
@@ -856,7 +856,9 @@
             const cmp = (a, b) => String(a || '').localeCompare(String(b || ''), 'fr', { numeric: true });
             const keyOf = { samu: p => p.samu_name, chef: p => p.chef_projet_nom, mes: p => p.date_mise_en_service };
             const k = keyOf[plan.sort.key];
-            const ordered = [...plan.projects].sort((a, b) => {
+            const today = todayIso();
+            const shown = hiddenKeys.has('_past') ? plan.projects.filter(p => !(p.date_mise_en_service && p.date_mise_en_service < today)) : plan.projects;
+            const ordered = [...shown].sort((a, b) => {
                 const va = k(a), vb = k(b);
                 if (!va && vb) return 1; // valeurs vides toujours en bas
                 if (va && !vb) return -1;
