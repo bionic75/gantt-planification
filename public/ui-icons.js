@@ -78,7 +78,9 @@
         'alarm': '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M5 3 2 6M22 6l-3-3"/>',
         'music': '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
         'volume': '<path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/>',
-        'volumeOff': '<path d="M11 5 6 9H2v6h4l5 4z"/><path d="m22 9-6 6M16 9l6 6"/>'
+        'volumeOff': '<path d="M11 5 6 9H2v6h4l5 4z"/><path d="m22 9-6 6M16 9l6 6"/>',
+        'archive': '<rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8M10 12h4"/>',
+        'archiveRestore': '<rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h2"/><path d="M20 8v11a2 2 0 0 1-2 2h-2"/><path d="m9 15 3-3 3 3"/><path d="M12 12v9"/>'
     };
 
     // Premier point de code (sans sélecteur de variation) -> [icône, couleur]
@@ -105,7 +107,7 @@
         0x1F50D: ['search'], 0x1F4BE: ['save'], 0x1F4E5: ['download'], 0x1F4E4: ['upload'], 0x1F5D1: ['trash'],
         0x2139: ['info', '#1565c0'], 0x1F3A8: ['palette'], 0x2B50: ['star', '#f9a825'], 0x1F4A1: ['lightbulb', '#f9a825'],
         0x1F9EA: ['flask'], 0x1F4BD: ['database'], 0x1F5BC: ['image'], 0x1F4E2: ['megaphone'], 0x1F3E2: ['building'],
-        0x1F4CC: ['pin'], 0x1F6AB: ['ban', '#c62828'], 0x2B07: ['download'], 0x2B06: ['upload'], 0x1F4C1: ['folder'], 0x1F4C2: ['folder'], 0x1F3E5: ['hospital'], 0x1F4F7: ['camera'], 0x23F0: ['alarm'], 0x1F3B5: ['music'], 0x1F3B6: ['music'], 0x1F50A: ['volume'], 0x1F509: ['volume'], 0x1F508: ['volume'], 0x1F507: ['volumeOff'], 0x1F4F8: ['camera']
+        0x1F4CC: ['pin'], 0x1F6AB: ['ban', '#c62828'], 0x2B07: ['download'], 0x2B06: ['upload'], 0x1F4C1: ['folder'], 0x1F4C2: ['folder'], 0x1F3E5: ['hospital'], 0x1F4F7: ['camera'], 0x1F5C4: ['archive'], 0x21A9: ['archiveRestore'], 0x23F0: ['alarm'], 0x1F3B5: ['music'], 0x1F3B6: ['music'], 0x1F50A: ['volume'], 0x1F509: ['volume'], 0x1F508: ['volume'], 0x1F507: ['volumeOff'], 0x1F4F8: ['camera']
     };
 
     const RE = /\p{Extended_Pictographic}️?(?:‍\p{Extended_Pictographic}️?)*/gu;
