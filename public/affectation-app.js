@@ -906,10 +906,13 @@
         if (!asg.total) return '';
         if (!a) return '<div class="aff-av"><span class="aff-av-b na" title="Aucune donnée de planification sur cette période">Planning non renseigné</span></div>';
         const tone = a.free >= asg.total * 0.8 ? 'ok' : a.free > 0 ? 'mid' : 'ko';
-        const b = (n, cls, txt, tip) => n ? `<span class="aff-av-b ${cls}" title="${esc(tip)}">${txt} ${n}</span>` : '';
-        return `<div class="aff-av"><span class="aff-av-b ${tone}" title="Demi-journées disponibles pour l'ANS, sans affectation, sur ${asg.total} demi-journées ouvrées">Libre ${a.free}/${asg.total}</span>`
-            + b(a.here, 'here', 'Ce SAMU', 'Déjà affecté(e) à ce SAMU') + b(a.other, 'ko', 'Autre SAMU', 'Affecté(e) à un autre SAMU : conflit')
-            + b(a.ans, 'mid', 'ANS', 'Affecté(e) à des activités ANS / qualification / divers') + b(a.leave, 'na', 'Congés', 'Congés') + b(a.off, 'na', 'Indispo', 'Indisponible') + '</div>';
+        const j = n => { const d = n / 2; return `${String(d).replace('.', ',')} j`; };
+        const b = (n, cls, txt, tip) => n ? `<span class="aff-av-b ${cls}" title="${esc(tip)}">${txt} : ${j(n)}</span>` : '';
+        const others = (a.others || []).length ? ` (${a.others.join(', ')})` : '';
+        return `<div class="aff-av"><span class="aff-av-b ${tone}" title="Disponible pour l'ANS et sans affectation, sur ${j(asg.total)} ouvrés">Libre : ${j(a.free)} / ${j(asg.total)}</span>`
+            + b(a.here, 'here', 'Déjà sur ce SAMU', 'Déjà affecté(e) à ce SAMU dans la planification')
+            + b(a.other, 'ko', 'Affecté(e) ailleurs' + others, 'Affecté(e) à un autre SAMU sur cette période (planification) : conflit')
+            + b(a.ans, 'mid', 'Activité ANS', 'Affecté(e) à des activités ANS / qualification / divers') + b(a.leave, 'na', 'Congés', 'Congés') + b(a.off, 'na', 'Indisponible', 'Indisponible') + '</div>';
     }
     function assignList() {
         const q = norm(document.getElementById('affAssignFilter').value);
