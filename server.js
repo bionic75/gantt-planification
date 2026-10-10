@@ -7728,6 +7728,61 @@ app.get('/api/version', (req, res) => {
     });
 });
 
+// ---------- Thèmes d'affichage saisonniers ----------
+const THEME_IDS = ['halloween', 'noel', 'saintvalentin', 'paques', 'vacances'];
+const THEME_DEFAULTS = {
+    mode: 'off', forced: 'noel', intensity: 'sobre',
+    themes: {
+        halloween:     { auto: true, start: '10-20', end: '11-02' },
+        noel:          { auto: true, start: '12-01', end: '12-31' },
+        saintvalentin: { auto: true, start: '02-07', end: '02-14' },
+        paques:        { auto: true, before: 7, after: 1 },
+        vacances:      { auto: true, start: '07-01', end: '08-31' }
+    }
+};
+
+function sanitizeThemeConfig(input) {
+    const cfg = JSON.parse(JSON.stringify(THEME_DEFAULTS));
+    if (!input || typeof input !== 'object') return cfg;
+    if (['off', 'auto', 'forced'].includes(input.mode)) cfg.mode = input.mode;
+    if (THEME_IDS.includes(input.forced)) cfg.forced = input.forced;
+    if (['sobre', 'decore', 'anime'].includes(input.intensity)) cfg.intensity = input.intensity;
+    const mmdd = /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+    for (const id of THEME_IDS) {
+        const t = input.themes && input.themes[id];
+        if (!t || typeof t !== 'object') continue;
+        cfg.themes[id].auto = t.auto !== false;
+        if (id === 'paques') {
+            const b = Number(t.before), a = Number(t.after);
+            if (Number.isInteger(b) && b >= 0 && b <= 30) cfg.themes[id].before = b;
+            if (Number.isInteger(a) && a >= 0 && a <= 30) cfg.themes[id].after = a;
+        } else {
+            if (mmdd.test(t.start)) cfg.themes[id].start = t.start;
+            if (mmdd.test(t.end)) cfg.themes[id].end = t.end;
+        }
+    }
+    return cfg;
+}
+
+// Public : le thème s'applique aussi à l'écran de connexion
+app.get('/api/theme', (req, res) => {
+    database.get('SELECT value FROM settings WHERE key = ?', ['theme_config'], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        let parsed = null;
+        try { parsed = row ? JSON.parse(row.value) : null; } catch (e) { /* valeur corrompue : défauts */ }
+        res.json(sanitizeThemeConfig(parsed));
+    });
+});
+
+app.put('/api/theme', requireAdmin, (req, res) => {
+    const cfg = sanitizeThemeConfig(req.body);
+    database.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['theme_config', JSON.stringify(cfg)], err => {
+        if (err) return res.status(500).json({ error: err.message });
+        logUserAction(req, 'Mise à jour thème d\'affichage', { mode: cfg.mode, forced: cfg.forced, intensity: cfg.intensity });
+        res.json(cfg);
+    });
+});
+
 app.put('/api/settings', requireAuth, requireAdmin, (req, res) => {
     const { key, value } = req.body;
     database.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [key, value],
