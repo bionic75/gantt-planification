@@ -785,7 +785,8 @@
             const def = planDef(k);
             const got = ((p.assignments || {})[k] || []).length;
             const needed = x.needed || 0;
-            const tip = `${def.label} : ${frd(x.start)} → ${frd(x.end)}` + (isStep && needed ? ` — ${got}/${needed} ressource(s) affectée(s)` : '') + (isStep && needed ? ' (cliquer pour voir / affecter)' : '');
+            const names = ((p.assignments || {})[k] || []).map(id => { const r = (plan.resources || []).find(z => z.id === id); return r ? `${r.prenom || ''} ${(r.nom || '').toUpperCase()}`.trim() : `Ressource ${id}`; });
+            const tip = `${def.label} : ${frd(x.start)} → ${frd(x.end)}` + (isStep && needed ? ` — ${got}/${needed} ressource(s) affectée(s)` + (names.length ? ` :\n• ${names.join('\n• ')}` : '') : '') + (isStep && needed ? ' (cliquer pour voir / affecter)' : '');
             const go = isStep && clickable && needed;
             // Position proportionnelle dans la colonne (vue semaine / mois) : une journée reste une petite barre
             const span = (utcMs(c.to) - utcMs(c.from)) / 86400000 + 1;
@@ -891,7 +892,8 @@
     async function loadPlanning() {
         const box = document.getElementById('affPlan');
         try {
-            const [cfg, proj] = await Promise.all([api('/affectation/config'), api('/affectation/projects')]);
+            const [cfg, proj, res] = await Promise.all([api('/affectation/config'), api('/affectation/projects'), api('/affectation/resources').catch(() => null)]);
+            if (res) plan.resources = res.resources;
             plan.projects = proj.projects; plan.colors = cfg.colors; plan.config = cfg; plan.loaded = true;
             renderPlanning();
             AffectationApp.planToday();
