@@ -1,4 +1,4 @@
-<!-- v1.16.39 -->
+<!-- v1.16.40 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -475,15 +475,15 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.16.39">
-    <link rel="stylesheet" href="/darkmode.css?v=1.16.39">
-    <link rel="stylesheet" href="/login.css?v=1.16.39">
-    <link rel="stylesheet" href="/ui-polish.css?v=1.16.39">
-    <script src="/darkmode.js?v=1.16.39"></script>
-    <script src="/themes.js?v=1.16.39" defer></script>
-    <script src="/layout-fix.js?v=1.16.39" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.16.40">
+    <link rel="stylesheet" href="/darkmode.css?v=1.16.40">
+    <link rel="stylesheet" href="/login.css?v=1.16.40">
+    <link rel="stylesheet" href="/ui-polish.css?v=1.16.40">
+    <script src="/darkmode.js?v=1.16.40"></script>
+    <script src="/themes.js?v=1.16.40" defer></script>
+    <script src="/layout-fix.js?v=1.16.40" defer></script>
     <script>window.UI_ICONS_KEEP_ALERT = true;</script>
-    <script src="/ui-icons.js?v=1.16.39" defer></script>
+    <script src="/ui-icons.js?v=1.16.40" defer></script>
 </head>
 <body>
     <div class="container">
@@ -1783,12 +1783,14 @@
                 <div style="display: flex; align-items: flex-end; gap: 10px;">
                     <div style="flex: 1;">
                         <label>Icône de l'application (favicon)</label>
-                        <select id="faviconSelect">
-                            <option value="calendrier">📅 Calendrier</option>
-                            <option value="gantt">📊 Gantt</option>
-                            <option value="grille">⊞ Grille</option>
-                            <option value="timeline">⏱️ Timeline</option>
+                        <select id="faviconSelect" style="display:none;">
+                            <option value="calendrier">Calendrier</option>
+                            <option value="gantt">Gantt</option>
+                            <option value="grille">Grille</option>
+                            <option value="timeline">Timeline</option>
                         </select>
+                        <div id="faviconPicker" style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;"></div>
+                        <div id="faviconTabMock" style="display:inline-flex;align-items:center;gap:8px;margin-top:12px;padding:6px 14px 6px 10px;background:#dfe3ea;border-radius:8px 8px 0 0;font-size:12px;color:#33475b;"></div>
                     </div>
                     <button onclick="saveFavicon()" style="white-space: nowrap;">💾 Sauvegarder</button>
                 </div>
@@ -18603,6 +18605,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                     const faviconSelect = document.getElementById('faviconSelect');
                     if (faviconSelect && settings.favicon) {
                         faviconSelect.value = settings.favicon;
+                        renderFaviconPicker();
                     }
                     
                     // Appliquer le favicon actuel
@@ -18783,6 +18786,37 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                 timeoutGroup.style.display = 'none';
             }
         }
+
+        const FAVICON_CHOICES = [
+            { id: 'calendrier', label: 'Calendrier', hint: 'Planning par jour' },
+            { id: 'gantt', label: 'Gantt', hint: 'Barres de planification' },
+            { id: 'grille', label: 'Grille', hint: 'Affectations par case' },
+            { id: 'timeline', label: 'Timeline', hint: 'Expert dans le temps' }
+        ];
+        function renderFaviconPicker() {
+            const sel = document.getElementById('faviconSelect');
+            const box = document.getElementById('faviconPicker');
+            if (!sel || !box) return;
+            const cur = sel.value || 'calendrier';
+            box.innerHTML = FAVICON_CHOICES.map(c => `
+                <div onclick="pickFavicon('${c.id}')" role="radio" aria-checked="${c.id === cur}" tabindex="0"
+                     onkeydown="if(event.key==='Enter'||event.key===' '){pickFavicon('${c.id}');event.preventDefault();}"
+                     style="width:120px;padding:12px 8px 10px;border:2px solid ${c.id === cur ? '#3949ab' : '#d5dae6'};border-radius:12px;background:${c.id === cur ? '#eef0fb' : '#fff'};text-align:center;cursor:pointer;position:relative;transition:all .15s;">
+                    ${c.id === cur ? `<span style="position:absolute;top:-8px;right:-8px;width:22px;height:22px;border-radius:50%;background:#3949ab;display:flex;align-items:center;justify-content:center;"><svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true" style="fill:none;stroke:#fff;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;"><path d="m5 12 5 5L20 7"/></svg></span>` : ''}
+                    <img src="/favicon-${c.id}.svg" alt="" width="52" height="52" style="display:block;margin:0 auto 8px;border-radius:12px;box-shadow:0 3px 10px rgba(0,0,0,.18);">
+                    <div style="font-size:13px;font-weight:bold;color:#2c3e50;">${c.label}</div>
+                    <div style="font-size:10.5px;color:#7a8799;margin-top:2px;">${c.hint}</div>
+                </div>`).join('');
+            const mock = document.getElementById('faviconTabMock');
+            if (mock) mock.innerHTML = `<img src="/favicon-${cur}.svg" alt="" width="16" height="16" style="border-radius:4px;"> Plateforme de Planification`;
+        }
+        function pickFavicon(id) {
+            const sel = document.getElementById('faviconSelect');
+            if (!sel) return;
+            sel.value = id;
+            renderFaviconPicker();
+        }
+        document.addEventListener('DOMContentLoaded', renderFaviconPicker);
 
         function applyFavicon(faviconName) {
             // Récupérer ou créer le lien favicon
