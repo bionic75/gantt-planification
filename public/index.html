@@ -1,4 +1,4 @@
-<!-- v1.16.31 -->
+<!-- v1.16.32 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -475,13 +475,13 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.16.31">
-    <link rel="stylesheet" href="/darkmode.css?v=1.16.31">
-    <script src="/darkmode.js?v=1.16.31"></script>
-    <script src="/themes.js?v=1.16.31" defer></script>
-    <script src="/layout-fix.js?v=1.16.31" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.16.32">
+    <link rel="stylesheet" href="/darkmode.css?v=1.16.32">
+    <script src="/darkmode.js?v=1.16.32"></script>
+    <script src="/themes.js?v=1.16.32" defer></script>
+    <script src="/layout-fix.js?v=1.16.32" defer></script>
     <script>window.UI_ICONS_KEEP_ALERT = true;</script>
-    <script src="/ui-icons.js?v=1.16.31" defer></script>
+    <script src="/ui-icons.js?v=1.16.32" defer></script>
 </head>
 <body>
     <div class="container">
@@ -8163,8 +8163,10 @@
                 // Obtenir les dates depuis l'historique MAD
                 const madDates = getResourceMadDates(r.id);
                 const row = tbody.insertRow();
+                const noAccount = r.astreinte_volontaire && !r.user_id && currentUser && currentUser.activeProfile !== 'rh';
+                const noAccountTip = "Astreinte volontaire sans compte utilisateur lié : cette ressource n'apparaîtra pas dans la liste de sélection des CRA.";
                 row.innerHTML = `
-                    <td>${r.nom}</td>
+                    <td${noAccount ? ` title="${noAccountTip}"` : ''}>${r.nom}${noAccount ? `<span style="color:#f9a825;margin-left:6px;cursor:help;">⚠️</span>` : ''}</td>
                     <td>${r.prenom}</td>
                     <td>${r.trigramme}</td>
                     <td>${r.is_mad_volante ? `<span style="background:#f3e5f5;color:#6a1b9a;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:bold;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;"><svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:14px;height:14px;stroke:#7b1fa2;fill:#e1bee7;vertical-align:-2px;"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg> MAD volante</span>` : `${r.taux}%`}</td>
@@ -8179,7 +8181,6 @@
                     ${currentUser && currentUser.activeProfile !== 'rh'
                         ? `<td style="text-align:center;">
                              <input type="checkbox" ${r.astreinte_volontaire ? 'checked' : ''} onchange="toggleAstreinteByResource(${r.id}, this.checked)" style="width:18px;height:18px;cursor:pointer;" title="${r.user_id ? 'Accès astreinte/CRA' : 'Marquer comme expert astreinte (créez un compte utilisateur pour accès CRA)'}">
-                             ${r.astreinte_volontaire && !r.user_id ? '<span title="Aucun compte utilisateur lié — n\'apparaîtra pas dans le dropdown CRA" style="color:#f9a825;font-size:12px;margin-left:2px;cursor:help;">⚠️</span>' : ''}
                            </td>`
                         : `<td style="text-align:center;"><input type="checkbox" ${r.astreinte_volontaire ? 'checked' : ''} disabled style="width:18px;height:18px;opacity:0.5;cursor:not-allowed;" title="${r.astreinte_volontaire ? 'Participe au dispositif astreintes' : 'Ne participe pas au dispositif astreintes'}"></td>`}
                     ${currentUser && currentUser.activeProfile !== 'rh'
