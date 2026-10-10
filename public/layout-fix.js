@@ -8,8 +8,8 @@
     style.textContent = `
         .header-spacer { height: var(--gp-header-h, 110px) !important; }
         #layoutResetBtn {
-            position: fixed; top: 10px; right: 204px; width: 32px; height: 32px;
-            border: none; border-radius: 50%; background: #fff; cursor: pointer; z-index: 1001; padding: 0;
+            position: relative; width: 32px; height: 32px;
+            border: none; border-radius: 50%; background: #fff; cursor: pointer; padding: 0;
             box-shadow: 0 2px 8px rgba(0,0,0,.2); display: none; align-items: center; justify-content: center;
             transition: transform .2s;
         }
@@ -96,7 +96,7 @@
         btn.type = 'button';
         btn.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${ICON}</svg><span class="dot"></span>`;
         btn.onclick = resetLayout;
-        document.body.appendChild(btn);
+        window.GPTools.mount(btn, 3);
 
         const header = document.querySelector('.fixed-header');
         if (header && 'ResizeObserver' in window) new ResizeObserver(updateSpacer).observe(header);

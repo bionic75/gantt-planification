@@ -12,8 +12,6 @@
     function updateButton() {
         const btn = document.getElementById('colorModeBtn');
         if (!btn) return;
-        const logged = document.getElementById('userInfo') && document.getElementById('userInfo').style.display !== 'none';
-        btn.style.right = logged ? '292px' : '12px';
         const dark = isDark();
         btn.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${dark ? SUN : MOON}</svg>`;
         btn.title = dark ? 'Passer en mode clair' : 'Passer en mode sombre';
@@ -35,6 +33,39 @@
         apply();
     }
 
+    // Barre d'outils flottante : se place à gauche des pastilles fixes de l'en-tête, quelle que soit l'application
+    const PILLS = ['appSwitcher', 'backToPlanificationBtn', 'onlineUsersContainer', 'deplacementsOnlineUsersContainer',
+                   'inactivityTimerDisplay', 'deplacementsTimerDisplay'];
+    function positionTools() {
+        const bar = document.getElementById('gpTools');
+        if (!bar) return;
+        let minLeft = window.innerWidth - 10;
+        PILLS.forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const cs = getComputedStyle(el);
+            if (cs.display === 'none' || cs.visibility === 'hidden') return;
+            const r = el.getBoundingClientRect();
+            if (r.width > 0 && r.top < 60 && r.left < minLeft) minLeft = r.left;
+        });
+        bar.style.right = Math.max(10, window.innerWidth - minLeft + 10) + 'px';
+    }
+    window.GPTools = {
+        mount(btn, order) {
+            let bar = document.getElementById('gpTools');
+            if (!bar) {
+                bar = document.createElement('div');
+                bar.id = 'gpTools';
+                document.body.appendChild(bar);
+            }
+            btn.style.order = order;
+            bar.appendChild(btn);
+            positionTools();
+        },
+        position: positionTools
+    };
+    window.addEventListener('resize', positionTools);
+
     window.ColorMode = { get, set, toggle: () => set(isDark() ? 'light' : 'dark'), sync: syncProfile };
 
     apply();
@@ -45,8 +76,8 @@
         btn.id = 'colorModeBtn';
         btn.type = 'button';
         btn.onclick = () => window.ColorMode.toggle();
-        document.body.appendChild(btn);
+        window.GPTools.mount(btn, 1);
         updateButton();
-        setInterval(updateButton, 2000);
+        setInterval(() => { updateButton(); positionTools(); }, 1000);
     });
 })();
