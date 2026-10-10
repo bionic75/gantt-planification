@@ -1,4 +1,4 @@
-<!-- v1.16.40 -->
+<!-- v1.16.41 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -475,15 +475,15 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.16.40">
-    <link rel="stylesheet" href="/darkmode.css?v=1.16.40">
-    <link rel="stylesheet" href="/login.css?v=1.16.40">
-    <link rel="stylesheet" href="/ui-polish.css?v=1.16.40">
-    <script src="/darkmode.js?v=1.16.40"></script>
-    <script src="/themes.js?v=1.16.40" defer></script>
-    <script src="/layout-fix.js?v=1.16.40" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.16.41">
+    <link rel="stylesheet" href="/darkmode.css?v=1.16.41">
+    <link rel="stylesheet" href="/login.css?v=1.16.41">
+    <link rel="stylesheet" href="/ui-polish.css?v=1.16.41">
+    <script src="/darkmode.js?v=1.16.41"></script>
+    <script src="/themes.js?v=1.16.41" defer></script>
+    <script src="/layout-fix.js?v=1.16.41" defer></script>
     <script>window.UI_ICONS_KEEP_ALERT = true;</script>
-    <script src="/ui-icons.js?v=1.16.40" defer></script>
+    <script src="/ui-icons.js?v=1.16.41" defer></script>
 </head>
 <body>
     <div class="container">
@@ -1823,18 +1823,6 @@
 
                 <!-- Fichier actuel -->
                 <div id="helpCurrentFile" style="margin-top: 12px; font-size: 12px; color: #555; font-style: italic;">Chargement...</div>
-            </div>
-
-            <!-- Sauvegarde base de données -->
-            <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 8px 10px; background: #eef1fb; border-radius: 5px; margin-bottom: 6px;" onclick="toggleAdminSubSection('subBackup')">
-                <strong style="color: #3949ab; font-size: 13px;"><span id="subBackupSubIcon">▶</span> <svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:17px;height:17px;stroke:currentColor;vertical-align:-3px;margin-right:6px;"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>Sauvegarde de la base de données</strong>
-            </div>
-            <div id="subBackup" style="display: none; padding: 10px 5px 15px 5px;">
-                <div style="display: flex; gap: 10px; margin: 10px 0;">
-                    <button onclick="backupFullDatabase()" class="export-btn" style="flex: 1;">📥 Télécharger le backup (CSV)</button>
-                    <button onclick="backupDatabaseSQL()" class="export-btn" style="flex: 1; background-color: #6c757d;">📥 Télécharger le backup (SQL)</button>
-                </div>
-                <input type="email" id="backupEmail" placeholder="Adresse email pour recevoir le backup (optionnel)">
             </div>
 
             <!-- Dump complet / restauration -->
@@ -18120,13 +18108,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             }
         }
 
-        function backupFullDatabase() {
-            window.location.href = `${API_URL}/backup/csv`;
-        }
 
-        function backupDatabaseSQL() {
-            window.location.href = `${API_URL}/backup/sql`;
-        }
 
         // ===== DUMP COMPLET / RESTAURATION =====
         let _dumpToken = null;
@@ -19896,53 +19878,6 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
 
         // ========== ENVOI DE BACKUP PAR EMAIL ==========
 
-        async function sendBackupByEmail() {
-            const email = document.getElementById('backupEmail').value.trim();
-            
-            if (!email) {
-                alert('Veuillez saisir une adresse email');
-                return;
-            }
-            
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!emailRegex.test(email)) {
-                alert('Veuillez saisir une adresse email valide');
-                return;
-            }
-            
-            const confirmSend = confirm(`Envoyer le backup complet à l'adresse ${email} ?`);
-            if (!confirmSend) return;
-            
-            try {
-                const button = event.target;
-                button.disabled = true;
-                button.textContent = 'Envoi en cours...';
-                
-                const response = await fetch(`${API_URL}/backup/send-email`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({ email })
-                });
-                
-                const data = await response.json();
-                
-                button.disabled = false;
-                button.textContent = 'Envoyer par email';
-                
-                if (data.success) {
-                    alert('✅ Backup envoyé par email avec succès !');
-                    document.getElementById('backupEmail').value = '';
-                } else {
-                    alert('❌ Erreur: ' + (data.error || 'Erreur inconnue'));
-                }
-            } catch (error) {
-                console.error('Erreur envoi backup:', error);
-                alert('Erreur lors de l\'envoi du backup');
-                event.target.disabled = false;
-                event.target.textContent = 'Envoyer par email';
-            }
-        }
 
         // ========== GESTION DES SECTIONS REPLIABLES ==========
 
