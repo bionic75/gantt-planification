@@ -3875,15 +3875,17 @@ app.get('/api/affectation/projects/:id/availability/:stage', requireAffectationA
             }
             const out = {};
             Object.entries(slots).forEach(([rid, days]) => {
-                const st = { free: 0, here: 0, other: 0, ans: 0, off: 0, leave: 0 };
+                const st = { free: 0, here: 0, other: 0, ans: 0, off: 0, leave: 0, others: [] };
+                const otherSet = new Set();
                 Object.values(days).forEach(d => {
                     const act = d.activity, av = d.available;
                     if (av === '3') st.leave++;
                     else if (av === '1' || act === '1') st.off++;
-                    else if (act === '3' || act === '4') (affSamuNumber(d.localisation) === samuNo && samuNo ? st.here++ : st.other++);
+                    else if (act === '3' || act === '4') (affSamuNumber(d.localisation) === samuNo && samuNo ? st.here++ : (st.other++, otherSet.add(String(d.localisation || 'SAMU').replace(/^[^A-Za-z0-9]+/, '').trim())));
                     else if (['5', '6', '7', '8'].includes(act)) st.ans++;
                     else if (av === '2') st.free++; // disponible ANS, activité 2 ou non renseignée
                 });
+                st.others = [...otherSet].sort();
                 out[rid] = st;
             });
             res.json({ total, availability: out });
