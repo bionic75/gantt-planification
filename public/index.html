@@ -1,4 +1,4 @@
-<!-- v1.16.72 -->
+<!-- v1.16.73 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -490,17 +490,17 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.16.72">
-    <link rel="stylesheet" href="/darkmode.css?v=1.16.72">
-    <link rel="stylesheet" href="/login.css?v=1.16.72">
-    <link rel="stylesheet" href="/ui-polish.css?v=1.16.72">
-    <script src="/darkmode.js?v=1.16.72"></script>
-    <script src="/themes.js?v=1.16.72" defer></script>
-    <script src="/layout-fix.js?v=1.16.72" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.16.73">
+    <link rel="stylesheet" href="/darkmode.css?v=1.16.73">
+    <link rel="stylesheet" href="/login.css?v=1.16.73">
+    <link rel="stylesheet" href="/ui-polish.css?v=1.16.73">
+    <script src="/darkmode.js?v=1.16.73"></script>
+    <script src="/themes.js?v=1.16.73" defer></script>
+    <script src="/layout-fix.js?v=1.16.73" defer></script>
     <script>window.UI_ICONS_KEEP_ALERT = true;</script>
-    <script src="/ui-icons.js?v=1.16.72" defer></script>
-    <script src="/affectation-app.js?v=1.16.72" defer></script>
-    <script src="/map-timelapse.js?v=1.16.72" defer></script>
+    <script src="/ui-icons.js?v=1.16.73" defer></script>
+    <script src="/affectation-app.js?v=1.16.73" defer></script>
+    <script src="/map-timelapse.js?v=1.16.73" defer></script>
 </head>
 <body>
     <div class="container">
@@ -1279,6 +1279,12 @@
                     <div style="margin-bottom: 15px;">
                         <label style="font-size: 13px; font-weight: bold; color: #6a1b9a; display: block; margin-bottom: 5px;">💬 Commentaire de l'expert</label>
                         <textarea id="craCommentaire" rows="3" style="width: 100%; padding: 8px; border: 1px solid #b39ddb; border-radius: 4px; font-size: 13px;" placeholder="Ajoutez des informations complémentaires si nécessaire..."></textarea>
+                    </div>
+
+                    <!-- CRA modifié par un administrateur -->
+                    <div id="craAdminModPanel" style="display:none; margin-bottom:15px; background:#e3f2fd; border-left:4px solid #1565c0; padding:10px 14px; border-radius:0 6px 6px 0;">
+                        <div style="font-size:12px; font-weight:bold; color:#0d47a1; margin-bottom:4px;">🛠️ CRA modifié par un administrateur</div>
+                        <div id="craAdminModText" style="font-size:12px; color:#2c3e50;"></div>
                     </div>
 
                     <!-- Commentaire de refus précédent -->
@@ -14955,6 +14961,19 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                 document.getElementById('craCommentaire').value = cra.commentaire_expert || '';
                 // L'expert peut toujours modifier son commentaire si statut a_completer
                 document.getElementById('craCommentaire').disabled = cra.statut !== 'a_completer';
+
+                // CRA modifié par un administrateur : l'expert doit le vérifier et le soumettre à nouveau
+                const adminModPanel = document.getElementById('craAdminModPanel');
+                if (cra.modifie_admin_at && cra.statut === 'a_completer') {
+                    const dt = new Date(cra.modifie_admin_at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
+                    const who = cra.modifie_admin_nom || 'Un administrateur';
+                    document.getElementById('craAdminModText').textContent = (typeof currentUser !== 'undefined' && currentUser && currentUser.id === cra.user_id)
+                        ? `${who} a modifié ce CRA le ${dt}. Vérifiez-le, corrigez si besoin, puis soumettez-le à nouveau : les validations précédentes ont été remises à zéro.`
+                        : `Modifié par ${who} le ${dt}. L'expert doit le vérifier et le soumettre à nouveau avant toute validation.`;
+                    adminModPanel.style.display = 'block';
+                } else {
+                    adminModPanel.style.display = 'none';
+                }
 
                 // Afficher le motif de refus précédent si présent
                 const refusPanel = document.getElementById('craRefusPanel');
