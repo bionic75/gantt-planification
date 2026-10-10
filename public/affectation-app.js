@@ -98,9 +98,11 @@
         .aff-stage .name { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: #2c3e50; }
         .aff-stage .name i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; flex-shrink: 0; }
         .aff-stage .dates { display: flex; flex-direction: column; gap: 6px; }
-        .aff-stage .dates .pr { display: flex; align-items: center; gap: 8px; }
-        .aff-stage .dates input { padding: 7px 8px; border: 1px solid #cfd8e6; border-radius: 8px; font-size: 13px; width: 150px; }
+        .aff-stage .dates .pr { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .aff-stage .dates input { padding: 6px 6px; border: 1px solid #cfd8e6; border-radius: 8px; font-size: 13px; width: 132px; }
         .aff-stage .dates input.aff-days { width: 78px; text-align: center; }
+        .aff-stage .dates .pr .aff-wk { width: 160px; }
+        .aff-stage .dates select.aff-need { padding: 7px 8px; border: 1px solid #cfd8e6; border-radius: 8px; font-size: 13px; width: 112px; }
         .aff-section-title { margin: 20px 0 4px; font-size: 13px; font-weight: 800; color: #0f766e; text-transform: uppercase; letter-spacing: .5px; }
         .aff-plan-bar { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
         .aff-plan-ctrl { display: flex; align-items: center; gap: 12px; }
@@ -113,12 +115,12 @@
         #affectationContainer table.aff-plan-table th, #affectationContainer table.aff-plan-table td { cursor: default; padding: 0; }
         #affectationContainer table.aff-plan-table th::after { content: none; }
         #affectationContainer table.aff-plan-table th:hover { background: inherit; }
-        .aff-plan-table thead th { height: 28px; text-align: center; font-weight: 700; color: #fff; border-right: 1px solid rgba(255,255,255,.25); border-bottom: 1px solid rgba(255,255,255,.2); position: sticky; z-index: 3; white-space: nowrap; background: #34495e; }
-        .aff-plan-table thead tr:nth-child(1) th { background: #263238; top: 0; }
-        .aff-plan-table thead tr:nth-child(2) th { background: #1D70B7; top: 28px; }
-        .aff-plan-table thead tr:nth-child(3) th { background: #3d6fa8; top: 56px; }
-        .aff-plan-table thead tr:nth-child(4) th { background: #4a78b0; top: 84px; font-weight: 600; }
-        .aff-plan-table thead tr:nth-child(5) th { background: #5a86ba; top: 112px; font-weight: 500; font-size: 11px; }
+        .aff-plan-table thead th { height: 36px; text-align: center; font-weight: 700; color: #fff; border-right: 1px solid rgba(255,255,255,.25); border-bottom: 1px solid rgba(255,255,255,.2); position: sticky; z-index: 3; white-space: nowrap; background: #34495e; }
+        .aff-plan-table thead tr:nth-child(1) th { background: #263238; top: 0; font-size: 20px; letter-spacing: .5px; }
+        .aff-plan-table thead tr:nth-child(2) th { background: #1D70B7; top: 28px; font-size: 17px; }
+        .aff-plan-table thead tr:nth-child(3) th { background: #3d6fa8; top: 56px; font-size: 15px; }
+        .aff-plan-table thead tr:nth-child(4) th { background: #4a78b0; top: 84px; font-weight: 700; font-size: 14px; }
+        .aff-plan-table thead tr:nth-child(5) th { background: #5a86ba; top: 112px; font-weight: 600; font-size: 12px; }
         .aff-plan-table thead th.we { background: #f0b429 !important; color: #3a2d00; }
         .aff-plan-table thead th.today { background: #2e9d62 !important; color: #fff; }
         .aff-plan-table th.corner { left: 0; z-index: 6; min-width: 230px; max-width: 230px; background: #1D70B7 !important; text-align: left; padding-left: 14px; }
@@ -126,7 +128,23 @@
         .aff-plan-table tbody th.sam .n { font-weight: 700; font-size: 13px; }
         .aff-plan-table tbody th.sam .c { font-weight: 400; font-size: 11px; color: #6b7a8d; margin-top: 2px; }
         .aff-plan-table tbody tr:nth-child(even) th.sam { background: #f4f7fb; }
-        .aff-plan-table tbody td { height: 46px; border-right: 1px solid #eef1f6; border-bottom: 1px solid #eef1f6; }
+        .aff-plan-table tbody td { height: 54px; padding: 0; position: relative; border-right: 1px solid #eef1f6; border-bottom: 1px solid #eef1f6; }
+        .aff-pc { display: flex; flex-direction: column; height: 54px; gap: 2px; padding: 3px 0; box-sizing: border-box; }
+        .aff-pc .ph, .aff-pc .st { display: flex; flex-direction: column; gap: 1px; }
+        .aff-pc .ph { flex: 0 0 11px; } .aff-pc .st { flex: 1; min-height: 0; }
+        .aff-pc .b { flex: 1; min-height: 0; font-size: 10px; line-height: 12px; color: #fff; font-weight: 700; white-space: nowrap; overflow: visible; text-shadow: 0 0 2px rgba(0,0,0,.45); padding-left: 3px; }
+        .aff-pc .b.hd { border-top-left-radius: 5px; border-bottom-left-radius: 5px; }
+        .aff-pc .b.tl { border-top-right-radius: 5px; border-bottom-right-radius: 5px; }
+        .aff-pc .b.go { cursor: pointer; } .aff-pc .b.go:hover { filter: brightness(1.15); outline: 2px solid rgba(15,118,110,.7); outline-offset: -1px; }
+        .aff-pc .b.ok { box-shadow: inset 0 -2px 0 rgba(255,255,255,.85); }
+        .aff-pc .b.gel { background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.35) 0 3px, transparent 3px 6px); }
+        .aff-mk { position: absolute; top: 1px; right: 1px; width: 0; height: 0; z-index: 1; }
+        .aff-mk i { position: absolute; top: 0; right: 0; width: 16px; height: 16px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.4); }
+        .aff-assign-list { max-height: 300px; overflow: auto; border: 1px solid #dfe5ef; border-radius: 10px; margin-top: 8px; }
+        .aff-assign-list label { display: flex; align-items: center; gap: 10px; padding: 7px 12px; cursor: pointer; border-bottom: 1px solid #eef1f6; font-size: 13px; }
+        .aff-assign-list label:nth-child(even) { background: #f6f9fc; }
+        .aff-assign-list label input { width: auto; display: inline-block; margin: 0; }
+        .aff-assign-list label.off { opacity: .45; cursor: not-allowed; }
         .aff-plan-table tbody td.we { background: #fff8e6; }
         .aff-plan-table tbody td.today { background: rgba(46,157,98,.12); box-shadow: inset 2px 0 0 #2e9d62; }
         .aff-plan-table tbody tr:nth-child(even) td:not(.we):not(.today) { background: #f9fbfd; }
@@ -208,6 +226,25 @@
                 <span id="affModalError" class="aff-error"></span>
                 <button type="button" class="aff-btn" onclick="AffectationApp.closeProject()">Annuler</button>
                 <button type="button" class="aff-btn aff-btn-primary" onclick="AffectationApp.saveProject()">${svg('save', 'aff-ico-sm')}Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="affAssignModal">
+        <div class="modal-content" style="max-width:520px; width:94%; max-height:90vh; overflow-y:auto; padding:0;">
+            <div class="aff-modal-head">
+                <span id="affAssignTitle" class="aff-card-title"></span>
+                <button type="button" class="aff-x" onclick="AffectationApp.closeAssign()" aria-label="Fermer">${svg('x', 'aff-ico-sm')}</button>
+            </div>
+            <div class="aff-modal-body">
+                <div id="affAssignInfo" class="aff-muted"></div>
+                <input id="affAssignFilter" type="text" placeholder="Filtrer les ressources…" oninput="AffectationApp.assignFilter()" style="margin-top:10px;padding:8px 10px;border:1px solid #cfd8e6;border-radius:8px;">
+                <div id="affAssignList" class="aff-assign-list"></div>
+            </div>
+            <div class="aff-modal-foot">
+                <span id="affAssignError" class="aff-error"></span>
+                <button type="button" class="aff-btn" onclick="AffectationApp.closeAssign()">Annuler</button>
+                <button type="button" class="aff-btn aff-btn-primary" onclick="AffectationApp.saveAssign()">${svg('save', 'aff-ico-sm')}Enregistrer</button>
             </div>
         </div>
     </div>
@@ -386,14 +423,17 @@
         return { start: q('start'), end: q('end'), days };
     }
 
+    const weekValue = iso => { if (!iso) return ''; const w = isoWeek(iso); return `${w.year}-W${String(w.week).padStart(2, '0')}`; };
     function periodRows(key, list) {
         const def = stageDef(key);
         const rows = (list && list.length ? list : [{ start: '', end: '' }]).map((x, i) => `
             <div class="pr">
+                ${def.resources ? `<input type="week" class="aff-wk" data-wk="${key}" data-wi="${i}" value="${weekValue(x.start)}" title="Choisir une semaine (SXX année) : la période commence le lundi de cette semaine" aria-label="Semaine de début ${esc(def.label)}" onchange="AffectationApp.weekChanged(this)">` : ''}
                 <input type="date" data-pk="${key}" data-pi="${i}" data-pf="start" value="${esc(x.start)}" aria-label="Début ${esc(def.label)}" onchange="AffectationApp.startChanged(this)">
                 <span class="aff-muted">→</span>
                 <input type="date" data-pk="${key}" data-pi="${i}" data-pf="end" value="${esc(x.end)}" aria-label="Fin ${esc(def.label)}" onchange="AffectationApp.endChanged(this)">
                 <input type="number" min="1" step="1" class="aff-days" data-dk="${key}" data-di="${i}" value="${daysBetween(x.start, x.end) || ''}" placeholder="jours" title="Nombre de jours (calendaires, début et fin inclus) : la date de fin se calcule automatiquement" aria-label="Nombre de jours ${esc(def.label)}" oninput="AffectationApp.daysChanged(this)">
+                ${def.resources ? `<select class="aff-need" data-nk="${key}" data-ni="${i}" title="Nombre de ressources nécessaires" aria-label="Ressources nécessaires ${esc(def.label)}">${['<option value="">Ressources…</option>'].concat(Array.from({ length: 10 }, (_, n) => `<option value="${n + 1}" ${Number(x.needed) === n + 1 ? 'selected' : ''}>${n + 1} ressource${n ? 's' : ''}</option>`)).join('')}</select>` : ''}
                 <button type="button" class="aff-x" title="Effacer cette période" onclick="AffectationApp.clearPeriod('${key}', ${i})">${svg('x', 'aff-ico-sm')}</button>
             </div>`).join('');
         const add = def.kind === 'periods' ? `<button type="button" class="aff-btn" style="align-self:flex-start;padding:5px 10px;" onclick="AffectationApp.addPeriod('${key}')">${svg('plus', 'aff-ico-sm')}Ajouter une période</button>` : '';
@@ -452,6 +492,10 @@
             (periods[k] = periods[k] || [])[i] = (periods[k][i] || { start: '', end: '' });
             periods[k][i][inp.dataset.pf] = inp.value;
         });
+        document.querySelectorAll('#affModalBody select[data-nk]').forEach(sel => {
+            const k = sel.dataset.nk, i = Number(sel.dataset.ni);
+            if (periods[k] && periods[k][i] && sel.value) periods[k][i].needed = Number(sel.value);
+        });
         Object.keys(periods).forEach(k => { periods[k] = periods[k].filter(x => x && (x.start || x.end)); if (!periods[k].length) delete periods[k]; });
         f.periods = periods;
         document.querySelectorAll('#affModalBody input[data-df]').forEach(inp => { f['date_' + inp.dataset.df] = inp.value; });
@@ -471,6 +515,7 @@
                 if (!x.start || !x.end) return `${lbl} : renseignez la date de début et la date de fin.`;
                 if (x.end < x.start) return `${lbl} : la date de fin précède la date de début.`;
                 if (x.start < f.date_debut) return `${lbl} : la période ne peut pas commencer avant le début du projet.`;
+                if (stageDef(k).resources && !x.needed) return `${lbl} : indiquez le nombre de ressources nécessaires.`;
             }
         }
         return null;
@@ -495,6 +540,8 @@
         },
         // Borne basse choisie : la borne haute se recalcule (nombre de jours) ou se cale sur ce jour, et le calendrier s'y ouvre
         startChanged(startInput, keepEnd) {
+            const wkInput = startInput.closest('.pr') && startInput.closest('.pr').querySelector('input[data-wk]');
+            if (wkInput) wkInput.value = weekValue(startInput.value);
             const { end, days } = periodInputs(startInput);
             if (!end) return;
             if (startInput.value) {
@@ -516,6 +563,17 @@
                 if (d) end.min = d; else end.removeAttribute('min');
                 if (end.dataset.auto === '1') { end.value = ''; end.dataset.auto = ''; if (days) days.value = ''; }
             }
+        },
+        weekChanged(wk) {
+            const m = /^(\d{4})-W(\d{2})$/.exec(wk.value);
+            const row = wk.closest('.pr');
+            const start = row && row.querySelector('input[data-pf="start"]');
+            if (!start) return;
+            if (!m) { start.value = ''; adminApi.startChanged(start); return; }
+            // Lundi de la semaine ISO : le 4 janvier est toujours en semaine 1
+            const jan4 = `${m[1]}-01-04`;
+            start.value = addDaysIso(mondayOf(jan4), (Number(m[2]) - 1) * 7);
+            adminApi.startChanged(start);
         },
         endChanged(endInput) {
             endInput.dataset.auto = '';
@@ -666,6 +724,36 @@
         return { min: addD(min, -3), max: addD(max, 7) };
     }
 
+    const PHASES = ['cadrage', 'deploiement', 'gel'];
+    const STEPS = ['visite_metier', 'test_prerequis', 'vft', 'formation_relais', 'formation_utilisateurs', 'accompagnement'];
+    const planColor = k => (plan.colors && plan.colors[k]) || '#888888';
+    const planDef = k => (plan.config && plan.config.stages.find(x => x.key === k)) || { label: k };
+    const frd = iso => iso.split('-').reverse().join('/');
+
+    // Contenu d'une cellule : phases (bandeau haut), étapes (bandes du bas, cliquables en vue jour/semaine), jalons
+    function cellContent(p, c) {
+        const clickable = plan.zoom !== 'month';
+        const bar = (k, x, i, isStep) => {
+            if (!(x.start <= c.to && x.end >= c.from)) return '';
+            const head = x.start >= c.from && x.start <= c.to, tail = x.end >= c.from && x.end <= c.to;
+            const def = planDef(k);
+            const got = ((p.assignments || {})[k] || []).length;
+            const needed = x.needed || 0;
+            const tip = `${def.label} : ${frd(x.start)} → ${frd(x.end)}` + (isStep && needed ? ` — ${got}/${needed} ressource(s) affectée(s)` : '') + (isStep && clickable ? ' (cliquer pour affecter)' : '');
+            const go = isStep && clickable && needed;
+            const label = head && isStep && needed ? `${got}/${needed}` : '';
+            return `<div class="b ${head ? 'hd' : ''} ${tail ? 'tl' : ''} ${go ? 'go' : ''} ${isStep && needed && got >= needed ? 'ok' : ''} ${k === 'gel' ? 'gel' : ''}" style="background:${planColor(k)}" title="${esc(tip)}" ${go ? `onclick="AffectationApp.openAssign(${p.id},'${k}')"` : ''}>${label}</div>`;
+        };
+        const ph = PHASES.map(k => ((p.periods || {})[k] || []).map((x, i) => bar(k, x, i, false)).join('')).join('');
+        const st = STEPS.map(k => ((p.periods || {})[k] || []).map((x, i) => bar(k, x, i, true)).join('')).join('');
+        let mk = '';
+        [['mise_en_service', p.date_mise_en_service], ['mise_en_production', p.date_mise_en_production]].forEach(([k, d]) => {
+            if (d && d >= c.from && d <= c.to) mk += `<span class="aff-mk" title="${esc(planDef(k).label)} : ${frd(d)}"><i style="background:${planColor(k)}"></i></span>`;
+        });
+        if (p.date_debut >= c.from && p.date_debut <= c.to) mk += `<span class="aff-mk" style="top:auto;bottom:1px;" title="Début du projet : ${frd(p.date_debut)}"><i style="width:10px;height:10px;background:#263238"></i></span>`;
+        return (ph || st || mk) ? `${mk}<div class="aff-pc"><div class="ph">${ph}</div><div class="st">${st}</div></div>` : '';
+    }
+
     function renderPlanning() {
         const box = document.getElementById('affPlan');
         if (!box) return;
@@ -679,7 +767,7 @@
         const corner = rows => `<th class="corner" rowspan="${rows}">SAMU</th>`;
 
         if (plan.zoom === 'day') {
-            cols = days.map(d => ({ key: d, we: [0, 6].includes(new Date(utcMs(d)).getUTCDay()), today: d === t, w: 30 }));
+            cols = days.map(d => ({ key: d, from: d, to: d, we: [0, 6].includes(new Date(utcMs(d)).getUTCDay()), today: d === t, w: 30 }));
             head += `<tr>${corner(5)}${group(days, d => d.slice(0, 4)).map(g => th('', g.n, g.label)).join('')}</tr>`;
             head += `<tr>${group(days, d => d.slice(0, 7), d => cap(MONTHS[+d.slice(5, 7) - 1])).map(g => th('', g.n, g.label)).join('')}</tr>`;
             head += `<tr>${group(days, d => { const w = isoWeek(d); return `${w.year}-${w.week}`; }, d => 'S' + isoWeek(d).week).map(g => th('', g.n, g.label)).join('')}</tr>`;
@@ -689,7 +777,7 @@
             const mondays = [];
             for (let m = mondayOf(min); m <= max; m = addD(m, 7)) mondays.push(m);
             const thisMon = mondayOf(t);
-            cols = mondays.map(m => ({ key: m, we: false, today: m === thisMon, w: 64 }));
+            cols = mondays.map(m => ({ key: m, from: m, to: addD(m, 6), we: false, today: m === thisMon, w: 64 }));
             head += `<tr>${corner(4)}${group(mondays, m => m.slice(0, 4)).map(g => th('', g.n, g.label)).join('')}</tr>`;
             head += `<tr>${group(mondays, m => m.slice(0, 7), m => cap(MONTHS[+m.slice(5, 7) - 1])).map(g => th('', g.n, g.label)).join('')}</tr>`;
             head += `<tr>${mondays.map(m => `<th class="${m === thisMon ? 'today' : ''}" ${m === thisMon ? 'data-today="1"' : ''} style="min-width:64px;">S${isoWeek(m).week}</th>`).join('')}</tr>`;
@@ -701,7 +789,10 @@
                 const y = +m.slice(0, 4), mo = +m.slice(5, 7);
                 m = mo === 12 ? `${y + 1}-01` : `${y}-${String(mo + 1).padStart(2, '0')}`;
             }
-            cols = months.map(m => ({ key: m, we: false, today: m === t.slice(0, 7), w: 100 }));
+            cols = months.map(m => {
+                const y = +m.slice(0, 4), mo = +m.slice(5, 7);
+                return { key: m, from: m + '-01', to: addD(mo === 12 ? `${y + 1}-01-01` : `${y}-${String(mo + 1).padStart(2, '0')}-01`, -1), we: false, today: m === t.slice(0, 7), w: 100 };
+            });
             head += `<tr>${corner(2)}${group(months, m => m.slice(0, 4)).map(g => th('', g.n, g.label)).join('')}</tr>`;
             head += `<tr>${months.map(m => `<th class="${m === t.slice(0, 7) ? 'today' : ''}" ${m === t.slice(0, 7) ? 'data-today="1"' : ''} style="min-width:100px;">${cap(MONTHS[+m.slice(5, 7) - 1])}</th>`).join('')}</tr>`;
         }
@@ -715,12 +806,12 @@
             const ordered = [...plan.projects].sort((a, b) => (a.samu_name || '').localeCompare(b.samu_name || '', 'fr', { numeric: true }) || a.date_debut.localeCompare(b.date_debut));
             body = ordered.map(p => `<tr data-id="${p.id}">
                 <th class="sam"><div class="n">${esc(p.samu_name)}</div><div class="c">${esc(p.chef_projet_nom || 'Chef de projet non défini')}</div></th>
-                ${cols.map(c => `<td class="${c.we ? 'we' : ''} ${c.today ? 'today' : ''}" data-k="${c.key}"></td>`).join('')}
+                ${cols.map(c => `<td class="${c.we ? 'we' : ''} ${c.today ? 'today' : ''}" data-k="${c.key}">${cellContent(p, c)}</td>`).join('')}
             </tr>`).join('');
         }
         box.innerHTML = `<table class="aff-plan-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
         // Hauteurs de lignes d'en-tête : tops dynamiques si le nombre de lignes change
-        const topStep = 28;
+        const topStep = 36;
         box.querySelectorAll('thead tr').forEach((tr, i) => tr.querySelectorAll('th:not(.corner)').forEach(c => { c.style.top = (i * topStep) + 'px'; }));
         const corner_ = box.querySelector('th.corner'); if (corner_) corner_.style.top = '0px';
         document.querySelectorAll('.aff-seg button').forEach(b => b.classList.toggle('on', b.dataset.z === plan.zoom));
@@ -730,7 +821,7 @@
         const box = document.getElementById('affPlan');
         try {
             const [cfg, proj] = await Promise.all([api('/affectation/config'), api('/affectation/projects')]);
-            plan.projects = proj.projects; plan.colors = cfg.colors; plan.loaded = true;
+            plan.projects = proj.projects; plan.colors = cfg.colors; plan.config = cfg; plan.loaded = true;
             renderPlanning();
             AffectationApp.planToday();
         } catch (e) {
@@ -738,7 +829,51 @@
         }
     }
 
+    const asg = { project: null, stage: null, selected: new Set(), needed: 0 };
+    function assignList() {
+        const q = norm(document.getElementById('affAssignFilter').value);
+        const list = (plan.resources || []).filter(r => !q || norm(`${r.nom} ${r.prenom} ${r.trigramme || ''}`).includes(q));
+        const full = asg.selected.size >= asg.needed;
+        document.getElementById('affAssignList').innerHTML = list.length ? list.map(r => {
+            const on = asg.selected.has(r.id);
+            return `<label class="${!on && full ? 'off' : ''}"><input type="checkbox" value="${r.id}" ${on ? 'checked' : ''} ${!on && full ? 'disabled' : ''} onchange="AffectationApp.assignToggle(this)"><span><b>${esc((r.nom || '').toUpperCase())}</b> ${esc(r.prenom || '')}${r.fonction ? ` <span class="aff-muted">— ${esc(r.fonction)}</span>` : ''}</span></label>`;
+        }).join('') : '<div style="padding:14px;" class="aff-muted">Aucune ressource</div>';
+        document.getElementById('affAssignInfo').innerHTML = `${esc(asg.info)}<br><b>${asg.selected.size} / ${asg.needed}</b> ressource(s) affectée(s)`;
+    }
+
     const planApi = {
+        async openAssign(projectId, stageKey) {
+            const p = plan.projects.find(x => x.id === projectId);
+            const x = p && ((p.periods || {})[stageKey] || [])[0];
+            if (!x || !x.needed) return;
+            try {
+                if (!plan.resources) plan.resources = (await api('/affectation/resources')).resources;
+            } catch (e) { alert(e.message); return; }
+            asg.project = p; asg.stage = stageKey; asg.needed = x.needed;
+            asg.selected = new Set((p.assignments || {})[stageKey] || []);
+            asg.info = `${p.samu_name} — ${planDef(stageKey).label} (${frd(x.start)} → ${frd(x.end)})`;
+            document.getElementById('affAssignTitle').textContent = 'Affecter des ressources';
+            document.getElementById('affAssignError').textContent = '';
+            document.getElementById('affAssignFilter').value = '';
+            assignList();
+            document.getElementById('affAssignModal').classList.add('active');
+        },
+        assignToggle(cb) {
+            const id = Number(cb.value);
+            if (cb.checked) asg.selected.add(id); else asg.selected.delete(id);
+            assignList();
+        },
+        assignFilter: assignList,
+        closeAssign() { document.getElementById('affAssignModal').classList.remove('active'); },
+        async saveAssign() {
+            try {
+                const r = await api(`/affectation/projects/${asg.project.id}/assignments/${asg.stage}`, { method: 'PUT', body: JSON.stringify({ resource_ids: [...asg.selected] }) });
+                asg.project.assignments = asg.project.assignments || {};
+                asg.project.assignments[asg.stage] = r.resource_ids;
+                AffectationApp.closeAssign();
+                renderPlanning();
+            } catch (e) { document.getElementById('affAssignError').textContent = e.message; }
+        },
         planZoom(z) { plan.zoom = z; renderPlanning(); AffectationApp.planToday(); },
         planToday() {
             const box = document.getElementById('affPlan');

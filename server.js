@@ -1412,6 +1412,16 @@ function initDB() {
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             `, (tblErr) => { if (tblErr) console.error('Erreur création table affectation_projects:', tblErr); });
+            database.run(`
+                CREATE TABLE IF NOT EXISTS affectation_assignments (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    project_id INTEGER NOT NULL,
+                    stage_key TEXT NOT NULL,
+                    resource_id INTEGER NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(project_id, stage_key, resource_id)
+                )
+            `, (tblErr) => { if (tblErr) console.error('Erreur création table affectation_assignments:', tblErr); });
 
             // Application « Aide à l'affectation opérationnelle » : accès initial pour les administrateurs (une seule fois,
             // pour que la nouvelle application soit visible ; les accès restent ensuite gérés dans l'administration)
@@ -3634,12 +3644,12 @@ const AFF_STAGES = [
     { key: 'gel',                   label: 'Période(s) de gel',                 kind: 'periods', color: '#90a4ae' },
     { key: 'mise_en_service',       label: 'Mise en service',                   kind: 'date',   color: '#e53935' },
     { key: 'mise_en_production',    label: 'Mise en production',                kind: 'date',   color: '#2e7d32' },
-    { key: 'visite_metier',         label: 'Visite métier',                     kind: 'period', color: '#ab47bc' },
-    { key: 'test_prerequis',        label: 'Test des prérequis',                kind: 'period', color: '#26a69a' },
-    { key: 'vft',                   label: 'VFT',                               kind: 'period', color: '#43a047' },
-    { key: 'formation_relais',      label: 'Formation « Formateurs relais »',   kind: 'period', color: '#ffa726' },
-    { key: 'formation_utilisateurs',label: 'Formation « Utilisateurs »',        kind: 'period', color: '#ef6c00' },
-    { key: 'accompagnement',        label: 'Accompagnement',                    kind: 'period', color: '#00acc1' }
+    { key: 'visite_metier',         label: 'Visite métier',                     kind: 'period', resources: true, color: '#ab47bc' },
+    { key: 'test_prerequis',        label: 'Test des prérequis',                kind: 'period', resources: true, color: '#26a69a' },
+    { key: 'vft',                   label: 'VFT',                               kind: 'period', resources: true, color: '#43a047' },
+    { key: 'formation_relais',      label: 'Formation « Formateurs relais »',   kind: 'period', resources: true, color: '#ffa726' },
+    { key: 'formation_utilisateurs',label: 'Formation « Utilisateurs »',        kind: 'period', resources: true, color: '#ef6c00' },
+    { key: 'accompagnement',        label: 'Accompagnement',                    kind: 'period', resources: true, color: '#00acc1' }
 ];
 const AFF_PERIOD_KEYS = AFF_STAGES.filter(s => s.kind !== 'date').map(s => s.key);
 
@@ -3706,28 +3716,60 @@ function sanitizeAffProject(b) {
             if (!affIsoDate(p.start) || !affIsoDate(p.end)) return { error: `${def.label} : renseignez la date de début et la date de fin` };
             if (p.end < p.start) return { error: `${def.label} : la date de fin précède la date de début` };
             const e = after(p.start, def.label); if (e) return { error: e };
-            clean.push({ start: p.start, end: p.end });
+            const item = { start: p.start, end: p.end };
+            if (def.resources) {
+                const n = Number(p.needed);
+                if (!Number.isInteger(n) || n < 1 || n > 10) return { error: `${def.label} : indiquez le nombre de ressources nécessaires (1 à 10)` };
+                item.needed = n;
+            }
+            clean.push(item);
         }
         if (clean.length) out.periods[key] = clean;
     }
     return { value: out };
 }
 
-function affRowToJson(r) {
+function affLoadAssignments(cb) {
+    database.all('SELECT project_id, stage_key, resource_id FROM affectation_assignments ORDER BY id', [], (err, rows) => {
+        const map = {};
+        (rows || []).forEach(a => {
+            ((map[a.project_id] = map[a.project_id] || {})[a.stage_key] = (map[a.project_id] || {})[a.stage_key] || []).push(a.resource_id);
+        });
+        cb(map);
+    });
+}
+
+// Après modification d'un projet : retire les affectations devenues sans objet (étape supprimée ou nombre de ressources réduit)
+function affReconcileAssignments(projectId, periods, cb) {
+    database.all('SELECT id, stage_key FROM affectation_assignments WHERE project_id = ? ORDER BY id', [projectId], (err, rows) => {
+        if (err || !rows || !rows.length) return cb();
+        const counts = {};
+        const toDelete = [];
+        rows.forEach(a => {
+            const needed = periods[a.stage_key] && periods[a.stage_key][0] ? periods[a.stage_key][0].needed : 0;
+            counts[a.stage_key] = (counts[a.stage_key] || 0) + 1;
+            if (!needed || counts[a.stage_key] > needed) toDelete.push(a.id);
+        });
+        if (!toDelete.length) return cb();
+        database.run(`DELETE FROM affectation_assignments WHERE id IN (${toDelete.map(() => '?').join(',')})`, toDelete, () => cb());
+    });
+}
+
+function affRowToJson(r, assignments) {
     let periods = {};
     try { periods = JSON.parse(r.periods || '{}'); } catch (e) { periods = {}; }
     return {
         id: r.id, samu_name: r.samu_name, location_id: r.location_id,
         chef_projet_id: r.chef_projet_id, chef_projet_nom: r.chef_nom ? `${r.chef_nom} ${r.chef_prenom || ''}`.trim() : null,
         date_debut: r.date_debut, date_mise_en_service: r.date_mise_en_service, date_mise_en_production: r.date_mise_en_production,
-        periods, updated_at: r.updated_at
+        periods, assignments: (assignments && assignments[r.id]) || {}, updated_at: r.updated_at
     };
 }
 
 const AFF_SELECT = `SELECT p.*, u.nom AS chef_nom, u.prenom AS chef_prenom FROM affectation_projects p LEFT JOIN users u ON u.id = p.chef_projet_id`;
 
 app.get('/api/affectation/config', requireAffectationAccess, (req, res) => {
-    affColors(colors => res.json({ stages: AFF_STAGES.map(s => ({ key: s.key, label: s.label, kind: s.kind, defaultColor: s.color })), colors }));
+    affColors(colors => res.json({ stages: AFF_STAGES.map(s => ({ key: s.key, label: s.label, kind: s.kind, resources: !!s.resources, defaultColor: s.color })), colors }));
 });
 
 app.put('/api/affectation/colors', requireAdmin, (req, res) => {
@@ -3753,10 +3795,53 @@ app.get('/api/affectation/users', requireAdmin, (req, res) => {
     });
 });
 
+app.get('/api/affectation/resources', requireAffectationAccess, (req, res) => {
+    database.all(`SELECT id, nom, prenom, trigramme, fonction FROM resources WHERE actif = 1 ORDER BY nom, prenom`, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ resources: rows });
+    });
+});
+
+// Affecte des ressources à une étape d'un projet (dans la limite du nombre de ressources prévu)
+app.put('/api/affectation/projects/:id/assignments/:stage', requireAffectationAccess, (req, res) => {
+    const projectId = Number(req.params.id);
+    const stage = AFF_STAGES.find(s => s.key === req.params.stage && s.resources);
+    if (!stage) return res.status(400).json({ error: 'Étape sans ressources à affecter' });
+    const ids = [...new Set((Array.isArray(req.body && req.body.resource_ids) ? req.body.resource_ids : []).map(Number))];
+    if (ids.some(n => !Number.isInteger(n) || n <= 0)) return res.status(400).json({ error: 'Ressources invalides' });
+    database.get('SELECT periods FROM affectation_projects WHERE id = ?', [projectId], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!row) return res.status(404).json({ error: 'Projet introuvable' });
+        let periods = {};
+        try { periods = JSON.parse(row.periods || '{}'); } catch (e) { periods = {}; }
+        const needed = periods[stage.key] && periods[stage.key][0] ? periods[stage.key][0].needed : 0;
+        if (!needed) return res.status(400).json({ error: 'Cette étape n\'a pas de nombre de ressources défini' });
+        if (ids.length > needed) return res.status(400).json({ error: `${stage.label} : ${needed} ressource(s) maximum` });
+        const save = () => {
+            database.serialize(() => {
+                database.run('DELETE FROM affectation_assignments WHERE project_id = ? AND stage_key = ?', [projectId, stage.key]);
+                const stmt = database.prepare('INSERT INTO affectation_assignments (project_id, stage_key, resource_id) VALUES (?,?,?)');
+                ids.forEach(rid => stmt.run(projectId, stage.key, rid));
+                stmt.finalize(e => {
+                    if (e) return res.status(500).json({ error: e.message });
+                    logUserAction(req, 'Affectation de ressources (déploiement SAMU)', { projectId, stage: stage.key, resources: ids });
+                    res.json({ resource_ids: ids });
+                });
+            });
+        };
+        if (!ids.length) return save();
+        database.all(`SELECT id FROM resources WHERE actif = 1 AND id IN (${ids.map(() => '?').join(',')})`, ids, (e2, found) => {
+            if (e2) return res.status(500).json({ error: e2.message });
+            if ((found || []).length !== ids.length) return res.status(400).json({ error: 'Ressource inconnue ou inactive' });
+            save();
+        });
+    });
+});
+
 app.get('/api/affectation/projects', requireAffectationAccess, (req, res) => {
     database.all(`${AFF_SELECT} ORDER BY p.date_debut DESC, p.samu_name`, [], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
-        res.json({ projects: rows.map(affRowToJson) });
+        affLoadAssignments(map => res.json({ projects: rows.map(r => affRowToJson(r, map)) }));
     });
 });
 
@@ -3766,10 +3851,12 @@ function affSaveProject(req, res, id) {
     const v = r.value;
     const done = (err, newId) => {
         if (err) return res.status(500).json({ error: err.message });
-        database.get(`${AFF_SELECT} WHERE p.id = ?`, [newId], (e, row) => {
-            if (e || !row) return res.status(500).json({ error: e ? e.message : 'Projet introuvable' });
-            logUserAction(req, id ? 'Modification déploiement SAMU' : 'Création déploiement SAMU', { id: newId, samu: v.samu_name });
-            res.json(affRowToJson(row));
+        affReconcileAssignments(newId, v.periods, () => {
+            database.get(`${AFF_SELECT} WHERE p.id = ?`, [newId], (e, row) => {
+                if (e || !row) return res.status(500).json({ error: e ? e.message : 'Projet introuvable' });
+                logUserAction(req, id ? 'Modification déploiement SAMU' : 'Création déploiement SAMU', { id: newId, samu: v.samu_name });
+                affLoadAssignments(map => res.json(affRowToJson(row, map)));
+            });
         });
     };
     const fields = [v.samu_name, v.location_id, v.chef_projet_id, v.date_debut, v.date_mise_en_service, v.date_mise_en_production, JSON.stringify(v.periods)];
@@ -3790,6 +3877,7 @@ app.delete('/api/affectation/projects/:id', requireAdmin, (req, res) => {
     database.run('DELETE FROM affectation_projects WHERE id = ?', [Number(req.params.id)], function (err) {
         if (err) return res.status(500).json({ error: err.message });
         if (this.changes === 0) return res.status(404).json({ error: 'Projet introuvable' });
+        database.run('DELETE FROM affectation_assignments WHERE project_id = ?', [Number(req.params.id)]);
         logUserAction(req, 'Suppression déploiement SAMU', { id: Number(req.params.id) });
         res.json({ success: true });
     });
