@@ -11511,6 +11511,115 @@ app.get('/api/cra/:id', requireAuth, async (req, res) => {
 });
 
 // Remplacer les lignes astreintes/HNO d'un CRA (DELETE mois puis INSERT)
+// ---- CRA d'une MAD volante : collecte des activités de la planification ----
+const CRA_ACTIVITY_OBJETS = {
+    '3': 'SAMU (Déploiement)', '4': 'SAMU (Dev. usages)', '5': 'ANS (Déploiement)',
+    '6': 'ANS (Dev. usages)', '7': 'Qualification', '8': 'Divers'
+};
+async function craLoadForCollect(req) {
+    const cra = await dbGet('SELECT * FROM cra WHERE id = ?', [req.params.id]);
+    if (!cra) throw Object.assign(new Error('CRA introuvable'), { status: 404 });
+    const isAdmin = req.session.activeProfile === 'admin';
+    if (!isAdmin && cra.user_id !== req.session.userId) throw Object.assign(new Error('Accès interdit'), { status: 403 });
+    const rs = await dbGet(`SELECT r.id, r.is_mad_volante FROM users u JOIN resources r ON r.id = COALESCE(u.resource_id, ?) WHERE u.id = ?`, [cra.resource_id, cra.user_id]);
+    return { cra, resourceId: rs ? rs.id : null, isMad: !!(rs && rs.is_mad_volante) };
+}
+const craHalfHours = p => p === 'FULL' ? ['09:00', '18:00'] : p === 'AM' ? ['09:00', '12:00'] : ['14:00', '18:00'];
+
+app.get('/api/cra/:id/collect', requireAuth, async (req, res) => {
+    try {
+        const { cra, resourceId, isMad } = await craLoadForCollect(req);
+        if (!isMad || !resourceId) return res.json({ allowed: false, lines: [] });
+        const pad = n => String(n).padStart(2, '0');
+        const prefix = `${cra.annee}-${pad(cra.mois)}-`;
+        const locs = await dbAll('SELECT libelle_court FROM locations');
+        const samuByNo = {};
+        locs.forEach(l => { const n = affSamuNumber(l.libelle_court); if (n && !samuByNo[n]) samuByNo[n] = l.libelle_court; });
+        const rows = await dbAll(`SELECT date_key, type, value FROM schedule_data WHERE resource_id = ? AND date_key LIKE ? AND type IN ('activity','available','localisation') ORDER BY date_key`, [resourceId, prefix + '%']);
+        const byKey = {};
+        rows.forEach(r => { (byKey[r.date_key] = byKey[r.date_key] || {})[r.type] = r.value; });
+        const days = {};
+        Object.keys(byKey).sort().forEach(k => {
+            const c = byKey[k];
+            if (!c.activity || parseInt(c.activity) < 3 || c.available !== '2') return; // pas d'activité réelle ou pas disponible ANS
+            const [date, half] = k.split('_');
+            const samu = (c.activity === '3' || c.activity === '4') ? (samuByNo[affSamuNumber(c.localisation)] || '') : '';
+            ((days[date] = days[date] || {})[half] = { act: c.activity, samu });
+        });
+        const lines = [];
+        Object.keys(days).sort().forEach(date => {
+            const d = days[date];
+            const full = d.AM && d.PM && d.AM.act === d.PM.act && d.AM.samu === d.PM.samu;
+            const parts = full ? [['FULL', d.AM]] : [['AM', d.AM], ['PM', d.PM]].filter(x => x[1]);
+            parts.forEach(([period, v]) => {
+                const [hd, hf] = craHalfHours(period);
+                lines.push({ type: 'activite_courante', date_debut: date, date_fin: date, heure_debut: hd, heure_fin: hf, samu: v.samu, objet: CRA_ACTIVITY_OBJETS[v.act] || 'Activité',
+                    origin: { kind: 'activity', date, period, activity: v.act, samu: v.samu } });
+            });
+        });
+        // Astreintes du planning d'astreinte (soir 18h-08h, journée complète)
+        const roster = await dbAll('SELECT date, type_creneau FROM astreinte_planning WHERE resource_id = ? AND date LIKE ? ORDER BY date', [resourceId, prefix + '%']);
+        roster.forEach(a => {
+            const next = new Date(Date.parse(a.date + 'T00:00:00Z') + 86400000).toISOString().slice(0, 10);
+            const sameMonth = next.startsWith(prefix);
+            const soir = a.type_creneau === 'soir';
+            lines.push({ type: 'astreinte', date_debut: a.date, date_fin: soir && sameMonth ? next : a.date,
+                heure_debut: soir ? '18:00' : '08:00', heure_fin: soir ? (sameMonth ? '08:00' : '23:59') : '18:00', samu: '',
+                objet: soir ? 'Astreinte (soir 18h-08h)' : 'Astreinte (journée)', origin: { kind: 'astreinte', date: a.date, creneau: a.type_creneau } });
+        });
+        res.json({ allowed: true, lines });
+    } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+});
+
+// Report, après accord de l'utilisateur, des corrections du CRA vers la planification
+app.post('/api/cra/:id/propagate', requireAuth, async (req, res) => {
+    try {
+        const { cra, resourceId, isMad } = await craLoadForCollect(req);
+        if (!isMad || !resourceId) return res.status(400).json({ error: 'Report réservé aux MAD volantes' });
+        if (cra.statut !== 'a_completer') return res.status(400).json({ error: 'CRA non modifiable dans ce statut' });
+        const prefix = `${cra.annee}-${String(cra.mois).padStart(2, '0')}-`;
+        const out = { activity: 0, astreinte: 0, skipped: [] };
+        const halves = (hd, hf) => { const h = s => Number((s || '00:00').slice(0, 2)); return h(hf) <= 12 ? ['AM'] : h(hd) >= 13 ? ['PM'] : ['AM', 'PM']; };
+        const up = (key, type, value) => dbRun(`INSERT INTO schedule_data (resource_id, date_key, type, value, notification) VALUES (?,?,?,?, '1')
+            ON CONFLICT(resource_id, date_key, type) DO UPDATE SET value = excluded.value, notification = '1'`, [resourceId, key, type, value]);
+        for (const c of (Array.isArray(req.body.corrections) ? req.body.corrections : [])) {
+            const o = c.origin || {};
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(o.date || '') || !o.date.startsWith(prefix)) continue;
+            if (o.kind === 'activity') {
+                const oldHalves = o.period === 'FULL' ? ['AM', 'PM'] : [o.period];
+                const nl = c.line; // null = ligne supprimée
+                const newOk = nl && /^\d{4}-\d{2}-\d{2}$/.test(nl.date_debut) && nl.date_debut === nl.date_fin;
+                if (nl && !newOk) { out.skipped.push(`${o.date} : activité étalée sur plusieurs jours, non reportée`); continue; }
+                for (const h of oldHalves) await up(`${o.date}_${h}`, 'activity', '2'); // retour « en attente d'affectation »
+                if (nl) {
+                    for (const h of halves(nl.heure_debut, nl.heure_fin)) {
+                        await up(`${nl.date_debut}_${h}`, 'available', '2');
+                        await up(`${nl.date_debut}_${h}`, 'activity', o.activity);
+                        if (o.samu) await up(`${nl.date_debut}_${h}`, 'localisation', '🚨 ' + String(o.samu).replace(/^SAMU-SAS/, 'SAMU'));
+                    }
+                }
+                out.activity++;
+            } else if (o.kind === 'astreinte') {
+                const nl = c.line;
+                if (nl && nl.date_debut === o.date) continue; // seules les heures changent : le créneau du planning reste identique
+                if (nl) {
+                    const taken = await dbGet('SELECT resource_id FROM astreinte_planning WHERE date = ? AND type_creneau = ?', [nl.date_debut, o.creneau]);
+                    if (taken && taken.resource_id && taken.resource_id !== resourceId) { out.skipped.push(`${nl.date_debut} : créneau d'astreinte déjà tenu par un(e) autre expert`); continue; }
+                }
+                await dbRun('UPDATE astreinte_planning SET resource_id = NULL WHERE date = ? AND type_creneau = ? AND resource_id = ?', [o.date, o.creneau, resourceId]);
+                if (nl) {
+                    const d = new Date(nl.date_debut + 'T00:00:00Z');
+                    await dbRun(`INSERT INTO astreinte_planning (date, type_creneau, resource_id, year, month) VALUES (?,?,?,?,?)
+                        ON CONFLICT(date, type_creneau) DO UPDATE SET resource_id = excluded.resource_id`, [nl.date_debut, o.creneau, resourceId, d.getUTCFullYear(), d.getUTCMonth() + 1]);
+                }
+                out.astreinte++;
+            }
+        }
+        logUserAction(req, 'Report de corrections CRA vers la planification', { craId: cra.id, ...out });
+        res.json(out);
+    } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+});
+
 app.post('/api/cra/:id/astreintes', requireAuth, async (req, res) => {
     const craId = req.params.id;
     const sessionUserId = req.session.userId;
