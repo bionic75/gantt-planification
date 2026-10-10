@@ -51,7 +51,28 @@
         folder: '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',
         hand: '<path d="M18 11V6a2 2 0 0 0-4 0M14 10V4a2 2 0 0 0-4 0v2M10 10.5V6a2 2 0 0 0-4 0v8M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.9-5.9-2.4L3.4 16a2 2 0 0 1 3.2-2.4L8 15"/>',
         rocket: '<path d="M4.5 16.5c-1.5 1.3-2 5-2 5s3.7-.5 5-2c.7-.8.7-2.1-.1-2.9a2.2 2.2 0 0 0-2.9-.1z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.9A12.9 12.9 0 0 1 22 2c0 2.7-.8 7.5-6 11a22.4 22.4 0 0 1-4 2z"/><path d="M9 12H4s.6-3 2-4c1.6-1.1 5 0 5 0M12 15v5s3-.6 4-2c1.1-1.6 0-5 0-5"/>',
-        alert: '<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>'
+        alert: '<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>',
+        'print': '<path d="M6 9V3h12v6"/><rect x="6" y="14" width="12" height="8" rx="1"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>',
+        'refresh': '<path d="M21 12a9 9 0 0 0-15.5-6.2L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 15.5 6.2L21 16"/><path d="M21 21v-5h-5"/>',
+        'sun': '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+        'moon': '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
+        'car': '<path d="M5 11l1.6-4.2A2 2 0 0 1 8.5 5.5h7a2 2 0 0 1 1.9 1.3L19 11"/><rect x="3" y="11" width="18" height="6" rx="2"/><circle cx="7.5" cy="14" r=".7"/><circle cx="16.5" cy="14" r=".7"/><path d="M6 17v2M18 17v2"/>',
+        'siren': '<path d="M7 18v-6a5 5 0 0 1 10 0v6"/><path d="M4 21h16v-3H4z"/><path d="M12 3v1.5M4.6 6.6l1 1M19.4 6.6l-1 1M2.5 12H4M20 12h1.5"/>',
+        'tower': '<path d="M12 2v3"/><path d="M9.5 22 12 5l2.5 17"/><path d="M8 22h8"/><path d="M10.2 15h3.6"/><path d="M11 10h2"/>',
+        'mic': '<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8"/>',
+        'search': '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
+        'save': '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/>',
+        'download': '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5M12 15V3"/>',
+        'upload': '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5M12 3v12"/>',
+        'trash': '<path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6"/>',
+        'info': '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
+        'palette': '<circle cx="13.5" cy="6.5" r=".6"/><circle cx="17.5" cy="10.5" r=".6"/><circle cx="8.5" cy="7.5" r=".6"/><circle cx="6.5" cy="12.5" r=".6"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.9 0 1.7-.7 1.7-1.7 0-.4-.2-.8-.5-1.1-.3-.3-.5-.7-.5-1.1 0-.9.7-1.7 1.7-1.7H16c3.1 0 5.6-2.5 5.6-5.6C22 6 17.5 2 12 2z"/>',
+        'star': '<path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/>',
+        'lightbulb': '<path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.2 1 2V18h6v-1.3c0-.8.4-1.5 1-2A7 7 0 0 0 12 2z"/>',
+        'flask': '<path d="M9 3h6M10 3v6.2L4.5 19a1.6 1.6 0 0 0 1.4 2.4h12.2a1.6 1.6 0 0 0 1.4-2.4L14 9.2V3"/><path d="M7.5 15h9"/>',
+        'database': '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>',
+        'image': '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/>',
+        'megaphone': '<path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>'
     };
 
     // Premier point de code (sans sélecteur de variation) -> [icône, couleur]
@@ -72,14 +93,22 @@
         0x1F517: ['link'], 0x1F514: ['bell'], 0x1F527: ['wrench'], 0x1F5A5: ['monitor'],
         0x23F1: ['timer'], 0x1F41B: ['bug'], 0x1F3F7: ['tag'], 0x1F464: ['user'],
         0x1F310: ['globe'], 0x1F5C2: ['folder'], 0x270B: ['hand'], 0x1F680: ['rocket'],
-        0x26A0: ['alert', '#f9a825']
+        0x26A0: ['alert', '#f9a825'],
+        0x1F5A8: ['print'], 0x1F504: ['refresh'], 0x2600: ['sun', '#f9a825'], 0x1F319: ['moon', '#5c6bc0'],
+        0x1F697: ['car'], 0x1F6A8: ['siren', '#e53935'], 0x1F5FC: ['tower'], 0x1F3A4: ['mic'],
+        0x1F50D: ['search'], 0x1F4BE: ['save'], 0x1F4E5: ['download'], 0x1F4E4: ['upload'], 0x1F5D1: ['trash'],
+        0x2139: ['info', '#1565c0'], 0x1F3A8: ['palette'], 0x2B50: ['star', '#f9a825'], 0x1F4A1: ['lightbulb', '#f9a825'],
+        0x1F9EA: ['flask'], 0x1F4BD: ['database'], 0x1F5BC: ['image'], 0x1F4E2: ['megaphone'], 0x1F3E2: ['building'],
+        0x1F4CC: ['pin'], 0x1F6AB: ['ban', '#c62828'], 0x2B07: ['download'], 0x2B06: ['upload']
     };
 
     const RE = /\p{Extended_Pictographic}️?(?:‍\p{Extended_Pictographic}️?)*/gu;
     const SKIP = new Set(['SCRIPT', 'STYLE', 'TEXTAREA', 'OPTION', 'TITLE', 'INPUT', 'SELECT']);
 
     function iconFor(token) {
-        const entry = MAP[token.codePointAt(0)];
+        const cp = token.codePointAt(0);
+        if (cp === 0x26A0 && window.UI_ICONS_KEEP_ALERT) return null;
+        const entry = MAP[cp];
         if (!entry) return null;
         const span = document.createElement('span');
         span.innerHTML = '<svg class="ui-emo" viewBox="0 0 24 24" aria-hidden="true" style="color:' + (entry[1] || 'inherit') + ';stroke:currentColor;">' + I[entry[0]] + '</svg>';
@@ -118,13 +147,20 @@
     }
 
     const style = document.createElement('style');
-    style.textContent = '.ui-emo{width:1.15em;height:1.15em;vertical-align:-0.2em;margin:0 .15em;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}';
+    style.textContent = '.ui-emo{width:1.15em;height:1.15em;vertical-align:middle;margin:0 .15em;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}';
     document.head.appendChild(style);
 
     function start() {
         scan(document.body);
+        let pending = new Set(), scheduled = false;
+        function flush() {
+            scheduled = false;
+            const batch = pending; pending = new Set();
+            batch.forEach(n => { if (n.isConnected) scan(n); });
+        }
         new MutationObserver(muts => {
-            muts.forEach(mu => mu.addedNodes.forEach(n => { if (n.isConnected) scan(n); }));
+            muts.forEach(mu => mu.addedNodes.forEach(n => pending.add(n)));
+            if (!scheduled && pending.size) { scheduled = true; setTimeout(flush, 30); }
         }).observe(document.body, { childList: true, subtree: true });
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
