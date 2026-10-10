@@ -131,10 +131,10 @@
         .aff-plan-table thead tr:nth-child(5) th { background: #5a86ba; top: 112px; font-weight: 600; font-size: 12px; }
         .aff-plan-table thead th.we { background: #f0b429 !important; color: #3a2d00; }
         .aff-plan-table thead th.today { background: #2e9d62 !important; color: #fff; }
-        .aff-plan-table th.corner { left: 0; z-index: 6; min-width: 230px; max-width: 230px; background: #1D70B7 !important; text-align: left; padding-left: 14px; }
-        .aff-plan-table tbody th.sam { position: sticky; left: 0; z-index: 2; background: #fff; text-align: left; padding: 6px 12px 6px 14px; min-width: 230px; max-width: 230px; border-right: 2px solid #cfd8e6; border-bottom: 1px solid #eef1f6; color: #1f2d3d; }
-        .aff-plan-table tbody th.sam .n { font-weight: 700; font-size: 13px; }
-        .aff-plan-table tbody th.sam .c { font-weight: 400; font-size: 11px; color: #6b7a8d; margin-top: 2px; }
+        .aff-plan-table th.corner { left: 0; z-index: 6; min-width: 280px; max-width: 280px; background: #1D70B7 !important; text-align: left; padding-left: 28px; font-size: 22px; }
+        .aff-plan-table tbody th.sam { position: sticky; left: 0; z-index: 2; background: #fff; text-align: left; padding: 6px 12px 6px 28px; min-width: 280px; max-width: 280px; border-right: 2px solid #cfd8e6; border-bottom: 1px solid #eef1f6; color: #1f2d3d; }
+        .aff-plan-table tbody th.sam .n { font-weight: 800; font-size: 19px; line-height: 1.2; }
+        .aff-plan-table tbody th.sam .c { font-weight: 500; font-size: 14px; color: #6b7a8d; margin-top: 2px; }
         .aff-plan-table tbody tr:nth-child(even) th.sam { background: #f4f7fb; }
         .aff-plan-table tbody td { height: 96px; padding: 0; position: relative; border-right: 1px solid #eef1f6; border-bottom: 1px solid #eef1f6; }
         .aff-pc { display: flex; flex-direction: column; height: 96px; gap: 3px; padding: 5px 0; box-sizing: border-box; }
@@ -187,6 +187,12 @@
         <div class="aff-plan-bar">
             <h2 style="margin:0;">Planning des déploiements</h2>
             <div class="aff-plan-ctrl">
+                <span class="aff-muted" style="font-weight:700;">Trier par</span>
+                <div class="aff-seg aff-sort" role="group" aria-label="Tri">
+                    <button type="button" data-s="samu" onclick="AffectationApp.planSort('samu')">SAMU</button>
+                    <button type="button" data-s="chef" onclick="AffectationApp.planSort('chef')">Chef de projet</button>
+                    <button type="button" data-s="mes" onclick="AffectationApp.planSort('mes')">Mise en service</button>
+                </div>
                 <div class="aff-seg" role="group" aria-label="Échelle de temps">
                     <button type="button" data-z="day" class="on" onclick="AffectationApp.planZoom('day')" title="Afficher à la maille jour">Jour</button>
                     <button type="button" data-z="week" onclick="AffectationApp.planZoom('week')" title="Afficher à la maille semaine">Semaine</button>
@@ -263,7 +269,8 @@
     </button>
     <div class="aff-pill" id="affectationOnlineUsersContainer" style="display:none;">
         <span style="font-size:12px;color:#27ae60;">●</span>
-        <span id="affectationOnlineUsersCount">0 connecté(s)</span>
+        <div id="affectationOnlineUsersAvatars" style="display:flex;align-items:center;"></div>
+        <span id="affectationOnlineUsersCount" style="font-size:11px;color:#666;margin-left:4px;"></span>
     </div>
     <div class="aff-pill" id="affectationTimerDisplay" style="display:none;">
         <svg viewBox="0 0 24 24" aria-hidden="true" style="width:15px;height:15px;margin-right:6px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/></svg>
@@ -311,8 +318,20 @@
             const res = await fetch(`${API_URL}/active-sessions`, { credentials: 'include' });
             if (!res.ok) return;
             const data = await res.json();
-            const n = (data.activeUsers || []).length;
-            document.getElementById('affectationOnlineUsersCount').textContent = `${n} connecté(s)`;
+            const users = data.activeUsers || [];
+            const max = 5;
+            document.getElementById('affectationOnlineUsersAvatars').innerHTML = users.slice(0, max).map((u, i) => {
+                const bg = typeof getAvatarColor === 'function' ? getAvatarColor(u.profile) : '#3949ab';
+                const ini = u.trigramme || ((u.prenom || '').charAt(0) + (u.nom || '').charAt(0));
+                const name = `${u.prenom || ''} ${u.nom || ''}`.trim() || u.username || '';
+                const base = `width:28px;height:28px;border-radius:50%;border:2px solid #fff;background:${bg};margin-left:${i ? -8 : 0}px;box-shadow:0 1px 3px rgba(0,0,0,.25);overflow:hidden;`;
+                return u.profilePhoto
+                    ? `<div title="${esc(name)}" style="${base}"><img src="${u.profilePhoto}" alt="" style="width:100%;height:100%;object-fit:cover;"></div>`
+                    : `<div title="${esc(name)}" style="${base}display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;">${esc(ini)}</div>`;
+            }).join('');
+            const extra = users.length - max;
+            const cnt = document.getElementById('affectationOnlineUsersCount');
+            cnt.textContent = extra > 0 ? `+${extra}` : '';
         } catch (e) { /* réseau indisponible : on garde la valeur précédente */ }
     }
 
@@ -692,7 +711,7 @@
 
 
     // ================= Planning des déploiements (grille calendaire) =================
-    const plan = { zoom: 'day', projects: [], loaded: false };
+    const plan = { sort: { key: 'samu', dir: 1 }, zoom: 'day', projects: [], loaded: false };
     const MONTHS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
     const WDAY = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
     const utcMs = iso => Date.parse(iso + 'T00:00:00Z');
@@ -827,7 +846,15 @@
         if (!plan.projects.length) {
             body = `<tr><td colspan="${cols.length + 1}" style="height:70px;text-align:center;color:#7a8799;">Aucun déploiement : créez-en dans l'onglet Administration.</td></tr>`;
         } else {
-            const ordered = [...plan.projects].sort((a, b) => (a.samu_name || '').localeCompare(b.samu_name || '', 'fr', { numeric: true }) || a.date_debut.localeCompare(b.date_debut));
+            const cmp = (a, b) => String(a || '').localeCompare(String(b || ''), 'fr', { numeric: true });
+            const keyOf = { samu: p => p.samu_name, chef: p => p.chef_projet_nom, mes: p => p.date_mise_en_service };
+            const k = keyOf[plan.sort.key];
+            const ordered = [...plan.projects].sort((a, b) => {
+                const va = k(a), vb = k(b);
+                if (!va && vb) return 1; // valeurs vides toujours en bas
+                if (va && !vb) return -1;
+                return (cmp(va, vb) * plan.sort.dir) || cmp(a.samu_name, b.samu_name);
+            });
             body = ordered.map(p => `<tr data-id="${p.id}">
                 <th class="sam"><div class="n">${esc(p.samu_name)}</div><div class="c">${esc(p.chef_projet_nom || 'Chef de projet non défini')}</div></th>
                 ${cols.map(c => `<td class="${c.we ? 'we' : ''} ${c.today ? 'today' : ''}" data-k="${c.key}">${cellContent(p, c)}</td>`).join('')}
@@ -838,7 +865,13 @@
         const topStep = 36;
         box.querySelectorAll('thead tr').forEach((tr, i) => tr.querySelectorAll('th:not(.corner)').forEach(c => { c.style.top = (i * topStep) + 'px'; }));
         const corner_ = box.querySelector('th.corner'); if (corner_) corner_.style.top = '0px';
-        document.querySelectorAll('.aff-seg button').forEach(b => b.classList.toggle('on', b.dataset.z === plan.zoom));
+        document.querySelectorAll('.aff-seg button[data-z]').forEach(b => b.classList.toggle('on', b.dataset.z === plan.zoom));
+        document.querySelectorAll('.aff-sort button').forEach(b => {
+            const on = b.dataset.s === plan.sort.key;
+            b.classList.toggle('on', on);
+            b.dataset.arrow = on ? (plan.sort.dir > 0 ? ' ▲' : ' ▼') : '';
+            b.textContent = ({ samu: 'SAMU', chef: 'Chef de projet', mes: 'Mise en service' })[b.dataset.s] + b.dataset.arrow;
+        });
     }
 
     async function loadPlanning() {
@@ -866,6 +899,12 @@
     }
 
     const planApi = {
+        planSort(key) {
+            plan.sort = plan.sort.key === key ? { key, dir: -plan.sort.dir } : { key, dir: 1 };
+            const box = document.getElementById('affPlan'), left = box.scrollLeft;
+            renderPlanning();
+            box.scrollLeft = left;
+        },
         toggleStage(k) {
             if (hiddenKeys.has(k)) hiddenKeys.delete(k); else hiddenKeys.add(k);
             try { localStorage.setItem('affHiddenStages', JSON.stringify([...hiddenKeys])); } catch (e) { /* stockage indisponible */ }
