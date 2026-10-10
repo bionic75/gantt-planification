@@ -142,7 +142,8 @@
         .aff-plan-table tbody td { height: 96px; padding: 0; position: relative; border-right: 1px solid #eef1f6; border-bottom: 1px solid #eef1f6; }
         .aff-pc { display: flex; flex-direction: column; height: 96px; gap: 3px; padding: 5px 0; box-sizing: border-box; }
         .aff-pc .ph, .aff-pc .st { display: flex; flex-direction: column; gap: 1px; }
-        .aff-pc .ph { flex: 0 0 16px; gap: 2px; } .aff-pc .st { flex: 1; min-height: 0; }
+        .aff-pc .ph { flex: 0 0 auto; gap: 2px; }
+        .aff-pc .ph .b { flex: 0 0 10px; min-height: 10px; } .aff-pc .st { flex: 1; min-height: 0; }
         .aff-pc .b { flex: 1; min-height: 14px; max-height: 40px; box-sizing: border-box; font-size: 10px; line-height: 12px; color: #fff; font-weight: 700; white-space: nowrap; overflow: visible; text-shadow: 0 0 2px rgba(0,0,0,.45); padding-left: 3px; }
         .aff-pc .b.hd { border-top-left-radius: 5px; border-bottom-left-radius: 5px; }
         .aff-pc .b.tl { border-top-right-radius: 5px; border-bottom-right-radius: 5px; }
@@ -789,8 +790,11 @@
             const label = head && isStep && needed ? `${got}/${needed}` : '';
             return `<div class="b ${head ? 'hd' : ''} ${tail ? 'tl' : ''} ${go ? 'go' : ''} ${isStep && needed && got >= needed ? 'ok' : ''} ${k === 'gel' ? 'gel' : ''}" style="background:${planColor(k)};${pos}" title="${esc(tip)}" ${go ? `onclick="AffectationApp.openAssign(${p.id},'${k}')"` : ''}>${label}</div>`;
         };
-        const ph = PHASES.map(k => ((p.periods || {})[k] || []).map((x, i) => bar(k, x, i, false)).join('')).join('');
-        const st = STEPS.map(k => ((p.periods || {})[k] || []).map((x, i) => bar(k, x, i, true)).join('')).join('');
+        // Une voie fixe par période du projet : une barre garde la même hauteur d'une colonne à l'autre
+        const lanes = (keys, isStep) => keys.map(k => hiddenKeys.has(k) ? '' : ((p.periods || {})[k] || []).map((x, i) => bar(k, x, i, isStep) || '<div class="b" style="visibility:hidden"></div>').join('')).join('');
+        let ph = lanes(PHASES, false), st = lanes(STEPS, true);
+        if (!/class="b [^"]*"|class="b "/.test(ph.replace(/<div class="b" style="visibility:hidden"><\/div>/g, ''))) ph = '';
+        if (!/class="b [^"]*"/.test(st.replace(/<div class="b" style="visibility:hidden"><\/div>/g, ''))) st = '';
         let mk = '';
         [['mise_en_service', p.date_mise_en_service], ['mise_en_production', p.date_mise_en_production]].forEach(([k, d]) => {
             if (d && !hiddenKeys.has(k) && d >= c.from && d <= c.to) mk += `<span class="aff-mk" title="${esc(planDef(k).label)} : ${frd(d)}"><i style="background:${planColor(k)}"></i></span>`;
