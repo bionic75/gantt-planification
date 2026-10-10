@@ -1396,6 +1396,23 @@ function initDB() {
                 else console.log('✅ Migration amoa_ced → app_user_access terminée');
             });
 
+            // Application « Aide à l'affectation opérationnelle » : projets de déploiement de SAMU
+            database.run(`
+                CREATE TABLE IF NOT EXISTS affectation_projects (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    samu_name TEXT NOT NULL,
+                    location_id INTEGER,
+                    chef_projet_id INTEGER,
+                    date_debut TEXT NOT NULL,
+                    date_mise_en_service TEXT,
+                    date_mise_en_production TEXT,
+                    periods TEXT NOT NULL DEFAULT '{}',
+                    created_by INTEGER,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            `, (tblErr) => { if (tblErr) console.error('Erreur création table affectation_projects:', tblErr); });
+
             // Application « Aide à l'affectation opérationnelle » : accès initial pour les administrateurs (une seule fois,
             // pour que la nouvelle application soit visible ; les accès restent ensuite gérés dans l'administration)
             database.get(`SELECT value FROM settings WHERE key = 'app_affectation_seeded'`, (seedErr, seedRow) => {
@@ -3606,6 +3623,174 @@ app.delete('/api/app-access/:app/users/:userId', requireAdmin, (req, res) => {
     database.run('DELETE FROM app_user_access WHERE app_key = ? AND user_id = ?', [app, userId], function(err) {
         if (err) return res.status(500).json({ error: err.message });
         if (app === 'deplacements') database.run('UPDATE users SET amoa_ced = 0 WHERE id = ?', [userId]);
+        res.json({ success: true });
+    });
+});
+
+// ---------- Application « Aide à l'affectation opérationnelle » : déploiements de SAMU ----------
+const AFF_STAGES = [
+    { key: 'cadrage',               label: 'Cadrage',                           kind: 'period', color: '#7e57c2' },
+    { key: 'deploiement',           label: 'Déploiement opérationnel',          kind: 'period', color: '#1976d2' },
+    { key: 'gel',                   label: 'Période(s) de gel',                 kind: 'periods', color: '#90a4ae' },
+    { key: 'mise_en_service',       label: 'Mise en service',                   kind: 'date',   color: '#e53935' },
+    { key: 'mise_en_production',    label: 'Mise en production',                kind: 'date',   color: '#2e7d32' },
+    { key: 'visite_metier',         label: 'Visite métier',                     kind: 'period', color: '#ab47bc' },
+    { key: 'test_prerequis',        label: 'Test des prérequis',                kind: 'period', color: '#26a69a' },
+    { key: 'vft',                   label: 'VFT',                               kind: 'period', color: '#43a047' },
+    { key: 'formation_relais',      label: 'Formation « Formateurs relais »',   kind: 'period', color: '#ffa726' },
+    { key: 'formation_utilisateurs',label: 'Formation « Utilisateurs »',        kind: 'period', color: '#ef6c00' },
+    { key: 'accompagnement',        label: 'Accompagnement',                    kind: 'period', color: '#00acc1' }
+];
+const AFF_PERIOD_KEYS = AFF_STAGES.filter(s => s.kind !== 'date').map(s => s.key);
+
+function requireAffectationAccess(req, res, next) {
+    if (!req.session || !req.session.userId) return res.status(403).json({ error: 'Accès refusé' });
+    if (req.session.activeProfile === 'admin') return next();
+    database.get('SELECT 1 AS ok FROM app_user_access WHERE app_key = ? AND user_id = ?', ['affectation', req.session.userId], (err, row) => {
+        if (err || !row) return res.status(403).json({ error: 'Accès refusé' });
+        next();
+    });
+}
+
+function affIsoDate(v) {
+    if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
+    const d = new Date(v + 'T00:00:00Z');
+    return !isNaN(d) && d.toISOString().slice(0, 10) === v;
+}
+
+function affColors(cb) {
+    database.get(`SELECT value FROM settings WHERE key = 'affectation_colors'`, (err, row) => {
+        let saved = {};
+        try { saved = row ? JSON.parse(row.value) : {}; } catch (e) { saved = {}; }
+        const colors = {};
+        AFF_STAGES.forEach(st => { colors[st.key] = /^#[0-9a-fA-F]{6}$/.test(saved[st.key] || '') ? saved[st.key] : st.color; });
+        cb(colors);
+    });
+}
+
+// Validation : toutes les dates doivent être postérieures ou égales à la date de début du projet
+function sanitizeAffProject(b) {
+    if (!b || typeof b !== 'object') return { error: 'Données invalides' };
+    const samu = String(b.samu_name || '').trim();
+    if (!samu) return { error: 'Le nom du SAMU est obligatoire' };
+    if (samu.length > 120) return { error: 'Nom du SAMU trop long' };
+    if (!affIsoDate(b.date_debut)) return { error: 'La date de début du projet est obligatoire' };
+    const debut = b.date_debut;
+    const after = (d, label) => (d >= debut ? null : `${label} : la date ne peut pas précéder le début du projet (${debut})`);
+
+    const out = {
+        samu_name: samu,
+        location_id: Number.isInteger(Number(b.location_id)) && Number(b.location_id) > 0 ? Number(b.location_id) : null,
+        chef_projet_id: Number.isInteger(Number(b.chef_projet_id)) && Number(b.chef_projet_id) > 0 ? Number(b.chef_projet_id) : null,
+        date_debut: debut,
+        date_mise_en_service: null,
+        date_mise_en_production: null,
+        periods: {}
+    };
+    for (const key of ['mise_en_service', 'mise_en_production']) {
+        const v = b['date_' + key];
+        if (v === null || v === undefined || v === '') continue;
+        const label = AFF_STAGES.find(s => s.key === key).label;
+        if (!affIsoDate(v)) return { error: `${label} : date invalide` };
+        const e = after(v, label); if (e) return { error: e };
+        out['date_' + key] = v;
+    }
+    const src = b.periods && typeof b.periods === 'object' ? b.periods : {};
+    for (const key of AFF_PERIOD_KEYS) {
+        const def = AFF_STAGES.find(s => s.key === key);
+        const list = (Array.isArray(src[key]) ? src[key] : []).filter(p => p && (p.start || p.end));
+        if (def.kind === 'period' && list.length > 1) return { error: `${def.label} : une seule période est possible` };
+        if (list.length > 10) return { error: `${def.label} : trop de périodes` };
+        const clean = [];
+        for (const p of list) {
+            if (!affIsoDate(p.start) || !affIsoDate(p.end)) return { error: `${def.label} : renseignez la date de début et la date de fin` };
+            if (p.end < p.start) return { error: `${def.label} : la date de fin précède la date de début` };
+            const e = after(p.start, def.label); if (e) return { error: e };
+            clean.push({ start: p.start, end: p.end });
+        }
+        if (clean.length) out.periods[key] = clean;
+    }
+    return { value: out };
+}
+
+function affRowToJson(r) {
+    let periods = {};
+    try { periods = JSON.parse(r.periods || '{}'); } catch (e) { periods = {}; }
+    return {
+        id: r.id, samu_name: r.samu_name, location_id: r.location_id,
+        chef_projet_id: r.chef_projet_id, chef_projet_nom: r.chef_nom ? `${r.chef_nom} ${r.chef_prenom || ''}`.trim() : null,
+        date_debut: r.date_debut, date_mise_en_service: r.date_mise_en_service, date_mise_en_production: r.date_mise_en_production,
+        periods, updated_at: r.updated_at
+    };
+}
+
+const AFF_SELECT = `SELECT p.*, u.nom AS chef_nom, u.prenom AS chef_prenom FROM affectation_projects p LEFT JOIN users u ON u.id = p.chef_projet_id`;
+
+app.get('/api/affectation/config', requireAffectationAccess, (req, res) => {
+    affColors(colors => res.json({ stages: AFF_STAGES.map(s => ({ key: s.key, label: s.label, kind: s.kind, defaultColor: s.color })), colors }));
+});
+
+app.put('/api/affectation/colors', requireAdmin, (req, res) => {
+    const input = req.body && typeof req.body === 'object' ? req.body : {};
+    const colors = {};
+    for (const st of AFF_STAGES) {
+        const c = input[st.key];
+        if (c === undefined) continue;
+        if (!/^#[0-9a-fA-F]{6}$/.test(c)) return res.status(400).json({ error: `Couleur invalide pour « ${st.label} »` });
+        colors[st.key] = c.toLowerCase();
+    }
+    database.run(`INSERT OR REPLACE INTO settings (key, value) VALUES ('affectation_colors', ?)`, [JSON.stringify(colors)], err => {
+        if (err) return res.status(500).json({ error: err.message });
+        logUserAction(req, 'Couleurs des étapes de déploiement SAMU', {});
+        affColors(c => res.json({ colors: c }));
+    });
+});
+
+app.get('/api/affectation/users', requireAdmin, (req, res) => {
+    database.all(`SELECT id, nom, prenom, trigramme FROM users WHERE actif = 1 ORDER BY nom, prenom`, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ users: rows });
+    });
+});
+
+app.get('/api/affectation/projects', requireAffectationAccess, (req, res) => {
+    database.all(`${AFF_SELECT} ORDER BY p.date_debut DESC, p.samu_name`, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ projects: rows.map(affRowToJson) });
+    });
+});
+
+function affSaveProject(req, res, id) {
+    const r = sanitizeAffProject(req.body);
+    if (r.error) return res.status(400).json({ error: r.error });
+    const v = r.value;
+    const done = (err, newId) => {
+        if (err) return res.status(500).json({ error: err.message });
+        database.get(`${AFF_SELECT} WHERE p.id = ?`, [newId], (e, row) => {
+            if (e || !row) return res.status(500).json({ error: e ? e.message : 'Projet introuvable' });
+            logUserAction(req, id ? 'Modification déploiement SAMU' : 'Création déploiement SAMU', { id: newId, samu: v.samu_name });
+            res.json(affRowToJson(row));
+        });
+    };
+    const fields = [v.samu_name, v.location_id, v.chef_projet_id, v.date_debut, v.date_mise_en_service, v.date_mise_en_production, JSON.stringify(v.periods)];
+    if (id) {
+        database.run(`UPDATE affectation_projects SET samu_name=?, location_id=?, chef_projet_id=?, date_debut=?, date_mise_en_service=?, date_mise_en_production=?, periods=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`,
+            [...fields, id], function (err) {
+                if (!err && this.changes === 0) return res.status(404).json({ error: 'Projet introuvable' });
+                done(err, id);
+            });
+    } else {
+        database.run(`INSERT INTO affectation_projects (samu_name, location_id, chef_projet_id, date_debut, date_mise_en_service, date_mise_en_production, periods, created_by) VALUES (?,?,?,?,?,?,?,?)`,
+            [...fields, req.session.userId], function (err) { done(err, this && this.lastID); });
+    }
+}
+app.post('/api/affectation/projects', requireAdmin, (req, res) => affSaveProject(req, res, null));
+app.put('/api/affectation/projects/:id', requireAdmin, (req, res) => affSaveProject(req, res, Number(req.params.id)));
+app.delete('/api/affectation/projects/:id', requireAdmin, (req, res) => {
+    database.run('DELETE FROM affectation_projects WHERE id = ?', [Number(req.params.id)], function (err) {
+        if (err) return res.status(500).json({ error: err.message });
+        if (this.changes === 0) return res.status(404).json({ error: 'Projet introuvable' });
+        logUserAction(req, 'Suppression déploiement SAMU', { id: Number(req.params.id) });
         res.json({ success: true });
     });
 });
