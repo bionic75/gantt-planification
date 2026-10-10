@@ -1,4 +1,4 @@
-<!-- v1.16.42 -->
+<!-- v1.16.43 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -42,6 +42,18 @@
         #resourcesTable { min-width: 1500px; }
         td.ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         svg.app-ico, svg.tab-ico { vertical-align: middle !important; }
+        .gantt-collapse-btn { position: absolute; left: 2px; top: 2px; width: 20px; height: 20px; border: 1px solid rgba(255,255,255,.65); border-radius: 50%; background: rgba(255,255,255,.28); color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0 !important; margin: 0 !important; min-width: 0 !important; z-index: 2; transition: background .15s; }
+        .gantt-collapse-btn:hover { background: rgba(255,255,255,.4); }
+        .gantt-collapse-btn svg, .gantt-collapse-all svg { flex-shrink: 0; width: 12px; height: 12px; stroke: currentColor; stroke-width: 3.4; fill: none; stroke-linecap: round; }
+        .gantt-collapse-all { display: inline-flex; gap: 4px; margin-left: 8px; vertical-align: middle; }
+        .gantt-collapse-all button { width: 20px; height: 20px; border: 1px solid rgba(255,255,255,.65); border-radius: 50%; background: rgba(255,255,255,.25); color: #fff; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 0 !important; margin: 0 !important; min-width: 0 !important; }
+        .gantt-collapse-all button:hover { background: rgba(255,255,255,.45); }
+        #ganttWrapper .gantt-table tr.gantt-row-collapsed td.gantt-cell { height: auto !important; }
+        tr.gantt-row-collapsed td.gantt-cell div.gantt-cell-row:nth-of-type(n+2) { display: none !important; }
+        tr.gantt-row-collapsed td.resource-label > div { height: auto !important; }
+        tr.gantt-row-collapsed td.resource-label > div > div:nth-child(n+2) { display: none !important; }
+        tr.gantt-row-collapsed td.resource-header > div > div:nth-child(2) { display: none !important; }
+        tr.gantt-row-collapsed td.resource-header small, tr.gantt-row-collapsed td.resource-header br { display: none !important; }
         .alert-ico { width: 1.15em; height: 1.15em; vertical-align: -0.22em; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
         .tab-ico { width: 18px; height: 18px; margin-right: 8px; vertical-align: -3px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; opacity: .9; }
         .tab-btn.tab-dragging { opacity: 0.4; cursor: grabbing; pointer-events: none; }
@@ -475,15 +487,15 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.16.42">
-    <link rel="stylesheet" href="/darkmode.css?v=1.16.42">
-    <link rel="stylesheet" href="/login.css?v=1.16.42">
-    <link rel="stylesheet" href="/ui-polish.css?v=1.16.42">
-    <script src="/darkmode.js?v=1.16.42"></script>
-    <script src="/themes.js?v=1.16.42" defer></script>
-    <script src="/layout-fix.js?v=1.16.42" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.16.43">
+    <link rel="stylesheet" href="/darkmode.css?v=1.16.43">
+    <link rel="stylesheet" href="/login.css?v=1.16.43">
+    <link rel="stylesheet" href="/ui-polish.css?v=1.16.43">
+    <script src="/darkmode.js?v=1.16.43"></script>
+    <script src="/themes.js?v=1.16.43" defer></script>
+    <script src="/layout-fix.js?v=1.16.43" defer></script>
     <script>window.UI_ICONS_KEEP_ALERT = true;</script>
-    <script src="/ui-icons.js?v=1.16.42" defer></script>
+    <script src="/ui-icons.js?v=1.16.43" defer></script>
 </head>
 <body>
     <div class="container">
@@ -9830,6 +9842,35 @@
             currentLocalisationCell = null;
         }
 
+        // Lignes d'experts repliées dans le planning (mémorisées dans le navigateur)
+        const ganttCollapsed = new Set((() => { try { return JSON.parse(localStorage.getItem('gp_gantt_collapsed') || '[]'); } catch (e) { return []; } })());
+        function ganttCollapseIcon(isCollapsed) {
+            return `<svg viewBox="0 0 24 24" aria-hidden="true">${isCollapsed ? '<path d="M12 5v14M5 12h14"/>' : '<path d="M5 12h14"/>'}</svg>`;
+        }
+        function saveGanttCollapsed() {
+            try { localStorage.setItem('gp_gantt_collapsed', JSON.stringify([...ganttCollapsed])); } catch (e) { /* stockage indisponible */ }
+        }
+        function toggleGanttRow(resourceId) {
+            const tr = document.querySelector(`#ganttBody tr[data-resource-id="${resourceId}"]`);
+            if (!tr) return;
+            const collapsed = !ganttCollapsed.has(resourceId);
+            collapsed ? ganttCollapsed.add(resourceId) : ganttCollapsed.delete(resourceId);
+            tr.classList.toggle('gantt-row-collapsed', collapsed);
+            const b = tr.querySelector('.gantt-collapse-btn');
+            if (b) { b.innerHTML = ganttCollapseIcon(collapsed); b.title = (collapsed ? 'Déplier' : 'Replier') + ' la ligne de cet expert'; }
+            saveGanttCollapsed();
+        }
+        function setAllGanttRows(collapse) {
+            document.querySelectorAll('#ganttBody tr[data-resource-id]').forEach(tr => {
+                const id = Number(tr.dataset.resourceId);
+                collapse ? ganttCollapsed.add(id) : ganttCollapsed.delete(id);
+                tr.classList.toggle('gantt-row-collapsed', collapse);
+                const b = tr.querySelector('.gantt-collapse-btn');
+                if (b) { b.innerHTML = ganttCollapseIcon(collapse); b.title = (collapse ? 'Déplier' : 'Replier') + ' la ligne de cet expert'; }
+            });
+            saveGanttCollapsed();
+        }
+
         function updateGantt() {
             const year = parseInt(document.getElementById('yearSelect').value);
             const month = parseInt(document.getElementById('monthSelect').value);
@@ -9870,7 +9911,7 @@
 
             // ====== Ligne N° de semaine (nouvelle) ======
             html += '<tr>';
-            html += '<th class="resource-header" style="z-index: 50; cursor: pointer;" rowspan="3" onclick="sortGanttResources()">Ressource</th>';
+            html += `<th class="resource-header" style="z-index: 50; cursor: pointer;" rowspan="3" onclick="sortGanttResources()">Ressource <span class="gantt-collapse-all" onclick="event.stopPropagation();"><button type="button" onclick="setAllGanttRows(false)" title="Tout déplier">${ganttCollapseIcon(true)}</button><button type="button" onclick="setAllGanttRows(true)" title="Tout replier">${ganttCollapseIcon(false)}</button></span></th>`;
             html += `<th class="resource-label" style="z-index: 49; vertical-align: middle; padding: 4px;" rowspan="3">
                 <div style="display: flex; flex-direction: column; height: 60px; justify-content: space-between;">
                     <div style="flex: 1; display: flex; align-items: center; justify-content: center;">Disponibilité</div>
@@ -9890,7 +9931,7 @@
                         wDay++;
                     }
                     const wBg = (wIndex % 2 === 0) ? '#2c3e50' : '#3d566e';
-                    html += `<th class="week-number-header" colspan="${wCount * 2}" style="background-color: ${wBg}; color: white; font-size: 10px; font-weight: bold; padding: 4px 0; letter-spacing: 0.5px; z-index: 19;">Sem. ${wn}</th>`;
+                    html += `<th class="week-number-header" colspan="${wCount * 2}" style="background-color: ${wBg}; color: white; font-size: 15px; font-weight: bold; padding: 6px 0; letter-spacing: 0.6px; z-index: 19;">Sem. ${wn}</th>`;
                     wIndex++;
                 }
             }
@@ -9918,7 +9959,7 @@
                 }
                 
                 // Afficher 2 colonnes par jour : AM et PM
-                html += `<th class="${headerClass}" colspan="2" style="text-align: center;">${dayName}<br>${day}</th>`;
+                html += `<th class="${headerClass} day-name-header" colspan="2" style="text-align: center; font-size: 14px; line-height: 1.25;">${dayName}<br><span class="gd-num" style="font-size: 18px; font-weight: 800;">${day}</span></th>`;
             }
             html += '</tr>';
             
@@ -10070,8 +10111,9 @@
                 }
                 const photoTooltip = tooltipParts.join('\n');
 
-                html += `<tr data-resource-name="${resource.nom} ${resource.prenom}" data-resource-id="${resource.id}" data-user-id="${resource.user_id || ''}">
+                html += `<tr data-resource-name="${resource.nom} ${resource.prenom}" data-resource-id="${resource.id}" data-user-id="${resource.user_id || ''}"${ganttCollapsed.has(resource.id) ? ' class="gantt-row-collapsed"' : ''}>
                     <td class="resource-header">
+                        <button type="button" class="gantt-collapse-btn" onclick="toggleGanttRow(${resource.id})" title="${ganttCollapsed.has(resource.id) ? 'Déplier' : 'Replier'} la ligne de cet expert" aria-label="Replier / déplier la ligne">${ganttCollapseIcon(ganttCollapsed.has(resource.id))}</button>
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
                                 <!-- Photo de profil ou trigramme -->
@@ -22781,6 +22823,14 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     width: ${newCellWidth}px !important;
                     font-size: ${Math.max(8, Math.round(10 * zoomFactor))}px !important;
                     padding: ${Math.max(2, Math.round(4 * zoomFactor))}px !important;
+                }
+                
+                #ganttWrapper .gantt-table .day-name-header {
+                    font-size: ${Math.max(10, Math.round(14 * zoomFactor))}px !important;
+                    line-height: 1.25 !important;
+                }
+                #ganttWrapper .gantt-table .day-name-header .gd-num {
+                    font-size: ${Math.max(12, Math.round(18 * zoomFactor))}px !important;
                 }
                 
                 #ganttWrapper .gantt-table .gantt-cell {
