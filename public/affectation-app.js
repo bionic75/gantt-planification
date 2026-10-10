@@ -123,6 +123,7 @@
         #affectationContainer table.aff-plan-table th, #affectationContainer table.aff-plan-table td { cursor: default; padding: 0; }
         #affectationContainer table.aff-plan-table th::after { content: none; }
         #affectationContainer table.aff-plan-table thead th:hover { background: inherit; }
+        #affectationContainer table.aff-plan-table tbody th.sam, #affectationContainer table.aff-plan-table thead th.corner { padding-left: 32px; }
         #affectationContainer table.aff-plan-table tbody tr:hover { background: transparent; }
         #affectationContainer table.aff-plan-table tbody tr th.sam, #affectationContainer table.aff-plan-table tbody tr:hover th.sam { background: #fff !important; }
         #affectationContainer table.aff-plan-table tbody tr:nth-child(even) th.sam, #affectationContainer table.aff-plan-table tbody tr:nth-child(even):hover th.sam { background: #f4f7fb !important; }
