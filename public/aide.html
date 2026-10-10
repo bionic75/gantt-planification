@@ -71,6 +71,7 @@ tr:nth-child(even) td { background: #f9f9f9; }
     <li><a href="#section-cra">📋 Compte Rendu d'Activité</a></li>
     <li><a href="#section-reporting">📊 Reporting</a></li>
     <li><a href="#section-administration">⚙️ Administration</a></li>
+    <li><a href="#section-affectation">🎯 Aide à l'affectation</a></li>
     <li><a href="#section-mobile">📱 Application mobile</a></li>
     <li><a href="#section-notes-version">🆕 Notes de version</a></li>
   </ul>
@@ -130,6 +131,20 @@ tr:nth-child(even) td { background: #f9f9f9; }
       <tr><td><strong>Administration</strong></td><td>Paramètres, utilisateurs, localisations</td><td>✅</td><td>—</td><td>—</td><td>—</td></tr>
     </tbody>
   </table>
+
+  <h3>Applications</h3>
+  <p>Le menu <strong>Applications</strong> (en haut) permet de basculer entre les outils de la plateforme : <strong>Planification</strong>, <strong>Déplacements</strong>, <strong>Analyse</strong> et <strong>Aide à l'affectation opérationnelle</strong>. Chaque entrée porte une icône stylisée ; seules les applications auxquelles votre compte a accès sont proposées. Les trois applications partagent la même barre d'en-tête (profil, utilisateurs connectés, minuteur d'inactivité, retour à la Planification).</p>
+
+  <h3>Confort d'affichage</h3>
+  <ul>
+    <li><strong>Icônes</strong> — chaque onglet, bouton, légende, cellule et carte d'événement est identifié par une icône stylisée et signifiante, identique d'un écran à l'autre. Au survol, une infobulle précise la signification.</li>
+    <li><strong>Mode sombre</strong> — le bouton lune / soleil en haut à droite bascule entre affichage clair et sombre ; le choix est mémorisé dans votre navigateur. Il est aussi réglable dans <em>Mon profil</em> (clair, sombre, automatique selon le système).</li>
+    <li><strong>Ajuster l'affichage</strong> — après un changement de zoom du navigateur, ce bouton (en haut à droite) remet l'interface d'aplomb : espace sous l'en-tête recalculé, éléments flottants repositionnés.</li>
+    <li><strong>Thèmes saisonniers</strong> — l'administrateur peut activer un thème (Halloween, Noël, Saint-Valentin, Pâques, Vacances). Il est commun à tous, avec de petites animations discrètes. Chaque utilisateur peut le désactiver pour lui-même depuis <em>Mon profil</em>, ou à la volée avec le bouton dédié en haut à droite.</li>
+    <li><strong>Tableaux</strong> — coins arrondis et alternance de nuances entre les lignes sur tous les tableaux, y compris les tableaux triables (clic sur un en-tête de colonne pour trier).</li>
+    <li><strong>Messagerie instantanée</strong> — chaque interlocuteur est identifié par sa photo ou ses initiales et par une vignette de son profil (Admin, Utilisateur, Expert, RH).</li>
+    <li><strong>Mire de connexion</strong> — formulaire moderne avec icônes, bouton afficher / masquer le mot de passe et prise en charge du mode sombre.</li>
+  </ul>
 </section>
 
 <!-- ===================== 2. RESSOURCES ===================== -->
@@ -163,6 +178,12 @@ tr:nth-child(even) td { background: #f9f9f9; }
 
   <h3>Photo de profil</h3>
   <p>Chaque expert peut disposer d'une photo de profil (format JPG/PNG, max 2 Mo). Elle s'affiche dans la pastille en haut à droite une fois connecté.</p>
+
+  <h3>MAD volante</h3>
+  <p>Une ressource en <strong>MAD volante</strong> est reconnaissable à son icône dédiée dans la liste. Sa fiche demande une date de fin et un nombre de jours maximum à la place du taux de MAD. Le nombre de jours consommés n'est plus rappelé dans l'onglet Ressources. Les alertes de dépassement changent de couleur selon la gravité : <strong>jaune</strong> (information), <strong>orange</strong> (vigilance), <strong>rouge</strong> (seuil dépassé).</p>
+
+  <h3>Avertissements sur le nom de la ressource</h3>
+  <p>Lorsqu'une ressource présente une anomalie (par exemple <em>astreinte volontaire sans compte utilisateur lié</em>), un panneau d'avertissement s'affiche <strong>directement sur son nom</strong> ; la description du problème apparaît au survol.</p>
 </section>
 
 <!-- ===================== 3. PLANIFICATION ===================== -->
@@ -202,6 +223,23 @@ tr:nth-child(even) td { background: #f9f9f9; }
 
   <h3>Événements personnalisés</h3>
   <p>Les événements (déplacements, formations, réunions…) sont créés via le bouton <strong>📅 Mes événements</strong>. Ils apparaissent dans le Gantt sous forme de bandeaux colorés.</p>
+
+  <h3>Lignes d'experts et lignes spéciales repliables</h3>
+  <ul>
+    <li>Un petit bouton <strong>(−)</strong> devant chaque expert masque sa ligne ; la ligne <em>congés / événements</em> et la ligne des jours fériés se masquent de la même façon.</li>
+    <li>Un indicateur <strong>« masqués »</strong>, à côté de la barre de zoom, ouvre la liste des lignes masquées pour les rétablir une à une ou toutes d'un coup (retour à l'affichage d'origine).</li>
+    <li>Le numéro de la semaine et le jour de la semaine sont affichés en grand dans l'en-tête pour une lecture à distance.</li>
+  </ul>
+
+  <h3>Légende des disponibilités et des affectations</h3>
+  <p>La légende du Gantt distingue trois blocs, avec la même icône que dans les cellules : <strong>Disponibilité</strong> (1 Indisponible, 2 Disponible pour l'ANS, 3 Congés), <strong>Affectation 1-4</strong> (1 Indisponible, 2 En attente d'affectation, 3 SAMU Déploiement, 4 SAMU Dev. usages) et <strong>Affectation 5-8</strong> (5 ANS Déploiement, 6 ANS Dev. usages, 7 Qualification, 8 Divers). Pour une affectation SAMU (3 ou 4), la localisation de la cellule porte le SAMU concerné (ex. « SAMU 25 »).</p>
+  <div class="note">Ces données de planification sont la <strong>source de vérité</strong> : l'outil d'aide à l'affectation les lit pour savoir qui est disponible, et ne les modifie qu'avec votre validation.</div>
+
+  <h3>Carte des événements : lecture chronologique</h3>
+  <p>Dans la fenêtre de cartographie des événements (onglet Événements), choisissez une <strong>date de début</strong> et une <strong>date de fin</strong>, une <strong>vitesse de défilement</strong> (durée totale de la lecture) puis cliquez sur <strong>Lecture</strong>. Les pastilles apparaissent progressivement sur la carte, de façon cumulative, au fil du temps. Vous pouvez mettre en <strong>pause</strong>, reprendre, ou déplacer le curseur de progression pour revenir à une date donnée. Les experts <strong>principaux</strong> et <strong>secondaires</strong> d'un SAMU sont distingués par deux icônes simplifiées (P et S).</p>
+
+  <h3>Modèles d'événements</h3>
+  <p>Chaque modèle d'événement (Formation, Mise en service, Accompagnement post-démarrage, Visite métier, VFT sur site, Vérification des prérequis, Visite terrain, Congrès, Réunion de lancement…) dispose d'une <strong>icône propre</strong>, visible dans la vignette de choix du modèle puis reprise dans le cartouche de l'événement dans la liste (accordéon) et sur la carte.</p>
 </section>
 
 <!-- ===================== 4. CRA ===================== -->
@@ -247,6 +285,43 @@ tr:nth-child(even) td { background: #f9f9f9; }
 
   <h3>Vue expert</h3>
   <p>L'expert accède à ses CRA dans l'onglet CRA. Pour les CRA au statut <em>Diffusé</em> ou <em>Visé N2</em>, le bouton <strong>Télécharger PDF</strong> ouvre le fichier PDF enregistré sur le serveur.</p>
+
+  <h3>Correction d'un CRA par l'administrateur</h3>
+  <p>Tant que les trois visas ne sont pas obtenus et que le CRA n'est pas diffusé, un administrateur peut le corriger :</p>
+  <ul>
+    <li>Sur un CRA <em>Soumis</em> ou <em>Visé N1</em>, le bouton <strong>🔧 Corriger ce CRA (admin)</strong> le remet au statut <em>À compléter</em> et <strong>remet à zéro toutes les validations</strong> (visas N1 et N2, signature de l'expert).</li>
+    <li>Sur un CRA <em>À compléter</em>, le bouton <strong>✏️ Modifier ce CRA (admin)</strong> permet d'ajouter, corriger ou supprimer des lignes d'astreinte, HNO ou activité courante.</li>
+    <li>Une fois le CRA <em>Visé N2</em> ou <em>Diffusé</em>, plus aucune modification n'est possible.</li>
+  </ul>
+
+  <h3>CRA modifié par un administrateur : retour à l'expert</h3>
+  <p>Un CRA initialisé ou modifié par un administrateur <strong>repasse toujours par l'expert métier</strong> : l'administrateur ne le soumet jamais à sa place.</p>
+  <ul>
+    <li>Dès qu'un administrateur enregistre des lignes sur le CRA d'un autre expert, un bandeau bleu <strong>« CRA modifié par un administrateur »</strong> s'affiche (nom de l'administrateur, date et heure), les validations sont remises à zéro et l'expert est prévenu par <strong>email</strong> (au plus un email toutes les 30 minutes en cas d'enregistrements successifs).</li>
+    <li>Pour un administrateur, le bouton <strong>« Valider et soumettre »</strong> est remplacé par <strong>📨 Renvoyer à l'expert pour vérification</strong> : il notifie l'expert, qui vérifie, corrige si besoin et soumet lui-même.</li>
+    <li>Le bandeau disparaît quand l'expert soumet son CRA. L'action est tracée dans le journal.</li>
+    <li>La déclaration <strong>« Rien à déclarer »</strong> est réservée à l'expert concerné, sur un CRA <em>À compléter</em>.</li>
+  </ul>
+
+  <h3>Compléter son CRA — MAD volante : collecte depuis la planification</h3>
+  <p>Pour une ressource en <strong>MAD volante</strong>, la fenêtre <em>Compléter mon CRA</em> propose le bouton <strong>📥 Collecter depuis la planification (n)</strong>, qui reprend automatiquement ce qui est marqué dans la page de planification du mois :</p>
+  <table>
+    <thead><tr><th>Source dans la planification</th><th>Ligne créée dans le CRA</th><th>Horaires</th></tr></thead>
+    <tbody>
+      <tr><td>Journée avec une affectation de 3 à 8 et disponibilité ANS</td><td>Activité courante (SAMU repris pour les affectations 3 et 4)</td><td>9h – 18h</td></tr>
+      <tr><td>Matin seul</td><td>Activité courante</td><td>9h – 12h</td></tr>
+      <tr><td>Après-midi seul</td><td>Activité courante</td><td>14h – 18h</td></tr>
+      <tr><td>Astreinte « soir » du planning d'astreinte</td><td>Astreinte</td><td>18h → 8h le lendemain</td></tr>
+      <tr><td>Astreinte « journée » (week-end, jour férié)</td><td>Astreinte</td><td>8h – 18h</td></tr>
+    </tbody>
+  </table>
+  <ul>
+    <li>Aucun doublon n'est créé : une ligne n'est considérée conforme que si le type, les dates, les heures, le <strong>SAMU</strong> et l'objet correspondent à la planification.</li>
+    <li>Quand des lignes déjà saisies <strong>divergent</strong> de la planification, la liste des écarts s'affiche (« Saisi » / « Planification ») et vous choisissez de les <strong>remplacer</strong> ou de les <strong>conserver</strong>.</li>
+    <li>Toutes les lignes collectées restent <strong>modifiables</strong> (✏️) et supprimables (🗑️). À <strong>Terminer</strong>, si vous avez corrigé ou supprimé des lignes issues de la planification, l'application propose de <strong>reporter ces corrections dans la planification</strong> (activités de l'expert ; déplacement d'un créneau d'astreinte, sauf s'il est déjà tenu par un autre expert).</li>
+    <li>Un remplacement par les données de la planification n'est jamais reporté en retour. Les HNO saisis depuis le Gantt figurent déjà dans le CRA ; la planification n'en contient pas d'autres.</li>
+  </ul>
+  <div class="note">Les astreintes issues du planning d'astreinte sont collectées sans SAMU (une astreinte couvre tous les SAMU) ; choisissez-en un si vous modifiez la ligne.</div>
 </section>
 
 <!-- ===================== 5. REPORTING ===================== -->
@@ -279,7 +354,8 @@ tr:nth-child(even) td { background: #f9f9f9; }
   <ul>
     <li><strong>Version</strong> — numéro de version affiché sur la mire de login</li>
     <li><strong>Inactivité</strong> — délai avant déconnexion automatique (en minutes)</li>
-    <li><strong>Favicon</strong> — icône affichée dans l'onglet du navigateur</li>
+    <li><strong>Favicon</strong> — icône affichée dans l'onglet du navigateur, à choisir visuellement parmi plusieurs modèles (calendrier, gantt, grille, timeline…)</li>
+    <li><strong>Thème saisonnier</strong> — activation d'un thème commun à tous (voir ci-dessous)</li>
     <li><strong>Aide en ligne</strong> — publication des nouveautés et upload d'une page d'aide personnalisée</li>
   </ul>
 
@@ -311,8 +387,108 @@ tr:nth-child(even) td { background: #f9f9f9; }
   <p>Gérez les lieux (SAMU, établissements) avec leurs coordonnées GPS pour l'affichage sur carte.</p>
 
   <h3>SMTP et notifications</h3>
-  <p>Configurez le serveur d'envoi d'emails pour les notifications automatiques (affectations, MFA, backup). Le champ <strong>Port</strong> détermine automatiquement le mode de chiffrement : port 465 → SSL/TLS direct ; port 587 ou autre → STARTTLS.</p>
+  <p>Configurez le serveur d'envoi d'emails pour les notifications automatiques (affectations, MFA, CRA). Le champ <strong>Port</strong> détermine automatiquement le mode de chiffrement : port 465 → SSL/TLS direct ; port 587 ou autre → STARTTLS.</p>
   <div class="warning">Le port 587 (STARTTLS) peut être bloqué sur certains réseaux mobiles (partage de connexion). Si l'envoi d'emails échoue avec une erreur de connexion, vérifiez que le port n'est pas filtré par l'opérateur.</div>
+
+  <h3>Thèmes saisonniers</h3>
+  <p>Un seul thème peut être actif à la fois : <strong>Halloween, Noël, Saint-Valentin, Pâques ou Vacances</strong>. L'administrateur l'active ou le désactive ici ; il s'applique à tous les utilisateurs. Chacun peut ensuite le désactiver pour lui-même (profil ou bouton en haut à droite).</p>
+
+  <h3>Dump complet et restauration de la base</h3>
+  <p>La rubrique <strong>Dump complet / restauration</strong> remplace l'ancienne sauvegarde CSV / SQL / email (supprimée). Elle permet :</p>
+  <ul>
+    <li><strong>d'exporter</strong> un dump complet des données de l'application, pour le réinjecter par exemple sur un serveur local de test avec les données de production ;</li>
+    <li><strong>de restaurer</strong> un dump après une <strong>validation explicite</strong> : taille du dump, version du site, date de la sauvegarde sont affichées avant toute injection.</li>
+  </ul>
+  <div class="warning">La restauration remplace les données actuelles. Vérifiez la version et la date affichées avant de valider.</div>
+
+  <h3>Accès aux applications</h3>
+  <p>L'accès à chaque application du menu <strong>Applications</strong> est attribué utilisateur par utilisateur. Les administrateurs ont accès à <em>Aide à l'affectation opérationnelle</em> automatiquement ; les autres profils s'ouvrent l'accès depuis l'Administration.</p>
+
+  <h3>Automatisation Teams</h3>
+  <p>Les types de notifications Teams sont présentés avec les mêmes icônes que dans le reste de l'application, pour les reconnaître d'un coup d'œil.</p>
+
+  <h3>Rapport de connexions</h3>
+  <p>Le suivi des connexions affiche un tableau lisible, sans comptes dupliqués : seuls les utilisateurs réels sont listés (les actions du système sont exclues).</p>
+</section>
+
+<!-- ===================== 6 bis. AIDE À L'AFFECTATION ===================== -->
+<section id="section-affectation">
+  <h2>🎯 Aide à l'affectation opérationnelle</h2>
+
+  <h3>Présentation</h3>
+  <p>L'application <strong>Aide à l'affectation opérationnelle</strong> prépare et suit le <strong>déploiement des SAMU</strong> : dates des phases, étapes de mise en œuvre, nombre de ressources nécessaires et affectation des experts. Elle s'ouvre depuis le menu <strong>Applications</strong> et propose deux onglets, chacun avec son icône : <strong>Planning des déploiements</strong> et <strong>Administration</strong>.</p>
+  <div class="note">Elle est reliée à la <strong>Planification</strong> (disponibilités et affectations des experts) et aux <strong>Événements</strong> : les trois fonctionnalités échangent leurs données et ne se contredisent pas. En cas de désaccord, <strong>la planification fait foi</strong>.</div>
+
+  <h3>Onglet Administration — créer un déploiement</h3>
+  <p>Le bouton <strong>Nouveau déploiement</strong> ouvre un formulaire large, avec <strong>une ligne par étape</strong>. Un déploiement existant se modifie ou se supprime depuis la liste.</p>
+  <table>
+    <thead><tr><th>Rubrique</th><th>Contenu</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Nom du SAMU</strong></td><td>Saisie assistée : tapez quelques lettres, la liste des entités se filtre (défilement et navigation au clavier ↑ ↓ Entrée)</td></tr>
+      <tr><td><strong>Chef de projet</strong></td><td>Liste déroulante des utilisateurs</td></tr>
+      <tr><td><strong>Date de début du projet</strong></td><td>Toutes les autres dates doivent lui être postérieures ou égales</td></tr>
+      <tr><td><strong>Phases</strong></td><td>Cadrage, Déploiement opérationnel, Période(s) de gel (optionnelle, plusieurs périodes possibles)</td></tr>
+      <tr><td><strong>Jalons</strong></td><td>Mise en service, Mise en production</td></tr>
+      <tr><td><strong>Étapes de mise en œuvre</strong></td><td>Visite métier, Test des prérequis, VFT, Formation « Formateurs relais », Formation « Utilisateurs », Accompagnement</td></tr>
+    </tbody>
+  </table>
+  <p>Pour <strong>aller vite</strong>, chaque étape de mise en œuvre propose :</p>
+  <ul>
+    <li><strong>Un sélecteur de semaine</strong> (« Semaine 41, 2026 ») : le choix donne la borne basse (lundi de la semaine).</li>
+    <li><strong>Le nombre de jours</strong> (début et fin compris) : la date de fin se calcule seule ; modifier la fin recalcule les jours.</li>
+    <li><strong>Un calendrier avec numéros de semaine</strong> en début de ligne : un clic sur un numéro choisit la semaine (lundi pour un début, vendredi pour une fin). Il s'ouvre sur la date déjà choisie ; pour une fin, sur le mois de la borne basse, sans défiler.</li>
+    <li><strong>Le nombre de ressources nécessaires</strong> (liste de 1 à 10), obligatoire pour chaque étape utilisée.</li>
+  </ul>
+  <div class="note">Les oublis sont détaillés dans le bas de la fenêtre (ex. « VFT : nombre de ressources nécessaires à renseigner ») et les champs concernés sont surlignés en rouge ; la fenêtre défile jusqu'au premier.</div>
+
+  <h3>Couleurs des rubriques</h3>
+  <p>Chaque phase, jalon et étape possède une <strong>couleur globale</strong>, commune à tous les projets, modifiable dans la zone « Couleurs ». Elle s'applique à la légende et au planning. Le bouton de réinitialisation rétablit les couleurs d'origine.</p>
+
+  <h3>Onglet Planning des déploiements</h3>
+  <p>Une ligne par SAMU, un calendrier en colonnes. Trois échelles : <strong>Jour</strong> (par défaut), <strong>Semaine</strong> et <strong>Mois</strong>. L'en-tête affiche, du plus grand au plus petit : <strong>année</strong>, <strong>mois</strong>, <strong>semaine</strong>, <strong>numéro du jour</strong> et <strong>jour de la semaine</strong>. Le bouton <strong>Aujourd'hui</strong> recentre sur la date du jour ; weekends et jour courant sont colorés.</p>
+  <ul>
+    <li><strong>Déroulé du SAMU</strong> — les phases (Cadrage, Déploiement, gel hachuré) forment un bandeau en haut ; chaque étape de mise en œuvre a sa propre barre, positionnée <em>au prorata de sa durée</em> (une visite d'une journée reste une petite barre). La hauteur de la ligne s'adapte au nombre d'étapes.</li>
+    <li><strong>Jalons</strong> — pastilles de mise en service et de mise en production ; un <strong>trait vertical</strong> marque le début du projet, à la date exacte.</li>
+    <li><strong>Légende filtrable</strong> — en haut, la légende donne la signification des couleurs ; cliquer sur une rubrique la <strong>masque ou l'affiche</strong> dans tout le planning. La pastille <em>SAMU déjà en service</em> masque les SAMU dont la mise en service est passée. Les choix sont mémorisés.</li>
+    <li><strong>Tri</strong> — « Trier par » SAMU, Chef de projet ou Mise en service ; un second clic inverse l'ordre (▲ ▼). Les lignes sans valeur restent en bas.</li>
+    <li><strong>Infobulles</strong> — au survol d'une barre : étape, dates, nombre de ressources affectées sur prévues <strong>et noms des personnes affectées</strong>.</li>
+  </ul>
+
+  <h3>Affecter des ressources à une étape</h3>
+  <p>Cliquez sur la barre d'une étape (dans toutes les échelles) : la fenêtre <strong>Affecter des ressources</strong> liste les ressources actives avec un filtre de recherche. Cochez-en <strong>jusqu'au nombre prévu</strong> pour l'étape (les autres cases sont alors grisées). Le compteur « affectées / prévues » s'affiche sur la barre, avec un liseré blanc quand l'étape est complète.</p>
+
+  <h3>Disponibilités issues de la planification (système expert)</h3>
+  <p>Sous chaque ressource, des pastilles indiquent sa situation <strong>réelle sur la période de l'étape</strong>, lue dans la planification (jours ouvrés, demi-journées) :</p>
+  <table>
+    <thead><tr><th>Pastille</th><th>Signification</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Libre : x j / y j</strong></td><td>Jours où la ressource est disponible pour l'ANS et sans affectation. Vert à 80 % et plus, orange en dessous, rouge à zéro.</td></tr>
+      <tr><td><strong>Déjà sur ce SAMU</strong></td><td>Déjà affectée à ce SAMU dans la planification</td></tr>
+      <tr><td><strong>Affecté(e) ailleurs (SAMU …)</strong></td><td>Conflit : affectée à un autre SAMU (les SAMU sont nommés)</td></tr>
+      <tr><td><strong>Activité ANS</strong></td><td>Occupée sur ANS Déploiement, Dev. usages, Qualification ou Divers</td></tr>
+      <tr><td><strong>Congés</strong> / <strong>Indisponible</strong></td><td>Absence déclarée dans la planification</td></tr>
+      <tr><td><strong>Planning non renseigné</strong></td><td>Aucune donnée de planification sur la période</td></tr>
+    </tbody>
+  </table>
+  <p>La liste est <strong>triée par adéquation</strong> : ressources déjà cochées, puis les plus libres, en dernier celles en conflit. Un conflit est <strong>signalé, jamais bloquant</strong>.</p>
+
+  <h3>Synchronisation avec la planification et les événements</h3>
+  <p>Après l'enregistrement d'une affectation (ou avec le bouton <strong>Synchroniser</strong>), l'application demande <strong>votre autorisation</strong> pour reporter l'affectation dans les deux autres fonctionnalités. La fenêtre « Reporter l'affectation » affiche deux blocs, chacun avec sa case à cocher :</p>
+  <ol>
+    <li><strong>Planification des experts</strong> — pour chaque ressource, le nombre de jours qui seront renseignés : disponibilité ANS, activité 3 « SAMU (Déploiement) » et localisation du SAMU, sur les jours ouvrés de l'étape. Les jours en <strong>conflit</strong> (congés, indisponible, autre SAMU, activité ANS) ne sont <strong>jamais écrasés</strong> et sont listés avec la raison.</li>
+    <li><strong>Événement</strong> — création d'un événement dont le titre, les dates, le SAMU et les participants sont <strong>pré-remplis et modifiables</strong>. Si un événement équivalent existe déjà (même SAMU, même titre, dates qui se chevauchent), il n'est pas dupliqué : seuls les participants manquants lui sont ajoutés.</li>
+  </ol>
+  <table>
+    <thead><tr><th>Étape de déploiement</th><th>Titre d'événement proposé</th></tr></thead>
+    <tbody>
+      <tr><td>Visite métier</td><td>VISITE METIER</td></tr>
+      <tr><td>Test des prérequis</td><td>VERIF PREREQUIS</td></tr>
+      <tr><td>VFT</td><td>VFT SUR SITE</td></tr>
+      <tr><td>Formation « Formateurs relais » / « Utilisateurs »</td><td>FORMATION</td></tr>
+      <tr><td>Accompagnement</td><td>ACCOMP. POST DÉM.</td></tr>
+    </tbody>
+  </table>
+  <div class="note">Une ressource sans compte utilisateur ne peut pas être ajoutée comme participante : elle est signalée dans la fenêtre. Quand tout est déjà à jour, la fenêtre l'indique (« Tout est à jour ») et n'apparaît plus d'elle-même. Cette synchronisation est réservée aux administrateurs.</div>
 </section>
 
 <!-- ===================== 7. MOBILE ===================== -->
@@ -358,6 +534,30 @@ tr:nth-child(even) td { background: #f9f9f9; }
   <h2>🆕 Notes de version</h2>
   <p>Historique des évolutions de la Plateforme de Planification ANS.</p>
 
+  <!-- v1.16.74 -->
+  <div class="card card-green" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v1.16.74</strong>
+      <span class="badge badge-current">Actuelle</span>
+      <span style="color:#888; font-size:13px;">Octobre 2026</span>
+    </div>
+    <ul>
+      <li>🎯 <strong>Nouvelle application « Aide à l'affectation opérationnelle »</strong> : administration des déploiements de SAMU (phases, étapes, semaines, nombre de ressources), planning calendaire jour / semaine / mois avec déroulé des étapes, légende filtrable, tri et affectation de ressources. <em>Voir la section « Aide à l'affectation ».</em></li>
+      <li>🧠 <strong>Disponibilités issues de la planification</strong> : pour chaque ressource, jours libres, conflits sur un autre SAMU, activités ANS, congés ; liste triée par adéquation.</li>
+      <li>🔄 <strong>Report validé vers la planification et les événements</strong> : jours renseignés dans la planification des experts, événement pré-rempli selon les modèles (VISITE METIER, VFT SUR SITE, FORMATION…), sans doublon et sans jamais écraser un conflit.</li>
+      <li>📥 <strong>CRA — MAD volante : collecte depuis la planification</strong> des activités courantes (9h-18h, 9h-12h, 14h-18h) et des astreintes, remplacement proposé des lignes divergentes, report des corrections dans la planification.</li>
+      <li>🛠️ <strong>CRA modifié par un administrateur</strong> : validations remises à zéro, bandeau, email à l'expert, bouton « Renvoyer à l'expert » ; l'administrateur ne soumet plus à la place de l'expert. Correction d'un CRA avec remise à zéro des validations.</li>
+      <li>💾 <strong>Dump complet / restauration</strong> de la base (avec validation sur la taille, la version et la date) ; la sauvegarde CSV / SQL / email est supprimée.</li>
+      <li>🎨 <strong>Thèmes saisonniers</strong> (Halloween, Noël, Saint-Valentin, Pâques, Vacances) et <strong>mode sombre</strong> ; bouton <strong>Ajuster l'affichage</strong> ; nouvelle <strong>mire de connexion</strong>.</li>
+      <li>✨ <strong>Icônes stylisées et signifiantes partout</strong> : onglets, menu Applications, Gantt et légendes, modèles d'événements, profil, Administration, aide, messagerie (avec vignette de profil), Teams.</li>
+      <li>🗺️ <strong>Carte</strong> : lecture chronologique des événements à vitesse réglable ; nouvelles icônes d'expert principal / secondaire.</li>
+      <li>📅 <strong>Planification</strong> : numéro de semaine et jour agrandis, lignes d'experts et ligne congés / événements masquables (−) et rétablissables.</li>
+      <li>📋 <strong>Tableaux</strong> : coins arrondis et alternance de nuances ; favicon au choix ; rapport de connexions sans doublon ; MAD volante : icône dédiée et alertes jaune / orange / rouge.</li>
+      <li>🔧 <strong>Corrections</strong> : liste des SAMU en saisie CRA, espace sous l'en-tête (Déplacements), barre d'outils flottante qui ne chevauche plus les pastilles d'en-tête.</li>
+    </ul>
+    <p style="font-size:12px; color:#888; margin-top:8px;">Au déploiement : redémarrage du serveur requis ; les nouvelles tables et colonnes sont créées automatiquement.</p>
+  </div>
+
   <!-- v1.16.00 -->
   <div class="card card-green" style="margin-bottom:16px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
@@ -376,7 +576,6 @@ tr:nth-child(even) td { background: #f9f9f9; }
   <div class="card card-green" style="margin-bottom:16px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
       <strong style="font-size:16px;">v1.15.32</strong>
-      <span class="badge badge-current">Actuelle</span>
       <span style="color:#888; font-size:13px;">Septembre 2026</span>
     </div>
     <ul>
