@@ -3893,6 +3893,131 @@ app.get('/api/affectation/projects/:id/availability/:stage', requireAffectationA
     });
 });
 
+// ---- Synchronisation des affectations vers la planification et les événements ----
+const AFF_STAGE_EVENT = {
+    visite_metier: { label: 'VISITE METIER', config: { bgColor: '#7b1fa2', textColor: '#ffffff', borderColor: '#4a0072' } },
+    test_prerequis: { label: 'VERIF PREREQUIS', config: { bgColor: '#546e7a', textColor: '#ffffff', borderColor: '#263238' } },
+    vft: { label: 'VFT SUR SITE', config: { bgColor: '#2e7d32', textColor: '#ffffff', borderColor: '#1b5e20' } },
+    formation_relais: { label: 'FORMATION', config: { bgColor: '#ffea00', textColor: '#0008ff', borderColor: '#000000' } },
+    formation_utilisateurs: { label: 'FORMATION', config: { bgColor: '#ffea00', textColor: '#0008ff', borderColor: '#000000' } },
+    accompagnement: { label: 'ACCOMP. POST DÉM.', config: { bgColor: '#ffea00', textColor: '#c2059a', borderColor: '#000000' } }
+};
+const dbAll = (sql, params) => new Promise((resolve, reject) => database.all(sql, params || [], (e, r) => e ? reject(e) : resolve(r || [])));
+const dbGet = (sql, params) => new Promise((resolve, reject) => database.get(sql, params || [], (e, r) => e ? reject(e) : resolve(r)));
+const dbRun = (sql, params) => new Promise((resolve, reject) => database.run(sql, params || [], function (e) { e ? reject(e) : resolve(this); }));
+
+async function affSyncCompute(projectId, stageKey) {
+    const def = AFF_STAGES.find(x => x.key === stageKey && x.resources);
+    if (!def) throw Object.assign(new Error('Étape sans ressources'), { status: 400 });
+    const proj = await dbGet('SELECT * FROM affectation_projects WHERE id = ?', [projectId]);
+    if (!proj) throw Object.assign(new Error('Projet introuvable'), { status: 404 });
+    let periods = {};
+    try { periods = JSON.parse(proj.periods || '{}'); } catch (e) { periods = {}; }
+    const per = periods[stageKey] && periods[stageKey][0];
+    if (!per) throw Object.assign(new Error('Étape sans période'), { status: 400 });
+    const samuNo = affSamuNumber(proj.samu_name);
+    const samuLoc = '🚨 SAMU ' + (samuNo || String(proj.samu_name || '').trim());
+    let locationId = proj.location_id;
+    if (!locationId) {
+        const loc = await dbGet('SELECT id FROM locations WHERE libelle_court = ?', [proj.samu_name]);
+        locationId = loc ? loc.id : null;
+    }
+    const assigned = await dbAll(`SELECT a.resource_id AS id, r.nom, r.prenom, u.id AS user_id
+        FROM affectation_assignments a JOIN resources r ON r.id = a.resource_id LEFT JOIN users u ON u.resource_id = r.id AND u.actif = 1
+        WHERE a.project_id = ? AND a.stage_key = ? ORDER BY r.nom`, [projectId, stageKey]);
+    const rows = assigned.length ? await dbAll(`SELECT resource_id, date_key, type, value FROM schedule_data
+        WHERE type IN ('available','activity','localisation') AND date_key >= ? AND date_key <= ? AND resource_id IN (${assigned.map(() => '?').join(',')})`,
+        [per.start, per.end + '_ZZ', ...assigned.map(a => a.id)]) : [];
+    const cells = {};
+    rows.forEach(r => { ((cells[r.resource_id] = cells[r.resource_id] || {})[r.date_key] = cells[r.resource_id][r.date_key] || {})[r.type] = r.value; });
+    const act = AFF_STAGE_ACTIVITY[stageKey] || '3';
+    const resources = assigned.map(a => {
+        const toWrite = [], conflicts = [];
+        let done = 0;
+        for (let t = Date.parse(per.start + 'T00:00:00Z'); t <= Date.parse(per.end + 'T00:00:00Z'); t += 86400000) {
+            const dow = new Date(t).getUTCDay();
+            if (dow === 0 || dow === 6) continue;
+            const day = new Date(t).toISOString().slice(0, 10);
+            ['AM', 'PM'].forEach(h => {
+                const key = `${day}_${h}`, c = (cells[a.id] || {})[key] || {};
+                if ((c.activity === '3' || c.activity === '4') && affSamuNumber(c.localisation) === samuNo) { done++; return; }
+                if (c.available === '3') conflicts.push({ key, reason: 'Congés' });
+                else if (c.available === '1' || c.activity === '1') conflicts.push({ key, reason: 'Indisponible' });
+                else if (c.activity === '3' || c.activity === '4') conflicts.push({ key, reason: 'Affecté(e) à ' + String(c.localisation || 'un autre SAMU').replace(/^[^A-Za-z0-9]+/, '') });
+                else if (['5', '6', '7', '8'].includes(c.activity)) conflicts.push({ key, reason: 'Activité ANS (' + c.activity + ')' });
+                else toWrite.push(key);
+            });
+        }
+        return { id: a.id, nom: a.nom, prenom: a.prenom, user_id: a.user_id, toWrite, done, conflicts };
+    });
+    const tpl = AFF_STAGE_EVENT[stageKey];
+    const existing = await dbAll(`SELECT id, label, start_date, end_date FROM custom_events
+        WHERE location_id IS ? AND label LIKE ? AND start_date <= ? AND end_date >= ?`, [locationId, tpl.label + '%', per.end, per.start]);
+    let existingEvent = null;
+    if (existing.length) {
+        const parts = await dbAll('SELECT user_id FROM custom_event_participants WHERE event_id = ?', [existing[0].id]);
+        existingEvent = { ...existing[0], participants: parts.map(x => x.user_id) };
+    }
+    return { proj, per, samuLoc, samuNo, locationId, activity: act, resources, event: { label: tpl.label, config: tpl.config, existing: existingEvent } };
+}
+const AFF_STAGE_ACTIVITY = { visite_metier: '3', test_prerequis: '3', vft: '3', formation_relais: '3', formation_utilisateurs: '3', accompagnement: '3' };
+
+app.get('/api/affectation/projects/:id/sync/:stage', requireAffectationAccess, async (req, res) => {
+    try {
+        const c = await affSyncCompute(Number(req.params.id), req.params.stage);
+        res.json({
+            samu: c.proj.samu_name, samuLoc: c.samuLoc, locationId: c.locationId, start: c.per.start, end: c.per.end, activity: c.activity,
+            resources: c.resources.map(r => ({ id: r.id, nom: r.nom, prenom: r.prenom, user_id: r.user_id, toWrite: r.toWrite.length, done: r.done, conflicts: r.conflicts.slice(0, 12), conflictCount: r.conflicts.length })),
+            event: c.event
+        });
+    } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+});
+
+// Applique, après validation de l'utilisateur, la planification et/ou l'événement correspondant à une étape
+app.post('/api/affectation/projects/:id/sync/:stage', requireAdmin, async (req, res) => {
+    try {
+        const c = await affSyncCompute(Number(req.params.id), req.params.stage);
+        const body = req.body || {};
+        const result = { planning: 0, event: null };
+        if (body.planning && Array.isArray(body.planning.resource_ids)) {
+            const author = await dbGet('SELECT prenom, nom FROM users WHERE id = ?', [req.session.userId]);
+            const authorName = author ? `${author.prenom}.${author.nom}` : '';
+            const up = (rid, key, type, value) => dbRun(`INSERT INTO schedule_data (resource_id, date_key, type, value, notification) VALUES (?,?,?,?, '1')
+                ON CONFLICT(resource_id, date_key, type) DO UPDATE SET value = excluded.value, notification = '1'`, [rid, key, type, value]);
+            for (const r of c.resources.filter(x => body.planning.resource_ids.map(Number).includes(x.id))) {
+                for (const key of r.toWrite) {
+                    await up(r.id, key, 'available', '2');
+                    await up(r.id, key, 'activity', c.activity);
+                    await up(r.id, key, 'localisation', c.samuLoc);
+                    if (authorName) await up(r.id, key, 'author', authorName);
+                    result.planning++;
+                }
+            }
+        }
+        const ev = body.event;
+        if (ev && ev.apply) {
+            const users = [...new Set((Array.isArray(ev.participants) ? ev.participants : []).map(Number).filter(n => Number.isInteger(n) && n > 0))];
+            let eventId;
+            if (c.event.existing) {
+                eventId = c.event.existing.id;
+            } else {
+                const label = String(ev.label || c.event.label).trim();
+                if (!label) return res.status(400).json({ error: 'Libellé requis' });
+                const start = /^\d{4}-\d{2}-\d{2}$/.test(ev.startDate) ? ev.startDate : c.per.start;
+                const end = /^\d{4}-\d{2}-\d{2}$/.test(ev.endDate) ? ev.endDate : c.per.end;
+                if (end < start) return res.status(400).json({ error: 'La date de fin précède la date de début' });
+                const r = await dbRun(`INSERT INTO custom_events (label, start_date, end_date, config, created_by, period, location_id) VALUES (?,?,?,?,?,?,?)`,
+                    [label, start, end, JSON.stringify(c.event.config), req.session.userId, 'FULL', c.locationId || null]);
+                eventId = r.lastID;
+            }
+            for (const uid of users) await dbRun('INSERT OR IGNORE INTO custom_event_participants (event_id, user_id) VALUES (?, ?)', [eventId, uid]);
+            result.event = { id: eventId, created: !c.event.existing, participants: users.length };
+        }
+        logUserAction(req, 'Synchronisation affectation déploiement SAMU', { projectId: c.proj.id, stage: req.params.stage, ...result });
+        res.json(result);
+    } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+});
+
 app.get('/api/affectation/projects', requireAffectationAccess, (req, res) => {
     database.all(`${AFF_SELECT} ORDER BY p.date_debut DESC, p.samu_name`, [], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
