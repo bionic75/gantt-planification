@@ -1,4 +1,4 @@
-<!-- v1.16.32 -->
+<!-- v1.16.33 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -475,13 +475,13 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.16.32">
-    <link rel="stylesheet" href="/darkmode.css?v=1.16.32">
-    <script src="/darkmode.js?v=1.16.32"></script>
-    <script src="/themes.js?v=1.16.32" defer></script>
-    <script src="/layout-fix.js?v=1.16.32" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.16.33">
+    <link rel="stylesheet" href="/darkmode.css?v=1.16.33">
+    <script src="/darkmode.js?v=1.16.33"></script>
+    <script src="/themes.js?v=1.16.33" defer></script>
+    <script src="/layout-fix.js?v=1.16.33" defer></script>
     <script>window.UI_ICONS_KEEP_ALERT = true;</script>
-    <script src="/ui-icons.js?v=1.16.32" defer></script>
+    <script src="/ui-icons.js?v=1.16.33" defer></script>
 </head>
 <body>
     <div class="container">
@@ -23075,13 +23075,13 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             if (!select || !currentUser) return;
             
             const tabLabels = {
-                'resources': '📋 Ressources',
-                'evenements': '📅 Événements',
-                'planning': '📅 Planification',
-                'cra': '📋 CRA',
-                'reporting': '📊 Reporting',
-                'admin': '⚙️ Administration',
-                'astreintesGestion': '🧪 Astreintes'
+                'resources': 'Ressources',
+                'evenements': 'Événements',
+                'planning': 'Planification',
+                'cra': 'CRA',
+                'reporting': 'Reporting',
+                'admin': 'Administration',
+                'astreintesGestion': 'Astreintes'
             };
             
             const availableTabs = getAvailableTabsForProfile(currentUser.activeProfile);
@@ -23095,6 +23095,42 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 if (tab === currentDefault) option.selected = true;
                 select.appendChild(option);
             });
+            renderDefaultTabPicker(select, tabLabels);
+        }
+
+        // Liste déroulante avec les mêmes icônes que la barre d'onglets
+        function renderDefaultTabPicker(select, labels) {
+            select.style.display = 'none';
+            let picker = document.getElementById('defaultTabPicker');
+            if (!picker) {
+                picker = document.createElement('div');
+                picker.id = 'defaultTabPicker';
+                picker.style.cssText = 'position:relative;';
+                select.insertAdjacentElement('afterend', picker);
+                document.addEventListener('click', e => { if (!picker.contains(e.target)) picker.querySelector('.tp-list').style.display = 'none'; });
+            }
+            const iconOf = tab => {
+                const svg = document.querySelector(`#mainTabsContainer [data-tab="${tab}"] svg.tab-ico`);
+                return svg ? svg.outerHTML.replace('class="tab-ico"', 'class="tab-ico" style="width:18px;height:18px;margin-right:10px;vertical-align:middle;"') : '';
+            };
+            const render = () => {
+                const cur = select.value;
+                picker.innerHTML = `
+                    <button type="button" class="tp-btn" style="width:100%;display:flex;align-items:center;gap:0;padding:10px;border:1px solid #bdc3c7;border-radius:5px;background:#fff;color:#2c3e50;font-size:14px;cursor:pointer;text-align:left;">
+                        <span style="display:flex;align-items:center;flex:1;">${iconOf(cur)}${labels[cur] || cur}</span>
+                        <span style="font-size:10px;color:#7f8c8d;">▼</span>
+                    </button>
+                    <div class="tp-list" style="display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);background:#fff;border:1px solid #bdc3c7;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.18);z-index:10;overflow:hidden;">
+                        ${[...select.options].map(o => `<div role="option" data-tab="${o.value}" style="display:flex;align-items:center;padding:10px 12px;cursor:pointer;font-size:14px;color:#2c3e50;${o.value === cur ? 'background:#e8eaf6;font-weight:bold;' : ''}" onmouseenter="this.style.background='#f0f4ff'" onmouseleave="this.style.background='${o.value === cur ? '#e8eaf6' : ''}'">${iconOf(o.value)}${labels[o.value] || o.value}</div>`).join('')}
+                    </div>`;
+                picker.querySelector('.tp-btn').onclick = e => { e.stopPropagation(); const l = picker.querySelector('.tp-list'); l.style.display = l.style.display === 'none' ? 'block' : 'none'; };
+                picker.querySelectorAll('[role="option"]').forEach(el => el.onclick = () => {
+                    select.value = el.dataset.tab;
+                    select.dispatchEvent(new Event('change'));
+                    render();
+                });
+            };
+            render();
         }
         
         // Sauvegarder l'onglet par défaut
