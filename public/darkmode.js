@@ -35,7 +35,8 @@
 
     // Barre d'outils flottante : se place à gauche des pastilles fixes de l'en-tête, quelle que soit l'application
     const PILLS = ['appSwitcher', 'backToPlanificationBtn', 'onlineUsersContainer', 'deplacementsOnlineUsersContainer',
-                   'inactivityTimerDisplay', 'deplacementsTimerDisplay'];
+                   'inactivityTimerDisplay', 'deplacementsTimerDisplay',
+                   'affectationBackBtn', 'affectationOnlineUsersContainer', 'affectationTimerDisplay'];
     function positionTools() {
         const bar = document.getElementById('gpTools');
         if (!bar) return;

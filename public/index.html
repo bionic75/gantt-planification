@@ -1,4 +1,4 @@
-<!-- v1.16.45 -->
+<!-- v1.16.46 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -490,15 +490,16 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.16.45">
-    <link rel="stylesheet" href="/darkmode.css?v=1.16.45">
-    <link rel="stylesheet" href="/login.css?v=1.16.45">
-    <link rel="stylesheet" href="/ui-polish.css?v=1.16.45">
-    <script src="/darkmode.js?v=1.16.45"></script>
-    <script src="/themes.js?v=1.16.45" defer></script>
-    <script src="/layout-fix.js?v=1.16.45" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.16.46">
+    <link rel="stylesheet" href="/darkmode.css?v=1.16.46">
+    <link rel="stylesheet" href="/login.css?v=1.16.46">
+    <link rel="stylesheet" href="/ui-polish.css?v=1.16.46">
+    <script src="/darkmode.js?v=1.16.46"></script>
+    <script src="/themes.js?v=1.16.46" defer></script>
+    <script src="/layout-fix.js?v=1.16.46" defer></script>
     <script>window.UI_ICONS_KEEP_ALERT = true;</script>
-    <script src="/ui-icons.js?v=1.16.45" defer></script>
+    <script src="/ui-icons.js?v=1.16.46" defer></script>
+    <script src="/affectation-app.js?v=1.16.46" defer></script>
 </head>
 <body>
     <div class="container">
@@ -3927,6 +3928,11 @@
                         showDeplacementsApp();
                         return;
                     }
+                    if (savedApp === 'affectation' && (currentUser.availableApps || []).includes('affectation')) {
+                        currentUser.selectedApp = 'affectation';
+                        showAffectationApp();
+                        return;
+                    }
                     if (savedApp === 'analyse' && (currentUser.availableApps || []).includes('analyse')) {
                         console.log('📊 Restauration vers Analyse des listes utilisateurs');
                         document.getElementById('loginPage').classList.remove('active');
@@ -4886,6 +4892,8 @@
 
         // Retour vers Planification depuis l'app Déplacements ou Analyse
         function backToPlanification() {
+            const wasAffectation = !!(window.AffectationApp && AffectationApp.isVisible());
+            if (window.hideAffectationApp) hideAffectationApp();
             sessionStorage.setItem('selectedApp', 'planification');
             document.getElementById('deplacementsContainer').style.display = 'none';
             document.getElementById('deplacementsTimerDisplay').style.display = 'none';
@@ -4899,6 +4907,11 @@
             // Forcer le re-rendu de l'onglet actif (sinon contenu vide au retour)
             const activeTab = document.querySelector('.tab-content.active');
             if (activeTab) switchTab(activeTab.id, null);
+            // Retour depuis l'aide à l'affectation : on relance le minuteur et les connectés de l'application principale
+            if (wasAffectation) {
+                try { startInactivityTimer(inactivityTimeout); } catch (e) { /* minuteur indisponible */ }
+                if (!onlineUsersInterval) startOnlineUsersPolling();
+            }
         }
 
         // Basculer vers une application depuis le sélecteur
@@ -4911,10 +4924,13 @@
                 document.getElementById('analyseContainer').style.display = 'none';
                 showDeplacementsApp();
             } else if (appKey === 'analyse') {
+                if (window.hideAffectationApp) hideAffectationApp();
                 document.querySelector('.container').style.display = 'none';
                 document.getElementById('deplacementsContainer').style.display = 'none';
                 sessionStorage.setItem('selectedApp', 'analyse');
                 showAnalyseApp();
+            } else if (appKey === 'affectation') {
+                showAffectationApp();
             }
         }
 
@@ -4991,6 +5007,7 @@
         }
 
         const APP_ICON_DEFS = {
+            affectation: { bg: '#e0f2f1', fg: '#00796b', body: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m16 11 2 2 4-4"/>' },
             analyse: { bg: '#e8eaf6', fg: '#3949ab', body: '<path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6" rx=".6"/><rect x="12" y="8" width="3" height="10" rx=".6"/><rect x="17" y="5" width="3" height="13" rx=".6"/>' },
             deplacements: { bg: '#fff3e0', fg: '#e65100', body: '<path d="M5 11l1.6-4.2A2 2 0 0 1 8.5 5.5h7a2 2 0 0 1 1.9 1.3L19 11"/><rect x="3" y="11" width="18" height="6" rx="2"/><circle cx="7.5" cy="14" r=".7"/><circle cx="16.5" cy="14" r=".7"/><path d="M6 17v2M18 17v2"/>' }
         };
@@ -5006,7 +5023,7 @@
             const dd = document.getElementById('appSwitcherDropdown');
             if (apps.length === 0) { switcher.style.display = 'none'; return; }
             switcher.style.display = 'block';
-            const APP_LABELS = { deplacements: { label: 'Suivi des déplacements' }, analyse: { label: 'Analyse des listes utilisateurs' } };
+            const APP_LABELS = { deplacements: { label: 'Suivi des déplacements' }, analyse: { label: 'Analyse des listes utilisateurs' }, affectation: { label: "Aide à l'affectation opérationnelle" } };
             dd.innerHTML = apps.map(key => {
                 const def = APP_LABELS[key] || { label: key };
                 return `<div onclick="switchToApp('${key}')" style="padding:10px 16px;cursor:pointer;display:flex;align-items:center;gap:12px;font-size:13px;color:#222;" onmouseenter="this.style.background='#f0f4ff'" onmouseleave="this.style.background=''">
@@ -5471,6 +5488,7 @@
         // ============== FONCTIONS POUR L'APPLICATION DÉPLACEMENTS ==============
         
         function showDeplacementsApp() {
+            if (window.hideAffectationApp) hideAffectationApp();
             console.log('🚗 Affichage de l\'application Déplacements');
             
             // Sauvegarder l'application sélectionnée
@@ -11243,7 +11261,7 @@
         function renderAppAccessSection() {
             const container = document.getElementById('appAccessContent');
             if (!container) return;
-            const APP_LABELS = { deplacements: { label: 'Plateforme de suivi des déplacements' }, analyse: { label: 'Analyse des listes utilisateurs' } };
+            const APP_LABELS = { deplacements: { label: 'Plateforme de suivi des déplacements' }, analyse: { label: 'Analyse des listes utilisateurs' }, affectation: { label: "Aide à l'affectation opérationnelle" } };
             container.innerHTML = Object.entries(_appAccessData).map(([key, app]) => `
                 <div style="border:1px solid #e0e0e0;border-radius:8px;padding:16px;margin-bottom:16px;">
                     <h4 style="margin:0 0 12px;color:#1a237e;font-size:14px;display:flex;align-items:center;gap:10px;">${appIconTile(key, 28)}${APP_LABELS[key]?.label || key}</h4>
@@ -28406,6 +28424,7 @@ function toggleAnalyseFiltersPanel() {
 }
 
 function showAnalyseApp() {
+    if (window.hideAffectationApp) hideAffectationApp();
     document.querySelector('.container').style.display = 'none';
     document.getElementById('deplacementsContainer').style.display = 'none';
     document.getElementById('loginPage').classList.remove('active');
