@@ -1,4 +1,4 @@
-<!-- v1.16.52 -->
+<!-- v1.16.53 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -490,16 +490,17 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.16.52">
-    <link rel="stylesheet" href="/darkmode.css?v=1.16.52">
-    <link rel="stylesheet" href="/login.css?v=1.16.52">
-    <link rel="stylesheet" href="/ui-polish.css?v=1.16.52">
-    <script src="/darkmode.js?v=1.16.52"></script>
-    <script src="/themes.js?v=1.16.52" defer></script>
-    <script src="/layout-fix.js?v=1.16.52" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.16.53">
+    <link rel="stylesheet" href="/darkmode.css?v=1.16.53">
+    <link rel="stylesheet" href="/login.css?v=1.16.53">
+    <link rel="stylesheet" href="/ui-polish.css?v=1.16.53">
+    <script src="/darkmode.js?v=1.16.53"></script>
+    <script src="/themes.js?v=1.16.53" defer></script>
+    <script src="/layout-fix.js?v=1.16.53" defer></script>
     <script>window.UI_ICONS_KEEP_ALERT = true;</script>
-    <script src="/ui-icons.js?v=1.16.52" defer></script>
-    <script src="/affectation-app.js?v=1.16.52" defer></script>
+    <script src="/ui-icons.js?v=1.16.53" defer></script>
+    <script src="/affectation-app.js?v=1.16.53" defer></script>
+    <script src="/map-timelapse.js?v=1.16.53" defer></script>
 </head>
 <body>
     <div class="container">
@@ -20988,6 +20989,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
         }
 
         function closeEventMapModal() {
+            if (window.MapTimelapse) MapTimelapse.reset();
             document.getElementById('eventMapModal').style.display = 'none';
         }
 
@@ -21004,8 +21006,9 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             if (eventModalMap && eventModalMapMarkers.length > 0) {
                 // Re-render sans recharger les données
                 renderModalMapMarkers(
-                    _lastMapEvents || [],
-                    _showExpertMarkers ? (_expertsMapData || []) : []
+                    window.MapTimelapse ? MapTimelapse.visibleEvents(_lastMapEvents || []) : (_lastMapEvents || []),
+                    _showExpertMarkers ? (_expertsMapData || []) : [],
+                    { noFit: true }
                 );
             }
         }
@@ -21014,6 +21017,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
 
         async function loadModalEventsMap() {
             if (!eventModalMap) return;
+            if (window.MapTimelapse) MapTimelapse.reset();
 
             const startDate = document.getElementById('modalMapStartDate').value;
             const endDate   = document.getElementById('modalMapEndDate').value;
@@ -21080,7 +21084,8 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             } catch (e) { console.error('Erreur chargement carte modale:', e); }
         }
 
-        function renderModalMapMarkers(events, experts = []) {
+        function renderModalMapMarkers(events, experts = [], opts = {}) {
+            const popKeys = opts.pop || new Set();
             eventModalMapMarkers.forEach(m => eventModalMap.removeLayer(m));
             eventModalMapMarkers = [];
 
@@ -21134,7 +21139,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             const byLoc = {};
             events.forEach(e => {
                 const key = `${e.location_id}`;
-                if (!byLoc[key]) byLoc[key] = { lat: e.latitude, lng: e.longitude, libelle: e.libelle_court, adresse: e.adresse, events: [] };
+                if (!byLoc[key]) byLoc[key] = { key, lat: e.latitude, lng: e.longitude, libelle: e.libelle_court, adresse: e.adresse, events: [] };
                 byLoc[key].events.push(e);
             });
 
@@ -21143,7 +21148,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                 const count = loc.events.length;
                 const icon = L.divIcon({
                     className: '',
-                    html: `<div style="background:#3f51b5;color:white;border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.35);cursor:pointer;">${count}</div>`,
+                    html: `<div style="${popKeys.has(loc.key) ? 'animation:gpPinPop .7s ease-out;' : ''}background:#3f51b5;color:white;border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.35);cursor:pointer;">${count}</div>`,
                     iconSize: [34, 34], iconAnchor: [17, 17], popupAnchor: [0, -18]
                 });
 
@@ -21182,7 +21187,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                 bounds.push([loc.lat, loc.lng]);
             });
 
-            if (bounds.length > 0) eventModalMap.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 });
+            if (bounds.length > 0 && !opts.noFit) eventModalMap.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 });
 
             if (legend && legendItems) {
                 legendItems.innerHTML = Object.values(byLoc).map(loc =>
@@ -28124,6 +28129,23 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     <button id="toggleExpertsMapBtn" onclick="toggleExpertsMapLayer()" style="background:#6a1b9a;color:white;border:none;padding:8px 14px;border-radius:4px;cursor:pointer;font-weight:bold;" title="Afficher/masquer les pastilles experts">👤 Experts : ON</button>
                 </div>
                 <div id="modalMapEventCount" style="font-size:12px;color:#555;padding:8px 0;"></div>
+            </div>
+            <!-- Lecture chronologique -->
+            <div id="mapPlayBar" style="padding:10px 24px;border-bottom:1px solid #eee;display:flex;flex-wrap:wrap;gap:12px;align-items:center;background:#f7f9fd;">
+                <button type="button" id="mapPlayBtn" onclick="MapTimelapse.toggle()" title="Lire la progression des événements entre la date de début et la date de fin" style="display:inline-flex;align-items:center;gap:7px;background:#3f51b5;color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:bold;"></button>
+                <button type="button" onclick="MapTimelapse.stop()" title="Arrêter et réafficher tous les événements" style="display:inline-flex;align-items:center;background:#78909c;color:white;border:none;padding:8px 10px;border-radius:6px;cursor:pointer;"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" style="fill:currentColor;stroke:none;"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></button>
+                <label style="font-size:12px;color:#555;display:flex;align-items:center;gap:6px;">Durée du défilement
+                    <select id="mapPlaySpeed" onchange="MapTimelapse.speedChanged()" style="padding:6px;border:1px solid #9fa8da;border-radius:4px;">
+                        <option value="120">Très lente (2 min)</option>
+                        <option value="60">Lente (1 min)</option>
+                        <option value="30" selected>Normale (30 s)</option>
+                        <option value="15">Rapide (15 s)</option>
+                        <option value="6">Très rapide (6 s)</option>
+                    </select>
+                </label>
+                <input type="range" id="mapPlaySlider" min="0" max="1000" value="0" oninput="MapTimelapse.scrub(this.value)" style="flex:1;min-width:220px;" aria-label="Position dans le temps">
+                <span id="mapPlayDate" style="font-weight:bold;color:#283593;min-width:92px;text-align:right;">—</span>
+                <span id="mapPlayCount" style="font-size:12px;color:#555;min-width:110px;"></span>
             </div>
             <!-- Carte -->
             <div style="flex:1;padding:16px 24px 8px;overflow:hidden;">

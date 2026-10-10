@@ -80,7 +80,9 @@
         'volume': '<path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/>',
         'volumeOff': '<path d="M11 5 6 9H2v6h4l5 4z"/><path d="m22 9-6 6M16 9l6 6"/>',
         'archive': '<rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8M10 12h4"/>',
-        'archiveRestore': '<rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h2"/><path d="M20 8v11a2 2 0 0 1-2 2h-2"/><path d="m9 15 3-3 3 3"/><path d="M12 12v9"/>'
+        'archiveRestore': '<rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h2"/><path d="M20 8v11a2 2 0 0 1-2 2h-2"/><path d="m9 15 3-3 3 3"/><path d="M12 12v9"/>',
+        'userStar': '<circle cx="9" cy="7" r="4"/><path d="M2 21v-2a4 4 0 0 1 4-4h5"/><path d="m18 13 1.5 3 3.3.5-2.4 2.3.6 3.2-3-1.6-3 1.6.6-3.2-2.4-2.3 3.3-.5z"/>',
+        'userSecond': '<circle cx="9" cy="7" r="4"/><path d="M2 21v-2a4 4 0 0 1 4-4h5"/><circle cx="18" cy="18" r="3.5"/>'
     };
 
     // Premier point de code (sans sélecteur de variation) -> [icône, couleur]
@@ -93,7 +95,7 @@
         0x1F4F1: ['smartphone'], 0x1F4AC: ['message'],
         0x2709: ['mail'], 0x1F4E7: ['mail'], 0x1F4EC: ['mail'],
         0x1F4CD: ['pin'], 0x1F3E0: ['home'], 0x1F195: ['sparkles', '#ef6c00'],
-        0x1F17F: ['badgeP', '#1565c0'], 0x1F162: ['badgeS', '#546e7a'],
+        0x1F17F: ['userStar', '#1565c0'], 0x1F162: ['userSecond', '#546e7a'],
         0x2753: ['ban'], 0x23F3: ['hourglass'], 0x1F4DE: ['phone'], 0x1F4D6: ['book'],
         0x2194: ['arrows'], 0x270F: ['pencil'], 0x1F522: ['hash'], 0x1F5FA: ['map'], 0x1F441: ['eye'],
         0x1F468: ['presentation'], 0x1F3EB: ['building'], 0x2611: ['checksq'], 0x1F3D6: ['umbrella'],
