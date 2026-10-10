@@ -1,4 +1,4 @@
-<!-- v1.16.43 -->
+<!-- v1.16.44 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -42,19 +42,22 @@
         #resourcesTable { min-width: 1500px; }
         td.ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         svg.app-ico, svg.tab-ico { vertical-align: middle !important; }
-        .gantt-collapse-btn { position: absolute; left: 2px; top: 2px; width: 20px; height: 20px; border: 1px solid rgba(255,255,255,.65); border-radius: 50%; background: rgba(255,255,255,.28); color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0 !important; margin: 0 !important; min-width: 0 !important; z-index: 2; transition: background .15s; }
-        .gantt-collapse-btn:hover { background: rgba(255,255,255,.4); }
-        .gantt-collapse-btn svg, .gantt-collapse-all svg { flex-shrink: 0; width: 12px; height: 12px; stroke: currentColor; stroke-width: 3.4; fill: none; stroke-linecap: round; }
-        .gantt-collapse-all { display: inline-flex; gap: 4px; margin-left: 8px; vertical-align: middle; }
-        .gantt-collapse-all button { width: 20px; height: 20px; border: 1px solid rgba(255,255,255,.65); border-radius: 50%; background: rgba(255,255,255,.25); color: #fff; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 0 !important; margin: 0 !important; min-width: 0 !important; }
-        .gantt-collapse-all button:hover { background: rgba(255,255,255,.45); }
-        #ganttWrapper .gantt-table tr.gantt-row-collapsed td.gantt-cell { height: auto !important; }
-        tr.gantt-row-collapsed td.gantt-cell div.gantt-cell-row:nth-of-type(n+2) { display: none !important; }
-        tr.gantt-row-collapsed td.resource-label > div { height: auto !important; }
-        tr.gantt-row-collapsed td.resource-label > div > div:nth-child(n+2) { display: none !important; }
-        tr.gantt-row-collapsed td.resource-header > div > div:nth-child(2) { display: none !important; }
-        tr.gantt-row-collapsed td.resource-header small, tr.gantt-row-collapsed td.resource-header br { display: none !important; }
-        .alert-ico { width: 1.15em; height: 1.15em; vertical-align: -0.22em; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+        .gantt-hide-btn { position: absolute; left: 2px; top: 2px; width: 20px; height: 20px; border: 1px solid rgba(255,255,255,.65); border-radius: 50%; background: rgba(255,255,255,.28); color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0 !important; margin: 0 !important; min-width: 0 !important; z-index: 2; transition: background .15s; }
+        .gantt-hide-btn:hover { background: rgba(231,76,60,.85); }
+        .gantt-hide-btn svg { flex-shrink: 0; width: 12px; height: 12px; stroke: currentColor; stroke-width: 3.4; fill: none; stroke-linecap: round; }
+        tr.gantt-row-hidden { display: none !important; }
+        #ganttHiddenWrap { position: relative; display: none; margin-left: 8px; }
+        #ganttHiddenBtn { height: 36px; padding: 0 12px; border: none; border-radius: 6px; background: linear-gradient(145deg, #f59e0b, #d97706); color: #fff; font-size: 11px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+        #ganttHiddenBtn:hover { filter: brightness(1.08); }
+        #ganttHiddenBtn svg { width: 16px; height: 16px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+        #ganttHiddenPop { display: none; position: absolute; right: 0; top: calc(100% + 6px); z-index: 200; background: #fff; border: 1px solid #d5dae6; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.2); min-width: 260px; max-height: 320px; overflow-y: auto; padding: 8px; }
+        #ganttHiddenPop .ghp-title { font-size: 12px; font-weight: bold; color: #2c3e50; padding: 4px 6px 8px; }
+        #ganttHiddenPop .ghp-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 5px 6px; border-radius: 6px; font-size: 12px; color: #2c3e50; }
+        #ganttHiddenPop .ghp-row:hover { background: #eef3fb; }
+        #ganttHiddenPop button { border: none; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 600; padding: 4px 10px; }
+        #ganttHiddenPop .ghp-show { background: #e3f2fd; color: #1565c0; }
+        #ganttHiddenPop .ghp-all { width: 100%; margin-top: 6px; padding: 8px; background: #3949ab; color: #fff; }
+                .alert-ico { width: 1.15em; height: 1.15em; vertical-align: -0.22em; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
         .tab-ico { width: 18px; height: 18px; margin-right: 8px; vertical-align: -3px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; opacity: .9; }
         .tab-btn.tab-dragging { opacity: 0.4; cursor: grabbing; pointer-events: none; }
         .tab-btn.tab-drag-over { background-color: #3d5a73; box-shadow: inset 0 0 0 2px #5dade2; }
@@ -487,15 +490,15 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.16.43">
-    <link rel="stylesheet" href="/darkmode.css?v=1.16.43">
-    <link rel="stylesheet" href="/login.css?v=1.16.43">
-    <link rel="stylesheet" href="/ui-polish.css?v=1.16.43">
-    <script src="/darkmode.js?v=1.16.43"></script>
-    <script src="/themes.js?v=1.16.43" defer></script>
-    <script src="/layout-fix.js?v=1.16.43" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.16.44">
+    <link rel="stylesheet" href="/darkmode.css?v=1.16.44">
+    <link rel="stylesheet" href="/login.css?v=1.16.44">
+    <link rel="stylesheet" href="/ui-polish.css?v=1.16.44">
+    <script src="/darkmode.js?v=1.16.44"></script>
+    <script src="/themes.js?v=1.16.44" defer></script>
+    <script src="/layout-fix.js?v=1.16.44" defer></script>
     <script>window.UI_ICONS_KEEP_ALERT = true;</script>
-    <script src="/ui-icons.js?v=1.16.43" defer></script>
+    <script src="/ui-icons.js?v=1.16.44" defer></script>
 </head>
 <body>
     <div class="container">
@@ -1049,6 +1052,13 @@
                                     title="Réinitialiser le zoom à 100%">
                                 <svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:13px;height:13px;stroke:currentColor;margin-right:5px;"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>Reset
                             </button>
+                            <div id="ganttHiddenWrap">
+                                <button type="button" id="ganttHiddenBtn" onclick="toggleHiddenGanttPopover(event)" title="Rétablir l'affichage d'origine : afficher les experts masqués" aria-label="Experts masqués">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.9 17.9A10.9 10.9 0 0 1 12 20C5 20 1 12 1 12a18.5 18.5 0 0 1 5.1-5.9M9.9 4.2A9.1 9.1 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.2 3.2M14.1 14.1a3 3 0 1 1-4.2-4.2M1 1l22 22"/></svg>
+                                    <span id="ganttHiddenCount">0 masqué</span>
+                                </button>
+                                <div id="ganttHiddenPop"></div>
+                            </div>
                         </div>
                     </div>
                     <div id="ganttHeaderButtons" style="display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap;">
@@ -9842,34 +9852,67 @@
             currentLocalisationCell = null;
         }
 
-        // Lignes d'experts repliées dans le planning (mémorisées dans le navigateur)
-        const ganttCollapsed = new Set((() => { try { return JSON.parse(localStorage.getItem('gp_gantt_collapsed') || '[]'); } catch (e) { return []; } })());
-        function ganttCollapseIcon(isCollapsed) {
-            return `<svg viewBox="0 0 24 24" aria-hidden="true">${isCollapsed ? '<path d="M12 5v14M5 12h14"/>' : '<path d="M5 12h14"/>'}</svg>`;
+        // Experts masqués dans le planning (mémorisés dans le navigateur)
+        const ganttHidden = new Set((() => { try { return JSON.parse(localStorage.getItem('gp_gantt_hidden') || '[]'); } catch (e) { return []; } })());
+        function saveGanttHidden() {
+            try { localStorage.setItem('gp_gantt_hidden', JSON.stringify([...ganttHidden])); } catch (e) { /* stockage indisponible */ }
         }
-        function saveGanttCollapsed() {
-            try { localStorage.setItem('gp_gantt_collapsed', JSON.stringify([...ganttCollapsed])); } catch (e) { /* stockage indisponible */ }
-        }
-        function toggleGanttRow(resourceId) {
-            const tr = document.querySelector(`#ganttBody tr[data-resource-id="${resourceId}"]`);
-            if (!tr) return;
-            const collapsed = !ganttCollapsed.has(resourceId);
-            collapsed ? ganttCollapsed.add(resourceId) : ganttCollapsed.delete(resourceId);
-            tr.classList.toggle('gantt-row-collapsed', collapsed);
-            const b = tr.querySelector('.gantt-collapse-btn');
-            if (b) { b.innerHTML = ganttCollapseIcon(collapsed); b.title = (collapsed ? 'Déplier' : 'Replier') + ' la ligne de cet expert'; }
-            saveGanttCollapsed();
-        }
-        function setAllGanttRows(collapse) {
+        function applyGanttHidden() {
             document.querySelectorAll('#ganttBody tr[data-resource-id]').forEach(tr => {
-                const id = Number(tr.dataset.resourceId);
-                collapse ? ganttCollapsed.add(id) : ganttCollapsed.delete(id);
-                tr.classList.toggle('gantt-row-collapsed', collapse);
-                const b = tr.querySelector('.gantt-collapse-btn');
-                if (b) { b.innerHTML = ganttCollapseIcon(collapse); b.title = (collapse ? 'Déplier' : 'Replier') + ' la ligne de cet expert'; }
+                tr.classList.toggle('gantt-row-hidden', ganttHidden.has(Number(tr.dataset.resourceId)));
             });
-            saveGanttCollapsed();
+            updateHiddenGanttBadge();
         }
+        function hideGanttRow(resourceId) {
+            ganttHidden.add(Number(resourceId));
+            saveGanttHidden();
+            applyGanttHidden();
+        }
+        function showGanttRow(resourceId) {
+            ganttHidden.delete(Number(resourceId));
+            saveGanttHidden();
+            applyGanttHidden();
+            renderHiddenGanttPopover();
+        }
+        function showAllGanttRows() {
+            ganttHidden.clear();
+            saveGanttHidden();
+            applyGanttHidden();
+            const pop = document.getElementById('ganttHiddenPop');
+            if (pop) pop.style.display = 'none';
+        }
+        function updateHiddenGanttBadge() {
+            const wrap = document.getElementById('ganttHiddenWrap');
+            if (!wrap) return;
+            const present = new Set([...document.querySelectorAll('#ganttBody tr[data-resource-id]')].map(tr => Number(tr.dataset.resourceId)));
+            const n = [...ganttHidden].filter(id => present.has(id)).length;
+            wrap.style.display = n > 0 ? 'block' : 'none';
+            const cnt = document.getElementById('ganttHiddenCount');
+            if (cnt) cnt.textContent = `${n} masqué${n > 1 ? 's' : ''}`;
+            if (n === 0) { const pop = document.getElementById('ganttHiddenPop'); if (pop) pop.style.display = 'none'; }
+        }
+        function renderHiddenGanttPopover() {
+            const pop = document.getElementById('ganttHiddenPop');
+            if (!pop) return;
+            const rows = [...document.querySelectorAll('#ganttBody tr[data-resource-id]')]
+                .filter(tr => ganttHidden.has(Number(tr.dataset.resourceId)));
+            pop.innerHTML = `<div class="ghp-title">Experts masqués du planning</div>`
+                + rows.map(tr => `<div class="ghp-row"><span>${tr.dataset.resourceName}</span><button type="button" class="ghp-show" onclick="showGanttRow(${tr.dataset.resourceId})">Afficher</button></div>`).join('')
+                + `<button type="button" class="ghp-all" onclick="showAllGanttRows()">Rétablir l'affichage d'origine</button>`;
+        }
+        function toggleHiddenGanttPopover(event) {
+            if (event) event.stopPropagation();
+            const pop = document.getElementById('ganttHiddenPop');
+            if (!pop) return;
+            const open = pop.style.display === 'block';
+            if (!open) renderHiddenGanttPopover();
+            pop.style.display = open ? 'none' : 'block';
+        }
+        document.addEventListener('click', e => {
+            const wrap = document.getElementById('ganttHiddenWrap');
+            const pop = document.getElementById('ganttHiddenPop');
+            if (pop && wrap && !wrap.contains(e.target)) pop.style.display = 'none';
+        });
 
         function updateGantt() {
             const year = parseInt(document.getElementById('yearSelect').value);
@@ -9911,7 +9954,7 @@
 
             // ====== Ligne N° de semaine (nouvelle) ======
             html += '<tr>';
-            html += `<th class="resource-header" style="z-index: 50; cursor: pointer;" rowspan="3" onclick="sortGanttResources()">Ressource <span class="gantt-collapse-all" onclick="event.stopPropagation();"><button type="button" onclick="setAllGanttRows(false)" title="Tout déplier">${ganttCollapseIcon(true)}</button><button type="button" onclick="setAllGanttRows(true)" title="Tout replier">${ganttCollapseIcon(false)}</button></span></th>`;
+            html += `<th class="resource-header" style="z-index: 50; cursor: pointer;" rowspan="3" onclick="sortGanttResources()">Ressource</th>`;
             html += `<th class="resource-label" style="z-index: 49; vertical-align: middle; padding: 4px;" rowspan="3">
                 <div style="display: flex; flex-direction: column; height: 60px; justify-content: space-between;">
                     <div style="flex: 1; display: flex; align-items: center; justify-content: center;">Disponibilité</div>
@@ -10111,9 +10154,9 @@
                 }
                 const photoTooltip = tooltipParts.join('\n');
 
-                html += `<tr data-resource-name="${resource.nom} ${resource.prenom}" data-resource-id="${resource.id}" data-user-id="${resource.user_id || ''}"${ganttCollapsed.has(resource.id) ? ' class="gantt-row-collapsed"' : ''}>
+                html += `<tr data-resource-name="${resource.nom} ${resource.prenom}" data-resource-id="${resource.id}" data-user-id="${resource.user_id || ''}"${ganttHidden.has(resource.id) ? ' class="gantt-row-hidden"' : ''}>
                     <td class="resource-header">
-                        <button type="button" class="gantt-collapse-btn" onclick="toggleGanttRow(${resource.id})" title="${ganttCollapsed.has(resource.id) ? 'Déplier' : 'Replier'} la ligne de cet expert" aria-label="Replier / déplier la ligne">${ganttCollapseIcon(ganttCollapsed.has(resource.id))}</button>
+                        <button type="button" class="gantt-hide-btn" onclick="hideGanttRow(${resource.id})" title="Masquer cet expert du planning" aria-label="Masquer cet expert du planning"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg></button>
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
                                 <!-- Photo de profil ou trigramme -->
@@ -10328,6 +10371,7 @@
             html += '</tr></tbody></table>';
 
             document.getElementById('ganttWrapper').innerHTML = html;
+            updateHiddenGanttBadge();
             initGanttContextMenu();
 
             // Scroll automatique vers le jour actuel UNIQUEMENT au premier chargement
