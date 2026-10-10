@@ -1,4 +1,4 @@
-<!-- v1.16.70 -->
+<!-- v1.16.71 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -490,17 +490,17 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.16.70">
-    <link rel="stylesheet" href="/darkmode.css?v=1.16.70">
-    <link rel="stylesheet" href="/login.css?v=1.16.70">
-    <link rel="stylesheet" href="/ui-polish.css?v=1.16.70">
-    <script src="/darkmode.js?v=1.16.70"></script>
-    <script src="/themes.js?v=1.16.70" defer></script>
-    <script src="/layout-fix.js?v=1.16.70" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.16.71">
+    <link rel="stylesheet" href="/darkmode.css?v=1.16.71">
+    <link rel="stylesheet" href="/login.css?v=1.16.71">
+    <link rel="stylesheet" href="/ui-polish.css?v=1.16.71">
+    <script src="/darkmode.js?v=1.16.71"></script>
+    <script src="/themes.js?v=1.16.71" defer></script>
+    <script src="/layout-fix.js?v=1.16.71" defer></script>
     <script>window.UI_ICONS_KEEP_ALERT = true;</script>
-    <script src="/ui-icons.js?v=1.16.70" defer></script>
-    <script src="/affectation-app.js?v=1.16.70" defer></script>
-    <script src="/map-timelapse.js?v=1.16.70" defer></script>
+    <script src="/ui-icons.js?v=1.16.71" defer></script>
+    <script src="/affectation-app.js?v=1.16.71" defer></script>
+    <script src="/map-timelapse.js?v=1.16.71" defer></script>
 </head>
 <body>
     <div class="container">
@@ -15224,7 +15224,8 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                 const detail = differing.map(d => `• Saisi : ${d.existing.map(f).join(' / ')}\n  Planification : ${f(d.proposed)}`).join('\n');
                 if (confirm(`${differing.length} ligne(s) déjà saisie(s) ne correspondent pas à la planification :\n\n${detail}\n\nLes remplacer par les données de la planification ?\n(OK = remplacer, Annuler = conserver ce que vous avez saisi)`)) {
                     differing.forEach(d => {
-                        d.existing.forEach(e => { const ix = _craSaisieLines.indexOf(e); if (ix >= 0) _craSaisieLines.splice(ix, 1); // remplacement par la planification : rien à reporter en retour });
+                        d.existing.forEach(e => { const ix = _craSaisieLines.indexOf(e); if (ix >= 0) _craSaisieLines.splice(ix, 1); });
+                        // remplacement par la planification : rien à reporter en retour
                         if (!_craSaisieLines.some(x => overlaps(x, d.proposed))) { _craSaisieLines.push({ ...d.proposed, orig: snap(d.proposed) }); replaced++; }
                     });
                 } else kept = differing.length;
