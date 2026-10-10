@@ -1,4 +1,4 @@
-<!-- v1.16.73 -->
+<!-- v1.16.74 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -490,17 +490,17 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.16.73">
-    <link rel="stylesheet" href="/darkmode.css?v=1.16.73">
-    <link rel="stylesheet" href="/login.css?v=1.16.73">
-    <link rel="stylesheet" href="/ui-polish.css?v=1.16.73">
-    <script src="/darkmode.js?v=1.16.73"></script>
-    <script src="/themes.js?v=1.16.73" defer></script>
-    <script src="/layout-fix.js?v=1.16.73" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.16.74">
+    <link rel="stylesheet" href="/darkmode.css?v=1.16.74">
+    <link rel="stylesheet" href="/login.css?v=1.16.74">
+    <link rel="stylesheet" href="/ui-polish.css?v=1.16.74">
+    <script src="/darkmode.js?v=1.16.74"></script>
+    <script src="/themes.js?v=1.16.74" defer></script>
+    <script src="/layout-fix.js?v=1.16.74" defer></script>
     <script>window.UI_ICONS_KEEP_ALERT = true;</script>
-    <script src="/ui-icons.js?v=1.16.73" defer></script>
-    <script src="/affectation-app.js?v=1.16.73" defer></script>
-    <script src="/map-timelapse.js?v=1.16.73" defer></script>
+    <script src="/ui-icons.js?v=1.16.74" defer></script>
+    <script src="/affectation-app.js?v=1.16.74" defer></script>
+    <script src="/map-timelapse.js?v=1.16.74" defer></script>
 </head>
 <body>
     <div class="container">
@@ -15112,7 +15112,9 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                     ? '✏️ Modifier ce CRA (admin)'
                     : (dejaEnvoye ? '✏️ Corriger/Compléter mon CRA' : '✏️ Compléter mon CRA');
                 buttons += `<button onclick="openCraSaisieModal(${cra.id}, ${cra.mois}, ${cra.annee})" style="background-color:#ff9800;color:white;padding:10px 20px;font-weight:bold;border:none;border-radius:4px;cursor:pointer;">${lblCompleter}</button>
-                            <button onclick="submitCra(${cra.id})" style="background-color:#6a1b9a;color:white;padding:10px 20px;font-weight:bold;border:none;border-radius:4px;cursor:pointer;">📤 Valider et soumettre</button>`;
+                            ${(isAdmin && !isOwner)
+                                ? `<button onclick="returnCraToExpert(${cra.id})" title="L'administrateur ne soumet pas à la place de l'expert : le CRA lui est renvoyé pour vérification et soumission" style="background-color:#1565c0;color:white;padding:10px 20px;font-weight:bold;border:none;border-radius:4px;cursor:pointer;">📨 Renvoyer à l'expert pour vérification</button>`
+                                : `<button onclick="submitCra(${cra.id})" style="background-color:#6a1b9a;color:white;padding:10px 20px;font-weight:bold;border:none;border-radius:4px;cursor:pointer;">📤 Valider et soumettre</button>`}`;
             }
             // Bouton admin-correction : admin peut remettre à zéro si statut = soumis ou vise_n1
             if (isAdmin && cra.statut !== 'a_completer' && cra.statut !== 'vise_n2' && cra.statut !== 'diffuse') {
@@ -15470,6 +15472,18 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                 closeCraDetail();
                 loadCraPendingBadge();
             } catch(e) { alert('Erreur : ' + e.message); }
+        }
+
+        // Admin : renvoie le CRA (initialisé ou modifié) à l'expert, qui le vérifie et le soumet lui-même
+        async function returnCraToExpert(craId) {
+            if (!confirm("Renvoyer ce CRA à l'expert pour vérification ?\n\nIl recevra un email et devra le soumettre lui-même : l'administrateur ne soumet pas à sa place.")) return;
+            try {
+                const res = await fetch(`${API_URL}/cra/${craId}/return-to-expert`, { method: 'POST', credentials: 'include' });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Erreur');
+                alert(data.mailed ? "CRA renvoyé à l'expert : un email lui a été envoyé." : "CRA renvoyé à l'expert (aucun email envoyé : adresse absente).");
+                await loadCraList(); await openCraDetail(craId);
+            } catch (e) { alert('Erreur : ' + e.message); }
         }
 
         async function submitCra(craId) {
