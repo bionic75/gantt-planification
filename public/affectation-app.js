@@ -289,7 +289,7 @@
             <div id="affSyncBody" class="aff-modal-body"></div>
             <div class="aff-modal-foot">
                 <span id="affSyncError" class="aff-error"></span>
-                <button type="button" class="aff-btn" onclick="AffectationApp.closeSync()">Plus tard</button>
+                <button type="button" class="aff-btn" id="affSyncLater" onclick="AffectationApp.closeSync()">Plus tard</button>
                 <button type="button" class="aff-btn aff-btn-primary" id="affSyncOk" onclick="AffectationApp.applySync()">${svg('save', 'aff-ico-sm')}Valider les modifications</button>
             </div>
         </div>
@@ -955,7 +955,7 @@
 
     const sync = { projectId: null, stage: null, data: null };
     const planApi = {
-        async openSync(projectId, stageKey) {
+        async openSync(projectId, stageKey, auto) {
             sync.projectId = projectId || asg.project.id; sync.stage = stageKey || asg.stage;
             const err = document.getElementById('affSyncError'); err.textContent = '';
             try {
@@ -975,6 +975,7 @@
                     return `<label class="aff-sync-row"><input type="checkbox" data-su="${r.user_id}" ${already ? 'checked disabled' : 'checked'}><span><b>${esc((r.nom || '').toUpperCase())}</b> ${esc(r.prenom || '')}${already ? ' <span class="aff-muted">— déjà participant(e)</span>' : ''}</span></label>`;
                 }).join('');
                 const needEvent = !ex || d.resources.some(r => r.user_id && !ex.participants.includes(r.user_id));
+                if (auto && !needPlan && !needEvent) return; // rien à reporter : on n'interrompt pas l'utilisateur
                 document.getElementById('affSyncTitle').textContent = `Reporter l'affectation — ${d.samu}`;
                 document.getElementById('affSyncBody').innerHTML = `
                     <p class="aff-muted" style="margin:0 0 12px;">Les ressources ont été affectées dans l'aide à l'affectation. Autorisez-vous le report dans la planification et les événements ?</p>
@@ -987,7 +988,10 @@
                                <div class="aff-field"><label class="lbl">Fin</label><input id="affEvtEnd" type="date" value="${esc(d.end)}"></div></div>
                                <div class="aff-field"><span class="lbl">SAMU concerné</span> <b>${esc(d.samu)}</b>${d.locationId ? '' : ' <span class="aff-error">(entité introuvable : événement sans lieu)</span>'}</div>`}
                         <div style="margin-top:8px;"><span class="lbl">Participants</span>${partRows}</div></div>`;
-                document.getElementById('affSyncOk').disabled = !needPlan && !needEvent;
+                const nothing = !needPlan && !needEvent;
+                document.getElementById('affSyncOk').style.display = nothing ? 'none' : '';
+                document.getElementById('affSyncLater').textContent = nothing ? 'Fermer' : 'Plus tard';
+                if (nothing) document.querySelector('#affSyncBody > p').innerHTML = '<b>Tout est à jour :</b> la planification et les événements correspondent déjà à cette affectation.';
                 document.getElementById('affSyncModal').classList.add('active');
             } catch (e) { alert(e.message); }
         },
@@ -1052,7 +1056,7 @@
                 asg.project.assignments[asg.stage] = r.resource_ids;
                 AffectationApp.closeAssign();
                 renderPlanning();
-                if (r.resource_ids.length) AffectationApp.openSync(asg.project.id, asg.stage);
+                if (r.resource_ids.length) AffectationApp.openSync(asg.project.id, asg.stage, true);
             } catch (e) { document.getElementById('affAssignError').textContent = e.message; }
         },
         planZoom(z) { plan.zoom = z; renderPlanning(); AffectationApp.planToday(); },
