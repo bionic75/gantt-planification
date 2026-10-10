@@ -3838,6 +3838,59 @@ app.put('/api/affectation/projects/:id/assignments/:stage', requireAffectationAc
     });
 });
 
+// Numéro de SAMU extrait d'un libellé ("SAMU-SAS 25", "🚨 SAMU 25", "SAMU 2A") pour rapprocher planification et déploiements
+function affSamuNumber(label) {
+    const m = /(\d+[A-Za-z]?)\s*$/.exec(String(label || '').trim());
+    return m ? m[1].toUpperCase() : null;
+}
+
+// Système expert (v1) : disponibilité de chaque ressource sur la période d'une étape, d'après la planification (schedule_data).
+// available : 1 indisponible, 2 disponible ANS, 3 congés. activity : 1 indisponible, 2 en attente d'affectation, 3/4 SAMU, 5-8 ANS/qualification/divers.
+app.get('/api/affectation/projects/:id/availability/:stage', requireAffectationAccess, (req, res) => {
+    const projectId = Number(req.params.id);
+    database.get('SELECT samu_name, periods FROM affectation_projects WHERE id = ?', [projectId], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!row) return res.status(404).json({ error: 'Projet introuvable' });
+        let periods = {};
+        try { periods = JSON.parse(row.periods || '{}'); } catch (e) { periods = {}; }
+        const per = periods[req.params.stage] && periods[req.params.stage][0];
+        if (!per) return res.status(400).json({ error: 'Étape sans période' });
+        const samuNo = affSamuNumber(row.samu_name);
+        database.all(`SELECT resource_id, date_key, type, value FROM schedule_data
+                      WHERE type IN ('available','activity','localisation') AND date_key >= ? AND date_key <= ?`,
+            [per.start, per.end + '_ZZ'], (e2, rows) => {
+            if (e2) return res.status(500).json({ error: e2.message });
+            const slots = {};
+            (rows || []).forEach(r => {
+                const day = r.date_key.slice(0, 10);
+                const dow = new Date(day + 'T00:00:00Z').getUTCDay();
+                if (dow === 0 || dow === 6) return;
+                ((slots[r.resource_id] = slots[r.resource_id] || {})[r.date_key] = slots[r.resource_id][r.date_key] || {})[r.type] = r.value;
+            });
+            // demi-journées ouvrées de la période
+            let total = 0;
+            for (let t = Date.parse(per.start + 'T00:00:00Z'); t <= Date.parse(per.end + 'T00:00:00Z'); t += 86400000) {
+                const dow = new Date(t).getUTCDay();
+                if (dow !== 0 && dow !== 6) total += 2;
+            }
+            const out = {};
+            Object.entries(slots).forEach(([rid, days]) => {
+                const st = { free: 0, here: 0, other: 0, ans: 0, off: 0, leave: 0 };
+                Object.values(days).forEach(d => {
+                    const act = d.activity, av = d.available;
+                    if (av === '3') st.leave++;
+                    else if (av === '1' || act === '1') st.off++;
+                    else if (act === '3' || act === '4') (affSamuNumber(d.localisation) === samuNo && samuNo ? st.here++ : st.other++);
+                    else if (['5', '6', '7', '8'].includes(act)) st.ans++;
+                    else if (av === '2') st.free++; // disponible ANS, activité 2 ou non renseignée
+                });
+                out[rid] = st;
+            });
+            res.json({ total, availability: out });
+        });
+    });
+});
+
 app.get('/api/affectation/projects', requireAffectationAccess, (req, res) => {
     database.all(`${AFF_SELECT} ORDER BY p.date_debut DESC, p.samu_name`, [], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
