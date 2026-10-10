@@ -1,4 +1,4 @@
-<!-- v1.16.22 -->
+<!-- v1.16.23 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -273,8 +273,12 @@
             transform: scale(1.05);
         }
         .logout-icon::before {
-            content: "⎋";
-            font-size: 20px;
+            content: "";
+            width: 22px;
+            height: 22px;
+            background: currentColor;
+            -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4'/%3E%3Cpath d='m16 17 5-5-5-5'/%3E%3Cpath d='M21 12H9'/%3E%3C/svg%3E") center / contain no-repeat;
+            mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4'/%3E%3Cpath d='m16 17 5-5-5-5'/%3E%3Cpath d='M21 12H9'/%3E%3C/svg%3E") center / contain no-repeat;
         }
 
         .checkbox-group { display: flex; gap: 15px; flex-wrap: wrap; margin-top: 5px; }
@@ -562,7 +566,7 @@
                     transition: all 0.3s;
                     border-radius: 4px;
                     margin-right: 5px;
-                ">?</button>
+                "><svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:22px;height:22px;stroke:white;vertical-align:middle;"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg></button>
                 
                 <!-- Bouton de recherche avancée (visible pour tous les profils) -->
                 <button id="searchBtn" onclick="openSearchModal()" title="Recherche avancée" style="
@@ -576,7 +580,7 @@
                     border-radius: 4px;
                     margin-right: 5px;
                 ">
-                    <span style="font-size: 20px;">🔍</span>
+                    <span style="display:inline-flex;"><svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:22px;height:22px;stroke:white;"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span>
                 </button>
                 
                 <!-- Bouton d'envoi des notifications par email (visible uniquement pour admin/user) -->
@@ -593,7 +597,7 @@
                     margin-right: 10px;
                     position: relative;
                 ">
-                    <span style="font-size: 20px;">✉️</span>
+                    <span style="display:inline-flex;"><svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:22px;height:22px;stroke:white;"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg></span>
                     <span id="pendingEmailBadge" style="
                         display: none;
                         position: absolute;
@@ -992,7 +996,7 @@
                         </h3>
                         <!-- Boutons de zoom à droite - Design stylisé -->
                         <div id="ganttHeaderControls" onclick="event.stopPropagation();" style="display: flex; gap: 0; align-items: center; background: linear-gradient(145deg, #f0f4f8, #e2e8f0); border-radius: 8px; padding: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                            <span style="font-size: 11px; color: #64748b; margin: 0 10px; font-weight: 500;">🔍 Zoom</span>
+                            <span style="font-size: 11px; color: #64748b; margin: 0 10px; font-weight: 500; display:inline-flex; align-items:center; gap:5px;"><svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:15px;height:15px;stroke:#64748b;"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3M11 8v6M8 11h6"/></svg>Zoom</span>
                             <button onclick="event.stopPropagation(); zoomPlanning(-1);" 
                                     style="width: 36px; height: 36px; background: linear-gradient(145deg, #3b82f6, #1d4ed8); color: white; border: none; border-radius: 6px 0 0 6px; cursor: pointer; font-size: 18px; font-weight: bold; display: flex; align-items: center; justify-content: center; transition: all 0.2s; box-shadow: inset 0 1px 0 rgba(255,255,255,0.2);" 
                                     onmouseover="this.style.background='linear-gradient(145deg, #2563eb, #1e40af)'" 
@@ -1013,7 +1017,7 @@
                                     onmouseover="this.style.background='linear-gradient(145deg, #475569, #334155)'" 
                                     onmouseout="this.style.background='linear-gradient(145deg, #64748b, #475569)'"
                                     title="Réinitialiser le zoom à 100%">
-                                ↺ Reset
+                                <svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:13px;height:13px;stroke:currentColor;margin-right:5px;"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>Reset
                             </button>
                         </div>
                     </div>
@@ -1031,7 +1035,7 @@
                         <button onclick="event.stopPropagation(); openMonthlyCalendarView();" 
                                 style="padding: 8px 15px; height: 38px; background-color: #2196f3; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center;" 
                                 title="Vue calendrier mensuel">
-                            📅
+                            <svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:20px;height:20px;stroke:white;"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg>
                         </button>
                         <button onclick="event.stopPropagation(); openEventsCalendarModal();" 
                                 style="padding: 8px 15px; height: 38px; background-color: #00bcd4; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; display: flex; align-items: center;" 
@@ -1047,7 +1051,7 @@
                         <button id="requestBtn" onclick="event.stopPropagation(); openRequestModal();" 
                                 style="padding: 8px 15px; height: 38px; background-color: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; display: none; align-items: center;" 
                                 title="Faire une demande d'affectation">
-                            ✉️ Faire une demande
+                            <svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:16px;height:16px;stroke:currentColor;margin-right:7px;"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>Faire une demande
                         </button>
                         <div id="currentMonthDisplay" onclick="event.stopPropagation();" style="margin-left: 20px; padding: 10px 20px; font-weight: bold; color: #1565c0; font-size: 22px; cursor: default;">
                             <!-- Le mois et l'année seront affichés ici -->
@@ -4854,6 +4858,24 @@
             if (!isOpen) {
                 setTimeout(() => document.addEventListener('click', () => { dd.style.display = 'none'; }, { once: true }), 0);
             }
+        }
+
+        const UI_ICONS = {
+            home: '<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>',
+            tower: '<path d="M12 2v3"/><path d="M9.5 22 12 5l2.5 17"/><path d="M8 22h8"/><path d="M10.2 15h3.6"/><path d="M11 10h2"/>',
+            car: '<path d="M5 11l1.6-4.2A2 2 0 0 1 8.5 5.5h7a2 2 0 0 1 1.9 1.3L19 11"/><rect x="3" y="11" width="18" height="6" rx="2"/><circle cx="7.5" cy="14" r=".7"/><circle cx="16.5" cy="14" r=".7"/><path d="M6 17v2M18 17v2"/>',
+            siren: '<path d="M7 18v-6a5 5 0 0 1 10 0v6"/><path d="M4 21h16v-3H4z"/><path d="M12 3v1.5M4.6 6.6l1 1M19.4 6.6l-1 1M2.5 12H4M20 12h1.5"/>',
+            mic: '<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8"/>',
+            search: '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
+            zoom: '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3M11 8v6M8 11h6"/>',
+            mail: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/>',
+            print: '<path d="M6 9V3h12v6"/><rect x="6" y="14" width="12" height="8" rx="1"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>',
+            calendar: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/>',
+            help: '<circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
+            reset: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>'
+        };
+        function uiIcon(name, size, style) {
+            return `<svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:${size || 18}px;height:${size || 18}px;stroke:currentColor;vertical-align:-${Math.round((size || 18) * 0.2)}px;margin-right:8px;${style || ''}">${UI_ICONS[name] || ''}</svg>`;
         }
 
         const APP_ICON_DEFS = {
@@ -9597,14 +9619,14 @@
                 title.textContent = `Où êtes-vous disponible ?${periodLabel}`;
                 
                 const availabilityOptions = [
-                    { label: '🏠 Je suis en télétravail', value: '🏠 Télétravail', color: '#3498db' },
-                    { label: '🗼 Je suis à PSC', value: '🗼 PSC', color: '#9b59b6' },
-                    { label: '🚗 Je peux me déplacer', value: '🚗 Déplacement', color: '#16a085' }
+                    { icon: 'home', label: 'Je suis en télétravail', value: '🏠 Télétravail', color: '#3498db' },
+                    { icon: 'tower', label: 'Je suis à PSC', value: '🗼 PSC', color: '#9b59b6' },
+                    { icon: 'car', label: 'Je peux me déplacer', value: '🚗 Déplacement', color: '#16a085' }
                 ];
                 
                 availabilityOptions.forEach(opt => {
                     const btn = document.createElement('button');
-                    btn.textContent = opt.label;
+                    btn.innerHTML = uiIcon(opt.icon, 22) + opt.label;
                     btn.style.backgroundColor = opt.color;
                     btn.style.padding = '15px';
                     btn.onclick = () => setLocalisation(opt.value);
@@ -9618,19 +9640,19 @@
                 const isSamuActivity = activityValue === '3' || activityValue === '4';
                 
                 const activityOptions = [
-                    { label: '🏠 Télétravail', value: '🏠 Télétravail', color: '#3498db' },
-                    { label: '🗼 PSC', value: '🗼 PSC', color: '#9b59b6' },
-                    { label: '🎤 Autres (Congrès, CFARM, EHESP...)', value: '🎤 Autres', color: '#16a085' }
+                    { icon: 'home', label: 'Télétravail', value: '🏠 Télétravail', color: '#3498db' },
+                    { icon: 'tower', label: 'PSC', value: '🗼 PSC', color: '#9b59b6' },
+                    { icon: 'mic', label: 'Autres (Congrès, CFARM, EHESP...)', value: '🎤 Autres', color: '#16a085' }
                 ];
                 
                 // Ajouter l'option SAMU seulement si c'est une affectation SAMU
                 if (isSamuActivity) {
-                    activityOptions.splice(1, 0, { label: '🚨 SAMU (cliquer pour sélectionner)', value: 'SAMU_SELECT', color: '#e67e22' });
+                    activityOptions.splice(1, 0, { icon: 'siren', label: 'SAMU (cliquer pour sélectionner)', value: 'SAMU_SELECT', color: '#e67e22' });
                 }
                 
                 activityOptions.forEach(opt => {
                     const btn = document.createElement('button');
-                    btn.textContent = opt.label;
+                    btn.innerHTML = uiIcon(opt.icon, 22) + opt.label;
                     btn.style.backgroundColor = opt.color;
                     btn.style.padding = '15px';
                     if (opt.value === 'SAMU_SELECT') {
@@ -9986,12 +10008,12 @@
                                 <button onclick="printResourceCalendar(${resource.id})" 
                                         style="padding: 4px 8px; font-size: 10px; background-color: #3498db; border: none; border-radius: 3px; cursor: pointer;" 
                                         title="Imprimer le calendrier">
-                                    🖨️
+                                    ${uiIcon('print', 15, 'stroke:white;margin-right:0;vertical-align:middle;')}
                                 </button>
                                 <button onclick="sendResourceCalendarByEmail(${resource.id})" 
                                         style="padding: 4px 8px; font-size: 10px; background-color: #27ae60; border: none; border-radius: 3px; cursor: pointer;" 
                                         title="Envoyer par email">
-                                    ✉️
+                                    ${uiIcon('mail', 15, 'stroke:white;margin-right:0;vertical-align:middle;')}
                                 </button>
                             </div>
                         </div>
@@ -27120,7 +27142,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     border-radius: 4px;
                     margin-right: 10px;
                 ">
-                    <span style="font-size: 20px;">🔍</span>
+                    <span style="display:inline-flex;"><svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:22px;height:22px;stroke:white;"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span>
                 </button>
                 
                 <button class="logout-icon" onclick="logoutFromDeplacements()" title="Déconnexion"></button>
