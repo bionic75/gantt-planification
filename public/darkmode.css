@@ -1,0 +1,46 @@
+/* Mode sombre par inversion de couleurs, avec ré-inversion des éléments qui doivent garder leurs couleurs */
+html.dark-mode {
+    background: #fff;
+    filter: invert(1) hue-rotate(180deg) brightness(0.9);
+}
+
+/* Éléments ré-inversés : retrouvent leurs couleurs d'origine (texte blanc explicite = fond coloré) */
+html.dark-mode :is(img, video, canvas, iframe, button, th, .fixed-header, .user-info, .tab-btn, .logout-icon, .resource-header, .day-header, .total-cell, .total-label, .total-row, .total-sublabel, .gantt-cell-row:not([style*="color: #333"]), .color-code, .date-badge, .astreinte-badge, .toggle-switch .slider, [style^="color: white;"], [style*=" color: white;"], [style*=";color: white;"], [style$=" color: white"], [style$=";color: white"], [style="color: white"], [style^="color:white;"], [style*=" color:white;"], [style*=";color:white;"], [style$=" color:white"], [style$=";color:white"], [style="color:white"], [style^="color: #fff;"], [style*=" color: #fff;"], [style*=";color: #fff;"], [style$=" color: #fff"], [style$=";color: #fff"], [style="color: #fff"], [style^="color:#fff;"], [style*=" color:#fff;"], [style*=";color:#fff;"], [style$=" color:#fff"], [style$=";color:#fff"], [style="color:#fff"], [style^="color: #ffffff;"], [style*=" color: #ffffff;"], [style*=";color: #ffffff;"], [style$=" color: #ffffff"], [style$=";color: #ffffff"], [style="color: #ffffff"], [style^="color:#ffffff;"], [style*=" color:#ffffff;"], [style*=";color:#ffffff;"], [style$=" color:#ffffff"], [style$=";color:#ffffff"], [style="color:#ffffff"], [style^="color: #FFF;"], [style*=" color: #FFF;"], [style*=";color: #FFF;"], [style$=" color: #FFF"], [style$=";color: #FFF"], [style="color: #FFF"], [style^="color:#FFF;"], [style*=" color:#FFF;"], [style*=";color:#FFF;"], [style$=" color:#FFF"], [style$=";color:#FFF"], [style="color:#FFF"]) {
+    filter: invert(1) hue-rotate(180deg);
+}
+/* Pas de double ré-inversion pour les éléments imbriqués */
+html.dark-mode :is(img, video, canvas, iframe, button, th, .fixed-header, .user-info, .tab-btn, .logout-icon, .resource-header, .day-header, .total-cell, .total-label, .total-row, .total-sublabel, .gantt-cell-row:not([style*="color: #333"]), .color-code, .date-badge, .astreinte-badge, .toggle-switch .slider, [style^="color: white;"], [style*=" color: white;"], [style*=";color: white;"], [style$=" color: white"], [style$=";color: white"], [style="color: white"], [style^="color:white;"], [style*=" color:white;"], [style*=";color:white;"], [style$=" color:white"], [style$=";color:white"], [style="color:white"], [style^="color: #fff;"], [style*=" color: #fff;"], [style*=";color: #fff;"], [style$=" color: #fff"], [style$=";color: #fff"], [style="color: #fff"], [style^="color:#fff;"], [style*=" color:#fff;"], [style*=";color:#fff;"], [style$=" color:#fff"], [style$=";color:#fff"], [style="color:#fff"], [style^="color: #ffffff;"], [style*=" color: #ffffff;"], [style*=";color: #ffffff;"], [style$=" color: #ffffff"], [style$=";color: #ffffff"], [style="color: #ffffff"], [style^="color:#ffffff;"], [style*=" color:#ffffff;"], [style*=";color:#ffffff;"], [style$=" color:#ffffff"], [style$=";color:#ffffff"], [style="color:#ffffff"], [style^="color: #FFF;"], [style*=" color: #FFF;"], [style*=";color: #FFF;"], [style$=" color: #FFF"], [style$=";color: #FFF"], [style="color: #FFF"], [style^="color:#FFF;"], [style*=" color:#FFF;"], [style*=";color:#FFF;"], [style$=" color:#FFF"], [style$=";color:#FFF"], [style="color:#FFF"]) :is(img, video, canvas, iframe, button, th, .fixed-header, .user-info, .tab-btn, .logout-icon, .resource-header, .day-header, .total-cell, .total-label, .total-row, .total-sublabel, .gantt-cell-row:not([style*="color: #333"]), .color-code, .date-badge, .astreinte-badge, .toggle-switch .slider, [style^="color: white;"], [style*=" color: white;"], [style*=";color: white;"], [style$=" color: white"], [style$=";color: white"], [style="color: white"], [style^="color:white;"], [style*=" color:white;"], [style*=";color:white;"], [style$=" color:white"], [style$=";color:white"], [style="color:white"], [style^="color: #fff;"], [style*=" color: #fff;"], [style*=";color: #fff;"], [style$=" color: #fff"], [style$=";color: #fff"], [style="color: #fff"], [style^="color:#fff;"], [style*=" color:#fff;"], [style*=";color:#fff;"], [style$=" color:#fff"], [style$=";color:#fff"], [style="color:#fff"], [style^="color: #ffffff;"], [style*=" color: #ffffff;"], [style*=";color: #ffffff;"], [style$=" color: #ffffff"], [style$=";color: #ffffff"], [style="color: #ffffff"], [style^="color:#ffffff;"], [style*=" color:#ffffff;"], [style*=";color:#ffffff;"], [style$=" color:#ffffff"], [style$=";color:#ffffff"], [style="color:#ffffff"], [style^="color: #FFF;"], [style*=" color: #FFF;"], [style*=";color: #FFF;"], [style$=" color: #FFF"], [style$=";color: #FFF"], [style="color: #FFF"], [style^="color:#FFF;"], [style*=" color:#FFF;"], [style*=";color:#FFF;"], [style$=" color:#FFF"], [style$=";color:#FFF"], [style="color:#FFF"]) {
+    filter: none;
+}
+
+/* Voiles de fond des fenêtres modales : clair avant inversion = sombre après */
+html.dark-mode .modal,
+html.dark-mode [style*="rgba(0,0,0,0.5)"],
+html.dark-mode [style*="rgba(0, 0, 0, 0.5)"] {
+    background-color: rgba(255, 255, 255, 0.55) !important;
+}
+
+#colorModeBtn {
+    position: fixed;
+    top: 10px;
+    right: 12px;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 50%;
+    background: #fff;
+    cursor: pointer;
+    z-index: 1001;
+    padding: 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform .2s;
+}
+#colorModeBtn:hover { transform: scale(1.1); }
+#colorModeBtn svg { width: 18px; height: 18px; fill: none; stroke: #3949ab; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+
+@media print {
+    html.dark-mode { filter: none; background: transparent; }
+}
