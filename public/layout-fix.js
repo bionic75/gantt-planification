@@ -27,9 +27,10 @@
     document.head.appendChild(style);
 
     function updateSpacer() {
-        const header = document.querySelector('.fixed-header');
+        // Plusieurs applications ont chacune leur en-tête : on mesure celui qui est affiché
+        const header = [...document.querySelectorAll('.fixed-header')].find(h => h.getBoundingClientRect().height > 0);
         if (!header) return;
-        const strip = document.getElementById('themeStrip');
+        const strip = header.querySelector('#themeStrip');
         const h = Math.ceil(header.getBoundingClientRect().height) + (strip ? 14 : 0) + 6;
         document.documentElement.style.setProperty('--gp-header-h', h + 'px');
     }
@@ -98,8 +99,10 @@
         btn.onclick = resetLayout;
         window.GPTools.mount(btn, 3);
 
-        const header = document.querySelector('.fixed-header');
-        if (header && 'ResizeObserver' in window) new ResizeObserver(updateSpacer).observe(header);
+        if ('ResizeObserver' in window) {
+            const ro = new ResizeObserver(updateSpacer);
+            document.querySelectorAll('.fixed-header').forEach(h => ro.observe(h));
+        }
         window.addEventListener('resize', () => { updateSpacer(); updateButton(); });
         setInterval(() => { updateSpacer(); updateButton(); }, 2000);
         updateSpacer();
