@@ -23,3 +23,18 @@ table:not(.gantt-table):not(:has([style*="sticky"])):not(:has(.planning-sticky-h
 thead tr[style*="background"] > th {
     background-color: inherit;
 }
+
+/* Boutons « Choisir un fichier » harmonisés avec l'interface */
+input[type="file"]::file-selector-button {
+    margin-right: 10px;
+    padding: 7px 14px;
+    border: none;
+    border-radius: 8px;
+    background: #3949ab;
+    color: #fff;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    transition: filter .15s;
+}
+input[type="file"]::file-selector-button:hover { filter: brightness(1.12); }

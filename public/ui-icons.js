@@ -75,7 +75,10 @@
         'megaphone': '<path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>',
         'hospital': '<path d="M12 7v6M9 10h6"/><path d="M5 21V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14"/><path d="M3 21h18M10 21v-4h4v4"/>',
         'camera': '<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>',
-        'alarm': '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M5 3 2 6M22 6l-3-3"/>'
+        'alarm': '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M5 3 2 6M22 6l-3-3"/>',
+        'music': '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
+        'volume': '<path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/>',
+        'volumeOff': '<path d="M11 5 6 9H2v6h4l5 4z"/><path d="m22 9-6 6M16 9l6 6"/>'
     };
 
     // Premier point de code (sans sélecteur de variation) -> [icône, couleur]
@@ -102,7 +105,7 @@
         0x1F50D: ['search'], 0x1F4BE: ['save'], 0x1F4E5: ['download'], 0x1F4E4: ['upload'], 0x1F5D1: ['trash'],
         0x2139: ['info', '#1565c0'], 0x1F3A8: ['palette'], 0x2B50: ['star', '#f9a825'], 0x1F4A1: ['lightbulb', '#f9a825'],
         0x1F9EA: ['flask'], 0x1F4BD: ['database'], 0x1F5BC: ['image'], 0x1F4E2: ['megaphone'], 0x1F3E2: ['building'],
-        0x1F4CC: ['pin'], 0x1F6AB: ['ban', '#c62828'], 0x2B07: ['download'], 0x2B06: ['upload'], 0x1F4C1: ['folder'], 0x1F4C2: ['folder'], 0x1F3E5: ['hospital'], 0x1F4F7: ['camera'], 0x23F0: ['alarm'], 0x1F4F8: ['camera']
+        0x1F4CC: ['pin'], 0x1F6AB: ['ban', '#c62828'], 0x2B07: ['download'], 0x2B06: ['upload'], 0x1F4C1: ['folder'], 0x1F4C2: ['folder'], 0x1F3E5: ['hospital'], 0x1F4F7: ['camera'], 0x23F0: ['alarm'], 0x1F3B5: ['music'], 0x1F3B6: ['music'], 0x1F50A: ['volume'], 0x1F509: ['volume'], 0x1F508: ['volume'], 0x1F507: ['volumeOff'], 0x1F4F8: ['camera']
     };
 
     const RE = /\p{Extended_Pictographic}️?(?:‍\p{Extended_Pictographic}️?)*/gu;
