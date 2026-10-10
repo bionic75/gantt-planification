@@ -17,6 +17,7 @@ import nodemailer from 'nodemailer';
 console.log('✅ Nodemailer importé');
 import fs from 'fs';
 import cron from 'node-cron';
+import { registerDumpRoutes, isRestoreInProgress } from './db-dump.js';
 console.log('✅ Cron importé');
 import QRCode from 'qrcode';
 console.log('✅ QRCode importé');
@@ -41,6 +42,12 @@ app.use(cors({
 }));
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
+app.use((req, res, next) => {
+    if (isRestoreInProgress() && !req.path.startsWith('/api/admin/dump')) {
+        return res.status(503).json({ error: 'Restauration de la base en cours, réessayez dans quelques instants.' });
+    }
+    next();
+});
 app.use((req, res, next) => {
     const t0 = Date.now();
     const { method, url } = req;
@@ -4190,6 +4197,15 @@ app.get('/api/backup/csv', requireAdmin, (req, res) => {
             });
         });
     });
+});
+
+registerDumpRoutes(app, {
+    database, DB_FILE, DB_DIR, requireAdmin, logUserAction,
+    reloadEmailConfig: () => {
+        database.get('SELECT * FROM email_config WHERE id = 1', [], (err, row) => {
+            if (row) emailConfig = { host: row.host, port: row.port, secure: row.secure === 1, user: row.user, password: row.password };
+        });
+    }
 });
 
 app.get('/api/backup/sql', requireAdmin, (req, res) => {
