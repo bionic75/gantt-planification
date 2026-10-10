@@ -1,0 +1,131 @@
+// Remplace les emojis du texte par les icônes SVG stylisées de l'application (utilisé par la page d'aide)
+(function () {
+    'use strict';
+
+    const I = {
+        'check-circle': '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+        'x-circle': '<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/>',
+        calendar: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/>',
+        clipboard: '<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 12h6M9 16h4"/>',
+        users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+        chart: '<path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6" rx=".6"/><rect x="12" y="8" width="3" height="10" rx=".6"/><rect x="17" y="5" width="3" height="13" rx=".6"/>',
+        settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+        doc: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/>',
+        lock: '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+        key: '<path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/><path d="m15.5 7.5 3 3L22 7l-3-3"/>',
+        shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+        smartphone: '<rect x="6" y="2" width="12" height="20" rx="2"/><path d="M11 18h2"/>',
+        message: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+        mail: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/>',
+        pin: '<path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/>',
+        home: '<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>',
+        sparkles: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 3v4M17 5h4M5 17v4M3 19h4"/>',
+        badgeP: '<rect x="3" y="3" width="18" height="18" rx="4" fill="currentColor" stroke="none"/><path d="M9.5 17V7h3.2a2.8 2.8 0 0 1 0 5.6H9.5" stroke="#fff"/>',
+        badgeS: '<circle cx="12" cy="12" r="10" fill="currentColor" stroke="none"/><path d="M15.2 8.6c-.6-1-1.7-1.5-3.2-1.5-1.8 0-3 .9-3 2.2 0 3 6.4 1.6 6.4 4.6 0 1.4-1.3 2.3-3.2 2.3-1.5 0-2.7-.6-3.4-1.7" stroke="#fff"/>',
+        ban: '<circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/>',
+        hourglass: '<path d="M6 2h12v4l-6 6 6 6v4H6v-4l6-6-6-6z"/>',
+        phone: '<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/>',
+        book: '<path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"/><path d="M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/>',
+        arrows: '<path d="M8 3 4 7l4 4M4 7h16M16 21l4-4-4-4M20 17H4"/>',
+        pencil: '<path d="M17 3a2.8 2.8 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5z"/>',
+        hash: '<path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18"/>',
+        map: '<path d="M1 6v16l7-4 8 4 7-4V2l-7 4-8-4z"/><path d="M8 2v16M16 6v16"/>',
+        eye: '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/>',
+        presentation: '<path d="M2 3h20M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3M12 16v5M8 21h8"/><path d="m7 12 3-3 2 2 4-4"/>',
+        building: '<path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6M9 10h.01M15 10h.01"/>',
+        checksq: '<path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
+        umbrella: '<path d="M3 12a9 9 0 0 1 18 0z"/><path d="M12 12v7a2 2 0 0 0 4 0"/>',
+        minus: '<path d="M5 12h14"/>',
+        plus: '<path d="M12 5v14M5 12h14"/>',
+        keyboard: '<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>',
+        corner: '<path d="M20 4v7a4 4 0 0 1-4 4H4"/><path d="m9 10-5 5 5 5"/>',
+        link: '<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',
+        bell: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>',
+        wrench: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
+        monitor: '<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>',
+        timer: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/>',
+        bug: '<rect x="8" y="6" width="8" height="14" rx="4"/><path d="M19 7l-3 2M5 7l3 2M19 19l-3-2M5 19l3-2M20 13h-4M4 13h4M10 4l1 2M14 4l-1 2"/>',
+        tag: '<path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8z"/><circle cx="7" cy="7" r="1.2"/>',
+        user: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+        globe: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/>',
+        folder: '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',
+        hand: '<path d="M18 11V6a2 2 0 0 0-4 0M14 10V4a2 2 0 0 0-4 0v2M10 10.5V6a2 2 0 0 0-4 0v8M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.9-5.9-2.4L3.4 16a2 2 0 0 1 3.2-2.4L8 15"/>',
+        rocket: '<path d="M4.5 16.5c-1.5 1.3-2 5-2 5s3.7-.5 5-2c.7-.8.7-2.1-.1-2.9a2.2 2.2 0 0 0-2.9-.1z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.9A12.9 12.9 0 0 1 22 2c0 2.7-.8 7.5-6 11a22.4 22.4 0 0 1-4 2z"/><path d="M9 12H4s.6-3 2-4c1.6-1.1 5 0 5 0M12 15v5s3-.6 4-2c1.1-1.6 0-5 0-5"/>',
+        alert: '<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>'
+    };
+
+    // Premier point de code (sans sélecteur de variation) -> [icône, couleur]
+    const MAP = {
+        0x2705: ['check-circle', '#2e7d32'], 0x274C: ['x-circle', '#c62828'],
+        0x1F4C5: ['calendar'], 0x1F4C6: ['calendar'], 0x1F5D3: ['calendar'],
+        0x1F4CB: ['clipboard'], 0x1F465: ['users'], 0x1F4CA: ['chart'], 0x2699: ['settings'],
+        0x1F4C4: ['doc'], 0x1F4DD: ['doc'],
+        0x1F510: ['lock'], 0x1F512: ['lock'], 0x1F511: ['key'], 0x1F6E1: ['shield'],
+        0x1F4F1: ['smartphone'], 0x1F4AC: ['message'],
+        0x2709: ['mail'], 0x1F4E7: ['mail'], 0x1F4EC: ['mail'],
+        0x1F4CD: ['pin'], 0x1F3E0: ['home'], 0x1F195: ['sparkles', '#ef6c00'],
+        0x1F17F: ['badgeP', '#1565c0'], 0x1F162: ['badgeS', '#546e7a'],
+        0x2753: ['ban'], 0x23F3: ['hourglass'], 0x1F4DE: ['phone'], 0x1F4D6: ['book'],
+        0x2194: ['arrows'], 0x270F: ['pencil'], 0x1F522: ['hash'], 0x1F5FA: ['map'], 0x1F441: ['eye'],
+        0x1F468: ['presentation'], 0x1F3EB: ['building'], 0x2611: ['checksq'], 0x1F3D6: ['umbrella'],
+        0x2796: ['minus'], 0x2795: ['plus'], 0x2328: ['keyboard'], 0x21B5: ['corner'],
+        0x1F517: ['link'], 0x1F514: ['bell'], 0x1F527: ['wrench'], 0x1F5A5: ['monitor'],
+        0x23F1: ['timer'], 0x1F41B: ['bug'], 0x1F3F7: ['tag'], 0x1F464: ['user'],
+        0x1F310: ['globe'], 0x1F5C2: ['folder'], 0x270B: ['hand'], 0x1F680: ['rocket'],
+        0x26A0: ['alert', '#f9a825']
+    };
+
+    const RE = /\p{Extended_Pictographic}️?(?:‍\p{Extended_Pictographic}️?)*/gu;
+    const SKIP = new Set(['SCRIPT', 'STYLE', 'TEXTAREA', 'OPTION', 'TITLE', 'INPUT', 'SELECT']);
+
+    function iconFor(token) {
+        const entry = MAP[token.codePointAt(0)];
+        if (!entry) return null;
+        const span = document.createElement('span');
+        span.innerHTML = '<svg class="ui-emo" viewBox="0 0 24 24" aria-hidden="true" style="color:' + (entry[1] || 'inherit') + ';stroke:currentColor;">' + I[entry[0]] + '</svg>';
+        return span.firstChild;
+    }
+
+    function convert(node) {
+        const parent = node.parentNode;
+        if (!parent || SKIP.has(parent.nodeName)) return;
+        const text = node.nodeValue;
+        if (!text || !RE.test(text)) { RE.lastIndex = 0; return; }
+        RE.lastIndex = 0;
+        const frag = document.createDocumentFragment();
+        let last = 0, changed = false, m;
+        while ((m = RE.exec(text)) !== null) {
+            const icon = iconFor(m[0]);
+            if (!icon) continue;
+            if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+            frag.appendChild(icon);
+            last = m.index + m[0].length;
+            changed = true;
+        }
+        RE.lastIndex = 0;
+        if (!changed) return;
+        if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+        parent.replaceChild(frag, node);
+    }
+
+    function scan(root) {
+        if (root.nodeType === 3) { convert(root); return; }
+        if (root.nodeType !== 1 || SKIP.has(root.nodeName)) return;
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        const nodes = [];
+        while (walker.nextNode()) nodes.push(walker.currentNode);
+        nodes.forEach(convert);
+    }
+
+    const style = document.createElement('style');
+    style.textContent = '.ui-emo{width:1.15em;height:1.15em;vertical-align:-0.2em;margin:0 .15em;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}';
+    document.head.appendChild(style);
+
+    function start() {
+        scan(document.body);
+        new MutationObserver(muts => {
+            muts.forEach(mu => mu.addedNodes.forEach(n => { if (n.isConnected) scan(n); }));
+        }).observe(document.body, { childList: true, subtree: true });
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+})();

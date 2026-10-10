@@ -1,4 +1,4 @@
-<!-- v1.16.26 -->
+<!-- v1.16.27 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -34,6 +34,13 @@
         .tab-btn:hover { background-color: #34495e; }
         .tab-btn.active { background-color: #1D70B7; border-bottom: 4px solid #2980b9; }
         .app-ico { fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+        .icon-actions { display: flex; gap: 5px; flex-wrap: nowrap; align-items: center; }
+        .icon-btn { width: 30px; height: 30px; padding: 0; margin: 0; border: none; border-radius: 6px; color: #fff; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; transition: filter .15s, transform .15s; }
+        .icon-btn:hover { filter: brightness(1.12); transform: translateY(-1px); }
+        .icon-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+        #usersTable { min-width: 1350px; }
+        #resourcesTable { min-width: 1500px; }
+        td.ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .alert-ico { width: 1.15em; height: 1.15em; vertical-align: -0.22em; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
         .tab-ico { width: 18px; height: 18px; margin-right: 8px; vertical-align: -3px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; opacity: .9; }
         .tab-btn.tab-dragging { opacity: 0.4; cursor: grabbing; pointer-events: none; }
@@ -467,8 +474,10 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.16.26">
-    <script src="/themes.js?v=1.16.26" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.16.27">
+    <link rel="stylesheet" href="/darkmode.css?v=1.16.27">
+    <script src="/darkmode.js?v=1.16.27"></script>
+    <script src="/themes.js?v=1.16.27" defer></script>
 </head>
 <body>
     <div class="container">
@@ -713,7 +722,7 @@
                             <th onclick="sortTable('resources', 11)">Statut</th>
                             <th class="no-sort">Astreinte</th>
                             <th class="no-sort">Actif</th>
-                            <th class="no-sort">Actions</th>
+                            <th class="no-sort" style="width:84px;min-width:84px;">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="resourcesList"></tbody>
@@ -2807,7 +2816,7 @@
                             <th class="no-sort" title="Validation RH">Validation RH</th>
                             <th onclick="sortTable('users', 9)">Actif</th>
                             <th onclick="sortTable('users', 11)">Dernière connexion</th>
-                            <th class="no-sort">Actions</th>
+                            <th class="no-sort" style="width:192px;min-width:192px;">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="usersList"></tbody>
@@ -4934,7 +4943,11 @@
             doc: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/>',
             chart: '<path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6" rx=".6"/><rect x="12" y="8" width="3" height="10" rx=".6"/><rect x="17" y="5" width="3" height="13" rx=".6"/>',
             key: '<path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/><path d="m15.5 7.5 3 3L22 7l-3-3"/>',
-            plane: '<path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/>'
+            plane: '<path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/>',
+            pencil: '<path d="M17 3a2.8 2.8 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5z"/>',
+            trash: '<path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6"/>',
+            logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>',
+            eye: '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/>'
         };
         function uiIcon(name, size, style) {
             return `<svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:${size || 18}px;height:${size || 18}px;stroke:currentColor;vertical-align:-${Math.round((size || 18) * 0.2)}px;margin-right:8px;${style || ''}">${UI_ICONS[name] || ''}</svg>`;
@@ -8155,9 +8168,8 @@
                         : `<td style="text-align:center;"><span style="font-size:11px;padding:2px 8px;border-radius:10px;font-weight:bold;background:${r.actif ? '#e8f5e9' : '#ffebee'};color:${r.actif ? '#2e7d32' : '#c62828'};">${r.actif ? 'Actif' : 'Inactif'}</span></td>`}
                     <td>
                         ${currentUser && currentUser.activeProfile === 'rh'
-                            ? `<button class="edit" onclick="openViewModalRh(${r.id})">Voir</button>`
-                            : `<button class="edit" onclick="openEditModal(${r.id})">Modifier</button>
-                               <button class="delete" onclick="deleteResource(${r.id})">Supprimer</button>`
+                            ? `<div class="icon-actions"><button type="button" class="icon-btn" style="background-color:#f39c12;" onclick="openViewModalRh(${r.id})" title="Voir la ressource" aria-label="Voir la ressource">${uiIcon('eye', 16, 'margin:0;vertical-align:middle;')}</button></div>`
+                            : `<div class="icon-actions"><button type="button" class="icon-btn" style="background-color:#f39c12;" onclick="openEditModal(${r.id})" title="Modifier la ressource" aria-label="Modifier la ressource">${uiIcon('pencil', 16, 'margin:0;vertical-align:middle;')}</button><button type="button" class="icon-btn" style="background-color:#D60B51;" onclick="deleteResource(${r.id})" title="Supprimer la ressource" aria-label="Supprimer la ressource">${uiIcon('trash', 16, 'margin:0;vertical-align:middle;')}</button></div>`
                         }
                     </td>
                 `;
@@ -10405,7 +10417,7 @@
             table.style.tableLayout = 'fixed';
             const ths = Array.from(table.querySelectorAll('thead tr:first-child th'));
             // Fixer les largeurs naturelles courantes
-            ths.forEach(th => { th.style.width = th.offsetWidth + 'px'; th.style.position = 'relative'; });
+            ths.forEach(th => { if (th.offsetWidth > 0) th.style.width = th.offsetWidth + 'px'; th.style.position = 'relative'; });
             // Ajouter les poignées de resize (sauf la dernière colonne)
             ths.slice(0, -1).forEach((th, idx) => {
                 if (th.querySelector('.col-resize-handle')) return;
@@ -10916,8 +10928,8 @@
                 
                 const row = tbody.insertRow();
                 row.innerHTML = `
-                    <td style="cursor: pointer; color: #1D70B7; font-weight: bold;" onclick="showUserDetails(${u.id})">${u.nom}</td>
-                    <td>${u.prenom}</td><td style="font-weight: bold; letter-spacing: 1px;">${trigramme}</td><td>${u.username}</td><td>${u.email}</td><td>${u.telephone || '-'}</td>
+                    <td class="ell" title="${u.nom}" style="cursor: pointer; color: #1D70B7; font-weight: bold;" onclick="showUserDetails(${u.id})">${u.nom}</td>
+                    <td class="ell" title="${u.prenom}">${u.prenom}</td><td class="ell" style="font-weight: bold; letter-spacing: 1px;">${trigramme}</td><td class="ell" title="${u.username}">${u.username}</td><td class="ell" title="${u.email}">${u.email}</td><td class="ell">${u.telephone || '-'}</td>
                     <td><div style="display:flex;flex-wrap:wrap;gap:3px;">${profileBadgesHtml}</div></td>
                     <td style="text-align: center;"><input type="checkbox" ${u.has_reporting_access === 1 || u.is_admin === 1 ? 'checked' : ''} ${u.is_admin === 1 ? 'disabled title="Les admins ont toujours accès"' : ''} onchange="toggleReportingAccess(${u.id}, this.checked)" style="width: 18px; height: 18px; cursor: ${u.is_admin === 1 ? 'not-allowed' : 'pointer'};"></td>
                     <td style="text-align: center;">${(() => {
@@ -10928,12 +10940,13 @@
                     })()}</td>
                     <td><label class="toggle-switch"><input type="checkbox" ${u.actif ? 'checked' : ''} onchange="toggleUserActive(${u.id})"><span class="slider"></span></label></td>
                     <td style="font-size: 11px; white-space: nowrap;">${lastLoginDisplay}</td>
-                    <td>
-                        <button class="edit" onclick="openEditUserModal(${u.id})" style="background-color: #3498db; margin-right: 5px;">Modifier</button>
-                        <button class="edit" onclick="openResetPasswordModal(${u.id})">Reset MDP</button>
-                        <button class="edit" onclick="resetUserTotp(${u.id}, '${u.prenom} ${u.nom}')" style="background-color: #9c27b0;" title="Réinitialiser l'appairage TOTP (changement de téléphone)">Reset TOTP</button>
-                        <button onclick="forceLogoutUser(${u.id}, '${u.prenom} ${u.nom}')" style="background:#e65100;color:white;border:none;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer;margin:2px;" title="Déconnecter immédiatement cet utilisateur">⏏ Déco</button><button class="delete" onclick="deleteUser(${u.id})">Supprimer</button>
-                    </td>
+                    <td><div class="icon-actions">
+                        <button type="button" class="icon-btn" style="background-color:#3498db;" onclick="openEditUserModal(${u.id})" title="Modifier l'utilisateur" aria-label="Modifier l'utilisateur">${uiIcon('pencil', 16, 'margin:0;vertical-align:middle;')}</button>
+                        <button type="button" class="icon-btn" style="background-color:#f39c12;" onclick="openResetPasswordModal(${u.id})" title="Réinitialiser le mot de passe" aria-label="Réinitialiser le mot de passe">${uiIcon('key', 16, 'margin:0;vertical-align:middle;')}</button>
+                        <button type="button" class="icon-btn" style="background-color:#9c27b0;" onclick="resetUserTotp(${u.id}, '${u.prenom} ${u.nom}')" title="Réinitialiser l\'appairage TOTP (changement de téléphone)" aria-label="Réinitialiser l\'appairage TOTP (changement de téléphone)">${uiIcon('smartphone', 16, 'margin:0;vertical-align:middle;')}</button>
+                        <button type="button" class="icon-btn" style="background-color:#e65100;" onclick="forceLogoutUser(${u.id}, '${u.prenom} ${u.nom}')" title="Déconnecter immédiatement cet utilisateur" aria-label="Déconnecter immédiatement cet utilisateur">${uiIcon('logout', 16, 'margin:0;vertical-align:middle;')}</button>
+                        <button type="button" class="icon-btn" style="background-color:#D60B51;" onclick="deleteUser(${u.id})" title="Supprimer l\'utilisateur" aria-label="Supprimer l\'utilisateur">${uiIcon('trash', 16, 'margin:0;vertical-align:middle;')}</button>
+                    </div></td>
                 `;
             });
             makeColResizable(document.getElementById('usersTable'));
@@ -22992,6 +23005,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
         
         function openProfilePhotoModal() {
             if (window.Themes) Themes.syncProfileUI();
+            if (window.ColorMode) ColorMode.sync();
             const modal = document.getElementById('profilePhotoModal');
             const previewTrigramme = document.getElementById('previewTrigramme');
             const previewPhoto = document.getElementById('previewPhoto');
@@ -26557,6 +26571,14 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 </button>
             </div>
             
+            <!-- Section Mode d'affichage clair / sombre -->
+            <h3 style="color: #2c3e50; font-size: 16px; margin: 30px 0 10px 0; border-left: 3px solid #3949ab; padding-left: 10px;"><svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:18px;height:18px;stroke:#3949ab;vertical-align:-3px;margin-right:6px;"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>Mode d'affichage</h3>
+            <div style="display:flex;gap:18px;flex-wrap:wrap;font-size:14px;color:#2c3e50;">
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="radio" name="colorMode" value="light" onchange="ColorMode.set('light')" style="width:16px;height:16px;"> Clair</label>
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="radio" name="colorMode" value="dark" onchange="ColorMode.set('dark')" style="width:16px;height:16px;"> Sombre</label>
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="radio" name="colorMode" value="auto" onchange="ColorMode.set('auto')" style="width:16px;height:16px;"> Automatique (selon le système)</label>
+            </div>
+
             <!-- Section Thème d'affichage -->
             <div id="themeUserSection" style="display:none;">
                 <h3 style="color: #2c3e50; font-size: 16px; margin: 30px 0 10px 0; border-left: 3px solid #f39c12; padding-left: 10px;"><svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:18px;height:18px;stroke:currentColor;vertical-align:-3px;margin-right:6px;stroke:#f39c12;"><circle cx="13.5" cy="6.5" r=".6"/><circle cx="17.5" cy="10.5" r=".6"/><circle cx="8.5" cy="7.5" r=".6"/><circle cx="6.5" cy="12.5" r=".6"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.9 0 1.7-.7 1.7-1.7 0-.4-.2-.8-.5-1.1-.3-.3-.5-.7-.5-1.1 0-.9.7-1.7 1.7-1.7H16c3.1 0 5.6-2.5 5.6-5.6C22 6 17.5 2 12 2z"/></svg>Thème d'affichage</h3>

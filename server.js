@@ -8601,7 +8601,13 @@ app.get('/aide.html', (req, res) => {
     database.get(`SELECT value FROM settings WHERE key = 'help_html_content'`, (err, row) => {
         if (row?.value) {
             res.setHeader('Content-Type', 'text/html; charset=utf-8');
-            res.send(row.value);
+            // Le HTML d'aide peut être personnalisé : on y injecte le script d'icônes de l'application
+            let html = row.value;
+            if (!html.includes('/ui-icons.js')) {
+                const tag = '<script src="/ui-icons.js" defer></script>';
+                html = /<\/body>/i.test(html) ? html.replace(/<\/body>/i, tag + '</body>') : html + tag;
+            }
+            res.send(html);
         } else {
             res.sendFile(path.join(__dirname, 'public', 'aide.html'));
         }
