@@ -17,3 +17,9 @@ table:not(.gantt-table):not(:has([style*="sticky"])):not(:has(.planning-sticky-h
 :where(table:not(.gantt-table):not(:has([style*="sticky"])):not(:has(.planning-sticky-header)):not(.no-zebra)) tbody tr:hover {
     background-color: rgba(29, 112, 183, 0.15);
 }
+
+/* En-têtes : si la ligne <tr> porte sa propre couleur de fond, les cellules <th> la reprennent
+   (sinon le fond sombre par défaut rend le texte coloré illisible) */
+thead tr[style*="background"] > th {
+    background-color: inherit;
+}
