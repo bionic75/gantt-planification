@@ -342,9 +342,9 @@
         const def = stageDef(key);
         const rows = (list && list.length ? list : [{ start: '', end: '' }]).map((x, i) => `
             <div class="pr">
-                <input type="date" data-pk="${key}" data-pi="${i}" data-pf="start" value="${esc(x.start)}" aria-label="Début ${esc(def.label)}">
+                <input type="date" data-pk="${key}" data-pi="${i}" data-pf="start" value="${esc(x.start)}" aria-label="Début ${esc(def.label)}" onchange="AffectationApp.startChanged(this)">
                 <span class="aff-muted">→</span>
-                <input type="date" data-pk="${key}" data-pi="${i}" data-pf="end" value="${esc(x.end)}" aria-label="Fin ${esc(def.label)}">
+                <input type="date" data-pk="${key}" data-pi="${i}" data-pf="end" value="${esc(x.end)}" aria-label="Fin ${esc(def.label)}" onchange="this.dataset.auto=''">
                 <button type="button" class="aff-x" title="Effacer cette période" onclick="AffectationApp.clearPeriod('${key}', ${i})">${svg('x', 'aff-ico-sm')}</button>
             </div>`).join('');
         const add = def.kind === 'periods' ? `<button type="button" class="aff-btn" style="align-self:flex-start;padding:5px 10px;" onclick="AffectationApp.addPeriod('${key}')">${svg('plus', 'aff-ico-sm')}Ajouter une période</button>` : '';
@@ -441,6 +441,25 @@
         syncMin() {
             const d = document.getElementById('affDebut').value;
             document.querySelectorAll('#affModalBody input[data-pk], #affModalBody input[data-df]').forEach(inp => { if (d) inp.min = d; else inp.removeAttribute('min'); });
+            // La borne haute d'une période ne peut pas précéder sa borne basse
+            document.querySelectorAll('#affModalBody input[data-pf="start"]').forEach(st => { if (st.value) adminApi.startChanged(st, true); });
+        },
+        // Borne basse choisie : le calendrier de la borne haute s'ouvre sur ce mois (et ne propose pas de date antérieure)
+        startChanged(startInput, keepEnd) {
+            const end = document.querySelector(`#affModalBody input[data-pk="${startInput.dataset.pk}"][data-pi="${startInput.dataset.pi}"][data-pf="end"]`);
+            if (!end) return;
+            if (startInput.value) {
+                end.min = startInput.value;
+                if (keepEnd) return;
+                if (!end.value || end.dataset.auto === '1' || end.value < startInput.value) {
+                    end.value = startInput.value;
+                    end.dataset.auto = '1';
+                }
+            } else if (!keepEnd) {
+                const d = document.getElementById('affDebut').value;
+                if (d) end.min = d; else end.removeAttribute('min');
+                if (end.dataset.auto === '1') { end.value = ''; end.dataset.auto = ''; }
+            }
         },
         suggest(value) {
             const box = document.getElementById('affSug');
