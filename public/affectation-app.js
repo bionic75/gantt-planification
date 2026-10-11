@@ -76,7 +76,11 @@
         .aff-row-actions { display: flex; gap: 6px; }
         .aff-icon-btn { width: 32px; height: 32px; border: none; border-radius: 8px; color: #fff; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
         .aff-icon-btn:hover { filter: brightness(1.12); }
-        .aff-colors { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px 18px; }
+        .aff-color-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid #e6ebf3; border-radius: 10px; background: #fff; }
+        .aff-color-row .lbl { flex: 1; font-weight: 600; color: #2c3e50; font-size: 13px; }
+        .aff-pat-prev { width: 44px; height: 22px; border-radius: 5px; border: 1px solid rgba(0,0,0,.15); flex-shrink: 0; }
+        .aff-pat-sel { padding: 4px 6px; border: 1px solid #cfd8e6; border-radius: 8px; font-size: 12px; max-width: 150px; }
+        .aff-colors { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 10px 18px; }
         .aff-color-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid #e6ebf3; border-radius: 10px; }
         .aff-color-row input[type="color"] { width: 38px; height: 30px; padding: 0; border: 1px solid #cfd8e6; border-radius: 6px; background: #fff; cursor: pointer; }
         .aff-color-row .lbl { flex: 1; font-size: 13px; color: #2c3e50; }
@@ -169,7 +173,6 @@
         .aff-pc .b.tl { border-top-right-radius: 5px; border-bottom-right-radius: 5px; }
         .aff-pc .b.go { cursor: pointer; } .aff-pc .b.go:hover { filter: brightness(1.15); outline: 2px solid rgba(15,118,110,.7); outline-offset: -1px; }
         .aff-pc .b.ok { box-shadow: inset 0 -2px 0 rgba(255,255,255,.85); }
-        .aff-pc .b.gel { background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.35) 0 3px, transparent 3px 6px); }
         .aff-mk { position: absolute; top: 2px; width: 0; height: 0; z-index: 2; }
         .aff-mk.start { top: 0; bottom: 0; height: auto; width: 2px; margin-left: -1px; background: #263238; opacity: .85; }
         .aff-mk.start i { left: -4px; top: -1px; width: 10px; height: 10px; border-width: 1px; }
@@ -270,7 +273,7 @@
 
         <section class="aff-card">
             <header class="aff-card-head">
-                <span class="aff-card-title">${svg('palette', 'aff-ico')}Couleurs des étapes</span>
+                <span class="aff-card-title">${svg('palette', 'aff-ico')}Paramétrer la couleur des étapes</span>
                 <span class="aff-muted" style="font-size:12px;">S'appliquent à tous les projets</span>
             </header>
             <div id="affColors" class="aff-colors"></div>
@@ -437,13 +440,40 @@
 
 
     // ================= Déploiements de SAMU (administration) =================
-    const state = { config: null, colors: {}, projects: [], users: [], locations: [], form: null, loaded: false };
+    const state = { config: null, colors: {}, patterns: {}, projects: [], users: [], locations: [], form: null, loaded: false };
 
     const esc = t => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     const norm = t => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
     const fmt = iso => iso ? iso.split('-').reverse().join('/') : '';
     const stageDef = key => state.config.stages.find(x => x.key === key);
     const color = key => state.colors[key] || '#888888';
+    // ---- motifs (en plus de la couleur) ----
+    const PATTERNS = [['none', 'Uni'], ['diag', 'Rayures'], ['diag2', 'Rayures inversées'], ['chevron', 'Chevrons'], ['grid', 'Quadrillage'], ['dots', 'Pois'], ['cross', 'Croisillons'], ['hlines', 'Lignes horizontales'], ['vlines', 'Lignes verticales'], ['zigzag', 'Zigzag']];
+    const PATTERN_SVG = {
+        diag: ['8', "<path d='M-2 2l4-4M0 8l8-8M6 10l4-4' stroke-width='2'/>"],
+        diag2: ['8', "<path d='M10 2l-4-4M8 8l-8-8M2 10l-4-4' stroke-width='2'/>"],
+        chevron: ['16 12', "<path d='M0 7L8 13L16 7M0 1L8 7L16 1M0 -5L8 1L16 -5' stroke-width='2' fill='none'/>"],
+        grid: ['10', "<path d='M0 .5H10M.5 0V10' stroke-width='1.4'/>"],
+        dots: ['8', "<circle cx='4' cy='4' r='1.6' stroke='none' fill='C'/>"],
+        cross: ['8', "<path d='M0 0L8 8M8 0L0 8' stroke-width='1.4'/>"],
+        hlines: ['6', "<path d='M0 3H6' stroke-width='2'/>"],
+        vlines: ['6', "<path d='M3 0V6' stroke-width='2'/>"],
+        zigzag: ['12 8', "<path d='M0 6L3 2L6 6L9 2L12 6' stroke-width='1.8' fill='none'/>"]
+    };
+    // Style de fond : couleur + motif discret, clair sur fond foncé et foncé sur fond clair
+    function bgStyle(hex, pattern) {
+        const base = `background-color:${hex};`;
+        const def = PATTERN_SVG[pattern];
+        if (!def) return base;
+        const n = parseInt(String(hex).slice(1), 16);
+        const lum = (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+        const c = lum > 0.62 ? 'rgba(0,0,0,.38)' : 'rgba(255,255,255,.62)';
+        const [size, body] = def;
+        const [w, h] = size.split(' ').concat(size.split(' ')).slice(0, 2);
+        const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}' viewBox='0 0 ${w} ${h}' fill='none' stroke='${c}'>${body.replace('fill=\'C\'', `fill='${c}'`)}</svg>`;
+        return `${base}background-image:url('data:image/svg+xml,${encodeURIComponent(svg).replace(/'/g, '%27')}');background-size:${w}px ${h}px;`;
+    }
+    const pattern = key => state.patterns[key] || 'none';
 
     async function api(path, opts) {
         const res = await fetch(`${API_URL}${path}`, { credentials: 'include', headers: { 'Content-Type': 'application/json' }, ...(opts || {}) });
@@ -459,7 +489,7 @@
             const [cfg, proj, users, locs] = await Promise.all([
                 api('/affectation/config'), api('/affectation/projects'), api('/affectation/users'), api('/locations')
             ]);
-            state.config = cfg; state.colors = { ...cfg.colors };
+            state.config = cfg; state.colors = { ...cfg.colors }; state.patterns = { ...(cfg.patterns || {}) };
             state.projects = proj.projects; state.users = users.users; state.locations = locs.locations || [];
             state.loaded = true;
             renderLegend(); renderProjects(); renderColors();
@@ -470,7 +500,7 @@
 
     function renderLegend() {
         document.getElementById('affLegend').innerHTML = state.config.stages
-            .map(st => `<span><i style="background:${color(st.key)}"></i>${esc(st.label)}</span>`).join('');
+            .map(st => `<span><i style="${bgStyle(color(st.key), pattern(st.key))}"></i>${esc(st.label)}</span>`).join('');
     }
 
     function projectBounds(p) {
@@ -488,11 +518,11 @@
         state.config.stages.filter(st => st.kind !== 'date').forEach(st => {
             (p.periods[st.key] || []).forEach(x => {
                 const left = pos(x.start), width = Math.max(1.2, pos(x.end) - left);
-                h += `<span class="aff-tl-seg" style="left:${left}%;width:${width}%;background:${color(st.key)}" title="${esc(st.label)} : ${fmt(x.start)} → ${fmt(x.end)}"></span>`;
+                h += `<span class="aff-tl-seg" style="left:${left}%;width:${width}%;${bgStyle(color(st.key), pattern(st.key))}" title="${esc(st.label)} : ${fmt(x.start)} → ${fmt(x.end)}"></span>`;
             });
         });
         [['mise_en_service', p.date_mise_en_service], ['mise_en_production', p.date_mise_en_production]].forEach(([k, d]) => {
-            if (d) h += `<span class="aff-tl-mark" style="left:${pos(d)}%;background:${color(k)}" title="${esc(stageDef(k).label)} : ${fmt(d)}"></span>`;
+            if (d) h += `<span class="aff-tl-mark" style="left:${pos(d)}%;${bgStyle(color(k), pattern(k))}" title="${esc(stageDef(k).label)} : ${fmt(d)}"></span>`;
         });
         return h + `</div><div class="aff-tl-scale"><span>${fmt(min)}</span><span>${fmt(max)}</span></div>`;
     }
@@ -521,11 +551,13 @@
     // ---- couleurs ----
     function renderColors() {
         document.getElementById('affColors').innerHTML = state.config.stages.map(st => `
-            <label class="aff-color-row">
-                <input type="color" data-key="${st.key}" value="${color(st.key)}" oninput="AffectationApp.previewColor('${st.key}', this.value)">
+            <div class="aff-color-row">
+                <input type="color" data-key="${st.key}" value="${color(st.key)}" title="Couleur" oninput="AffectationApp.previewColor('${st.key}', this.value)">
+                <span class="aff-pat-prev" id="affPatPrev_${st.key}" style="${bgStyle(color(st.key), pattern(st.key))}" title="Aperçu"></span>
                 <span class="lbl">${esc(st.label)}</span>
+                <select class="aff-pat-sel" title="Motif" onchange="AffectationApp.previewPattern('${st.key}', this.value)">${PATTERNS.map(p => `<option value="${p[0]}" ${pattern(st.key) === p[0] ? 'selected' : ''}>${p[1]}</option>`).join('')}</select>
                 <span class="aff-tl-scale" style="margin:0;">${st.kind === 'date' ? 'date' : 'période'}</span>
-            </label>`).join('');
+            </div>`).join('');
     }
 
     // ---- formulaire ----
@@ -566,7 +598,7 @@
 
     function stageRow(key, f) {
         const def = stageDef(key);
-        const head = `<div class="name"><i style="background:${color(key)}"></i>${esc(def.label)}${def.kind === 'periods' ? ' <span class="aff-muted">(optionnel)</span>' : ''}</div>`;
+        const head = `<div class="name"><i style="${bgStyle(color(key), pattern(key))}"></i>${esc(def.label)}${def.kind === 'periods' ? ' <span class="aff-muted">(optionnel)</span>' : ''}</div>`;
         if (def.kind === 'date') {
             return `<div class="aff-stage">${head}<div class="dates"><div class="pr"><input type="date" data-df="${key}" value="${esc(f['date_' + key] || '')}" aria-label="${esc(def.label)}"></div></div><span></span></div>`;
         }
@@ -918,21 +950,28 @@
             try { await api(`/affectation/projects/${id}`, { method: 'DELETE' }); await loadAdmin(); plan.projects = state.projects; renderPlanning(); }
             catch (e) { alert(e.message); }
         },
-        previewColor(key, value) { state.colors[key] = value; renderLegend(); renderProjects(); },
+        previewColor(key, value) {
+            state.colors[key] = value; renderLegend(); renderProjects();
+            const pv = document.getElementById('affPatPrev_' + key); if (pv) pv.style.cssText = bgStyle(value, pattern(key));
+        },
+        previewPattern(key, value) {
+            state.patterns[key] = value; renderLegend(); renderProjects();
+            const pv = document.getElementById('affPatPrev_' + key); if (pv) pv.style.cssText = bgStyle(color(key), value);
+        },
         async saveColors() {
             const msg = document.getElementById('affColorsMsg');
             try {
-                const data = await api('/affectation/colors', { method: 'PUT', body: JSON.stringify(state.colors) });
-                state.colors = { ...data.colors };
+                const data = await api('/affectation/colors', { method: 'PUT', body: JSON.stringify({ colors: state.colors, patterns: state.patterns }) });
+                state.colors = { ...data.colors }; state.patterns = { ...data.patterns };
                 renderLegend(); renderProjects(); renderColors();
-                msg.style.color = '#2e7d32'; msg.textContent = 'Couleurs enregistrées.';
+                msg.style.color = '#2e7d32'; msg.textContent = 'Couleurs et motifs enregistrés.';
             } catch (e) { msg.style.color = '#c62828'; msg.textContent = e.message; }
         },
         resetColors() {
-            state.config.stages.forEach(st => { state.colors[st.key] = st.defaultColor; });
+            state.config.stages.forEach(st => { state.colors[st.key] = st.defaultColor; state.patterns[st.key] = st.defaultPattern || 'none'; });
             renderLegend(); renderProjects(); renderColors();
             const msg = document.getElementById('affColorsMsg');
-            msg.style.color = '#7a8799'; msg.textContent = 'Couleurs par défaut rétablies : pensez à enregistrer.';
+            msg.style.color = '#7a8799'; msg.textContent = 'Couleurs et motifs par défaut rétablis : pensez à enregistrer.';
         },
         loadAdmin
     };
@@ -985,7 +1024,7 @@
     function renderLegend2() {
         const bar = document.getElementById('affLegendBar');
         if (!bar || !plan.config) return;
-        const chip = (k, dot) => `<button type="button" class="chip ${hiddenKeys.has(k) ? 'off' : ''}" onclick="AffectationApp.toggleStage('${k}')" title="${hiddenKeys.has(k) ? 'Afficher' : 'Masquer'} : ${esc(planDef(k).label)}"><i class="${dot ? 'dot' : ''}" style="background:${planColor(k)}"></i>${esc(planDef(k).label)}</button>`;
+        const chip = (k, dot) => `<button type="button" class="chip ${hiddenKeys.has(k) ? 'off' : ''}" onclick="AffectationApp.toggleStage('${k}')" title="${hiddenKeys.has(k) ? 'Afficher' : 'Masquer'} : ${esc(planDef(k).label)}"><i class="${dot ? 'dot' : ''}" style="${bgStyle(planColor(k), planPattern(k))}"></i>${esc(planDef(k).label)}</button>`;
         const pastChip = `<button type="button" class="chip ${hiddenKeys.has('_past') ? 'off' : ''}" onclick="AffectationApp.toggleStage('_past')" title="${hiddenKeys.has('_past') ? 'Afficher' : 'Masquer'} les SAMU dont la date de mise en service est passée"><i class="dot" style="background:#7a8799"></i>SAMU déjà en service</button>`;
         bar.innerHTML = `<span class="t">Légende</span>${PHASES.map(k => chip(k)).join('')}<span class="sep"></span>${['mise_en_service', 'mise_en_production'].map(k => chip(k, true)).join('')}<span class="sep"></span>${STEPS.map(k => chip(k)).join('')}<span class="sep"></span>${pastChip}`
             + `<span class="aff-muted" style="margin-left:auto;font-size:11px;">Cliquer sur une rubrique pour l'afficher / la masquer</span>`;
@@ -993,6 +1032,7 @@
     const PHASES = ['cadrage', 'deploiement', 'gel'];
     const STEPS = ['visite_metier', 'test_prerequis', 'vft', 'formation_relais', 'formation_utilisateurs', 'accompagnement'];
     const planColor = k => (plan.colors && plan.colors[k]) || '#888888';
+    const planPattern = k => (plan.patterns && plan.patterns[k]) || 'none';
     const planDef = k => (plan.config && plan.config.stages.find(x => x.key === k)) || { label: k };
     const frd = iso => iso.split('-').reverse().join('/');
 
@@ -1014,7 +1054,7 @@
             const o2 = (utcMs(x.end > c.to ? c.to : x.end) - utcMs(c.from)) / 86400000 + 1;
             const pos = span > 1 ? `margin-left:${(o1 / span * 100).toFixed(2)}%;width:max(${((o2 - o1) / span * 100).toFixed(2)}%,24px);flex:0 0 auto;` : '';
             const label = head && isStep && needed ? `${got}/${needed}` : '';
-            return `<div class="b ${head ? 'hd' : ''} ${tail ? 'tl' : ''} ${go ? 'go' : ''} ${isStep && needed && got >= needed ? 'ok' : ''} ${k === 'gel' ? 'gel' : ''}" style="background:${planColor(k)};${pos}" title="${esc(tip)}" ${go ? `onclick="AffectationApp.openAssign(${p.id},'${k}')"` : ''}>${label}</div>`;
+            return `<div class="b ${head ? 'hd' : ''} ${tail ? 'tl' : ''} ${go ? 'go' : ''} ${isStep && needed && got >= needed ? 'ok' : ''} ${k === 'gel' ? 'gel' : ''}" style="${bgStyle(planColor(k), planPattern(k))}${pos}" title="${esc(tip)}" ${go ? `onclick="AffectationApp.openAssign(${p.id},'${k}')"` : ''}>${label}</div>`;
         };
         // Une voie fixe par période du projet : une barre garde la même hauteur d'une colonne à l'autre
         const lanes = (keys, isStep) => keys.map(k => hiddenKeys.has(k) ? '' : ((p.periods || {})[k] || []).map((x, i) => bar(k, x, i, isStep) || '<div class="b" style="visibility:hidden"></div>').join('')).join('');
@@ -1025,7 +1065,7 @@
         const span = (utcMs(c.to) - utcMs(c.from)) / 86400000 + 1;
         const posOf = d => ((utcMs(d) - utcMs(c.from)) / 86400000) / span * 100;
         [['mise_en_service', p.date_mise_en_service], ['mise_en_production', p.date_mise_en_production]].forEach(([k, d]) => {
-            if (d && !hiddenKeys.has(k) && d >= c.from && d <= c.to) mk += `<span class="aff-mk" style="left:${(posOf(d) + 50 / span).toFixed(2)}%" title="${esc(planDef(k).label)} : ${frd(d)}"><i style="background:${planColor(k)}"></i></span>`;
+            if (d && !hiddenKeys.has(k) && d >= c.from && d <= c.to) mk += `<span class="aff-mk" style="left:${(posOf(d) + 50 / span).toFixed(2)}%" title="${esc(planDef(k).label)} : ${frd(d)}"><i style="${bgStyle(planColor(k), planPattern(k))}"></i></span>`;
         });
         // Début du projet : trait vertical au bord gauche du jour, aligné sur le début des barres
         if (p.date_debut >= c.from && p.date_debut <= c.to) mk += `<span class="aff-mk start" style="left:${posOf(p.date_debut).toFixed(2)}%" title="Début du projet : ${frd(p.date_debut)}"><i style="background:#263238"></i></span>`;
@@ -1117,7 +1157,7 @@
         try {
             const [cfg, proj, res] = await Promise.all([api('/affectation/config'), api('/affectation/projects'), api('/affectation/resources').catch(() => null)]);
             if (res) plan.resources = res.resources;
-            plan.projects = proj.projects; plan.colors = cfg.colors; plan.config = cfg; plan.loaded = true;
+            plan.projects = proj.projects; plan.colors = cfg.colors; plan.patterns = cfg.patterns || {}; plan.config = cfg; plan.loaded = true;
             renderPlanning();
             AffectationApp.planToday();
         } catch (e) {

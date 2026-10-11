@@ -3670,6 +3670,18 @@ function affIsoDate(v) {
     return !isNaN(d) && d.toISOString().slice(0, 10) === v;
 }
 
+// Motifs applicables en plus de la couleur (« gel » reste hachuré par défaut, comme avant)
+const AFF_PATTERNS = ['none', 'diag', 'diag2', 'chevron', 'grid', 'dots', 'cross', 'hlines', 'vlines', 'zigzag'];
+function affPatterns(cb) {
+    database.get(`SELECT value FROM settings WHERE key = 'affectation_patterns'`, (err, row) => {
+        let saved = {};
+        try { saved = row ? JSON.parse(row.value) : {}; } catch (e) { saved = {}; }
+        const out = {};
+        AFF_STAGES.forEach(st => { out[st.key] = AFF_PATTERNS.includes(saved[st.key]) ? saved[st.key] : (st.key === 'gel' ? 'diag' : 'none'); });
+        cb(out);
+    });
+}
+
 function affColors(cb) {
     database.get(`SELECT value FROM settings WHERE key = 'affectation_colors'`, (err, row) => {
         let saved = {};
@@ -3771,11 +3783,13 @@ function affRowToJson(r, assignments) {
 const AFF_SELECT = `SELECT p.*, u.nom AS chef_nom, u.prenom AS chef_prenom FROM affectation_projects p LEFT JOIN users u ON u.id = p.chef_projet_id`;
 
 app.get('/api/affectation/config', requireAffectationAccess, (req, res) => {
-    affColors(colors => res.json({ stages: AFF_STAGES.map(s => ({ key: s.key, label: s.label, kind: s.kind, resources: !!s.resources, defaultColor: s.color })), colors }));
+    affColors(colors => affPatterns(patterns => res.json({ stages: AFF_STAGES.map(s => ({ key: s.key, label: s.label, kind: s.kind, resources: !!s.resources, defaultColor: s.color, defaultPattern: s.key === 'gel' ? 'diag' : 'none' })), colors, patterns, patternIds: AFF_PATTERNS })));
 });
 
 app.put('/api/affectation/colors', requireAdmin, (req, res) => {
-    const input = req.body && typeof req.body === 'object' ? req.body : {};
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    // Format actuel { colors, patterns } ; l'ancien format (couleurs seules) reste accepté
+    const input = body.colors && typeof body.colors === 'object' ? body.colors : body;
     const colors = {};
     for (const st of AFF_STAGES) {
         const c = input[st.key];
@@ -3783,10 +3797,20 @@ app.put('/api/affectation/colors', requireAdmin, (req, res) => {
         if (!/^#[0-9a-fA-F]{6}$/.test(c)) return res.status(400).json({ error: `Couleur invalide pour « ${st.label} »` });
         colors[st.key] = c.toLowerCase();
     }
+    const patterns = {};
+    const pin = body.patterns && typeof body.patterns === 'object' ? body.patterns : {};
+    for (const st of AFF_STAGES) {
+        if (pin[st.key] === undefined) continue;
+        if (!AFF_PATTERNS.includes(pin[st.key])) return res.status(400).json({ error: `Motif invalide pour « ${st.label} »` });
+        patterns[st.key] = pin[st.key];
+    }
     database.run(`INSERT OR REPLACE INTO settings (key, value) VALUES ('affectation_colors', ?)`, [JSON.stringify(colors)], err => {
         if (err) return res.status(500).json({ error: err.message });
-        logUserAction(req, 'Couleurs des étapes de déploiement SAMU', {});
-        affColors(c => res.json({ colors: c }));
+        database.run(`INSERT OR REPLACE INTO settings (key, value) VALUES ('affectation_patterns', ?)`, [JSON.stringify(patterns)], err2 => {
+            if (err2) return res.status(500).json({ error: err2.message });
+            logUserAction(req, 'Couleurs et motifs des étapes de déploiement SAMU', {});
+            affColors(c => affPatterns(pt => res.json({ colors: c, patterns: pt })));
+        });
     });
 });
 
