@@ -4055,6 +4055,188 @@ function affSaveProject(req, res, id) {
 }
 app.post('/api/affectation/projects', requireAdmin, (req, res) => affSaveProject(req, res, null));
 app.put('/api/affectation/projects/:id', requireAdmin, (req, res) => affSaveProject(req, res, Number(req.params.id)));
+// ---- Import depuis Asana (export CSV d'un projet de déploiement) ----
+function parseCsv(text) {
+    const rows = [];
+    let row = [], cell = '', q = false;
+    const src = String(text || '').replace(/^﻿/, '');
+    for (let i = 0; i < src.length; i++) {
+        const c = src[i];
+        if (q) {
+            if (c === '"') { if (src[i + 1] === '"') { cell += '"'; i++; } else q = false; }
+            else cell += c;
+        } else if (c === '"') q = true;
+        else if (c === ',') { row.push(cell); cell = ''; }
+        else if (c === '\n' || c === '\r') {
+            if (c === '\r' && src[i + 1] === '\n') i++;
+            row.push(cell); cell = '';
+            if (row.some(x => x !== '')) rows.push(row);
+            row = [];
+        } else cell += c;
+    }
+    row.push(cell);
+    if (row.some(x => x !== '')) rows.push(row);
+    return rows;
+}
+const asanaNorm = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[’‘]/g, "'").toLowerCase();
+const asanaAddDays = (iso, n) => new Date(Date.parse(iso + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10);
+
+// Calcule, à partir de l'export CSV, les dates de chaque étape selon la correspondance convenue
+function asanaCompute(csvText, formationTarget) {
+    const rows = parseCsv(csvText);
+    if (rows.length < 2) throw Object.assign(new Error('Fichier vide ou illisible'), { status: 400 });
+    const head = rows[0].map(h => h.trim());
+    const col = n => head.indexOf(n);
+    const iName = col('Name'), iSec = col('Section/Column'), iStart = col('Start Date'), iDue = col('Due Date'), iParent = col('Parent task'), iProj = col('Projects'), iPhase = col('Phase');
+    if (iName < 0 || iDue < 0) throw Object.assign(new Error("Ce fichier ne ressemble pas à un export de tâches Asana (colonnes « Name » et « Due Date » introuvables)"), { status: 400 });
+    const isoOk = d => /^\d{4}-\d{2}-\d{2}$/.test(d || '');
+    const tasks = rows.slice(1).map(r => ({
+        name: (r[iName] || '').trim(), section: (r[iSec] || '').trim(), start: isoOk(r[iStart]) ? r[iStart] : '', due: isoOk(r[iDue]) ? r[iDue] : '',
+        parent: iParent >= 0 ? (r[iParent] || '').trim() : '', projects: iProj >= 0 ? (r[iProj] || '') : '', phase: iPhase >= 0 ? (r[iPhase] || '').trim().toUpperCase() : ''
+    })).filter(t => t.name);
+    tasks.forEach(t => { const m = /^\s*(\d+(?:\.\d+)*)\.?\s/.exec(t.name); t.code = m ? m[1] : ''; t.n = asanaNorm(t.name); });
+
+    // SAMU : « [SAMU 25] » dans le nom du projet, à défaut dans le nom des tâches
+    let samuNo = null, projectName = '';
+    for (const t of tasks) {
+        const m = /\[SAMU\s*([0-9A-Za-z]+)\]/i.exec(t.projects);
+        if (m) { samuNo = m[1].toUpperCase(); projectName = t.projects.split(',').find(x => /\[SAMU/i.test(x)) || ''; break; }
+    }
+    if (!samuNo) for (const t of tasks) { const m = /SAMU\s+(\d+[A-Za-z]?)\b/i.exec(t.name); if (m) { samuNo = m[1].toUpperCase(); break; } }
+
+    // Dates d'une tâche : les siennes, sinon celles de ses sous-tâches (plus petite à plus grande date)
+    const eff = t => {
+        if (t.start || t.due) return { start: t.start || t.due, end: t.due || t.start };
+        const kids = tasks.filter(k => k.parent && k.parent === t.name && (k.start || k.due));
+        if (!kids.length) return null;
+        const all = kids.flatMap(k => [k.start, k.due].filter(Boolean)).sort();
+        return { start: all[0], end: all[all.length - 1] };
+    };
+    const span = list => {
+        const ds = list.map(eff).filter(Boolean).flatMap(e => [e.start, e.end]).sort();
+        return ds.length ? { start: ds[0], end: ds[ds.length - 1] } : null;
+    };
+    const byCode = c => tasks.filter(t => t.code === c);
+    const found = {}, reasons = {};
+    const setP = (key, v, why) => { if (v) found[key] = v; else reasons[key] = why; };
+
+    const demar = tasks.find(t => t.n.includes('demarrage projet'));
+    const demarDate = demar ? (eff(demar) || {}).end : null;
+
+    const cadStart = span([...byCode('2.5'), ...byCode('2.6'), ...byCode('2.7')]);
+    const cadEnd = span(byCode('2.9'));
+    if (cadStart && cadEnd) setP('cadrage', { start: cadStart.start, end: cadEnd.end >= cadStart.start ? cadEnd.end : cadStart.start }); else reasons.cadrage = cadStart ? 'fin de cadrage (2.9 « COPIL #2 ») non datée dans Asana' : 'début de cadrage (2.5 à 2.7) non daté dans Asana';
+
+    const mes = tasks.find(t => t.phase === 'MES') || tasks.find(t => t.n.includes('mise en service du bandeau'));
+    const mep = tasks.find(t => t.phase === 'MEP') || tasks.find(t => t.n.includes('mise en production du bandeau'));
+    const mesD = mes && eff(mes) ? eff(mes).end : null, mepD = mep && eff(mep) ? eff(mep).end : null;
+    if (mesD) found.mise_en_service = { date: mesD }; else reasons.mise_en_service = 'tâche « Mise en service du bandeau » non datée ou absente';
+    if (mepD) found.mise_en_production = { date: mepD }; else reasons.mise_en_production = 'tâche « Mise en production du bandeau » non datée ou absente';
+
+    // Déploiement opérationnel : de la fin du cadrage à la mise en service
+    if (found.cadrage && mesD && asanaAddDays(found.cadrage.end, 1) <= mesD) found.deploiement = { start: asanaAddDays(found.cadrage.end, 1), end: mesD };
+    else reasons.deploiement = !found.cadrage ? 'dépend de la fin du cadrage, non datée' : !mesD ? 'dépend de la mise en service, non datée' : 'la mise en service précède la fin du cadrage';
+
+    setP('visite_metier', span([...byCode('5.1'), ...byCode('5.2')]), 'tâches 5.1 / 5.2 non datées dans Asana');
+    const tp = tasks.filter(t => /tests? des prerequis/.test(t.n));
+    setP('test_prerequis', span(tp), tp.length ? 'tâche « Test des prérequis » non datée' : 'aucune tâche « Test des prérequis » dans ce projet Asana (à créer)');
+    const vft = tasks.filter(t => t.phase === 'VFT').length ? tasks.filter(t => t.phase === 'VFT') : tasks.filter(t => /\bvft\b/.test(t.n));
+    setP('vft', span(vft), 'tâche VFT (5.9) non datée dans Asana');
+    const form = span(byCode('6.3'));
+    const target = ['relais', 'utilisateurs', 'both'].includes(formationTarget) ? formationTarget : 'utilisateurs';
+    if (form) {
+        if (target !== 'relais') found.formation_utilisateurs = form;
+        if (target !== 'utilisateurs') found.formation_relais = form;
+    } else {
+        if (target !== 'relais') reasons.formation_utilisateurs = 'tâche 6.3 « Formation au bandeau » non datée dans Asana';
+        if (target !== 'utilisateurs') reasons.formation_relais = 'tâche 6.3 « Formation au bandeau » non datée dans Asana';
+    }
+    if (target === 'utilisateurs') reasons.formation_relais = reasons.formation_relais || "non alimentée par cet import (choix « Utilisateurs »)";
+    if (target === 'relais') reasons.formation_utilisateurs = reasons.formation_utilisateurs || "non alimentée par cet import (choix « Formateurs relais »)";
+    const acc = tasks.filter(t => t.code === '6.6' || /accompagnement post demarrage/.test(t.n));
+    setP('accompagnement', span(acc), 'tâche 6.6 « Accompagnement post démarrage » non datée dans Asana');
+    return { samuNo, projectName: projectName.trim(), taskCount: tasks.length, demarDate, found, reasons };
+}
+
+async function asanaMatch(samuNo) {
+    const locs = await dbAll('SELECT id, libelle_court FROM locations');
+    const loc = locs.find(l => affSamuNumber(l.libelle_court) === samuNo && /SAS/i.test(l.libelle_court)) || locs.find(l => affSamuNumber(l.libelle_court) === samuNo) || null;
+    const all = await dbAll('SELECT * FROM affectation_projects');
+    const existing = all.find(p => (loc && p.location_id === loc.id) || affSamuNumber(p.samu_name) === samuNo) || null;
+    if (existing) { try { existing.periodsObj = JSON.parse(existing.periods || '{}'); } catch (e) { existing.periodsObj = {}; } }
+    return { loc, existing };
+}
+const ASANA_KEYS = ['date_debut', 'cadrage', 'deploiement', 'mise_en_service', 'mise_en_production', 'visite_metier', 'test_prerequis', 'vft', 'formation_relais', 'formation_utilisateurs', 'accompagnement'];
+const asanaFr = d => d ? d.split('-').reverse().join('/') : '';
+const asanaFmt = v => !v ? '' : v.date ? asanaFr(v.date) : `${asanaFr(v.start)} → ${asanaFr(v.end)}`;
+
+app.post('/api/affectation/import/asana-csv', requireAdmin, async (req, res) => {
+    try {
+        const c = asanaCompute(req.body && req.body.csv, req.body && req.body.formationTarget);
+        if (!c.samuNo) return res.status(400).json({ error: "Impossible d'identifier le SAMU : le nom du projet doit contenir « [SAMU 25] »" });
+        const { loc, existing } = await asanaMatch(c.samuNo);
+        const rows = ASANA_KEYS.map(key => {
+            const label = key === 'date_debut' ? 'Début du projet' : AFF_STAGES.find(s => s.key === key).label;
+            let cur = null, neu = null;
+            if (key === 'date_debut') { cur = existing ? { date: existing.date_debut } : null; neu = c.demarDate ? { date: c.demarDate } : null; }
+            else if (key === 'mise_en_service' || key === 'mise_en_production') { cur = existing && existing['date_' + key] ? { date: existing['date_' + key] } : null; neu = c.found[key] || null; }
+            else { const p = existing && existing.periodsObj[key] && existing.periodsObj[key][0]; cur = p ? { start: p.start, end: p.end } : null; neu = c.found[key] || null; }
+            const same = cur && neu && asanaFmt(cur) === asanaFmt(neu);
+            const reason = key === 'date_debut' ? (neu ? '' : 'tâche « Démarrage projet auprès de l\'ES » non datée') : (c.reasons[key] || '');
+            return { key, label, old: asanaFmt(cur), new: asanaFmt(neu), status: !neu ? 'absent' : same ? 'identique' : cur ? 'modifié' : 'nouveau', reason };
+        });
+        res.json({
+            samuNo: c.samuNo, projectName: c.projectName, taskCount: c.taskCount,
+            samuName: loc ? loc.libelle_court : `SAMU ${c.samuNo}`, locationFound: !!loc,
+            existing: existing ? { id: existing.id, samu_name: existing.samu_name } : null, rows
+        });
+    } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+});
+
+app.post('/api/affectation/import/asana-csv/apply', requireAdmin, async (req, res) => {
+    try {
+        const c = asanaCompute(req.body && req.body.csv, req.body && req.body.formationTarget);
+        if (!c.samuNo) return res.status(400).json({ error: "Impossible d'identifier le SAMU" });
+        const want = new Set((Array.isArray(req.body.apply) ? req.body.apply : []).filter(k => ASANA_KEYS.includes(k)));
+        if (!want.size) return res.status(400).json({ error: 'Aucune ligne sélectionnée' });
+        const { loc, existing } = await asanaMatch(c.samuNo);
+        const base = existing
+            ? { samu_name: existing.samu_name, location_id: existing.location_id || (loc ? loc.id : null), chef_projet_id: existing.chef_projet_id, date_debut: existing.date_debut,
+                date_mise_en_service: existing.date_mise_en_service, date_mise_en_production: existing.date_mise_en_production, periods: JSON.parse(JSON.stringify(existing.periodsObj)) }
+            : { samu_name: loc ? loc.libelle_court : `SAMU ${c.samuNo}`, location_id: loc ? loc.id : null, chef_projet_id: null, date_debut: null, date_mise_en_service: null, date_mise_en_production: null, periods: {} };
+        if (want.has('date_debut') && c.demarDate) base.date_debut = c.demarDate;
+        ['mise_en_service', 'mise_en_production'].forEach(k => { if (want.has(k) && c.found[k]) base['date_' + k] = c.found[k].date; });
+        AFF_PERIOD_KEYS.forEach(k => {
+            if (!want.has(k) || !c.found[k]) return;
+            const def = AFF_STAGES.find(s => s.key === k);
+            const old = base.periods[k] && base.periods[k][0];
+            const item = { start: c.found[k].start, end: c.found[k].end };
+            if (def.resources) item.needed = (old && old.needed) || 1; // nombre de ressources : conservé, à défaut 1 (à ajuster)
+            base.periods[k] = [item];
+        });
+        // Le début du projet ne peut pas être postérieur à une autre date : on le ramène à la plus ancienne
+        const dates = [base.date_debut, base.date_mise_en_service, base.date_mise_en_production, ...Object.values(base.periods).flat().map(p => p.start)].filter(Boolean).sort();
+        if (!dates.length) return res.status(400).json({ error: 'Aucune date exploitable' });
+        const debutAvant = base.date_debut;
+        base.date_debut = dates[0];
+        const r = sanitizeAffProject(base);
+        if (r.error) return res.status(400).json({ error: r.error });
+        const v = r.value;
+        const fields = [v.samu_name, v.location_id, v.chef_projet_id, v.date_debut, v.date_mise_en_service, v.date_mise_en_production, JSON.stringify(v.periods)];
+        let id;
+        if (existing) {
+            await dbRun(`UPDATE affectation_projects SET samu_name=?, location_id=?, chef_projet_id=?, date_debut=?, date_mise_en_service=?, date_mise_en_production=?, periods=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`, [...fields, existing.id]);
+            id = existing.id;
+        } else {
+            const ins = await dbRun(`INSERT INTO affectation_projects (samu_name, location_id, chef_projet_id, date_debut, date_mise_en_service, date_mise_en_production, periods, created_by) VALUES (?,?,?,?,?,?,?,?)`, [...fields, req.session.userId]);
+            id = ins.lastID;
+        }
+        await new Promise(resolve => affReconcileAssignments(id, v.periods, resolve));
+        logUserAction(req, 'Import Asana (CSV) dans un déploiement SAMU', { id, samu: v.samu_name, appliquees: [...want] });
+        res.json({ success: true, id, created: !existing, samu_name: v.samu_name, date_debut: v.date_debut, debutAjuste: !!debutAvant && debutAvant !== v.date_debut });
+    } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+});
+
 app.delete('/api/affectation/projects/:id', requireAdmin, (req, res) => {
     database.run('DELETE FROM affectation_projects WHERE id = ?', [Number(req.params.id)], function (err) {
         if (err) return res.status(500).json({ error: err.message });
