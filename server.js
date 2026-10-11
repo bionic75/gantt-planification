@@ -4447,6 +4447,60 @@ app.post('/api/affectation/asana/apply', requireAdmin, async (req, res) => {
     } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
 });
 
+// ---- Export du planning des déploiements (PDF / PowerPoint) : le HTML mis en page à l'écran est rendu tel quel (WYSIWYG) ----
+// Chemin du navigateur : variable d'environnement (Docker), sinon Chrome / Chromium installé sur le poste (développement local)
+function affBrowserPath() {
+    if (process.env.PUPPETEER_EXECUTABLE_PATH) return process.env.PUPPETEER_EXECUTABLE_PATH;
+    return ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/Applications/Chromium.app/Contents/MacOS/Chromium', '/usr/bin/chromium-browser', '/usr/bin/chromium', '/usr/bin/google-chrome'].find(x => fs.existsSync(x));
+}
+async function affRenderPages(html, wPx, hPx, mode, wMm, hMm) {
+    if (!puppeteer) throw Object.assign(new Error('Puppeteer non disponible sur ce serveur'), { status: 503 });
+    const browser = await puppeteer.launch({ executablePath: affBrowserPath(), args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'], headless: 'new', protocolTimeout: 180000 });
+    try {
+        const page = await browser.newPage();
+        await page.setViewport({ width: Math.ceil(wPx), height: Math.ceil(hPx), deviceScaleFactor: mode === 'pptx' ? 2 : 1 });
+        await page.setContent(html, { waitUntil: 'load' });
+        if (mode === 'pdf') return await page.pdf({ width: `${wMm}mm`, height: `${hMm}mm`, printBackground: true, margin: { top: 0, right: 0, bottom: 0, left: 0 }, preferCSSPageSize: true });
+        const shots = [];
+        for (const el of await page.$$('.pg')) shots.push((await el.screenshot({ type: 'png' })).toString('base64'));
+        return shots;
+    } finally { await browser.close(); }
+}
+function affExportParams(req) {
+    const b = req.body || {};
+    const html = String(b.html || '');
+    const wMm = Number(b.wMm), hMm = Number(b.hMm);
+    if (!html || html.length > 45 * 1024 * 1024 || !(wMm >= 100 && wMm <= 1000) || !(hMm >= 100 && hMm <= 1000)) throw Object.assign(new Error('Paramètres d\'export invalides'), { status: 400 });
+    return { html, wMm, hMm, wPx: wMm / 25.4 * 96, hPx: hMm / 25.4 * 96, name: String(b.name || 'planning-deploiements').replace(/[^\w\-]+/g, '_').slice(0, 60) };
+}
+app.post('/api/affectation/export/pdf', requireAffectationAccess, async (req, res) => {
+    try {
+        const x = affExportParams(req);
+        const pdf = await affRenderPages(x.html, x.wPx, x.hPx, 'pdf', x.wMm, x.hMm);
+        logUserAction(req, 'Export PDF du planning des déploiements', {});
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${x.name}.pdf"`);
+        res.send(Buffer.from(pdf));
+    } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+});
+app.post('/api/affectation/export/pptx', requireAffectationAccess, async (req, res) => {
+    try {
+        const x = affExportParams(req);
+        const shots = await affRenderPages(x.html, x.wPx, x.hPx, 'pptx', x.wMm, x.hMm);
+        const { default: PptxGenJS } = await import('pptxgenjs');
+        const pptx = new PptxGenJS();
+        pptx.defineLayout({ name: 'PAGE', width: x.wMm / 25.4, height: x.hMm / 25.4 });
+        pptx.layout = 'PAGE';
+        pptx.title = 'Planning des déploiements';
+        shots.forEach(b64 => { const slide = pptx.addSlide(); slide.addImage({ data: 'image/png;base64,' + b64, x: 0, y: 0, w: x.wMm / 25.4, h: x.hMm / 25.4 }); });
+        const buf = await pptx.write({ outputType: 'nodebuffer' });
+        logUserAction(req, 'Export PowerPoint du planning des déploiements', { pages: shots.length });
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
+        res.setHeader('Content-Disposition', `attachment; filename="${x.name}.pptx"`);
+        res.send(Buffer.from(buf));
+    } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+});
+
 app.delete('/api/affectation/projects/:id', requireAdmin, (req, res) => {
     database.run('DELETE FROM affectation_projects WHERE id = ?', [Number(req.params.id)], function (err) {
         if (err) return res.status(500).json({ error: err.message });
