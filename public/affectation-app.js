@@ -61,6 +61,12 @@
         .aff-print-ctl .chk input { width: auto; display: inline-block; margin: 0; }
         .aff-print-ctl .box { max-height: 150px; overflow-y: auto; border: 1px solid #e6ebf3; border-radius: 8px; padding: 4px 8px; }
         .aff-print-ctl .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .aff-fmt { display: flex; align-items: stretch; gap: 6px; }
+        .aff-fmt button { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 7px 4px; border: 1px solid #cfd8e6; border-radius: 10px; background: #fff; color: #4a5b70; font-size: 11px; font-weight: 600; cursor: pointer; }
+        .aff-fmt button[data-p] { flex: 0 0 46px; font-size: 14px; }
+        .aff-fmt button:hover { border-color: #0f766e; }
+        .aff-fmt button.on { background: #0f766e; border-color: #0f766e; color: #fff; box-shadow: 0 2px 6px rgba(15,118,110,.35); }
+        .aff-fmt .sep { width: 1px; background: #dfe5ef; margin: 2px 2px; }
         .aff-print-preview { flex: 1; overflow: auto; padding: 14px; }
         .aff-print-preview .pw { margin: 0 auto 14px; box-shadow: 0 2px 10px rgba(0,0,0,.25); background: #fff; }
         .aff-hist-item { border: 1px solid #e6ebf3; border-left: 4px solid #6b7a8d; border-radius: 10px; padding: 10px 14px; margin-bottom: 10px; background: #fff; }
@@ -1611,11 +1617,18 @@
             const list = sortedProjects();
             const stages = [['cadrage', 'Cadrage'], ['deploiement', 'Déploiement opérationnel'], ['gel', 'Période(s) de gel'], ['mise_en_service', 'Mise en service'], ['mise_en_production', 'Mise en production'], ['visite_metier', 'Visite métier'], ['test_prerequis', 'Test des prérequis'], ['vft', 'VFT'], ['formation_relais', 'Formation « Formateurs relais »'], ['formation_utilisateurs', 'Formation « Utilisateurs »'], ['accompagnement', 'Accompagnement']];
             document.getElementById('affPrintCtl').innerHTML = `
+                <div class="g"><label class="lbl">Format de page</label>
+                    <input type="hidden" id="prOrient" value="landscape"><input type="hidden" id="prPaper" value="A4">
+                    <div class="aff-fmt" id="prFormat">
+                        <button type="button" data-o="portrait" title="Portrait (vertical)" onclick="AffectationApp.printFormat('o','portrait')"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="6" y="2.5" width="12" height="19" rx="1.5"/><path d="M9 8h6M9 12h6M9 16h4" stroke-linecap="round"/></svg><span>Portrait</span></button>
+                        <button type="button" data-o="landscape" class="on" title="Paysage (horizontal)" onclick="AffectationApp.printFormat('o','landscape')"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="1.5"/><path d="M6 10h12M6 13h8" stroke-linecap="round"/></svg><span>Paysage</span></button>
+                        <span class="sep"></span>
+                        <button type="button" data-p="A4" class="on" title="Papier A4" onclick="AffectationApp.printFormat('p','A4')"><b>A4</b></button>
+                        <button type="button" data-p="A3" title="Papier A3" onclick="AffectationApp.printFormat('p','A3')"><b>A3</b></button>
+                    </div></div>
                 <div class="g"><label class="lbl" for="prTitle">Titre</label><input id="prTitle" type="text" value="Planning des déploiements de SAMU"></div>
                 <div class="g two"><div><label class="lbl" for="prFrom">Début</label><input id="prFrom" type="date" value="${min}"></div><div><label class="lbl" for="prTo">Fin</label><input id="prTo" type="date" value="${max}"></div></div>
                 <div class="g"><label class="lbl" for="prZoom">Échelle de temps</label><select id="prZoom">${[['day', 'Jours'], ['week', 'Semaines'], ['month', 'Mois'], ['quarter', 'Trimestres'], ['year', 'Années']].map(z => `<option value="${z[0]}" ${z[0] === plan.zoom ? 'selected' : ''}>${z[1]}</option>`).join('')}</select></div>
-                <div class="g two"><div><label class="lbl" for="prPaper">Papier</label><select id="prPaper"><option value="A4">A4</option><option value="A3">A3</option></select></div>
-                <div><label class="lbl" for="prOrient">Orientation</label><select id="prOrient"><option value="landscape">Paysage</option><option value="portrait">Portrait</option></select></div></div>
                 <div class="g"><label class="lbl" for="prFit">Largeur</label><select id="prFit"><option value="split">Répartir sur plusieurs pages (colonnes lisibles)</option><option value="fit">Tout sur une page en largeur</option></select></div>
                 <div class="g"><label class="chk"><input type="checkbox" id="prLegend" checked> Afficher la légende</label></div>
                 <div class="g"><label class="lbl">Rubriques affichées</label><div class="box" id="prStages">${stages.map(s => `<label class="chk"><input type="checkbox" value="${s[0]}" ${hiddenKeys.has(s[0]) ? '' : 'checked'}> ${s[1]}</label>`).join('')}</div></div>
@@ -1624,6 +1637,11 @@
             document.getElementById('affPrintCtl').oninput = document.getElementById('affPrintCtl').onchange = () => AffectationApp.printUpdate();
             document.getElementById('affPrintModal').classList.add('active');
             setTimeout(printRefresh, 50);
+        },
+        printFormat(kind, value) {
+            document.getElementById(kind === 'o' ? 'prOrient' : 'prPaper').value = value;
+            document.querySelectorAll(`#prFormat button[data-${kind}]`).forEach(b => b.classList.toggle('on', b.dataset[kind] === value));
+            AffectationApp.printUpdate();
         },
         printUpdate() { clearTimeout(prt.timer); prt.timer = setTimeout(printRefresh, 300); },
         printClose() { document.getElementById('affPrintModal').classList.remove('active'); document.getElementById('affPrintPreview').innerHTML = ''; prt.layout = null; },
