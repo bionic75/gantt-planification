@@ -4436,7 +4436,14 @@ app.post('/api/affectation/asana/apply', requireAdmin, async (req, res) => {
         const { projectName, tasks } = await asanaFetchProject(await asanaToken(), gid);
         const c = asanaComputeTasks(tasks, projectName, req.body.formationTarget);
         if (!c.samuNo) return res.status(400).json({ error: "Impossible d'identifier le SAMU" });
-        res.json(await asanaApplyCore(req, c, req.body.apply, await asanaForcedId(gid)));
+        const forced = await asanaForcedId(gid);
+        let keys = req.body.apply;
+        if (keys === 'auto') { // import en masse : toutes les rubriques nouvelles ou modifiées
+            const pv = await asanaPreviewPayload(c, forced);
+            keys = pv.rows.filter(r => r.status === 'nouveau' || r.status === 'modifié').map(r => r.key);
+            if (!keys.length) return res.json({ success: true, unchanged: true, samu_name: pv.samuName });
+        }
+        res.json(await asanaApplyCore(req, c, keys, forced));
     } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
 });
 
