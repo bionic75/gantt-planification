@@ -118,7 +118,7 @@ tr:nth-child(even) td { background: #f9f9f9; }
   <div class="note">Le profil actif est conservé en session. Une déconnexion/reconnexion repart sur le profil par défaut du compte.</div>
 
   <h3>Navigation générale</h3>
-  <p>La navigation s'effectue via les onglets en haut de l'écran. La visibilité de chaque onglet dépend du profil actif :</p>
+  <p>La navigation s'effectue via les onglets en haut de l'écran. La visibilité de chaque onglet dépend du profil actif. Le tableau ci-dessous donne la configuration <strong>par défaut</strong> ; l'administrateur peut la modifier dans <em>Administration › Configuration de l'accès aux onglets</em> :</p>
   <table>
     <thead><tr><th>Onglet</th><th>Contenu</th><th>Admin</th><th>Expert</th><th>Utilisateur</th><th>RH</th></tr></thead>
     <tbody>
@@ -133,7 +133,7 @@ tr:nth-child(even) td { background: #f9f9f9; }
   </table>
 
   <h3>Applications</h3>
-  <p>Le menu <strong>Applications</strong> (en haut) permet de basculer entre les outils de la plateforme : <strong>Planification</strong>, <strong>Déplacements</strong>, <strong>Analyse</strong> et <strong>Aide à l'affectation opérationnelle</strong>. Chaque entrée porte une icône stylisée ; seules les applications auxquelles votre compte a accès sont proposées. Les trois applications partagent la même barre d'en-tête (profil, utilisateurs connectés, minuteur d'inactivité, retour à la Planification).</p>
+  <p>Le menu <strong>Applications</strong> (en haut) permet de basculer entre les outils de la plateforme : <strong>Planification</strong>, <strong>Déplacements</strong>, <strong>Analyse</strong> et <strong>Aide à l'affectation opérationnelle</strong>. Chaque entrée porte une icône stylisée ; seules les applications auxquelles votre compte a accès sont proposées. Toutes les applications partagent le même bandeau d'en-tête (photo et profil, utilisateurs connectés, minuteur d'inactivité, déconnexion). Le menu <strong>Applications</strong> reste disponible partout et propose, depuis une autre application, le retour à la <strong>Planification</strong> : il n'y a plus de bouton retour dédié.</p>
 
   <h3>Confort d'affichage</h3>
   <ul>
@@ -390,6 +390,25 @@ tr:nth-child(even) td { background: #f9f9f9; }
   <p>Configurez le serveur d'envoi d'emails pour les notifications automatiques (affectations, MFA, CRA). Le champ <strong>Port</strong> détermine automatiquement le mode de chiffrement : port 465 → SSL/TLS direct ; port 587 ou autre → STARTTLS.</p>
   <div class="warning">Le port 587 (STARTTLS) peut être bloqué sur certains réseaux mobiles (partage de connexion). Si l'envoi d'emails échoue avec une erreur de connexion, vérifiez que le port n'est pas filtré par l'opérateur.</div>
 
+  <h3>Configuration de l'accès aux onglets</h3>
+  <p>La rubrique <strong>Configuration de l'accès aux onglets</strong> remplace la visibilité autrefois fixée dans le code. Elle présente un tableau de cases à cocher : en lignes les onglets <strong>Ressources, Événements, Planification, CRA, Reporting, Administration, Astreintes</strong>, en colonnes les profils <strong>Administrateur, Utilisateur, RH, Expert métier</strong>.</p>
+  <table>
+    <thead><tr><th>Profil</th><th>Onglets visibles par défaut</th></tr></thead>
+    <tbody>
+      <tr><td><span class="badge badge-admin">Administrateur</span></td><td>Tous les onglets</td></tr>
+      <tr><td><span class="badge badge-user">Utilisateur</span></td><td>Événements, Planification</td></tr>
+      <tr><td><span class="badge badge-rh">RH</span></td><td>Ressources, CRA</td></tr>
+      <tr><td><span class="badge badge-expert">Expert métier</span></td><td>Événements, Planification, CRA, Astreintes</td></tr>
+    </tbody>
+  </table>
+  <ul>
+    <li>Cochez / décochez les onglets puis cliquez sur <strong>Enregistrer</strong> ; <strong>Rétablir les valeurs par défaut</strong> recoche la configuration d'origine (à enregistrer ensuite).</li>
+    <li>Les changements s'appliquent à la <strong>prochaine connexion</strong> ou au prochain <strong>changement de profil</strong> de chaque utilisateur.</li>
+    <li>L'onglet d'ouverture (et l'onglet par défaut choisi dans <em>Mon profil</em>) se limite aux onglets autorisés ; à défaut, le premier onglet accessible s'ouvre.</li>
+    <li>L'onglet <strong>Astreintes</strong> commande aussi le bouton de gestion des astreintes / HNO.</li>
+  </ul>
+  <div class="note">L'<strong>Administrateur</strong> garde toujours l'accès à l'onglet Administration (case verrouillée). L'onglet <strong>CRA</strong> reste, pour un expert, réservé aux experts déclarés <em>volontaires aux astreintes</em>.</div>
+
   <h3>Thèmes saisonniers</h3>
   <p>Un seul thème peut être actif à la fois : <strong>Halloween, Noël, Saint-Valentin, Pâques ou Vacances</strong>. L'administrateur l'active ou le désactive ici ; il s'applique à tous les utilisateurs. Chacun peut ensuite le désactiver pour lui-même (profil ou bouton en haut à droite).</p>
 
@@ -534,11 +553,24 @@ tr:nth-child(even) td { background: #f9f9f9; }
   <h2>🆕 Notes de version</h2>
   <p>Historique des évolutions de la Plateforme de Planification ANS.</p>
 
+  <!-- v1.16.77 -->
+  <div class="card card-green" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v1.16.77</strong>
+      <span class="badge badge-current">Actuelle</span>
+      <span style="color:#888; font-size:13px;">Octobre 2026</span>
+    </div>
+    <ul>
+      <li>🔐 <strong>Configuration de l'accès aux onglets</strong> (Administration) : pour chaque profil (Administrateur, Utilisateur, RH, Expert métier), cochez les onglets visibles (Ressources, Événements, Planification, CRA, Reporting, Administration, Astreintes). Les valeurs par défaut reprennent le fonctionnement d'origine, qui n'est plus codé en dur.</li>
+      <li>📊 <strong>Application « Analyse des listes utilisateurs »</strong> : retour du bandeau commun (photo et profil, utilisateurs connectés, minuteur, déconnexion) et case « conserver le fichier localement » rapprochée de son libellé.</li>
+      <li>🧭 <strong>Menu Applications disponible dans toutes les applications</strong> : il propose aussi le retour à la Planification, ce qui remplace les boutons « Retour ».</li>
+    </ul>
+  </div>
+
   <!-- v1.16.74 -->
   <div class="card card-green" style="margin-bottom:16px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
       <strong style="font-size:16px;">v1.16.74</strong>
-      <span class="badge badge-current">Actuelle</span>
       <span style="color:#888; font-size:13px;">Octobre 2026</span>
     </div>
     <ul>
