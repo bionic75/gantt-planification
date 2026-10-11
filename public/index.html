@@ -1,4 +1,4 @@
-<!-- v1.16.77 -->
+<!-- v1.16.78 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -490,17 +490,17 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.16.77">
-    <link rel="stylesheet" href="/darkmode.css?v=1.16.77">
-    <link rel="stylesheet" href="/login.css?v=1.16.77">
-    <link rel="stylesheet" href="/ui-polish.css?v=1.16.77">
-    <script src="/darkmode.js?v=1.16.77"></script>
-    <script src="/themes.js?v=1.16.77" defer></script>
-    <script src="/layout-fix.js?v=1.16.77" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.16.78">
+    <link rel="stylesheet" href="/darkmode.css?v=1.16.78">
+    <link rel="stylesheet" href="/login.css?v=1.16.78">
+    <link rel="stylesheet" href="/ui-polish.css?v=1.16.78">
+    <script src="/darkmode.js?v=1.16.78"></script>
+    <script src="/themes.js?v=1.16.78" defer></script>
+    <script src="/layout-fix.js?v=1.16.78" defer></script>
     <script>window.UI_ICONS_KEEP_ALERT = true;</script>
-    <script src="/ui-icons.js?v=1.16.77" defer></script>
-    <script src="/affectation-app.js?v=1.16.77" defer></script>
-    <script src="/map-timelapse.js?v=1.16.77" defer></script>
+    <script src="/ui-icons.js?v=1.16.78" defer></script>
+    <script src="/affectation-app.js?v=1.16.78" defer></script>
+    <script src="/map-timelapse.js?v=1.16.78" defer></script>
 </head>
 <body>
     <div class="container">
@@ -14036,6 +14036,22 @@
             link.click();
         }
         
+        // Fenêtres d'impression : sans la feuille de style de l'application, les icônes SVG prendraient toute la place
+        (function () {
+            const nativeOpen = window.open;
+            const css = '<style>svg.ui-emo,svg.app-ico{width:1.15em;height:1.15em;vertical-align:middle;margin:0 .15em;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}</style>';
+            window.open = function (url) {
+                const w = nativeOpen.apply(window, arguments);
+                if (w && !url) {
+                    try {
+                        const d = w.document, write = d.write.bind(d);
+                        d.write = html => write(String(html).replace(/<head>/i, '<head>' + css));
+                    } catch (e) { /* fenêtre inaccessible */ }
+                }
+                return w;
+            };
+        })();
+
         // Impression du reporting disponibilités
         function printReporting() {
             const content = document.getElementById('reportingResults').innerHTML;
@@ -17803,6 +17819,47 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
         // ========== RECHERCHE AVANCÉE ==========
         
         // Ouvrir la modal de recherche
+        // Recherche avancée : mêmes icônes stylisées que la légende du Gantt et que les cellules (en image de fond des options)
+        function decorateSearchOptions() {
+            const api = window.UIIconsApi;
+            if (!api) return;
+            const paint = (opt, url) => {
+                if (!url) return;
+                opt.style.backgroundImage = url;
+                opt.style.backgroundRepeat = 'no-repeat';
+                opt.style.backgroundPosition = '4px center';
+                opt.style.backgroundSize = '16px 16px';
+                opt.style.paddingLeft = '26px';
+                opt.style.minHeight = '22px';
+            };
+            // Disponibilités (1-3) et affectations (1-8) : icône et couleur repris de la légende du planning
+            const sections = document.querySelectorAll('.legend-section');
+            const fromLegend = (section, values, selectId) => {
+                if (!section) return;
+                const items = section.querySelectorAll('.legend-item');
+                values.forEach((v, i) => {
+                    const item = items[i], svg = item && item.querySelector('svg'), dot = item && item.querySelector('.color-code');
+                    const opt = document.querySelector(`#${selectId} option[value="${v}"]`);
+                    const color = dot ? dot.style.backgroundColor : '#455a64';
+                    if (opt && svg) paint(opt, api.urlForSvg(svg.innerHTML, color));
+                    else if (opt) paint(opt, api.urlForName(selectId === 'searchAvailability' ? (v === 1 ? 'ban' : 'check-circle') : 'ban', color)); // pas d'icône dans la légende : icône générique
+                });
+            };
+            fromLegend(sections[0], [1, 2, 3], 'searchAvailability');
+            fromLegend(sections[1], [1, 2, 3, 4], 'searchActivity');
+            fromLegend(sections[2], [5, 6, 7, 8], 'searchActivity');
+            // Localisations : l'emoji de tête est remplacé par l'icône stylisée correspondante
+            document.querySelectorAll('#searchLocation option').forEach(opt => {
+                const m = /^(\p{Extended_Pictographic})️?\s*/u.exec(opt.value);
+                if (!m) { paint(opt, api.urlForName('home', '#455a64')); return; } // sans emoji (ex. « Télétravail ») : icône maison
+                const url = api.urlForEmoji(m[1], '#455a64');
+                if (!url) return;
+                const label = opt.value.slice(m[0].length).trim() || (m[1].codePointAt(0) === 0x1F3D6 ? 'Congés' : '');
+                if (label) opt.textContent = label;
+                paint(opt, url);
+            });
+        }
+
         function openSearchModal() {
             // Remplir la liste des experts actifs
             const expertsSelect = document.getElementById('searchExperts');
@@ -17839,6 +17896,8 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                 locSelect.appendChild(option);
             });
             
+            decorateSearchOptions();
+
             // Définir les dates par défaut (mois en cours)
             const now = new Date();
             const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
