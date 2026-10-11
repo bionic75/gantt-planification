@@ -8045,6 +8045,46 @@ app.get('/api/version', (req, res) => {
     });
 });
 
+// ---------- Accès aux onglets par profil (paramétrable depuis l'Administration) ----------
+const TAB_KEYS = ['resources', 'evenements', 'planning', 'cra', 'reporting', 'admin', 'astreintesGestion'];
+const TAB_PROFILES = ['admin', 'user', 'rh', 'expert'];
+// Valeurs par défaut = comportement historique codé en dur
+const TAB_ACCESS_DEFAULTS = {
+    admin:  { resources: true,  evenements: true,  planning: true,  cra: true,  reporting: true,  admin: true,  astreintesGestion: true },
+    user:   { resources: false, evenements: true,  planning: true,  cra: false, reporting: false, admin: false, astreintesGestion: false },
+    rh:     { resources: true,  evenements: false, planning: false, cra: true,  reporting: false, admin: false, astreintesGestion: false },
+    expert: { resources: false, evenements: true,  planning: true,  cra: true,  reporting: false, admin: false, astreintesGestion: true }
+};
+function tabAccessMerge(stored) {
+    const out = {};
+    TAB_PROFILES.forEach(p => {
+        out[p] = {};
+        TAB_KEYS.forEach(k => {
+            const v = stored && stored[p] && typeof stored[p][k] === 'boolean' ? stored[p][k] : TAB_ACCESS_DEFAULTS[p][k];
+            out[p][k] = v;
+        });
+    });
+    out.admin.admin = true; // l'administrateur ne peut pas perdre l'accès à l'Administration (verrouillage impossible)
+    return out;
+}
+app.get('/api/tab-access', requireAuth, (req, res) => {
+    database.get("SELECT value FROM settings WHERE key = 'tab_access_config'", (err, row) => {
+        let stored = null;
+        try { stored = row && row.value ? JSON.parse(row.value) : null; } catch (e) { stored = null; }
+        res.json({ config: tabAccessMerge(stored), defaults: tabAccessMerge(null), tabs: TAB_KEYS, profiles: TAB_PROFILES });
+    });
+});
+app.put('/api/tab-access', requireAdmin, (req, res) => {
+    const cfg = req.body && req.body.config;
+    if (!cfg || typeof cfg !== 'object') return res.status(400).json({ error: 'Configuration invalide' });
+    const clean = tabAccessMerge(cfg);
+    database.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('tab_access_config', ?)", [JSON.stringify(clean)], err => {
+        if (err) return res.status(500).json({ error: err.message });
+        logUserAction(req, "Modification de l'accès aux onglets par profil", { config: clean });
+        res.json({ success: true, config: clean });
+    });
+});
+
 // ---------- Thèmes d'affichage saisonniers ----------
 const THEME_IDS = ['halloween', 'noel', 'saintvalentin', 'paques', 'vacances'];
 const THEME_DEFAULTS = {
