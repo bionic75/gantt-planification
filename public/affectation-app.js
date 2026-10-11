@@ -179,7 +179,7 @@
         #affectationContainer table.aff-plan-table tbody th.sam, #affectationContainer table.aff-plan-table thead th.corner { padding-left: 32px; }
         #affectationContainer table.aff-plan-table tbody tr:hover { background: transparent; }
         #affectationContainer table.aff-plan-table tbody tr th.sam, #affectationContainer table.aff-plan-table tbody tr:hover th.sam { background: #fff !important; }
-        #affectationContainer table.aff-plan-table tbody tr:nth-child(even) th.sam, #affectationContainer table.aff-plan-table tbody tr:nth-child(even):hover th.sam { background: #f4f7fb !important; }
+        #affectationContainer table.aff-plan-table tbody tr:nth-child(even) th.sam, #affectationContainer table.aff-plan-table tbody tr:nth-child(even):hover th.sam { background: #e9eff7 !important; }
         .aff-plan-table thead th { height: 36px; text-align: center; font-weight: 700; color: #fff; border-right: 1px solid rgba(255,255,255,.25); border-bottom: 1px solid rgba(255,255,255,.2); position: sticky; z-index: 3; white-space: nowrap; background: #34495e; }
         .aff-plan-table thead tr:nth-child(1) th { background: #263238; top: 0; font-size: 20px; letter-spacing: .5px; }
         .aff-plan-table thead tr:nth-child(2) th { background: #1D70B7; top: 28px; font-size: 17px; }
@@ -192,7 +192,7 @@
         .aff-plan-table tbody th.sam { position: sticky; left: 0; z-index: 5; background: #fff; text-align: left; padding: 6px 12px 6px 28px; min-width: 280px; max-width: 280px; border-right: 2px solid #cfd8e6; border-bottom: 1px solid #eef1f6; color: #1f2d3d; }
         .aff-plan-table tbody th.sam .n { font-weight: 800; font-size: 19px; line-height: 1.2; }
         .aff-plan-table tbody th.sam .c { font-weight: 500; font-size: 14px; color: #6b7a8d; margin-top: 2px; }
-        .aff-plan-table tbody tr:nth-child(even) th.sam { background: #f4f7fb; }
+        .aff-plan-table tbody tr:nth-child(even) th.sam { background: #e9eff7; }
         .aff-plan-table tbody td { height: auto; vertical-align: top; padding: 0; position: relative; border-right: 1px solid #eef1f6; border-bottom: 1px solid #eef1f6; }
         .aff-pc { display: flex; flex-direction: column; min-height: 96px; gap: 3px; padding: 6px 0; box-sizing: border-box; }
         .aff-pc .ph, .aff-pc .st { display: flex; flex-direction: column; gap: 1px; }
@@ -227,7 +227,10 @@
         .aff-assign-list label.off { opacity: .45; cursor: not-allowed; }
         .aff-plan-table tbody td.we { background: #fff8e6; }
         .aff-plan-table tbody td.today { background: rgba(46,157,98,.12); box-shadow: inset 2px 0 0 #2e9d62; }
-        .aff-plan-table tbody tr:nth-child(even) td:not(.we):not(.today) { background: #f9fbfd; }
+        /* Alternance très légère d'une ligne SAMU à l'autre ; week-end et jour courant restent reconnaissables */
+        .aff-plan-table tbody tr:nth-child(even) td:not(.we):not(.today) { background: #eef3f9; }
+        .aff-plan-table tbody tr:nth-child(even) td.we { background: #f6eedb; }
+        .aff-plan-table tbody tr:nth-child(even) td.today { background: rgba(46,157,98,.18); }
         @media (max-width: 760px) { .aff-proj { grid-template-columns: 1fr; } .aff-stage { grid-template-columns: 1fr; } }
     `;
 
