@@ -717,14 +717,21 @@
             try {
                 const d = asana.projects = await api('/affectation/asana/projects');
                 box.innerHTML = `
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin:14px 0 6px;flex-wrap:wrap;gap:8px;">
-                        <b>${d.projects.length} projet(s) Asana dans le périmètre</b>
-                        <span style="display:inline-flex;gap:8px;"><button type="button" class="aff-btn" onclick="AffectationApp.asanaLoadProjects()">Actualiser la liste</button>
-                        <button type="button" class="aff-btn" onclick="AffectationApp.asanaScanAll()" title="Compare chaque projet Asana avec le déploiement correspondant, sans rien modifier">Tout analyser</button></span>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin:14px 0 8px;flex-wrap:wrap;gap:8px;">
+                        <b><span id="affAsanaCount"></span> projet(s) Asana dans le périmètre</b>
+                        <span style="display:inline-flex;gap:8px;flex-wrap:wrap;"><button type="button" class="aff-btn" onclick="AffectationApp.asanaLoadProjects()">Actualiser la liste</button>
+                        <button type="button" class="aff-btn" onclick="AffectationApp.asanaScanAll()" title="Compare chaque projet Asana (affichés) avec le déploiement correspondant, sans rien modifier">Tout analyser</button></span>
+                    </div>
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px;">
+                        <input id="affAsanaKw" type="search" placeholder="Filtrer par mot clé (ex. 25, SF4, Nice…)" oninput="AffectationApp.asanaFilter()" style="padding:7px 10px;border:1px solid #cfd8e6;border-radius:8px;min-width:240px;flex:1;max-width:380px;">
+                        <label class="aff-muted" style="display:inline-flex;align-items:center;gap:6px;">Formation d'Asana →
+                            <select id="affAsanaBulkForm" style="padding:5px 8px;border:1px solid #cfd8e6;border-radius:8px;"><option value="utilisateurs">Utilisateurs</option><option value="relais">Formateurs relais</option><option value="both">Les deux</option></select></label>
+                        <button type="button" class="aff-btn aff-btn-primary" id="affAsanaBulkBtn" onclick="AffectationApp.asanaBulkImport()" disabled>Importer la sélection</button>
                     </div>
                     <div style="overflow-x:auto;"><table id="affAsanaTable" style="width:100%;border-collapse:collapse;font-size:13px;">
-                        <thead><tr style="background:#e6f4f1;"><th style="padding:6px 8px;text-align:left;">Projet Asana</th><th style="padding:6px 8px;text-align:left;">Déploiement apparié</th><th style="padding:6px 8px;text-align:left;">Écarts</th><th></th></tr></thead>
-                        <tbody>${d.projects.map(p => `<tr data-gid="${esc(p.gid)}" style="border-top:1px solid #eef1f6;">
+                        <thead><tr style="background:#e6f4f1;"><th style="padding:6px 8px;width:30px;"><input type="checkbox" id="affAsanaAll" title="Sélectionner / désélectionner les projets affichés" onchange="AffectationApp.asanaSelectAll(this.checked)" style="width:auto;display:inline-block;margin:0;"></th><th style="padding:6px 8px;text-align:left;">Projet Asana</th><th style="padding:6px 8px;text-align:left;">Déploiement apparié</th><th style="padding:6px 8px;text-align:left;">Écarts / résultat</th><th></th></tr></thead>
+                        <tbody>${d.projects.map(p => `<tr data-gid="${esc(p.gid)}" data-name="${esc(norm(p.name))}" style="border-top:1px solid #eef1f6;">
+                            <td style="padding:6px 8px;"><input type="checkbox" class="aff-asana-chk" ${p.ignored ? 'disabled' : ''} onchange="AffectationApp.asanaUpdateSel()" style="width:auto;display:inline-block;margin:0;"></td>
                             <td style="padding:6px 8px;"><b>${esc(p.name)}</b></td>
                             <td style="padding:6px 8px;"><select onchange="AffectationApp.asanaLink('${esc(p.gid)}', this.value)" style="padding:4px 6px;border:1px solid #cfd8e6;border-radius:8px;max-width:230px;">
                                 <option value="0" ${!p.manual && !p.ignored ? 'selected' : ''}>${p.deployment && !p.manual ? 'Auto : ' + esc(p.deployment.samu_name) : 'Auto : aucun (sera créé)'}</option>
@@ -733,8 +740,68 @@
                             <td class="aff-asana-diff" style="padding:6px 8px;"><span class="aff-muted">—</span></td>
                             <td style="padding:6px 8px;text-align:right;"><button type="button" class="aff-btn" ${p.ignored ? 'disabled' : ''} onclick="AffectationApp.asanaOpen({type:'api',gid:'${esc(p.gid)}'})">Récupérer</button></td></tr>`).join('')}</tbody>
                     </table></div>
-                    <p class="aff-muted" style="font-size:12px;margin-top:8px;">Les données absentes d'Asana ne sont jamais effacées : complétez-les à la main dans le déploiement.</p>`;
+                    <div id="affAsanaBulkMsg" style="margin-top:8px;font-size:13px;"></div>
+                    <p class="aff-muted" style="font-size:12px;margin-top:8px;">Les données absentes d'Asana ne sont jamais effacées : complétez-les à la main dans le déploiement. L'import en masse applique, pour chaque projet coché, toutes les rubriques nouvelles ou modifiées.</p>`;
+                if (asana.keep) {
+                    const k = asana.keep; asana.keep = null;
+                    document.getElementById('affAsanaKw').value = k.kw;
+                    document.querySelectorAll('#affAsanaTable tbody tr').forEach(tr => { if (k.results[tr.dataset.gid]) tr.querySelector('.aff-asana-diff').innerHTML = k.results[tr.dataset.gid]; });
+                    const m = document.getElementById('affAsanaBulkMsg'); m.style.color = k.color; m.textContent = k.text;
+                }
+                adminApi.asanaFilter();
             } catch (e) { box.innerHTML = `<p class="aff-error" style="margin-top:12px;">${esc(e.message)}</p>`; }
+        },
+        // Filtre par mot clé (sans tenir compte des accents ni de la casse ; plusieurs mots = tous requis)
+        asanaFilter() {
+            const words = norm(document.getElementById('affAsanaKw').value).split(/\s+/).filter(Boolean);
+            let shown = 0;
+            document.querySelectorAll('#affAsanaTable tbody tr').forEach(tr => {
+                const ok = words.every(w => tr.dataset.name.includes(w));
+                tr.style.display = ok ? '' : 'none';
+                if (ok) shown++;
+            });
+            document.getElementById('affAsanaCount').textContent = words.length ? `${shown} / ${asana.projects.projects.length}` : String(asana.projects.projects.length);
+            adminApi.asanaUpdateSel();
+        },
+        asanaVisibleChecks() { return [...document.querySelectorAll('#affAsanaTable tbody tr')].filter(tr => tr.style.display !== 'none').map(tr => tr.querySelector('.aff-asana-chk')).filter(c => c && !c.disabled); },
+        asanaSelectAll(on) { adminApi.asanaVisibleChecks().forEach(c => { c.checked = on; }); adminApi.asanaUpdateSel(); },
+        asanaUpdateSel() {
+            const vis = adminApi.asanaVisibleChecks(), n = vis.filter(c => c.checked).length;
+            const all = document.getElementById('affAsanaAll'), btn = document.getElementById('affAsanaBulkBtn');
+            if (all) { all.checked = vis.length > 0 && n === vis.length; all.indeterminate = n > 0 && n < vis.length; }
+            if (btn) { btn.disabled = n === 0; btn.textContent = n ? `Importer la sélection (${n})` : 'Importer la sélection'; }
+        },
+        // Import en masse : pour chaque projet coché (et affiché), applique les rubriques nouvelles ou modifiées
+        async asanaBulkImport() {
+            const rows = adminApi.asanaVisibleChecks().filter(c => c.checked).map(c => c.closest('tr'));
+            if (!rows.length) return;
+            if (!confirm(`Importer ${rows.length} projet(s) Asana ?\n\nPour chacun, les rubriques nouvelles ou modifiées seront appliquées au déploiement correspondant (créé s'il n'existe pas). Les données absentes d'Asana ne sont pas effacées.`)) return;
+            const btn = document.getElementById('affAsanaBulkBtn'), msg = document.getElementById('affAsanaBulkMsg'), target = document.getElementById('affAsanaBulkForm').value;
+            btn.disabled = true;
+            const out = { created: 0, updated: 0, unchanged: 0, errors: 0 };
+            let i = 0;
+            for (const tr of rows) {
+                i++;
+                msg.style.color = '#4a5b70'; msg.textContent = `Import en cours : ${i} / ${rows.length}…`;
+                const cell = tr.querySelector('.aff-asana-diff');
+                cell.innerHTML = '<span class="aff-muted">import…</span>';
+                try {
+                    const r = await api('/affectation/asana/apply', { method: 'POST', body: JSON.stringify({ gid: tr.dataset.gid, formationTarget: target, apply: 'auto' }) });
+                    if (r.unchanged) { out.unchanged++; cell.innerHTML = '<span class="aff-av-b na">déjà à jour</span>'; }
+                    else if (r.created) { out.created++; cell.innerHTML = '<span class="aff-av-b ok">créé</span>'; }
+                    else { out.updated++; cell.innerHTML = '<span class="aff-av-b mid">mis à jour</span>'; }
+                    tr.querySelector('.aff-asana-chk').checked = false;
+                } catch (e) { out.errors++; cell.innerHTML = `<span class="aff-error" title="${esc(e.message)}">erreur : ${esc(e.message).slice(0, 60)}</span>`; }
+            }
+            msg.style.color = out.errors ? '#c62828' : '#2e7d32';
+            msg.textContent = `Terminé : ${out.created} créé(s), ${out.updated} mis à jour, ${out.unchanged} déjà à jour` + (out.errors ? `, ${out.errors} en erreur (survolez « erreur » pour le détail)` : '') + '.';
+            // La liste se recharge (états d'appairage à jour) en conservant filtre, résultats par projet et compte rendu
+            asana.keep = { kw: document.getElementById('affAsanaKw').value, color: msg.style.color, text: msg.textContent,
+                results: Object.fromEntries(rows.map(tr => [tr.dataset.gid, tr.querySelector('.aff-asana-diff').innerHTML])) };
+            state.projects = (await api('/affectation/projects')).projects;
+            renderProjects();
+            plan.projects = state.projects; renderPlanning();
+            adminApi.asanaLoadProjects();
         },
         async asanaLink(gid, value) {
             try { await api('/affectation/asana/links', { method: 'PUT', body: JSON.stringify({ gid, deploymentId: Number(value) }) }); adminApi.asanaLoadProjects(); }
@@ -742,7 +809,7 @@
         },
         // Compare chaque projet à son déploiement (sans rien écrire) et indique le nombre d'écarts
         async asanaScanAll() {
-            const rows = [...document.querySelectorAll('#affAsanaTable tbody tr')];
+            const rows = [...document.querySelectorAll('#affAsanaTable tbody tr')].filter(tr => tr.style.display !== 'none');
             for (const tr of rows) {
                 const cell = tr.querySelector('.aff-asana-diff'), gid = tr.dataset.gid;
                 if (tr.querySelector('select option[value="-1"]:checked')) { cell.innerHTML = '<span class="aff-muted">ignoré</span>'; continue; }
