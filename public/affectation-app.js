@@ -4,6 +4,7 @@
 
     const KEY = 'affectation';
     const ICON = {
+        print: '<path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/>',
         planning: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M8 14h5M11 18h5"/>',
         admin: '<path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',
         search: '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
@@ -52,6 +53,20 @@
     const css2 = `
         #affectationContainer .aff-card { background: #fff; border: 1px solid #dfe5ef; border-radius: 14px; margin: 18px 0; padding: 16px 20px 18px; box-shadow: 0 2px 8px rgba(30,60,110,.06); }
         #affectationContainer .aff-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+        .aff-print-ctl { width: 300px; flex-shrink: 0; overflow-y: auto; padding: 14px 16px; border-right: 1px solid #e6ebf3; background: #fff; font-size: 13px; }
+        .aff-print-ctl .g { margin-bottom: 12px; }
+        .aff-print-ctl .g > label.lbl { display: block; font-size: 12px; font-weight: 700; color: #4a5b70; margin-bottom: 4px; }
+        .aff-print-ctl input[type=text], .aff-print-ctl input[type=date], .aff-print-ctl select { width: 100%; padding: 6px 8px; border: 1px solid #cfd8e6; border-radius: 8px; font-size: 13px; }
+        .aff-print-ctl .chk { display: flex; align-items: center; gap: 7px; padding: 2px 0; cursor: pointer; }
+        .aff-print-ctl .chk input { width: auto; display: inline-block; margin: 0; }
+        .aff-print-ctl .box { max-height: 150px; overflow-y: auto; border: 1px solid #e6ebf3; border-radius: 8px; padding: 4px 8px; }
+        .aff-print-ctl .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .aff-print-preview { flex: 1; overflow: auto; padding: 14px; }
+        .aff-print-preview .pw { margin: 0 auto 14px; box-shadow: 0 2px 10px rgba(0,0,0,.25); background: #fff; }
+        .aff-card-head.aff-fold { cursor: pointer; user-select: none; }
+        .aff-fold-chev { display: inline-flex; width: 22px; height: 22px; align-items: center; justify-content: center; margin-right: 4px; transition: transform .15s; color: #0f4c5c; }
+        .aff-card.folded .aff-fold-chev { transform: rotate(-90deg); }
+        .aff-card.folded > .aff-card-body { display: none; }
         .aff-card-title { display: inline-flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 700; color: #0f4c5c; }
         .aff-ico { width: 22px; height: 22px; fill: none; stroke: #0f766e; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
         .aff-ico-sm { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
@@ -160,7 +175,7 @@
         .aff-plan-table thead th.we { background: #f0b429 !important; color: #3a2d00; }
         .aff-plan-table thead th.today { background: #2e9d62 !important; color: #fff; }
         .aff-plan-table th.corner { left: 0; z-index: 6; min-width: 280px; max-width: 280px; background: #1D70B7 !important; text-align: left; padding-left: 28px; font-size: 22px; }
-        .aff-plan-table tbody th.sam { position: sticky; left: 0; z-index: 2; background: #fff; text-align: left; padding: 6px 12px 6px 28px; min-width: 280px; max-width: 280px; border-right: 2px solid #cfd8e6; border-bottom: 1px solid #eef1f6; color: #1f2d3d; }
+        .aff-plan-table tbody th.sam { position: sticky; left: 0; z-index: 5; background: #fff; text-align: left; padding: 6px 12px 6px 28px; min-width: 280px; max-width: 280px; border-right: 2px solid #cfd8e6; border-bottom: 1px solid #eef1f6; color: #1f2d3d; }
         .aff-plan-table tbody th.sam .n { font-weight: 800; font-size: 19px; line-height: 1.2; }
         .aff-plan-table tbody th.sam .c { font-weight: 500; font-size: 14px; color: #6b7a8d; margin-top: 2px; }
         .aff-plan-table tbody tr:nth-child(even) th.sam { background: #f4f7fb; }
@@ -173,7 +188,7 @@
         .aff-pc .b.tl { border-top-right-radius: 5px; border-bottom-right-radius: 5px; }
         .aff-pc .b.go { cursor: pointer; } .aff-pc .b.go:hover { filter: brightness(1.15); outline: 2px solid rgba(15,118,110,.7); outline-offset: -1px; }
         .aff-pc .b.ok { box-shadow: inset 0 -2px 0 rgba(255,255,255,.85); }
-        .aff-mk { position: absolute; top: 2px; width: 0; height: 0; z-index: 2; }
+        .aff-mk { position: absolute; top: 2px; width: 0; height: 0; z-index: 1; }
         .aff-mk.start { top: 0; bottom: 0; height: auto; width: 2px; margin-left: -1px; background: #263238; opacity: .85; }
         .aff-mk.start i { left: -4px; top: -1px; width: 10px; height: 10px; border-width: 1px; }
         .aff-mk i { position: absolute; top: 0; left: -8px; width: 16px; height: 16px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.4); }
@@ -241,6 +256,7 @@
                     <button type="button" data-z="week" onclick="AffectationApp.planZoom('week')" title="Afficher à la maille semaine">Semaine</button>
                     <button type="button" data-z="month" onclick="AffectationApp.planZoom('month')" title="Afficher à la maille mois">Mois</button>
                 </div>
+                <button type="button" class="aff-btn" onclick="AffectationApp.openPrint()" title="Mettre en page, imprimer ou exporter en PDF / PowerPoint">${svg('print', 'aff-ico-sm')}Imprimer / Exporter</button>
                 <button type="button" class="aff-btn" onclick="AffectationApp.planToday()" title="Se placer sur la date du jour">${svg('planning', 'aff-ico-sm')}Aujourd'hui</button>
             </div>
         </div>
@@ -250,7 +266,7 @@
     <div id="affectationAdminTab" class="tab-content aff-panel">
         <h2>Administration</h2>
 
-        <section class="aff-card">
+        <section class="aff-card" id="affCardDeploy">
             <header class="aff-card-head">
                 <span class="aff-card-title">${svg('rocket', 'aff-ico')}Déploiements de SAMU</span>
                 <span style="display:inline-flex;gap:8px;flex-wrap:wrap;">
@@ -271,7 +287,7 @@
             <div id="affAsanaProjects"></div>
         </section>
 
-        <section class="aff-card">
+        <section class="aff-card" id="affCardColors">
             <header class="aff-card-head">
                 <span class="aff-card-title">${svg('palette', 'aff-ico')}Paramétrer la couleur des étapes</span>
                 <span class="aff-muted" style="font-size:12px;">S'appliquent à tous les projets</span>
@@ -316,6 +332,29 @@
                 <button type="button" class="aff-btn" onclick="AffectationApp.openSync()" title="Reporter les ressources affectées dans la planification et les événements">Synchroniser</button>
                 <button type="button" class="aff-btn" onclick="AffectationApp.closeAssign()">Annuler</button>
                 <button type="button" class="aff-btn aff-btn-primary" onclick="AffectationApp.saveAssign()">${svg('save', 'aff-ico-sm')}Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="affPrintModal">
+        <div class="modal-content" style="max-width:1320px; width:98%; height:94vh; display:flex; flex-direction:column; padding:0; overflow:hidden;">
+            <div class="aff-modal-head">
+                <span class="aff-card-title">${svg('print', 'aff-ico')}Imprimer / Exporter le planning</span>
+                <button type="button" class="aff-x" onclick="AffectationApp.printClose()" aria-label="Fermer">${svg('x', 'aff-ico-sm')}</button>
+            </div>
+            <div style="display:flex; flex:1; min-height:0;">
+                <div id="affPrintCtl" class="aff-print-ctl"></div>
+                <div style="flex:1; display:flex; flex-direction:column; min-width:0; background:#e9edf3;">
+                    <div id="affPrintInfo" class="aff-muted" style="padding:8px 14px; font-size:12px;"></div>
+                    <div id="affPrintPreview" class="aff-print-root aff-print-preview"></div>
+                </div>
+            </div>
+            <div class="aff-modal-foot">
+                <span id="affPrintErr" class="aff-error"></span>
+                <button type="button" class="aff-btn" onclick="AffectationApp.printClose()">Fermer</button>
+                <button type="button" class="aff-btn" onclick="AffectationApp.printDo('print')">${svg('print', 'aff-ico-sm')}Imprimer</button>
+                <button type="button" class="aff-btn" onclick="AffectationApp.printDo('pdf')">Exporter en PDF</button>
+                <button type="button" class="aff-btn aff-btn-primary" onclick="AffectationApp.printDo('pptx')">Exporter en PowerPoint</button>
             </div>
         </div>
     </div>
@@ -375,10 +414,39 @@
         <span id="affectationTimerText">--:--</span>
     </div>`;
 
+    // Rubriques de l'Administration repliables / dépliables (état mémorisé dans le navigateur)
+    function setupFolds() {
+        let saved = {};
+        try { saved = JSON.parse(localStorage.getItem('affFolded') || '{}'); } catch (e) { saved = {}; }
+        document.querySelectorAll('#affectationAdminTab > section.aff-card').forEach((sec, i) => {
+            const head = sec.querySelector(':scope > .aff-card-head');
+            if (!head || sec.querySelector(':scope > .aff-card-body')) return;
+            const key = sec.id || ('card' + i);
+            const body = document.createElement('div');
+            body.className = 'aff-card-body';
+            [...sec.children].filter(c => c !== head).forEach(c => body.appendChild(c));
+            sec.appendChild(body);
+            const chev = document.createElement('span');
+            chev.className = 'aff-fold-chev';
+            chev.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
+            head.classList.add('aff-fold');
+            head.title = 'Replier / déplier cette rubrique';
+            const title = head.querySelector('.aff-card-title');
+            if (title) title.prepend(chev);
+            if (saved[key]) sec.classList.add('folded');
+            head.addEventListener('click', ev => {
+                if (ev.target.closest('button, a, input, select')) return; // les boutons de l'en-tête gardent leur action
+                sec.classList.toggle('folded');
+                saved[key] = sec.classList.contains('folded');
+                try { localStorage.setItem('affFolded', JSON.stringify(saved)); } catch (e) { /* stockage indisponible */ }
+            });
+        });
+    }
+
     function mount() {
         if (document.getElementById('affectationContainer')) return;
         const style = document.createElement('style');
-        style.textContent = css + css2;
+        style.textContent = css + css2 + PRINT_CSS;
         document.head.appendChild(style);
         const box = document.createElement('div');
         box.id = 'affectationContainer';
@@ -386,6 +454,7 @@
         box.style.display = 'none';
         box.innerHTML = html;
         document.body.appendChild(box);
+        setupFolds();
     }
 
     function updateUser() {
@@ -1104,8 +1173,9 @@
     const frd = iso => iso.split('-').reverse().join('/');
 
     // Contenu d'une cellule : phases (bandeau haut), étapes (bandes du bas, cliquables en vue jour/semaine), jalons
+    let printMode = false; // vrai pendant la mise en page d'impression : pas d'interaction, rendu statique
     function cellContent(p, c) {
-        const clickable = true;
+        const clickable = !printMode;
         const bar = (k, x, i, isStep) => {
             if (hiddenKeys.has(k) || !(x.start <= c.to && x.end >= c.from)) return '';
             const head = x.start >= c.from && x.start <= c.to, tail = x.end >= c.from && x.end <= c.to;
@@ -1139,36 +1209,48 @@
         return (ph || st || mk) ? `${mk}<div class="aff-pc"><div class="ph">${ph}</div><div class="st">${st}</div></div>` : '';
     }
 
-    function renderPlanning() {
-        const box = document.getElementById('affPlan');
-        if (!box) return;
-        renderLegend2();
-        const { min, max } = planRange();
-        const t = todayIso();
-        const days = [];
-        for (let ms = utcMs(min); ms <= utcMs(max); ms += 86400000) days.push(isoMs(ms));
+    // Sélection triée des déploiements affichés (tri courant, filtre « déjà en service »)
+    function sortedProjects() {
+        const cmp = (a, b) => String(a || '').localeCompare(String(b || ''), 'fr', { numeric: true });
+        const keyOf = { samu: p => p.samu_name, chef: p => p.chef_projet_nom, mes: p => p.date_mise_en_service };
+        const k = keyOf[plan.sort.key];
+        const today = todayIso();
+        const shown = hiddenKeys.has('_past') ? plan.projects.filter(p => !(p.date_mise_en_service && p.date_mise_en_service < today)) : plan.projects;
+        return [...shown].sort((a, b) => {
+            const va = k(a), vb = k(b);
+            if (!va && vb) return 1; // valeurs vides toujours en bas
+            if (va && !vb) return -1;
+            return (cmp(va, vb) * plan.sort.dir) || cmp(a.samu_name, b.samu_name);
+        });
+    }
 
-        let cols, head = '';
+    // Colonnes et lignes d'en-tête d'une échelle de temps (jour, semaine, mois, trimestre, année) entre deux dates
+    function buildColumns(zoom, min, max, o) {
+        o = o || {};
+        const t = o.noToday ? '9999-12-31' : todayIso();
+        const mw = w => (o.print ? '' : `style="min-width:${w}px;"`);
         const th = (cls, n, txt, extra) => `<th class="${cls || ''}" colspan="${n}" ${extra || ''}>${txt}</th>`;
-        const corner = rows => `<th class="corner" rowspan="${rows}">SAMU</th>`;
-
-        if (plan.zoom === 'day') {
+        const rows = [];
+        let cols;
+        const days = [];
+        if (zoom === 'day') for (let ms = utcMs(min); ms <= utcMs(max); ms += 86400000) days.push(isoMs(ms));
+        if (zoom === 'day') {
             cols = days.map(d => ({ key: d, from: d, to: d, we: [0, 6].includes(new Date(utcMs(d)).getUTCDay()), today: d === t, w: 30 }));
-            head += `<tr>${corner(5)}${group(days, d => d.slice(0, 4)).map(g => th('', g.n, g.label)).join('')}</tr>`;
-            head += `<tr>${group(days, d => d.slice(0, 7), d => cap(MONTHS[+d.slice(5, 7) - 1])).map(g => th('', g.n, g.label)).join('')}</tr>`;
-            head += `<tr>${group(days, d => { const w = isoWeek(d); return `${w.year}-${w.week}`; }, d => 'S' + isoWeek(d).week).map(g => th('', g.n, g.label)).join('')}</tr>`;
-            head += `<tr>${days.map(d => `<th class="${[0, 6].includes(new Date(utcMs(d)).getUTCDay()) ? 'we' : ''} ${d === t ? 'today' : ''}" ${d === t ? 'data-today="1"' : ''} style="min-width:30px;">${+d.slice(8)}</th>`).join('')}</tr>`;
-            head += `<tr>${days.map(d => `<th class="${[0, 6].includes(new Date(utcMs(d)).getUTCDay()) ? 'we' : ''} ${d === t ? 'today' : ''}">${WDAY[new Date(utcMs(d)).getUTCDay()]}</th>`).join('')}</tr>`;
-        } else if (plan.zoom === 'week') {
+            rows.push(group(days, d => d.slice(0, 4)).map(g => th('', g.n, g.label)).join(''));
+            rows.push(group(days, d => d.slice(0, 7), d => cap(MONTHS[+d.slice(5, 7) - 1])).map(g => th('', g.n, g.label)).join(''));
+            rows.push(group(days, d => { const w = isoWeek(d); return `${w.year}-${w.week}`; }, d => 'S' + isoWeek(d).week).map(g => th('', g.n, g.label)).join(''));
+            rows.push(days.map(d => `<th class="${[0, 6].includes(new Date(utcMs(d)).getUTCDay()) ? 'we' : ''} ${d === t ? 'today' : ''}" ${d === t ? 'data-today="1"' : ''} ${mw(30)}>${+d.slice(8)}</th>`).join(''));
+            rows.push(days.map(d => `<th class="${[0, 6].includes(new Date(utcMs(d)).getUTCDay()) ? 'we' : ''} ${d === t ? 'today' : ''}">${WDAY[new Date(utcMs(d)).getUTCDay()]}</th>`).join(''));
+        } else if (zoom === 'week') {
             const mondays = [];
             for (let m = mondayOf(min); m <= max; m = addD(m, 7)) mondays.push(m);
             const thisMon = mondayOf(t);
             cols = mondays.map(m => ({ key: m, from: m, to: addD(m, 6), we: false, today: m === thisMon, w: 64 }));
-            head += `<tr>${corner(4)}${group(mondays, m => m.slice(0, 4)).map(g => th('', g.n, g.label)).join('')}</tr>`;
-            head += `<tr>${group(mondays, m => m.slice(0, 7), m => cap(MONTHS[+m.slice(5, 7) - 1])).map(g => th('', g.n, g.label)).join('')}</tr>`;
-            head += `<tr>${mondays.map(m => `<th class="${m === thisMon ? 'today' : ''}" ${m === thisMon ? 'data-today="1"' : ''} style="min-width:64px;">S${isoWeek(m).week}</th>`).join('')}</tr>`;
-            head += `<tr>${mondays.map(m => `<th class="${m === thisMon ? 'today' : ''}" style="font-size:11px;font-weight:500;">${m.slice(8)}/${m.slice(5, 7)}</th>`).join('')}</tr>`;
-        } else {
+            rows.push(group(mondays, m => m.slice(0, 4)).map(g => th('', g.n, g.label)).join(''));
+            rows.push(group(mondays, m => m.slice(0, 7), m => cap(MONTHS[+m.slice(5, 7) - 1])).map(g => th('', g.n, g.label)).join(''));
+            rows.push(mondays.map(m => `<th class="${m === thisMon ? 'today' : ''}" ${m === thisMon ? 'data-today="1"' : ''} ${mw(64)}>S${isoWeek(m).week}</th>`).join(''));
+            rows.push(mondays.map(m => `<th class="${m === thisMon ? 'today' : ''}" style="font-size:11px;font-weight:500;">${m.slice(8)}/${m.slice(5, 7)}</th>`).join(''));
+        } else if (zoom === 'month') {
             const months = [];
             for (let m = min.slice(0, 7); m <= max.slice(0, 7);) {
                 months.push(m);
@@ -1179,27 +1261,41 @@
                 const y = +m.slice(0, 4), mo = +m.slice(5, 7);
                 return { key: m, from: m + '-01', to: addD(mo === 12 ? `${y + 1}-01-01` : `${y}-${String(mo + 1).padStart(2, '0')}-01`, -1), we: false, today: m === t.slice(0, 7), w: 100 };
             });
-            head += `<tr>${corner(2)}${group(months, m => m.slice(0, 4)).map(g => th('', g.n, g.label)).join('')}</tr>`;
-            head += `<tr>${months.map(m => `<th class="${m === t.slice(0, 7) ? 'today' : ''}" ${m === t.slice(0, 7) ? 'data-today="1"' : ''} style="min-width:100px;">${cap(MONTHS[+m.slice(5, 7) - 1])}</th>`).join('')}</tr>`;
+            rows.push(group(months, m => m.slice(0, 4)).map(g => th('', g.n, g.label)).join(''));
+            rows.push(months.map(m => `<th class="${m === t.slice(0, 7) ? 'today' : ''}" ${m === t.slice(0, 7) ? 'data-today="1"' : ''} ${mw(100)}>${cap(MONTHS[+m.slice(5, 7) - 1])}</th>`).join(''));
+        } else if (zoom === 'quarter') {
+            const qs = [];
+            let qy = +min.slice(0, 4), qq = Math.floor((+min.slice(5, 7) - 1) / 3);
+            const ey = +max.slice(0, 4), eq = Math.floor((+max.slice(5, 7) - 1) / 3);
+            while (qy < ey || (qy === ey && qq <= eq)) { qs.push({ y: qy, q: qq }); qq++; if (qq > 3) { qq = 0; qy++; } }
+            const tq = { y: +t.slice(0, 4), q: Math.floor((+t.slice(5, 7) - 1) / 3) };
+            cols = qs.map(x => ({ key: `${x.y}-T${x.q + 1}`, from: `${x.y}-${String(x.q * 3 + 1).padStart(2, '0')}-01`, to: addD(x.q === 3 ? `${x.y + 1}-01-01` : `${x.y}-${String(x.q * 3 + 4).padStart(2, '0')}-01`, -1), we: false, today: x.y === tq.y && x.q === tq.q, w: 110 }));
+            rows.push(group(qs, x => x.y, x => x.y).map(g => th('', g.n, g.label)).join(''));
+            rows.push(qs.map(x => `<th class="${x.y === tq.y && x.q === tq.q ? 'today' : ''}" ${x.y === tq.y && x.q === tq.q ? 'data-today="1"' : ''} ${mw(110)}>T${x.q + 1}</th>`).join(''));
+        } else { // année
+            const ys = [];
+            for (let y = +min.slice(0, 4); y <= +max.slice(0, 4); y++) ys.push(y);
+            cols = ys.map(y => ({ key: String(y), from: `${y}-01-01`, to: `${y}-12-31`, we: false, today: String(y) === t.slice(0, 4), w: 140 }));
+            rows.push(ys.map(y => `<th class="${String(y) === t.slice(0, 4) ? 'today' : ''}" ${String(y) === t.slice(0, 4) ? 'data-today="1"' : ''} ${mw(140)}>${y}</th>`).join(''));
         }
+        return { cols, rows };
+    }
+
+    function renderPlanning() {
+        const box = document.getElementById('affPlan');
+        if (!box) return;
+        renderLegend2();
+        const { min, max } = planRange();
+        const corner = rows => `<th class="corner" rowspan="${rows}">SAMU</th>`;
+        const { cols, rows: headRows } = buildColumns(plan.zoom, min, max);
+        const head = headRows.map((r, i) => `<tr>${i === 0 ? corner(headRows.length) : ''}${r}</tr>`).join('');
 
         // En-têtes à plusieurs niveaux : top collant propre à chaque ligne de l'en-tête
-        const rowsCount = plan.zoom === 'day' ? 5 : plan.zoom === 'week' ? 4 : 2;
         let body;
         if (!plan.projects.length) {
             body = `<tr><td colspan="${cols.length + 1}" style="height:70px;text-align:center;color:#7a8799;">Aucun déploiement : créez-en dans l'onglet Administration.</td></tr>`;
         } else {
-            const cmp = (a, b) => String(a || '').localeCompare(String(b || ''), 'fr', { numeric: true });
-            const keyOf = { samu: p => p.samu_name, chef: p => p.chef_projet_nom, mes: p => p.date_mise_en_service };
-            const k = keyOf[plan.sort.key];
-            const today = todayIso();
-            const shown = hiddenKeys.has('_past') ? plan.projects.filter(p => !(p.date_mise_en_service && p.date_mise_en_service < today)) : plan.projects;
-            const ordered = [...shown].sort((a, b) => {
-                const va = k(a), vb = k(b);
-                if (!va && vb) return 1; // valeurs vides toujours en bas
-                if (va && !vb) return -1;
-                return (cmp(va, vb) * plan.sort.dir) || cmp(a.samu_name, b.samu_name);
-            });
+            const ordered = sortedProjects();
             body = ordered.map(p => `<tr data-id="${p.id}">
                 <th class="sam"><div class="n">${esc(p.samu_name)}</div><div class="c">${esc(p.chef_projet_nom || 'Chef de projet non défini')}</div></th>
                 ${cols.map(c => `<td class="${c.we ? 'we' : ''} ${c.today ? 'today' : ''}" data-k="${c.key}">${cellContent(p, c)}</td>`).join('')}
@@ -1230,6 +1326,149 @@
         } catch (e) {
             if (box) box.innerHTML = `<p class="aff-error" style="padding:18px;">Chargement impossible : ${esc(e.message)}</p>`;
         }
+    }
+
+    // ================= Impression / export PDF et PowerPoint (mise en page WYSIWYG) =================
+    const PAPER_MM = { A4: [297, 210], A3: [420, 297] };
+    const SCALE_LABEL = { day: 'jour', week: 'semaine', month: 'mois', quarter: 'trimestre', year: 'année' };
+    const mmPx = mm => mm * 96 / 25.4;
+    const prt = { layout: null, timer: null, token: 0 };
+    // Feuille de style propre à la page imprimée : rendu statique, compact, sans éléments collants
+    const PRINT_CSS = `
+        .aff-print-root { font-family: Arial, sans-serif; color: #1f2d3d; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .aff-print-root .pg { box-sizing: border-box; background: #fff; display: flex; flex-direction: column; overflow: hidden; break-after: page; page-break-after: always; }
+        .aff-print-root .pg:last-child { break-after: auto; page-break-after: auto; }
+        .aff-print-root .pg-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; border-bottom: 2px solid #1d70b7; padding-bottom: 3px; margin-bottom: 5px; }
+        .aff-print-root .pg-head b { font-size: 15px; }
+        .aff-print-root .pg-head span { font-size: 9px; color: #667; text-align: right; }
+        .aff-print-root .pg-leg { display: flex; flex-wrap: wrap; gap: 3px 12px; font-size: 8px; margin-bottom: 5px; }
+        .aff-print-root .pg-leg i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; vertical-align: -2px; margin-right: 3px; border: 1px solid rgba(0,0,0,.15); }
+        .aff-print-root .pg-leg i.dot { border-radius: 50%; }
+        .aff-print-root .pg-foot { margin-top: auto; font-size: 8px; color: #778; display: flex; justify-content: space-between; padding-top: 3px; }
+        .aff-print-root table.pt { border-collapse: separate !important; border-spacing: 0 !important; table-layout: fixed !important; font-size: var(--pfs, 9px); }
+        .aff-print-root table.pt th, .aff-print-root table.pt td { padding: 0 !important; overflow: hidden; }
+        .aff-print-root table.pt thead th { position: static !important; top: auto !important; height: auto !important; line-height: 1.2; padding: 2px 1px !important; font-size: var(--pfs, 9px) !important; font-weight: 700; }
+        .aff-print-root table.pt thead tr:nth-child(-n+2) th { font-size: 10.5px !important; }
+        .aff-print-root table.pt th.corner { width: var(--samw, 140px); min-width: 0 !important; max-width: none !important; font-size: 11px !important; padding-left: 6px !important; text-align: left; }
+        .aff-print-root table.pt tbody th.sam { position: static !important; width: var(--samw, 140px); min-width: 0 !important; max-width: none !important; padding: 3px 6px !important; z-index: auto; border-right: 1px solid #cfd8e6; }
+        .aff-print-root table.pt tbody th.sam .n { font-size: 11px !important; line-height: 1.15; }
+        .aff-print-root table.pt tbody th.sam .c { font-size: 8.5px !important; margin-top: 1px; }
+        .aff-print-root table.pt tbody td { height: auto !important; vertical-align: top; overflow: visible; position: relative; }
+        .aff-print-root table.pt .aff-pc { min-height: 0; gap: 2px; padding: 3px 0; }
+        .aff-print-root table.pt .aff-pc .ph { margin-bottom: 2px; }
+        .aff-print-root table.pt .aff-pc .b { flex: 0 0 12px; height: 12px; min-height: 12px; max-height: 12px; font-size: 7.5px; line-height: 12px; cursor: default; }
+        .aff-print-root table.pt .aff-mk i { width: 11px; height: 11px; }
+        .aff-print-root table.pt .aff-mk.start i { width: 8px; height: 8px; }`;
+
+    function printReadOpts() {
+        const g = id => document.getElementById(id);
+        return {
+            title: g('prTitle').value.trim(), from: g('prFrom').value, to: g('prTo').value, zoom: g('prZoom').value,
+            paper: g('prPaper').value, orient: g('prOrient').value, fit: g('prFit').value, legend: g('prLegend').checked,
+            samu: new Set([...document.querySelectorAll('#prSamu input:checked')].map(i => Number(i.value))),
+            hidden: new Set([...document.querySelectorAll('#prStages input:not(:checked)')].map(i => i.value))
+        };
+    }
+
+    // Construit toutes les pages (HTML statique) : colonnes réparties selon l'option choisie, lignes remplies page après page d'après leur hauteur réelle
+    async function layoutPrint(o) {
+        const [pw, ph] = PAPER_MM[o.paper] || PAPER_MM.A4;
+        const mmW = o.orient === 'portrait' ? ph : pw, mmH = o.orient === 'portrait' ? pw : ph;
+        const pxW = mmPx(mmW), pxH = mmPx(mmH), padX = mmPx(8), padY = mmPx(7);
+        const contentW = pxW - 2 * padX, contentH = pxH - 2 * padY;
+        const samW = o.zoom === 'day' || o.zoom === 'week' ? 110 : 140;
+        const colWBase = { day: 20, week: 44, month: 68, quarter: 90, year: 120 }[o.zoom] || 60;
+        const saved = { hidden: hiddenKeys, mode: printMode };
+        hiddenKeys = new Set(o.hidden); printMode = true;
+        try {
+            const base = buildColumns(o.zoom, o.from, o.to, { print: true, noToday: true });
+            const n = base.cols.length;
+            const perPage = o.fit === 'fit' ? n : Math.max(1, Math.floor((contentW - samW) / colWBase));
+            const colW = o.fit === 'fit' ? Math.max(1, (contentW - samW) / n) : colWBase;
+            const fs = Math.max(5.5, Math.min(10, colW * 0.4));
+            const colPages = [];
+            for (let a = 0; a < n; a += perPage) {
+                const slice = base.cols.slice(a, a + perPage);
+                const sub = buildColumns(o.zoom, slice[0].from, slice[slice.length - 1].to, { print: true, noToday: true });
+                colPages.push(sub);
+            }
+            const projects = sortedProjects().filter(p => o.samu.has(p.id));
+            const tableHtml = (sub, list) => {
+                const w = samW + sub.cols.length * colW;
+                const head = sub.rows.map((r, i) => `<tr>${i === 0 ? `<th class="corner" rowspan="${sub.rows.length}">SAMU</th>` : ''}${r}</tr>`).join('');
+                const body = list.map(pr => `<tr><th class="sam"><div class="n">${esc(pr.samu_name)}</div><div class="c">${esc(pr.chef_projet_nom || 'Chef de projet non défini')}</div></th>${sub.cols.map(c => `<td class="${c.we ? 'we' : ''}">${cellContent(pr, c)}</td>`).join('')}</tr>`).join('');
+                return `<table class="aff-plan-table pt" style="--pfs:${fs.toFixed(1)}px;--samw:${samW}px;width:${w.toFixed(1)}px;"><colgroup><col style="width:${samW}px">${sub.cols.map(() => `<col style="width:${colW.toFixed(2)}px">`).join('')}</colgroup><thead>${head}</thead><tbody>${body}</tbody></table>`;
+            };
+            const keys = ['cadrage', 'deploiement', 'gel', 'mise_en_service', 'mise_en_production', 'visite_metier', 'test_prerequis', 'vft', 'formation_relais', 'formation_utilisateurs', 'accompagnement'].filter(k => !o.hidden.has(k));
+            const legend = o.legend ? `<div class="pg-leg">${keys.map(k => `<span><i class="${k === 'mise_en_service' || k === 'mise_en_production' ? 'dot' : ''}" style="${bgStyle(planColor(k), planPattern(k))}"></i>${esc(planDef(k).label)}</span>`).join('')}</div>` : '';
+            // Mesure : hauteur de chaque ligne, de l'en-tête de tableau et des blocs fixes de la page
+            const meas = document.createElement('div');
+            meas.className = 'aff-print-root';
+            meas.style.cssText = `position:absolute;left:-20000px;top:0;width:${contentW}px;`;
+            meas.innerHTML = `<div class="pg-head"><b>${esc(o.title)}</b><span>x</span></div>${legend}${projects.length ? tableHtml(colPages[0], projects) : ''}<div class="pg-foot"><span>x</span></div>`;
+            document.getElementById('affectationContainer').appendChild(meas);
+            const rowH = [...meas.querySelectorAll('tbody tr')].map(tr => tr.getBoundingClientRect().height);
+            const headH = meas.querySelector('thead') ? meas.querySelector('thead').getBoundingClientRect().height : 0;
+            const fixedH = meas.querySelector('.pg-head').getBoundingClientRect().height + 5 + (meas.querySelector('.pg-leg') ? meas.querySelector('.pg-leg').getBoundingClientRect().height + 5 : 0) + meas.querySelector('.pg-foot').getBoundingClientRect().height + 6;
+            meas.remove();
+            const avail = contentH - fixedH - headH - 4;
+            const rowPages = [];
+            if (!projects.length) rowPages.push([]);
+            else {
+                let cur = [], used = 0;
+                projects.forEach((pr, i) => {
+                    if (cur.length && used + rowH[i] > avail) { rowPages.push(cur); cur = []; used = 0; }
+                    cur.push(pr); used += rowH[i];
+                });
+                if (cur.length) rowPages.push(cur);
+            }
+            const total = colPages.length * rowPages.length;
+            const sub = `${frd(o.from)} → ${frd(o.to)} · échelle : ${SCALE_LABEL[o.zoom]} · édité le ${frd(todayIso())}`;
+            const pages = [];
+            colPages.forEach((cp, ci) => rowPages.forEach((rp, ri) => {
+                const k = pages.length + 1;
+                const part = (colPages.length > 1 ? ` · colonnes ${ci + 1}/${colPages.length}` : '') + (rowPages.length > 1 ? ` · SAMU ${ri + 1}/${rowPages.length}` : '');
+                pages.push(`<div class="pg" style="width:${pxW.toFixed(2)}px;height:${pxH.toFixed(2)}px;padding:${padY.toFixed(1)}px ${padX.toFixed(1)}px;"><div class="pg-head"><b>${esc(o.title)}</b><span>${esc(sub)}</span></div>${legend}${rp.length ? tableHtml(cp, rp) : '<p style="color:#778;font-size:11px;">Aucun SAMU sélectionné.</p>'}<div class="pg-foot"><span>${esc(part.replace(/^ · /, ''))}</span><span>Page ${k} / ${total}</span></div></div>`);
+            }));
+            return { pages, pxW, pxH, mmW, mmH, total, tooTight: o.fit === 'fit' && colW < 5 };
+        } finally { hiddenKeys = saved.hidden; printMode = saved.mode; }
+    }
+
+    function printExportHtml(lay) {
+        return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Planning des déploiements</title><style>${css}${css2}${PRINT_CSS}@page{size:${lay.mmW}mm ${lay.mmH}mm;margin:0}html,body{margin:0;padding:0;background:#fff}.aff-print-root .pg{height:${(lay.pxH - 1.5).toFixed(2)}px !important}</style></head><body><div id="affectationContainer" class="aff-print-root" style="display:block;padding:0;background:#fff;">${lay.pages.join('')}</div></body></html>`;
+    }
+
+    async function printRefresh() {
+        const err = document.getElementById('affPrintErr'); err.textContent = '';
+        const o = printReadOpts();
+        if (!o.from || !o.to || o.to < o.from) { err.textContent = 'Période invalide : la date de fin doit suivre la date de début.'; return; }
+        const token = ++prt.token;
+        document.getElementById('affPrintInfo').textContent = 'Mise en page…';
+        await new Promise(r => setTimeout(r, 30));
+        let lay;
+        try { lay = await layoutPrint(o); } catch (e) { err.textContent = e.message; return; }
+        if (token !== prt.token) return; // une option a changé entre-temps
+        prt.layout = lay; prt.opts = o;
+        const box = document.getElementById('affPrintPreview');
+        const k = Math.min(1, (box.clientWidth - 30) / lay.pxW);
+        box.innerHTML = lay.pages.map(pg => `<div class="pw" style="width:${(lay.pxW * k).toFixed(1)}px;height:${(lay.pxH * k).toFixed(1)}px;"><div style="transform:scale(${k.toFixed(4)});transform-origin:0 0;width:${lay.pxW.toFixed(1)}px;height:${lay.pxH.toFixed(1)}px;">${pg}</div></div>`).join('');
+        document.getElementById('affPrintInfo').textContent = `${lay.total} page(s) · ${lay.mmW} × ${lay.mmH} mm` + (lay.tooTight ? ' — ⚠ échelle trop fine pour tenir sur une page : choisissez « Répartir sur plusieurs pages » ou une échelle plus large' : '');
+    }
+
+    async function printDownload(kind) {
+        const err = document.getElementById('affPrintErr'); err.textContent = '';
+        const lay = prt.layout;
+        if (!lay) return;
+        try {
+            const r = await fetch(`${API_URL}/affectation/export/${kind}`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ html: printExportHtml(lay), wMm: lay.mmW, hMm: lay.mmH, name: 'planning-deploiements' }) });
+            if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.error || `Erreur ${r.status}`); }
+            const blob = await r.blob();
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `planning-deploiements-${todayIso()}.${kind}`;
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(() => URL.revokeObjectURL(a.href), 30000);
+        } catch (e) { err.textContent = e.message; }
     }
 
     const asg = { project: null, stage: null, selected: new Set(), needed: 0 };
@@ -1322,6 +1561,45 @@
 
     const sync = { projectId: null, stage: null, data: null };
     const planApi = {
+        openPrint() {
+            const { min, max } = planRange();
+            const list = sortedProjects();
+            const stages = [['cadrage', 'Cadrage'], ['deploiement', 'Déploiement opérationnel'], ['gel', 'Période(s) de gel'], ['mise_en_service', 'Mise en service'], ['mise_en_production', 'Mise en production'], ['visite_metier', 'Visite métier'], ['test_prerequis', 'Test des prérequis'], ['vft', 'VFT'], ['formation_relais', 'Formation « Formateurs relais »'], ['formation_utilisateurs', 'Formation « Utilisateurs »'], ['accompagnement', 'Accompagnement']];
+            document.getElementById('affPrintCtl').innerHTML = `
+                <div class="g"><label class="lbl" for="prTitle">Titre</label><input id="prTitle" type="text" value="Planning des déploiements de SAMU"></div>
+                <div class="g two"><div><label class="lbl" for="prFrom">Début</label><input id="prFrom" type="date" value="${min}"></div><div><label class="lbl" for="prTo">Fin</label><input id="prTo" type="date" value="${max}"></div></div>
+                <div class="g"><label class="lbl" for="prZoom">Échelle de temps</label><select id="prZoom">${[['day', 'Jours'], ['week', 'Semaines'], ['month', 'Mois'], ['quarter', 'Trimestres'], ['year', 'Années']].map(z => `<option value="${z[0]}" ${z[0] === plan.zoom ? 'selected' : ''}>${z[1]}</option>`).join('')}</select></div>
+                <div class="g two"><div><label class="lbl" for="prPaper">Papier</label><select id="prPaper"><option value="A4">A4</option><option value="A3">A3</option></select></div>
+                <div><label class="lbl" for="prOrient">Orientation</label><select id="prOrient"><option value="landscape">Paysage</option><option value="portrait">Portrait</option></select></div></div>
+                <div class="g"><label class="lbl" for="prFit">Largeur</label><select id="prFit"><option value="split">Répartir sur plusieurs pages (colonnes lisibles)</option><option value="fit">Tout sur une page en largeur</option></select></div>
+                <div class="g"><label class="chk"><input type="checkbox" id="prLegend" checked> Afficher la légende</label></div>
+                <div class="g"><label class="lbl">Rubriques affichées</label><div class="box" id="prStages">${stages.map(s => `<label class="chk"><input type="checkbox" value="${s[0]}" ${hiddenKeys.has(s[0]) ? '' : 'checked'}> ${s[1]}</label>`).join('')}</div></div>
+                <div class="g"><label class="lbl">SAMU à inclure <a href="#" onclick="document.querySelectorAll('#prSamu input').forEach(i=>i.checked=true);AffectationApp.printUpdate();return false;" style="font-weight:400;">tous</a> · <a href="#" onclick="document.querySelectorAll('#prSamu input').forEach(i=>i.checked=false);AffectationApp.printUpdate();return false;" style="font-weight:400;">aucun</a></label>
+                    <div class="box" id="prSamu" style="max-height:220px;">${list.map(p => `<label class="chk"><input type="checkbox" value="${p.id}" checked> ${esc(p.samu_name)}</label>`).join('')}</div></div>`;
+            document.getElementById('affPrintCtl').oninput = document.getElementById('affPrintCtl').onchange = () => AffectationApp.printUpdate();
+            document.getElementById('affPrintModal').classList.add('active');
+            setTimeout(printRefresh, 50);
+        },
+        printUpdate() { clearTimeout(prt.timer); prt.timer = setTimeout(printRefresh, 300); },
+        printClose() { document.getElementById('affPrintModal').classList.remove('active'); document.getElementById('affPrintPreview').innerHTML = ''; prt.layout = null; },
+        async printDo(kind) {
+            if (!prt.layout) return;
+            if (kind === 'print') {
+                const f = document.createElement('iframe');
+                f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+                document.body.appendChild(f);
+                f.contentDocument.open(); f.contentDocument.write(printExportHtml(prt.layout)); f.contentDocument.close();
+                setTimeout(() => { f.contentWindow.focus(); f.contentWindow.print(); setTimeout(() => f.remove(), 60000); }, 500);
+            } else {
+                const btns = [...document.querySelectorAll('#affPrintModal .aff-modal-foot button')];
+                btns.forEach(b => { b.disabled = true; });
+                document.getElementById('affPrintErr').style.color = '#4a5b70';
+                document.getElementById('affPrintErr').textContent = 'Génération du fichier…';
+                await printDownload(kind);
+                btns.forEach(b => { b.disabled = false; });
+                const e = document.getElementById('affPrintErr'); e.style.color = ''; if (e.textContent === 'Génération du fichier…') e.textContent = '';
+            }
+        },
         async openSync(projectId, stageKey, auto) {
             sync.projectId = projectId || asg.project.id; sync.stage = stageKey || asg.stage;
             const err = document.getElementById('affSyncError'); err.textContent = '';
