@@ -1404,7 +1404,8 @@
             const base = buildColumns(o.zoom, o.from, o.to, { print: true, noToday: true });
             const n = base.cols.length;
             const perPage = o.fit === 'fit' ? n : Math.max(1, Math.floor((contentW - samW) / colWBase));
-            const colW = o.fit === 'fit' ? Math.max(1, (contentW - samW) / n) : colWBase;
+            // « Tout sur une page » comprime ; en mode réparti, un planning plus étroit que la page est étalé sur toute la largeur
+            const colW = (o.fit === 'fit' || n <= perPage) ? Math.max(1, (contentW - samW) / n) : colWBase;
             const fs = Math.max(5.5, Math.min(10, colW * 0.4));
             const colPages = [];
             for (let a = 0; a < n; a += perPage) {
