@@ -485,6 +485,7 @@ tr:nth-child(even) td { background: #f9f9f9; }
     <li><strong>Connexion directe</strong> (carte <em>Connexion Asana</em> de l'onglet Administration, une fois le jeton configuré) : la liste des projets Asana du périmètre s'affiche, chacun <strong>apparié automatiquement</strong> au déploiement du même numéro de SAMU. Une liste déroulante permet de forcer un autre déploiement ou d'<em>ignorer</em> un projet. <strong>Tout analyser</strong> compare chaque projet à son déploiement sans rien écrire (« à jour » ou « n à mettre à jour ») ; <strong>Récupérer</strong> ouvre l'aperçu.</li>
     <li><strong>Import d'un fichier CSV</strong> (bouton <em>Importer depuis Asana</em>) : dans Asana, menu du projet › Exporter › CSV (avec tous les champs personnalisés), puis chargez le fichier. Utile sans jeton ni accès réseau.</li>
   </ul>
+  <p>Avec la connexion directe, un <strong>champ de filtre par mot clé</strong> réduit la liste des projets (sans tenir compte des accents ni de la casse ; plusieurs mots sont tous requis, par exemple « sf4 25 »). Une case à cocher par projet, et une case d'en-tête pour tout cocher ou décocher parmi les projets affichés, permettent l'<strong>import en masse</strong> : <strong>Importer la sélection (n)</strong> traite les projets cochés l'un après l'autre et applique, pour chacun, toutes les rubriques nouvelles ou modifiées (le déploiement est créé s'il n'existe pas). Le résultat s'affiche sur chaque ligne (<em>créé</em>, <em>mis à jour</em>, <em>déjà à jour</em> ou <em>erreur</em>) avec une synthèse ; une erreur n'arrête pas les projets suivants. Pour un premier essai, importez d'abord un ou deux projets et contrôlez les dates.</p>
   <p>Dans les deux cas, un <strong>aperçu</strong> précède toute écriture : pour chaque rubrique, la valeur actuelle, la valeur Asana et l'état (<em>Nouveau</em>, <em>Modifié</em>, <em>Identique</em>, <em>Non importé</em> avec la raison). Vous cochez les lignes à appliquer.</p>
   <table>
     <thead><tr><th>Rubrique de l'application</th><th>Tâche Asana utilisée</th></tr></thead>
@@ -508,8 +509,10 @@ tr:nth-child(even) td { background: #f9f9f9; }
     <li>Le début du projet est ramené à la plus ancienne date si une autre date le précède.</li>
   </ul>
 
-  <h3>Couleurs des rubriques</h3>
-  <p>Chaque phase, jalon et étape possède une <strong>couleur globale</strong>, commune à tous les projets, modifiable dans la zone « Couleurs ». Elle s'applique à la légende et au planning. Le bouton de réinitialisation rétablit les couleurs d'origine.</p>
+  <div class="note">Dans l'onglet Administration, chaque <strong>rubrique est repliable</strong> : un clic sur son en-tête la replie ou la déplie, et le choix est mémorisé.</div>
+
+  <h3>Couleurs et motifs des rubriques</h3>
+  <p>La rubrique <strong>Paramétrer la couleur des étapes</strong> définit, pour chaque phase, jalon et étape, une <strong>couleur</strong> et un <strong>motif</strong> communs à tous les projets : Uni, Rayures, Rayures inversées, Chevrons, Quadrillage, Pois, Croisillons, Lignes horizontales, Lignes verticales ou Zigzag. Une pastille d'aperçu montre le résultat tout de suite. Couleur et motif s'appliquent à la légende et aux barres du planning ; le motif est tracé en clair sur une couleur foncée et en foncé sur une couleur claire. « Couleurs par défaut » rétablit les couleurs d'origine (toutes les étapes unies, la période de gel restant hachurée).</p>
 
   <h3>Onglet Planning des déploiements</h3>
   <p>Une ligne par SAMU, un calendrier en colonnes. Trois échelles : <strong>Jour</strong> (par défaut), <strong>Semaine</strong> et <strong>Mois</strong>. L'en-tête affiche, du plus grand au plus petit : <strong>année</strong>, <strong>mois</strong>, <strong>semaine</strong>, <strong>numéro du jour</strong> et <strong>jour de la semaine</strong>. Le bouton <strong>Aujourd'hui</strong> recentre sur la date du jour ; weekends et jour courant sont colorés.</p>
@@ -519,6 +522,33 @@ tr:nth-child(even) td { background: #f9f9f9; }
     <li><strong>Légende filtrable</strong> — en haut, la légende donne la signification des couleurs ; cliquer sur une rubrique la <strong>masque ou l'affiche</strong> dans tout le planning. La pastille <em>SAMU déjà en service</em> masque les SAMU dont la mise en service est passée. Les choix sont mémorisés.</li>
     <li><strong>Tri</strong> — « Trier par » SAMU, Chef de projet ou Mise en service ; un second clic inverse l'ordre (▲ ▼). Les lignes sans valeur restent en bas.</li>
     <li><strong>Infobulles</strong> — au survol d'une barre : étape, dates, nombre de ressources affectées sur prévues <strong>et noms des personnes affectées</strong>.</li>
+  </ul>
+
+  <h3>Historique d'un déploiement</h3>
+  <p>Chaque ligne de déploiement de l'onglet Administration porte un bouton <strong>loupe</strong> qui ouvre l'<strong>historique</strong> : <em>qui</em>, <em>quand</em> et <em>quoi</em>, du plus récent au plus ancien. Chaque événement indique l'utilisateur, la date et l'heure, le type d'action (pastille de couleur) et le détail champ par champ, l'ancienne valeur barrée en rouge et la nouvelle en vert.</p>
+  <ul>
+    <li><strong>Création</strong> et <strong>modification</strong> du déploiement : SAMU, chef de projet, début, mise en service, mise en production, chaque période (dates et nombre de ressources). Un enregistrement sans changement n'est pas consigné.</li>
+    <li><strong>Affectation de ressources</strong> : « Visite métier — ressources : A, B → B ».</li>
+    <li><strong>Import Asana</strong> (fichier CSV ou API) : projet Asana d'origine et rubriques modifiées.</li>
+    <li><strong>Report vers la planification et les événements</strong> : nombre de demi-journées renseignées, événement créé ou complété.</li>
+    <li><strong>Suppression</strong> du déploiement (l'historique reste conservé en base).</li>
+  </ul>
+  <div class="note">L'historique démarre à la mise en service de la fonction. Les modifications faites directement dans la planification des experts ou dans les événements n'y figurent pas.</div>
+
+  <h3>Imprimer et exporter le planning</h3>
+  <p>Le bouton <strong>Imprimer / Exporter</strong> de la barre du planning ouvre une fenêtre de mise en page avec un <strong>aperçu fidèle</strong> (ce que vous voyez est ce qui sera imprimé ou exporté) :</p>
+  <ul>
+    <li><strong>Période</strong> : date de début et de fin.</li>
+    <li><strong>Échelle de temps</strong> : jours, semaines, mois, trimestres ou années.</li>
+    <li><strong>Papier</strong> : A4 ou A3, en portrait ou en paysage.</li>
+    <li><strong>Largeur</strong> : « Répartir sur plusieurs pages » garde des colonnes lisibles ; « Tout sur une page en largeur » comprime l'ensemble (un avertissement signale une échelle trop fine).</li>
+    <li><strong>Contenu</strong> : titre modifiable, légende, rubriques affichées et SAMU inclus (cases à cocher, « tous » / « aucun »).</li>
+  </ul>
+  <p>Les lignes sont réparties sur les pages d'après leur hauteur réelle ; chaque page porte le titre, la période, l'échelle, la date d'édition et la numérotation (« colonnes 1/2 · SAMU 2/3 », « Page n / N »).</p>
+  <ul>
+    <li><strong>Imprimer</strong> : envoie les pages à l'impression du navigateur.</li>
+    <li><strong>Exporter en PDF</strong> : fichier généré par le serveur à partir de la même mise en page.</li>
+    <li><strong>Exporter en PowerPoint</strong> : une diapositive par page, sous forme d'image haute résolution (diapositives non modifiables).</li>
   </ul>
 
   <h3>Affecter des ressources à une étape</h3>
@@ -601,11 +631,27 @@ tr:nth-child(even) td { background: #f9f9f9; }
   <h2>🆕 Notes de version</h2>
   <p>Historique des évolutions de la Plateforme de Planification ANS.</p>
 
+  <!-- v1.16.85 -->
+  <div class="card card-green" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v1.16.85</strong>
+      <span class="badge badge-current">Actuelle</span>
+      <span style="color:#888; font-size:13px;">Octobre 2026</span>
+    </div>
+    <ul>
+      <li>🔎 <strong>Historique de chaque déploiement SAMU</strong> : bouton loupe sur chaque ligne ; qui, quand et quoi (création, modification, affectations, import Asana, report planification, suppression), avec l'ancienne et la nouvelle valeur.</li>
+      <li>🖨️ <strong>Impression et export du planning</strong> (PDF, PowerPoint) avec mise en page WYSIWYG : période, échelle jour / semaine / mois / trimestre / année, A4 ou A3, pagination automatique, choix des SAMU et des rubriques.</li>
+      <li>🎨 <strong>Motifs en plus des couleurs</strong> pour chaque étape (rayures, chevrons, quadrillage, pois…), appliqués à la légende et au planning ; l'écran devient « Paramétrer la couleur des étapes ».</li>
+      <li>📦 <strong>Asana</strong> : filtre par mot clé des projets et <strong>import en masse</strong> par cases à cocher.</li>
+      <li>🗂️ <strong>Administration</strong> de l'aide à l'affectation : rubriques repliables ; correction de l'affichage des repères de projet sur la colonne SAMU.</li>
+    </ul>
+    <p style="font-size:12px; color:#888; margin-top:8px;">Au déploiement : redémarrage du serveur requis ; l'export PDF / PowerPoint nécessite Chromium sur le serveur (présent dans l'image Docker).</p>
+  </div>
+
   <!-- v1.16.81 -->
   <div class="card card-green" style="margin-bottom:16px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
       <strong style="font-size:16px;">v1.16.81</strong>
-      <span class="badge badge-current">Actuelle</span>
       <span style="color:#888; font-size:13px;">Octobre 2026</span>
     </div>
     <ul>
