@@ -63,6 +63,14 @@
         .aff-print-ctl .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         .aff-print-preview { flex: 1; overflow: auto; padding: 14px; }
         .aff-print-preview .pw { margin: 0 auto 14px; box-shadow: 0 2px 10px rgba(0,0,0,.25); background: #fff; }
+        .aff-hist-item { border: 1px solid #e6ebf3; border-left: 4px solid #6b7a8d; border-radius: 10px; padding: 10px 14px; margin-bottom: 10px; background: #fff; }
+        .aff-hist-item .top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 6px; }
+        .aff-hist-item .who { font-weight: 700; color: #1f2d3d; }
+        .aff-hist-item .when { color: #6b7a8d; font-size: 12px; margin-left: auto; }
+        .aff-hist-item ul { margin: 4px 0 0; padding-left: 18px; font-size: 13px; }
+        .aff-hist-item li { line-height: 1.7; }
+        .aff-hist-item .from { color: #b3261e; text-decoration: line-through; } .aff-hist-item .to { color: #167a45; font-weight: 600; }
+        .aff-hist-tag { font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px; color: #fff; }
         .aff-card-head.aff-fold { cursor: pointer; user-select: none; }
         .aff-fold-chev { display: inline-flex; width: 22px; height: 22px; align-items: center; justify-content: center; margin-right: 4px; transition: transform .15s; color: #0f4c5c; }
         .aff-card.folded .aff-fold-chev { transform: rotate(-90deg); }
@@ -333,6 +341,17 @@
                 <button type="button" class="aff-btn" onclick="AffectationApp.closeAssign()">Annuler</button>
                 <button type="button" class="aff-btn aff-btn-primary" onclick="AffectationApp.saveAssign()">${svg('save', 'aff-ico-sm')}Enregistrer</button>
             </div>
+        </div>
+    </div>
+
+    <div class="modal" id="affHistModal">
+        <div class="modal-content" style="max-width:860px; width:96%; max-height:92vh; overflow-y:auto; padding:0;">
+            <div class="aff-modal-head">
+                <span id="affHistTitle" class="aff-card-title">${svg('search', 'aff-ico')}Historique</span>
+                <button type="button" class="aff-x" onclick="AffectationApp.historyClose()" aria-label="Fermer">${svg('x', 'aff-ico-sm')}</button>
+            </div>
+            <div id="affHistBody" class="aff-modal-body"></div>
+            <div class="aff-modal-foot"><button type="button" class="aff-btn" onclick="AffectationApp.historyClose()">Fermer</button></div>
         </div>
     </div>
 
@@ -611,6 +630,7 @@
                 </div>
                 <div>${timeline(p)}</div>
                 <div class="aff-row-actions">
+                    <button type="button" class="aff-icon-btn" style="background:#6b7a8d" title="Historique : qui a modifié quoi et quand" onclick="AffectationApp.showHistory(${p.id})">${svg('search', 'aff-ico-sm')}</button>
                     <button type="button" class="aff-icon-btn" style="background:#3498db" title="Modifier les dates" onclick="AffectationApp.editProject(${p.id})">${svg('pencil', 'aff-ico-sm')}</button>
                     <button type="button" class="aff-icon-btn" style="background:#D60B51" title="Supprimer ce déploiement" onclick="AffectationApp.deleteProject(${p.id})">${svg('trash', 'aff-ico-sm')}</button>
                 </div>
@@ -1560,7 +1580,31 @@
     document.addEventListener('keydown', e => { if (e.key === 'Escape') dpClose(); if (e.key === 'Enter' && dpTarget(e)) { e.preventDefault(); dpOpen(e.target); } });
 
     const sync = { projectId: null, stage: null, data: null };
+    const HIST_ACTIONS = {
+        creation: ['Création du déploiement', '#2e7d32'], modification: ['Modification', '#1976d2'], suppression: ['Suppression', '#b3261e'],
+        affectation: ['Affectation de ressources', '#7e57c2'], synchro: ['Report planification / événements', '#00897b'],
+        import_asana_csv: ['Import Asana (fichier CSV)', '#e65100'], import_asana_api: ['Récupération Asana (API)', '#e65100']
+    };
     const planApi = {
+        async showHistory(projectId) {
+            const body = document.getElementById('affHistBody');
+            const p = (state.projects || []).find(x => x.id === projectId) || (plan.projects || []).find(x => x.id === projectId);
+            document.getElementById('affHistTitle').innerHTML = `${svg('search', 'aff-ico')}Historique${p ? ' — ' + esc(p.samu_name) : ''}`;
+            body.innerHTML = '<p class="aff-muted">Chargement…</p>';
+            document.getElementById('affHistModal').classList.add('active');
+            try {
+                const d = await api(`/affectation/projects/${projectId}/history`);
+                if (!d.history.length) { body.innerHTML = '<p class="aff-muted">Aucun événement enregistré pour ce déploiement (l\'historique démarre à la mise en service de cette fonction).</p>'; return; }
+                const when = at => { const dt = new Date(String(at).replace(' ', 'T') + 'Z'); return dt.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'medium' }); };
+                body.innerHTML = `<p class="aff-muted" style="margin:0 0 10px;">${d.history.length} événement(s), du plus récent au plus ancien.</p>` + d.history.map(h => {
+                    const a = HIST_ACTIONS[h.action] || [h.action, '#6b7a8d'];
+                    return `<div class="aff-hist-item" style="border-left-color:${a[1]};"><div class="top"><span class="aff-hist-tag" style="background:${a[1]};">${esc(a[0])}</span><span class="who">${esc(h.user)}</span><span class="when">${when(h.at)}</span></div>
+                        ${h.note ? `<div class="aff-muted" style="font-size:12px;">${esc(h.note)}</div>` : ''}
+                        ${h.changes.length ? `<ul>${h.changes.map(c => `<li><b>${esc(c.label)}</b> : <span class="from">${esc(c.from)}</span> → <span class="to">${esc(c.to)}</span></li>`).join('')}</ul>` : ''}</div>`;
+                }).join('');
+            } catch (e) { body.innerHTML = `<p class="aff-error">${esc(e.message)}</p>`; }
+        },
+        historyClose() { document.getElementById('affHistModal').classList.remove('active'); },
         openPrint() {
             const { min, max } = planRange();
             const list = sortedProjects();

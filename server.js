@@ -1415,6 +1415,19 @@ function initDB() {
                 )
             `, (tblErr) => { if (tblErr) console.error('Erreur création table affectation_projects:', tblErr); });
             database.run(`
+                CREATE TABLE IF NOT EXISTS affectation_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    project_id INTEGER NOT NULL,
+                    samu_name TEXT,
+                    user_id INTEGER,
+                    user_name TEXT,
+                    action TEXT NOT NULL,
+                    details TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            `, (tblErr) => { if (tblErr) console.error('Erreur création table affectation_history:', tblErr); });
+            database.run(`CREATE INDEX IF NOT EXISTS idx_aff_hist_project ON affectation_history (project_id, id)`);
+            database.run(`
                 CREATE TABLE IF NOT EXISTS affectation_assignments (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     project_id INTEGER NOT NULL,
@@ -3835,7 +3848,7 @@ app.put('/api/affectation/projects/:id/assignments/:stage', requireAffectationAc
     if (!stage) return res.status(400).json({ error: 'Étape sans ressources à affecter' });
     const ids = [...new Set((Array.isArray(req.body && req.body.resource_ids) ? req.body.resource_ids : []).map(Number))];
     if (ids.some(n => !Number.isInteger(n) || n <= 0)) return res.status(400).json({ error: 'Ressources invalides' });
-    database.get('SELECT periods FROM affectation_projects WHERE id = ?', [projectId], (err, row) => {
+    database.get('SELECT samu_name, periods FROM affectation_projects WHERE id = ?', [projectId], (err, row) => {
         if (err) return res.status(500).json({ error: err.message });
         if (!row) return res.status(404).json({ error: 'Projet introuvable' });
         let periods = {};
@@ -3843,14 +3856,20 @@ app.put('/api/affectation/projects/:id/assignments/:stage', requireAffectationAc
         const needed = periods[stage.key] && periods[stage.key][0] ? periods[stage.key][0].needed : 0;
         if (!needed) return res.status(400).json({ error: 'Cette étape n\'a pas de nombre de ressources défini' });
         if (ids.length > needed) return res.status(400).json({ error: `${stage.label} : ${needed} ressource(s) maximum` });
-        const save = () => {
+        const save = async () => {
+            const beforeIds = (await dbAll('SELECT resource_id FROM affectation_assignments WHERE project_id = ? AND stage_key = ? ORDER BY id', [projectId, stage.key])).map(x => x.resource_id);
             database.serialize(() => {
                 database.run('DELETE FROM affectation_assignments WHERE project_id = ? AND stage_key = ?', [projectId, stage.key]);
                 const stmt = database.prepare('INSERT INTO affectation_assignments (project_id, stage_key, resource_id) VALUES (?,?,?)');
                 ids.forEach(rid => stmt.run(projectId, stage.key, rid));
-                stmt.finalize(e => {
+                stmt.finalize(async e => {
                     if (e) return res.status(500).json({ error: e.message });
                     logUserAction(req, 'Affectation de ressources (déploiement SAMU)', { projectId, stage: stage.key, resources: ids });
+                    const all = [...new Set([...beforeIds, ...ids])];
+                    const names = {};
+                    if (all.length) (await dbAll(`SELECT id, nom, prenom FROM resources WHERE id IN (${all.map(() => '?').join(',')})`, all)).forEach(r => { names[r.id] = `${r.prenom || ''} ${(r.nom || '').toUpperCase()}`.trim(); });
+                    const list = a => a.map(i => names[i] || `#${i}`).join(', ') || '—';
+                    if (list(beforeIds) !== list(ids)) await affHist(req, projectId, row.samu_name, 'affectation', { changes: [{ label: `${stage.label} — ressources`, from: list(beforeIds), to: list(ids) }] });
                     res.json({ resource_ids: ids });
                 });
             });
@@ -4040,6 +4059,11 @@ app.post('/api/affectation/projects/:id/sync/:stage', requireAdmin, async (req, 
             result.event = { id: eventId, created: !c.event.existing, participants: users.length };
         }
         logUserAction(req, 'Synchronisation affectation déploiement SAMU', { projectId: c.proj.id, stage: req.params.stage, ...result });
+        const stLabel = AFF_STAGES.find(x => x.key === req.params.stage).label;
+        const ch = [];
+        if (result.planning) ch.push({ label: `${stLabel} — planification des experts`, from: '—', to: `${result.planning} demi-journée(s) renseignée(s)` });
+        if (result.event) ch.push({ label: `${stLabel} — événement`, from: '—', to: `${result.event.created ? 'créé' : 'complété'} (n° ${result.event.id}, ${result.event.participants} participant(s))` });
+        if (ch.length) await affHist(req, c.proj.id, c.proj.samu_name, 'synchro', { changes: ch });
         res.json(result);
     } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
 });
@@ -4051,32 +4075,77 @@ app.get('/api/affectation/projects', requireAffectationAccess, (req, res) => {
     });
 });
 
+// ---- Historique des déploiements : qui, quand, quoi ----
+const affFd = d => d ? String(d).split('-').reverse().join('/') : '—';
+const affFp = p => p ? `${affFd(p.start)} → ${affFd(p.end)}${p.needed ? ` (${p.needed} ressource${p.needed > 1 ? 's' : ''})` : ''}` : '—';
+function affValuesOfRow(r) {
+    let periods = {};
+    try { periods = r.periodsObj || JSON.parse(r.periods || '{}'); } catch (e) { periods = {}; }
+    return { samu_name: r.samu_name, chef_projet_id: r.chef_projet_id, date_debut: r.date_debut, date_mise_en_service: r.date_mise_en_service, date_mise_en_production: r.date_mise_en_production, periods };
+}
+// Différences entre deux états d'un déploiement (avant peut être null à la création)
+async function affDiff(before, after) {
+    const ch = [];
+    const push = (label, from, to) => { if (String(from) !== String(to)) ch.push({ label, from: String(from), to: String(to) }); };
+    const nameOf = async id => { if (!id) return '—'; const u = await dbGet('SELECT nom, prenom FROM users WHERE id = ?', [id]); return u ? `${u.prenom} ${u.nom}` : `#${id}`; };
+    push('Nom du SAMU', before ? before.samu_name : '—', after.samu_name);
+    push('Chef de projet', await nameOf(before && before.chef_projet_id), await nameOf(after.chef_projet_id));
+    push('Début du projet', affFd(before && before.date_debut), affFd(after.date_debut));
+    push('Mise en service', affFd(before && before.date_mise_en_service), affFd(after.date_mise_en_service));
+    push('Mise en production', affFd(before && before.date_mise_en_production), affFd(after.date_mise_en_production));
+    for (const k of AFF_PERIOD_KEYS) {
+        const f = list => ((list || []).map(affFp).join(' ; ')) || '—';
+        push(AFF_STAGES.find(x => x.key === k).label, f(before && before.periods && before.periods[k]), f(after.periods && after.periods[k]));
+    }
+    return ch;
+}
+async function affHist(req, projectId, samuName, action, details) {
+    try {
+        const sess = (req && req.session) || {};
+        const who = `${sess.prenom || ''} ${sess.nom || ''}`.trim() || sess.username || 'Utilisateur';
+        await dbRun('INSERT INTO affectation_history (project_id, samu_name, user_id, user_name, action, details) VALUES (?,?,?,?,?,?)', [projectId, samuName || '', sess.userId || null, who, action, JSON.stringify(details || {})]);
+    } catch (e) { console.error('Historique du déploiement :', e.message); }
+}
+
 function affSaveProject(req, res, id) {
     const r = sanitizeAffProject(req.body);
     if (r.error) return res.status(400).json({ error: r.error });
     const v = r.value;
+    let beforeVals = null;
     const done = (err, newId) => {
         if (err) return res.status(500).json({ error: err.message });
         affReconcileAssignments(newId, v.periods, () => {
-            database.get(`${AFF_SELECT} WHERE p.id = ?`, [newId], (e, row) => {
+            database.get(`${AFF_SELECT} WHERE p.id = ?`, [newId], async (e, row) => {
                 if (e || !row) return res.status(500).json({ error: e ? e.message : 'Projet introuvable' });
                 logUserAction(req, id ? 'Modification déploiement SAMU' : 'Création déploiement SAMU', { id: newId, samu: v.samu_name });
+                const changes = await affDiff(beforeVals, v);
+                if (!id || changes.length) await affHist(req, newId, v.samu_name, id ? 'modification' : 'creation', { changes });
                 affLoadAssignments(map => res.json(affRowToJson(row, map)));
             });
         });
     };
     const fields = [v.samu_name, v.location_id, v.chef_projet_id, v.date_debut, v.date_mise_en_service, v.date_mise_en_production, JSON.stringify(v.periods)];
-    if (id) {
-        database.run(`UPDATE affectation_projects SET samu_name=?, location_id=?, chef_projet_id=?, date_debut=?, date_mise_en_service=?, date_mise_en_production=?, periods=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`,
-            [...fields, id], function (err) {
-                if (!err && this.changes === 0) return res.status(404).json({ error: 'Projet introuvable' });
-                done(err, id);
-            });
-    } else {
-        database.run(`INSERT INTO affectation_projects (samu_name, location_id, chef_projet_id, date_debut, date_mise_en_service, date_mise_en_production, periods, created_by) VALUES (?,?,?,?,?,?,?,?)`,
-            [...fields, req.session.userId], function (err) { done(err, this && this.lastID); });
-    }
+    const run = () => {
+        if (id) {
+            database.run(`UPDATE affectation_projects SET samu_name=?, location_id=?, chef_projet_id=?, date_debut=?, date_mise_en_service=?, date_mise_en_production=?, periods=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`,
+                [...fields, id], function (err) {
+                    if (!err && this.changes === 0) return res.status(404).json({ error: 'Projet introuvable' });
+                    done(err, id);
+                });
+        } else {
+            database.run(`INSERT INTO affectation_projects (samu_name, location_id, chef_projet_id, date_debut, date_mise_en_service, date_mise_en_production, periods, created_by) VALUES (?,?,?,?,?,?,?,?)`,
+                [...fields, req.session.userId], function (err) { done(err, this && this.lastID); });
+        }
+    };
+    if (!id) return run();
+    database.get('SELECT * FROM affectation_projects WHERE id = ?', [id], (e, old) => { if (old) beforeVals = affValuesOfRow(old); run(); });
 }
+app.get('/api/affectation/projects/:id/history', requireAffectationAccess, async (req, res) => {
+    try {
+        const rows = await dbAll('SELECT id, samu_name, user_name, action, details, created_at FROM affectation_history WHERE project_id = ? ORDER BY id DESC LIMIT 500', [Number(req.params.id)]);
+        res.json({ history: rows.map(r => { let d = {}; try { d = JSON.parse(r.details || '{}'); } catch (e) { d = {}; } return { id: r.id, user: r.user_name, action: r.action, at: r.created_at, changes: d.changes || [], note: d.note || '' }; }) });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
 app.post('/api/affectation/projects', requireAdmin, (req, res) => affSaveProject(req, res, null));
 app.put('/api/affectation/projects/:id', requireAdmin, (req, res) => affSaveProject(req, res, Number(req.params.id)));
 // ---- Import depuis Asana (export CSV d'un projet de déploiement) ----
@@ -4222,7 +4291,7 @@ async function asanaPreviewPayload(c, forcedId) {
     };
 }
 
-async function asanaApplyCore(req, c, wantList, forcedId) {
+async function asanaApplyCore(req, c, wantList, forcedId, source) {
     const want = new Set((Array.isArray(wantList) ? wantList : []).filter(k => ASANA_KEYS.includes(k)));
     if (!want.size) throw Object.assign(new Error('Aucune ligne sélectionnée'), { status: 400 });
     const { loc, existing } = await asanaMatch(c.samuNo, forcedId);
@@ -4258,6 +4327,8 @@ async function asanaApplyCore(req, c, wantList, forcedId) {
         id = ins.lastID;
     }
     await new Promise(resolve => affReconcileAssignments(id, v.periods, resolve));
+    const changes = await affDiff(existing ? affValuesOfRow(existing) : null, v);
+    if (changes.length) await affHist(req, id, v.samu_name, source === 'api' ? 'import_asana_api' : 'import_asana_csv', { changes, note: c.projectName ? `Projet Asana « ${c.projectName.trim()} »` : '' });
     logUserAction(req, 'Import Asana dans un déploiement SAMU', { id, samu: v.samu_name, appliquees: [...want] });
     return { success: true, id, created: !existing, samu_name: v.samu_name, date_debut: v.date_debut, debutAjuste: !!debutAvant && debutAvant !== v.date_debut };
 }
@@ -4274,7 +4345,7 @@ app.post('/api/affectation/import/asana-csv/apply', requireAdmin, async (req, re
     try {
         const c = asanaCompute(req.body && req.body.csv, req.body && req.body.formationTarget);
         if (!c.samuNo) return res.status(400).json({ error: "Impossible d'identifier le SAMU" });
-        res.json(await asanaApplyCore(req, c, req.body.apply));
+        res.json(await asanaApplyCore(req, c, req.body.apply, null, 'csv'));
     } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
 });
 
@@ -4443,7 +4514,7 @@ app.post('/api/affectation/asana/apply', requireAdmin, async (req, res) => {
             keys = pv.rows.filter(r => r.status === 'nouveau' || r.status === 'modifié').map(r => r.key);
             if (!keys.length) return res.json({ success: true, unchanged: true, samu_name: pv.samuName });
         }
-        res.json(await asanaApplyCore(req, c, keys, forced));
+        res.json(await asanaApplyCore(req, c, keys, forced, 'api'));
     } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
 });
 
@@ -4502,12 +4573,16 @@ app.post('/api/affectation/export/pptx', requireAffectationAccess, async (req, r
 });
 
 app.delete('/api/affectation/projects/:id', requireAdmin, (req, res) => {
-    database.run('DELETE FROM affectation_projects WHERE id = ?', [Number(req.params.id)], function (err) {
-        if (err) return res.status(500).json({ error: err.message });
-        if (this.changes === 0) return res.status(404).json({ error: 'Projet introuvable' });
-        database.run('DELETE FROM affectation_assignments WHERE project_id = ?', [Number(req.params.id)]);
-        logUserAction(req, 'Suppression déploiement SAMU', { id: Number(req.params.id) });
-        res.json({ success: true });
+    const pid = Number(req.params.id);
+    database.get('SELECT * FROM affectation_projects WHERE id = ?', [pid], (e0, old) => {
+        database.run('DELETE FROM affectation_projects WHERE id = ?', [pid], async function (err) {
+            if (err) return res.status(500).json({ error: err.message });
+            if (this.changes === 0) return res.status(404).json({ error: 'Projet introuvable' });
+            database.run('DELETE FROM affectation_assignments WHERE project_id = ?', [pid]);
+            logUserAction(req, 'Suppression déploiement SAMU', { id: pid });
+            await affHist(req, pid, old && old.samu_name, 'suppression', { changes: [{ label: 'Déploiement', from: old ? `${old.samu_name} (début ${affFd(old.date_debut)})` : '—', to: 'supprimé' }] });
+            res.json({ success: true });
+        });
     });
 });
 
