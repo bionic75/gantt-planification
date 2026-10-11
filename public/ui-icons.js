@@ -156,6 +156,20 @@
         nodes.forEach(convert);
     }
 
+    // Icône sous forme d'image (data URI) : utilisable en arrière-plan CSS, par exemple dans les <option> d'une liste
+    function svgDataUrl(inner, color) {
+        const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="' + (color || '#455a64') + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + inner + '</svg>';
+        return 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '")';
+    }
+    window.UIIconsApi = {
+        urlForEmoji(token, fallbackColor) {
+            const entry = MAP[String(token).codePointAt(0)];
+            return entry ? svgDataUrl(I[entry[0]], entry[1] || fallbackColor) : null;
+        },
+        urlForSvg: svgDataUrl,
+        urlForName(name, color) { return I[name] ? svgDataUrl(I[name], color) : null; }
+    };
+
     // ---- Infobulles : un attribut title ne peut pas afficher d'icône SVG, on affiche une bulle personnalisée ----
     const escHtml = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     function titleToHtml(text) {
