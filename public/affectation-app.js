@@ -670,48 +670,14 @@
             if (!box) return;
             try {
                 const c = asana.cfg = await api('/affectation/asana/config');
-                box.innerHTML = `
-                    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
-                        <div class="aff-field" style="flex:1;min-width:260px;"><label class="lbl" for="affAsanaToken">Jeton d'accès personnel ${c.tokenSet ? '<span class="aff-av-b ok">enregistré</span>' : '<span class="aff-av-b ko">non configuré</span>'}</label>
-                            <input id="affAsanaToken" type="password" autocomplete="new-password" placeholder="${c.tokenSet ? 'Laisser vide pour conserver le jeton actuel' : 'Collez ici le jeton Asana'}" style="padding:7px 9px;border:1px solid #cfd8e6;border-radius:8px;width:100%;"></div>
-                        <button type="button" class="aff-btn aff-btn-primary" onclick="AffectationApp.asanaSaveToken()">Enregistrer</button>
-                        <button type="button" class="aff-btn" onclick="AffectationApp.asanaTest()" ${c.tokenSet ? '' : 'disabled'}>Tester la connexion</button>
-                        ${c.tokenSet ? '<button type="button" class="aff-btn" onclick="AffectationApp.asanaDeleteToken()">Supprimer le jeton</button>' : ''}
-                    </div>
-                    <div id="affAsanaWs" style="margin-top:10px;">${c.workspaceName ? `Espace de travail : <b>${esc(c.workspaceName)}</b>` : '<span class="aff-muted">Testez la connexion pour choisir l\'espace de travail.</span>'}</div>
-                    <div id="affAsanaMsg" style="margin-top:6px;font-size:12px;"></div>`;
-                if (c.tokenSet && c.workspaceGid) adminApi.asanaLoadProjects();
-                else document.getElementById('affAsanaProjects').innerHTML = '';
+                if (!c.tokenSet || !c.workspaceGid) {
+                    box.innerHTML = `<p class="aff-muted">La connexion Asana n'est pas encore configurée. Le jeton et l'espace de travail se saisissent dans l'application principale : <b>Administration › Gestion des API › Connexion Asana</b>.</p>`;
+                    document.getElementById('affAsanaProjects').innerHTML = '';
+                    return;
+                }
+                box.innerHTML = `<div style="font-size:13px;">Connexion : jeton enregistré · espace de travail <b>${esc(c.workspaceName)}</b> <span class="aff-muted">(géré dans l'application principale › Administration › Gestion des API)</span></div>`;
+                adminApi.asanaLoadProjects();
             } catch (e) { box.innerHTML = `<p class="aff-error">${esc(e.message)}</p>`; }
-        },
-        asanaMsg(t, ok) { const m = document.getElementById('affAsanaMsg'); if (m) { m.style.color = ok ? '#2e7d32' : '#c62828'; m.textContent = t; } },
-        async asanaSaveToken() {
-            const v = document.getElementById('affAsanaToken').value.trim();
-            if (!v) { adminApi.asanaMsg('Collez le jeton avant d\'enregistrer.', false); return; }
-            try { await api('/affectation/asana/config', { method: 'PUT', body: JSON.stringify({ token: v }) }); await adminApi.asanaLoadCfg(); adminApi.asanaMsg('Jeton enregistré (chiffré côté serveur). Testez maintenant la connexion.', true); }
-            catch (e) { adminApi.asanaMsg(e.message, false); }
-        },
-        async asanaDeleteToken() {
-            if (!confirm('Supprimer le jeton Asana enregistré ?')) return;
-            await api('/affectation/asana/token', { method: 'DELETE' });
-            await adminApi.asanaLoadCfg();
-        },
-        async asanaTest() {
-            adminApi.asanaMsg('Connexion à Asana…', true);
-            try {
-                const d = await api('/affectation/asana/test', { method: 'POST' });
-                const cur = asana.cfg && asana.cfg.workspaceGid;
-                document.getElementById('affAsanaWs').innerHTML = `Connecté en tant que <b>${esc(d.name)}</b>. Espace de travail : <select id="affAsanaWsSel" style="padding:5px 8px;border:1px solid #cfd8e6;border-radius:8px;" onchange="AffectationApp.asanaPickWs(this)">${d.workspaces.map(w => `<option value="${esc(w.gid)}" data-n="${esc(w.name)}" ${w.gid === cur ? 'selected' : ''}>${esc(w.name)}</option>`).join('')}</select>`;
-                adminApi.asanaMsg('Connexion réussie.', true);
-                if (d.workspaces.length === 1 || !cur) adminApi.asanaPickWs(document.getElementById('affAsanaWsSel'));
-            } catch (e) { adminApi.asanaMsg(e.message, false); }
-        },
-        async asanaPickWs(sel) {
-            const o = sel.options[sel.selectedIndex];
-            if (!o) return;
-            await api('/affectation/asana/config', { method: 'PUT', body: JSON.stringify({ workspaceGid: o.value, workspaceName: o.dataset.n }) });
-            asana.cfg = { ...(asana.cfg || {}), workspaceGid: o.value, workspaceName: o.dataset.n };
-            adminApi.asanaLoadProjects();
         },
         async asanaLoadProjects() {
             const box = document.getElementById('affAsanaProjects');
