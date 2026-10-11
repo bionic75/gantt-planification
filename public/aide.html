@@ -235,6 +235,10 @@ tr:nth-child(even) td { background: #f9f9f9; }
   <p>La légende du Gantt distingue trois blocs, avec la même icône que dans les cellules : <strong>Disponibilité</strong> (1 Indisponible, 2 Disponible pour l'ANS, 3 Congés), <strong>Affectation 1-4</strong> (1 Indisponible, 2 En attente d'affectation, 3 SAMU Déploiement, 4 SAMU Dev. usages) et <strong>Affectation 5-8</strong> (5 ANS Déploiement, 6 ANS Dev. usages, 7 Qualification, 8 Divers). Pour une affectation SAMU (3 ou 4), la localisation de la cellule porte le SAMU concerné (ex. « SAMU 25 »).</p>
   <div class="note">Ces données de planification sont la <strong>source de vérité</strong> : l'outil d'aide à l'affectation les lit pour savoir qui est disponible, et ne les modifie qu'avec votre validation.</div>
 
+  <h3>Recherche avancée</h3>
+  <p>La loupe ouvre la <strong>Recherche avancée</strong> : choisissez des experts, une période, puis une ou plusieurs <strong>disponibilités</strong>, <strong>affectations</strong> et <strong>localisations</strong> (choix multiples avec Ctrl / Cmd). Chaque choix est précédé de la même <strong>icône stylisée et colorée</strong> que dans la légende du Gantt (par exemple le téléphone orange pour « SAMU Déploiement » ou la fusée pour « ANS Déploiement »). Les résultats sont regroupés par expert.</p>
+  <div class="note">Les <strong>impressions</strong> (reporting disponibilités, HNO / astreintes, planning) reprennent ces icônes à leur taille normale, en couleur.</div>
+
   <h3>Carte des événements : lecture chronologique</h3>
   <p>Dans la fenêtre de cartographie des événements (onglet Événements), choisissez une <strong>date de début</strong> et une <strong>date de fin</strong>, une <strong>vitesse de défilement</strong> (durée totale de la lecture) puis cliquez sur <strong>Lecture</strong>. Les pastilles apparaissent progressivement sur la carte, de façon cumulative, au fil du temps. Vous pouvez mettre en <strong>pause</strong>, reprendre, ou déplacer le curseur de progression pour revenir à une date donnée. Les experts <strong>principaux</strong> et <strong>secondaires</strong> d'un SAMU sont distingués par deux icônes simplifiées (P et S).</p>
 
@@ -390,6 +394,21 @@ tr:nth-child(even) td { background: #f9f9f9; }
   <p>Configurez le serveur d'envoi d'emails pour les notifications automatiques (affectations, MFA, CRA). Le champ <strong>Port</strong> détermine automatiquement le mode de chiffrement : port 465 → SSL/TLS direct ; port 587 ou autre → STARTTLS.</p>
   <div class="warning">Le port 587 (STARTTLS) peut être bloqué sur certains réseaux mobiles (partage de connexion). Si l'envoi d'emails échoue avec une erreur de connexion, vérifiez que le port n'est pas filtré par l'opérateur.</div>
 
+  <h3>Gestion des API et connexion Asana</h3>
+  <p>La rubrique <strong>Gestion des API</strong> regroupe deux blocs :</p>
+  <ul>
+    <li><strong>Clés API publiques</strong> — génération de clés pour exposer les événements à des applications tierces (<code>GET /api/public/events</code> avec l'en-tête <code>X-Api-Key</code>).</li>
+    <li><strong>Connexion Asana</strong> (lecture seule) — permet à l'application d'affectation de récupérer les dates des projets de déploiement de SAMU.</li>
+  </ul>
+  <p>Pour configurer Asana :</p>
+  <ol>
+    <li>Dans Asana, ouvrez la <strong>console pour développeurs</strong> (Paramètres › Applications › « Afficher la console pour développeurs »), section <em>Jetons d'accès personnel</em>, puis <strong>Créer un nouveau jeton</strong>. Copiez-le immédiatement : Asana ne l'affiche qu'une fois.</li>
+    <li>Collez-le dans le champ <strong>Jeton d'accès personnel</strong> et cliquez sur <strong>Enregistrer</strong>. Il est <strong>chiffré sur le serveur</strong> (il n'apparaît ni en clair, ni dans un dump de la base) et n'est jamais réaffiché ; « Supprimer le jeton » l'efface.</li>
+    <li><strong>Tester la connexion</strong>, puis choisissez l'<strong>espace de travail</strong> Asana.</li>
+    <li>Le <strong>filtre sur le nom</strong> des projets (expression régulière) vaut par défaut « [SAMU xx] » : seuls les projets dont le nom contient un numéro de SAMU entre crochets sont concernés.</li>
+  </ol>
+  <div class="warning">Un jeton personnel agit avec <strong>vos droits</strong> sur Asana. Pour la production, préférez un jeton de <strong>compte de service</strong> en lecture seule. Le serveur doit pouvoir joindre <code>app.asana.com</code> (HTTPS).</div>
+
   <h3>Configuration de l'accès aux onglets</h3>
   <p>La rubrique <strong>Configuration de l'accès aux onglets</strong> remplace la visibilité autrefois fixée dans le code. Elle présente un tableau de cases à cocher : en lignes les onglets <strong>Ressources, Événements, Planification, CRA, Reporting, Administration, Astreintes</strong>, en colonnes les profils <strong>Administrateur, Utilisateur, RH, Expert métier</strong>.</p>
   <table>
@@ -459,6 +478,35 @@ tr:nth-child(even) td { background: #f9f9f9; }
     <li><strong>Le nombre de ressources nécessaires</strong> (liste de 1 à 10), obligatoire pour chaque étape utilisée.</li>
   </ul>
   <div class="note">Les oublis sont détaillés dans le bas de la fenêtre (ex. « VFT : nombre de ressources nécessaires à renseigner ») et les champs concernés sont surlignés en rouge ; la fenêtre défile jusqu'au premier.</div>
+
+  <h3>Récupérer les dates depuis Asana</h3>
+  <p>Deux façons d'alimenter un déploiement à partir d'un projet Asana de type « NEW [SAMU 25] SF4 - Déploiement » :</p>
+  <ul>
+    <li><strong>Connexion directe</strong> (carte <em>Connexion Asana</em> de l'onglet Administration, une fois le jeton configuré) : la liste des projets Asana du périmètre s'affiche, chacun <strong>apparié automatiquement</strong> au déploiement du même numéro de SAMU. Une liste déroulante permet de forcer un autre déploiement ou d'<em>ignorer</em> un projet. <strong>Tout analyser</strong> compare chaque projet à son déploiement sans rien écrire (« à jour » ou « n à mettre à jour ») ; <strong>Récupérer</strong> ouvre l'aperçu.</li>
+    <li><strong>Import d'un fichier CSV</strong> (bouton <em>Importer depuis Asana</em>) : dans Asana, menu du projet › Exporter › CSV (avec tous les champs personnalisés), puis chargez le fichier. Utile sans jeton ni accès réseau.</li>
+  </ul>
+  <p>Dans les deux cas, un <strong>aperçu</strong> précède toute écriture : pour chaque rubrique, la valeur actuelle, la valeur Asana et l'état (<em>Nouveau</em>, <em>Modifié</em>, <em>Identique</em>, <em>Non importé</em> avec la raison). Vous cochez les lignes à appliquer.</p>
+  <table>
+    <thead><tr><th>Rubrique de l'application</th><th>Tâche Asana utilisée</th></tr></thead>
+    <tbody>
+      <tr><td>Début du projet</td><td>« Démarrage projet auprès de l'ES »</td></tr>
+      <tr><td>Cadrage</td><td>du 2.5 / 2.6 / 2.7 (COPIL #1, lancement) jusqu'au 2.9 (COPIL #2 – clôture du cadrage)</td></tr>
+      <tr><td>Déploiement opérationnel</td><td>de la fin du cadrage à la mise en service</td></tr>
+      <tr><td>Mise en service / mise en production</td><td>tâches marquées <em>Phase</em> = MES / MEP (« Mise en service / en production du bandeau »)</td></tr>
+      <tr><td>Visite métier</td><td>tâches 5.1 et 5.2</td></tr>
+      <tr><td>Test des prérequis</td><td>tâche dont le nom contient « Test des prérequis » (à créer dans Asana)</td></tr>
+      <tr><td>VFT</td><td>tâche 5.9 (<em>Phase</em> = VFT)</td></tr>
+      <tr><td>Formation</td><td>tâche 6.3 « Formation au bandeau de communication » : alimente <em>Utilisateurs</em>, <em>Formateurs relais</em> ou les deux, au choix</td></tr>
+      <tr><td>Accompagnement</td><td>tâche 6.6 « Accompagnement post démarrage »</td></tr>
+    </tbody>
+  </table>
+  <ul>
+    <li>Le <strong>SAMU</strong> est lu dans le nom du projet (« [SAMU 25] ») et rapproché de l'entité « SAMU-SAS 25 ».</li>
+    <li>Une tâche parente sans date propre prend la <strong>plus petite et la plus grande date de ses sous-tâches</strong>.</li>
+    <li>Une donnée <strong>absente ou non datée</strong> dans Asana n'est <strong>jamais effacée</strong> : elle reste telle quelle et se complète à la main dans le déploiement.</li>
+    <li>Sont <strong>conservés</strong> à la mise à jour : le chef de projet, les périodes de gel (saisies uniquement dans l'application) et le nombre de ressources. Pour un nouveau déploiement, le nombre de ressources vaut 1 par défaut, à ajuster.</li>
+    <li>Le début du projet est ramené à la plus ancienne date si une autre date le précède.</li>
+  </ul>
 
   <h3>Couleurs des rubriques</h3>
   <p>Chaque phase, jalon et étape possède une <strong>couleur globale</strong>, commune à tous les projets, modifiable dans la zone « Couleurs ». Elle s'applique à la légende et au planning. Le bouton de réinitialisation rétablit les couleurs d'origine.</p>
@@ -553,11 +601,25 @@ tr:nth-child(even) td { background: #f9f9f9; }
   <h2>🆕 Notes de version</h2>
   <p>Historique des évolutions de la Plateforme de Planification ANS.</p>
 
+  <!-- v1.16.81 -->
+  <div class="card card-green" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v1.16.81</strong>
+      <span class="badge badge-current">Actuelle</span>
+      <span style="color:#888; font-size:13px;">Octobre 2026</span>
+    </div>
+    <ul>
+      <li>🔗 <strong>Connexion à Asana (lecture seule)</strong> : récupération des dates des projets de déploiement de SAMU par l'API, avec appairage automatique projet Asana ↔ déploiement (modifiable), « Tout analyser » et aperçu avant écriture. Le jeton se saisit dans <em>Administration › Gestion des API</em> ; il est chiffré sur le serveur. <em>Voir « Aide à l'affectation » et « Administration ».</em></li>
+      <li>📥 <strong>Import d'un export CSV Asana</strong> : mêmes règles de correspondance (début de projet, cadrage, mise en service / production, visite métier, VFT, formation, accompagnement), sans jamais effacer une donnée absente.</li>
+      <li>🔍 <strong>Recherche avancée</strong> : icônes stylisées et colorées devant les disponibilités, affectations et localisations, identiques à celles de la légende du planning.</li>
+      <li>🖨️ <strong>Impressions</strong> : les icônes (par exemple le parapluie des congés) retrouvent leur taille normale.</li>
+    </ul>
+  </div>
+
   <!-- v1.16.77 -->
   <div class="card card-green" style="margin-bottom:16px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
       <strong style="font-size:16px;">v1.16.77</strong>
-      <span class="badge badge-current">Actuelle</span>
       <span style="color:#888; font-size:13px;">Octobre 2026</span>
     </div>
     <ul>
