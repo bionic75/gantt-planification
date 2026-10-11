@@ -1425,8 +1425,11 @@ function initDB() {
                     details TEXT,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
-            `, (tblErr) => { if (tblErr) console.error('Erreur création table affectation_history:', tblErr); });
-            database.run(`CREATE INDEX IF NOT EXISTS idx_aff_hist_project ON affectation_history (project_id, id)`);
+            `, (tblErr) => {
+                if (tblErr) { console.error('Erreur création table affectation_history:', tblErr); return; }
+                // L'index n'est créé qu'une fois la table disponible (les requêtes ne sont pas exécutées dans l'ordre)
+                database.run(`CREATE INDEX IF NOT EXISTS idx_aff_hist_project ON affectation_history (project_id, id)`, e => { if (e) console.error('Erreur index affectation_history:', e.message); });
+            });
             database.run(`
                 CREATE TABLE IF NOT EXISTS affectation_assignments (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
