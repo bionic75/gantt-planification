@@ -1,4 +1,4 @@
-<!-- v1.16.74 -->
+<!-- v1.16.75 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -490,17 +490,17 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.16.74">
-    <link rel="stylesheet" href="/darkmode.css?v=1.16.74">
-    <link rel="stylesheet" href="/login.css?v=1.16.74">
-    <link rel="stylesheet" href="/ui-polish.css?v=1.16.74">
-    <script src="/darkmode.js?v=1.16.74"></script>
-    <script src="/themes.js?v=1.16.74" defer></script>
-    <script src="/layout-fix.js?v=1.16.74" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.16.75">
+    <link rel="stylesheet" href="/darkmode.css?v=1.16.75">
+    <link rel="stylesheet" href="/login.css?v=1.16.75">
+    <link rel="stylesheet" href="/ui-polish.css?v=1.16.75">
+    <script src="/darkmode.js?v=1.16.75"></script>
+    <script src="/themes.js?v=1.16.75" defer></script>
+    <script src="/layout-fix.js?v=1.16.75" defer></script>
     <script>window.UI_ICONS_KEEP_ALERT = true;</script>
-    <script src="/ui-icons.js?v=1.16.74" defer></script>
-    <script src="/affectation-app.js?v=1.16.74" defer></script>
-    <script src="/map-timelapse.js?v=1.16.74" defer></script>
+    <script src="/ui-icons.js?v=1.16.75" defer></script>
+    <script src="/affectation-app.js?v=1.16.75" defer></script>
+    <script src="/map-timelapse.js?v=1.16.75" defer></script>
 </head>
 <body>
     <div class="container">
@@ -4901,7 +4901,7 @@
 
         // Retour vers Planification depuis l'app Déplacements ou Analyse
         function backToPlanification() {
-            const wasAffectation = !!(window.AffectationApp && AffectationApp.isVisible());
+            const wasAffectation = !!(window.AffectationApp && AffectationApp.isVisible()) || (typeof analyseIsVisible === 'function' && analyseIsVisible());
             if (window.hideAffectationApp) hideAffectationApp();
             sessionStorage.setItem('selectedApp', 'planification');
             document.getElementById('deplacementsContainer').style.display = 'none';
@@ -4926,6 +4926,7 @@
         // Basculer vers une application depuis le sélecteur
         function switchToApp(appKey) {
             document.getElementById('appSwitcherDropdown').style.display = 'none';
+            if (appKey === 'planification') { backToPlanification(); return; }
             if (appKey === 'deplacements') {
                 stopInactivityTimer();
                 if (onlineUsersInterval) { clearInterval(onlineUsersInterval); onlineUsersInterval = null; }
@@ -4945,6 +4946,7 @@
 
         function toggleAppSwitcherDropdown() {
             const dd = document.getElementById('appSwitcherDropdown');
+            updateAppSwitcher(); // la liste dépend de l'application affichée
             const isOpen = dd.style.display !== 'none';
             dd.style.display = isOpen ? 'none' : 'block';
             if (!isOpen) {
@@ -5016,6 +5018,7 @@
         }
 
         const APP_ICON_DEFS = {
+            planification: { bg: '#e3f2fd', fg: '#1d70b7', body: '<path d="M3 3v18h18"/><rect x="7" y="7" width="8" height="3" rx="1"/><rect x="11" y="12" width="9" height="3" rx="1"/><rect x="7" y="17" width="5" height="2" rx="1"/>' },
             affectation: { bg: '#e0f2f1', fg: '#00796b', body: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m16 11 2 2 4-4"/>' },
             analyse: { bg: '#e8eaf6', fg: '#3949ab', body: '<path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6" rx=".6"/><rect x="12" y="8" width="3" height="10" rx=".6"/><rect x="17" y="5" width="3" height="13" rx=".6"/>' },
             deplacements: { bg: '#fff3e0', fg: '#e65100', body: '<path d="M5 11l1.6-4.2A2 2 0 0 1 8.5 5.5h7a2 2 0 0 1 1.9 1.3L19 11"/><rect x="3" y="11" width="18" height="6" rx="2"/><circle cx="7.5" cy="14" r=".7"/><circle cx="16.5" cy="14" r=".7"/><path d="M6 17v2M18 17v2"/>' }
@@ -5027,12 +5030,20 @@
         }
 
         function updateAppSwitcher() {
-            const apps = (currentUser && currentUser.availableApps) || [];
+            const available = (currentUser && currentUser.availableApps) || [];
             const switcher = document.getElementById('appSwitcher');
+            // Le menu est commun à toutes les applications : on le sort du conteneur principal pour qu'il reste visible partout
+            if (switcher.parentElement !== document.body) document.body.appendChild(switcher);
+            const shown = id => { const e = document.getElementById(id); return !!e && e.style.display !== 'none' && e.style.display !== ''; };
+            const current = shown('analyseContainer') ? 'analyse' : shown('deplacementsContainer') ? 'deplacements'
+                : (window.AffectationApp && AffectationApp.isVisible()) ? 'affectation' : 'planification';
+            // Depuis une autre application, le menu propose aussi le retour à la Planification (plus de bouton retour dédié)
+            const apps = available.filter(k => k !== current);
+            if (current !== 'planification') apps.unshift('planification');
             const dd = document.getElementById('appSwitcherDropdown');
-            if (apps.length === 0) { switcher.style.display = 'none'; return; }
+            if (available.length === 0) { switcher.style.display = 'none'; return; }
             switcher.style.display = 'block';
-            const APP_LABELS = { deplacements: { label: 'Suivi des déplacements' }, analyse: { label: 'Analyse des listes utilisateurs' }, affectation: { label: "Aide à l'affectation opérationnelle" } };
+            const APP_LABELS = { planification: { label: 'Planification' }, deplacements: { label: 'Suivi des déplacements' }, analyse: { label: 'Analyse des listes utilisateurs' }, affectation: { label: "Aide à l'affectation opérationnelle" } };
             dd.innerHTML = apps.map(key => {
                 const def = APP_LABELS[key] || { label: key };
                 return `<div onclick="switchToApp('${key}')" style="padding:10px 16px;cursor:pointer;display:flex;align-items:center;gap:12px;font-size:13px;color:#222;" onmouseenter="this.style.background='#f0f4ff'" onmouseleave="this.style.background=''">
@@ -5521,7 +5532,7 @@
             // Afficher le timer, les utilisateurs connectés et le bouton retour Planification
             document.getElementById('deplacementsTimerDisplay').style.display = 'block';
             document.getElementById('deplacementsOnlineUsersContainer').style.display = 'flex';
-            document.getElementById('backToPlanificationBtn').style.display = 'block';
+            document.getElementById('backToPlanificationBtn').style.display = 'none'; // retour par le menu Applications
             
             // Charger les paramètres puis démarrer le timer
             loadSettingsForDeplacements().then(() => {
@@ -28319,18 +28330,41 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
     <!-- ══ Application : Analyse des listes utilisateurs ══ -->
 <div id="analyseContainer" style="display:none; min-height:100vh; background:#f5f7fa; font-family:Arial,sans-serif;">
 
-    <!-- Header -->
-    <div style="background:#1a237e; color:white; padding:14px 24px; display:flex; align-items:center; gap:16px; position:sticky; top:0; z-index:100; box-shadow:0 2px 8px rgba(0,0,0,0.3);">
-        <button onclick="backToPlanification()" style="background:rgba(255,255,255,0.15); border:none; color:white; padding:6px 14px; border-radius:20px; cursor:pointer; font-size:12px; font-weight:600; white-space:nowrap;">← Retour</button>
-        <span style="font-size:20px;">📊</span>
-        <span style="font-size:18px; font-weight:bold;">Analyse des listes utilisateurs</span>
-        <span id="analyseFileName" style="font-size:12px; color:#90caf9; margin-left:8px;"></span>
-        <span id="analyseStatsHeader" style="font-size:12px; color:#b3e5fc; margin-left:auto;"></span>
-        <button onclick="analyseReset()" id="analyseResetBtn" style="display:none; background:rgba(255,255,255,0.15); border:none; color:white; padding:6px 14px; border-radius:20px; cursor:pointer; font-size:12px;">🔄 Nouveau fichier</button>
+    <!-- Bandeau identique aux autres applications -->
+    <div class="fixed-header">
+        <div class="user-info" id="analyseUserInfo">
+            <div style="position: relative; display: flex; align-items: center;">
+                <div id="analyseProfileCircle" onclick="openProfilePhotoModal()" style="width:50px;height:50px;border-radius:50%;border:3px solid #1D70B7;background-color:#7f8c8d;display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;" title="Modifier ma photo de profil">
+                    <span id="analyseProfileTrigramme" style="color:white;font-weight:bold;font-size:16px;">?</span>
+                    <img id="analyseProfilePhoto" style="width:100%;height:100%;object-fit:cover;display:none;" alt="">
+                </div>
+            </div>
+            <span class="user-info-name" id="analyseUserDisplayName" style="margin-left:15px;"></span>
+            <span class="user-info-role" id="analyseUserDisplayRole"></span>
+        </div>
+        <div class="tabs" id="analyseTabs">
+            <button class="tab-btn active" type="button">📊 Analyse des listes utilisateurs</button>
+            <button class="logout-icon" onclick="analyseLogout()" title="Déconnexion"></button>
+        </div>
+    </div>
+    <div class="header-spacer"></div>
+    <div id="analyseOnlineUsersContainer" style="display:none;position:fixed;top:10px;right:120px;height:32px;box-sizing:border-box;background:#fff;padding:0 12px;border-radius:20px;box-shadow:0 2px 8px rgba(0,0,0,.2);z-index:1001;align-items:center;gap:6px;font-size:11px;color:#666;">
+        <span style="font-size:12px;color:#27ae60;">●</span>
+        <div id="analyseOnlineUsersAvatars" style="display:flex;align-items:center;"></div>
+        <span id="analyseOnlineUsersCount" style="font-size:11px;color:#666;margin-left:4px;"></span>
+    </div>
+    <div id="analyseTimerDisplay" style="display:none;position:fixed;top:10px;right:10px;height:32px;box-sizing:border-box;background:#fff;padding:0 12px;border-radius:20px;box-shadow:0 2px 8px rgba(0,0,0,.2);z-index:1001;align-items:center;font-size:13px;font-weight:bold;color:#2c3e50;">
+        <svg viewBox="0 0 24 24" aria-hidden="true" style="width:15px;height:15px;margin-right:6px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/></svg>
+        <span id="analyseTimerText">--:--</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px;padding:10px 24px;background:#fff;border-bottom:1px solid #e0e6ef;">
+        <span id="analyseFileName" style="font-size:13px;color:#1a237e;font-weight:600;"></span>
+        <span id="analyseStatsHeader" style="font-size:12px;color:#5c6b8a;margin-left:auto;"></span>
+        <button onclick="analyseReset()" id="analyseResetBtn" style="display:none;background:#1a237e;border:none;color:white;padding:6px 14px;border-radius:20px;cursor:pointer;font-size:12px;">🔄 Nouveau fichier</button>
     </div>
 
     <!-- Zone de chargement -->
-    <div id="analyseDropZone" style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:calc(100vh - 60px); padding:40px;">
+    <div id="analyseDropZone" style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:calc(100vh - 180px); padding:40px;">
         <div style="background:white; border-radius:16px; padding:60px 80px; box-shadow:0 4px 24px rgba(0,0,0,0.1); text-align:center; max-width:600px; width:100%;">
             <div style="font-size:64px; margin-bottom:20px;">📂</div>
             <h2 style="color:#1a237e; margin-bottom:10px;">Charger un fichier</h2>
@@ -28550,14 +28584,75 @@ function toggleAnalyseFiltersPanel() {
     if (btn) btn.textContent = _analyseFiltersVisible ? '▲' : '▼';
 }
 
+// ---- Bandeau de l'application Analyse (utilisateur, connectés, minuteur) ----
+let _analyseTimerLoop = null, _analyseOnlineLoop = null;
+function analyseUpdateUser() {
+    if (typeof currentUser === 'undefined' || !currentUser) return;
+    const full = `${currentUser.prenom || ''} ${currentUser.nom || ''}`.trim() || currentUser.username;
+    document.getElementById('analyseUserDisplayName').textContent = full;
+    document.getElementById('analyseUserDisplayRole').textContent =
+        currentUser.activeProfile === 'admin' ? 'Administrateur' : currentUser.activeProfile === 'expert' ? 'Expert Métier' : 'Utilisateur';
+    const tri = document.getElementById('analyseProfileTrigramme'), photo = document.getElementById('analyseProfilePhoto');
+    tri.textContent = currentUser.trigramme || '?';
+    if (currentUser.profilePhoto) { photo.src = currentUser.profilePhoto; photo.style.display = 'block'; tri.style.display = 'none'; }
+    else { photo.style.display = 'none'; tri.style.display = 'flex'; }
+}
+function analyseIsVisible() { const c = document.getElementById('analyseContainer'); return !!c && c.style.display !== 'none'; }
+function analyseStopLoops() { clearInterval(_analyseTimerLoop); clearInterval(_analyseOnlineLoop); _analyseTimerLoop = _analyseOnlineLoop = null; }
+function analyseRenderTimer() {
+    if (!analyseIsVisible()) { analyseStopLoops(); return; }
+    const el = document.getElementById('analyseTimerText');
+    if (!el || typeof inactivityTimeRemaining === 'undefined') return;
+    const t = Math.max(0, inactivityTimeRemaining);
+    el.textContent = `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
+    document.getElementById('analyseTimerDisplay').style.color = t <= 60 ? '#e74c3c' : t <= 120 ? '#f39c12' : '#2c3e50';
+}
+async function analyseRefreshOnline() {
+    if (!analyseIsVisible()) { analyseStopLoops(); return; }
+    try {
+        const res = await fetch(`${API_URL}/active-sessions`, { credentials: 'include' });
+        if (!res.ok) return;
+        const users = (await res.json()).activeUsers || [];
+        const max = 5, esc2 = t => String(t || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+        document.getElementById('analyseOnlineUsersAvatars').innerHTML = users.slice(0, max).map((u, i) => {
+            const bg = typeof getAvatarColor === 'function' ? getAvatarColor(u.profile) : '#3949ab';
+            const ini = u.trigramme || ((u.prenom || '').charAt(0) + (u.nom || '').charAt(0));
+            const name = `${u.prenom || ''} ${u.nom || ''}`.trim() || u.username || '';
+            const base = `width:28px;height:28px;border-radius:50%;border:2px solid #fff;background:${bg};margin-left:${i ? -8 : 0}px;box-shadow:0 1px 3px rgba(0,0,0,.25);overflow:hidden;`;
+            return u.profilePhoto
+                ? `<div title="${esc2(name)}" style="${base}"><img src="${u.profilePhoto}" alt="" style="width:100%;height:100%;object-fit:cover;"></div>`
+                : `<div title="${esc2(name)}" style="${base}display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;">${esc2(ini)}</div>`;
+        }).join('');
+        document.getElementById('analyseOnlineUsersCount').textContent = users.length > max ? `+${users.length - max}` : '';
+    } catch (e) { /* réseau indisponible : on garde l'affichage précédent */ }
+}
+async function analyseLogout() {
+    if (!confirm('Voulez-vous vraiment vous déconnecter ?')) return;
+    analyseStopLoops();
+    document.getElementById('analyseContainer').style.display = 'none';
+    await performLogout();
+}
+
 function showAnalyseApp() {
     if (window.hideAffectationApp) hideAffectationApp();
     document.querySelector('.container').style.display = 'none';
     document.getElementById('deplacementsContainer').style.display = 'none';
     document.getElementById('loginPage').classList.remove('active');
     document.getElementById('analyseContainer').style.display = 'block';
-    document.getElementById('backToPlanificationBtn').style.display = 'block';
+    document.getElementById('backToPlanificationBtn').style.display = 'none'; // le menu Applications suffit pour changer d'application
+    document.getElementById('analyseOnlineUsersContainer').style.display = 'flex';
+    document.getElementById('analyseTimerDisplay').style.display = 'flex';
+    analyseUpdateUser();
+    stopInactivityTimer();
+    if (typeof onlineUsersInterval !== 'undefined' && onlineUsersInterval) { clearInterval(onlineUsersInterval); onlineUsersInterval = null; }
+    analyseStopLoops();
+    const startTimer = () => { try { startInactivityTimer(inactivityTimeout); } catch (e) { /* minuteur indisponible */ } };
+    (typeof loadSettingsForDeplacements === 'function' ? loadSettingsForDeplacements() : Promise.resolve()).then(startTimer);
+    _analyseTimerLoop = setInterval(analyseRenderTimer, 1000);
+    analyseRefreshOnline();
+    _analyseOnlineLoop = setInterval(analyseRefreshOnline, 30000);
     updateAppSwitcher();
+    if (window.GPTools) window.GPTools.position();
     analyseCheckSaved();
 }
 

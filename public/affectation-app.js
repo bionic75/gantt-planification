@@ -1180,7 +1180,7 @@
             sessionStorage.setItem('selectedApp', KEY);
             if (typeof currentUser !== 'undefined' && currentUser) currentUser.selectedApp = KEY;
             document.getElementById('affectationContainer').style.display = 'block';
-            document.getElementById('affectationBackBtn').style.display = 'block';
+            document.getElementById('affectationBackBtn').style.display = 'none'; // retour par le menu Applications
             document.getElementById('affectationOnlineUsersContainer').style.display = 'flex';
             document.getElementById('affectationTimerDisplay').style.display = 'flex';
             visible = true;
