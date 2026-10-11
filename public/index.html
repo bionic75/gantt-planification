@@ -1,4 +1,4 @@
-<!-- v1.16.76 -->
+<!-- v1.16.77 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -490,17 +490,17 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.16.76">
-    <link rel="stylesheet" href="/darkmode.css?v=1.16.76">
-    <link rel="stylesheet" href="/login.css?v=1.16.76">
-    <link rel="stylesheet" href="/ui-polish.css?v=1.16.76">
-    <script src="/darkmode.js?v=1.16.76"></script>
-    <script src="/themes.js?v=1.16.76" defer></script>
-    <script src="/layout-fix.js?v=1.16.76" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.16.77">
+    <link rel="stylesheet" href="/darkmode.css?v=1.16.77">
+    <link rel="stylesheet" href="/login.css?v=1.16.77">
+    <link rel="stylesheet" href="/ui-polish.css?v=1.16.77">
+    <script src="/darkmode.js?v=1.16.77"></script>
+    <script src="/themes.js?v=1.16.77" defer></script>
+    <script src="/layout-fix.js?v=1.16.77" defer></script>
     <script>window.UI_ICONS_KEEP_ALERT = true;</script>
-    <script src="/ui-icons.js?v=1.16.76" defer></script>
-    <script src="/affectation-app.js?v=1.16.76" defer></script>
-    <script src="/map-timelapse.js?v=1.16.76" defer></script>
+    <script src="/ui-icons.js?v=1.16.77" defer></script>
+    <script src="/affectation-app.js?v=1.16.77" defer></script>
+    <script src="/map-timelapse.js?v=1.16.77" defer></script>
 </head>
 <body>
     <div class="container">
@@ -2769,6 +2769,26 @@
         </div>
     </div>
 
+    <!-- SECTION: Accès aux onglets par profil -->
+    <div class="form-section" style="margin-top: 20px; background-color: #e8eaf6; border-left: 4px solid #3f51b5;">
+        <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleAdminSection('tabAccessSection'); if(document.getElementById('tabAccessSection').style.display!=='none') TabAccess.adminLoad();">
+            <h3 style="color: #1a237e; border-left: none; margin: 0;">
+                <span id="tabAccessSectionIcon">▶</span> Configuration de l'accès aux onglets
+            </h3>
+        </div>
+        <div id="tabAccessSection" style="margin-top: 15px; display: none;">
+            <p style="color:#555;font-size:13px;margin-bottom:14px;">Cochez les onglets visibles pour chaque profil. Les valeurs par défaut reprennent le fonctionnement d'origine de la plateforme.</p>
+            <div style="border:1px solid #c5cae9;border-radius:6px;padding:12px 14px;margin-bottom:12px;overflow-x:auto;background:#fff;">
+                <style>#tabAccessTable th { background:#e8eaf6 !important; color:#283593 !important; cursor:default !important; } #tabAccessTable th::after { content:none !important; }</style>
+                <table id="tabAccessTable" style="font-size:13px;border-collapse:collapse;width:100%;max-width:720px;"></table>
+            </div>
+            <div style="font-size:11px;color:#777;margin-bottom:10px;">L'administrateur conserve toujours l'accès à l'Administration. L'onglet CRA reste réservé aux experts déclarés volontaires aux astreintes. L'onglet « Astreintes » commande aussi le bouton de gestion des astreintes/HNO.</div>
+            <button type="button" onclick="TabAccess.adminSave()" class="export-btn" style="background:#3949ab;">Enregistrer</button>
+            <button type="button" onclick="TabAccess.adminReset()" class="export-btn" style="background:#78909c;margin-left:8px;">Rétablir les valeurs par défaut</button>
+            <span id="tabAccessMsg" style="margin-left:10px;font-size:12px;"></span>
+        </div>
+    </div>
+
     <!-- SECTION 6: Gestion des utilisateurs (repliable) -->
     <div class="form-section" style="margin-top: 20px; background-color: #fce4ec; border-left: 4px solid #e91e63;">
         <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleAdminSection('usersListSection')">
@@ -3955,6 +3975,7 @@
                     document.getElementById('loginPage').classList.remove('active');
                     document.querySelector('.container').style.display = 'block';
                     
+                    await TabAccess.load();
                     updateTabsVisibility();
                     updateUserDisplay();
                     updateAppSwitcher();
@@ -3963,7 +3984,7 @@
                     // Onglet CRA
                     const craBtn = document.getElementById('craTabBtn');
                     if (craBtn) {
-                        const showCra = currentUser.is_admin || (currentUser.astreinte_volontaire && currentUser.activeProfile !== 'user') || currentUser.is_rh;
+                        const showCra = TabAccess.showCra(currentUser);
                         craBtn.style.display = showCra ? 'block' : 'none';
                         document.getElementById('craTabLabel').textContent = 'CRA';
                     }
@@ -4276,6 +4297,7 @@
             document.getElementById('loginPage').classList.remove('active');
             document.querySelector('.container').style.display = 'block';
             
+            await TabAccess.load();
             updateTabsVisibility();
             updateUserDisplay();
             updateAppSwitcher();
@@ -4283,7 +4305,7 @@
             // Afficher l'onglet CRA selon le profil
             const craBtn = document.getElementById('craTabBtn');
             if (craBtn) {
-                const showCra = currentUser.is_admin || (currentUser.astreinte_volontaire && currentUser.activeProfile !== 'user') || currentUser.is_rh;
+                const showCra = TabAccess.showCra(currentUser);
                 craBtn.style.display = showCra ? 'block' : 'none';
                 const lbl = document.getElementById('craTabLabel');
                 if (lbl) lbl.textContent = 'CRA';
@@ -4368,12 +4390,7 @@
         
         // Obtenir la liste des onglets accessibles selon le profil
         function getAvailableTabsForProfile(profile) {
-            const allTabs = ['resources', 'evenements', 'planning', 'cra', 'reporting', 'admin', 'astreintesGestion'];
-            if (profile === 'admin') return allTabs;
-            else if (profile === 'user') return ['resources', 'evenements', 'planning', 'reporting'];
-            else if (profile === 'expert') return ['resources', 'evenements', 'planning', 'cra'];
-            else if (profile === 'rh') return ['resources', 'cra'];
-            return ['resources', 'evenements', 'planning'];
+            return TabAccess.available(profile);
         }
 
         function showLoginError(message) {
@@ -4827,41 +4844,98 @@
             updateProfileDisplay();
         }
 
+        // ---- Accès aux onglets par profil (paramétré dans Administration > Accès aux onglets) ----
+        const TabAccess = {
+            TABS: [['resources', 'Ressources'], ['evenements', 'Événements'], ['planning', 'Planification'], ['cra', 'CRA'], ['reporting', 'Reporting'], ['admin', 'Administration'], ['astreintesGestion', 'Astreintes']],
+            PROFILES: [['admin', 'Administrateur'], ['user', 'Utilisateur'], ['rh', 'RH'], ['expert', 'Expert métier']],
+            // Valeurs par défaut identiques au comportement historique (utilisées si le serveur ne répond pas)
+            DEFAULTS: {
+                admin:  { resources: true,  evenements: true,  planning: true,  cra: true,  reporting: true,  admin: true,  astreintesGestion: true },
+                user:   { resources: false, evenements: true,  planning: true,  cra: false, reporting: false, admin: false, astreintesGestion: false },
+                rh:     { resources: true,  evenements: false, planning: false, cra: true,  reporting: false, admin: false, astreintesGestion: false },
+                expert: { resources: false, evenements: true,  planning: true,  cra: true,  reporting: false, admin: false, astreintesGestion: true }
+            },
+            cfg: null,
+            async load() {
+                try {
+                    const r = await fetch(`${API_URL}/tab-access`, { credentials: 'include' });
+                    if (r.ok) { const d = await r.json(); TabAccess.cfg = d.config; TabAccess.serverDefaults = d.defaults; }
+                } catch (e) { /* valeurs par défaut */ }
+            },
+            can(profile, tab) {
+                const c = TabAccess.cfg || TabAccess.DEFAULTS;
+                return !!((c[profile] || TabAccess.DEFAULTS.user || {})[tab]);
+            },
+            available(profile) { return TabAccess.TABS.map(t => t[0]).filter(k => TabAccess.can(profile, k)); },
+            // L'onglet CRA reste réservé aux experts volontaires aux astreintes (attribut de l'utilisateur)
+            showCra(u) {
+                if (!u || !TabAccess.can(u.activeProfile, 'cra')) return false;
+                return u.activeProfile !== 'expert' || !!(u.astreinte_volontaire || u.is_admin || u.is_rh);
+            },
+            // --- écran d'administration ---
+            async adminLoad() {
+                await TabAccess.load();
+                TabAccess.adminRender(TabAccess.cfg || TabAccess.DEFAULTS);
+            },
+            adminRender(cfg) {
+                const head = TabAccess.PROFILES.map(p => `<th style="padding:6px 10px;text-align:center;">${p[1]}</th>`).join('');
+                const rows = TabAccess.TABS.map(t => `<tr><td style="padding:6px 10px;font-weight:600;">${t[1]}</td>${TabAccess.PROFILES.map(p => {
+                    const locked = p[0] === 'admin' && t[0] === 'admin';
+                    const on = locked || !!(cfg[p[0]] || {})[t[0]];
+                    return `<td style="text-align:center;padding:6px 10px;"><input type="checkbox" data-ta="${p[0]}|${t[0]}" ${on ? 'checked' : ''} ${locked ? 'disabled title="L\'administrateur garde toujours l\'accès à l\'Administration"' : ''} style="width:auto;display:inline-block;margin:0;cursor:pointer;"></td>`;
+                }).join('')}</tr>`).join('');
+                document.getElementById('tabAccessTable').innerHTML = `<thead><tr style="background:#e8eaf6;"><th style="padding:6px 10px;text-align:left;">Onglet</th>${head}</tr></thead><tbody>${rows}</tbody>`;
+            },
+            adminCollect() {
+                const cfg = {};
+                document.querySelectorAll('#tabAccessTable input[data-ta]').forEach(i => {
+                    const [p, t] = i.dataset.ta.split('|');
+                    (cfg[p] = cfg[p] || {})[t] = i.checked;
+                });
+                return cfg;
+            },
+            adminReset() {
+                TabAccess.adminRender(TabAccess.serverDefaults || TabAccess.DEFAULTS);
+                const m = document.getElementById('tabAccessMsg'); m.style.color = '#e65100'; m.textContent = 'Valeurs par défaut rétablies : pensez à enregistrer.';
+            },
+            async adminSave() {
+                const m = document.getElementById('tabAccessMsg');
+                try {
+                    const r = await fetch(`${API_URL}/tab-access`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ config: TabAccess.adminCollect() }) });
+                    const d = await r.json();
+                    if (!r.ok) throw new Error(d.error || 'Erreur');
+                    TabAccess.cfg = d.config;
+                    m.style.color = '#2e7d32'; m.textContent = 'Enregistré. Les utilisateurs verront les changements à leur prochaine connexion ou changement de profil.';
+                    updateTabsVisibility();
+                } catch (e) { m.style.color = '#c62828'; m.textContent = e.message; }
+            }
+        };
+
         function updateTabsVisibility() {
-            const resourcesTab = document.querySelector('.tab-btn[onclick*="resources"]');
-            const planningTab = document.querySelector('.tab-btn[onclick*="planning"]');
-            const reportingTab = document.getElementById('reportingTab');
-            const adminTab = document.getElementById('adminTab');
+            const profile = currentUser.activeProfile;
+            const can = k => TabAccess.can(profile, k);
+            const setTab = (el, k) => { if (el) el.style.display = can(k) ? 'block' : 'none'; };
+            setTab(document.querySelector('.tab-btn[onclick*="resources"]'), 'resources');
+            setTab(document.getElementById('evenementsTabBtn'), 'evenements');
+            setTab(document.querySelector('.tab-btn[onclick*="planning"]'), 'planning');
+            setTab(document.getElementById('reportingTab'), 'reporting');
+            setTab(document.getElementById('adminTab'), 'admin');
+            setTab(document.getElementById('astreintesGestionTab'), 'astreintesGestion');
+            const craBtn = document.getElementById('craTabBtn');
+            if (craBtn) craBtn.style.display = TabAccess.showCra(currentUser) ? 'block' : 'none';
             const astreintesBtn = document.getElementById('astreintesBtn');
             const astreintesBtnText = document.getElementById('astreintesBtnText');
-            const astreintesGestionTab = document.getElementById('astreintesGestionTab');
-            
-            if (currentUser.activeProfile === 'admin') {
-                resourcesTab.style.display = 'block';
-                planningTab.style.display = 'block';
-                reportingTab.style.display = 'block';
-                adminTab.style.display = 'block';
-                // Afficher l'onglet gestion astreintes pour admin
-                if (astreintesGestionTab) astreintesGestionTab.style.display = 'block';
-                // Afficher le bouton astreintes pour admin
-                astreintesBtn.style.display = 'inline-block';
-                astreintesBtnText.textContent = 'Gérer les astreintes/HNO';
-                // Charger les experts pour le reporting
+            if (astreintesBtn) astreintesBtn.style.display = can('astreintesGestion') ? 'inline-block' : 'none';
+            if (astreintesBtnText) astreintesBtnText.textContent = profile === 'expert' ? 'Gérer mes astreintes/HNO' : 'Gérer les astreintes/HNO';
+
+            if (profile === 'admin') {
+                // Charger les experts pour le reporting, les fichiers ICS, etc.
                 loadReportingExperts();
-                // Charger les fichiers ICS
                 loadSchoolHolidaysFiles();
                 loadSpecialDatesFiles();
                 loadCustomEvents();
                 populateLocationSelects();
-            } else if (currentUser.activeProfile === 'rh') {
-                resourcesTab.style.display = 'block';
-                planningTab.style.display = 'none';
-                reportingTab.style.display = 'none';
-                adminTab.style.display = 'none';
-                if (astreintesGestionTab) astreintesGestionTab.style.display = 'none';
-                astreintesBtn.style.display = 'none';
-                const evenementsTab = document.querySelector('.tab-btn[onclick*="evenements"]');
-                if (evenementsTab) evenementsTab.style.display = 'none';
+            } else if (profile === 'rh') {
                 const addResSection = document.getElementById('addResourceFormSection');
                 if (addResSection) addResSection.style.display = 'none';
                 // Masquer loupe et enveloppe
@@ -4869,27 +4943,13 @@
                 if (searchBtn) searchBtn.style.display = 'none';
                 const sendEmailBtn = document.getElementById('sendEmailBtn');
                 if (sendEmailBtn) sendEmailBtn.style.display = 'none';
-                switchTab('resources', null);
-            } else if (currentUser.activeProfile === 'expert') {
-                resourcesTab.style.display = 'none';
-                planningTab.style.display = 'block';
-                reportingTab.style.display = 'none';
-                adminTab.style.display = 'none';
-                if (astreintesGestionTab) astreintesGestionTab.style.display = 'block';
-                astreintesBtn.style.display = 'inline-block';
-                astreintesBtnText.textContent = 'Gérer mes astreintes/HNO';
-                switchTab('planning', null);
-            } else if (currentUser.activeProfile === 'user') {
-                resourcesTab.style.display = 'none';
-                planningTab.style.display = 'block';
-                reportingTab.style.display = 'none';
-                adminTab.style.display = 'none';
-                if (astreintesGestionTab) astreintesGestionTab.style.display = 'none';
-                astreintesBtn.style.display = 'none';
-                switchTab('planning', null);
             }
-            // Un utilisateur avec is_admin voit l'onglet Administration uniquement s'il est connecté en profil admin
-            if (currentUser.is_admin && currentUser.activeProfile === 'admin' && adminTab) adminTab.style.display = 'block';
+            if (profile !== 'admin') {
+                // Onglet d'ouverture : Ressources pour RH, Planification sinon ; à défaut le premier onglet accessible
+                const avail = TabAccess.available(profile);
+                const prefer = profile === 'rh' ? 'resources' : 'planning';
+                switchTab(avail.includes(prefer) ? prefer : (avail[0] || 'planning'), null);
+            }
         }
 
         async function logout() {
