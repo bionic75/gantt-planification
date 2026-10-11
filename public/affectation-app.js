@@ -185,6 +185,7 @@
         .aff-sync-row:first-of-type { border-top: none; }
         .aff-sync-sec .aff-field { margin-top: 8px; }
         .aff-sync-sec .aff-field input[type=text], .aff-sync-sec .aff-field input[type=date] { padding: 7px 9px; border: 1px solid #cfd8e6; border-radius: 8px; font-size: 13px; }
+        #affAsanaTable th { background: #e6f4f1 !important; color: #0f4c5c !important; cursor: default !important; } #affAsanaTable th::after { content: none !important; }
         #affAsanaResult th { background: #e6f4f1 !important; color: #0f4c5c !important; cursor: default !important; } #affAsanaResult th::after { content: none !important; }
         #affAsanaResult tr:nth-child(even) td { background: #f8fafc; }
         .aff-av { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
@@ -258,6 +259,15 @@
             <div id="affProjects"><p class="aff-muted">Chargement…</p></div>
         </section>
 
+        <section class="aff-card" id="affAsanaCard">
+            <header class="aff-card-head">
+                <span class="aff-card-title">${svg('save', 'aff-ico')}Connexion Asana</span>
+                <span class="aff-muted" style="font-size:12px;">Récupération des dates des projets de déploiement (lecture seule)</span>
+            </header>
+            <div id="affAsanaCfg"><p class="aff-muted">Chargement…</p></div>
+            <div id="affAsanaProjects"></div>
+        </section>
+
         <section class="aff-card">
             <header class="aff-card-head">
                 <span class="aff-card-title">${svg('palette', 'aff-ico')}Couleurs des étapes</span>
@@ -316,7 +326,7 @@
             <div class="aff-modal-body">
                 <p class="aff-muted" style="margin:0 0 12px;">Dans Asana : ouvrez le projet de déploiement (ex. « [SAMU 25] SF4 - Déploiement »), menu du projet › <strong>Exporter</strong> › <strong>CSV</strong> (avec tous les champs personnalisés). Chargez ensuite le fichier ici : un aperçu s'affiche avant toute écriture.</p>
                 <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px;">
-                    <div class="aff-field"><label class="lbl">Fichier CSV Asana</label><input id="affAsanaFile" type="file" accept=".csv,text/csv" onchange="AffectationApp.asanaAnalyze()"></div>
+                    <div class="aff-field" id="affAsanaFileBox"><label class="lbl">Fichier CSV Asana</label><input id="affAsanaFile" type="file" accept=".csv,text/csv" onchange="AffectationApp.asanaAnalyze()"></div>
                     <div class="aff-field"><label class="lbl" for="affAsanaForm">La tâche « Formation » d'Asana alimente</label>
                         <select id="affAsanaForm" onchange="AffectationApp.asanaAnalyze()" style="padding:7px 9px;border:1px solid #cfd8e6;border-radius:8px;">
                             <option value="utilisateurs">Formation « Utilisateurs »</option>
@@ -444,6 +454,7 @@
     }
 
     async function loadAdmin() {
+        setTimeout(() => AffectationApp.asanaLoadCfg && AffectationApp.asanaLoadCfg(), 0);
         try {
             const [cfg, proj, users, locs] = await Promise.all([
                 api('/affectation/config'), api('/affectation/projects'), api('/affectation/users'), api('/locations')
@@ -641,24 +652,125 @@
     }
 
     // ---- Import depuis un export CSV d'Asana ----
-    const asana = { csv: '', preview: null };
+    const asana = { csv: '', preview: null, src: { type: 'csv' } };
     const adminApi = {
-        asanaOpen() {
-            asana.csv = ''; asana.preview = null;
+        asanaOpen(src) {
+            asana.csv = ''; asana.preview = null; asana.src = src || { type: 'csv' };
             document.getElementById('affAsanaFile').value = '';
-            document.getElementById('affAsanaResult').innerHTML = '';
+            document.getElementById('affAsanaFileBox').style.display = asana.src.type === 'csv' ? '' : 'none';
+            document.getElementById('affAsanaResult').innerHTML = asana.src.type === 'api' ? '<p class="aff-muted">Lecture du projet Asana…</p>' : '';
             document.getElementById('affAsanaError').textContent = '';
             document.getElementById('affAsanaOk').style.display = 'none';
             document.getElementById('affAsanaModal').classList.add('active');
+            if (asana.src.type === 'api') adminApi.asanaAnalyze();
+        },
+        // ---- Connexion directe à l'API Asana ----
+        async asanaLoadCfg() {
+            const box = document.getElementById('affAsanaCfg');
+            if (!box) return;
+            try {
+                const c = asana.cfg = await api('/affectation/asana/config');
+                box.innerHTML = `
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+                        <div class="aff-field" style="flex:1;min-width:260px;"><label class="lbl" for="affAsanaToken">Jeton d'accès personnel ${c.tokenSet ? '<span class="aff-av-b ok">enregistré</span>' : '<span class="aff-av-b ko">non configuré</span>'}</label>
+                            <input id="affAsanaToken" type="password" autocomplete="new-password" placeholder="${c.tokenSet ? 'Laisser vide pour conserver le jeton actuel' : 'Collez ici le jeton Asana'}" style="padding:7px 9px;border:1px solid #cfd8e6;border-radius:8px;width:100%;"></div>
+                        <button type="button" class="aff-btn aff-btn-primary" onclick="AffectationApp.asanaSaveToken()">Enregistrer</button>
+                        <button type="button" class="aff-btn" onclick="AffectationApp.asanaTest()" ${c.tokenSet ? '' : 'disabled'}>Tester la connexion</button>
+                        ${c.tokenSet ? '<button type="button" class="aff-btn" onclick="AffectationApp.asanaDeleteToken()">Supprimer le jeton</button>' : ''}
+                    </div>
+                    <div id="affAsanaWs" style="margin-top:10px;">${c.workspaceName ? `Espace de travail : <b>${esc(c.workspaceName)}</b>` : '<span class="aff-muted">Testez la connexion pour choisir l\'espace de travail.</span>'}</div>
+                    <div id="affAsanaMsg" style="margin-top:6px;font-size:12px;"></div>`;
+                if (c.tokenSet && c.workspaceGid) adminApi.asanaLoadProjects();
+                else document.getElementById('affAsanaProjects').innerHTML = '';
+            } catch (e) { box.innerHTML = `<p class="aff-error">${esc(e.message)}</p>`; }
+        },
+        asanaMsg(t, ok) { const m = document.getElementById('affAsanaMsg'); if (m) { m.style.color = ok ? '#2e7d32' : '#c62828'; m.textContent = t; } },
+        async asanaSaveToken() {
+            const v = document.getElementById('affAsanaToken').value.trim();
+            if (!v) { adminApi.asanaMsg('Collez le jeton avant d\'enregistrer.', false); return; }
+            try { await api('/affectation/asana/config', { method: 'PUT', body: JSON.stringify({ token: v }) }); await adminApi.asanaLoadCfg(); adminApi.asanaMsg('Jeton enregistré (chiffré côté serveur). Testez maintenant la connexion.', true); }
+            catch (e) { adminApi.asanaMsg(e.message, false); }
+        },
+        async asanaDeleteToken() {
+            if (!confirm('Supprimer le jeton Asana enregistré ?')) return;
+            await api('/affectation/asana/token', { method: 'DELETE' });
+            await adminApi.asanaLoadCfg();
+        },
+        async asanaTest() {
+            adminApi.asanaMsg('Connexion à Asana…', true);
+            try {
+                const d = await api('/affectation/asana/test', { method: 'POST' });
+                const cur = asana.cfg && asana.cfg.workspaceGid;
+                document.getElementById('affAsanaWs').innerHTML = `Connecté en tant que <b>${esc(d.name)}</b>. Espace de travail : <select id="affAsanaWsSel" style="padding:5px 8px;border:1px solid #cfd8e6;border-radius:8px;" onchange="AffectationApp.asanaPickWs(this)">${d.workspaces.map(w => `<option value="${esc(w.gid)}" data-n="${esc(w.name)}" ${w.gid === cur ? 'selected' : ''}>${esc(w.name)}</option>`).join('')}</select>`;
+                adminApi.asanaMsg('Connexion réussie.', true);
+                if (d.workspaces.length === 1 || !cur) adminApi.asanaPickWs(document.getElementById('affAsanaWsSel'));
+            } catch (e) { adminApi.asanaMsg(e.message, false); }
+        },
+        async asanaPickWs(sel) {
+            const o = sel.options[sel.selectedIndex];
+            if (!o) return;
+            await api('/affectation/asana/config', { method: 'PUT', body: JSON.stringify({ workspaceGid: o.value, workspaceName: o.dataset.n }) });
+            asana.cfg = { ...(asana.cfg || {}), workspaceGid: o.value, workspaceName: o.dataset.n };
+            adminApi.asanaLoadProjects();
+        },
+        async asanaLoadProjects() {
+            const box = document.getElementById('affAsanaProjects');
+            box.innerHTML = '<p class="aff-muted" style="margin-top:12px;">Lecture des projets Asana…</p>';
+            try {
+                const d = asana.projects = await api('/affectation/asana/projects');
+                box.innerHTML = `
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin:14px 0 6px;flex-wrap:wrap;gap:8px;">
+                        <b>${d.projects.length} projet(s) Asana dans le périmètre</b>
+                        <span style="display:inline-flex;gap:8px;"><button type="button" class="aff-btn" onclick="AffectationApp.asanaLoadProjects()">Actualiser la liste</button>
+                        <button type="button" class="aff-btn" onclick="AffectationApp.asanaScanAll()" title="Compare chaque projet Asana avec le déploiement correspondant, sans rien modifier">Tout analyser</button></span>
+                    </div>
+                    <div style="overflow-x:auto;"><table id="affAsanaTable" style="width:100%;border-collapse:collapse;font-size:13px;">
+                        <thead><tr style="background:#e6f4f1;"><th style="padding:6px 8px;text-align:left;">Projet Asana</th><th style="padding:6px 8px;text-align:left;">Déploiement apparié</th><th style="padding:6px 8px;text-align:left;">Écarts</th><th></th></tr></thead>
+                        <tbody>${d.projects.map(p => `<tr data-gid="${esc(p.gid)}" style="border-top:1px solid #eef1f6;">
+                            <td style="padding:6px 8px;"><b>${esc(p.name)}</b></td>
+                            <td style="padding:6px 8px;"><select onchange="AffectationApp.asanaLink('${esc(p.gid)}', this.value)" style="padding:4px 6px;border:1px solid #cfd8e6;border-radius:8px;max-width:230px;">
+                                <option value="0" ${!p.manual && !p.ignored ? 'selected' : ''}>${p.deployment && !p.manual ? 'Auto : ' + esc(p.deployment.samu_name) : 'Auto : aucun (sera créé)'}</option>
+                                ${d.deployments.map(x => `<option value="${x.id}" ${p.manual && p.deployment && p.deployment.id === x.id ? 'selected' : ''}>${esc(x.samu_name)}</option>`).join('')}
+                                <option value="-1" ${p.ignored ? 'selected' : ''}>— Ignorer ce projet —</option></select></td>
+                            <td class="aff-asana-diff" style="padding:6px 8px;"><span class="aff-muted">—</span></td>
+                            <td style="padding:6px 8px;text-align:right;"><button type="button" class="aff-btn" ${p.ignored ? 'disabled' : ''} onclick="AffectationApp.asanaOpen({type:'api',gid:'${esc(p.gid)}'})">Récupérer</button></td></tr>`).join('')}</tbody>
+                    </table></div>
+                    <p class="aff-muted" style="font-size:12px;margin-top:8px;">Les données absentes d'Asana ne sont jamais effacées : complétez-les à la main dans le déploiement.</p>`;
+            } catch (e) { box.innerHTML = `<p class="aff-error" style="margin-top:12px;">${esc(e.message)}</p>`; }
+        },
+        async asanaLink(gid, value) {
+            try { await api('/affectation/asana/links', { method: 'PUT', body: JSON.stringify({ gid, deploymentId: Number(value) }) }); adminApi.asanaLoadProjects(); }
+            catch (e) { alert(e.message); }
+        },
+        // Compare chaque projet à son déploiement (sans rien écrire) et indique le nombre d'écarts
+        async asanaScanAll() {
+            const rows = [...document.querySelectorAll('#affAsanaTable tbody tr')];
+            for (const tr of rows) {
+                const cell = tr.querySelector('.aff-asana-diff'), gid = tr.dataset.gid;
+                if (tr.querySelector('select option[value="-1"]:checked')) { cell.innerHTML = '<span class="aff-muted">ignoré</span>'; continue; }
+                cell.innerHTML = '<span class="aff-muted">analyse…</span>';
+                try {
+                    const d = await api('/affectation/asana/preview', { method: 'POST', body: JSON.stringify({ gid, formationTarget: 'utilisateurs' }) });
+                    const n = d.rows.filter(r => r.status === 'nouveau' || r.status === 'modifié').length;
+                    cell.innerHTML = n ? `<span class="aff-av-b mid">${n} à mettre à jour</span>` : '<span class="aff-av-b na">à jour</span>';
+                } catch (e) { cell.innerHTML = `<span class="aff-error" title="${esc(e.message)}">erreur</span>`; }
+            }
         },
         asanaClose() { document.getElementById('affAsanaModal').classList.remove('active'); },
         async asanaAnalyze() {
-            const file = document.getElementById('affAsanaFile').files[0];
             const err = document.getElementById('affAsanaError'); err.textContent = '';
-            if (file) asana.csv = await file.text();
-            if (!asana.csv) return;
+            const target = document.getElementById('affAsanaForm').value;
             try {
-                const d = asana.preview = await api('/affectation/import/asana-csv', { method: 'POST', body: JSON.stringify({ csv: asana.csv, formationTarget: document.getElementById('affAsanaForm').value }) });
+                let d;
+                if (asana.src.type === 'api') {
+                    d = await api('/affectation/asana/preview', { method: 'POST', body: JSON.stringify({ gid: asana.src.gid, formationTarget: target }) });
+                } else {
+                    const file = document.getElementById('affAsanaFile').files[0];
+                    if (file) asana.csv = await file.text();
+                    if (!asana.csv) return;
+                    d = await api('/affectation/import/asana-csv', { method: 'POST', body: JSON.stringify({ csv: asana.csv, formationTarget: target }) });
+                }
+                asana.preview = d;
                 const badge = st => ({ nouveau: '<span class="aff-av-b ok">Nouveau</span>', 'modifié': '<span class="aff-av-b mid">Modifié</span>', identique: '<span class="aff-av-b na">Identique</span>', absent: '<span class="aff-av-b ko">Non importé</span>' })[st];
                 document.getElementById('affAsanaResult').innerHTML = `
                     <div class="aff-sync-sec" style="margin-bottom:12px;">
@@ -683,7 +795,10 @@
             const err = document.getElementById('affAsanaError'); err.textContent = '';
             if (!keys.length) { err.textContent = 'Sélectionnez au moins une rubrique.'; return; }
             try {
-                const r = await api('/affectation/import/asana-csv/apply', { method: 'POST', body: JSON.stringify({ csv: asana.csv, formationTarget: document.getElementById('affAsanaForm').value, apply: keys }) });
+                const target = document.getElementById('affAsanaForm').value;
+                const r = asana.src.type === 'api'
+                    ? await api('/affectation/asana/apply', { method: 'POST', body: JSON.stringify({ gid: asana.src.gid, formationTarget: target, apply: keys }) })
+                    : await api('/affectation/import/asana-csv/apply', { method: 'POST', body: JSON.stringify({ csv: asana.csv, formationTarget: target, apply: keys }) });
                 adminApi.asanaClose();
                 await loadAdmin();
                 plan.projects = state.projects; renderPlanning();

@@ -4081,8 +4081,8 @@ function parseCsv(text) {
 const asanaNorm = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[’‘]/g, "'").toLowerCase();
 const asanaAddDays = (iso, n) => new Date(Date.parse(iso + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10);
 
-// Calcule, à partir de l'export CSV, les dates de chaque étape selon la correspondance convenue
-function asanaCompute(csvText, formationTarget) {
+// Tâches Asana d'un export CSV, au format commun (le même que celui produit par l'API)
+function asanaTasksFromCsv(csvText) {
     const rows = parseCsv(csvText);
     if (rows.length < 2) throw Object.assign(new Error('Fichier vide ou illisible'), { status: 400 });
     const head = rows[0].map(h => h.trim());
@@ -4094,14 +4094,19 @@ function asanaCompute(csvText, formationTarget) {
         name: (r[iName] || '').trim(), section: (r[iSec] || '').trim(), start: isoOk(r[iStart]) ? r[iStart] : '', due: isoOk(r[iDue]) ? r[iDue] : '',
         parent: iParent >= 0 ? (r[iParent] || '').trim() : '', projects: iProj >= 0 ? (r[iProj] || '') : '', phase: iPhase >= 0 ? (r[iPhase] || '').trim().toUpperCase() : ''
     })).filter(t => t.name);
-    tasks.forEach(t => { const m = /^\s*(\d+(?:\.\d+)*)\.?\s/.exec(t.name); t.code = m ? m[1] : ''; t.n = asanaNorm(t.name); });
-
-    // SAMU : « [SAMU 25] » dans le nom du projet, à défaut dans le nom des tâches
-    let samuNo = null, projectName = '';
+    let projectName = '';
     for (const t of tasks) {
         const m = /\[SAMU\s*([0-9A-Za-z]+)\]/i.exec(t.projects);
-        if (m) { samuNo = m[1].toUpperCase(); projectName = t.projects.split(',').find(x => /\[SAMU/i.test(x)) || ''; break; }
+        if (m) { projectName = t.projects.split(',').find(x => /\[SAMU/i.test(x)) || ''; break; }
     }
+    return { tasks, projectName: projectName.trim() };
+}
+const asanaSamuNoOf = text => { const m = /\[SAMU\s*([0-9A-Za-z]+)\]/i.exec(String(text || '')); return m ? m[1].toUpperCase() : null; };
+
+// Calcule les dates de chaque étape à partir des tâches Asana, selon la correspondance convenue
+function asanaComputeTasks(tasks, projectName, formationTarget) {
+    tasks.forEach(t => { const m = /^\s*(\d+(?:\.\d+)*)\.?\s/.exec(t.name); t.code = m ? m[1] : ''; t.n = asanaNorm(t.name); });
+    let samuNo = asanaSamuNoOf(projectName);
     if (!samuNo) for (const t of tasks) { const m = /SAMU\s+(\d+[A-Za-z]?)\b/i.exec(t.name); if (m) { samuNo = m[1].toUpperCase(); break; } }
 
     // Dates d'une tâche : les siennes, sinon celles de ses sous-tâches (plus petite à plus grande date)
@@ -4155,14 +4160,18 @@ function asanaCompute(csvText, formationTarget) {
     if (target === 'relais') reasons.formation_utilisateurs = reasons.formation_utilisateurs || "non alimentée par cet import (choix « Formateurs relais »)";
     const acc = tasks.filter(t => t.code === '6.6' || /accompagnement post demarrage/.test(t.n));
     setP('accompagnement', span(acc), 'tâche 6.6 « Accompagnement post démarrage » non datée dans Asana');
-    return { samuNo, projectName: projectName.trim(), taskCount: tasks.length, demarDate, found, reasons };
+    return { samuNo, projectName, taskCount: tasks.length, demarDate, found, reasons };
+}
+function asanaCompute(csvText, formationTarget) {
+    const { tasks, projectName } = asanaTasksFromCsv(csvText);
+    return asanaComputeTasks(tasks, projectName, formationTarget);
 }
 
-async function asanaMatch(samuNo) {
+async function asanaMatch(samuNo, forcedId) {
     const locs = await dbAll('SELECT id, libelle_court FROM locations');
     const loc = locs.find(l => affSamuNumber(l.libelle_court) === samuNo && /SAS/i.test(l.libelle_court)) || locs.find(l => affSamuNumber(l.libelle_court) === samuNo) || null;
     const all = await dbAll('SELECT * FROM affectation_projects');
-    const existing = all.find(p => (loc && p.location_id === loc.id) || affSamuNumber(p.samu_name) === samuNo) || null;
+    const existing = (forcedId && all.find(p => p.id === forcedId)) || all.find(p => (loc && p.location_id === loc.id) || affSamuNumber(p.samu_name) === samuNo) || null;
     if (existing) { try { existing.periodsObj = JSON.parse(existing.periods || '{}'); } catch (e) { existing.periodsObj = {}; } }
     return { loc, existing };
 }
@@ -4170,70 +4179,240 @@ const ASANA_KEYS = ['date_debut', 'cadrage', 'deploiement', 'mise_en_service', '
 const asanaFr = d => d ? d.split('-').reverse().join('/') : '';
 const asanaFmt = v => !v ? '' : v.date ? asanaFr(v.date) : `${asanaFr(v.start)} → ${asanaFr(v.end)}`;
 
+async function asanaPreviewPayload(c, forcedId) {
+    const { loc, existing } = await asanaMatch(c.samuNo, forcedId);
+    const rows = ASANA_KEYS.map(key => {
+        const label = key === 'date_debut' ? 'Début du projet' : AFF_STAGES.find(s => s.key === key).label;
+        let cur = null, neu = null;
+        if (key === 'date_debut') { cur = existing ? { date: existing.date_debut } : null; neu = c.demarDate ? { date: c.demarDate } : null; }
+        else if (key === 'mise_en_service' || key === 'mise_en_production') { cur = existing && existing['date_' + key] ? { date: existing['date_' + key] } : null; neu = c.found[key] || null; }
+        else { const p = existing && existing.periodsObj[key] && existing.periodsObj[key][0]; cur = p ? { start: p.start, end: p.end } : null; neu = c.found[key] || null; }
+        const same = cur && neu && asanaFmt(cur) === asanaFmt(neu);
+        const reason = key === 'date_debut' ? (neu ? '' : 'tâche « Démarrage projet auprès de l\'ES » non datée') : (c.reasons[key] || '');
+        return { key, label, old: asanaFmt(cur), new: asanaFmt(neu), status: !neu ? 'absent' : same ? 'identique' : cur ? 'modifié' : 'nouveau', reason };
+    });
+    return {
+        samuNo: c.samuNo, projectName: c.projectName, taskCount: c.taskCount,
+        samuName: loc ? loc.libelle_court : `SAMU ${c.samuNo}`, locationFound: !!loc,
+        existing: existing ? { id: existing.id, samu_name: existing.samu_name } : null, rows
+    };
+}
+
+async function asanaApplyCore(req, c, wantList, forcedId) {
+    const want = new Set((Array.isArray(wantList) ? wantList : []).filter(k => ASANA_KEYS.includes(k)));
+    if (!want.size) throw Object.assign(new Error('Aucune ligne sélectionnée'), { status: 400 });
+    const { loc, existing } = await asanaMatch(c.samuNo, forcedId);
+    const base = existing
+        ? { samu_name: existing.samu_name, location_id: existing.location_id || (loc ? loc.id : null), chef_projet_id: existing.chef_projet_id, date_debut: existing.date_debut,
+            date_mise_en_service: existing.date_mise_en_service, date_mise_en_production: existing.date_mise_en_production, periods: JSON.parse(JSON.stringify(existing.periodsObj)) }
+        : { samu_name: loc ? loc.libelle_court : `SAMU ${c.samuNo}`, location_id: loc ? loc.id : null, chef_projet_id: null, date_debut: null, date_mise_en_service: null, date_mise_en_production: null, periods: {} };
+    if (want.has('date_debut') && c.demarDate) base.date_debut = c.demarDate;
+    ['mise_en_service', 'mise_en_production'].forEach(k => { if (want.has(k) && c.found[k]) base['date_' + k] = c.found[k].date; });
+    AFF_PERIOD_KEYS.forEach(k => {
+        if (!want.has(k) || !c.found[k]) return;
+        const def = AFF_STAGES.find(s => s.key === k);
+        const old = base.periods[k] && base.periods[k][0];
+        const item = { start: c.found[k].start, end: c.found[k].end };
+        if (def.resources) item.needed = (old && old.needed) || 1; // nombre de ressources : conservé, à défaut 1 (à ajuster)
+        base.periods[k] = [item];
+    });
+    // Le début du projet ne peut pas être postérieur à une autre date : on le ramène à la plus ancienne
+    const dates = [base.date_debut, base.date_mise_en_service, base.date_mise_en_production, ...Object.values(base.periods).flat().map(p => p.start)].filter(Boolean).sort();
+    if (!dates.length) throw Object.assign(new Error('Aucune date exploitable'), { status: 400 });
+    const debutAvant = base.date_debut;
+    base.date_debut = dates[0];
+    const r = sanitizeAffProject(base);
+    if (r.error) throw Object.assign(new Error(r.error), { status: 400 });
+    const v = r.value;
+    const fields = [v.samu_name, v.location_id, v.chef_projet_id, v.date_debut, v.date_mise_en_service, v.date_mise_en_production, JSON.stringify(v.periods)];
+    let id;
+    if (existing) {
+        await dbRun(`UPDATE affectation_projects SET samu_name=?, location_id=?, chef_projet_id=?, date_debut=?, date_mise_en_service=?, date_mise_en_production=?, periods=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`, [...fields, existing.id]);
+        id = existing.id;
+    } else {
+        const ins = await dbRun(`INSERT INTO affectation_projects (samu_name, location_id, chef_projet_id, date_debut, date_mise_en_service, date_mise_en_production, periods, created_by) VALUES (?,?,?,?,?,?,?,?)`, [...fields, req.session.userId]);
+        id = ins.lastID;
+    }
+    await new Promise(resolve => affReconcileAssignments(id, v.periods, resolve));
+    logUserAction(req, 'Import Asana dans un déploiement SAMU', { id, samu: v.samu_name, appliquees: [...want] });
+    return { success: true, id, created: !existing, samu_name: v.samu_name, date_debut: v.date_debut, debutAjuste: !!debutAvant && debutAvant !== v.date_debut };
+}
+
+// ---- Import par fichier CSV ----
 app.post('/api/affectation/import/asana-csv', requireAdmin, async (req, res) => {
     try {
         const c = asanaCompute(req.body && req.body.csv, req.body && req.body.formationTarget);
         if (!c.samuNo) return res.status(400).json({ error: "Impossible d'identifier le SAMU : le nom du projet doit contenir « [SAMU 25] »" });
-        const { loc, existing } = await asanaMatch(c.samuNo);
-        const rows = ASANA_KEYS.map(key => {
-            const label = key === 'date_debut' ? 'Début du projet' : AFF_STAGES.find(s => s.key === key).label;
-            let cur = null, neu = null;
-            if (key === 'date_debut') { cur = existing ? { date: existing.date_debut } : null; neu = c.demarDate ? { date: c.demarDate } : null; }
-            else if (key === 'mise_en_service' || key === 'mise_en_production') { cur = existing && existing['date_' + key] ? { date: existing['date_' + key] } : null; neu = c.found[key] || null; }
-            else { const p = existing && existing.periodsObj[key] && existing.periodsObj[key][0]; cur = p ? { start: p.start, end: p.end } : null; neu = c.found[key] || null; }
-            const same = cur && neu && asanaFmt(cur) === asanaFmt(neu);
-            const reason = key === 'date_debut' ? (neu ? '' : 'tâche « Démarrage projet auprès de l\'ES » non datée') : (c.reasons[key] || '');
-            return { key, label, old: asanaFmt(cur), new: asanaFmt(neu), status: !neu ? 'absent' : same ? 'identique' : cur ? 'modifié' : 'nouveau', reason };
-        });
-        res.json({
-            samuNo: c.samuNo, projectName: c.projectName, taskCount: c.taskCount,
-            samuName: loc ? loc.libelle_court : `SAMU ${c.samuNo}`, locationFound: !!loc,
-            existing: existing ? { id: existing.id, samu_name: existing.samu_name } : null, rows
-        });
+        res.json(await asanaPreviewPayload(c));
     } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
 });
-
 app.post('/api/affectation/import/asana-csv/apply', requireAdmin, async (req, res) => {
     try {
         const c = asanaCompute(req.body && req.body.csv, req.body && req.body.formationTarget);
         if (!c.samuNo) return res.status(400).json({ error: "Impossible d'identifier le SAMU" });
-        const want = new Set((Array.isArray(req.body.apply) ? req.body.apply : []).filter(k => ASANA_KEYS.includes(k)));
-        if (!want.size) return res.status(400).json({ error: 'Aucune ligne sélectionnée' });
-        const { loc, existing } = await asanaMatch(c.samuNo);
-        const base = existing
-            ? { samu_name: existing.samu_name, location_id: existing.location_id || (loc ? loc.id : null), chef_projet_id: existing.chef_projet_id, date_debut: existing.date_debut,
-                date_mise_en_service: existing.date_mise_en_service, date_mise_en_production: existing.date_mise_en_production, periods: JSON.parse(JSON.stringify(existing.periodsObj)) }
-            : { samu_name: loc ? loc.libelle_court : `SAMU ${c.samuNo}`, location_id: loc ? loc.id : null, chef_projet_id: null, date_debut: null, date_mise_en_service: null, date_mise_en_production: null, periods: {} };
-        if (want.has('date_debut') && c.demarDate) base.date_debut = c.demarDate;
-        ['mise_en_service', 'mise_en_production'].forEach(k => { if (want.has(k) && c.found[k]) base['date_' + k] = c.found[k].date; });
-        AFF_PERIOD_KEYS.forEach(k => {
-            if (!want.has(k) || !c.found[k]) return;
-            const def = AFF_STAGES.find(s => s.key === k);
-            const old = base.periods[k] && base.periods[k][0];
-            const item = { start: c.found[k].start, end: c.found[k].end };
-            if (def.resources) item.needed = (old && old.needed) || 1; // nombre de ressources : conservé, à défaut 1 (à ajuster)
-            base.periods[k] = [item];
+        res.json(await asanaApplyCore(req, c, req.body.apply));
+    } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+});
+
+// ---- Connexion directe à l'API Asana (lecture seule) ----
+// Le jeton est chiffré (AES-256-GCM) avec une clé propre au serveur : il ne figure donc pas en clair dans la base ni dans un dump.
+function asanaKey() {
+    const keyFile = path.join(DB_DIR, '.asana_key');
+    try { return Buffer.from(fs.readFileSync(keyFile, 'utf8').trim(), 'hex'); } catch (e) { /* première utilisation */ }
+    const k = crypto.randomBytes(32);
+    fs.writeFileSync(keyFile, k.toString('hex'), { mode: 0o600 });
+    return k;
+}
+function asanaEncrypt(plain) {
+    const iv = crypto.randomBytes(12), c = crypto.createCipheriv('aes-256-gcm', asanaKey(), iv);
+    const enc = Buffer.concat([c.update(plain, 'utf8'), c.final()]);
+    return [iv.toString('hex'), c.getAuthTag().toString('hex'), enc.toString('hex')].join(':');
+}
+function asanaDecrypt(blob) {
+    try {
+        const [iv, tag, enc] = String(blob).split(':').map(x => Buffer.from(x, 'hex'));
+        const d = crypto.createDecipheriv('aes-256-gcm', asanaKey(), iv); d.setAuthTag(tag);
+        return Buffer.concat([d.update(enc), d.final()]).toString('utf8');
+    } catch (e) { return null; }
+}
+const asanaSetting = async key => { const r = await dbGet('SELECT value FROM settings WHERE key = ?', [key]); return r ? r.value : null; };
+const asanaPut = (key, value) => dbRun('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [key, value]);
+async function asanaToken() {
+    const blob = await asanaSetting('asana_token_enc');
+    const t = blob ? asanaDecrypt(blob) : null;
+    if (!t) throw Object.assign(new Error("Jeton Asana non configuré (ou illisible sur ce serveur) : saisissez-le dans la configuration Asana"), { status: 400 });
+    return t;
+}
+async function asanaApi(token, pathQuery) {
+    let r;
+    try {
+        r = await fetch((process.env.ASANA_API_BASE || 'https://app.asana.com/api/1.0') + pathQuery, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' }, signal: AbortSignal.timeout(25000) });
+    } catch (e) { throw Object.assign(new Error("Asana injoignable depuis le serveur (réseau ou pare-feu) : " + (e.cause && e.cause.code || e.message)), { status: 502 }); }
+    if (!r.ok) {
+        let msg = '';
+        try { const b = await r.json(); msg = b.errors && b.errors[0] && b.errors[0].message; } catch (e) { /* corps non JSON */ }
+        const text = r.status === 401 ? 'Jeton Asana refusé ou expiré' : r.status === 403 ? 'Accès refusé par Asana à cette ressource' : r.status === 429 ? 'Trop de requêtes vers Asana : réessayez dans une minute' : `Erreur Asana ${r.status}`;
+        throw Object.assign(new Error(text + (msg ? ` — ${msg}` : '')), { status: r.status === 401 ? 400 : 502 });
+    }
+    return r.json();
+}
+async function asanaPaged(token, pathQuery) {
+    const out = [];
+    let offset = '';
+    for (let i = 0; i < 60; i++) { // garde-fou : 60 pages de 100
+        const sep = pathQuery.includes('?') ? '&' : '?';
+        const b = await asanaApi(token, `${pathQuery}${sep}limit=100${offset ? '&offset=' + encodeURIComponent(offset) : ''}`);
+        out.push(...(b.data || []));
+        if (b.next_page && b.next_page.offset) offset = b.next_page.offset; else break;
+    }
+    return out;
+}
+const asanaNormTask = (t, projectName, parentName) => {
+    const cf = (t.custom_fields || []).find(f => asanaNorm(f.name) === 'phase');
+    const section = (t.memberships || []).map(m => m.section && m.section.name).find(Boolean) || '';
+    return { name: String(t.name || '').trim(), section, start: t.start_on || '', due: t.due_on || '', parent: parentName || (t.parent && t.parent.name) || '', projects: projectName, phase: cf ? String(cf.display_value || (cf.enum_value && cf.enum_value.name) || '').trim().toUpperCase() : '' };
+};
+const ASANA_TASK_FIELDS = 'name,start_on,due_on,num_subtasks,parent.name,memberships.section.name,custom_fields.name,custom_fields.display_value';
+async function asanaFetchProject(token, gid) {
+    const proj = (await asanaApi(token, `/projects/${encodeURIComponent(gid)}?opt_fields=name`)).data;
+    const raw = await asanaPaged(token, `/projects/${encodeURIComponent(gid)}/tasks?opt_fields=${ASANA_TASK_FIELDS}`);
+    const tasks = raw.map(t => asanaNormTask(t, proj.name));
+    // Sous-tâches : uniquement pour les tâches parentes sans date propre (leurs dates servent de repli)
+    for (const t of raw.filter(x => x.num_subtasks > 0 && !x.start_on && !x.due_on)) {
+        const subs = await asanaPaged(token, `/tasks/${encodeURIComponent(t.gid)}/subtasks?opt_fields=name,start_on,due_on,custom_fields.name,custom_fields.display_value`);
+        subs.forEach(st => tasks.push(asanaNormTask(st, proj.name, String(t.name || '').trim())));
+    }
+    return { projectName: proj.name, tasks };
+}
+
+app.get('/api/affectation/asana/config', requireAdmin, async (req, res) => {
+    try {
+        res.json({
+            tokenSet: !!(await asanaSetting('asana_token_enc')),
+            workspaceGid: await asanaSetting('asana_workspace_gid') || '', workspaceName: await asanaSetting('asana_workspace_name') || '',
+            nameFilter: await asanaSetting('asana_name_filter') || '\\[SAMU\\s*[^\\]]+\\]'
         });
-        // Le début du projet ne peut pas être postérieur à une autre date : on le ramène à la plus ancienne
-        const dates = [base.date_debut, base.date_mise_en_service, base.date_mise_en_production, ...Object.values(base.periods).flat().map(p => p.start)].filter(Boolean).sort();
-        if (!dates.length) return res.status(400).json({ error: 'Aucune date exploitable' });
-        const debutAvant = base.date_debut;
-        base.date_debut = dates[0];
-        const r = sanitizeAffProject(base);
-        if (r.error) return res.status(400).json({ error: r.error });
-        const v = r.value;
-        const fields = [v.samu_name, v.location_id, v.chef_projet_id, v.date_debut, v.date_mise_en_service, v.date_mise_en_production, JSON.stringify(v.periods)];
-        let id;
-        if (existing) {
-            await dbRun(`UPDATE affectation_projects SET samu_name=?, location_id=?, chef_projet_id=?, date_debut=?, date_mise_en_service=?, date_mise_en_production=?, periods=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`, [...fields, existing.id]);
-            id = existing.id;
-        } else {
-            const ins = await dbRun(`INSERT INTO affectation_projects (samu_name, location_id, chef_projet_id, date_debut, date_mise_en_service, date_mise_en_production, periods, created_by) VALUES (?,?,?,?,?,?,?,?)`, [...fields, req.session.userId]);
-            id = ins.lastID;
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.put('/api/affectation/asana/config', requireAdmin, async (req, res) => {
+    try {
+        const b = req.body || {};
+        if (typeof b.token === 'string' && b.token.trim()) await asanaPut('asana_token_enc', asanaEncrypt(b.token.trim()));
+        if (typeof b.workspaceGid === 'string') { await asanaPut('asana_workspace_gid', b.workspaceGid.trim()); await asanaPut('asana_workspace_name', String(b.workspaceName || '').trim()); }
+        if (typeof b.nameFilter === 'string' && b.nameFilter.trim()) {
+            try { new RegExp(b.nameFilter, 'i'); } catch (e) { return res.status(400).json({ error: 'Filtre de nom invalide (expression régulière)' }); }
+            await asanaPut('asana_name_filter', b.nameFilter.trim());
         }
-        await new Promise(resolve => affReconcileAssignments(id, v.periods, resolve));
-        logUserAction(req, 'Import Asana (CSV) dans un déploiement SAMU', { id, samu: v.samu_name, appliquees: [...want] });
-        res.json({ success: true, id, created: !existing, samu_name: v.samu_name, date_debut: v.date_debut, debutAjuste: !!debutAvant && debutAvant !== v.date_debut });
+        logUserAction(req, 'Configuration de la connexion Asana', { jetonModifie: !!(b.token && b.token.trim()) });
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.delete('/api/affectation/asana/token', requireAdmin, async (req, res) => {
+    await dbRun("DELETE FROM settings WHERE key = 'asana_token_enc'");
+    logUserAction(req, 'Suppression du jeton Asana', {});
+    res.json({ success: true });
+});
+// Teste le jeton enregistré et liste les espaces de travail accessibles
+app.post('/api/affectation/asana/test', requireAdmin, async (req, res) => {
+    try {
+        const me = (await asanaApi(await asanaToken(), '/users/me?opt_fields=name,email,workspaces.name')).data;
+        res.json({ name: me.name, email: me.email, workspaces: me.workspaces || [] });
+    } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+});
+// Projets Asana du périmètre, avec leur appairage aux déploiements de l'application
+app.get('/api/affectation/asana/projects', requireAdmin, async (req, res) => {
+    try {
+        const token = await asanaToken();
+        const ws = await asanaSetting('asana_workspace_gid');
+        if (!ws) return res.status(400).json({ error: "Choisissez d'abord l'espace de travail Asana" });
+        const re = new RegExp(await asanaSetting('asana_name_filter') || '\\[SAMU\\s*[^\\]]+\\]', 'i');
+        const list = (await asanaPaged(token, `/projects?workspace=${encodeURIComponent(ws)}&archived=false&opt_fields=name,permalink_url`)).filter(p => re.test(p.name));
+        let links = {};
+        try { links = JSON.parse(await asanaSetting('asana_links') || '{}'); } catch (e) { links = {}; }
+        const deployments = await dbAll('SELECT id, samu_name FROM affectation_projects ORDER BY samu_name');
+        const out = [];
+        for (const p of list.sort((a, b) => a.name.localeCompare(b.name, 'fr', { numeric: true }))) {
+            const samuNo = asanaSamuNoOf(p.name);
+            const forced = links[p.gid] && links[p.gid] > 0 ? links[p.gid] : null;
+            const dep = forced ? deployments.find(d => d.id === forced) : deployments.find(d => affSamuNumber(d.samu_name) === samuNo);
+            out.push({ gid: p.gid, name: p.name, url: p.permalink_url, samuNo, deployment: dep || null, manual: !!forced, ignored: links[p.gid] === -1 });
+        }
+        res.json({ projects: out, deployments });
+    } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+});
+// Appairage manuel : deploymentId > 0 = déploiement choisi, -1 = ignorer ce projet, 0 / absent = retour à l'appairage automatique
+app.put('/api/affectation/asana/links', requireAdmin, async (req, res) => {
+    try {
+        const { gid, deploymentId } = req.body || {};
+        if (!gid) return res.status(400).json({ error: 'Projet Asana manquant' });
+        let links = {};
+        try { links = JSON.parse(await asanaSetting('asana_links') || '{}'); } catch (e) { links = {}; }
+        const n = Number(deploymentId) || 0;
+        if (n === 0) delete links[gid]; else links[gid] = n;
+        await asanaPut('asana_links', JSON.stringify(links));
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+async function asanaForcedId(gid) {
+    try { const l = JSON.parse(await asanaSetting('asana_links') || '{}'); return l[gid] > 0 ? l[gid] : null; } catch (e) { return null; }
+}
+app.post('/api/affectation/asana/preview', requireAdmin, async (req, res) => {
+    try {
+        const gid = String(req.body && req.body.gid || '');
+        if (!gid) return res.status(400).json({ error: 'Projet Asana manquant' });
+        const { projectName, tasks } = await asanaFetchProject(await asanaToken(), gid);
+        const c = asanaComputeTasks(tasks, projectName, req.body.formationTarget);
+        if (!c.samuNo) return res.status(400).json({ error: "Impossible d'identifier le SAMU dans le nom du projet" });
+        res.json(await asanaPreviewPayload(c, await asanaForcedId(gid)));
+    } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+});
+app.post('/api/affectation/asana/apply', requireAdmin, async (req, res) => {
+    try {
+        const gid = String(req.body && req.body.gid || '');
+        const { projectName, tasks } = await asanaFetchProject(await asanaToken(), gid);
+        const c = asanaComputeTasks(tasks, projectName, req.body.formationTarget);
+        if (!c.samuNo) return res.status(400).json({ error: "Impossible d'identifier le SAMU" });
+        res.json(await asanaApplyCore(req, c, req.body.apply, await asanaForcedId(gid)));
     } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
 });
 
