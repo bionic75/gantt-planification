@@ -185,6 +185,8 @@
         .aff-sync-row:first-of-type { border-top: none; }
         .aff-sync-sec .aff-field { margin-top: 8px; }
         .aff-sync-sec .aff-field input[type=text], .aff-sync-sec .aff-field input[type=date] { padding: 7px 9px; border: 1px solid #cfd8e6; border-radius: 8px; font-size: 13px; }
+        #affAsanaResult th { background: #e6f4f1 !important; color: #0f4c5c !important; cursor: default !important; } #affAsanaResult th::after { content: none !important; }
+        #affAsanaResult tr:nth-child(even) td { background: #f8fafc; }
         .aff-av { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
         .aff-av-b { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: #e9edf3; color: #4a5b70; }
         .aff-av-b.ok { background: #d7f2e3; color: #167a45; } .aff-av-b.mid { background: #ffeccc; color: #9a5b00; }
@@ -247,7 +249,10 @@
         <section class="aff-card">
             <header class="aff-card-head">
                 <span class="aff-card-title">${svg('rocket', 'aff-ico')}Déploiements de SAMU</span>
-                <button type="button" class="aff-btn aff-btn-primary" onclick="AffectationApp.editProject(null)">${svg('plus', 'aff-ico-sm')}Nouveau déploiement</button>
+                <span style="display:inline-flex;gap:8px;flex-wrap:wrap;">
+                    <button type="button" class="aff-btn" onclick="AffectationApp.asanaOpen()" title="Récupérer les dates d'un projet de déploiement depuis un export CSV d'Asana">${svg('save', 'aff-ico-sm')}Importer depuis Asana</button>
+                    <button type="button" class="aff-btn aff-btn-primary" onclick="AffectationApp.editProject(null)">${svg('plus', 'aff-ico-sm')}Nouveau déploiement</button>
+                </span>
             </header>
             <div id="affLegend" class="aff-legend"></div>
             <div id="affProjects"><p class="aff-muted">Chargement…</p></div>
@@ -298,6 +303,33 @@
                 <button type="button" class="aff-btn" onclick="AffectationApp.openSync()" title="Reporter les ressources affectées dans la planification et les événements">Synchroniser</button>
                 <button type="button" class="aff-btn" onclick="AffectationApp.closeAssign()">Annuler</button>
                 <button type="button" class="aff-btn aff-btn-primary" onclick="AffectationApp.saveAssign()">${svg('save', 'aff-ico-sm')}Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="affAsanaModal">
+        <div class="modal-content" style="max-width:820px; width:96%; max-height:92vh; overflow-y:auto; padding:0;">
+            <div class="aff-modal-head">
+                <span class="aff-card-title">Importer depuis Asana</span>
+                <button type="button" class="aff-x" onclick="AffectationApp.asanaClose()" aria-label="Fermer">${svg('x', 'aff-ico-sm')}</button>
+            </div>
+            <div class="aff-modal-body">
+                <p class="aff-muted" style="margin:0 0 12px;">Dans Asana : ouvrez le projet de déploiement (ex. « [SAMU 25] SF4 - Déploiement »), menu du projet › <strong>Exporter</strong> › <strong>CSV</strong> (avec tous les champs personnalisés). Chargez ensuite le fichier ici : un aperçu s'affiche avant toute écriture.</p>
+                <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px;">
+                    <div class="aff-field"><label class="lbl">Fichier CSV Asana</label><input id="affAsanaFile" type="file" accept=".csv,text/csv" onchange="AffectationApp.asanaAnalyze()"></div>
+                    <div class="aff-field"><label class="lbl" for="affAsanaForm">La tâche « Formation » d'Asana alimente</label>
+                        <select id="affAsanaForm" onchange="AffectationApp.asanaAnalyze()" style="padding:7px 9px;border:1px solid #cfd8e6;border-radius:8px;">
+                            <option value="utilisateurs">Formation « Utilisateurs »</option>
+                            <option value="relais">Formation « Formateurs relais »</option>
+                            <option value="both">Les deux</option>
+                        </select></div>
+                </div>
+                <div id="affAsanaResult"></div>
+            </div>
+            <div class="aff-modal-foot">
+                <span id="affAsanaError" class="aff-error"></span>
+                <button type="button" class="aff-btn" onclick="AffectationApp.asanaClose()">Fermer</button>
+                <button type="button" class="aff-btn aff-btn-primary" id="affAsanaOk" onclick="AffectationApp.asanaApply()" style="display:none;">${svg('save', 'aff-ico-sm')}Appliquer la sélection</button>
             </div>
         </div>
     </div>
@@ -608,7 +640,56 @@
         return errs;
     }
 
+    // ---- Import depuis un export CSV d'Asana ----
+    const asana = { csv: '', preview: null };
     const adminApi = {
+        asanaOpen() {
+            asana.csv = ''; asana.preview = null;
+            document.getElementById('affAsanaFile').value = '';
+            document.getElementById('affAsanaResult').innerHTML = '';
+            document.getElementById('affAsanaError').textContent = '';
+            document.getElementById('affAsanaOk').style.display = 'none';
+            document.getElementById('affAsanaModal').classList.add('active');
+        },
+        asanaClose() { document.getElementById('affAsanaModal').classList.remove('active'); },
+        async asanaAnalyze() {
+            const file = document.getElementById('affAsanaFile').files[0];
+            const err = document.getElementById('affAsanaError'); err.textContent = '';
+            if (file) asana.csv = await file.text();
+            if (!asana.csv) return;
+            try {
+                const d = asana.preview = await api('/affectation/import/asana-csv', { method: 'POST', body: JSON.stringify({ csv: asana.csv, formationTarget: document.getElementById('affAsanaForm').value }) });
+                const badge = st => ({ nouveau: '<span class="aff-av-b ok">Nouveau</span>', 'modifié': '<span class="aff-av-b mid">Modifié</span>', identique: '<span class="aff-av-b na">Identique</span>', absent: '<span class="aff-av-b ko">Non importé</span>' })[st];
+                document.getElementById('affAsanaResult').innerHTML = `
+                    <div class="aff-sync-sec" style="margin-bottom:12px;">
+                        <b>${esc(d.samuName)}</b> — projet Asana « ${esc(d.projectName)} » (${d.taskCount} tâches lues)<br>
+                        ${d.existing ? `<span class="aff-muted">Un déploiement existe déjà pour ce SAMU : il sera <b>mis à jour</b> (le chef de projet, les périodes de gel et le nombre de ressources sont conservés).</span>` : `<span class="aff-muted">Aucun déploiement pour ce SAMU : il sera <b>créé</b> (nombre de ressources à 1 par défaut, à ajuster ensuite).</span>`}
+                        ${d.locationFound ? '' : '<br><span class="aff-error">Entité SAMU introuvable dans la liste des localisations : le déploiement sera créé sans entité liée.</span>'}
+                    </div>
+                    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                        <thead><tr style="background:#e6f4f1;"><th style="padding:6px 8px;width:30px;"></th><th style="padding:6px 8px;text-align:left;">Rubrique</th><th style="padding:6px 8px;text-align:left;">Actuel</th><th style="padding:6px 8px;text-align:left;">Asana</th><th style="padding:6px 8px;text-align:left;">État</th></tr></thead>
+                        <tbody>${d.rows.map(r => `<tr style="border-top:1px solid #eef1f6;">
+                            <td style="padding:6px 8px;"><input type="checkbox" data-ak="${r.key}" ${r.status === 'nouveau' || r.status === 'modifié' ? 'checked' : ''} ${r.status === 'absent' || r.status === 'identique' ? 'disabled' : ''} style="width:auto;display:inline-block;margin:0;"></td>
+                            <td style="padding:6px 8px;font-weight:600;">${esc(r.label)}</td>
+                            <td style="padding:6px 8px;">${esc(r.old) || '<span class="aff-muted">—</span>'}</td>
+                            <td style="padding:6px 8px;">${esc(r.new) || '<span class="aff-muted">—</span>'}${r.reason ? `<div class="aff-muted" style="font-size:11px;">${esc(r.reason)}</div>` : ''}</td>
+                            <td style="padding:6px 8px;">${badge(r.status)}</td></tr>`).join('')}</tbody>
+                    </table>`;
+                document.getElementById('affAsanaOk').style.display = d.rows.some(r => r.status === 'nouveau' || r.status === 'modifié') ? '' : 'none';
+            } catch (e) { document.getElementById('affAsanaResult').innerHTML = ''; document.getElementById('affAsanaOk').style.display = 'none'; err.textContent = e.message; }
+        },
+        async asanaApply() {
+            const keys = [...document.querySelectorAll('#affAsanaResult input[data-ak]:checked')].map(i => i.dataset.ak);
+            const err = document.getElementById('affAsanaError'); err.textContent = '';
+            if (!keys.length) { err.textContent = 'Sélectionnez au moins une rubrique.'; return; }
+            try {
+                const r = await api('/affectation/import/asana-csv/apply', { method: 'POST', body: JSON.stringify({ csv: asana.csv, formationTarget: document.getElementById('affAsanaForm').value, apply: keys }) });
+                adminApi.asanaClose();
+                await loadAdmin();
+                plan.projects = state.projects; renderPlanning();
+                alert(`${r.created ? 'Déploiement créé' : 'Déploiement mis à jour'} : ${r.samu_name}.` + (r.debutAjuste ? `\nLe début du projet a été ramené au ${r.date_debut.split('-').reverse().join('/')} pour rester antérieur aux autres dates.` : '') + (r.created ? '\nPensez à indiquer le nombre de ressources par étape (1 par défaut).' : ''));
+            } catch (e) { err.textContent = e.message; }
+        },
         editProject(id) {
             if (!state.loaded) { loadAdmin().then(() => adminApi.editProject(id)); return; }
             const p = id ? state.projects.find(x => x.id === id) : null;
