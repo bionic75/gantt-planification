@@ -53,6 +53,12 @@
     const css2 = `
         #affectationContainer .aff-card { background: #fff; border: 1px solid #dfe5ef; border-radius: 14px; margin: 18px 0; padding: 16px 20px 18px; box-shadow: 0 2px 8px rgba(30,60,110,.06); }
         #affectationContainer .aff-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+        .aff-rowhide { position: absolute; top: 6px; right: 8px; width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 1px solid #cfd8e6; background: #fff; color: #6b7a8d; font-size: 16px; font-weight: 700; line-height: 18px; cursor: pointer; opacity: .4; }
+        #affectationContainer table.aff-plan-table tbody th.sam:hover .aff-rowhide, .aff-rowhide:focus { opacity: 1; }
+        .aff-rowhide:hover { background: #fdecea; color: #b3261e; border-color: #e57373; opacity: 1; }
+        .aff-hid-pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 50; min-width: 300px; max-height: 340px; overflow-y: auto; background: #fff; border: 1px solid #cfd8e6; border-radius: 12px; box-shadow: 0 10px 28px rgba(0,0,0,.22); padding: 8px 10px; }
+        .aff-hid-pop .hd, .aff-hid-pop .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 5px 2px; }
+        .aff-hid-pop .row { border-top: 1px solid #eef1f6; font-size: 13px; }
         .aff-range { display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; margin: 0 0 12px; font-size: 13px; color: #4a5b70; }
         .aff-range .lbl { font-weight: 700; }
         .aff-range input { padding: 6px 8px; border: 1px solid #cfd8e6; border-radius: 8px; font-size: 13px; width: auto; display: inline-block; }
@@ -1177,6 +1183,10 @@
         return out;
     }
 
+    // Lignes SAMU retirées de l'affichage (mémorisées dans le navigateur) ; rétablissables une à une
+    try { plan.hiddenRows = new Set(JSON.parse(localStorage.getItem('affHiddenRows') || '[]')); } catch (e) { plan.hiddenRows = new Set(); }
+    const saveHiddenRows = () => { try { localStorage.setItem('affHiddenRows', JSON.stringify([...plan.hiddenRows])); } catch (e) { /* stockage indisponible */ } };
+
     // Bornes d'affichage choisies par l'utilisateur (mémorisées) ; une borne absente reste automatique
     try { plan.range = JSON.parse(localStorage.getItem('affPlanRange') || 'null'); } catch (e) { plan.range = null; }
     function autoRange() {
@@ -1218,7 +1228,16 @@
         const hint = { date: 'calendrier', week: 'semaine et année', month: 'mois et année' }[type];
         const custom = !!(r.from || r.to);
         box.innerHTML = `<span class="lbl">Période affichée</span> du <input type="${type}" id="affRgFrom" value="${rgVal(type, r.from || a.min)}" title="Borne inférieure (${hint})" onchange="AffectationApp.planRangeSet()"> au <input type="${type}" id="affRgTo" value="${rgVal(type, r.to || a.max)}" title="Borne supérieure (${hint})" onchange="AffectationApp.planRangeSet()">
-            <span class="aff-muted" style="font-size:12px;">(${hint})</span>${custom ? '<button type="button" class="aff-btn" onclick="AffectationApp.planRangeReset()" title="Revenir à l\'affichage automatique de toute la période">Tout afficher</button>' : ''}<span class="aff-error" id="affRgErr"></span>`;
+            <span class="aff-muted" style="font-size:12px;">(${hint})</span>${custom ? '<button type="button" class="aff-btn" onclick="AffectationApp.planRangeReset()" title="Revenir à l\'affichage automatique de toute la période">Tout afficher</button>' : ''}<span class="aff-error" id="affRgErr"></span>${hiddenRowsCtl()}`;
+    }
+    function hiddenRowsCtl() {
+        const list = plan.projects.filter(p => plan.hiddenRows.has(p.id));
+        if (!list.length) return '';
+        return `<span class="aff-hid-wrap" style="position:relative;margin-left:auto;"><button type="button" class="aff-btn" onclick="AffectationApp.toggleHiddenPop(event)" title="Rétablir les lignes retirées">${svg('planning', 'aff-ico-sm')}Lignes retirées (${list.length}) ▾</button>
+            <div class="aff-hid-pop" id="affHidPop" style="display:none;">
+                <div class="hd"><b>Lignes retirées de l'affichage</b><button type="button" class="aff-btn" onclick="AffectationApp.showAllRows()">Tout rétablir</button></div>
+                ${list.map(p => `<div class="row"><span>${esc(p.samu_name)}</span><button type="button" class="aff-btn" onclick="AffectationApp.showRow(${p.id})">Rétablir</button></div>`).join('')}
+            </div></span>`;
     }
 
     let hiddenKeys = new Set();
@@ -1276,12 +1295,13 @@
     }
 
     // Sélection triée des déploiements affichés (tri courant, filtre « déjà en service »)
-    function sortedProjects() {
+    function sortedProjects(includeHidden) {
         const cmp = (a, b) => String(a || '').localeCompare(String(b || ''), 'fr', { numeric: true });
         const keyOf = { samu: p => p.samu_name, chef: p => p.chef_projet_nom, mes: p => p.date_mise_en_service };
         const k = keyOf[plan.sort.key];
         const today = todayIso();
-        const shown = hiddenKeys.has('_past') ? plan.projects.filter(p => !(p.date_mise_en_service && p.date_mise_en_service < today)) : plan.projects;
+        let shown = hiddenKeys.has('_past') ? plan.projects.filter(p => !(p.date_mise_en_service && p.date_mise_en_service < today)) : plan.projects;
+        if (!includeHidden) shown = shown.filter(p => !plan.hiddenRows.has(p.id));
         return [...shown].sort((a, b) => {
             const va = k(a), vb = k(b);
             if (!va && vb) return 1; // valeurs vides toujours en bas
@@ -1361,10 +1381,12 @@
         let body;
         if (!plan.projects.length) {
             body = `<tr><td colspan="${cols.length + 1}" style="height:70px;text-align:center;color:#7a8799;">Aucun déploiement : créez-en dans l'onglet Administration.</td></tr>`;
+        } else if (!sortedProjects().length) {
+            body = `<tr><td colspan="${cols.length + 1}" style="height:70px;text-align:center;color:#7a8799;">Toutes les lignes sont retirées de l'affichage : utilisez « Lignes retirées » pour les rétablir.</td></tr>`;
         } else {
             const ordered = sortedProjects();
             body = ordered.map(p => `<tr data-id="${p.id}">
-                <th class="sam"><div class="n">${esc(p.samu_name)}</div><div class="c">${esc(p.chef_projet_nom || 'Chef de projet non défini')}</div></th>
+                <th class="sam"><button type="button" class="aff-rowhide" title="Retirer cette ligne de l'affichage (rétablissable en haut du planning)" onclick="AffectationApp.hideRow(${p.id})">−</button><div class="n">${esc(p.samu_name)}</div><div class="c">${esc(p.chef_projet_nom || 'Chef de projet non défini')}</div></th>
                 ${cols.map(c => `<td class="${c.we ? 'we' : ''} ${c.today ? 'today' : ''}" data-k="${c.key}">${cellContent(p, c)}</td>`).join('')}
             </tr>`).join('');
         }
@@ -1460,7 +1482,7 @@
                 const sub = buildColumns(o.zoom, slice[0].from, slice[slice.length - 1].to, { print: true, noToday: true });
                 colPages.push(sub);
             }
-            const projects = sortedProjects().filter(p => o.samu.has(p.id));
+            const projects = sortedProjects(true).filter(p => o.samu.has(p.id));
             const tableHtml = (sub, list) => {
                 const w = samW + sub.cols.length * colW;
                 const head = sub.rows.map((r, i) => `<tr>${i === 0 ? `<th class="corner" rowspan="${sub.rows.length}">SAMU</th>` : ''}${r}</tr>`).join('');
@@ -1655,7 +1677,7 @@
         historyClose() { document.getElementById('affHistModal').classList.remove('active'); },
         openPrint() {
             const { min, max } = planRange();
-            const list = sortedProjects();
+            const list = sortedProjects(true);
             const stages = [['cadrage', 'Cadrage'], ['deploiement', 'Déploiement opérationnel'], ['gel', 'Période(s) de gel'], ['mise_en_service', 'Mise en service'], ['mise_en_production', 'Mise en production'], ['visite_metier', 'Visite métier'], ['test_prerequis', 'Test des prérequis'], ['vft', 'VFT'], ['formation_relais', 'Formation « Formateurs relais »'], ['formation_utilisateurs', 'Formation « Utilisateurs »'], ['accompagnement', 'Accompagnement']];
             document.getElementById('affPrintCtl').innerHTML = `
                 <div class="g"><label class="lbl">Format de page</label>
@@ -1674,7 +1696,7 @@
                 <div class="g"><label class="chk"><input type="checkbox" id="prLegend" checked> Afficher la légende</label></div>
                 <div class="g"><label class="lbl">Rubriques affichées</label><div class="box" id="prStages">${stages.map(s => `<label class="chk"><input type="checkbox" value="${s[0]}" ${hiddenKeys.has(s[0]) ? '' : 'checked'}> ${s[1]}</label>`).join('')}</div></div>
                 <div class="g"><label class="lbl">SAMU à inclure <a href="#" onclick="document.querySelectorAll('#prSamu input').forEach(i=>i.checked=true);AffectationApp.printUpdate();return false;" style="font-weight:400;">tous</a> · <a href="#" onclick="document.querySelectorAll('#prSamu input').forEach(i=>i.checked=false);AffectationApp.printUpdate();return false;" style="font-weight:400;">aucun</a></label>
-                    <div class="box" id="prSamu" style="max-height:220px;">${list.map(p => `<label class="chk"><input type="checkbox" value="${p.id}" checked> ${esc(p.samu_name)}</label>`).join('')}</div></div>`;
+                    <div class="box" id="prSamu" style="max-height:220px;">${list.map(p => `<label class="chk"><input type="checkbox" value="${p.id}" ${plan.hiddenRows.has(p.id) ? '' : 'checked'}> ${esc(p.samu_name)}${plan.hiddenRows.has(p.id) ? ' <span class="aff-muted">(retiré de l\'affichage)</span>' : ''}</label>`).join('')}</div></div>`;
             document.getElementById('affPrintCtl').oninput = document.getElementById('affPrintCtl').onchange = () => AffectationApp.printUpdate();
             document.getElementById('affPrintModal').classList.add('active');
             setTimeout(printRefresh, 50);
@@ -1807,6 +1829,22 @@
                 renderPlanning();
                 if (r.resource_ids.length) AffectationApp.openSync(asg.project.id, asg.stage, true);
             } catch (e) { document.getElementById('affAssignError').textContent = e.message; }
+        },
+        hideRow(id) { plan.hiddenRows.add(id); saveHiddenRows(); AffectationApp.keepScroll(); },
+        showRow(id) {
+            plan.hiddenRows.delete(id); saveHiddenRows(); AffectationApp.keepScroll();
+            const b = document.querySelector('.aff-hid-wrap > button'); // la liste reste ouverte tant qu'il reste des lignes à rétablir
+            if (b) b.click();
+        },
+        showAllRows() { plan.hiddenRows.clear(); saveHiddenRows(); AffectationApp.keepScroll(); },
+        keepScroll() { const b = document.getElementById('affPlan'), l = b.scrollLeft, t = b.scrollTop; renderPlanning(); b.scrollLeft = l; b.scrollTop = t; },
+        toggleHiddenPop(ev) {
+            ev.stopPropagation();
+            const pop = document.getElementById('affHidPop');
+            if (!pop) return;
+            const open = pop.style.display === 'none';
+            pop.style.display = open ? 'block' : 'none';
+            if (open) setTimeout(() => document.addEventListener('click', function f(e) { if (!pop.contains(e.target)) { pop.style.display = 'none'; document.removeEventListener('click', f); } }), 0);
         },
         planRangeSet() {
             const type = rgType(), a = autoRange();
