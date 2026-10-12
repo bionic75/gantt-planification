@@ -1,4 +1,4 @@
-<!-- v1.16.91 -->
+<!-- v1.16.92 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -490,17 +490,17 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.16.91">
-    <link rel="stylesheet" href="/darkmode.css?v=1.16.91">
-    <link rel="stylesheet" href="/login.css?v=1.16.91">
-    <link rel="stylesheet" href="/ui-polish.css?v=1.16.91">
-    <script src="/darkmode.js?v=1.16.91"></script>
-    <script src="/themes.js?v=1.16.91" defer></script>
-    <script src="/layout-fix.js?v=1.16.91" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.16.92">
+    <link rel="stylesheet" href="/darkmode.css?v=1.16.92">
+    <link rel="stylesheet" href="/login.css?v=1.16.92">
+    <link rel="stylesheet" href="/ui-polish.css?v=1.16.92">
+    <script src="/darkmode.js?v=1.16.92"></script>
+    <script src="/themes.js?v=1.16.92" defer></script>
+    <script src="/layout-fix.js?v=1.16.92" defer></script>
     <script>window.UI_ICONS_KEEP_ALERT = true;</script>
-    <script src="/ui-icons.js?v=1.16.91" defer></script>
-    <script src="/affectation-app.js?v=1.16.91" defer></script>
-    <script src="/map-timelapse.js?v=1.16.91" defer></script>
+    <script src="/ui-icons.js?v=1.16.92" defer></script>
+    <script src="/affectation-app.js?v=1.16.92" defer></script>
+    <script src="/map-timelapse.js?v=1.16.92" defer></script>
 </head>
 <body>
     <div class="container">
@@ -1146,9 +1146,9 @@
                     <!-- CRA signés -->
                     <div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:15px;margin-bottom:16px;">
                         <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="toggleCraAdminSection('signes')">
-                            <h3 style="color:#2e7d32;margin:0;font-size:15px;"><span id="craAdminSignesIcon">▼</span> ✅ CRA signés</h3>
+                            <h3 style="color:#2e7d32;margin:0;font-size:15px;"><span id="craAdminSignesIcon">▶</span> ✅ CRA signés</h3>
                         </div>
-                        <div id="craAdminSignesBody" style="margin-top:12px;">
+                        <div id="craAdminSignesBody" style="margin-top:12px;display:none;">
                         <!-- Filtres -->
                         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;align-items:flex-end;">
                             <div><label style="font-size:12px;color:#555;">Expert</label>
@@ -1217,9 +1217,9 @@
                     </div>
                     <div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:15px;margin-bottom:16px;">
                         <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="toggleCraExpertSection('signes')">
-                            <h3 style="color:#2e7d32;margin:0;font-size:15px;"><span id="craExpertSignesIcon">▼</span> ✅ Mes CRA signés</h3>
+                            <h3 style="color:#2e7d32;margin:0;font-size:15px;"><span id="craExpertSignesIcon">▶</span> ✅ Mes CRA signés</h3>
                         </div>
-                        <div id="craExpertSignesBody" style="margin-top:12px;">
+                        <div id="craExpertSignesBody" style="margin-top:12px;display:none;">
                             <div id="craListSignes"><div style="text-align:center;padding:20px;color:#999;">⏳ Chargement...</div></div>
                         </div>
                     </div>
@@ -30105,44 +30105,65 @@ function analyseExportCSV() {
 <div id="deployBanner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:99999; padding:14px 24px; text-align:center; font-size:14px; font-weight:600; box-shadow:0 2px 12px rgba(0,0,0,0.3); transition:background 0.3s;">
     <span id="deployBannerText"></span>
     <button id="deployBannerReload" onclick="location.reload()" style="display:none; margin-left:18px; background:white; color:#1a237e; border:none; padding:5px 16px; border-radius:20px; cursor:pointer; font-weight:700; font-size:13px;">🔄 Recharger</button>
+    <button id="deployBannerClose" onclick="deployBannerDismiss()" title="Masquer ce message" aria-label="Masquer" style="position:absolute; right:14px; top:50%; transform:translateY(-50%); background:rgba(255,255,255,.18); color:white; border:none; width:28px; height:28px; border-radius:50%; cursor:pointer; font-size:16px; line-height:1; padding:0;">×</button>
 </div>
 
 <script>
 (function() {
     let _knownVersion = null;
     let _serverDown = false;
+    let _failures = 0;
     const INTERVAL = 30000; // 30s
+    const FAILS_BEFORE_BANNER = 3; // une coupure brève (réseau, veille du poste, redémarrage rapide) n'affiche rien
+    const dismissed = () => { try { return sessionStorage.getItem('deployDismissed'); } catch (e) { return null; } };
 
     async function checkVersion() {
+        if (document.hidden) return; // onglet en arrière-plan : on revérifie au retour
         try {
             const r = await fetch('/api/version', { cache: 'no-store' });
             if (!r.ok) throw new Error('HTTP ' + r.status);
             const data = await r.json();
             const v = data.version;
-
-            if (_serverDown) {
-                // Serveur revenu après une coupure → nouvelle version dispo
-                _serverDown = false;
-                showBannerNewVersion(v);
-                return;
-            }
+            _failures = 0;
 
             if (_knownVersion === null) {
                 _knownVersion = v; // initialisation silencieuse
+                _serverDown = false;
                 return;
             }
 
+            if (_serverDown) {
+                // Serveur revenu : le bandeau orange disparaît ; le bandeau vert n'apparaît que si la version a réellement changé
+                _serverDown = false;
+                if (v === _knownVersion) { hideBanner(); return; }
+            }
+
             if (v !== _knownVersion) {
-                // Version changée sans coupure détectée (rolling update rapide)
-                showBannerNewVersion(v);
+                // Version changée (mise en production) : une seule alerte par version, masquable
+                if (dismissed() !== v) showBannerNewVersion(v);
+            } else {
+                hideBanner();
             }
         } catch(e) {
-            if (!_serverDown) {
+            _failures++;
+            if (!_serverDown && _failures >= FAILS_BEFORE_BANNER) {
                 _serverDown = true;
                 showBannerDown();
             }
         }
     }
+
+    function hideBanner() {
+        const b = document.getElementById('deployBanner');
+        if (b) b.style.display = 'none';
+    }
+    window.deployBannerDismiss = function () {
+        const t = document.getElementById('deployBannerText').textContent;
+        const m = /\((v?[\d.]+)\)/.exec(t);
+        if (m) { try { sessionStorage.setItem('deployDismissed', m[1]); } catch (e) { /* stockage indisponible */ } }
+        hideBanner();
+    };
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) checkVersion(); });
 
     function showBannerDown() {
         const b = document.getElementById('deployBanner');
