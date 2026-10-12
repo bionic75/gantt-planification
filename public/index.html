@@ -1,4 +1,4 @@
-<!-- v1.16.94 -->
+<!-- v1.16.95 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -490,17 +490,17 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.16.94">
-    <link rel="stylesheet" href="/darkmode.css?v=1.16.94">
-    <link rel="stylesheet" href="/login.css?v=1.16.94">
-    <link rel="stylesheet" href="/ui-polish.css?v=1.16.94">
-    <script src="/darkmode.js?v=1.16.94"></script>
-    <script src="/themes.js?v=1.16.94" defer></script>
-    <script src="/layout-fix.js?v=1.16.94" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.16.95">
+    <link rel="stylesheet" href="/darkmode.css?v=1.16.95">
+    <link rel="stylesheet" href="/login.css?v=1.16.95">
+    <link rel="stylesheet" href="/ui-polish.css?v=1.16.95">
+    <script src="/darkmode.js?v=1.16.95"></script>
+    <script src="/themes.js?v=1.16.95" defer></script>
+    <script src="/layout-fix.js?v=1.16.95" defer></script>
     <script>window.UI_ICONS_KEEP_ALERT = true;</script>
-    <script src="/ui-icons.js?v=1.16.94" defer></script>
-    <script src="/affectation-app.js?v=1.16.94" defer></script>
-    <script src="/map-timelapse.js?v=1.16.94" defer></script>
+    <script src="/ui-icons.js?v=1.16.95" defer></script>
+    <script src="/affectation-app.js?v=1.16.95" defer></script>
+    <script src="/map-timelapse.js?v=1.16.95" defer></script>
 </head>
 <body>
     <div class="container">
@@ -1202,6 +1202,11 @@
                         <div id="craDeletedBody" style="display:none;margin-top:12px;">
                             <div id="craDeletedTable"><p style="color:#999;text-align:center;padding:15px;">Chargement...</p></div>
                         </div>
+                    </div>
+                    <!-- CRA doublement visés, en attente de diffusion : uniquement ici, jamais dans « CRA signés » -->
+                    <div id="craToDiffuseBox" style="display:none;background:#fff3e0;border:1px solid #ffb74d;border-radius:8px;padding:15px;margin-bottom:16px;">
+                        <h3 style="color:#e65100;margin:0 0 10px;font-size:15px;">📤 CRA en attente de diffusion <span id="craToDiffuseCount" style="font-weight:normal;font-size:12px;"></span></h3>
+                        <div id="craToDiffuseList"></div>
                     </div>
                 </div>
 
@@ -14906,7 +14911,8 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                     document.getElementById('craAdminSections').style.display = 'block';
                     await initCraLancer();
 
-                    const enCours = data.filter(c => !c.archived && c.statut !== 'diffuse');
+                    // Un CRA doublement visé (en attente de diffusion) ne figure que dans le bloc « CRA en attente de diffusion » en bas de page
+                    const enCours = data.filter(c => !c.archived && c.statut !== 'diffuse' && c.statut !== 'vise_n2');
 
                     document.getElementById('craAdminEnCours').innerHTML = enCours.length
                         ? enCours.map(c => makeCraCard(c, '#ffb74d', archiveBtn(c.id))).join('')
@@ -16368,7 +16374,8 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             const expert = document.getElementById('craSignFilterExpert')?.value || '';
             const mois   = document.getElementById('craSignFilterMois')?.value || '';
             const annee  = document.getElementById('craSignFilterAnnee')?.value || '';
-            const params = new URLSearchParams({ statut: 'vise_n2,diffuse' });
+            // « CRA signés » = CRA diffusés uniquement : un CRA en cours de traitement ou en attente de diffusion n'y figure pas
+            const params = new URLSearchParams({ statut: 'diffuse' });
             if (expert) params.set('user_id', expert);
             if (mois)   params.set('mois', mois);
             if (annee)  params.set('annee', annee);
@@ -16377,6 +16384,31 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                 const data = await res.json();
                 renderCraSignaturesTable(data, document.getElementById('craSignaturesTable'));
             } catch(e) { console.error('Erreur chargement CRA signés:', e); }
+            loadCraToDiffuse();
+        }
+
+        // CRA doublement visés en attente de diffusion : bloc en bas de page avec un bouton « CRA à diffuser » (ouvre la fenêtre de diffusion)
+        async function loadCraToDiffuse() {
+            const box = document.getElementById('craToDiffuseBox');
+            if (!box) return;
+            try {
+                const res = await fetch(`${API_URL}/cra/admin/list?statut=vise_n2`, { credentials: 'include' });
+                const data = await res.json();
+                if (!Array.isArray(data) || !data.length) { box.style.display = 'none'; return; }
+                const fmt = dt => dt ? new Date(dt).toLocaleDateString('fr-FR') : '—';
+                document.getElementById('craToDiffuseCount').textContent = `(${data.length})`;
+                document.getElementById('craToDiffuseList').innerHTML = data.map(c => {
+                    const moisNom = new Date(c.annee, c.mois - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+                    return `<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:8px 10px;background:#fff;border:1px solid #ffe0b2;border-radius:6px;margin-bottom:6px;font-size:13px;">
+                        <b style="min-width:180px;">${c.expert_nom || '—'}</b>
+                        <span style="min-width:120px;">${moisNom}</span>
+                        <span style="color:#555;flex:1;">Visé N1 : ${c.vise_n1_nom || '—'} (${fmt(c.vise_n1_at)}) · Visé N2 : ${c.vise_n2_nom || '—'} (${fmt(c.vise_n2_at)})</span>
+                        <button onclick="openCraModal(${c.id})" style="font-size:12px;padding:5px 12px;background:#6a1b9a;color:white;border:none;border-radius:4px;cursor:pointer;">Voir</button>
+                        <button onclick="openDiffuserModal(${c.id})" style="font-size:13px;padding:6px 16px;background:#e65100;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">📤 CRA à diffuser</button>
+                    </div>`;
+                }).join('');
+                box.style.display = 'block';
+            } catch (e) { console.error('Erreur chargement CRA à diffuser:', e); }
         }
 
         async function loadCraArchives() {
