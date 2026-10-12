@@ -190,3 +190,20 @@
 
 /* Mode sombre : le logo (fond blanc) devient une pastille blanche */
 html.dark-mode #loginPage .lp-logo { mix-blend-mode: normal; background: #fff; padding: 8px 14px; border-radius: 12px; box-sizing: border-box; }
+
+
+/* Bouton de connexion : état « Connexion en cours… » */
+#loginPage .lp-btn { position: relative; overflow: hidden; }
+#loginPage .lp-btn .lp-busy-txt { display: none; position: absolute; inset: 0; align-items: center; justify-content: center; gap: 10px; }
+#loginPage .lp-btn.lp-busy { cursor: progress; pointer-events: none; transform: none; filter: none;
+    background: linear-gradient(110deg, #1D70B7 0%, #3a9be0 35%, #1D70B7 70%); background-size: 220% 100%; animation: lpShimmer 1.4s linear infinite; }
+#loginPage .lp-btn.lp-busy .lp-btn-label, #loginPage .lp-btn.lp-busy > svg { opacity: 0; }
+#loginPage .lp-btn.lp-busy .lp-busy-txt { display: flex; }
+#loginPage .lp-spin { width: 17px; height: 17px; border-radius: 50%; border: 2.5px solid rgba(255,255,255,.35); border-top-color: #fff; animation: lpSpin .75s linear infinite; }
+#loginPage .lp-dots b { display: inline-block; font-weight: 800; animation: lpDot 1.2s ease-in-out infinite; }
+#loginPage .lp-dots b:nth-child(2) { animation-delay: .18s; }
+#loginPage .lp-dots b:nth-child(3) { animation-delay: .36s; }
+@keyframes lpShimmer { from { background-position: 100% 0; } to { background-position: -120% 0; } }
+@keyframes lpSpin { to { transform: rotate(360deg); } }
+@keyframes lpDot { 0%, 60%, 100% { opacity: .25; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-3px); } }
+@media (prefers-reduced-motion: reduce) { #loginPage .lp-btn.lp-busy, #loginPage .lp-spin, #loginPage .lp-dots b { animation-duration: 3s; } }

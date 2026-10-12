@@ -1,4 +1,4 @@
-<!-- v1.16.93 -->
+<!-- v1.16.94 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -490,17 +490,17 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.16.93">
-    <link rel="stylesheet" href="/darkmode.css?v=1.16.93">
-    <link rel="stylesheet" href="/login.css?v=1.16.93">
-    <link rel="stylesheet" href="/ui-polish.css?v=1.16.93">
-    <script src="/darkmode.js?v=1.16.93"></script>
-    <script src="/themes.js?v=1.16.93" defer></script>
-    <script src="/layout-fix.js?v=1.16.93" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.16.94">
+    <link rel="stylesheet" href="/darkmode.css?v=1.16.94">
+    <link rel="stylesheet" href="/login.css?v=1.16.94">
+    <link rel="stylesheet" href="/ui-polish.css?v=1.16.94">
+    <script src="/darkmode.js?v=1.16.94"></script>
+    <script src="/themes.js?v=1.16.94" defer></script>
+    <script src="/layout-fix.js?v=1.16.94" defer></script>
     <script>window.UI_ICONS_KEEP_ALERT = true;</script>
-    <script src="/ui-icons.js?v=1.16.93" defer></script>
-    <script src="/affectation-app.js?v=1.16.93" defer></script>
-    <script src="/map-timelapse.js?v=1.16.93" defer></script>
+    <script src="/ui-icons.js?v=1.16.94" defer></script>
+    <script src="/affectation-app.js?v=1.16.94" defer></script>
+    <script src="/map-timelapse.js?v=1.16.94" defer></script>
 </head>
 <body>
     <div class="container">
@@ -3253,7 +3253,7 @@
                     </div>
                 </div>
                 <div id="loginError" class="error-message"></div>
-                <button type="button" class="lp-btn" id="loginButton" onclick="handleLogin()"><span class="lp-btn-label">Continuer</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+                <button type="button" class="lp-btn" id="loginButton" onclick="handleLogin()"><span class="lp-btn-label">Continuer</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg><span class="lp-busy-txt" aria-hidden="true"><i class="lp-spin"></i>Connexion en cours<span class="lp-dots"><b>.</b><b>.</b><b>.</b></span></span></button>
                 <div class="lp-foot">
                     <span class="lp-secure"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>Connexion sécurisée</span>
                     <span class="lp-version">Version <span id="appVersion">1.0.0</span></span>
@@ -4043,7 +4043,26 @@
             if (lbl) lbl.textContent = text; else document.getElementById('loginButton').textContent = text;
         }
 
+        // Bouton de connexion : état « Connexion en cours… » animé pendant l'attente du serveur (latence réseau)
+        function setLoginBusy(on) {
+            const btn = document.getElementById('loginButton');
+            if (!btn) return;
+            btn.classList.toggle('lp-busy', !!on);
+            btn.disabled = !!on;
+            btn.setAttribute('aria-busy', on ? 'true' : 'false');
+        }
+
         async function handleLogin() {
+            if (document.getElementById('loginButton').classList.contains('lp-busy')) return; // déjà en cours : évite un double envoi
+            setLoginBusy(true);
+            try {
+                await handleLoginInner();
+            } finally {
+                setLoginBusy(false);
+            }
+        }
+
+        async function handleLoginInner() {
             const errorDiv = document.getElementById('loginError');
             errorDiv.style.display = 'none';
             errorDiv.textContent = '';
