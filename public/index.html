@@ -1,4 +1,4 @@
-<!-- v1.16.92 -->
+<!-- v1.16.93 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -490,17 +490,17 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.16.92">
-    <link rel="stylesheet" href="/darkmode.css?v=1.16.92">
-    <link rel="stylesheet" href="/login.css?v=1.16.92">
-    <link rel="stylesheet" href="/ui-polish.css?v=1.16.92">
-    <script src="/darkmode.js?v=1.16.92"></script>
-    <script src="/themes.js?v=1.16.92" defer></script>
-    <script src="/layout-fix.js?v=1.16.92" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.16.93">
+    <link rel="stylesheet" href="/darkmode.css?v=1.16.93">
+    <link rel="stylesheet" href="/login.css?v=1.16.93">
+    <link rel="stylesheet" href="/ui-polish.css?v=1.16.93">
+    <script src="/darkmode.js?v=1.16.93"></script>
+    <script src="/themes.js?v=1.16.93" defer></script>
+    <script src="/layout-fix.js?v=1.16.93" defer></script>
     <script>window.UI_ICONS_KEEP_ALERT = true;</script>
-    <script src="/ui-icons.js?v=1.16.92" defer></script>
-    <script src="/affectation-app.js?v=1.16.92" defer></script>
-    <script src="/map-timelapse.js?v=1.16.92" defer></script>
+    <script src="/ui-icons.js?v=1.16.93" defer></script>
+    <script src="/affectation-app.js?v=1.16.93" defer></script>
+    <script src="/map-timelapse.js?v=1.16.93" defer></script>
 </head>
 <body>
     <div class="container">
@@ -1229,7 +1229,10 @@
                 <div id="craRhSections" style="display:none; margin-top:20px;">
                     <!-- CRA signés RH -->
                     <div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:15px;margin-bottom:16px;">
-                        <h3 style="color:#2e7d32;margin:0 0 12px;font-size:15px;">✅ CRA signés</h3>
+                        <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="toggleRhSignesPanel()">
+                            <h3 style="color:#2e7d32;margin:0;font-size:15px;"><span id="craRhSignesIcon">▶</span> ✅ CRA signés</h3>
+                        </div>
+                        <div id="craRhSignesBody" style="display:none;margin-top:12px;">
                         <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px;">
                             <div><label style="font-size:11px;color:#555;display:block;margin-bottom:3px;">Expert</label>
                                 <select id="craRhFilterExpert" style="width:200px;font-size:12px;padding:4px;border:1px solid #ccc;border-radius:4px;"><option value="">Tous les experts</option></select></div>
@@ -1243,6 +1246,7 @@
                             <button onclick="loadCraSignaturesRh()" style="background:#2e7d32;color:white;border:none;border-radius:4px;padding:6px 14px;font-size:12px;cursor:pointer;">🔍 Rechercher</button>
                         </div>
                         <div id="craRhSignesTable"><div style="text-align:center;padding:20px;color:#999;">⏳ Chargement...</div></div>
+                        </div><!-- /craRhSignesBody -->
                     </div>
                     <!-- CRA archivés RH -->
                     <div style="background:#f5f7f7;border:1px solid #cfd8dc;border-radius:8px;padding:15px;">
@@ -14925,6 +14929,14 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                         : `<p style="color:#999;text-align:center;padding:15px;">Aucun CRA signé.</p>`;
                 }
             } catch(e) { console.error('Erreur chargement CRA:', e); }
+        }
+
+        // Vue RH : « CRA signés » repliable (replié par défaut ; le tableau est déjà chargé)
+        function toggleRhSignesPanel() {
+            const body = document.getElementById('craRhSignesBody'), icon = document.getElementById('craRhSignesIcon');
+            const open = body.style.display === 'none';
+            body.style.display = open ? 'block' : 'none';
+            icon.textContent = open ? '▼' : '▶';
         }
 
         function toggleCraAdminSection(which) {
