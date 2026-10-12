@@ -53,6 +53,10 @@
     const css2 = `
         #affectationContainer .aff-card { background: #fff; border: 1px solid #dfe5ef; border-radius: 14px; margin: 18px 0; padding: 16px 20px 18px; box-shadow: 0 2px 8px rgba(30,60,110,.06); }
         #affectationContainer .aff-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+        .aff-range { display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; margin: 0 0 12px; font-size: 13px; color: #4a5b70; }
+        .aff-range .lbl { font-weight: 700; }
+        .aff-range input { padding: 6px 8px; border: 1px solid #cfd8e6; border-radius: 8px; font-size: 13px; width: auto; display: inline-block; }
+        .aff-range input.bad { border-color: #e03b3b; background: #fff1f1; }
         .aff-print-ctl { width: 300px; flex-shrink: 0; overflow-y: auto; padding: 14px 16px; border-right: 1px solid #e6ebf3; background: #fff; font-size: 13px; }
         .aff-print-ctl .g { margin-bottom: 12px; }
         .aff-print-ctl .g > label.lbl { display: block; font-size: 12px; font-weight: 700; color: #4a5b70; margin-bottom: 4px; }
@@ -277,6 +281,7 @@
                 <button type="button" class="aff-btn" onclick="AffectationApp.planToday()" title="Se placer sur la date du jour">${svg('planning', 'aff-ico-sm')}Aujourd'hui</button>
             </div>
         </div>
+        <div id="affRangeCtl" class="aff-range"></div>
         <div id="affPlan" class="aff-plan"><p class="aff-muted" style="padding:18px;">Chargement…</p></div>
     </div>
 
@@ -1172,7 +1177,9 @@
         return out;
     }
 
-    function planRange() {
+    // Bornes d'affichage choisies par l'utilisateur (mémorisées) ; une borne absente reste automatique
+    try { plan.range = JSON.parse(localStorage.getItem('affPlanRange') || 'null'); } catch (e) { plan.range = null; }
+    function autoRange() {
         let min = null, max = null;
         plan.projects.forEach(p => {
             const dates = [p.date_debut, p.date_mise_en_service, p.date_mise_en_production];
@@ -1182,6 +1189,36 @@
         const t = todayIso();
         if (!min) { min = t.slice(0, 8) + '01'; max = addD(min, 90); }
         return { min: addD(min, -3), max: addD(max, 7) };
+    }
+    function planRange() {
+        const a = autoRange(), r = plan.range || {};
+        return { min: r.from || a.min, max: r.to || a.max };
+    }
+    const rgType = () => (plan.zoom === 'week' ? 'week' : plan.zoom === 'month' ? 'month' : 'date');
+    const rgVal = (type, iso) => (type === 'date' ? iso : type === 'week' ? weekValue(iso) : iso.slice(0, 7));
+    const rgStart = (type, v) => {
+        if (!v) return null;
+        if (type === 'date') return v;
+        if (type === 'month') return v + '-01';
+        const m = /^(\d{4})-W(\d{2})$/.exec(v);
+        return m ? addD(mondayOf(`${m[1]}-01-04`), (+m[2] - 1) * 7) : null;
+    };
+    const rgEnd = (type, v) => {
+        if (!v) return null;
+        if (type === 'date') return v;
+        if (type === 'month') { const [y, mo] = v.split('-').map(Number); return addD(mo === 12 ? `${y + 1}-01-01` : `${y}-${String(mo + 1).padStart(2, '0')}-01`, -1); }
+        const st = rgStart('week', v);
+        return st ? addD(st, 6) : null;
+    };
+    // Sélecteurs de bornes adaptés à l'échelle : calendrier (jour), semaine / année (semaine), mois / année (mois)
+    function renderRangeCtl() {
+        const box = document.getElementById('affRangeCtl');
+        if (!box) return;
+        const a = autoRange(), r = plan.range || {}, type = rgType();
+        const hint = { date: 'calendrier', week: 'semaine et année', month: 'mois et année' }[type];
+        const custom = !!(r.from || r.to);
+        box.innerHTML = `<span class="lbl">Période affichée</span> du <input type="${type}" id="affRgFrom" value="${rgVal(type, r.from || a.min)}" title="Borne inférieure (${hint})" onchange="AffectationApp.planRangeSet()"> au <input type="${type}" id="affRgTo" value="${rgVal(type, r.to || a.max)}" title="Borne supérieure (${hint})" onchange="AffectationApp.planRangeSet()">
+            <span class="aff-muted" style="font-size:12px;">(${hint})</span>${custom ? '<button type="button" class="aff-btn" onclick="AffectationApp.planRangeReset()" title="Revenir à l\'affichage automatique de toute la période">Tout afficher</button>' : ''}<span class="aff-error" id="affRgErr"></span>`;
     }
 
     let hiddenKeys = new Set();
@@ -1314,6 +1351,7 @@
         const box = document.getElementById('affPlan');
         if (!box) return;
         renderLegend2();
+        renderRangeCtl();
         const { min, max } = planRange();
         const corner = rows => `<th class="corner" rowspan="${rows}">SAMU</th>`;
         const { cols, rows: headRows } = buildColumns(plan.zoom, min, max);
@@ -1769,6 +1807,23 @@
                 renderPlanning();
                 if (r.resource_ids.length) AffectationApp.openSync(asg.project.id, asg.stage, true);
             } catch (e) { document.getElementById('affAssignError').textContent = e.message; }
+        },
+        planRangeSet() {
+            const type = rgType(), a = autoRange();
+            const f = document.getElementById('affRgFrom'), t = document.getElementById('affRgTo'), err = document.getElementById('affRgErr');
+            const from = f.value === rgVal(type, a.min) ? null : rgStart(type, f.value);
+            const to = t.value === rgVal(type, a.max) ? null : rgEnd(type, t.value);
+            const lo = from || a.min, hi = to || a.max;
+            if (lo > hi) { f.classList.add('bad'); t.classList.add('bad'); err.textContent = 'La borne de fin précède la borne de début.'; return; }
+            plan.range = (from || to) ? { from, to } : null;
+            try { localStorage.setItem('affPlanRange', JSON.stringify(plan.range)); } catch (e) { /* stockage indisponible */ }
+            renderPlanning();
+            document.getElementById('affPlan').scrollLeft = 0;
+        },
+        planRangeReset() {
+            plan.range = null;
+            try { localStorage.removeItem('affPlanRange'); } catch (e) { /* stockage indisponible */ }
+            renderPlanning();
         },
         planZoom(z) { plan.zoom = z; renderPlanning(); AffectationApp.planToday(); },
         planToday() {
