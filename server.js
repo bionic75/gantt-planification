@@ -11832,12 +11832,12 @@ app.post('/api/cra/:id/diffusion-resend-all', requireAdmin, async (req, res) => 
                 [craId], (err, row) => err ? reject(err) : resolve(row)
             )),
             new Promise((resolve, reject) => database.all(
-                `SELECT DISTINCT recipient_email, recipient_name FROM cra_diffusion_log WHERE cra_id = ?`,
+                `SELECT DISTINCT recipient_email, recipient_name FROM cra_diffusion_log WHERE cra_id = ? AND COALESCE(recipient_type, '') != 'expert'`,
                 [craId], (err, rows) => err ? reject(err) : resolve(rows || [])
             ))
         ]);
         if (!cra) return res.status(404).json({ error: 'CRA introuvable' });
-        if (logs.length === 0) return res.status(400).json({ error: 'Aucun destinataire trouvé dans le log de diffusion' });
+        if (logs.length === 0) return res.status(400).json({ error: 'Aucun destinataire RH trouvé dans le log de diffusion' });
 
         // Répondre immédiatement : la génération PDF (Puppeteer) peut prendre plusieurs
         // dizaines de secondes et ferait sinon expirer le proxy Render (504). L'envoi
@@ -11912,6 +11912,21 @@ app.post('/api/cra/:id/diffusion-resend/:logId', requireAdmin, async (req, res) 
             ))
         ]);
         if (!cra || !logEntry) return res.status(404).json({ error: 'CRA ou log introuvable' });
+        if (logEntry.recipient_type === 'expert') { // l'expert reçoit la notification (sans PDF), pas le document RH
+            const mn = new Date(cra.annee, cra.mois - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+            const appUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
+            const nb = generateICSUid();
+            await enqueueEmail({
+                batchId: nb, recipientEmail: logEntry.recipient_email, recipientName: logEntry.recipient_name,
+                senderName: `${req.session.prenom} ${req.session.nom}`, senderEmail: req.session.email || '',
+                subject: `CRA ${mn} — diffusé auprès de la RH`,
+                htmlBody: buildCraEmailHtml({ title: 'CRA diffusé', expertNom: cra.expert_nom, moisNom: mn, craUrl: `${appUrl}/?tab=cra`, action: 'Votre CRA a été doublement visé et diffusé auprès de la RH.' }),
+                actionType: 'cra_diffusion_expert'
+            });
+            await new Promise((resolve, reject) => database.run(`UPDATE cra_diffusion_log SET email_batch_id = ?, sent_at = datetime('now') WHERE id = ?`, [nb, logId], err => err ? reject(err) : resolve()));
+            logUserAction(req, 'Renvoi notification de diffusion CRA à l\'expert', { craId, logId });
+            return res.json({ success: true });
+        }
         const moisNom = new Date(cra.annee, cra.mois - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
         const moisNomCap = moisNom.charAt(0).toUpperCase() + moisNom.slice(1);
         const newBatchId = generateICSUid();
@@ -12651,7 +12666,7 @@ app.post('/api/cra/:id/diffuser', requireAdmin, async (req, res) => {
         for (const exp of expertRecipients) {
             const appUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
             await enqueueEmail({
-                batchId: generateICSUid(), recipientEmail: exp.email, recipientName: exp.nom || exp.email,
+                batchId: (exp._batch = generateICSUid()), recipientEmail: exp.email, recipientName: exp.nom || exp.email,
                 senderName, senderEmail,
                 subject: `CRA ${moisNom} — diffusé auprès de la RH`,
                 htmlBody: buildCraEmailHtml({ title: 'CRA diffusé', expertNom: cra.expert_nom, moisNom, craUrl: `${appUrl}/?tab=cra`, action: `Votre CRA a été doublement visé et diffusé auprès de la RH (${allRhRecipients.length} destinataire(s)).` }),
@@ -12670,6 +12685,13 @@ app.post('/api/cra/:id/diffuser', requireAdmin, async (req, res) => {
             await new Promise((resolve, reject) => database.run(
                 `INSERT INTO cra_diffusion_log (cra_id, recipient_email, recipient_name, recipient_type, sent_at, email_batch_id) VALUES (?, ?, ?, 'drh_ans', ?, ?)`,
                 [craId, rh.email, rh.nom || rh.email, now, batchId], err => err ? reject(err) : resolve()
+            ));
+        }
+        // L'expert concerné (notification sans PDF, lot d'envoi distinct) apparaît lui aussi dans le statut de diffusion
+        for (const exp of expertRecipients) {
+            await new Promise((resolve, reject) => database.run(
+                `INSERT INTO cra_diffusion_log (cra_id, recipient_email, recipient_name, recipient_type, sent_at, email_batch_id) VALUES (?, ?, ?, 'expert', ?, ?)`,
+                [craId, exp.email, exp.nom || exp.email, now, exp._batch || batchId], err => err ? reject(err) : resolve()
             ));
         }
 
