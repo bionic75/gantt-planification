@@ -1,4 +1,4 @@
-<!-- v1.16.96 -->
+<!-- v1.16.97 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -490,17 +490,17 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.16.96">
-    <link rel="stylesheet" href="/darkmode.css?v=1.16.96">
-    <link rel="stylesheet" href="/login.css?v=1.16.96">
-    <link rel="stylesheet" href="/ui-polish.css?v=1.16.96">
-    <script src="/darkmode.js?v=1.16.96"></script>
-    <script src="/themes.js?v=1.16.96" defer></script>
-    <script src="/layout-fix.js?v=1.16.96" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.16.97">
+    <link rel="stylesheet" href="/darkmode.css?v=1.16.97">
+    <link rel="stylesheet" href="/login.css?v=1.16.97">
+    <link rel="stylesheet" href="/ui-polish.css?v=1.16.97">
+    <script src="/darkmode.js?v=1.16.97"></script>
+    <script src="/themes.js?v=1.16.97" defer></script>
+    <script src="/layout-fix.js?v=1.16.97" defer></script>
     <script>window.UI_ICONS_KEEP_ALERT = true;</script>
-    <script src="/ui-icons.js?v=1.16.96" defer></script>
-    <script src="/affectation-app.js?v=1.16.96" defer></script>
-    <script src="/map-timelapse.js?v=1.16.96" defer></script>
+    <script src="/ui-icons.js?v=1.16.97" defer></script>
+    <script src="/affectation-app.js?v=1.16.97" defer></script>
+    <script src="/map-timelapse.js?v=1.16.97" defer></script>
 </head>
 <body>
     <div class="container">
@@ -16113,8 +16113,8 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                     const logContainer = document.getElementById('craDiffusionLogSection');
                     if (logData && logData.length > 0) {
                         const fmtDt = dt => new Date(dt).toLocaleString('fr-FR');
-                        const typeLabel = t => t === 'drh_ans' ? 'DRH ANS' : 'DRH ES';
-                        const typeColor = t => t === 'drh_ans' ? '#1a237e' : '#2e7d32';
+                        const typeLabel = t => t === 'drh_ans' ? 'DRH ANS' : t === 'expert' ? 'Expert' : 'DRH ES';
+                        const typeColor = t => t === 'drh_ans' ? '#1a237e' : t === 'expert' ? '#e65100' : '#2e7d32';
                         logContainer.innerHTML = `
                             <div style="font-size:11px;font-weight:bold;color:#1a237e;text-transform:uppercase;margin:16px 0 8px;letter-spacing:0.5px;">📨 Diffusion du CRA validé et signé</div>
                             <table style="width:100%;border-collapse:collapse;font-size:12px;">
