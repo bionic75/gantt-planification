@@ -1,4 +1,4 @@
-<!-- v1.16.95 -->
+<!-- v1.16.96 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -490,17 +490,17 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.16.95">
-    <link rel="stylesheet" href="/darkmode.css?v=1.16.95">
-    <link rel="stylesheet" href="/login.css?v=1.16.95">
-    <link rel="stylesheet" href="/ui-polish.css?v=1.16.95">
-    <script src="/darkmode.js?v=1.16.95"></script>
-    <script src="/themes.js?v=1.16.95" defer></script>
-    <script src="/layout-fix.js?v=1.16.95" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.16.96">
+    <link rel="stylesheet" href="/darkmode.css?v=1.16.96">
+    <link rel="stylesheet" href="/login.css?v=1.16.96">
+    <link rel="stylesheet" href="/ui-polish.css?v=1.16.96">
+    <script src="/darkmode.js?v=1.16.96"></script>
+    <script src="/themes.js?v=1.16.96" defer></script>
+    <script src="/layout-fix.js?v=1.16.96" defer></script>
     <script>window.UI_ICONS_KEEP_ALERT = true;</script>
-    <script src="/ui-icons.js?v=1.16.95" defer></script>
-    <script src="/affectation-app.js?v=1.16.95" defer></script>
-    <script src="/map-timelapse.js?v=1.16.95" defer></script>
+    <script src="/ui-icons.js?v=1.16.96" defer></script>
+    <script src="/affectation-app.js?v=1.16.96" defer></script>
+    <script src="/map-timelapse.js?v=1.16.96" defer></script>
 </head>
 <body>
     <div class="container">
@@ -22063,18 +22063,18 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
         function generateResourceCalendarHTML(resourceId, year, month) {
             const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 
                                 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
-            const dayNames = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+            const dayNames = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']; // semaine ISO : le lundi ouvre la ligne, donc un seul numéro de semaine par ligne
             
             const firstDay = new Date(year, month, 1);
             const lastDay = new Date(year, month + 1, 0).getDate();
-            const startDayOfWeek = firstDay.getDay();
+            const startDayOfWeek = (firstDay.getDay() + 6) % 7; // 0 = lundi
             
             let html = '<table style="width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed;">';
             
             html += '<thead><tr>';
             html += `<th style="width: 8%; padding: 10px; background-color: #2c3e50; color: white; border: 1px solid #bdc3c7; font-size: 10px;">Sem.</th>`;
             dayNames.forEach((day, index) => {
-                const isWeekend = index === 0 || index === 6;
+                const isWeekend = index === 5 || index === 6;
                 html += `<th style="width: 13.14%; padding: 10px; background-color: ${isWeekend ? '#ffc107' : '#1D70B7'}; color: ${isWeekend ? '#333' : 'white'}; border: 1px solid #bdc3c7;">${day}</th>`;
             });
             html += '</tr></thead><tbody>';
@@ -22102,7 +22102,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                     } else {
                         // CORRECTION : Format correct YYYY-MM-DD avec padding et month+1
                         const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                        const isWeekend = dayOfWeek === 5 || dayOfWeek === 6;
                         
                         // Vérifier si c'est aujourd'hui
                         const today = new Date();
@@ -22527,10 +22527,10 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
         }
         
         function generateMonthlyCalendarView(year, month) {
-            const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+            const dayNames = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']; // semaine ISO : le lundi ouvre la ligne
             const firstDay = new Date(year, month, 1);
             const lastDay = new Date(year, month + 1, 0).getDate();
-            const startDayOfWeek = firstDay.getDay();
+            const startDayOfWeek = (firstDay.getDay() + 6) % 7; // 0 = lundi
             
             // Filtrer les ressources actives et disponibles
             const filterSelect = document.getElementById('resourceFilter');
@@ -22560,7 +22560,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             html += '<thead><tr>';
             html += `<th style="width: 6%; padding: 10px; background-color: #2c3e50; color: white; border: 1px solid #bdc3c7; font-weight: bold; font-size: 10px;">Sem.</th>`;
             dayNames.forEach((day, index) => {
-                const isWeekend = index === 0 || index === 6;
+                const isWeekend = index === 5 || index === 6;
                 html += `<th style="width: 13.43%; padding: 10px; background-color: ${isWeekend ? '#ffc107' : '#1D70B7'}; color: ${isWeekend ? '#333' : 'white'}; border: 1px solid #bdc3c7; font-weight: bold;">${day}</th>`;
             });
             html += '</tr></thead><tbody>';
@@ -22583,7 +22583,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                     } else {
                         // CORRECTION : Format correct YYYY-MM-DD avec padding et month+1
                         const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                        const isWeekend = dayOfWeek === 5 || dayOfWeek === 6;
                         const date = new Date(year, month, day);
                         
                         // Vérifier si c'est le jour actuel
@@ -22856,10 +22856,10 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
         }
         
         function generateEventsCalendarView(year, month) {
-            const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+            const dayNames = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']; // semaine ISO : le lundi ouvre la ligne
             const firstDay = new Date(year, month, 1);
             const lastDay = new Date(year, month + 1, 0).getDate();
-            const startDayOfWeek = firstDay.getDay();
+            const startDayOfWeek = (firstDay.getDay() + 6) % 7; // 0 = lundi
             
             let html = '<table style="width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed;">';
 
@@ -22867,7 +22867,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
             html += '<thead><tr>';
             html += `<th style="width: 38px; padding: 10px 4px; background-color: #546e7a; color: white; border: 1px solid #bdc3c7; font-weight: bold; font-size: 10px; text-align: center;">Sem.</th>`;
             dayNames.forEach((day, index) => {
-                const isWeekend = index === 0 || index === 6;
+                const isWeekend = index === 5 || index === 6;
                 html += `<th style="padding: 10px; background-color: ${isWeekend ? '#ffc107' : '#00bcd4'}; color: ${isWeekend ? '#333' : 'white'}; border: 1px solid #bdc3c7; font-weight: bold;">${day}</th>`;
             });
             html += '</tr></thead><tbody>';
@@ -22889,7 +22889,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                         html += '<td style="padding: 10px; border: 1px solid #bdc3c7; background-color: #f5f5f5; min-height: 100px; vertical-align: top;"></td>';
                     } else {
                         const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                        const isWeekend = dayOfWeek === 5 || dayOfWeek === 6;
                         const date = new Date(year, month, day);
                         
                         // Vérifier si c'est le jour actuel
