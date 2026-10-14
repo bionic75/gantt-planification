@@ -1,4 +1,4 @@
-<!-- v1.17.00 -->
+<!-- v1.17.01 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -490,17 +490,17 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.17.00">
-    <link rel="stylesheet" href="/darkmode.css?v=1.17.00">
-    <link rel="stylesheet" href="/login.css?v=1.17.00">
-    <link rel="stylesheet" href="/ui-polish.css?v=1.17.00">
-    <script src="/darkmode.js?v=1.17.00"></script>
-    <script src="/themes.js?v=1.17.00" defer></script>
-    <script src="/layout-fix.js?v=1.17.00" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.17.01">
+    <link rel="stylesheet" href="/darkmode.css?v=1.17.01">
+    <link rel="stylesheet" href="/login.css?v=1.17.01">
+    <link rel="stylesheet" href="/ui-polish.css?v=1.17.01">
+    <script src="/darkmode.js?v=1.17.01"></script>
+    <script src="/themes.js?v=1.17.01" defer></script>
+    <script src="/layout-fix.js?v=1.17.01" defer></script>
     <script>window.UI_ICONS_KEEP_ALERT = true;</script>
-    <script src="/ui-icons.js?v=1.17.00" defer></script>
-    <script src="/affectation-app.js?v=1.17.00" defer></script>
-    <script src="/map-timelapse.js?v=1.17.00" defer></script>
+    <script src="/ui-icons.js?v=1.17.01" defer></script>
+    <script src="/affectation-app.js?v=1.17.01" defer></script>
+    <script src="/map-timelapse.js?v=1.17.01" defer></script>
 </head>
 <body>
     <div class="container">
@@ -3979,7 +3979,7 @@
                         return;
                     }
                     if (savedApp === 'analyse' && (currentUser.availableApps || []).includes('analyse')) {
-                        console.log('📊 Restauration vers Analyse des listes utilisateurs');
+                        console.log('📊 Restauration vers Analyse de fichiers');
                         document.getElementById('loginPage').classList.remove('active');
                         currentUser.selectedApp = 'analyse';
                         showAnalyseApp();
@@ -5138,7 +5138,7 @@
             const dd = document.getElementById('appSwitcherDropdown');
             if (available.length === 0) { switcher.style.display = 'none'; return; }
             switcher.style.display = 'block';
-            const APP_LABELS = { planification: { label: 'Planification' }, deplacements: { label: 'Suivi des déplacements' }, analyse: { label: 'Analyse des listes utilisateurs' }, affectation: { label: "Aide à l'affectation opérationnelle" } };
+            const APP_LABELS = { planification: { label: 'Planification' }, deplacements: { label: 'Suivi des déplacements' }, analyse: { label: 'Analyse de fichiers' }, affectation: { label: "Aide à l'affectation opérationnelle" } };
             dd.innerHTML = apps.map(key => {
                 const def = APP_LABELS[key] || { label: key };
                 return `<div onclick="switchToApp('${key}')" style="padding:10px 16px;cursor:pointer;display:flex;align-items:center;gap:12px;font-size:13px;color:#222;" onmouseenter="this.style.background='#f0f4ff'" onmouseleave="this.style.background=''">
@@ -11447,7 +11447,7 @@
         function renderAppAccessSection() {
             const container = document.getElementById('appAccessContent');
             if (!container) return;
-            const APP_LABELS = { deplacements: { label: 'Plateforme de suivi des déplacements' }, analyse: { label: 'Analyse des listes utilisateurs' }, affectation: { label: "Aide à l'affectation opérationnelle" } };
+            const APP_LABELS = { deplacements: { label: 'Plateforme de suivi des déplacements' }, analyse: { label: 'Analyse de fichiers' }, affectation: { label: "Aide à l'affectation opérationnelle" } };
             container.innerHTML = Object.entries(_appAccessData).map(([key, app]) => `
                 <div style="border:1px solid #e0e0e0;border-radius:8px;padding:16px;margin-bottom:16px;">
                     <h4 style="margin:0 0 12px;color:#1a237e;font-size:14px;display:flex;align-items:center;gap:10px;">${appIconTile(key, 28)}${APP_LABELS[key]?.label || key}</h4>
@@ -28608,7 +28608,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
         </div>
     </div>
 
-    <!-- ══ Application : Analyse des listes utilisateurs ══ -->
+    <!-- ══ Application : Analyse de fichiers ══ -->
 <div id="analyseContainer" style="display:none; min-height:100vh; background:#f5f7fa; font-family:Arial,sans-serif;">
 
     <!-- Bandeau identique aux autres applications -->
@@ -28624,7 +28624,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             <span class="user-info-role" id="analyseUserDisplayRole"></span>
         </div>
         <div class="tabs" id="analyseTabs">
-            <button class="tab-btn active" type="button">📊 Analyse des listes utilisateurs</button>
+            <button class="tab-btn active" type="button">📊 Analyse de fichiers</button>
             <button class="logout-icon" onclick="analyseLogout()" title="Déconnexion"></button>
         </div>
     </div>
@@ -28649,7 +28649,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
         <div style="background:white; border-radius:16px; padding:60px 80px; box-shadow:0 4px 24px rgba(0,0,0,0.1); text-align:center; max-width:600px; width:100%;">
             <div style="font-size:64px; margin-bottom:20px;">📂</div>
             <h2 style="color:#1a237e; margin-bottom:10px;">Charger un fichier</h2>
-            <p style="color:#666; margin-bottom:24px; font-size:14px;">Formats acceptés : .xlsx, .xls, .csv<br>Le fichier reste sur votre poste — aucune donnée n'est envoyée.</p>
+            <p style="color:#666; margin-bottom:24px; font-size:14px;">Formats acceptés : .xlsx, .xls, .csv, .txt<br>Le fichier reste sur votre poste — aucune donnée n'est envoyée.</p>
             <div id="analyseDropTarget"
                  ondragover="event.preventDefault(); this.style.borderColor='#3f51b5'; this.style.background='#e8eaf6';"
                  ondragleave="this.style.borderColor='#90caf9'; this.style.background='#f3f8ff';"
@@ -28658,7 +28658,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                  onclick="document.getElementById('analyseFileInput').click()">
                 <p style="color:#3f51b5; font-size:15px; margin:0;">Glissez votre fichier ici<br><span style="font-size:13px; color:#90a4ae;">ou cliquez pour parcourir</span></p>
             </div>
-            <input type="file" id="analyseFileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="analyseHandleFile(this.files[0])">
+            <input type="file" id="analyseFileInput" accept=".xlsx,.xls,.csv,.txt,.tsv" style="display:none" onchange="analyseHandleFile(this.files[0])">
             <div id="analyseLoadProgress" style="display:none;">
                 <div style="background:#e3f2fd; border-radius:8px; padding:16px; text-align:center; color:#1565c0; font-size:13px;">
                     ⏳ Chargement en cours…
@@ -28693,9 +28693,13 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 <button onclick="analyseClearAllFilters()" style="margin-left:auto; background:#ef5350; color:white; border:none; padding:5px 14px; border-radius:6px; cursor:pointer; font-size:12px;">✕ Tout effacer</button>
                 <button onclick="analyseExportCSV()" style="background:#2e7d32; color:white; border:none; padding:5px 14px; border-radius:6px; cursor:pointer; font-size:12px;">⬇ Export CSV</button>
                 <button onclick="toggleAnalyseColumns()" style="background:#5c6bc0; color:white; border:none; padding:5px 14px; border-radius:6px; cursor:pointer; font-size:12px;">⚙ Colonnes</button>
+                <button onclick="toggleAnalyseStruct()" id="analyseStructBtn" style="background:#00897b; color:white; border:none; padding:5px 14px; border-radius:6px; cursor:pointer; font-size:12px;">🧬 Structure</button>
                 <button onclick="toggleAnalyseDups()" id="analyseDupBtn" style="background:#ec407a; color:white; border:none; padding:5px 14px; border-radius:6px; cursor:pointer; font-size:12px;">🔁 Doublons</button>
                 <button onclick="toggleAnalyseFiltersPanel()" id="analyseFilterToggleBtn" title="Afficher / masquer les filtres" style="background:#7986cb; color:white; border:none; padding:5px 12px; border-radius:6px; cursor:pointer; font-size:14px;" aria-label="Afficher/masquer les filtres">▲</button>
             </div>
+
+            <!-- Panel structure du fichier (masqué par défaut) -->
+            <div id="analyseStructPanel" style="display:none; background:#e0f2f1; border:1px solid #80cbc4; border-radius:8px; padding:12px; margin-bottom:12px;"></div>
 
             <!-- Panel colonnes visibles (masqué par défaut) -->
             <div id="analyseColumnsPanel" style="display:none; background:#f5f5f5; border-radius:8px; padding:12px; margin-bottom:12px;">
@@ -28749,7 +28753,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
 
 <script>
 // ═══════════════════════════════════════════════════════
-// APPLICATION ANALYSE DES LISTES UTILISATEURS
+// APPLICATION ANALYSE DE FICHIERS
 // Tout le traitement est local (FileReader + SheetJS)
 // ═══════════════════════════════════════════════════════
 
@@ -28953,6 +28957,8 @@ function analyseReset() {
     _analyseDupKeys = new Set();
     document.getElementById('analyseDupPanel').style.display = 'none';
     document.getElementById('analyseDupCount').textContent = '';
+    _analyseTxtCtx = null; _analyseFileMeta = null;
+    document.getElementById('analyseStructPanel').style.display = 'none';
     document.getElementById('analyseEncodingBanner').style.display = 'none';
     document.getElementById('analyseDropZone').style.display = 'flex';
     document.getElementById('analyseWorkspace').style.display = 'none';
@@ -28997,11 +29003,110 @@ function _analyseDecode(buffer) {
     }
 }
 
+// ── Fichiers texte (.txt/.tsv) : séparateur, colonnes, en-têtes ─────────────
+let _analyseTxtCtx = null; // { name, encoding, table, delim, widths, buffer }
+let _analyseFileMeta = null;
+
+function _aSplitLine(line, d) {
+    const out = []; let cur = '', q = false;
+    for (let i = 0; i < line.length; i++) {
+        const c = line[i];
+        if (q) {
+            if (c === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else q = false; }
+            else cur += c;
+        } else if (c === '"' && cur === '') q = true;
+        else if (c === d) { out.push(cur); cur = ''; }
+        else cur += c;
+    }
+    out.push(cur);
+    return out;
+}
+function _aDelimName(d) { return { '\t': 'tabulation', ';': 'point-virgule', '|': 'barre verticale', ',': 'virgule' }[d] || d; }
+
+// Détection du séparateur : celui qui donne un nombre de champs (≥2) le plus constant
+function _aDetectDelim(lines) {
+    const sample = lines.slice(0, 200);
+    let best = null;
+    for (const d of ['\t', ';', '|', ',']) {
+        const counts = sample.map(l => _aSplitLine(l, d).length);
+        const freq = new Map(); counts.forEach(c => freq.set(c, (freq.get(c) || 0) + 1));
+        let mode = 0, mf = 0; freq.forEach((f, c) => { if (f > mf || (f === mf && c > mode)) { mode = c; mf = f; } });
+        const ratio = mf / sample.length;
+        if (mode >= 2 && ratio >= 0.8) {
+            const score = ratio * 100 + Math.min(mode, 30);
+            if (!best || score > best.score) best = { d, n: mode, score };
+        }
+    }
+    return best ? best.d : null;
+}
+
+// Colonnes à largeur fixe : positions où (presque) toutes les lignes ont un espace
+function _aDetectWidths(lines) {
+    const sample = lines.slice(0, 200);
+    const w = Math.max(...sample.map(l => l.length));
+    if (w < 10 || sample.length < 3) return null;
+    const blank = new Array(w).fill(0);
+    sample.forEach(l => { for (let i = 0; i < w; i++) if (i >= l.length || l[i] === ' ') blank[i]++; });
+    const isGap = i => blank[i] >= sample.length * 0.97;
+    const starts = []; let inCol = false;
+    for (let i = 0; i < w; i++) {
+        if (!isGap(i) && !inCol) { starts.push(i); inCol = true; }
+        else if (isGap(i)) inCol = false;
+    }
+    return starts.length >= 2 ? starts : null;
+}
+
+function _aParseText(text) {
+    const lines = text.replace(/^﻿/, '').split(/\r\n|\n|\r/).filter(l => l.trim() !== '');
+    if (!lines.length) throw new Error('Le fichier est vide');
+    const delim = _aDetectDelim(lines);
+    let table, widths = null;
+    if (delim) table = lines.map(l => _aSplitLine(l, delim));
+    else {
+        widths = _aDetectWidths(lines);
+        if (widths) table = lines.map(l => widths.map((st, i) => l.slice(st, widths[i + 1] ?? l.length).trim()));
+        else table = lines.map(l => [l.trim()]);
+    }
+    return { table, delim, widths };
+}
+
+function _aIsHeaderRow(table) {
+    if (table.length < 2) return false;
+    const first = table[0].map(v => (v || '').trim());
+    if (first.some(v => v === '')) return false;
+    if (new Set(first.map(v => v.toLowerCase())).size !== first.length) return false;
+    const numLike = v => /^[+-]?\d+([.,]\d+)?$/.test(v) || /^\d{1,4}[\/.-]\d{1,2}[\/.-]\d{1,4}/.test(v);
+    if (first.some(numLike)) return false;
+    if (first.some(v => v.length > 60)) return false;
+    return true;
+}
+
+function _aTableToRows(table, hasHeader) {
+    const n = Math.max(...table.map(r => r.length));
+    let headers;
+    if (hasHeader) headers = table[0].map((v, i) => (v || '').trim() || ('Colonne ' + (i + 1)));
+    else headers = Array.from({ length: n }, (_, i) => 'Colonne ' + (i + 1));
+    while (headers.length < n) headers.push('Colonne ' + (headers.length + 1));
+    const seen = {};
+    headers = headers.map(h => { seen[h] = (seen[h] || 0) + 1; return seen[h] > 1 ? h + ' (' + seen[h] + ')' : h; });
+    return table.slice(hasHeader ? 1 : 0).map(r => {
+        const o = {}; headers.forEach((h, i) => { o[h] = (r[i] ?? '').toString().trim(); }); return o;
+    });
+}
+
+function analyseSetTxtHeader(flag) {
+    if (!_analyseTxtCtx) return;
+    const c = _analyseTxtCtx;
+    const rows = _aTableToRows(c.table, flag);
+    _analyseIngest(rows, c.name, c.encoding, { kind: 'txt', delim: c.delim, widths: c.widths, hasHeader: flag, headerAuto: false, buffer: null });
+}
+
 function analyseHandleFile(file, preloadedBuffer) {
     if (!file) return;
     const name = file.name.toLowerCase();
-    if (!name.endsWith('.xlsx') && !name.endsWith('.xls') && !name.endsWith('.csv')) {
-        alert('Format non supporté. Utilisez .xlsx, .xls ou .csv');
+    const isText = name.endsWith('.txt') || name.endsWith('.tsv');
+    if (!isText && !name.endsWith('.xlsx') && !name.endsWith('.xls') && !name.endsWith('.csv')) {
+        alert('Format non supporté. Utilisez .xlsx, .xls, .csv ou .txt');
         return;
     }
     document.getElementById('analyseLoadProgress').style.display = 'block';
@@ -29009,97 +29114,40 @@ function analyseHandleFile(file, preloadedBuffer) {
 
     const processBuffer = (buffer) => {
         try {
-            let workbook;
-            let detectedEncoding = null;
-            if (name.endsWith('.csv')) {
+            let rows, detectedEncoding = null, meta = { kind: name.endsWith('.csv') ? 'csv' : 'excel' };
+            if (isText) {
                 const { text, encoding } = _analyseDecode(buffer);
                 detectedEncoding = encoding;
-                workbook = XLSX.read(text, { type: 'string', raw: false });
+                const parsed = _aParseText(text);
+                const hasHeader = _aIsHeaderRow(parsed.table);
+                _analyseTxtCtx = { name: file.name, encoding, table: parsed.table, delim: parsed.delim, widths: parsed.widths };
+                rows = _aTableToRows(parsed.table, hasHeader);
+                meta = { kind: 'txt', delim: parsed.delim, widths: parsed.widths, hasHeader, headerAuto: true };
             } else {
-                workbook = XLSX.read(new Uint8Array(buffer), { type: 'array', cellDates: true });
-            }
-            // Prendre la 1ère feuille non vide
-            let sheet = null;
-            for (const sn of workbook.SheetNames) {
-                const s = workbook.Sheets[sn];
-                const ref = s['!ref'];
-                if (ref) {
-                    const range = XLSX.utils.decode_range(ref);
-                    if (range.e.r > 0) { sheet = s; break; }
-                }
-            }
-            if (!sheet) throw new Error('Aucune feuille de données trouvée');
-
-            const rows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false, dateNF: 'DD/MM/YYYY HH:mm' });
-            if (rows.length === 0) throw new Error('Le fichier ne contient pas de données');
-
-            _analyseHeaders = Object.keys(rows[0]);
-            _analyseData = rows;
-            _analyseFilters = {};
-            _analysePage = 1;
-
-            // Détecter le type de chaque colonne
-            _analyseColTypes = {};
-            _analyseColValues = {};
-            for (const col of _analyseHeaders) {
-                // Échantillon plus large pour la détection (jusqu'à 2000 lignes)
-                const samples = rows.slice(0, Math.min(2000, rows.length)).map(r => (r[col] || '').toString().trim());
-                const nonEmpty = samples.filter(v => v !== '');
-                // ── Détecter date EN PRIORITÉ (avant liste et enum) ──────────────
-                const dateRe = /^\d{2}\/\d{2}\/\d{4}/;
-                const isDate = nonEmpty.length > 0 && nonEmpty.every(v => dateRe.test(v));
-                if (isDate) {
-                    _analyseColTypes[col] = 'date';
-                    _analyseColValues[col] = [];
+                _analyseTxtCtx = null;
+                let workbook;
+                if (name.endsWith('.csv')) {
+                    const { text, encoding } = _analyseDecode(buffer);
+                    detectedEncoding = encoding;
+                    workbook = XLSX.read(text, { type: 'string', raw: false });
                 } else {
-                    // Détecter liste (séparateur ';')
-                    const listCount = nonEmpty.filter(v => /\s*;\s*/.test(v)).length;
-                    if (listCount / Math.max(nonEmpty.length, 1) > 0.1) {
-                        _analyseColTypes[col] = 'list';
-                        const tokens = new Set();
-                        rows.forEach(r => {
-                            const v = (r[col] || '').toString();
-                            v.split(/\s*;\s*/).forEach(t => { const tt = t.trim(); if (tt) tokens.add(tt); });
-                        });
-                        _analyseColValues[col] = [...tokens].sort((a, b) => a.localeCompare(b, 'fr'));
-                    } else {
-                        const allVals = rows.map(r => (r[col] || '').toString().trim());
-                        const unique = [...new Set(allVals)].filter(v => v !== '');
-                        if (unique.length <= 200 && unique.length > 0) {
-                            _analyseColTypes[col] = 'enum';
-                            _analyseColValues[col] = unique.sort((a, b) => a.localeCompare(b, 'fr'));
-                        } else {
-                            _analyseColTypes[col] = 'text';
-                            _analyseColValues[col] = unique.sort((a, b) => a.localeCompare(b, 'fr'));
-                        }
+                    workbook = XLSX.read(new Uint8Array(buffer), { type: 'array', cellDates: true });
+                }
+                // Prendre la 1ère feuille non vide
+                let sheet = null;
+                for (const sn of workbook.SheetNames) {
+                    const s = workbook.Sheets[sn];
+                    const ref = s['!ref'];
+                    if (ref) {
+                        const range = XLSX.utils.decode_range(ref);
+                        if (range.e.r > 0) { sheet = s; break; }
                     }
                 }
+                if (!sheet) throw new Error('Aucune feuille de données trouvée');
+                rows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false, dateNF: 'DD/MM/YYYY HH:mm' });
             }
-
-            _analyseVisibleCols = [..._analyseHeaders];
-
-            document.getElementById('analyseFileName').textContent = '📄 ' + file.name
-                + (detectedEncoding ? ` — encodage : ${detectedEncoding}` : '');
-            document.getElementById('analyseResetBtn').style.display = 'inline-block';
-            document.getElementById('analyseDropZone').style.display = 'none';
-            document.getElementById('analyseWorkspace').style.display = 'block';
-
-            // Bannière encodage pour CSV
-            const encBanner = document.getElementById('analyseEncodingBanner');
-            if (detectedEncoding) {
-                const isWin = detectedEncoding.includes('Windows') || detectedEncoding.includes('Latin');
-                encBanner.style.display = 'flex';
-                encBanner.style.background = isWin ? '#fff8e1' : '#e8f5e9';
-                encBanner.style.borderColor = isWin ? '#ffca28' : '#66bb6a';
-                encBanner.innerHTML = `<span style="font-size:13px;">${isWin ? '⚠️' : '✅'} Encodage détecté : <strong>${detectedEncoding}</strong>${isWin ? ' — les accents ont été corrigés automatiquement' : ''}</span><button onclick="document.getElementById('analyseEncodingBanner').style.display='none'" style="margin-left:auto; background:none; border:none; cursor:pointer; font-size:16px; color:#999;">×</button>`;
-            } else {
-                encBanner.style.display = 'none';
-            }
-
-            analyseRenderFilters();
-            analyseRenderColumnCheckboxes();
-            analyseApplyFilters();
-            document.getElementById('analyseLoadProgress').style.display = 'none';
+            if (rows.length === 0) throw new Error('Le fichier ne contient pas de données');
+            _analyseIngest(rows, file.name, detectedEncoding, meta);
 
             // Sauvegarder dans IndexedDB si demandé
             if (_analyseSaveLocal) {
@@ -29120,6 +29168,179 @@ function analyseHandleFile(file, preloadedBuffer) {
         reader.onload = (e) => processBuffer(e.target.result);
         reader.readAsArrayBuffer(file);
     }
+}
+
+// Intègre un tableau de lignes (objets) : types de colonnes, filtres, affichage
+function _analyseIngest(rows, fileName, detectedEncoding, meta) {
+    _analyseHeaders = Object.keys(rows[0]);
+    _analyseData = rows;
+    _analyseFilters = {};
+    _analysePage = 1;
+    _analyseFileMeta = Object.assign({ fileName, encoding: detectedEncoding }, meta || {});
+    _aListMap.clear(); _aColId.clear(); _aColSeq = 0;
+    _analyseDupCols = []; _analyseDupKeys = new Set();
+    document.getElementById('analyseDupPanel').style.display = 'none';
+    document.getElementById('analyseDupCount').textContent = '';
+
+    // Détecter le type de chaque colonne
+    _analyseColTypes = {};
+    _analyseColValues = {};
+    for (const col of _analyseHeaders) {
+        // Échantillon plus large pour la détection (jusqu'à 2000 lignes)
+        const samples = rows.slice(0, Math.min(2000, rows.length)).map(r => (r[col] || '').toString().trim());
+        const nonEmpty = samples.filter(v => v !== '');
+        // ── Détecter date EN PRIORITÉ (avant liste et enum) ──────────────
+        const dateRe = /^\d{2}\/\d{2}\/\d{4}/;
+        const isDate = nonEmpty.length > 0 && nonEmpty.every(v => dateRe.test(v));
+        if (isDate) {
+            _analyseColTypes[col] = 'date';
+            _analyseColValues[col] = [];
+        } else {
+            // Détecter liste (séparateur ';')
+            const listCount = nonEmpty.filter(v => /\s*;\s*/.test(v)).length;
+            if (listCount / Math.max(nonEmpty.length, 1) > 0.1) {
+                _analyseColTypes[col] = 'list';
+                const tokens = new Set();
+                rows.forEach(r => {
+                    const v = (r[col] || '').toString();
+                    v.split(/\s*;\s*/).forEach(t => { const tt = t.trim(); if (tt) tokens.add(tt); });
+                });
+                _analyseColValues[col] = [...tokens].sort((a, b) => a.localeCompare(b, 'fr'));
+            } else {
+                const allVals = rows.map(r => (r[col] || '').toString().trim());
+                const unique = [...new Set(allVals)].filter(v => v !== '');
+                if (unique.length <= 200 && unique.length > 0) {
+                    _analyseColTypes[col] = 'enum';
+                    _analyseColValues[col] = unique.sort((a, b) => a.localeCompare(b, 'fr'));
+                } else {
+                    _analyseColTypes[col] = 'text';
+                    _analyseColValues[col] = unique.sort((a, b) => a.localeCompare(b, 'fr'));
+                }
+            }
+        }
+    }
+
+    _analyseVisibleCols = [..._analyseHeaders];
+
+    document.getElementById('analyseFileName').textContent = '📄 ' + fileName
+        + (detectedEncoding ? ` — encodage : ${detectedEncoding}` : '');
+    document.getElementById('analyseResetBtn').style.display = 'inline-block';
+    document.getElementById('analyseDropZone').style.display = 'none';
+    document.getElementById('analyseWorkspace').style.display = 'block';
+
+    // Bannière encodage pour CSV / TXT
+    const encBanner = document.getElementById('analyseEncodingBanner');
+    if (detectedEncoding) {
+        const isWin = detectedEncoding.includes('Windows') || detectedEncoding.includes('Latin');
+        encBanner.style.display = 'flex';
+        encBanner.style.background = isWin ? '#fff8e1' : '#e8f5e9';
+        encBanner.style.borderColor = isWin ? '#ffca28' : '#66bb6a';
+        encBanner.innerHTML = `<span style="font-size:13px;">${isWin ? '⚠️' : '✅'} Encodage détecté : <strong>${detectedEncoding}</strong>${isWin ? ' — les accents ont été corrigés automatiquement' : ''}</span>`;
+    } else {
+        encBanner.style.display = 'none';
+    }
+
+    analyseRenderFilters();
+    analyseRenderColumnCheckboxes();
+    analyseApplyFilters();
+    analyseRenderStruct();
+    document.getElementById('analyseLoadProgress').style.display = 'none';
+}
+
+// ── Analyse de structure : type, remplissage, valeurs distinctes… ───────────
+function _aEsc(v) { return String(v).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function _aParseDateVal(v) {
+    let m = /^(\d{2})\/(\d{2})\/(\d{4})/.exec(v);
+    if (m) return new Date(+m[3], +m[2] - 1, +m[1]);
+    m = /^(\d{4})-(\d{2})-(\d{2})/.exec(v);
+    if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
+    return null;
+}
+function _aFmtDate(d) { return d ? String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear() : ''; }
+const _A_KINDS = [
+    ['email', 'E-mail', v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)],
+    ['url', 'URL', v => /^(https?:\/\/|www\.)\S+$/i.test(v)],
+    ['datetime', 'Date/heure', v => /^(\d{2}\/\d{2}\/\d{4}|\d{4}-\d{2}-\d{2})[ T]\d{1,2}:\d{2}/.test(v)],
+    ['date', 'Date', v => /^(\d{2}[\/.-]\d{2}[\/.-]\d{4}|\d{4}-\d{2}-\d{2})$/.test(v)],
+    ['time', 'Heure', v => /^\d{1,2}:\d{2}(:\d{2})?$/.test(v)],
+    ['bool', 'Booléen', v => /^(oui|non|true|false|vrai|faux|yes|no|o|n|x)$/i.test(v)],
+    ['int', 'Entier', v => /^[+-]?\d+$/.test(v) && !/^[+-]?0\d+$/.test(v)],
+    ['dec', 'Décimal', v => /^[+-]?\d+[.,]\d+$/.test(v)],
+    ['phone', 'Téléphone', v => /^\+?[\d\s.()-]{8,20}$/.test(v) && (v.match(/\d/g) || []).length >= 8],
+    ['code', 'Code (chiffres, 0 initial)', v => /^0\d+$/.test(v)]
+];
+function _aColProfile(col) {
+    const vals = _analyseData.map(r => (r[col] ?? '').toString().trim());
+    const ne = vals.filter(v => v !== '');
+    const counts = new Map(); ne.forEach(v => counts.set(v, (counts.get(v) || 0) + 1));
+    const prof = { total: vals.length, filled: ne.length, empty: vals.length - ne.length, distinct: counts.size };
+    prof.top = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
+    prof.minLen = ne.length ? Math.min(...ne.map(v => v.length)) : 0;
+    prof.maxLen = ne.length ? Math.max(...ne.map(v => v.length)) : 0;
+    // type dominant (≥ 95 % des valeurs renseignées)
+    let kind = 'text', label = 'Texte', hits = 0;
+    if (ne.length) {
+        const sample = ne.length > 20000 ? ne.filter((_, i) => i % Math.ceil(ne.length / 20000) === 0) : ne;
+        for (const [k, l, f] of _A_KINDS) {
+            const n = sample.filter(f).length;
+            if (n / sample.length >= 0.95) { kind = k; label = l; hits = n; break; }
+        }
+        // int + dec mélangés → décimal
+        if (kind === 'text' && sample.every(v => /^[+-]?\d+([.,]\d+)?$/.test(v))) { kind = 'dec'; label = 'Décimal'; }
+        if (kind === 'text' && ne.length >= 10 && counts.size <= Math.max(2, Math.min(30, ne.length * 0.05))) { kind = 'cat'; label = 'Catégorie (' + counts.size + ' valeurs)'; }
+        if (kind === 'text' && sample.filter(v => /\s*;\s*/.test(v)).length / sample.length > 0.1) { kind = 'list'; label = 'Liste (séparateur « ; »)'; }
+    } else { label = 'Vide'; kind = 'empty'; }
+    prof.kind = kind; prof.label = label;
+    if (kind === 'int' || kind === 'dec') {
+        const nums = ne.map(v => parseFloat(v.replace(',', '.'))).filter(n => !isNaN(n));
+        if (nums.length) { prof.min = Math.min(...nums); prof.max = Math.max(...nums); prof.avg = nums.reduce((a, b) => a + b, 0) / nums.length; }
+    }
+    if (kind === 'date' || kind === 'datetime') {
+        const ds = ne.map(_aParseDateVal).filter(Boolean).map(d => d.getTime());
+        if (ds.length) { prof.dmin = new Date(Math.min(...ds)); prof.dmax = new Date(Math.max(...ds)); }
+    }
+    prof.unique = ne.length > 0 && counts.size === ne.length && prof.empty === 0;
+    return prof;
+}
+function analyseRenderStruct() {
+    const box = document.getElementById('analyseStructPanel');
+    if (!box || !_analyseData.length) return;
+    const m = _analyseFileMeta || {};
+    const nf = n => Number(n).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
+    let info = `<strong>${nf(_analyseData.length)}</strong> lignes × <strong>${_analyseHeaders.length}</strong> colonnes`;
+    if (m.kind === 'txt') {
+        const sep = m.delim ? 'séparateur : <strong>' + _aEsc(_aDelimName(m.delim)) + '</strong>' : (m.widths ? 'colonnes à <strong>largeur fixe</strong> (positions ' + m.widths.map(x => x + 1).join(', ') + ')' : '<strong>aucun séparateur détecté</strong> (une colonne par ligne)');
+        info += ' — fichier texte, ' + sep;
+    }
+    if (m.encoding) info += ' — encodage <strong>' + _aEsc(m.encoding) + '</strong>';
+    let head = `<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px;"><span style="font-size:13px;color:#004d40;">${info}</span>`;
+    if (m.kind === 'txt') {
+        head += `<label style="margin-left:auto;font-size:12px;color:#004d40;display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" ${m.hasHeader ? 'checked' : ''} onchange="analyseSetTxtHeader(this.checked)" style="width:auto;margin:0;"> 1<sup>re</sup> ligne = en-têtes${m.headerAuto ? ' (détecté automatiquement)' : ''}</label>`;
+    }
+    head += '</div>';
+    const rowsHtml = _analyseHeaders.map((col, i) => {
+        const p = _aColProfile(col);
+        const pct = p.total ? Math.round(p.filled / p.total * 100) : 0;
+        let range = '';
+        if (p.min !== undefined) range = `min ${nf(p.min)} · max ${nf(p.max)} · moy. ${nf(p.avg)}`;
+        else if (p.dmin) range = `du ${_aFmtDate(p.dmin)} au ${_aFmtDate(p.dmax)}`;
+        else if (p.filled) range = `longueur ${p.minLen}${p.maxLen !== p.minLen ? '–' + p.maxLen : ''}`;
+        const top = p.top.map(([v, n]) => `<span title="${n} fois" style="background:#fff;border:1px solid #b2dfdb;border-radius:10px;padding:0 6px;margin-right:3px;white-space:nowrap;">${_aEsc(v.length > 24 ? v.slice(0, 24) + '…' : v)} <span style="color:#00897b;">×${nf(n)}</span></span>`).join('');
+        const flags = (p.unique ? ' <span title="Toutes les valeurs sont renseignées et distinctes : clé potentielle" style="color:#f9a825;">🔑</span>' : '')
+            + (p.empty && p.filled ? '' : '');
+        return `<tr style="border-top:1px solid #b2dfdb;"><td style="padding:4px 8px;color:#607d8b;">${i + 1}</td><td style="padding:4px 8px;font-weight:600;">${_aEsc(col)}${flags}</td><td style="padding:4px 8px;">${_aEsc(p.label)}</td>
+            <td style="padding:4px 8px;white-space:nowrap;"><span style="display:inline-block;width:60px;height:7px;background:#cfd8dc;border-radius:4px;vertical-align:middle;"><span style="display:block;width:${pct}%;height:100%;background:${pct === 100 ? '#43a047' : pct > 50 ? '#fbc02d' : '#e53935'};border-radius:4px;"></span></span> ${pct}% <span style="color:#90a4ae;">(${nf(p.empty)} vides)</span></td>
+            <td style="padding:4px 8px;text-align:right;">${nf(p.distinct)}</td><td style="padding:4px 8px;">${_aEsc(range)}</td><td style="padding:4px 8px;">${top}</td></tr>`;
+    }).join('');
+    box.innerHTML = head + `<div style="overflow-x:auto;max-height:420px;overflow-y:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;background:#f1f8f7;">
+        <thead style="position:sticky;top:0;background:#00897b;color:#fff;"><tr><th style="padding:5px 8px;text-align:left;">#</th><th style="padding:5px 8px;text-align:left;">Colonne</th><th style="padding:5px 8px;text-align:left;">Type détecté</th><th style="padding:5px 8px;text-align:left;">Remplissage</th><th style="padding:5px 8px;text-align:right;">Distinctes</th><th style="padding:5px 8px;text-align:left;">Plage / longueur</th><th style="padding:5px 8px;text-align:left;">Valeurs les plus fréquentes</th></tr></thead>
+        <tbody>${rowsHtml}</tbody></table></div>`;
+}
+function toggleAnalyseStruct() {
+    const box = document.getElementById('analyseStructPanel');
+    const show = box.style.display === 'none';
+    if (show) analyseRenderStruct();
+    box.style.display = show ? 'block' : 'none';
 }
 
 // ── Helpers ID sûr pour les colonnes ─────────────────────────────────────────
