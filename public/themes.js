@@ -2,7 +2,7 @@
 (function () {
     'use strict';
 
-    const ORDER = ['saintvalentin', 'paques', 'halloween', 'vacances', 'noel'];
+    const ORDER = ['saintvalentin', 'saintpatrick', 'paques', 'halloween', 'vacances', 'noel'];
     const OFF_KEY = 'gp_theme_off';
     const PALETTE_ICON = '<circle cx="13.5" cy="6.5" r=".6"/><circle cx="17.5" cy="10.5" r=".6"/><circle cx="8.5" cy="7.5" r=".6"/><circle cx="6.5" cy="12.5" r=".6"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.9 0 1.7-.7 1.7-1.7 0-.4-.2-.8-.5-1.1-.3-.3-.5-.7-.5-1.1 0-.9.7-1.7 1.7-1.7H16c3.1 0 5.6-2.5 5.6-5.6C22 6 17.5 2 12 2z"/>';
 
@@ -21,6 +21,11 @@
             label: 'Saint-Valentin', btn: '#d81b60', particle: 'rise', color: '#ff8fb1',
             badge: '<path d="M16 28S3 19 3 11a6.5 6.5 0 0 1 13-1.5A6.5 6.5 0 0 1 29 11c0 8-13 17-13 17z" fill="#e91e63"/><path d="M8.5 10a4 4 0 0 1 4-2.6" stroke="#ff9ec0" stroke-width="2" fill="none" stroke-linecap="round"/>',
             strip: '<path d="M10 12S3 7 3 4a3.5 3.5 0 0 1 7-1 3.5 3.5 0 0 1 7 1c0 3-7 8-7 8z" fill="#ff8fb1"/><path d="M30 12S23 7 23 4a3.5 3.5 0 0 1 7-1 3.5 3.5 0 0 1 7 1c0 3-7 8-7 8z" fill="#f06292"/>'
+        },
+        saintpatrick: {
+            label: 'Saint-Patrick', btn: '#1f8a3b', particle: 'fall', color: '#7ddc8a',
+            badge: '<g fill="#2e9d4f"><circle cx="16" cy="9" r="6"/><circle cx="9" cy="17" r="6"/><circle cx="23" cy="17" r="6"/><circle cx="16" cy="14" r="4.5"/></g><path d="M16 17c0 5-1 8-4 11" stroke="#1b6b32" stroke-width="2.2" fill="none" stroke-linecap="round"/><path d="M12 8.5a4 4 0 0 1 4-3" stroke="#9be8ae" stroke-width="1.6" fill="none" stroke-linecap="round"/>',
+            strip: '<g fill="#2e9d4f"><circle cx="10" cy="3.2" r="2.7"/><circle cx="6.6" cy="7.4" r="2.7"/><circle cx="13.4" cy="7.4" r="2.7"/></g><path d="M10 8.5v3.5" stroke="#1b6b32" stroke-width="1.4" stroke-linecap="round"/><circle cx="30" cy="7" r="4.2" fill="#ffc107"/><circle cx="30" cy="7" r="2.4" fill="none" stroke="#e29f00" stroke-width="1"/>'
         },
         paques: {
             label: 'Pâques', btn: '#8e6bb8', particle: 'fall', color: '#f6d365',
@@ -203,7 +208,7 @@
     function adminRender() {
         const host = document.getElementById('themeAdminRows');
         if (!host) return;
-        const rows = ['halloween', 'noel', 'saintvalentin', 'paques', 'vacances'].map(id => {
+        const rows = ['halloween', 'noel', 'saintvalentin', 'saintpatrick', 'paques', 'vacances'].map(id => {
             const t = (cfg.themes || {})[id] || {};
             const meta = META[id];
             const win = id === 'paques'
@@ -219,7 +224,7 @@
         host.innerHTML = rows;
         const forced = document.getElementById('themeForced');
         if (forced && !forced.options.length) {
-            forced.innerHTML = ['halloween', 'noel', 'saintvalentin', 'paques', 'vacances'].map(id => `<option value="${id}">${META[id].label}</option>`).join('');
+            forced.innerHTML = ['halloween', 'noel', 'saintvalentin', 'saintpatrick', 'paques', 'vacances'].map(id => `<option value="${id}">${META[id].label}</option>`).join('');
         }
         if (forced) forced.value = cfg.forced || 'noel';
         const r = document.querySelector(`input[name="themeMode"][value="${cfg.mode || 'off'}"]`);
@@ -234,7 +239,7 @@
         out.mode = document.querySelector('input[name="themeMode"]:checked')?.value || 'off';
         out.forced = document.getElementById('themeForced').value;
         out.intensity = document.getElementById('themeIntensity').value;
-        ['halloween', 'noel', 'saintvalentin', 'paques', 'vacances'].forEach(id => {
+        ['halloween', 'noel', 'saintvalentin', 'saintpatrick', 'paques', 'vacances'].forEach(id => {
             const t = { auto: document.getElementById('thAuto_' + id).checked };
             if (id === 'paques') {
                 t.before = Number(document.getElementById('thEasterBefore').value);
