@@ -1,4 +1,4 @@
-<!-- v1.17.04 -->
+<!-- v1.17.05 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -490,17 +490,17 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.17.04">
-    <link rel="stylesheet" href="/darkmode.css?v=1.17.04">
-    <link rel="stylesheet" href="/login.css?v=1.17.04">
-    <link rel="stylesheet" href="/ui-polish.css?v=1.17.04">
-    <script src="/darkmode.js?v=1.17.04"></script>
-    <script src="/themes.js?v=1.17.04" defer></script>
-    <script src="/layout-fix.js?v=1.17.04" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.17.05">
+    <link rel="stylesheet" href="/darkmode.css?v=1.17.05">
+    <link rel="stylesheet" href="/login.css?v=1.17.05">
+    <link rel="stylesheet" href="/ui-polish.css?v=1.17.05">
+    <script src="/darkmode.js?v=1.17.05"></script>
+    <script src="/themes.js?v=1.17.05" defer></script>
+    <script src="/layout-fix.js?v=1.17.05" defer></script>
     <script>window.UI_ICONS_KEEP_ALERT = true;</script>
-    <script src="/ui-icons.js?v=1.17.04" defer></script>
-    <script src="/affectation-app.js?v=1.17.04" defer></script>
-    <script src="/map-timelapse.js?v=1.17.04" defer></script>
+    <script src="/ui-icons.js?v=1.17.05" defer></script>
+    <script src="/affectation-app.js?v=1.17.05" defer></script>
+    <script src="/map-timelapse.js?v=1.17.05" defer></script>
 </head>
 <body>
     <div class="container">
@@ -29116,7 +29116,7 @@ function _aDetectHeader(table, strict) {
 
 // headerRow : n° (1 = 1re ligne) de la ligne d'intitulés, 0 = aucune ; dataStart : index de la 1re ligne de données
 function _aTableToRows(table, headerRow, dataStart) {
-    const n = Math.max(...table.map(r => r.length));
+    const n = table.reduce((m, r) => r.length > m ? r.length : m, 0);
     const hasHeader = headerRow > 0;
     let headers;
     if (hasHeader) headers = (table[headerRow - 1] || []).map((v, i) => (v || '').trim() || ('Colonne ' + (i + 1)));
@@ -29327,8 +29327,8 @@ function _aColProfile(col) {
     const counts = new Map(); ne.forEach(v => counts.set(v, (counts.get(v) || 0) + 1));
     const prof = { total: vals.length, filled: ne.length, empty: vals.length - ne.length, distinct: counts.size };
     prof.top = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
-    prof.minLen = ne.length ? Math.min(...ne.map(v => v.length)) : 0;
-    prof.maxLen = ne.length ? Math.max(...ne.map(v => v.length)) : 0;
+    let mn = Infinity, mx = 0; for (const v of ne) { if (v.length < mn) mn = v.length; if (v.length > mx) mx = v.length; }
+    prof.minLen = ne.length ? mn : 0; prof.maxLen = mx;
     // type dominant (≥ 95 % des valeurs renseignées)
     let kind = 'text', label = 'Texte', hits = 0;
     if (ne.length) {
@@ -29345,11 +29345,11 @@ function _aColProfile(col) {
     prof.kind = kind; prof.label = label;
     if (kind === 'int' || kind === 'dec') {
         const nums = ne.map(v => parseFloat(v.replace(',', '.'))).filter(n => !isNaN(n));
-        if (nums.length) { prof.min = Math.min(...nums); prof.max = Math.max(...nums); prof.avg = nums.reduce((a, b) => a + b, 0) / nums.length; }
+        if (nums.length) { let a = Infinity, b = -Infinity, t = 0; for (const x of nums) { if (x < a) a = x; if (x > b) b = x; t += x; } prof.min = a; prof.max = b; prof.avg = t / nums.length; }
     }
     if (kind === 'date' || kind === 'datetime') {
         const ds = ne.map(_aParseDateVal).filter(Boolean).map(d => d.getTime());
-        if (ds.length) { prof.dmin = new Date(Math.min(...ds)); prof.dmax = new Date(Math.max(...ds)); }
+        if (ds.length) { let a = Infinity, b = -Infinity; for (const x of ds) { if (x < a) a = x; if (x > b) b = x; } prof.dmin = new Date(a); prof.dmax = new Date(b); }
     }
     prof.unique = ne.length > 0 && counts.size === ne.length && prof.empty === 0;
     return prof;
