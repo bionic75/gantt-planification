@@ -32,6 +32,11 @@ html[data-theme="saintvalentin"] {
     --th-tabs: #6b1a3b; --th-tabs-hover: #85244d;
     --th-accent: #ff8fb1; --th-accent2: #ffd1de; --th-active: #d81b60;
 }
+html[data-theme="saintpatrick"] {
+    --th-bar-a: #0b5d1e; --th-bar-b: #1f9d3a;
+    --th-tabs: #0e4a24; --th-tabs-hover: #15622f;
+    --th-accent: #ffc107; --th-accent2: #7ddc8a; --th-active: #168a3a;
+}
 html[data-theme="paques"] {
     --th-bar-a: #3f8f5f; --th-bar-b: #78b27a;
     --th-tabs: #357a52; --th-tabs-hover: #428e63;

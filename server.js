@@ -8610,13 +8610,14 @@ app.put('/api/tab-access', requireAdmin, (req, res) => {
 });
 
 // ---------- Thèmes d'affichage saisonniers ----------
-const THEME_IDS = ['halloween', 'noel', 'saintvalentin', 'paques', 'vacances'];
+const THEME_IDS = ['halloween', 'noel', 'saintvalentin', 'saintpatrick', 'paques', 'vacances'];
 const THEME_DEFAULTS = {
     mode: 'off', forced: 'noel', intensity: 'sobre',
     themes: {
         halloween:     { auto: true, start: '10-20', end: '11-02' },
         noel:          { auto: true, start: '12-01', end: '12-31' },
         saintvalentin: { auto: true, start: '02-07', end: '02-14' },
+        saintpatrick:  { auto: true, start: '03-10', end: '03-17' },
         paques:        { auto: true, before: 7, after: 1 },
         vacances:      { auto: true, start: '07-01', end: '08-31' }
     }
