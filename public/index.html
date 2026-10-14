@@ -1,4 +1,4 @@
-<!-- v1.17.02 -->
+<!-- v1.17.03 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -490,17 +490,17 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.17.02">
-    <link rel="stylesheet" href="/darkmode.css?v=1.17.02">
-    <link rel="stylesheet" href="/login.css?v=1.17.02">
-    <link rel="stylesheet" href="/ui-polish.css?v=1.17.02">
-    <script src="/darkmode.js?v=1.17.02"></script>
-    <script src="/themes.js?v=1.17.02" defer></script>
-    <script src="/layout-fix.js?v=1.17.02" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.17.03">
+    <link rel="stylesheet" href="/darkmode.css?v=1.17.03">
+    <link rel="stylesheet" href="/login.css?v=1.17.03">
+    <link rel="stylesheet" href="/ui-polish.css?v=1.17.03">
+    <script src="/darkmode.js?v=1.17.03"></script>
+    <script src="/themes.js?v=1.17.03" defer></script>
+    <script src="/layout-fix.js?v=1.17.03" defer></script>
     <script>window.UI_ICONS_KEEP_ALERT = true;</script>
-    <script src="/ui-icons.js?v=1.17.02" defer></script>
-    <script src="/affectation-app.js?v=1.17.02" defer></script>
-    <script src="/map-timelapse.js?v=1.17.02" defer></script>
+    <script src="/ui-icons.js?v=1.17.03" defer></script>
+    <script src="/affectation-app.js?v=1.17.03" defer></script>
+    <script src="/map-timelapse.js?v=1.17.03" defer></script>
 </head>
 <body>
     <div class="container">
@@ -29031,7 +29031,13 @@ function _aDetectDelim(lines) {
         const counts = sample.map(l => _aSplitLine(l, d).length);
         const freq = new Map(); counts.forEach(c => freq.set(c, (freq.get(c) || 0) + 1));
         let mode = 0, mf = 0; freq.forEach((f, c) => { if (f > mf || (f === mf && c > mode)) { mode = c; mf = f; } });
-        const ratio = mf / sample.length;
+        let ratio = mf / sample.length;
+        // lignes de titre au-dessus : on mesure la régularité à partir de la 1re ligne au bon nombre de champs
+        const idx = counts.indexOf(mode);
+        if (ratio < 0.8 && mode >= 2 && idx > 0 && idx <= 12) {
+            const suf = counts.slice(idx);
+            if (suf.length >= 3) ratio = suf.filter(c => c === mode).length / suf.length;
+        }
         if (mode >= 2 && ratio >= 0.8) {
             const score = ratio * 100 + Math.min(mode, 30);
             if (!best || score > best.score) best = { d, n: mode, score };
@@ -29106,24 +29112,39 @@ function _aDetectHeader(table, strict) {
     return first.every((v, c) => !rest.some(r => (r[c] ?? '').toString().trim().toLowerCase() === v.toLowerCase()));
 }
 
-function _aTableToRows(table, hasHeader) {
+// headerRow : n° (1 = 1re ligne) de la ligne d'intitulés, 0 = aucune ; dataStart : index de la 1re ligne de données
+function _aTableToRows(table, headerRow, dataStart) {
     const n = Math.max(...table.map(r => r.length));
+    const hasHeader = headerRow > 0;
     let headers;
-    if (hasHeader) headers = table[0].map((v, i) => (v || '').trim() || ('Colonne ' + (i + 1)));
+    if (hasHeader) headers = (table[headerRow - 1] || []).map((v, i) => (v || '').trim() || ('Colonne ' + (i + 1)));
     else headers = Array.from({ length: n }, (_, i) => 'Colonne ' + (i + 1));
     while (headers.length < n) headers.push('Colonne ' + (headers.length + 1));
     const seen = {};
     headers = headers.map(h => { seen[h] = (seen[h] || 0) + 1; return seen[h] > 1 ? h + ' (' + seen[h] + ')' : h; });
-    return table.slice(hasHeader ? 1 : 0).map(r => {
+    return table.slice(dataStart).map(r => {
         const o = {}; headers.forEach((h, i) => { o[h] = (r[i] ?? '').toString().trim(); }); return o;
     });
 }
 
-function analyseSetTxtHeader(flag) {
+// Repère la ligne d'intitulés : les lignes de titre / vides au-dessus (moins de cellules remplies) sont ignorées
+function _aAutoHeader(table, strict) {
+    const filled = table.map(r => r.filter(v => (v ?? '').toString().trim() !== '').length);
+    const body = filled.slice(0, 200).filter(n => n > 0).sort((a, b) => a - b);
+    const typical = body.length ? body[Math.floor(body.length / 2)] : 1;
+    let start = 0;
+    const lim = Math.min(table.length - 1, 12);
+    for (let i = 0; i <= lim; i++) { if (filled[i] >= Math.max(2, typical * 0.7) || (typical < 2 && filled[i] >= 1)) { start = i; break; } }
+    const header = _aDetectHeader(table.slice(start), strict);
+    return header ? { headerRow: start + 1, dataStart: start + 1, skipped: start } : { headerRow: 0, dataStart: start, skipped: start };
+}
+
+function analyseSetHeaderRow(val) {
     if (!_analyseTxtCtx) return;
     const c = _analyseTxtCtx;
-    const rows = _aTableToRows(c.table, flag);
-    _analyseIngest(rows, c.name, c.encoding, Object.assign({}, c.meta, { hasHeader: flag, headerAuto: false }));
+    let k = Math.max(0, Math.min(parseInt(val, 10) || 0, Math.min(c.table.length - 1, 50)));
+    const rows = _aTableToRows(c.table, k, k > 0 ? k : 0);
+    _analyseIngest(rows, c.name, c.encoding, Object.assign({}, c.meta, { hasHeader: k > 0, headerRow: k, skipped: k > 0 ? k - 1 : 0, headerAuto: false }));
 }
 
 function analyseHandleFile(file, preloadedBuffer) {
@@ -29171,10 +29192,10 @@ function analyseHandleFile(file, preloadedBuffer) {
                     .filter(r => r.some(v => v.trim() !== ''));
             }
             if (!table.length) throw new Error('Le fichier ne contient pas de données');
-            const hasHeader = _aDetectHeader(table, isText);
-            meta.hasHeader = hasHeader; meta.headerAuto = true;
+            const ah = _aAutoHeader(table, isText);
+            meta.hasHeader = ah.headerRow > 0; meta.headerRow = ah.headerRow; meta.skipped = ah.skipped; meta.headerAuto = true;
             _analyseTxtCtx = { name: file.name, encoding: detectedEncoding, table, meta };
-            rows = _aTableToRows(table, hasHeader);
+            rows = _aTableToRows(table, ah.headerRow, ah.dataStart);
             if (rows.length === 0) throw new Error('Le fichier ne contient pas de données');
             _analyseIngest(rows, file.name, detectedEncoding, meta);
 
@@ -29410,7 +29431,10 @@ function analyseRenderStruct() {
     if (m.encoding) info += ' — encodage <strong>' + _aEsc(m.encoding) + '</strong>';
     let head = `<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px;"><span style="font-size:13px;color:#004d40;">${info}</span>`;
     if (_analyseTxtCtx) {
-        head += `<label style="margin-left:auto;font-size:12px;color:#004d40;display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" ${m.hasHeader ? 'checked' : ''} onchange="analyseSetTxtHeader(this.checked)" style="width:auto;margin:0;"> 1<sup>re</sup> ligne = en-têtes${m.headerAuto ? ' (détecté automatiquement)' : ''}</label>`;
+        const hr = m.headerRow || 0;
+        head += `<label style="margin-left:auto;font-size:12px;color:#004d40;display:flex;align-items:center;gap:6px;">Intitulés des colonnes en ligne n°
+            <input type="number" min="0" max="50" value="${hr}" onchange="analyseSetHeaderRow(this.value)" title="0 = pas d'intitulés ; les lignes au-dessus sont ignorées" style="width:56px;padding:2px 5px;border:1px solid #80cbc4;border-radius:4px;font-size:12px;text-align:center;">
+            <span style="color:#546e7a;">${m.headerAuto ? '(détecté automatiquement' : '(choisi'}${hr ? (m.skipped ? ' — ' + m.skipped + ' ligne' + (m.skipped > 1 ? 's' : '') + ' au-dessus ignorée' + (m.skipped > 1 ? 's' : '') : '') : ' — aucun intitulé'}) · 0 = aucun</span></label>`;
     }
     head += '</div>';
     const used = new Set();
