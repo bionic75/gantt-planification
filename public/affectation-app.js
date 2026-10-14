@@ -443,7 +443,7 @@
     <button id="affectationBackBtn" onclick="backToPlanification()" style="display:none;position:fixed;top:10px;right:340px;z-index:1001;background:#fff;border:none;color:#2c3e50;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);white-space:nowrap;">
         <svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:16px;height:16px;vertical-align:-3px;margin-right:6px;stroke:#3949ab;"><path d="M3 3v18h18"/><rect x="7" y="7" width="8" height="3" rx="1"/><rect x="11" y="12" width="9" height="3" rx="1"/><rect x="7" y="17" width="5" height="2" rx="1"/></svg>Planification
     </button>
-    <div class="aff-pill" id="affectationOnlineUsersContainer" style="display:none;">
+    <div class="aff-pill" id="affectationOnlineUsersContainer" onclick="toggleOnlineUsersTooltipFrom(this, event)" title="Utilisateurs connectés : cliquer pour discuter" style="display:none;cursor:pointer;">
         <span style="font-size:12px;color:#27ae60;">●</span>
         <div id="affectationOnlineUsersAvatars" style="display:flex;align-items:center;"></div>
         <span id="affectationOnlineUsersCount" style="font-size:11px;color:#666;margin-left:4px;"></span>

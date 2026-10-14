@@ -1,4 +1,4 @@
-<!-- v1.16.98 -->
+<!-- v1.16.99 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -490,17 +490,17 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.16.98">
-    <link rel="stylesheet" href="/darkmode.css?v=1.16.98">
-    <link rel="stylesheet" href="/login.css?v=1.16.98">
-    <link rel="stylesheet" href="/ui-polish.css?v=1.16.98">
-    <script src="/darkmode.js?v=1.16.98"></script>
-    <script src="/themes.js?v=1.16.98" defer></script>
-    <script src="/layout-fix.js?v=1.16.98" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.16.99">
+    <link rel="stylesheet" href="/darkmode.css?v=1.16.99">
+    <link rel="stylesheet" href="/login.css?v=1.16.99">
+    <link rel="stylesheet" href="/ui-polish.css?v=1.16.99">
+    <script src="/darkmode.js?v=1.16.99"></script>
+    <script src="/themes.js?v=1.16.99" defer></script>
+    <script src="/layout-fix.js?v=1.16.99" defer></script>
     <script>window.UI_ICONS_KEEP_ALERT = true;</script>
-    <script src="/ui-icons.js?v=1.16.98" defer></script>
-    <script src="/affectation-app.js?v=1.16.98" defer></script>
-    <script src="/map-timelapse.js?v=1.16.98" defer></script>
+    <script src="/ui-icons.js?v=1.16.99" defer></script>
+    <script src="/affectation-app.js?v=1.16.99" defer></script>
+    <script src="/map-timelapse.js?v=1.16.99" defer></script>
 </head>
 <body>
     <div class="container">
@@ -24226,6 +24226,28 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             listDiv.innerHTML = html;
         }
         
+        // Liste des utilisateurs connectés + bouton de discussion depuis n'importe quelle application (Aide à l'affectation, Analyse, Déplacements) :
+        // la même infobulle est réutilisée, ancrée sous la pastille cliquée, avec la liste fraîchement chargée.
+        async function toggleOnlineUsersTooltipFrom(anchor, event) {
+            event.stopPropagation();
+            const tooltip = document.getElementById('onlineUsersTooltip');
+            if (!tooltip || !anchor) return;
+            if (tooltip.parentElement !== document.body) document.body.appendChild(tooltip); // hors du conteneur principal, masqué dans les autres applications
+            const same = tooltip.dataset.anchor === anchor.id;
+            if (onlineUsersTooltipVisible && same) { tooltip.style.display = 'none'; onlineUsersTooltipVisible = false; return; }
+            try {
+                const r = await fetch(`${API_URL}/active-sessions`, { credentials: 'include' });
+                if (r.ok) renderOnlineUsersTooltip((await r.json()).activeUsers || []);
+            } catch (e) { /* on affiche la dernière liste connue */ }
+            const rect = anchor.getBoundingClientRect();
+            tooltip.dataset.anchor = anchor.id;
+            tooltip.style.top = (rect.bottom + 6) + 'px';
+            tooltip.style.right = Math.max(8, window.innerWidth - rect.right) + 'px';
+            tooltip.style.zIndex = 100001;
+            tooltip.style.display = 'block';
+            onlineUsersTooltipVisible = true;
+        }
+
         // Toggle du tooltip
         function toggleOnlineUsersTooltip(event) {
             event.stopPropagation();
@@ -27793,7 +27815,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             <svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:16px;height:16px;vertical-align:-3px;margin-right:6px;stroke:#3949ab;"><path d="M3 3v18h18"/><rect x="7" y="7" width="8" height="3" rx="1"/><rect x="11" y="12" width="9" height="3" rx="1"/><rect x="7" y="17" width="5" height="2" rx="1"/></svg>Planification
         </button>
 
-        <div id="deplacementsOnlineUsersContainer" style="display: none; position: fixed; top: 10px; right: 120px; height: 32px; box-sizing: border-box; background: #fff; padding: 0 12px; border-radius: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 1001; cursor: pointer; display: flex; align-items: center;" onclick="toggleDeplacementsOnlineUsersTooltip(event)">
+        <div id="deplacementsOnlineUsersContainer" style="display: none; position: fixed; top: 10px; right: 120px; height: 32px; box-sizing: border-box; background: #fff; padding: 0 12px; border-radius: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 1001; cursor: pointer; display: flex; align-items: center;" onclick="toggleOnlineUsersTooltipFrom(this, event)">
             <div style="display: flex; align-items: center; gap: 4px;">
                 <span style="font-size: 12px; color: #27ae60; margin-right: 4px;">●</span>
                 <div id="deplacementsOnlineUsersAvatars" style="display: flex; align-items: center;"></div>
@@ -28607,7 +28629,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
         </div>
     </div>
     <div class="header-spacer"></div>
-    <div id="analyseOnlineUsersContainer" style="display:none;position:fixed;top:10px;right:120px;height:32px;box-sizing:border-box;background:#fff;padding:0 12px;border-radius:20px;box-shadow:0 2px 8px rgba(0,0,0,.2);z-index:1001;align-items:center;gap:6px;font-size:11px;color:#666;">
+    <div id="analyseOnlineUsersContainer" onclick="toggleOnlineUsersTooltipFrom(this, event)" title="Utilisateurs connectés : cliquer pour discuter" style="cursor:pointer;display:none;position:fixed;top:10px;right:120px;height:32px;box-sizing:border-box;background:#fff;padding:0 12px;border-radius:20px;box-shadow:0 2px 8px rgba(0,0,0,.2);z-index:1001;align-items:center;gap:6px;font-size:11px;color:#666;">
         <span style="font-size:12px;color:#27ae60;">●</span>
         <div id="analyseOnlineUsersAvatars" style="display:flex;align-items:center;"></div>
         <span id="analyseOnlineUsersCount" style="font-size:11px;color:#666;margin-left:4px;"></span>
