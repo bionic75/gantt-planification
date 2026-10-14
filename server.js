@@ -3608,7 +3608,7 @@ app.post('/api/users/:id/amoa-ced', requireAdmin, (req, res) => {
 
 const APP_DEFINITIONS = {
     deplacements: { label: 'Plateforme de suivi des déplacements', icon: '🚗' },
-    analyse: { label: 'Analyse des listes utilisateurs', icon: '📊' },
+    analyse: { label: 'Analyse de fichiers', icon: '📊' },
     affectation: { label: "Aide à l'affectation opérationnelle", icon: '🎯' }
 };
 

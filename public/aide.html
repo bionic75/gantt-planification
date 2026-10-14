@@ -645,11 +645,24 @@ tr:nth-child(even) td { background: #f9f9f9; }
   <h2>🆕 Notes de version</h2>
   <p>Historique des évolutions de la Plateforme de Planification ANS.</p>
 
+  <!-- v1.17.01 -->
+  <div class="card card-green" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v1.17.01</strong>
+      <span class="badge badge-current">Actuelle</span>
+      <span style="color:#888; font-size:13px;">Octobre 2026</span>
+    </div>
+    <ul>
+      <li>📊 <strong>« Analyse des listes utilisateurs » devient « Analyse de fichiers »</strong>, avec prise en charge des fichiers <strong>.txt</strong> (et .tsv) : séparateur détecté automatiquement (tabulation, « ; », « | », « , »), colonnes à largeur fixe reconnues, première ligne d'en-têtes détectée (case à cocher pour corriger).</li>
+      <li>🧬 <strong>Bouton « Structure »</strong> : pour chaque colonne, type détecté (texte, entier, décimal, date, e-mail, téléphone, booléen, liste, catégorie…), taux de remplissage, valeurs distinctes, plage ou longueur, valeurs les plus fréquentes, clé potentielle (🔑).</li>
+      <li>🍀 <strong>Thème Saint-Patrick</strong> (10 au 17 mars par défaut) ; numérotation des versions sur 2 chiffres (v1.17.00).</li>
+    </ul>
+  </div>
+
   <!-- v1.16.85 -->
   <div class="card card-green" style="margin-bottom:16px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
       <strong style="font-size:16px;">v1.16.85</strong>
-      <span class="badge badge-current">Actuelle</span>
       <span style="color:#888; font-size:13px;">Octobre 2026</span>
     </div>
     <ul>
@@ -684,7 +697,7 @@ tr:nth-child(even) td { background: #f9f9f9; }
     </div>
     <ul>
       <li>🔐 <strong>Configuration de l'accès aux onglets</strong> (Administration) : pour chaque profil (Administrateur, Utilisateur, RH, Expert métier), cochez les onglets visibles (Ressources, Événements, Planification, CRA, Reporting, Administration, Astreintes). Les valeurs par défaut reprennent le fonctionnement d'origine, qui n'est plus codé en dur.</li>
-      <li>📊 <strong>Application « Analyse des listes utilisateurs »</strong> : retour du bandeau commun (photo et profil, utilisateurs connectés, minuteur, déconnexion) et case « conserver le fichier localement » rapprochée de son libellé.</li>
+      <li>📊 <strong>Application « Analyse de fichiers »</strong> : retour du bandeau commun (photo et profil, utilisateurs connectés, minuteur, déconnexion) et case « conserver le fichier localement » rapprochée de son libellé.</li>
       <li>🧭 <strong>Menu Applications disponible dans toutes les applications</strong> : il propose aussi le retour à la Planification, ce qui remplace les boutons « Retour ».</li>
     </ul>
   </div>
