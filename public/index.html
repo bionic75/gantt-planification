@@ -1,4 +1,4 @@
-<!-- v1.17.03 -->
+<!-- v1.17.04 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -490,17 +490,17 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.17.03">
-    <link rel="stylesheet" href="/darkmode.css?v=1.17.03">
-    <link rel="stylesheet" href="/login.css?v=1.17.03">
-    <link rel="stylesheet" href="/ui-polish.css?v=1.17.03">
-    <script src="/darkmode.js?v=1.17.03"></script>
-    <script src="/themes.js?v=1.17.03" defer></script>
-    <script src="/layout-fix.js?v=1.17.03" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.17.04">
+    <link rel="stylesheet" href="/darkmode.css?v=1.17.04">
+    <link rel="stylesheet" href="/login.css?v=1.17.04">
+    <link rel="stylesheet" href="/ui-polish.css?v=1.17.04">
+    <script src="/darkmode.js?v=1.17.04"></script>
+    <script src="/themes.js?v=1.17.04" defer></script>
+    <script src="/layout-fix.js?v=1.17.04" defer></script>
     <script>window.UI_ICONS_KEEP_ALERT = true;</script>
-    <script src="/ui-icons.js?v=1.17.03" defer></script>
-    <script src="/affectation-app.js?v=1.17.03" defer></script>
-    <script src="/map-timelapse.js?v=1.17.03" defer></script>
+    <script src="/ui-icons.js?v=1.17.04" defer></script>
+    <script src="/affectation-app.js?v=1.17.04" defer></script>
+    <script src="/map-timelapse.js?v=1.17.04" defer></script>
 </head>
 <body>
     <div class="container">
@@ -28961,6 +28961,8 @@ function analyseReset() {
     document.getElementById('analyseStructPanel').style.display = 'none';
     document.getElementById('analyseEncodingBanner').style.display = 'none';
     document.getElementById('analyseDropZone').style.display = 'flex';
+    document.getElementById('analyseDropTarget').style.display = 'block';
+    document.getElementById('analyseLoadProgress').style.display = 'none';
     document.getElementById('analyseWorkspace').style.display = 'none';
     document.getElementById('analyseFileName').textContent = '';
     document.getElementById('analyseStatsHeader').textContent = '';
