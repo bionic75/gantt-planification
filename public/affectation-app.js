@@ -53,6 +53,15 @@
     const css2 = `
         #affectationContainer .aff-card { background: #fff; border: 1px solid #dfe5ef; border-radius: 14px; margin: 18px 0; padding: 16px 20px 18px; box-shadow: 0 2px 8px rgba(30,60,110,.06); }
         #affectationContainer .aff-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+        .aff-rs { position: absolute; top: 0; right: -4px; bottom: 0; width: 9px; cursor: col-resize; z-index: 8; touch-action: none; }
+        .aff-rs::after { content: ''; position: absolute; top: 0; bottom: 0; left: 3px; width: 3px; border-radius: 2px; background: transparent; transition: background .15s; }
+        .aff-rs:hover::after, body.aff-resizing .aff-rs::after { background: rgba(15,118,110,.55); }
+        body.aff-resizing, body.aff-resizing * { cursor: col-resize !important; user-select: none !important; }
+        .aff-dd { position: relative; display: inline-block; }
+        .aff-dd-pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 60; min-width: 250px; max-height: 360px; overflow-y: auto; background: #fff; border: 1px solid #cfd8e6; border-radius: 12px; box-shadow: 0 10px 28px rgba(0,0,0,.2); padding: 8px 12px; }
+        .aff-dd-pop .hd { display: flex; gap: 8px; padding: 2px 0 6px; position: sticky; top: -8px; background: #fff; }
+        .aff-dd-pop label { display: flex; align-items: center; gap: 8px; padding: 4px 2px; border-top: 1px solid #eef1f6; font-size: 13px; cursor: pointer; }
+        .aff-dd-pop label input { width: auto; margin: 0; flex: none; }
         .aff-rowhide { position: absolute; top: 6px; right: 8px; width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 1px solid #cfd8e6; background: #fff; color: #6b7a8d; font-size: 16px; font-weight: 700; line-height: 18px; cursor: pointer; opacity: .4; }
         #affectationContainer table.aff-plan-table tbody th.sam:hover .aff-rowhide, .aff-rowhide:focus { opacity: 1; }
         .aff-rowhide:hover { background: #fdecea; color: #b3261e; border-color: #e57373; opacity: 1; }
@@ -198,8 +207,8 @@
         .aff-plan-table thead tr:nth-child(5) th { background: #5a86ba; top: 112px; font-weight: 600; font-size: 12px; }
         .aff-plan-table thead th.we { background: #f0b429 !important; color: #3a2d00; }
         .aff-plan-table thead th.today { background: #2e9d62 !important; color: #fff; }
-        .aff-plan-table th.corner { left: 0; z-index: 6; min-width: 280px; max-width: 280px; background: #1D70B7 !important; text-align: left; padding-left: 28px; font-size: 22px; }
-        .aff-plan-table tbody th.sam { position: sticky; left: 0; z-index: 5; background: #fff; text-align: left; padding: 6px 12px 6px 28px; min-width: 280px; max-width: 280px; border-right: 2px solid #cfd8e6; border-bottom: 1px solid #eef1f6; color: #1f2d3d; }
+        .aff-plan-table th.corner { left: 0; z-index: 6; width: var(--aff-samw, 280px); min-width: var(--aff-samw, 280px); max-width: var(--aff-samw, 280px); background: #1D70B7 !important; text-align: left; padding-left: 28px; font-size: 22px; }
+        .aff-plan-table tbody th.sam { position: sticky; left: 0; z-index: 5; background: #fff; text-align: left; padding: 6px 12px 6px 28px; width: var(--aff-samw, 280px); min-width: var(--aff-samw, 280px); max-width: var(--aff-samw, 280px); border-right: 2px solid #cfd8e6; border-bottom: 1px solid #eef1f6; color: #1f2d3d; }
         .aff-plan-table tbody th.sam .n { font-weight: 800; font-size: 19px; line-height: 1.2; }
         .aff-plan-table tbody th.sam .c { font-weight: 500; font-size: 14px; color: #6b7a8d; margin-top: 2px; }
         .aff-plan-table tbody tr:nth-child(even) th.sam { background: #e9eff7; }
@@ -277,7 +286,9 @@
                     <button type="button" data-s="samu" onclick="AffectationApp.planSort('samu')">SAMU</button>
                     <button type="button" data-s="chef" onclick="AffectationApp.planSort('chef')">Chef de projet</button>
                     <button type="button" data-s="mes" onclick="AffectationApp.planSort('mes')">Mise en service</button>
+                    <button type="button" data-s="mep" onclick="AffectationApp.planSort('mep')">Mise en production</button>
                 </div>
+                <span class="aff-dd" id="affSamuDd"></span>
                 <div class="aff-seg" role="group" aria-label="Échelle de temps">
                     <button type="button" data-z="day" class="on" onclick="AffectationApp.planZoom('day')" title="Afficher à la maille jour">Jour</button>
                     <button type="button" data-z="week" onclick="AffectationApp.planZoom('week')" title="Afficher à la maille semaine">Semaine</button>
@@ -1230,6 +1241,49 @@
         box.innerHTML = `<span class="lbl">Période affichée</span> du <input type="${type}" id="affRgFrom" value="${rgVal(type, r.from || a.min)}" title="Borne inférieure (${hint})" onchange="AffectationApp.planRangeSet()"> au <input type="${type}" id="affRgTo" value="${rgVal(type, r.to || a.max)}" title="Borne supérieure (${hint})" onchange="AffectationApp.planRangeSet()">
             <span class="aff-muted" style="font-size:12px;">(${hint})</span>${custom ? '<button type="button" class="aff-btn" onclick="AffectationApp.planRangeReset()" title="Revenir à l\'affichage automatique de toute la période">Tout afficher</button>' : ''}<span class="aff-error" id="affRgErr"></span>${hiddenRowsCtl()}`;
     }
+    // Largeur de la colonne SAMU (ajustable à la souris, mémorisée)
+    const SAMW_MIN = 140, SAMW_MAX = 700;
+    function samWidth() {
+        let w = 280;
+        try { w = parseInt(localStorage.getItem('affSamW'), 10) || 280; } catch (e) { /* stockage indisponible */ }
+        return Math.max(SAMW_MIN, Math.min(SAMW_MAX, w));
+    }
+    document.addEventListener('pointerdown', ev => {
+        const h = ev.target.closest && ev.target.closest('.aff-rs');
+        const box = document.getElementById('affPlan');
+        if (!h || !box || !box.contains(h)) return;
+        ev.preventDefault();
+        const x0 = ev.clientX, w0 = samWidth();
+        let w = w0;
+        document.body.classList.add('aff-resizing');
+        const mv = e => { w = Math.max(SAMW_MIN, Math.min(SAMW_MAX, Math.round(w0 + e.clientX - x0))); box.style.setProperty('--aff-samw', w + 'px'); };
+        const up = () => {
+            document.removeEventListener('pointermove', mv); document.removeEventListener('pointerup', up); document.removeEventListener('pointercancel', up);
+            document.body.classList.remove('aff-resizing');
+            try { localStorage.setItem('affSamW', String(w)); } catch (e) { /* stockage indisponible */ }
+        };
+        document.addEventListener('pointermove', mv); document.addEventListener('pointerup', up); document.addEventListener('pointercancel', up);
+    });
+
+    // Menu déroulant : choix des SAMU affichés (partage l'état des lignes retirées)
+    plan.ddOpen = false;
+    function renderSamuDd() {
+        const dd = document.getElementById('affSamuDd');
+        if (!dd) return;
+        const all = [...plan.projects].sort((a, b) => String(a.samu_name || '').localeCompare(String(b.samu_name || ''), 'fr', { numeric: true }));
+        const shown = all.filter(p => !plan.hiddenRows.has(p.id)).length;
+        const old = dd.querySelector('.aff-dd-pop'), top = old ? old.scrollTop : 0;
+        dd.innerHTML = `<button type="button" class="aff-btn" onclick="AffectationApp.toggleSamuDd(event)" title="Choisir les SAMU affichés dans le planning">${svg('planning', 'aff-ico-sm')}SAMU affichés (${shown}/${all.length}) ▾</button>`
+            + (plan.ddOpen ? `<div class="aff-dd-pop"><div class="hd"><button type="button" class="aff-btn" onclick="AffectationApp.samuDdAll(true)">Tous</button><button type="button" class="aff-btn" onclick="AffectationApp.samuDdAll(false)">Aucun</button></div>
+                ${all.map(p => `<label><input type="checkbox" ${plan.hiddenRows.has(p.id) ? '' : 'checked'} onchange="AffectationApp.samuDdSet(${p.id}, this.checked)">${esc(p.samu_name)}</label>`).join('')}</div>` : '');
+        const np = dd.querySelector('.aff-dd-pop'); if (np) np.scrollTop = top;
+    }
+    document.addEventListener('click', ev => {
+        if (!plan.ddOpen) return;
+        const dd = document.getElementById('affSamuDd');
+        if (dd && !dd.contains(ev.target)) { plan.ddOpen = false; renderSamuDd(); }
+    });
+
     function hiddenRowsCtl() {
         const list = plan.projects.filter(p => plan.hiddenRows.has(p.id));
         if (!list.length) return '';
@@ -1297,7 +1351,7 @@
     // Sélection triée des déploiements affichés (tri courant, filtre « déjà en service »)
     function sortedProjects(includeHidden) {
         const cmp = (a, b) => String(a || '').localeCompare(String(b || ''), 'fr', { numeric: true });
-        const keyOf = { samu: p => p.samu_name, chef: p => p.chef_projet_nom, mes: p => p.date_mise_en_service };
+        const keyOf = { samu: p => p.samu_name, chef: p => p.chef_projet_nom, mes: p => p.date_mise_en_service, mep: p => p.date_mise_en_production };
         const k = keyOf[plan.sort.key];
         const today = todayIso();
         let shown = hiddenKeys.has('_past') ? plan.projects.filter(p => !(p.date_mise_en_service && p.date_mise_en_service < today)) : plan.projects;
@@ -1373,7 +1427,7 @@
         renderLegend2();
         renderRangeCtl();
         const { min, max } = planRange();
-        const corner = rows => `<th class="corner" rowspan="${rows}">SAMU</th>`;
+        const corner = rows => `<th class="corner" rowspan="${rows}">SAMU<span class="aff-rs" title="Glisser pour ajuster la largeur de la colonne"></span></th>`;
         const { cols, rows: headRows } = buildColumns(plan.zoom, min, max);
         const head = headRows.map((r, i) => `<tr>${i === 0 ? corner(headRows.length) : ''}${r}</tr>`).join('');
 
@@ -1386,11 +1440,13 @@
         } else {
             const ordered = sortedProjects();
             body = ordered.map(p => `<tr data-id="${p.id}">
-                <th class="sam"><button type="button" class="aff-rowhide" title="Retirer cette ligne de l'affichage (rétablissable en haut du planning)" onclick="AffectationApp.hideRow(${p.id})">−</button><div class="n">${esc(p.samu_name)}</div><div class="c">${esc(p.chef_projet_nom || 'Chef de projet non défini')}</div></th>
+                <th class="sam"><button type="button" class="aff-rowhide" title="Retirer cette ligne de l'affichage (rétablissable en haut du planning)" onclick="AffectationApp.hideRow(${p.id})">−</button><div class="n">${esc(p.samu_name)}</div><div class="c">${esc(p.chef_projet_nom || 'Chef de projet non défini')}</div><span class="aff-rs" title="Glisser pour ajuster la largeur de la colonne"></span></th>
                 ${cols.map(c => `<td class="${c.we ? 'we' : ''} ${c.today ? 'today' : ''}" data-k="${c.key}">${cellContent(p, c)}</td>`).join('')}
             </tr>`).join('');
         }
+        box.style.setProperty('--aff-samw', samWidth() + 'px');
         box.innerHTML = `<table class="aff-plan-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
+        renderSamuDd();
         // Hauteurs de lignes d'en-tête : tops dynamiques si le nombre de lignes change
         const topStep = 36;
         box.querySelectorAll('thead tr').forEach((tr, i) => tr.querySelectorAll('th:not(.corner)').forEach(c => { c.style.top = (i * topStep) + 'px'; }));
@@ -1400,7 +1456,7 @@
             const on = b.dataset.s === plan.sort.key;
             b.classList.toggle('on', on);
             b.dataset.arrow = on ? (plan.sort.dir > 0 ? ' ▲' : ' ▼') : '';
-            b.textContent = ({ samu: 'SAMU', chef: 'Chef de projet', mes: 'Mise en service' })[b.dataset.s] + b.dataset.arrow;
+            b.textContent = ({ samu: 'SAMU', chef: 'Chef de projet', mes: 'Mise en service', mep: 'Mise en production' })[b.dataset.s] + b.dataset.arrow;
         });
     }
 
@@ -1830,6 +1886,9 @@
                 if (r.resource_ids.length) AffectationApp.openSync(asg.project.id, asg.stage, true);
             } catch (e) { document.getElementById('affAssignError').textContent = e.message; }
         },
+        toggleSamuDd(ev) { ev.stopPropagation(); plan.ddOpen = !plan.ddOpen; renderSamuDd(); },
+        samuDdSet(id, on) { if (on) plan.hiddenRows.delete(id); else plan.hiddenRows.add(id); saveHiddenRows(); AffectationApp.keepScroll(); },
+        samuDdAll(on) { if (on) plan.hiddenRows.clear(); else plan.projects.forEach(p => plan.hiddenRows.add(p.id)); saveHiddenRows(); AffectationApp.keepScroll(); },
         hideRow(id) { plan.hiddenRows.add(id); saveHiddenRows(); AffectationApp.keepScroll(); },
         showRow(id) {
             plan.hiddenRows.delete(id); saveHiddenRows(); AffectationApp.keepScroll();
