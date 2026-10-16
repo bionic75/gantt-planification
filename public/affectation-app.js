@@ -331,11 +331,20 @@
         <section class="aff-card" id="affCardTemplate">
             <header class="aff-card-head">
                 <span class="aff-card-title">${svg('print', 'aff-ico')}Modèle PowerPoint d'export</span>
-                <span class="aff-muted" style="font-size:12px;">Charte appliquée aux exports PDF / PowerPoint du planning</span>
+                <span class="aff-muted" style="font-size:12px;">Charte et nom des fichiers des exports PDF / PowerPoint du planning</span>
             </header>
             <div id="affTplBox"><p class="aff-muted">Chargement…</p></div>
             <p class="aff-muted" style="font-size:12px;margin:6px 0 10px;">Le modèle doit contenir une diapositive « Titre et contenu » (titre, sous-titre, pied de page). Le planning et sa légende sont insérés au centre, sans empiéter sur le titre ni sur le pied de page.</p>
-            <div class="aff-actions">
+            <div class="aff-fn">
+                <label class="lbl" for="affFnPattern" style="font-weight:700;font-size:13px;">Nom des fichiers produits (PDF / PowerPoint)</label>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:4px 0;">
+                    <input id="affFnPattern" type="text" maxlength="150" style="flex:1;min-width:320px;padding:7px 10px;border:1px solid #cfd8e6;border-radius:8px;" oninput="AffectationApp.fnPreview()" placeholder="SI-SAMU_Planning_Déploiement_{AAAAMMJJ}_{HHMM}">
+                    <button type="button" class="aff-btn aff-btn-primary" onclick="AffectationApp.fnSave()">Enregistrer</button>
+                    <button type="button" class="aff-btn" onclick="AffectationApp.fnReset()">Par défaut</button>
+                </div>
+                <div class="aff-muted" style="font-size:12px;">Exemple : <b id="affFnExample"></b> — jetons : <code>{AAAAMMJJ}</code> date · <code>{HHMM}</code> heure · <code>{AAAA}</code> <code>{MM}</code> <code>{JJ}</code> <code>{HH}</code> <code>{MN}</code> · <code>{DEBUT}</code> <code>{FIN}</code> période affichée · <code>{ECHELLE}</code> jour / semaine / mois… · <code>{TITRE}</code> titre saisi à l'export</div>
+            </div>
+            <div class="aff-actions" style="margin-top:12px;">
                 <input type="file" id="affTplFile" accept=".pptx" style="display:none" onchange="AffectationApp.tplUpload(this)">
                 <button type="button" class="aff-btn aff-btn-primary" onclick="document.getElementById('affTplFile').click()">${svg('plus', 'aff-ico-sm')}Importer un modèle (.pptx)</button>
                 <button type="button" class="aff-btn" id="affTplRemove" style="display:none" onclick="AffectationApp.tplRemove()">Supprimer le modèle</button>
@@ -621,8 +630,24 @@
 
     // Modèle PowerPoint d'export (titre, logo, pied de page) : état et administration
     const tpl = { meta: { exists: false } };
-    async function loadTpl() {
+    const exportName = { pattern: 'SI-SAMU_Planning_Déploiement_{AAAAMMJJ}_{HHMM}', defaultPattern: 'SI-SAMU_Planning_Déploiement_{AAAAMMJJ}_{HHMM}' };
+    // Nom de fichier d'après le modèle : jetons {AAAAMMJJ} {HHMM} {AAAA} {MM} {JJ} {HH} {MN} {DEBUT} {FIN} {ECHELLE} {TITRE}
+    function exportFileName(pattern, o) {
+        const d = new Date(), z = n => String(n).padStart(2, '0');
+        const ymd = iso => String(iso || '').replace(/-/g, '');
+        const slug = v => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w]+/g, '_').replace(/^_+|_+$/g, '');
+        const map = { AAAAMMJJ: `${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}`, HHMM: `${z(d.getHours())}${z(d.getMinutes())}`, AAAA: String(d.getFullYear()), MM: z(d.getMonth() + 1), JJ: z(d.getDate()), HH: z(d.getHours()), MN: z(d.getMinutes()),
+            DEBUT: ymd(o && o.from), FIN: ymd(o && o.to), ECHELLE: (o && SCALE_LABEL[o.zoom]) || '', TITRE: slug(o && o.title) };
+        const name = String(pattern || exportName.defaultPattern).replace(/\{([A-Z]+)\}/g, (m, k) => k in map ? map[k] : m).replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, '_').replace(/\.+$/, '').slice(0, 150);
+        return name || 'planning-deploiements';
+    }
+    async function loadTpl(withPreview) {
         try { tpl.meta = await api('/affectation/template'); } catch (e) { tpl.meta = { exists: false }; }
+        try { Object.assign(exportName, await api('/affectation/export-config')); } catch (e) { /* valeur par défaut */ }
+        if (!tpl.meta.exists) tpl.preview = null;
+        else if (withPreview && (!tpl.preview || tpl.previewKey !== tpl.meta.uploadedAt)) {
+            try { tpl.preview = await api('/affectation/template/preview'); tpl.previewKey = tpl.meta.uploadedAt; } catch (e) { tpl.preview = null; }
+        }
         renderTplCard();
     }
     function renderTplCard() {
@@ -633,10 +658,13 @@
         box.innerHTML = m.exists
             ? `<div class="aff-tpl"><div class="aff-tpl-n">${svg('print', 'aff-ico-sm')}<b>${esc(m.name)}</b> <span class="aff-muted">(${kb(m.size)}) · importé le ${esc(frd(String(m.uploadedAt || '').slice(0, 10)))}${m.uploadedBy ? ' par ' + esc(m.uploadedBy) : ''}</span></div>
                 <ul class="aff-tpl-l"><li>Diapositive utilisée : n° <b>${i.baseSlide}</b> sur ${i.slides} (disposition « ${esc(i.layout || '—')} »)</li>
+                <li>Pages reprises : ${i.cover ? 'page de garde, ' : ''}diapositive de planning${i.end ? ', page de fin' : ''} (les pages de garde et de fin sont facultatives à l'export)</li>
                 <li>Titre, logo, sous-titre et pied de page repris du modèle ; la date « JJ-MM-AAAA » du pied de page est remplacée par la date du jour</li>
                 <li>Zone du planning et de la légende : <b>${i.zone ? i.zone.wMm + ' × ' + i.zone.hMm + ' mm' : '—'}</b>, centrée entre le titre et le pied de page</li></ul></div>`
             : '<p class="aff-muted" style="margin:0 0 6px;">Aucun modèle importé : les exports PDF / PowerPoint utilisent la mise en page standard.</p>';
         const rm = document.getElementById('affTplRemove'); if (rm) rm.style.display = m.exists ? '' : 'none';
+        const fp = document.getElementById('affFnPattern'); if (fp && document.activeElement !== fp) fp.value = exportName.pattern;
+        AffectationApp.fnPreview();
     }
 
     async function loadAdmin() {
@@ -1548,7 +1576,7 @@
         const g = id => document.getElementById(id);
         return {
             title: g('prTitle').value.trim(), from: g('prFrom').value, to: g('prTo').value, zoom: g('prZoom').value,
-            paper: g('prPaper').value, orient: g('prOrient').value, fit: g('prFit').value, legend: g('prLegend').checked, tpl: !!(g('prTpl') && g('prTpl').checked),
+            paper: g('prPaper').value, orient: g('prOrient').value, fit: g('prFit').value, legend: g('prLegend').checked, tpl: !!(g('prTpl') && g('prTpl').checked), cover: !!(g('prCover') && g('prCover').checked), end: !!(g('prEnd') && g('prEnd').checked),
             samu: new Set([...document.querySelectorAll('#prSamu input:checked')].map(i => Number(i.value))),
             hidden: new Set([...document.querySelectorAll('#prStages input:not(:checked)')].map(i => i.value))
         };
@@ -1618,13 +1646,41 @@
                 const part = (colPages.length > 1 ? ` · colonnes ${ci + 1}/${colPages.length}` : '') + (rowPages.length > 1 ? ` · SAMU ${ri + 1}/${rowPages.length}` : '');
                 if (T) {
                     subtitles.push(`${frd(o.from)} → ${frd(o.to)} · échelle : ${SCALE_LABEL[o.zoom]}${part}`);
-                    pages.push(`<div class="pg tplpg" style="width:${pxW.toFixed(2)}px;height:${pxH.toFixed(2)}px;padding:${padY.toFixed(1)}px ${padX.toFixed(1)}px;background:transparent;justify-content:center;align-items:center;">${legend}${rp.length ? tableHtml(cp, rp) : '<p style="color:#778;font-size:11px;">Aucun SAMU sélectionné.</p>'}</div>`);
+                    pages.push(`<div class="pg tplpg" style="width:${pxW.toFixed(2)}px;height:${pxH.toFixed(2)}px;padding:${padY.toFixed(1)}px ${padX.toFixed(1)}px;background:transparent;justify-content:flex-start;align-items:center;">${legend}${rp.length ? tableHtml(cp, rp) : '<p style="color:#778;font-size:11px;">Aucun SAMU sélectionné.</p>'}</div>`);
                     return;
                 }
                 pages.push(`<div class="pg" style="width:${pxW.toFixed(2)}px;height:${pxH.toFixed(2)}px;padding:${padY.toFixed(1)}px ${padX.toFixed(1)}px;"><div class="pg-head"><b>${esc(o.title)}</b><span>${esc(sub)}</span></div>${legend}${rp.length ? tableHtml(cp, rp) : '<p style="color:#778;font-size:11px;">Aucun SAMU sélectionné.</p>'}<div class="pg-foot"><span>${esc(part.replace(/^ · /, ''))}</span><span>Page ${k} / ${total}</span></div></div>`);
             }));
             return { pages, subtitles, tpl: !!T, pxW, pxH, mmW, mmH, total, tooTight: o.fit === 'fit' && colW < 5 };
         } finally { hiddenKeys = saved.hidden; printMode = saved.mode; }
+    }
+
+    // Aperçu fidèle au modèle : diapositives du modèle (page de garde, planning, page de fin) avec leurs textes, logos et pied de page
+    function tplSlideHtml(sl, o, lay, n, planIdx) {
+        const P = tpl.preview, W = P.W / 9525, H = P.H / 9525, px = v => (v / 9525).toFixed(1) + 'px';
+        const date = frd(todayIso()).replace(/\//g, '-');
+        const al = { l: 'left', ctr: 'center', r: 'right', just: 'left' };
+        const parts = sl.items.map(it => {
+            if (it.t === 'img') return `<img src="${it.src}" alt="" style="position:absolute;left:${px(it.x)};top:${px(it.y)};width:${px(it.w)};height:${px(it.h)};">`;
+            if (it.t === 'rect') return `<div style="position:absolute;left:${px(it.x)};top:${px(it.y)};width:${px(it.w)};height:${px(it.h)};background:${it.color};"></div>`;
+            let text = String(it.text || '').replace(/JJ-MM-AAAA/g, date).replace(/\{n\}/g, n);
+            if (it.role === 'title' || it.role === 'ctrTitle') text = o.title;
+            if (it.role === 'subtitle13') text = (lay.subtitles && lay.subtitles[planIdx]) || '';
+            return `<div style="position:absolute;left:${px(it.x)};top:${px(it.y)};width:${px(it.w)};height:${px(it.h)};display:flex;align-items:${it.anchor === 'ctr' ? 'center' : it.anchor === 'b' ? 'flex-end' : 'flex-start'};box-sizing:border-box;padding:4px 8px;overflow:visible;"><div style="width:100%;font-size:${(it.sz / 100 * 96 / 72).toFixed(1)}px;line-height:1.15;font-weight:${it.b ? 700 : 400};color:${it.color};font-family:${it.font ? `'${esc(it.font)}',` : ''}Arial,sans-serif;text-align:${al[it.algn] || 'left'};white-space:pre-wrap;">${esc(text)}</div></div>`;
+        }).join('');
+        const z = P.zone, page = planIdx != null ? `<div style="position:absolute;left:${px(z.x)};top:${px(z.y)};width:${px(z.w)};height:${px(z.h)};">${lay.pages[planIdx]}</div>` : '';
+        return `<div style="position:relative;width:${W.toFixed(1)}px;height:${H.toFixed(1)}px;background:#fff;overflow:hidden;">${parts}${page}</div>`;
+    }
+    function renderTplPreview(box, lay, o) {
+        const P = tpl.preview, W = P.W / 9525, H = P.H / 9525;
+        const frames = [];
+        const cover = P.slides.find(x => x.kind === 'cover'), plan = P.slides.find(x => x.kind === 'plan'), end = P.slides.find(x => x.kind === 'end');
+        if (cover && o.cover) frames.push(tplSlideHtml(cover, o, lay, 1, null));
+        lay.pages.forEach((pg, i) => frames.push(tplSlideHtml(plan, o, lay, frames.length + 1, i)));
+        if (end && o.end) frames.push(tplSlideHtml(end, o, lay, frames.length + 1, null));
+        const k = Math.min(1, (box.clientWidth - 30) / W);
+        box.innerHTML = frames.map(f => `<div class="pw" style="background:#fff;width:${(W * k).toFixed(1)}px;height:${(H * k).toFixed(1)}px;"><div style="transform:scale(${k.toFixed(4)});transform-origin:0 0;width:${W.toFixed(1)}px;height:${H.toFixed(1)}px;">${f}</div></div>`).join('');
+        document.getElementById('affPrintInfo').textContent = `[Modèle PowerPoint] ${frames.length} diapositive(s) dont ${lay.total} de planning · aperçu simplifié : les images au format EMF du modèle ne s'affichent pas ici mais figurent dans le fichier`;
     }
 
     function printExportHtml(lay) {
@@ -1643,6 +1699,7 @@
         if (token !== prt.token) return; // une option a changé entre-temps
         prt.layout = lay; prt.opts = o;
         const box = document.getElementById('affPrintPreview');
+        if (lay.tpl && tpl.preview && tpl.preview.slides) { renderTplPreview(box, lay, o); return; }
         const k = Math.min(1, (box.clientWidth - 30) / lay.pxW);
         box.innerHTML = lay.pages.map(pg => `<div class="pw" style="background:#fff;width:${(lay.pxW * k).toFixed(1)}px;height:${(lay.pxH * k).toFixed(1)}px;"><div style="transform:scale(${k.toFixed(4)});transform-origin:0 0;width:${lay.pxW.toFixed(1)}px;height:${lay.pxH.toFixed(1)}px;">${pg}</div></div>`).join('');
         document.getElementById('affPrintInfo').textContent = (lay.tpl ? '[Modèle PowerPoint] zone du planning · ' : '') + `${lay.total} page(s) · ${lay.mmW} × ${lay.mmH} mm` + (lay.tooTight ? ' — ⚠ échelle trop fine pour tenir sur une page : choisissez « Répartir sur plusieurs pages » ou une échelle plus large' : '');
@@ -1653,12 +1710,12 @@
         const lay = prt.layout;
         if (!lay) return;
         try {
-            const r = await fetch(`${API_URL}/affectation/export/${kind}`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ html: printExportHtml(lay), wMm: lay.mmW, hMm: lay.mmH, name: 'planning-deploiements', tpl: lay.tpl ? { use: true, title: (prt.opts && prt.opts.title) || 'Planning des déploiements des SAMU', subtitles: lay.subtitles } : undefined }) });
+            const r = await fetch(`${API_URL}/affectation/export/${kind}`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ html: printExportHtml(lay), wMm: lay.mmW, hMm: lay.mmH, name: 'planning-deploiements', tpl: lay.tpl ? { use: true, title: (prt.opts && prt.opts.title) || 'Planning des déploiements des SAMU', subtitles: lay.subtitles, cover: !!(prt.opts && prt.opts.cover), end: !!(prt.opts && prt.opts.end) } : undefined }) });
             if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.error || `Erreur ${r.status}`); }
             const blob = await r.blob();
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
-            a.download = `planning-deploiements-${todayIso()}.${kind}`;
+            a.download = `${exportFileName(exportName.pattern, prt.opts)}.${kind}`;
             document.body.appendChild(a); a.click(); a.remove();
             setTimeout(() => URL.revokeObjectURL(a.href), 30000);
         } catch (e) { err.textContent = e.message; }
@@ -1779,7 +1836,7 @@
         },
         historyClose() { document.getElementById('affHistModal').classList.remove('active'); },
         async openPrint() {
-            await loadTpl();
+            await loadTpl(true);
             const { min, max } = planRange();
             const list = sortedProjects(true);
             const stages = [['cadrage', 'Cadrage'], ['deploiement', 'Déploiement opérationnel'], ['gel', 'Période(s) de gel'], ['mise_en_service', 'Mise en service'], ['mise_en_production', 'Mise en production'], ['visite_metier', 'Visite métier'], ['test_prerequis', 'Test des prérequis'], ['vft', 'VFT'], ['formation_relais', 'Formation « Formateurs relais »'], ['formation_utilisateurs', 'Formation « Utilisateurs »'], ['accompagnement', 'Accompagnement']];
@@ -1794,7 +1851,7 @@
                         <button type="button" data-p="A3" title="Papier A3" onclick="AffectationApp.printFormat('p','A3')"><b>A3</b></button>
                     </div></div>
                 <div class="g"><label class="lbl" for="prTitle">Titre</label><input id="prTitle" type="text" value="Planning des déploiements des SAMU"></div>
-                ${tpl.meta.exists ? `<div class="g" style="background:#eef6ff;border:1px solid #cfe0f5;border-radius:10px;padding:8px 10px;"><label class="chk"><input type="checkbox" id="prTpl" checked onchange="AffectationApp.printTpl()"> <b>Utiliser le modèle PowerPoint</b></label><div class="aff-muted" style="font-size:11px;margin-top:3px;">${esc(tpl.meta.name)} — titre, logo et pied de page du modèle ; planning et légende centrés. Format de page imposé par le modèle.</div></div>` : ''}
+                ${tpl.meta.exists ? `<div class="g" style="background:#eef6ff;border:1px solid #cfe0f5;border-radius:10px;padding:8px 10px;"><label class="chk"><input type="checkbox" id="prTpl" checked onchange="AffectationApp.printTpl()"> <b>Utiliser le modèle PowerPoint</b></label><div class="aff-muted" style="font-size:11px;margin-top:3px;">${esc(tpl.meta.name)} — titre, logo et pied de page du modèle ; planning et légende centrés. Format de page imposé par le modèle.</div>${tpl.meta.info && tpl.meta.info.cover ? `<label class="chk" style="margin-top:6px;"><input type="checkbox" id="prCover" checked onchange="AffectationApp.printUpdate()"> Page de garde du modèle</label>` : ''}${tpl.meta.info && tpl.meta.info.end ? `<label class="chk"><input type="checkbox" id="prEnd" checked onchange="AffectationApp.printUpdate()"> Page de fin du modèle</label>` : ''}</div>` : ''}
                 <div class="g two"><div><label class="lbl" for="prFrom">Début</label><input id="prFrom" type="date" value="${min}"></div><div><label class="lbl" for="prTo">Fin</label><input id="prTo" type="date" value="${max}"></div></div>
                 <div class="g"><label class="lbl" for="prZoom">Échelle de temps</label><select id="prZoom">${[['day', 'Jours'], ['week', 'Semaines'], ['month', 'Mois'], ['quarter', 'Trimestres'], ['year', 'Années']].map(z => `<option value="${z[0]}" ${z[0] === plan.zoom ? 'selected' : ''}>${z[1]}</option>`).join('')}</select></div>
                 <div class="g"><label class="lbl" for="prFit">Largeur</label><select id="prFit"><option value="split">Répartir sur plusieurs pages (colonnes lisibles)</option><option value="fit">Tout sur une page en largeur</option></select></div>
@@ -1812,6 +1869,16 @@
             document.querySelectorAll(`#prFormat button[data-${kind}]`).forEach(b => b.classList.toggle('on', b.dataset[kind] === value));
             AffectationApp.printUpdate();
         },
+        fnPreview() {
+            const i = document.getElementById('affFnPattern'), e = document.getElementById('affFnExample');
+            if (i && e) e.textContent = exportFileName(i.value.trim() || exportName.defaultPattern, { from: todayIso(), to: todayIso(), zoom: plan.zoom, title: 'Planning des déploiements des SAMU' }) + '.pptx';
+        },
+        async fnSave() {
+            const msg = document.getElementById('affTplMsg');
+            try { Object.assign(exportName, await api('/affectation/export-config', { method: 'PUT', body: JSON.stringify({ pattern: document.getElementById('affFnPattern').value.trim() }) })); msg.style.color = '#1b7f3b'; msg.textContent = 'Nom de fichier enregistré.'; renderTplCard(); }
+            catch (e) { msg.style.color = '#b3261e'; msg.textContent = e.message; }
+        },
+        async fnReset() { document.getElementById('affFnPattern').value = ''; await AffectationApp.fnSave(); },
         printTpl() {
             const on = !!(document.getElementById('prTpl') && document.getElementById('prTpl').checked);
             const fm = document.getElementById('prFormat'); if (fm) { fm.style.opacity = on ? .4 : 1; fm.style.pointerEvents = on ? 'none' : ''; }
