@@ -1,4 +1,4 @@
-<!-- v1.17.11 -->
+<!-- v1.17.12 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -498,17 +498,17 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.17.11">
-    <link rel="stylesheet" href="/darkmode.css?v=1.17.11">
-    <link rel="stylesheet" href="/login.css?v=1.17.11">
-    <link rel="stylesheet" href="/ui-polish.css?v=1.17.11">
-    <script src="/darkmode.js?v=1.17.11"></script>
-    <script src="/themes.js?v=1.17.11" defer></script>
-    <script src="/layout-fix.js?v=1.17.11" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.17.12">
+    <link rel="stylesheet" href="/darkmode.css?v=1.17.12">
+    <link rel="stylesheet" href="/login.css?v=1.17.12">
+    <link rel="stylesheet" href="/ui-polish.css?v=1.17.12">
+    <script src="/darkmode.js?v=1.17.12"></script>
+    <script src="/themes.js?v=1.17.12" defer></script>
+    <script src="/layout-fix.js?v=1.17.12" defer></script>
     <script>window.UI_ICONS_KEEP_ALERT = true;</script>
-    <script src="/ui-icons.js?v=1.17.11" defer></script>
-    <script src="/affectation-app.js?v=1.17.11" defer></script>
-    <script src="/map-timelapse.js?v=1.17.11" defer></script>
+    <script src="/ui-icons.js?v=1.17.12" defer></script>
+    <script src="/affectation-app.js?v=1.17.12" defer></script>
+    <script src="/map-timelapse.js?v=1.17.12" defer></script>
 </head>
 <body>
     <div class="container">
@@ -4334,10 +4334,8 @@
         function loginSuggestForget(u) { saveKnownLogins(knownLogins().filter(x => x !== u)); loginSuggestShow(); }
 
         // Fin de session côté serveur (redémarrage, expiration…) : retour propre sur la mire de connexion
-        let _sessionEnding = false;
-        function forceSessionEnd(message) {
-            if (_sessionEnding) return;
-            _sessionEnding = true;
+        // Remise à zéro de l'interface pour la mire de connexion : applications fermées, minuteurs et bandeaux flottants masqués
+        function resetUiForLogin() {
             try { if (typeof _chatCloseAll === 'function') _chatCloseAll(); } catch (e) { /* ignoré */ }
             try { closeAllModals(); } catch (e) { /* ignoré */ }
             try { if (window.hideAffectationApp) hideAffectationApp(); } catch (e) { /* ignoré */ }
@@ -4346,18 +4344,27 @@
             try { if (notificationCheckInterval) { clearInterval(notificationCheckInterval); notificationCheckInterval = null; } } catch (e) { /* ignoré */ }
             try { if (onlineUsersInterval) { clearInterval(onlineUsersInterval); onlineUsersInterval = null; } } catch (e) { /* ignoré */ }
             try { if (deplacementsOnlineUsersInterval) { clearInterval(deplacementsOnlineUsersInterval); deplacementsOnlineUsersInterval = null; } } catch (e) { /* ignoré */ }
-            ['analyseContainer', 'deplacementsContainer', 'affectationContainer', 'deplacementsTimerDisplay', 'deplacementsOnlineUsersContainer', 'deplacementsOnlineUsersTooltip', 'analyseTimerDisplay', 'analyseOnlineUsersContainer', 'inactivityTimerDisplay', 'backToPlanificationBtn', 'adminTab', 'userInfo'].forEach(id => {
+            ['analyseContainer', 'deplacementsContainer', 'affectationContainer', 'deplacementsTimerDisplay', 'deplacementsOnlineUsersContainer', 'deplacementsOnlineUsersTooltip',
+             'analyseTimerDisplay', 'analyseOnlineUsersContainer', 'inactivityTimerDisplay', 'backToPlanificationBtn', 'appSwitcher', 'appSwitcherDropdown', 'onlineUsersContainer', 'onlineUsersTooltip', 'adminTab', 'userInfo'].forEach(id => {
                 const el = document.getElementById(id); if (el) el.style.display = 'none';
             });
             const main = document.querySelector('.container'); if (main) main.style.display = 'none';
+            try { sessionStorage.removeItem('selectedApp'); } catch (e) { /* ignoré */ }
             currentUser = null; pendingAssignments = {}; availableProfiles = []; loginStep = 'credentials';
             document.getElementById('loginPage').classList.add('active');
             ['loginUsername', 'loginPassword', 'loginProfile'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
             document.getElementById('profileSelectGroup').style.display = 'none';
             setLoginButtonLabel('Continuer');
+            window.scrollTo(0, 0);
+        }
+        // Fin de session côté serveur (redémarrage, expiration…) : retour propre sur la mire de connexion
+        let _sessionEnding = false;
+        function forceSessionEnd(message) {
+            if (_sessionEnding) return;
+            _sessionEnding = true;
+            resetUiForLogin();
             showLoginError(message || 'Votre session a expiré. Veuillez vous reconnecter.');
             try { loadVersion(); } catch (e) { /* ignoré */ }
-            window.scrollTo(0, 0);
             setTimeout(() => { _sessionEnding = false; }, 1500);
         }
 
@@ -7757,11 +7764,8 @@
 
                 console.log('✅ Déconnexion réussie');
 
-                // Rediriger vers la page de login
-                document.getElementById('loginPage').classList.add('active');
-                document.querySelector('.container').style.display = 'none';
-                document.getElementById('adminTab').style.display = 'none';
-                document.getElementById('userInfo').style.display = 'none';
+                // Rediriger vers la page de login (toutes les applications et bandeaux flottants sont fermés)
+                resetUiForLogin();
 
                 // Réinitialiser complètement le formulaire de login
                 _credFilled = false;

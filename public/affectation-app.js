@@ -320,6 +320,7 @@
             <header class="aff-card-head">
                 <span class="aff-card-title">${svg('rocket', 'aff-ico')}Déploiements de SAMU</span>
                 <span style="display:inline-flex;gap:8px;flex-wrap:wrap;">
+                    <button type="button" class="aff-btn" id="affRefreshAll" onclick="AffectationApp.asanaRefreshAll(this)" title="Relire dans Asana tous les déploiements qui ont un projet correspondant (rubriques nouvelles ou modifiées uniquement)">${svg('asanasync', 'aff-ico-sm')}Tout rafraîchir depuis Asana</button>
                     <button type="button" class="aff-btn" onclick="AffectationApp.asanaOpen()" title="Récupérer les dates d'un projet de déploiement depuis un export CSV d'Asana">${svg('save', 'aff-ico-sm')}Importer depuis Asana</button>
                     <button type="button" class="aff-btn aff-btn-primary" onclick="AffectationApp.editProject(null)">${svg('plus', 'aff-ico-sm')}Nouveau déploiement</button>
                 </span>
@@ -2057,6 +2058,22 @@
                 }
             } catch (e) { toast(e.message, true); }
             finally { btn.classList.remove('aff-busy'); }
+        },
+        async asanaRefreshAll(btn) {
+            if (btn.classList.contains('aff-busy')) return;
+            btn.classList.add('aff-busy');
+            const old = btn.lastChild.textContent; btn.lastChild.textContent = 'Rafraîchissement en cours…';
+            const toast = (html, err) => { const t = document.createElement('div'); t.className = 'aff-toast' + (err ? ' err' : ''); t.style.maxWidth = '560px'; t.style.textAlign = 'left'; t.innerHTML = html; t.title = 'Cliquer pour fermer'; t.onclick = () => t.remove(); document.body.appendChild(t); setTimeout(() => t.remove(), err ? 12000 : 15000); };
+            try {
+                const r = await api('/affectation/asana/refresh-all', { method: 'POST', body: '{}' });
+                const lines = [`<b>Rafraîchissement Asana : ${r.updated.length} SAMU mis à jour, ${r.unchanged.length} déjà à jour</b>`];
+                if (r.updated.length) lines.push(r.updated.map(u => `${esc(u.samu)} (${u.rows} rubrique${u.rows > 1 ? 's' : ''})`).join(' · '));
+                if (r.noMatch.length) lines.push(`Sans projet Asana : ${r.noMatch.map(esc).join(', ')}`);
+                if (r.errors.length) lines.push(`Erreurs : ${r.errors.map(e => esc(e.samu) + ' — ' + esc(e.error)).join(' · ')}`);
+                toast(lines.join('<br>'), r.errors.length > 0);
+                if (r.updated.length) { await Promise.all([loadAdmin(), state.loaded ? loadPlanning() : null]); }
+            } catch (e) { toast(esc(e.message), true); }
+            finally { btn.classList.remove('aff-busy'); btn.lastChild.textContent = old; }
         },
         toggleSamuDd(ev) { ev.stopPropagation(); plan.ddOpen = !plan.ddOpen; renderSamuDd(); },
         samuDdSet(id, on) { if (on) plan.hiddenRows.delete(id); else plan.hiddenRows.add(id); saveHiddenRows(); AffectationApp.keepScroll(); },
