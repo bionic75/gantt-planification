@@ -1583,7 +1583,7 @@ function requireAuth(req, res, next) {
 
 function requireAdmin(req, res, next) {
     if (!req.session || !req.session.userId) {
-        return res.status(403).json({ error: 'Accès réservé aux administrateurs' });
+        return res.status(401).json({ error: 'Non authentifié' });
     }
     // Fallback : si activeProfile absent de la session, le restaurer depuis activeSessions
     if (!req.session.activeProfile) {
@@ -3672,7 +3672,7 @@ const AFF_STAGES = [
 const AFF_PERIOD_KEYS = AFF_STAGES.filter(s => s.kind !== 'date').map(s => s.key);
 
 function requireAffectationAccess(req, res, next) {
-    if (!req.session || !req.session.userId) return res.status(403).json({ error: 'Accès refusé' });
+    if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Non authentifié' });
     if (req.session.activeProfile === 'admin') return next();
     database.get('SELECT 1 AS ok FROM app_user_access WHERE app_key = ? AND user_id = ?', ['affectation', req.session.userId], (err, row) => {
         if (err || !row) return res.status(403).json({ error: 'Accès refusé' });
@@ -11268,8 +11268,8 @@ app.get('/api/cra/my-list', requireAuth, async (req, res) => {
 });
 
 function requireAdminOrRh(req, res, next) {
-    if (!req.session || !req.session.userId ||
-        (req.session.activeProfile !== 'admin' && req.session.activeProfile !== 'rh')) {
+    if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Non authentifié' });
+    if (req.session.activeProfile !== 'admin' && req.session.activeProfile !== 'rh') {
         return res.status(403).json({ error: 'Accès réservé aux administrateurs et RH' });
     }
     if (activeSessions.has(req.session.userId)) {
