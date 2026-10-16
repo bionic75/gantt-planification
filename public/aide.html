@@ -467,7 +467,7 @@ tr:nth-child(even) td { background: #f9f9f9; }
       <tr><td><strong>Date de début du projet</strong></td><td>Toutes les autres dates doivent lui être postérieures ou égales</td></tr>
       <tr><td><strong>Phases</strong></td><td>Cadrage, Déploiement opérationnel, Période(s) de gel (optionnelle, plusieurs périodes possibles)</td></tr>
       <tr><td><strong>Jalons</strong></td><td>Mise en service, Mise en production</td></tr>
-      <tr><td><strong>Étapes de mise en œuvre</strong></td><td>Visite métier, Test des prérequis, VFT, Formation « Formateurs relais », Formation « Utilisateurs », Accompagnement</td></tr>
+      <tr><td><strong>Étapes de mise en œuvre</strong></td><td>Visite métier, Test des prérequis, VFT, Formation « Utilisateurs », Accompagnement</td></tr>
     </tbody>
   </table>
   <p>Pour <strong>aller vite</strong>, chaque étape de mise en œuvre propose :</p>
@@ -497,7 +497,7 @@ tr:nth-child(even) td { background: #f9f9f9; }
       <tr><td>Visite métier</td><td>tâches 5.1 et 5.2</td></tr>
       <tr><td>Test des prérequis</td><td>tâche dont le nom contient « Test des prérequis » (à créer dans Asana)</td></tr>
       <tr><td>VFT</td><td>tâche 5.9 (<em>Phase</em> = VFT)</td></tr>
-      <tr><td>Formation</td><td>tâche 6.3 « Formation au bandeau de communication » : alimente <em>Utilisateurs</em>, <em>Formateurs relais</em> ou les deux, au choix</td></tr>
+      <tr><td>Formation</td><td>tâche 6.3 « Formation au bandeau de communication » : alimente <em>Formation « Utilisateurs »</em></td></tr>
       <tr><td>Accompagnement</td><td>tâche 6.6 « Accompagnement post démarrage »</td></tr>
     </tbody>
   </table>
@@ -604,7 +604,7 @@ tr:nth-child(even) td { background: #f9f9f9; }
       <tr><td>Visite métier</td><td>VISITE METIER</td></tr>
       <tr><td>Test des prérequis</td><td>VERIF PREREQUIS</td></tr>
       <tr><td>VFT</td><td>VFT SUR SITE</td></tr>
-      <tr><td>Formation « Formateurs relais » / « Utilisateurs »</td><td>FORMATION</td></tr>
+      <tr><td>Formation « Utilisateurs »</td><td>FORMATION</td></tr>
       <tr><td>Accompagnement</td><td>ACCOMP. POST DÉM.</td></tr>
     </tbody>
   </table>
@@ -656,11 +656,22 @@ tr:nth-child(even) td { background: #f9f9f9; }
   <h2>🆕 Notes de version</h2>
   <p>Historique des évolutions de la Plateforme de Planification ANS.</p>
 
+  <!-- v1.17.10 -->
+  <div class="card card-green" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v1.17.10</strong>
+      <span class="badge badge-current">Actuelle</span>
+      <span style="color:#888; font-size:13px;">Octobre 2026</span>
+    </div>
+    <ul>
+      <li>🧹 <strong>Aide à l'affectation : suppression de l'étape « Formation des formateurs relais »</strong> ; seule la « Formation « Utilisateurs » » est conservée (légende, planning, saisie des déploiements, import Asana, impression). Les éventuelles données déjà saisies pour l'ancienne étape restent en base mais ne sont plus affichées.</li>
+    </ul>
+  </div>
+
   <!-- v1.17.09 -->
   <div class="card card-green" style="margin-bottom:16px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
       <strong style="font-size:16px;">v1.17.09</strong>
-      <span class="badge badge-current">Actuelle</span>
       <span style="color:#888; font-size:13px;">Octobre 2026</span>
     </div>
     <ul>

@@ -3667,7 +3667,6 @@ const AFF_STAGES = [
     { key: 'visite_metier',         label: 'Visite métier',                     kind: 'period', resources: true, color: '#ab47bc' },
     { key: 'test_prerequis',        label: 'Test des prérequis',                kind: 'period', resources: true, color: '#26a69a' },
     { key: 'vft',                   label: 'VFT',                               kind: 'period', resources: true, color: '#43a047' },
-    { key: 'formation_relais',      label: 'Formation « Formateurs relais »',   kind: 'period', resources: true, color: '#ffa726' },
     { key: 'formation_utilisateurs',label: 'Formation « Utilisateurs »',        kind: 'period', resources: true, color: '#ef6c00' },
     { key: 'accompagnement',        label: 'Accompagnement',                    kind: 'period', resources: true, color: '#00acc1' }
 ];
@@ -3948,7 +3947,6 @@ const AFF_STAGE_EVENT = {
     visite_metier: { label: 'VISITE METIER', config: { bgColor: '#7b1fa2', textColor: '#ffffff', borderColor: '#4a0072' } },
     test_prerequis: { label: 'VERIF PREREQUIS', config: { bgColor: '#546e7a', textColor: '#ffffff', borderColor: '#263238' } },
     vft: { label: 'VFT SUR SITE', config: { bgColor: '#2e7d32', textColor: '#ffffff', borderColor: '#1b5e20' } },
-    formation_relais: { label: 'FORMATION', config: { bgColor: '#ffea00', textColor: '#0008ff', borderColor: '#000000' } },
     formation_utilisateurs: { label: 'FORMATION', config: { bgColor: '#ffea00', textColor: '#0008ff', borderColor: '#000000' } },
     accompagnement: { label: 'ACCOMP. POST DÉM.', config: { bgColor: '#ffea00', textColor: '#c2059a', borderColor: '#000000' } }
 };
@@ -4010,7 +4008,7 @@ async function affSyncCompute(projectId, stageKey) {
     }
     return { proj, per, samuLoc, samuNo, locationId, activity: act, resources, event: { label: tpl.label, config: tpl.config, existing: existingEvent } };
 }
-const AFF_STAGE_ACTIVITY = { visite_metier: '3', test_prerequis: '3', vft: '3', formation_relais: '3', formation_utilisateurs: '3', accompagnement: '3' };
+const AFF_STAGE_ACTIVITY = { visite_metier: '3', test_prerequis: '3', vft: '3', formation_utilisateurs: '3', accompagnement: '3' };
 
 app.get('/api/affectation/projects/:id/sync/:stage', requireAffectationAccess, async (req, res) => {
     try {
@@ -4246,16 +4244,8 @@ function asanaComputeTasks(tasks, projectName, formationTarget) {
     const vft = tasks.filter(t => t.phase === 'VFT').length ? tasks.filter(t => t.phase === 'VFT') : tasks.filter(t => /\bvft\b/.test(t.n));
     setP('vft', span(vft), 'tâche VFT (5.9) non datée dans Asana');
     const form = span(byCode('6.3'));
-    const target = ['relais', 'utilisateurs', 'both'].includes(formationTarget) ? formationTarget : 'utilisateurs';
-    if (form) {
-        if (target !== 'relais') found.formation_utilisateurs = form;
-        if (target !== 'utilisateurs') found.formation_relais = form;
-    } else {
-        if (target !== 'relais') reasons.formation_utilisateurs = 'tâche 6.3 « Formation au bandeau » non datée dans Asana';
-        if (target !== 'utilisateurs') reasons.formation_relais = 'tâche 6.3 « Formation au bandeau » non datée dans Asana';
-    }
-    if (target === 'utilisateurs') reasons.formation_relais = reasons.formation_relais || "non alimentée par cet import (choix « Utilisateurs »)";
-    if (target === 'relais') reasons.formation_utilisateurs = reasons.formation_utilisateurs || "non alimentée par cet import (choix « Formateurs relais »)";
+    if (form) found.formation_utilisateurs = form;
+    else reasons.formation_utilisateurs = 'tâche 6.3 « Formation au bandeau » non datée dans Asana';
     const acc = tasks.filter(t => t.code === '6.6' || /accompagnement post demarrage/.test(t.n));
     setP('accompagnement', span(acc), 'tâche 6.6 « Accompagnement post démarrage » non datée dans Asana');
     return { samuNo, projectName, taskCount: tasks.length, demarDate, found, reasons };
@@ -4273,7 +4263,7 @@ async function asanaMatch(samuNo, forcedId) {
     if (existing) { try { existing.periodsObj = JSON.parse(existing.periods || '{}'); } catch (e) { existing.periodsObj = {}; } }
     return { loc, existing };
 }
-const ASANA_KEYS = ['date_debut', 'cadrage', 'deploiement', 'mise_en_service', 'mise_en_production', 'visite_metier', 'test_prerequis', 'vft', 'formation_relais', 'formation_utilisateurs', 'accompagnement'];
+const ASANA_KEYS = ['date_debut', 'cadrage', 'deploiement', 'mise_en_service', 'mise_en_production', 'visite_metier', 'test_prerequis', 'vft', 'formation_utilisateurs', 'accompagnement'];
 const asanaFr = d => d ? d.split('-').reverse().join('/') : '';
 const asanaFmt = v => !v ? '' : v.date ? asanaFr(v.date) : `${asanaFr(v.start)} → ${asanaFr(v.end)}`;
 
