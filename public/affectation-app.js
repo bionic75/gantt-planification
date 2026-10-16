@@ -1555,7 +1555,7 @@
         .aff-print-root .pg-leg { display: flex; flex-wrap: wrap; gap: 3px 12px; font-size: 8px; margin-bottom: 5px; }
         .aff-print-root .pg-leg i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; vertical-align: -2px; margin-right: 3px; border: 1px solid rgba(0,0,0,.15); }
         .aff-print-root .pg-leg i.dot { border-radius: 50%; }
-        .aff-print-root .tplpg .pg-leg { justify-content: center; font-size: 9px; margin-bottom: 8px; }
+        .aff-print-root .tplpg .pg-leg { justify-content: flex-start; font-size: 9px; margin-bottom: 8px; }
         .aff-print-root .pg-foot { margin-top: auto; font-size: 8px; color: #778; display: flex; justify-content: space-between; padding-top: 3px; }
         .aff-print-root table.pt { border-collapse: separate !important; border-spacing: 0 !important; table-layout: fixed !important; font-size: var(--pfs, 9px); }
         .aff-print-root table.pt th, .aff-print-root table.pt td { padding: 0 !important; overflow: hidden; }
@@ -1645,8 +1645,8 @@
                 const k = pages.length + 1;
                 const part = (colPages.length > 1 ? ` · colonnes ${ci + 1}/${colPages.length}` : '') + (rowPages.length > 1 ? ` · SAMU ${ri + 1}/${rowPages.length}` : '');
                 if (T) {
-                    subtitles.push(`${frd(o.from)} → ${frd(o.to)} · échelle : ${SCALE_LABEL[o.zoom]}${part}`);
-                    pages.push(`<div class="pg tplpg" style="width:${pxW.toFixed(2)}px;height:${pxH.toFixed(2)}px;padding:${padY.toFixed(1)}px ${padX.toFixed(1)}px;background:transparent;justify-content:flex-start;align-items:center;">${legend}${rp.length ? tableHtml(cp, rp) : '<p style="color:#778;font-size:11px;">Aucun SAMU sélectionné.</p>'}</div>`);
+                    subtitles.push(`${frd(o.from)} → ${frd(o.to)}`);
+                    pages.push(`<div class="pg tplpg" style="width:${pxW.toFixed(2)}px;height:${pxH.toFixed(2)}px;padding:${padY.toFixed(1)}px ${padX.toFixed(1)}px;background:transparent;justify-content:flex-start;align-items:flex-start;">${legend}${rp.length ? tableHtml(cp, rp) : '<p style="color:#778;font-size:11px;">Aucun SAMU sélectionné.</p>'}</div>`);
                     return;
                 }
                 pages.push(`<div class="pg" style="width:${pxW.toFixed(2)}px;height:${pxH.toFixed(2)}px;padding:${padY.toFixed(1)}px ${padX.toFixed(1)}px;"><div class="pg-head"><b>${esc(o.title)}</b><span>${esc(sub)}</span></div>${legend}${rp.length ? tableHtml(cp, rp) : '<p style="color:#778;font-size:11px;">Aucun SAMU sélectionné.</p>'}<div class="pg-foot"><span>${esc(part.replace(/^ · /, ''))}</span><span>Page ${k} / ${total}</span></div></div>`);
