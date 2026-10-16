@@ -552,12 +552,14 @@ tr:nth-child(even) td { background: #f9f9f9; }
   </ul>
 
   <h3>Modèle PowerPoint d'export (charte graphique)</h3>
-  <p>Dans <strong>Administration › Modèle PowerPoint d'export</strong>, l'administrateur importe un modèle <strong>.pptx</strong> (titre, logo, sous-titre, pied de page). Le modèle doit contenir une diapositive de type <strong>« Titre et contenu »</strong> : c'est elle qui sert de base ; les autres diapositives du modèle (page de garde, page de fin) ne sont pas reprises.</p>
+  <p>Dans <strong>Administration › Modèle PowerPoint d'export</strong>, l'administrateur importe un modèle <strong>.pptx</strong> (titre, logo, sous-titre, pied de page). Le modèle doit contenir une diapositive de type <strong>« Titre et contenu »</strong> : c'est elle qui sert de base ; la <strong>page de garde</strong> (1<sup>re</sup> diapositive) et la <strong>page de fin</strong> (dernière diapositive) du modèle sont reprises à l'export, avec une case à cocher chacune dans la fenêtre d'export.</p>
   <ul>
     <li>Dans la fenêtre <strong>Imprimer / Exporter</strong>, la case <strong>« Utiliser le modèle PowerPoint »</strong> (cochée par défaut dès qu'un modèle existe) fixe la mise en page : le planning et sa légende sont insérés <strong>au centre de la zone libre</strong>, sans empiéter sur le titre ni sur le pied de page.</li>
     <li>Le <strong>titre</strong> de la diapositive est le champ « Titre » de la fenêtre (par défaut « Planning des déploiements des SAMU ») ; le <strong>sous-titre</strong> indique la période, l'échelle et le numéro de page ; dans le <strong>pied de page</strong>, « JJ-MM-AAAA » est remplacé par la date du jour.</li>
     <li>Le format de page (A4 / A3, portrait / paysage) est imposé par le modèle ; l'impression navigateur est désactivée dans ce mode. L'export <strong>PowerPoint</strong> produit une diapositive par page ; l'export <strong>PDF</strong> avec modèle nécessite <strong>LibreOffice</strong> sur le serveur.</li>
     <li>Décochez la case pour revenir à la mise en page standard.</li>
+    <li>Toutes les planches ont le planning <strong>aligné en haut</strong>, au même niveau d'une diapositive à l'autre.</li>
+    <li><strong>Nom des fichiers produits</strong> : réglable dans la même rubrique d'administration. Modèle par défaut : <code>SI-SAMU_Planning_Déploiement_{AAAAMMJJ}_{HHMM}</code> (ex. <code>SI-SAMU_Planning_Déploiement_20261016_1405.pptx</code>). Jetons : <code>{AAAAMMJJ}</code>, <code>{HHMM}</code>, <code>{AAAA}</code>, <code>{MM}</code>, <code>{JJ}</code>, <code>{HH}</code>, <code>{MN}</code>, <code>{DEBUT}</code> et <code>{FIN}</code> (période affichée), <code>{ECHELLE}</code> et <code>{TITRE}</code>.</li>
   </ul>
 
   <h3>Retirer une ligne de l'affichage</h3>
@@ -662,7 +664,8 @@ tr:nth-child(even) td { background: #f9f9f9; }
       <span style="color:#888; font-size:13px;">Octobre 2026</span>
     </div>
     <ul>
-      <li>📑 <strong>Modèle PowerPoint d'export</strong> : l'administrateur importe un modèle .pptx (Administration › Modèle PowerPoint d'export) ; les exports du planning reprennent son titre, son logo et son pied de page, avec le planning et la légende centrés dans la zone libre.</li>
+      <li>📑 <strong>Modèle PowerPoint d'export</strong> : l'administrateur importe un modèle .pptx (Administration › Modèle PowerPoint d'export) ; les exports du planning reprennent son titre, son logo et son pied de page (et, au choix, sa page de garde et sa page de fin), avec le planning et la légende dans la zone libre, alignés en haut.</li>
+      <li>🏷️ <strong>Nom des fichiers produits</strong> paramétrable (défaut : <code>SI-SAMU_Planning_Déploiement_{AAAAMMJJ}_{HHMM}</code>).</li>
     </ul>
     <p style="font-size:12px; color:#888; margin-top:8px;">Au déploiement : redémarrage du serveur requis (nouvelle dépendance jszip) ; l'export PDF avec modèle nécessite LibreOffice sur le serveur.</p>
   </div>
