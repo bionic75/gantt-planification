@@ -1266,6 +1266,8 @@
 
     // Bornes d'affichage choisies par l'utilisateur (mémorisées) ; une borne absente reste automatique
     try { plan.range = JSON.parse(localStorage.getItem('affPlanRange') || 'null'); } catch (e) { plan.range = null; }
+    // Bornes mémorisées aberrantes (ex. année 0002) : on revient à l'affichage automatique
+    if (plan.range && ((plan.range.from && spanError(plan.range.from, plan.range.to || plan.range.from, 'month')) || (plan.range.to && spanError(plan.range.from || plan.range.to, plan.range.to, 'month')))) plan.range = null;
     function autoRange() {
         let min = null, max = null;
         plan.projects.forEach(p => {
@@ -1687,10 +1689,21 @@
         return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Planning des déploiements</title><style>${css}${css2}${PRINT_CSS}@page{size:${lay.mmW}mm ${lay.mmH}mm;margin:0}html,body{margin:0;padding:0;background:#fff}.aff-print-root .pg{height:${(lay.pxH - 1.5).toFixed(2)}px !important}</style></head><body><div id="affectationContainer" class="aff-print-root" style="display:block;padding:0;background:#fff;">${lay.pages.join('')}</div></body></html>`;
     }
 
+    // Garde-fou : une saisie intermédiaire (ex. année « 0002 ») ne doit jamais déclencher la construction d'une frise gigantesque
+    function spanError(from, to, zoom) {
+        const y = v => parseInt(String(v).slice(0, 4), 10);
+        if (!(y(from) >= 2000 && y(from) <= 2100 && y(to) >= 2000 && y(to) <= 2100)) return 'Dates hors limites : choisissez des années entre 2000 et 2100.';
+        const days = (Date.parse(to) - Date.parse(from)) / 86400000 + 1;
+        const n = days / ({ day: 1, week: 7, month: 30, quarter: 91, year: 365 }[zoom] || 1);
+        if (n > 1500) return `Période trop large pour cette échelle (${Math.round(n)} colonnes) : réduisez la période ou choisissez une échelle plus large.`;
+        return '';
+    }
     async function printRefresh() {
         const err = document.getElementById('affPrintErr'); err.textContent = '';
         const o = printReadOpts();
         if (!o.from || !o.to || o.to < o.from) { err.textContent = 'Période invalide : la date de fin doit suivre la date de début.'; return; }
+        const se = spanError(o.from, o.to, o.zoom);
+        if (se) { err.textContent = se; return; }
         const token = ++prt.token;
         document.getElementById('affPrintInfo').textContent = 'Mise en page…';
         await new Promise(r => setTimeout(r, 30));
@@ -1852,7 +1865,7 @@
                     </div></div>
                 <div class="g"><label class="lbl" for="prTitle">Titre</label><input id="prTitle" type="text" value="Planning des déploiements des SAMU"></div>
                 ${tpl.meta.exists ? `<div class="g" style="background:#eef6ff;border:1px solid #cfe0f5;border-radius:10px;padding:8px 10px;"><label class="chk"><input type="checkbox" id="prTpl" checked onchange="AffectationApp.printTpl()"> <b>Utiliser le modèle PowerPoint</b></label><div class="aff-muted" style="font-size:11px;margin-top:3px;">${esc(tpl.meta.name)} — titre, logo et pied de page du modèle ; planning et légende centrés. Format de page imposé par le modèle.</div>${tpl.meta.info && tpl.meta.info.cover ? `<label class="chk" style="margin-top:6px;"><input type="checkbox" id="prCover" checked onchange="AffectationApp.printUpdate()"> Page de garde du modèle</label>` : ''}${tpl.meta.info && tpl.meta.info.end ? `<label class="chk"><input type="checkbox" id="prEnd" checked onchange="AffectationApp.printUpdate()"> Page de fin du modèle</label>` : ''}</div>` : ''}
-                <div class="g two"><div><label class="lbl" for="prFrom">Début</label><input id="prFrom" type="date" value="${min}"></div><div><label class="lbl" for="prTo">Fin</label><input id="prTo" type="date" value="${max}"></div></div>
+                <div class="g two"><div><label class="lbl" for="prFrom">Début</label><input id="prFrom" type="date" min="2000-01-01" max="2100-12-31" value="${min}"></div><div><label class="lbl" for="prTo">Fin</label><input id="prTo" type="date" min="2000-01-01" max="2100-12-31" value="${max}"></div></div>
                 <div class="g"><label class="lbl" for="prZoom">Échelle de temps</label><select id="prZoom">${[['day', 'Jours'], ['week', 'Semaines'], ['month', 'Mois'], ['quarter', 'Trimestres'], ['year', 'Années']].map(z => `<option value="${z[0]}" ${z[0] === plan.zoom ? 'selected' : ''}>${z[1]}</option>`).join('')}</select></div>
                 <div class="g"><label class="lbl" for="prFit">Largeur</label><select id="prFit"><option value="split">Répartir sur plusieurs pages (colonnes lisibles)</option><option value="fit">Tout sur une page en largeur</option></select></div>
                 <div class="g"><label class="chk"><input type="checkbox" id="prLegend" checked> Afficher la légende</label></div>
@@ -2053,6 +2066,8 @@
             const to = t.value === rgVal(type, a.max) ? null : rgEnd(type, t.value);
             const lo = from || a.min, hi = to || a.max;
             if (lo > hi) { f.classList.add('bad'); t.classList.add('bad'); err.textContent = 'La borne de fin précède la borne de début.'; return; }
+            const se = spanError(lo, hi, plan.zoom);
+            if (se) { f.classList.add('bad'); t.classList.add('bad'); err.textContent = se; return; }
             plan.range = (from || to) ? { from, to } : null;
             try { localStorage.setItem('affPlanRange', JSON.stringify(plan.range)); } catch (e) { /* stockage indisponible */ }
             renderPlanning();
