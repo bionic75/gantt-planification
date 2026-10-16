@@ -445,12 +445,7 @@
                 <p class="aff-muted" style="margin:0 0 12px;">Dans Asana : ouvrez le projet de déploiement (ex. « [SAMU 25] SF4 - Déploiement »), menu du projet › <strong>Exporter</strong> › <strong>CSV</strong> (avec tous les champs personnalisés). Chargez ensuite le fichier ici : un aperçu s'affiche avant toute écriture.</p>
                 <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px;">
                     <div class="aff-field" id="affAsanaFileBox"><label class="lbl">Fichier CSV Asana</label><input id="affAsanaFile" type="file" accept=".csv,text/csv" onchange="AffectationApp.asanaAnalyze()"></div>
-                    <div class="aff-field"><label class="lbl" for="affAsanaForm">La tâche « Formation » d'Asana alimente</label>
-                        <select id="affAsanaForm" onchange="AffectationApp.asanaAnalyze()" style="padding:7px 9px;border:1px solid #cfd8e6;border-radius:8px;">
-                            <option value="utilisateurs">Formation « Utilisateurs »</option>
-                            <option value="relais">Formation « Formateurs relais »</option>
-                            <option value="both">Les deux</option>
-                        </select></div>
+
                 </div>
                 <div id="affAsanaResult"></div>
             </div>
@@ -795,7 +790,7 @@
         const f = state.form;
         const chefOpts = ['<option value="">— Choisir —</option>']
             .concat(state.users.map(u => `<option value="${u.id}" ${Number(f.chef_projet_id) === u.id ? 'selected' : ''}>${esc(u.nom.toUpperCase())} ${esc(u.prenom)}</option>`)).join('');
-        const g = ['cadrage', 'deploiement', 'gel'], h = ['visite_metier', 'test_prerequis', 'vft', 'formation_relais', 'formation_utilisateurs', 'accompagnement'];
+        const g = ['cadrage', 'deploiement', 'gel'], h = ['visite_metier', 'test_prerequis', 'vft', 'formation_utilisateurs', 'accompagnement'];
         document.getElementById('affModalBody').innerHTML = `
             <div class="aff-form-grid">
                 <div class="aff-field" style="position:relative;">
@@ -910,8 +905,6 @@
                     </div>
                     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px;">
                         <input id="affAsanaKw" type="search" placeholder="Filtrer par mot clé (ex. 25, SF4, Nice…)" oninput="AffectationApp.asanaFilter()" style="padding:7px 10px;border:1px solid #cfd8e6;border-radius:8px;min-width:240px;flex:1;max-width:380px;">
-                        <label class="aff-muted" style="display:inline-flex;align-items:center;gap:6px;">Formation d'Asana →
-                            <select id="affAsanaBulkForm" style="padding:5px 8px;border:1px solid #cfd8e6;border-radius:8px;"><option value="utilisateurs">Utilisateurs</option><option value="relais">Formateurs relais</option><option value="both">Les deux</option></select></label>
                         <button type="button" class="aff-btn aff-btn-primary" id="affAsanaBulkBtn" onclick="AffectationApp.asanaBulkImport()" disabled>Importer la sélection</button>
                     </div>
                     <div style="overflow-x:auto;"><table id="affAsanaTable" style="width:100%;border-collapse:collapse;font-size:13px;">
@@ -962,7 +955,7 @@
             const rows = adminApi.asanaVisibleChecks().filter(c => c.checked).map(c => c.closest('tr'));
             if (!rows.length) return;
             if (!confirm(`Importer ${rows.length} projet(s) Asana ?\n\nPour chacun, les rubriques nouvelles ou modifiées seront appliquées au déploiement correspondant (créé s'il n'existe pas). Les données absentes d'Asana ne sont pas effacées.`)) return;
-            const btn = document.getElementById('affAsanaBulkBtn'), msg = document.getElementById('affAsanaBulkMsg'), target = document.getElementById('affAsanaBulkForm').value;
+            const btn = document.getElementById('affAsanaBulkBtn'), msg = document.getElementById('affAsanaBulkMsg'), target = 'utilisateurs';
             btn.disabled = true;
             const out = { created: 0, updated: 0, unchanged: 0, errors: 0 };
             let i = 0;
@@ -1010,7 +1003,7 @@
         asanaClose() { document.getElementById('affAsanaModal').classList.remove('active'); },
         async asanaAnalyze() {
             const err = document.getElementById('affAsanaError'); err.textContent = '';
-            const target = document.getElementById('affAsanaForm').value;
+            const target = 'utilisateurs';
             try {
                 let d;
                 if (asana.src.type === 'api') {
@@ -1046,7 +1039,7 @@
             const err = document.getElementById('affAsanaError'); err.textContent = '';
             if (!keys.length) { err.textContent = 'Sélectionnez au moins une rubrique.'; return; }
             try {
-                const target = document.getElementById('affAsanaForm').value;
+                const target = 'utilisateurs';
                 const r = asana.src.type === 'api'
                     ? await api('/affectation/asana/apply', { method: 'POST', body: JSON.stringify({ gid: asana.src.gid, formationTarget: target, apply: keys }) })
                     : await api('/affectation/import/asana-csv/apply', { method: 'POST', body: JSON.stringify({ csv: asana.csv, formationTarget: target, apply: keys }) });
@@ -1373,7 +1366,7 @@
             + `<span class="aff-muted" style="margin-left:auto;font-size:11px;">Cliquer sur une rubrique pour l'afficher / la masquer</span>`;
     }
     const PHASES = ['cadrage', 'deploiement', 'gel'];
-    const STEPS = ['visite_metier', 'test_prerequis', 'vft', 'formation_relais', 'formation_utilisateurs', 'accompagnement'];
+    const STEPS = ['visite_metier', 'test_prerequis', 'vft', 'formation_utilisateurs', 'accompagnement'];
     const planColor = k => (plan.colors && plan.colors[k]) || '#888888';
     const planPattern = k => (plan.patterns && plan.patterns[k]) || 'none';
     const planDef = k => (plan.config && plan.config.stages.find(x => x.key === k)) || { label: k };
@@ -1616,7 +1609,7 @@
                 const body = list.map(pr => `<tr><th class="sam"><div class="n">${esc(pr.samu_name)}</div><div class="c">${esc(pr.chef_projet_nom || 'Chef de projet non défini')}</div></th>${sub.cols.map(c => `<td class="${c.we ? 'we' : ''}">${cellContent(pr, c)}</td>`).join('')}</tr>`).join('');
                 return `<table class="aff-plan-table pt" style="--pfs:${fs.toFixed(1)}px;--samw:${samW}px;width:${w.toFixed(1)}px;"><colgroup><col style="width:${samW}px">${sub.cols.map(() => `<col style="width:${colW.toFixed(2)}px">`).join('')}</colgroup><thead>${head}</thead><tbody>${body}</tbody></table>`;
             };
-            const keys = ['cadrage', 'deploiement', 'gel', 'mise_en_service', 'mise_en_production', 'visite_metier', 'test_prerequis', 'vft', 'formation_relais', 'formation_utilisateurs', 'accompagnement'].filter(k => !o.hidden.has(k));
+            const keys = ['cadrage', 'deploiement', 'gel', 'mise_en_service', 'mise_en_production', 'visite_metier', 'test_prerequis', 'vft', 'formation_utilisateurs', 'accompagnement'].filter(k => !o.hidden.has(k));
             const legend = o.legend ? `<div class="pg-leg">${keys.map(k => `<span><i class="${k === 'mise_en_service' || k === 'mise_en_production' ? 'dot' : ''}" style="${bgStyle(planColor(k), planPattern(k))}"></i>${esc(planDef(k).label)}</span>`).join('')}</div>` : '';
             // Mesure : hauteur de chaque ligne, de l'en-tête de tableau et des blocs fixes de la page
             const meas = document.createElement('div');
@@ -1852,7 +1845,7 @@
             await loadTpl(true);
             const { min, max } = planRange();
             const list = sortedProjects(true);
-            const stages = [['cadrage', 'Cadrage'], ['deploiement', 'Déploiement opérationnel'], ['gel', 'Période(s) de gel'], ['mise_en_service', 'Mise en service'], ['mise_en_production', 'Mise en production'], ['visite_metier', 'Visite métier'], ['test_prerequis', 'Test des prérequis'], ['vft', 'VFT'], ['formation_relais', 'Formation « Formateurs relais »'], ['formation_utilisateurs', 'Formation « Utilisateurs »'], ['accompagnement', 'Accompagnement']];
+            const stages = [['cadrage', 'Cadrage'], ['deploiement', 'Déploiement opérationnel'], ['gel', 'Période(s) de gel'], ['mise_en_service', 'Mise en service'], ['mise_en_production', 'Mise en production'], ['visite_metier', 'Visite métier'], ['test_prerequis', 'Test des prérequis'], ['vft', 'VFT'], ['formation_utilisateurs', 'Formation « Utilisateurs »'], ['accompagnement', 'Accompagnement']];
             document.getElementById('affPrintCtl').innerHTML = `
                 <div class="g"><label class="lbl">Format de page</label>
                     <input type="hidden" id="prOrient" value="landscape"><input type="hidden" id="prPaper" value="A4">
