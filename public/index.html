@@ -1,4 +1,4 @@
-<!-- v1.17.06 -->
+<!-- v1.17.07 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -71,6 +71,14 @@
         label { display: block; margin-bottom: 5px; color: #2c3e50; font-weight: bold; font-size: 13px; }
         input, select, textarea { width: 100%; padding: 8px; border: 1px solid #bdc3c7; border-radius: 4px; font-size: 13px; font-family: Arial, sans-serif; }
         input:focus, select:focus, textarea:focus { outline: none; border-color: #1D70B7; box-shadow: 0 0 8px rgba(0, 0, 145, 0.3); }
+        #loginPage .lp-suggest { position: absolute; left: 0; right: 0; top: calc(100% - 6px); z-index: 30; background: #fff; border: 1px solid #cfd8e6; border-radius: 10px; box-shadow: 0 10px 26px rgba(0,0,0,.18); padding: 4px; max-height: 240px; overflow-y: auto; }
+        #loginPage .lp-suggest-t { font-size: 11px; color: #7a8799; padding: 4px 8px; text-transform: uppercase; letter-spacing: .4px; }
+        #loginPage .lp-suggest-i { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 7px; cursor: pointer; font-size: 14px; color: #1f2d3d; }
+        #loginPage .lp-suggest-i:hover { background: #eaf2fb; }
+        #loginPage .lp-suggest-i svg { width: 16px; height: 16px; fill: none; stroke: #1D70B7; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+        #loginPage .lp-suggest-i span { flex: 1; }
+        #loginPage .lp-suggest-i button { border: none; background: transparent; color: #9aa7b8; font-size: 17px; line-height: 1; cursor: pointer; padding: 0 4px; border-radius: 50%; }
+        #loginPage .lp-suggest-i button:hover { color: #b3261e; background: #fdecea; }
         #loginUsername:focus, #loginPassword:focus, #loginProfile:focus { border-color: #1D70B7 !important; box-shadow: 0 0 8px rgba(0, 0, 145, 0.3) !important; }
         .form-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; }
         .button-group { display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap; }
@@ -490,17 +498,17 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.17.06">
-    <link rel="stylesheet" href="/darkmode.css?v=1.17.06">
-    <link rel="stylesheet" href="/login.css?v=1.17.06">
-    <link rel="stylesheet" href="/ui-polish.css?v=1.17.06">
-    <script src="/darkmode.js?v=1.17.06"></script>
-    <script src="/themes.js?v=1.17.06" defer></script>
-    <script src="/layout-fix.js?v=1.17.06" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.17.07">
+    <link rel="stylesheet" href="/darkmode.css?v=1.17.07">
+    <link rel="stylesheet" href="/login.css?v=1.17.07">
+    <link rel="stylesheet" href="/ui-polish.css?v=1.17.07">
+    <script src="/darkmode.js?v=1.17.07"></script>
+    <script src="/themes.js?v=1.17.07" defer></script>
+    <script src="/layout-fix.js?v=1.17.07" defer></script>
     <script>window.UI_ICONS_KEEP_ALERT = true;</script>
-    <script src="/ui-icons.js?v=1.17.06" defer></script>
-    <script src="/affectation-app.js?v=1.17.06" defer></script>
-    <script src="/map-timelapse.js?v=1.17.06" defer></script>
+    <script src="/ui-icons.js?v=1.17.07" defer></script>
+    <script src="/affectation-app.js?v=1.17.07" defer></script>
+    <script src="/map-timelapse.js?v=1.17.07" defer></script>
 </head>
 <body>
     <div class="container">
@@ -3227,12 +3235,13 @@
             </div>
 
             <div class="lp-body">
-                <div class="form-group lp-group">
+                <div class="form-group lp-group" style="position:relative;">
                     <label for="loginUsername">Identifiant</label>
                     <div class="lp-field">
                         <span class="lp-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
-                        <input class="lp-input" type="text" id="loginUsername" name="username" autocomplete="off" placeholder="Votre login" onfocus="tryFillCredentials()">
+                        <input class="lp-input" type="text" id="loginUsername" name="username" autocomplete="off" placeholder="Votre login" onfocus="loginSuggestShow()" onclick="loginSuggestShow()" oninput="loginSuggestShow()" onblur="setTimeout(loginSuggestHide,150)" onkeydown="if(event.key==='Escape')loginSuggestHide()">
                     </div>
+                    <div id="loginSuggest" class="lp-suggest" style="display:none;"></div>
                 </div>
                 <div class="form-group lp-group">
                     <label for="loginPassword">Mot de passe</label>
@@ -3836,19 +3845,35 @@
 
         // Intercepteur global : détecte les sessions terminées par force-logout
         (function() {
+            let _checkingSession = false;
             const _origFetch = window.fetch;
             window.fetch = async function(...args) {
                 const response = await _origFetch.apply(this, args);
+                // Un refus 403 peut aussi venir d'une session perdue : on vérifie auprès du serveur (au plus une fois / 5 s)
+                if (response.status === 403 && typeof currentUser !== 'undefined' && currentUser && !_checkingSession) {
+                    const u403 = String((args[0] && args[0].url) || args[0] || '');
+                    if (!/\/(login|logout|check-session|version|mfa|forgot|reset)/.test(u403)) {
+                        _checkingSession = true;
+                        _origFetch('/api/check-session', { credentials: 'include' })
+                            .then(r => { if (r.status === 401 || r.status === 403) forceSessionEnd('Votre session a expiré (déconnexion ou redémarrage du serveur). Veuillez vous reconnecter.'); })
+                            .catch(() => {})
+                            .finally(() => setTimeout(() => { _checkingSession = false; }, 5000));
+                    }
+                }
                 if (response.status === 401) {
+                    // Session perdue (ex. redémarrage du serveur) pendant qu'un utilisateur est connecté
+                    try {
+                        const u = String((args[0] && args[0].url) || args[0] || '');
+                        if (typeof currentUser !== 'undefined' && currentUser && !/\/(login|logout|check-session|version|mfa|forgot|reset)/.test(u)) {
+                            const d = await response.clone().json().catch(() => ({}));
+                            if (d.error === 'Non authentifié') forceSessionEnd('Votre session a expiré (déconnexion ou redémarrage du serveur). Veuillez vous reconnecter.');
+                        }
+                    } catch (e) { /* ignoré */ }
                     const clone = response.clone();
                     try {
                         const data = await clone.json();
                         if (data.error === 'SESSION_TERMINATED') {
-                            if (typeof _chatCloseAll === 'function') _chatCloseAll();
-                            document.getElementById('loginPage').classList.add('active');
-                            setTimeout(() => {
-                                alert('⚠️ Votre session a été fermée par un administrateur. Veuillez vous reconnecter.');
-                            }, 50);
+                            forceSessionEnd('Votre session a été fermée par un administrateur. Veuillez vous reconnecter.');
                         }
                     } catch(e) { /* réponse non-JSON, on ignore */ }
                 }
@@ -4270,6 +4295,53 @@
             }
         }
 
+        // Identifiants déjà utilisés sur ce poste (le mot de passe n'est jamais mémorisé ici)
+        const KNOWN_LOGINS_KEY = 'gp_known_logins';
+        function knownLogins() { try { const a = JSON.parse(localStorage.getItem(KNOWN_LOGINS_KEY) || '[]'); return Array.isArray(a) ? a.filter(x => typeof x === 'string' && x) : []; } catch (e) { return []; } }
+        function saveKnownLogins(list) { try { localStorage.setItem(KNOWN_LOGINS_KEY, JSON.stringify(list.slice(0, 8))); } catch (e) { /* stockage indisponible */ } }
+        function rememberLogin(u) { u = (u || '').trim(); if (!u) return; saveKnownLogins([u, ...knownLogins().filter(x => x.toLowerCase() !== u.toLowerCase())]); }
+        function loginSuggestShow() {
+            const box = document.getElementById('loginSuggest'), inp = document.getElementById('loginUsername');
+            if (!box || !inp) return;
+            const q = inp.value.trim().toLowerCase();
+            const list = knownLogins().filter(x => !q || x.toLowerCase().includes(q));
+            if (!list.length || (q && list.length === 1 && list[0].toLowerCase() === q)) { box.style.display = 'none'; return; }
+            const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+            box.innerHTML = '<div class="lp-suggest-t">Identifiants utilisés sur ce poste</div>' + list.map(x => `<div class="lp-suggest-i" onmousedown="event.preventDefault();loginSuggestPick(decodeURIComponent('${encodeURIComponent(x)}'))"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>${esc(x)}</span><button type="button" title="Oublier cet identifiant" onmousedown="event.preventDefault();event.stopPropagation();loginSuggestForget(decodeURIComponent('${encodeURIComponent(x)}'))">×</button></div>`).join('');
+            box.style.display = 'block';
+        }
+        function loginSuggestHide() { const b = document.getElementById('loginSuggest'); if (b) b.style.display = 'none'; }
+        function loginSuggestPick(u) { document.getElementById('loginUsername').value = u; loginSuggestHide(); const pw = document.getElementById('loginPassword'); if (pw) pw.focus(); }
+        function loginSuggestForget(u) { saveKnownLogins(knownLogins().filter(x => x !== u)); loginSuggestShow(); }
+
+        // Fin de session côté serveur (redémarrage, expiration…) : retour propre sur la mire de connexion
+        let _sessionEnding = false;
+        function forceSessionEnd(message) {
+            if (_sessionEnding) return;
+            _sessionEnding = true;
+            try { if (typeof _chatCloseAll === 'function') _chatCloseAll(); } catch (e) { /* ignoré */ }
+            try { closeAllModals(); } catch (e) { /* ignoré */ }
+            try { if (window.hideAffectationApp) hideAffectationApp(); } catch (e) { /* ignoré */ }
+            try { if (typeof analyseStopLoops === 'function') analyseStopLoops(); } catch (e) { /* ignoré */ }
+            try { stopInactivityTimer(); } catch (e) { /* ignoré */ }
+            try { if (notificationCheckInterval) { clearInterval(notificationCheckInterval); notificationCheckInterval = null; } } catch (e) { /* ignoré */ }
+            try { if (onlineUsersInterval) { clearInterval(onlineUsersInterval); onlineUsersInterval = null; } } catch (e) { /* ignoré */ }
+            try { if (deplacementsOnlineUsersInterval) { clearInterval(deplacementsOnlineUsersInterval); deplacementsOnlineUsersInterval = null; } } catch (e) { /* ignoré */ }
+            ['analyseContainer', 'deplacementsContainer', 'affectationContainer', 'deplacementsTimerDisplay', 'deplacementsOnlineUsersContainer', 'deplacementsOnlineUsersTooltip', 'analyseTimerDisplay', 'analyseOnlineUsersContainer', 'inactivityTimerDisplay', 'backToPlanificationBtn', 'adminTab', 'userInfo'].forEach(id => {
+                const el = document.getElementById(id); if (el) el.style.display = 'none';
+            });
+            const main = document.querySelector('.container'); if (main) main.style.display = 'none';
+            currentUser = null; pendingAssignments = {}; availableProfiles = []; loginStep = 'credentials';
+            document.getElementById('loginPage').classList.add('active');
+            ['loginUsername', 'loginPassword', 'loginProfile'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+            document.getElementById('profileSelectGroup').style.display = 'none';
+            setLoginButtonLabel('Continuer');
+            showLoginError(message || 'Votre session a expiré. Veuillez vous reconnecter.');
+            try { loadVersion(); } catch (e) { /* ignoré */ }
+            window.scrollTo(0, 0);
+            setTimeout(() => { _sessionEnding = false; }, 1500);
+        }
+
         let _credFilled = false;
         async function tryFillCredentials() {
             if (_credFilled || !window.PasswordCredential) return;
@@ -4296,6 +4368,7 @@
                     navigator.credentials.store(cred);
                 } catch(e) { /* silencieux */ }
             }
+            rememberLogin(document.getElementById('loginUsername').value);
             currentUser = user;
             currentUser.id = user.userId || user.id; // alias pour compatibilité
             currentUser.selectedApp = selectedApp;
@@ -7676,7 +7749,7 @@
                 const unField = document.getElementById('loginUsername');
                 unField.value = '';
                 // Déclencher la popup d'identifiants une fois la mire affichée
-                setTimeout(() => { unField.focus(); tryFillCredentials(); }, 300);
+                setTimeout(() => { unField.focus(); }, 300);
                 document.getElementById('loginPassword').value = '';
                 document.getElementById('loginProfile').value = '';
                 document.getElementById('profileSelectGroup').style.display = 'none';
