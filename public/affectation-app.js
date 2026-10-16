@@ -15,6 +15,7 @@
         x: '<path d="M18 6 6 18M6 6l12 12"/>',
         save: '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/>',
         reset: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
+        asanasync: '<path d="M20 11a8 8 0 0 0-14-4.5L4 8"/><path d="M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14 4.5L20 16"/><path d="M20 20v-4h-4"/><circle cx="12" cy="9.4" r="1.35" fill="currentColor" stroke="none"/><circle cx="9.9" cy="13.1" r="1.35" fill="currentColor" stroke="none"/><circle cx="14.1" cy="13.1" r="1.35" fill="currentColor" stroke="none"/>',
         palette: '<circle cx="13.5" cy="6.5" r=".6"/><circle cx="17.5" cy="10.5" r=".6"/><circle cx="8.5" cy="7.5" r=".6"/><circle cx="6.5" cy="12.5" r=".6"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.9 0 1.7-.7 1.7-1.7 0-.4-.2-.8-.5-1.1-.3-.3-.5-.7-.5-1.1 0-.9.7-1.7 1.7-1.7H16c3.1 0 5.6-2.5 5.6-5.6C22 6 17.5 2 12 2z"/>',
         pencil: '<path d="M17 3a2.8 2.8 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5z"/>',
         trash: '<path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6"/>',
@@ -62,6 +63,14 @@
         .aff-dd-pop .hd { display: flex; gap: 8px; padding: 2px 0 6px; position: sticky; top: -8px; background: #fff; }
         .aff-dd-pop label { display: flex; align-items: center; gap: 8px; padding: 4px 2px; border-top: 1px solid #eef1f6; font-size: 13px; cursor: pointer; }
         .aff-dd-pop label input { width: auto; margin: 0; flex: none; }
+        .aff-rowsync { position: absolute; top: 6px; right: 36px; width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 1px solid #f3b5b5; background: #fff; color: #e0524f; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; opacity: .55; transition: opacity .15s, background .15s; }
+        .aff-rowsync svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+        #affectationContainer table.aff-plan-table tbody th.sam:hover .aff-rowsync, .aff-rowsync:focus { opacity: 1; }
+        .aff-rowsync:hover { background: #fdecea; border-color: #e57373; opacity: 1; }
+        .aff-busy svg { animation: affspin .9s linear infinite; } .aff-busy { pointer-events: none; opacity: 1 !important; }
+        @keyframes affspin { to { transform: rotate(360deg); } }
+        .aff-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 20000; background: #263238; color: #fff; padding: 10px 18px; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.3); font-size: 13px; max-width: 80vw; }
+        .aff-toast.err { background: #b3261e; }
         .aff-rowhide { position: absolute; top: 6px; right: 8px; width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 1px solid #cfd8e6; background: #fff; color: #6b7a8d; font-size: 16px; font-weight: 700; line-height: 18px; cursor: pointer; opacity: .4; }
         #affectationContainer table.aff-plan-table tbody th.sam:hover .aff-rowhide, .aff-rowhide:focus { opacity: 1; }
         .aff-rowhide:hover { background: #fdecea; color: #b3261e; border-color: #e57373; opacity: 1; }
@@ -722,6 +731,7 @@
                 </div>
                 <div>${timeline(p)}</div>
                 <div class="aff-row-actions">
+                    <button type="button" class="aff-icon-btn aff-asyn" style="background:#f06a6a" title="Rafraîchir depuis Asana : reprend les dates nouvelles ou modifiées du projet Asana de ce SAMU" onclick="AffectationApp.asanaRefresh(${p.id}, this)">${svg('asanasync', 'aff-ico-sm')}</button>
                     <button type="button" class="aff-icon-btn" style="background:#6b7a8d" title="Historique : qui a modifié quoi et quand" onclick="AffectationApp.showHistory(${p.id})">${svg('search', 'aff-ico-sm')}</button>
                     <button type="button" class="aff-icon-btn" style="background:#3498db" title="Modifier les dates" onclick="AffectationApp.editProject(${p.id})">${svg('pencil', 'aff-ico-sm')}</button>
                     <button type="button" class="aff-icon-btn" style="background:#D60B51" title="Supprimer ce déploiement" onclick="AffectationApp.deleteProject(${p.id})">${svg('trash', 'aff-ico-sm')}</button>
@@ -1501,7 +1511,7 @@
         } else {
             const ordered = sortedProjects();
             body = ordered.map(p => `<tr data-id="${p.id}">
-                <th class="sam"><button type="button" class="aff-rowhide" title="Retirer cette ligne de l'affichage (rétablissable en haut du planning)" onclick="AffectationApp.hideRow(${p.id})">−</button><div class="n">${esc(p.samu_name)}</div><div class="c">${esc(p.chef_projet_nom || 'Chef de projet non défini')}</div><span class="aff-rs" title="Glisser pour ajuster la largeur de la colonne"></span></th>
+                <th class="sam">${currentUser && currentUser.activeProfile === 'admin' ? `<button type="button" class="aff-rowsync" title="Rafraîchir depuis Asana : reprend les dates nouvelles ou modifiées du projet Asana de ce SAMU" onclick="AffectationApp.asanaRefresh(${p.id}, this)">${svg('asanasync', 'aff-ico-sm')}</button>` : ''}<button type="button" class="aff-rowhide" title="Retirer cette ligne de l'affichage (rétablissable en haut du planning)" onclick="AffectationApp.hideRow(${p.id})">−</button><div class="n">${esc(p.samu_name)}</div><div class="c">${esc(p.chef_projet_nom || 'Chef de projet non défini')}</div><span class="aff-rs" title="Glisser pour ajuster la largeur de la colonne"></span></th>
                 ${cols.map(c => `<td class="${c.we ? 'we' : ''} ${c.today ? 'today' : ''}" data-k="${c.key}">${cellContent(p, c)}</td>`).join('')}
             </tr>`).join('');
         }
@@ -2032,6 +2042,21 @@
                 renderPlanning();
                 if (r.resource_ids.length) AffectationApp.openSync(asg.project.id, asg.stage, true);
             } catch (e) { document.getElementById('affAssignError').textContent = e.message; }
+        },
+        async asanaRefresh(id, btn) {
+            if (btn.classList.contains('aff-busy')) return;
+            btn.classList.add('aff-busy');
+            const toast = (msg, err) => { const t = document.createElement('div'); t.className = 'aff-toast' + (err ? ' err' : ''); t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), err ? 7000 : 4500); };
+            try {
+                const r = await api(`/affectation/projects/${id}/asana-refresh`, { method: 'POST', body: '{}' });
+                toast(r.unchanged ? `${r.samu_name} : déjà à jour avec Asana (${r.asana}).` : `${r.samu_name} : ${r.updated} rubrique(s) mise(s) à jour depuis Asana.`, false);
+                if (!r.unchanged) {
+                    const b = document.getElementById('affPlan'), l = b ? b.scrollLeft : 0, t = b ? b.scrollTop : 0;
+                    await Promise.all([loadPlanning(), state.loaded ? loadAdmin() : null]);
+                    if (b) { b.scrollLeft = l; b.scrollTop = t; }
+                }
+            } catch (e) { toast(e.message, true); }
+            finally { btn.classList.remove('aff-busy'); }
         },
         toggleSamuDd(ev) { ev.stopPropagation(); plan.ddOpen = !plan.ddOpen; renderSamuDd(); },
         samuDdSet(id, on) { if (on) plan.hiddenRows.delete(id); else plan.hiddenRows.add(id); saveHiddenRows(); AffectationApp.keepScroll(); },
