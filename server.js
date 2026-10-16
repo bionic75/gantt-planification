@@ -4514,6 +4514,33 @@ app.post('/api/affectation/asana/apply', requireAdmin, async (req, res) => {
 });
 
 
+// Rafraîchit un déploiement depuis le projet Asana qui lui correspond (appairage manuel, sinon numéro de SAMU) : seules les rubriques nouvelles ou modifiées sont reprises
+app.post('/api/affectation/projects/:id/asana-refresh', requireAdmin, async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        const dep = await dbGet('SELECT id, samu_name FROM affectation_projects WHERE id = ?', [id]);
+        if (!dep) return res.status(404).json({ error: 'Déploiement introuvable' });
+        const token = await asanaToken();
+        const ws = await asanaSetting('asana_workspace_gid');
+        if (!ws) return res.status(400).json({ error: "Choisissez d'abord l'espace de travail Asana (Administration › Connexion Asana)" });
+        const re = new RegExp(await asanaSetting('asana_name_filter') || '\\[SAMU\\s*[^\\]]+\\]', 'i');
+        const list = (await asanaPaged(token, `/projects?workspace=${encodeURIComponent(ws)}&archived=false&opt_fields=name,permalink_url`)).filter(p => re.test(p.name));
+        let links = {};
+        try { links = JSON.parse(await asanaSetting('asana_links') || '{}'); } catch (e) { links = {}; }
+        const no = affSamuNumber(dep.samu_name);
+        const match = list.sort((a, b) => a.name.localeCompare(b.name, 'fr', { numeric: true })).find(p => links[p.gid] > 0 ? links[p.gid] === id : (links[p.gid] !== -1 && no && asanaSamuNoOf(p.name) === no));
+        if (!match) return res.status(404).json({ error: `Aucun projet Asana associé à « ${dep.samu_name} » (vérifiez le nom du projet ou l'appairage dans Administration › Connexion Asana)` });
+        const { projectName, tasks } = await asanaFetchProject(token, match.gid);
+        const c = asanaComputeTasks(tasks, projectName);
+        if (!c.samuNo) return res.status(400).json({ error: "Impossible d'identifier le SAMU dans le nom du projet Asana" });
+        const pv = await asanaPreviewPayload(c, id);
+        const keys = pv.rows.filter(r => r.status === 'nouveau' || r.status === 'modifié').map(r => r.key);
+        if (!keys.length) return res.json({ success: true, unchanged: true, samu_name: dep.samu_name, asana: projectName });
+        const r = await asanaApplyCore(req, c, keys, id, 'api');
+        res.json({ ...r, updated: keys.length, asana: projectName });
+    } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+});
+
 // ---- Modèle PowerPoint d'export (administré dans l'application d'aide à l'affectation) ----
 // Le modèle (.pptx) fournit titre, logo, pied de page… ; le planning est inséré en image centrée dans la zone libre de la diapositive « Titre et contenu ».
 const AFF_TPL_KEY = 'aff_ppt_template';
