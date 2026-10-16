@@ -1,4 +1,4 @@
-<!-- v1.17.07 -->
+<!-- v1.17.08 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -498,17 +498,17 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.17.07">
-    <link rel="stylesheet" href="/darkmode.css?v=1.17.07">
-    <link rel="stylesheet" href="/login.css?v=1.17.07">
-    <link rel="stylesheet" href="/ui-polish.css?v=1.17.07">
-    <script src="/darkmode.js?v=1.17.07"></script>
-    <script src="/themes.js?v=1.17.07" defer></script>
-    <script src="/layout-fix.js?v=1.17.07" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.17.08">
+    <link rel="stylesheet" href="/darkmode.css?v=1.17.08">
+    <link rel="stylesheet" href="/login.css?v=1.17.08">
+    <link rel="stylesheet" href="/ui-polish.css?v=1.17.08">
+    <script src="/darkmode.js?v=1.17.08"></script>
+    <script src="/themes.js?v=1.17.08" defer></script>
+    <script src="/layout-fix.js?v=1.17.08" defer></script>
     <script>window.UI_ICONS_KEEP_ALERT = true;</script>
-    <script src="/ui-icons.js?v=1.17.07" defer></script>
-    <script src="/affectation-app.js?v=1.17.07" defer></script>
-    <script src="/map-timelapse.js?v=1.17.07" defer></script>
+    <script src="/ui-icons.js?v=1.17.08" defer></script>
+    <script src="/affectation-app.js?v=1.17.08" defer></script>
+    <script src="/map-timelapse.js?v=1.17.08" defer></script>
 </head>
 <body>
     <div class="container">
@@ -3239,7 +3239,7 @@
                     <label for="loginUsername">Identifiant</label>
                     <div class="lp-field">
                         <span class="lp-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
-                        <input class="lp-input" type="text" id="loginUsername" name="username" autocomplete="off" placeholder="Votre login" onfocus="loginSuggestShow()" onclick="loginSuggestShow()" oninput="loginSuggestShow()" onblur="setTimeout(loginSuggestHide,150)" onkeydown="if(event.key==='Escape')loginSuggestHide()">
+                        <input class="lp-input" type="text" id="loginUsername" name="username" autocomplete="off" placeholder="Votre login" onfocus="loginCredPick()" onclick="loginCredPick()" oninput="loginSuggestShow()" onblur="setTimeout(loginSuggestHide,150)" onkeydown="if(event.key==='Escape')loginSuggestHide()">
                     </div>
                     <div id="loginSuggest" class="lp-suggest" style="display:none;"></div>
                 </div>
@@ -4300,7 +4300,26 @@
         function knownLogins() { try { const a = JSON.parse(localStorage.getItem(KNOWN_LOGINS_KEY) || '[]'); return Array.isArray(a) ? a.filter(x => typeof x === 'string' && x) : []; } catch (e) { return []; } }
         function saveKnownLogins(list) { try { localStorage.setItem(KNOWN_LOGINS_KEY, JSON.stringify(list.slice(0, 8))); } catch (e) { /* stockage indisponible */ } }
         function rememberLogin(u) { u = (u || '').trim(); if (!u) return; saveKnownLogins([u, ...knownLogins().filter(x => x.toLowerCase() !== u.toLowerCase())]); }
+        // Gestionnaire de mots de passe du navigateur (Credential Management) : au clic sur un champ vide,
+        // le navigateur propose ses comptes enregistrés ; identifiant et mot de passe sont remplis depuis son coffre sécurisé.
+        let _credBusy = false;
+        async function loginCredPick() {
+            const inp = document.getElementById('loginUsername');
+            if (!window.PasswordCredential || _credBusy || !inp || inp.value) return;
+            _credBusy = true;
+            try {
+                const cred = await navigator.credentials.get({ password: true, mediation: 'required' });
+                if (cred) {
+                    inp.value = cred.id;
+                    document.getElementById('loginPassword').value = cred.password;
+                    loginSuggestHide();
+                    document.getElementById('loginPassword').focus();
+                }
+            } catch (e) { /* refusé ou non supporté */ }
+            finally { _credBusy = false; }
+        }
         function loginSuggestShow() {
+            if (window.PasswordCredential) return; // le coffre du navigateur prend le relais
             const box = document.getElementById('loginSuggest'), inp = document.getElementById('loginUsername');
             if (!box || !inp) return;
             const q = inp.value.trim().toLowerCase();
@@ -7749,7 +7768,7 @@
                 const unField = document.getElementById('loginUsername');
                 unField.value = '';
                 // Déclencher la popup d'identifiants une fois la mire affichée
-                setTimeout(() => { unField.focus(); }, 300);
+                
                 document.getElementById('loginPassword').value = '';
                 document.getElementById('loginProfile').value = '';
                 document.getElementById('profileSelectGroup').style.display = 'none';
