@@ -551,6 +551,15 @@ tr:nth-child(even) td { background: #f9f9f9; }
     <li><strong>Exporter en PowerPoint</strong> : une diapositive par page, sous forme d'image haute résolution (diapositives non modifiables).</li>
   </ul>
 
+  <h3>Modèle PowerPoint d'export (charte graphique)</h3>
+  <p>Dans <strong>Administration › Modèle PowerPoint d'export</strong>, l'administrateur importe un modèle <strong>.pptx</strong> (titre, logo, sous-titre, pied de page). Le modèle doit contenir une diapositive de type <strong>« Titre et contenu »</strong> : c'est elle qui sert de base ; les autres diapositives du modèle (page de garde, page de fin) ne sont pas reprises.</p>
+  <ul>
+    <li>Dans la fenêtre <strong>Imprimer / Exporter</strong>, la case <strong>« Utiliser le modèle PowerPoint »</strong> (cochée par défaut dès qu'un modèle existe) fixe la mise en page : le planning et sa légende sont insérés <strong>au centre de la zone libre</strong>, sans empiéter sur le titre ni sur le pied de page.</li>
+    <li>Le <strong>titre</strong> de la diapositive est le champ « Titre » de la fenêtre (par défaut « Planning des déploiements des SAMU ») ; le <strong>sous-titre</strong> indique la période, l'échelle et le numéro de page ; dans le <strong>pied de page</strong>, « JJ-MM-AAAA » est remplacé par la date du jour.</li>
+    <li>Le format de page (A4 / A3, portrait / paysage) est imposé par le modèle ; l'impression navigateur est désactivée dans ce mode. L'export <strong>PowerPoint</strong> produit une diapositive par page ; l'export <strong>PDF</strong> avec modèle nécessite <strong>LibreOffice</strong> sur le serveur.</li>
+    <li>Décochez la case pour revenir à la mise en page standard.</li>
+  </ul>
+
   <h3>Retirer une ligne de l'affichage</h3>
   <p>Un petit bouton <strong>(−)</strong> apparaît dans la cellule de chaque SAMU (en haut à droite, plus visible au survol) : il retire la ligne du planning. Le bouton <strong>Lignes retirées (n)</strong>, à droite de la ligne « Période affichée », ouvre la liste des SAMU retirés avec un bouton <strong>Rétablir</strong> pour chacun et <strong>Tout rétablir</strong> ; la liste reste ouverte tant qu'il reste des lignes à rétablir. Le choix est mémorisé dans le navigateur, et ne supprime rien : dans la fenêtre d'impression / d'export, les SAMU retirés restent proposés (décochés par défaut).</p>
 
@@ -645,11 +654,23 @@ tr:nth-child(even) td { background: #f9f9f9; }
   <h2>🆕 Notes de version</h2>
   <p>Historique des évolutions de la Plateforme de Planification ANS.</p>
 
+  <!-- v1.17.09 -->
+  <div class="card card-green" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v1.17.09</strong>
+      <span class="badge badge-current">Actuelle</span>
+      <span style="color:#888; font-size:13px;">Octobre 2026</span>
+    </div>
+    <ul>
+      <li>📑 <strong>Modèle PowerPoint d'export</strong> : l'administrateur importe un modèle .pptx (Administration › Modèle PowerPoint d'export) ; les exports du planning reprennent son titre, son logo et son pied de page, avec le planning et la légende centrés dans la zone libre.</li>
+    </ul>
+    <p style="font-size:12px; color:#888; margin-top:8px;">Au déploiement : redémarrage du serveur requis (nouvelle dépendance jszip) ; l'export PDF avec modèle nécessite LibreOffice sur le serveur.</p>
+  </div>
+
   <!-- v1.17.08 -->
   <div class="card card-green" style="margin-bottom:16px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
       <strong style="font-size:16px;">v1.17.08</strong>
-      <span class="badge badge-current">Actuelle</span>
       <span style="color:#888; font-size:13px;">Octobre 2026</span>
     </div>
     <ul>

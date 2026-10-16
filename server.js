@@ -16,6 +16,8 @@ console.log('✅ Session importé');
 import nodemailer from 'nodemailer';
 console.log('✅ Nodemailer importé');
 import fs from 'fs';
+import os from 'os';
+import { execFile } from 'child_process';
 import cron from 'node-cron';
 import { registerDumpRoutes, isRestoreInProgress } from './db-dump.js';
 console.log('✅ Cron importé');
@@ -4521,13 +4523,195 @@ app.post('/api/affectation/asana/apply', requireAdmin, async (req, res) => {
     } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
 });
 
+
+// ---- Modèle PowerPoint d'export (administré dans l'application d'aide à l'affectation) ----
+// Le modèle (.pptx) fournit titre, logo, pied de page… ; le planning est inséré en image centrée dans la zone libre de la diapositive « Titre et contenu ».
+const AFF_TPL_KEY = 'aff_ppt_template';
+const AFF_TPL_MAX = 25 * 1024 * 1024;
+const xmlEsc = v => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+async function affTplLoad() {
+    const r = await dbGet('SELECT value FROM settings WHERE key = ?', [AFF_TPL_KEY]);
+    if (!r) return null;
+    try { return JSON.parse(r.value); } catch (e) { return null; }
+}
+const affTplMeta = t => t ? { exists: true, name: t.name, size: t.size, uploadedAt: t.uploadedAt, uploadedBy: t.uploadedBy, info: t.info } : { exists: false };
+function affTplBoxOf(xml) {
+    const m = /<a:off x="(-?\d+)" y="(-?\d+)"\/><a:ext cx="(\d+)" cy="(\d+)"\/>/.exec(xml);
+    return m ? { x: +m[1], y: +m[2], w: +m[3], h: +m[4] } : null;
+}
+// Formes d'un calque XML : placeholders (type, idx) et autres formes, avec leur position si elle est définie
+function affTplShapes(xml) {
+    const out = [];
+    for (const m of xml.matchAll(/<p:(sp|pic|graphicFrame)>[\s\S]*?<\/p:\1>/g)) {
+        const sh = m[0], ph = /<p:ph([^>]*)\/?>/.exec(sh);
+        const attr = (n, d) => { const a = ph && new RegExp(n + '="([^"]*)"').exec(ph[1]); return a ? a[1] : d; };
+        out.push({ ph: ph ? { type: attr('type', 'body'), idx: attr('idx', '0') } : null, box: affTplBoxOf(sh) });
+    }
+    return out;
+}
+const AFF_NS_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+async function affTplAnalyze(zip) {
+    const pres = zip.file('ppt/presentation.xml');
+    if (!pres) throw Object.assign(new Error('Fichier PowerPoint invalide (presentation.xml absent)'), { status: 400 });
+    const presXml = await pres.async('string');
+    const sz = /<p:sldSz cx="(\d+)" cy="(\d+)"/.exec(presXml);
+    if (!sz) throw Object.assign(new Error('Taille de diapositive introuvable'), { status: 400 });
+    const W = +sz[1], H = +sz[2];
+    const relsXml = await zip.file('ppt/_rels/presentation.xml.rels').async('string');
+    const relTarget = {};
+    for (const m of relsXml.matchAll(/<Relationship [^>]*>/g)) {
+        const id = /Id="([^"]+)"/.exec(m[0]), tg = /Target="([^"]+)"/.exec(m[0]), ty = /Type="([^"]+)"/.exec(m[0]);
+        if (id && tg && ty && /\/slide$/.test(ty[1])) relTarget[id[1]] = 'ppt/' + tg[1].replace(/^\/?(ppt\/)?/, '');
+    }
+    const slidePaths = [...presXml.matchAll(/<p:sldId [^>]*r:id="([^"]+)"/g)].map(m => relTarget[m[1]]).filter(Boolean);
+    if (!slidePaths.length) throw Object.assign(new Error('Le modèle ne contient aucune diapositive'), { status: 400 });
+    // Diapositive de référence : la première qui porte un vrai titre (pas la page de garde) = « Titre et contenu »
+    let base = null;
+    for (const sp of slidePaths) {
+        const xml = await zip.file(sp).async('string');
+        if (/<p:ph type="title"/.test(xml)) { base = { path: sp, xml }; break; }
+    }
+    if (!base) throw Object.assign(new Error('Aucune diapositive « Titre et contenu » (avec un titre) dans le modèle : ajoutez-en une'), { status: 400 });
+    const relPath = base.path.replace('slides/', 'slides/_rels/') + '.rels';
+    const slideRels = await zip.file(relPath).async('string');
+    const lay = /Target="\.\.\/slideLayouts\/([^"]+)"/.exec(slideRels);
+    const layoutXml = lay ? await zip.file('ppt/slideLayouts/' + lay[1]).async('string') : '';
+    let masterXml = '';
+    if (lay) {
+        const lrels = zip.file('ppt/slideLayouts/_rels/' + lay[1] + '.rels');
+        const mm = lrels && /Target="\.\.\/slideMasters\/([^"]+)"/.exec(await lrels.async('string'));
+        if (mm) masterXml = await zip.file('ppt/slideMasters/' + mm[1]).async('string');
+    }
+    const layoutName = (/<p:cSld name="([^"]*)"/.exec(layoutXml) || [])[1] || '';
+    const sSh = affTplShapes(base.xml), lSh = affTplShapes(layoutXml), mSh = affTplShapes(masterXml);
+    const resolve = ph => {
+        const own = sSh.find(x => x.ph && x.ph.type === ph.type && x.ph.idx === ph.idx && x.box);
+        if (own) return own.box;
+        const l = lSh.find(x => x.ph && (x.ph.idx === ph.idx || x.ph.type === ph.type) && x.box && x.ph.type === ph.type);
+        if (l) return l.box;
+        const m = mSh.find(x => x.ph && x.ph.type === ph.type && x.box);
+        return m ? m.box : null;
+    };
+    let top = 0, bottom = H;
+    const phs = sSh.filter(x => x.ph).map(x => x.ph);
+    lSh.filter(x => x.ph).forEach(x => { if (!phs.some(p => p.type === x.ph.type && p.idx === x.ph.idx)) phs.push(x.ph); });
+    for (const ph of phs) {
+        const b = resolve(ph); if (!b) continue;
+        if (['title', 'body', 'subTitle', 'ctrTitle'].includes(ph.type) && b.y < H * 0.4) top = Math.max(top, b.y + b.h);
+        if (['ftr', 'sldNum', 'dt'].includes(ph.type) && b.y > H * 0.6) bottom = Math.min(bottom, b.y);
+    }
+    // Autres formes (logo, pictogramme…) dans les bandes haute et basse
+    for (const sh of [...sSh, ...lSh, ...mSh]) {
+        if (sh.ph || !sh.box) continue;
+        const b = sh.box;
+        if (b.w >= W * 0.9 && b.h >= H * 0.9) continue; // fond plein écran
+        if (b.y + b.h < H * 0.35) top = Math.max(top, b.y + b.h);
+        else if (b.y > H * 0.7) bottom = Math.min(bottom, b.y);
+    }
+    // Repères de la diapositive (guides) : marges gauche / droite et haut
+    const gv = [], gh = [];
+    for (const m of presXml.matchAll(/<p15:guide id="\d+"([^>]*)>/g)) {
+        const pos = /pos="(\d+)"/.exec(m[1]); if (!pos) continue;
+        (/orient="horz"/.test(m[1]) ? gh : gv).push(+pos[1] * 1587.5);
+    }
+    let left = Math.round(W * 0.03), right = Math.round(W * 0.97);
+    if (gv.length >= 2) { left = Math.round(Math.min(...gv)); right = Math.round(Math.max(...gv)); }
+    const ghTop = gh.filter(g => g < H * 0.4);
+    if (ghTop.length) top = Math.max(top, Math.round(Math.max(...ghTop)));
+    top += 90000; bottom -= 60000;
+    const zone = { x: left, y: top, w: right - left, h: bottom - top };
+    if (zone.w < W * 0.3 || zone.h < H * 0.25) throw Object.assign(new Error('Zone libre trop petite sur la diapositive « Titre et contenu » du modèle'), { status: 400 });
+    return { W, H, slidePaths, base, relPath, slideRels, zone, layoutName };
+}
+async function affTplBuild(tpl, pages, opt) {
+    const { default: JSZip } = await import('jszip');
+    const zip = await JSZip.loadAsync(Buffer.from(tpl.b64, 'base64'));
+    const A = await affTplAnalyze(zip);
+    const ct = 'ppt/presentation.xml';
+    let presXml = await zip.file(ct).async('string');
+    let relsXml = await zip.file('ppt/_rels/presentation.xml.rels').async('string');
+    let ctXml = await zip.file('[Content_Types].xml').async('string');
+    // Retrait des diapositives d'origine et des parties d'historique de révision (qui référencent ces diapositives)
+    for (const sp of A.slidePaths) { zip.remove(sp); zip.remove(sp.replace('slides/', 'slides/_rels/') + '.rels'); }
+    relsXml = relsXml.replace(/<Relationship [^>]*\/slide"[^>]*\/>/g, m => /Type="[^"]*\/slide"/.test(m) ? '' : m);
+    relsXml = relsXml.replace(/<Relationship [^>]*(changesInfo|revisionInfo)[^>]*\/>/g, '');
+    for (const f of ['ppt/changesInfos/changesInfo1.xml', 'ppt/revisionInfo.xml']) zip.remove(f);
+    ctXml = ctXml.replace(/<Override PartName="\/ppt\/slides\/[^"]*"[^>]*\/>/g, '').replace(/<Override PartName="\/ppt\/(changesInfos|revisionInfo)[^"]*"[^>]*\/>/g, '');
+    const ids = [], rels = [], overrides = [];
+    const z = A.zone;
+    const setText = (xml, phMatch, text) => xml.replace(new RegExp('(<p:sp>(?:(?!</p:sp>)[\\s\\S])*?' + phMatch + '(?:(?!</p:sp>)[\\s\\S])*?<p:txBody>(?:(?!</p:txBody>)[\\s\\S])*?<a:lstStyle/>)[\\s\\S]*?(</p:txBody></p:sp>)'),
+        (m, a, b) => `${a}<a:p><a:r><a:rPr lang="fr-FR" dirty="0"/><a:t>${xmlEsc(text)}</a:t></a:r></a:p>${b}`);
+    for (let i = 0; i < pages.length; i++) {
+        const n = i + 1;
+        let xml = A.base.xml;
+        xml = setText(xml, '<p:ph type="title"/>', opt.title);
+        xml = setText(xml, '<p:ph type="body"[^>]*idx="13"', (opt.subtitles && opt.subtitles[i]) || opt.subtitle || '');
+        xml = xml.replace(/JJ-MM-AAAA/g, opt.dateStr).replace(/(<a:fld [^>]*type="slidenum"[^>]*>(?:(?!<\/a:fld>)[\s\S])*?<a:t>)\d+(<\/a:t>)/, `$1${n}$2`);
+        const pic = `<p:pic><p:nvPicPr><p:cNvPr id="900" name="Planning" descr="Planning des déploiements"/><p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr><p:blipFill><a:blip r:embed="rIdPlan${n}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr><a:xfrm><a:off x="${z.x}" y="${z.y}"/><a:ext cx="${z.w}" cy="${z.h}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>`;
+        xml = xml.replace('</p:spTree>', pic + '</p:spTree>');
+        zip.file(`ppt/slides/slide${n}.xml`, xml);
+        zip.file(`ppt/slides/_rels/slide${n}.xml.rels`, A.slideRels.replace('</Relationships>', `<Relationship Id="rIdPlan${n}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/planning_${n}.png"/></Relationships>`));
+        zip.file(`ppt/media/planning_${n}.png`, Buffer.from(pages[i], 'base64'));
+        ids.push(`<p:sldId id="${300 + n}" r:id="rIdPlanSld${n}"/>`);
+        rels.push(`<Relationship Id="rIdPlanSld${n}" Type="${AFF_NS_REL}/slide" Target="slides/slide${n}.xml"/>`);
+        overrides.push(`<Override PartName="/ppt/slides/slide${n}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`);
+    }
+    presXml = presXml.replace(/<p:sldIdLst>[\s\S]*?<\/p:sldIdLst>/, `<p:sldIdLst>${ids.join('')}</p:sldIdLst>`);
+    relsXml = relsXml.replace('</Relationships>', rels.join('') + '</Relationships>');
+    ctXml = ctXml.replace('</Types>', overrides.join('') + '</Types>');
+    zip.file(ct, presXml); zip.file('ppt/_rels/presentation.xml.rels', relsXml); zip.file('[Content_Types].xml', ctXml);
+    return await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
+}
+// Conversion PowerPoint → PDF (nécessite LibreOffice sur le serveur)
+function affSofficePath() {
+    if (process.env.SOFFICE_PATH && fs.existsSync(process.env.SOFFICE_PATH)) return process.env.SOFFICE_PATH;
+    return ['/usr/bin/soffice', '/usr/bin/libreoffice', '/usr/local/bin/soffice', '/opt/homebrew/bin/soffice', '/Applications/LibreOffice.app/Contents/MacOS/soffice'].find(x => fs.existsSync(x));
+}
+async function affPptxToPdf(buf) {
+    const exe = affSofficePath();
+    if (!exe) throw Object.assign(new Error('Export PDF avec modèle PowerPoint indisponible : LibreOffice n\'est pas installé sur le serveur. Exportez en PowerPoint, ou décochez « Utiliser le modèle ».'), { status: 501 });
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aff-tpl-'));
+    try {
+        fs.writeFileSync(path.join(dir, 'planning.pptx'), buf);
+        await new Promise((resolve, reject) => execFile(exe, ['--headless', '--norestore', `-env:UserInstallation=file://${dir}/profile`, '--convert-to', 'pdf', '--outdir', dir, path.join(dir, 'planning.pptx')], { timeout: 180000 }, (e, so, se) => e ? reject(Object.assign(new Error(/No such file|ENOENT|not found/i.test(String(se) + e.message) ? 'Export PDF avec modèle PowerPoint indisponible : LibreOffice n\'est pas installé sur le serveur. Exportez en PowerPoint, ou décochez « Utiliser le modèle ».' : 'Conversion PDF impossible : ' + String(se || e.message).slice(0, 200)), { status: 501 })) : resolve()));
+        return fs.readFileSync(path.join(dir, 'planning.pdf'));
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+}
+app.get('/api/affectation/template', requireAffectationAccess, async (req, res) => {
+    try { res.json(affTplMeta(await affTplLoad())); } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.put('/api/affectation/template', requireAdmin, async (req, res) => {
+    try {
+        const name = String((req.body || {}).name || 'modele.pptx').replace(/[^\w.\- ()\[\]éèêàùçôîï]+/gi, '_').slice(0, 120);
+        const b64 = String((req.body || {}).data || '').replace(/^data:[^,]*,/, '');
+        if (!/\.pptx$/i.test(name)) return res.status(400).json({ error: 'Le modèle doit être un fichier PowerPoint (.pptx)' });
+        const buf = Buffer.from(b64, 'base64');
+        if (buf.length < 1000 || buf.length > AFF_TPL_MAX) return res.status(400).json({ error: 'Fichier vide ou trop volumineux (25 Mo maximum)' });
+        const { default: JSZip } = await import('jszip');
+        let zip; try { zip = await JSZip.loadAsync(buf); } catch (e) { return res.status(400).json({ error: 'Fichier PowerPoint illisible' }); }
+        const A = await affTplAnalyze(zip);
+        const info = { slideWidthMm: Math.round(A.W / 360) / 100, slideHeightMm: Math.round(A.H / 360) / 100, slides: A.slidePaths.length, baseSlide: A.slidePaths.indexOf(A.base.path) + 1, layout: A.layoutName, zone: { wMm: Math.round(A.zone.w / 360) / 100, hMm: Math.round(A.zone.h / 360) / 100, xMm: Math.round(A.zone.x / 360) / 100, yMm: Math.round(A.zone.y / 360) / 100 } };
+        const rec = { name, size: buf.length, uploadedAt: new Date().toISOString(), uploadedBy: (req.session && req.session.username) || null, info, b64: buf.toString('base64') };
+        await dbRun('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [AFF_TPL_KEY, JSON.stringify(rec)]);
+        logUserAction(req, 'Import du modèle PowerPoint d\'export du planning', { name, size: buf.length });
+        res.json(affTplMeta(rec));
+    } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+});
+app.delete('/api/affectation/template', requireAdmin, async (req, res) => {
+    try {
+        await dbRun('DELETE FROM settings WHERE key = ?', [AFF_TPL_KEY]);
+        logUserAction(req, 'Suppression du modèle PowerPoint d\'export du planning', {});
+        res.json({ exists: false });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ---- Export du planning des déploiements (PDF / PowerPoint) : le HTML mis en page à l'écran est rendu tel quel (WYSIWYG) ----
 // Chemin du navigateur : variable d'environnement (Docker), sinon Chrome / Chromium installé sur le poste (développement local)
 function affBrowserPath() {
     if (process.env.PUPPETEER_EXECUTABLE_PATH) return process.env.PUPPETEER_EXECUTABLE_PATH;
     return ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/Applications/Chromium.app/Contents/MacOS/Chromium', '/usr/bin/chromium-browser', '/usr/bin/chromium', '/usr/bin/google-chrome'].find(x => fs.existsSync(x));
 }
-async function affRenderPages(html, wPx, hPx, mode, wMm, hMm) {
+async function affRenderPages(html, wPx, hPx, mode, wMm, hMm, transparent) {
     if (!puppeteer) throw Object.assign(new Error('Puppeteer non disponible sur ce serveur'), { status: 503 });
     const browser = await puppeteer.launch({ executablePath: affBrowserPath(), args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'], headless: 'new', protocolTimeout: 180000 });
     try {
@@ -4536,7 +4720,7 @@ async function affRenderPages(html, wPx, hPx, mode, wMm, hMm) {
         await page.setContent(html, { waitUntil: 'load' });
         if (mode === 'pdf') return await page.pdf({ width: `${wMm}mm`, height: `${hMm}mm`, printBackground: true, margin: { top: 0, right: 0, bottom: 0, left: 0 }, preferCSSPageSize: true });
         const shots = [];
-        for (const el of await page.$$('.pg')) shots.push((await el.screenshot({ type: 'png' })).toString('base64'));
+        for (const el of await page.$$('.pg')) shots.push((await el.screenshot({ type: 'png', omitBackground: !!transparent })).toString('base64'));
         return shots;
     } finally { await browser.close(); }
 }
@@ -4547,11 +4731,23 @@ function affExportParams(req) {
     if (!html || html.length > 45 * 1024 * 1024 || !(wMm >= 100 && wMm <= 1000) || !(hMm >= 100 && hMm <= 1000)) throw Object.assign(new Error('Paramètres d\'export invalides'), { status: 400 });
     return { html, wMm, hMm, wPx: wMm / 25.4 * 96, hPx: hMm / 25.4 * 96, name: String(b.name || 'planning-deploiements').replace(/[^\w\-]+/g, '_').slice(0, 60) };
 }
+// Export avec modèle PowerPoint : les pages (planning + légende, fond transparent) sont insérées dans la diapositive « Titre et contenu » du modèle
+async function affExportWithTemplate(req, x) {
+    const tpl = await affTplLoad();
+    if (!tpl) throw Object.assign(new Error('Aucun modèle PowerPoint n\'est configuré (Administration › Modèle PowerPoint d\'export)'), { status: 400 });
+    const t = (req.body && req.body.tpl) || {};
+    const shots = await affRenderPages(x.html, x.wPx, x.hPx, 'pptx', x.wMm, x.hMm, true);
+    const d = new Date(), pad = n => String(n).padStart(2, '0');
+    const buf = await affTplBuild(tpl, shots, { title: String(t.title || 'Planning des déploiements des SAMU').slice(0, 200), subtitles: Array.isArray(t.subtitles) ? t.subtitles.map(v => String(v).slice(0, 300)) : [], dateStr: `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}` });
+    return { buf, pages: shots.length };
+}
 app.post('/api/affectation/export/pdf', requireAffectationAccess, async (req, res) => {
     try {
         const x = affExportParams(req);
-        const pdf = await affRenderPages(x.html, x.wPx, x.hPx, 'pdf', x.wMm, x.hMm);
-        logUserAction(req, 'Export PDF du planning des déploiements', {});
+        let pdf;
+        if (req.body && req.body.tpl && req.body.tpl.use) pdf = await affPptxToPdf((await affExportWithTemplate(req, x)).buf);
+        else pdf = await affRenderPages(x.html, x.wPx, x.hPx, 'pdf', x.wMm, x.hMm);
+        logUserAction(req, 'Export PDF du planning des déploiements', { modele: !!(req.body && req.body.tpl && req.body.tpl.use) });
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename="${x.name}.pdf"`);
         res.send(Buffer.from(pdf));
@@ -4560,15 +4756,19 @@ app.post('/api/affectation/export/pdf', requireAffectationAccess, async (req, re
 app.post('/api/affectation/export/pptx', requireAffectationAccess, async (req, res) => {
     try {
         const x = affExportParams(req);
-        const shots = await affRenderPages(x.html, x.wPx, x.hPx, 'pptx', x.wMm, x.hMm);
-        const { default: PptxGenJS } = await import('pptxgenjs');
-        const pptx = new PptxGenJS();
-        pptx.defineLayout({ name: 'PAGE', width: x.wMm / 25.4, height: x.hMm / 25.4 });
-        pptx.layout = 'PAGE';
-        pptx.title = 'Planning des déploiements';
-        shots.forEach(b64 => { const slide = pptx.addSlide(); slide.addImage({ data: 'image/png;base64,' + b64, x: 0, y: 0, w: x.wMm / 25.4, h: x.hMm / 25.4 }); });
-        const buf = await pptx.write({ outputType: 'nodebuffer' });
-        logUserAction(req, 'Export PowerPoint du planning des déploiements', { pages: shots.length });
+        let buf, pages;
+        if (req.body && req.body.tpl && req.body.tpl.use) ({ buf, pages } = await affExportWithTemplate(req, x));
+        else {
+            const shots = await affRenderPages(x.html, x.wPx, x.hPx, 'pptx', x.wMm, x.hMm);
+            const { default: PptxGenJS } = await import('pptxgenjs');
+            const pptx = new PptxGenJS();
+            pptx.defineLayout({ name: 'PAGE', width: x.wMm / 25.4, height: x.hMm / 25.4 });
+            pptx.layout = 'PAGE';
+            pptx.title = 'Planning des déploiements';
+            shots.forEach(b64 => { const slide = pptx.addSlide(); slide.addImage({ data: 'image/png;base64,' + b64, x: 0, y: 0, w: x.wMm / 25.4, h: x.hMm / 25.4 }); });
+            buf = await pptx.write({ outputType: 'nodebuffer' }); pages = shots.length;
+        }
+        logUserAction(req, 'Export PowerPoint du planning des déploiements', { pages, modele: !!(req.body && req.body.tpl && req.body.tpl.use) });
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
         res.setHeader('Content-Disposition', `attachment; filename="${x.name}.pptx"`);
         res.send(Buffer.from(buf));
