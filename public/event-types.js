@@ -131,23 +131,55 @@ document.addEventListener('input', e => { if (e.target && e.target.closest && e.
 document.addEventListener('change', e => { if (e.target && e.target.closest && e.target.closest('#myEventFormBody')) updateMyEventPreview(); });
 
 // ── Administration : paramétrage des types ──────────────────────────────────
-const evtAdm = { editId: null, icon: 'tag', pickerOpen: false };
+const evtAdm = { editId: null, icon: 'tag', pickerOpen: false, tplOpen: false, tpl: null };
 async function evtAdminOpen() { await evtLoadTypes(true); evtRenderTypesAdmin(); }
 function evtTplIndexOf(t) { return EVT_COLOR_TEMPLATES.findIndex(x => x.bg === t.bg && x.text === t.text && x.border === t.border); }
+function evtTypesTableHtml() {
+    const edit = (t, f) => t.is_other ? '' : ` onclick="evtInlineEdit(this,${t.id},'${f}')" title="Cliquer pour modifier" style="cursor:text;"`;
+    const rows = evtTypes.map(t => `<tr style="border-top:1px solid #e0e0e0;${evtAdm.editId === t.id ? 'background:#fff8e1;' : ''}">
+        <td style="padding:6px 8px;text-align:center;">${uiIcon(t.icon, 20, 'margin:0;')}</td>
+        <td class="evtEditable" ${edit(t, 'long')} ><span style="font-weight:600;padding:2px 4px;display:inline-block;min-width:60px;">${evtEsc(t.label_long)}</span>${t.is_other ? ' <span title="Type de repli : non modifiable, non supprimable" style="color:#888;">🔒</span>' : ''}</td>
+        <td class="evtEditable" ${edit(t, 'short')}><span style="padding:2px 4px;display:inline-block;min-width:80px;">${t.label_short ? evtEsc(t.label_short) : '<span style="color:#aaa;font-style:italic;">à compléter</span>'}</span></td>
+        <td style="padding:6px 8px;">${evtChip(t, true)}</td>
+        <td style="padding:6px 8px;text-align:right;">${t.events_count || 0}</td>
+        <td style="padding:6px 8px;white-space:nowrap;text-align:right;">${t.is_other ? '' : `<button type="button" onclick="evtEditType(${t.id})" title="Modifier (icône, couleurs…)" style="background:#3498db;color:#fff;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;">${uiIcon('pencil', 14, 'margin:0;')}</button>
+            <button type="button" onclick="evtDeleteType(${t.id})" title="Supprimer" style="background:#e53935;color:#fff;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;margin-left:4px;">${uiIcon('trash', 14, 'margin:0;')}</button>`}</td></tr>`).join('');
+    return `<table style="width:100%;border-collapse:collapse;font-size:12px;background:#fff;border-radius:6px;overflow:hidden;">
+        <thead><tr style="background:#ffe0b2;color:#e65100;text-align:left;"><th style="padding:6px 8px;width:50px;text-align:center;">Icône</th><th style="padding:6px 8px;">Libellé long</th><th style="padding:6px 8px;">Libellé court</th><th style="padding:6px 8px;">Aperçu</th><th style="padding:6px 8px;text-align:right;">Événements</th><th style="padding:6px 8px;"></th></tr></thead>
+        <tbody>${rows}</tbody></table>`;
+}
+// Modification directe d'un libellé en cliquant sur le texte
+function evtInlineEdit(td, id, field) {
+    const t = evtTypeById(id);
+    if (!t || t.is_other || td.querySelector('input')) return;
+    const old = field === 'long' ? t.label_long : t.label_short;
+    td.innerHTML = `<input type="text" value="${evtEsc(old)}" maxlength="${field === 'long' ? 120 : 40}" placeholder="${field === 'long' ? 'Libellé long' : 'Libellé court'}" style="width:100%;padding:4px 6px;box-sizing:border-box;border:2px solid #ff9800;border-radius:4px;font-size:12px;">`;
+    const inp = td.firstChild; inp.focus(); inp.select();
+    let done = false;
+    const refreshTable = () => { const b = document.getElementById('evtTypesTblBox'); if (b) b.innerHTML = evtTypesTableHtml(); };
+    const finish = async save => {
+        if (done) return; done = true;
+        const v = inp.value.trim();
+        if (!save || v === old) { refreshTable(); return; }
+        if (field === 'long' && !v) { alert('Le libellé long est obligatoire.'); refreshTable(); return; }
+        const body = { label_long: field === 'long' ? v : t.label_long, label_short: field === 'short' ? v : t.label_short, icon: t.icon, bg_color: t.bg_color, text_color: t.text_color, border_color: t.border_color };
+        try {
+            const r = await fetch(`${API_URL}/event-types/${id}`, { method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(d.error || `Erreur ${r.status}`);
+            await evtLoadTypes(true); refreshTable(); evtRefreshAfterTypeChange();
+        } catch (e) { alert(e.message); refreshTable(); }
+    };
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); finish(true); } else if (e.key === 'Escape') { e.preventDefault(); finish(false); } });
+    inp.addEventListener('blur', () => finish(true));
+}
 function evtRenderTypesAdmin() {
     const box = document.getElementById('evtTypesAdmin');
     if (!box) return;
     const editing = evtAdm.editId ? evtTypeById(evtAdm.editId) : null;
     const cur = editing ? { bg: editing.bg_color, text: editing.text_color, border: editing.border_color } : (evtAdm._cur || { bg: '#ffeb3b', text: '#000000', border: '#000000' });
-    const tplIdx = evtTplIndexOf(cur);
-    const rows = evtTypes.map(t => `<tr style="border-top:1px solid #e0e0e0;${evtAdm.editId === t.id ? 'background:#fff8e1;' : ''}">
-        <td style="padding:6px 8px;text-align:center;">${uiIcon(t.icon, 20, 'margin:0;')}</td>
-        <td style="padding:6px 8px;font-weight:600;">${evtEsc(t.label_long)}${t.is_other ? ' <span title="Type de repli : non modifiable, non supprimable" style="color:#888;font-weight:400;">🔒</span>' : ''}</td>
-        <td style="padding:6px 8px;">${t.label_short ? evtEsc(t.label_short) : '<span style="color:#aaa;font-style:italic;">à compléter</span>'}</td>
-        <td style="padding:6px 8px;">${evtChip(t, true)}</td>
-        <td style="padding:6px 8px;text-align:right;">${t.events_count || 0}</td>
-        <td style="padding:6px 8px;white-space:nowrap;text-align:right;">${t.is_other ? '' : `<button type="button" onclick="evtEditType(${t.id})" title="Modifier" style="background:#3498db;color:#fff;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;">${uiIcon('pencil', 14, 'margin:0;')}</button>
-            <button type="button" onclick="evtDeleteType(${t.id})" title="Supprimer" style="background:#e53935;color:#fff;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;margin-left:4px;">${uiIcon('trash', 14, 'margin:0;')}</button>`}</td></tr>`).join('');
+    if (evtAdm.tpl === null || evtAdm.tpl === undefined) evtAdm.tpl = evtTplIndexOf(cur) >= 0 ? evtTplIndexOf(cur) : 'custom';
+    const tplIdx = evtAdm.tpl === 'custom' ? -1 : evtAdm.tpl;
     box.innerHTML = `
         <div style="background:#fff;border:1px solid #ffcc80;border-radius:8px;padding:12px;margin-bottom:12px;">
             <div style="font-weight:700;color:#e65100;margin-bottom:8px;">${editing ? 'Modifier le type « ' + evtEsc(editing.label_long) + ' »' : 'Ajouter un type d\'événement'}</div>
@@ -159,8 +191,13 @@ function evtRenderTypesAdmin() {
                     <div id="evtTPicker" style="display:${evtAdm.pickerOpen ? 'grid' : 'none'};position:absolute;z-index:50;top:100%;left:0;margin-top:4px;background:#fff;border:1px solid #ccc;border-radius:10px;box-shadow:0 10px 28px rgba(0,0,0,.2);padding:8px;grid-template-columns:repeat(9,34px);gap:4px;width:max-content;">
                         ${EVT_ICON_BANK.map(([n, l]) => `<button type="button" onclick="evtPickIcon('${n}')" title="${evtEsc(l)}" style="width:34px;height:34px;border:1px solid ${n === evtAdm.icon ? '#e65100' : '#e0e0e0'};background:${n === evtAdm.icon ? '#fff3e0' : '#fff'};color:#333;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;">${uiIcon(n, 18, 'margin:0;')}</button>`).join('')}
                     </div></div>
-                <div><label style="font-size:11px;color:#e65100;display:block;margin-bottom:3px;">Gabarit de couleurs (fond – texte – bordure)</label>
-                    <select id="evtTTpl" onchange="evtTplChange()" style="width:100%;padding:6px;">${EVT_COLOR_TEMPLATES.map((x, i) => `<option value="${i}" style="background:${x.bg};color:${x.text};" ${i === tplIdx ? 'selected' : ''}>${evtEsc(x.n)}</option>`).join('')}<option value="custom" ${tplIdx < 0 ? 'selected' : ''}>Personnalisé…</option></select></div>
+                <div style="position:relative;"><label style="font-size:11px;color:#e65100;display:block;margin-bottom:3px;">Gabarit de couleurs (fond – texte – bordure)</label>
+                    <button type="button" id="evtTplBtn" onclick="evtTplToggle()" title="Choisir un gabarit" style="width:100%;height:32px;border:1px solid #ccc;border-radius:6px;background:#fff;color:#333;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 8px;text-align:left;">
+                        <span style="display:inline-flex;align-items:center;gap:8px;">${evtTplSwatch(cur)}<span style="font-size:12px;">${tplIdx >= 0 ? evtEsc(EVT_COLOR_TEMPLATES[tplIdx].n) : 'Personnalisé…'}</span></span><span>▾</span></button>
+                    <div id="evtTplList" style="display:${evtAdm.tplOpen ? 'grid' : 'none'};position:absolute;z-index:50;top:100%;right:0;margin-top:4px;background:#fff;border:1px solid #ccc;border-radius:10px;box-shadow:0 10px 28px rgba(0,0,0,.2);padding:8px;grid-template-columns:repeat(3,minmax(150px,1fr));gap:6px;width:max-content;max-width:90vw;">
+                        ${EVT_COLOR_TEMPLATES.map((x, i) => `<button type="button" onclick="evtTplPick(${i})" title="${evtEsc(x.n)}" style="display:flex;flex-direction:column;align-items:flex-start;gap:5px;padding:6px 8px;border:1px solid ${i === tplIdx ? '#e65100' : '#e0e0e0'};background:${i === tplIdx ? '#fff3e0' : '#fff'};color:#333;border-radius:8px;cursor:pointer;text-align:left;">${evtTplSwatch(x)}<span style="font-size:11px;">${evtEsc(x.n)}</span></button>`).join('')}
+                        <button type="button" onclick="evtTplPick('custom')" style="display:flex;flex-direction:column;align-items:flex-start;gap:5px;padding:6px 8px;border:1px solid ${tplIdx < 0 ? '#e65100' : '#e0e0e0'};background:${tplIdx < 0 ? '#fff3e0' : '#fff'};color:#333;border-radius:8px;cursor:pointer;text-align:left;"><span style="display:inline-block;padding:2px 12px;border-radius:10px;border:2px dashed #999;font-size:11px;font-weight:bold;">Aa</span><span style="font-size:11px;">Personnalisé…</span></button>
+                    </div></div>
             </div>
             <div id="evtTCustom" style="display:${tplIdx < 0 ? 'flex' : 'none'};gap:12px;align-items:end;margin-top:8px;">
                 ${[['Fond', 'evtTBg', cur.bg], ['Texte', 'evtTTx', cur.text], ['Bordure', 'evtTBd', cur.border]].map(([l, id, v]) => `<div><label style="font-size:11px;color:#e65100;display:block;margin-bottom:3px;">${l}</label><input type="color" id="${id}" value="${v}" style="width:44px;height:32px;padding:0;border:1px solid #ccc;cursor:pointer;" onchange="evtTypePreview()"></div>`).join('')}
@@ -173,17 +210,15 @@ function evtRenderTypesAdmin() {
                 <button type="button" onclick="evtSaveType()" style="background:#ff9800;color:#fff;border:none;border-radius:6px;padding:7px 18px;font-weight:bold;cursor:pointer;">${editing ? '💾 Enregistrer' : '➕ Ajouter'}</button>
             </div>
         </div>
-        <table style="width:100%;border-collapse:collapse;font-size:12px;background:#fff;border-radius:6px;overflow:hidden;">
-            <thead><tr style="background:#ffe0b2;color:#e65100;text-align:left;"><th style="padding:6px 8px;width:50px;text-align:center;">Icône</th><th style="padding:6px 8px;">Libellé long</th><th style="padding:6px 8px;">Libellé court</th><th style="padding:6px 8px;">Aperçu</th><th style="padding:6px 8px;text-align:right;">Événements</th><th style="padding:6px 8px;"></th></tr></thead>
-            <tbody>${rows}</tbody></table>
-        <p style="font-size:11px;color:#888;margin:8px 0 0;">Le libellé court s'affiche sur la page de planification et sur la carte (à défaut, le libellé long). « Autre(s) » est le type de repli : à la suppression d'un type, ses événements basculent sur « Autre(s) ».</p>`;
+        <div id="evtTypesTblBox">${evtTypesTableHtml()}</div>
+        <p style="font-size:11px;color:#888;margin:8px 0 0;">Cliquez sur un <b>libellé long</b> ou <b>court</b> pour le modifier directement (Entrée ou clic ailleurs pour valider, Échap pour annuler). Le libellé court s'affiche sur la page de planification et sur la carte (à défaut, le libellé long). « Autre(s) » est le type de repli : à la suppression d'un type, ses événements basculent sur « Autre(s) ».</p>`;
     evtTypePreview();
 }
+const evtTplSwatch = c => `<span style="display:inline-block;padding:2px 12px;border-radius:10px;font-size:11px;font-weight:bold;background:${c.bg};color:${c.text};border:2px solid ${c.border};white-space:nowrap;">Aa</span>`;
 function evtCurrentColors() {
-    const sel = document.getElementById('evtTTpl');
-    if (sel && sel.value !== 'custom') { const x = EVT_COLOR_TEMPLATES[Number(sel.value)]; return { bg: x.bg, text: x.text, border: x.border }; }
+    if (evtAdm.tpl !== 'custom' && evtAdm.tpl !== null && evtAdm.tpl !== undefined) { const x = EVT_COLOR_TEMPLATES[Number(evtAdm.tpl)]; return { bg: x.bg, text: x.text, border: x.border }; }
     const v = id => (document.getElementById(id) || {}).value;
-    return { bg: v('evtTBg') || '#ffeb3b', text: v('evtTTx') || '#000000', border: v('evtTBd') || '#000000' };
+    return { bg: v('evtTBg') || (evtAdm._cur && evtAdm._cur.bg) || '#ffeb3b', text: v('evtTTx') || (evtAdm._cur && evtAdm._cur.text) || '#000000', border: v('evtTBd') || (evtAdm._cur && evtAdm._cur.border) || '#000000' };
 }
 function evtTypePreview() {
     const c = evtCurrentColors(), el = document.getElementById('evtTPrev');
@@ -192,27 +227,34 @@ function evtTypePreview() {
     const short = (document.getElementById('evtTShort') || {}).value || '', long = (document.getElementById('evtTLong') || {}).value || '';
     el.innerHTML = evtChip({ bg_color: c.bg, text_color: c.text, border_color: c.border, icon: evtAdm.icon, label_short: short.trim(), label_long: long.trim() || 'Libellé' });
 }
-function evtTplChange() {
-    const sel = document.getElementById('evtTTpl'), cu = document.getElementById('evtTCustom');
-    if (sel.value === 'custom') { const c = evtAdm._cur || { bg: '#ffeb3b', text: '#000000', border: '#000000' }; cu.style.display = 'flex'; document.getElementById('evtTBg').value = c.bg; document.getElementById('evtTTx').value = c.text; document.getElementById('evtTBd').value = c.border; }
-    else cu.style.display = 'none';
-    evtTypePreview();
+function evtTplToggle() { evtAdm.tplOpen = !evtAdm.tplOpen; const l = document.getElementById('evtTplList'); if (l) l.style.display = evtAdm.tplOpen ? 'grid' : 'none'; }
+function evtKeepFormAndRender() {
+    const f = ['evtTLong', 'evtTShort'].map(id => (document.getElementById(id) || {}).value);
+    evtRenderTypesAdmin();
+    if (document.getElementById('evtTLong')) { document.getElementById('evtTLong').value = f[0] || ''; document.getElementById('evtTShort').value = f[1] || ''; evtTypePreview(); }
+}
+function evtTplPick(i) {
+    const c = evtCurrentColors();
+    evtAdm.tplOpen = false;
+    if (i === 'custom') { evtAdm._cur = c; evtAdm.tpl = 'custom'; } else evtAdm.tpl = i;
+    evtKeepFormAndRender();
 }
 function evtTogglePicker() { evtAdm.pickerOpen = !evtAdm.pickerOpen; const p = document.getElementById('evtTPicker'); if (p) p.style.display = evtAdm.pickerOpen ? 'grid' : 'none'; }
 function evtPickIcon(n) {
-    evtAdm.icon = n; evtAdm.pickerOpen = false;
-    const long = (document.getElementById('evtTLong') || {}).value, short = (document.getElementById('evtTShort') || {}).value, tpl = (document.getElementById('evtTTpl') || {}).value;
-    const c = evtCurrentColors();
-    evtAdm._cur = c; evtRenderTypesAdmin();
-    if (document.getElementById('evtTLong')) { document.getElementById('evtTLong').value = long; document.getElementById('evtTShort').value = short; if (tpl) document.getElementById('evtTTpl').value = tpl; evtTplChange(); }
+    evtAdm._cur = evtCurrentColors(); evtAdm.icon = n; evtAdm.pickerOpen = false;
+    evtKeepFormAndRender();
 }
-document.addEventListener('click', e => { if (evtAdm.pickerOpen && !(e.target.closest && e.target.closest('#evtTPicker, #evtTIconBtn'))) { evtAdm.pickerOpen = false; const p = document.getElementById('evtTPicker'); if (p) p.style.display = 'none'; } });
+document.addEventListener('click', e => {
+    const inside = sel => e.target.closest && e.target.closest(sel);
+    if (evtAdm.pickerOpen && !inside('#evtTPicker, #evtTIconBtn')) { evtAdm.pickerOpen = false; const p = document.getElementById('evtTPicker'); if (p) p.style.display = 'none'; }
+    if (evtAdm.tplOpen && !inside('#evtTplList, #evtTplBtn')) { evtAdm.tplOpen = false; const l = document.getElementById('evtTplList'); if (l) l.style.display = 'none'; }
+});
 function evtEditType(id) {
     const t = evtTypeById(id); if (!t) return;
-    evtAdm.editId = id; evtAdm.icon = t.icon; evtAdm._cur = null; evtAdm.pickerOpen = false; evtRenderTypesAdmin();
+    evtAdm.editId = id; evtAdm.icon = t.icon; evtAdm._cur = null; evtAdm.tpl = null; evtAdm.pickerOpen = false; evtAdm.tplOpen = false; evtRenderTypesAdmin();
     const b = document.getElementById('evtTypesAdmin'); if (b) b.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
-function evtCancelEdit() { evtAdm.editId = null; evtAdm.icon = 'tag'; evtAdm._cur = null; evtRenderTypesAdmin(); }
+function evtCancelEdit() { evtAdm.editId = null; evtAdm.icon = 'tag'; evtAdm._cur = null; evtAdm.tpl = null; evtRenderTypesAdmin(); }
 async function evtSaveType() {
     const msg = document.getElementById('evtTMsg'), c = evtCurrentColors();
     const body = { label_long: document.getElementById('evtTLong').value.trim(), label_short: document.getElementById('evtTShort').value.trim(), icon: evtAdm.icon, bg_color: c.bg, text_color: c.text, border_color: c.border };
@@ -221,7 +263,7 @@ async function evtSaveType() {
         const r = await fetch(`${API_URL}/event-types${evtAdm.editId ? '/' + evtAdm.editId : ''}`, { method: evtAdm.editId ? 'PUT' : 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         const d = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(d.error || `Erreur ${r.status}`);
-        evtAdm.editId = null; evtAdm.icon = 'tag'; evtAdm._cur = null;
+        evtAdm.editId = null; evtAdm.icon = 'tag'; evtAdm._cur = null; evtAdm.tpl = null;
         await evtLoadTypes(true); evtRenderTypesAdmin(); evtRefreshAfterTypeChange();
     } catch (e) { msg.style.color = '#b3261e'; msg.textContent = e.message; }
 }
