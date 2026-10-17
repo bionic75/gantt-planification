@@ -4054,8 +4054,11 @@ app.post('/api/affectation/projects/:id/sync/:stage', requireAdmin, async (req, 
                 const start = /^\d{4}-\d{2}-\d{2}$/.test(ev.startDate) ? ev.startDate : c.per.start;
                 const end = /^\d{4}-\d{2}-\d{2}$/.test(ev.endDate) ? ev.endDate : c.per.end;
                 if (end < start) return res.status(400).json({ error: 'La date de fin précède la date de début' });
-                const r = await dbRun(`INSERT INTO custom_events (label, start_date, end_date, config, created_by, period, location_id) VALUES (?,?,?,?,?,?,?)`,
-                    [label, start, end, JSON.stringify(c.event.config), req.session.userId, 'FULL', c.locationId || null]);
+                const tcode = { visite_metier: 'visiteMetier', test_prerequis: 'verifPrereq', vft: 'vftSite', formation_utilisateurs: 'formation', accompagnement: 'apd' }[req.params.stage];
+                const trow = tcode ? await dbGet('SELECT id FROM event_types WHERE code = ?', [tcode]) : null;
+                const ty = await evtResolveType(trow && trow.id, c.event.config);
+                const r = await dbRun(`INSERT INTO custom_events (label, start_date, end_date, config, created_by, period, location_id, type_id) VALUES (?,?,?,?,?,?,?,?)`,
+                    [label, start, end, JSON.stringify(ty.config), req.session.userId, 'FULL', c.locationId || null, ty.typeId]);
                 eventId = r.lastID;
             }
             for (const uid of users) await dbRun('INSERT OR IGNORE INTO custom_event_participants (event_id, user_id) VALUES (?, ?)', [eventId, uid]);
@@ -7907,11 +7910,13 @@ app.get('/api/ics-files/special-dates/all', requireAuth, async (req, res) => {
         if (hasCreatedBy) {
             customEventsQuery = `
                 SELECT ce.*, u.nom as creator_nom, u.prenom as creator_prenom, r.trigramme as creator_trigramme,
-                       l.libelle_court as location_libelle_court
+                       l.libelle_court as location_libelle_court,
+                       et.label_long AS type_long, et.label_short AS type_short, et.icon AS type_icon, et.is_other AS type_other
                 FROM custom_events ce
                 LEFT JOIN users u ON ce.created_by = u.id
                 LEFT JOIN resources r ON u.resource_id = r.id
                 LEFT JOIN locations l ON ce.location_id = l.id
+                LEFT JOIN event_types et ON ce.type_id = et.id
             `;
         } else {
             customEventsQuery = `SELECT * FROM custom_events`;
@@ -7928,6 +7933,9 @@ app.get('/api/ics-files/special-dates/all', requireAuth, async (req, res) => {
             const config = e.config ? JSON.parse(e.config) : {};
             config.label = e.label;
             config.eventId = e.id;
+            // Type : libellé court (à défaut long) et icône ; « Autre(s) » ou sans type : le libellé de l'événement
+            if (e.type_long && !e.type_other) { config.typeId = e.type_id; config.typeLong = e.type_long; config.typeShort = e.type_short || ''; config.typeIcon = e.type_icon; config.shown = e.type_short || e.type_long; }
+            else config.shown = e.label;
             // Transmettre location_id même si la localisation a été supprimée
             // → permet au client d'afficher "NON DÉFINI" quand location_id est set mais libelle_court null
             if (e.location_id) config.locationId = e.location_id;
@@ -8024,6 +8032,16 @@ database.run(`
                 else console.log('✅ Migration: grist ajouté à custom_events');
             });
         }
+        // Base neuve : ces colonnes sont normalement ajoutées par la migration des localisations, qui peut passer avant la création de la table
+        [['location_id', 'INTEGER'], ['needs_resources', 'INTEGER DEFAULT 0'], ['resources_count', 'INTEGER DEFAULT 1']].forEach(([c, t]) => {
+            if (!colNames.includes(c)) database.run(`ALTER TABLE custom_events ADD COLUMN ${c} ${t}`, e => { if (e && !/duplicate column/i.test(e.message)) console.error('Erreur migration ' + c + ':', e.message); });
+        });
+        if (!colNames.includes('type_id')) {
+            database.run(`ALTER TABLE custom_events ADD COLUMN type_id INTEGER`, (e) => {
+                if (e) console.error('Erreur migration type_id:', e);
+                else console.log('✅ Migration: type_id ajouté à custom_events');
+            });
+        }
     });
 });
 
@@ -8056,6 +8074,179 @@ database.run(`
 `, (err) => {
     if (err) console.error('Erreur création table custom_event_external_participants:', err);
     else console.log('✅ Table custom_event_external_participants créée ou existante');
+});
+
+// ========== TYPES D'ÉVÉNEMENTS (administrables) ==========
+// Chaque type : libellé long, libellé court (affiché sur le planning et la carte), icône et gabarit de couleurs (fond / texte / bordure).
+// « Autre(s) » (is_other = 1) est le type de repli : ni modifiable ni supprimable.
+const EVT_TYPE_SEED = [
+    { code: 'formation',        long: 'Formations utilisateurs',            icon: 'graduation',     bg: '#ffea00', text: '#0008ff', border: '#000000' },
+    { code: 'mes',              long: 'Mise en service',                    icon: 'power',          bg: '#ffea00', text: '#d20906', border: '#000000' },
+    { code: 'apd',              long: 'Accompagnement post démarrage',      icon: 'lifebuoy',       bg: '#ffea00', text: '#c2059a', border: '#000000' },
+    { code: 'visite',           long: 'Visite terrain',                     icon: 'pin',            bg: '#0011ff', text: '#ffffff', border: '#000000' },
+    { code: 'visiteMetier',     long: 'Visite métier',                      icon: 'briefcase',      bg: '#7b1fa2', text: '#ffffff', border: '#4a0072' },
+    { code: 'congres',          long: 'Congrès',                            icon: 'presentation',   bg: '#dff0d8', text: '#427645', border: '#000000' },
+    { code: 'vftSite',          long: 'VFT sur site',                       icon: 'clipboardCheck', bg: '#2e7d32', text: '#ffffff', border: '#1b5e20' },
+    { code: 'verifPrereq',      long: 'Vérification des prérequis',         icon: 'listChecks',     bg: '#546e7a', text: '#ffffff', border: '#263238' },
+    { code: 'visiteOb',         long: 'Visite OB',                          icon: 'building',       bg: '#e65100', text: '#ffffff', border: '#bf360c' },
+    { code: 'visitePostMes',    long: 'Visite post MES',                    icon: 'eye',            bg: '#0277bd', text: '#ffffff', border: '#01579b' },
+    { code: 'reunionLancement', long: 'Réunion de lancement stratégique',   icon: 'rocket',         bg: '#1565c0', text: '#ffffff', border: '#0d47a1' },
+    { code: 'autre',            long: 'Autre(s)',                           icon: 'tag',            bg: '#ffeb3b', text: '#000000', border: '#000000', other: 1 }
+];
+database.run(`
+    CREATE TABLE IF NOT EXISTS event_types (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        code TEXT UNIQUE,
+        label_long TEXT NOT NULL,
+        label_short TEXT NOT NULL DEFAULT '',
+        icon TEXT NOT NULL DEFAULT 'tag',
+        bg_color TEXT NOT NULL DEFAULT '#ffeb3b',
+        text_color TEXT NOT NULL DEFAULT '#000000',
+        border_color TEXT NOT NULL DEFAULT '#000000',
+        is_other INTEGER NOT NULL DEFAULT 0,
+        sort_order INTEGER NOT NULL DEFAULT 0
+    )
+`, (err) => {
+    if (err) { console.error('Erreur création table event_types:', err); return; }
+    database.get('SELECT COUNT(*) AS n FROM event_types', async (e, row) => {
+        if (e) return;
+        const seed = (row && row.n === 0) ? EVT_TYPE_SEED : EVT_TYPE_SEED.filter(t => t.other); // « Autre(s) » doit toujours exister
+        try {
+            for (const [i, t] of seed.entries()) { // séquentiel : identifiants dans l'ordre de la liste
+                await dbRun(`INSERT OR IGNORE INTO event_types (code, label_long, label_short, icon, bg_color, text_color, border_color, is_other, sort_order) VALUES (?, ?, '', ?, ?, ?, ?, ?, ?)`,
+                    [t.code, t.long, t.icon, t.bg, t.text, t.border, t.other ? 1 : 0, (i + 1) * 10]);
+            }
+        } catch (x) { console.error('Erreur initialisation event_types:', x.message); }
+        console.log('✅ Table event_types créée ou existante');
+    });
+});
+const EVT_HEX = /^#[0-9a-fA-F]{6}$/;
+async function evtOtherType() { return await dbGet('SELECT * FROM event_types WHERE is_other = 1 LIMIT 1'); }
+// Type retenu pour un événement (création / changement de type) : repli sur « Autre(s) » ; les couleurs de l'événement suivent celles du type
+async function evtResolveType(typeId, config) {
+    let t = Number(typeId) > 0 ? await dbGet('SELECT * FROM event_types WHERE id = ?', [Number(typeId)]) : null;
+    if (!t) t = await evtOtherType();
+    const cfg = Object.assign({}, config || {});
+    if (t) { cfg.bgColor = t.bg_color; cfg.textColor = t.text_color; cfg.borderColor = t.border_color; }
+    return { typeId: t ? t.id : null, config: cfg, type: t };
+}
+// Modification : sans type fourni (ancien client), l'événement garde son type actuel
+async function evtResolveForUpdate(eventId, typeId, config) {
+    if (typeId === undefined || typeId === null || typeId === '') {
+        const cur = await dbGet('SELECT type_id FROM custom_events WHERE id = ?', [eventId]);
+        return { typeId: (cur && cur.type_id) || null, config };
+    }
+    return evtResolveType(typeId, config);
+}
+// Applique les couleurs d'un type à la configuration de tous les événements qui l'utilisent
+async function evtSyncColors(typeId) {
+    const t = await dbGet('SELECT * FROM event_types WHERE id = ?', [typeId]);
+    if (!t) return 0;
+    const rows = await dbAll('SELECT id, config FROM custom_events WHERE type_id = ?', [typeId]);
+    for (const r of rows) {
+        let cfg = {}; try { cfg = JSON.parse(r.config || '{}') || {}; } catch (e) { cfg = {}; }
+        cfg.bgColor = t.bg_color; cfg.textColor = t.text_color; cfg.borderColor = t.border_color;
+        await dbRun('UPDATE custom_events SET config = ? WHERE id = ?', [JSON.stringify(cfg), r.id]);
+    }
+    return rows.length;
+}
+function evtTypeBody(b, forUpdate) {
+    const long = String(b.label_long || '').trim().slice(0, 120), short = String(b.label_short || '').trim().slice(0, 40);
+    if (!long) return { error: 'Le libellé long est obligatoire' };
+    const icon = /^[A-Za-z0-9_]{1,40}$/.test(String(b.icon || '')) ? String(b.icon) : 'tag';
+    const c = k => EVT_HEX.test(String(b[k] || '')) ? String(b[k]).toLowerCase() : null;
+    const bg = c('bg_color'), tx = c('text_color'), bd = c('border_color');
+    if (!bg || !tx || !bd) return { error: 'Couleurs invalides (fond, texte et bordure attendus)' };
+    return { value: { long, short, icon, bg, tx, bd } };
+}
+app.get('/api/event-types', requireAuth, async (req, res) => {
+    try { res.json({ types: await dbAll('SELECT et.*, (SELECT COUNT(*) FROM custom_events c WHERE c.type_id = et.id) AS events_count FROM event_types et ORDER BY et.is_other, et.sort_order, et.label_long') }); }
+    catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.post('/api/event-types', requireAdmin, async (req, res) => {
+    try {
+        const r = evtTypeBody(req.body || {});
+        if (r.error) return res.status(400).json({ error: r.error });
+        const v = r.value;
+        if (await dbGet('SELECT 1 AS x FROM event_types WHERE lower(label_long) = lower(?)', [v.long])) return res.status(400).json({ error: 'Un type porte déjà ce libellé long' });
+        const max = await dbGet('SELECT COALESCE(MAX(sort_order), 0) AS m FROM event_types WHERE is_other = 0');
+        const ins = await dbRun('INSERT INTO event_types (label_long, label_short, icon, bg_color, text_color, border_color, is_other, sort_order) VALUES (?, ?, ?, ?, ?, ?, 0, ?)', [v.long, v.short, v.icon, v.bg, v.tx, v.bd, (max.m || 0) + 10]);
+        logUserAction(req, "Création d'un type d'événement", { id: ins.lastID, libelle: v.long });
+        res.json({ success: true, id: ins.lastID });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.put('/api/event-types/:id', requireAdmin, async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        const t = await dbGet('SELECT * FROM event_types WHERE id = ?', [id]);
+        if (!t) return res.status(404).json({ error: 'Type introuvable' });
+        if (t.is_other) return res.status(403).json({ error: 'Le type « Autre(s) » n\'est pas modifiable' });
+        const r = evtTypeBody(req.body || {});
+        if (r.error) return res.status(400).json({ error: r.error });
+        const v = r.value;
+        if (await dbGet('SELECT 1 AS x FROM event_types WHERE lower(label_long) = lower(?) AND id <> ?', [v.long, id])) return res.status(400).json({ error: 'Un autre type porte déjà ce libellé long' });
+        await dbRun('UPDATE event_types SET label_long = ?, label_short = ?, icon = ?, bg_color = ?, text_color = ?, border_color = ? WHERE id = ?', [v.long, v.short, v.icon, v.bg, v.tx, v.bd, id]);
+        const n = await evtSyncColors(id);
+        logUserAction(req, "Modification d'un type d'événement", { id, libelle: v.long });
+        res.json({ success: true, events: n });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+// Suppression : les événements associés basculent sur « Autre(s) »
+app.delete('/api/event-types/:id', requireAdmin, async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        const t = await dbGet('SELECT * FROM event_types WHERE id = ?', [id]);
+        if (!t) return res.status(404).json({ error: 'Type introuvable' });
+        if (t.is_other) return res.status(403).json({ error: 'Le type « Autre(s) » n\'est pas supprimable' });
+        const other = await evtOtherType();
+        const moved = (await dbGet('SELECT COUNT(*) AS n FROM custom_events WHERE type_id = ?', [id])).n;
+        await dbRun('UPDATE custom_events SET type_id = ? WHERE type_id = ?', [other.id, id]);
+        await evtSyncColors(other.id);
+        await dbRun('DELETE FROM event_types WHERE id = ?', [id]);
+        logUserAction(req, "Suppression d'un type d'événement", { id, libelle: t.label_long, evenementsBascules: moved });
+        res.json({ success: true, moved });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+// Reprise des données : tous les événements en base (seuls le type et le libellé sont modifiables)
+app.get('/api/event-types/events', requireAdmin, async (req, res) => {
+    try {
+        const events = await dbAll(`
+            SELECT ce.id, ce.label, ce.start_date, ce.end_date, ce.period, ce.type_id, ce.grist,
+                   l.libelle_court AS location_court, l.libelle_long AS location_long,
+                   u.nom AS creator_nom, u.prenom AS creator_prenom
+            FROM custom_events ce
+            LEFT JOIN locations l ON ce.location_id = l.id
+            LEFT JOIN users u ON ce.created_by = u.id
+            ORDER BY ce.start_date, ce.id`);
+        const parts = await dbAll(`SELECT cep.event_id, u.nom, u.prenom FROM custom_event_participants cep JOIN users u ON cep.user_id = u.id ORDER BY u.nom, u.prenom`);
+        const ext = await dbAll(`SELECT event_id, nom, prenom, email FROM custom_event_external_participants`);
+        const by = {};
+        parts.forEach(p => { (by[p.event_id] = by[p.event_id] || []).push(`${p.prenom || ''} ${(p.nom || '').toUpperCase()}`.trim()); });
+        ext.forEach(p => { (by[p.event_id] = by[p.event_id] || []).push(`${p.prenom || ''} ${(p.nom || '').toUpperCase()}`.trim() || p.email || 'Externe'); });
+        events.forEach(e => { e.participants = by[e.id] || []; });
+        res.json({ events });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.put('/api/event-types/events/bulk', requireAdmin, async (req, res) => {
+    try {
+        const updates = Array.isArray(req.body && req.body.updates) ? req.body.updates.slice(0, 5000) : [];
+        let n = 0;
+        for (const u of updates) {
+            const id = Number(u.id);
+            const ev = id > 0 ? await dbGet('SELECT id, label, config, type_id FROM custom_events WHERE id = ?', [id]) : null;
+            if (!ev) continue;
+            const label = u.label === undefined ? ev.label : String(u.label).trim();
+            if (!label) continue;
+            let cfg = {}; try { cfg = JSON.parse(ev.config || '{}') || {}; } catch (e) { cfg = {}; }
+            let typeId = ev.type_id;
+            if (u.type_id !== undefined) { const r = await evtResolveType(u.type_id, cfg); typeId = r.typeId; cfg = r.config; }
+            if (label === ev.label && typeId === ev.type_id) continue;
+            await dbRun('UPDATE custom_events SET label = ?, type_id = ?, config = ? WHERE id = ?', [label, typeId, JSON.stringify(cfg), id]);
+            n++;
+        }
+        logUserAction(req, "Reprise des données des événements (type / libellé)", { modifies: n });
+        res.json({ success: true, updated: n });
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ========== SUIVI DES ÉVÉNEMENTS (REPORTING) ==========
@@ -8155,10 +8346,12 @@ app.get('/api/custom-events', requireAdmin, async (req, res) => {
         let query;
         if (hasCreatedBy) {
             query = `
-                SELECT ce.*, u.nom as creator_nom, u.prenom as creator_prenom, r.trigramme as creator_trigramme
+                SELECT ce.*, u.nom as creator_nom, u.prenom as creator_prenom, r.trigramme as creator_trigramme,
+                       et.label_long AS type_long, et.label_short AS type_short, et.icon AS type_icon, et.is_other AS type_other
                 FROM custom_events ce
                 LEFT JOIN users u ON ce.created_by = u.id
                 LEFT JOIN resources r ON u.resource_id = r.id
+                LEFT JOIN event_types et ON ce.type_id = et.id
                 ORDER BY ce.start_date
             `;
         } else {
@@ -8210,9 +8403,11 @@ app.get('/api/mobile-events', requireAuth, async (req, res) => {
         const events = await new Promise((resolve, reject) => {
             database.all(`
                 SELECT DISTINCT ce.*,
-                       l.libelle_court as location_libelle_court
+                       l.libelle_court as location_libelle_court,
+                       et.label_long AS type_long, et.label_short AS type_short, et.icon AS type_icon, et.is_other AS type_other, et.code AS type_code
                 FROM custom_events ce
                 LEFT JOIN locations l ON ce.location_id = l.id
+                LEFT JOIN event_types et ON ce.type_id = et.id
                 ORDER BY ce.start_date
             `, [], (err, rows) => err ? reject(err) : resolve(rows || []));
         });
@@ -8255,12 +8450,14 @@ app.get('/api/my-custom-events', requireAuth, async (req, res) => {
                        r.trigramme as creator_trigramme,
                        l.libelle_long as location_libelle_long,
                        l.libelle_court as location_libelle_court,
+                       et.label_long AS type_long, et.label_short AS type_short, et.icon AS type_icon, et.is_other AS type_other,
                        1 as can_edit,
                        CASE WHEN (ce.created_by = ? OR ? = 1) THEN 1 ELSE 0 END as is_creator
                 FROM custom_events ce
                 LEFT JOIN users u ON ce.created_by = u.id
                 LEFT JOIN resources r ON u.resource_id = r.id
                 LEFT JOIN locations l ON ce.location_id = l.id
+                LEFT JOIN event_types et ON ce.type_id = et.id
                 ORDER BY ce.start_date
             `, [userId, isAdmin ? 1 : 0], (err, rows) => err ? reject(err) : resolve(rows || []));
         });
@@ -8330,7 +8527,7 @@ async function loadExternalParticipants(eventIds) {
 // Ajouter un événement personnalisé (admin via interface admin)
 app.post('/api/custom-events', requireAdmin, async (req, res) => {
     try {
-        const { startDate, endDate, label, config, participants, external_participants, period, location_id } = req.body;
+        const { startDate, endDate, label, config, participants, external_participants, period, location_id, type_id } = req.body;
         const createdBy = req.session.userId;
 
         if (!startDate || !label) {
@@ -8338,11 +8535,12 @@ app.post('/api/custom-events', requireAdmin, async (req, res) => {
         }
 
         const finalPeriod = (period && startDate === (endDate || startDate)) ? period : 'FULL';
+        const _ty = await evtResolveType(type_id, config);
 
         const eventId = await new Promise((resolve, reject) => {
             database.run(
-                `INSERT INTO custom_events (label, start_date, end_date, config, created_by, period, location_id) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                [label, startDate, endDate || startDate, JSON.stringify(config), createdBy, finalPeriod, location_id || null],
+                `INSERT INTO custom_events (label, start_date, end_date, config, created_by, period, location_id, type_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                [label, startDate, endDate || startDate, JSON.stringify(_ty.config), createdBy, finalPeriod, location_id || null, _ty.typeId],
                 function(err) { if (err) reject(err); else resolve(this.lastID); }
             );
         });
@@ -8371,7 +8569,7 @@ app.post('/api/custom-events', requireAdmin, async (req, res) => {
 app.post('/api/my-custom-events', requireAuth, async (req, res) => {
     try {
         const { startDate, endDate, label, config, participants, external_participants, period,
-                location_id, needs_resources, resources_count, notify_user_ids, grist } = req.body;
+                location_id, needs_resources, resources_count, notify_user_ids, grist, type_id } = req.body;
         const createdBy = req.session.userId;
 
         if (!startDate || !label) {
@@ -8379,13 +8577,14 @@ app.post('/api/my-custom-events', requireAuth, async (req, res) => {
         }
 
         const finalPeriod = (period && startDate === (endDate || startDate)) ? period : 'FULL';
+        const _ty = await evtResolveType(type_id, config);
 
         const eventId = await new Promise((resolve, reject) => {
             database.run(
-                `INSERT INTO custom_events (label, start_date, end_date, config, created_by, period, location_id, needs_resources, resources_count, grist)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [label, startDate, endDate || startDate, JSON.stringify(config), createdBy, finalPeriod,
-                 location_id || null, needs_resources ? 1 : 0, resources_count || 1, grist ? 1 : 0],
+                `INSERT INTO custom_events (label, start_date, end_date, config, created_by, period, location_id, needs_resources, resources_count, grist, type_id)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [label, startDate, endDate || startDate, JSON.stringify(_ty.config), createdBy, finalPeriod,
+                 location_id || null, needs_resources ? 1 : 0, resources_count || 1, grist ? 1 : 0, _ty.typeId],
                 function(err) { if (err) reject(err); else resolve(this.lastID); }
             );
         });
@@ -8636,23 +8835,24 @@ app.post('/api/my-custom-events/:id/join', requireAuth, async (req, res) => {
 app.put('/api/custom-events/:id', requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
-        const { startDate, endDate, label, config, createdBy, participants, external_participants, period, location_id, grist } = req.body;
+        const { startDate, endDate, label, config, createdBy, participants, external_participants, period, location_id, grist, type_id } = req.body;
 
         const finalPeriod = (period && startDate === (endDate || startDate)) ? period : 'FULL';
+        const _ty = await evtResolveForUpdate(id, type_id, config);
 
         if (createdBy !== undefined) {
             await new Promise((resolve, reject) => {
                 database.run(
-                    `UPDATE custom_events SET label = ?, start_date = ?, end_date = ?, config = ?, created_by = ?, period = ?, location_id = ?, grist = ? WHERE id = ?`,
-                    [label, startDate, endDate || startDate, JSON.stringify(config), createdBy, finalPeriod, location_id || null, grist ? 1 : 0, id],
+                    `UPDATE custom_events SET label = ?, start_date = ?, end_date = ?, config = ?, created_by = ?, period = ?, location_id = ?, grist = ?, type_id = ? WHERE id = ?`,
+                    [label, startDate, endDate || startDate, JSON.stringify(_ty.config), createdBy, finalPeriod, location_id || null, grist ? 1 : 0, _ty.typeId, id],
                     (err) => err ? reject(err) : resolve()
                 );
             });
         } else {
             await new Promise((resolve, reject) => {
                 database.run(
-                    `UPDATE custom_events SET label = ?, start_date = ?, end_date = ?, config = ?, period = ?, location_id = ?, grist = ? WHERE id = ?`,
-                    [label, startDate, endDate || startDate, JSON.stringify(config), finalPeriod, location_id || null, grist ? 1 : 0, id],
+                    `UPDATE custom_events SET label = ?, start_date = ?, end_date = ?, config = ?, period = ?, location_id = ?, grist = ?, type_id = ? WHERE id = ?`,
+                    [label, startDate, endDate || startDate, JSON.stringify(_ty.config), finalPeriod, location_id || null, grist ? 1 : 0, _ty.typeId, id],
                     (err) => err ? reject(err) : resolve()
                 );
             });
@@ -8687,7 +8887,7 @@ app.put('/api/custom-events/:id', requireAdmin, async (req, res) => {
 app.put('/api/my-custom-events/:id', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
-        const { startDate, endDate, label, config, participants, external_participants, period, location_id, grist } = req.body;
+        const { startDate, endDate, label, config, participants, external_participants, period, location_id, grist, type_id } = req.body;
         const userId = req.session.userId;
         const isAdmin = req.session.activeProfile === 'admin';
         
@@ -8695,10 +8895,11 @@ app.put('/api/my-custom-events/:id', requireAuth, async (req, res) => {
 
         const finalPeriod = (period && startDate === (endDate || startDate)) ? period : 'FULL';
         
+        const _ty = await evtResolveForUpdate(id, type_id, config);
         await new Promise((resolve, reject) => {
             database.run(
-                `UPDATE custom_events SET label = ?, start_date = ?, end_date = ?, config = ?, period = ?, location_id = ?, grist = ? WHERE id = ?`,
-                [label, startDate, endDate || startDate, JSON.stringify(config), finalPeriod, location_id || null, grist ? 1 : 0, id],
+                `UPDATE custom_events SET label = ?, start_date = ?, end_date = ?, config = ?, period = ?, location_id = ?, grist = ?, type_id = ? WHERE id = ?`,
+                [label, startDate, endDate || startDate, JSON.stringify(_ty.config), finalPeriod, location_id || null, grist ? 1 : 0, _ty.typeId, id],
                 (err) => { if (err) reject(err); else resolve(); }
             );
         });
@@ -14330,10 +14531,12 @@ app.get('/api/reporting/events-map', requireAuth, async (req, res) => {
             SELECT ce.id, ce.label, ce.start_date, ce.end_date, ce.period, ce.created_by, ce.config,
                    l.id as location_id, l.libelle_long, l.libelle_court, l.adresse,
                    l.latitude, l.longitude,
-                   u.nom as creator_nom, u.prenom as creator_prenom
+                   u.nom as creator_nom, u.prenom as creator_prenom,
+                   et.label_long AS type_long, et.label_short AS type_short, et.icon AS type_icon, et.is_other AS type_other
             FROM custom_events ce
             LEFT JOIN locations l ON ce.location_id = l.id
             LEFT JOIN users u ON ce.created_by = u.id
+            LEFT JOIN event_types et ON ce.type_id = et.id
             WHERE l.latitude IS NOT NULL AND l.longitude IS NOT NULL
         `;
         const params = [];
@@ -14444,9 +14647,11 @@ app.get('/api/public/events', requireApiKey, async (req, res) => {
             database.all(
                 `SELECT ce.id, ce.label as objet, ce.start_date, ce.end_date, ce.period,
                         CASE WHEN ce.grist = 1 THEN 1 ELSE 0 END as grist,
-                        l.libelle_long as lieu, l.libelle_court as lieu_court, l.adresse as detail_lieu
+                        l.libelle_long as lieu, l.libelle_court as lieu_court, l.adresse as detail_lieu,
+                        et.label_long AS type_long, et.label_short AS type_short, et.icon AS type_icon, et.is_other AS type_other
                  FROM custom_events ce
                  LEFT JOIN locations l ON ce.location_id = l.id
+                 LEFT JOIN event_types et ON ce.type_id = et.id
                  ${where}
                  ORDER BY ce.start_date, ce.end_date`,
                 params,
