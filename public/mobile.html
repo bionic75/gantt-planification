@@ -926,7 +926,9 @@ function appendEventsSection(container, events, title) {
 
 function buildEventCard(evt) {
   const card = el('div','event-card');
-  { const lbl = el('div','event-label'); lbl.innerHTML = evtIconSvg(evt.label) + esc(evt.label); card.appendChild(lbl); }
+  { const typed = !!(evt.type_long && !evt.type_other), shown = typed ? (evt.type_short || evt.type_long) : evt.label;
+    const ico = typed && evt.type_code && EVT_ICON_PATHS[evt.type_code] ? `<svg class="evt-ico" viewBox="0 0 24 24" aria-hidden="true">${EVT_ICON_PATHS[evt.type_code]}</svg>` : evtIconSvg(evt.label);
+    const lbl = el('div','event-label'); lbl.innerHTML = ico + esc(shown) + (typed && evt.label && evt.label !== shown ? ` <span style="font-weight:normal;font-size:12px;color:#7f8c8d;">— ${esc(evt.label)}</span>` : ''); card.appendChild(lbl); }
   let ds = fmtDateShort(evt.start_date);
   if (evt.end_date && evt.end_date!==evt.start_date) ds += ' → '+fmtDateShort(evt.end_date);
   if (evt.period && evt.period!=='FULL') ds += ' ('+(evt.period==='AM'?'Matin':'Après-midi')+')';

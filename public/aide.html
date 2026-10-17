@@ -224,6 +224,15 @@ tr:nth-child(even) td { background: #f9f9f9; }
   <h3>Événements personnalisés</h3>
   <p>Les événements (déplacements, formations, réunions…) sont créés via le bouton <strong>📅 Mes événements</strong>. Ils apparaissent dans le Gantt sous forme de bandeaux colorés.</p>
 
+  <h3>Types d'événements</h3>
+  <p>À la création d'un événement (onglet <strong>Événements</strong>), on choisit d'abord son <strong>Type</strong> dans un menu déroulant. La <strong>prévisualisation</strong> montre le rendu final : <em>Date début - Date de fin | Type (icône et libellé court) | Libellé de l'événement | Localisation | Participants</em>. Les couleurs (fond, texte, bordure) sont celles du type.</p>
+  <ul>
+    <li>Sur la <strong>page de planification</strong> et sur la <strong>carte</strong>, l'événement s'affiche avec l'<strong>icône</strong> et le <strong>libellé court</strong> de son type (à défaut, le libellé long) ; le libellé de l'événement figure dans l'info-bulle. Les événements de type « Autre(s) » ou sans type gardent l'affichage de leur propre libellé.</li>
+    <li><strong>Administration › Administration des jours ou événements spéciaux › Paramétrage des types d'événements</strong> : ajout, modification et suppression des types (libellé long, libellé court, icône choisie dans une banque d'une cinquantaine de pictogrammes, gabarit de couleurs en menu déroulant ou couleurs personnalisées). Types fournis : Formations utilisateurs, Mise en service, Accompagnement post démarrage, Visite terrain, Visite métier, Congrès, VFT sur site, Vérification des prérequis, Visite OB, Visite post MES, Réunion de lancement stratégique, Autre(s).</li>
+    <li>« <strong>Autre(s)</strong> » est le type de repli : ni modifiable ni supprimable. Quand on supprime un type, ses événements basculent automatiquement sur « Autre(s) ». Modifier un type (libellé court, icône, couleurs) met à jour tous ses événements.</li>
+    <li><strong>Reprise des données des événements</strong> (même rubrique d'administration) : tableau de tous les événements en base, aux colonnes triables, où l'on corrige le <strong>type</strong> et le <strong>libellé</strong> (les autres informations sont affichées sans pouvoir être modifiées). Le bouton « Suggérer les types » propose un type d'après l'ancien libellé (FORMATION, MISE EN SERVICE, CONGRÈS…) sans l'appliquer avant l'enregistrement.</li>
+  </ul>
+
   <h3>Lignes d'experts et lignes spéciales repliables</h3>
   <ul>
     <li>Un petit bouton <strong>(−)</strong> devant chaque expert masque sa ligne ; la ligne <em>congés / événements</em> et la ligne des jours fériés se masquent de la même façon.</li>
@@ -656,11 +665,24 @@ tr:nth-child(even) td { background: #f9f9f9; }
   <h2>🆕 Notes de version</h2>
   <p>Historique des évolutions de la Plateforme de Planification ANS.</p>
 
+  <!-- v1.17.13 -->
+  <div class="card card-green" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v1.17.13</strong>
+      <span class="badge badge-current">Actuelle</span>
+      <span style="color:#888; font-size:13px;">Octobre 2026</span>
+    </div>
+    <ul>
+      <li>🏷️ <strong>Types d'événements</strong> : nouvelle rubrique « Type » (menu déroulant) à la création d'un événement avec prévisualisation <em>dates | type (icône + libellé court) | libellé | localisation | participants</em> ; les types (libellé long, libellé court, icône, gabarit de couleurs) s'administrent dans « Paramétrage des types d'événements » ; « Autre(s) » est le type de repli, non modifiable. Le libellé court s'affiche sur le planning et sur la carte.</li>
+      <li>🗂️ <strong>Reprise des données des événements</strong> : tableau triable de tous les événements pour corriger leur type et leur libellé, avec suggestions d'après l'ancien libellé.</li>
+    </ul>
+    <p style="font-size:12px; color:#888; margin-top:8px;">Au déploiement : redémarrage du serveur requis (nouvelle table des types d'événements, créée et alimentée automatiquement). Les événements existants restent affichés comme avant jusqu'à leur reprise.</p>
+  </div>
+
   <!-- v1.17.12 -->
   <div class="card card-green" style="margin-bottom:16px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
       <strong style="font-size:16px;">v1.17.12</strong>
-      <span class="badge badge-current">Actuelle</span>
       <span style="color:#888; font-size:13px;">Octobre 2026</span>
     </div>
     <ul>

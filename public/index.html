@@ -1,4 +1,4 @@
-<!-- v1.17.12 -->
+<!-- v1.17.13 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -149,6 +149,8 @@
         #bonsCommandeTable th.sortable { cursor: pointer; }
         #myEventsTableContainer th::after { content: none; }
         #specialDatesFilesList th::after { content: none; }
+        #evtTypesAdmin th::after, #evtRecoveryAdmin th::after { content: none !important; }
+        #evtTypesAdmin th:hover, #evtRecoveryAdmin th:hover { background: #ffe0b2; }
         /* Calendrier disponibilités astreinte - pas de flèches */
         #astreinteDispoCalendarContent th::after { content: none; }
         #astreinteDispoCalendarContent th { cursor: default; }
@@ -498,17 +500,18 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.17.12">
-    <link rel="stylesheet" href="/darkmode.css?v=1.17.12">
-    <link rel="stylesheet" href="/login.css?v=1.17.12">
-    <link rel="stylesheet" href="/ui-polish.css?v=1.17.12">
-    <script src="/darkmode.js?v=1.17.12"></script>
-    <script src="/themes.js?v=1.17.12" defer></script>
-    <script src="/layout-fix.js?v=1.17.12" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.17.13">
+    <link rel="stylesheet" href="/darkmode.css?v=1.17.13">
+    <link rel="stylesheet" href="/login.css?v=1.17.13">
+    <link rel="stylesheet" href="/ui-polish.css?v=1.17.13">
+    <script src="/darkmode.js?v=1.17.13"></script>
+    <script src="/themes.js?v=1.17.13" defer></script>
+    <script src="/layout-fix.js?v=1.17.13" defer></script>
     <script>window.UI_ICONS_KEEP_ALERT = true;</script>
-    <script src="/ui-icons.js?v=1.17.12" defer></script>
-    <script src="/affectation-app.js?v=1.17.12" defer></script>
-    <script src="/map-timelapse.js?v=1.17.12" defer></script>
+    <script src="/ui-icons.js?v=1.17.13" defer></script>
+    <script src="/affectation-app.js?v=1.17.13" defer></script>
+    <script src="/event-types.js?v=1.17.13" defer></script>
+    <script src="/map-timelapse.js?v=1.17.13" defer></script>
 </head>
 <body>
     <div class="container">
@@ -781,6 +784,13 @@
                     </select>
                 </div>
                 
+                <!-- Type d'événement (administrable) : détermine l'icône, le libellé court et les couleurs -->
+                <div style="margin-bottom: 10px; max-width: 460px;">
+                    <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px; line-height: 14px;">Type *</label>
+                    <select id="myEventTypeId" onchange="evtOnTypeChange()" style="width: 100%; padding: 5px 6px; height: 32px; box-sizing: border-box;">
+                        <option value="">— Choisir un type —</option>
+                    </select>
+                </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr 2fr 2fr; gap: 10px; align-items: start;">
                     <div>
                         <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px; line-height: 14px; height: 14px;">Date de début *</label>
@@ -791,8 +801,8 @@
                         <input type="date" id="myEventEndDate" style="width: 100%; padding: 5px 6px; height: 32px; box-sizing: border-box;" onchange="updateMyEventPeriodVisibility()">
                     </div>
                     <div>
-                        <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px; line-height: 14px; height: 14px;">Libellé *</label>
-                        <input type="text" id="myEventLabel" placeholder="Ex: FORMATION, RÉUNION..." style="width: 100%; padding: 5px 6px; height: 32px; box-sizing: border-box; text-transform: uppercase;" oninput="this.value = this.value.toUpperCase(); updateMyEventPreview(); autoCheckGristByLabel(this.value, 'myEventGrist')">
+                        <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px; line-height: 14px; height: 14px;">Libellé de l'événement *</label>
+                        <input type="text" id="myEventLabel" placeholder="Ex: Formation SAMU 25, Congrès SFMU..." style="width: 100%; padding: 5px 6px; height: 32px; box-sizing: border-box; text-transform: uppercase;" oninput="this.value = this.value.toUpperCase(); updateMyEventPreview(); autoCheckGristByLabel(this.value, 'myEventGrist')">
                     </div>
                     <div style="position: relative;">
                         <label style="font-size: 11px; color: #e65100; display: block; margin-bottom: 3px; line-height: 14px; height: 14px;">👥 Participant(s)</label>
@@ -865,6 +875,8 @@
                     </div>
                 </div>
                 
+                <!-- Couleurs et gabarits : désormais portés par le type (champs conservés masqués) -->
+                <div style="display: none;">
                 <!-- Ligne couleurs -->
                 <div style="display: flex; align-items: end; gap: 10px; margin-top: 10px;">
                     <div>
@@ -900,10 +912,12 @@
                     </div>
                 </div>
                 
+                </div>
+
                 <!-- Prévisualisation -->
                 <div style="margin-top: 10px; display: flex; align-items: center; gap: 10px;">
-                    <span style="font-size: 12px; color: #666;">Prévisualisation :</span>
-                    <span id="myEventPreview" style="display: inline-block; padding: 3px 8px; border-radius: 8px; font-size: 11px; font-weight: bold; background-color: #ffeb3b; color: #000; border: 2px solid #000;">LIBELLÉ</span>
+                    <span style="font-size: 12px; color: #666; white-space: nowrap;">Prévisualisation :</span>
+                    <div id="myEventPreview" style="flex: 1; display: flex; align-items: center; flex-wrap: wrap; gap: 2px 0; padding: 8px 12px; background: #fff; border: 1px dashed #ffcc80; border-radius: 8px; font-size: 12px; color: #333;">Dates | Type | Libellé de l'événement | Localisation | Participants</div>
                 </div>
                 
                 <!-- Bouton Ajouter / Modifier en bas à droite -->
@@ -2041,6 +2055,34 @@
                 <div id="specialDatesFilesList" style="margin-top: 15px;"></div>
                 </div><!-- /specialSub2 body -->
             </div><!-- /specialSub2 wrapper -->
+
+            <!-- Paramétrage des types d'événements -->
+            <div style="background-color: #fff3e0; border-radius: 5px; margin-bottom: 15px; overflow:hidden;">
+                <div style="padding:10px 15px;cursor:pointer;display:flex;align-items:center;gap:8px;" onclick="toggleAdminSubSection('specialSub3'); if (document.getElementById('specialSub3').style.display !== 'none') evtAdminOpen();">
+                    <span id="specialSub3SubIcon">▶</span>
+                    <label style="color: #e65100; font-weight: bold; font-size: 14px; cursor:pointer; margin:0;">🏷️ Paramétrage des types d'événements</label>
+                </div>
+                <div id="specialSub3" style="display:none;padding:0 15px 15px 15px;">
+                    <p style="font-size: 12px; color: #e65100; margin: 10px 0;">
+                        Chaque événement porte un <strong>type</strong> : libellé long, libellé court (affiché sur le planning et sur la carte), icône et gabarit de couleurs (fond – texte – bordure).
+                    </p>
+                    <div id="evtTypesAdmin"><p style="color:#999;font-size:12px;">Chargement…</p></div>
+                </div>
+            </div>
+
+            <!-- Reprise des données des événements -->
+            <div style="background-color: #e3f2fd; border-radius: 5px; margin-bottom: 15px; overflow:hidden;">
+                <div style="padding:10px 15px;cursor:pointer;display:flex;align-items:center;gap:8px;" onclick="toggleAdminSubSection('specialSub4'); if (document.getElementById('specialSub4').style.display !== 'none') evtRecOpen();">
+                    <span id="specialSub4SubIcon">▶</span>
+                    <label style="color: #1565c0; font-weight: bold; font-size: 14px; cursor:pointer; margin:0;">🗂️ Reprise des données des événements (type et libellé)</label>
+                </div>
+                <div id="specialSub4" style="display:none;padding:0 15px 15px 15px;">
+                    <p style="font-size: 12px; color: #1565c0; margin: 10px 0;">
+                        Tous les événements en base : modifiez leur <strong>type</strong> et leur <strong>libellé</strong> ; les autres informations sont affichées pour repère. Les colonnes sont triables.
+                    </p>
+                    <div id="evtRecoveryAdmin"><p style="color:#999;font-size:12px;">Chargement…</p></div>
+                </div>
+            </div>
 
             <!-- Administrer des jours ou événements particuliers — SUPPRIMÉ (géré dans onglet Événements) -->
             <div style="display:none;background-color: #e3f2fd; padding: 15px; border-radius: 5px;">
@@ -10316,13 +10358,13 @@
                             if (evtPeriod !== 'FULL' && evtPeriod !== halfPeriod) continue;
                             hasContent = true;
                             const cfg = sd.config;
-                            const eventLabel = cfg.label || sd.summary || 'JF';
+                            const eventLabel = cfg.shown || cfg.label || sd.summary || 'JF';
                             const locCourt = cfg.locationLibelleCourt
                                 ? cfg.locationLibelleCourt
                                 : (cfg.eventId ? 'NON DÉFINI' : null);  // custom event sans localisation
                             const displayLabel = locCourt ? `${locCourt} | ${eventLabel}` : eventLabel;
                             const participantsInfo = cfg.participants && cfg.participants.length > 0 ? ` | 👥 ${cfg.participants.join(', ')}` : '';
-                            content += `<span title="${displayLabel}${participantsInfo}" style="display: inline-block; padding: 1px 3px; border-radius: 6px; font-size: 8px; font-weight: bold; cursor: help; align-self: center; background-color: ${cfg.bgColor || '#ffeb3b'}; color: ${cfg.textColor || '#000'}; border: 1px solid ${cfg.borderColor || '#fbc02d'}; margin-bottom: 1px;">${displayLabel}</span>`;
+                            content += `<span title="${evtTip(cfg, locCourt, displayLabel)}${participantsInfo}" style="display: inline-block; padding: 1px 3px; border-radius: 6px; font-size: 8px; font-weight: bold; cursor: help; align-self: center; background-color: ${cfg.bgColor || '#ffeb3b'}; color: ${cfg.textColor || '#000'}; border: 1px solid ${cfg.borderColor || '#fbc02d'}; margin-bottom: 1px;">${cfg.typeIcon ? uiIcon(cfg.typeIcon, 9, 'margin-right:2px;') : ''}${displayLabel}</span>`;
                         }
                     }
                     content += '</div>';
@@ -21366,7 +21408,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                     const creator = ev.creator_prenom
                         ? `<div style="color:#999;font-size:10px;">${ev.creator_prenom} ${(ev.creator_nom||'').toUpperCase()}</div>` : '';
                     popupHtml += `<div style="border:1px solid #e8eaf6;border-radius:5px;padding:7px;margin-bottom:6px;background:#fafafa;">
-                        <div style="font-weight:bold;color:#1565c0;">${ev.label}${period}</div>
+                        <div style="font-weight:bold;color:#1565c0;">${evtIconFor(ev, 13)}${evtEsc(evtShown(ev))}${period}</div>${evtHasType(ev) && ev.label && ev.label !== evtShown(ev) ? `<div style="font-size:11px;color:#555;">${evtEsc(ev.label)}</div>` : ''}
                         <div style="color:#555;margin-top:2px;">📅 ${dateRange}</div>
                         ${parts}${creator}
                     </div>`;
@@ -21525,11 +21567,11 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                 const labelSel = document.getElementById('modalMapLabelFilter');
                 if (labelSel) {
                     const currentLabelVal = labelSel.value;
-                    const uniqueLabels = [...new Set(events.map(e => e.label).filter(Boolean))].sort();
+                    const uniqueLabels = [...new Set(events.map(e => evtShown(e)).filter(Boolean))].sort();
                     labelSel.innerHTML = '<option value="">— Tous les libellés —</option>'
                         + uniqueLabels.map(l => `<option value="${l}"${l === currentLabelVal ? ' selected' : ''}>${l}</option>`).join('');
                     const labelFilter = labelSel.value;
-                    if (labelFilter) events = events.filter(e => e.label === labelFilter);
+                    if (labelFilter) events = events.filter(e => evtShown(e) === labelFilter);
                 }
 
                 if (modalMapSelectedParticipants.length > 0) {
@@ -21643,7 +21685,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                     popupHtml += `<div style="border:1px solid #e8eaf6;border-radius:5px;padding:7px;margin-bottom:6px;background:#fafafa;display:flex;gap:7px;align-items:flex-start;">
                         ${badge}
                         <div style="flex:1;">
-                            <div style="font-weight:bold;color:${badgeBg === '#ffffff' || badgeBg === '#fff' ? '#333' : badgeBg};">${ev.label}${period}</div>
+                            <div style="font-weight:bold;color:${badgeBg === '#ffffff' || badgeBg === '#fff' ? '#333' : badgeBg};">${evtIconFor(ev, 13)}${evtEsc(evtShown(ev))}${period}</div>${evtHasType(ev) && ev.label && ev.label !== evtShown(ev) ? `<div style="font-size:11px;color:#555;">${evtEsc(ev.label)}</div>` : ''}
                             <div style="color:#555;margin-top:2px;font-size:11px;">📅 ${dateRange}</div>${parts}
                         </div>
                     </div>`;
@@ -22748,12 +22790,12 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
 
                             const renderBadges = (list, suffix = '') => list.map(sd => {
                                 const cfg = sd.config;
-                                const eventLabel = cfg.label || sd.summary || 'JF';
+                                const eventLabel = cfg.shown || cfg.label || sd.summary || 'JF';
                                 const locCourt = cfg.locationLibelleCourt
                                     ? cfg.locationLibelleCourt
                                     : (cfg.eventId ? 'NON DÉFINI' : null);  // custom event sans localisation
                                 const lbl = locCourt ? `${locCourt} | ${eventLabel}` : eventLabel;
-                                return `<span title="${lbl}${suffix}" style="font-size: 7px; padding: 1px 3px; border-radius: 3px; font-weight: bold; background-color: ${cfg.bgColor || '#ffeb3b'}; color: ${cfg.textColor || '#000'}; border: 1px solid ${cfg.borderColor || '#fbc02d'};">${lbl}</span>`;
+                                return `<span title="${evtTip(cfg, locCourt, lbl)}${suffix}" style="font-size: 7px; padding: 1px 3px; border-radius: 3px; font-weight: bold; background-color: ${cfg.bgColor || '#ffeb3b'}; color: ${cfg.textColor || '#000'}; border: 1px solid ${cfg.borderColor || '#fbc02d'};">${cfg.typeIcon ? uiIcon(cfg.typeIcon, 8, 'margin-right:2px;') : ''}${lbl}</span>`;
                             }).join('');
 
                             if (fullEvents.length > 0) {
@@ -23023,7 +23065,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                             for (const sd of allSpecialDates) {
                                 if (!sd.config) continue;
                                 const cfg = sd.config;
-                                const eventLabel = cfg.label || sd.summary || 'Événement';
+                                const eventLabel = cfg.shown || cfg.label || sd.summary || 'Événement';
                                 const locCourt = cfg.locationLibelleCourt
                                     ? cfg.locationLibelleCourt
                                     : (cfg.eventId ? 'NON DÉFINI' : null);  // custom event sans localisation
@@ -23031,7 +23073,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                                 const evtPeriod = sd.period || 'FULL';
                                 const periodSuffix = evtPeriod === 'AM' ? ' ☀️' : evtPeriod === 'PM' ? ' 🌙' : '';
                                 const participantsTooltip = cfg.participants && cfg.participants.length > 0 ? `\n👥 ${cfg.participants.join(', ')}` : '';
-                                eventsHTML += `<div title="${displayLabel}${participantsTooltip}" style="font-size: 9px; padding: 3px 5px; border-radius: 4px; font-weight: bold; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: help; background-color: ${cfg.bgColor || '#ffeb3b'}; color: ${cfg.textColor || '#000'}; border: 1px solid ${cfg.borderColor || '#fbc02d'};">${displayLabel}${periodSuffix}</div>`;
+                                eventsHTML += `<div title="${evtTip(cfg, locCourt, displayLabel)}${participantsTooltip}" style="font-size: 9px; padding: 3px 5px; border-radius: 4px; font-weight: bold; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: help; background-color: ${cfg.bgColor || '#ffeb3b'}; color: ${cfg.textColor || '#000'}; border: 1px solid ${cfg.borderColor || '#fbc02d'};">${cfg.typeIcon ? uiIcon(cfg.typeIcon, 11, 'margin-right:3px;') : ''}${displayLabel}${periodSuffix}</div>`;
                             }
                             eventsHTML += '</div>';
                         }
@@ -25282,6 +25324,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             document.getElementById('myEventBgColor').value = '#ffeb3b';
             document.getElementById('myEventTextColor').value = '#000000';
             document.getElementById('myEventBorderColor').value = '#fbc02d';
+            if (typeof evtFillTypeSelect === 'function') evtFillTypeSelect('');
             updateMyEventPreview();
             
             // Reset période
@@ -25453,11 +25496,11 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
         function exportMyEventsCSV() {
             const filtered = _getFilteredMyEvents();
             if (!filtered.length) { alert('Aucun événement à exporter.'); return; }
-            const headers = ['Libellé','Date début','Date fin','Localisation','Participants internes','Participants externes','Description'];
+            const headers = ['Type','Libellé','Date début','Date fin','Localisation','Participants internes','Participants externes','Description'];
             const rows = filtered.map(ev => {
                 const internal = (ev.participants || []).map(p => `${p.prenom||''} ${p.nom||''}`.trim()).join('; ');
                 const external = (ev.external_participants || []).map(p => p.email || `${p.prenom||''} ${p.nom||''}`.trim()).join('; ');
-                return [ev.label||'', ev.start_date||'', ev.end_date||'', ev.location||'', internal, external, (ev.description||'').replace(/\n/g,' ')].map(v => `"${String(v).replace(/"/g,'""')}"`).join(',');
+                return [ev.type_long||'', ev.label||'', ev.start_date||'', ev.end_date||'', ev.location||'', internal, external, (ev.description||'').replace(/\n/g,' ')].map(v => `"${String(v).replace(/"/g,'""')}"`).join(',');
             });
             const csv = [headers.join(','), ...rows].join('\n');
             const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
@@ -25471,11 +25514,11 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             const rows = filtered.map(ev => {
                 const internal = (ev.participants || []).map(p => `${p.prenom||''} ${p.nom||''}`.trim()).filter(Boolean).join(', ');
                 const external = (ev.external_participants || []).map(p => p.email || `${p.prenom||''} ${p.nom||''}`.trim()).filter(Boolean).join(', ');
-                const tpl = eventTemplates[ev.label] || {};
-                const badge = tpl.label ? `<span style="background:${tpl.bg||'#607d8b'};color:${tpl.text||'#fff'};padding:2px 8px;border-radius:4px;font-size:11px;">${tpl.label}</span>` : (ev.label||'');
-                return `<tr><td>${badge}</td><td>${ev.start_date||''}</td><td>${ev.end_date||''}</td><td>${ev.location||''}</td><td>${internal}</td><td>${external}</td><td>${(ev.description||'').replace(/\n/g,'<br>')}</td></tr>`;
+                let cfg = {}; try { cfg = typeof ev.config === 'string' ? JSON.parse(ev.config || '{}') : (ev.config || {}); } catch (e) { cfg = {}; }
+                const badge = evtHasType(ev) ? `<span style="background:${cfg.bgColor||'#607d8b'};color:${cfg.textColor||'#fff'};padding:2px 8px;border-radius:4px;font-size:11px;">${evtEsc(evtShown(ev))}</span>` : '';
+                return `<tr><td>${badge}${evtHasType(ev) ? ' ' + evtEsc(ev.type_long) : ''}</td><td>${evtEsc(ev.label||'')}</td><td>${ev.start_date||''}</td><td>${ev.end_date||''}</td><td>${ev.location||''}</td><td>${internal}</td><td>${external}</td><td>${(ev.description||'').replace(/\n/g,'<br>')}</td></tr>`;
             }).join('');
-            const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Événements exportés</title><style>body{font-family:Arial,sans-serif;font-size:12px;padding:20px;}table{border-collapse:collapse;width:100%;}th{background:#1565c0;color:#fff;padding:8px;text-align:left;}td{border:1px solid #ddd;padding:6px;}tr:nth-child(even){background:#f5f5f5;}</style></head><body><h2>Événements — export du ${new Date().toLocaleDateString('fr-FR')}</h2><table><thead><tr><th>Libellé</th><th>Date début</th><th>Date fin</th><th>Localisation</th><th>Participants internes</th><th>Participants externes</th><th>Description</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
+            const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Événements exportés</title><style>body{font-family:Arial,sans-serif;font-size:12px;padding:20px;}table{border-collapse:collapse;width:100%;}th{background:#1565c0;color:#fff;padding:8px;text-align:left;}td{border:1px solid #ddd;padding:6px;}tr:nth-child(even){background:#f5f5f5;}</style></head><body><h2>Événements — export du ${new Date().toLocaleDateString('fr-FR')}</h2><table><thead><tr><th>Type</th><th>Libellé</th><th>Date début</th><th>Date fin</th><th>Localisation</th><th>Participants internes</th><th>Participants externes</th><th>Description</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
             const blob = new Blob([html], {type:'text/html;charset=utf-8'});
             const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
             a.download = `evenements_${new Date().toISOString().slice(0,10)}.html`; a.click();
@@ -25733,7 +25776,8 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             const locMy = event.location_id
                 ? (allLocations.find(l => l.id === event.location_id)?.libelle_court || 'NON DÉFINI')
                 : null;
-            const myEventDisplayLabel = locMy ? `${locMy} | ${event.label}` : event.label;
+            const myEventShown = evtShown(event);
+            const myEventDisplayLabel = locMy ? `${locMy} | ${myEventShown}` : myEventShown;
 
             return `<div style="background: white; padding: 12px; border-radius: 6px; margin-bottom: 6px; border-left: 4px solid ${config.borderColor || '#fbc02d'}; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
@@ -25742,7 +25786,8 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                             <span style="display: inline-block; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: bold; 
                                 background-color: ${config.bgColor || '#ffeb3b'}; 
                                 color: ${config.textColor || '#000'}; 
-                                border: 2px solid ${config.borderColor || '#fbc02d'};">${eventIconHtml(event.label)}${myEventDisplayLabel}</span>
+                                border: 2px solid ${config.borderColor || '#fbc02d'};">${evtHasType(event) ? evtIconFor(event) : eventIconHtml(event.label)}${myEventDisplayLabel}</span>
+                            ${evtHasType(event) && event.label && event.label !== myEventShown ? `<span style="font-size:12px;color:#444;" title="Type : ${evtEsc(event.type_long)}">${evtEsc(event.label)}</span>` : ''}
                             ${creatorInfo}
                         </div>
                         <div style="font-size: 11px; color: #666;">
@@ -25788,6 +25833,8 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             const borderColor = document.getElementById('myEventBorderColor').value;
             const location_id = document.getElementById('myEventLocationId')?.value || null;
             
+            const type_id = document.getElementById('myEventTypeId')?.value || '';
+            if (!type_id) { alert("Veuillez choisir un type d'événement"); return; }
             if (!startDate) { alert('Veuillez sélectionner une date de début'); return; }
             if (!label) { alert('Veuillez saisir un libellé'); return; }
             
@@ -25815,6 +25862,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                         startDate,
                         endDate: finalEndDate,
                         label,
+                        type_id: Number(type_id),
                         config: { bgColor, textColor, borderColor },
                         participants: myEventSelectedParticipants.filter(p => !p.external).map(p => p.id),
                         external_participants: myEventSelectedParticipants.filter(p => p.external).map(p => ({nom:p.nom,prenom:p.prenom,email:p.email})),
@@ -25858,6 +25906,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             document.getElementById('myEventBgColor').value = config.bgColor || '#ffeb3b';
             document.getElementById('myEventTextColor').value = config.textColor || '#000000';
             document.getElementById('myEventBorderColor').value = config.borderColor || '#fbc02d';
+            if (typeof evtFillTypeSelect === 'function') evtFillTypeSelect(event.type_id || '');
             updateMyEventPreview();
 
             // Pré-remplir la période
@@ -25957,6 +26006,7 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                 startDate,
                 endDate: finalEndDate,
                 label,
+                type_id: document.getElementById('myEventTypeId')?.value ? Number(document.getElementById('myEventTypeId').value) : undefined,
                 config: { bgColor, textColor, borderColor },
                 participants: myEventSelectedParticipants.filter(p => !p.external).map(p => p.id),
                 external_participants: myEventSelectedParticipants.filter(p => p.external).map(p => ({nom:p.nom,prenom:p.prenom,email:p.email})),
