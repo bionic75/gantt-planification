@@ -198,7 +198,13 @@ async function tripRenderMap() {
     const sas = (trip.meta ? trip.meta.locations : []).filter(l => l.latitude != null && l.longitude != null && (!trip.filters.loc || String(l.id) === String(trip.filters.loc)));
     sas.forEach(l => {
         const mk = L.marker([l.latitude, l.longitude], { icon: L.divIcon({ className: '', html: `<div class="tr-sas">SAMU-SAS</div>`, iconSize: [80, 24], iconAnchor: [40, 12] }), zIndexOffset: 500 }).addTo(trip.layer);
-        mk.bindPopup(`<b>${tEsc(l.libelle_court)}</b><br><span style="color:#667;">${tEsc(l.libelle_long || '')}</span>${l.adresse ? '<br>' + tEsc(l.adresse) : ''}<br><a href="#" onclick="tripSetFilter('loc','${l.id}');return false;">Voir ses adresses (${l.n_poi || 0})</a>`);
+        // Clic sur la vignette d'un SAMU-SAS : la carte se centre dessus et affiche tous ses lieux ; un second clic ouvre ses coordonnées
+        mk.bindTooltip(tEsc(l.libelle_court) + (l.n_poi ? ` · ${l.n_poi} lieu${l.n_poi > 1 ? 'x' : ''}` : ' · aucun lieu'), { direction: 'top', offset: [0, -14] });
+        mk.bindPopup(`<b>${tEsc(l.libelle_court)}</b><br><span style="color:#667;">${tEsc(l.libelle_long || '')}</span>${l.adresse ? '<br>' + tEsc(l.adresse) : ''}<br><a href="#" onclick="tripSetFilter('loc','');return false;">Afficher tous les SAMU-SAS</a>`);
+        mk.on('click', e => {
+            if (String(trip.filters.loc) === String(l.id)) return; // déjà sélectionné : le popup s'ouvre normalement
+            mk.closePopup(); tripSetFilter('loc', String(l.id));
+        });
         pts.push([l.latitude, l.longitude]);
     });
     trip.pois.forEach(p => {
