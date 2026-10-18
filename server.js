@@ -4582,11 +4582,30 @@ async function asanaFetchProject(token, gid) {
     return { projectName: proj.name, tasks };
 }
 
+// Projets Asana du périmètre : ceux de l'équipe choisie dans la configuration, à défaut tous ceux de l'espace de travail
+async function asanaProjectList(token) {
+    const team = await asanaSetting('asana_team_gid');
+    if (team) return await asanaPaged(token, `/teams/${encodeURIComponent(team)}/projects?archived=false&opt_fields=name,permalink_url`);
+    const ws = await asanaSetting('asana_workspace_gid');
+    if (!ws) throw Object.assign(new Error("Choisissez d'abord l'espace de travail Asana"), { status: 400 });
+    return await asanaPaged(token, `/projects?workspace=${encodeURIComponent(ws)}&archived=false&opt_fields=name,permalink_url`);
+}
+app.get('/api/affectation/asana/teams', requireAdmin, async (req, res) => {
+    try {
+        const ws = await asanaSetting('asana_workspace_gid');
+        if (!ws) return res.status(400).json({ error: "Choisissez d'abord l'espace de travail Asana" });
+        let teams = [];
+        try { teams = await asanaPaged(await asanaToken(), `/organizations/${encodeURIComponent(ws)}/teams?opt_fields=name`); }
+        catch (e) { return res.status(e.status || 502).json({ error: "Équipes indisponibles pour cet espace de travail (" + e.message + ")" }); }
+        res.json({ teams: teams.map(t => ({ gid: t.gid, name: t.name })).sort((a, b) => a.name.localeCompare(b.name, 'fr')) });
+    } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+});
 app.get('/api/affectation/asana/config', requireAdmin, async (req, res) => {
     try {
         res.json({
             tokenSet: !!(await asanaSetting('asana_token_enc')),
             workspaceGid: await asanaSetting('asana_workspace_gid') || '', workspaceName: await asanaSetting('asana_workspace_name') || '',
+            teamGid: await asanaSetting('asana_team_gid') || '', teamName: await asanaSetting('asana_team_name') || '',
             nameFilter: await asanaSetting('asana_name_filter') || '\\[SAMU\\s*[^\\]]+\\]'
         });
     } catch (e) { res.status(500).json({ error: e.message }); }
@@ -4595,6 +4614,7 @@ app.put('/api/affectation/asana/config', requireAdmin, async (req, res) => {
     try {
         const b = req.body || {};
         if (typeof b.token === 'string' && b.token.trim()) await asanaPut('asana_token_enc', asanaEncrypt(b.token.trim()));
+        if (typeof b.teamGid === 'string') { if (b.teamGid.trim()) { await asanaPut('asana_team_gid', b.teamGid.trim()); await asanaPut('asana_team_name', String(b.teamName || '').trim()); } else { await dbRun("DELETE FROM settings WHERE key IN ('asana_team_gid', 'asana_team_name')"); } }
         if (typeof b.workspaceGid === 'string') { await asanaPut('asana_workspace_gid', b.workspaceGid.trim()); await asanaPut('asana_workspace_name', String(b.workspaceName || '').trim()); }
         if (typeof b.nameFilter === 'string' && b.nameFilter.trim()) {
             try { new RegExp(b.nameFilter, 'i'); } catch (e) { return res.status(400).json({ error: 'Filtre de nom invalide (expression régulière)' }); }
@@ -4620,10 +4640,8 @@ app.post('/api/affectation/asana/test', requireAdmin, async (req, res) => {
 app.get('/api/affectation/asana/projects', requireAdmin, async (req, res) => {
     try {
         const token = await asanaToken();
-        const ws = await asanaSetting('asana_workspace_gid');
-        if (!ws) return res.status(400).json({ error: "Choisissez d'abord l'espace de travail Asana" });
         const re = new RegExp(await asanaSetting('asana_name_filter') || '\\[SAMU\\s*[^\\]]+\\]', 'i');
-        const list = (await asanaPaged(token, `/projects?workspace=${encodeURIComponent(ws)}&archived=false&opt_fields=name,permalink_url`)).filter(p => re.test(p.name));
+        const list = (await asanaProjectList(token)).filter(p => re.test(p.name));
         let links = {};
         try { links = JSON.parse(await asanaSetting('asana_links') || '{}'); } catch (e) { links = {}; }
         const deployments = await dbAll('SELECT id, samu_name FROM affectation_projects ORDER BY samu_name');
@@ -4683,10 +4701,8 @@ app.post('/api/affectation/asana/apply', requireAdmin, async (req, res) => {
 
 // Rafraîchit un déploiement depuis le projet Asana qui lui correspond (appairage manuel, sinon numéro de SAMU) : seules les rubriques nouvelles ou modifiées sont reprises
 async function asanaListSamuProjects(token) {
-    const ws = await asanaSetting('asana_workspace_gid');
-    if (!ws) throw Object.assign(new Error("Choisissez d'abord l'espace de travail Asana (Administration › Connexion Asana)"), { status: 400 });
     const re = new RegExp(await asanaSetting('asana_name_filter') || '\\[SAMU\\s*[^\\]]+\\]', 'i');
-    const list = (await asanaPaged(token, `/projects?workspace=${encodeURIComponent(ws)}&archived=false&opt_fields=name,permalink_url`)).filter(p => re.test(p.name));
+    const list = (await asanaProjectList(token)).filter(p => re.test(p.name));
     let links = {};
     try { links = JSON.parse(await asanaSetting('asana_links') || '{}'); } catch (e) { links = {}; }
     return { list: list.sort((a, b) => a.name.localeCompare(b.name, 'fr', { numeric: true })), links };
