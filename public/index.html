@@ -1,4 +1,4 @@
-<!-- v1.17.22 -->
+<!-- v1.17.23 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -500,18 +500,18 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.17.22">
-    <link rel="stylesheet" href="/darkmode.css?v=1.17.22">
-    <link rel="stylesheet" href="/login.css?v=1.17.22">
-    <link rel="stylesheet" href="/ui-polish.css?v=1.17.22">
-    <script src="/darkmode.js?v=1.17.22"></script>
-    <script src="/themes.js?v=1.17.22" defer></script>
-    <script src="/layout-fix.js?v=1.17.22" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.17.23">
+    <link rel="stylesheet" href="/darkmode.css?v=1.17.23">
+    <link rel="stylesheet" href="/login.css?v=1.17.23">
+    <link rel="stylesheet" href="/ui-polish.css?v=1.17.23">
+    <script src="/darkmode.js?v=1.17.23"></script>
+    <script src="/themes.js?v=1.17.23" defer></script>
+    <script src="/layout-fix.js?v=1.17.23" defer></script>
     <script>window.UI_ICONS_KEEP_ALERT = true;</script>
-    <script src="/ui-icons.js?v=1.17.22" defer></script>
-    <script src="/affectation-app.js?v=1.17.22" defer></script>
-    <script src="/event-types.js?v=1.17.22" defer></script>
-    <script src="/map-timelapse.js?v=1.17.22" defer></script>
+    <script src="/ui-icons.js?v=1.17.23" defer></script>
+    <script src="/affectation-app.js?v=1.17.23" defer></script>
+    <script src="/event-types.js?v=1.17.23" defer></script>
+    <script src="/map-timelapse.js?v=1.17.23" defer></script>
 </head>
 <body>
     <div class="container">
@@ -21580,15 +21580,16 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                 let events = (await evRes.json()).events || [];
                 if (locFilter) events = events.filter(e => e.location_id == locFilter);
 
-                // Peupler le select de libellés avec les valeurs uniques
+                // Filtre par type d'événement (libellé long du type ; « Sans type » pour les événements non repris)
                 const labelSel = document.getElementById('modalMapLabelFilter');
                 if (labelSel) {
+                    const typeOf = e => e.type_long || 'Sans type';
                     const currentLabelVal = labelSel.value;
-                    const uniqueLabels = [...new Set(events.map(e => evtShown(e)).filter(Boolean))].sort();
-                    labelSel.innerHTML = '<option value="">— Tous les libellés —</option>'
-                        + uniqueLabels.map(l => `<option value="${l}"${l === currentLabelVal ? ' selected' : ''}>${l}</option>`).join('');
+                    const uniqueTypes = [...new Set(events.map(typeOf))].sort((a, b) => a.localeCompare(b, 'fr'));
+                    labelSel.innerHTML = '<option value="">— Tous les types —</option>'
+                        + uniqueTypes.map(l => `<option value="${evtEsc(l)}"${l === currentLabelVal ? ' selected' : ''}>${evtEsc(l)}</option>`).join('');
                     const labelFilter = labelSel.value;
-                    if (labelFilter) events = events.filter(e => evtShown(e) === labelFilter);
+                    if (labelFilter) events = events.filter(e => typeOf(e) === labelFilter);
                 }
 
                 if (modalMapSelectedParticipants.length > 0) {
@@ -28679,9 +28680,9 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
                     <div id="modalMapParticipantDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #ddd;border-radius:0 0 8px 8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);max-height:180px;overflow-y:auto;z-index:11200;"></div>
                 </div>
                 <div>
-                    <label style="font-size:12px;color:#555;display:block;margin-bottom:4px;">Libellé</label>
+                    <label style="font-size:12px;color:#555;display:block;margin-bottom:4px;">Type</label>
                     <select id="modalMapLabelFilter" style="padding:7px;border:1px solid #9fa8da;border-radius:4px;min-width:180px;">
-                        <option value="">— Tous les libellés —</option>
+                        <option value="">— Tous les types —</option>
                     </select>
                 </div>
                 <div style="display:flex;gap:8px;align-items:flex-end;">
