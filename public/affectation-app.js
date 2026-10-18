@@ -2025,7 +2025,10 @@
         const full = asg.selected.size >= asg.needed;
         document.getElementById('affAssignList').innerHTML = list.length ? list.map(r => {
             const on = asg.selected.has(r.id);
-            return `<label class="${!on && full ? 'off' : ''}"><input type="checkbox" value="${r.id}" ${on ? 'checked' : ''} ${!on && full ? 'disabled' : ''} onchange="AffectationApp.assignToggle(this)"><span style="flex:1;"><b>${esc((r.nom || '').toUpperCase())}</b> ${esc(r.prenom || '')}${r.fonction ? ` <span class="aff-muted">— ${esc(r.fonction)}</span>` : ''}${availBadges(av[r.id])}</span></label>`;
+            // Affecté(e) à un autre SAMU sur la période : grisé et non affectable tant qu'il n'est pas désaffecté de cet autre SAMU
+            const elsewhere = !on && (av[r.id] || {}).other > 0;
+            const off = !on && (full || elsewhere);
+            return `<label class="${off ? 'off' : ''}" ${elsewhere ? `title="Déjà affecté(e) à ${esc(((av[r.id] || {}).others || []).join(', ') || 'un autre SAMU')} sur cette période : désaffectez-le d'abord de cet autre SAMU pour pouvoir l'affecter ici"` : ''}><input type="checkbox" value="${r.id}" ${on ? 'checked' : ''} ${off ? 'disabled' : ''} onchange="AffectationApp.assignToggle(this)"><span style="flex:1;"><b>${esc((r.nom || '').toUpperCase())}</b> ${esc(r.prenom || '')}${r.fonction ? ` <span class="aff-muted">— ${esc(r.fonction)}</span>` : ''}${availBadges(av[r.id])}${elsewhere ? `<div style="font-size:11px;color:#b26a00;margin-top:2px;">🔒 Affecté(e) à ${esc(((av[r.id] || {}).others || []).join(', ') || 'un autre SAMU')} : à désaffecter d'abord</div>` : ''}</span></label>`;
         }).join('') : '<div style="padding:14px;" class="aff-muted">Aucune ressource</div>';
         document.getElementById('affAssignInfo').innerHTML = `${esc(asg.info)}<br><b>${asg.selected.size} / ${asg.needed}</b> ressource(s) affectée(s)`;
     }
@@ -2306,11 +2309,23 @@
         closeAssign() { document.getElementById('affAssignModal').classList.remove('active'); },
         async saveAssign() {
             try {
+                const prev = (asg.project.assignments || {})[asg.stage] || [];
                 const r = await api(`/affectation/projects/${asg.project.id}/assignments/${asg.stage}`, { method: 'PUT', body: JSON.stringify({ resource_ids: [...asg.selected] }) });
                 asg.project.assignments = asg.project.assignments || {};
                 asg.project.assignments[asg.stage] = r.resource_ids;
                 AffectationApp.closeAssign();
                 renderPlanning();
+                // Désaffectation : proposition de remettre les experts retirés en « 2 - Disponible » / « 2 - En attente d'affectation »
+                const removed = prev.filter(x => !r.resource_ids.includes(x));
+                if (removed.length) {
+                    const names = removed.map(id => { const q = (plan.resources || []).find(z => z.id === id); return q ? `${q.prenom || ''} ${(q.nom || '').toUpperCase()}`.trim() : `#${id}`; }).join(', ');
+                    if (confirm(`Désaffectation : ${names}.\n\nLes remettre dans leur planification en « 2 - Disponible » / « 2 - En attente d'affectation » (localisation effacée) sur la période de l'activité, et les retirer de l'événement lié ?\n\nIls redeviendront affectables sur un autre SAMU.`)) {
+                        try {
+                            const rl = await api(`/affectation/projects/${asg.project.id}/assignments/${asg.stage}/release`, { method: 'POST', body: JSON.stringify({ resource_ids: removed }) });
+                            const t = document.createElement('div'); t.className = 'aff-toast'; t.textContent = `${rl.planningReset} demi-journée(s) remise(s) en « Disponible / En attente d'affectation » ; ${rl.removedFromEvents} participation(s) retirée(s) des événements.`; document.body.appendChild(t); setTimeout(() => t.remove(), 6000);
+                        } catch (e2) { alert(e2.message); }
+                    }
+                }
                 if (r.resource_ids.length) AffectationApp.openSync(asg.project.id, asg.stage, true);
             } catch (e) { document.getElementById('affAssignError').textContent = e.message; }
         },
