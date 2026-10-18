@@ -634,7 +634,7 @@ tr:nth-child(even) td { background: #f9f9f9; }
   <h2>📍 SAMU-SAS TripAdVisor</h2>
   <p>Onglet ouvert à tous les profils (réglable dans Administration › Configuration de l'accès aux onglets) : les <strong>bonnes adresses</strong> — <strong>Hébergement</strong>, <strong>Restaurant</strong> et <strong>Bar</strong> — partagées par les équipes autour de chaque SAMU-SAS.</p>
   <ul>
-    <li><strong>Carte</strong> : les SAMU-SAS (pastilles portant leur nom, par exemple « SAMU-SAS 56 ») et les adresses (épingles colorées par typologie) ; un clic sur la pastille d'un SAMU-SAS sélectionne ce SAMU-SAS : la carte se <strong>centre sur lui et affiche toutes les épingles de ses lieux</strong> (un second clic ouvre ses coordonnées et le lien « Afficher tous les SAMU-SAS ») ; un clic sur une épingle ouvre sa fiche, le bouton « Carte » d'une fiche centre la carte dessus. La distance au SAMU-SAS est affichée sur chaque fiche.</li>
+    <li><strong>Carte</strong> (à l'ouverture, centrée sur la <strong>France métropolitaine</strong> tant qu'aucun filtre n'est appliqué) : les SAMU-SAS (pastilles portant leur nom, par exemple « SAMU-SAS 56 ») et les adresses (épingles colorées par typologie) ; un clic sur la pastille d'un SAMU-SAS sélectionne ce SAMU-SAS : la carte se <strong>centre sur lui et affiche toutes les épingles de ses lieux</strong> (un second clic ouvre ses coordonnées et le lien « Afficher tous les SAMU-SAS ») ; un clic sur une épingle ouvre sa fiche, le bouton « Carte » d'une fiche centre la carte dessus. La distance au SAMU-SAS est affichée sur chaque fiche.</li>
     <li><strong>Recherche et filtres</strong> : par SAMU-SAS, par typologie, par créateur, et recherche libre (nom, adresse, commentaire). Choisir un SAMU-SAS affiche <strong>tous ses lieux</strong> (les autres filtres sont remis à zéro) ; les boutons de typologie indiquent le nombre de lieux de chaque type.</li>
     <li><strong>Ajouter un lieu</strong> : SAMU-SAS de rattachement, typologie, nom, adresse, téléphone, site web, commentaire du créateur et sa note. Dès que vous tapez le nom (3 lettres), les lieux connus de la <strong>base de référence OpenStreetMap</strong> proches du SAMU-SAS sont proposés : un clic complète l'adresse, la position, la typologie, le téléphone et le site. Sans suggestion, l'adresse saisie est géolocalisée à l'enregistrement.</li>
     <li><strong>Notes et commentaires</strong> : chaque utilisateur attribue une note de 1 à 5 étoiles (modifiable, retirable) ; la <strong>note moyenne</strong> est calculée et affichée. Tout le monde peut ajouter des commentaires. Tout est horodaté et signé (qui, quand, « modifié le… »).</li>
@@ -684,11 +684,22 @@ tr:nth-child(even) td { background: #f9f9f9; }
   <h2>🆕 Notes de version</h2>
   <p>Historique des évolutions de la Plateforme de Planification ANS.</p>
 
+  <!-- v1.17.33 -->
+  <div class="card card-green" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v1.17.33</strong>
+      <span class="badge badge-current">Actuelle</span>
+      <span style="color:#888; font-size:13px;">Octobre 2026</span>
+    </div>
+    <ul>
+      <li>🗺️ <strong>SAMU-SAS TripAdVisor</strong> : à l'ouverture (et sans filtre), la carte est centrée sur la France métropolitaine.</li>
+    </ul>
+  </div>
+
   <!-- v1.17.32 -->
   <div class="card card-green" style="margin-bottom:16px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
       <strong style="font-size:16px;">v1.17.32</strong>
-      <span class="badge badge-current">Actuelle</span>
       <span style="color:#888; font-size:13px;">Octobre 2026</span>
     </div>
     <ul>

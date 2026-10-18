@@ -18,6 +18,7 @@ const TRIP_CATS = {
     restaurant: { label: 'Restaurant', icon: 'utensils', color: '#e65100' },
     bar: { label: 'Bar', icon: 'beer', color: '#1565c0' }
 };
+const TRIP_FRANCE = [[41.2, -5.3], [51.2, 9.7]]; // France métropolitaine (Corse incluse)
 const trip = { meta: null, pois: [], filters: { loc: '', cat: '', creator: '', q: '' }, map: null, layer: null, markers: {}, built: false, detail: {}, isAdmin: false, userId: null, formState: null, timer: null };
 const tEsc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const tFmt = d => { // horodatage SQLite (UTC) → JJ/MM/AAAA HH:MM, heure locale
@@ -189,7 +190,7 @@ async function tripRenderMap() {
     try { await tripEnsureLeaflet(); } catch (e) { const m = document.getElementById('trMap'); if (m) m.innerHTML = '<p style="padding:20px;color:#8a97a8;">Carte indisponible (connexion aux fonds de carte impossible).</p>'; return; }
     const el = document.getElementById('trMap'); if (!el) return;
     if (!trip.map || trip.map._container !== el) {
-        trip.map = L.map(el, { zoomControl: true }).setView([46.6, 2.3], 6);
+        trip.map = L.map(el, { zoomControl: true }).fitBounds(TRIP_FRANCE);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(trip.map);
         trip.layer = L.layerGroup().addTo(trip.map);
     }
@@ -217,7 +218,14 @@ async function tripRenderMap() {
         mk.on('click', () => tripScrollTo(p.id, true));
         trip.markers[p.id] = mk; pts.push([p.latitude, p.longitude]);
     });
-    setTimeout(() => { trip.map.invalidateSize(); if (pts.length === 1) trip.map.setView(pts[0], 14); else if (pts.length) trip.map.fitBounds(pts, { padding: [40, 40], maxZoom: 15 }); }, 80);
+    // Sans filtre : vue d'ensemble de la France métropolitaine ; avec un filtre : cadrage sur les points affichés
+    const f = trip.filters, noFilter = !f.loc && !f.cat && !f.creator && !f.q.trim();
+    setTimeout(() => {
+        trip.map.invalidateSize();
+        if (noFilter || !pts.length) trip.map.fitBounds(TRIP_FRANCE, { padding: [8, 8] });
+        else if (pts.length === 1) trip.map.setView(pts[0], 14);
+        else trip.map.fitBounds(pts, { padding: [40, 40], maxZoom: 15 });
+    }, 80);
 }
 function tripFocus(id) {
     const mk = trip.markers[id], el = document.getElementById('trMap');
