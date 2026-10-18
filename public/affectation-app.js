@@ -340,6 +340,15 @@
             <div id="affAsanaProjects"></div>
         </section>
 
+        <section class="aff-card" id="affCardStageTypes">
+            <header class="aff-card-head">
+                <span class="aff-card-title">${svg('asanasync', 'aff-ico')}Correspondance activités Asana ↔ types d'événements</span>
+                <span class="aff-muted" style="font-size:12px;">Type des événements créés par la synchronisation vers la planification</span>
+            </header>
+            <p class="aff-muted" style="font-size:12px;margin:0 0 10px;">Chaque activité reprise d'Asana (étapes avec ressources) est reliée à un <b>type d'événement</b>. Lors de la synchronisation d'une étape vers la planification, l'événement créé reçoit ce type : icône, libellé court et couleurs du type (paramétrés dans l'application principale › Administration › Paramétrage des types d'événements).</p>
+            <div id="affStageTypes"><p class="aff-muted">Chargement…</p></div>
+        </section>
+
         <section class="aff-card" id="affCardTemplate">
             <header class="aff-card-head">
                 <span class="aff-card-title">${svg('print', 'aff-ico')}Modèle PowerPoint d'export</span>
@@ -701,6 +710,29 @@
         AffectationApp.fnPreview();
     }
 
+    // ---- Correspondance activités Asana ↔ types d'événements ----
+    const stageTypes = { data: null };
+    async function loadStageTypes() {
+        const box = document.getElementById('affStageTypes');
+        if (!box) return;
+        try { stageTypes.data = await api('/affectation/stage-event-types'); renderStageTypes(); }
+        catch (e) { box.innerHTML = `<p class="aff-error">${esc(e.message)}</p>`; }
+    }
+    function renderStageTypes() {
+        const d = stageTypes.data, box = document.getElementById('affStageTypes');
+        if (!d || !box) return;
+        const chip = t => typeof evtChip === 'function' && t ? evtChip(t, true) : '';
+        box.innerHTML = `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead><tr style="text-align:left;color:#6b7a8d;font-size:11px;"><th style="padding:6px 8px;">Activité reprise d'Asana</th><th style="padding:6px 8px;min-width:300px;">Type d'événement</th><th style="padding:6px 8px;">Aperçu (planning / carte)</th></tr></thead><tbody>
+            ${d.stages.map(st => {
+                const cur = d.types.find(t => t.id === d.mapping[st.key]);
+                return `<tr style="border-top:1px solid #eef1f6;"><td style="padding:8px;"><b>${esc(st.label)}</b><div class="aff-muted" style="font-size:11px;">${esc(st.rule)}</div></td>
+                    <td style="padding:8px;"><select data-stage="${st.key}" onchange="AffectationApp.stageTypeSet(this)" style="width:100%;padding:6px;">${d.types.map(t => `<option value="${t.id}" ${cur && cur.id === t.id ? 'selected' : ''}>${esc(t.label_long)}${t.label_short ? ' (' + esc(t.label_short) + ')' : ''}</option>`).join('')}</select></td>
+                    <td style="padding:8px;" id="affStChip_${st.key}">${chip(cur)}</td></tr>`;
+            }).join('')}</tbody></table></div>
+            <div class="aff-actions" style="margin-top:10px;"><span id="affStageTypesMsg" class="aff-muted"></span></div>`;
+    }
+
     // ---- Tâches du projet Asana d'un déploiement : consultation des échéances et remplacement de la donnée reprise ----
     const asanaT = { id: null, data: null, ov: {} };
     const aFr = d => d ? d.split('-').reverse().join('/') : '';
@@ -767,6 +799,7 @@
 
     async function loadAdmin() {
         setTimeout(loadTpl, 0);
+        setTimeout(loadStageTypes, 0);
         setTimeout(() => AffectationApp.asanaLoadCfg && AffectationApp.asanaLoadCfg(), 0);
         try {
             const [cfg, proj, users, locs] = await Promise.all([
@@ -2167,6 +2200,14 @@
                 if (r.updated.length) { await Promise.all([loadAdmin(), state.loaded ? loadPlanning() : null]); }
             } catch (e) { toast(esc(e.message), true); }
             finally { btn.classList.remove('aff-busy'); btn.lastChild.textContent = old; }
+        },
+        async stageTypeSet(sel) {
+            const d = stageTypes.data, msg = document.getElementById('affStageTypesMsg');
+            d.mapping[sel.dataset.stage] = Number(sel.value);
+            const t = d.types.find(x => x.id === Number(sel.value));
+            const c = document.getElementById('affStChip_' + sel.dataset.stage); if (c && typeof evtChip === 'function') c.innerHTML = evtChip(t, true);
+            try { const r = await api('/affectation/stage-event-types', { method: 'PUT', body: JSON.stringify({ mapping: d.mapping }) }); d.mapping = r.mapping; msg.style.color = '#1b7f3b'; msg.textContent = 'Correspondance enregistrée.'; setTimeout(() => { if (msg.textContent === 'Correspondance enregistrée.') msg.textContent = ''; }, 3000); }
+            catch (e) { msg.style.color = '#b3261e'; msg.textContent = e.message; }
         },
         async asanaTasks(id) {
             asanaT.id = id; asanaT.data = null; asanaT.ov = {};
