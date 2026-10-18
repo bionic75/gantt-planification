@@ -8824,7 +8824,9 @@ app.get('/api/poi/meta', requireAuth, async (req, res) => {
     try {
         const locations = await dbAll(`SELECT l.id, l.libelle_court, l.libelle_long, l.adresse, l.latitude, l.longitude, (SELECT COUNT(*) FROM poi p WHERE p.location_id = l.id) AS n_poi FROM locations l ORDER BY l.libelle_court COLLATE NOCASE`);
         const creators = await dbAll(`SELECT DISTINCT u.id, u.nom, u.prenom FROM poi p JOIN users u ON u.id = p.created_by ORDER BY u.nom, u.prenom`);
-        res.json({ locations, creators: creators.map(c => ({ id: c.id, name: poiName(c.prenom, c.nom) })), categories: POI_CATS });
+        const counts = {};
+        (await dbAll('SELECT location_id, category, COUNT(*) AS n FROM poi GROUP BY location_id, category')).forEach(r => { (counts[r.location_id] = counts[r.location_id] || {})[r.category] = r.n; });
+        res.json({ locations, creators: creators.map(c => ({ id: c.id, name: poiName(c.prenom, c.nom) })), categories: POI_CATS, counts });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 async function poiRows(req, where, params) {

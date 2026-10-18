@@ -107,14 +107,21 @@ function tripBuild() {
 function tripRenderFilters() {
     const f = trip.filters, m = trip.meta;
     const box = document.getElementById('trFilters'); if (!box || !m) return;
+    // Nombre de lieux par typologie pour le SAMU-SAS choisi (ou tous)
+    const cnt = {}; Object.entries(m.counts || {}).forEach(([lid, byCat]) => { if (!f.loc || String(lid) === String(f.loc)) Object.entries(byCat).forEach(([c, n]) => { cnt[c] = (cnt[c] || 0) + n; }); });
+    const total = Object.values(cnt).reduce((a, b) => a + b, 0);
     box.innerHTML = `
         <div><label for="trLoc">SAMU-SAS</label><select id="trLoc" onchange="tripSetFilter('loc', this.value)"><option value="">— Tous les SAMU-SAS —</option>${m.locations.map(l => `<option value="${l.id}" ${String(l.id) === String(f.loc) ? 'selected' : ''}>${tEsc(l.libelle_court)}${l.n_poi ? ' (' + l.n_poi + ')' : ''}</option>`).join('')}</select></div>
-        <div><label>Typologie</label><div class="tr-cats"><span class="tr-cat ${!f.cat ? 'on' : ''}" style="${!f.cat ? 'background:#455a64;' : ''}" onclick="tripSetFilter('cat','')">Tout</span>${Object.entries(TRIP_CATS).map(([k, c]) => `<span class="tr-cat ${f.cat === k ? 'on' : ''}" style="${f.cat === k ? 'background:' + c.color + ';' : ''}" onclick="tripSetFilter('cat','${k}')">${uiIcon(c.icon, 14, 'margin:0;')}${c.label}</span>`).join('')}</div></div>
+        <div><label>Typologie</label><div class="tr-cats"><span class="tr-cat ${!f.cat ? 'on' : ''}" style="${!f.cat ? 'background:#455a64;' : ''}" onclick="tripSetFilter('cat','')">Tout (${total})</span>${Object.entries(TRIP_CATS).map(([k, c]) => `<span class="tr-cat ${f.cat === k ? 'on' : ''}" style="${f.cat === k ? 'background:' + c.color + ';' : ''}" onclick="tripSetFilter('cat','${k}')">${uiIcon(c.icon, 14, 'margin:0;')}${c.label} (${cnt[k] || 0})</span>`).join('')}</div></div>
         <div><label for="trCreator">Créateur</label><select id="trCreator" onchange="tripSetFilter('creator', this.value)"><option value="">— Tous les créateurs —</option>${m.creators.map(c => `<option value="${c.id}" ${String(c.id) === String(f.creator) ? 'selected' : ''}>${tEsc(c.name)}</option>`).join('')}</select></div>
         <div><label for="trQ">Recherche</label><input type="search" id="trQ" value="${tEsc(f.q)}" placeholder="Nom, adresse, commentaire…" oninput="tripSearchInput(this.value)"></div>
         <div><button type="button" class="tr-btn" onclick="tripResetFilters()" title="Effacer les filtres">↺ Réinitialiser</button></div>`;
 }
-function tripSetFilter(k, v) { trip.filters[k] = v; tripRenderFilters(); tripFetch(); }
+// Choisir un SAMU-SAS affiche tous ses lieux : les autres filtres (typologie, créateur, recherche) sont remis à zéro
+function tripSetFilter(k, v) {
+    if (k === 'loc') trip.filters = { loc: v, cat: '', creator: '', q: '' }; else trip.filters[k] = v;
+    tripRenderFilters(); tripFetch();
+}
 function tripSearchInput(v) { trip.filters.q = v; clearTimeout(trip.timer); trip.timer = setTimeout(tripFetch, 300); }
 function tripResetFilters() { trip.filters = { loc: '', cat: '', creator: '', q: '' }; tripRenderFilters(); tripFetch(); }
 
