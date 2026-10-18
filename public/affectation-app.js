@@ -426,7 +426,7 @@
     </div>
 
     <div class="modal" id="affAsanaTasksModal">
-        <div class="modal-content" style="max-width:1180px; width:97%; max-height:94vh; overflow-y:auto; padding:0;">
+        <div class="modal-content" style="max-width:1500px; width:98%; max-height:94vh; overflow-y:auto; padding:0;">
             <div class="aff-modal-head">
                 <span id="affAsanaTasksTitle" class="aff-card-title">${svg('asanatasks', 'aff-ico')}Tâches du projet Asana</span>
                 <button type="button" class="aff-x" onclick="AffectationApp.asanaTasksClose()" aria-label="Fermer">${svg('x', 'aff-ico-sm')}</button>
@@ -745,6 +745,33 @@
     function asanaTaskOptions(sel) {
         return '<option value="">— règle automatique —</option>' + asanaT.data.tasks.map(t => `<option value="${t.gid}" ${t.eff ? '' : 'disabled'} ${sel === t.gid ? 'selected' : ''}>${esc(aTaskLabel(t))}</option>`).join('');
     }
+    // Événement associé à chaque activité (liste des événements du SAMU et du type d'activité ; création proposée s'il n'y en a pas)
+    function asanaRowDates(key) {
+        const d = asanaT.data, r = d && d.rubriques.find(x => x.key === key);
+        if (!r) return null;
+        const eff = gid => { const t = d.tasks.find(x => x.gid === gid); return t && t.eff; };
+        const o = asanaT.ov[key] || {};
+        if (r.kind === 'date') { const e = eff(o.task); const v = e ? e.end : ((r.current && r.current.date) || (r.auto && r.auto.date)); return v ? { start: v, end: v } : null; }
+        const es = eff(o.start), ee = eff(o.end), base = r.current || r.auto || {};
+        const a = es ? es.start : base.start, b = ee ? ee.end : base.end;
+        const st = a || b, en = b || a;
+        return st ? (st <= en ? { start: st, end: en } : { start: en, end: st }) : null;
+    }
+    function asanaEvCell(key) {
+        if (!EVLINK_KEYS.includes(key)) return '<span class="aff-muted">—</span>';
+        const c = asanaT.evc && asanaT.evc.candidates && asanaT.evc.candidates[key];
+        if (!c) return `<span class="aff-muted">${asanaT.evc === undefined ? 'Recherche des événements…' : 'Événements indisponibles.'}</span>`;
+        const none = !c.matching.length;
+        const lk = [...c.matching, ...c.others].find(e => e.id === c.linked), d = asanaRowDates(key);
+        const info = lk ? (d && d.start === lk.start && d.end === lk.end ? '<div style="font-size:11px;color:#1b7f3b;">✔ mêmes dates que l\'activité</div>' : `<div style="font-size:11px;color:#b26a00;" title="Dates de l'événement : ${esc(evDates(lk))}">⚠ dates différentes de l'activité</div>`) : '';
+        return `<select data-ek="${key}" onchange="AffectationApp.asanaEvLink(this)" style="width:100%;padding:5px;" title="Événements de ce SAMU${c.typeLong ? ' (type « ' + esc(c.typeLong) + ' »)' : ''}">
+                <option value="">— Aucun événement lié —</option>
+                ${c.matching.length ? `<optgroup label="Correspondant au SAMU et au type « ${esc(c.typeLong || '')} »">${c.matching.map(e => evOpt(e, e.id === c.linked)).join('')}</optgroup>` : ''}
+                ${c.others.length ? `<optgroup label="Autres événements de ce SAMU">${c.others.map(e => evOpt(e, e.id === c.linked)).join('')}</optgroup>` : ''}
+            </select>${info}
+            ${none ? `<div style="margin-top:4px;font-size:11px;color:#b26a00;">Aucun événement « ${esc(c.typeLong || '')} » trouvé pour ce SAMU.</div><button type="button" class="aff-btn aff-btn-primary" style="padding:4px 10px;margin-top:4px;" onclick="AffectationApp.asanaEvCreate('${key}')" title="Crée l'événement dans l'outil (SAMU, type, dates de l'activité, ressources affectées en participants)">${svg('plus', 'aff-ico-sm')}Créer l'événement</button>`
+                : `<button type="button" class="aff-btn" style="padding:3px 9px;margin-top:4px;font-size:11px;" onclick="AffectationApp.asanaEvCreate('${key}')" title="Créer un nouvel événement pour cette activité">${svg('plus', 'aff-ico-sm')}Nouveau</button>`}`;
+    }
     function renderAsanaTasks() {
         const d = asanaT.data, box = document.getElementById('affAsanaTasksBody');
         if (!d || !box) return;
@@ -760,7 +787,7 @@
         box.innerHTML = `<p style="margin:0 0 10px;font-size:13px;color:#4a5b70;"><b>${esc(d.samu)}</b> · projet Asana : ${(d.candidates || []).length > 1 ? `<select onchange="AffectationApp.asanaTasksProject(this.value)" title="Plusieurs projets Asana portent ce numéro de SAMU : choisissez le bon" style="padding:4px 6px;border:2px solid #ff9800;border-radius:8px;max-width:340px;">${d.candidates.map(x => `<option value="${esc(x.gid)}" ${x.gid === d.gid ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select> ${d.url ? `<a href="${esc(d.url)}" target="_blank" rel="noopener">ouvrir</a>` : ''}` : (d.url ? `<a href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.asana)}</a>` : esc(d.asana))} · ${d.tasks.length} tâche(s).
             Pour chaque rubrique, la <b>règle automatique</b> choisit la tâche ; vous pouvez la <b>remplacer</b> par n'importe quelle autre tâche du projet (liste avec échéances). Le remplacement est mémorisé : il s'applique aussi aux prochains rafraîchissements.</p>
             <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;">
-            <thead><tr style="text-align:left;color:#6b7a8d;font-size:11px;"><th style="padding:6px 8px;">Rubrique (règle)</th><th style="padding:6px 8px;">Valeur actuelle</th><th style="padding:6px 8px;">Selon la règle</th><th style="padding:6px 8px;min-width:330px;">Remplacer par la tâche…</th><th style="padding:6px 8px;">Après remplacement</th></tr></thead><tbody>
+            <thead><tr style="text-align:left;color:#6b7a8d;font-size:11px;"><th style="padding:6px 8px;">Rubrique (règle)</th><th style="padding:6px 8px;">Valeur actuelle</th><th style="padding:6px 8px;">Selon la règle</th><th style="padding:6px 8px;min-width:330px;">Remplacer par la tâche…</th><th style="padding:6px 8px;">Après remplacement</th><th style="padding:6px 8px;min-width:340px;">Événement associé (SAMU + type)</th></tr></thead><tbody>
             ${d.rubriques.map(r => {
                 const o = asanaT.ov[r.key] || {};
                 const picked = r.kind === 'date' ? !!o.task : !!(o.start || o.end);
@@ -772,7 +799,8 @@
                     <td style="padding:8px;vertical-align:top;white-space:nowrap;">${esc(aVal(r.current))}</td>
                     <td style="padding:8px;vertical-align:top;white-space:nowrap;">${esc(aVal(r.auto))}${r.sources.length ? `<div class="aff-muted" style="font-size:11px;white-space:normal;max-width:230px;">${r.sources.map(x => esc(String(x).slice(0, 60))).join(' · ')}</div>` : ''}</td>
                     <td style="padding:8px;vertical-align:top;">${sels}</td>
-                    <td style="padding:8px;vertical-align:top;font-weight:700;color:#1b7f3b;white-space:nowrap;" id="aTAfter_${r.key}">${esc(afterTxt(r))}</td></tr>`;
+                    <td style="padding:8px;vertical-align:top;font-weight:700;color:#1b7f3b;white-space:nowrap;" id="aTAfter_${r.key}">${esc(afterTxt(r))}</td>
+                    <td style="padding:8px;vertical-align:top;" id="aTEv_${r.key}">${asanaEvCell(r.key)}</td></tr>`;
             }).join('')}</tbody></table></div>
             <details style="margin-top:14px;"><summary style="cursor:pointer;font-weight:700;color:#4a5b70;">Toutes les tâches du projet Asana (${d.tasks.length})</summary>
             <div style="overflow:auto;max-height:340px;margin-top:8px;border:1px solid #eef1f6;border-radius:8px;"><table style="width:100%;border-collapse:collapse;font-size:12px;">
@@ -2285,14 +2313,35 @@
             try {
                 const d = await api(`/affectation/projects/${id}/asana-tasks`);
                 asanaT.data = d;
+                asanaT.evc = undefined;
                 d.rubriques.forEach(r => { if (r.override) asanaT.ov[r.key] = { ...r.override }; });
                 document.getElementById('affAsanaTasksTitle').lastChild.textContent = `Tâches du projet Asana — ${d.samu}`;
+                renderAsanaTasks();
+                try { asanaT.evc = await api(`/affectation/projects/${id}/events-candidates`); } catch (e) { asanaT.evc = null; }
                 renderAsanaTasks();
             } catch (e) { document.getElementById('affAsanaTasksBody').innerHTML = `<p class="aff-error">${esc(e.message)}</p>`; }
         },
         async asanaTasksProject(gid) {
             try { await api('/affectation/asana/links', { method: 'PUT', body: JSON.stringify({ gid, deploymentId: asanaT.id }) }); await AffectationApp.asanaTasks(asanaT.id); }
             catch (e) { document.getElementById('affAsanaTasksMsg').textContent = e.message; }
+        },
+        async asanaEvLink(sel) {
+            const key = sel.dataset.ek, c = asanaT.evc && asanaT.evc.candidates[key];
+            try { await api(`/affectation/projects/${asanaT.id}/event-link`, { method: 'PUT', body: JSON.stringify({ key, eventId: sel.value ? Number(sel.value) : null }) }); if (c) c.linked = sel.value ? Number(sel.value) : null; const td = document.getElementById('aTEv_' + key); if (td) td.innerHTML = asanaEvCell(key); }
+            catch (e) { document.getElementById('affAsanaTasksMsg').textContent = e.message; }
+        },
+        async asanaEvCreate(key) {
+            const msg = document.getElementById('affAsanaTasksMsg'); msg.style.color = '#b3261e'; msg.textContent = '';
+            const d = asanaRowDates(key), def = stageDef(key), c = asanaT.evc && asanaT.evc.candidates[key];
+            if (!d) { msg.textContent = `${def.label} : aucune date connue pour cette activité ; renseignez-la dans le déploiement ou choisissez une tâche à reprendre.`; return; }
+            const txt = d.start === d.end ? `le ${aFr(d.start)}` : `du ${aFr(d.start)} au ${aFr(d.end)}`;
+            if (!confirm(`Créer l'événement « ${c && c.typeLong ? c.typeLong : def.label} » pour ${asanaT.data.samu}, ${txt} ?\n\nLes ressources affectées à cette activité (si elles ont un compte) seront ajoutées en participants.`)) return;
+            try {
+                await api(`/affectation/projects/${asanaT.id}/event-create`, { method: 'POST', body: JSON.stringify({ key, start: d.start, end: d.end }) });
+                asanaT.evc = await api(`/affectation/projects/${asanaT.id}/events-candidates`);
+                renderAsanaTasks();
+                msg.style.color = '#1b7f3b'; msg.textContent = `Événement « ${def.label} » créé et relié.`;
+            } catch (e) { msg.textContent = e.message; }
         },
         asanaTasksPick(sel) {
             const k = sel.dataset.k, f = sel.dataset.f;
