@@ -3957,7 +3957,7 @@ const dbRun = (sql, params) => new Promise((resolve, reject) => database.run(sql
 // Correspondance entre les activités issues d'Asana (étapes avec ressources) et les types d'événements :
 // détermine le type, l'icône, le libellé court et les couleurs des événements créés par la synchronisation vers la planification.
 const AFF_STAGE_TYPE_KEY = 'aff_stage_event_types';
-const AFF_STAGE_TYPE_DEFAULT = { mise_en_service: 'mes', mise_en_production: 'autre', visite_metier: 'visiteMetier', test_prerequis: 'verifPrereq', vft: 'vftSite', formation_utilisateurs: 'formation', accompagnement: 'apd' }; // codes de types
+const AFF_STAGE_TYPE_DEFAULT = { mise_en_service: 'mes', mise_en_production: 'mep', visite_metier: 'visiteMetier', test_prerequis: 'verifPrereq', vft: 'vftSite', formation_utilisateurs: 'formation', accompagnement: 'apd' }; // codes de types
 const AFF_EVENT_KEYS = ['mise_en_service', 'mise_en_production', 'visite_metier', 'test_prerequis', 'vft', 'formation_utilisateurs', 'accompagnement']; // activités reliées à des événements
 async function affStageTypeMap() {
     let saved = {};
@@ -3994,9 +3994,15 @@ async function affSetEventLink(depId, key, eventId) {
     if (!Object.keys(cur).length) delete all[String(depId)];
     await dbRun('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [AFF_EVLINK_KEY, JSON.stringify(all)]);
 }
+// Lieu d'un déploiement : sa localisation, à défaut l'entité du même nom, puis celle du même numéro de SAMU (« SAMU-SAS 56 »)
 async function affProjectLocationId(proj) {
     if (proj.location_id) return proj.location_id;
-    const loc = await dbGet('SELECT id FROM locations WHERE libelle_court = ?', [proj.samu_name]);
+    const exact = await dbGet('SELECT id FROM locations WHERE libelle_court = ?', [proj.samu_name]);
+    if (exact) return exact.id;
+    const no = affSamuNumber(proj.samu_name);
+    if (!no) return null;
+    const locs = await dbAll('SELECT id, libelle_court FROM locations');
+    const loc = locs.find(l => affSamuNumber(l.libelle_court) === no && /SAS/i.test(l.libelle_court)) || locs.find(l => affSamuNumber(l.libelle_court) === no);
     return loc ? loc.id : null;
 }
 const affNormTxt = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
@@ -8350,6 +8356,7 @@ database.run(`
 const EVT_TYPE_SEED = [
     { code: 'formation',        long: 'Formations utilisateurs',            icon: 'graduation',     bg: '#ffea00', text: '#0008ff', border: '#000000' },
     { code: 'mes',              long: 'Mise en service',                    icon: 'power',          bg: '#ffea00', text: '#d20906', border: '#000000' },
+    { code: 'mep',              long: 'Mise en production',                 icon: 'flag',           bg: '#00695c', text: '#ffffff', border: '#004d40' },
     { code: 'apd',              long: 'Accompagnement post démarrage',      icon: 'lifebuoy',       bg: '#ffea00', text: '#c2059a', border: '#000000' },
     { code: 'visite',           long: 'Visite terrain',                     icon: 'pin',            bg: '#0011ff', text: '#ffffff', border: '#000000' },
     { code: 'visiteMetier',     long: 'Visite métier',                      icon: 'briefcase',      bg: '#7b1fa2', text: '#ffffff', border: '#4a0072' },
@@ -8383,6 +8390,16 @@ database.run(`
             for (const [i, t] of seed.entries()) { // séquentiel : identifiants dans l'ordre de la liste
                 await dbRun(`INSERT OR IGNORE INTO event_types (code, label_long, label_short, icon, bg_color, text_color, border_color, is_other, sort_order) VALUES (?, ?, '', ?, ?, ?, ?, ?, ?)`,
                     [t.code, t.long, t.icon, t.bg, t.text, t.border, t.other ? 1 : 0, (i + 1) * 10]);
+            }
+            // Type « Mise en production » ajouté aux bases existantes (une seule fois : il reste supprimable ensuite)
+            if (!(await dbGet("SELECT value FROM settings WHERE key = 'evt_type_mep_seeded'"))) {
+                if (!(await dbGet("SELECT id FROM event_types WHERE code = 'mep'"))) {
+                    const mes = await dbGet("SELECT sort_order FROM event_types WHERE code = 'mes'");
+                    const t = EVT_TYPE_SEED.find(x => x.code === 'mep');
+                    await dbRun(`INSERT OR IGNORE INTO event_types (code, label_long, label_short, icon, bg_color, text_color, border_color, is_other, sort_order) VALUES (?, ?, '', ?, ?, ?, ?, 0, ?)`,
+                        [t.code, t.long, t.icon, t.bg, t.text, t.border, ((mes && mes.sort_order) || 20) + 5]);
+                }
+                await dbRun("INSERT OR REPLACE INTO settings (key, value) VALUES ('evt_type_mep_seeded', '1')");
             }
         } catch (x) { console.error('Erreur initialisation event_types:', x.message); }
         console.log('✅ Table event_types créée ou existante');
