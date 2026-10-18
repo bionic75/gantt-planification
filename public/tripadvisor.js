@@ -82,7 +82,7 @@ function tripBuild() {
         #tripRoot .tr-rv:first-child { border-top:none; }
         .tr-pin { display:flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:50% 50% 50% 0; transform:rotate(-45deg); border:2px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,.4); }
         .tr-pin > svg { transform:rotate(45deg); }
-        .tr-sas { display:flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:8px; background:#1d70b7; color:#fff; font-size:10px; font-weight:800; border:2px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,.45); }
+        .tr-sas { display:flex; align-items:center; justify-content:center; height:24px; padding:0 9px; border-radius:12px; background:#1d70b7; color:#fff; font-size:11px; font-weight:800; letter-spacing:.2px; white-space:nowrap; border:2px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,.45); }
         #tripModal { position:fixed; inset:0; background:rgba(20,30,45,.55); z-index:3000; display:none; align-items:flex-start; justify-content:center; overflow:auto; padding:30px 12px; }
         #tripModal.on { display:flex; }
         #tripModal .tr-box { background:#fff; width:min(760px,100%); border-radius:14px; padding:18px 20px; box-shadow:0 20px 50px rgba(0,0,0,.35); }
@@ -190,7 +190,7 @@ async function tripRenderMap() {
     const pts = [];
     const sas = (trip.meta ? trip.meta.locations : []).filter(l => l.latitude != null && l.longitude != null && (!trip.filters.loc || String(l.id) === String(trip.filters.loc)));
     sas.forEach(l => {
-        const mk = L.marker([l.latitude, l.longitude], { icon: L.divIcon({ className: '', html: `<div class="tr-sas">SAS</div>`, iconSize: [34, 34], iconAnchor: [17, 17] }), zIndexOffset: 500 }).addTo(trip.layer);
+        const mk = L.marker([l.latitude, l.longitude], { icon: L.divIcon({ className: '', html: `<div class="tr-sas">SAMU-SAS</div>`, iconSize: [80, 24], iconAnchor: [40, 12] }), zIndexOffset: 500 }).addTo(trip.layer);
         mk.bindPopup(`<b>${tEsc(l.libelle_court)}</b><br><span style="color:#667;">${tEsc(l.libelle_long || '')}</span>${l.adresse ? '<br>' + tEsc(l.adresse) : ''}<br><a href="#" onclick="tripSetFilter('loc','${l.id}');return false;">Voir ses adresses (${l.n_poi || 0})</a>`);
         pts.push([l.latitude, l.longitude]);
     });
