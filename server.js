@@ -3954,6 +3954,47 @@ const dbAll = (sql, params) => new Promise((resolve, reject) => database.all(sql
 const dbGet = (sql, params) => new Promise((resolve, reject) => database.get(sql, params || [], (e, r) => e ? reject(e) : resolve(r)));
 const dbRun = (sql, params) => new Promise((resolve, reject) => database.run(sql, params || [], function (e) { e ? reject(e) : resolve(this); }));
 
+// Correspondance entre les activités issues d'Asana (étapes avec ressources) et les types d'événements :
+// détermine le type, l'icône, le libellé court et les couleurs des événements créés par la synchronisation vers la planification.
+const AFF_STAGE_TYPE_KEY = 'aff_stage_event_types';
+const AFF_STAGE_TYPE_DEFAULT = { visite_metier: 'visiteMetier', test_prerequis: 'verifPrereq', vft: 'vftSite', formation_utilisateurs: 'formation', accompagnement: 'apd' }; // codes de types
+async function affStageTypeMap() {
+    let saved = {};
+    try { saved = JSON.parse((await dbGet('SELECT value FROM settings WHERE key = ?', [AFF_STAGE_TYPE_KEY]) || {}).value || '{}') || {}; } catch (e) { saved = {}; }
+    const types = await dbAll('SELECT id, code FROM event_types');
+    const out = {};
+    for (const st of AFF_STAGES.filter(x => x.resources)) {
+        const sv = Number(saved[st.key]);
+        const byId = types.find(t => t.id === sv);
+        const def = types.find(t => t.code === AFF_STAGE_TYPE_DEFAULT[st.key]) || types.find(t => t.code === 'autre');
+        out[st.key] = (byId || def || {}).id || null;
+    }
+    return out;
+}
+app.get('/api/affectation/stage-event-types', requireAffectationAccess, async (req, res) => {
+    try {
+        res.json({
+            stages: AFF_STAGES.filter(x => x.resources).map(x => ({ key: x.key, label: x.label, rule: ASANA_RULES[x.key] || '' })),
+            mapping: await affStageTypeMap(),
+            types: await dbAll('SELECT * FROM event_types ORDER BY is_other, sort_order, label_long')
+        });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.put('/api/affectation/stage-event-types', requireAdmin, async (req, res) => {
+    try {
+        const raw = (req.body && req.body.mapping) || {};
+        const types = await dbAll('SELECT id FROM event_types');
+        const clean = {};
+        for (const st of AFF_STAGES.filter(x => x.resources)) {
+            const id = Number(raw[st.key]);
+            if (types.some(t => t.id === id)) clean[st.key] = id;
+        }
+        await dbRun('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [AFF_STAGE_TYPE_KEY, JSON.stringify(clean)]);
+        logUserAction(req, "Correspondance activités Asana / types d'événements", { mapping: clean });
+        res.json({ success: true, mapping: await affStageTypeMap() });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 async function affSyncCompute(projectId, stageKey) {
     const def = AFF_STAGES.find(x => x.key === stageKey && x.resources);
     if (!def) throw Object.assign(new Error('Étape sans ressources'), { status: 400 });
@@ -3999,14 +4040,19 @@ async function affSyncCompute(projectId, stageKey) {
         return { id: a.id, nom: a.nom, prenom: a.prenom, user_id: a.user_id, toWrite, done, conflicts };
     });
     const tpl = AFF_STAGE_EVENT[stageKey];
+    const typeId = (await affStageTypeMap())[stageKey];
+    const evType = typeId ? await dbGet('SELECT * FROM event_types WHERE id = ?', [typeId]) : null;
+    const evLabel = evType ? evType.label_long : tpl.label;
+    const evConfig = evType ? { bgColor: evType.bg_color, textColor: evType.text_color, borderColor: evType.border_color } : tpl.config;
+    // Événement déjà présent : même lieu, même période, même type (ou ancien libellé du gabarit pour les événements sans type)
     const existing = await dbAll(`SELECT id, label, start_date, end_date FROM custom_events
-        WHERE location_id IS ? AND label LIKE ? AND start_date <= ? AND end_date >= ?`, [locationId, tpl.label + '%', per.end, per.start]);
+        WHERE location_id IS ? AND (type_id = ? OR label LIKE ? OR label LIKE ?) AND start_date <= ? AND end_date >= ?`, [locationId, typeId || -1, tpl.label + '%', evLabel + '%', per.end, per.start]);
     let existingEvent = null;
     if (existing.length) {
         const parts = await dbAll('SELECT user_id FROM custom_event_participants WHERE event_id = ?', [existing[0].id]);
         existingEvent = { ...existing[0], participants: parts.map(x => x.user_id) };
     }
-    return { proj, per, samuLoc, samuNo, locationId, activity: act, resources, event: { label: tpl.label, config: tpl.config, existing: existingEvent } };
+    return { proj, per, samuLoc, samuNo, locationId, activity: act, resources, event: { label: evLabel, config: evConfig, typeId: typeId || null, typeLong: evType ? evType.label_long : null, typeShort: evType ? evType.label_short : '', existing: existingEvent } };
 }
 const AFF_STAGE_ACTIVITY = { visite_metier: '3', test_prerequis: '3', vft: '3', formation_utilisateurs: '3', accompagnement: '3' };
 
@@ -4054,9 +4100,7 @@ app.post('/api/affectation/projects/:id/sync/:stage', requireAdmin, async (req, 
                 const start = /^\d{4}-\d{2}-\d{2}$/.test(ev.startDate) ? ev.startDate : c.per.start;
                 const end = /^\d{4}-\d{2}-\d{2}$/.test(ev.endDate) ? ev.endDate : c.per.end;
                 if (end < start) return res.status(400).json({ error: 'La date de fin précède la date de début' });
-                const tcode = { visite_metier: 'visiteMetier', test_prerequis: 'verifPrereq', vft: 'vftSite', formation_utilisateurs: 'formation', accompagnement: 'apd' }[req.params.stage];
-                const trow = tcode ? await dbGet('SELECT id FROM event_types WHERE code = ?', [tcode]) : null;
-                const ty = await evtResolveType(trow && trow.id, c.event.config);
+                const ty = await evtResolveType(c.event.typeId, c.event.config);
                 const r = await dbRun(`INSERT INTO custom_events (label, start_date, end_date, config, created_by, period, location_id, type_id) VALUES (?,?,?,?,?,?,?,?)`,
                     [label, start, end, JSON.stringify(ty.config), req.session.userId, 'FULL', c.locationId || null, ty.typeId]);
                 eventId = r.lastID;

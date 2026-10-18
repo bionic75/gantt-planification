@@ -511,6 +511,7 @@ tr:nth-child(even) td { background: #f9f9f9; }
       <tr><td>Accompagnement post démarrage</td><td>tâche 6.6</td></tr>
     </tbody>
   </table>
+  <p><strong>Correspondance activités Asana ↔ types d'événements</strong> : la rubrique du même nom (Administration de l'aide à l'affectation) relie chaque activité reprise d'Asana (Visite métier, Vérification des prérequis, VFT sur site, Formation « Utilisateurs », Accompagnement post démarrage) à un <strong>type d'événement</strong> de la liste paramétrée dans l'application principale. Le changement est enregistré dès qu'on choisit un type. À la synchronisation d'une étape vers la planification, l'événement créé reçoit ce type (icône, libellé court et couleurs) ; un événement déjà présent au même lieu, sur la même période et avec le même type est complété au lieu d'être recréé. Par défaut : Visite métier → « Visite métier », Vérification des prérequis → « Vérification des prérequis », VFT → « VFT sur site », Formation → « Formations utilisateurs », Accompagnement → « Accompagnement post démarrage ».</p>
   <p><strong>Tâches Asana d'un déploiement et remplacement d'une donnée reprise</strong> : dans la liste des déploiements de l'Administration, le bouton <em>Tâches du projet Asana</em> (icône liste) ouvre une fenêtre qui montre, pour chaque rubrique, la valeur actuelle, la valeur donnée par la règle (avec la tâche utilisée) et un <strong>menu déroulant listant toutes les tâches du projet avec leur échéance</strong> pour la remplacer (début et fin séparément pour une période). Le remplacement est appliqué tout de suite, listé dans un pop-up (avant → après), mémorisé pour ce SAMU et conservé lors des rafraîchissements suivants ; « Tout remettre à la règle » revient au calcul automatique. Une section dépliable affiche toutes les tâches du projet (numéro, parente, début, échéance).</p>
   <ul>
     <li>Le <strong>SAMU</strong> est lu dans le nom du projet (« [SAMU 25] ») et rapproché de l'entité « SAMU-SAS 25 ».</li>
@@ -667,11 +668,22 @@ tr:nth-child(even) td { background: #f9f9f9; }
   <h2>🆕 Notes de version</h2>
   <p>Historique des évolutions de la Plateforme de Planification ANS.</p>
 
+  <!-- v1.17.16 -->
+  <div class="card card-green" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v1.17.16</strong>
+      <span class="badge badge-current">Actuelle</span>
+      <span style="color:#888; font-size:13px;">Octobre 2026</span>
+    </div>
+    <ul>
+      <li>🔗 <strong>Correspondance activités Asana ↔ types d'événements</strong> : nouvelle rubrique dans l'Administration de l'aide à l'affectation ; elle fixe le type (icône, libellé court, couleurs) des événements créés par la synchronisation d'une étape vers la planification.</li>
+    </ul>
+  </div>
+
   <!-- v1.17.15 -->
   <div class="card card-green" style="margin-bottom:16px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
       <strong style="font-size:16px;">v1.17.15</strong>
-      <span class="badge badge-current">Actuelle</span>
       <span style="color:#888; font-size:13px;">Octobre 2026</span>
     </div>
     <ul>
