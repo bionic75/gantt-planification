@@ -4203,55 +4203,92 @@ function asanaTasksFromCsv(csvText) {
 const asanaSamuNoOf = text => { const m = /\[SAMU\s*([0-9A-Za-z]+)\]/i.exec(String(text || '')); return m ? m[1].toUpperCase() : null; };
 
 // Calcule les dates de chaque étape à partir des tâches Asana, selon la correspondance convenue
+// Dates effectives d'une tâche : les siennes, sinon celles de ses sous-tâches (plus petite à plus grande date)
+function asanaEff(tasks, t) {
+    if (t.start || t.due) return { start: t.start || t.due, end: t.due || t.start };
+    const kids = tasks.filter(k => k.parent && k.parent === t.name && (k.start || k.due));
+    if (!kids.length) return null;
+    const all = kids.flatMap(k => [k.start, k.due].filter(Boolean)).sort();
+    return { start: all[0], end: all[all.length - 1] };
+}
+// Règles de correspondance Asana → planning (métier) :
+//  Début du projet / début du cadrage  = jalon « Démarrage projet auprès de l'ES »     Fin du cadrage = tâche 2.9
+//  Déploiement opérationnel            = de la fin du cadrage + 1 jour au jalon « Mise en service du bandeau »
+//  Mise en service / mise en production = jalons « Mise en service du bandeau » / « Mise en production du bandeau »
+//  Visite métier = 5.1 · VFT sur site = 5.9 · Formation utilisateurs = 6.3.4 · Accompagnement post démarrage = 6.6
+//  Vérification des prérequis = tâche à créer dans Asana (« Vérification / Test des prérequis »)
 function asanaComputeTasks(tasks, projectName, formationTarget) {
     tasks.forEach(t => { const m = /^\s*(\d+(?:\.\d+)*)\.?\s/.exec(t.name); t.code = m ? m[1] : ''; t.n = asanaNorm(t.name); });
     let samuNo = asanaSamuNoOf(projectName);
     if (!samuNo) for (const t of tasks) { const m = /SAMU\s+(\d+[A-Za-z]?)\b/i.exec(t.name); if (m) { samuNo = m[1].toUpperCase(); break; } }
 
-    // Dates d'une tâche : les siennes, sinon celles de ses sous-tâches (plus petite à plus grande date)
-    const eff = t => {
-        if (t.start || t.due) return { start: t.start || t.due, end: t.due || t.start };
-        const kids = tasks.filter(k => k.parent && k.parent === t.name && (k.start || k.due));
-        if (!kids.length) return null;
-        const all = kids.flatMap(k => [k.start, k.due].filter(Boolean)).sort();
-        return { start: all[0], end: all[all.length - 1] };
-    };
+    const eff = t => asanaEff(tasks, t);
     const span = list => {
         const ds = list.map(eff).filter(Boolean).flatMap(e => [e.start, e.end]).sort();
         return ds.length ? { start: ds[0], end: ds[ds.length - 1] } : null;
     };
     const byCode = c => tasks.filter(t => t.code === c);
-    const found = {}, reasons = {};
-    const setP = (key, v, why) => { if (v) found[key] = v; else reasons[key] = why; };
+    const found = {}, reasons = {}, sources = {};
+    const setP = (key, list, why) => { const v = span(list); if (v) { found[key] = v; sources[key] = list.map(t => t.name); } else reasons[key] = why; };
 
-    const demar = tasks.find(t => t.n.includes('demarrage projet'));
-    const demarDate = demar ? (eff(demar) || {}).end : null;
+    // Début du projet = début du cadrage : jalon « Démarrage projet auprès de l'ES »
+    const demar = tasks.find(t => t.n.includes("demarrage projet aupres de l'es")) || tasks.find(t => t.n.includes('demarrage projet'));
+    const demarDate = demar && eff(demar) ? eff(demar).end : null;
+    if (demarDate) sources.date_debut = [demar.name];
 
-    const cadStart = span([...byCode('2.5'), ...byCode('2.6'), ...byCode('2.7')]);
-    const cadEnd = span(byCode('2.9'));
-    if (cadStart && cadEnd) setP('cadrage', { start: cadStart.start, end: cadEnd.end >= cadStart.start ? cadEnd.end : cadStart.start }); else reasons.cadrage = cadStart ? 'fin de cadrage (2.9 « COPIL #2 ») non datée dans Asana' : 'début de cadrage (2.5 à 2.7) non daté dans Asana';
+    // Cadrage : du jalon de démarrage à la fin de la tâche 2.9
+    const t29 = byCode('2.9'), cadEnd = span(t29);
+    if (demarDate && cadEnd) { found.cadrage = { start: demarDate, end: cadEnd.end >= demarDate ? cadEnd.end : demarDate }; sources.cadrage = [demar.name, ...t29.map(t => t.name)]; }
+    else reasons.cadrage = demarDate ? 'fin de cadrage (tâche 2.9) non datée dans Asana' : "jalon « Démarrage projet auprès de l'ES » non daté ou absent";
 
-    const mes = tasks.find(t => t.phase === 'MES') || tasks.find(t => t.n.includes('mise en service du bandeau'));
-    const mep = tasks.find(t => t.phase === 'MEP') || tasks.find(t => t.n.includes('mise en production du bandeau'));
+    const mes = tasks.find(t => t.n.includes('mise en service du bandeau')) || tasks.find(t => t.phase === 'MES');
+    const mep = tasks.find(t => t.n.includes('mise en production du bandeau')) || tasks.find(t => t.phase === 'MEP');
     const mesD = mes && eff(mes) ? eff(mes).end : null, mepD = mep && eff(mep) ? eff(mep).end : null;
-    if (mesD) found.mise_en_service = { date: mesD }; else reasons.mise_en_service = 'tâche « Mise en service du bandeau » non datée ou absente';
-    if (mepD) found.mise_en_production = { date: mepD }; else reasons.mise_en_production = 'tâche « Mise en production du bandeau » non datée ou absente';
+    if (mesD) { found.mise_en_service = { date: mesD }; sources.mise_en_service = [mes.name]; } else reasons.mise_en_service = 'jalon « Mise en service du bandeau » non daté ou absent';
+    if (mepD) { found.mise_en_production = { date: mepD }; sources.mise_en_production = [mep.name]; } else reasons.mise_en_production = 'jalon « Mise en production du bandeau » non daté ou absent';
 
-    // Déploiement opérationnel : de la fin du cadrage à la mise en service
-    if (found.cadrage && mesD && asanaAddDays(found.cadrage.end, 1) <= mesD) found.deploiement = { start: asanaAddDays(found.cadrage.end, 1), end: mesD };
+    // Déploiement opérationnel : fin du cadrage (2.9) + 1 jour → jalon « Mise en service du bandeau »
+    if (found.cadrage && mesD && asanaAddDays(found.cadrage.end, 1) <= mesD) { found.deploiement = { start: asanaAddDays(found.cadrage.end, 1), end: mesD }; sources.deploiement = [...(sources.cadrage || []).slice(1), mes.name]; }
     else reasons.deploiement = !found.cadrage ? 'dépend de la fin du cadrage, non datée' : !mesD ? 'dépend de la mise en service, non datée' : 'la mise en service précède la fin du cadrage';
 
-    setP('visite_metier', span([...byCode('5.1'), ...byCode('5.2')]), 'tâches 5.1 / 5.2 non datées dans Asana');
-    const tp = tasks.filter(t => /tests? des prerequis/.test(t.n));
-    setP('test_prerequis', span(tp), tp.length ? 'tâche « Test des prérequis » non datée' : 'aucune tâche « Test des prérequis » dans ce projet Asana (à créer)');
-    const vft = tasks.filter(t => t.phase === 'VFT').length ? tasks.filter(t => t.phase === 'VFT') : tasks.filter(t => /\bvft\b/.test(t.n));
-    setP('vft', span(vft), 'tâche VFT (5.9) non datée dans Asana');
-    const form = span(byCode('6.3'));
-    if (form) found.formation_utilisateurs = form;
-    else reasons.formation_utilisateurs = 'tâche 6.3 « Formation au bandeau » non datée dans Asana';
-    const acc = tasks.filter(t => t.code === '6.6' || /accompagnement post demarrage/.test(t.n));
-    setP('accompagnement', span(acc), 'tâche 6.6 « Accompagnement post démarrage » non datée dans Asana');
-    return { samuNo, projectName, taskCount: tasks.length, demarDate, found, reasons };
+    setP('visite_metier', byCode('5.1'), 'tâche 5.1 non datée ou absente dans Asana');
+    const tp = tasks.filter(t => /(tests?|verifications?) des prerequis/.test(t.n));
+    setP('test_prerequis', tp, tp.length ? 'tâche « Vérification des prérequis » non datée' : 'aucune tâche « Vérification des prérequis » dans ce projet Asana (à créer)');
+    setP('vft', byCode('5.9'), 'tâche 5.9 (VFT sur site) non datée ou absente dans Asana');
+    setP('formation_utilisateurs', byCode('6.3.4'), 'tâche 6.3.4 (formation utilisateurs) non datée ou absente dans Asana');
+    setP('accompagnement', byCode('6.6'), 'tâche 6.6 (accompagnement post démarrage) non datée ou absente dans Asana');
+    return { samuNo, projectName, taskCount: tasks.length, demarDate, found, reasons, sources, tasks };
+}
+// Remplacements manuels : une rubrique peut prendre ses dates d'une autre tâche du projet Asana (mémorisés par déploiement)
+//  date : { task: gid }   période : { start: gid, end: gid }
+function asanaApplyOverrides(c, ov) {
+    if (!ov || !c || !c.tasks) return c;
+    const byGid = new Map(c.tasks.filter(t => t.gid).map(t => [t.gid, t]));
+    const E = gid => { const t = gid && byGid.get(String(gid)); return t ? asanaEff(c.tasks, t) : null; };
+    const has = k => ov[k] && (ov[k].task || ov[k].start || ov[k].end);
+    for (const [key, spec] of Object.entries(ov)) {
+        if (!ASANA_KEYS.includes(key) || !spec) continue;
+        if (key === 'date_debut') { const e = E(spec.task); if (e) c.demarDate = e.end; }
+        else if (key === 'mise_en_service' || key === 'mise_en_production') { const e = E(spec.task); if (e) { c.found[key] = { date: e.end }; delete c.reasons[key]; } }
+        else {
+            const es = E(spec.start), ee = E(spec.end);
+            if (es || ee) {
+                const cur = c.found[key] || {};
+                let start = es ? es.start : cur.start, end = ee ? ee.end : cur.end;
+                if (!start) start = end; if (!end) end = start;
+                if (end < start) [start, end] = [end, start];
+                c.found[key] = { start, end }; delete c.reasons[key];
+            }
+        }
+    }
+    // Rubriques liées recalculées si elles ne sont pas remplacées elles-mêmes
+    if (has('date_debut') && c.demarDate && !(ov.cadrage && ov.cadrage.start) && c.found.cadrage) c.found.cadrage.start = c.demarDate;
+    if (!has('deploiement') && c.found.cadrage && c.found.mise_en_service && asanaAddDays(c.found.cadrage.end, 1) <= c.found.mise_en_service.date) { c.found.deploiement = { start: asanaAddDays(c.found.cadrage.end, 1), end: c.found.mise_en_service.date }; delete c.reasons.deploiement; }
+    c.overridden = Object.keys(ov).filter(k => has(k));
+    return c;
+}
+async function asanaOverridesFor(depId) {
+    try { const all = JSON.parse(await asanaSetting('asana_task_overrides') || '{}'); return all[String(depId)] || null; } catch (e) { return null; }
 }
 function asanaCompute(csvText, formationTarget) {
     const { tasks, projectName } = asanaTasksFromCsv(csvText);
@@ -4272,6 +4309,7 @@ const asanaFmt = v => !v ? '' : v.date ? asanaFr(v.date) : `${asanaFr(v.start)} 
 
 async function asanaPreviewPayload(c, forcedId) {
     const { loc, existing } = await asanaMatch(c.samuNo, forcedId);
+    if (existing) asanaApplyOverrides(c, await asanaOverridesFor(existing.id));
     const rows = ASANA_KEYS.map(key => {
         const label = key === 'date_debut' ? 'Début du projet' : AFF_STAGES.find(s => s.key === key).label;
         let cur = null, neu = null;
@@ -4293,6 +4331,7 @@ async function asanaApplyCore(req, c, wantList, forcedId, source) {
     const want = new Set((Array.isArray(wantList) ? wantList : []).filter(k => ASANA_KEYS.includes(k)));
     if (!want.size) throw Object.assign(new Error('Aucune ligne sélectionnée'), { status: 400 });
     const { loc, existing } = await asanaMatch(c.samuNo, forcedId);
+    if (existing) asanaApplyOverrides(c, await asanaOverridesFor(existing.id));
     const base = existing
         ? { samu_name: existing.samu_name, location_id: existing.location_id || (loc ? loc.id : null), chef_projet_id: existing.chef_projet_id, date_debut: existing.date_debut,
             date_mise_en_service: existing.date_mise_en_service, date_mise_en_production: existing.date_mise_en_production, periods: JSON.parse(JSON.stringify(existing.periodsObj)) }
@@ -4403,7 +4442,7 @@ async function asanaPaged(token, pathQuery) {
 const asanaNormTask = (t, projectName, parentName) => {
     const cf = (t.custom_fields || []).find(f => asanaNorm(f.name) === 'phase');
     const section = (t.memberships || []).map(m => m.section && m.section.name).find(Boolean) || '';
-    return { name: String(t.name || '').trim(), section, start: t.start_on || '', due: t.due_on || '', parent: parentName || (t.parent && t.parent.name) || '', projects: projectName, phase: cf ? String(cf.display_value || (cf.enum_value && cf.enum_value.name) || '').trim().toUpperCase() : '' };
+    return { gid: String(t.gid || ''), name: String(t.name || '').trim(), section, start: t.start_on || '', due: t.due_on || '', parent: parentName || (t.parent && t.parent.name) || '', projects: projectName, phase: cf ? String(cf.display_value || (cf.enum_value && cf.enum_value.name) || '').trim().toUpperCase() : '' };
 };
 const ASANA_TASK_FIELDS = 'name,start_on,due_on,num_subtasks,parent.name,memberships.section.name,custom_fields.name,custom_fields.display_value';
 async function asanaFetchProject(token, gid) {
@@ -4549,6 +4588,78 @@ app.post('/api/affectation/projects/:id/asana-refresh', requireAdmin, async (req
         res.json(await asanaRefreshDeployment(req, token, await asanaListSamuProjects(token), dep));
     } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
 });
+// Tâches du projet Asana lié à un déploiement, rubriques reprises (règle / valeur actuelle) et remplacements manuels
+const ASANA_RULES = {
+    date_debut: "Jalon « Démarrage projet auprès de l'ES »",
+    cadrage: "Début : jalon « Démarrage projet auprès de l'ES » · Fin : tâche 2.9",
+    deploiement: 'Début : fin du cadrage (2.9) + 1 jour · Fin : jalon « Mise en service du bandeau »',
+    mise_en_service: 'Jalon contenant « Mise en service du bandeau »',
+    mise_en_production: 'Jalon contenant « Mise en production du bandeau »',
+    visite_metier: 'Tâche 5.1', test_prerequis: 'Tâche « Vérification des prérequis » (à créer dans Asana)',
+    vft: 'Tâche 5.9', formation_utilisateurs: 'Tâche 6.3.4', accompagnement: 'Tâche 6.6'
+};
+async function asanaFindProjectFor(token, dep) {
+    const ctx = await asanaListSamuProjects(token);
+    const no = affSamuNumber(dep.samu_name);
+    const match = ctx.list.find(p => ctx.links[p.gid] > 0 ? ctx.links[p.gid] === dep.id : (ctx.links[p.gid] !== -1 && no && asanaSamuNoOf(p.name) === no));
+    if (!match) throw Object.assign(new Error(`Aucun projet Asana associé à « ${dep.samu_name} »`), { status: 404 });
+    return match;
+}
+app.get('/api/affectation/projects/:id/asana-tasks', requireAdmin, async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        const dep = await dbGet('SELECT * FROM affectation_projects WHERE id = ?', [id]);
+        if (!dep) return res.status(404).json({ error: 'Déploiement introuvable' });
+        const token = await asanaToken();
+        const match = await asanaFindProjectFor(token, dep);
+        const { projectName, tasks } = await asanaFetchProject(token, match.gid);
+        const c0 = asanaComputeTasks(tasks, projectName);
+        const ov = (await asanaOverridesFor(id)) || {};
+        const auto = JSON.parse(JSON.stringify({ found: c0.found, demarDate: c0.demarDate }));
+        const c1 = asanaApplyOverrides(JSON.parse(JSON.stringify({ ...c0 })), ov);
+        let periods = {}; try { periods = JSON.parse(dep.periods || '{}'); } catch (e) { periods = {}; }
+        const cur = key => key === 'date_debut' ? (dep.date_debut ? { date: dep.date_debut } : null)
+            : (key === 'mise_en_service' || key === 'mise_en_production') ? (dep['date_' + key] ? { date: dep['date_' + key] } : null)
+            : (periods[key] && periods[key][0] ? { start: periods[key][0].start, end: periods[key][0].end } : null);
+        const rubriques = ASANA_KEYS.map(key => {
+            const kind = key === 'date_debut' || key === 'mise_en_service' || key === 'mise_en_production' ? 'date' : 'period';
+            const autoV = key === 'date_debut' ? (auto.demarDate ? { date: auto.demarDate } : null) : (auto.found[key] || null);
+            return { key, label: key === 'date_debut' ? 'Début du projet' : AFF_STAGES.find(s => s.key === key).label, kind, rule: ASANA_RULES[key], current: cur(key), auto: autoV, sources: c0.sources[key] || [], override: ov[key] || null };
+        });
+        const list = c0.tasks.map(t => ({ gid: t.gid, name: t.name, code: t.code, parent: t.parent, start: t.start, due: t.due, eff: asanaEff(c0.tasks, t) }))
+            .sort((a, b) => String(a.code || '~').localeCompare(String(b.code || '~'), 'fr', { numeric: true }) || a.name.localeCompare(b.name, 'fr', { numeric: true }));
+        res.json({ samu: dep.samu_name, asana: projectName, gid: match.gid, url: match.permalink_url, tasks: list, rubriques, overridden: c1.overridden || [] });
+    } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+});
+app.put('/api/affectation/projects/:id/asana-overrides', requireAdmin, async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        const dep = await dbGet('SELECT id, samu_name FROM affectation_projects WHERE id = ?', [id]);
+        if (!dep) return res.status(404).json({ error: 'Déploiement introuvable' });
+        const raw = (req.body && req.body.overrides) || {};
+        const clean = {}, g = v => /^\d{3,30}$/.test(String(v || '')) ? String(v) : null;
+        for (const key of ASANA_KEYS) {
+            const sp = raw[key]; if (!sp) continue;
+            const o = (key === 'date_debut' || key === 'mise_en_service' || key === 'mise_en_production') ? (g(sp.task) ? { task: g(sp.task) } : null)
+                : ((g(sp.start) || g(sp.end)) ? { ...(g(sp.start) ? { start: g(sp.start) } : {}), ...(g(sp.end) ? { end: g(sp.end) } : {}) } : null);
+            if (o) clean[key] = o;
+        }
+        let all = {}; try { all = JSON.parse(await asanaSetting('asana_task_overrides') || '{}'); } catch (e) { all = {}; }
+        if (Object.keys(clean).length) all[String(id)] = clean; else delete all[String(id)];
+        await asanaPut('asana_task_overrides', JSON.stringify(all));
+        logUserAction(req, 'Remplacement de dates Asana pour un déploiement', { id, samu: dep.samu_name, rubriques: Object.keys(clean) });
+        const token = await asanaToken();
+        const match = await asanaFindProjectFor(token, dep);
+        const { projectName, tasks } = await asanaFetchProject(token, match.gid);
+        const c = asanaComputeTasks(tasks, projectName);
+        const pv = await asanaPreviewPayload(c, id);
+        const keys = pv.rows.filter(r => r.status === 'nouveau' || r.status === 'modifié').map(r => r.key);
+        if (!keys.length) return res.json({ success: true, unchanged: true, samu_name: dep.samu_name, asana: projectName });
+        const r = await asanaApplyCore(req, c, keys, id, 'api');
+        res.json({ ...r, updated: keys.length, asana: projectName });
+    } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+});
+
 // Rafraîchit tous les déploiements qui ont un projet Asana correspondant
 app.post('/api/affectation/asana/refresh-all', requireAdmin, async (req, res) => {
     try {

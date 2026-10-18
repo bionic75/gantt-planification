@@ -15,6 +15,7 @@
         x: '<path d="M18 6 6 18M6 6l12 12"/>',
         save: '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/>',
         reset: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
+        asanatasks: '<path d="M9 6h11M9 12h11M9 18h11"/><path d="m3.5 6 1.2 1.2L7 5M3.5 12l1.2 1.2L7 11M3.5 18l1.2 1.2L7 17"/>',
         asanasync: '<path d="M20 11a8 8 0 0 0-14-4.5L4 8"/><path d="M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14 4.5L20 16"/><path d="M20 20v-4h-4"/><circle cx="12" cy="9.4" r="1.35" fill="currentColor" stroke="none"/><circle cx="9.9" cy="13.1" r="1.35" fill="currentColor" stroke="none"/><circle cx="14.1" cy="13.1" r="1.35" fill="currentColor" stroke="none"/>',
         palette: '<circle cx="13.5" cy="6.5" r=".6"/><circle cx="17.5" cy="10.5" r=".6"/><circle cx="8.5" cy="7.5" r=".6"/><circle cx="6.5" cy="12.5" r=".6"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.9 0 1.7-.7 1.7-1.7 0-.4-.2-.8-.5-1.1-.3-.3-.5-.7-.5-1.1 0-.9.7-1.7 1.7-1.7H16c3.1 0 5.6-2.5 5.6-5.6C22 6 17.5 2 12 2z"/>',
         pencil: '<path d="M17 3a2.8 2.8 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5z"/>',
@@ -412,6 +413,22 @@
         </div>
     </div>
 
+    <div class="modal" id="affAsanaTasksModal">
+        <div class="modal-content" style="max-width:1180px; width:97%; max-height:94vh; overflow-y:auto; padding:0;">
+            <div class="aff-modal-head">
+                <span id="affAsanaTasksTitle" class="aff-card-title">${svg('asanatasks', 'aff-ico')}Tâches du projet Asana</span>
+                <button type="button" class="aff-x" onclick="AffectationApp.asanaTasksClose()" aria-label="Fermer">${svg('x', 'aff-ico-sm')}</button>
+            </div>
+            <div id="affAsanaTasksBody" class="aff-modal-body"><p class="aff-muted">Chargement…</p></div>
+            <div class="aff-modal-foot">
+                <span id="affAsanaTasksMsg" class="aff-error"></span>
+                <button type="button" class="aff-btn" onclick="AffectationApp.asanaTasksReset()" title="Remet toutes les rubriques sur la règle automatique">Tout remettre à la règle</button>
+                <button type="button" class="aff-btn" onclick="AffectationApp.asanaTasksClose()">Fermer</button>
+                <button type="button" class="aff-btn aff-btn-primary" id="affAsanaTasksApply" onclick="AffectationApp.asanaTasksApply()">${svg('save', 'aff-ico-sm')}Appliquer les remplacements</button>
+            </div>
+        </div>
+    </div>
+
     <div class="modal" id="affAsanaChgModal">
         <div class="modal-content" style="max-width:820px; width:96%; max-height:92vh; overflow-y:auto; padding:0;">
             <div class="aff-modal-head">
@@ -684,6 +701,50 @@
         AffectationApp.fnPreview();
     }
 
+    // ---- Tâches du projet Asana d'un déploiement : consultation des échéances et remplacement de la donnée reprise ----
+    const asanaT = { id: null, data: null, ov: {} };
+    const aFr = d => d ? d.split('-').reverse().join('/') : '';
+    const aVal = v => !v ? '—' : v.date ? aFr(v.date) : `${aFr(v.start)} → ${aFr(v.end)}`;
+    const aEffTxt = e => !e ? 'non datée' : e.start === e.end ? aFr(e.end) : `${aFr(e.start).slice(0, 5)} → ${aFr(e.end)}`;
+    const aTaskLabel = t => `${t.code ? t.code + ' ' : ''}${String(t.name).replace(/^\s*\d+(\.\d+)*\.?\s+/, '').slice(0, 64)} — ${aEffTxt(t.eff)}`;
+    function asanaTaskOptions(sel) {
+        return '<option value="">— règle automatique —</option>' + asanaT.data.tasks.map(t => `<option value="${t.gid}" ${t.eff ? '' : 'disabled'} ${sel === t.gid ? 'selected' : ''}>${esc(aTaskLabel(t))}</option>`).join('');
+    }
+    function renderAsanaTasks() {
+        const d = asanaT.data, box = document.getElementById('affAsanaTasksBody');
+        if (!d || !box) return;
+        const eff = gid => { const t = d.tasks.find(x => x.gid === gid); return t && t.eff; };
+        const afterTxt = r => {
+            const o = asanaT.ov[r.key] || {};
+            if (r.kind === 'date') { const e = eff(o.task); return e ? aFr(e.end) : ''; }
+            const es = eff(o.start), ee = eff(o.end);
+            if (!es && !ee) return '';
+            const cur = r.auto || r.current || {}; let a = es ? es.start : cur.start, b = ee ? ee.end : cur.end; a = a || b; b = b || a;
+            return a > b ? `${aFr(b)} → ${aFr(a)}` : `${aFr(a)} → ${aFr(b)}`;
+        };
+        box.innerHTML = `<p style="margin:0 0 10px;font-size:13px;color:#4a5b70;"><b>${esc(d.samu)}</b> · projet Asana : ${d.url ? `<a href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.asana)}</a>` : esc(d.asana)} · ${d.tasks.length} tâche(s).
+            Pour chaque rubrique, la <b>règle automatique</b> choisit la tâche ; vous pouvez la <b>remplacer</b> par n'importe quelle autre tâche du projet (liste avec échéances). Le remplacement est mémorisé : il s'applique aussi aux prochains rafraîchissements.</p>
+            <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead><tr style="text-align:left;color:#6b7a8d;font-size:11px;"><th style="padding:6px 8px;">Rubrique (règle)</th><th style="padding:6px 8px;">Valeur actuelle</th><th style="padding:6px 8px;">Selon la règle</th><th style="padding:6px 8px;min-width:330px;">Remplacer par la tâche…</th><th style="padding:6px 8px;">Après remplacement</th></tr></thead><tbody>
+            ${d.rubriques.map(r => {
+                const o = asanaT.ov[r.key] || {};
+                const picked = r.kind === 'date' ? !!o.task : !!(o.start || o.end);
+                const sels = r.kind === 'date'
+                    ? `<select data-k="${r.key}" data-f="task" onchange="AffectationApp.asanaTasksPick(this)" style="width:100%;padding:5px;">${asanaTaskOptions(o.task)}</select>`
+                    : `<div style="display:grid;grid-template-columns:48px 1fr;gap:4px;align-items:center;"><span class="aff-muted" style="font-size:11px;">Début</span><select data-k="${r.key}" data-f="start" onchange="AffectationApp.asanaTasksPick(this)" style="width:100%;padding:5px;">${asanaTaskOptions(o.start)}</select><span class="aff-muted" style="font-size:11px;">Fin</span><select data-k="${r.key}" data-f="end" onchange="AffectationApp.asanaTasksPick(this)" style="width:100%;padding:5px;">${asanaTaskOptions(o.end)}</select></div>`;
+                return `<tr style="border-top:1px solid #eef1f6;${picked ? 'background:#fff8e1;' : ''}" id="aTRow_${r.key}">
+                    <td style="padding:8px;vertical-align:top;"><b>${esc(r.label)}</b>${picked ? ' <span class="aff-av-b mid">remplacé</span>' : ''}<div class="aff-muted" style="font-size:11px;">${esc(r.rule)}</div></td>
+                    <td style="padding:8px;vertical-align:top;">${esc(aVal(r.current))}</td>
+                    <td style="padding:8px;vertical-align:top;">${esc(aVal(r.auto))}${r.sources.length ? `<div class="aff-muted" style="font-size:11px;">${r.sources.map(x => esc(String(x).slice(0, 60))).join(' · ')}</div>` : ''}</td>
+                    <td style="padding:8px;vertical-align:top;">${sels}</td>
+                    <td style="padding:8px;vertical-align:top;font-weight:700;color:#1b7f3b;" id="aTAfter_${r.key}">${esc(afterTxt(r))}</td></tr>`;
+            }).join('')}</tbody></table></div>
+            <details style="margin-top:14px;"><summary style="cursor:pointer;font-weight:700;color:#4a5b70;">Toutes les tâches du projet Asana (${d.tasks.length})</summary>
+            <div style="overflow:auto;max-height:340px;margin-top:8px;border:1px solid #eef1f6;border-radius:8px;"><table style="width:100%;border-collapse:collapse;font-size:12px;">
+            <thead style="position:sticky;top:0;background:#f0f4fa;"><tr style="text-align:left;"><th style="padding:5px 8px;">N°</th><th style="padding:5px 8px;">Tâche</th><th style="padding:5px 8px;">Tâche parente</th><th style="padding:5px 8px;">Début</th><th style="padding:5px 8px;">Échéance</th></tr></thead><tbody>
+            ${d.tasks.map(t => `<tr style="border-top:1px solid #f0f3f8;"><td style="padding:4px 8px;white-space:nowrap;">${esc(t.code || '')}</td><td style="padding:4px 8px;">${esc(t.name)}</td><td style="padding:4px 8px;color:#6b7a8d;">${esc(t.parent || '')}</td><td style="padding:4px 8px;white-space:nowrap;">${esc(aFr(t.start || (t.eff && t.eff.start) || ''))}</td><td style="padding:4px 8px;white-space:nowrap;font-weight:600;">${esc(aFr(t.due || (t.eff && t.eff.end) || '')) || '<span class="aff-muted">non datée</span>'}</td></tr>`).join('')}</tbody></table></div></details>`;
+    }
+
     // Pop-up : changements constatés entre l'état précédent et les dates reprises d'Asana
     function showAsanaChanges(d) {
         const box = document.getElementById('affAsanaChgBody');
@@ -764,6 +825,7 @@
                 </div>
                 <div>${timeline(p)}</div>
                 <div class="aff-row-actions">
+                    <button type="button" class="aff-icon-btn" style="background:#8e6cc9" title="Tâches du projet Asana : consulter les échéances et remplacer une donnée reprise" onclick="AffectationApp.asanaTasks(${p.id})">${svg('asanatasks', 'aff-ico-sm')}</button>
                     <button type="button" class="aff-icon-btn aff-asyn" style="background:#f06a6a" title="Rafraîchir depuis Asana : reprend les dates nouvelles ou modifiées du projet Asana de ce SAMU" onclick="AffectationApp.asanaRefresh(${p.id}, this)">${svg('asanasync', 'aff-ico-sm')}</button>
                     <button type="button" class="aff-icon-btn" style="background:#6b7a8d" title="Historique : qui a modifié quoi et quand" onclick="AffectationApp.showHistory(${p.id})">${svg('search', 'aff-ico-sm')}</button>
                     <button type="button" class="aff-icon-btn" style="background:#3498db" title="Modifier les dates" onclick="AffectationApp.editProject(${p.id})">${svg('pencil', 'aff-ico-sm')}</button>
@@ -2105,6 +2167,40 @@
                 if (r.updated.length) { await Promise.all([loadAdmin(), state.loaded ? loadPlanning() : null]); }
             } catch (e) { toast(esc(e.message), true); }
             finally { btn.classList.remove('aff-busy'); btn.lastChild.textContent = old; }
+        },
+        async asanaTasks(id) {
+            asanaT.id = id; asanaT.data = null; asanaT.ov = {};
+            document.getElementById('affAsanaTasksBody').innerHTML = '<p class="aff-muted">Chargement des tâches depuis Asana…</p>';
+            document.getElementById('affAsanaTasksMsg').textContent = '';
+            document.getElementById('affAsanaTasksModal').classList.add('active');
+            try {
+                const d = await api(`/affectation/projects/${id}/asana-tasks`);
+                asanaT.data = d;
+                d.rubriques.forEach(r => { if (r.override) asanaT.ov[r.key] = { ...r.override }; });
+                document.getElementById('affAsanaTasksTitle').lastChild.textContent = `Tâches du projet Asana — ${d.samu}`;
+                renderAsanaTasks();
+            } catch (e) { document.getElementById('affAsanaTasksBody').innerHTML = `<p class="aff-error">${esc(e.message)}</p>`; }
+        },
+        asanaTasksPick(sel) {
+            const k = sel.dataset.k, f = sel.dataset.f;
+            const o = asanaT.ov[k] = asanaT.ov[k] || {};
+            if (sel.value) o[f] = sel.value; else delete o[f];
+            if (!Object.keys(o).length) delete asanaT.ov[k];
+            renderAsanaTasks();
+        },
+        asanaTasksReset() { asanaT.ov = {}; renderAsanaTasks(); },
+        asanaTasksClose() { document.getElementById('affAsanaTasksModal').classList.remove('active'); },
+        async asanaTasksApply() {
+            const btn = document.getElementById('affAsanaTasksApply'), msg = document.getElementById('affAsanaTasksMsg');
+            btn.disabled = true; msg.style.color = '#4a5b70'; msg.textContent = 'Application…';
+            try {
+                const r = await api(`/affectation/projects/${asanaT.id}/asana-overrides`, { method: 'PUT', body: JSON.stringify({ overrides: asanaT.ov }) });
+                msg.textContent = '';
+                AffectationApp.asanaTasksClose();
+                if (r.unchanged) { const t = document.createElement('div'); t.className = 'aff-toast'; t.textContent = `${r.samu_name} : remplacements enregistrés, aucune date à modifier.`; document.body.appendChild(t); setTimeout(() => t.remove(), 4500); }
+                else { showAsanaChanges({ title: `Remplacements appliqués — ${r.samu_name}`, items: [{ samu: r.samu_name, created: false, asana: r.asana, changes: r.changes || [] }] }); await Promise.all([loadAdmin(), state.loaded ? loadPlanning() : null]); }
+            } catch (e) { msg.style.color = '#b3261e'; msg.textContent = e.message; }
+            finally { btn.disabled = false; }
         },
         asanaChgClose() { document.getElementById('affAsanaChgModal').classList.remove('active'); },
         toggleSamuDd(ev) { ev.stopPropagation(); plan.ddOpen = !plan.ddOpen; renderSamuDd(); },
