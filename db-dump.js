@@ -158,7 +158,7 @@ function purgeExpiredUploads() {
 }
 
 export function registerDumpRoutes(app, ctx) {
-    const { database, DB_FILE, DB_DIR, requireAdmin, logUserAction, reloadEmailConfig } = ctx;
+    const { database, DB_FILE, DB_DIR, requireAdmin, logUserAction, reloadEmailConfig, afterRestore } = ctx;
 
     // Purge au démarrage des envois orphelins (redémarrage entre analyse et restauration)
     try {
@@ -409,6 +409,7 @@ export function registerDumpRoutes(app, ctx) {
 
             // 5. État en mémoire du serveur
             reloadEmailConfig?.();
+            try { await afterRestore?.(); } catch (e) { console.error('Après restauration :', e.message); } // ex. types d'événements d'un dump ancien
             logUserAction(req, 'Restauration dump', { appVersion: up.manifest.appVersion, createdAt: up.manifest.createdAt, safetyBackup });
 
             pendingUploads.delete(token);

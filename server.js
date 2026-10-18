@@ -5719,6 +5719,7 @@ app.post('/api/logs/add-modification', requireAuth, (req, res) => {
 
 registerDumpRoutes(app, {
     database, DB_FILE, DB_DIR, requireAdmin, logUserAction,
+    afterRestore: () => evtSeedTypes(),
     reloadEmailConfig: () => {
         database.get('SELECT * FROM email_config WHERE id = 1', [], (err, row) => {
             if (row) emailConfig = { host: row.host, port: row.port, secure: row.secure === 1, user: row.user, password: row.password };
@@ -8383,28 +8384,29 @@ database.run(`
     )
 `, (err) => {
     if (err) { console.error('Erreur création table event_types:', err); return; }
-    database.get('SELECT COUNT(*) AS n FROM event_types', async (e, row) => {
-        if (e) return;
-        const seed = (row && row.n === 0) ? EVT_TYPE_SEED : EVT_TYPE_SEED.filter(t => t.other); // « Autre(s) » doit toujours exister
-        try {
-            for (const [i, t] of seed.entries()) { // séquentiel : identifiants dans l'ordre de la liste
-                await dbRun(`INSERT OR IGNORE INTO event_types (code, label_long, label_short, icon, bg_color, text_color, border_color, is_other, sort_order) VALUES (?, ?, '', ?, ?, ?, ?, ?, ?)`,
-                    [t.code, t.long, t.icon, t.bg, t.text, t.border, t.other ? 1 : 0, (i + 1) * 10]);
-            }
-            // Type « Mise en production » ajouté aux bases existantes (une seule fois : il reste supprimable ensuite)
-            if (!(await dbGet("SELECT value FROM settings WHERE key = 'evt_type_mep_seeded'"))) {
-                if (!(await dbGet("SELECT id FROM event_types WHERE code = 'mep'"))) {
-                    const mes = await dbGet("SELECT sort_order FROM event_types WHERE code = 'mes'");
-                    const t = EVT_TYPE_SEED.find(x => x.code === 'mep');
-                    await dbRun(`INSERT OR IGNORE INTO event_types (code, label_long, label_short, icon, bg_color, text_color, border_color, is_other, sort_order) VALUES (?, ?, '', ?, ?, ?, ?, 0, ?)`,
-                        [t.code, t.long, t.icon, t.bg, t.text, t.border, ((mes && mes.sort_order) || 20) + 5]);
-                }
-                await dbRun("INSERT OR REPLACE INTO settings (key, value) VALUES ('evt_type_mep_seeded', '1')");
-            }
-        } catch (x) { console.error('Erreur initialisation event_types:', x.message); }
-        console.log('✅ Table event_types créée ou existante');
-    });
+    evtSeedTypes().then(() => console.log('✅ Table event_types créée ou existante'));
 });
+// Alimente la liste des types : liste complète si la table est vide, « Autre(s) » toujours présent, « Mise en production » ajouté une fois aux anciennes bases.
+// Rappelée après une restauration de dump (un dump ancien, sans types, vide la table).
+async function evtSeedTypes() {
+    try {
+        const row = await dbGet('SELECT COUNT(*) AS n FROM event_types');
+        const seed = (row && row.n === 0) ? EVT_TYPE_SEED : EVT_TYPE_SEED.filter(t => t.other);
+        for (const [i, t] of seed.entries()) { // séquentiel : identifiants dans l'ordre de la liste
+            await dbRun(`INSERT OR IGNORE INTO event_types (code, label_long, label_short, icon, bg_color, text_color, border_color, is_other, sort_order) VALUES (?, ?, '', ?, ?, ?, ?, ?, ?)`,
+                [t.code, t.long, t.icon, t.bg, t.text, t.border, t.other ? 1 : 0, (i + 1) * 10]);
+        }
+        if (!(await dbGet("SELECT value FROM settings WHERE key = 'evt_type_mep_seeded'"))) {
+            if (!(await dbGet("SELECT id FROM event_types WHERE code = 'mep'"))) {
+                const mes = await dbGet("SELECT sort_order FROM event_types WHERE code = 'mes'");
+                const t = EVT_TYPE_SEED.find(x => x.code === 'mep');
+                await dbRun(`INSERT OR IGNORE INTO event_types (code, label_long, label_short, icon, bg_color, text_color, border_color, is_other, sort_order) VALUES (?, ?, '', ?, ?, ?, ?, 0, ?)`,
+                    [t.code, t.long, t.icon, t.bg, t.text, t.border, ((mes && mes.sort_order) || 20) + 5]);
+            }
+            await dbRun("INSERT OR REPLACE INTO settings (key, value) VALUES ('evt_type_mep_seeded', '1')");
+        }
+    } catch (x) { console.error('Erreur initialisation event_types:', x.message); }
+}
 const EVT_HEX = /^#[0-9a-fA-F]{6}$/;
 async function evtOtherType() { return await dbGet('SELECT * FROM event_types WHERE is_other = 1 LIMIT 1'); }
 // Type retenu pour un événement (création / changement de type) : repli sur « Autre(s) » ; les couleurs de l'événement suivent celles du type
