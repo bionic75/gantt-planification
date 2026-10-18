@@ -3862,6 +3862,15 @@ app.put('/api/affectation/projects/:id/assignments/:stage', requireAffectationAc
         if (ids.length > needed) return res.status(400).json({ error: `${stage.label} : ${needed} ressource(s) maximum` });
         const save = async () => {
             const beforeIds = (await dbAll('SELECT resource_id FROM affectation_assignments WHERE project_id = ? AND stage_key = ? ORDER BY id', [projectId, stage.key])).map(x => x.resource_id);
+            // Une ressource déjà affectée à un autre SAMU sur cette période n'est pas affectable : il faut d'abord la désaffecter de l'autre SAMU
+            try {
+                const av = (await affComputeAvailability(row, stage.key)).availability;
+                const blocked = ids.filter(id => !beforeIds.includes(id) && av[id] && av[id].other > 0);
+                if (blocked.length) {
+                    const names = (await dbAll(`SELECT id, nom, prenom FROM resources WHERE id IN (${blocked.map(() => '?').join(',')})`, blocked)).map(r => `${r.prenom || ''} ${(r.nom || '').toUpperCase()} (${(av[r.id].others || []).join(', ') || 'autre SAMU'})`.trim());
+                    return res.status(409).json({ error: `Déjà affecté(e) à un autre SAMU sur cette période : ${names.join(' ; ')}. Désaffectez-le d'abord de l'autre SAMU.` });
+                }
+            } catch (e) { /* contrôle indisponible : l'affectation reste possible */ }
             database.serialize(() => {
                 database.run('DELETE FROM affectation_assignments WHERE project_id = ? AND stage_key = ?', [projectId, stage.key]);
                 const stmt = database.prepare('INSERT INTO affectation_assignments (project_id, stage_key, resource_id) VALUES (?,?,?)');
@@ -3895,51 +3904,51 @@ function affSamuNumber(label) {
 
 // Système expert (v1) : disponibilité de chaque ressource sur la période d'une étape, d'après la planification (schedule_data).
 // available : 1 indisponible, 2 disponible ANS, 3 congés. activity : 1 indisponible, 2 en attente d'affectation, 3/4 SAMU, 5-8 ANS/qualification/divers.
-app.get('/api/affectation/projects/:id/availability/:stage', requireAffectationAccess, (req, res) => {
-    const projectId = Number(req.params.id);
-    database.get('SELECT samu_name, periods FROM affectation_projects WHERE id = ?', [projectId], (err, row) => {
-        if (err) return res.status(500).json({ error: err.message });
-        if (!row) return res.status(404).json({ error: 'Projet introuvable' });
-        let periods = {};
-        try { periods = JSON.parse(row.periods || '{}'); } catch (e) { periods = {}; }
-        const per = periods[req.params.stage] && periods[req.params.stage][0];
-        if (!per) return res.status(400).json({ error: 'Étape sans période' });
-        const samuNo = affSamuNumber(row.samu_name);
-        database.all(`SELECT resource_id, date_key, type, value FROM schedule_data
-                      WHERE type IN ('available','activity','localisation') AND date_key >= ? AND date_key <= ?`,
-            [per.start, per.end + '_ZZ'], (e2, rows) => {
-            if (e2) return res.status(500).json({ error: e2.message });
-            const slots = {};
-            (rows || []).forEach(r => {
-                const day = r.date_key.slice(0, 10);
-                const dow = new Date(day + 'T00:00:00Z').getUTCDay();
-                if (dow === 0 || dow === 6) return;
-                ((slots[r.resource_id] = slots[r.resource_id] || {})[r.date_key] = slots[r.resource_id][r.date_key] || {})[r.type] = r.value;
-            });
-            // demi-journées ouvrées de la période
-            let total = 0;
-            for (let t = Date.parse(per.start + 'T00:00:00Z'); t <= Date.parse(per.end + 'T00:00:00Z'); t += 86400000) {
-                const dow = new Date(t).getUTCDay();
-                if (dow !== 0 && dow !== 6) total += 2;
-            }
-            const out = {};
-            Object.entries(slots).forEach(([rid, days]) => {
-                const st = { free: 0, here: 0, other: 0, ans: 0, off: 0, leave: 0, others: [] };
-                const otherSet = new Set();
-                Object.values(days).forEach(d => {
-                    const act = d.activity, av = d.available;
-                    if (av === '3') st.leave++;
-                    else if (av === '1' || act === '1') st.off++;
-                    else if (act === '3' || act === '4') (affSamuNumber(d.localisation) === samuNo && samuNo ? st.here++ : (st.other++, otherSet.add(String(d.localisation || 'SAMU').replace(/^[^A-Za-z0-9]+/, '').trim())));
-                    else if (['5', '6', '7', '8'].includes(act)) st.ans++;
-                    else if (av === '2') st.free++; // disponible ANS, activité 2 ou non renseignée
-                });
-                st.others = [...otherSet].sort();
-                out[rid] = st;
-            });
-            res.json({ total, availability: out });
-        });
+// Disponibilité des ressources sur la période d'une étape (demi-journées ouvrées) d'après la planification
+async function affComputeAvailability(row, stageKey) {
+    let periods = {};
+    try { periods = JSON.parse(row.periods || '{}'); } catch (e) { periods = {}; }
+    const per = periods[stageKey] && periods[stageKey][0];
+    if (!per) throw Object.assign(new Error('Étape sans période'), { status: 400 });
+    const samuNo = affSamuNumber(row.samu_name);
+    const rows = await dbAll(`SELECT resource_id, date_key, type, value FROM schedule_data
+                  WHERE type IN ('available','activity','localisation') AND date_key >= ? AND date_key <= ?`, [per.start, per.end + '_ZZ']);
+    const slots = {};
+    rows.forEach(r => {
+        const day = r.date_key.slice(0, 10);
+        const dow = new Date(day + 'T00:00:00Z').getUTCDay();
+        if (dow === 0 || dow === 6) return;
+        ((slots[r.resource_id] = slots[r.resource_id] || {})[r.date_key] = slots[r.resource_id][r.date_key] || {})[r.type] = r.value;
     });
+    let total = 0;
+    for (let t = Date.parse(per.start + 'T00:00:00Z'); t <= Date.parse(per.end + 'T00:00:00Z'); t += 86400000) {
+        const dow = new Date(t).getUTCDay();
+        if (dow !== 0 && dow !== 6) total += 2;
+    }
+    const out = {};
+    Object.entries(slots).forEach(([rid, days]) => {
+        const st = { free: 0, here: 0, other: 0, ans: 0, off: 0, leave: 0, others: [] };
+        const otherSet = new Set();
+        Object.values(days).forEach(d => {
+            const act = d.activity, av = d.available;
+            if (av === '3') st.leave++;
+            else if (av === '1' || act === '1') st.off++;
+            else if (act === '3' || act === '4') (affSamuNumber(d.localisation) === samuNo && samuNo ? st.here++ : (st.other++, otherSet.add(String(d.localisation || 'SAMU').replace(/^[^A-Za-z0-9]+/, '').trim())));
+            else if (['5', '6', '7', '8'].includes(act)) st.ans++;
+            else if (av === '2') st.free++; // disponible ANS, activité 2 ou non renseignée
+        });
+        st.others = [...otherSet].sort();
+        out[rid] = st;
+    });
+    return { total, availability: out, per };
+}
+app.get('/api/affectation/projects/:id/availability/:stage', requireAffectationAccess, async (req, res) => {
+    try {
+        const row = await dbGet('SELECT samu_name, periods FROM affectation_projects WHERE id = ?', [Number(req.params.id)]);
+        if (!row) return res.status(404).json({ error: 'Projet introuvable' });
+        const r = await affComputeAvailability(row, req.params.stage);
+        res.json({ total: r.total, availability: r.availability });
+    } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
 });
 
 // ---- Synchronisation des affectations vers la planification et les événements ----
@@ -4105,13 +4114,19 @@ async function affEventSnapshot(eventId) {
 }
 // Seules les demi-journées posées par l'affectation sur ce SAMU (activité 3 ou 4 + localisation de ce SAMU) sont remises en situation : le reste de la planification n'est pas touché
 async function affResetPlanningForEvent(snap, req) {
+    if (!snap) return 0;
+    const n = await affResetPlanning({ resourceIds: snap.resourceIds, start: snap.start_date, end: snap.end_date, period: snap.period, samuNo: affSamuNumber(snap.loc) });
+    if (n) logUserAction(req, "Planification remise en situation après suppression d'un événement", { evenement: snap.id, label: snap.label, demiJournees: n });
+    return n;
+}
+async function affResetPlanning(snap) {
     if (!snap || !snap.resourceIds.length) return 0;
-    const samuNo = affSamuNumber(snap.loc);
+    const samuNo = snap.samuNo;
     if (!samuNo) return 0;
     const halves = snap.period === 'AM' ? ['AM'] : snap.period === 'PM' ? ['PM'] : ['AM', 'PM'];
     let n = 0;
     for (const rid of snap.resourceIds) {
-        for (let t = Date.parse(snap.start_date + 'T00:00:00Z'); t <= Date.parse(snap.end_date + 'T00:00:00Z'); t += 86400000) {
+        for (let t = Date.parse(snap.start + 'T00:00:00Z'); t <= Date.parse(snap.end + 'T00:00:00Z'); t += 86400000) {
             const dow = new Date(t).getUTCDay();
             if (dow === 0 || dow === 6) continue;
             const day = new Date(t).toISOString().slice(0, 10);
@@ -4127,7 +4142,6 @@ async function affResetPlanningForEvent(snap, req) {
             }
         }
     }
-    if (n) logUserAction(req, "Planification remise en situation après suppression d'un événement", { evenement: snap.id, label: snap.label, demiJournees: n });
     return n;
 }
 // À chaque création / modification d'événement, les affectations des déploiements concernés sont mises à jour
@@ -4144,6 +4158,31 @@ app.use(['/api/my-custom-events', '/api/custom-events'], async (req, res, next) 
         res.on('finish', () => { if (res.statusCode < 300) affSyncAllFromEvents(req).catch(e => console.error('Synchro événements → affectations :', e.message)); });
     }
     next();
+});
+
+// Désaffectation : les ressources retirées d'une activité sont remises dans la planification en « 2 - Disponible » / « 2 - En attente d'affectation » (localisation effacée)
+// sur la période de l'activité, et retirées des participants des événements de cette activité
+app.post('/api/affectation/projects/:id/assignments/:stage/release', requireAdmin, async (req, res) => {
+    try {
+        const id = Number(req.params.id), key = req.params.stage;
+        const proj = await dbGet('SELECT * FROM affectation_projects WHERE id = ?', [id]);
+        if (!proj) return res.status(404).json({ error: 'Déploiement introuvable' });
+        let periods = {}; try { periods = JSON.parse(proj.periods || '{}'); } catch (e) { periods = {}; }
+        const per = periods[key] && periods[key][0];
+        if (!per) return res.status(400).json({ error: 'Étape sans période' });
+        const rids = [...new Set(((req.body || {}).resource_ids || []).map(Number).filter(n => Number.isInteger(n) && n > 0))];
+        if (!rids.length) return res.json({ success: true, planningReset: 0, removedFromEvents: 0 });
+        const planningReset = await affResetPlanning({ resourceIds: rids, start: per.start, end: per.end, period: 'FULL', samuNo: affSamuNumber(proj.samu_name) });
+        const locId = await affProjectLocationId(proj);
+        const evs = await affStageEvents(proj, key, per, await affEventLinks(id), await affStageTypeMap(), await dbAll('SELECT * FROM event_types'), locId);
+        let removedFromEvents = 0;
+        if (evs.length) {
+            const r = await dbRun(`DELETE FROM custom_event_participants WHERE event_id IN (${evs.map(() => '?').join(',')}) AND user_id IN (SELECT id FROM users WHERE resource_id IN (${rids.map(() => '?').join(',')}))`, [...evs, ...rids]);
+            removedFromEvents = r.changes || 0;
+        }
+        logUserAction(req, 'Désaffectation : planification remise en situation', { projectId: id, stage: key, ressources: rids, demiJournees: planningReset, retiresDesEvenements: removedFromEvents });
+        res.json({ success: true, planningReset, removedFromEvents });
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // Création de l'événement correspondant à une activité (SAMU, type de la correspondance, dates, ressources affectées en participants)
@@ -4298,6 +4337,7 @@ app.post('/api/affectation/projects/:id/sync/:stage', requireAdmin, async (req, 
                 eventId = r.lastID;
             }
             for (const uid of users) await dbRun('INSERT OR IGNORE INTO custom_event_participants (event_id, user_id) VALUES (?, ?)', [eventId, uid]);
+            await affSetEventLink(c.proj.id, req.params.stage, eventId); // l'événement est relié à l'activité
             result.event = { id: eventId, created: !c.event.existing, participants: users.length };
         }
         logUserAction(req, 'Synchronisation affectation déploiement SAMU', { projectId: c.proj.id, stage: req.params.stage, ...result });
