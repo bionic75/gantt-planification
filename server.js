@@ -4328,7 +4328,7 @@ async function asanaApplyCore(req, c, wantList, forcedId, source) {
     const changes = await affDiff(existing ? affValuesOfRow(existing) : null, v);
     if (changes.length) await affHist(req, id, v.samu_name, source === 'api' ? 'import_asana_api' : 'import_asana_csv', { changes, note: c.projectName ? `Projet Asana « ${c.projectName.trim()} »` : '' });
     logUserAction(req, 'Import Asana dans un déploiement SAMU', { id, samu: v.samu_name, appliquees: [...want] });
-    return { success: true, id, created: !existing, samu_name: v.samu_name, date_debut: v.date_debut, debutAjuste: !!debutAvant && debutAvant !== v.date_debut };
+    return { success: true, id, created: !existing, samu_name: v.samu_name, date_debut: v.date_debut, debutAjuste: !!debutAvant && debutAvant !== v.date_debut, changes };
 }
 
 // ---- Import par fichier CSV ----
@@ -4559,7 +4559,7 @@ app.post('/api/affectation/asana/refresh-all', requireAdmin, async (req, res) =>
         for (const dep of deps) {
             try {
                 const r = await asanaRefreshDeployment(req, token, ctx, dep);
-                if (r.unchanged) out.unchanged.push(dep.samu_name); else out.updated.push({ samu: dep.samu_name, rows: r.updated });
+                if (r.unchanged) out.unchanged.push(dep.samu_name); else out.updated.push({ samu: dep.samu_name, rows: r.updated, asana: r.asana, changes: r.changes || [] });
             } catch (e) {
                 if (e.noMatch) out.noMatch.push(dep.samu_name); else out.errors.push({ samu: dep.samu_name, error: e.message });
             }
