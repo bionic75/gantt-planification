@@ -3957,13 +3957,14 @@ const dbRun = (sql, params) => new Promise((resolve, reject) => database.run(sql
 // Correspondance entre les activités issues d'Asana (étapes avec ressources) et les types d'événements :
 // détermine le type, l'icône, le libellé court et les couleurs des événements créés par la synchronisation vers la planification.
 const AFF_STAGE_TYPE_KEY = 'aff_stage_event_types';
-const AFF_STAGE_TYPE_DEFAULT = { visite_metier: 'visiteMetier', test_prerequis: 'verifPrereq', vft: 'vftSite', formation_utilisateurs: 'formation', accompagnement: 'apd' }; // codes de types
+const AFF_STAGE_TYPE_DEFAULT = { mise_en_service: 'mes', mise_en_production: 'autre', visite_metier: 'visiteMetier', test_prerequis: 'verifPrereq', vft: 'vftSite', formation_utilisateurs: 'formation', accompagnement: 'apd' }; // codes de types
+const AFF_EVENT_KEYS = ['mise_en_service', 'mise_en_production', 'visite_metier', 'test_prerequis', 'vft', 'formation_utilisateurs', 'accompagnement']; // activités reliées à des événements
 async function affStageTypeMap() {
     let saved = {};
     try { saved = JSON.parse((await dbGet('SELECT value FROM settings WHERE key = ?', [AFF_STAGE_TYPE_KEY]) || {}).value || '{}') || {}; } catch (e) { saved = {}; }
     const types = await dbAll('SELECT id, code FROM event_types');
     const out = {};
-    for (const st of AFF_STAGES.filter(x => x.resources)) {
+    for (const st of AFF_STAGES.filter(x => AFF_EVENT_KEYS.includes(x.key))) {
         const sv = Number(saved[st.key]);
         const byId = types.find(t => t.id === sv);
         const def = types.find(t => t.code === AFF_STAGE_TYPE_DEFAULT[st.key]) || types.find(t => t.code === 'autre');
@@ -3974,10 +3975,90 @@ async function affStageTypeMap() {
 app.get('/api/affectation/stage-event-types', requireAffectationAccess, async (req, res) => {
     try {
         res.json({
-            stages: AFF_STAGES.filter(x => x.resources).map(x => ({ key: x.key, label: x.label, rule: ASANA_RULES[x.key] || '' })),
+            stages: AFF_STAGES.filter(x => AFF_EVENT_KEYS.includes(x.key)).map(x => ({ key: x.key, label: x.label, rule: ASANA_RULES[x.key] || '' })),
             mapping: await affStageTypeMap(),
             types: await dbAll('SELECT * FROM event_types ORDER BY is_other, sort_order, label_long')
         });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+// ---- Événements liés aux activités d'un déploiement (formulaire « Modifier un déploiement ») ----
+const AFF_EVLINK_KEY = 'aff_event_links';
+async function affEventLinks(depId) {
+    try { const all = JSON.parse((await dbGet('SELECT value FROM settings WHERE key = ?', [AFF_EVLINK_KEY]) || {}).value || '{}'); return all[String(depId)] || {}; } catch (e) { return {}; }
+}
+async function affSetEventLink(depId, key, eventId) {
+    let all = {};
+    try { all = JSON.parse((await dbGet('SELECT value FROM settings WHERE key = ?', [AFF_EVLINK_KEY]) || {}).value || '{}'); } catch (e) { all = {}; }
+    const cur = all[String(depId)] = all[String(depId)] || {};
+    if (eventId) cur[key] = eventId; else delete cur[key];
+    if (!Object.keys(cur).length) delete all[String(depId)];
+    await dbRun('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [AFF_EVLINK_KEY, JSON.stringify(all)]);
+}
+async function affProjectLocationId(proj) {
+    if (proj.location_id) return proj.location_id;
+    const loc = await dbGet('SELECT id FROM locations WHERE libelle_court = ?', [proj.samu_name]);
+    return loc ? loc.id : null;
+}
+const affNormTxt = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+app.get('/api/affectation/projects/:id/events-candidates', requireAdmin, async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        const proj = await dbGet('SELECT * FROM affectation_projects WHERE id = ?', [id]);
+        if (!proj) return res.status(404).json({ error: 'Déploiement introuvable' });
+        const locId = await affProjectLocationId(proj);
+        const map = await affStageTypeMap();
+        const types = await dbAll('SELECT * FROM event_types');
+        const events = locId ? await dbAll(`SELECT ce.id, ce.label, ce.start_date, ce.end_date, ce.period, ce.type_id FROM custom_events ce WHERE ce.location_id = ? ORDER BY ce.start_date, ce.id`, [locId]) : [];
+        const parts = events.length ? await dbAll(`SELECT event_id, COUNT(*) AS n FROM custom_event_participants WHERE event_id IN (${events.map(() => '?').join(',')}) GROUP BY event_id`, events.map(e => e.id)) : [];
+        const pc = Object.fromEntries(parts.map(p => [p.event_id, p.n]));
+        const links = await affEventLinks(id);
+        const out = {};
+        for (const key of AFF_EVENT_KEYS) {
+            const t = types.find(x => x.id === map[key]);
+            const tplLabel = (AFF_STAGE_EVENT[key] || {}).label || (key === 'mise_en_service' ? 'MISE EN SERVICE' : '');
+            const legacy = [t && t.label_long, tplLabel].filter(Boolean).map(affNormTxt);
+            const isMatch = e => e.type_id ? e.type_id === (t && t.id) : legacy.some(l => affNormTxt(e.label).startsWith(l));
+            const fmt = e => ({ id: e.id, label: e.label, start: e.start_date, end: e.end_date, participants: pc[e.id] || 0, type: (types.find(x => x.id === e.type_id) || {}).label_long || null });
+            const linked = events.find(e => e.id === links[key]);
+            out[key] = { typeId: t ? t.id : null, typeLong: t ? t.label_long : null, matching: events.filter(isMatch).map(fmt), others: events.filter(e => !isMatch(e)).map(fmt), linked: linked ? linked.id : null };
+        }
+        res.json({ samu: proj.samu_name, locationId: locId, candidates: out });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.put('/api/affectation/projects/:id/event-link', requireAdmin, async (req, res) => {
+    try {
+        const id = Number(req.params.id), key = String((req.body || {}).key || ''), eventId = Number((req.body || {}).eventId) || null;
+        if (!AFF_EVENT_KEYS.includes(key)) return res.status(400).json({ error: 'Activité inconnue' });
+        if (eventId && !(await dbGet('SELECT id FROM custom_events WHERE id = ?', [eventId]))) return res.status(404).json({ error: 'Événement introuvable' });
+        await affSetEventLink(id, key, eventId);
+        logUserAction(req, 'Lien déploiement / événement', { id, activite: key, evenement: eventId });
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+// Création de l'événement correspondant à une activité (SAMU, type de la correspondance, dates, ressources affectées en participants)
+app.post('/api/affectation/projects/:id/event-create', requireAdmin, async (req, res) => {
+    try {
+        const id = Number(req.params.id), b = req.body || {}, key = String(b.key || '');
+        if (!AFF_EVENT_KEYS.includes(key)) return res.status(400).json({ error: 'Activité inconnue' });
+        const proj = await dbGet('SELECT * FROM affectation_projects WHERE id = ?', [id]);
+        if (!proj) return res.status(404).json({ error: 'Déploiement introuvable' });
+        const iso = v => /^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? String(v) : null;
+        const start = iso(b.start), end = iso(b.end) || start;
+        if (!start) return res.status(400).json({ error: 'Renseignez d\'abord la date (ou la période) de cette activité' });
+        if (end < start) return res.status(400).json({ error: 'La date de fin précède la date de début' });
+        const locId = await affProjectLocationId(proj);
+        if (!locId) return res.status(400).json({ error: `Aucune localisation « ${proj.samu_name} » : créez-la dans l'Administration (Localisation) pour rattacher l'événement` });
+        const typeId = (await affStageTypeMap())[key];
+        const ty = await evtResolveType(typeId, {});
+        const label = String(b.label || '').trim() || (ty.type ? ty.type.label_long : AFF_STAGES.find(x => x.key === key).label);
+        const grist = ty.type && ['mes', 'visite', 'congres', 'visiteMetier'].includes(ty.type.code) ? 1 : 0;
+        const ins = await dbRun(`INSERT INTO custom_events (label, start_date, end_date, config, created_by, period, location_id, grist, type_id) VALUES (?,?,?,?,?,?,?,?,?)`,
+            [label, start, end, JSON.stringify(ty.config), req.session.userId, 'FULL', locId, grist, ty.typeId]);
+        const users = await dbAll(`SELECT DISTINCT u.id FROM affectation_assignments a JOIN resources r ON r.id = a.resource_id JOIN users u ON u.resource_id = r.id AND u.actif = 1 WHERE a.project_id = ? AND a.stage_key = ?`, [id, key]);
+        for (const u of users) await dbRun('INSERT OR IGNORE INTO custom_event_participants (event_id, user_id) VALUES (?, ?)', [ins.lastID, u.id]);
+        await affSetEventLink(id, key, ins.lastID);
+        logUserAction(req, "Création d'un événement depuis un déploiement SAMU", { id, activite: key, evenement: ins.lastID, type: ty.type && ty.type.label_long });
+        res.json({ success: true, eventId: ins.lastID, participants: users.length });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 app.put('/api/affectation/stage-event-types', requireAdmin, async (req, res) => {
@@ -3985,7 +4066,7 @@ app.put('/api/affectation/stage-event-types', requireAdmin, async (req, res) => 
         const raw = (req.body && req.body.mapping) || {};
         const types = await dbAll('SELECT id FROM event_types');
         const clean = {};
-        for (const st of AFF_STAGES.filter(x => x.resources)) {
+        for (const st of AFF_STAGES.filter(x => AFF_EVENT_KEYS.includes(x.key))) {
             const id = Number(raw[st.key]);
             if (types.some(t => t.id === id)) clean[st.key] = id;
         }

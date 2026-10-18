@@ -167,6 +167,9 @@
         .aff-stage .dates input { padding: 6px 6px; border: 1px solid #cfd8e6; border-radius: 8px; font-size: 13px; width: 142px; }
         .aff-stage .dates input.aff-days { width: 78px; text-align: center; }
         .aff-stage .dates .pr .aff-wk { width: 160px; }
+        .aff-stage .dates .pr.aff-evl { flex-wrap: wrap; gap: 6px 10px; font-size: 12px; border-left: 3px solid #d7dff0; padding-left: 8px; margin-top: 2px; }
+        .aff-evl select { padding: 6px 8px; border: 1px solid #cfd8e6; border-radius: 8px; font-size: 12px; flex: 1; min-width: 280px; max-width: 560px; }
+        .aff-evl .none { color: #b26a00; } .aff-evl .ok { color: #1b7f3b; } .aff-evl .warn { color: #b26a00; }
         .aff-stage .dates select.aff-need { padding: 7px 8px; border: 1px solid #cfd8e6; border-radius: 8px; font-size: 13px; width: 112px; }
         #affProjectModal input[type=date]::-webkit-calendar-picker-indicator, #affectationContainer input[type=date]::-webkit-calendar-picker-indicator { opacity: 0; position: absolute; right: 0; width: 34px; height: 100%; cursor: pointer; }
         #affProjectModal input[type=date] { position: relative; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234a5b70' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='16' rx='2'/%3E%3Cpath d='M3 10h18M8 3v4M16 3v4'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; background-size: 16px; }
@@ -899,6 +902,8 @@
     }
 
     const weekValue = iso => { if (!iso) return ''; const w = isoWeek(iso); return `${w.year}-W${String(w.week).padStart(2, '0')}`; };
+    const EVLINK_KEYS = ['mise_en_service', 'mise_en_production', 'visite_metier', 'test_prerequis', 'vft', 'formation_utilisateurs', 'accompagnement'];
+    const evLinkRow = key => EVLINK_KEYS.includes(key) ? `<div class="pr aff-evl" data-ek="${key}"><span class="aff-muted">${state.form && state.form.id ? 'Recherche des événements…' : 'Enregistrez le déploiement pour relier des événements.'}</span></div>` : '';
     function periodRows(key, list) {
         const def = stageDef(key);
         const rows = (list && list.length ? list : [{ start: '', end: '' }]).map((x, i) => `
@@ -912,14 +917,14 @@
                 <button type="button" class="aff-x" title="Effacer cette période" onclick="AffectationApp.clearPeriod('${key}', ${i})">${svg('x', 'aff-ico-sm')}</button>
             </div>`).join('');
         const add = def.kind === 'periods' ? `<button type="button" class="aff-btn" style="align-self:flex-start;padding:5px 10px;" onclick="AffectationApp.addPeriod('${key}')">${svg('plus', 'aff-ico-sm')}Ajouter une période</button>` : '';
-        return `<div class="dates">${rows}${add}</div>`;
+        return `<div class="dates">${rows}${add}${evLinkRow(key)}</div>`;
     }
 
     function stageRow(key, f) {
         const def = stageDef(key);
         const head = `<div class="name"><i style="${bgStyle(color(key), pattern(key))}"></i>${esc(def.label)}${def.kind === 'periods' ? ' <span class="aff-muted">(optionnel)</span>' : ''}</div>`;
         if (def.kind === 'date') {
-            return `<div class="aff-stage">${head}<div class="dates"><div class="pr"><input type="date" data-df="${key}" value="${esc(f['date_' + key] || '')}" aria-label="${esc(def.label)}"></div></div><span></span></div>`;
+            return `<div class="aff-stage">${head}<div class="dates"><div class="pr"><input type="date" data-df="${key}" value="${esc(f['date_' + key] || '')}" aria-label="${esc(def.label)}"></div>${evLinkRow(key)}</div><span></span></div>`;
         }
         return `<div class="aff-stage">${head}${periodRows(key, f.periods[key])}<span></span></div>`;
     }
@@ -952,6 +957,49 @@
             <div class="aff-section-title">Étapes de mise en œuvre</div>
             ${h.map(k => stageRow(k, f)).join('')}`;
         AffectationApp.syncMin();
+    }
+
+    // Événements du SAMU correspondant à chaque activité (liste déroulante ; création proposée s'il n'y en a pas)
+    const evFr = d => d ? d.split('-').reverse().join('/') : '';
+    const evDates = e => e.start === e.end ? evFr(e.start) : `${evFr(e.start)} → ${evFr(e.end)}`;
+    const evOpt = (e, sel) => `<option value="${e.id}" ${sel ? 'selected' : ''}>${esc(evDates(e))} · ${esc(e.label)}${e.participants ? ' · ' + e.participants + ' part.' : ''}${e.type ? ' · ' + esc(e.type) : ''}</option>`;
+    function evRowDates(key) {
+        const one = document.querySelector(`#affModalBody input[data-df="${key}"]`);
+        if (one) return one.value ? { start: one.value, end: one.value } : null;
+        const st = document.querySelector(`#affModalBody input[data-pk="${key}"][data-pi="0"][data-pf="start"]`), en = document.querySelector(`#affModalBody input[data-pk="${key}"][data-pi="0"][data-pf="end"]`);
+        return st && st.value ? { start: st.value, end: en && en.value ? en.value : st.value } : null;
+    }
+    function renderEventLinks() {
+        const box = state.evc && state.evc.candidates;
+        document.querySelectorAll('#affModalBody .aff-evl').forEach(row => {
+            const key = row.dataset.ek, c = box && box[key];
+            if (!state.form || !state.form.id) return;
+            if (!c) { row.innerHTML = '<span class="aff-muted">Événements indisponibles.</span>'; return; }
+            const none = !c.matching.length;
+            row.innerHTML = `<span class="aff-muted" style="white-space:nowrap;">${svg('calendar', 'aff-ico-sm')}Événement</span>
+                <select data-ek="${key}" onchange="AffectationApp.evLink(this)" title="Événements de ce SAMU${c.typeLong ? ' (type « ' + esc(c.typeLong) + ' »)' : ''}">
+                    <option value="">— Aucun événement lié —</option>
+                    ${c.matching.length ? `<optgroup label="Correspondant au SAMU et au type « ${esc(c.typeLong || '')} »">${c.matching.map(e => evOpt(e, e.id === c.linked)).join('')}</optgroup>` : ''}
+                    ${c.others.length ? `<optgroup label="Autres événements de ce SAMU">${c.others.map(e => evOpt(e, e.id === c.linked)).join('')}</optgroup>` : ''}
+                </select>
+                ${none ? `<span class="none">Aucun événement « ${esc(c.typeLong || '')} » trouvé pour ce SAMU.</span><button type="button" class="aff-btn aff-btn-primary" style="padding:4px 10px;" onclick="AffectationApp.evCreate('${key}')" title="Crée l'événement dans l'outil (SAMU, type, dates de l'activité, ressources affectées en participants)">${svg('plus', 'aff-ico-sm')}Créer l'événement</button>` : `<button type="button" class="aff-btn" style="padding:4px 10px;" onclick="AffectationApp.evCreate('${key}')" title="Créer un nouvel événement pour cette activité">${svg('plus', 'aff-ico-sm')}Nouveau</button>`}
+                <span id="aEvInfo_${key}"></span>`;
+            evInfo(key);
+        });
+    }
+    function evInfo(key) {
+        const c = state.evc && state.evc.candidates[key], el = document.getElementById('aEvInfo_' + key);
+        if (!c || !el) return;
+        const e = [...c.matching, ...c.others].find(x => x.id === c.linked), d = evRowDates(key);
+        if (!e) { el.textContent = ''; return; }
+        const same = d && d.start === e.start && d.end === e.end;
+        el.innerHTML = same ? '<span class="ok">✔ mêmes dates que l\'activité</span>' : `<span class="warn" title="Dates de l'événement : ${esc(evDates(e))}">⚠ dates différentes de l'activité</span>`;
+    }
+    async function loadEventCandidates(id) {
+        state.evc = null;
+        if (!id) return;
+        try { state.evc = await api(`/affectation/projects/${id}/events-candidates`); } catch (e) { state.evc = null; }
+        renderEventLinks();
     }
 
     function collectForm() {
@@ -1197,6 +1245,24 @@
             document.getElementById('affModalError').textContent = '';
             renderForm();
             document.getElementById('affProjectModal').classList.add('active');
+            loadEventCandidates(p ? p.id : null);
+        },
+        async evLink(sel) {
+            const key = sel.dataset.ek, c = state.evc && state.evc.candidates[key];
+            try { await api(`/affectation/projects/${state.form.id}/event-link`, { method: 'PUT', body: JSON.stringify({ key, eventId: sel.value ? Number(sel.value) : null }) }); if (c) c.linked = sel.value ? Number(sel.value) : null; evInfo(key); }
+            catch (e) { document.getElementById('affModalError').textContent = e.message; }
+        },
+        async evCreate(key) {
+            const err = document.getElementById('affModalError'); err.textContent = '';
+            const d = evRowDates(key), def = stageDef(key), c = state.evc && state.evc.candidates[key];
+            if (!d) { err.textContent = `${def.label} : renseignez d'abord la date (ou la période) avant de créer l'événement.`; return; }
+            const txt = d.start === d.end ? `le ${evFr(d.start)}` : `du ${evFr(d.start)} au ${evFr(d.end)}`;
+            if (!confirm(`Créer l'événement « ${c && c.typeLong ? c.typeLong : def.label} » pour ${state.form.samu_name}, ${txt} ?\n\nLes ressources affectées à cette activité (si elles ont un compte) seront ajoutées en participants.`)) return;
+            try {
+                await api(`/affectation/projects/${state.form.id}/event-create`, { method: 'POST', body: JSON.stringify({ key, start: d.start, end: d.end }) });
+                await loadEventCandidates(state.form.id);
+                const t = document.createElement('div'); t.className = 'aff-toast'; t.textContent = `Événement « ${def.label} » créé et relié.`; document.body.appendChild(t); setTimeout(() => t.remove(), 4000);
+            } catch (e) { err.textContent = e.message; }
         },
         closeProject() { document.getElementById('affProjectModal').classList.remove('active'); },
         syncMin() {
