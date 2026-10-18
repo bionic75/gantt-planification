@@ -287,7 +287,9 @@ async function evtRefreshAfterTypeChange() {
 }
 
 // ── Administration : reprise des données (type et libellé modifiables) ──────
-const evtRec = { rows: [], changes: {}, suggested: new Set(), sortKey: 'start', dir: 1, q: '', untyped: false, page: 0, size: 100 };
+const evtRec = { rows: [], changes: {}, suggested: new Set(), sortKey: 'start', dir: 1, q: '', tab: null, page: 0, size: 100 };
+// Onglets : « À traiter » = événements sans type en base ; « Traité » = type déjà affecté (enregistré)
+const evtRecIsDone = r => !!r.type_id;
 const evtNorm = t => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
 // Libellés historiques (anciens gabarits) → type
 const EVT_LEGACY = [['reunion de lancement strategique', 'reunionLancement'], ['accomp post dem', 'apd'], ['accompagnement post demarrage', 'apd'], ['mise en service', 'mes'], ['visite terrain', 'visite'], ['visite metier', 'visiteMetier'], ['visite post mes', 'visitePostMes'],
@@ -308,6 +310,7 @@ async function evtRecLoad() {
         evtRec.rows = (await r.json()).events || [];
     } catch (e) { box.innerHTML = `<p style="color:#b3261e;">Chargement impossible : ${evtEsc(e.message)}</p>`; return; }
     evtRec.changes = {}; evtRec.suggested = new Set(); evtRec.page = 0;
+    if (!evtRec.tab || !evtRec.rows.some(r => !evtRecIsDone(r) === (evtRec.tab === 'todo'))) evtRec.tab = evtRec.rows.some(r => !evtRecIsDone(r)) ? 'todo' : 'done';
     evtRecRender();
 }
 const evtRecType = row => (evtRec.changes[row.id] && evtRec.changes[row.id].type_id !== undefined) ? evtRec.changes[row.id].type_id : row.type_id;
@@ -335,7 +338,7 @@ function evtRecCounters() {
 function evtRecSuggest() {
     let n = 0;
     evtRec.rows.forEach(r => {
-        if (evtRecType(r)) return;
+        if (evtRecIsDone(r) || evtRecType(r)) return;
         const t = evtSuggest(evtRecLabel(r));
         if (t) { (evtRec.changes[r.id] = evtRec.changes[r.id] || {}).type_id = t.id; evtRec.suggested.add(r.id); n++; }
     });
@@ -359,7 +362,7 @@ async function evtRecSave() {
 }
 function evtRecFiltered() {
     const q = evtNorm(evtRec.q), col = EVT_REC_COLS.find(c => c.k === evtRec.sortKey) || EVT_REC_COLS[0];
-    let rows = evtRec.rows.filter(r => (!evtRec.untyped || !evtRecType(r)) && (!q || evtNorm(EVT_REC_COLS.map(c => c.v(r)).join(' ')).includes(q)));
+    let rows = evtRec.rows.filter(r => (evtRec.tab === 'done') === evtRecIsDone(r) && (!q || evtNorm(EVT_REC_COLS.map(c => c.v(r)).join(' ')).includes(q)));
     rows = rows.map(r => ({ r, v: col.v(r) })).sort((a, b) => String(a.v).localeCompare(String(b.v), 'fr', { numeric: true }) * evtRec.dir || a.r.id - b.r.id).map(x => x.r);
     return rows;
 }
@@ -369,14 +372,15 @@ function evtRecRender() {
     const all = evtRecFiltered(), pages = Math.max(1, Math.ceil(all.length / evtRec.size));
     evtRec.page = Math.min(evtRec.page, pages - 1);
     const rows = all.slice(evtRec.page * evtRec.size, (evtRec.page + 1) * evtRec.size);
-    const untypedCount = evtRec.rows.filter(r => !evtRecType(r)).length;
-    const opts = sel => `<option value="" ${sel ? '' : 'selected'}>— Non défini —</option>` + evtTypes.map(t => `<option value="${t.id}" ${Number(sel) === t.id ? 'selected' : ''}>${evtEsc(t.label_long)}</option>`).join('');
+    const todoN = evtRec.rows.filter(r => !evtRecIsDone(r)).length, doneN = evtRec.rows.length - todoN;
+    const tabBtn = (k, label, n) => `<button type="button" onclick="evtRec.tab='${k}';evtRec.page=0;evtRecRender();" style="padding:8px 18px;border:1px solid #90caf9;border-bottom:${evtRec.tab === k ? '2px solid #fff' : '1px solid #90caf9'};border-radius:8px 8px 0 0;margin-right:4px;margin-bottom:-1px;cursor:pointer;font-weight:700;font-size:13px;background:${evtRec.tab === k ? '#fff' : '#bbdefb'};color:${evtRec.tab === k ? '#1565c0' : '#455a64'};">${label} <span style="display:inline-block;min-width:22px;padding:1px 7px;border-radius:10px;font-size:11px;background:${k === 'todo' ? (n ? '#e53935' : '#9e9e9e') : '#43a047'};color:#fff;">${n}</span></button>`;
+    const opts = sel => (evtRec.tab === 'done' ? '' : `<option value="" ${sel ? '' : 'selected'}>— Non défini —</option>`) + evtTypes.map(t => `<option value="${t.id}" ${Number(sel) === t.id ? 'selected' : ''}>${evtEsc(t.label_long)}</option>`).join('');
     const arrow = k => evtRec.sortKey === k ? (evtRec.dir > 0 ? ' ▲' : ' ▼') : '';
     box.innerHTML = `
+        <div style="display:flex;border-bottom:1px solid #90caf9;margin-bottom:10px;">${tabBtn('todo', 'À traiter', todoN)}${tabBtn('done', 'Traité', doneN)}</div>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
             <input type="search" id="evtRecQ" value="${evtEsc(evtRec.q)}" placeholder="Rechercher dans tous les champs…" oninput="evtRec.q=this.value;evtRec.page=0;evtRecRender();document.getElementById('evtRecQ').focus();" style="padding:6px 10px;min-width:260px;border:1px solid #ccc;border-radius:6px;">
-            <label style="font-size:12px;display:inline-flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" ${evtRec.untyped ? 'checked' : ''} onchange="evtRec.untyped=this.checked;evtRec.page=0;evtRecRender();" style="width:auto;margin:0;"> Sans type uniquement (${untypedCount})</label>
-            <button type="button" onclick="evtRecSuggest()" title="Propose un type d'après le libellé actuel (non appliqué tant que vous n'enregistrez pas)" style="background:#fff;border:1px solid #ff9800;color:#e65100;border-radius:6px;padding:6px 12px;cursor:pointer;">${uiIcon('lightbulb', 14, 'margin-right:4px;')}Suggérer les types</button>
+            ${evtRec.tab === 'todo' ? `<button type="button" onclick="evtRecSuggest()" title="Propose un type d'après le libellé actuel (non appliqué tant que vous n'enregistrez pas)" style="background:#fff;border:1px solid #ff9800;color:#e65100;border-radius:6px;padding:6px 12px;cursor:pointer;">${uiIcon('lightbulb', 14, 'margin-right:4px;')}Suggérer les types</button>` : '<span style="font-size:12px;color:#555;">Types déjà affectés : modifiables à tout moment.</span>'}
             <span style="flex:1;"></span>
             <span id="evtRecMsg" style="font-size:12px;"></span>
             <button type="button" onclick="evtRecLoad()" style="background:#eee;border:1px solid #ccc;border-radius:6px;padding:6px 12px;cursor:pointer;" title="Abandonner les modifications non enregistrées et recharger">↺ Recharger</button>
@@ -394,7 +398,7 @@ function evtRecRender() {
                 <td style="padding:5px 8px;color:#444;max-width:260px;">${evtEsc((r.participants || []).join(', '))}</td>
                 <td style="padding:5px 8px;color:#444;white-space:nowrap;">${evtEsc(`${r.creator_prenom || ''} ${(r.creator_nom || '').toUpperCase()}`.trim())}</td></tr>`).join('') || '<tr><td colspan="7" style="padding:14px;text-align:center;color:#999;">Aucun événement</td></tr>'}</tbody></table></div>
         <div style="display:flex;align-items:center;gap:10px;margin-top:8px;font-size:12px;color:#555;">
-            <span>${all.length} événement(s) sur ${evtRec.rows.length}</span><span style="flex:1;"></span>
+            <span>${all.length} événement(s) ${evtRec.tab === 'todo' ? 'à traiter' : 'traité(s)'}${evtRec.q ? ' (filtrés)' : ''}</span><span style="flex:1;"></span>
             <button type="button" ${evtRec.page <= 0 ? 'disabled' : ''} onclick="evtRec.page--;evtRecRender();" style="padding:3px 10px;">◀</button>
             <span>Page ${evtRec.page + 1} / ${pages}</span>
             <button type="button" ${evtRec.page >= pages - 1 ? 'disabled' : ''} onclick="evtRec.page++;evtRecRender();" style="padding:3px 10px;">▶</button>
