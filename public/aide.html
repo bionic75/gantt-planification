@@ -511,6 +511,7 @@ tr:nth-child(even) td { background: #f9f9f9; }
       <tr><td>Accompagnement post démarrage</td><td>tâche 6.6</td></tr>
     </tbody>
   </table>
+  <p><strong>Projet Asana d'un déploiement</strong> : quand plusieurs projets portent le même numéro de SAMU (ex. « [SAMU 56] SF4 - Déploiement » et « [SAMU 56] SF3 - OTN IP »), l'outil utilise en priorité <strong>le projet que vous avez importé</strong> (« Récupérer » ou import en masse) ou choisi dans la colonne « Déploiement apparié » ; ce lien est mémorisé et sert aux rafraîchissements et à la fenêtre des tâches. Dans cette fenêtre, une liste déroulante permet aussi de <strong>changer de projet Asana</strong> lorsqu'il y en a plusieurs.</p>
   <p><strong>Équipe Asana</strong> : dans l'application principale (Administration › Gestion des API › Connexion Asana), le bouton « Choisir l'équipe… » restreint les projets proposés à <strong>une seule équipe Asana</strong> (par exemple « SAMU - Bandeau de communication »). Sans choix, tous les projets de l'espace de travail dont le nom correspond au filtre sont proposés, au risque de retrouver plusieurs projets pour un même numéro de SAMU (projets d'autres équipes). Le choix s'applique à la liste des projets, au rafraîchissement et à la fenêtre des tâches.</p>
   <p><strong>Événements liés aux activités d'un déploiement</strong> : dans la fenêtre « Modifier » d'un déploiement (Administration), chacune des activités <em>Mise en service, Mise en production, Visite métier, Test des prérequis, VFT, Formation « Utilisateurs », Accompagnement</em> porte une ligne « Événement » avec un <strong>menu déroulant</strong> : les événements du même SAMU et du type de l'activité (selon la correspondance ci-dessous) sont proposés en premier, puis les autres événements de ce SAMU. Le choix est enregistré immédiatement, avec un repère « ✔ mêmes dates que l'activité » ou « ⚠ dates différentes ». <strong>S'il n'existe aucun événement correspondant</strong>, le bouton « Créer l'événement » le crée dans l'outil (SAMU, type, dates de l'activité, ressources affectées ayant un compte en participants) et le relie à l'activité. Le déploiement doit d'abord être enregistré, et le SAMU doit avoir une localisation.</p>
   <p><strong>Correspondance activités Asana ↔ types d'événements</strong> : la rubrique du même nom (Administration de l'aide à l'affectation) relie chaque activité reprise d'Asana (Visite métier, Vérification des prérequis, VFT sur site, Formation « Utilisateurs », Accompagnement post démarrage) (ainsi que la mise en service et la mise en production, par défaut « Mise en service » et « Autre(s) ») à un <strong>type d'événement</strong> de la liste paramétrée dans l'application principale. Le changement est enregistré dès qu'on choisit un type. À la synchronisation d'une étape vers la planification, l'événement créé reçoit ce type (icône, libellé court et couleurs) ; un événement déjà présent au même lieu, sur la même période et avec le même type est complété au lieu d'être recréé. Par défaut : Visite métier → « Visite métier », Vérification des prérequis → « Vérification des prérequis », VFT → « VFT sur site », Formation → « Formations utilisateurs », Accompagnement → « Accompagnement post démarrage ».</p>
@@ -670,11 +671,23 @@ tr:nth-child(even) td { background: #f9f9f9; }
   <h2>🆕 Notes de version</h2>
   <p>Historique des évolutions de la Plateforme de Planification ANS.</p>
 
+  <!-- v1.17.19 -->
+  <div class="card card-green" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v1.17.19</strong>
+      <span class="badge badge-current">Actuelle</span>
+      <span style="color:#888; font-size:13px;">Octobre 2026</span>
+    </div>
+    <ul>
+      <li>🔗 <strong>Projet Asana mémorisé par déploiement</strong> : le projet importé (ex. SF4) est désormais celui utilisé ensuite pour les rafraîchissements et la fenêtre des tâches, même si un autre projet (ex. OTN IP) porte le même numéro de SAMU ; sélecteur de projet dans la fenêtre des tâches.</li>
+      <li>📊 <strong>Planning : barre d'une étape à la même hauteur sur toute sa durée</strong> (l'accompagnement ne se décale plus d'une ligne quand la phase de déploiement se termine).</li>
+    </ul>
+  </div>
+
   <!-- v1.17.18 -->
   <div class="card card-green" style="margin-bottom:16px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
       <strong style="font-size:16px;">v1.17.18</strong>
-      <span class="badge badge-current">Actuelle</span>
       <span style="color:#888; font-size:13px;">Octobre 2026</span>
     </div>
     <ul>
