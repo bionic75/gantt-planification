@@ -71,6 +71,7 @@
         @keyframes affspin { to { transform: rotate(360deg); } }
         .aff-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 20000; background: #263238; color: #fff; padding: 10px 18px; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.3); font-size: 13px; max-width: 80vw; }
         .aff-toast.err { background: #b3261e; }
+        #affAsanaChgBody th { background: transparent !important; color: #6b7a8d !important; font-weight: 700; } #affAsanaChgBody th::after { content: none !important; } #affAsanaChgBody table { background: #fff; }
         .aff-rowhide { position: absolute; top: 6px; right: 8px; width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 1px solid #cfd8e6; background: #fff; color: #6b7a8d; font-size: 16px; font-weight: 700; line-height: 18px; cursor: pointer; opacity: .4; }
         #affectationContainer table.aff-plan-table tbody th.sam:hover .aff-rowhide, .aff-rowhide:focus { opacity: 1; }
         .aff-rowhide:hover { background: #fdecea; color: #b3261e; border-color: #e57373; opacity: 1; }
@@ -411,6 +412,17 @@
         </div>
     </div>
 
+    <div class="modal" id="affAsanaChgModal">
+        <div class="modal-content" style="max-width:820px; width:96%; max-height:92vh; overflow-y:auto; padding:0;">
+            <div class="aff-modal-head">
+                <span id="affAsanaChgTitle" class="aff-card-title">${svg('asanasync', 'aff-ico')}Changements issus d'Asana</span>
+                <button type="button" class="aff-x" onclick="AffectationApp.asanaChgClose()" aria-label="Fermer">${svg('x', 'aff-ico-sm')}</button>
+            </div>
+            <div id="affAsanaChgBody" class="aff-modal-body"></div>
+            <div class="aff-modal-foot"><button type="button" class="aff-btn aff-btn-primary" onclick="AffectationApp.asanaChgClose()">Fermer</button></div>
+        </div>
+    </div>
+
     <div class="modal" id="affHistModal">
         <div class="modal-content" style="max-width:860px; width:96%; max-height:92vh; overflow-y:auto; padding:0;">
             <div class="aff-modal-head">
@@ -670,6 +682,26 @@
         const rm = document.getElementById('affTplRemove'); if (rm) rm.style.display = m.exists ? '' : 'none';
         const fp = document.getElementById('affFnPattern'); if (fp && document.activeElement !== fp) fp.value = exportName.pattern;
         AffectationApp.fnPreview();
+    }
+
+    // Pop-up : changements constatés entre l'état précédent et les dates reprises d'Asana
+    function showAsanaChanges(d) {
+        const box = document.getElementById('affAsanaChgBody');
+        if (!box) return;
+        const items = d.items || [];
+        const total = items.reduce((n, it) => n + (it.changes || []).length, 0);
+        const sec = it => `<div style="border:1px solid #dfe5ef;border-radius:10px;margin-bottom:12px;overflow:hidden;">
+            <div style="background:#f0f4fa;padding:8px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><b style="font-size:14px;">${esc(it.samu)}</b>
+                <span class="aff-av-b ${it.created ? 'ok' : 'mid'}">${it.created ? 'créé' : 'mis à jour'}</span>${it.asana ? `<span class="aff-muted" style="font-size:12px;">Projet Asana : ${esc(it.asana)}</span>` : ''}</div>
+            ${(it.changes || []).length ? `<table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="text-align:left;color:#6b7a8d;font-size:11px;"><th style="padding:6px 12px;width:32%;">Rubrique</th><th style="padding:6px 8px;">Avant</th><th style="width:24px;"></th><th style="padding:6px 8px;">Après</th></tr></thead><tbody>
+                ${it.changes.map(c => `<tr style="border-top:1px solid #eef1f6;"><td style="padding:6px 12px;font-weight:600;">${esc(c.label)}</td><td style="padding:6px 8px;color:#8a97a8;${c.from && c.from !== '—' ? 'text-decoration:line-through;' : ''}">${esc(c.from || '—')}</td><td style="color:#8a97a8;">→</td><td style="padding:6px 8px;color:#1b7f3b;font-weight:700;">${esc(c.to || '—')}</td></tr>`).join('')}</tbody></table>` : '<p class="aff-muted" style="margin:8px 12px;">Aucun détail de changement.</p>'}</div>`;
+        const list = (label, arr, color) => arr && arr.length ? `<p style="margin:6px 0;font-size:13px;color:${color || '#4a5b70'};"><b>${label}</b> : ${arr.map(esc).join(', ')}</p>` : '';
+        box.innerHTML = `<p style="margin:0 0 12px;font-size:13px;color:#4a5b70;">${items.length ? `<b>${items.length}</b> déploiement(s) modifié(s), <b>${total}</b> changement(s) constaté(s) entre l'état précédent et les dates reprises d'Asana.` : "Aucune modification : les déploiements sont déjà à jour."} <span class="aff-muted">(Chaque modification est aussi inscrite dans l'historique du SAMU.)</span></p>`
+            + items.map(sec).join('')
+            + list('Déjà à jour', d.unchanged, '#2e7d32') + list('Sans projet Asana correspondant', d.noMatch, '#8a6d00')
+            + ((d.errors || []).length ? `<p style="margin:6px 0;font-size:13px;color:#b3261e;"><b>Erreurs</b> : ${d.errors.map(e => esc(e.samu) + ' — ' + esc(e.error)).join(' · ')}</p>` : '');
+        document.getElementById('affAsanaChgTitle').lastChild.textContent = d.title || "Changements issus d'Asana";
+        document.getElementById('affAsanaChgModal').classList.add('active');
     }
 
     async function loadAdmin() {
@@ -969,6 +1001,7 @@
             const btn = document.getElementById('affAsanaBulkBtn'), msg = document.getElementById('affAsanaBulkMsg'), target = 'utilisateurs';
             btn.disabled = true;
             const out = { created: 0, updated: 0, unchanged: 0, errors: 0 };
+            const popup = { title: 'Import Asana — changements constatés', items: [], unchanged: [], noMatch: [], errors: [] };
             let i = 0;
             for (const tr of rows) {
                 i++;
@@ -977,12 +1010,13 @@
                 cell.innerHTML = '<span class="aff-muted">import…</span>';
                 try {
                     const r = await api('/affectation/asana/apply', { method: 'POST', body: JSON.stringify({ gid: tr.dataset.gid, formationTarget: target, apply: 'auto' }) });
-                    if (r.unchanged) { out.unchanged++; cell.innerHTML = '<span class="aff-av-b na">déjà à jour</span>'; }
-                    else if (r.created) { out.created++; cell.innerHTML = '<span class="aff-av-b ok">créé</span>'; }
-                    else { out.updated++; cell.innerHTML = '<span class="aff-av-b mid">mis à jour</span>'; }
+                    if (r.unchanged) { out.unchanged++; popup.unchanged.push(r.samu_name || tr.dataset.gid); cell.innerHTML = '<span class="aff-av-b na">déjà à jour</span>'; }
+                    else if (r.created) { out.created++; popup.items.push({ samu: r.samu_name, created: true, changes: r.changes || [] }); cell.innerHTML = '<span class="aff-av-b ok">créé</span>'; }
+                    else { out.updated++; popup.items.push({ samu: r.samu_name, created: false, changes: r.changes || [] }); cell.innerHTML = '<span class="aff-av-b mid">mis à jour</span>'; }
                     tr.querySelector('.aff-asana-chk').checked = false;
-                } catch (e) { out.errors++; cell.innerHTML = `<span class="aff-error" title="${esc(e.message)}">erreur : ${esc(e.message).slice(0, 60)}</span>`; }
+                } catch (e) { out.errors++; popup.errors.push({ samu: tr.dataset.gid, error: e.message }); cell.innerHTML = `<span class="aff-error" title="${esc(e.message)}">erreur : ${esc(e.message).slice(0, 60)}</span>`; }
             }
+            showAsanaChanges(popup);
             msg.style.color = out.errors ? '#c62828' : '#2e7d32';
             msg.textContent = `Terminé : ${out.created} créé(s), ${out.updated} mis à jour, ${out.unchanged} déjà à jour` + (out.errors ? `, ${out.errors} en erreur (survolez « erreur » pour le détail)` : '') + '.';
             // La liste se recharge (états d'appairage à jour) en conservant filtre, résultats par projet et compte rendu
@@ -2050,7 +2084,8 @@
             const toast = (msg, err) => { const t = document.createElement('div'); t.className = 'aff-toast' + (err ? ' err' : ''); t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), err ? 7000 : 4500); };
             try {
                 const r = await api(`/affectation/projects/${id}/asana-refresh`, { method: 'POST', body: '{}' });
-                toast(r.unchanged ? `${r.samu_name} : déjà à jour avec Asana (${r.asana}).` : `${r.samu_name} : ${r.updated} rubrique(s) mise(s) à jour depuis Asana.`, false);
+                if (r.unchanged) toast(`${r.samu_name} : déjà à jour avec Asana (${r.asana}).`, false);
+                else showAsanaChanges({ title: `Changements issus d'Asana — ${r.samu_name}`, items: [{ samu: r.samu_name, created: r.created, asana: r.asana, changes: r.changes || [] }] });
                 if (!r.unchanged) {
                     const b = document.getElementById('affPlan'), l = b ? b.scrollLeft : 0, t = b ? b.scrollTop : 0;
                     await Promise.all([loadPlanning(), state.loaded ? loadAdmin() : null]);
@@ -2066,15 +2101,12 @@
             const toast = (html, err) => { const t = document.createElement('div'); t.className = 'aff-toast' + (err ? ' err' : ''); t.style.maxWidth = '560px'; t.style.textAlign = 'left'; t.innerHTML = html; t.title = 'Cliquer pour fermer'; t.onclick = () => t.remove(); document.body.appendChild(t); setTimeout(() => t.remove(), err ? 12000 : 15000); };
             try {
                 const r = await api('/affectation/asana/refresh-all', { method: 'POST', body: '{}' });
-                const lines = [`<b>Rafraîchissement Asana : ${r.updated.length} SAMU mis à jour, ${r.unchanged.length} déjà à jour</b>`];
-                if (r.updated.length) lines.push(r.updated.map(u => `${esc(u.samu)} (${u.rows} rubrique${u.rows > 1 ? 's' : ''})`).join(' · '));
-                if (r.noMatch.length) lines.push(`Sans projet Asana : ${r.noMatch.map(esc).join(', ')}`);
-                if (r.errors.length) lines.push(`Erreurs : ${r.errors.map(e => esc(e.samu) + ' — ' + esc(e.error)).join(' · ')}`);
-                toast(lines.join('<br>'), r.errors.length > 0);
+                showAsanaChanges({ title: 'Rafraîchissement depuis Asana — changements constatés', items: r.updated.map(u => ({ samu: u.samu, created: false, asana: u.asana, changes: u.changes })), unchanged: r.unchanged, noMatch: r.noMatch, errors: r.errors });
                 if (r.updated.length) { await Promise.all([loadAdmin(), state.loaded ? loadPlanning() : null]); }
             } catch (e) { toast(esc(e.message), true); }
             finally { btn.classList.remove('aff-busy'); btn.lastChild.textContent = old; }
         },
+        asanaChgClose() { document.getElementById('affAsanaChgModal').classList.remove('active'); },
         toggleSamuDd(ev) { ev.stopPropagation(); plan.ddOpen = !plan.ddOpen; renderSamuDd(); },
         samuDdSet(id, on) { if (on) plan.hiddenRows.delete(id); else plan.hiddenRows.add(id); saveHiddenRows(); AffectationApp.keepScroll(); },
         samuDdAll(on) { if (on) plan.hiddenRows.clear(); else plan.projects.forEach(p => plan.hiddenRows.add(p.id)); saveHiddenRows(); AffectationApp.keepScroll(); },
