@@ -1,4 +1,4 @@
-<!-- v1.17.25 -->
+<!-- v1.17.26 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -500,18 +500,18 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.17.25">
-    <link rel="stylesheet" href="/darkmode.css?v=1.17.25">
-    <link rel="stylesheet" href="/login.css?v=1.17.25">
-    <link rel="stylesheet" href="/ui-polish.css?v=1.17.25">
-    <script src="/darkmode.js?v=1.17.25"></script>
-    <script src="/themes.js?v=1.17.25" defer></script>
-    <script src="/layout-fix.js?v=1.17.25" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.17.26">
+    <link rel="stylesheet" href="/darkmode.css?v=1.17.26">
+    <link rel="stylesheet" href="/login.css?v=1.17.26">
+    <link rel="stylesheet" href="/ui-polish.css?v=1.17.26">
+    <script src="/darkmode.js?v=1.17.26"></script>
+    <script src="/themes.js?v=1.17.26" defer></script>
+    <script src="/layout-fix.js?v=1.17.26" defer></script>
     <script>window.UI_ICONS_KEEP_ALERT = true;</script>
-    <script src="/ui-icons.js?v=1.17.25" defer></script>
-    <script src="/affectation-app.js?v=1.17.25" defer></script>
-    <script src="/event-types.js?v=1.17.25" defer></script>
-    <script src="/map-timelapse.js?v=1.17.25" defer></script>
+    <script src="/ui-icons.js?v=1.17.26" defer></script>
+    <script src="/affectation-app.js?v=1.17.26" defer></script>
+    <script src="/event-types.js?v=1.17.26" defer></script>
+    <script src="/map-timelapse.js?v=1.17.26" defer></script>
 </head>
 <body>
     <div class="container">
@@ -25762,9 +25762,16 @@ ${currentUserInfo.prenom} ${currentUserInfo.nom}`;
             
             // Nom du créateur (toujours visible)
             const creatorFullName = ((event.creator_prenom || '') + ' ' + (event.creator_nom || '').toUpperCase()).trim() || 'Système';
+            // « Créé le JJ/MM/AAAA HH:MM par [créateur] » (date de création enregistrée en UTC, affichée à l'heure locale)
+            let createdTxt = '';
+            if (event.created_at) {
+                const cd = new Date(String(event.created_at).replace(' ', 'T') + 'Z');
+                if (!isNaN(cd)) { const z = n => String(n).padStart(2, '0'); createdTxt = `Créé le ${z(cd.getDate())}/${z(cd.getMonth() + 1)}/${cd.getFullYear()} ${z(cd.getHours())}:${z(cd.getMinutes())} par `; }
+            }
+            if (!createdTxt) createdTxt = 'Créé par ';
             const creatorInfo = (event.creator_prenom || event.creator_nom)
-                ? `<span title="Créé par ${creatorFullName}" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#777;"><span style="width:20px;height:20px;border-radius:50%;background:${getParticipantColor(creatorFullName)};color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:bold;">${getParticipantInitials(event.creator_prenom, event.creator_nom)}</span>${creatorFullName}</span>`
-                : `<span style="font-size: 10px; color: #888;">${uiIcon('user', 13, 'margin-right:4px;')}${creatorFullName}</span>`;
+                ? `<span title="${createdTxt}${creatorFullName}" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#777;">${createdTxt}<span style="width:20px;height:20px;border-radius:50%;background:${getParticipantColor(creatorFullName)};color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:bold;">${getParticipantInitials(event.creator_prenom, event.creator_nom)}</span>${creatorFullName}</span>`
+                : `<span style="font-size: 10px; color: #888;">${uiIcon('user', 13, 'margin-right:4px;')}${createdTxt}${creatorFullName}</span>`;
             
             // Participants
             let participantsHtml = '';
