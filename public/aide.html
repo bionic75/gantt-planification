@@ -511,6 +511,7 @@ tr:nth-child(even) td { background: #f9f9f9; }
       <tr><td>Accompagnement post démarrage</td><td>tâche 6.6</td></tr>
     </tbody>
   </table>
+  <p><strong>Suppression d'un déploiement ou d'un événement</strong> : quand un déploiement est relié à des événements (événements liés à ses activités, ou du même SAMU, du même type et sur la période), sa suppression demande <strong>toujours une validation explicite</strong> : « Supprimer le déploiement ET les événements », « Supprimer le déploiement seulement » (les événements et la planification restent) ou « Annuler ». Quand un événement est supprimé (avec le déploiement ou seul, depuis l'onglet Événements), les experts qui y étaient mobilisés sont <strong>remis dans leur planification en « 2 - Disponible » et « 2 - En attente d'affectation », et la localisation est effacée</strong> — uniquement sur les demi-journées posées par l'affectation pour ce SAMU (activité 3 ou 4 avec la localisation de ce SAMU) ; les congés, indisponibilités et affectations à un autre SAMU ne sont pas touchés. L'opération est inscrite dans le journal d'activité.</p>
   <p><strong>Participants des événements ↔ ressources affectées</strong> : les participants d'un événement relié à une activité (événement lié, ou à défaut événement du même SAMU, du même type et sur la période de l'activité) qui ont une fiche ressource sont <strong>automatiquement affectés à cette activité</strong>, dans la limite du nombre de ressources nécessaires. Cela se fait à chaque création ou modification d'un événement, à l'ouverture du planning et à l'ouverture de la fenêtre « Affecter des ressources ». La synchronisation <strong>ajoute</strong> des ressources mais n'en retire jamais ; chaque ajout est inscrit dans l'historique du SAMU. Dans l'autre sens, le bouton « Synchroniser » de la fenêtre d'affectation reporte toujours les ressources affectées vers la planification et l'événement.</p>
   <p><strong>Projet Asana d'un déploiement</strong> : quand plusieurs projets portent le même numéro de SAMU (ex. « [SAMU 56] SF4 - Déploiement » et « [SAMU 56] SF3 - OTN IP »), l'outil utilise en priorité <strong>le projet que vous avez importé</strong> (« Récupérer » ou import en masse) ou choisi dans la colonne « Déploiement apparié » ; ce lien est mémorisé et sert aux rafraîchissements et à la fenêtre des tâches. Dans cette fenêtre, une liste déroulante permet aussi de <strong>changer de projet Asana</strong> lorsqu'il y en a plusieurs.</p>
   <p><strong>Équipe Asana</strong> : dans l'application principale (Administration › Gestion des API › Connexion Asana), le bouton « Choisir l'équipe… » restreint les projets proposés à <strong>une seule équipe Asana</strong> (par exemple « SAMU - Bandeau de communication »). Sans choix, tous les projets de l'espace de travail dont le nom correspond au filtre sont proposés, au risque de retrouver plusieurs projets pour un même numéro de SAMU (projets d'autres équipes). Le choix s'applique à la liste des projets, au rafraîchissement et à la fenêtre des tâches.</p>
@@ -672,11 +673,23 @@ tr:nth-child(even) td { background: #f9f9f9; }
   <h2>🆕 Notes de version</h2>
   <p>Historique des évolutions de la Plateforme de Planification ANS.</p>
 
+  <!-- v1.17.25 -->
+  <div class="card card-green" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v1.17.25</strong>
+      <span class="badge badge-current">Actuelle</span>
+      <span style="color:#888; font-size:13px;">Octobre 2026</span>
+    </div>
+    <ul>
+      <li>🗑️ <strong>Suppression d'un déploiement avec événements liés</strong> : validation systématique (déploiement et événements / déploiement seul / annuler).</li>
+      <li>↩️ <strong>Suppression d'un événement</strong> : les experts mobilisés sont remis en « 2 - Disponible » et « 2 - En attente d'affectation » dans leur planification, localisation effacée (demi-journées posées par l'affectation pour ce SAMU uniquement).</li>
+    </ul>
+  </div>
+
   <!-- v1.17.24 -->
   <div class="card card-green" style="margin-bottom:16px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
       <strong style="font-size:16px;">v1.17.24</strong>
-      <span class="badge badge-current">Actuelle</span>
       <span style="color:#888; font-size:13px;">Octobre 2026</span>
     </div>
     <ul>

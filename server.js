@@ -4096,8 +4096,50 @@ app.post('/api/affectation/sync-from-events', requireAffectationAccess, async (r
         res.json({ success: true, changes: out });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
+// ---- Suppression d'un événement : les experts mobilisés sont remis dans la planification en « Disponible » (2) / « En attente d'affectation » (2) et la localisation est effacée ----
+async function affEventSnapshot(eventId) {
+    const ev = await dbGet(`SELECT ce.id, ce.label, ce.start_date, ce.end_date, ce.period, ce.location_id, l.libelle_court AS loc FROM custom_events ce LEFT JOIN locations l ON l.id = ce.location_id WHERE ce.id = ?`, [eventId]);
+    if (!ev) return null;
+    const rows = await dbAll(`SELECT u.resource_id AS rid FROM custom_event_participants cep JOIN users u ON u.id = cep.user_id WHERE cep.event_id = ? AND u.resource_id IS NOT NULL`, [eventId]);
+    return { ...ev, resourceIds: [...new Set(rows.map(r => r.rid))] };
+}
+// Seules les demi-journées posées par l'affectation sur ce SAMU (activité 3 ou 4 + localisation de ce SAMU) sont remises en situation : le reste de la planification n'est pas touché
+async function affResetPlanningForEvent(snap, req) {
+    if (!snap || !snap.resourceIds.length) return 0;
+    const samuNo = affSamuNumber(snap.loc);
+    if (!samuNo) return 0;
+    const halves = snap.period === 'AM' ? ['AM'] : snap.period === 'PM' ? ['PM'] : ['AM', 'PM'];
+    let n = 0;
+    for (const rid of snap.resourceIds) {
+        for (let t = Date.parse(snap.start_date + 'T00:00:00Z'); t <= Date.parse(snap.end_date + 'T00:00:00Z'); t += 86400000) {
+            const dow = new Date(t).getUTCDay();
+            if (dow === 0 || dow === 6) continue;
+            const day = new Date(t).toISOString().slice(0, 10);
+            for (const h of halves) {
+                const key = `${day}_${h}`;
+                const cells = await dbAll(`SELECT type, value FROM schedule_data WHERE resource_id = ? AND date_key = ? AND type IN ('activity','localisation')`, [rid, key]);
+                const act = (cells.find(c => c.type === 'activity') || {}).value, loc = (cells.find(c => c.type === 'localisation') || {}).value;
+                if (!(act === '3' || act === '4') || affSamuNumber(loc) !== samuNo) continue;
+                const up = (type, value) => dbRun(`INSERT INTO schedule_data (resource_id, date_key, type, value, notification) VALUES (?,?,?,?, '1') ON CONFLICT(resource_id, date_key, type) DO UPDATE SET value = excluded.value, notification = '1'`, [rid, key, type, value]);
+                await up('available', '2'); await up('activity', '2');
+                await dbRun(`DELETE FROM schedule_data WHERE resource_id = ? AND date_key = ? AND type IN ('localisation', 'author')`, [rid, key]);
+                n++;
+            }
+        }
+    }
+    if (n) logUserAction(req, "Planification remise en situation après suppression d'un événement", { evenement: snap.id, label: snap.label, demiJournees: n });
+    return n;
+}
 // À chaque création / modification d'événement, les affectations des déploiements concernés sont mises à jour
-app.use(['/api/my-custom-events', '/api/custom-events'], (req, res, next) => {
+app.use(['/api/my-custom-events', '/api/custom-events'], async (req, res, next) => {
+    if (req.method === 'DELETE') {
+        // Photographie de l'événement avant sa suppression ; la planification est remise en situation seulement si la suppression aboutit
+        const m = /\/(\d+)\/?$/.exec(req.originalUrl.split('?')[0]);
+        let snap = null;
+        if (m) { try { snap = await affEventSnapshot(Number(m[1])); } catch (e) { snap = null; } }
+        if (snap) res.on('finish', () => { if (res.statusCode < 300) affResetPlanningForEvent(snap, req).catch(e => console.error('Remise en situation du planning :', e.message)); });
+        return next();
+    }
     if (req.method === 'POST' || req.method === 'PUT') {
         res.on('finish', () => { if (res.statusCode < 300) affSyncAllFromEvents(req).catch(e => console.error('Synchro événements → affectations :', e.message)); });
     }
@@ -5297,18 +5339,51 @@ app.post('/api/affectation/export/pptx', requireAffectationAccess, async (req, r
     } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
 });
 
-app.delete('/api/affectation/projects/:id', requireAdmin, (req, res) => {
-    const pid = Number(req.params.id);
-    database.get('SELECT * FROM affectation_projects WHERE id = ?', [pid], (e0, old) => {
-        database.run('DELETE FROM affectation_projects WHERE id = ?', [pid], async function (err) {
-            if (err) return res.status(500).json({ error: err.message });
-            if (this.changes === 0) return res.status(404).json({ error: 'Projet introuvable' });
-            database.run('DELETE FROM affectation_assignments WHERE project_id = ?', [pid]);
-            logUserAction(req, 'Suppression déploiement SAMU', { id: pid });
-            await affHist(req, pid, old && old.samu_name, 'suppression', { changes: [{ label: 'Déploiement', from: old ? `${old.samu_name} (début ${affFd(old.date_debut)})` : '—', to: 'supprimé' }] });
-            res.json({ success: true });
-        });
-    });
+// Événements liés à un déploiement : reliés explicitement, ou du même lieu / type sur la période d'une activité
+async function affLinkedEvents(proj) {
+    const locId = await affProjectLocationId(proj);
+    const map = await affStageTypeMap(), types = await dbAll('SELECT * FROM event_types'), links = await affEventLinks(proj.id);
+    let periods = {}; try { periods = JSON.parse(proj.periods || '{}'); } catch (e) { periods = {}; }
+    const ids = new Set();
+    for (const key of AFF_EVENT_KEYS) {
+        const per = key === 'mise_en_service' || key === 'mise_en_production' ? (proj['date_' + key] ? { start: proj['date_' + key], end: proj['date_' + key] } : null) : (periods[key] && periods[key][0]);
+        (await affStageEvents(proj, key, per, links, map, types, locId)).forEach(id => ids.add(id));
+    }
+    const out = [];
+    for (const id of ids) { const snap = await affEventSnapshot(id); if (snap) out.push(snap); }
+    return out.sort((a, b) => a.start_date.localeCompare(b.start_date));
+}
+// Suppression : si des événements sont liés, une validation explicite est exigée (?events=delete | keep)
+app.delete('/api/affectation/projects/:id', requireAdmin, async (req, res) => {
+    try {
+        const pid = Number(req.params.id);
+        const old = await dbGet('SELECT * FROM affectation_projects WHERE id = ?', [pid]);
+        if (!old) return res.status(404).json({ error: 'Projet introuvable' });
+        const evs = await affLinkedEvents(old);
+        const mode = String(req.query.events || '');
+        if (evs.length && !['delete', 'keep'].includes(mode)) {
+            const names = await dbAll(`SELECT cep.event_id, u.nom, u.prenom FROM custom_event_participants cep JOIN users u ON u.id = cep.user_id WHERE cep.event_id IN (${evs.map(() => '?').join(',')})`, evs.map(e => e.id));
+            return res.status(409).json({ code: 'EVENTS_LINKED', error: `${evs.length} événement(s) lié(s) à ce déploiement`, events: evs.map(e => ({ id: e.id, label: e.label, start: e.start_date, end: e.end_date, participants: names.filter(n => n.event_id === e.id).map(n => `${n.prenom || ''} ${(n.nom || '').toUpperCase()}`.trim()) })) });
+        }
+        let removed = 0, reset = 0;
+        if (evs.length && mode === 'delete') {
+            for (const e of evs) {
+                reset += await affResetPlanningForEvent(e, req);
+                await dbRun('DELETE FROM custom_event_participants WHERE event_id = ?', [e.id]);
+                await dbRun('DELETE FROM custom_event_external_participants WHERE event_id = ?', [e.id]);
+                await dbRun('DELETE FROM custom_events WHERE id = ?', [e.id]);
+                removed++;
+            }
+        }
+        await dbRun('DELETE FROM affectation_projects WHERE id = ?', [pid]);
+        await dbRun('DELETE FROM affectation_assignments WHERE project_id = ?', [pid]);
+        for (const key of [AFF_EVLINK_KEY, 'asana_task_overrides']) { // liens et remplacements propres à ce déploiement
+            try { const all = JSON.parse((await dbGet('SELECT value FROM settings WHERE key = ?', [key]) || {}).value || '{}'); if (all[String(pid)]) { delete all[String(pid)]; await dbRun('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [key, JSON.stringify(all)]); } } catch (e) { /* ignoré */ }
+        }
+        logUserAction(req, 'Suppression déploiement SAMU', { id: pid, evenementsSupprimes: removed, evenementsConserves: mode === 'keep' ? evs.length : 0, demiJourneesRemisesEnSituation: reset });
+        await affHist(req, pid, old.samu_name, 'suppression', { changes: [{ label: 'Déploiement', from: `${old.samu_name} (début ${affFd(old.date_debut)})`, to: removed ? `supprimé avec ${removed} événement(s)` : 'supprimé' }] });
+        res.json({ success: true, eventsRemoved: removed, planningReset: reset });
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // GET /api/users/search — recherche d'utilisateurs pour autocomplete (admin)

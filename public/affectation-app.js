@@ -441,6 +441,21 @@
         </div>
     </div>
 
+    <div class="modal" id="affDelEvModal">
+        <div class="modal-content" style="max-width:760px; width:96%; max-height:92vh; overflow-y:auto; padding:0;">
+            <div class="aff-modal-head">
+                <span class="aff-card-title" style="color:#b3261e;">${svg('trash', 'aff-ico')}Événements liés à ce déploiement</span>
+                <button type="button" class="aff-x" onclick="AffectationApp.delEvCancel()" aria-label="Annuler">${svg('x', 'aff-ico-sm')}</button>
+            </div>
+            <div id="affDelEvBody" class="aff-modal-body"></div>
+            <div class="aff-modal-foot" style="flex-wrap:wrap;">
+                <button type="button" class="aff-btn" onclick="AffectationApp.delEvCancel()">Annuler (ne rien supprimer)</button>
+                <button type="button" class="aff-btn" onclick="AffectationApp.delEvGo('keep')" title="Le déploiement est supprimé, les événements restent dans l'application">Supprimer le déploiement seulement</button>
+                <button type="button" class="aff-btn" style="background:#b3261e;color:#fff;border-color:#b3261e;" onclick="AffectationApp.delEvGo('delete')" title="Supprime aussi les événements ; les experts mobilisés sont remis Disponible / En attente d'affectation, localisation effacée">Supprimer le déploiement ET les événements</button>
+            </div>
+        </div>
+    </div>
+
     <div class="modal" id="affAsanaChgModal">
         <div class="modal-content" style="max-width:820px; width:96%; max-height:92vh; overflow-y:auto; padding:0;">
             <div class="aff-modal-head">
@@ -670,7 +685,7 @@
         const res = await fetch(`${API_URL}${path}`, { credentials: 'include', headers: { 'Content-Type': 'application/json' }, ...(opts || {}) });
         let data = {};
         try { data = await res.json(); } catch (e) { /* réponse vide */ }
-        if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`);
+        if (!res.ok) throw Object.assign(new Error(data.error || `Erreur ${res.status}`), { data });
         return data;
     }
 
@@ -1424,12 +1439,31 @@
                 plan.projects = state.projects; renderPlanning();
             } catch (e) { errEl.textContent = e.message; }
         },
-        async deleteProject(id) {
+        async deleteProject(id, mode) {
             const p = state.projects.find(x => x.id === id);
-            if (!p || !confirm(`Supprimer le déploiement « ${p.samu_name} » ?`)) return;
-            try { await api(`/affectation/projects/${id}`, { method: 'DELETE' }); await loadAdmin(); plan.projects = state.projects; renderPlanning(); }
-            catch (e) { alert(e.message); }
+            if (!p) return;
+            if (!mode && !confirm(`Supprimer le déploiement « ${p.samu_name} » ?`)) return;
+            try {
+                const r = await api(`/affectation/projects/${id}${mode ? '?events=' + mode : ''}`, { method: 'DELETE' });
+                AffectationApp.delEvCancel();
+                await loadAdmin(); plan.projects = state.projects; renderPlanning();
+                if (r.eventsRemoved) { const t = document.createElement('div'); t.className = 'aff-toast'; t.textContent = `Déploiement supprimé avec ${r.eventsRemoved} événement(s) ; ${r.planningReset} demi-journée(s) de planification remises en « Disponible / En attente d'affectation ».`; document.body.appendChild(t); setTimeout(() => t.remove(), 7000); }
+            } catch (e) {
+                if (e.data && e.data.code === 'EVENTS_LINKED') { adminApi.delEvOpen(id, p, e.data.events); return; }
+                alert(e.message);
+            }
         },
+        delEvOpen(id, p, events) {
+            adminApi._delId = id;
+            document.getElementById('affDelEvBody').innerHTML = `<p style="margin:0 0 10px;font-size:14px;"><b>${esc(p.samu_name)}</b> est relié à <b>${events.length}</b> événement(s). Que faire ?</p>
+                <div style="border:1px solid #dfe5ef;border-radius:10px;max-height:260px;overflow:auto;margin-bottom:12px;">
+                ${events.map(e => `<div style="padding:8px 12px;border-top:1px solid #eef1f6;font-size:13px;"><b>${esc(e.label)}</b> <span class="aff-muted">${esc(e.start.split('-').reverse().join('/'))}${e.end !== e.start ? ' → ' + esc(e.end.split('-').reverse().join('/')) : ''}</span>${e.participants.length ? `<div class="aff-muted" style="font-size:12px;">Participants : ${e.participants.map(esc).join(', ')}</div>` : ''}</div>`).join('')}</div>
+                <ul style="margin:0;padding-left:18px;font-size:13px;color:#4a5b70;"><li><b>Supprimer le déploiement ET les événements</b> : les experts mobilisés sont remis, dans leur planification, en <b>« 2 - Disponible »</b> et <b>« 2 - En attente d'affectation »</b> et la <b>localisation est effacée</b> (uniquement sur les demi-journées posées par l'affectation pour ce SAMU).</li>
+                <li><b>Supprimer le déploiement seulement</b> : les événements et la planification des experts restent inchangés.</li></ul>`;
+            document.getElementById('affDelEvModal').classList.add('active');
+        },
+        delEvGo(mode) { adminApi.deleteProject(adminApi._delId, mode); },
+        delEvCancel() { document.getElementById('affDelEvModal').classList.remove('active'); },
         previewColor(key, value) {
             state.colors[key] = value; renderLegend(); renderProjects();
             const pv = document.getElementById('affPatPrev_' + key); if (pv) pv.style.cssText = bgStyle(value, pattern(key));
