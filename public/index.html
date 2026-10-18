@@ -1,4 +1,4 @@
-<!-- v1.17.17 -->
+<!-- v1.17.18 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -500,18 +500,18 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.17.17">
-    <link rel="stylesheet" href="/darkmode.css?v=1.17.17">
-    <link rel="stylesheet" href="/login.css?v=1.17.17">
-    <link rel="stylesheet" href="/ui-polish.css?v=1.17.17">
-    <script src="/darkmode.js?v=1.17.17"></script>
-    <script src="/themes.js?v=1.17.17" defer></script>
-    <script src="/layout-fix.js?v=1.17.17" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.17.18">
+    <link rel="stylesheet" href="/darkmode.css?v=1.17.18">
+    <link rel="stylesheet" href="/login.css?v=1.17.18">
+    <link rel="stylesheet" href="/ui-polish.css?v=1.17.18">
+    <script src="/darkmode.js?v=1.17.18"></script>
+    <script src="/themes.js?v=1.17.18" defer></script>
+    <script src="/layout-fix.js?v=1.17.18" defer></script>
     <script>window.UI_ICONS_KEEP_ALERT = true;</script>
-    <script src="/ui-icons.js?v=1.17.17" defer></script>
-    <script src="/affectation-app.js?v=1.17.17" defer></script>
-    <script src="/event-types.js?v=1.17.17" defer></script>
-    <script src="/map-timelapse.js?v=1.17.17" defer></script>
+    <script src="/ui-icons.js?v=1.17.18" defer></script>
+    <script src="/affectation-app.js?v=1.17.18" defer></script>
+    <script src="/event-types.js?v=1.17.18" defer></script>
+    <script src="/map-timelapse.js?v=1.17.18" defer></script>
 </head>
 <body>
     <div class="container">
@@ -11445,6 +11445,7 @@
                             ${c.tokenSet ? '<button onclick="AsanaCfg.deleteToken()" style="background:#fff;color:#c62828;border:1px solid #e57373;padding:8px 14px;border-radius:4px;cursor:pointer;font-size:13px;">Supprimer le jeton</button>' : ''}
                         </div>
                         <div id="asanaWsBox" style="margin-top:12px;font-size:13px;">${c.workspaceName ? `Espace de travail : <b>${esc2(c.workspaceName)}</b>` : '<span style="color:#888;">Testez la connexion pour choisir l\'espace de travail.</span>'}</div>
+                        <div id="asanaTeamBox" style="margin-top:12px;font-size:13px;">${c.teamName ? `Équipe : <b>${esc2(c.teamName)}</b>` : '<span style="color:#888;">Équipe : toutes les équipes de l\'espace de travail.</span>'}${c.tokenSet && c.workspaceGid ? ` <button onclick="AsanaCfg.loadTeams()" style="margin-left:8px;background:#fff;color:#1565c0;border:1px solid #90caf9;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px;">Choisir l'équipe…</button>` : ''}</div>
                         <div style="margin-top:12px;">
                             <label style="font-size:12px;font-weight:bold;color:#333;display:block;margin-bottom:4px;">Projets concernés : filtre sur le nom (expression régulière)</label>
                             <input type="text" id="asanaFilterInput" value="${esc2(c.nameFilter)}" style="width:100%;max-width:420px;padding:7px 10px;border:1px solid #a5d6a7;border-radius:4px;font-size:13px;font-family:monospace;">
@@ -11479,6 +11480,22 @@
                     AsanaCfg.msg('Connexion réussie.', true);
                     if (d.workspaces.length === 1 || !cur) AsanaCfg.pickWs(document.getElementById('asanaWsSel'));
                 } catch (e) { AsanaCfg.msg(e.message, false); }
+            },
+            async loadTeams() {
+                const box = document.getElementById('asanaTeamBox');
+                box.innerHTML = '<span style="color:#888;">Lecture des équipes Asana…</span>';
+                try {
+                    const d = await AsanaCfg.call('teams');
+                    const cur = (AsanaCfg.cfg && AsanaCfg.cfg.teamGid) || '';
+                    const e2 = t => String(t || '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+                    box.innerHTML = `Équipe : <select id="asanaTeamSel" onchange="AsanaCfg.pickTeam(this)" style="padding:5px 8px;border:1px solid #a5d6a7;border-radius:4px;max-width:340px;"><option value="">— Toutes les équipes de l'espace de travail —</option>${d.teams.map(t => `<option value="${t.gid}" data-n="${e2(t.name)}" ${t.gid === cur ? 'selected' : ''}>${e2(t.name)}</option>`).join('')}</select> <span style="color:#777;font-size:11px;">Seuls les projets de cette équipe sont proposés dans l'aide à l'affectation.</span>`;
+                } catch (e) { box.innerHTML = ''; AsanaCfg.msg(e.message, false); }
+            },
+            async pickTeam(sel) {
+                const o = sel.options[sel.selectedIndex];
+                await AsanaCfg.call('config', { method: 'PUT', body: JSON.stringify({ teamGid: o.value, teamName: o.dataset.n || '' }) });
+                AsanaCfg.cfg = { ...(AsanaCfg.cfg || {}), teamGid: o.value, teamName: o.dataset.n || '' };
+                AsanaCfg.msg(o.value ? `Équipe « ${o.dataset.n} » enregistrée : seuls ses projets seront proposés.` : 'Toutes les équipes de l\'espace de travail sont concernées.', true);
             },
             async pickWs(sel) {
                 const o = sel && sel.options[sel.selectedIndex];

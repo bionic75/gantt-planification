@@ -769,10 +769,10 @@
                     : `<div style="display:grid;grid-template-columns:48px 1fr;gap:4px;align-items:center;"><span class="aff-muted" style="font-size:11px;">Début</span><select data-k="${r.key}" data-f="start" onchange="AffectationApp.asanaTasksPick(this)" style="width:100%;padding:5px;">${asanaTaskOptions(o.start)}</select><span class="aff-muted" style="font-size:11px;">Fin</span><select data-k="${r.key}" data-f="end" onchange="AffectationApp.asanaTasksPick(this)" style="width:100%;padding:5px;">${asanaTaskOptions(o.end)}</select></div>`;
                 return `<tr style="border-top:1px solid #eef1f6;${picked ? 'background:#fff8e1;' : ''}" id="aTRow_${r.key}">
                     <td style="padding:8px;vertical-align:top;"><b>${esc(r.label)}</b>${picked ? ' <span class="aff-av-b mid">remplacé</span>' : ''}<div class="aff-muted" style="font-size:11px;">${esc(r.rule)}</div></td>
-                    <td style="padding:8px;vertical-align:top;">${esc(aVal(r.current))}</td>
-                    <td style="padding:8px;vertical-align:top;">${esc(aVal(r.auto))}${r.sources.length ? `<div class="aff-muted" style="font-size:11px;">${r.sources.map(x => esc(String(x).slice(0, 60))).join(' · ')}</div>` : ''}</td>
+                    <td style="padding:8px;vertical-align:top;white-space:nowrap;">${esc(aVal(r.current))}</td>
+                    <td style="padding:8px;vertical-align:top;white-space:nowrap;">${esc(aVal(r.auto))}${r.sources.length ? `<div class="aff-muted" style="font-size:11px;white-space:normal;max-width:230px;">${r.sources.map(x => esc(String(x).slice(0, 60))).join(' · ')}</div>` : ''}</td>
                     <td style="padding:8px;vertical-align:top;">${sels}</td>
-                    <td style="padding:8px;vertical-align:top;font-weight:700;color:#1b7f3b;" id="aTAfter_${r.key}">${esc(afterTxt(r))}</td></tr>`;
+                    <td style="padding:8px;vertical-align:top;font-weight:700;color:#1b7f3b;white-space:nowrap;" id="aTAfter_${r.key}">${esc(afterTxt(r))}</td></tr>`;
             }).join('')}</tbody></table></div>
             <details style="margin-top:14px;"><summary style="cursor:pointer;font-weight:700;color:#4a5b70;">Toutes les tâches du projet Asana (${d.tasks.length})</summary>
             <div style="overflow:auto;max-height:340px;margin-top:8px;border:1px solid #eef1f6;border-radius:8px;"><table style="width:100%;border-collapse:collapse;font-size:12px;">
@@ -1074,7 +1074,7 @@
                     document.getElementById('affAsanaProjects').innerHTML = '';
                     return;
                 }
-                box.innerHTML = `<div style="font-size:13px;">Connexion : jeton enregistré · espace de travail <b>${esc(c.workspaceName)}</b> <span class="aff-muted">(géré dans l'application principale › Administration › Gestion des API)</span></div>`;
+                box.innerHTML = `<div style="font-size:13px;">Connexion : jeton enregistré · espace de travail <b>${esc(c.workspaceName)}</b> · équipe <b>${esc(c.teamName || 'toutes')}</b> <span class="aff-muted">(géré dans l'application principale › Administration › Gestion des API)</span></div>`;
                 adminApi.asanaLoadProjects();
             } catch (e) { box.innerHTML = `<p class="aff-error">${esc(e.message)}</p>`; }
         },

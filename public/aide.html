@@ -511,6 +511,7 @@ tr:nth-child(even) td { background: #f9f9f9; }
       <tr><td>Accompagnement post démarrage</td><td>tâche 6.6</td></tr>
     </tbody>
   </table>
+  <p><strong>Équipe Asana</strong> : dans l'application principale (Administration › Gestion des API › Connexion Asana), le bouton « Choisir l'équipe… » restreint les projets proposés à <strong>une seule équipe Asana</strong> (par exemple « SAMU - Bandeau de communication »). Sans choix, tous les projets de l'espace de travail dont le nom correspond au filtre sont proposés, au risque de retrouver plusieurs projets pour un même numéro de SAMU (projets d'autres équipes). Le choix s'applique à la liste des projets, au rafraîchissement et à la fenêtre des tâches.</p>
   <p><strong>Événements liés aux activités d'un déploiement</strong> : dans la fenêtre « Modifier » d'un déploiement (Administration), chacune des activités <em>Mise en service, Mise en production, Visite métier, Test des prérequis, VFT, Formation « Utilisateurs », Accompagnement</em> porte une ligne « Événement » avec un <strong>menu déroulant</strong> : les événements du même SAMU et du type de l'activité (selon la correspondance ci-dessous) sont proposés en premier, puis les autres événements de ce SAMU. Le choix est enregistré immédiatement, avec un repère « ✔ mêmes dates que l'activité » ou « ⚠ dates différentes ». <strong>S'il n'existe aucun événement correspondant</strong>, le bouton « Créer l'événement » le crée dans l'outil (SAMU, type, dates de l'activité, ressources affectées ayant un compte en participants) et le relie à l'activité. Le déploiement doit d'abord être enregistré, et le SAMU doit avoir une localisation.</p>
   <p><strong>Correspondance activités Asana ↔ types d'événements</strong> : la rubrique du même nom (Administration de l'aide à l'affectation) relie chaque activité reprise d'Asana (Visite métier, Vérification des prérequis, VFT sur site, Formation « Utilisateurs », Accompagnement post démarrage) (ainsi que la mise en service et la mise en production, par défaut « Mise en service » et « Autre(s) ») à un <strong>type d'événement</strong> de la liste paramétrée dans l'application principale. Le changement est enregistré dès qu'on choisit un type. À la synchronisation d'une étape vers la planification, l'événement créé reçoit ce type (icône, libellé court et couleurs) ; un événement déjà présent au même lieu, sur la même période et avec le même type est complété au lieu d'être recréé. Par défaut : Visite métier → « Visite métier », Vérification des prérequis → « Vérification des prérequis », VFT → « VFT sur site », Formation → « Formations utilisateurs », Accompagnement → « Accompagnement post démarrage ».</p>
   <p><strong>Tâches Asana d'un déploiement et remplacement d'une donnée reprise</strong> : dans la liste des déploiements de l'Administration, le bouton <em>Tâches du projet Asana</em> (icône liste) ouvre une fenêtre qui montre, pour chaque rubrique, la valeur actuelle, la valeur donnée par la règle (avec la tâche utilisée) et un <strong>menu déroulant listant toutes les tâches du projet avec leur échéance</strong> pour la remplacer (début et fin séparément pour une période). Le remplacement est appliqué tout de suite, listé dans un pop-up (avant → après), mémorisé pour ce SAMU et conservé lors des rafraîchissements suivants ; « Tout remettre à la règle » revient au calcul automatique. Une section dépliable affiche toutes les tâches du projet (numéro, parente, début, échéance).</p>
@@ -669,11 +670,23 @@ tr:nth-child(even) td { background: #f9f9f9; }
   <h2>🆕 Notes de version</h2>
   <p>Historique des évolutions de la Plateforme de Planification ANS.</p>
 
+  <!-- v1.17.18 -->
+  <div class="card card-green" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v1.17.18</strong>
+      <span class="badge badge-current">Actuelle</span>
+      <span style="color:#888; font-size:13px;">Octobre 2026</span>
+    </div>
+    <ul>
+      <li>👥 <strong>Connexion Asana : choix de l'équipe</strong> — seuls les projets de l'équipe choisie (ex. « SAMU - Bandeau de communication ») sont proposés, ce qui évite de reprendre les tâches d'un autre projet portant le même numéro de SAMU (ex. projets OTN).</li>
+      <li>🔧 Fenêtre « Tâches du projet Asana » : les périodes des colonnes « Valeur actuelle », « Selon la règle » et « Après remplacement » tiennent sur une seule ligne.</li>
+    </ul>
+  </div>
+
   <!-- v1.17.17 -->
   <div class="card card-green" style="margin-bottom:16px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
       <strong style="font-size:16px;">v1.17.17</strong>
-      <span class="badge badge-current">Actuelle</span>
       <span style="color:#888; font-size:13px;">Octobre 2026</span>
     </div>
     <ul>
