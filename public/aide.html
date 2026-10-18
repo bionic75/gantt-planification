@@ -631,6 +631,16 @@ tr:nth-child(even) td { background: #f9f9f9; }
 
 <!-- ===================== 7. MOBILE ===================== -->
 <section id="section-mobile">
+  <h2>📍 SAMU-SAS TripAdVisor</h2>
+  <p>Onglet ouvert à tous les profils (réglable dans Administration › Configuration de l'accès aux onglets) : les <strong>bonnes adresses</strong> — <strong>Hébergement</strong>, <strong>Restaurant</strong> et <strong>Bar</strong> — partagées par les équipes autour de chaque SAMU-SAS.</p>
+  <ul>
+    <li><strong>Carte</strong> : les SAMU-SAS (pastilles « SAS ») et les adresses (épingles colorées par typologie) ; un clic sur une épingle ouvre sa fiche, le bouton « Carte » d'une fiche centre la carte dessus. La distance au SAMU-SAS est affichée sur chaque fiche.</li>
+    <li><strong>Recherche et filtres</strong> : par SAMU-SAS, par typologie, par créateur, et recherche libre (nom, adresse, commentaire).</li>
+    <li><strong>Ajouter un lieu</strong> : SAMU-SAS de rattachement, typologie, nom, adresse, téléphone, site web, commentaire du créateur et sa note. Dès que vous tapez le nom (3 lettres), les lieux connus de la <strong>base de référence OpenStreetMap</strong> proches du SAMU-SAS sont proposés : un clic complète l'adresse, la position, la typologie, le téléphone et le site. Sans suggestion, l'adresse saisie est géolocalisée à l'enregistrement.</li>
+    <li><strong>Notes et commentaires</strong> : chaque utilisateur attribue une note de 1 à 5 étoiles (modifiable, retirable) ; la <strong>note moyenne</strong> est calculée et affichée. Tout le monde peut ajouter des commentaires. Tout est horodaté et signé (qui, quand, « modifié le… »).</li>
+    <li><strong>Droits</strong> : le créateur d'un lieu peut le modifier ou le supprimer (avec ses avis) ; l'auteur d'un commentaire peut le modifier ou le supprimer ; un <strong>administrateur</strong> peut modifier ou supprimer tous les lieux, tous les commentaires et toutes les notes.</li>
+  </ul>
+
   <h2>📱 Application mobile</h2>
 
   <div class="note">L'application mobile reprend l'<strong>apparence</strong> de la plateforme : mire de connexion identique à celle du bureau (champs à pictogrammes, affichage / masquage du mot de passe, bouton animé « Connexion en cours… », version affichée), <strong>pictogrammes stylisés</strong> pour les activités, les événements (un pictogramme par modèle d'événement) et la navigation, et <strong>mode sombre</strong> (bouton lune / soleil dans l'en-tête, préférence partagée avec la plateforme).</div>
@@ -674,11 +684,23 @@ tr:nth-child(even) td { background: #f9f9f9; }
   <h2>🆕 Notes de version</h2>
   <p>Historique des évolutions de la Plateforme de Planification ANS.</p>
 
+  <!-- v1.17.28 -->
+  <div class="card card-green" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v1.17.28</strong>
+      <span class="badge badge-current">Actuelle</span>
+      <span style="color:#888; font-size:13px;">Octobre 2026</span>
+    </div>
+    <ul>
+      <li>📍 <strong>Nouvel onglet « SAMU-SAS TripAdVisor »</strong> (tous les utilisateurs) : bonnes adresses (hébergement, restaurant, bar) rattachées à chaque SAMU-SAS, avec carte, distance, notes sur 5 étoiles et moyenne, commentaires, droits créateur / administrateur, recherche par SAMU-SAS, créateur et typologie, et complétion automatique par la base de référence OpenStreetMap.</li>
+    </ul>
+    <p style="font-size:12px; color:#888; margin-top:8px;">Au déploiement : redémarrage du serveur requis (nouvelles tables) ; le serveur doit pouvoir joindre nominatim.openstreetmap.org pour la complétion des adresses.</p>
+  </div>
+
   <!-- v1.17.27 -->
   <div class="card card-green" style="margin-bottom:16px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
       <strong style="font-size:16px;">v1.17.27</strong>
-      <span class="badge badge-current">Actuelle</span>
       <span style="color:#888; font-size:13px;">Octobre 2026</span>
     </div>
     <ul>

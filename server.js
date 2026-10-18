@@ -8714,6 +8714,267 @@ app.put('/api/event-types/events/bulk', requireAdmin, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ========== SAMU-SAS TripAdVisor : bonnes adresses (hébergement, restaurant, bar) rattachées aux localisations ==========
+const POI_CATS = ['hebergement', 'restaurant', 'bar'];
+(async () => {
+    try {
+        await dbRun(`CREATE TABLE IF NOT EXISTS poi (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            location_id INTEGER NOT NULL,
+            category TEXT NOT NULL,
+            name TEXT NOT NULL,
+            address TEXT,
+            latitude REAL,
+            longitude REAL,
+            comment TEXT,
+            website TEXT,
+            phone TEXT,
+            osm_ref TEXT,
+            created_by INTEGER,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+        await dbRun(`CREATE TABLE IF NOT EXISTS poi_ratings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            poi_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            rating INTEGER NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE (poi_id, user_id)
+        )`);
+        await dbRun(`CREATE TABLE IF NOT EXISTS poi_comments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            poi_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            text TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+        await dbRun('CREATE INDEX IF NOT EXISTS idx_poi_location ON poi(location_id)');
+        await dbRun('CREATE INDEX IF NOT EXISTS idx_poi_comments_poi ON poi_comments(poi_id)');
+        console.log('✅ Tables TripAdVisor créées ou existantes');
+    } catch (e) { console.error('Erreur création tables TripAdVisor:', e.message); }
+})();
+const poiIsAdmin = req => req.session && req.session.activeProfile === 'admin';
+const poiName = (prenom, nom) => `${prenom || ''} ${(nom || '').toUpperCase()}`.trim();
+const poiKm = (la1, lo1, la2, lo2) => {
+    if ([la1, lo1, la2, lo2].some(v => v == null || isNaN(Number(v)))) return null;
+    const R = 6371, rad = d => Number(d) * Math.PI / 180, dLa = rad(la2 - la1), dLo = rad(lo2 - lo1);
+    const a = Math.sin(dLa / 2) ** 2 + Math.cos(rad(la1)) * Math.cos(rad(la2)) * Math.sin(dLo / 2) ** 2;
+    return Math.round(2 * R * Math.asin(Math.sqrt(a)) * 10) / 10;
+};
+const poiClean = (v, max) => String(v == null ? '' : v).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').trim().slice(0, max);
+// Base de référence : OpenStreetMap (Nominatim). Requêtes espacées (≥ 1,1 s) et mises en cache, avec identification de l'application (règle d'usage)
+let poiLastCall = 0, poiQueue = Promise.resolve();
+const poiCache = new Map();
+function poiCategoryOf(r) {
+    const c = r.category || r.class, t = r.type;
+    if (c === 'tourism' && ['hotel', 'hostel', 'guest_house', 'motel', 'apartment', 'chalet', 'camp_site', 'caravan_site', 'resort'].includes(t)) return 'hebergement';
+    if (c === 'amenity' && ['restaurant', 'fast_food', 'food_court'].includes(t)) return 'restaurant';
+    if (c === 'amenity' && ['bar', 'pub', 'cafe', 'nightclub', 'biergarten'].includes(t)) return 'bar';
+    return null;
+}
+function poiNominatim(params) {
+    const url = 'https://nominatim.openstreetmap.org/search?' + new URLSearchParams({ format: 'jsonv2', addressdetails: '1', extratags: '1', limit: '10', dedupe: '1', 'accept-language': 'fr', ...params }).toString();
+    if (poiCache.has(url) && poiCache.get(url).t > Date.now() - 600000) return Promise.resolve(poiCache.get(url).v);
+    const run = async () => {
+        const wait = poiLastCall + 1100 - Date.now();
+        if (wait > 0) await new Promise(r => setTimeout(r, wait));
+        poiLastCall = Date.now();
+        const r = await fetch(url, { headers: { 'User-Agent': 'ANS-Plateforme-Planification/1.0 (bonnes adresses SAMU-SAS)', Accept: 'application/json' }, signal: AbortSignal.timeout(9000) });
+        if (!r.ok) throw new Error(`Base de référence indisponible (${r.status})`);
+        const v = await r.json();
+        poiCache.set(url, { t: Date.now(), v });
+        if (poiCache.size > 300) poiCache.delete(poiCache.keys().next().value);
+        return v;
+    };
+    const p = poiQueue.then(run, run);
+    poiQueue = p.catch(() => {});
+    return p;
+}
+function poiAddress(a) {
+    if (!a) return '';
+    const street = [a.house_number, a.road || a.pedestrian || a.footway].filter(Boolean).join(' ');
+    const town = a.city || a.town || a.village || a.municipality || a.hamlet || '';
+    return [street, [a.postcode, town].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+}
+function poiMapResult(r, lat, lng) {
+    const ex = r.extratags || {};
+    const lt = Number(r.lat), ln = Number(r.lon);
+    return { name: (r.name || (r.display_name || '').split(',')[0] || '').trim(), address: poiAddress(r.address) || String(r.display_name || '').split(',').slice(1, 4).join(',').trim(), latitude: lt, longitude: ln,
+        category: poiCategoryOf(r), kind: `${r.category || r.class || ''}:${r.type || ''}`, website: ex.website || ex['contact:website'] || '', phone: ex.phone || ex['contact:phone'] || '',
+        osm_ref: r.osm_type && r.osm_id ? `${String(r.osm_type)[0]}${r.osm_id}` : '', distance_km: poiKm(lat, lng, lt, ln) };
+}
+app.get('/api/poi/places', requireAuth, async (req, res) => {
+    try {
+        const q = poiClean(req.query.q, 120);
+        if (q.length < 3) return res.json({ places: [] });
+        const loc = Number(req.query.location_id) > 0 ? await dbGet('SELECT latitude, longitude, libelle_court FROM locations WHERE id = ?', [Number(req.query.location_id)]) : null;
+        const params = { q, countrycodes: 'fr' };
+        if (loc && loc.latitude != null && loc.longitude != null) params.viewbox = `${loc.longitude - 0.35},${loc.latitude + 0.25},${loc.longitude + 0.35},${loc.latitude - 0.25}`;
+        const raw = await poiNominatim(params);
+        let places = raw.map(r => poiMapResult(r, loc && loc.latitude, loc && loc.longitude)).filter(x => x.name && !isNaN(x.latitude));
+        // Les lieux les plus proches du SAMU-SAS et d'une catégorie connue d'abord
+        places.sort((a, b) => ((a.category ? 0 : 1) - (b.category ? 0 : 1)) || ((a.distance_km == null ? 1e9 : a.distance_km) - (b.distance_km == null ? 1e9 : b.distance_km)));
+        res.json({ places: places.slice(0, 8), reference: 'OpenStreetMap (Nominatim)' });
+    } catch (e) { res.status(502).json({ error: e.message || 'Base de référence indisponible' }); }
+});
+app.get('/api/poi/meta', requireAuth, async (req, res) => {
+    try {
+        const locations = await dbAll(`SELECT l.id, l.libelle_court, l.libelle_long, l.adresse, l.latitude, l.longitude, (SELECT COUNT(*) FROM poi p WHERE p.location_id = l.id) AS n_poi FROM locations l ORDER BY l.libelle_court COLLATE NOCASE`);
+        const creators = await dbAll(`SELECT DISTINCT u.id, u.nom, u.prenom FROM poi p JOIN users u ON u.id = p.created_by ORDER BY u.nom, u.prenom`);
+        res.json({ locations, creators: creators.map(c => ({ id: c.id, name: poiName(c.prenom, c.nom) })), categories: POI_CATS });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+async function poiRows(req, where, params) {
+    const uid = req.session.userId, admin = poiIsAdmin(req);
+    const rows = await dbAll(`SELECT p.*, l.libelle_court AS loc_court, l.libelle_long AS loc_long, l.latitude AS loc_lat, l.longitude AS loc_lng, u.nom AS cnom, u.prenom AS cprenom,
+        (SELECT AVG(r.rating) FROM poi_ratings r WHERE r.poi_id = p.id) AS avg_rating, (SELECT COUNT(*) FROM poi_ratings r WHERE r.poi_id = p.id) AS n_ratings,
+        (SELECT COUNT(*) FROM poi_comments c WHERE c.poi_id = p.id) AS n_comments, (SELECT r.rating FROM poi_ratings r WHERE r.poi_id = p.id AND r.user_id = ?) AS my_rating
+        FROM poi p JOIN locations l ON l.id = p.location_id LEFT JOIN users u ON u.id = p.created_by ${where} ORDER BY p.created_at DESC, p.id DESC`, [uid, ...params]);
+    return rows.map(r => ({ id: r.id, location_id: r.location_id, loc_court: r.loc_court, loc_long: r.loc_long, loc_lat: r.loc_lat, loc_lng: r.loc_lng, category: r.category, name: r.name, address: r.address, latitude: r.latitude, longitude: r.longitude,
+        comment: r.comment, website: r.website, phone: r.phone, osm_ref: r.osm_ref, created_by: r.created_by, creator: poiName(r.cprenom, r.cnom) || 'Utilisateur supprimé', created_at: r.created_at, updated_at: r.updated_at,
+        avg_rating: r.avg_rating == null ? null : Math.round(r.avg_rating * 10) / 10, n_ratings: r.n_ratings, n_comments: r.n_comments, my_rating: r.my_rating, distance_km: poiKm(r.loc_lat, r.loc_lng, r.latitude, r.longitude),
+        can_edit: admin || r.created_by === uid }));
+}
+app.get('/api/poi', requireAuth, async (req, res) => {
+    try {
+        const w = [], p = [];
+        if (Number(req.query.location_id) > 0) { w.push('p.location_id = ?'); p.push(Number(req.query.location_id)); }
+        if (POI_CATS.includes(String(req.query.category || ''))) { w.push('p.category = ?'); p.push(String(req.query.category)); }
+        if (Number(req.query.creator) > 0) { w.push('p.created_by = ?'); p.push(Number(req.query.creator)); }
+        const q = poiClean(req.query.q, 80);
+        if (q) { const like = `%${q.replace(/[%_]/g, m => '\\' + m)}%`; w.push(`(p.name LIKE ? ESCAPE '\\' OR p.address LIKE ? ESCAPE '\\' OR p.comment LIKE ? ESCAPE '\\' OR l.libelle_court LIKE ? ESCAPE '\\' OR u.nom LIKE ? ESCAPE '\\' OR u.prenom LIKE ? ESCAPE '\\')`); p.push(like, like, like, like, like, like); }
+        res.json({ pois: await poiRows(req, w.length ? 'WHERE ' + w.join(' AND ') : '', p), isAdmin: poiIsAdmin(req), userId: req.session.userId });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.get('/api/poi/:id', requireAuth, async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        const [poi] = await poiRows(req, 'WHERE p.id = ?', [id]);
+        if (!poi) return res.status(404).json({ error: 'Lieu introuvable' });
+        const admin = poiIsAdmin(req), uid = req.session.userId;
+        const comments = (await dbAll(`SELECT c.*, u.nom, u.prenom FROM poi_comments c LEFT JOIN users u ON u.id = c.user_id WHERE c.poi_id = ? ORDER BY c.created_at, c.id`, [id]))
+            .map(c => ({ id: c.id, user_id: c.user_id, author: poiName(c.prenom, c.nom) || 'Utilisateur supprimé', text: c.text, created_at: c.created_at, updated_at: c.updated_at, can_edit: admin || c.user_id === uid }));
+        const ratings = (await dbAll(`SELECT r.*, u.nom, u.prenom FROM poi_ratings r LEFT JOIN users u ON u.id = r.user_id WHERE r.poi_id = ? ORDER BY r.updated_at DESC`, [id]))
+            .map(r => ({ user_id: r.user_id, author: poiName(r.prenom, r.nom) || 'Utilisateur supprimé', rating: r.rating, created_at: r.created_at, updated_at: r.updated_at, can_edit: admin || r.user_id === uid }));
+        res.json({ poi, comments, ratings });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+async function poiBody(b, existing) {
+    const out = {};
+    out.category = POI_CATS.includes(b.category) ? b.category : null;
+    if (!out.category) return { error: 'Choisissez une typologie (hébergement, restaurant ou bar)' };
+    out.name = poiClean(b.name, 120);
+    if (out.name.length < 2) return { error: 'Le nom du lieu est obligatoire' };
+    out.location_id = Number(b.location_id);
+    if (!(out.location_id > 0) || !(await dbGet('SELECT id FROM locations WHERE id = ?', [out.location_id]))) return { error: 'Choisissez le SAMU-SAS auquel rattacher ce lieu' };
+    out.address = poiClean(b.address, 250);
+    out.comment = poiClean(b.comment, 2000);
+    out.website = poiClean(b.website, 250);
+    out.phone = poiClean(b.phone, 40);
+    out.osm_ref = poiClean(b.osm_ref, 20);
+    let lat = Number(b.latitude), lng = Number(b.longitude);
+    if (!(isFinite(lat) && isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && (lat || lng))) {
+        lat = lng = null;
+        if (out.address || out.name) { // adresse saisie sans suggestion : géolocalisation par la base de référence
+            try { const r = (await poiNominatim({ q: out.address || out.name, countrycodes: 'fr', limit: '1' }))[0]; if (r) { lat = Number(r.lat); lng = Number(r.lon); } } catch (e) { /* géolocalisation indisponible */ }
+        }
+        if (lat == null) return { error: "Adresse introuvable : choisissez une suggestion de la liste ou précisez l'adresse pour pouvoir placer le lieu sur la carte" };
+    }
+    out.latitude = lat; out.longitude = lng;
+    return { value: out };
+}
+app.post('/api/poi', requireAuth, async (req, res) => {
+    try {
+        const r = await poiBody(req.body || {});
+        if (r.error) return res.status(400).json({ error: r.error });
+        const v = r.value;
+        const ins = await dbRun(`INSERT INTO poi (location_id, category, name, address, latitude, longitude, comment, website, phone, osm_ref, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+            [v.location_id, v.category, v.name, v.address, v.latitude, v.longitude, v.comment, v.website, v.phone, v.osm_ref, req.session.userId]);
+        const rt = Number((req.body || {}).rating);
+        if (rt >= 1 && rt <= 5) await dbRun('INSERT OR REPLACE INTO poi_ratings (poi_id, user_id, rating) VALUES (?,?,?)', [ins.lastID, req.session.userId, Math.round(rt)]);
+        logUserAction(req, 'TripAdVisor : ajout d\'un lieu', { id: ins.lastID, nom: v.name, categorie: v.category });
+        res.json({ success: true, id: ins.lastID });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.put('/api/poi/:id', requireAuth, async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        const old = await dbGet('SELECT * FROM poi WHERE id = ?', [id]);
+        if (!old) return res.status(404).json({ error: 'Lieu introuvable' });
+        if (!poiIsAdmin(req) && old.created_by !== req.session.userId) return res.status(403).json({ error: 'Seul le créateur du lieu ou un administrateur peut le modifier' });
+        const r = await poiBody(req.body || {}, old);
+        if (r.error) return res.status(400).json({ error: r.error });
+        const v = r.value;
+        await dbRun(`UPDATE poi SET location_id=?, category=?, name=?, address=?, latitude=?, longitude=?, comment=?, website=?, phone=?, osm_ref=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`,
+            [v.location_id, v.category, v.name, v.address, v.latitude, v.longitude, v.comment, v.website, v.phone, v.osm_ref, id]);
+        logUserAction(req, 'TripAdVisor : modification d\'un lieu', { id, nom: v.name });
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.delete('/api/poi/:id', requireAuth, async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        const old = await dbGet('SELECT * FROM poi WHERE id = ?', [id]);
+        if (!old) return res.status(404).json({ error: 'Lieu introuvable' });
+        if (!poiIsAdmin(req) && old.created_by !== req.session.userId) return res.status(403).json({ error: 'Seul le créateur du lieu ou un administrateur peut le supprimer' });
+        await dbRun('DELETE FROM poi_comments WHERE poi_id = ?', [id]);
+        await dbRun('DELETE FROM poi_ratings WHERE poi_id = ?', [id]);
+        await dbRun('DELETE FROM poi WHERE id = ?', [id]);
+        logUserAction(req, 'TripAdVisor : suppression d\'un lieu', { id, nom: old.name });
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.put('/api/poi/:id/rating', requireAuth, async (req, res) => {
+    try {
+        const id = Number(req.params.id), rt = Math.round(Number((req.body || {}).rating));
+        if (!(rt >= 1 && rt <= 5)) return res.status(400).json({ error: 'La note doit être comprise entre 1 et 5' });
+        if (!(await dbGet('SELECT id FROM poi WHERE id = ?', [id]))) return res.status(404).json({ error: 'Lieu introuvable' });
+        await dbRun(`INSERT INTO poi_ratings (poi_id, user_id, rating) VALUES (?,?,?) ON CONFLICT(poi_id, user_id) DO UPDATE SET rating = excluded.rating, updated_at = CURRENT_TIMESTAMP`, [id, req.session.userId, rt]);
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.delete('/api/poi/:id/rating', requireAuth, async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        const target = poiIsAdmin(req) && Number(req.query.user_id) > 0 ? Number(req.query.user_id) : req.session.userId;
+        await dbRun('DELETE FROM poi_ratings WHERE poi_id = ? AND user_id = ?', [id, target]);
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.post('/api/poi/:id/comments', requireAuth, async (req, res) => {
+    try {
+        const id = Number(req.params.id), text = poiClean((req.body || {}).text, 2000);
+        if (text.length < 1) return res.status(400).json({ error: 'Le commentaire est vide' });
+        if (!(await dbGet('SELECT id FROM poi WHERE id = ?', [id]))) return res.status(404).json({ error: 'Lieu introuvable' });
+        const ins = await dbRun('INSERT INTO poi_comments (poi_id, user_id, text) VALUES (?,?,?)', [id, req.session.userId, text]);
+        res.json({ success: true, id: ins.lastID });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.put('/api/poi/comments/:cid', requireAuth, async (req, res) => {
+    try {
+        const cid = Number(req.params.cid), text = poiClean((req.body || {}).text, 2000);
+        const c = await dbGet('SELECT * FROM poi_comments WHERE id = ?', [cid]);
+        if (!c) return res.status(404).json({ error: 'Commentaire introuvable' });
+        if (!poiIsAdmin(req) && c.user_id !== req.session.userId) return res.status(403).json({ error: 'Seul l\'auteur du commentaire ou un administrateur peut le modifier' });
+        if (!text) return res.status(400).json({ error: 'Le commentaire est vide' });
+        await dbRun('UPDATE poi_comments SET text = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [text, cid]);
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.delete('/api/poi/comments/:cid', requireAuth, async (req, res) => {
+    try {
+        const cid = Number(req.params.cid);
+        const c = await dbGet('SELECT * FROM poi_comments WHERE id = ?', [cid]);
+        if (!c) return res.status(404).json({ error: 'Commentaire introuvable' });
+        if (!poiIsAdmin(req) && c.user_id !== req.session.userId) return res.status(403).json({ error: 'Seul l\'auteur du commentaire ou un administrateur peut le supprimer' });
+        await dbRun('DELETE FROM poi_comments WHERE id = ?', [cid]);
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ========== SUIVI DES ÉVÉNEMENTS (REPORTING) ==========
 
 app.get('/api/custom-events/search', requireAuth, async (req, res) => {
@@ -9618,14 +9879,14 @@ app.get('/api/version', (req, res) => {
 });
 
 // ---------- Accès aux onglets par profil (paramétrable depuis l'Administration) ----------
-const TAB_KEYS = ['resources', 'evenements', 'planning', 'cra', 'reporting', 'admin', 'astreintesGestion'];
+const TAB_KEYS = ['resources', 'evenements', 'planning', 'cra', 'reporting', 'admin', 'astreintesGestion', 'tripadvisor'];
 const TAB_PROFILES = ['admin', 'user', 'rh', 'expert'];
 // Valeurs par défaut = comportement historique codé en dur
 const TAB_ACCESS_DEFAULTS = {
-    admin:  { resources: true,  evenements: true,  planning: true,  cra: true,  reporting: true,  admin: true,  astreintesGestion: true },
-    user:   { resources: false, evenements: true,  planning: true,  cra: false, reporting: false, admin: false, astreintesGestion: false },
-    rh:     { resources: true,  evenements: false, planning: false, cra: true,  reporting: false, admin: false, astreintesGestion: false },
-    expert: { resources: false, evenements: true,  planning: true,  cra: true,  reporting: false, admin: false, astreintesGestion: true }
+    admin:  { resources: true,  evenements: true,  planning: true,  cra: true,  reporting: true,  admin: true,  astreintesGestion: true,  tripadvisor: true },
+    user:   { resources: false, evenements: true,  planning: true,  cra: false, reporting: false, admin: false, astreintesGestion: false, tripadvisor: true },
+    rh:     { resources: true,  evenements: false, planning: false, cra: true,  reporting: false, admin: false, astreintesGestion: false, tripadvisor: true },
+    expert: { resources: false, evenements: true,  planning: true,  cra: true,  reporting: false, admin: false, astreintesGestion: true,  tripadvisor: true }
 };
 function tabAccessMerge(stored) {
     const out = {};
