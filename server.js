@@ -4692,9 +4692,11 @@ app.post('/api/affectation/asana/apply', requireAdmin, async (req, res) => {
         if (keys === 'auto') { // import en masse : toutes les rubriques nouvelles ou modifiées
             const pv = await asanaPreviewPayload(c, forced);
             keys = pv.rows.filter(r => r.status === 'nouveau' || r.status === 'modifié').map(r => r.key);
-            if (!keys.length) return res.json({ success: true, unchanged: true, samu_name: pv.samuName });
+            if (!keys.length) { if (pv.existing) await asanaRememberLink(gid, pv.existing.id); return res.json({ success: true, unchanged: true, samu_name: pv.samuName }); }
         }
-        res.json(await asanaApplyCore(req, c, keys, forced, 'api'));
+        const applied = await asanaApplyCore(req, c, keys, forced, 'api');
+        await asanaRememberLink(gid, applied.id); // les rafraîchissements suivants reprendront ce projet, pas un autre du même numéro
+        res.json(applied);
     } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
 });
 
@@ -4707,9 +4709,24 @@ async function asanaListSamuProjects(token) {
     try { links = JSON.parse(await asanaSetting('asana_links') || '{}'); } catch (e) { links = {}; }
     return { list: list.sort((a, b) => a.name.localeCompare(b.name, 'fr', { numeric: true })), links };
 }
+// Projet Asana d'un déploiement : d'abord celui qui lui est relié explicitement (appairage manuel ou dernier import), sinon un projet portant le même numéro de SAMU
+function asanaPickProject(ctx, dep) {
+    const no = affSamuNumber(dep.samu_name);
+    const explicit = ctx.list.find(p => ctx.links[p.gid] === dep.id);
+    const auto = ctx.list.filter(p => !(ctx.links[p.gid] > 0) && ctx.links[p.gid] !== -1 && no && asanaSamuNoOf(p.name) === no);
+    return { match: explicit || auto[0] || null, candidates: [...(explicit ? [explicit] : []), ...auto] };
+}
+async function asanaRememberLink(gid, depId) {
+    if (!gid || !depId) return;
+    let links = {};
+    try { links = JSON.parse(await asanaSetting('asana_links') || '{}'); } catch (e) { links = {}; }
+    if (links[gid] === -1 || links[gid] === depId) return;
+    links[gid] = depId;
+    await asanaPut('asana_links', JSON.stringify(links));
+}
 async function asanaRefreshDeployment(req, token, ctx, dep) {
     const no = affSamuNumber(dep.samu_name);
-    const match = ctx.list.find(p => ctx.links[p.gid] > 0 ? ctx.links[p.gid] === dep.id : (ctx.links[p.gid] !== -1 && no && asanaSamuNoOf(p.name) === no));
+    const match = asanaPickProject(ctx, dep).match;
     if (!match) throw Object.assign(new Error(`Aucun projet Asana associé à « ${dep.samu_name} » (vérifiez le nom du projet ou l'appairage dans Administration › Connexion Asana)`), { status: 404, noMatch: true });
     const { projectName, tasks } = await asanaFetchProject(token, match.gid);
     const c = asanaComputeTasks(tasks, projectName);
@@ -4741,10 +4758,9 @@ const ASANA_RULES = {
 };
 async function asanaFindProjectFor(token, dep) {
     const ctx = await asanaListSamuProjects(token);
-    const no = affSamuNumber(dep.samu_name);
-    const match = ctx.list.find(p => ctx.links[p.gid] > 0 ? ctx.links[p.gid] === dep.id : (ctx.links[p.gid] !== -1 && no && asanaSamuNoOf(p.name) === no));
+    const { match, candidates } = asanaPickProject(ctx, dep);
     if (!match) throw Object.assign(new Error(`Aucun projet Asana associé à « ${dep.samu_name} »`), { status: 404 });
-    return match;
+    return { match, candidates };
 }
 app.get('/api/affectation/projects/:id/asana-tasks', requireAdmin, async (req, res) => {
     try {
@@ -4752,7 +4768,7 @@ app.get('/api/affectation/projects/:id/asana-tasks', requireAdmin, async (req, r
         const dep = await dbGet('SELECT * FROM affectation_projects WHERE id = ?', [id]);
         if (!dep) return res.status(404).json({ error: 'Déploiement introuvable' });
         const token = await asanaToken();
-        const match = await asanaFindProjectFor(token, dep);
+        const { match, candidates } = await asanaFindProjectFor(token, dep);
         const { projectName, tasks } = await asanaFetchProject(token, match.gid);
         const c0 = asanaComputeTasks(tasks, projectName);
         const ov = (await asanaOverridesFor(id)) || {};
@@ -4769,7 +4785,7 @@ app.get('/api/affectation/projects/:id/asana-tasks', requireAdmin, async (req, r
         });
         const list = c0.tasks.map(t => ({ gid: t.gid, name: t.name, code: t.code, parent: t.parent, start: t.start, due: t.due, eff: asanaEff(c0.tasks, t) }))
             .sort((a, b) => String(a.code || '~').localeCompare(String(b.code || '~'), 'fr', { numeric: true }) || a.name.localeCompare(b.name, 'fr', { numeric: true }));
-        res.json({ samu: dep.samu_name, asana: projectName, gid: match.gid, url: match.permalink_url, tasks: list, rubriques, overridden: c1.overridden || [] });
+        res.json({ samu: dep.samu_name, asana: projectName, gid: match.gid, url: match.permalink_url, candidates: candidates.map(x => ({ gid: x.gid, name: x.name })), tasks: list, rubriques, overridden: c1.overridden || [] });
     } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
 });
 app.put('/api/affectation/projects/:id/asana-overrides', requireAdmin, async (req, res) => {
@@ -4790,7 +4806,7 @@ app.put('/api/affectation/projects/:id/asana-overrides', requireAdmin, async (re
         await asanaPut('asana_task_overrides', JSON.stringify(all));
         logUserAction(req, 'Remplacement de dates Asana pour un déploiement', { id, samu: dep.samu_name, rubriques: Object.keys(clean) });
         const token = await asanaToken();
-        const match = await asanaFindProjectFor(token, dep);
+        const { match } = await asanaFindProjectFor(token, dep);
         const { projectName, tasks } = await asanaFetchProject(token, match.gid);
         const c = asanaComputeTasks(tasks, projectName);
         const pv = await asanaPreviewPayload(c, id);

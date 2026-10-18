@@ -757,7 +757,7 @@
             const cur = r.auto || r.current || {}; let a = es ? es.start : cur.start, b = ee ? ee.end : cur.end; a = a || b; b = b || a;
             return a > b ? `${aFr(b)} → ${aFr(a)}` : `${aFr(a)} → ${aFr(b)}`;
         };
-        box.innerHTML = `<p style="margin:0 0 10px;font-size:13px;color:#4a5b70;"><b>${esc(d.samu)}</b> · projet Asana : ${d.url ? `<a href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.asana)}</a>` : esc(d.asana)} · ${d.tasks.length} tâche(s).
+        box.innerHTML = `<p style="margin:0 0 10px;font-size:13px;color:#4a5b70;"><b>${esc(d.samu)}</b> · projet Asana : ${(d.candidates || []).length > 1 ? `<select onchange="AffectationApp.asanaTasksProject(this.value)" title="Plusieurs projets Asana portent ce numéro de SAMU : choisissez le bon" style="padding:4px 6px;border:2px solid #ff9800;border-radius:8px;max-width:340px;">${d.candidates.map(x => `<option value="${esc(x.gid)}" ${x.gid === d.gid ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select> ${d.url ? `<a href="${esc(d.url)}" target="_blank" rel="noopener">ouvrir</a>` : ''}` : (d.url ? `<a href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.asana)}</a>` : esc(d.asana))} · ${d.tasks.length} tâche(s).
             Pour chaque rubrique, la <b>règle automatique</b> choisit la tâche ; vous pouvez la <b>remplacer</b> par n'importe quelle autre tâche du projet (liste avec échéances). Le remplacement est mémorisé : il s'applique aussi aux prochains rafraîchissements.</p>
             <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;">
             <thead><tr style="text-align:left;color:#6b7a8d;font-size:11px;"><th style="padding:6px 8px;">Rubrique (règle)</th><th style="padding:6px 8px;">Valeur actuelle</th><th style="padding:6px 8px;">Selon la règle</th><th style="padding:6px 8px;min-width:330px;">Remplacer par la tâche…</th><th style="padding:6px 8px;">Après remplacement</th></tr></thead><tbody>
@@ -1602,8 +1602,10 @@
         // Une voie fixe par période du projet : une barre garde la même hauteur d'une colonne à l'autre
         const lanes = (keys, isStep) => keys.map(k => hiddenKeys.has(k) ? '' : ((p.periods || {})[k] || []).map((x, i) => bar(k, x, i, isStep) || '<div class="b" style="visibility:hidden"></div>').join('')).join('');
         let ph = lanes(PHASES, false), st = lanes(STEPS, true);
-        if (!/class="b [^"]*"|class="b "/.test(ph.replace(/<div class="b" style="visibility:hidden"><\/div>/g, ''))) ph = '';
-        if (!/class="b [^"]*"/.test(st.replace(/<div class="b" style="visibility:hidden"><\/div>/g, ''))) st = '';
+        // Un groupe de voies n'est retiré que si la ligne n'a aucune période de ce groupe : sinon une barre changerait de hauteur d'une colonne à l'autre
+        const rowHas = keys => keys.some(k => !hiddenKeys.has(k) && ((p.periods || {})[k] || []).length);
+        if (!rowHas(PHASES)) ph = '';
+        if (!rowHas(STEPS)) st = '';
         let mk = '';
         const span = (utcMs(c.to) - utcMs(c.from)) / 86400000 + 1;
         const posOf = d => ((utcMs(d) - utcMs(c.from)) / 86400000) / span * 100;
@@ -2287,6 +2289,10 @@
                 document.getElementById('affAsanaTasksTitle').lastChild.textContent = `Tâches du projet Asana — ${d.samu}`;
                 renderAsanaTasks();
             } catch (e) { document.getElementById('affAsanaTasksBody').innerHTML = `<p class="aff-error">${esc(e.message)}</p>`; }
+        },
+        async asanaTasksProject(gid) {
+            try { await api('/affectation/asana/links', { method: 'PUT', body: JSON.stringify({ gid, deploymentId: asanaT.id }) }); await AffectationApp.asanaTasks(asanaT.id); }
+            catch (e) { document.getElementById('affAsanaTasksMsg').textContent = e.message; }
         },
         asanaTasksPick(sel) {
             const k = sel.dataset.k, f = sel.dataset.f;
