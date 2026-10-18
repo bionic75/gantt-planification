@@ -13,6 +13,7 @@
 /* Mode sombre : même préférence que l'application (gp_color_mode) ; appliqué avant l'affichage pour éviter tout flash */
 (function(){try{var m=localStorage.getItem('gp_color_mode')||'light';var d=m==='dark'||(m==='auto'&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(d)document.documentElement.classList.add('dark-mode');}catch(e){}})();
 </script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
 <script src="/ui-icons.js" defer></script>
 <style>
 /* ===== RESET ===== */
@@ -176,6 +177,20 @@ html.dark-mode #drawerOverlay{background:rgba(255,255,255,.55);}
 .hidden{display:none!important;}
 .no-data{text-align:center;color:#bdc3c7;font-size:14px;padding:32px 0;}
 .conge-banner{background:#ecf0f1;border-left:3px solid #bdc3c7;border-radius:6px;padding:10px 14px;font-weight:bold;font-size:13px;color:#6F6F6E;margin-bottom:12px;}
+/* ===== CARTE « AUTOUR DE MOI » ===== */
+#nearBtn{background:#1D70B7;color:#fff;}
+#nearScreen{position:fixed;inset:0;z-index:2000;background:#fff;display:flex;flex-direction:column;}
+#nearScreen.hidden{display:none!important;}
+#nearBar{display:flex;align-items:center;gap:8px;padding:10px 12px;background:#1D70B7;color:#fff;padding-top:max(10px,env(safe-area-inset-top));}
+#nearBar h2{font-size:16px;flex:1;margin:0;}
+#nearBar select{border:0;border-radius:8px;padding:7px 8px;font-size:14px;background:#fff;color:#1f2d3d;}
+#nearMap{flex:1;min-height:0;}
+#nearInfo{padding:8px 12px;font-size:13px;background:#f4f7fb;color:#2c3e50;border-top:1px solid #dde5ee;padding-bottom:max(8px,env(safe-area-inset-bottom));}
+.near-pin{width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4);}
+.near-pin svg{width:15px;height:15px;transform:rotate(45deg);fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.near-me{width:18px;height:18px;border-radius:50%;background:#1D70B7;border:3px solid #fff;box-shadow:0 0 0 6px rgba(29,112,183,.25);}
+.near-pop b{color:#1D70B7;}
+html.dark-mode #nearScreen{filter:none;}
 </style>
 </head>
 <body>
@@ -187,6 +202,7 @@ html.dark-mode #drawerOverlay{background:rgba(255,255,255,.55);}
     <span id="userNameEl"></span>
     <span id="userRoleBadge">Expert Métier</span>
     <div class="spacer"></div>
+    <button id="nearBtn" class="icon-btn" type="button" title="Lieux autour de moi" aria-label="Lieux autour de moi"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.6"/></svg></button>
     <button id="colorModeBtn" class="icon-btn" type="button" title="Mode sombre / clair" aria-label="Mode sombre / clair"></button>
     <button id="logoutBtn" title="Déconnexion" aria-label="Déconnexion"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/></svg></button>
   </header>
@@ -295,6 +311,18 @@ html.dark-mode #drawerOverlay{background:rgba(255,255,255,.55);}
     <div id="planningScreen" class="hidden screen"></div>
 
   </main>
+</div>
+
+<!-- CARTE AUTOUR DE MOI -->
+<div id="nearScreen" class="hidden">
+  <div id="nearBar">
+    <button id="nearClose" class="icon-btn" type="button" aria-label="Fermer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
+    <h2>Autour de moi</h2>
+    <select id="nearRadius" aria-label="Périmètre"><option value="10">10 km</option><option value="25">25 km</option><option value="50" selected>50 km</option><option value="100">100 km</option><option value="0">France</option></select>
+    <button id="nearLocate" class="icon-btn" type="button" aria-label="Me localiser"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3"/></svg></button>
+  </div>
+  <div id="nearMap"></div>
+  <div id="nearInfo">Chargement…</div>
 </div>
 
 <!-- DRAWER -->
@@ -1023,6 +1051,91 @@ document.getElementById('loginPass').addEventListener('keydown', e => {
 document.getElementById('mfaCodeInput').addEventListener('keydown', e => {
   if (e.key==='Enter') mfaVerify();
 });
+
+/* ---- CARTE « AUTOUR DE MOI » : lieux (TripAdVisor) à proximité du téléphone ---- */
+const NEAR = { map:null, layer:null, me:null, pos:null, pois:null, ring:null };
+const NEAR_CATS = {
+  hebergement:{label:'Hébergement',color:'#6a1b9a',svg:'<path d="M3 18V7M3 14h18v4M21 14v-2a3 3 0 0 0-3-3h-7v5"/><circle cx="7" cy="11" r="1.6"/>'},
+  restaurant:{label:'Restaurant',color:'#e65100',svg:'<path d="M6 3v7a2 2 0 0 0 2 2v9M10 3v7M6 7h4M17 21V3c-2 1-3.5 4-3.5 8h3.5"/>'},
+  bar:{label:'Bar',color:'#1565c0',svg:'<path d="M5 4h14l-7 8zM12 12v8M8 20h8"/>'}
+};
+const nEsc = t => String(t == null ? '' : t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function nearKm(a, b, c, d) { const r = Math.PI/180, x = (c-a)*r, y = (d-b)*r, h = Math.sin(x/2)**2 + Math.cos(a*r)*Math.cos(c*r)*Math.sin(y/2)**2; return 12742 * Math.asin(Math.sqrt(h)); }
+function nearLoadLeaflet() {
+  return new Promise((ok, ko) => {
+    if (window.L) return ok();
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+    s.onload = () => ok(); s.onerror = () => ko(new Error('Carte indisponible'));
+    document.head.appendChild(s);
+  });
+}
+async function openNear() {
+  document.getElementById('nearScreen').classList.remove('hidden');
+  const info = document.getElementById('nearInfo');
+  try { await nearLoadLeaflet(); } catch (e) { info.textContent = 'Carte indisponible (réseau).'; return; }
+  if (!NEAR.map) {
+    NEAR.map = L.map('nearMap', { zoomControl: false }).fitBounds([[41.2,-5.3],[51.2,9.7]]);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(NEAR.map);
+    NEAR.layer = L.layerGroup().addTo(NEAR.map);
+  }
+  setTimeout(() => NEAR.map.invalidateSize(), 50);
+  if (!NEAR.pois) {
+    try {
+      const r = await api('/api/poi'); if (!r.ok) throw 0;
+      NEAR.pois = (await r.json()).pois.filter(p => p.latitude != null && p.longitude != null);
+    } catch (e) { info.textContent = 'Impossible de charger les lieux.'; return; }
+  }
+  nearRender();
+  nearLocate();
+}
+function nearLocate() {
+  const info = document.getElementById('nearInfo');
+  if (!navigator.geolocation) { info.textContent = 'Géolocalisation non disponible : carte de France.'; return nearRender(); }
+  info.textContent = 'Localisation en cours… (autorisez l\'accès à la position)';
+  navigator.geolocation.getCurrentPosition(pos => {
+    NEAR.pos = [pos.coords.latitude, pos.coords.longitude];
+    nearRender();
+  }, err => {
+    NEAR.pos = null;
+    nearRender();
+    info.textContent = (err && err.code === 1 ? 'Position refusée — autorisez la localisation dans les réglages du navigateur. ' : 'Position introuvable. ') + document.getElementById('nearInfo').textContent;
+  }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
+}
+function nearRender() {
+  if (!NEAR.map || !NEAR.pois) return;
+  const rad = Number(document.getElementById('nearRadius').value), info = document.getElementById('nearInfo');
+  NEAR.layer.clearLayers();
+  let list = NEAR.pois.map(p => ({ p, d: NEAR.pos ? nearKm(NEAR.pos[0], NEAR.pos[1], p.latitude, p.longitude) : null }));
+  if (NEAR.pos && rad > 0) list = list.filter(x => x.d <= rad);
+  if (NEAR.pos) list.sort((a, b) => a.d - b.d);
+  list.forEach(({ p, d }) => {
+    const c = NEAR_CATS[p.category] || NEAR_CATS.hebergement;
+    const ico = L.divIcon({ className: '', html: `<div class="near-pin" style="background:${c.color}"><svg viewBox="0 0 24 24">${c.svg}</svg></div>`, iconSize: [30, 30], iconAnchor: [15, 30], popupAnchor: [0, -28] });
+    const stars = p.avg_rating == null ? 'Pas encore noté' : `★ ${p.avg_rating}/5 (${p.n_ratings})`;
+    L.marker([p.latitude, p.longitude], { icon: ico }).addTo(NEAR.layer).bindPopup(
+      `<div class="near-pop"><b>${nEsc(p.name)}</b><br>${nEsc(c.label)} · SAMU-SAS ${nEsc(p.loc_court)}<br>${nEsc(p.address)}<br>${stars}${d != null ? ' · ' + d.toFixed(1) + ' km' : ''}` +
+      `${p.comment ? '<br><i>' + nEsc(p.comment) + '</i>' : ''}<br><small>par ${nEsc(p.creator)}</small><br><a href="https://www.google.com/maps/dir/?api=1&destination=${p.latitude},${p.longitude}" target="_blank" rel="noopener">Itinéraire</a></div>`);
+  });
+  if (NEAR.me) { NEAR.map.removeLayer(NEAR.me); NEAR.me = null; }
+  if (NEAR.ring) { NEAR.map.removeLayer(NEAR.ring); NEAR.ring = null; }
+  if (NEAR.pos) {
+    NEAR.me = L.marker(NEAR.pos, { icon: L.divIcon({ className: '', html: '<div class="near-me"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }), interactiveZ: 0 }).addTo(NEAR.map);
+    if (rad > 0) NEAR.ring = L.circle(NEAR.pos, { radius: rad * 1000, color: '#1D70B7', weight: 1, fillOpacity: .05 }).addTo(NEAR.map);
+    {
+      if (rad > 0) NEAR.map.fitBounds(NEAR.ring.getBounds(), { padding: [10, 10] });
+      else NEAR.map.fitBounds([[41.2,-5.3],[51.2,9.7]]);
+    }
+    info.textContent = `${list.length} lieu${list.length > 1 ? 'x' : ''} ${rad > 0 ? 'dans un rayon de ' + rad + ' km' : 'en France'}` + (list.length ? ` — le plus proche à ${list[0].d.toFixed(1)} km` : '');
+  } else {
+    NEAR.map.fitBounds([[41.2,-5.3],[51.2,9.7]]);
+    info.textContent = `${list.length} lieu${list.length > 1 ? 'x' : ''} en France (position inconnue).`;
+  }
+}
+document.getElementById('nearBtn').onclick = openNear;
+document.getElementById('nearClose').onclick = () => document.getElementById('nearScreen').classList.add('hidden');
+document.getElementById('nearLocate').onclick = nearLocate;
+document.getElementById('nearRadius').onchange = () => nearRender();
 
 init();
 </script>
