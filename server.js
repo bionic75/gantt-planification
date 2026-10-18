@@ -4041,6 +4041,69 @@ app.put('/api/affectation/projects/:id/event-link', requireAdmin, async (req, re
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
+// ---- Synchronisation événement → affectations : les participants (ayant une ressource) d'un événement relié à une activité sont affectés à cette activité ----
+// Événements concernés : celui relié explicitement, sinon ceux du même lieu et du même type qui recoupent la période de l'activité.
+// On ajoute seulement (jamais de retrait) et dans la limite du nombre de ressources nécessaires.
+async function affStageEvents(proj, key, per, links, map, types, locId) {
+    const evs = [];
+    const linked = links[key] ? await dbGet('SELECT id FROM custom_events WHERE id = ?', [links[key]]) : null;
+    if (linked) evs.push(linked.id);
+    if (locId && per) {
+        const t = types.find(x => x.id === map[key]);
+        const tpl = (AFF_STAGE_EVENT[key] || {}).label;
+        const legacy = [t && t.label_long, tpl].filter(Boolean).map(affNormTxt);
+        const rows = await dbAll('SELECT id, label, type_id FROM custom_events WHERE location_id = ? AND start_date <= ? AND end_date >= ?', [locId, per.end, per.start]);
+        rows.forEach(e => { if ((e.type_id ? e.type_id === (t && t.id) : legacy.some(l => affNormTxt(e.label).startsWith(l))) && !evs.includes(e.id)) evs.push(e.id); });
+    }
+    return evs;
+}
+async function affSyncStageFromEvents(req, proj, key, ctx) {
+    let periods = {}; try { periods = JSON.parse(proj.periods || '{}'); } catch (e) { periods = {}; }
+    const per = periods[key] && periods[key][0];
+    if (!per || !per.needed) return { added: [] };
+    const links = await affEventLinks(proj.id);
+    const evs = await affStageEvents(proj, key, per, links, ctx.map, ctx.types, ctx.locId);
+    if (!evs.length) return { added: [] };
+    const parts = await dbAll(`SELECT DISTINCT u.resource_id AS rid FROM custom_event_participants cep JOIN users u ON u.id = cep.user_id JOIN resources r ON r.id = u.resource_id
+        WHERE cep.event_id IN (${evs.map(() => '?').join(',')}) AND u.resource_id IS NOT NULL AND r.actif = 1`, evs);
+    const cur = (await dbAll('SELECT resource_id FROM affectation_assignments WHERE project_id = ? AND stage_key = ? ORDER BY id', [proj.id, key])).map(x => x.resource_id);
+    const toAdd = parts.map(x => x.rid).filter(r => !cur.includes(r)).slice(0, Math.max(0, per.needed - cur.length));
+    if (!toAdd.length) return { added: [] };
+    for (const rid of toAdd) await dbRun('INSERT INTO affectation_assignments (project_id, stage_key, resource_id) VALUES (?,?,?)', [proj.id, key, rid]);
+    const names = Object.fromEntries((await dbAll(`SELECT id, nom, prenom FROM resources WHERE id IN (${[...cur, ...toAdd].map(() => '?').join(',')})`, [...cur, ...toAdd])).map(r => [r.id, `${r.prenom || ''} ${(r.nom || '').toUpperCase()}`.trim()]));
+    const list = a => a.map(i => names[i] || `#${i}`).join(', ') || '—';
+    await affHist(req, proj.id, proj.samu_name, 'affectation', { changes: [{ label: `${AFF_STAGES.find(x => x.key === key).label} — ressources (depuis les participants de l'événement)`, from: list(cur), to: list([...cur, ...toAdd]) }] });
+    return { added: toAdd };
+}
+async function affSyncAllFromEvents(req, onlyProjectId) {
+    const ctx = { map: await affStageTypeMap(), types: await dbAll('SELECT * FROM event_types') };
+    const projs = await dbAll(onlyProjectId ? 'SELECT * FROM affectation_projects WHERE id = ?' : 'SELECT * FROM affectation_projects', onlyProjectId ? [onlyProjectId] : []);
+    const out = [];
+    for (const proj of projs) {
+        const locId = await affProjectLocationId(proj);
+        for (const key of AFF_EVENT_KEYS.filter(k => AFF_STAGES.find(x => x.key === k && x.resources))) {
+            const r = await affSyncStageFromEvents(req, proj, key, { ...ctx, locId });
+            if (r.added.length) out.push({ project: proj.id, samu: proj.samu_name, stage: key, added: r.added });
+        }
+    }
+    return out;
+}
+app.post('/api/affectation/sync-from-events', requireAffectationAccess, async (req, res) => {
+    try {
+        const pid = Number((req.body || {}).projectId) || null;
+        const out = await affSyncAllFromEvents(req, pid);
+        if (out.length) logUserAction(req, 'Affectations synchronisées depuis les participants des événements', { modifs: out.length });
+        res.json({ success: true, changes: out });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+// À chaque création / modification d'événement, les affectations des déploiements concernés sont mises à jour
+app.use(['/api/my-custom-events', '/api/custom-events'], (req, res, next) => {
+    if (req.method === 'POST' || req.method === 'PUT') {
+        res.on('finish', () => { if (res.statusCode < 300) affSyncAllFromEvents(req).catch(e => console.error('Synchro événements → affectations :', e.message)); });
+    }
+    next();
+});
+
 // Création de l'événement correspondant à une activité (SAMU, type de la correspondance, dates, ressources affectées en participants)
 app.post('/api/affectation/projects/:id/event-create', requireAdmin, async (req, res) => {
     try {

@@ -1765,6 +1765,11 @@
             plan.projects = proj.projects; plan.colors = cfg.colors; plan.patterns = cfg.patterns || {}; plan.config = cfg; plan.loaded = true;
             renderPlanning();
             AffectationApp.planToday();
+            // Participants des événements → ressources affectées : si quelque chose a changé, le planning est rechargé
+            api('/affectation/sync-from-events', { method: 'POST', body: '{}' }).then(async sy => {
+                if (!(sy.changes || []).length) return;
+                plan.projects = (await api('/affectation/projects')).projects; const b = document.getElementById('affPlan'), l = b ? b.scrollLeft : 0; renderPlanning(); if (b) b.scrollLeft = l;
+            }).catch(() => { /* ignoré */ });
         } catch (e) {
             if (box) box.innerHTML = `<p class="aff-error" style="padding:18px;">Chargement impossible : ${esc(e.message)}</p>`;
         }
@@ -2242,6 +2247,12 @@
             try {
                 if (!plan.resources) plan.resources = (await api('/affectation/resources')).resources;
             } catch (e) { alert(e.message); return; }
+            // Les participants des événements reliés à cette activité sont repris comme ressources affectées
+            try {
+                const sy = await api('/affectation/sync-from-events', { method: 'POST', body: JSON.stringify({ projectId: p.id }) });
+                (sy.changes || []).forEach(c => { if (c.project === p.id) { p.assignments = p.assignments || {}; p.assignments[c.stage] = [...new Set([...(p.assignments[c.stage] || []), ...c.added])]; } });
+                if ((sy.changes || []).length) renderPlanning();
+            } catch (e) { /* synchronisation indisponible : l'affectation reste manuelle */ }
             asg.project = p; asg.stage = stageKey; asg.needed = x.needed; asg.av = null; asg.total = 0;
             try { const r = await api(`/affectation/projects/${p.id}/availability/${stageKey}`); asg.av = r.availability; asg.total = r.total; } catch (e) { /* disponibilités indisponibles : liste sans indicateurs */ }
             asg.selected = new Set((p.assignments || {})[stageKey] || []);
