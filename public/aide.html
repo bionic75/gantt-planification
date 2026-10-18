@@ -499,17 +499,19 @@ tr:nth-child(even) td { background: #f9f9f9; }
   <table>
     <thead><tr><th>Rubrique de l'application</th><th>Tâche Asana utilisée</th></tr></thead>
     <tbody>
-      <tr><td>Début du projet</td><td>« Démarrage projet auprès de l'ES »</td></tr>
-      <tr><td>Cadrage</td><td>du 2.5 / 2.6 / 2.7 (COPIL #1, lancement) jusqu'au 2.9 (COPIL #2 – clôture du cadrage)</td></tr>
-      <tr><td>Déploiement opérationnel</td><td>de la fin du cadrage à la mise en service</td></tr>
-      <tr><td>Mise en service / mise en production</td><td>tâches marquées <em>Phase</em> = MES / MEP (« Mise en service / en production du bandeau »)</td></tr>
-      <tr><td>Visite métier</td><td>tâches 5.1 et 5.2</td></tr>
-      <tr><td>Test des prérequis</td><td>tâche dont le nom contient « Test des prérequis » (à créer dans Asana)</td></tr>
-      <tr><td>VFT</td><td>tâche 5.9 (<em>Phase</em> = VFT)</td></tr>
-      <tr><td>Formation</td><td>tâche 6.3 « Formation au bandeau de communication » : alimente <em>Formation « Utilisateurs »</em></td></tr>
-      <tr><td>Accompagnement</td><td>tâche 6.6 « Accompagnement post démarrage »</td></tr>
+      <tr><td>Début du projet / début du cadrage</td><td>jalon contenant « Démarrage projet auprès de l'ES »</td></tr>
+      <tr><td>Fin du cadrage</td><td>tâche 2.9</td></tr>
+      <tr><td>Début du déploiement opérationnel</td><td>fin de la tâche 2.9 + 1 jour</td></tr>
+      <tr><td>Fin du déploiement opérationnel / Mise en service</td><td>jalon contenant « Mise en service du bandeau »</td></tr>
+      <tr><td>Mise en production</td><td>jalon contenant « Mise en production du bandeau »</td></tr>
+      <tr><td>Visite métier</td><td>tâche 5.1</td></tr>
+      <tr><td>Vérification des prérequis</td><td>tâche « Vérification des prérequis » (à créer dans Asana ; « Test des prérequis » est aussi reconnu)</td></tr>
+      <tr><td>VFT sur site</td><td>tâche 5.9</td></tr>
+      <tr><td>Formation « Utilisateurs »</td><td>tâche 6.3.4</td></tr>
+      <tr><td>Accompagnement post démarrage</td><td>tâche 6.6</td></tr>
     </tbody>
   </table>
+  <p><strong>Tâches Asana d'un déploiement et remplacement d'une donnée reprise</strong> : dans la liste des déploiements de l'Administration, le bouton <em>Tâches du projet Asana</em> (icône liste) ouvre une fenêtre qui montre, pour chaque rubrique, la valeur actuelle, la valeur donnée par la règle (avec la tâche utilisée) et un <strong>menu déroulant listant toutes les tâches du projet avec leur échéance</strong> pour la remplacer (début et fin séparément pour une période). Le remplacement est appliqué tout de suite, listé dans un pop-up (avant → après), mémorisé pour ce SAMU et conservé lors des rafraîchissements suivants ; « Tout remettre à la règle » revient au calcul automatique. Une section dépliable affiche toutes les tâches du projet (numéro, parente, début, échéance).</p>
   <ul>
     <li>Le <strong>SAMU</strong> est lu dans le nom du projet (« [SAMU 25] ») et rapproché de l'entité « SAMU-SAS 25 ».</li>
     <li>Une tâche parente sans date propre prend la <strong>plus petite et la plus grande date de ses sous-tâches</strong>.</li>
@@ -665,11 +667,24 @@ tr:nth-child(even) td { background: #f9f9f9; }
   <h2>🆕 Notes de version</h2>
   <p>Historique des évolutions de la Plateforme de Planification ANS.</p>
 
+  <!-- v1.17.15 -->
+  <div class="card card-green" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v1.17.15</strong>
+      <span class="badge badge-current">Actuelle</span>
+      <span style="color:#888; font-size:13px;">Octobre 2026</span>
+    </div>
+    <ul>
+      <li>📐 <strong>Nouvelles règles de correspondance Asana → planning</strong> : début du cadrage = jalon « Démarrage projet auprès de l'ES », fin du cadrage = tâche 2.9, début du déploiement = 2.9 + 1 jour, fin du déploiement et mise en service = jalon « Mise en service du bandeau », mise en production = jalon « Mise en production du bandeau », visite métier = 5.1, VFT sur site = 5.9, formation utilisateurs = 6.3.4, accompagnement post démarrage = 6.6, vérification des prérequis = tâche à créer.</li>
+      <li>🗒️ <strong>Tâches du projet Asana par déploiement</strong> : menu déroulant de toutes les tâches avec leur échéance pour remplacer une donnée reprise (mémorisé et appliqué aux rafraîchissements suivants).</li>
+      <li>👤 <strong>Liste des événements</strong> : le créateur est affiché avec une vignette d'initiales, comme les participants.</li>
+    </ul>
+  </div>
+
   <!-- v1.17.14 -->
   <div class="card card-green" style="margin-bottom:16px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
       <strong style="font-size:16px;">v1.17.14</strong>
-      <span class="badge badge-current">Actuelle</span>
       <span style="color:#888; font-size:13px;">Octobre 2026</span>
     </div>
     <ul>
