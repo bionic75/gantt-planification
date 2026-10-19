@@ -8864,6 +8864,53 @@ app.get('/api/poi/:id', requireAuth, async (req, res) => {
         res.json({ poi, comments, ratings });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
+// ---- Trajet du lieu vers le SAMU-SAS : à pied / voiture (OSRM, FOSSGIS) et transports en commun (Transitous, MOTIS) ----
+const poiRouteCache = new Map();
+function poiDecodePoly(str, prec) {
+    const f = Math.pow(10, prec), out = []; let i = 0, lat = 0, lng = 0;
+    while (i < str.length) {
+        for (const axis of [0, 1]) {
+            let sh = 0, res = 0, b;
+            do { b = str.charCodeAt(i++) - 63; res |= (b & 31) << sh; sh += 5; } while (b >= 32);
+            const d = (res & 1) ? ~(res >> 1) : (res >> 1);
+            if (axis === 0) lat += d; else lng += d;
+        }
+        out.push([lat / f, lng / f]);
+    }
+    return out;
+}
+async function poiRouteOne(mode, a, b) {
+    const ua = { 'User-Agent': 'ANS-Plateforme-Planification/1.0 (trajets SAMU-SAS)', Accept: 'application/json' };
+    if (mode === 'transit') {
+        const q = new URLSearchParams({ fromPlace: `${a[0]},${a[1]}`, toPlace: `${b[0]},${b[1]}`, time: new Date().toISOString(), transitModes: 'TRANSIT', numItineraries: '1', maxTransfers: '4', detailedTransfers: 'false' });
+        const r = await fetch('https://api.transitous.org/api/v5/plan?' + q, { headers: ua, signal: AbortSignal.timeout(20000) });
+        if (!r.ok) throw new Error('Service de transports indisponible');
+        const d = await r.json(), it = (d.itineraries || [])[0];
+        if (!it) return { error: 'Aucun trajet en transport en commun trouvé maintenant' };
+        const legs = it.legs.map(l => ({ mode: l.mode, line: l.routeShortName || l.displayName || '', from: l.from && l.from.name, to: l.to && l.to.name, duration: l.duration, path: l.legGeometry ? poiDecodePoly(l.legGeometry.points, l.legGeometry.precision || 6) : [] }));
+        return { duration: it.duration, transfers: it.transfers, legs, path: legs.flatMap(l => l.path) };
+    }
+    const prof = mode === 'walk' ? 'routed-foot' : 'routed-car';
+    const r = await fetch(`https://routing.openstreetmap.de/${prof}/route/v1/driving/${a[1]},${a[0]};${b[1]},${b[0]}?overview=full&geometries=geojson`, { headers: ua, signal: AbortSignal.timeout(15000) });
+    if (!r.ok) throw new Error('Service d\'itinéraire indisponible');
+    const d = await r.json(), rt = d.routes && d.routes[0];
+    if (!rt) return { error: 'Aucun itinéraire trouvé' };
+    return { duration: Math.round(rt.duration), distance: Math.round(rt.distance), path: rt.geometry.coordinates.map(c => [c[1], c[0]]) };
+}
+app.get('/api/poi/:id/route', requireAuth, async (req, res) => {
+    try {
+        const row = await dbGet('SELECT p.latitude AS la, p.longitude AS lo, l.latitude AS sla, l.longitude AS slo, l.libelle_court AS samu FROM poi p JOIN locations l ON l.id = p.location_id WHERE p.id = ?', [Number(req.params.id)]);
+        if (!row) return res.status(404).json({ error: 'Lieu introuvable' });
+        if (row.sla == null || row.slo == null) return res.status(400).json({ error: "Ce SAMU-SAS n'est pas géolocalisé" });
+        const a = [row.la, row.lo], b = [row.sla, row.slo], out = { samu: row.samu, from: a, to: b };
+        const key = `${a}|${b}|${new Date().toISOString().slice(0, 13)}`;
+        if (poiRouteCache.has(key)) return res.json({ ...out, ...poiRouteCache.get(key) });
+        const modes = {};
+        await Promise.all(['walk', 'car', 'transit'].map(async m => { try { modes[m] = await poiRouteOne(m, a, b); } catch (e) { modes[m] = { error: e.message }; } }));
+        if (Object.values(modes).some(m => !m.error)) { poiRouteCache.set(key, { modes }); if (poiRouteCache.size > 200) poiRouteCache.delete(poiRouteCache.keys().next().value); }
+        res.json({ ...out, modes });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
 async function poiBody(b, existing) {
     const out = {};
     out.category = POI_CATS.includes(b.category) ? b.category : null;

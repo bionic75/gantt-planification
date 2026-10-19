@@ -186,8 +186,10 @@ html.dark-mode #drawerOverlay{background:rgba(255,255,255,.55);}
 #nearBar select{border:0;border-radius:8px;padding:7px 8px;font-size:14px;background:#fff;color:#1f2d3d;}
 #nearMap{flex:1;min-height:0;}
 #nearInfo{padding:8px 12px;font-size:13px;background:#f4f7fb;color:#2c3e50;border-top:1px solid #dde5ee;padding-bottom:max(8px,env(safe-area-inset-bottom));}
-.near-pin{width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4);}
-.near-pin svg{width:15px;height:15px;transform:rotate(45deg);fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.near-pin{width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:4px solid #fff;box-shadow:0 0 0 3px rgba(0,0,0,.35),0 4px 12px rgba(0,0,0,.5);animation:nearPulse 1.8s ease-out infinite;}
+.near-pin svg{width:26px;height:26px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;}
+.near-lbl{position:absolute;left:50%;top:50px;transform:translateX(-50%);max-width:150px;padding:2px 7px;border-radius:10px;background:#fff;color:#1f2d3d;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 1px 5px rgba(0,0,0,.45);}
+@keyframes nearPulse{0%{box-shadow:0 0 0 3px rgba(0,0,0,.35),0 4px 12px rgba(0,0,0,.5),0 0 0 0 rgba(214,11,81,.55);}100%{box-shadow:0 0 0 3px rgba(0,0,0,.35),0 4px 12px rgba(0,0,0,.5),0 0 0 22px rgba(214,11,81,0);}}
 .near-me{width:18px;height:18px;border-radius:50%;background:#1D70B7;border:3px solid #fff;box-shadow:0 0 0 6px rgba(29,112,183,.25);}
 .near-pop b{color:#1D70B7;}
 html.dark-mode #nearScreen{filter:none;}
@@ -1111,9 +1113,9 @@ function nearRender() {
   if (NEAR.pos) list.sort((a, b) => a.d - b.d);
   list.forEach(({ p, d }) => {
     const c = NEAR_CATS[p.category] || NEAR_CATS.hebergement;
-    const ico = L.divIcon({ className: '', html: `<div class="near-pin" style="background:${c.color}"><svg viewBox="0 0 24 24">${c.svg}</svg></div>`, iconSize: [30, 30], iconAnchor: [15, 30], popupAnchor: [0, -28] });
+    const ico = L.divIcon({ className: '', html: `<div class="near-pin" style="background:${c.color}"><svg viewBox="0 0 24 24">${c.svg}</svg></div><div class="near-lbl">${nEsc(p.name)}</div>`, iconSize: [46, 46], iconAnchor: [23, 23], popupAnchor: [0, -26] });
     const stars = p.avg_rating == null ? 'Pas encore noté' : `★ ${p.avg_rating}/5 (${p.n_ratings})`;
-    L.marker([p.latitude, p.longitude], { icon: ico }).addTo(NEAR.layer).bindPopup(
+    L.marker([p.latitude, p.longitude], { icon: ico, zIndexOffset: 1000 }).addTo(NEAR.layer).bindPopup(
       `<div class="near-pop"><b>${nEsc(p.name)}</b><br>${nEsc(c.label)} · SAMU-SAS ${nEsc(p.loc_court)}<br>${nEsc(p.address)}<br>${stars}${d != null ? ' · ' + d.toFixed(1) + ' km' : ''}` +
       `${p.comment ? '<br><i>' + nEsc(p.comment) + '</i>' : ''}<br><small>par ${nEsc(p.creator)}</small><br><a href="https://www.google.com/maps/dir/?api=1&destination=${p.latitude},${p.longitude}" target="_blank" rel="noopener">Itinéraire</a></div>`);
   });

@@ -164,11 +164,14 @@ function tripCardHtml(p) {
         ${p.comment ? `<div class="tr-comment">${tEsc(p.comment)}</div>` : ''}
         <div class="tr-meta" style="margin-top:4px;">${uiIcon('user', 13, 'margin:0 3px 0 0;')}Ajouté par <b>${tEsc(p.creator)}</b> le ${tFmt(p.created_at)}${edited}</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center;">
+            <button type="button" class="tr-btn" onclick="tripToggleRoute(${p.id})" title="Parcours et temps de trajet jusqu'au SAMU-SAS">${uiIcon('mapPin', 14, 'margin:0;')}Trajet vers le SAMU-SAS</button>
             <button type="button" class="tr-btn" onclick="tripToggleReviews(${p.id})">${uiIcon('comment', 14, 'margin:0;')}Avis et notes (${p.n_comments} commentaire${p.n_comments > 1 ? 's' : ''})</button>
             ${p.can_edit ? `<button type="button" class="tr-btn" onclick="tripOpenForm(${p.id})">${uiIcon('pencil', 14, 'margin:0;')}Modifier</button><button type="button" class="tr-btn dgr" onclick="tripDelete(${p.id})">${uiIcon('trash', 14, 'margin:0;')}Supprimer</button>` : ''}</div>
+        <div id="trRoute_${p.id}" class="tr-rev" style="display:none;"></div>
         <div id="trRev_${p.id}" class="tr-rev" style="display:none;"></div></div>`;
 }
 function tripRenderList() {
+    tripClearRoute();
     const box = document.getElementById('trList'); if (!box) return;
     const open = Object.keys(trip.detail).filter(k => trip.detail[k] && trip.detail[k].open).map(Number);
     document.getElementById('trCount').textContent = `${trip.pois.length} lieu${trip.pois.length > 1 ? 'x' : ''}`;
@@ -226,6 +229,47 @@ async function tripRenderMap() {
         else if (pts.length === 1) trip.map.setView(pts[0], 14);
         else trip.map.fitBounds(pts, { padding: [40, 40], maxZoom: 15 });
     }, 80);
+}
+// ── Trajet lieu → SAMU-SAS (à pied, voiture, transports en commun) ──────────
+const TRIP_MODES = { walk: { label: 'À pied', ico: '🚶', color: '#2e7d32' }, car: { label: 'Voiture', ico: '🚗', color: '#1565c0' }, transit: { label: 'Transports en commun', ico: '🚆', color: '#6a1b9a' } };
+const tDur = s => { const m = Math.round(s / 60); return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`; };
+const tKm = m => m == null ? '' : ` · ${(m / 1000).toFixed(1).replace('.', ',')} km`;
+function tripClearRoute() { if (trip.routeLayer && trip.map) trip.map.removeLayer(trip.routeLayer); trip.routeLayer = null; trip.route = null; }
+async function tripToggleRoute(id) {
+    const box = document.getElementById('trRoute_' + id); if (!box) return;
+    if (box.style.display !== 'none') { box.style.display = 'none'; tripClearRoute(); return; }
+    document.querySelectorAll('#trList [id^="trRoute_"]').forEach(x => { x.style.display = 'none'; });
+    tripClearRoute();
+    box.style.display = 'block'; box.innerHTML = '<span class="tr-meta">Calcul des trajets… (à pied, voiture, transports en commun)</span>';
+    try { trip.route = { id, data: await tApi(`/poi/${id}/route`) }; } catch (e) { box.innerHTML = `<p style="color:#b3261e;">${tEsc(e.message)}</p>`; return; }
+    tripRenderRoute(id);
+    const first = ['walk', 'car', 'transit'].find(m => !trip.route.data.modes[m].error);
+    if (first) tripDrawRoute(id, first);
+}
+function tripRenderRoute(id, sel) {
+    const box = document.getElementById('trRoute_' + id), d = trip.route && trip.route.id === id && trip.route.data; if (!box || !d) return;
+    box.innerHTML = `<div style="font-size:12px;color:#6b7a8d;margin-bottom:6px;">Du lieu jusqu'au <b>SAMU-SAS ${tEsc(d.samu)}</b> — choisissez un mode pour tracer le parcours sur la carte :</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">${Object.entries(TRIP_MODES).map(([k, m]) => { const r = d.modes[k]; return `<button type="button" class="tr-btn ${sel === k ? 'pri' : ''}" ${r.error ? 'disabled style="opacity:.55;cursor:default;"' : `onclick="tripDrawRoute(${id}, '${k}')"`} title="${tEsc(r.error || '')}" style="${sel === k ? 'background:' + m.color + ';border-color:' + m.color + ';' : ''}">${m.ico} ${m.label} · <b>${r.error ? 'indisponible' : tDur(r.duration)}</b>${r.error ? '' : tKm(r.distance)}</button>`; }).join('')}</div>
+        <div id="trRouteDet_${id}" style="margin-top:8px;font-size:12px;color:#4a5b70;"></div>`;
+}
+async function tripDrawRoute(id, mode) {
+    const d = trip.route && trip.route.id === id && trip.route.data; if (!d) return;
+    try { await tripEnsureLeaflet(); } catch (e) { return; }
+    const r = d.modes[mode]; if (!r || r.error || !trip.map) return;
+    if (trip.routeLayer) trip.map.removeLayer(trip.routeLayer);
+    const lg = trip.routeLayer = L.layerGroup().addTo(trip.map), col = TRIP_MODES[mode].color;
+    if (mode === 'transit') {
+        r.legs.forEach(l => { if (l.path.length) { const w = l.mode === 'WALK'; L.polyline(l.path, { color: w ? '#607d8b' : col, weight: w ? 4 : 6, opacity: .9, dashArray: w ? '2 9' : null, lineCap: 'round' }).addTo(lg); } });
+    } else L.polyline(r.path, { color: col, weight: 6, opacity: .85, dashArray: mode === 'walk' ? '2 10' : null, lineCap: 'round' }).addTo(lg);
+    L.circleMarker(d.from, { radius: 7, color: '#fff', weight: 3, fillColor: col, fillOpacity: 1 }).addTo(lg);
+    L.circleMarker(d.to, { radius: 7, color: '#fff', weight: 3, fillColor: '#d60b51', fillOpacity: 1 }).addTo(lg);
+    trip.map.fitBounds(L.latLngBounds(r.path.length ? r.path : [d.from, d.to]), { padding: [50, 50] });
+    const el = document.getElementById('trMap'); if (el) window.scrollTo({ top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - 170), behavior: 'smooth' });
+    tripRenderRoute(id, mode);
+    const det = document.getElementById('trRouteDet_' + id);
+    if (det) det.innerHTML = mode === 'transit'
+        ? `<b>${r.transfers ? r.transfers + ' correspondance' + (r.transfers > 1 ? 's' : '') : 'Direct'}</b> : ` + r.legs.map(l => l.mode === 'WALK' ? `🚶 ${tDur(l.duration)}` : `<b>${tEsc(l.line || l.mode)}</b> ${tEsc(l.from || '')} → ${tEsc(l.to || '')} (${tDur(l.duration)})`).join(' › ') + '<br><i>Horaires réels au moment de la consultation (Transitous / OpenStreetMap).</i>'
+        : `Parcours ${TRIP_MODES[mode].label.toLowerCase()} calculé avec OpenStreetMap.`;
 }
 function tripFocus(id) {
     const mk = trip.markers[id], el = document.getElementById('trMap');
@@ -361,7 +405,6 @@ function tripPickPlace(i) {
     if (x.phone) document.getElementById('tfPhone').value = x.phone;
     if (x.website) document.getElementById('tfWeb').value = x.website;
     s.latitude = x.latitude; s.longitude = x.longitude; s.osm_ref = x.osm_ref || '';
-    if (x.category) s.category = x.category;
     document.getElementById('tfSug').style.display = 'none'; document.getElementById('tfSugMsg').textContent = 'Informations complétées depuis OpenStreetMap : vérifiez-les avant d\'enregistrer.';
     tripFormCats(); tripFormGeo();
 }
