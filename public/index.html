@@ -1,4 +1,4 @@
-<!-- v1.17.42 -->
+<!-- v1.17.43 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -500,19 +500,19 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.17.42">
-    <link rel="stylesheet" href="/darkmode.css?v=1.17.42">
-    <link rel="stylesheet" href="/login.css?v=1.17.42">
-    <link rel="stylesheet" href="/ui-polish.css?v=1.17.42">
-    <script src="/darkmode.js?v=1.17.42"></script>
-    <script src="/themes.js?v=1.17.42" defer></script>
-    <script src="/layout-fix.js?v=1.17.42" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.17.43">
+    <link rel="stylesheet" href="/darkmode.css?v=1.17.43">
+    <link rel="stylesheet" href="/login.css?v=1.17.43">
+    <link rel="stylesheet" href="/ui-polish.css?v=1.17.43">
+    <script src="/darkmode.js?v=1.17.43"></script>
+    <script src="/themes.js?v=1.17.43" defer></script>
+    <script src="/layout-fix.js?v=1.17.43" defer></script>
     <script>window.UI_ICONS_KEEP_ALERT = true;</script>
-    <script src="/ui-icons.js?v=1.17.42" defer></script>
-    <script src="/affectation-app.js?v=1.17.42" defer></script>
-    <script src="/event-types.js?v=1.17.42" defer></script>
-    <script src="/tripadvisor.js?v=1.17.42" defer></script>
-    <script src="/map-timelapse.js?v=1.17.42" defer></script>
+    <script src="/ui-icons.js?v=1.17.43" defer></script>
+    <script src="/affectation-app.js?v=1.17.43" defer></script>
+    <script src="/event-types.js?v=1.17.43" defer></script>
+    <script src="/tripadvisor.js?v=1.17.43" defer></script>
+    <script src="/map-timelapse.js?v=1.17.43" defer></script>
 </head>
 <body>
     <div class="container">
@@ -1765,11 +1765,11 @@
                             <table>
                                 <thead>
                                     <tr style="background-color: #c8e6c9;">
-                                        <th style="color: #1b5e20;">Utilisateur</th>
-                                        <th style="color: #1b5e20;">Login</th>
-                                        <th style="color: #1b5e20;">Profil</th>
-                                        <th style="color: #1b5e20;">Nb connexions</th>
-                                        <th style="color: #1b5e20;">Dernière connexion</th>
+                                        <th data-ck="nom" style="color: #1b5e20;cursor:pointer;user-select:none;" onclick="connSortBy('nom')" title="Trier">Utilisateur</th>
+                                        <th data-ck="login" style="color: #1b5e20;cursor:pointer;user-select:none;" onclick="connSortBy('login')" title="Trier">Login</th>
+                                        <th data-ck="profil" style="color: #1b5e20;cursor:pointer;user-select:none;" onclick="connSortBy('profil')" title="Trier">Profil</th>
+                                        <th data-ck="total" style="color: #1b5e20;cursor:pointer;user-select:none;" onclick="connSortBy('total')" title="Trier">Nb connexions</th>
+                                        <th data-ck="last" style="color: #1b5e20;cursor:pointer;user-select:none;" onclick="connSortBy('last')" title="Trier">Dernière connexion</th>
                                     </tr>
                                 </thead>
                                 <tbody id="connexionsReportBody"></tbody>
@@ -10798,6 +10798,11 @@
             if (hiddenCols.size > 0) applyHideRules();
         }
 
+        function connSortBy(k) {
+            const st = window._connSort || (window._connSort = { k: 'total', dir: -1 });
+            if (st.k === k) st.dir = -st.dir; else { st.k = k; st.dir = (k === 'total' || k === 'last') ? -1 : 1; }
+            if (window._connRender) window._connRender();
+        }
         function makeColResizable(table) {
             if (!table || table._colResizable) return;
             table._colResizable = true;
@@ -13966,7 +13971,12 @@
                     if (!u.last || (r.derniere_connexion && r.derniere_connexion > u.last)) u.last = r.derniere_connexion;
                 });
 
-                [...byUser.values()].sort((a, b) => b.total - a.total).forEach(u => {
+                window._connUsers = [...byUser.values()];
+                window._connRender = () => {
+                    const st = window._connSort || (window._connSort = { k: 'total', dir: -1 });
+                    const key = { nom: u => `${u.prenom || ''} ${u.nom || ''}`.trim(), login: u => u.username || '', profil: u => u.profiles.map(p => profileLabel(p.profile)).sort().join(' '), total: u => u.total, last: u => u.last || '' }[st.k];
+                    tbody.innerHTML = '';
+                    [...window._connUsers].sort((a, b) => { const x = key(a), y = key(b); return (typeof x === 'number' ? x - y : String(x).localeCompare(String(y), 'fr', { numeric: true })) * st.dir || b.total - a.total; }).forEach(u => {
                     const multi = u.profiles.length > 1;
                     const profilesHtml = u.profiles
                         .sort((a, b) => b.nb - a.nb)
@@ -13981,7 +13991,10 @@
                         <td>${fmtDate(u.last)}</td>
                     `;
                     tbody.appendChild(tr);
-                });
+                    });
+                    document.querySelectorAll('#connexionsReportResult thead th[data-ck]').forEach(th => { const on = th.dataset.ck === st.k; th.dataset.dir = on ? (st.dir > 0 ? 'asc' : 'desc') : ''; });
+                };
+                window._connRender();
             } catch (e) {
                 console.error('Erreur génération rapport connexions:', e);
             }
