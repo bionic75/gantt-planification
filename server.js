@@ -3793,11 +3793,11 @@ function affRowToJson(r, assignments) {
         id: r.id, samu_name: r.samu_name, location_id: r.location_id,
         chef_projet_id: r.chef_projet_id, chef_projet_nom: r.chef_nom ? `${r.chef_nom} ${r.chef_prenom || ''}`.trim() : null,
         date_debut: r.date_debut, date_mise_en_service: r.date_mise_en_service, date_mise_en_production: r.date_mise_en_production,
-        periods, assignments: (assignments && assignments[r.id]) || {}, updated_at: r.updated_at
+        periods, assignments: (assignments && assignments[r.id]) || {}, updated_at: r.updated_at, from_asana: !!r.from_asana
     };
 }
 
-const AFF_SELECT = `SELECT p.*, u.nom AS chef_nom, u.prenom AS chef_prenom FROM affectation_projects p LEFT JOIN users u ON u.id = p.chef_projet_id`;
+const AFF_SELECT = `SELECT p.*, u.nom AS chef_nom, u.prenom AS chef_prenom, EXISTS(SELECT 1 FROM affectation_history h WHERE h.project_id = p.id AND h.action IN ('import_asana_csv','import_asana_api')) AS from_asana FROM affectation_projects p LEFT JOIN users u ON u.id = p.chef_projet_id`;
 
 app.get('/api/affectation/config', requireAffectationAccess, (req, res) => {
     affColors(colors => affPatterns(patterns => res.json({ stages: AFF_STAGES.map(s => ({ key: s.key, label: s.label, kind: s.kind, resources: !!s.resources, defaultColor: s.color, defaultPattern: s.key === 'gel' ? 'diag' : 'none' })), colors, patterns, patternIds: AFF_PATTERNS })));
