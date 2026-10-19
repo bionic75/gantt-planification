@@ -3990,6 +3990,39 @@ app.get('/api/affectation/stage-event-types', requireAffectationAccess, async (r
         });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
+// ---- Onglet « Événements » de l'application : événements des 7 activités suivies, pour les SAMU du planning des déploiements ----
+app.get('/api/affectation/events', requireAffectationAccess, async (req, res) => {
+    try {
+        const map = await affStageTypeMap();
+        const types = await dbAll('SELECT * FROM event_types');
+        const typeById = Object.fromEntries(types.map(t => [t.id, t]));
+        const stageByType = {};
+        for (const key of AFF_EVENT_KEYS) { const t = typeById[map[key]]; if (t && !t.is_other && !stageByType[t.id]) stageByType[t.id] = key; }
+        const typeIds = Object.keys(stageByType).map(Number);
+        const projects = await dbAll('SELECT * FROM affectation_projects ORDER BY samu_name COLLATE NOCASE');
+        const out = [];
+        if (typeIds.length) for (const proj of projects) {
+            const locId = await affProjectLocationId(proj);
+            if (!locId) continue;
+            let periods = {}; try { periods = JSON.parse(proj.periods || '{}'); } catch (e) { periods = {}; }
+            const evs = await dbAll(`SELECT ce.id, ce.label, ce.start_date, ce.end_date, ce.period, ce.type_id FROM custom_events ce WHERE ce.location_id = ? AND ce.type_id IN (${typeIds.map(() => '?').join(',')}) ORDER BY ce.start_date, ce.id`, [locId, ...typeIds]);
+            if (!evs.length) continue;
+            const parts = await dbAll(`SELECT cp.event_id, u.nom, u.prenom FROM custom_event_participants cp LEFT JOIN users u ON u.id = cp.user_id WHERE cp.event_id IN (${evs.map(() => '?').join(',')}) ORDER BY u.nom, u.prenom`, evs.map(e => e.id));
+            for (const e of evs) {
+                const key = stageByType[e.type_id], t = typeById[e.type_id], dd = (key === 'mise_en_service' || key === 'mise_en_production') ? proj['date_' + key] : null, per = dd ? { start: dd, end: dd } : (periods[key] && periods[key][0]);
+                out.push({
+                    id: e.id, project_id: proj.id, samu: proj.samu_name, label: e.label, start: e.start_date, end: e.end_date || e.start_date, period: e.period,
+                    stage: key, stage_label: (AFF_STAGES.find(x => x.key === key) || {}).label || key,
+                    type: { id: t.id, label: t.label_long, short: t.label_short, icon: t.icon, bg: t.bg_color, color: t.text_color, border: t.border_color },
+                    participants: parts.filter(x => x.event_id === e.id).map(x => `${x.prenom || ''} ${x.nom || ''}`.trim()).filter(Boolean),
+                    planned: per ? { start: per.start, end: per.end } : null
+                });
+            }
+        }
+        out.sort((a, b) => String(a.start).localeCompare(String(b.start)) || a.samu.localeCompare(b.samu, 'fr', { numeric: true }));
+        res.json({ events: out, stages: AFF_EVENT_KEYS.filter(k => typeById[map[k]] && !typeById[map[k]].is_other).map(k => ({ key: k, label: typeById[map[k]].label_long })), samus: projects.map(p => p.samu_name) });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
 // ---- Événements liés aux activités d'un déploiement (formulaire « Modifier un déploiement ») ----
 const AFF_EVLINK_KEY = 'aff_event_links';
 async function affEventLinks(depId) {

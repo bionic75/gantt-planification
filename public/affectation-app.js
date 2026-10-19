@@ -283,6 +283,7 @@
         </div>
         <div class="tabs" id="affectationTabs">
             <button class="tab-btn active" id="affectationTabPlanning" onclick="AffectationApp.tab('planning')">${svg('planning', 'tab-ico')}Planning des déploiements</button>
+            <button class="tab-btn" id="affectationTabEvents" onclick="AffectationApp.tab('events')">${svg('planning', 'tab-ico')}Événements</button>
             <button class="tab-btn" id="affectationTabAdmin" onclick="AffectationApp.tab('admin')" style="display:none;">${svg('admin', 'tab-ico')}Administration</button>
             <button onclick="AffectationApp.search()" title="Recherche" style="padding:8px 15px;background-color:#3498db;color:white;border:none;cursor:pointer;font-size:18px;border-radius:4px;margin-right:10px;">
                 <span style="display:inline-flex;">${svg('search', 'app-ico', 'width:22px;height:22px;stroke:white;')}</span>
@@ -316,6 +317,12 @@
         </div>
         <div id="affRangeCtl" class="aff-range"></div>
         <div id="affPlan" class="aff-plan"><p class="aff-muted" style="padding:18px;">Chargement…</p></div>
+    </div>
+
+    <div id="affectationEventsTab" class="tab-content aff-panel">
+        <h2 style="margin:0 0 4px;">Événements des déploiements</h2>
+        <p class="aff-muted" style="margin:0 0 12px;">Visite métier, Mise en service, Mise en production, VFT, Accompagnement post démarrage, Vérification des prérequis et Formation des utilisateurs — uniquement pour les SAMU-SAS du planning des déploiements.</p>
+        <div id="affEvBody"><p class="aff-muted">Chargement…</p></div>
     </div>
 
     <div id="affectationAdminTab" class="tab-content aff-panel">
@@ -1804,6 +1811,37 @@
         });
     }
 
+    // ================= Onglet « Événements » : événements des activités suivies, pour les SAMU du planning =================
+    const evTab = { data: null, samu: '', stage: '', q: '' };
+    async function loadEvents() {
+        const box = document.getElementById('affEvBody'); if (!box) return;
+        box.innerHTML = '<p class="aff-muted">Chargement…</p>';
+        try { evTab.data = await api('/affectation/events'); } catch (e) { box.innerHTML = `<p style="color:#b3261e;">${esc(e.message)}</p>`; return; }
+        renderEvents();
+    }
+    function renderEvents() {
+        const box = document.getElementById('affEvBody'), d = evTab.data; if (!box || !d) return;
+        const q = norm(evTab.q);
+        const list = d.events.filter(e => (!evTab.samu || e.samu === evTab.samu) && (!evTab.stage || e.stage === evTab.stage) && (!q || norm([e.samu, e.label, e.type.label, e.participants.join(' ')].join(' ')).includes(q)));
+        const today = todayIso();
+        const samus = [...new Set(d.events.map(e => e.samu))].sort((a, b) => a.localeCompare(b, 'fr', { numeric: true }));
+        box.innerHTML = `<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px;">
+            <div><label class="lbl">SAMU</label><select onchange="AffectationApp.evFilter('samu', this.value)" style="padding:7px;min-width:170px;"><option value="">Tous</option>${samus.map(x => `<option ${evTab.samu === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></div>
+            <div><label class="lbl">Type d'événement</label><select onchange="AffectationApp.evFilter('stage', this.value)" style="padding:7px;min-width:240px;"><option value="">Tous</option>${d.stages.map(x => `<option value="${x.key}" ${evTab.stage === x.key ? 'selected' : ''}>${esc(x.label)}</option>`).join('')}</select></div>
+            <div style="flex:1;min-width:180px;"><label class="lbl">Recherche</label><input type="text" value="${esc(evTab.q)}" placeholder="SAMU, intitulé, participant…" oninput="AffectationApp.evFilter('q', this.value)" style="width:100%;padding:7px;box-sizing:border-box;"></div>
+            <span class="aff-muted" style="padding-bottom:8px;">${list.length} événement${list.length > 1 ? 's' : ''}</span></div>
+            ${list.length ? `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead><tr style="text-align:left;color:#6b7a8d;font-size:11px;"><th style="padding:6px 8px;">SAMU</th><th style="padding:6px 8px;">Type</th><th style="padding:6px 8px;">Intitulé</th><th style="padding:6px 8px;">Dates</th><th style="padding:6px 8px;">Participants</th><th style="padding:6px 8px;">Planning des déploiements</th></tr></thead><tbody>
+            ${list.map(e => { const same = e.planned && e.planned.start === e.start && e.planned.end === e.end;
+                return `<tr style="border-top:1px solid #eef1f6;${e.end < today ? 'opacity:.7;' : ''}"><td style="padding:8px;font-weight:700;white-space:nowrap;">${esc(e.samu)}</td>
+                <td style="padding:8px;"><span style="display:inline-block;padding:2px 9px;border-radius:10px;font-size:12px;font-weight:700;background:${esc(e.type.bg)};color:${esc(e.type.color)};border:1px solid ${esc(e.type.border)};">${esc(e.type.label)}</span></td>
+                <td style="padding:8px;">${esc(e.label)}</td>
+                <td style="padding:8px;white-space:nowrap;">${esc(evDates(e))}${e.period && e.period !== 'FULL' ? ` <span class="aff-muted">(${e.period === 'AM' ? 'matin' : e.period === 'PM' ? 'après-midi' : esc(e.period)})</span>` : ''}</td>
+                <td style="padding:8px;">${e.participants.length ? `<span title="${esc(e.participants.join(', '))}">${e.participants.length} · ${esc(e.participants.slice(0, 3).join(', '))}${e.participants.length > 3 ? '…' : ''}</span>` : '<span class="aff-muted">—</span>'}</td>
+                <td style="padding:8px;font-size:12px;">${e.planned ? (same ? '<span style="color:#1b7f3b;">✔ mêmes dates</span>' : `<span style="color:#b26a00;">⚠ activité prévue : ${esc(evDates(e.planned))}</span>`) : '<span class="aff-muted">activité non datée</span>'}</td></tr>`; }).join('')}
+            </tbody></table></div>` : '<p class="aff-muted">Aucun événement pour ces critères.</p>'}`;
+    }
+
     async function loadPlanning() {
         const box = document.getElementById('affPlan');
         try {
@@ -2525,14 +2563,16 @@
             ['affectationBackBtn', 'affectationOnlineUsersContainer', 'affectationTimerDisplay'].forEach(id => { const e = document.getElementById(id); if (e) e.style.display = 'none'; });
         },
         tab(name) {
-            const isAdmin = name === 'admin';
-            document.getElementById('affectationTabPlanning').classList.toggle('active', !isAdmin);
-            document.getElementById('affectationTabAdmin').classList.toggle('active', isAdmin);
-            document.getElementById('affectationPlanningTab').classList.toggle('active', !isAdmin);
-            document.getElementById('affectationAdminTab').classList.toggle('active', isAdmin);
-            if (isAdmin && !state.loaded) loadAdmin();
-            if (!isAdmin) loadPlanning();
+            const on = { planning: name === 'planning', events: name === 'events', admin: name === 'admin' };
+            [['Planning', 'planning'], ['Events', 'events'], ['Admin', 'admin']].forEach(([n, k]) => {
+                document.getElementById('affectationTab' + n).classList.toggle('active', on[k]);
+                document.getElementById('affectation' + n + 'Tab').classList.toggle('active', on[k]);
+            });
+            if (on.admin && !state.loaded) loadAdmin();
+            if (on.planning) loadPlanning();
+            if (on.events) loadEvents();
         },
+        evFilter(k, v) { evTab[k] = v; renderEvents(); if (k === 'q') { const i = document.querySelector('#affEvBody input[type=text]'); if (i) { i.focus(); i.setSelectionRange(v.length, v.length); } } },
         search() { alert('Recherche - Fonctionnalité en cours de développement'); },
         async logout() {
             if (!confirm('Voulez-vous vraiment vous déconnecter ?')) return;
