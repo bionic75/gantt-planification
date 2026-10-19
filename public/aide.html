@@ -684,11 +684,22 @@ tr:nth-child(even) td { background: #f9f9f9; }
   <h2>🆕 Notes de version</h2>
   <p>Historique des évolutions de la Plateforme de Planification ANS.</p>
 
+  <!-- v1.17.39 -->
+  <div class="card card-green" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v1.17.39</strong>
+      <span class="badge badge-current">Actuelle</span>
+      <span style="color:#888; font-size:13px;">Octobre 2026</span>
+    </div>
+    <ul>
+      <li>📚 <strong>Aide en ligne</strong> : les notes de version couvrent désormais toutes les évolutions depuis la v1.16.74 (ajout du détail des versions v1.16.86 à v1.16.99, absent jusqu'ici).</li>
+    </ul>
+  </div>
+
   <!-- v1.17.38 -->
   <div class="card card-green" style="margin-bottom:16px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
       <strong style="font-size:16px;">v1.17.38</strong>
-      <span class="badge badge-current">Actuelle</span>
       <span style="color:#888; font-size:13px;">Octobre 2026</span>
     </div>
     <ul>
@@ -1114,6 +1125,25 @@ tr:nth-child(even) td { background: #f9f9f9; }
       <li>📊 <strong>« Analyse des listes utilisateurs » devient « Analyse de fichiers »</strong>, avec prise en charge des fichiers <strong>.txt</strong> (et .tsv) : séparateur détecté automatiquement (tabulation, « ; », « | », « , »), colonnes à largeur fixe reconnues, première ligne d'en-têtes détectée (case à cocher pour corriger).</li>
       <li>🧬 <strong>Bouton « Structure »</strong> : pour chaque colonne, type détecté (texte, entier, décimal, date, e-mail, téléphone, booléen, liste, catégorie…), taux de remplissage, valeurs distinctes, plage ou longueur, valeurs les plus fréquentes, clé potentielle (🔑).</li>
       <li>🍀 <strong>Thème Saint-Patrick</strong> (10 au 17 mars par défaut) ; numérotation des versions sur 2 chiffres (v1.17.00).</li>
+    </ul>
+  </div>
+
+  <!-- v1.16.99 (regroupe v1.16.86 à v1.16.99) -->
+  <div class="card card-green" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v1.16.86 à v1.16.99</strong>
+      <span style="color:#888; font-size:13px;">Octobre 2026</span>
+    </div>
+    <ul>
+      <li>🖨️ <strong>Impression / export du planning des déploiements</strong> : un planning plus étroit que la page est étalé sur toute la largeur ; boutons visibles <strong>Portrait / Paysage</strong> et <strong>A4 / A3</strong>.</li>
+      <li>📅 <strong>Planning des déploiements</strong> : alternance de fond très légère d'une ligne SAMU à l'autre ; <strong>bornes de la période affichée</strong> (calendrier, semaine/année ou mois/année selon l'échelle) ; <strong>retrait d'une ligne (−)</strong> et rétablissement ligne par ligne.</li>
+      <li>🗓️ <strong>Calendriers mensuels</strong> (impression, vue mensuelle, événements) : semaine ISO du lundi au dimanche, avec un numéro de semaine exact sur chaque ligne.</li>
+      <li>📋 <strong>CRA</strong> : un CRA en attente de diffusion n'apparaît que dans le bloc « CRA en attente de diffusion » (bouton « CRA à diffuser ») ; « CRA signés » ne contient que les CRA diffusés, repliable et <strong>replié par défaut</strong> (vue RH comprise) ; icône d'envoi stylisée ; l'expert concerné figure dans la liste des destinataires du statut de diffusion (journal, renvoi, étiquette).</li>
+      <li>🔔 <strong>Bandeau de mise à jour</strong> moins intempestif : alerte après 3 échecs seulement, plus de faux « nouvelle version », bandeau masquable.</li>
+      <li>🔐 <strong>Mire de connexion</strong> : le bouton « Connexion en cours… » est animé pendant l'attente du serveur.</li>
+      <li>📱 <strong>Application mobile</strong> : mire de connexion refondue (identique à celle du bureau), pictogrammes stylisés (activités, événements, navigation), mode sombre, connexion animée.</li>
+      <li>💬 <strong>Utilisateurs connectés cliquables</strong> et messagerie opérationnelle depuis « Aide à l'affectation », « Analyse » et « Déplacements ».</li>
+      <li>🛠️ <strong>Correctif de démarrage</strong> : l'index de l'historique des déploiements n'est créé qu'une fois la table disponible.</li>
     </ul>
   </div>
 
