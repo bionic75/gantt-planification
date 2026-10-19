@@ -1,4 +1,4 @@
-<!-- v1.17.41 -->
+<!-- v1.17.42 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -500,19 +500,19 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.17.41">
-    <link rel="stylesheet" href="/darkmode.css?v=1.17.41">
-    <link rel="stylesheet" href="/login.css?v=1.17.41">
-    <link rel="stylesheet" href="/ui-polish.css?v=1.17.41">
-    <script src="/darkmode.js?v=1.17.41"></script>
-    <script src="/themes.js?v=1.17.41" defer></script>
-    <script src="/layout-fix.js?v=1.17.41" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.17.42">
+    <link rel="stylesheet" href="/darkmode.css?v=1.17.42">
+    <link rel="stylesheet" href="/login.css?v=1.17.42">
+    <link rel="stylesheet" href="/ui-polish.css?v=1.17.42">
+    <script src="/darkmode.js?v=1.17.42"></script>
+    <script src="/themes.js?v=1.17.42" defer></script>
+    <script src="/layout-fix.js?v=1.17.42" defer></script>
     <script>window.UI_ICONS_KEEP_ALERT = true;</script>
-    <script src="/ui-icons.js?v=1.17.41" defer></script>
-    <script src="/affectation-app.js?v=1.17.41" defer></script>
-    <script src="/event-types.js?v=1.17.41" defer></script>
-    <script src="/tripadvisor.js?v=1.17.41" defer></script>
-    <script src="/map-timelapse.js?v=1.17.41" defer></script>
+    <script src="/ui-icons.js?v=1.17.42" defer></script>
+    <script src="/affectation-app.js?v=1.17.42" defer></script>
+    <script src="/event-types.js?v=1.17.42" defer></script>
+    <script src="/tripadvisor.js?v=1.17.42" defer></script>
+    <script src="/map-timelapse.js?v=1.17.42" defer></script>
 </head>
 <body>
     <div class="container">
@@ -3490,6 +3490,7 @@
                 <label for="editMadVolante" style="font-size:13px;font-weight:bold;color:#6a1b9a;cursor:pointer;margin:0;"><svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:16px;height:16px;stroke:#7b1fa2;fill:#e1bee7;vertical-align:-2px;margin-right:6px;vertical-align:-3px;"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg>MAD volante <span style="font-weight:normal;color:#888;font-size:12px;">(contrat à durée déterminée avec un nombre de jours maximum)</span></label>
             </div>
             <div id="editMadVolanteFields" style="display:none;margin-top:10px;grid-template-columns:1fr 1fr;gap:15px;">
+                <div class="form-group"><label>Date de début MAD *</label><input type="date" id="editDateDebutMad"></div>
                 <div class="form-group"><label>Date de fin MAD *</label><input type="date" id="editDateFinMad"></div>
                 <div class="form-group"><label>Jours max sur la période *</label><input type="number" id="editJoursMaxMad" placeholder="Ex: 20" min="1"></div>
             </div>
@@ -8528,6 +8529,8 @@
             // Pré-remplir MAD volante
             const madVolanteChk = document.getElementById('editMadVolante');
             madVolanteChk.checked = !!resource.is_mad_volante;
+            document.getElementById('editDateDebutMad').value = resource.date_debut || '';
+            document.getElementById('editResourceId').dataset.dateFin = resource.date_fin || '';
             document.getElementById('editDateFinMad').value = resource.date_fin_mad || '';
             document.getElementById('editJoursMaxMad').value = resource.jours_max_mad || '';
             document.getElementById('editMadVolanteFields').style.display = resource.is_mad_volante ? 'grid' : 'none';
@@ -8982,6 +8985,11 @@
                     currentTaux = sorted[0].taux;
                 }
                 
+                if (document.getElementById('editMadVolante').checked) {
+                    const dd = document.getElementById('editDateDebutMad').value, df = document.getElementById('editDateFinMad').value;
+                    if (!dd) { alert('Renseignez la date de début de la MAD.'); return; }
+                    if (df && df < dd) { alert('La date de fin de la MAD précède sa date de début.'); return; }
+                }
                 const response = await fetch(`${API_URL}/resources/${currentEditId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
@@ -8994,8 +9002,8 @@
                         telephone: null,
                         taux: currentTaux,
                         samu: document.getElementById('editSamu').value,
-                        date_debut: null, // Les dates sont maintenant gérées dans l'historique MAD
-                        date_fin: null,
+                        date_debut: document.getElementById('editDateDebutMad').value || null, // début de la MAD (conservé tel quel pour les autres ressources)
+                        date_fin: document.getElementById('editResourceId').dataset.dateFin || null,
                         es_rattachement: document.getElementById('editEsRattachement').value || null,
                         fonction: document.getElementById('editFonction').value || null,
                         contacts_rh: document.getElementById('editContactsRh').value.trim() || null,
