@@ -1,4 +1,4 @@
-<!-- v1.17.40 -->
+<!-- v1.17.41 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -500,19 +500,19 @@
             overflow: hidden;
         }
     </style>
-    <link rel="stylesheet" href="/themes.css?v=1.17.40">
-    <link rel="stylesheet" href="/darkmode.css?v=1.17.40">
-    <link rel="stylesheet" href="/login.css?v=1.17.40">
-    <link rel="stylesheet" href="/ui-polish.css?v=1.17.40">
-    <script src="/darkmode.js?v=1.17.40"></script>
-    <script src="/themes.js?v=1.17.40" defer></script>
-    <script src="/layout-fix.js?v=1.17.40" defer></script>
+    <link rel="stylesheet" href="/themes.css?v=1.17.41">
+    <link rel="stylesheet" href="/darkmode.css?v=1.17.41">
+    <link rel="stylesheet" href="/login.css?v=1.17.41">
+    <link rel="stylesheet" href="/ui-polish.css?v=1.17.41">
+    <script src="/darkmode.js?v=1.17.41"></script>
+    <script src="/themes.js?v=1.17.41" defer></script>
+    <script src="/layout-fix.js?v=1.17.41" defer></script>
     <script>window.UI_ICONS_KEEP_ALERT = true;</script>
-    <script src="/ui-icons.js?v=1.17.40" defer></script>
-    <script src="/affectation-app.js?v=1.17.40" defer></script>
-    <script src="/event-types.js?v=1.17.40" defer></script>
-    <script src="/tripadvisor.js?v=1.17.40" defer></script>
-    <script src="/map-timelapse.js?v=1.17.40" defer></script>
+    <script src="/ui-icons.js?v=1.17.41" defer></script>
+    <script src="/affectation-app.js?v=1.17.41" defer></script>
+    <script src="/event-types.js?v=1.17.41" defer></script>
+    <script src="/tripadvisor.js?v=1.17.41" defer></script>
+    <script src="/map-timelapse.js?v=1.17.41" defer></script>
 </head>
 <body>
     <div class="container">
@@ -16347,13 +16347,14 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong style="color:#6a1b9
                     <td style="padding:6px 8px;" data-sort="${c.vise_n1_at||''}">${c.vise_n1_nom ? fmt(c.vise_n1_at)+'<br><small>'+c.vise_n1_nom+'</small>' : '—'}</td>
                     <td style="padding:6px 8px;" data-sort="${c.vise_n2_at||''}">${c.vise_n2_nom ? fmt(c.vise_n2_at)+'<br><small>'+c.vise_n2_nom+'</small>' : '—'}</td>
                     <td style="padding:6px 8px;" id="diffuse-cell-${c.id}" data-sort="${c.diffuse_at||''}">${c.statut === 'vise_n2' ? `<button onclick="openDiffuserModal(${c.id})" style="font-size:11px;padding:3px 10px;background:#e65100;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">📤 A diffuser</button>` : (fmt(c.diffuse_at) + `<br><button onclick="showDiffusionStatus(${c.id}, this)" style="font-size:10px;padding:2px 6px;background:#1a237e;color:white;border:none;border-radius:3px;cursor:pointer;margin-top:3px;">📧 Statut</button>`)}</td>
+                    <td style="padding:6px 8px;text-align:center;" data-sort="${c.nb_lignes||0}" title="Lignes renseignées dans le CRA (astreintes, HNO, activités)">${c.nb_lignes||0}</td>
                     <td style="padding:6px 8px;white-space:nowrap;">
                         <button onclick="openCraModal(${c.id})" style="font-size:11px;padding:3px 8px;background:#6a1b9a;color:white;border:none;border-radius:4px;cursor:pointer;margin-right:4px;height:26px;box-sizing:border-box;">Voir</button>
                         ${!readOnly ? (isArchive ? `<button onclick="unarchiveCra(${c.id})" style="font-size:11px;padding:3px 8px;background:#ff9800;color:white;border:none;border-radius:4px;cursor:pointer;margin-right:4px;">↩️ Désarchiver</button><button onclick="softDeleteCra(${c.id}, ${c.mois}, ${c.annee})" data-nom="${(c.expert_nom||'').replace(/"/g,'&quot;')}" style="font-size:11px;padding:3px 8px;background:#b71c1c;color:white;border:none;border-radius:4px;cursor:pointer;">🗑️ Supprimer</button>` : `<button onclick="confirmArchiveCra(${c.id},'${(c.expert_nom||'').replace(/'/g,'\\\'')}')" style="font-size:11px;padding:3px 8px;background:#546e7a;color:white;border:none;border-radius:4px;cursor:pointer;height:26px;box-sizing:border-box;">🗄️ Archiver</button>`) : ''}
                     </td>
                 </tr>`;
             }).join('');
-            const cols = ['Expert','Période','Statut','Soumis le','Visé N1','Visé N2','Diffusé'];
+            const cols = ['Expert','Période','Statut','Soumis le','Visé N1','Visé N2','Diffusé','Lignes'];
             const thsHtml = cols.map(label =>
                 `<th class="sortable" style="${thStyle}">${label}</th>`
             ).join('') + `<th class="no-sort" style="${thNoSort}">Actions</th>`;

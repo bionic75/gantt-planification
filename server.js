@@ -12682,7 +12682,8 @@ app.get('/api/cra/admin/list', requireAdminOrRh, async (req, res) => {
     if (mois) { where += ' AND c.mois = ?'; params.push(mois); }
     if (annee) { where += ' AND c.annee = ?'; params.push(annee); }
     database.all(
-        `SELECT c.*, u.prenom || ' ' || u.nom as expert_nom, u1.prenom || ' ' || u1.nom as vise_n1_nom, u2.prenom || ' ' || u2.nom as vise_n2_nom
+        `SELECT c.*, u.prenom || ' ' || u.nom as expert_nom, u1.prenom || ' ' || u1.nom as vise_n1_nom, u2.prenom || ' ' || u2.nom as vise_n2_nom,
+                (SELECT COUNT(*) FROM astreintes_hno h WHERE h.user_id = c.user_id AND h.date_debut <= printf('%04d-%02d-31', c.annee, c.mois) AND h.date_fin >= printf('%04d-%02d-01', c.annee, c.mois)) AS nb_lignes
          FROM cra c LEFT JOIN users u ON c.user_id = u.id LEFT JOIN users u1 ON c.vise_n1_by = u1.id LEFT JOIN users u2 ON c.vise_n2_by = u2.id
          WHERE ${where} ORDER BY c.annee DESC, c.mois DESC, u.nom`,
         params, (err, rows) => err ? res.status(500).json({ error: err.message }) : res.json(rows || [])
@@ -13023,7 +13024,8 @@ app.get('/api/cra/admin/archives', requireAdminOrRh, (req, res) => {
     if (mois) { where += ' AND c.mois = ?'; params.push(mois); }
     if (annee) { where += ' AND c.annee = ?'; params.push(annee); }
     database.all(
-        `SELECT c.*, u.prenom || ' ' || u.nom as expert_nom, u1.prenom || ' ' || u1.nom as vise_n1_nom, u2.prenom || ' ' || u2.nom as vise_n2_nom
+        `SELECT c.*, u.prenom || ' ' || u.nom as expert_nom, u1.prenom || ' ' || u1.nom as vise_n1_nom, u2.prenom || ' ' || u2.nom as vise_n2_nom,
+                (SELECT COUNT(*) FROM astreintes_hno h WHERE h.user_id = c.user_id AND h.date_debut <= printf('%04d-%02d-31', c.annee, c.mois) AND h.date_fin >= printf('%04d-%02d-01', c.annee, c.mois)) AS nb_lignes
          FROM cra c LEFT JOIN users u ON c.user_id = u.id LEFT JOIN users u1 ON c.vise_n1_by = u1.id LEFT JOIN users u2 ON c.vise_n2_by = u2.id
          WHERE ${where} ORDER BY c.annee DESC, c.mois DESC, u.nom`,
         params, (err, rows) => err ? res.status(500).json({ error: err.message }) : res.json(rows || [])
