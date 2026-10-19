@@ -30,6 +30,7 @@
     let onlineTimer = null;
 
     const css = `
+        #affEvBody th::after { content: none !important; }
         #affectationContainer .aff-panel { padding: 24px 28px; }
         #affectationContainer .aff-empty {
             max-width: 720px; margin: 40px auto; padding: 44px 32px; text-align: center;
@@ -1812,7 +1813,7 @@
     }
 
     // ================= Onglet « Événements » : événements des activités suivies, pour les SAMU du planning =================
-    const evTab = { data: null, samu: '', stage: '', q: '' };
+    const evTab = { data: null, samu: '', stage: '', q: '', sort: { k: 'start', dir: 1 } };
     async function loadEvents() {
         const box = document.getElementById('affEvBody'); if (!box) return;
         box.innerHTML = '<p class="aff-muted">Chargement…</p>';
@@ -1823,6 +1824,11 @@
         const box = document.getElementById('affEvBody'), d = evTab.data; if (!box || !d) return;
         const q = norm(evTab.q);
         const list = d.events.filter(e => (!evTab.samu || e.samu === evTab.samu) && (!evTab.stage || e.stage === evTab.stage) && (!q || norm([e.samu, e.label, e.type.label, e.participants.join(' ')].join(' ')).includes(q)));
+        const evSame = e => e.planned && e.planned.start === e.start && e.planned.end === e.end;
+        const SK = { samu: e => e.samu, type: e => e.type.label, label: e => e.label, start: e => e.start + e.end, part: e => e.participants.length, plan: e => !e.planned ? 2 : evSame(e) ? 0 : 1 };
+        const sk = SK[evTab.sort.k] || SK.start, cmp = (a, b) => typeof a === 'number' ? a - b : String(a).localeCompare(String(b), 'fr', { numeric: true });
+        list.sort((a, b) => cmp(sk(a), sk(b)) * evTab.sort.dir || cmp(a.start, b.start) || cmp(a.samu, b.samu));
+        const th = (k, lbl) => `<th style="padding:6px 8px;cursor:pointer;user-select:none;" onclick="AffectationApp.evSort('${k}')" title="Trier">${lbl} ${evTab.sort.k === k ? (evTab.sort.dir > 0 ? '▲' : '▼') : '<span style="opacity:.4;">▲▼</span>'}</th>`;
         const today = todayIso();
         const samus = [...new Set(d.events.map(e => e.samu))].sort((a, b) => a.localeCompare(b, 'fr', { numeric: true }));
         box.innerHTML = `<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px;">
@@ -1831,8 +1837,8 @@
             <div style="flex:1;min-width:180px;"><label class="lbl">Recherche</label><input type="text" value="${esc(evTab.q)}" placeholder="SAMU, intitulé, participant…" oninput="AffectationApp.evFilter('q', this.value)" style="width:100%;padding:7px;box-sizing:border-box;"></div>
             <span class="aff-muted" style="padding-bottom:8px;">${list.length} événement${list.length > 1 ? 's' : ''}</span></div>
             ${list.length ? `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;">
-            <thead><tr style="text-align:left;color:#6b7a8d;font-size:11px;"><th style="padding:6px 8px;">SAMU</th><th style="padding:6px 8px;">Type</th><th style="padding:6px 8px;">Intitulé</th><th style="padding:6px 8px;">Dates</th><th style="padding:6px 8px;">Participants</th><th style="padding:6px 8px;">Planning des déploiements</th></tr></thead><tbody>
-            ${list.map(e => { const same = e.planned && e.planned.start === e.start && e.planned.end === e.end;
+            <thead><tr style="text-align:left;font-size:11px;">${th('samu', 'SAMU')}${th('type', 'Type')}${th('label', 'Intitulé')}${th('start', 'Dates')}${th('part', 'Participants')}${th('plan', 'Planning des déploiements')}</tr></thead><tbody>
+            ${list.map(e => { const same = evSame(e);
                 return `<tr style="border-top:1px solid #eef1f6;${e.end < today ? 'opacity:.7;' : ''}"><td style="padding:8px;font-weight:700;white-space:nowrap;">${esc(e.samu)}</td>
                 <td style="padding:8px;"><span style="display:inline-block;padding:2px 9px;border-radius:10px;font-size:12px;font-weight:700;background:${esc(e.type.bg)};color:${esc(e.type.color)};border:1px solid ${esc(e.type.border)};">${esc(e.type.label)}</span></td>
                 <td style="padding:8px;">${esc(e.label)}</td>
@@ -2572,6 +2578,7 @@
             if (on.planning) loadPlanning();
             if (on.events) loadEvents();
         },
+        evSort(k) { evTab.sort = { k, dir: evTab.sort.k === k ? -evTab.sort.dir : 1 }; renderEvents(); },
         evFilter(k, v) { evTab[k] = v; renderEvents(); if (k === 'q') { const i = document.querySelector('#affEvBody input[type=text]'); if (i) { i.focus(); i.setSelectionRange(v.length, v.length); } } },
         search() { alert('Recherche - Fonctionnalité en cours de développement'); },
         async logout() {
