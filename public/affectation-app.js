@@ -753,6 +753,19 @@
 
     // ---- Tâches du projet Asana d'un déploiement : consultation des échéances et remplacement de la donnée reprise ----
     const asanaT = { id: null, data: null, ov: {} };
+    // Logo Asana : déploiement repris d'Asana (à côté du nom du SAMU) ; origine de chaque donnée dans la fenêtre des tâches
+    const asanaLogo = (title, size) => `<img src="/asana-logo.png" alt="Asana" title="${esc(title || 'Projet repris d\'Asana')}" style="width:${size || 14}px;height:${size || 14}px;vertical-align:-2px;margin-left:5px;object-fit:contain;">`;
+    const asanaMark = p => p && p.from_asana ? asanaLogo('Projet repris d\'Asana') : '';
+    function asanaOrigin(r) {
+        const o = asanaT.ov[r.key] || {}, effOf = gid => { const t = asanaT.data.tasks.find(x => x.gid === gid); return t && t.eff; };
+        let exp;
+        if (r.kind === 'date') { const e = effOf(o.task); exp = e ? e.end : (r.auto && r.auto.date) || null; const cur = (r.current && r.current.date) || null; return !cur && !exp ? null : cur === exp ? 'asana' : 'tool'; }
+        const es = effOf(o.start), ee = effOf(o.end), au = r.auto || {};
+        const a = es ? es.start : au.start, b = ee ? ee.end : au.end, cu = r.current || {};
+        if (!cu.start && !a && !b) return null;
+        return (cu.start || null) === (a || b || null) && (cu.end || null) === (b || a || null) ? 'asana' : 'tool';
+    }
+    const asanaOriginHtml = r => { const k = asanaOrigin(r); return k === 'asana' ? `<div style="margin-top:4px;font-size:11px;color:#1b7f3b;white-space:normal;">${asanaLogo('Donnée Asana originelle', 13)} Asana (origine)</div>` : k === 'tool' ? `<div style="margin-top:4px;font-size:11px;color:#b26a00;white-space:normal;" title="Cette valeur diffère de celle d'Asana : elle a été modifiée dans l'outil de planification">✎ modifiée dans l'outil</div>` : ''; };
     const aFr = d => d ? d.split('-').reverse().join('/') : '';
     const aVal = v => !v ? '—' : v.date ? aFr(v.date) : `${aFr(v.start)} → ${aFr(v.end)}`;
     const aEffTxt = e => !e ? 'non datée' : e.start === e.end ? aFr(e.end) : `${aFr(e.start).slice(0, 5)} → ${aFr(e.end)}`;
@@ -811,7 +824,7 @@
                     : `<div style="display:grid;grid-template-columns:48px 1fr;gap:4px;align-items:center;"><span class="aff-muted" style="font-size:11px;">Début</span><select data-k="${r.key}" data-f="start" onchange="AffectationApp.asanaTasksPick(this)" style="width:100%;padding:5px;">${asanaTaskOptions(o.start)}</select><span class="aff-muted" style="font-size:11px;">Fin</span><select data-k="${r.key}" data-f="end" onchange="AffectationApp.asanaTasksPick(this)" style="width:100%;padding:5px;">${asanaTaskOptions(o.end)}</select></div>`;
                 return `<tr style="border-top:1px solid #eef1f6;${picked ? 'background:#fff8e1;' : ''}" id="aTRow_${r.key}">
                     <td style="padding:8px;vertical-align:top;"><b>${esc(r.label)}</b>${picked ? ' <span class="aff-av-b mid">remplacé</span>' : ''}<div class="aff-muted" style="font-size:11px;">${esc(r.rule)}</div></td>
-                    <td style="padding:8px;vertical-align:top;white-space:nowrap;">${esc(aVal(r.current))}</td>
+                    <td style="padding:8px;vertical-align:top;"><span style="white-space:nowrap;">${esc(aVal(r.current))}</span>${asanaOriginHtml(r)}</td>
                     <td style="padding:8px;vertical-align:top;white-space:nowrap;">${esc(aVal(r.auto))}${r.sources.length ? `<div class="aff-muted" style="font-size:11px;white-space:normal;max-width:230px;">${r.sources.map(x => esc(String(x).slice(0, 60))).join(' · ')}</div>` : ''}</td>
                     <td style="padding:8px;vertical-align:top;">${sels}</td>
                     <td style="padding:8px;vertical-align:top;font-weight:700;color:#1b7f3b;white-space:nowrap;" id="aTAfter_${r.key}">${esc(afterTxt(r))}</td>
@@ -898,7 +911,7 @@
         box.innerHTML = state.projects.map(p => `
             <div class="aff-proj">
                 <div>
-                    <div class="aff-proj-name">${esc(p.samu_name)}</div>
+                    <div class="aff-proj-name">${esc(p.samu_name)}${asanaMark(p)}</div>
                     <div class="aff-proj-sub">${svg('user')}${esc(p.chef_projet_nom || 'Chef de projet non défini')}</div>
                     <div class="aff-proj-sub">${svg('flag')}Début : ${fmt(p.date_debut)}</div>
                 </div>
@@ -1771,7 +1784,7 @@
         } else {
             const ordered = sortedProjects();
             body = ordered.map(p => `<tr data-id="${p.id}">
-                <th class="sam">${currentUser && currentUser.activeProfile === 'admin' ? `<button type="button" class="aff-rowsync" title="Rafraîchir depuis Asana : reprend les dates nouvelles ou modifiées du projet Asana de ce SAMU" onclick="AffectationApp.asanaRefresh(${p.id}, this)">${svg('asanasync', 'aff-ico-sm')}</button>` : ''}<button type="button" class="aff-rowhide" title="Retirer cette ligne de l'affichage (rétablissable en haut du planning)" onclick="AffectationApp.hideRow(${p.id})">−</button><div class="n">${esc(p.samu_name)}</div><div class="c">${esc(p.chef_projet_nom || 'Chef de projet non défini')}</div><span class="aff-rs" title="Glisser pour ajuster la largeur de la colonne"></span></th>
+                <th class="sam">${currentUser && currentUser.activeProfile === 'admin' ? `<button type="button" class="aff-rowsync" title="Rafraîchir depuis Asana : reprend les dates nouvelles ou modifiées du projet Asana de ce SAMU" onclick="AffectationApp.asanaRefresh(${p.id}, this)">${svg('asanasync', 'aff-ico-sm')}</button>` : ''}<button type="button" class="aff-rowhide" title="Retirer cette ligne de l'affichage (rétablissable en haut du planning)" onclick="AffectationApp.hideRow(${p.id})">−</button><div class="n">${esc(p.samu_name)}${asanaMark(p)}</div><div class="c">${esc(p.chef_projet_nom || 'Chef de projet non défini')}</div><span class="aff-rs" title="Glisser pour ajuster la largeur de la colonne"></span></th>
                 ${cols.map(c => `<td class="${c.we ? 'we' : ''} ${c.today ? 'today' : ''}" data-k="${c.key}">${cellContent(p, c)}</td>`).join('')}
             </tr>`).join('');
         }
