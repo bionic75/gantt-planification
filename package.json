@@ -9,6 +9,7 @@
     "dev": "node --watch server.js",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:parity": "node tests/parity/route-parity.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
@@ -39,7 +40,7 @@
     "zod": "^4.6.7"
   },
   "engines": {
-    "node": ">=18.x"
+    "node": ">=22"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
