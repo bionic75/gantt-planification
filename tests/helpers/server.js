@@ -10,6 +10,19 @@ import { createClient } from './client.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const ADMIN = { username: 'admin', password: 'Admin2025!' };
+// URL publique déclarée à l'application (liens des emails), volontairement différente de l'adresse d'écoute
+const APP_URL = 'http://planning.test';
+
+// Navigateur Chromium pour la génération des PDF (tests ignorés s'il n'y en a pas)
+const BROWSER_CANDIDATES = [
+    process.env.TEST_BROWSER_PATH,
+    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+    '/usr/bin/google-chrome',
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser'
+];
+export const BROWSER_PATH = BROWSER_CANDIDATES.find(p => p && fs.existsSync(p)) || null;
 
 function freePort() {
     return new Promise((resolve, reject) => {
@@ -24,6 +37,7 @@ function freePort() {
 }
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+const definedOnly = obj => Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined));
 
 // initDB lance ses CREATE TABLE / ALTER TABLE sans les enchaîner : sur une base neuve, une partie des
 // colonnes n'est créée qu'au démarrage suivant. On démarre donc deux fois sur la même base, comme une
@@ -46,16 +60,26 @@ async function bootServer(workDir) {
     let logs = '';
 
     // cwd = répertoire temporaire : les fichiers écrits en relatif (./data/pdfs…) restent hors du projet
-    const proc = spawn(process.execPath, [path.join(ROOT, 'server.js')], {
+    // TEST_SERVER_ENTRY : autre point d'entrée (ex. version précédente pour comparer les comportements)
+    const entry = path.join(ROOT, process.env.TEST_SERVER_ENTRY || 'server.js');
+    const proc = spawn(process.execPath, [entry], {
         cwd: workDir,
-        env: {
+        env: definedOnly({
             PATH: process.env.PATH,
             SYSTEMROOT: process.env.SYSTEMROOT,
+            // Nécessaires au lancement du navigateur (profil temporaire)
+            TEMP: process.env.TEMP,
+            TMP: process.env.TMP,
+            HOME: process.env.HOME,
+            USERPROFILE: process.env.USERPROFILE,
+            LOCALAPPDATA: process.env.LOCALAPPDATA,
+            ...(BROWSER_PATH ? { PUPPETEER_EXECUTABLE_PATH: BROWSER_PATH } : {}),
             NODE_ENV: 'test',
             PORT: String(port),
             DB_PATH: path.join(workDir, 'data'),
+            APP_URL: APP_URL,
             SESSION_SECRET: 'test-secret-'.padEnd(48, 'x')
-        },
+        }),
         stdio: ['ignore', 'pipe', 'pipe']
     });
     proc.stdout.on('data', d => (logs += d));
@@ -63,6 +87,7 @@ async function bootServer(workDir) {
 
     const server = {
         baseUrl,
+        appUrl: APP_URL,
         get logs() {
             return logs;
         },

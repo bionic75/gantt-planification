@@ -36,3 +36,24 @@ jobs:
 
       - name: Tests
         run: npm test
+
+  docker-build:
+    name: Construction de l'image Docker
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t gantt-planification:ci .
+
+      # Vérifie que l'image démarre (dépendances natives compilées pour Node 22 / Alpine)
+      - name: Smoke test
+        run: |
+          docker run -d --name app -p 8080:8080 -e PORT=8080 -e SESSION_SECRET="$(openssl rand -hex 32)" -e APP_URL=http://localhost:8080 gantt-planification:ci
+          for i in $(seq 1 30); do
+            if curl -fs http://localhost:8080/api/version; then exit 0; fi
+            sleep 1
+          done
+          docker logs app
+          exit 1
