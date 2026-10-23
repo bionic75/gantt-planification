@@ -65,14 +65,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # 7. Build and push prod image
-      - name: Build and push production image
-        id: push-docker-image
+      # 7. Build prod image (loaded locally, not pushed yet)
+      - name: Build production image
+        id: build-docker-image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: Dockerfile
-          push: true
+          load: true
+          push: false
           #platforms: linux/amd64
           tags: |
             ${{ env.REGISTRY }}/${{ steps.extract-metadata.outputs.REPO_FULLNAME }}:latest
@@ -80,7 +81,26 @@ jobs:
             ${{ env.REGISTRY }}/${{ steps.extract-metadata.outputs.REPO_FULLNAME }}:${{ steps.extract-metadata.outputs.DOCKER_TAG }}
           cache-from: type=local,src=/tmp/.buildx-cache
 
-      # 8. Deploy to CSP
+      # 8. Scan image with Trivy: fails on fixable HIGH/CRITICAL vulnerabilities
+      # v0.35.0 is the only trivy-action tag not hijacked in the March 2026 supply chain attack (CVE-2026-33634)
+      - name: Scan image with Trivy
+        id: scan-docker-image
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ steps.extract-metadata.outputs.REPO_FULLNAME }}:${{ steps.extract-metadata.outputs.DOCKER_TAG }}
+          version: v0.69.3
+          format: table
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          vuln-type: os,library
+          exit-code: '1'
+
+      # 9. Push prod image (only reached if the scan passed)
+      - name: Push production image
+        id: push-docker-image
+        run: docker push --all-tags ${{ env.REGISTRY }}/${{ steps.extract-metadata.outputs.REPO_FULLNAME }}
+
+      # 10. Deploy to CSP
       - name: Deploy image to SAMU Tools VM
         id: deploy-docker-image
         uses: appleboy/ssh-action@v1
