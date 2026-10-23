@@ -29,6 +29,8 @@ describe('inventaire des routes', () => {
             'POST /api/login',
             'POST /api/logout',
             'POST /api/mobile-login',
+            'POST /api/reset-password',
+            'POST /api/reset-password/check',
             'GET /api/system/version',
             'GET /api/theme',
             'GET /api/user/profiles',

@@ -87,6 +87,22 @@ describe('POST /api/schedule/save', () => {
     });
 });
 
+describe('POST /api/schedule/cleanup-old-format', () => {
+    it("supprime les clés de l'ancien format (sans demi-journée)", async () => {
+        const res = await createResource(admin);
+        await admin.post('/api/schedule', {
+            [`${res.id}_activity_2024-01-15`]: '5',
+            [key(res.id, 'activity', '2024-01-15')]: '5'
+        });
+        const r = await admin.post('/api/schedule/cleanup-old-format');
+        expect(r.data.success).toBe(true);
+        expect(r.data.deleted).toBeGreaterThanOrEqual(1);
+        const data = await schedule();
+        expect(data).not.toHaveProperty(`${res.id}_activity_2024-01-15`);
+        expect(data[key(res.id, 'activity', '2024-01-15')]).toBe('5');
+    });
+});
+
 describe('remise à zéro mensuelle', () => {
     it('aperçu puis suppression du mois (month : 0 = janvier)', async () => {
         const res = await createResource(admin);

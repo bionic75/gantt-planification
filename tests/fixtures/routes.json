@@ -1165,6 +1165,16 @@
         "guard": "auth"
     },
     {
+        "method": "POST",
+        "path": "/api/reset-password",
+        "guard": "public"
+    },
+    {
+        "method": "POST",
+        "path": "/api/reset-password/check",
+        "guard": "public"
+    },
+    {
         "method": "GET",
         "path": "/api/resource-samu-assignments",
         "guard": "auth"
