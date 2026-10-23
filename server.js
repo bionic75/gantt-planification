@@ -1699,7 +1699,8 @@ app.post('/api/login', async (req, res) => {
                     if (mfaMethod === 'both') {
                         mfaMethod = 'choice';
                     }
-                    
+
+                    startMfaPending(req, user, profile);
                     return res.json({
                         mfaRequired: true,
                         mfaMethod: mfaMethod,
@@ -1771,6 +1772,7 @@ app.post('/api/mobile-login', async (req, res) => {
                 if (!mfaStillValid) {
                     const totpConfigured = await isUserTotpConfigured(user.id);
                     let mfaMethod = mfaConfig.method === 'both' ? 'choice' : mfaConfig.method;
+                    startMfaPending(req, user, profile);
                     return res.json({
                         mfaRequired: true,
                         mfaMethod,
@@ -1792,6 +1794,9 @@ app.post('/api/mobile-login', async (req, res) => {
 
 // Fonction pour compléter le login
 async function completeLogin(req, res, user, profile) {
+    // Nouvel identifiant de session à chaque connexion (prévient la fixation de session ;
+    // supprime aussi l'éventuelle connexion MFA en attente)
+    await new Promise((resolve, reject) => req.session.regenerate(err => err ? reject(err) : resolve()));
     req.session.userId = user.id;
     req.session.username = user.username;
     req.session.nom = user.nom;
@@ -1911,7 +1916,7 @@ async function isUserTotpConfigured(userId) {
 
 // Générer un code MFA à 6 chiffres
 function generateMfaCode() {
-    return Math.floor(100000 + Math.random() * 900000).toString();
+    return crypto.randomInt(100000, 1000000).toString();
 }
 
 // Générer une clé secrète TOTP
@@ -1919,9 +1924,56 @@ function generateTotpSecret() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
     let secret = '';
     for (let i = 0; i < 32; i++) {
-        secret += chars.charAt(Math.floor(Math.random() * chars.length));
+        secret += chars.charAt(crypto.randomInt(chars.length));
     }
     return secret;
+}
+
+// Connexion en attente de validation MFA, conservée côté serveur dans la session.
+// Les routes /api/mfa/* ne font jamais confiance au userId / profile envoyés par le client.
+const MFA_PENDING_TTL_MS = 10 * 60 * 1000;
+const MFA_MAX_ATTEMPTS = 5;
+const MFA_MAX_CODE_SENDS = 5;
+
+function startMfaPending(req, user, profile) {
+    req.session.mfaPending = {
+        userId: user.id,
+        profile,
+        expiresAt: Date.now() + MFA_PENDING_TTL_MS,
+        attempts: 0,
+        codeSends: 0,
+        totpSecret: null
+    };
+}
+
+function getMfaPending(req) {
+    const pending = req.session && req.session.mfaPending;
+    if (!pending) return null;
+    if (Date.now() > pending.expiresAt) {
+        delete req.session.mfaPending;
+        return null;
+    }
+    return pending;
+}
+
+// Middleware : exige une connexion en attente de MFA (mot de passe déjà vérifié)
+function requireMfaPending(req, res, next) {
+    const pending = getMfaPending(req);
+    if (!pending) {
+        return res.status(401).json({ error: 'Session de connexion expirée, veuillez vous reconnecter.' });
+    }
+    req.mfaPending = pending;
+    next();
+}
+
+// Comptabilise un essai de code ; retourne false si le nombre maximal est atteint
+function consumeMfaAttempt(req) {
+    req.mfaPending.attempts++;
+    if (req.mfaPending.attempts > MFA_MAX_ATTEMPTS) {
+        delete req.session.mfaPending;
+        return false;
+    }
+    return true;
 }
 
 // Vérifier un code TOTP
@@ -14911,9 +14963,14 @@ app.post('/api/mfa/reset-all', requireAdmin, (req, res) => {
 });
 
 // Envoyer un code MFA par email
-app.post('/api/mfa/send-code', async (req, res) => {
-    const { userId } = req.body;
-    
+app.post('/api/mfa/send-code', requireMfaPending, async (req, res) => {
+    const { userId } = req.mfaPending;
+
+    if (req.mfaPending.codeSends >= MFA_MAX_CODE_SENDS) {
+        return res.status(429).json({ error: 'Trop de demandes de code. Veuillez vous reconnecter.' });
+    }
+    req.mfaPending.codeSends++;
+
     try {
         // Récupérer l'utilisateur
         const user = await new Promise((resolve, reject) => {
@@ -14987,14 +15044,19 @@ app.post('/api/mfa/send-code', async (req, res) => {
 });
 
 // Vérifier un code MFA
-app.post('/api/mfa/verify', async (req, res) => {
-    const { userId, code, profile } = req.body;
-    
+app.post('/api/mfa/verify', requireMfaPending, async (req, res) => {
+    const { userId, profile } = req.mfaPending;
+    const code = String(req.body.code || '');
+
+    if (!consumeMfaAttempt(req)) {
+        return res.status(429).json({ error: 'Trop de tentatives. Veuillez vous reconnecter.' });
+    }
+
     try {
         // Vérifier d'abord si c'est un code email
         const emailCode = await new Promise((resolve, reject) => {
             database.get(
-                `SELECT * FROM mfa_codes WHERE user_id = ? AND code = ? AND expires_at > datetime('now')`,
+                `SELECT * FROM mfa_codes WHERE user_id = ? AND code = ?`,
                 [userId, code],
                 (err, row) => {
                     if (err) reject(err);
@@ -15002,10 +15064,11 @@ app.post('/api/mfa/verify', async (req, res) => {
                 }
             );
         });
-        
+
         let valid = false;
-        
-        if (emailCode) {
+
+        // expires_at est stocké en ISO 8601 : comparaison faite en JS
+        if (emailCode && new Date(emailCode.expires_at).getTime() > Date.now()) {
             valid = true;
             // Supprimer le code utilisé
             await new Promise((resolve, reject) => {
@@ -15068,9 +15131,10 @@ app.post('/api/mfa/verify', async (req, res) => {
 });
 
 // Vérifier le statut TOTP d'un utilisateur
-app.get('/api/mfa/totp-status/:userId', async (req, res) => {
-    const { userId } = req.params;
-    
+// (le paramètre :userId est conservé pour compatibilité mais ignoré)
+app.get('/api/mfa/totp-status/:userId', requireMfaPending, async (req, res) => {
+    const { userId } = req.mfaPending;
+
     try {
         const configured = await isUserTotpConfigured(userId);
         res.json({ configured });
@@ -15080,10 +15144,16 @@ app.get('/api/mfa/totp-status/:userId', async (req, res) => {
 });
 
 // Configurer TOTP pour un utilisateur
-app.post('/api/mfa/totp-setup', async (req, res) => {
-    const { userId } = req.body;
-    
+app.post('/api/mfa/totp-setup', requireMfaPending, async (req, res) => {
+    const { userId } = req.mfaPending;
+
     try {
+        // Un TOTP déjà configuré ne peut être remplacé qu'après réinitialisation par un admin
+        if (await isUserTotpConfigured(userId)) {
+            return res.status(403).json({ error: 'TOTP déjà configuré. Contactez un administrateur pour le réinitialiser.' });
+        }
+
+
         // Récupérer l'utilisateur
         const user = await new Promise((resolve, reject) => {
             database.get(`SELECT username, email FROM users WHERE id = ?`, [userId], (err, row) => {
@@ -15096,9 +15166,10 @@ app.post('/api/mfa/totp-setup', async (req, res) => {
             return res.status(404).json({ error: 'Utilisateur non trouvé' });
         }
         
-        // Générer la clé secrète
+        // Générer la clé secrète (conservée en session jusqu'à confirmation)
         const secret = generateTotpSecret();
-        
+        req.mfaPending.totpSecret = secret;
+
         // Générer l'URL otpauth
         const otpauthUrl = `otpauth://totp/Planning%20ANS:${encodeURIComponent(user.username)}?secret=${secret}&issuer=Planning%20ANS`;
         
@@ -15117,9 +15188,17 @@ app.post('/api/mfa/totp-setup', async (req, res) => {
 });
 
 // Confirmer la configuration TOTP
-app.post('/api/mfa/totp-confirm', async (req, res) => {
-    const { userId, secret, code, profile } = req.body;
-    
+app.post('/api/mfa/totp-confirm', requireMfaPending, async (req, res) => {
+    const { userId, profile, totpSecret: secret } = req.mfaPending;
+    const code = String(req.body.code || '');
+
+    if (!secret) {
+        return res.status(400).json({ error: 'Aucune configuration TOTP en cours.' });
+    }
+    if (!consumeMfaAttempt(req)) {
+        return res.status(429).json({ error: 'Trop de tentatives. Veuillez vous reconnecter.' });
+    }
+
     try {
         // Vérifier le code
         if (!verifyTotp(secret, code)) {
