@@ -44,6 +44,15 @@ const schema = z
                 message: 'obligatoire en production (32 caractères minimum)'
             });
         }
+        // Les liens envoyés par email (réinitialisation de mot de passe) ne doivent pas dépendre
+        // de l'en-tête Host, contrôlable par le client
+        if (cfg.NODE_ENV === 'production' && !cfg.APP_URL) {
+            ctx.addIssue({
+                code: 'custom',
+                path: ['APP_URL'],
+                message: "obligatoire en production (URL publique de l'application, ex. https://planning.example.fr)"
+            });
+        }
     });
 
 const parsed = schema.safeParse(process.env);
