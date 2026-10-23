@@ -1,121 +1,121 @@
 name: Deploy on version tag
 
 on:
-  push:
-    tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'
+    push:
+        tags:
+            - 'v[0-9]+.[0-9]+.[0-9]+'
 
 env:
-  REGISTRY: ghcr.io
+    REGISTRY: ghcr.io
 
 jobs:
-  build-push-deploy:
-    name: Build, push and deploy Docker image
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
+    build-push-deploy:
+        name: Build, push and deploy Docker image
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            packages: write
 
-    steps:
-      # 1. Checkout source code
-      - name: Checkout source code
-        id: checkout-source-code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # Fetches full history for better caching/context
+        steps:
+            # 1. Checkout source code
+            - name: Checkout source code
+              id: checkout-source-code
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0 # Fetches full history for better caching/context
 
-      # 2. Set up Docker Buildx
-      - name: Set up Docker Buildx
-        id: setup-docker-buildx
-        uses: docker/setup-buildx-action@v3
+            # 2. Set up Docker Buildx
+            - name: Set up Docker Buildx
+              id: setup-docker-buildx
+              uses: docker/setup-buildx-action@v3
 
-      # 3. Cache Docker layers
-      - name: Cache Docker layers
-        id: cache-docker-layers
-        uses: actions/cache@v4
-        with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ github.sha }}
-          restore-keys: ${{ runner.os }}-buildx-
+            # 3. Cache Docker layers
+            - name: Cache Docker layers
+              id: cache-docker-layers
+              uses: actions/cache@v4
+              with:
+                  path: /tmp/.buildx-cache
+                  key: ${{ runner.os }}-buildx-${{ github.sha }}
+                  restore-keys: ${{ runner.os }}-buildx-
 
-      # 4. Cache npm dependencies
-      - name: Cache npm dependencies
-        id: cache-npm-dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: ${{ runner.os }}-npm-
+            # 4. Cache npm dependencies
+            - name: Cache npm dependencies
+              id: cache-npm-dependencies
+              uses: actions/cache@v4
+              with:
+                  path: ~/.npm
+                  key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
+                  restore-keys: ${{ runner.os }}-npm-
 
-      # 5. Extract metadata
-      - name: Extract metadata
-        id: extract-metadata
-        run: |
-          echo "DOCKER_TAG=${GITHUB_REF_NAME:1}" >> "$GITHUB_OUTPUT"
-          echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> "$GITHUB_OUTPUT"
-          echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
-          echo "REPO_FULLNAME=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+            # 5. Extract metadata
+            - name: Extract metadata
+              id: extract-metadata
+              run: |
+                  echo "DOCKER_TAG=${GITHUB_REF_NAME:1}" >> "$GITHUB_OUTPUT"
+                  echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> "$GITHUB_OUTPUT"
+                  echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+                  echo "REPO_FULLNAME=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
 
-      # 6. Login to Container Registry
-      - name: Log in to Container Registry
-        id: login-container-registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+            # 6. Login to Container Registry
+            - name: Log in to Container Registry
+              id: login-container-registry
+              uses: docker/login-action@v3
+              with:
+                  registry: ${{ env.REGISTRY }}
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
 
-      # 7. Build prod image (loaded locally, not pushed yet)
-      - name: Build production image
-        id: build-docker-image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: Dockerfile
-          load: true
-          push: false
-          #platforms: linux/amd64
-          tags: |
-            ${{ env.REGISTRY }}/${{ steps.extract-metadata.outputs.REPO_FULLNAME }}:latest
-            ${{ env.REGISTRY }}/${{ steps.extract-metadata.outputs.REPO_FULLNAME }}:${{ steps.extract-metadata.outputs.SHORT_SHA }}
-            ${{ env.REGISTRY }}/${{ steps.extract-metadata.outputs.REPO_FULLNAME }}:${{ steps.extract-metadata.outputs.DOCKER_TAG }}
-          cache-from: type=local,src=/tmp/.buildx-cache
+            # 7. Build prod image (loaded locally, not pushed yet)
+            - name: Build production image
+              id: build-docker-image
+              uses: docker/build-push-action@v6
+              with:
+                  context: .
+                  file: Dockerfile
+                  load: true
+                  push: false
+                  #platforms: linux/amd64
+                  tags: |
+                      ${{ env.REGISTRY }}/${{ steps.extract-metadata.outputs.REPO_FULLNAME }}:latest
+                      ${{ env.REGISTRY }}/${{ steps.extract-metadata.outputs.REPO_FULLNAME }}:${{ steps.extract-metadata.outputs.SHORT_SHA }}
+                      ${{ env.REGISTRY }}/${{ steps.extract-metadata.outputs.REPO_FULLNAME }}:${{ steps.extract-metadata.outputs.DOCKER_TAG }}
+                  cache-from: type=local,src=/tmp/.buildx-cache
 
-      # 8. Scan image with Trivy: fails on fixable HIGH/CRITICAL vulnerabilities
-      # v0.35.0 is the only trivy-action tag not hijacked in the March 2026 supply chain attack (CVE-2026-33634)
-      - name: Scan image with Trivy
-        id: scan-docker-image
-        uses: aquasecurity/trivy-action@0.35.0
-        with:
-          image-ref: ${{ env.REGISTRY }}/${{ steps.extract-metadata.outputs.REPO_FULLNAME }}:${{ steps.extract-metadata.outputs.DOCKER_TAG }}
-          version: v0.69.3
-          format: table
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          vuln-type: os,library
-          exit-code: '1'
+            # 8. Scan image with Trivy: fails on fixable HIGH/CRITICAL vulnerabilities
+            # v0.35.0 is the only trivy-action tag not hijacked in the March 2026 supply chain attack (CVE-2026-33634)
+            - name: Scan image with Trivy
+              id: scan-docker-image
+              uses: aquasecurity/trivy-action@0.35.0
+              with:
+                  image-ref: ${{ env.REGISTRY }}/${{ steps.extract-metadata.outputs.REPO_FULLNAME }}:${{ steps.extract-metadata.outputs.DOCKER_TAG }}
+                  version: v0.69.3
+                  format: table
+                  severity: HIGH,CRITICAL
+                  ignore-unfixed: true
+                  vuln-type: os,library
+                  exit-code: '1'
 
-      # 9. Push prod image (only reached if the scan passed)
-      - name: Push production image
-        id: push-docker-image
-        run: docker push --all-tags ${{ env.REGISTRY }}/${{ steps.extract-metadata.outputs.REPO_FULLNAME }}
+            # 9. Push prod image (only reached if the scan passed)
+            - name: Push production image
+              id: push-docker-image
+              run: docker push --all-tags ${{ env.REGISTRY }}/${{ steps.extract-metadata.outputs.REPO_FULLNAME }}
 
-      # 10. Deploy to CSP
-      - name: Deploy image to SAMU Tools VM
-        id: deploy-docker-image
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.SAMU_TOOLS_HOST }}
-          username: ${{ secrets.SAMU_TOOLS_USERNAME }}
-          key: ${{ secrets.SAMU_TOOLS_PRIVATE_KEY }}
-          port: 22
-          passphrase: ${{ secrets.SAMU_TOOLS_PASSPHRASE }}
-          script: |
-            echo '${{ secrets.GITHUB_TOKEN }}' | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
-            docker pull ${{ env.REGISTRY }}/${{ steps.extract-metadata.outputs.REPO_FULLNAME }}:${{ steps.extract-metadata.outputs.DOCKER_TAG }}
-            SAMU_TOOLS="planif-ressources"
-            cd samu/$SAMU_TOOLS
-            echo "VERSION_PLANIF_RESSOURCES=${{ steps.extract-metadata.outputs.DOCKER_TAG }}" > .env
-            docker container stop $SAMU_TOOLS
-            docker container rm $SAMU_TOOLS
-            docker compose up -d
+            # 10. Deploy to CSP
+            - name: Deploy image to SAMU Tools VM
+              id: deploy-docker-image
+              uses: appleboy/ssh-action@v1
+              with:
+                  host: ${{ secrets.SAMU_TOOLS_HOST }}
+                  username: ${{ secrets.SAMU_TOOLS_USERNAME }}
+                  key: ${{ secrets.SAMU_TOOLS_PRIVATE_KEY }}
+                  port: 22
+                  passphrase: ${{ secrets.SAMU_TOOLS_PASSPHRASE }}
+                  script: |
+                      echo '${{ secrets.GITHUB_TOKEN }}' | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
+                      docker pull ${{ env.REGISTRY }}/${{ steps.extract-metadata.outputs.REPO_FULLNAME }}:${{ steps.extract-metadata.outputs.DOCKER_TAG }}
+                      SAMU_TOOLS="planif-ressources"
+                      cd samu/$SAMU_TOOLS
+                      echo "VERSION_PLANIF_RESSOURCES=${{ steps.extract-metadata.outputs.DOCKER_TAG }}" > .env
+                      docker container stop $SAMU_TOOLS
+                      docker container rm $SAMU_TOOLS
+                      docker compose up -d

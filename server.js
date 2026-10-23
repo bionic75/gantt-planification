@@ -1,4 +1,5 @@
 // v1.15.59
+import { env as appEnv } from './src/config/env.js';
 import express from 'express';
 console.log('✅ Express importé');
 import cors from 'cors';
@@ -24,15 +25,11 @@ console.log('✅ Cron importé');
 import QRCode from 'qrcode';
 console.log('✅ QRCode importé');
 
-console.log('📂 Chargement config.json...');
-import config from './config/config.json' with { type: "json" };
-console.log('✅ Config chargé');
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = appEnv.PORT;
 
 // Faire confiance au proxy (OVH, nginx) pour récupérer la vraie IP client via X-Forwarded-For
 app.set('trust proxy', true);
@@ -58,7 +55,7 @@ app.use((req, res, next) => {
     next();
 });
 app.use(session({
-    secret: process.env.SESSION_SECRET || 'gantt-secret-key-2025',
+    secret: appEnv.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
     cookie: { 
@@ -92,7 +89,7 @@ setInterval(() => {
 }, 60 * 1000);
 
 // Déterminer le chemin de la base de données
-const DB_DIR = config.DB_PATH || __dirname;
+const DB_DIR = appEnv.DB_PATH;
 const DB_FILE = path.join(DB_DIR, 'data.db');
 
 // Créer le répertoire s'il n'existe pas
@@ -4779,7 +4776,7 @@ async function asanaToken() {
 async function asanaApi(token, pathQuery) {
     let r;
     try {
-        r = await fetch((process.env.ASANA_API_BASE || 'https://app.asana.com/api/1.0') + pathQuery, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' }, signal: AbortSignal.timeout(25000) });
+        r = await fetch(appEnv.ASANA_API_BASE + pathQuery, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' }, signal: AbortSignal.timeout(25000) });
     } catch (e) { throw Object.assign(new Error("Asana injoignable depuis le serveur (réseau ou pare-feu) : " + (e.cause && e.cause.code || e.message)), { status: 502 }); }
     if (!r.ok) {
         let msg = '';
@@ -5329,7 +5326,7 @@ async function affTplPreview(tpl) {
 }
 // Conversion PowerPoint → PDF (nécessite LibreOffice sur le serveur)
 function affSofficePath() {
-    if (process.env.SOFFICE_PATH && fs.existsSync(process.env.SOFFICE_PATH)) return process.env.SOFFICE_PATH;
+    if (appEnv.SOFFICE_PATH && fs.existsSync(appEnv.SOFFICE_PATH)) return appEnv.SOFFICE_PATH;
     return ['/usr/bin/soffice', '/usr/bin/libreoffice', '/usr/local/bin/soffice', '/opt/homebrew/bin/soffice', '/Applications/LibreOffice.app/Contents/MacOS/soffice'].find(x => fs.existsSync(x));
 }
 async function affPptxToPdf(buf) {
@@ -5397,7 +5394,7 @@ app.delete('/api/affectation/template', requireAdmin, async (req, res) => {
 // ---- Export du planning des déploiements (PDF / PowerPoint) : le HTML mis en page à l'écran est rendu tel quel (WYSIWYG) ----
 // Chemin du navigateur : variable d'environnement (Docker), sinon Chrome / Chromium installé sur le poste (développement local)
 function affBrowserPath() {
-    if (process.env.PUPPETEER_EXECUTABLE_PATH) return process.env.PUPPETEER_EXECUTABLE_PATH;
+    if (appEnv.PUPPETEER_EXECUTABLE_PATH) return appEnv.PUPPETEER_EXECUTABLE_PATH;
     return ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/Applications/Chromium.app/Contents/MacOS/Chromium', '/usr/bin/chromium-browser', '/usr/bin/chromium', '/usr/bin/google-chrome'].find(x => fs.existsSync(x));
 }
 async function affRenderPages(html, wPx, hPx, mode, wMm, hMm, transparent) {
@@ -13122,7 +13119,7 @@ import('puppeteer').then(mod => {
 async function generateCraPdf(cra, astreintes, signatures, moisNom) {
     if (!puppeteer) throw new Error('Puppeteer non installé. Exécutez : npm install puppeteer');
     const html = buildCraPdfHtml({ cra, astreintes, signatures, moisNom });
-    const browser = await puppeteer.launch({ executablePath: process.env.PUPPETEER_EXECUTABLE_PATH, args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'], headless: 'new', protocolTimeout: 120000 });
+    const browser = await puppeteer.launch({ executablePath: appEnv.PUPPETEER_EXECUTABLE_PATH, args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'], headless: 'new', protocolTimeout: 120000 });
     try {
         const page = await browser.newPage();
         await page.setContent(html, { waitUntil: 'domcontentloaded' });
@@ -13292,7 +13289,7 @@ app.post('/api/cra/:id/diffusion-resend-all', requireAdmin, async (req, res) => 
 
         const senderName = `${req.session.prenom} ${req.session.nom}`;
         const senderEmail = req.session.email || '';
-        const appUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
+        const appUrl = appEnv.APP_URL || `${req.protocol}://${req.get('host')}`;
 
         (async () => {
             try {
@@ -13360,7 +13357,7 @@ app.post('/api/cra/:id/diffusion-resend/:logId', requireAdmin, async (req, res) 
         if (!cra || !logEntry) return res.status(404).json({ error: 'CRA ou log introuvable' });
         if (logEntry.recipient_type === 'expert') { // l'expert reçoit la notification (sans PDF), pas le document RH
             const mn = new Date(cra.annee, cra.mois - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
-            const appUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
+            const appUrl = appEnv.APP_URL || `${req.protocol}://${req.get('host')}`;
             const nb = generateICSUid();
             await enqueueEmail({
                 batchId: nb, recipientEmail: logEntry.recipient_email, recipientName: logEntry.recipient_name,
@@ -13388,7 +13385,7 @@ app.post('/api/cra/:id/diffusion-resend/:logId', requireAdmin, async (req, res) 
         const resourceRow = await new Promise((resolve, reject) =>
             database.get(`SELECT es_rattachement FROM resources WHERE id = ?`, [cra.resource_id], (err, r) => err ? reject(err) : resolve(r))
         );
-        const craHtml = buildCraDocumentHtml({ cra, astreintes, signatures, moisNom, esRattachement: resourceRow?.es_rattachement || '', appUrl: process.env.APP_URL || `${req.protocol}://${req.get('host')}`, logoSrc: 'cid:ans-logo' });
+        const craHtml = buildCraDocumentHtml({ cra, astreintes, signatures, moisNom, esRattachement: resourceRow?.es_rattachement || '', appUrl: appEnv.APP_URL || `${req.protocol}://${req.get('host')}`, logoSrc: 'cid:ans-logo' });
         const craHtmlPdf = buildCraDocumentHtml({ cra, astreintes, signatures, moisNom, esRattachement: resourceRow?.es_rattachement || '' });
         const rhSubject = `AGENCE DU NUMERIQUE EN SANTE - ${cra.expert_nom} - ${moisNom} - Compte-Rendu d'Activité (Renvoi)`;
         const pdfFilename = `CRA_${(cra.expert_nom||'').replace(/\s+/g,'_')}_${moisNomCap}.pdf`;
@@ -13411,7 +13408,7 @@ app.post('/api/cra/:id/diffusion-resend/:logId', requireAdmin, async (req, res) 
             let pdfBase64 = null;
             if (puppeteer) {
                 try {
-                    const browser = await puppeteer.launch({ executablePath: process.env.PUPPETEER_EXECUTABLE_PATH, headless: true, protocolTimeout: 120000, args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'] });
+                    const browser = await puppeteer.launch({ executablePath: appEnv.PUPPETEER_EXECUTABLE_PATH, headless: true, protocolTimeout: 120000, args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'] });
                     const page = await browser.newPage();
                     await page.setContent(craHtmlPdf, { waitUntil: 'domcontentloaded' });
                     const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '10mm', bottom: '10mm', left: '10mm', right: '10mm' } });
@@ -13476,7 +13473,7 @@ app.get('/api/cra/pdf-saved/:filename', requireAuth, async (req, res) => {
         const craHtmlPdf = buildCraDocumentHtml({ cra, astreintes, signatures, moisNom, esRattachement: cra.es_rattachement || '' });
 
         fs.mkdirSync(path.join(__dirname, 'data', 'pdfs'), { recursive: true });
-        const browser = await puppeteer.launch({ executablePath: process.env.PUPPETEER_EXECUTABLE_PATH, headless: true, protocolTimeout: 180000, args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'] });
+        const browser = await puppeteer.launch({ executablePath: appEnv.PUPPETEER_EXECUTABLE_PATH, headless: true, protocolTimeout: 180000, args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'] });
         const page = await browser.newPage();
         page.setDefaultNavigationTimeout(120000);
         await page.setContent(craHtmlPdf, { waitUntil: 'domcontentloaded' });
@@ -13661,7 +13658,7 @@ async function craMarkAdminModified(req, cra, force) {
         const ex = await dbGet('SELECT prenom, nom, email FROM users WHERE id = ?', [cra.user_id]);
         if (!ex || !ex.email) return false;
         const moisNom = new Date(cra.annee, cra.mois - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
-        const appUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
+        const appUrl = appEnv.APP_URL || `${req.protocol}://${req.get('host')}`;
         await enqueueEmail({
             batchId: generateICSUid(), recipientEmail: ex.email, recipientName: `${ex.prenom} ${ex.nom}`,
             senderName: adminNom, senderEmail: req.session.email || '',
@@ -13757,7 +13754,7 @@ app.post('/api/cra/:id/submit', requireAuth, async (req, res) => {
         const config = await getCraConfig();
         if (config?.admin_n1_email) {
             const moisNom = new Date(cra.annee, cra.mois - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
-            const appUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
+            const appUrl = appEnv.APP_URL || `${req.protocol}://${req.get('host')}`;
             await enqueueEmail({
                 batchId: generateICSUid(), recipientEmail: config.admin_n1_email, recipientName: config.admin_n1_nom,
                 senderName: `${req.session.prenom} ${req.session.nom}`, senderEmail: req.session.email || '',
@@ -13822,7 +13819,7 @@ app.post('/api/cra/:id/visa/:niveau', requireAdmin, async (req, res) => {
             );
         });
         const config = await getCraConfig();
-        const appUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
+        const appUrl = appEnv.APP_URL || `${req.protocol}://${req.get('host')}`;
         const craUrl = `${appUrl}/?tab=cra&cra_id=${craId}`;
         const moisNom = new Date(cra.annee, cra.mois - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
         const signerNom = `${req.session.prenom} ${req.session.nom}`;
@@ -13898,7 +13895,7 @@ app.post('/api/cra/:id/refuser/:niveau', requireAdmin, async (req, res) => {
 
         // Notifier l'expert par email
         const config = await getCraConfig();
-        const appUrl = process.env.APP_URL || global._detectedAppUrl || 'http://localhost:3000';
+        const appUrl = appEnv.APP_URL || global._detectedAppUrl || 'http://localhost:3000';
         const craUrl = `${appUrl}/?tab=cra&cra_id=${craId}`;
         const moisNom = new Date(parseInt(cra.annee), parseInt(cra.mois)-1, 1)
             .toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
@@ -14031,7 +14028,7 @@ app.post('/api/cra/:id/prepare-pdf', requireAdminOrRh, async (req, res) => {
         const { mkdirSync } = await import('fs');
         try { mkdirSync('./data/pdfs', { recursive: true }); } catch(e) {}
 
-        const browser = await puppeteer.launch({ executablePath: process.env.PUPPETEER_EXECUTABLE_PATH, headless: true, protocolTimeout: 180000, args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'] });
+        const browser = await puppeteer.launch({ executablePath: appEnv.PUPPETEER_EXECUTABLE_PATH, headless: true, protocolTimeout: 180000, args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'] });
         const page = await browser.newPage();
         page.setDefaultNavigationTimeout(120000);
         await page.setContent(craHtmlPdf, { waitUntil: 'domcontentloaded' });
@@ -14085,7 +14082,7 @@ app.post('/api/cra/:id/diffuser', requireAdmin, async (req, res) => {
             new Promise((resolve, reject) => database.all(`SELECT * FROM cra_signatures WHERE cra_id = ? ORDER BY rang`, [craId], (err, rows) => err ? reject(err) : resolve(rows || [])))
         ]);
         const moisNom = new Date(cra.annee, cra.mois - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
-        const craHtml = buildCraDocumentHtml({ cra, astreintes, signatures, moisNom, esRattachement: cra.es_rattachement || '', appUrl: process.env.APP_URL || `${req.protocol}://${req.get('host')}`, logoSrc: 'cid:ans-logo' });
+        const craHtml = buildCraDocumentHtml({ cra, astreintes, signatures, moisNom, esRattachement: cra.es_rattachement || '', appUrl: appEnv.APP_URL || `${req.protocol}://${req.get('host')}`, logoSrc: 'cid:ans-logo' });
         const rhSubject = `AGENCE DU NUMERIQUE EN SANTE - ${cra.expert_nom} - ${moisNom} - Compte-Rendu d'Activité`;
         const batchId = generateICSUid();
         const senderName = `${req.session.prenom} ${req.session.nom}`;
@@ -14110,7 +14107,7 @@ app.post('/api/cra/:id/diffuser', requireAdmin, async (req, res) => {
 
         // Email à l'expert (sans PDF)
         for (const exp of expertRecipients) {
-            const appUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
+            const appUrl = appEnv.APP_URL || `${req.protocol}://${req.get('host')}`;
             await enqueueEmail({
                 batchId: (exp._batch = generateICSUid()), recipientEmail: exp.email, recipientName: exp.nom || exp.email,
                 senderName, senderEmail,
@@ -14168,7 +14165,7 @@ async function runAutomation4() {
                 (err, rows) => err ? reject(err) : resolve(rows || [])
             );
         });
-        const appUrl = process.env.APP_URL || global._detectedAppUrl || 'http://localhost:3000';
+        const appUrl = appEnv.APP_URL || global._detectedAppUrl || 'http://localhost:3000';
         let sent = 0;
         for (const expert of experts) {
             // INSERT si inexistant, puis toujours SELECT l'id (lastID non fiable sur IGNORE)
@@ -14279,7 +14276,7 @@ app.post('/api/automation/cra/trigger', requireAdmin, async (req, res) => {
         log(`Experts astreinte trouvés : ${experts.length}${filterUserId ? ` (filtré sur user_id=${filterUserId})` : ''}`);
         experts.forEach(e => log(`  • ${e.prenom} ${e.nom} — email: ${e.email || '⚠️ MANQUANT'}`));
 
-        const appUrl = process.env.APP_URL || global._detectedAppUrl || 'http://localhost:3000';
+        const appUrl = appEnv.APP_URL || global._detectedAppUrl || 'http://localhost:3000';
         log(`URL app : ${appUrl}`);
         log(`SMTP expéditeur : ${emailConfig?.user || '⚠️ non configuré'}`);
 
@@ -14859,9 +14856,14 @@ app.post('/api/teams/notify', requireAuth, async (req, res) => {
             default:
                 return res.json({ success: false, reason: 'Type de notification inconnu' });
         }
-        
+
+        const transporter = createEmailTransporter();
+        if (!transporter) {
+            return res.json({ success: false, reason: 'Transporteur email non disponible' });
+        }
+
         const mailOptions = {
-            from: `"Planning ANS" <${process.env.SMTP_USER || 'noreply@esante.gouv.fr'}>`,
+            from: `"Planning ANS" <${appEnv.SMTP_USER || 'noreply@esante.gouv.fr'}>`,
             to: config.teamsEmail,
             subject: `${subject} - Planning ANS`,
             html: `
