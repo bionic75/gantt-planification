@@ -1,0 +1,1487 @@
+[
+    {
+        "method": "GET",
+        "path": "/api/active-sessions",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/admin/api-keys",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/admin/api-keys",
+        "guard": "admin"
+    },
+    {
+        "method": "DELETE",
+        "path": "/api/admin/api-keys/:id",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/admin/dump",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/admin/dump/inspect",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/admin/dump/restore",
+        "guard": "admin"
+    },
+    {
+        "method": "DELETE",
+        "path": "/api/admin/dump/upload/:token",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/affectation/asana/apply",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/affectation/asana/config",
+        "guard": "admin"
+    },
+    {
+        "method": "PUT",
+        "path": "/api/affectation/asana/config",
+        "guard": "admin"
+    },
+    {
+        "method": "PUT",
+        "path": "/api/affectation/asana/links",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/affectation/asana/preview",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/affectation/asana/projects",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/affectation/asana/refresh-all",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/affectation/asana/teams",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/affectation/asana/test",
+        "guard": "admin"
+    },
+    {
+        "method": "DELETE",
+        "path": "/api/affectation/asana/token",
+        "guard": "admin"
+    },
+    {
+        "method": "PUT",
+        "path": "/api/affectation/colors",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/affectation/config",
+        "guard": "affectation"
+    },
+    {
+        "method": "GET",
+        "path": "/api/affectation/events",
+        "guard": "affectation"
+    },
+    {
+        "method": "GET",
+        "path": "/api/affectation/export-config",
+        "guard": "affectation"
+    },
+    {
+        "method": "PUT",
+        "path": "/api/affectation/export-config",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/affectation/export/pdf",
+        "guard": "affectation"
+    },
+    {
+        "method": "POST",
+        "path": "/api/affectation/export/pptx",
+        "guard": "affectation"
+    },
+    {
+        "method": "POST",
+        "path": "/api/affectation/import/asana-csv",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/affectation/import/asana-csv/apply",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/affectation/projects",
+        "guard": "affectation"
+    },
+    {
+        "method": "POST",
+        "path": "/api/affectation/projects",
+        "guard": "admin"
+    },
+    {
+        "method": "DELETE",
+        "path": "/api/affectation/projects/:id",
+        "guard": "admin"
+    },
+    {
+        "method": "PUT",
+        "path": "/api/affectation/projects/:id",
+        "guard": "admin"
+    },
+    {
+        "method": "PUT",
+        "path": "/api/affectation/projects/:id/asana-overrides",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/affectation/projects/:id/asana-refresh",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/affectation/projects/:id/asana-tasks",
+        "guard": "admin"
+    },
+    {
+        "method": "PUT",
+        "path": "/api/affectation/projects/:id/assignments/:stage",
+        "guard": "affectation"
+    },
+    {
+        "method": "POST",
+        "path": "/api/affectation/projects/:id/assignments/:stage/release",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/affectation/projects/:id/availability/:stage",
+        "guard": "affectation"
+    },
+    {
+        "method": "POST",
+        "path": "/api/affectation/projects/:id/event-create",
+        "guard": "admin"
+    },
+    {
+        "method": "PUT",
+        "path": "/api/affectation/projects/:id/event-link",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/affectation/projects/:id/events-candidates",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/affectation/projects/:id/history",
+        "guard": "affectation"
+    },
+    {
+        "method": "GET",
+        "path": "/api/affectation/projects/:id/sync/:stage",
+        "guard": "affectation"
+    },
+    {
+        "method": "POST",
+        "path": "/api/affectation/projects/:id/sync/:stage",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/affectation/resources",
+        "guard": "affectation"
+    },
+    {
+        "method": "GET",
+        "path": "/api/affectation/stage-event-types",
+        "guard": "affectation"
+    },
+    {
+        "method": "PUT",
+        "path": "/api/affectation/stage-event-types",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/affectation/sync-from-events",
+        "guard": "affectation"
+    },
+    {
+        "method": "DELETE",
+        "path": "/api/affectation/template",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/affectation/template",
+        "guard": "affectation"
+    },
+    {
+        "method": "PUT",
+        "path": "/api/affectation/template",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/affectation/template/preview",
+        "guard": "affectation"
+    },
+    {
+        "method": "GET",
+        "path": "/api/affectation/users",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/all-astreintes-planning",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/app-access",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/app-access/:app/users",
+        "guard": "admin"
+    },
+    {
+        "method": "DELETE",
+        "path": "/api/app-access/:app/users/:userId",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/astreinte/dispos/:expertId/:mois",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/astreinte/dispos/:expertId/:mois",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/astreinte/generate",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/astreinte/indispo",
+        "guard": "admin"
+    },
+    {
+        "method": "DELETE",
+        "path": "/api/astreinte/indispo/:id",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/astreinte/indispos",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/astreinte/planning/:mois",
+        "guard": "admin"
+    },
+    {
+        "method": "PUT",
+        "path": "/api/astreinte/slot/:id",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/astreinte/volontaire/:id",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/astreinte/volontaires",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/astreintes",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/astreintes",
+        "guard": "auth"
+    },
+    {
+        "method": "DELETE",
+        "path": "/api/astreintes-hno/:id",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/astreintes-hno/direct",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/astreintes-hno/direct",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/astreintes-hno/lock-check",
+        "guard": "auth"
+    },
+    {
+        "method": "DELETE",
+        "path": "/api/astreintes/:id",
+        "guard": "auth"
+    },
+    {
+        "method": "PUT",
+        "path": "/api/astreintes/:id",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/automation/available-months",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/automation/cleanup-dates-execute",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/automation/cleanup-dates-preview",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/automation/config/:id",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/automation/config/:id",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/automation/cra/trigger",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/automation/diagnose-months",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/automation/download/2/:logId",
+        "guard": "admin"
+    },
+    {
+        "method": "DELETE",
+        "path": "/api/automation/logs/:id",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/automation/logs/:id",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/automation/preview/2",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/automation/send-reminder",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/automation/send/2",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/automation/test/1",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/bons-commande",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/bons-commande",
+        "guard": "auth"
+    },
+    {
+        "method": "DELETE",
+        "path": "/api/bons-commande/:id",
+        "guard": "auth"
+    },
+    {
+        "method": "PUT",
+        "path": "/api/bons-commande/:id",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/check-session",
+        "guard": "public"
+    },
+    {
+        "method": "GET",
+        "path": "/api/cra/:id",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/cra/:id/admin-correction",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/cra/:id/archive",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/cra/:id/astreintes",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/cra/:id/collect",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/cra/:id/diffuser",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/cra/:id/diffusion-log",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/cra/:id/diffusion-recipients",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/cra/:id/diffusion-resend-all",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/cra/:id/diffusion-resend/:logId",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/cra/:id/pdf",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/cra/:id/prepare-pdf",
+        "guard": "adminOrRh"
+    },
+    {
+        "method": "POST",
+        "path": "/api/cra/:id/propagate",
+        "guard": "auth"
+    },
+    {
+        "method": "DELETE",
+        "path": "/api/cra/:id/purge",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/cra/:id/recall",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/cra/:id/refuser/:niveau",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/cra/:id/restore-deleted",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/cra/:id/return-to-expert",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/cra/:id/rien-a-declarer",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/cra/:id/soft-delete",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/cra/:id/submit",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/cra/:id/unarchive",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/cra/:id/visa/:niveau",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/cra/admin/archives",
+        "guard": "adminOrRh"
+    },
+    {
+        "method": "GET",
+        "path": "/api/cra/admin/deleted",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/cra/admin/list",
+        "guard": "adminOrRh"
+    },
+    {
+        "method": "GET",
+        "path": "/api/cra/all-experts",
+        "guard": "adminOrRh"
+    },
+    {
+        "method": "GET",
+        "path": "/api/cra/all-experts-full",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/cra/experts-astreinte",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/cra/find-or-create",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/cra/launch",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/cra/my-list",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/cra/pdf-saved/:filename",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/cra/rh-recipients",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/custom-events",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/custom-events",
+        "guard": "admin"
+    },
+    {
+        "method": "DELETE",
+        "path": "/api/custom-events/:id",
+        "guard": "admin"
+    },
+    {
+        "method": "PUT",
+        "path": "/api/custom-events/:id",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/custom-events/search",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/deplacements",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/deplacements",
+        "guard": "auth"
+    },
+    {
+        "method": "DELETE",
+        "path": "/api/deplacements/:id",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/deplacements/:id",
+        "guard": "auth"
+    },
+    {
+        "method": "PUT",
+        "path": "/api/deplacements/:id",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/deplacements/:id/reaffecter",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/deplacements/:id/regularisation",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/deplacements/regularisation-technique",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/email-config",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/email-config",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/email-config/test",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/email-queue/status/:batchId",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/event-types",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/event-types",
+        "guard": "admin"
+    },
+    {
+        "method": "DELETE",
+        "path": "/api/event-types/:id",
+        "guard": "admin"
+    },
+    {
+        "method": "PUT",
+        "path": "/api/event-types/:id",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/event-types/events",
+        "guard": "admin"
+    },
+    {
+        "method": "PUT",
+        "path": "/api/event-types/events/bulk",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/experts-list",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/export/gantt",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/export/resources",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/forgot-password",
+        "guard": "public"
+    },
+    {
+        "method": "GET",
+        "path": "/api/help/info",
+        "guard": "admin"
+    },
+    {
+        "method": "DELETE",
+        "path": "/api/help/upload",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/help/upload",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/ics-files/school-holidays",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/ics-files/school-holidays",
+        "guard": "admin"
+    },
+    {
+        "method": "DELETE",
+        "path": "/api/ics-files/school-holidays/:id",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/ics-files/school-holidays/all-periods",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/ics-files/special-dates",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/ics-files/special-dates",
+        "guard": "admin"
+    },
+    {
+        "method": "DELETE",
+        "path": "/api/ics-files/special-dates/:id",
+        "guard": "admin"
+    },
+    {
+        "method": "PUT",
+        "path": "/api/ics-files/special-dates/:id/config",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/ics-files/special-dates/all",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/liste-samu",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/locations",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/locations",
+        "guard": "auth"
+    },
+    {
+        "method": "DELETE",
+        "path": "/api/locations/:id",
+        "guard": "admin"
+    },
+    {
+        "method": "PUT",
+        "path": "/api/locations/:id",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/locations/:id/usage",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/locations/import",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/locations/import/resolve",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/login",
+        "guard": "public"
+    },
+    {
+        "method": "POST",
+        "path": "/api/logout",
+        "guard": "public"
+    },
+    {
+        "method": "GET",
+        "path": "/api/logs/actions",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/logs/add-modification",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/logs/planning-debug",
+        "guard": "admin"
+    },
+    {
+        "method": "DELETE",
+        "path": "/api/logs/purge-all",
+        "guard": "admin"
+    },
+    {
+        "method": "DELETE",
+        "path": "/api/logs/raz",
+        "guard": "admin"
+    },
+    {
+        "method": "PUT",
+        "path": "/api/me/samu-assignments",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/mes-astreintes",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/mes-deplacements",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/mfa/config",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/mfa/config",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/mfa/reset-all",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/mfa/reset-totp/:userId",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/mfa/send-code",
+        "guard": "mfaPending"
+    },
+    {
+        "method": "POST",
+        "path": "/api/mfa/totp-confirm",
+        "guard": "mfaPending"
+    },
+    {
+        "method": "POST",
+        "path": "/api/mfa/totp-setup",
+        "guard": "mfaPending"
+    },
+    {
+        "method": "GET",
+        "path": "/api/mfa/totp-status/:userId",
+        "guard": "mfaPending"
+    },
+    {
+        "method": "POST",
+        "path": "/api/mfa/verify",
+        "guard": "mfaPending"
+    },
+    {
+        "method": "GET",
+        "path": "/api/mobile-events",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/mobile-login",
+        "guard": "public"
+    },
+    {
+        "method": "GET",
+        "path": "/api/my-custom-events",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/my-custom-events",
+        "guard": "auth"
+    },
+    {
+        "method": "DELETE",
+        "path": "/api/my-custom-events/:id",
+        "guard": "admin"
+    },
+    {
+        "method": "PUT",
+        "path": "/api/my-custom-events/:id",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/my-custom-events/:id/join",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/notifications/clear-all",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/notifications/count",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/notifications/create-batch",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/notifications/list",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/notifications/mark-read",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/pending-notifications",
+        "guard": "auth"
+    },
+    {
+        "method": "DELETE",
+        "path": "/api/pending-notifications/:sessionId",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/pending-notifications/:sessionId",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/poi",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/poi",
+        "guard": "auth"
+    },
+    {
+        "method": "DELETE",
+        "path": "/api/poi/:id",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/poi/:id",
+        "guard": "auth"
+    },
+    {
+        "method": "PUT",
+        "path": "/api/poi/:id",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/poi/:id/comments",
+        "guard": "auth"
+    },
+    {
+        "method": "DELETE",
+        "path": "/api/poi/:id/rating",
+        "guard": "auth"
+    },
+    {
+        "method": "PUT",
+        "path": "/api/poi/:id/rating",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/poi/:id/route",
+        "guard": "auth"
+    },
+    {
+        "method": "DELETE",
+        "path": "/api/poi/comments/:cid",
+        "guard": "auth"
+    },
+    {
+        "method": "PUT",
+        "path": "/api/poi/comments/:cid",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/poi/meta",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/poi/places",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/profile/change-password",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/profile/photo",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/profile/photo",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/public/events",
+        "guard": "apiKey"
+    },
+    {
+        "method": "POST",
+        "path": "/api/push-message",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/reporting-deplacements",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/reporting/availability",
+        "guard": "reporting"
+    },
+    {
+        "method": "GET",
+        "path": "/api/reporting/connections",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/reporting/diagnose/:expertId/:year/:month",
+        "guard": "reporting"
+    },
+    {
+        "method": "GET",
+        "path": "/api/reporting/events-map",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/reporting/hno-astreintes",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/request-assignment",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/reset-password",
+        "guard": "public"
+    },
+    {
+        "method": "POST",
+        "path": "/api/reset-password/check",
+        "guard": "public"
+    },
+    {
+        "method": "GET",
+        "path": "/api/resource-samu-assignments",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/resources",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/resources",
+        "guard": "admin"
+    },
+    {
+        "method": "DELETE",
+        "path": "/api/resources/:id",
+        "guard": "admin"
+    },
+    {
+        "method": "PUT",
+        "path": "/api/resources/:id",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/resources/:id/astreinte",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/resources/:id/effective-mad-rate",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/resources/:id/mad-history",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/resources/:id/mad-history",
+        "guard": "admin"
+    },
+    {
+        "method": "DELETE",
+        "path": "/api/resources/:id/mad-history/:historyId",
+        "guard": "admin"
+    },
+    {
+        "method": "PUT",
+        "path": "/api/resources/:id/mad-history/:historyId",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/resources/:id/mad-history/:historyId/particularites",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/resources/:id/mad-history/:historyId/particularites",
+        "guard": "admin"
+    },
+    {
+        "method": "DELETE",
+        "path": "/api/resources/:id/mad-history/:historyId/particularites/:particulariteId",
+        "guard": "admin"
+    },
+    {
+        "method": "PUT",
+        "path": "/api/resources/:id/mad-history/:historyId/particularites/:particulariteId",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/resources/:id/samu-assignments",
+        "guard": "auth"
+    },
+    {
+        "method": "PUT",
+        "path": "/api/resources/:id/samu-assignments",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/resources/:id/toggle",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/resources/experts-map",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/schedule",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/schedule",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/schedule/cleanup-old-format",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/schedule/preview-reset-month",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/schedule/reset-month",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/schedule/save",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/school-holidays",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/school-holidays",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/send-assignment-emails",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/send-assignment-notifications",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/send-calendar-email",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/settings",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/settings",
+        "guard": "admin"
+    },
+    {
+        "method": "PUT",
+        "path": "/api/settings",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/sse",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/switch-profile",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/system/version",
+        "guard": "public"
+    },
+    {
+        "method": "POST",
+        "path": "/api/system/version",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/tab-access",
+        "guard": "auth"
+    },
+    {
+        "method": "PUT",
+        "path": "/api/tab-access",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/teams/notify",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/teams/test",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/theme",
+        "guard": "public"
+    },
+    {
+        "method": "PUT",
+        "path": "/api/theme",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/user/email-by-resource/:resourceId",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/user/profiles",
+        "guard": "public"
+    },
+    {
+        "method": "GET",
+        "path": "/api/users",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/users",
+        "guard": "admin"
+    },
+    {
+        "method": "DELETE",
+        "path": "/api/users/:id",
+        "guard": "admin"
+    },
+    {
+        "method": "PUT",
+        "path": "/api/users/:id",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/users/:id/amoa-ced",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/users/:id/astreinte-access",
+        "guard": "admin"
+    },
+    {
+        "method": "PUT",
+        "path": "/api/users/:id/default-tab",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/users/:id/force-logout",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/users/:id/reporting-access",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/users/:id/reset-password",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/users/:id/rh-access",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/users/:id/toggle",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/users/amoa-ced",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/users/change-password",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/users/public",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/users/search",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/version",
+        "guard": "public"
+    }
+]

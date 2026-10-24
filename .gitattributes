@@ -1,0 +1,3 @@
+# Fins de ligne LF pour tous les fichiers texte, y compris sous Windows : les migrations SQL sont identifiées par
+# l'empreinte de leur contenu (table _prisma_migrations), qui doit être la même sur tous les postes et serveurs.
+* text=auto eol=lf

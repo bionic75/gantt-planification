@@ -3326,7 +3326,7 @@
         <div class="modal-content" style="max-width: 450px;">
             <h3>Mot de passe oublié</h3>
             <p style="font-size: 13px; color: #7f8c8d; margin-bottom: 15px;">
-                Entrez votre identifiant. Un nouveau mot de passe sera envoyé à l'adresse email associée à votre compte.
+                Entrez votre identifiant. Un lien pour choisir un nouveau mot de passe sera envoyé à l'adresse email associée à votre compte.
             </p>
             <div class="form-group">
                 <label>Identifiant</label>
@@ -3339,7 +3339,30 @@
             </div>
         </div>
     </div>
-    
+
+    <!-- Nouveau mot de passe, ouvert depuis le lien reçu par email (?reset_token=...) -->
+    <div id="newPasswordModal" class="modal">
+        <div class="modal-content" style="max-width: 450px;">
+            <h3>Choisir un nouveau mot de passe</h3>
+            <p id="newPasswordRule" style="font-size: 13px; color: #7f8c8d; margin-bottom: 15px;"></p>
+            <div id="newPasswordForm">
+                <div class="form-group">
+                    <label>Nouveau mot de passe</label>
+                    <input type="password" id="newPasswordValue" autocomplete="new-password">
+                </div>
+                <div class="form-group">
+                    <label>Confirmation</label>
+                    <input type="password" id="newPasswordConfirm" autocomplete="new-password">
+                </div>
+            </div>
+            <div id="newPasswordMessage" style="display: none; padding: 10px; border-radius: 4px; margin-top: 10px; font-size: 13px;"></div>
+            <div class="modal-button-group">
+                <button onclick="closeNewPasswordModal()" style="background-color: #95a5a6;">Fermer</button>
+                <button onclick="submitNewPassword()" id="newPasswordButton">Valider</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal MFA - Saisie du code -->
     <div id="mfaCodeModal" class="modal">
         <div class="modal-content" style="max-width: 420px; text-align: center;">
@@ -3986,7 +4009,8 @@
             });
         }
 
-        window.addEventListener('load', async () => { 
+        window.addEventListener('load', async () => {
+            openPasswordResetFromUrl();
             await checkSession();
             
             // Gérer l'affichage du select ressource quand Expert Métier est coché
@@ -7911,40 +7935,14 @@
                     // Démarrer le compte à rebours
                     startResetPasswordTimer(data.remainingSeconds);
                 } else if (data.success) {
+                    // Réponse identique que le compte existe ou non : le lien arrive par email
                     messageDiv.style.display = 'block';
-                    if (data.emailSent) {
-                        messageDiv.style.backgroundColor = '#d4edda';
-                        messageDiv.style.color = '#155724';
-                        messageDiv.textContent = '✅ ' + data.message;
-                        
-                        // Fermer la modale après 5 secondes si succès complet
-                        setTimeout(() => {
-                            closeForgotPasswordModal();
-                        }, 5000);
-                    } else {
-                        // Email non envoyé - afficher le mot de passe et l'erreur
-                        messageDiv.style.backgroundColor = '#fff3cd';
-                        messageDiv.style.color = '#856404';
-                        
-                        let messageHTML = '⚠️ ' + data.message;
-                        
-                        // Afficher le mot de passe temporaire si disponible
-                        if (data.tempPassword) {
-                            messageHTML += '<br><br><strong>Votre nouveau mot de passe :</strong><br>';
-                            messageHTML += `<code style="background-color: #fff; padding: 8px 12px; border-radius: 3px; font-size: 14px; display: inline-block; margin-top: 5px; color: #333; border: 1px solid #ddd;">${data.tempPassword}</code>`;
-                            messageHTML += '<br><small style="font-size: 11px;">Copiez ce mot de passe avant de fermer cette fenêtre.</small>';
-                        }
-                        
-                        // Afficher l'erreur email si disponible
-                        if (data.emailError) {
-                            messageHTML += `<br><br><small style="font-size: 11px;">Erreur technique : ${data.emailError}</small>`;
-                        }
-                        
-                        messageDiv.innerHTML = messageHTML;
-                    }
-                    
-                    // Démarrer le compte à rebours de 30 secondes
-                    startResetPasswordTimer(30);
+                    messageDiv.style.backgroundColor = '#d4edda';
+                    messageDiv.style.color = '#155724';
+                    messageDiv.textContent = '✅ ' + data.message;
+
+                    // Une nouvelle demande pour le même compte n'est prise en compte qu'après 60 secondes
+                    startResetPasswordTimer(60);
                 } else {
                     messageDiv.style.display = 'block';
                     messageDiv.style.backgroundColor = '#f8d7da';
@@ -7990,6 +7988,87 @@
                     button.textContent = `Réessayer dans ${resetPasswordRemainingSeconds}s`;
                 }
             }, 1000);
+        }
+
+        // ----- Nouveau mot de passe depuis le lien reçu par email -----
+        let passwordResetToken = null;
+
+        function showNewPasswordMessage(text, ok) {
+            const messageDiv = document.getElementById('newPasswordMessage');
+            messageDiv.style.display = 'block';
+            messageDiv.style.backgroundColor = ok ? '#d4edda' : '#f8d7da';
+            messageDiv.style.color = ok ? '#155724' : '#721c24';
+            messageDiv.textContent = text;
+        }
+
+        // Au chargement : le jeton est retiré de l'URL (historique, en-tête Referer) puis vérifié
+        async function openPasswordResetFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            const token = params.get('reset_token');
+            if (!token) return;
+            params.delete('reset_token');
+            const query = params.toString();
+            history.replaceState(null, '', window.location.pathname + (query ? `?${query}` : '') + window.location.hash);
+
+            passwordResetToken = token;
+            document.getElementById('newPasswordModal').classList.add('active');
+            document.getElementById('newPasswordMessage').style.display = 'none';
+            try {
+                const response = await fetch(`${API_URL}/reset-password/check`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ token })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Lien invalide');
+                document.getElementById('newPasswordRule').textContent = `Règle : ${data.passwordRule}.`;
+                document.getElementById('newPasswordForm').style.display = 'block';
+                document.getElementById('newPasswordButton').style.display = '';
+            } catch (error) {
+                passwordResetToken = null;
+                document.getElementById('newPasswordForm').style.display = 'none';
+                document.getElementById('newPasswordButton').style.display = 'none';
+                showNewPasswordMessage('❌ ' + error.message, false);
+            }
+        }
+
+        async function submitNewPassword() {
+            const newPassword = document.getElementById('newPasswordValue').value;
+            const confirmation = document.getElementById('newPasswordConfirm').value;
+            if (!passwordResetToken) return;
+            if (newPassword !== confirmation) {
+                showNewPasswordMessage('❌ Les deux mots de passe ne correspondent pas', false);
+                return;
+            }
+
+            const button = document.getElementById('newPasswordButton');
+            button.disabled = true;
+            try {
+                const response = await fetch(`${API_URL}/reset-password`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ token: passwordResetToken, newPassword })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Erreur lors de la modification');
+                passwordResetToken = null;
+                document.getElementById('newPasswordForm').style.display = 'none';
+                button.style.display = 'none';
+                showNewPasswordMessage('✅ ' + data.message, true);
+            } catch (error) {
+                showNewPasswordMessage('❌ ' + error.message, false);
+            } finally {
+                button.disabled = false;
+            }
+        }
+
+        function closeNewPasswordModal() {
+            passwordResetToken = null;
+            document.getElementById('newPasswordModal').classList.remove('active');
+            document.getElementById('newPasswordValue').value = '';
+            document.getElementById('newPasswordConfirm').value = '';
         }
 
         async function loadResources() {
