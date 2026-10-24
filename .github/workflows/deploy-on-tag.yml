@@ -74,6 +74,9 @@ jobs:
                   file: Dockerfile
                   load: true
                   push: false
+                  # Client Prisma généré pour la base de production (variable du dépôt DB_PROVIDER, sqlite par défaut)
+                  build-args: |
+                      DB_PROVIDER=${{ vars.DB_PROVIDER || 'sqlite' }}
                   #platforms: linux/amd64
                   tags: |
                       ${{ env.REGISTRY }}/${{ steps.extract-metadata.outputs.REPO_FULLNAME }}:latest

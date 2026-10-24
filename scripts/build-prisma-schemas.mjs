@@ -5,13 +5,15 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const base = fs.readFileSync(path.join(ROOT, 'prisma/schema.base.prisma'), 'utf8');
+// Fins de ligne normalisées (le fichier peut être extrait en CRLF sous Windows)
+const base = fs.readFileSync(path.join(ROOT, 'prisma/schema.base.prisma'), 'utf8').replace(/\r\n/g, '\n');
 
-// Horodatage par défaut au format historique « AAAA-MM-JJ HH:MM:SS » (UTC)
+// Horodatage par défaut au format historique « AAAA-MM-JJ HH:MM:SS » (UTC). Expressions écrites sous la forme
+// normalisée renvoyée par chaque base : sinon « prisma migrate diff » signale un écart sur chaque colonne.
 const TIMESTAMP_DEFAULT = {
     sqlite: 'CURRENT_TIMESTAMP',
-    postgresql: "to_char(timezone('UTC', now()), 'YYYY-MM-DD HH24:MI:SS')",
-    mysql: "(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))"
+    postgresql: "to_char(timezone('UTC'::text, now()), 'YYYY-MM-DD HH24:MI:SS'::text)",
+    mysql: "(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))"
 };
 // Colonnes texte à valeur par défaut pouvant contenir de longs contenus (JSON, journaux)
 const LARGE_WITH_DEFAULT = new Set(['periods', 'modifications']);
@@ -62,12 +64,13 @@ function transform(provider) {
                 }
                 if (provider === 'mysql') {
                     const literal = /@default\("([^"]*)"\)/.exec(attrs);
-                    if (isTimestamp) attrs = ` @db.VarChar(19)${attrs}`;
+                    // 32 : format « AAAA-MM-JJ HH:MM:SS », ou horodatage ISO (24 caractères) écrit par certaines fonctions
+                    if (isTimestamp) attrs = ` @db.VarChar(32)${attrs}`;
                     else if (indexed.has(name)) attrs = ` @db.VarChar(191)${attrs}`;
-                    else if (literal && LARGE_WITH_DEFAULT.has(name)) {
-                        // MySQL / MariaDB : valeur par défaut d'une colonne TEXT sous forme d'expression
-                        attrs = ` @db.LongText${attrs.replace(literal[0], `@default(dbgenerated("('${literal[1]}')"))`)}`;
-                    } else if (literal) attrs = ` @db.VarChar(191)${attrs}`;
+                    // Colonne longue à valeur par défaut : la migration initiale l'écrit sous forme d'expression ('…'),
+                    // que MariaDB restitue comme une valeur simple : même forme dans le schéma (pas d'écart signalé)
+                    else if (literal && LARGE_WITH_DEFAULT.has(name)) attrs = ` @db.LongText${attrs}`;
+                    else if (literal) attrs = ` @db.VarChar(191)${attrs}`;
                     else attrs = ` @db.LongText${attrs}`;
                 }
                 return `${indent}${name}${sp}String${opt}${attrs.replace(/\s+$/, '')}`;

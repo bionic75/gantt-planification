@@ -12,6 +12,7 @@
     "db:migrate": "node scripts/db-migrate.mjs",
     "db:adopt": "node scripts/db-adopt.mjs",
     "db:migration": "node scripts/create-migration.mjs",
+    "db:transfer": "node scripts/db-transfer.mjs",
     "db:schemas": "node scripts/build-prisma-schemas.mjs && prisma format --schema prisma/sqlite/schema.prisma && prisma format --schema prisma/postgresql/schema.prisma && prisma format --schema prisma/mysql/schema.prisma",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -58,6 +59,8 @@
     "eslint": "^10.13.0",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.13.0",
+    "mariadb": "^3.5.4",
+    "pg": "^8.23.1",
     "prettier": "^3.9.10",
     "sqlite3": "^5.1.7",
     "vitest": "^5.0.5"

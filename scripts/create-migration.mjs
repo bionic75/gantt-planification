@@ -36,7 +36,9 @@ for (const provider of ['sqlite', 'postgresql', 'mysql']) {
     const dir = path.join(ROOT, 'prisma', provider);
     const schema = path.join(dir, 'schema.prisma');
     const snapshot = path.join(dir, 'migrations', 'schema.snapshot.prisma');
-    const sql = prismaCli(['migrate', 'diff', '--from-schema', snapshot, '--to-schema', schema, '--script'], provider);
+    let sql = prismaCli(['migrate', 'diff', '--from-schema', snapshot, '--to-schema', schema, '--script'], provider);
+    // MariaDB : collation Unicode 14 (ordre français, comme fr-FR) au lieu de celle choisie par Prisma (Unicode 4.0)
+    if (provider === 'mysql') sql = sql.replaceAll('utf8mb4_unicode_ci', 'utf8mb4_uca1400_ai_ci');
     if (!/\S/.test(sql.replace(/^--.*$/gm, ''))) {
         console.log(`${provider} : aucune modification`);
         continue;
