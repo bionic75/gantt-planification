@@ -2,7 +2,8 @@
 // Accès aux données du planning.
 // Une cellule est identifiée par la clé « <resourceId>_<type>_<AAAA-MM-JJ>_<AM|PM> » ;
 // type : available (disponibilité), activity (affectation) ou localisation.
-import { database, dbAll, dbGet, dbRun } from '../../db/database.js';
+import { prisma } from '../../db/prisma.js';
+import { idParam } from '../../db/values.js';
 
 /** Libellés des activités journalisées dans action_logs */
 const LOGGED_ACTIVITIES = {
@@ -24,9 +25,24 @@ export function parseKey(key) {
     return { resourceId: parts[0], type: parts[1], dateKey: parts.slice(2).join('_') };
 }
 
+/**
+ * Cellule à enregistrer, ou null si la clé ou la valeur est inutilisable (refusée par la base auparavant)
+ * @param {string} key
+ * @param {unknown} value
+ */
+function toCell(key, value) {
+    const { resourceId, type, dateKey } = parseKey(key);
+    const resource_id = Number(resourceId);
+    if (!Number.isSafeInteger(resource_id) || type === undefined || value === null || value === undefined) return null;
+    return { resource_id, type, date_key: dateKey, value: String(value) };
+}
+
 /** Planning complet, sous forme { clé: valeur } */
 export async function getSchedule() {
-    const rows = await dbAll('SELECT * FROM schedule_data');
+    const rows = await prisma.scheduleData.findMany({
+        select: { resource_id: true, type: true, date_key: true, value: true },
+        orderBy: { id: 'asc' }
+    });
     /** @type {Record<string, string>} */
     const data = {};
     for (const row of rows) data[`${row.resource_id}_${row.type}_${row.date_key}`] = row.value;
@@ -41,40 +57,40 @@ export async function getSchedule() {
  * @param {boolean} notifyExpert
  */
 export async function upsertCellWithNotification(key, value, notifyExpert) {
-    const { resourceId, type, dateKey } = parseKey(key);
+    const cell = toCell(key, value);
+    if (!cell) return console.error('Erreur insert schedule: cellule invalide', key);
     const notification = notifyExpert ? '1' : '0';
-    await dbRun(
-        `INSERT INTO schedule_data (resource_id, date_key, type, value, notification)
-         VALUES (?, ?, ?, ?, ?)
-         ON CONFLICT(resource_id, date_key, type)
-         DO UPDATE SET value = excluded.value, notification = ?`,
-        [resourceId, dateKey, type, value, notification, notification]
-    ).catch(err => console.error('Erreur insert schedule:', err));
+    const { resource_id, date_key, type } = cell;
+    await prisma.scheduleData
+        .upsert({
+            where: { resource_id_date_key_type: { resource_id, date_key, type } },
+            update: { value: cell.value, notification },
+            create: { ...cell, notification }
+        })
+        .catch(err => console.error('Erreur insert schedule:', err));
 }
 
 /**
- * Enregistrement groupé dans une transaction
+ * Enregistrement groupé dans une transaction (les cellules invalides sont ignorées)
  * @param {Array<{ key: string, value: unknown }>} updates
- * @returns {Promise<void>}
  */
-export function saveCells(updates) {
-    return new Promise((resolve, reject) => {
-        database.serialize(() => {
-            database.run('BEGIN TRANSACTION');
-            for (const { key, value } of updates) {
-                const { resourceId, type, dateKey } = parseKey(key);
-                database.run(
-                    `INSERT INTO schedule_data (resource_id, date_key, type, value)
-                     VALUES (?, ?, ?, ?)
-                     ON CONFLICT(resource_id, date_key, type)
-                     DO UPDATE SET value = excluded.value`,
-                    [resourceId, dateKey, type, value],
-                    () => {}
-                );
-            }
-            database.run('COMMIT', err => (err ? reject(err) : resolve()));
-        });
-    });
+export async function saveCells(updates) {
+    const cells = updates.map(({ key, value }) => toCell(key, value)).filter(c => c !== null);
+    await prisma.$transaction(
+        cells.map(cell =>
+            prisma.scheduleData.upsert({
+                where: {
+                    resource_id_date_key_type: {
+                        resource_id: cell.resource_id,
+                        date_key: cell.date_key,
+                        type: cell.type
+                    }
+                },
+                update: { value: cell.value },
+                create: cell
+            })
+        )
+    );
 }
 
 /**
@@ -91,34 +107,39 @@ export function logActivityChanges(updates, userId, profile) {
         /** @type {unknown} */ activity,
         /** @type {unknown} */ location
     ) => {
-        const resource = await dbGet('SELECT nom, prenom FROM resources WHERE id = ?', [resId]);
+        const resource = await prisma.resource.findUnique({
+            where: { id: resId },
+            select: { nom: true, prenom: true }
+        });
         if (!resource) return;
         const [date, period] = dateKey.split('_');
-        await dbRun('INSERT INTO action_logs (user_id, action_type, details) VALUES (?, ?, ?)', [
-            userId,
-            'planning_modification',
-            JSON.stringify({
-                resourceId: resId,
-                resourceName: `${resource.prenom} ${resource.nom}`,
-                date,
-                period: period === 'AM' ? 'Matin' : 'Après-midi',
-                activity:
-                    LOGGED_ACTIVITIES[/** @type {keyof typeof LOGGED_ACTIVITIES} */ (Number(activity))] || activity,
-                location,
-                modifiedBy: profile
-            })
-        ]);
+        await prisma.actionLog.create({
+            data: {
+                user_id: userId,
+                action_type: 'planning_modification',
+                details: JSON.stringify({
+                    resourceId: resId,
+                    resourceName: `${resource.prenom} ${resource.nom}`,
+                    date,
+                    period: period === 'AM' ? 'Matin' : 'Après-midi',
+                    activity:
+                        LOGGED_ACTIVITIES[/** @type {keyof typeof LOGGED_ACTIVITIES} */ (Number(activity))] || activity,
+                    location,
+                    modifiedBy: profile
+                })
+            }
+        });
     };
-    const cellValue = (/** @type {number} */ resId, /** @type {string} */ dateKey, /** @type {string} */ type) =>
-        dbGet('SELECT value FROM schedule_data WHERE resource_id = ? AND date_key = ? AND type = ?', [
-            resId,
-            dateKey,
-            type
-        ]);
+    const cellValue = (/** @type {number} */ resource_id, /** @type {string} */ date_key, /** @type {string} */ type) =>
+        prisma.scheduleData.findUnique({
+            where: { resource_id_date_key_type: { resource_id, date_key, type } },
+            select: { value: true }
+        });
 
     for (const { key, value } of updates) {
         const { resourceId, type, dateKey } = parseKey(key);
         const resId = parseInt(resourceId);
+        if (!Number.isSafeInteger(resId)) continue;
         let task = null;
         if (type === 'activity' && isLoggedActivity(value)) {
             task = cellValue(resId, dateKey, 'localisation').then(loc => log(resId, dateKey, value, loc?.value || '-'));
@@ -131,9 +152,9 @@ export function logActivityChanges(updates, userId, profile) {
     }
 }
 
-/** Motif LIKE des clés d'un mois (month : 0 = janvier) */
-const monthPattern = (/** @type {unknown} */ year, /** @type {any} */ month) =>
-    `${year}-${String(month + 1).padStart(2, '0')}-%`;
+/** Préfixe des clés d'un mois (month : 0 = janvier) */
+const monthPrefix = (/** @type {unknown} */ year, /** @type {any} */ month) =>
+    `${year}-${String(month + 1).padStart(2, '0')}-`;
 
 /**
  * Données d'une ressource pour un mois, regroupées par demi-journée, sans les entrées incohérentes
@@ -142,10 +163,10 @@ const monthPattern = (/** @type {unknown} */ year, /** @type {any} */ month) =>
  * @param {unknown} month
  */
 export async function previewMonth(resourceId, year, month) {
-    const rows = await dbAll(
-        'SELECT * FROM schedule_data WHERE resource_id = ? AND date_key LIKE ? ORDER BY date_key',
-        [resourceId, monthPattern(year, month)]
-    );
+    const rows = await prisma.scheduleData.findMany({
+        where: { resource_id: idParam(resourceId), date_key: { startsWith: monthPrefix(year, month) } },
+        orderBy: [{ date_key: 'asc' }, { id: 'asc' }]
+    });
 
     /** @type {Record<string, Record<string, string>>} */
     const grouped = {};
@@ -179,18 +200,17 @@ export async function resetMonth(
     /** @type {unknown} */ year,
     /** @type {unknown} */ month
 ) {
-    const pattern = monthPattern(year, month);
-    const { changes } = await dbRun('DELETE FROM schedule_data WHERE resource_id = ? AND date_key LIKE ?', [
-        resourceId,
-        pattern
-    ]);
-    return { deleted: changes, pattern };
+    const prefix = monthPrefix(year, month);
+    const { count } = await prisma.scheduleData.deleteMany({
+        where: { resource_id: idParam(resourceId), date_key: { startsWith: prefix } }
+    });
+    return { deleted: count, pattern: `${prefix}%` };
 }
 
 /** Supprime les entrées de l'ancien format (clés sans demi-journée AM/PM) */
 export async function deleteLegacyFormat() {
-    const { changes } = await dbRun(
-        `DELETE FROM schedule_data WHERE date_key NOT LIKE '%_AM' AND date_key NOT LIKE '%_PM'`
-    );
-    return changes;
+    const { count } = await prisma.scheduleData.deleteMany({
+        where: { NOT: [{ date_key: { endsWith: 'AM' } }, { date_key: { endsWith: 'PM' } }] }
+    });
+    return count;
 }

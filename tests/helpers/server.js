@@ -1,6 +1,6 @@
 // Démarre l'application dans un processus séparé, sur une base SQLite neuve dans un répertoire temporaire.
 // Les tests passent uniquement par HTTP : ils restent valables quelle que soit l'organisation interne du code.
-import { spawn } from 'child_process';
+import { execFileSync, spawn } from 'child_process';
 import fs from 'fs';
 import net from 'net';
 import os from 'os';
@@ -36,17 +36,69 @@ function freePort() {
     });
 }
 
+// Version antérieure aux migrations (comparaisons de comportement) : TEST_SERVER_ENTRY autre que server.js
+const isLegacyEntry = () => !!process.env.TEST_SERVER_ENTRY && process.env.TEST_SERVER_ENTRY !== 'server.js';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const definedOnly = obj => Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined));
 
-// initDB lance ses CREATE TABLE / ALTER TABLE sans les enchaîner : sur une base neuve, une partie des
-// colonnes n'est créée qu'au démarrage suivant. On démarre donc deux fois sur la même base, comme une
-// installation existante. (Corrigé par les migrations Prisma en phase 2.)
-export async function startServer() {
-    const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gantt-test-'));
+/** Applique les migrations sur la base de test (comme « npm start » avant le serveur) */
+function migrate(workDir) {
+    execFileSync(process.execPath, [path.join(ROOT, 'scripts', 'db-migrate.mjs')], {
+        cwd: ROOT,
+        env: definedOnly({
+            PATH: process.env.PATH,
+            SYSTEMROOT: process.env.SYSTEMROOT,
+            DB_PATH: path.join(workDir, 'data')
+        }),
+        stdio: 'pipe'
+    });
+}
+
+/** Base modèle déjà migrée (tests/global-setup.js), absente hors de Vitest (script de comparaison) */
+async function templateDbDir() {
     try {
-        const first = await bootServer(workDir);
-        await first.shutdown();
+        const { inject } = await import('vitest');
+        return inject('templateDbDir') || null;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Base du serveur : copie de la base modèle si disponible (plus rapide), sinon migrations.
+ * Une base déjà présente (préparée par le test) reçoit seulement les migrations en attente.
+ */
+async function prepareDatabase(workDir) {
+    const dataDir = path.join(workDir, 'data');
+    const template = await templateDbDir();
+    if (!fs.existsSync(path.join(dataDir, 'data.db')) && template) {
+        fs.mkdirSync(dataDir, { recursive: true });
+        for (const suffix of ['', '-wal', '-shm']) {
+            const file = path.join(template, `data.db${suffix}`);
+            if (fs.existsSync(file)) fs.copyFileSync(file, path.join(dataDir, `data.db${suffix}`));
+        }
+        return;
+    }
+    fs.mkdirSync(dataDir, { recursive: true });
+    migrate(workDir);
+}
+
+/** Répertoire de travail temporaire d'un serveur de test (base dans <workDir>/data) */
+export const createWorkDir = () => fs.mkdtempSync(path.join(os.tmpdir(), 'gantt-test-'));
+
+/**
+ * @param {{ workDir?: string }} [options] workDir : répertoire préparé à l'avance (base existante dans workDir/data)
+ */
+export async function startServer({ workDir = createWorkDir() } = {}) {
+    try {
+        if (isLegacyEntry()) {
+            // Ancienne version (comparaisons) : tables créées au démarrage par initDB, dont une partie seulement
+            // au démarrage suivant sur une base neuve : deux démarrages successifs
+            const first = await bootServer(workDir);
+            await first.shutdown();
+        } else {
+            await prepareDatabase(workDir);
+        }
         return await bootServer(workDir);
     } catch (err) {
         fs.rmSync(workDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
@@ -100,6 +152,10 @@ async function bootServer(workDir) {
         },
         async stop() {
             await server.shutdown();
+            // TEST_LOGS_DIR : conserve les logs du serveur (diagnostic)
+            if (process.env.TEST_LOGS_DIR) {
+                fs.writeFileSync(path.join(process.env.TEST_LOGS_DIR, `${path.basename(workDir)}.log`), logs);
+            }
             fs.rmSync(workDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
         }
     };
@@ -111,8 +167,8 @@ async function bootServer(workDir) {
         try {
             const r = await server.client().login(ADMIN.username, ADMIN.password, 'admin');
             if (r.status === 200) {
-                // Laisse initDB terminer ses migrations asynchrones
-                await sleep(500);
+                // Ancienne version : laisse initDB terminer ses créations de tables asynchrones
+                if (isLegacyEntry()) await sleep(500);
                 return server;
             }
         } catch {

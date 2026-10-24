@@ -1,8 +1,13 @@
 // Aide à l'affectation : import des déploiements depuis Asana (CSV et API)
-// Code repris à l'identique de server.js (phase 1) ; découpage contrôleurs / services en phase 2.
 import crypto from 'crypto';
-import { DB_DIR, dbAll, dbGet, dbRun } from '../../db/database.js';
+import fs from 'fs';
+import path from 'path';
+import { env as appEnv } from '../../config/env.js';
+import { prisma } from '../../db/prisma.js';
+import { HttpError } from '../../lib/http-error.js';
 import { samuNumber as affSamuNumber } from '../../lib/samu.js';
+import { logUserAction } from '../../services/action-log.js';
+import { getSetting, setSetting } from '../../services/settings.js';
 import {
     AFF_PERIOD_KEYS,
     AFF_STAGES,
@@ -10,12 +15,9 @@ import {
     affHist,
     affReconcileAssignments,
     affValuesOfRow,
-    sanitizeAffProject
+    sanitizeAffProject,
+    writeProject
 } from './affectation.service.js';
-import { logUserAction } from '../../services/action-log.js';
-import path from 'path';
-import fs from 'fs';
-import { env as appEnv } from '../../config/env.js';
 
 export function parseCsv(text) {
     const rows = [];
@@ -62,7 +64,7 @@ export const asanaAddDays = (iso, n) =>
 // Tâches Asana d'un export CSV, au format commun (le même que celui produit par l'API)
 export function asanaTasksFromCsv(csvText) {
     const rows = parseCsv(csvText);
-    if (rows.length < 2) throw Object.assign(new Error('Fichier vide ou illisible'), { status: 400 });
+    if (rows.length < 2) throw new HttpError(400, 'Fichier vide ou illisible');
     const head = rows[0].map(h => h.trim());
     const col = n => head.indexOf(n);
     const iName = col('Name'),
@@ -73,11 +75,9 @@ export function asanaTasksFromCsv(csvText) {
         iProj = col('Projects'),
         iPhase = col('Phase');
     if (iName < 0 || iDue < 0)
-        throw Object.assign(
-            new Error(
-                'Ce fichier ne ressemble pas à un export de tâches Asana (colonnes « Name » et « Due Date » introuvables)'
-            ),
-            { status: 400 }
+        throw new HttpError(
+            400,
+            'Ce fichier ne ressemble pas à un export de tâches Asana (colonnes « Name » et « Due Date » introuvables)'
         );
     const isoOk = d => /^\d{4}-\d{2}-\d{2}$/.test(d || '');
     const tasks = rows
@@ -289,12 +289,13 @@ export function asanaCompute(csvText, formationTarget) {
 }
 
 export async function asanaMatch(samuNo, forcedId) {
-    const locs = await dbAll('SELECT id, libelle_court FROM locations');
+    const locs = await prisma.location.findMany({ select: { id: true, libelle_court: true }, orderBy: { id: 'asc' } });
     const loc =
         locs.find(l => affSamuNumber(l.libelle_court) === samuNo && /SAS/i.test(l.libelle_court)) ||
         locs.find(l => affSamuNumber(l.libelle_court) === samuNo) ||
         null;
-    const all = await dbAll('SELECT * FROM affectation_projects');
+    /** @type {any[]} */
+    const all = await prisma.affectationProject.findMany({ orderBy: { id: 'asc' } });
     const existing =
         (forcedId && all.find(p => p.id === forcedId)) ||
         all.find(p => (loc && p.location_id === loc.id) || affSamuNumber(p.samu_name) === samuNo) ||
@@ -373,7 +374,7 @@ export async function asanaPreviewPayload(c, forcedId) {
 
 export async function asanaApplyCore(req, c, wantList, forcedId, source) {
     const want = new Set((Array.isArray(wantList) ? wantList : []).filter(k => ASANA_KEYS.includes(k)));
-    if (!want.size) throw Object.assign(new Error('Aucune ligne sélectionnée'), { status: 400 });
+    if (!want.size) throw new HttpError(400, 'Aucune ligne sélectionnée');
     const { loc, existing } = await asanaMatch(c.samuNo, forcedId);
     if (existing) asanaApplyOverrides(c, await asanaOverridesFor(existing.id));
     const base = existing
@@ -418,36 +419,16 @@ export async function asanaApplyCore(req, c, wantList, forcedId, source) {
     ]
         .filter(Boolean)
         .sort();
-    if (!dates.length) throw Object.assign(new Error('Aucune date exploitable'), { status: 400 });
+    if (!dates.length) throw new HttpError(400, 'Aucune date exploitable');
     const debutAvant = base.date_debut;
     base.date_debut = dates[0];
     const r = sanitizeAffProject(base);
-    if (r.error) throw Object.assign(new Error(r.error), { status: 400 });
+    if (r.error) throw new HttpError(400, r.error);
     const v = r.value;
-    const fields = [
-        v.samu_name,
-        v.location_id,
-        v.chef_projet_id,
-        v.date_debut,
-        v.date_mise_en_service,
-        v.date_mise_en_production,
-        JSON.stringify(v.periods)
-    ];
-    let id;
-    if (existing) {
-        await dbRun(
-            `UPDATE affectation_projects SET samu_name=?, location_id=?, chef_projet_id=?, date_debut=?, date_mise_en_service=?, date_mise_en_production=?, periods=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`,
-            [...fields, existing.id]
-        );
-        id = existing.id;
-    } else {
-        const ins = await dbRun(
-            `INSERT INTO affectation_projects (samu_name, location_id, chef_projet_id, date_debut, date_mise_en_service, date_mise_en_production, periods, created_by) VALUES (?,?,?,?,?,?,?,?)`,
-            [...fields, req.session.userId]
-        );
-        id = ins.lastID;
-    }
-    await new Promise(resolve => affReconcileAssignments(id, v.periods, resolve));
+    const id = existing
+        ? (await writeProject(existing.id, v, null), existing.id)
+        : /** @type {number} */ (await writeProject(null, v, req.session.userId));
+    await affReconcileAssignments(id, v.periods);
     const changes = await affDiff(existing ? affValuesOfRow(existing) : null, v);
     if (changes.length)
         await affHist(req, id, v.samu_name, source === 'api' ? 'import_asana_api' : 'import_asana_csv', {
@@ -468,7 +449,7 @@ export async function asanaApplyCore(req, c, wantList, forcedId, source) {
 
 // Le jeton est chiffré (AES-256-GCM) avec une clé propre au serveur : il ne figure donc pas en clair dans la base ni dans un dump.
 export function asanaKey() {
-    const keyFile = path.join(DB_DIR, '.asana_key');
+    const keyFile = path.join(appEnv.DB_PATH, '.asana_key');
     try {
         return Buffer.from(fs.readFileSync(keyFile, 'utf8').trim(), 'hex');
     } catch (e) {
@@ -499,23 +480,17 @@ export function asanaDecrypt(blob) {
     }
 }
 
-export const asanaSetting = async key => {
-    const r = await dbGet('SELECT value FROM settings WHERE key = ?', [key]);
-    return r ? r.value : null;
-};
+export const asanaSetting = getSetting;
 
-export const asanaPut = (key, value) =>
-    dbRun('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [key, value]);
+export const asanaPut = setSetting;
 
 export async function asanaToken() {
     const blob = await asanaSetting('asana_token_enc');
     const t = blob ? asanaDecrypt(blob) : null;
     if (!t)
-        throw Object.assign(
-            new Error(
-                'Jeton Asana non configuré (ou illisible sur ce serveur) : saisissez-le dans la configuration Asana'
-            ),
-            { status: 400 }
+        throw new HttpError(
+            400,
+            'Jeton Asana non configuré (ou illisible sur ce serveur) : saisissez-le dans la configuration Asana'
         );
     return t;
 }
@@ -528,11 +503,9 @@ export async function asanaApi(token, pathQuery) {
             signal: AbortSignal.timeout(25000)
         });
     } catch (e) {
-        throw Object.assign(
-            new Error(
-                'Asana injoignable depuis le serveur (réseau ou pare-feu) : ' + ((e.cause && e.cause.code) || e.message)
-            ),
-            { status: 502 }
+        throw new HttpError(
+            502,
+            'Asana injoignable depuis le serveur (réseau ou pare-feu) : ' + ((e.cause && e.cause.code) || e.message)
         );
     }
     if (!r.ok) {
@@ -551,7 +524,7 @@ export async function asanaApi(token, pathQuery) {
                   : r.status === 429
                     ? 'Trop de requêtes vers Asana : réessayez dans une minute'
                     : `Erreur Asana ${r.status}`;
-        throw Object.assign(new Error(text + (msg ? ` — ${msg}` : '')), { status: r.status === 401 ? 400 : 502 });
+        throw new HttpError(r.status === 401 ? 400 : 502, text + (msg ? ` — ${msg}` : ''));
     }
     return r.json();
 }
@@ -619,7 +592,7 @@ export async function asanaProjectList(token) {
             `/teams/${encodeURIComponent(team)}/projects?archived=false&opt_fields=name,permalink_url`
         );
     const ws = await asanaSetting('asana_workspace_gid');
-    if (!ws) throw Object.assign(new Error("Choisissez d'abord l'espace de travail Asana"), { status: 400 });
+    if (!ws) throw new HttpError(400, "Choisissez d'abord l'espace de travail Asana");
     return await asanaPaged(
         token,
         `/projects?workspace=${encodeURIComponent(ws)}&archived=false&opt_fields=name,permalink_url`
@@ -676,15 +649,15 @@ export async function asanaRefreshDeployment(req, token, ctx, dep) {
     const match = asanaPickProject(ctx, dep).match;
     if (!match)
         throw Object.assign(
-            new Error(
+            new HttpError(
+                404,
                 `Aucun projet Asana associé à « ${dep.samu_name} » (vérifiez le nom du projet ou l'appairage dans Administration › Connexion Asana)`
             ),
-            { status: 404, noMatch: true }
+            { noMatch: true }
         );
     const { projectName, tasks } = await asanaFetchProject(token, match.gid);
     const c = asanaComputeTasks(tasks, projectName);
-    if (!c.samuNo)
-        throw Object.assign(new Error("Impossible d'identifier le SAMU dans le nom du projet Asana"), { status: 400 });
+    if (!c.samuNo) throw new HttpError(400, "Impossible d'identifier le SAMU dans le nom du projet Asana");
     const pv = await asanaPreviewPayload(c, dep.id);
     const keys = pv.rows.filter(r => r.status === 'nouveau' || r.status === 'modifié').map(r => r.key);
     if (!keys.length) return { success: true, unchanged: true, samu_name: dep.samu_name, asana: projectName };
@@ -709,6 +682,6 @@ export const ASANA_RULES = {
 export async function asanaFindProjectFor(token, dep) {
     const ctx = await asanaListSamuProjects(token);
     const { match, candidates } = asanaPickProject(ctx, dep);
-    if (!match) throw Object.assign(new Error(`Aucun projet Asana associé à « ${dep.samu_name} »`), { status: 404 });
+    if (!match) throw new HttpError(404, `Aucun projet Asana associé à « ${dep.samu_name} »`);
     return { match, candidates };
 }

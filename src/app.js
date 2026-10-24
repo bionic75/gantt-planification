@@ -4,7 +4,7 @@ import cors from 'cors';
 import express from 'express';
 import session from 'express-session';
 import path from 'path';
-import { isRestoreInProgress } from '../db-dump.js';
+import { isRestoreInProgress } from '../scripts/db-dump.js';
 import { env } from './config/env.js';
 import { PUBLIC_DIR } from './lib/paths.js';
 import { errorHandler } from './middlewares/error-handler.js';

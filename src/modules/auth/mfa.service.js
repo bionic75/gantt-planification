@@ -1,7 +1,8 @@
 // @ts-check
 // Double authentification : configuration, codes par email, TOTP (RFC 6238)
 import crypto from 'crypto';
-import { dbGet, dbRun } from '../../db/database.js';
+import { prisma } from '../../db/prisma.js';
+import { idParam, sqlTimestamp } from '../../db/values.js';
 
 const BASE32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 const EMAIL_CODE_TTL_MS = 10 * 60 * 1000;
@@ -13,12 +14,17 @@ const MFA_VALIDITY_MS = { always: 0, daily: DAY_MS, weekly: 7 * DAY_MS, monthly:
 
 /** @returns {Promise<any>} configuration MFA (ou null si jamais enregistrée) */
 export async function getMfaConfig() {
-    const row = await dbGet(`SELECT value FROM settings WHERE key = 'mfa_config'`);
+    const row = await prisma.setting.findUnique({ where: { key: 'mfa_config' } });
     return row ? JSON.parse(row.value) : null;
 }
 
 export async function saveMfaConfig(/** @type {unknown} */ config) {
-    await dbRun(`INSERT OR REPLACE INTO settings (key, value) VALUES ('mfa_config', ?)`, [JSON.stringify(config)]);
+    const value = JSON.stringify(config) ?? 'null';
+    await prisma.setting.upsert({
+        where: { key: 'mfa_config' },
+        update: { value },
+        create: { key: 'mfa_config', value }
+    });
 }
 
 /**
@@ -42,30 +48,36 @@ export const clientMfaMethod = (/** @type {any} */ config) => (config.method ===
 
 /** Une vérification MFA récente dispense-t-elle d'en demander une nouvelle ? */
 export async function isMfaStillValid(/** @type {number} */ userId, /** @type {string} */ frequency) {
-    const row = await dbGet(
-        'SELECT validated_at FROM mfa_validations WHERE user_id = ? ORDER BY validated_at DESC LIMIT 1',
-        [userId]
-    );
-    if (!row) return false;
+    const row = await prisma.mfaValidation.findFirst({
+        where: { user_id: userId },
+        orderBy: { validated_at: 'desc' },
+        select: { validated_at: true }
+    });
+    if (!row || !row.validated_at) return false;
     const maxAge = MFA_VALIDITY_MS[/** @type {keyof typeof MFA_VALIDITY_MS} */ (frequency)] ?? DAY_MS;
     return Date.now() - new Date(row.validated_at).getTime() < maxAge;
 }
 
 export async function recordMfaValidation(/** @type {number} */ userId) {
-    await dbRun(`INSERT INTO mfa_validations (user_id, validated_at) VALUES (?, datetime('now'))`, [userId]);
+    await prisma.mfaValidation.create({ data: { user_id: userId, validated_at: sqlTimestamp() } });
 }
 
 /** Supprime TOTP, validations et codes en attente d'un utilisateur (changement de téléphone) */
 export async function resetUserMfa(/** @type {string | number} */ userId) {
-    await dbRun('UPDATE users SET totp_secret = NULL WHERE id = ?', [userId]);
-    await dbRun('DELETE FROM mfa_validations WHERE user_id = ?', [userId]);
-    await dbRun('DELETE FROM mfa_codes WHERE user_id = ?', [userId]);
+    const id = idParam(userId);
+    await prisma.$transaction([
+        prisma.user.updateMany({ where: { id }, data: { totp_secret: null } }),
+        prisma.mfaValidation.deleteMany({ where: { user_id: id } }),
+        prisma.mfaCode.deleteMany({ where: { user_id: id } })
+    ]);
 }
 
 export async function resetAllMfa() {
-    await dbRun('UPDATE users SET totp_secret = NULL');
-    await dbRun('DELETE FROM mfa_validations');
-    await dbRun('DELETE FROM mfa_codes');
+    await prisma.$transaction([
+        prisma.user.updateMany({ data: { totp_secret: null } }),
+        prisma.mfaValidation.deleteMany(),
+        prisma.mfaCode.deleteMany()
+    ]);
 }
 
 // ---------- Codes par email ----------
@@ -73,37 +85,37 @@ export async function resetAllMfa() {
 /** Génère et enregistre un code à 6 chiffres valable 10 minutes */
 export async function createEmailCode(/** @type {number} */ userId) {
     const code = crypto.randomInt(100000, 1000000).toString();
-    const expiresAt = new Date(Date.now() + EMAIL_CODE_TTL_MS).toISOString();
-    await dbRun('INSERT OR REPLACE INTO mfa_codes (user_id, code, expires_at) VALUES (?, ?, ?)', [
-        userId,
-        code,
-        expiresAt
+    const expires_at = new Date(Date.now() + EMAIL_CODE_TTL_MS).toISOString();
+    // Un seul code par compte : le précédent est remplacé
+    await prisma.$transaction([
+        prisma.mfaCode.deleteMany({ where: { user_id: userId } }),
+        prisma.mfaCode.create({ data: { user_id: userId, code, expires_at } })
     ]);
     return code;
 }
 
 /** Vérifie un code email non expiré et le consomme */
 export async function consumeEmailCode(/** @type {number} */ userId, /** @type {string} */ code) {
-    const row = await dbGet('SELECT * FROM mfa_codes WHERE user_id = ? AND code = ?', [userId, code]);
+    const row = await prisma.mfaCode.findFirst({ where: { user_id: userId, code } });
     // expires_at est stocké en ISO 8601 : comparaison faite en JS
     if (!row || new Date(row.expires_at).getTime() <= Date.now()) return false;
-    await dbRun('DELETE FROM mfa_codes WHERE user_id = ?', [userId]);
+    await prisma.mfaCode.deleteMany({ where: { user_id: userId } });
     return true;
 }
 
 // ---------- TOTP ----------
 
 export async function isTotpConfigured(/** @type {number} */ userId) {
-    return !!(await dbGet('SELECT totp_secret FROM users WHERE id = ? AND totp_secret IS NOT NULL', [userId]));
+    return (await getTotpSecret(userId)) !== null;
 }
 
 export async function getTotpSecret(/** @type {number} */ userId) {
-    const row = await dbGet('SELECT totp_secret FROM users WHERE id = ?', [userId]);
-    return row?.totp_secret || null;
+    const row = await prisma.user.findUnique({ where: { id: userId }, select: { totp_secret: true } });
+    return row?.totp_secret ?? null;
 }
 
 export async function saveTotpSecret(/** @type {number} */ userId, /** @type {string} */ secret) {
-    await dbRun('UPDATE users SET totp_secret = ? WHERE id = ?', [secret, userId]);
+    await prisma.user.update({ where: { id: userId }, data: { totp_secret: secret } });
 }
 
 /** Secret base32 de 32 caractères (160 bits) */

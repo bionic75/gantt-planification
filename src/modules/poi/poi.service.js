@@ -1,272 +1,393 @@
-// Bonnes adresses : géocodage (Nominatim), itinéraires, notes et commentaires
-// Code repris à l'identique de server.js (phase 1) ; découpage contrôleurs / services en phase 2.
-import { dbAll, dbGet } from '../../db/database.js';
+// @ts-check
+// Bonnes adresses autour des SAMU-SAS (hébergement, restaurant, bar) : lieux, notes et commentaires
+import { prisma } from '../../db/prisma.js';
+import { idParam, sqlTimestamp } from '../../db/values.js';
+import { badRequest, forbidden, notFound } from '../../lib/http-error.js';
+import { poiClean, poiKm, poiMapResult, poiNominatim, poiRouteCache, poiRouteOne } from './poi.external.js';
 
 export const POI_CATS = ['hebergement', 'restaurant', 'bar'];
 
-export const poiIsAdmin = req => req.session && req.session.activeProfile === 'admin';
+export const poiName = (
+    /** @type {string | null | undefined} */ prenom,
+    /** @type {string | null | undefined} */ nom
+) => `${prenom || ''} ${(nom || '').toUpperCase()}`.trim();
 
-export const poiName = (prenom, nom) => `${prenom || ''} ${(nom || '').toUpperCase()}`.trim();
+/** Minuscules ASCII : comparaisons insensibles à la casse comme LIKE / COLLATE NOCASE de SQLite */
+const asciiLower = (/** @type {string} */ s) => s.replace(/[A-Z]/g, c => c.toLowerCase());
 
-export const poiKm = (la1, lo1, la2, lo2) => {
-    if ([la1, lo1, la2, lo2].some(v => v == null || isNaN(Number(v)))) return null;
-    const R = 6371,
-        rad = d => (Number(d) * Math.PI) / 180,
-        dLa = rad(la2 - la1),
-        dLo = rad(lo2 - lo1);
-    const a = Math.sin(dLa / 2) ** 2 + Math.cos(rad(la1)) * Math.cos(rad(la2)) * Math.sin(dLo / 2) ** 2;
-    return Math.round(2 * R * Math.asin(Math.sqrt(a)) * 10) / 10;
-};
+/** @typedef {{ userId: number, isAdmin: boolean }} Viewer */
 
-export const poiClean = (v, max) =>
-    String(v == null ? '' : v)
-        .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
-        .trim()
-        .slice(0, max);
-
-// Base de référence : OpenStreetMap (Nominatim). Requêtes espacées (≥ 1,1 s) et mises en cache, avec identification de l'application (règle d'usage)
-export let poiLastCall = 0,
-    poiQueue = Promise.resolve();
-
-export const poiCache = new Map();
-
-export function poiCategoryOf(r) {
-    const c = r.category || r.class,
-        t = r.type;
-    if (
-        c === 'tourism' &&
-        [
-            'hotel',
-            'hostel',
-            'guest_house',
-            'motel',
-            'apartment',
-            'chalet',
-            'camp_site',
-            'caravan_site',
-            'resort'
-        ].includes(t)
-    )
-        return 'hebergement';
-    if (c === 'amenity' && ['restaurant', 'fast_food', 'food_court'].includes(t)) return 'restaurant';
-    if (c === 'amenity' && ['bar', 'pub', 'cafe', 'nightclub', 'biergarten'].includes(t)) return 'bar';
-    return null;
+/** Comptes par identifiant */
+async function usersById(/** @type {Array<number | null>} */ ids) {
+    const users = await prisma.user.findMany({
+        where: { id: { in: /** @type {number[]} */ (ids.filter(id => id != null)) } },
+        select: { id: true, nom: true, prenom: true }
+    });
+    return new Map(users.map(u => [u.id, u]));
 }
 
-export function poiNominatim(params) {
-    const url =
-        'https://nominatim.openstreetmap.org/search?' +
-        new URLSearchParams({
-            format: 'jsonv2',
-            addressdetails: '1',
-            extratags: '1',
-            limit: '10',
-            dedupe: '1',
-            'accept-language': 'fr',
-            ...params
-        }).toString();
-    if (poiCache.has(url) && poiCache.get(url).t > Date.now() - 600000) return Promise.resolve(poiCache.get(url).v);
-    const run = async () => {
-        const wait = poiLastCall + 1100 - Date.now();
-        if (wait > 0) await new Promise(r => setTimeout(r, wait));
-        poiLastCall = Date.now();
-        const r = await fetch(url, {
-            headers: {
-                'User-Agent': 'ANS-Plateforme-Planification/1.0 (bonnes adresses SAMU-SAS)',
-                Accept: 'application/json'
-            },
-            signal: AbortSignal.timeout(9000)
+/**
+ * Lieux avec SAMU-SAS, créateur, notes et nombre de commentaires, du plus récent au plus ancien
+ * @param {Viewer} viewer
+ * @param {{ id?: number, location_id?: number, category?: string, created_by?: number, q?: string }} [filters]
+ */
+async function poiRows(viewer, filters = {}) {
+    const { q, ...where } = filters;
+    const pois = await prisma.poi.findMany({ where, orderBy: [{ created_at: 'desc' }, { id: 'desc' }] });
+    const ids = pois.map(p => p.id);
+    const [locations, users, ratings, comments] = await Promise.all([
+        prisma.location.findMany({ where: { id: { in: [...new Set(pois.map(p => p.location_id))] } } }),
+        usersById(pois.map(p => p.created_by)),
+        prisma.poiRating.findMany({
+            where: { poi_id: { in: ids } },
+            select: { poi_id: true, user_id: true, rating: true }
+        }),
+        prisma.poiComment.groupBy({ by: ['poi_id'], where: { poi_id: { in: ids } }, _count: { _all: true } })
+    ]);
+    const locById = new Map(locations.map(l => [l.id, l]));
+    const commentCount = new Map(comments.map(c => [c.poi_id, c._count._all]));
+    const needle = q ? asciiLower(q) : null;
+    const matches = (/** @type {Array<string | null | undefined>} */ fields) =>
+        !needle || fields.some(f => f != null && asciiLower(f).includes(needle));
+
+    const rows = [];
+    for (const p of pois) {
+        const l = locById.get(p.location_id);
+        if (!l) continue; // lieu rattaché à un SAMU-SAS supprimé
+        const u = p.created_by != null ? users.get(p.created_by) : undefined;
+        if (!matches([p.name, p.address, p.comment, l.libelle_court, u?.nom, u?.prenom])) continue;
+        const own = ratings.filter(r => r.poi_id === p.id);
+        const avg = own.length ? own.reduce((s, r) => s + r.rating, 0) / own.length : null;
+        rows.push({
+            id: p.id,
+            location_id: p.location_id,
+            loc_court: l.libelle_court,
+            loc_long: l.libelle_long,
+            loc_lat: l.latitude,
+            loc_lng: l.longitude,
+            category: p.category,
+            name: p.name,
+            address: p.address,
+            latitude: p.latitude,
+            longitude: p.longitude,
+            comment: p.comment,
+            website: p.website,
+            phone: p.phone,
+            osm_ref: p.osm_ref,
+            created_by: p.created_by,
+            creator: poiName(u?.prenom, u?.nom) || 'Utilisateur supprimé',
+            created_at: p.created_at,
+            updated_at: p.updated_at,
+            avg_rating: avg == null ? null : Math.round(avg * 10) / 10,
+            n_ratings: own.length,
+            n_comments: commentCount.get(p.id) || 0,
+            my_rating: own.find(r => r.user_id === viewer.userId)?.rating ?? null,
+            distance_km: poiKm(l.latitude, l.longitude, p.latitude, p.longitude),
+            can_edit: viewer.isAdmin || p.created_by === viewer.userId
         });
-        if (!r.ok) throw new Error(`Base de référence indisponible (${r.status})`);
-        const v = await r.json();
-        poiCache.set(url, { t: Date.now(), v });
-        if (poiCache.size > 300) poiCache.delete(poiCache.keys().next().value);
-        return v;
-    };
-    const p = poiQueue.then(run, run);
-    poiQueue = p.catch(() => {});
-    return p;
-}
-
-export function poiAddress(a) {
-    if (!a) return '';
-    const street = [a.house_number, a.road || a.pedestrian || a.footway].filter(Boolean).join(' ');
-    const town = a.city || a.town || a.village || a.municipality || a.hamlet || '';
-    return [street, [a.postcode, town].filter(Boolean).join(' ')].filter(Boolean).join(', ');
-}
-
-export function poiMapResult(r, lat, lng) {
-    const ex = r.extratags || {};
-    const lt = Number(r.lat),
-        ln = Number(r.lon);
-    return {
-        name: (r.name || (r.display_name || '').split(',')[0] || '').trim(),
-        address:
-            poiAddress(r.address) ||
-            String(r.display_name || '')
-                .split(',')
-                .slice(1, 4)
-                .join(',')
-                .trim(),
-        latitude: lt,
-        longitude: ln,
-        category: poiCategoryOf(r),
-        kind: `${r.category || r.class || ''}:${r.type || ''}`,
-        website: ex.website || ex['contact:website'] || '',
-        phone: ex.phone || ex['contact:phone'] || '',
-        osm_ref: r.osm_type && r.osm_id ? `${String(r.osm_type)[0]}${r.osm_id}` : '',
-        distance_km: poiKm(lat, lng, lt, ln)
-    };
-}
-
-export async function poiRows(req, where, params) {
-    const uid = req.session.userId,
-        admin = poiIsAdmin(req);
-    const rows = await dbAll(
-        `SELECT p.*, l.libelle_court AS loc_court, l.libelle_long AS loc_long, l.latitude AS loc_lat, l.longitude AS loc_lng, u.nom AS cnom, u.prenom AS cprenom,
-        (SELECT AVG(r.rating) FROM poi_ratings r WHERE r.poi_id = p.id) AS avg_rating, (SELECT COUNT(*) FROM poi_ratings r WHERE r.poi_id = p.id) AS n_ratings,
-        (SELECT COUNT(*) FROM poi_comments c WHERE c.poi_id = p.id) AS n_comments, (SELECT r.rating FROM poi_ratings r WHERE r.poi_id = p.id AND r.user_id = ?) AS my_rating
-        FROM poi p JOIN locations l ON l.id = p.location_id LEFT JOIN users u ON u.id = p.created_by ${where} ORDER BY p.created_at DESC, p.id DESC`,
-        [uid, ...params]
-    );
-    return rows.map(r => ({
-        id: r.id,
-        location_id: r.location_id,
-        loc_court: r.loc_court,
-        loc_long: r.loc_long,
-        loc_lat: r.loc_lat,
-        loc_lng: r.loc_lng,
-        category: r.category,
-        name: r.name,
-        address: r.address,
-        latitude: r.latitude,
-        longitude: r.longitude,
-        comment: r.comment,
-        website: r.website,
-        phone: r.phone,
-        osm_ref: r.osm_ref,
-        created_by: r.created_by,
-        creator: poiName(r.cprenom, r.cnom) || 'Utilisateur supprimé',
-        created_at: r.created_at,
-        updated_at: r.updated_at,
-        avg_rating: r.avg_rating == null ? null : Math.round(r.avg_rating * 10) / 10,
-        n_ratings: r.n_ratings,
-        n_comments: r.n_comments,
-        my_rating: r.my_rating,
-        distance_km: poiKm(r.loc_lat, r.loc_lng, r.latitude, r.longitude),
-        can_edit: admin || r.created_by === uid
-    }));
-}
-
-export const poiRouteCache = new Map();
-
-export function poiDecodePoly(str, prec) {
-    const f = Math.pow(10, prec),
-        out = [];
-    let i = 0,
-        lat = 0,
-        lng = 0;
-    while (i < str.length) {
-        for (const axis of [0, 1]) {
-            let sh = 0,
-                res = 0,
-                b;
-            do {
-                b = str.charCodeAt(i++) - 63;
-                res |= (b & 31) << sh;
-                sh += 5;
-            } while (b >= 32);
-            const d = res & 1 ? ~(res >> 1) : res >> 1;
-            if (axis === 0) lat += d;
-            else lng += d;
-        }
-        out.push([lat / f, lng / f]);
     }
-    return out;
+    return rows;
 }
 
-export async function poiRouteOne(mode, a, b) {
-    const ua = { 'User-Agent': 'ANS-Plateforme-Planification/1.0 (trajets SAMU-SAS)', Accept: 'application/json' };
-    if (mode === 'transit') {
-        const q = new URLSearchParams({
-            fromPlace: `${a[0]},${a[1]}`,
-            toPlace: `${b[0]},${b[1]}`,
-            time: new Date().toISOString(),
-            transitModes: 'TRANSIT',
-            numItineraries: '1',
-            maxTransfers: '4',
-            detailedTransfers: 'false'
-        });
-        const r = await fetch('https://api.transitous.org/api/v5/plan?' + q, {
-            headers: ua,
-            signal: AbortSignal.timeout(20000)
-        });
-        if (!r.ok) throw new Error('Service de transports indisponible');
-        const d = await r.json(),
-            it = (d.itineraries || [])[0];
-        if (!it) return { error: 'Aucun trajet en transport en commun trouvé maintenant' };
-        const legs = it.legs.map(l => ({
-            mode: l.mode,
-            line: l.routeShortName || l.displayName || '',
-            from: l.from && l.from.name,
-            to: l.to && l.to.name,
-            duration: l.duration,
-            path: l.legGeometry ? poiDecodePoly(l.legGeometry.points, l.legGeometry.precision || 6) : []
-        }));
-        return { duration: it.duration, transfers: it.transfers, legs, path: legs.flatMap(l => l.path) };
+/** Recherche de lieux dans la base de référence, les plus proches du SAMU-SAS d'abord */
+export async function searchPlaces(/** @type {unknown} */ query, /** @type {unknown} */ locationId) {
+    const q = poiClean(query, 120);
+    if (q.length < 3) return { places: [] };
+    const loc =
+        Number(locationId) > 0
+            ? await prisma.location.findUnique({
+                  where: { id: idParam(locationId) },
+                  select: { latitude: true, longitude: true, libelle_court: true }
+              })
+            : null;
+    /** @type {Record<string, string>} */
+    const params = { q, countrycodes: 'fr' };
+    if (loc && loc.latitude != null && loc.longitude != null) {
+        params.viewbox = `${loc.longitude - 0.35},${loc.latitude + 0.25},${loc.longitude + 0.35},${loc.latitude - 0.25}`;
     }
-    const prof = mode === 'walk' ? 'routed-foot' : 'routed-car';
-    const r = await fetch(
-        `https://routing.openstreetmap.de/${prof}/route/v1/driving/${a[1]},${a[0]};${b[1]},${b[0]}?overview=full&geometries=geojson`,
-        { headers: ua, signal: AbortSignal.timeout(15000) }
+    const raw = await poiNominatim(params);
+    const places = raw
+        .map((/** @type {any} */ r) => poiMapResult(r, loc && loc.latitude, loc && loc.longitude))
+        .filter((/** @type {any} */ x) => x.name && !isNaN(x.latitude));
+    // Catégorie connue d'abord, puis distance au SAMU-SAS
+    places.sort(
+        (/** @type {any} */ a, /** @type {any} */ b) =>
+            (a.category ? 0 : 1) - (b.category ? 0 : 1) ||
+            (a.distance_km == null ? 1e9 : a.distance_km) - (b.distance_km == null ? 1e9 : b.distance_km)
     );
-    if (!r.ok) throw new Error("Service d'itinéraire indisponible");
-    const d = await r.json(),
-        rt = d.routes && d.routes[0];
-    if (!rt) return { error: 'Aucun itinéraire trouvé' };
+    return { places: places.slice(0, 8), reference: 'OpenStreetMap (Nominatim)' };
+}
+
+/** SAMU-SAS (avec nombre de lieux), créateurs, catégories, nombre de lieux par SAMU-SAS et catégorie */
+export async function getMeta() {
+    const [locations, counts, creatorIds] = await Promise.all([
+        prisma.location.findMany({
+            select: {
+                id: true,
+                libelle_court: true,
+                libelle_long: true,
+                adresse: true,
+                latitude: true,
+                longitude: true
+            }
+        }),
+        prisma.poi.groupBy({ by: ['location_id', 'category'], _count: { _all: true } }),
+        prisma.poi.findMany({
+            where: { created_by: { not: null } },
+            select: { created_by: true },
+            distinct: ['created_by']
+        })
+    ]);
+    /** @type {Record<number, Record<string, number>>} */
+    const byLocation = {};
+    const nPoi = new Map();
+    for (const c of counts) {
+        (byLocation[c.location_id] ??= {})[c.category] = c._count._all;
+        nPoi.set(c.location_id, (nPoi.get(c.location_id) || 0) + c._count._all);
+    }
+    locations.sort((a, b) => {
+        const x = asciiLower(a.libelle_court);
+        const y = asciiLower(b.libelle_court);
+        return x === y ? a.id - b.id : x < y ? -1 : 1;
+    });
+    const creators = [...(await usersById(creatorIds.map(c => c.created_by))).values()].sort((a, b) =>
+        a.nom === b.nom ? (a.prenom === b.prenom ? a.id - b.id : a.prenom < b.prenom ? -1 : 1) : a.nom < b.nom ? -1 : 1
+    );
     return {
-        duration: Math.round(rt.duration),
-        distance: Math.round(rt.distance),
-        path: rt.geometry.coordinates.map(c => [c[1], c[0]])
+        locations: locations.map(l => ({ ...l, n_poi: nPoi.get(l.id) || 0 })),
+        creators: creators.map(c => ({ id: c.id, name: poiName(c.prenom, c.nom) })),
+        categories: POI_CATS,
+        counts: byLocation
     };
 }
 
-export async function poiBody(b, existing) {
-    const out = {};
-    out.category = POI_CATS.includes(b.category) ? b.category : null;
-    if (!out.category) return { error: 'Choisissez une typologie (hébergement, restaurant ou bar)' };
-    out.name = poiClean(b.name, 120);
-    if (out.name.length < 2) return { error: 'Le nom du lieu est obligatoire' };
-    out.location_id = Number(b.location_id);
-    if (!(out.location_id > 0) || !(await dbGet('SELECT id FROM locations WHERE id = ?', [out.location_id])))
-        return { error: 'Choisissez le SAMU-SAS auquel rattacher ce lieu' };
-    out.address = poiClean(b.address, 250);
-    out.comment = poiClean(b.comment, 2000);
-    out.website = poiClean(b.website, 250);
-    out.phone = poiClean(b.phone, 40);
-    out.osm_ref = poiClean(b.osm_ref, 20);
-    let lat = Number(b.latitude),
-        lng = Number(b.longitude);
+/**
+ * Lieux filtrés (SAMU-SAS, catégorie, créateur, texte)
+ * @param {Viewer} viewer
+ * @param {Record<string, unknown>} query
+ */
+export function listPois(viewer, query) {
+    /** @type {{ location_id?: number, category?: string, created_by?: number, q?: string }} */
+    const filters = {};
+    if (Number(query.location_id) > 0) filters.location_id = idParam(query.location_id);
+    if (POI_CATS.includes(String(query.category || ''))) filters.category = String(query.category);
+    if (Number(query.creator) > 0) filters.created_by = idParam(query.creator);
+    const q = poiClean(query.q, 80);
+    if (q) filters.q = q;
+    return poiRows(viewer, filters);
+}
+
+/** Lieu avec ses commentaires et ses notes */
+export async function getPoi(/** @type {unknown} */ id, /** @type {Viewer} */ viewer) {
+    const poiId = idParam(id);
+    const [poi] = await poiRows(viewer, { id: poiId });
+    if (!poi) throw notFound('Lieu introuvable');
+    const [comments, ratings] = await Promise.all([
+        prisma.poiComment.findMany({ where: { poi_id: poiId }, orderBy: [{ created_at: 'asc' }, { id: 'asc' }] }),
+        prisma.poiRating.findMany({ where: { poi_id: poiId }, orderBy: [{ updated_at: 'desc' }, { id: 'asc' }] })
+    ]);
+    const users = await usersById([...comments, ...ratings].map(x => x.user_id));
+    const author = (/** @type {number} */ userId) => {
+        const u = users.get(userId);
+        return poiName(u?.prenom, u?.nom) || 'Utilisateur supprimé';
+    };
+    const canEdit = (/** @type {number} */ userId) => viewer.isAdmin || userId === viewer.userId;
+    return {
+        poi,
+        comments: comments.map(c => ({
+            id: c.id,
+            user_id: c.user_id,
+            author: author(c.user_id),
+            text: c.text,
+            created_at: c.created_at,
+            updated_at: c.updated_at,
+            can_edit: canEdit(c.user_id)
+        })),
+        ratings: ratings.map(r => ({
+            user_id: r.user_id,
+            author: author(r.user_id),
+            rating: r.rating,
+            created_at: r.created_at,
+            updated_at: r.updated_at,
+            can_edit: canEdit(r.user_id)
+        }))
+    };
+}
+
+/** Trajets du lieu au SAMU-SAS (marche, voiture, transports en commun), en cache une heure */
+export async function getRoute(/** @type {unknown} */ id) {
+    const poi = await prisma.poi.findUnique({ where: { id: idParam(id) } });
+    const loc = poi ? await prisma.location.findUnique({ where: { id: poi.location_id } }) : null;
+    if (!poi || !loc) throw notFound('Lieu introuvable');
+    if (loc.latitude == null || loc.longitude == null) throw badRequest("Ce SAMU-SAS n'est pas géolocalisé");
+    const a = [poi.latitude, poi.longitude];
+    const b = [loc.latitude, loc.longitude];
+    const out = { samu: loc.libelle_court, from: a, to: b };
+    const key = `${a}|${b}|${new Date().toISOString().slice(0, 13)}`;
+    if (poiRouteCache.has(key)) return { ...out, ...poiRouteCache.get(key) };
+    /** @type {Record<string, any>} */
+    const modes = {};
+    await Promise.all(
+        ['walk', 'car', 'transit'].map(async m => {
+            try {
+                modes[m] = await poiRouteOne(m, a, b);
+            } catch (/** @type {any} */ e) {
+                modes[m] = { error: e.message };
+            }
+        })
+    );
+    if (Object.values(modes).some(m => !m.error)) {
+        poiRouteCache.set(key, { modes });
+        if (poiRouteCache.size > 200) poiRouteCache.delete(poiRouteCache.keys().next().value);
+    }
+    return { ...out, modes };
+}
+
+/** Champs d'un lieu validés ; sans coordonnées, l'adresse (ou le nom) est géolocalisée */
+async function poiBody(/** @type {any} */ b) {
+    const category = POI_CATS.includes(b.category) ? b.category : null;
+    if (!category) throw badRequest('Choisissez une typologie (hébergement, restaurant ou bar)');
+    const name = poiClean(b.name, 120);
+    if (name.length < 2) throw badRequest('Le nom du lieu est obligatoire');
+    const location_id = Number(b.location_id);
+    if (!(location_id > 0) || !(await prisma.location.findUnique({ where: { id: idParam(location_id) } }))) {
+        throw badRequest('Choisissez le SAMU-SAS auquel rattacher ce lieu');
+    }
+    const address = poiClean(b.address, 250);
+    /** @type {number | null} */
+    let lat = Number(b.latitude);
+    /** @type {number | null} */
+    let lng = Number(b.longitude);
     if (!(isFinite(lat) && isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && (lat || lng))) {
         lat = lng = null;
-        if (out.address || out.name) {
-            // adresse saisie sans suggestion : géolocalisation par la base de référence
-            try {
-                const r = (await poiNominatim({ q: out.address || out.name, countrycodes: 'fr', limit: '1' }))[0];
-                if (r) {
-                    lat = Number(r.lat);
-                    lng = Number(r.lon);
-                }
-            } catch (e) {
-                /* géolocalisation indisponible */
+        // Adresse saisie sans suggestion : géolocalisation par la base de référence
+        try {
+            const r = (await poiNominatim({ q: address || name, countrycodes: 'fr', limit: '1' }))[0];
+            if (r) {
+                lat = Number(r.lat);
+                lng = Number(r.lon);
             }
+        } catch {
+            /* géolocalisation indisponible */
         }
-        if (lat == null)
-            return {
-                error: "Adresse introuvable : choisissez une suggestion de la liste ou précisez l'adresse pour pouvoir placer le lieu sur la carte"
-            };
+        if (lat == null) {
+            throw badRequest(
+                "Adresse introuvable : choisissez une suggestion de la liste ou précisez l'adresse pour pouvoir placer le lieu sur la carte"
+            );
+        }
     }
-    out.latitude = lat;
-    out.longitude = lng;
-    return { value: out };
+    return {
+        location_id: idParam(location_id),
+        category,
+        name,
+        address,
+        latitude: lat,
+        longitude: lng,
+        comment: poiClean(b.comment, 2000),
+        website: poiClean(b.website, 250),
+        phone: poiClean(b.phone, 40),
+        osm_ref: poiClean(b.osm_ref, 20)
+    };
+}
+
+/** Création (avec la note de l'auteur, facultative) */
+export async function createPoi(/** @type {any} */ body, /** @type {number} */ userId) {
+    const data = await poiBody(body);
+    const poi = await prisma.poi.create({ data: { ...data, created_by: userId } });
+    const rt = Number(body.rating);
+    if (rt >= 1 && rt <= 5) await setRating(poi.id, userId, Math.round(rt));
+    return { id: poi.id, name: data.name, category: data.category };
+}
+
+/** Lieu modifiable par son créateur ou un administrateur */
+async function ownPoi(/** @type {unknown} */ id, /** @type {Viewer} */ viewer, /** @type {string} */ action) {
+    const poi = await prisma.poi.findUnique({ where: { id: idParam(id) } });
+    if (!poi) throw notFound('Lieu introuvable');
+    if (!viewer.isAdmin && poi.created_by !== viewer.userId) {
+        throw forbidden(`Seul le créateur du lieu ou un administrateur peut le ${action}`);
+    }
+    return poi;
+}
+
+export async function updatePoi(/** @type {unknown} */ id, /** @type {any} */ body, /** @type {Viewer} */ viewer) {
+    const poi = await ownPoi(id, viewer, 'modifier');
+    const data = await poiBody(body);
+    await prisma.poi.update({ where: { id: poi.id }, data: { ...data, updated_at: sqlTimestamp() } });
+    return data.name;
+}
+
+/** Suppression du lieu, de ses notes et de ses commentaires */
+export async function deletePoi(/** @type {unknown} */ id, /** @type {Viewer} */ viewer) {
+    const poi = await ownPoi(id, viewer, 'supprimer');
+    await prisma.$transaction([
+        prisma.poiComment.deleteMany({ where: { poi_id: poi.id } }),
+        prisma.poiRating.deleteMany({ where: { poi_id: poi.id } }),
+        prisma.poi.delete({ where: { id: poi.id } })
+    ]);
+    return poi.name;
+}
+
+// ---------- Notes ----------
+
+function setRating(/** @type {number} */ poiId, /** @type {number} */ userId, /** @type {number} */ rating) {
+    return prisma.poiRating.upsert({
+        where: { poi_id_user_id: { poi_id: poiId, user_id: userId } },
+        create: { poi_id: poiId, user_id: userId, rating },
+        update: { rating, updated_at: sqlTimestamp() }
+    });
+}
+
+/** Note de l'utilisateur (1 à 5) */
+export async function ratePoi(/** @type {unknown} */ id, /** @type {unknown} */ rating, /** @type {number} */ userId) {
+    const rt = Math.round(Number(rating));
+    if (!(rt >= 1 && rt <= 5)) throw badRequest('La note doit être comprise entre 1 et 5');
+    const poi = await prisma.poi.findUnique({ where: { id: idParam(id) }, select: { id: true } });
+    if (!poi) throw notFound('Lieu introuvable');
+    await setRating(poi.id, userId, rt);
+}
+
+/** Retrait d'une note : la sienne, ou celle d'un autre utilisateur pour un administrateur */
+export async function deleteRating(
+    /** @type {unknown} */ id,
+    /** @type {unknown} */ targetUserId,
+    /** @type {Viewer} */ viewer
+) {
+    const userId = viewer.isAdmin && Number(targetUserId) > 0 ? idParam(targetUserId) : viewer.userId;
+    await prisma.poiRating.deleteMany({ where: { poi_id: idParam(id), user_id: userId } });
+}
+
+// ---------- Commentaires ----------
+
+export async function addComment(/** @type {unknown} */ id, /** @type {unknown} */ text, /** @type {number} */ userId) {
+    const clean = poiClean(text, 2000);
+    if (clean.length < 1) throw badRequest('Le commentaire est vide');
+    const poi = await prisma.poi.findUnique({ where: { id: idParam(id) }, select: { id: true } });
+    if (!poi) throw notFound('Lieu introuvable');
+    return (await prisma.poiComment.create({ data: { poi_id: poi.id, user_id: userId, text: clean } })).id;
+}
+
+/** Commentaire modifiable par son auteur ou un administrateur */
+async function ownComment(/** @type {unknown} */ id, /** @type {Viewer} */ viewer, /** @type {string} */ action) {
+    const comment = await prisma.poiComment.findUnique({ where: { id: idParam(id) } });
+    if (!comment) throw notFound('Commentaire introuvable');
+    if (!viewer.isAdmin && comment.user_id !== viewer.userId) {
+        throw forbidden(`Seul l'auteur du commentaire ou un administrateur peut le ${action}`);
+    }
+    return comment;
+}
+
+export async function updateComment(
+    /** @type {unknown} */ id,
+    /** @type {unknown} */ text,
+    /** @type {Viewer} */ viewer
+) {
+    const comment = await ownComment(id, viewer, 'modifier');
+    const clean = poiClean(text, 2000);
+    if (!clean) throw badRequest('Le commentaire est vide');
+    await prisma.poiComment.update({ where: { id: comment.id }, data: { text: clean, updated_at: sqlTimestamp() } });
+}
+
+export async function deleteComment(/** @type {unknown} */ id, /** @type {Viewer} */ viewer) {
+    const comment = await ownComment(id, viewer, 'supprimer');
+    await prisma.poiComment.delete({ where: { id: comment.id } });
 }

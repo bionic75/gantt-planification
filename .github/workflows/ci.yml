@@ -37,6 +37,91 @@ jobs:
       - name: Tests
         run: npm test
 
+  # Migrations appliquées sur une vraie base, uniquement pour le fournisseur utilisé : variable du dépôt DB_PROVIDER
+  # (Settings › Secrets and variables › Actions › Variables) = postgresql ou mysql. Absente ou sqlite : jobs ignorés,
+  # SQLite étant couvert par les tests.
+  # Identifiants de la base de test : secrets du dépôt CI_DB_USER et CI_DB_PASSWORD.
+  migrations-postgresql:
+    name: Migrations postgresql
+    if: vars.DB_PROVIDER == 'postgresql'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ${{ secrets.CI_DB_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.CI_DB_PASSWORD }}
+          POSTGRES_DB: planning
+        ports: ['5432:5432']
+        options: --health-cmd "pg_isready -h localhost" --health-interval 5s --health-retries 10
+    env:
+      PUPPETEER_SKIP_DOWNLOAD: 'true'
+      DB_PROVIDER: postgresql
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_NAME: planning
+      DB_USER: ${{ secrets.CI_DB_USER }}
+      DB_PASSWORD: ${{ secrets.CI_DB_PASSWORD }}
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+
+      - name: No drift between migrations and schema
+        run: npx prisma migrate diff --from-config-datasource --to-schema prisma/postgresql/schema.prisma --exit-code
+
+  migrations-mysql:
+    name: Migrations mysql
+    if: vars.DB_PROVIDER == 'mysql'
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:11
+        env:
+          MARIADB_RANDOM_ROOT_PASSWORD: 'yes'
+          MARIADB_USER: ${{ secrets.CI_DB_USER }}
+          MARIADB_PASSWORD: ${{ secrets.CI_DB_PASSWORD }}
+          MARIADB_DATABASE: planning
+        ports: ['3306:3306']
+        options: --health-cmd "healthcheck.sh --connect --innodb_initialized" --health-interval 5s --health-retries 10
+    env:
+      PUPPETEER_SKIP_DOWNLOAD: 'true'
+      DB_PROVIDER: mysql
+      DB_HOST: localhost
+      DB_PORT: 3306
+      DB_NAME: planning
+      DB_USER: ${{ secrets.CI_DB_USER }}
+      DB_PASSWORD: ${{ secrets.CI_DB_PASSWORD }}
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+
+      - name: No drift between migrations and schema
+        run: npx prisma migrate diff --from-config-datasource --to-schema prisma/mysql/schema.prisma --exit-code
+
   docker-build:
     name: Construction de l'image Docker
     runs-on: ubuntu-latest
