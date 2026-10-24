@@ -40,6 +40,3 @@ export const passwordResetRequestLimiter = limiter(15 * MINUTE, 20, { keyGenerat
 
 /** Vérification des liens de réinitialisation et des codes de double authentification : échecs par adresse IP */
 export const tokenCheckLimiter = limiter(15 * MINUTE, 30, { skipSuccessfulRequests: true, keyGenerator: clientIp });
-
-/** Existence d'un compte et profils associés (écran de connexion) */
-export const profileLookupLimiter = limiter(15 * MINUTE, 100, { keyGenerator: clientIp });

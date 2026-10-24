@@ -106,20 +106,47 @@ async function prepareDatabase(workDir) {
 /** Répertoire de travail temporaire d'un serveur de test (base dans <workDir>/data) */
 export const createWorkDir = () => fs.mkdtempSync(path.join(os.tmpdir(), 'gantt-test-'));
 
+/** Compte administrateur initial sans variables d'environnement */
+export const DEFAULT_ADMIN = { username: 'admin', password: 'admin' };
+
+/** Mot de passe initial du compte ADMIN, remplacé par ADMIN.password au démarrage (changement obligatoire) */
+const ADMIN_INITIAL = { username: ADMIN.username, password: `${ADMIN.password}-initial` };
+
 /**
- * @param {{ workDir?: string }} [options] workDir : répertoire préparé à l'avance (base existante dans workDir/data)
+ * Le compte administrateur initial doit changer son mot de passe à la première connexion : il prend ici le mot de
+ * passe ADMIN.password utilisé par les tests (sans effet si c'est déjà fait : redémarrage, base existante).
  */
-export async function startServer({ workDir = createWorkDir() } = {}) {
+async function completeInitialAdmin(server) {
+    const client = server.client();
+    const r = await client.login(ADMIN_INITIAL.username, ADMIN_INITIAL.password, 'admin');
+    if (r.status !== 200 || !r.data.user?.mustChangePassword) return;
+    const changed = await client.post('/api/profile/change-password', { newPassword: ADMIN.password });
+    if (changed.status !== 200) throw new Error(`Changement du mot de passe admin : ${JSON.stringify(changed.data)}`);
+    await client.post('/api/logout');
+}
+
+/**
+ * @param {{ workDir?: string, initialAdmin?: { username: string, password: string } | null }} [options]
+ *   workDir : répertoire préparé à l'avance (base existante dans workDir/data) ;
+ *   initialAdmin : compte administrateur initial transmis par INITIAL_ADMIN_USERNAME / _PASSWORD, null pour démarrer
+ *   sans ces variables (compte par défaut), laissé tel quel (mot de passe à changer). Sans cette option : compte
+ *   ADMIN prêt à l'emploi.
+ */
+export async function startServer({ workDir = createWorkDir(), initialAdmin } = {}) {
+    const standard = initialAdmin === undefined;
+    const admin = standard ? ADMIN_INITIAL : initialAdmin;
     try {
         if (isLegacyEntry()) {
             // Ancienne version (comparaisons) : tables créées au démarrage par initDB, dont une partie seulement
             // au démarrage suivant sur une base neuve : deux démarrages successifs
-            const first = await bootServer(workDir);
+            const first = await bootServer(workDir, undefined, admin);
             await first.shutdown();
         } else {
             await prepareDatabase(workDir);
         }
-        return await bootServer(workDir);
+        const server = await bootServer(workDir, undefined, admin);
+        if (standard && !isLegacyEntry()) await completeInitialAdmin(server);
+        return server;
     } catch (err) {
         const database = databaseOf(workDir);
         if (database) await dropDatabase(database).catch(() => {});
@@ -128,7 +155,7 @@ export async function startServer({ workDir = createWorkDir() } = {}) {
     }
 }
 
-async function bootServer(workDir, previousPort) {
+async function bootServer(workDir, previousPort, initialAdmin) {
     const port = previousPort ?? (await freePort());
     const baseUrl = `http://127.0.0.1:${port}`;
     let logs = '';
@@ -153,7 +180,9 @@ async function bootServer(workDir, previousPort) {
             DB_PATH: path.join(workDir, 'data'),
             ...databaseEnv(databaseOf(workDir)),
             APP_URL: APP_URL,
-            SESSION_SECRET: 'test-secret-'.padEnd(48, 'x')
+            SESSION_SECRET: 'test-secret-'.padEnd(48, 'x'),
+            INITIAL_ADMIN_USERNAME: initialAdmin?.username,
+            INITIAL_ADMIN_PASSWORD: initialAdmin?.password
         }),
         stdio: ['ignore', 'pipe', 'pipe']
     });
@@ -176,7 +205,7 @@ async function bootServer(workDir, previousPort) {
         /** Redémarre le serveur sur le même port et la même base ; renvoie le nouveau serveur (mêmes clients) */
         async restart() {
             await server.shutdown();
-            return bootServer(workDir, port);
+            return bootServer(workDir, port, initialAdmin);
         },
         async stop() {
             await server.shutdown();
@@ -190,13 +219,20 @@ async function bootServer(workDir, previousPort) {
         }
     };
 
-    // Prêt quand le compte admin initial (créé de façon asynchrone par initDB) permet de se connecter
+    // Prêt quand le compte admin initial (créé de façon asynchrone par initDB) permet de se connecter : avec son
+    // mot de passe initial, ou avec ADMIN une fois celui-ci changé (ancienne version : son propre compte, ADMIN)
+    const candidates = isLegacyEntry() ? [ADMIN] : [initialAdmin || DEFAULT_ADMIN, ADMIN];
     const deadline = Date.now() + 45000;
     while (Date.now() < deadline) {
         if (proc.exitCode !== null) throw new Error(`Le serveur s'est arrêté (code ${proc.exitCode}) :\n${logs}`);
         try {
-            const r = await server.client().login(ADMIN.username, ADMIN.password, 'admin');
-            if (r.status === 200) {
+            let ready = false;
+            for (const admin of candidates) {
+                const r = await server.client().login(admin.username, admin.password, 'admin');
+                if (r.status === 200) ready = true;
+                if (ready || r.status !== 401) break;
+            }
+            if (ready) {
                 // Ancienne version : laisse initDB terminer ses créations de tables asynchrones
                 if (isLegacyEntry()) await sleep(500);
                 return server;

@@ -37,7 +37,9 @@ async function completeLogin(req, res, user, profile) {
         activeProfile: profile,
         resourceId: user.resource_id,
         email: user.email,
-        loginAt: Date.now()
+        loginAt: Date.now(),
+        // Mot de passe donné par un administrateur : l'application reste bloquée jusqu'à son remplacement
+        mustChangePassword: user.must_change_password === 1
     });
 
     activeSessions.set(user.id, {
@@ -74,6 +76,7 @@ async function completeLogin(req, res, user, profile) {
             astreinte_volontaire: user.astreinte_volontaire === 1,
             astreinte_date_activation: user.astreinte_date_activation || null,
             defaultTab: user.default_tab || 'planning',
+            mustChangePassword: user.must_change_password === 1,
             availableApps,
             amoaCed,
             is_amoa_ced: amoaCed
@@ -105,15 +108,26 @@ async function loginOrRequireMfa(req, res, user, profile, extra = {}) {
     await completeLogin(req, res, user, profile);
 }
 
+/**
+ * Connexion. Sans profil : un compte à profil unique est connecté directement ; pour un compte à plusieurs
+ * profils, la réponse { profileRequired, profiles } invite à en choisir un, puis à se reconnecter avec ce profil.
+ * Les profils ne sont révélés qu'après vérification du mot de passe.
+ */
 export async function login(/** @type {Request} */ req, /** @type {Response} */ res) {
     const { username, password, profile } = req.body;
-    if (!username || !password || !profile) throw badRequest('Username, password et profil requis');
+    if (!username || !password) throw badRequest('Identifiant et mot de passe requis');
 
     const user = await auth.authenticate(username, password);
     if (!user) throw unauthorized('Identifiants incorrects');
-    if (!auth.profilesOf(user).includes(profile)) throw forbidden('Profil non autorisé');
-
-    await loginOrRequireMfa(req, res, user, profile);
+    const profiles = auth.profilesOf(user);
+    if (profile) {
+        if (!profiles.includes(profile)) throw forbidden('Profil non autorisé');
+        return loginOrRequireMfa(req, res, user, profile);
+    }
+    if (profiles.length === 0) throw forbidden('Aucun profil disponible');
+    // Profil choisi par le serveur : rappelé au client si la double authentification est demandée
+    if (profiles.length === 1) return loginOrRequireMfa(req, res, user, profiles[0], { profile: profiles[0] });
+    res.json({ profileRequired: true, profiles });
 }
 
 /** Application mobile : profil choisi automatiquement (admin > expert > user) */
@@ -125,6 +139,12 @@ export async function mobileLogin(/** @type {Request} */ req, /** @type {Respons
     if (!user) throw unauthorized('Identifiants incorrects');
     const profile = auth.profilesOf(user).find(p => p !== 'rh');
     if (!profile) throw forbidden('Aucun profil valide');
+    // L'application mobile n'a pas d'écran de changement de mot de passe
+    if (user.must_change_password === 1) {
+        throw forbidden(
+            'Mot de passe à changer : connectez-vous une première fois depuis un ordinateur pour choisir votre mot de passe.'
+        );
+    }
 
     await loginOrRequireMfa(req, res, user, profile, { pendingProfile: profile });
 }
@@ -170,7 +190,8 @@ export async function checkSession(/** @type {Request} */ req, /** @type {Respon
         is_user: userData?.is_user === 1,
         is_rh: userData?.is_rh === 1,
         astreinte_volontaire: userData?.astreinte_volontaire === 1,
-        astreinte_date_activation: userData?.astreinte_date_activation || null
+        astreinte_date_activation: userData?.astreinte_date_activation || null,
+        mustChangePassword: !!req.session.mustChangePassword
     });
 }
 
@@ -187,14 +208,6 @@ export async function switchProfile(/** @type {Request} */ req, /** @type {Respo
     if (tracked) tracked.profile = profile;
     console.log(`🔄 ${req.session.username} a switché vers le profil: ${profile}`);
     res.json({ success: true, activeProfile: profile });
-}
-
-/** Profils proposés sur l'écran de connexion */
-export async function userProfiles(/** @type {Request} */ req, /** @type {Response} */ res) {
-    res.set('Cache-Control', 'no-store');
-    const { username } = req.query;
-    if (!username) throw badRequest('Username requis');
-    res.json(await auth.getProfilesByUsername(String(username)));
 }
 
 // ---------- Mot de passe oublié ----------

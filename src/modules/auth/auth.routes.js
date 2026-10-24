@@ -3,12 +3,7 @@
 import { Router } from 'express';
 import { requireAdmin, requireAuth } from '../../middlewares/auth.js';
 import { asyncHandler as h } from '../../middlewares/error-handler.js';
-import {
-    loginLimiters,
-    passwordResetRequestLimiter,
-    profileLookupLimiter,
-    tokenCheckLimiter
-} from '../../middlewares/rate-limit.js';
+import { loginLimiters, passwordResetRequestLimiter, tokenCheckLimiter } from '../../middlewares/rate-limit.js';
 import * as ctrl from './auth.controller.js';
 import { requireMfaPending } from './mfa-pending.js';
 
@@ -22,7 +17,6 @@ router.post('/forgot-password', passwordResetRequestLimiter, h(ctrl.forgotPasswo
 router.post('/reset-password/check', tokenCheckLimiter, h(ctrl.checkResetToken));
 router.post('/reset-password', tokenCheckLimiter, h(ctrl.resetPassword));
 router.get('/check-session', h(ctrl.checkSession));
-router.get('/user/profiles', profileLookupLimiter, h(ctrl.userProfiles));
 
 router.post('/switch-profile', requireAuth, h(ctrl.switchProfile));
 

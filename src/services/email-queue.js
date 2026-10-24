@@ -12,7 +12,7 @@ const POLL_INTERVAL_MS = 1500;
 const INTER_SEND_DELAY_MS = 500;
 /** Délai avant chaque nouvelle tentative : immédiat, 30 s, puis 2 min */
 const RETRY_DELAYS_MS = [0, 30000, 120000];
-const ANS_LOGO_PATH = fileURLToPath(new URL('../../public/logo-ans.webp', import.meta.url));
+const ANS_LOGO_PATH = fileURLToPath(new URL('../../public/img/logo-ans.webp', import.meta.url));
 
 /** @type {import('nodemailer').Transporter | null} */
 let cachedTransporter = null;
