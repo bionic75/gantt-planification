@@ -1,10 +1,7 @@
 # Base de données
 
-Le schéma est géré par **Prisma** et des **migrations** versionnées. Trois bases sont prévues :
-SQLite (par défaut), PostgreSQL et MariaDB/MySQL.
-
-> PostgreSQL et MariaDB ne sont pas encore utilisables : une partie du code accède encore directement à
-> SQLite. Ils le seront à la fin du passage à Prisma. Leurs migrations sont déjà vérifiées par la CI.
+Le schéma est géré par **Prisma** et des **migrations** versionnées. Trois bases sont possibles :
+SQLite (par défaut), PostgreSQL (16 ou plus) et MariaDB (10.10 ou plus).
 
 ## Configuration
 
@@ -19,23 +16,78 @@ SQLite (par défaut), PostgreSQL et MariaDB/MySQL.
 
 Les secrets (`SESSION_SECRET`, `DB_USER`, `DB_PASSWORD`) sont listés dans `.env.example`.
 
-En CI, les migrations sont appliquées sur une vraie base PostgreSQL ou MariaDB seulement si la variable du dépôt
-`DB_PROVIDER` (Settings › Secrets and variables › Actions › Variables) vaut `postgresql` ou `mysql` : le fournisseur
-utilisé en production. La base de test utilise alors les secrets du dépôt `CI_DB_USER` et `CI_DB_PASSWORD`.
-Sans cette variable (SQLite), seuls les tests tournent.
-
 Le client Prisma est généré pour un seul fournisseur. Il est généré à l'installation (`npm install`, script
-`postinstall`) d'après `DB_PROVIDER`. Après un changement de fournisseur : `npm run db:generate`.
+`postinstall`) d'après `DB_PROVIDER`. Après un changement de fournisseur : `npm run db:generate`. L'image Docker
+reçoit le fournisseur en argument de construction (`docker build --build-arg DB_PROVIDER=postgresql`) ; les
+workflows GitHub le prennent dans la variable du dépôt `DB_PROVIDER`.
+
+## Créer la base PostgreSQL ou MariaDB
+
+La base est créée vide, une seule fois ; les tables sont créées par les migrations au démarrage. Les textes
+sont triés selon les règles françaises (accents, majuscules) :
+
+```sql
+-- PostgreSQL : encodage UTF-8 obligatoire (vérifié au démarrage), tri fr-FR
+CREATE DATABASE planning ENCODING 'UTF8' LOCALE_PROVIDER icu ICU_LOCALE 'fr-FR' LOCALE 'C' TEMPLATE template0;
+CREATE USER planning WITH PASSWORD '…';
+ALTER DATABASE planning OWNER TO planning;
+
+-- MariaDB 10.10 ou plus (collation utf8mb4_uca1400_ai_ci des tables)
+CREATE DATABASE planning CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
+CREATE USER 'planning'@'%' IDENTIFIED BY '…';
+GRANT ALL PRIVILEGES ON planning.* TO 'planning'@'%';
+```
+
+## Passer une installation SQLite à PostgreSQL ou MariaDB
+
+`npm run db:transfer -- --from=<data.db>` copie toutes les données d'une base SQLite vers la base configurée
+(`DB_PROVIDER` et connexion). La source et la cible doivent être au même niveau de migrations ; la cible doit être
+vide (ou `--replace` pour remplacer son contenu). Les nombres de lignes sont vérifiés table par table.
+
+1. Arrêter l'application et copier `data.db` (ainsi que `data/pdfs/`, les PDF des CRA).
+2. Si la base vient de l'ancienne version : `npm run db:adopt` puis `npm run db:migrate` **sur la copie**
+   (`DB_PATH` pointant sur son répertoire, `DB_PROVIDER=sqlite`).
+3. Créer la base cible (paragraphe précédent), puis, avec la configuration cible : `npm run db:migrate`.
+4. `npm run db:transfer -- --from=<copie>/data.db` (même version de l'application que l'étape 2).
+5. Copier les PDF dans le `data/pdfs/` du nouveau serveur, puis démarrer l'application.
+
+Le client Prisma doit être généré pour la cible (`DB_PROVIDER=postgresql npm run db:generate`) ; la lecture
+de la source SQLite n'en a pas besoin.
+
+## Tests et CI
+
+`npm test` utilise SQLite. Pour les lancer sur PostgreSQL ou MariaDB (une base créée puis supprimée par serveur de
+test, d'où une connexion autorisée à créer des bases) :
+
+```bash
+DB_PROVIDER=postgresql npm run db:generate
+TEST_DB_PROVIDER=postgresql TEST_DATABASE_URL=postgresql://planning:…@localhost:5432/postgres npm test
+# MariaDB : DB_PROVIDER=mysql, TEST_DB_PROVIDER=mysql, TEST_DATABASE_URL=mysql://root:…@localhost:3306/mysql
+```
+
+Les tests propres à SQLite (adoption, sauvegarde `.gpdump`) sont alors ignorés ; le test du transfert ne tourne
+qu'hors SQLite.
+
+En CI, les migrations et les tests tournent sur une vraie base PostgreSQL ou MariaDB seulement si la variable du
+dépôt `DB_PROVIDER` (Settings › Secrets and variables › Actions › Variables) vaut `postgresql` ou `mysql` : le
+fournisseur utilisé en production. La base de test utilise alors les secrets du dépôt `CI_DB_USER` et
+`CI_DB_PASSWORD` (MariaDB : aussi mot de passe de `root`). Sans cette variable (SQLite), seuls les tests SQLite
+tournent.
+
+Les fins de ligne sont forcées en LF (`.gitattributes`) : l'empreinte des fichiers de migration, enregistrée dans
+`_prisma_migrations`, doit être identique sur tous les postes. Après l'ajout de `.gitattributes`, une fois :
+`git add --renormalize .`.
 
 ## Commandes
 
-| Commande                        | Usage                                                                                         |
-| ------------------------------- | --------------------------------------------------------------------------------------------- |
-| `npm run db:migrate`            | Applique les migrations en attente. Lancée par `npm start` et l'image Docker avant le serveur |
-| `npm run db:adopt`              | Adoption, une seule fois, d'une base SQLite créée par l'ancienne version                      |
-| `npm run db:migration -- <nom>` | Crée une migration pour les trois fournisseurs après une modification du schéma               |
-| `npm run db:schemas`            | Régénère les schémas des trois fournisseurs depuis le schéma source                           |
-| `npm run db:generate`           | Régénère le client Prisma                                                                     |
+| Commande                                  | Usage                                                                                         |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `npm run db:migrate`                      | Applique les migrations en attente. Lancée par `npm start` et l'image Docker avant le serveur |
+| `npm run db:adopt`                        | Adoption, une seule fois, d'une base SQLite créée par l'ancienne version                      |
+| `npm run db:transfer -- --from=<data.db>` | Copie les données d'une base SQLite vers la base PostgreSQL / MariaDB configurée              |
+| `npm run db:migration -- <nom>`           | Crée une migration pour les trois fournisseurs après une modification du schéma               |
+| `npm run db:schemas`                      | Régénère les schémas des trois fournisseurs depuis le schéma source                           |
+| `npm run db:generate`                     | Régénère le client Prisma                                                                     |
 
 ## Mettre à jour une installation existante (base SQLite de l'ancienne version)
 
@@ -117,4 +169,5 @@ Le schéma de départ reproduit la base historique, pour que les réponses de l'
 - **aucune clé étrangère en base** (`relationMode = "prisma"`). Les relations sont déclarées dans le schéma au
   fur et à mesure de la réécriture des modules, avec le comportement à la suppression de l'application
   actuelle. Elles ne modifient pas la base ;
-- MariaDB/MySQL : les textes sont en `LONGTEXT`, sauf les colonnes indexées (`VARCHAR(191)`).
+- MariaDB/MySQL : les textes sont en `LONGTEXT`, sauf les colonnes indexées (`VARCHAR(191)`) et les horodatages
+  (`VARCHAR(32)`). Collation `utf8mb4_uca1400_ai_ci`, substituée par `db:migration` à celle choisie par Prisma.

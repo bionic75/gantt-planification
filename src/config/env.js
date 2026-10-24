@@ -78,13 +78,6 @@ const schema = z
                     message: `avec DB_PROVIDER=${cfg.DB_PROVIDER}, renseigner DATABASE_URL, ou DB_HOST, DB_NAME, DB_USER (et DB_PASSWORD)`
                 });
             }
-            // Une partie du code accède encore directement à SQLite : PostgreSQL / MariaDB seront utilisables
-            // une fois tous les modules passés à Prisma (phase 2)
-            ctx.addIssue({
-                code: 'custom',
-                path: ['DB_PROVIDER'],
-                message: `${cfg.DB_PROVIDER} n'est pas encore utilisable : migration vers Prisma en cours, seul sqlite est pris en charge`
-            });
         }
     });
 

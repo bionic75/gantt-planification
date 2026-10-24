@@ -17,7 +17,7 @@ model ActionLog {
   user_id     Int
   action_type String  @db.LongText
   details     String? @db.LongText
-  created_at  String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
+  created_at  String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
 
   @@map("action_logs")
 }
@@ -27,7 +27,7 @@ model AffectationAssignment {
   project_id  Int
   stage_key   String  @db.VarChar(191)
   resource_id Int
-  created_at  String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
+  created_at  String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
 
   @@unique([project_id, stage_key, resource_id])
   @@map("affectation_assignments")
@@ -41,7 +41,7 @@ model AffectationHistory {
   user_name  String? @db.LongText
   action     String  @db.LongText
   details    String? @db.LongText
-  created_at String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
+  created_at String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
 
   @@index([project_id, id], map: "idx_aff_hist_project")
   @@map("affectation_history")
@@ -55,10 +55,10 @@ model AffectationProject {
   date_debut              String  @db.LongText
   date_mise_en_service    String? @db.LongText
   date_mise_en_production String? @db.LongText
-  periods                 String  @default(dbgenerated("('{}')")) @db.LongText
+  periods                 String  @default("{}") @db.LongText
   created_by              Int?
-  created_at              String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
-  updated_at              String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
+  created_at              String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
+  updated_at              String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
 
   @@map("affectation_projects")
 }
@@ -69,7 +69,7 @@ model ApiKey {
   key_hash     String  @unique @db.VarChar(191)
   key_prefix   String  @db.LongText
   created_by   Int?
-  created_at   String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
+  created_at   String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
   last_used_at String? @db.LongText
   revoked      Int?    @default(0)
 
@@ -80,7 +80,7 @@ model AppUserAccess {
   id         Int     @id @default(autoincrement())
   app_key    String  @db.VarChar(191)
   user_id    Int
-  created_at String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
+  created_at String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
 
   @@unique([app_key, user_id])
   @@map("app_user_access")
@@ -91,7 +91,7 @@ model AstreinteDisponibilite {
   resource_id  Int
   date         String  @db.VarChar(191)
   type_creneau String  @db.LongText
-  created_at   String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
+  created_at   String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
 
   @@unique([resource_id, date])
   @@map("astreinte_disponibilites")
@@ -103,7 +103,7 @@ model AstreinteIndisponibilite {
   date         String  @db.VarChar(191)
   type_creneau String  @db.VarChar(191)
   motif        String? @db.LongText
-  created_at   String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
+  created_at   String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
 
   @@unique([resource_id, date, type_creneau])
   @@map("astreinte_indisponibilites")
@@ -116,7 +116,7 @@ model AstreintePlanning {
   resource_id  Int?
   year         Int
   month        Int
-  created_at   String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
+  created_at   String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
 
   @@unique([date, type_creneau])
   @@map("astreinte_planning")
@@ -133,8 +133,8 @@ model AstreinteHno {
   samu        String? @db.LongText
   tous_samu   Int?    @default(0)
   objet       String  @db.LongText
-  created_at  String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
-  updated_at  String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
+  created_at  String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
+  updated_at  String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
 
   @@map("astreintes_hno")
 }
@@ -146,7 +146,7 @@ model AutomationLog {
   expert_name     String? @db.LongText
   expert_email    String? @db.LongText
   target_month    String? @db.LongText
-  sent_at         String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
+  sent_at         String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
   recipients_list String? @db.LongText
   file_content    String? @db.LongText
   filename        String? @db.LongText
@@ -161,7 +161,7 @@ model BonCommande {
   date_debut                  String  @db.LongText
   date_fin                    String  @db.LongText
   nb_uo                       Int
-  created_at                  String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
+  created_at                  String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
   created_by                  Int?
   actif                       Int?    @default(1)
   solde                       Int?    @default(0)
@@ -177,8 +177,8 @@ model ConnectionLog {
   nom           String  @db.LongText
   prenom        String  @db.LongText
   profile       String  @db.LongText
-  login_time    String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
-  modifications String? @default(dbgenerated("('')")) @db.LongText
+  login_time    String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
+  modifications String? @default("") @db.LongText
 
   @@map("connection_logs")
 }
@@ -197,7 +197,7 @@ model Cra {
   vise_n2_at          String? @db.LongText
   vise_n2_by          Int?
   diffuse_at          String? @db.LongText
-  created_at          String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
+  created_at          String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
   rien_a_declarer     Int?    @default(0)
   commentaire_refus   String? @db.LongText
   refuse_by           Int?
@@ -220,7 +220,7 @@ model CraDiffusionLog {
   recipient_email String  @db.LongText
   recipient_name  String? @db.LongText
   recipient_type  String? @default("rh_es") @db.VarChar(191)
-  sent_at         String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
+  sent_at         String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
   email_batch_id  String? @db.LongText
 
   @@map("cra_diffusion_log")
@@ -243,7 +243,7 @@ model CraSignature {
   signer_user_id   Int?
   signer_name      String  @db.LongText
   signer_email     String  @db.LongText
-  signed_at        String  @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
+  signed_at        String  @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
   ip_address       String? @db.LongText
   user_agent       String? @db.LongText
   token            String? @unique @db.VarChar(191)
@@ -259,7 +259,7 @@ model CustomEventExternalParticipant {
   nom      String? @db.LongText
   prenom   String? @db.LongText
   email    String? @db.LongText
-  added_at String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
+  added_at String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
 
   @@map("custom_event_external_participants")
 }
@@ -268,7 +268,7 @@ model CustomEventParticipant {
   id       Int     @id @default(autoincrement())
   event_id Int
   user_id  Int
-  added_at String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
+  added_at String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
 
   @@unique([event_id, user_id])
   @@map("custom_event_participants")
@@ -281,7 +281,7 @@ model CustomEvent {
   end_date        String  @db.LongText
   config          String? @db.LongText
   created_by      Int?
-  created_at      String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
+  created_at      String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
   needs_resources Int?    @default(0)
   resources_count Int?    @default(1)
   type_id         Int?
@@ -302,7 +302,7 @@ model Deplacement {
   ville                        String  @db.LongText
   bon_commande_id              Int?
   nb_uo                        Int
-  created_at                   String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
+  created_at                   String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
   a_regulariser                Int?    @default(0)
   regularisation_source_bdc_id Int?
   commentaire                  String? @db.LongText
@@ -318,7 +318,7 @@ model EmailConfig {
   secure     Int?    @default(0)
   user       String  @db.LongText
   password   String  @db.LongText
-  updated_at String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
+  updated_at String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
 
   @@map("email_config")
 }
@@ -343,7 +343,7 @@ model EmailQueue {
   error_message   String? @db.LongText
   action_type     String? @db.LongText
   resource_id     Int?
-  created_at      String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
+  created_at      String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
   processed_at    String? @db.LongText
   next_retry_at   String? @db.LongText
   cc_emails       String? @db.LongText
@@ -374,7 +374,7 @@ model ExpertNotification {
   activity_name  String  @db.LongText
   requester_name String  @db.LongText
   action_type    String  @db.LongText
-  created_at     String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
+  created_at     String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
   is_read        Int?    @default(0)
 
   @@map("expert_notifications")
@@ -397,7 +397,7 @@ model IcsFile {
   filename    String  @db.LongText
   content     String? @db.LongText
   config      String? @db.LongText
-  imported_at String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
+  imported_at String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
 
   @@map("ics_files")
 }
@@ -409,8 +409,8 @@ model Location {
   adresse       String? @db.LongText
   latitude      Float?
   longitude     Float?
-  created_at    String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
-  updated_at    String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
+  created_at    String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
+  updated_at    String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
 
   @@map("locations")
 }
@@ -420,7 +420,7 @@ model MfaCode {
   user_id    Int     @unique
   code       String  @db.LongText
   expires_at String  @db.LongText
-  created_at String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
+  created_at String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
 
   @@map("mfa_codes")
 }
@@ -428,7 +428,7 @@ model MfaCode {
 model MfaValidation {
   id           Int     @id @default(autoincrement())
   user_id      Int
-  validated_at String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
+  validated_at String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
 
   @@map("mfa_validations")
 }
@@ -451,7 +451,7 @@ model PendingNotification {
   expert_id       Int
   assignment_data String  @db.LongText
   created_by      Int
-  created_at      String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
+  created_at      String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
 
   @@map("pending_notifications")
 }
@@ -463,7 +463,7 @@ model PendingPushMessage {
   from_name    String? @db.LongText
   from_photo   String? @db.LongText
   message      String  @db.LongText
-  sent_at      String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
+  sent_at      String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
 
   @@map("pending_push_messages")
 }
@@ -481,8 +481,8 @@ model Poi {
   phone       String? @db.LongText
   osm_ref     String? @db.LongText
   created_by  Int?
-  created_at  String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
-  updated_at  String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
+  created_at  String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
+  updated_at  String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
 
   @@index([location_id], map: "idx_poi_location")
   @@map("poi")
@@ -493,8 +493,8 @@ model PoiComment {
   poi_id     Int
   user_id    Int
   text       String  @db.LongText
-  created_at String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
-  updated_at String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
+  created_at String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
+  updated_at String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
 
   @@index([poi_id], map: "idx_poi_comments_poi")
   @@map("poi_comments")
@@ -505,8 +505,8 @@ model PoiRating {
   poi_id     Int
   user_id    Int
   rating     Int
-  created_at String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
-  updated_at String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
+  created_at String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
+  updated_at String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
 
   @@unique([poi_id, user_id])
   @@map("poi_ratings")
@@ -518,7 +518,7 @@ model ResourceMadHistory {
   taux        Float
   date_debut  String  @db.LongText
   date_fin    String? @db.LongText
-  created_at  String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
+  created_at  String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
   created_by  Int?
 
   @@map("resource_mad_history")
@@ -532,7 +532,7 @@ model ResourceMadParticularite {
   date_debut     String  @db.LongText
   date_fin       String  @db.LongText
   motif          String? @db.LongText
-  created_at     String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
+  created_at     String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
   created_by     Int?
 
   @@map("resource_mad_particularites")
@@ -543,7 +543,7 @@ model ResourceSamuAssignment {
   resource_id Int
   samu        String  @db.VarChar(191)
   role        String  @db.LongText
-  created_at  String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
+  created_at  String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
 
   @@unique([resource_id, samu])
   @@map("resource_samu_assignments")
@@ -563,7 +563,7 @@ model Resource {
   date_fin                  String? @db.LongText
   es_rattachement           String? @db.LongText
   fonction                  String? @db.LongText
-  created_at                String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
+  created_at                String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
   astreinte_volontaire      Int?    @default(0)
   date_fin_mad              String? @db.LongText
   jours_max_mad             Int?
@@ -581,7 +581,7 @@ model ScheduleData {
   type         String  @db.VarChar(191)
   value        String  @db.LongText
   notification String? @default("0") @db.VarChar(191)
-  created_at   String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
+  created_at   String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
 
   @@unique([resource_id, date_key, type])
   @@map("schedule_data")
@@ -598,7 +598,7 @@ model Setting {
 model SystemConfig {
   id         Int     @id @default(autoincrement())
   version    String  @db.LongText
-  updated_at String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
+  updated_at String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
 
   @@map("system_config")
 }
@@ -616,7 +616,7 @@ model User {
   is_user              Int?    @default(0)
   resource_id          Int?
   actif                Int?    @default(1)
-  created_at           String? @default(dbgenerated("(date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s'))")) @db.VarChar(19)
+  created_at           String? @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))")) @db.VarChar(32)
   totp_secret          String? @db.LongText
   default_tab          String? @default("planning") @db.VarChar(191)
   profile_photo        String? @db.LongText
