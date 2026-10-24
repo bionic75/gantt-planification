@@ -3,7 +3,8 @@
 // avec nouvelles tentatives, sans bloquer les requêtes HTTP.
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
-import { database, dbRun } from '../db/database.js';
+import { prisma } from '../db/prisma.js';
+import { sqlTimestamp, toInt } from '../db/values.js';
 import { createEmailTransporter, emailConfig } from '../lib/mailer.js';
 
 const POLL_INTERVAL_MS = 1500;
@@ -45,54 +46,52 @@ export const newBatchId = () => crypto.randomUUID() + '@planning-ans';
 export async function enqueueEmail(email) {
     const { batchId, recipientEmail, recipientName, ccEmails, senderName, senderEmail, subject, htmlBody } = email;
     const { icsContent, icsMethod, icsFilename, pdfAttachment, pdfFilename, actionType, resourceId } = email;
-    const { lastID } = await dbRun(
-        `INSERT INTO email_queue (batch_id, recipient_email, recipient_name, cc_emails, sender_name, sender_email, subject, html_body, ics_content, ics_method, ics_filename, pdf_attachment, pdf_filename, action_type, resource_id, next_retry_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
-        [
-            batchId,
-            recipientEmail,
-            recipientName,
-            ccEmails || null,
-            senderName,
-            senderEmail,
+    const { id } = await prisma.emailQueue.create({
+        data: {
+            batch_id: batchId,
+            recipient_email: recipientEmail,
+            // Colonnes obligatoires : une valeur absente est refusée, comme auparavant
+            recipient_name: /** @type {string} */ (recipientName ?? null),
+            cc_emails: ccEmails || null,
+            sender_name: /** @type {string} */ (senderName ?? null),
+            sender_email: /** @type {string} */ (senderEmail ?? null),
             subject,
-            htmlBody,
-            icsContent || null,
-            icsMethod || null,
-            icsFilename || null,
-            pdfAttachment || null,
-            pdfFilename || null,
-            actionType || 'new',
-            resourceId || null
-        ]
-    );
-    return lastID;
+            html_body: htmlBody,
+            ics_content: icsContent || null,
+            ics_method: icsMethod || null,
+            ics_filename: icsFilename || null,
+            pdf_attachment: pdfAttachment || null,
+            pdf_filename: pdfFilename || null,
+            action_type: actionType || 'new',
+            resource_id: toInt(resourceId),
+            next_retry_at: sqlTimestamp()
+        }
+    });
+    return id;
 }
 
 /**
- * Prend le prochain email à envoyer et le marque « processing » (verrou relâché avant l'envoi SMTP)
+ * Prend le prochain email à envoyer et le marque « processing » (un seul traitement par email,
+ * même si deux cycles se chevauchent)
  * @returns {Promise<any>}
  */
-function takeNextEmail() {
-    return new Promise((resolve, reject) => {
-        database.serialize(() => {
-            database.get(
-                `SELECT * FROM email_queue
-                 WHERE status = 'pending' AND next_retry_at <= datetime('now') AND attempts < max_attempts
-                 ORDER BY created_at ASC LIMIT 1`,
-                [],
-                (err, /** @type {any} */ row) => {
-                    if (err) return reject(err);
-                    if (!row) return resolve(null);
-                    database.run(
-                        `UPDATE email_queue SET status = 'processing' WHERE id = ? AND status = 'pending'`,
-                        [row.id],
-                        err2 => (err2 ? reject(err2) : resolve(row))
-                    );
-                }
-            );
+async function takeNextEmail() {
+    for (;;) {
+        const email = await prisma.emailQueue.findFirst({
+            where: {
+                status: 'pending',
+                next_retry_at: { lte: sqlTimestamp() },
+                attempts: { lt: prisma.emailQueue.fields.max_attempts }
+            },
+            orderBy: [{ created_at: 'asc' }, { id: 'asc' }]
         });
-    });
+        if (!email) return null;
+        const { count } = await prisma.emailQueue.updateMany({
+            where: { id: email.id, status: 'pending' },
+            data: { status: 'processing' }
+        });
+        if (count === 1) return email;
+    }
 }
 
 /** @param {any} email */
@@ -136,17 +135,27 @@ function buildMailOptions(email) {
 /** @param {any} email @param {string} errorMsg */
 async function recordFailure(email, errorMsg) {
     if (email.attempts + 1 >= email.max_attempts) {
-        await dbRun(
-            `UPDATE email_queue SET status = 'failed', error_message = ?, attempts = attempts + 1, processed_at = datetime('now') WHERE id = ?`,
-            [errorMsg, email.id]
-        );
+        await prisma.emailQueue.update({
+            where: { id: email.id },
+            data: {
+                status: 'failed',
+                error_message: errorMsg,
+                attempts: { increment: 1 },
+                processed_at: sqlTimestamp()
+            }
+        });
         console.log(`💀 Queue: abandonné après ${email.max_attempts} tentatives`);
     } else {
-        const delaySec = Math.floor(RETRY_DELAYS_MS[Math.min(email.attempts + 1, RETRY_DELAYS_MS.length - 1)] / 1000);
-        await dbRun(
-            `UPDATE email_queue SET status = 'pending', error_message = ?, attempts = attempts + 1, next_retry_at = datetime('now', '+${delaySec} seconds') WHERE id = ?`,
-            [errorMsg, email.id]
-        );
+        const delayMs = RETRY_DELAYS_MS[Math.min(email.attempts + 1, RETRY_DELAYS_MS.length - 1)];
+        await prisma.emailQueue.update({
+            where: { id: email.id },
+            data: {
+                status: 'pending',
+                error_message: errorMsg,
+                attempts: { increment: 1 },
+                next_retry_at: sqlTimestamp(new Date(Date.now() + delayMs))
+            }
+        });
         console.log(`🔄 Queue: retry planifié (tentative ${email.attempts + 2}/${email.max_attempts})`);
     }
 }
@@ -163,10 +172,10 @@ export async function processEmailQueue() {
         for (let email = await takeNextEmail(); email; email = await takeNextEmail()) {
             try {
                 await transporter.sendMail(buildMailOptions(email));
-                await dbRun(
-                    `UPDATE email_queue SET status = 'sent', processed_at = datetime('now'), attempts = attempts + 1 WHERE id = ?`,
-                    [email.id]
-                );
+                await prisma.emailQueue.update({
+                    where: { id: email.id },
+                    data: { status: 'sent', processed_at: sqlTimestamp(), attempts: { increment: 1 } }
+                });
                 processed++;
                 console.log(
                     `✅ Queue [${processed}]: envoyé à ${email.recipient_email} (${email.action_type}) [batch:${String(email.batch_id).substring(0, 8)}]`
@@ -187,7 +196,18 @@ export async function processEmailQueue() {
     }
 }
 
+/** Supprime les emails envoyés ou abandonnés depuis plus de 7 jours */
+export async function purgeProcessedEmails() {
+    // created_at est au format « AAAA-MM-JJ HH:MM:SS » (UTC) : comparaison de chaînes
+    const cutoff = sqlTimestamp(new Date(Date.now() - 7 * 24 * 3600 * 1000));
+    const { count } = await prisma.emailQueue.deleteMany({
+        where: { status: { in: ['sent', 'failed'] }, created_at: { lt: cutoff } }
+    });
+    if (count) console.log(`📧 Queue: ${count} ancien(s) email(s) traité(s) supprimé(s)`);
+}
+
 /** Démarre le traitement périodique de la file */
 export function startEmailQueueWorker() {
+    purgeProcessedEmails().catch(err => console.error('Erreur purge email_queue:', err));
     setInterval(processEmailQueue, POLL_INTERVAL_MS);
 }

@@ -21,6 +21,21 @@ export function setEmailConfig(/** @type {typeof emailConfig} */ cfg) {
     Object.assign(emailConfig, cfg);
 }
 
+/** Charge la configuration SMTP enregistrée (écran Administration), si elle existe */
+export async function loadEmailConfig() {
+    const { prisma } = await import('../db/prisma.js');
+    const row = await prisma.emailConfig.findUnique({ where: { id: 1 } });
+    if (!row) return false;
+    setEmailConfig({
+        host: row.host,
+        port: row.port,
+        secure: row.secure === 1,
+        user: row.user,
+        password: row.password
+    });
+    return true;
+}
+
 /** @type {import('nodemailer').Transporter | null} */
 let transporterCache = null;
 let transporterConfigKey = null;

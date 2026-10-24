@@ -1,240 +1,339 @@
-// Notifications : clients temps réel, notifications experts, Teams, contenu des invitations
-// Code repris à l'identique de server.js (phase 1) ; découpage contrôleurs / services en phase 2.
-import { database } from '../../db/database.js';
+// @ts-check
+// Notifications : messages temps réel (SSE), notifications des experts, affectations en attente,
+// suivi des envois groupés, notifications Teams
+import { env } from '../../config/env.js';
+import { prisma } from '../../db/prisma.js';
+import { idParam, sqlTimestamp } from '../../db/values.js';
 import { createEmailTransporter, emailConfig } from '../../lib/mailer.js';
+import { getJsonSetting } from '../../services/settings.js';
+import { teamsCardHtml, teamsMessage } from './notifications.emails.js';
 
-// Map SSE pour les messages push (userId -> res)
+/** Connexions SSE ouvertes : userId → réponse */
+/** @type {Map<number, import('express').Response>} */
 export const sseClients = new Map();
 
-// Envoyer une notification Teams depuis le serveur
-export async function sendTeamsNotificationFromServer(type, data) {
-    try {
-        // Récupérer la configuration de l'automatisation 3
-        const configRow = await new Promise((resolve, reject) => {
-            database.get(`SELECT value FROM settings WHERE key = ?`, ['automation_3_config'], (err, row) => {
-                if (err) reject(err);
-                else resolve(row);
-            });
-        });
+// ---------- Messages instantanés ----------
 
-        if (!configRow || !configRow.value) {
-            console.log('📢 Teams: Configuration non trouvée');
-            return;
+/** Messages en attente d'un utilisateur, retirés de la file */
+export async function takePendingMessages(/** @type {number} */ userId) {
+    const rows = await prisma.pendingPushMessage.findMany({
+        where: { to_user_id: userId },
+        orderBy: [{ sent_at: 'asc' }, { id: 'asc' }]
+    });
+    if (rows.length) await prisma.pendingPushMessage.deleteMany({ where: { id: { in: rows.map(r => r.id) } } });
+    return rows;
+}
+
+/** Message conservé pour un destinataire non connecté */
+export async function storePendingMessage(
+    /** @type {{ to_user_id: number, from_user_id: number, from_name: string, from_photo: string | null, message: string, sent_at: string }} */ data
+) {
+    await prisma.pendingPushMessage.create({ data });
+}
+
+// ---------- Suivi d'un envoi groupé ----------
+
+/** Avancement d'un lot d'emails de la file d'attente */
+export async function batchStatus(/** @type {string} */ batchId) {
+    const [groups, failures] = await Promise.all([
+        prisma.emailQueue.groupBy({ by: ['status'], where: { batch_id: batchId }, _count: { _all: true } }),
+        prisma.emailQueue.findMany({
+            where: { batch_id: batchId, status: 'failed' },
+            select: { recipient_name: true, recipient_email: true, error_message: true, action_type: true },
+            orderBy: { id: 'asc' }
+        })
+    ]);
+    const count = (/** @type {string} */ status) => groups.find(g => g.status === status)?._count._all || 0;
+    const total = groups.reduce((n, g) => n + g._count._all, 0);
+    const sent = count('sent');
+    const failed = count('failed');
+    const completed = sent + failed;
+    return {
+        total,
+        sent,
+        pending: count('pending'),
+        failed,
+        isComplete: completed >= total,
+        progress: total > 0 ? Math.round((completed / total) * 100) : 0,
+        failures
+    };
+}
+
+/** Ajoute une ligne au journal de la connexion en cours (journal vide : inchangé, comme en SQL) */
+export async function appendToConnectionLog(/** @type {number} */ logId, /** @type {string} */ text) {
+    const row = await prisma.connectionLog.findUnique({ where: { id: logId }, select: { modifications: true } });
+    if (row?.modifications == null) return;
+    await prisma.connectionLog.update({ where: { id: logId }, data: { modifications: row.modifications + text } });
+}
+
+// ---------- Affectations en attente de notification ----------
+
+export async function addPendingNotification(
+    /** @type {{ sessionId: unknown, resourceId: unknown, expertId: unknown, assignmentData: unknown }} */ body,
+    /** @type {number} */ userId
+) {
+    const row = await prisma.pendingNotification.create({
+        data: {
+            session_id: /** @type {string} */ (body.sessionId == null ? null : String(body.sessionId)),
+            resource_id: idParam(body.resourceId),
+            expert_id: idParam(body.expertId),
+            assignment_data: /** @type {string} */ (JSON.stringify(body.assignmentData) ?? null),
+            created_by: userId
         }
+    });
+    return row.id;
+}
 
-        const config = JSON.parse(configRow.value);
-
-        if (!config.enabled) {
-            console.log('📢 Teams: Automatisation désactivée');
-            return;
-        }
-
-        if (!config.notifications || !config.notifications.includes(type)) {
-            console.log(`📢 Teams: Type de notification "${type}" non activé`);
-            return;
-        }
-
-        if (!config.teamsEmail) {
-            console.log('📢 Teams: Email Teams non configuré');
-            return;
-        }
-
-        // Construire le message selon le type
-        let subject = '';
-        let content = '';
-        let color = '#3498db';
-
-        switch (type) {
-            case 'affectation':
-                subject = '📅 Nouvelle affectation';
-                color = '#3498db';
-                content = `
-                    <p><strong>Expert :</strong> ${data.expert || 'Non spécifié'}</p>
-                    <p><strong>Activité :</strong> ${data.activity || 'Non spécifiée'}</p>
-                    <p><strong>Date :</strong> ${data.date || 'Non spécifiée'}</p>
-                    <p><strong>Période :</strong> ${data.period || 'Non spécifiée'}</p>
-                    ${data.location ? `<p><strong>Localisation :</strong> ${data.location}</p>` : ''}
-                `;
-                break;
-
-            case 'demande':
-                subject = "✉️ Demande d'affectation";
-                color = '#27ae60';
-                content = `
-                    <p><strong>De :</strong> ${data.from || 'Non spécifié'}</p>
-                    <p><strong>Objet :</strong> ${data.subject || 'Non spécifié'}</p>
-                    <p><strong>Message :</strong></p>
-                    <div style="background: #f5f5f5; padding: 10px; border-radius: 5px; margin-top: 5px;">
-                        ${(data.message || '').replace(/\n/g, '<br>').substring(0, 500)}
-                    </div>
-                `;
-                break;
-
-            case 'astreinte':
-                subject = '🔔 Nouvelle astreinte/HNO';
-                color = '#9c27b0';
-                content = `
-                    <p><strong>Expert :</strong> ${data.expert || 'Non spécifié'}</p>
-                    <p><strong>Type :</strong> ${data.type === 'hno' ? 'HNO (Heures Non Ouvrées)' : data.type === 'activite_courante' ? 'Activité courante' : 'Astreinte'}</p>
-                    <p><strong>Date :</strong> ${data.date || 'Non spécifiée'}</p>
-                    ${data.heureDebut ? `<p><strong>Horaires :</strong> ${data.heureDebut} - ${data.heureFin}</p>` : ''}
-                `;
-                break;
-
-            case 'evenement':
-                subject = '📆 Nouvel événement';
-                color = '#ff9800';
-                content = `
-                    <p><strong>Événement :</strong> ${data.name || 'Non spécifié'}</p>
-                    <p><strong>Date :</strong> ${data.date || 'Non spécifiée'}</p>
-                    ${data.createdBy ? `<p><strong>Créé par :</strong> ${data.createdBy}</p>` : ''}
-                `;
-                break;
-
-            default:
-                console.log(`📢 Teams: Type de notification inconnu: ${type}`);
-                return;
-        }
-
-        const transporter = createEmailTransporter();
-        if (!transporter) {
-            console.log('📢 Teams: Transporteur email non disponible');
-            return;
-        }
-
-        const mailOptions = {
-            from: `"Planning ANS" <${emailConfig.user || 'noreply@esante.gouv.fr'}>`,
-            to: config.teamsEmail,
-            subject: `${subject} - Planning ANS`,
-            html: `
-                <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #f5f5f5;">
-                    <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-                        <div style="background: linear-gradient(135deg, ${color} 0%, ${color}dd 100%); color: white; padding: 20px; text-align: center;">
-                            <h2 style="margin: 0;">${subject}</h2>
-                        </div>
-                        <div style="padding: 25px;">
-                            ${content}
-                            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-                            <p style="font-size: 12px; color: #999; text-align: center;">
-                                📅 Application de Planification des Experts - ANS
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            `
-        };
-
-        await transporter.sendMail(mailOptions);
-
-        // Logger l'envoi
-        database.run(
-            `INSERT INTO automation_logs (automation_id, expert_name, expert_email, target_month, sent_at) VALUES (?, ?, ?, ?, datetime('now'))`,
-            [3, type, config.teamsEmail, JSON.stringify(data)],
-            err => {
-                if (err) console.error('Erreur log Teams notify:', err);
+/**
+ * Affectations en attente d'une session, avec l'expert (compte et ressource) et, si demandé, l'auteur
+ * (lignes sans compte, ressource ou auteur existant ignorées)
+ */
+export async function listPendingNotifications(/** @type {string} */ sessionId, { withCreator = false } = {}) {
+    const rows = await prisma.pendingNotification.findMany({
+        where: { session_id: sessionId },
+        orderBy: { id: 'asc' }
+    });
+    const [users, resources] = await Promise.all([
+        prisma.user.findMany({
+            where: { id: { in: rows.flatMap(r => [r.expert_id, r.created_by]) } },
+            select: { id: true, email: true, nom: true, prenom: true }
+        }),
+        prisma.resource.findMany({
+            where: { id: { in: rows.map(r => r.resource_id) } },
+            select: { id: true, nom: true, prenom: true }
+        })
+    ]);
+    const userById = new Map(users.map(u => [u.id, u]));
+    const resById = new Map(resources.map(r => [r.id, r]));
+    return rows.flatMap(pn => {
+        const u = userById.get(pn.expert_id);
+        const r = resById.get(pn.resource_id);
+        const creator = userById.get(pn.created_by);
+        if (!u || !r || (withCreator && !creator)) return [];
+        return [
+            {
+                ...pn,
+                email: u.email,
+                nom: u.nom,
+                prenom: u.prenom,
+                resource_nom: r.nom,
+                resource_prenom: r.prenom,
+                ...(withCreator && creator ? { creator_nom: creator.nom, creator_prenom: creator.prenom } : {})
             }
-        );
+        ];
+    });
+}
 
-        console.log(`📢 Notification Teams [${type}] envoyée avec succès`);
+export async function deletePendingNotifications(/** @type {string} */ sessionId) {
+    return (await prisma.pendingNotification.deleteMany({ where: { session_id: sessionId } })).count;
+}
+
+/** Experts (ressources actives) avec l'email de leur compte : une ligne par compte, ou une sans compte */
+export async function listActiveExperts(/** @type {unknown[]} */ resourceIds) {
+    const resources = await prisma.resource.findMany({
+        where: { id: { in: resourceIds.map(idParam) }, actif: 1 },
+        select: { id: true, nom: true, prenom: true },
+        orderBy: { id: 'asc' }
+    });
+    const users = await prisma.user.findMany({
+        where: { resource_id: { in: resources.map(r => r.id) } },
+        select: { resource_id: true, email: true },
+        orderBy: { id: 'asc' }
+    });
+    return resources.flatMap(r => {
+        const emails = users.filter(u => u.resource_id === r.id).map(u => u.email);
+        return (emails.length ? emails : [null]).map(email => ({ ...r, email }));
+    });
+}
+
+// ---------- Notifications des experts ----------
+
+export function countUnread(/** @type {number} */ userId) {
+    return prisma.expertNotification.count({ where: { expert_id: userId, is_read: 0 } });
+}
+
+/** Notifications non lues, avec la localisation actuelle de la demi-journée dans la planification */
+export async function listUnread(/** @type {number} */ userId) {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { resource_id: true } });
+    if (!user) return [];
+    const notifications = await prisma.expertNotification.findMany({
+        where: { expert_id: userId, is_read: 0 },
+        orderBy: [{ created_at: 'desc' }, { id: 'asc' }]
+    });
+    const keyOf = (/** @type {{ date: string, period: string }} */ n) =>
+        `${n.date}_${n.period === 'Matin' ? 'AM' : 'PM'}`;
+    const cells =
+        user.resource_id != null && notifications.length
+            ? await prisma.scheduleData.findMany({
+                  where: {
+                      resource_id: user.resource_id,
+                      type: 'localisation',
+                      date_key: { in: notifications.map(keyOf) }
+                  },
+                  select: { date_key: true, value: true }
+              })
+            : [];
+    const loc = new Map(cells.map(c => [c.date_key, c.value]));
+    return notifications.map(n => ({
+        id: n.id,
+        expert_id: n.expert_id,
+        date: n.date,
+        period: n.period,
+        activity_name: n.activity_name,
+        requester_name: n.requester_name,
+        action_type: n.action_type,
+        created_at: n.created_at,
+        is_read: n.is_read,
+        localisation: loc.get(keyOf(n)) ?? null
+    }));
+}
+
+export async function markAllRead(/** @type {number} */ userId) {
+    await prisma.expertNotification.updateMany({ where: { expert_id: userId, is_read: 0 }, data: { is_read: 1 } });
+}
+
+/**
+ * Notifications « Nouvelle affectation » des experts ; une notification non lue de la même demi-journée est remplacée
+ * @param {any[]} notifications [{ resourceId, date, period, activity, location }]
+ * @param {string} requesterName
+ */
+export async function createBatch(notifications, requesterName) {
+    let created = 0;
+    let errors = 0;
+    for (const { resourceId, date, period, activity, location } of notifications) {
+        try {
+            const user = await prisma.user.findFirst({
+                where: { resource_id: idParam(resourceId), is_expert: 1 },
+                select: { id: true },
+                orderBy: { id: 'asc' }
+            });
+            if (!user) {
+                console.log(`⚠️ Pas d'utilisateur expert trouvé pour resource_id ${resourceId}`);
+                continue;
+            }
+            const activityName = location && location !== '-' ? `${activity} (${location})` : activity;
+            const data = {
+                activity_name: activityName,
+                requester_name: requesterName,
+                action_type: 'Nouvelle affectation'
+            };
+            const existing = await prisma.expertNotification.findFirst({
+                where: { expert_id: user.id, date, period, is_read: 0 },
+                select: { id: true },
+                orderBy: { id: 'asc' }
+            });
+            if (existing) {
+                await prisma.expertNotification.update({
+                    where: { id: existing.id },
+                    data: { ...data, created_at: sqlTimestamp() }
+                });
+                console.log(`🔄 Notification mise à jour pour expert_id ${user.id}, date ${date} ${period}`);
+            } else {
+                await prisma.expertNotification.create({ data: { ...data, expert_id: user.id, date, period } });
+                console.log(`✅ Notification créée pour expert_id ${user.id}, date ${date} ${period}`);
+            }
+            created++;
+        } catch (error) {
+            console.error(`❌ Erreur création notification pour resource ${resourceId}:`, error);
+            errors++;
+        }
+    }
+    return { created, errors };
+}
+
+/** Suppression de toutes les notifications, avec le nombre supprimé par expert */
+export async function clearAll() {
+    const groups = await prisma.expertNotification.groupBy({ by: ['expert_id'], _count: { _all: true } });
+    const users = await prisma.user.findMany({
+        where: { id: { in: groups.map(g => g.expert_id) } },
+        select: { id: true, username: true }
+    });
+    const username = new Map(users.map(u => [u.id, u.username]));
+    const statsByExpert = groups
+        .map(g => ({ expert_id: g.expert_id, username: username.get(g.expert_id) ?? null, count: g._count._all }))
+        .sort((a, b) =>
+            a.username === b.username
+                ? a.expert_id - b.expert_id
+                : a.username == null
+                  ? -1
+                  : b.username == null
+                    ? 1
+                    : a.username < b.username
+                      ? -1
+                      : 1
+        );
+    const { count } = await prisma.expertNotification.deleteMany();
+    return { totalDeleted: count, statsByExpert };
+}
+
+// ---------- Teams ----------
+
+/** Envoi d'une notification Teams : journal de l'automatisation n°3 */
+function logTeams(/** @type {string} */ name, /** @type {string} */ email, /** @type {string} */ target) {
+    prisma.automationLog
+        .create({
+            data: {
+                automation_id: 3,
+                expert_name: name,
+                expert_email: email,
+                target_month: target,
+                sent_at: sqlTimestamp()
+            }
+        })
+        .catch(err => console.error('Erreur log Teams notify:', err));
+}
+
+/**
+ * Notification Teams (email vers l'adresse du canal) selon la configuration de l'automatisation n°3
+ * @param {string} type affectation | demande | astreinte | evenement
+ * @param {any} data
+ * @param {{ detailedRequest: boolean, fromAddress: string }} options
+ * @returns {Promise<{ success: boolean, reason?: string }>}
+ */
+async function sendTeams(type, data, { detailedRequest, fromAddress }) {
+    const config = await getJsonSetting('automation_3_config');
+    if (!config) return { success: false, reason: 'Configuration non trouvée' };
+    if (!config.enabled) return { success: false, reason: 'Automatisation désactivée' };
+    if (!config.notifications || !config.notifications.includes(type)) {
+        return { success: false, reason: 'Type de notification non activé' };
+    }
+    if (!config.teamsEmail) return { success: false, reason: 'Email Teams non configuré' };
+    const msg = teamsMessage(type, data, { detailedRequest });
+    if (!msg) return { success: false, reason: 'Type de notification inconnu' };
+    const transporter = createEmailTransporter();
+    if (!transporter) return { success: false, reason: 'Transporteur email non disponible' };
+    await transporter.sendMail({
+        from: `"Planning ANS" <${fromAddress}>`,
+        to: config.teamsEmail,
+        subject: `${msg.subject} - Planning ANS`,
+        html: teamsCardHtml(msg.subject, msg.color, msg.content)
+    });
+    logTeams(type, config.teamsEmail, JSON.stringify(data));
+    return { success: true };
+}
+
+/** Notification Teams émise par le serveur (création d'événement, d'astreinte…) : erreurs journalisées */
+export async function sendTeamsNotificationFromServer(/** @type {string} */ type, /** @type {any} */ data) {
+    try {
+        const r = await sendTeams(type, data, {
+            detailedRequest: false,
+            fromAddress: emailConfig.user || 'noreply@esante.gouv.fr'
+        });
+        if (r.success) console.log(`📢 Notification Teams [${type}] envoyée avec succès`);
+        else console.log(`📢 Teams: ${r.reason}`);
     } catch (error) {
         console.error('📢 Erreur envoi notification Teams:', error);
     }
 }
 
-// Construire le HTML du body d'une invitation
-export function buildInvitationHTML(attendeeName, requesterName, group, type) {
-    const isCancel = type === 'cancelled';
-    const isModified = type === 'modified';
-    const color = isCancel ? '#D60B51' : isModified ? '#ff9800' : '#1D70B7';
-    const icon = isCancel ? '❌' : isModified ? '🔄' : '📅';
-    const title = isCancel ? 'Affectation annulée' : isModified ? 'Affectation modifiée' : 'Nouvelle affectation';
-
-    const slotsHTML = group.slots
-        .map(s => {
-            const [y, m, d] = s.date.split('-');
-            const dateStr = `${d}/${m}/${y}`;
-            const periodStr = s.period === 'AM' ? 'Matin (8h-12h)' : 'Après-midi (14h-18h)';
-            return `<li><strong>${dateStr}</strong> - ${periodStr}</li>`;
-        })
-        .join('');
-
-    const locationHTML =
-        group.location && group.location !== '-' ? `<p><strong>📍 Localisation :</strong> ${group.location}</p>` : '';
-
-    return `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
-            <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                <h2 style="color: ${color}; border-bottom: 2px solid ${color}; padding-bottom: 10px;">
-                    ${icon} ${title}
-                </h2>
-                
-                <p>Bonjour ${attendeeName},</p>
-                
-                <p><strong>${requesterName}</strong> ${isCancel ? 'a annulé' : isModified ? 'a modifié' : 'vous a affecté'} :</p>
-                
-                <div style="background-color: ${isCancel ? '#fde8e8' : '#e3f2fd'}; padding: 15px; border-left: 4px solid ${color}; border-radius: 4px; margin: 15px 0;">
-                    <p style="margin: 0 0 8px 0;"><strong>Activité :</strong> ${group.activity}</p>
-                    ${locationHTML}
-                    <ul style="margin: 8px 0 0 0; padding-left: 20px;">${slotsHTML}</ul>
-                </div>
-                
-                ${!isCancel ? '<p style="font-size: 12px; color: #666;">💡 Cette invitation a été ajoutée à votre calendrier Outlook.</p>' : '<p style="font-size: 12px; color: #666;">Cette occurrence a été retirée de votre calendrier.</p>'}
-                
-                <p style="margin-top: 20px;">Cordialement,<br>${requesterName}<br>Système de planification SI-SAMU</p>
-                
-                <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
-                
-                <p style="color: #7f8c8d; font-size: 11px; text-align: center;">
-                    📅 Domaine des Urgences - Planification des Experts - ANS
-                </p>
-            </div>
-        </div>
-    `;
-}
-
-// Fonction helper pour créer une notification
-export function createNotification(expertResourceId, date, period, activityName, requesterName, actionType, callback) {
-    // Récupérer l'user_id de l'expert à partir de resource_id
-    database.get(`SELECT id FROM users WHERE resource_id = ? AND is_expert = 1`, [expertResourceId], (err, user) => {
-        if (err || !user) {
-            if (callback) callback(err);
-            return;
-        }
-
-        // Vérifier si une notification existe déjà pour cette demi-journée
-        database.get(
-            `SELECT id FROM expert_notifications 
-                 WHERE expert_id = ? AND date = ? AND period = ? AND is_read = 0`,
-            [user.id, date, period],
-            (errCheck, existingNotif) => {
-                if (errCheck) {
-                    if (callback) callback(errCheck);
-                    return;
-                }
-
-                if (existingNotif) {
-                    // Une notification existe déjà pour cette demi-journée → UPDATE
-                    database.run(
-                        `UPDATE expert_notifications 
-                             SET activity_name = ?, requester_name = ?, action_type = ?, created_at = CURRENT_TIMESTAMP
-                             WHERE id = ?`,
-                        [activityName, requesterName, actionType, existingNotif.id],
-                        errUpdate => {
-                            if (callback) callback(errUpdate);
-                        }
-                    );
-                } else {
-                    // Pas de notification existante → INSERT
-                    database.run(
-                        `INSERT INTO expert_notifications (expert_id, date, period, activity_name, requester_name, action_type)
-                             VALUES (?, ?, ?, ?, ?, ?)`,
-                        [user.id, date, period, activityName, requesterName, actionType],
-                        errInsert => {
-                            if (callback) callback(errInsert);
-                        }
-                    );
-                }
-            }
-        );
+/** Notification Teams demandée par l'interface */
+export async function notifyTeams(/** @type {string} */ type, /** @type {any} */ data) {
+    const r = await sendTeams(type, data, {
+        detailedRequest: true,
+        fromAddress: env.SMTP_USER || 'noreply@esante.gouv.fr'
     });
+    if (r.success) console.log(`📢 Notification Teams [${type}] envoyée`);
+    return r;
 }
+
+export { logTeams };

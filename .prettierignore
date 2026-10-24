@@ -1,7 +1,4 @@
 # Code historique : reformaté au fil de son découpage dans src/ (évite un diff massif)
-server.js
-db-dump.js
-email-worker.js
 public/
 README.md
 .github/workflows/deploy-*.yml
@@ -11,3 +8,4 @@ node_modules/
 coverage/
 package.json
 package-lock.json
+src/generated/
