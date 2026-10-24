@@ -1,7 +1,8 @@
 // @ts-check
 // Contrôle d'accès : session authentifiée, profils et droits applicatifs
 import crypto from 'crypto';
-import { database } from '../db/database.js';
+import { prisma } from '../db/prisma.js';
+import { sqlTimestamp } from '../db/values.js';
 import { activeSessions, isSessionRevoked, touchSession } from '../state/sessions.js';
 
 /** @typedef {import('express').RequestHandler} RequestHandler */
@@ -89,20 +90,17 @@ export function requireReportingAccess(req, res, next) {
         touchSession(userId);
         return next();
     }
-    database.get(
-        'SELECT has_reporting_access, is_admin FROM users WHERE id = ?',
-        [userId],
-        (err, /** @type {any} */ user) => {
-            if (err || !user) {
-                return res.status(403).json({ error: 'Accès refusé' });
-            }
+    prisma.user
+        .findUnique({ where: { id: userId }, select: { has_reporting_access: true, is_admin: true } })
+        .then(user => {
+            if (!user) return res.status(403).json({ error: 'Accès refusé' });
             if (user.is_admin === 1 || user.has_reporting_access === 1) {
                 touchSession(userId);
                 return next();
             }
             return res.status(403).json({ error: 'Accès au reporting non autorisé' });
-        }
-    );
+        })
+        .catch(() => res.status(403).json({ error: 'Accès refusé' }));
 }
 
 /** Administrateur, ou utilisateur autorisé sur l'application « Aide à l'affectation » */
@@ -110,14 +108,10 @@ export function requireReportingAccess(req, res, next) {
 export function requireAffectationAccess(req, res, next) {
     if (rejectUnauthenticated(req, res)) return;
     if (req.session.activeProfile === 'admin') return next();
-    database.get(
-        'SELECT 1 AS ok FROM app_user_access WHERE app_key = ? AND user_id = ?',
-        ['affectation', req.session.userId],
-        (err, row) => {
-            if (err || !row) return res.status(403).json({ error: 'Accès refusé' });
-            next();
-        }
-    );
+    prisma.appUserAccess
+        .findFirst({ where: { app_key: 'affectation', user_id: req.session.userId }, select: { id: true } })
+        .then(access => (access ? next() : res.status(403).json({ error: 'Accès refusé' })))
+        .catch(() => res.status(403).json({ error: 'Accès refusé' }));
 }
 
 /** Clé d'API (en-tête X-Api-Key ou paramètre api_key) pour l'API publique */
@@ -126,13 +120,14 @@ export function requireApiKey(req, res, next) {
     const apiKey = req.headers['x-api-key'] || req.query.api_key;
     if (!apiKey) return res.status(401).json({ error: 'Clé API manquante (header X-Api-Key ou paramètre api_key)' });
     const keyHash = crypto.createHash('sha256').update(String(apiKey)).digest('hex');
-    database.get(
-        'SELECT id FROM api_keys WHERE key_hash = ? AND revoked = 0',
-        [keyHash],
-        (err, /** @type {any} */ row) => {
-            if (err || !row) return res.status(401).json({ error: 'Clé API invalide ou révoquée' });
-            database.run('UPDATE api_keys SET last_used_at = CURRENT_TIMESTAMP WHERE id = ?', [row.id]);
+    prisma.apiKey
+        .findFirst({ where: { key_hash: keyHash, revoked: 0 }, select: { id: true } })
+        .then(key => {
+            if (!key) return res.status(401).json({ error: 'Clé API invalide ou révoquée' });
+            prisma.apiKey
+                .update({ where: { id: key.id }, data: { last_used_at: sqlTimestamp() } })
+                .catch(err => console.error('Erreur mise à jour clé API:', err));
             next();
-        }
-    );
+        })
+        .catch(() => res.status(401).json({ error: 'Clé API invalide ou révoquée' }));
 }

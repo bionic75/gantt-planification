@@ -37,6 +37,72 @@ jobs:
       - name: Tests
         run: npm test
 
+  # Migrations appliquées sur de vraies bases PostgreSQL et MariaDB (SQLite : couvert par les tests).
+  # Identifiants des bases de test : secrets du dépôt CI_DB_USER et CI_DB_PASSWORD (Settings › Secrets › Actions).
+  migrations:
+    name: Migrations ${{ matrix.provider }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - provider: postgresql
+            port: 5432
+          - provider: mysql
+            port: 3306
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ${{ secrets.CI_DB_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.CI_DB_PASSWORD }}
+          POSTGRES_DB: planning
+        ports: ['5432:5432']
+        options: --health-cmd "pg_isready -h localhost" --health-interval 5s --health-retries 10
+      mariadb:
+        image: mariadb:11
+        env:
+          MARIADB_RANDOM_ROOT_PASSWORD: 'yes'
+          MARIADB_USER: ${{ secrets.CI_DB_USER }}
+          MARIADB_PASSWORD: ${{ secrets.CI_DB_PASSWORD }}
+          MARIADB_DATABASE: planning
+        ports: ['3306:3306']
+        options: --health-cmd "healthcheck.sh --connect --innodb_initialized" --health-interval 5s --health-retries 10
+    env:
+      PUPPETEER_SKIP_DOWNLOAD: 'true'
+      DB_PROVIDER: ${{ matrix.provider }}
+      DB_HOST: localhost
+      DB_PORT: ${{ matrix.port }}
+      DB_NAME: planning
+      DB_USER: ${{ secrets.CI_DB_USER }}
+      DB_PASSWORD: ${{ secrets.CI_DB_PASSWORD }}
+    steps:
+      - name: Check secrets
+        run: |
+          if [ -z "$DB_USER" ] || [ -z "$DB_PASSWORD" ]; then
+            echo "::error::Secrets CI_DB_USER et CI_DB_PASSWORD manquants (Settings › Secrets and variables › Actions)"
+            exit 1
+          fi
+
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+
+      - name: No drift between migrations and schema
+        run: |
+          npx prisma migrate diff --from-config-datasource --to-schema prisma/${{ matrix.provider }}/schema.prisma --exit-code
+
   docker-build:
     name: Construction de l'image Docker
     runs-on: ubuntu-latest

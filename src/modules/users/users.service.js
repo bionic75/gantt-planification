@@ -1,6 +1,7 @@
 // @ts-check
 // Accès aux données : comptes utilisateurs, droits applicatifs, préférences
-import { dbAll, dbGet, dbRun } from '../../db/database.js';
+import { prisma } from '../../db/prisma.js';
+import { containsInsensitive, flag, idParam, isUniqueViolation, optional, toInt } from '../../db/values.js';
 import { badRequest, notFound, unauthorized } from '../../lib/http-error.js';
 import { hashPassword, passwordStrengthError, verifyPassword } from '../../lib/password.js';
 
@@ -14,68 +15,109 @@ export const APP_DEFINITIONS = {
     affectation: { label: "Aide à l'affectation opérationnelle", icon: '🎯' }
 };
 
-const flag = (/** @type {unknown} */ v) => (v ? 1 : 0);
+/** Chaîne obligatoire : une valeur absente est refusée par la base (comme l'ancien SQL) */
+const required = (/** @type {unknown} */ v) => (v === null || v === undefined ? /** @type {any} */ (null) : String(v));
+/** Tri par chaînes, ordre binaire (comme ORDER BY sous SQLite) */
+const byKeys =
+    (/** @type {string[]} */ ...keys) =>
+    (/** @type {any} */ a, /** @type {any} */ b) => {
+        for (const k of keys) {
+            if (a[k] !== b[k]) return a[k] == null ? -1 : b[k] == null ? 1 : a[k] < b[k] ? -1 : 1;
+        }
+        return 0;
+    };
+
+/** Ressources (id → ressource) des comptes donnés */
+async function resourcesOf(/** @type {Array<{ resource_id: number | null }>} */ users) {
+    const ids = [...new Set(users.map(u => u.resource_id).filter(id => id !== null))];
+    const resources = await prisma.resource.findMany({
+        where: { id: { in: /** @type {number[]} */ (ids) } },
+        select: { id: true, trigramme: true, astreinte_volontaire: true }
+    });
+    return new Map(resources.map(r => [r.id, r]));
+}
 
 // ---------- Lecture ----------
 
-/** Liste complète pour l'administration */
-export function listUsers() {
-    return dbAll(`
-        SELECT u.*, r.trigramme, r.astreinte_volontaire as resource_trigramme,
-               COALESCE(u.trigramme, r.trigramme) as trigramme,
-               r.astreinte_volontaire,
-               (SELECT MAX(login_time) FROM connection_logs WHERE user_id = u.id) as last_login
-        FROM users u
-        LEFT JOIN resources r ON u.resource_id = r.id
-        ORDER BY u.username
-    `);
+/** Liste complète pour l'administration (avec la dernière connexion) */
+export async function listUsers() {
+    const users = await prisma.user.findMany({ orderBy: [{ username: 'asc' }] });
+    const resources = await resourcesOf(users);
+    const lastLogins = await prisma.connectionLog.groupBy({ by: ['user_id'], _max: { login_time: true } });
+    const lastLogin = new Map(lastLogins.map(l => [l.user_id, l._max.login_time]));
+    return users.map(u => {
+        const r = u.resource_id !== null ? resources.get(u.resource_id) : undefined;
+        return {
+            ...u,
+            // Libellé historique : contient en réalité le volontariat aux astreintes de la ressource
+            resource_trigramme: r ? r.astreinte_volontaire : null,
+            trigramme: u.trigramme ?? (r ? r.trigramme : null),
+            astreinte_volontaire: r ? r.astreinte_volontaire : null,
+            last_login: lastLogin.get(u.id) ?? null
+        };
+    });
 }
 
 /** Informations de base des utilisateurs actifs (affichage dans le Gantt) */
-export function listPublicUsers() {
-    return dbAll(`
-        SELECT u.id, u.nom, u.prenom, u.email, u.resource_id, u.profile_photo, u.is_expert,
-               COALESCE(u.trigramme, r.trigramme) as trigramme
-        FROM users u
-        LEFT JOIN resources r ON u.resource_id = r.id
-        WHERE u.actif = 1
-        ORDER BY u.nom, u.prenom
-    `);
+export async function listPublicUsers() {
+    const users = await prisma.user.findMany({
+        where: { actif: 1 },
+        select: {
+            id: true,
+            nom: true,
+            prenom: true,
+            email: true,
+            resource_id: true,
+            profile_photo: true,
+            is_expert: true,
+            trigramme: true
+        },
+        orderBy: [{ nom: 'asc' }, { prenom: 'asc' }, { id: 'asc' }]
+    });
+    const resources = await resourcesOf(users);
+    return users.map(u => ({
+        ...u,
+        trigramme: u.trigramme ?? (u.resource_id !== null ? (resources.get(u.resource_id)?.trigramme ?? null) : null)
+    }));
 }
 
-export function listAmoaCedUsers() {
-    return dbAll(`
-        SELECT u.id, u.nom, u.prenom, u.email, u.resource_id, r.trigramme
-        FROM users u
-        LEFT JOIN resources r ON u.resource_id = r.id
-        WHERE u.actif = 1 AND u.amoa_ced = 1
-        ORDER BY u.nom, u.prenom
-    `);
+export async function listAmoaCedUsers() {
+    const users = await prisma.user.findMany({
+        where: { actif: 1, amoa_ced: 1 },
+        select: { id: true, nom: true, prenom: true, email: true, resource_id: true },
+        orderBy: [{ nom: 'asc' }, { prenom: 'asc' }, { id: 'asc' }]
+    });
+    const resources = await resourcesOf(users);
+    return users.map(u => ({
+        ...u,
+        trigramme: u.resource_id !== null ? (resources.get(u.resource_id)?.trigramme ?? null) : null
+    }));
 }
 
 /** Recherche pour l'autocomplétion (2 caractères minimum) */
 export async function searchUsers(/** @type {string} */ query) {
     const q = query.trim();
     if (q.length < 2) return [];
-    const like = `%${q}%`;
-    return dbAll(
-        `SELECT id, nom, prenom, email, username FROM users
-         WHERE actif = 1 AND (nom LIKE ? OR prenom LIKE ? OR email LIKE ? OR username LIKE ?)
-         ORDER BY nom, prenom LIMIT 20`,
-        [like, like, like, like]
-    );
+    const like = containsInsensitive(q);
+    return prisma.user.findMany({
+        where: { actif: 1, OR: [{ nom: like }, { prenom: like }, { email: like }, { username: like }] },
+        select: { id: true, nom: true, prenom: true, email: true, username: true },
+        orderBy: [{ nom: 'asc' }, { prenom: 'asc' }, { id: 'asc' }],
+        take: 20
+    });
 }
 
 export function getUser(/** @type {string | number} */ id) {
-    return dbGet('SELECT * FROM users WHERE id = ?', [id]);
+    return prisma.user.findUnique({ where: { id: idParam(id) } });
 }
 
 /** Compte expert rattaché à une ressource */
 export function getExpertByResource(/** @type {string | number} */ resourceId) {
-    return dbGet(
-        'SELECT id, username, email, nom, prenom, is_expert, resource_id FROM users WHERE resource_id = ? AND is_expert = 1 LIMIT 1',
-        [resourceId]
-    );
+    return prisma.user.findFirst({
+        where: { resource_id: idParam(resourceId), is_expert: 1 },
+        select: { id: true, username: true, email: true, nom: true, prenom: true, is_expert: true, resource_id: true },
+        orderBy: { id: 'asc' }
+    });
 }
 
 // ---------- Création / modification ----------
@@ -90,30 +132,27 @@ export async function createUser(data) {
     const { has_reporting_access, amoa_ced } = data;
     if (!username || !password) throw badRequest('Username et password requis');
 
-    const hashed = await hashPassword(password);
     try {
-        const { lastID } = await dbRun(
-            `INSERT INTO users (username, password, nom, prenom, email, telephone, is_admin, is_expert, is_user, is_rh, resource_id, has_reporting_access, amoa_ced)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-                username,
-                hashed,
-                nom,
-                prenom,
-                email,
-                telephone || null,
-                flag(is_admin),
-                flag(is_expert),
-                flag(is_user),
-                flag(is_rh),
-                resource_id || null,
-                flag(has_reporting_access),
-                flag(amoa_ced)
-            ]
-        );
-        return lastID;
-    } catch (/** @type {any} */ err) {
-        if (String(err.message).includes('UNIQUE')) throw badRequest("Ce nom d'utilisateur existe déjà");
+        const { id } = await prisma.user.create({
+            data: {
+                username: String(username),
+                password: await hashPassword(String(password)),
+                nom: required(nom),
+                prenom: required(prenom),
+                email: required(email),
+                telephone: optional(telephone),
+                is_admin: flag(is_admin),
+                is_expert: flag(is_expert),
+                is_user: flag(is_user),
+                is_rh: flag(is_rh),
+                resource_id: toInt(resource_id),
+                has_reporting_access: flag(has_reporting_access),
+                amoa_ced: flag(amoa_ced)
+            }
+        });
+        return id;
+    } catch (err) {
+        if (isUniqueViolation(err)) throw badRequest("Ce nom d'utilisateur existe déjà");
         throw err;
     }
 }
@@ -130,46 +169,42 @@ export async function updateUser(id, data) {
 
     const parsed = resource_id ? parseInt(resource_id) : NaN;
     const resourceId = isNaN(parsed) ? null : parsed;
-    const finalTrigramme = trigramme ? String(trigramme).toUpperCase().trim() : null;
 
-    await dbRun(
-        `UPDATE users
-         SET nom = ?, prenom = ?, email = ?, trigramme = ?, is_admin = ?, is_expert = ?, is_user = ?, is_rh = ?, resource_id = ?, has_reporting_access = ?, amoa_ced = ?
-         WHERE id = ?`,
-        [
-            nom,
-            prenom,
-            email,
-            finalTrigramme,
-            flag(is_admin),
-            flag(is_expert),
-            flag(is_user),
-            flag(is_rh),
-            resourceId,
-            flag(has_reporting_access),
-            flag(amoa_ced),
-            id
-        ]
-    );
+    await prisma.user.updateMany({
+        where: { id: idParam(id) },
+        data: {
+            nom: required(nom),
+            prenom: required(prenom),
+            email: required(email),
+            trigramme: trigramme ? String(trigramme).toUpperCase().trim() : null,
+            is_admin: flag(is_admin),
+            is_expert: flag(is_expert),
+            is_user: flag(is_user),
+            is_rh: flag(is_rh),
+            resource_id: resourceId,
+            has_reporting_access: flag(has_reporting_access),
+            amoa_ced: flag(amoa_ced)
+        }
+    });
     return resourceId;
 }
 
 /** Supprime un compte ; le dernier administrateur ne peut pas être supprimé */
 export async function deleteUser(/** @type {string | number} */ id) {
-    const user = await dbGet('SELECT is_admin FROM users WHERE id = ?', [id]);
-    if (user && user.is_admin === 1) {
-        const { count } = await dbGet('SELECT COUNT(*) as count FROM users WHERE is_admin = 1');
-        if (count <= 1) throw badRequest('Impossible de supprimer le dernier administrateur');
+    const userId = idParam(id);
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { is_admin: true } });
+    if (user && user.is_admin === 1 && (await prisma.user.count({ where: { is_admin: 1 } })) <= 1) {
+        throw badRequest('Impossible de supprimer le dernier administrateur');
     }
-    await dbRun('DELETE FROM users WHERE id = ?', [id]);
+    await prisma.user.deleteMany({ where: { id: userId } });
 }
 
 /** Bascule actif / inactif ; renvoie le nouvel état */
 export async function toggleUser(/** @type {string | number} */ id) {
-    const row = await dbGet('SELECT actif FROM users WHERE id = ?', [id]);
-    if (!row) throw notFound('Utilisateur non trouvé');
-    const actif = row.actif === 1 ? 0 : 1;
-    await dbRun('UPDATE users SET actif = ? WHERE id = ?', [actif, id]);
+    const user = await prisma.user.findUnique({ where: { id: idParam(id) }, select: { id: true, actif: true } });
+    if (!user) throw notFound('Utilisateur non trouvé');
+    const actif = user.actif === 1 ? 0 : 1;
+    await prisma.user.update({ where: { id: user.id }, data: { actif } });
     return actif;
 }
 
@@ -177,49 +212,61 @@ export async function toggleUser(/** @type {string | number} */ id) {
 
 /** @param {'has_reporting_access' | 'is_rh' | 'amoa_ced'} column */
 export async function setUserFlag(/** @type {string | number} */ id, column, /** @type {boolean} */ enabled) {
-    await dbRun(`UPDATE users SET ${column} = ? WHERE id = ?`, [flag(enabled), id]);
+    await prisma.user.updateMany({ where: { id: idParam(id) }, data: { [column]: flag(enabled) } });
 }
 
 /** Volontariat aux astreintes, porté par la ressource rattachée au compte */
 export async function setAstreinteAccess(/** @type {string | number} */ id, /** @type {boolean} */ enabled) {
-    const user = await dbGet('SELECT resource_id FROM users WHERE id = ?', [id]).catch(() => null);
+    const user = await prisma.user.findUnique({ where: { id: idParam(id) }, select: { resource_id: true } });
     if (!user?.resource_id) throw badRequest('Pas de ressource associée');
-    await dbRun('UPDATE resources SET astreinte_volontaire = ? WHERE id = ?', [flag(enabled), user.resource_id]);
+    await prisma.resource.updateMany({
+        where: { id: user.resource_id },
+        data: { astreinte_volontaire: flag(enabled) }
+    });
 }
 
 /** Applications et leurs utilisateurs autorisés */
 export async function listAppAccess() {
-    const rows = await dbAll(`
-        SELECT a.app_key, a.user_id, u.nom, u.prenom, u.email, u.username
-        FROM app_user_access a
-        JOIN users u ON u.id = a.user_id
-        ORDER BY a.app_key, u.nom, u.prenom
-    `);
+    const access = await prisma.appUserAccess.findMany({ select: { app_key: true, user_id: true } });
+    const users = await prisma.user.findMany({
+        where: { id: { in: [...new Set(access.map(a => a.user_id))] } },
+        select: { id: true, nom: true, prenom: true, email: true, username: true }
+    });
+    const userById = new Map(users.map(u => [u.id, u]));
+    const rows = access
+        .filter(a => userById.has(a.user_id))
+        .map(a => ({ app_key: a.app_key, ...userById.get(a.user_id) }))
+        .sort(byKeys('app_key', 'nom', 'prenom'));
+
     /** @type {Record<string, any>} */
     const result = {};
     for (const [key, def] of Object.entries(APP_DEFINITIONS)) result[key] = { ...def, users: [] };
     for (const r of rows) {
-        result[r.app_key]?.users.push({
-            id: r.user_id,
-            nom: r.nom,
-            prenom: r.prenom,
-            email: r.email,
-            username: r.username
-        });
+        result[r.app_key]?.users.push({ id: r.id, nom: r.nom, prenom: r.prenom, email: r.email, username: r.username });
     }
     return result;
 }
 
 export async function grantAppAccess(/** @type {string} */ app, /** @type {unknown} */ userId) {
     if (!Object.hasOwn(APP_DEFINITIONS, app)) throw badRequest('Application inconnue');
-    await dbRun('INSERT OR IGNORE INTO app_user_access (app_key, user_id) VALUES (?, ?)', [app, userId]);
+    const user_id = /** @type {number} */ (toInt(userId));
+    await prisma.appUserAccess.upsert({
+        where: { app_key_user_id: { app_key: app, user_id } },
+        update: {},
+        create: { app_key: app, user_id }
+    });
     // Colonne historique amoa_ced conservée pour compatibilité
-    if (app === 'deplacements') dbRun('UPDATE users SET amoa_ced = 1 WHERE id = ?', [userId]).catch(() => {});
+    if (app === 'deplacements') {
+        await prisma.user.updateMany({ where: { id: user_id }, data: { amoa_ced: 1 } }).catch(() => {});
+    }
 }
 
 export async function revokeAppAccess(/** @type {string} */ app, /** @type {string | number} */ userId) {
-    await dbRun('DELETE FROM app_user_access WHERE app_key = ? AND user_id = ?', [app, userId]);
-    if (app === 'deplacements') dbRun('UPDATE users SET amoa_ced = 0 WHERE id = ?', [userId]).catch(() => {});
+    const user_id = idParam(userId);
+    await prisma.appUserAccess.deleteMany({ where: { app_key: app, user_id } });
+    if (app === 'deplacements') {
+        await prisma.user.updateMany({ where: { id: user_id }, data: { amoa_ced: 0 } }).catch(() => {});
+    }
 }
 
 // ---------- Mots de passe ----------
@@ -232,7 +279,7 @@ export async function resetPassword(/** @type {string | number} */ id, /** @type
     const hashed = await hashPassword(newPassword);
     const user = await getUser(id);
     if (!user) throw notFound('Utilisateur non trouvé');
-    await dbRun('UPDATE users SET password = ? WHERE id = ?', [hashed, id]);
+    await prisma.user.update({ where: { id: user.id }, data: { password: hashed } });
     return user;
 }
 
@@ -250,7 +297,7 @@ export async function changePassword(
     if (!user) throw notFound('Utilisateur introuvable');
     const { ok } = await verifyPassword(String(oldPassword), user.password);
     if (!ok) throw unauthorized('Ancien mot de passe incorrect');
-    await dbRun('UPDATE users SET password = ? WHERE id = ?', [await hashPassword(newPassword), userId]);
+    await prisma.user.update({ where: { id: user.id }, data: { password: await hashPassword(newPassword) } });
 }
 
 /** Changement depuis l'écran « Mon profil » (règles de complexité, sans ancien mot de passe) */
@@ -258,23 +305,26 @@ export async function changeProfilePassword(/** @type {number} */ userId, /** @t
     if (!newPassword) throw badRequest('Nouveau mot de passe requis');
     const weakness = passwordStrengthError(newPassword);
     if (weakness) throw badRequest(weakness);
-    await dbRun('UPDATE users SET password = ? WHERE id = ?', [await hashPassword(String(newPassword)), userId]);
+    await prisma.user.updateMany({
+        where: { id: userId },
+        data: { password: await hashPassword(String(newPassword)) }
+    });
 }
 
 // ---------- Préférences du compte ----------
 
 export async function getProfilePhoto(/** @type {number} */ userId) {
-    const row = await dbGet('SELECT profile_photo FROM users WHERE id = ?', [userId]);
-    return row?.profile_photo || null;
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { profile_photo: true } });
+    return user?.profile_photo || null;
 }
 
 export async function setProfilePhoto(/** @type {number} */ userId, /** @type {unknown} */ photo) {
     if (!photo) throw badRequest('Photo manquante');
     if (typeof photo !== 'string' || !photo.startsWith('data:image/')) throw badRequest('Format invalide');
-    await dbRun('UPDATE users SET profile_photo = ? WHERE id = ?', [photo, userId]);
+    await prisma.user.updateMany({ where: { id: userId }, data: { profile_photo: photo } });
 }
 
 export async function setDefaultTab(/** @type {number} */ userId, /** @type {unknown} */ tab) {
     if (typeof tab !== 'string' || !DEFAULT_TABS.includes(tab)) throw badRequest('Onglet invalide');
-    await dbRun('UPDATE users SET default_tab = ? WHERE id = ?', [tab, userId]);
+    await prisma.user.updateMany({ where: { id: userId }, data: { default_tab: tab } });
 }

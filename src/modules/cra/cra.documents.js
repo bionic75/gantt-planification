@@ -137,28 +137,43 @@ export function buildCraDocumentHtml({
     </div>`;
 }
 
-export async function generateCraPdf(cra, astreintes, signatures, moisNom) {
+/** Marges du document signé (préparation pour diffusion, renvoi, régénération) */
+export const SIGNED_DOCUMENT_MARGIN = { top: '10mm', bottom: '10mm', left: '10mm', right: '10mm' };
+
+/**
+ * Rendu PDF (A4) d'une page HTML avec Chromium
+ * @param {string} html
+ * @param {{ top: string, right: string, bottom: string, left: string }} margin
+ * @returns {Promise<Buffer>}
+ */
+export async function renderPdf(html, margin) {
     if (!puppeteer) throw new Error('Puppeteer non installé. Exécutez : npm install puppeteer');
-    const html = buildCraPdfHtml({ cra, astreintes, signatures, moisNom });
     const browser = await puppeteer.launch({
         executablePath: appEnv.PUPPETEER_EXECUTABLE_PATH,
         args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
-        headless: 'new',
-        protocolTimeout: 120000
+        headless: true,
+        protocolTimeout: 180000
     });
     try {
         const page = await browser.newPage();
+        page.setDefaultNavigationTimeout(120000);
         await page.setContent(html, { waitUntil: 'domcontentloaded' });
-        const pdf = await page.pdf({
-            format: 'A4',
-            margin: { top: '15mm', right: '15mm', bottom: '20mm', left: '15mm' },
-            printBackground: true
-        });
+        const pdf = await page.pdf({ format: 'A4', printBackground: true, margin });
         // Puppeteer ≥ 22 renvoie un Uint8Array : res.send() le sérialiserait en JSON
         return Buffer.from(pdf);
     } finally {
         await browser.close();
     }
+}
+
+/** PDF de consultation d'un CRA (mise en page simplifiée) */
+export function generateCraPdf(cra, astreintes, signatures, moisNom) {
+    return renderPdf(buildCraPdfHtml({ cra, astreintes, signatures, moisNom }), {
+        top: '15mm',
+        right: '15mm',
+        bottom: '20mm',
+        left: '15mm'
+    });
 }
 
 export function buildCraPdfHtml({ cra, astreintes, signatures, moisNom }) {
