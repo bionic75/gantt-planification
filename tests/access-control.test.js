@@ -72,5 +72,10 @@ describe('API publique par clé', () => {
         const res = await server.client().get('/api/public/events', { 'X-Api-Key': key });
         expect(res.status).toBe(200);
         expect(res.data).toHaveProperty('events');
+
+        // Clé dans l'URL : refusée (journaux, historique), message explicite
+        const inUrl = await server.client().get(`/api/public/events?api_key=${key}`);
+        expect(inUrl.status).toBe(401);
+        expect(inUrl.data.error).toMatch(/X-Api-Key/);
     });
 });

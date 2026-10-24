@@ -48,7 +48,20 @@ const schema = z
             .url()
             .optional()
             .or(z.literal('').transform(() => undefined)),
+        // Proxys de confiance (IP client réelle et protocole via X-Forwarded-*) : nombre de proxys, liste d'adresses
+        // ou de sous-réseaux, ou true / false. Par défaut, les proxys sur le réseau local ou privé (nginx, Docker).
+        TRUST_PROXY: z
+            .string()
+            .trim()
+            .default('loopback, linklocal, uniquelocal')
+            .transform(v => (/^\d+$/.test(v) ? Number(v) : v === 'true' ? true : v === 'false' ? false : v)),
         SMTP_USER: optionalString,
+        // Serveur SMTP au certificat invalide : vérification TLS désactivée (déconseillé)
+        SMTP_TLS_INSECURE: z
+            .string()
+            .trim()
+            .optional()
+            .transform(v => v === 'true'),
         ASANA_API_BASE: z.string().trim().url().default('https://app.asana.com/api/1.0'),
         SOFFICE_PATH: optionalString,
         PUPPETEER_EXECUTABLE_PATH: optionalString

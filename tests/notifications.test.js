@@ -73,10 +73,11 @@ describe('messages instantanés', () => {
 
 describe('emails', () => {
     it("invitations d'affectation mises en file, suivi du lot", async () => {
-        const { user } = await createExpert(admin);
+        const { user, resource } = await createExpert(admin);
         const r = await admin.post('/api/send-assignment-emails', {
             assignments: [
                 {
+                    resourceId: resource.id,
                     email: user.email,
                     expertNom: user.nom,
                     expertPrenom: user.prenom,
@@ -86,7 +87,13 @@ describe('emails', () => {
                         { date: '2027-06-03', period: 'AM', actionType: 'deleted', oldActivityCode: '3', activity: 'x' }
                     ]
                 },
-                { expertName: 'Sans email', assignments: [] }
+                { expertName: 'Sans email', assignments: [] },
+                // Adresse sans rapport avec la ressource : ignorée
+                {
+                    resourceId: resource.id,
+                    email: 'victime@exterieur.example',
+                    assignments: [{ date: '2027-06-02', period: 'AM', activityCode: '5', activity: 'ANS' }]
+                }
             ]
         });
         expect(r.data).toMatchObject({ success: true, enqueued: 2 });
@@ -234,5 +241,27 @@ describe('Teams', () => {
         // Notification émise par le serveur à la création d'un événement
         await admin.post('/api/my-custom-events', { startDate: '2027-06-20', label: 'Evenement Teams' });
         await smtp.waitFor(/To: canal@teams\.test[\s\S]*Evenement Teams/, 15000);
+    });
+});
+
+describe('envoi du calendrier par email', () => {
+    it("envoyé à l'utilisateur rattaché à la ressource, jamais à l'adresse fournie par le client", async () => {
+        const { user, resource } = await createExpert(admin);
+        const requester = await loginAs(server, await createUser(admin, { is_user: 1 }), 'user');
+        const r = await requester.post('/api/send-calendar-email', {
+            resourceId: resource.id,
+            email: 'victime@exterieur.example',
+            html: '<p>Calendrier</p>',
+            subject: 'Planning calendrier-test'
+        });
+        expect(r.status, JSON.stringify(r.data)).toBe(200);
+        const mail = await smtp.waitFor(/Planning calendrier-test/);
+        expect(mail).toContain(`To: ${user.email}`);
+        expect(smtp.messages.some(m => m.includes('victime@exterieur.example'))).toBe(false);
+    });
+
+    it('refusé pour une ressource sans utilisateur avec email', async () => {
+        const r = await admin.post('/api/send-calendar-email', { resourceId: 999999, html: '<p>x</p>', subject: 'x' });
+        expect(r.status).toBe(400);
     });
 });

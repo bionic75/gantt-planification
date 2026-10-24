@@ -5,7 +5,7 @@ import os from 'os';
 import path from 'path';
 import { env as appEnv } from '../../config/env.js';
 import { HttpError } from '../../lib/http-error.js';
-import { puppeteer } from '../../lib/puppeteer.js';
+import { isolatePage, puppeteer } from '../../lib/puppeteer.js';
 import { getJsonSetting } from '../../services/settings.js';
 
 // Le modèle (.pptx) fournit titre, logo, pied de page… ; le planning est inséré en image centrée dans la zone libre de la diapositive « Titre et contenu ».
@@ -559,6 +559,8 @@ export async function affRenderPages(html, wPx, hPx, mode, wMm, hMm, transparent
             height: Math.ceil(hPx),
             deviceScaleFactor: mode === 'pptx' ? 2 : 1
         });
+        // HTML envoyé par le navigateur : ni JavaScript ni accès réseau (adresses internes, fichiers du serveur)
+        await isolatePage(page);
         await page.setContent(html, { waitUntil: 'load' });
         // Puppeteer ≥ 22 renvoie des Uint8Array : conversion en Buffer (envoi HTTP et encodage base64)
         if (mode === 'pdf')

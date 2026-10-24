@@ -1,6 +1,15 @@
 // @ts-check
 // Envoi d'emails SMTP. La configuration est chargée depuis la table email_config (écran Administration).
 import nodemailer from 'nodemailer';
+import { env } from '../config/env.js';
+
+/**
+ * TLS du serveur SMTP : certificat vérifié et TLS 1.2 minimum (identifiants SMTP protégés d'une interception).
+ * SMTP_TLS_INSECURE=true : tout certificat et TLS 1.0 acceptés (serveur au certificat invalide, ancien comportement).
+ */
+const TLS_OPTIONS = env.SMTP_TLS_INSECURE
+    ? { rejectUnauthorized: false, minVersion: /** @type {const} */ ('TLSv1') }
+    : { minVersion: /** @type {const} */ ('TLSv1.2') };
 
 /**
  * Configuration SMTP courante. L'objet est partagé : le modifier uniquement via setEmailConfig().
@@ -62,7 +71,7 @@ export function createEmailTransporter() {
         connectionTimeout: 10000,
         greetingTimeout: 10000,
         socketTimeout: 30000,
-        tls: { rejectUnauthorized: false, minVersion: 'TLSv1' },
+        tls: TLS_OPTIONS,
         debug: false,
         logger: false
     });
@@ -96,7 +105,7 @@ export async function sendEmail(to, subject, html, attachments = []) {
         connectionTimeout: 15000,
         greetingTimeout: 10000,
         socketTimeout: 30000,
-        tls: { rejectUnauthorized: false, minVersion: 'TLSv1' },
+        tls: TLS_OPTIONS,
         debug: false,
         logger: false
     });

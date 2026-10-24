@@ -33,5 +33,6 @@ it("le refus d'un CRA envoie un email à l'expert via la file d'attente", async 
     await admin.post(`/api/cra/${data.id}/refuser/n1`, { commentaire: 'À compléter' });
 
     const mail = await smtp.waitFor(new RegExp(`To: ${user.email.replace('.', '\\.')}[\\s\\S]*refus`, 'i'), 15000);
-    expect(mail).toContain(`${server.appUrl}/?tab=cra&cra_id=${data.id}`);
+    // Lien dans un attribut HTML : « & » échappé, décodé par le client de messagerie
+    expect(mail).toContain(`${server.appUrl}/?tab=cra&amp;cra_id=${data.id}`);
 });

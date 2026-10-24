@@ -136,7 +136,8 @@ export async function logout(/** @type {Request} */ req, /** @type {Response} */
         console.log(`🔴 Session terminée pour ${username} (userId: ${userId})`);
         auth.recordLogout(userId, username);
     }
-    req.session.destroy(() => {});
+    // Réponse après la suppression de la session en base : une requête suivante ne doit plus être authentifiée
+    await new Promise(resolve => req.session.destroy(resolve));
     res.json({ success: true });
 }
 
@@ -241,7 +242,7 @@ export async function resetPassword(/** @type {Request} */ req, /** @type {Respo
     if (weakness) throw badRequest(weakness);
     if (!(await auth.applyPasswordReset(reset, newPassword))) throw badRequest(INVALID_RESET_LINK);
 
-    revokeUserSessions(reset.user.id);
+    await revokeUserSessions(reset.user.id);
     res.json({ success: true, message: 'Mot de passe modifié. Vous pouvez vous connecter.' });
 }
 

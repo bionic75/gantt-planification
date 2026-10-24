@@ -128,8 +128,8 @@ export async function startServer({ workDir = createWorkDir() } = {}) {
     }
 }
 
-async function bootServer(workDir) {
-    const port = await freePort();
+async function bootServer(workDir, previousPort) {
+    const port = previousPort ?? (await freePort());
     const baseUrl = `http://127.0.0.1:${port}`;
     let logs = '';
 
@@ -172,6 +172,11 @@ async function bootServer(workDir) {
                 proc.kill();
                 await new Promise(r => proc.once('exit', r));
             }
+        },
+        /** Redémarre le serveur sur le même port et la même base ; renvoie le nouveau serveur (mêmes clients) */
+        async restart() {
+            await server.shutdown();
+            return bootServer(workDir, port);
         },
         async stop() {
             await server.shutdown();

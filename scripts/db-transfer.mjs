@@ -93,7 +93,8 @@ if (missingInTarget.length || missingInSource.length) {
     );
 }
 
-const models = readModels();
+// Sessions ouvertes : propres au serveur d'origine, non transférées
+const models = readModels().filter(m => m.table !== 'sessions');
 const counts = {};
 for (const m of models) counts[m.name] = await prisma[m.delegate].count();
 const nonEmpty = models.filter(m => counts[m.name] > 0);
