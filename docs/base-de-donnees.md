@@ -17,8 +17,12 @@ SQLite (par défaut), PostgreSQL et MariaDB/MySQL.
 | `DATABASE_URL`           | URL de connexion complète, prioritaire sur les variables `DB_*` ci-dessus |
 | `DB_PATH`                | SQLite : répertoire du fichier `data.db` (défaut `./data`)                |
 
-Les secrets (`SESSION_SECRET`, `DB_USER`, `DB_PASSWORD`) sont listés dans `.env.example`. En CI, les bases de
-test utilisent les secrets du dépôt `CI_DB_USER` et `CI_DB_PASSWORD`.
+Les secrets (`SESSION_SECRET`, `DB_USER`, `DB_PASSWORD`) sont listés dans `.env.example`.
+
+En CI, les migrations sont appliquées sur une vraie base PostgreSQL ou MariaDB seulement si la variable du dépôt
+`DB_PROVIDER` (Settings › Secrets and variables › Actions › Variables) vaut `postgresql` ou `mysql` : le fournisseur
+utilisé en production. La base de test utilise alors les secrets du dépôt `CI_DB_USER` et `CI_DB_PASSWORD`.
+Sans cette variable (SQLite), seuls les tests tournent.
 
 Le client Prisma est généré pour un seul fournisseur. Il est généré à l'installation (`npm install`, script
 `postinstall`) d'après `DB_PROVIDER`. Après un changement de fournisseur : `npm run db:generate`.
@@ -99,7 +103,7 @@ Les PDF des CRA (`data/pdfs/`) sont à sauvegarder à part.
 2. `npm run db:migration -- <nom_en_snake_case>` génère `prisma/<fournisseur>/migrations/<date>_<nom>/migration.sql`
    pour chaque fournisseur, sans base de données.
 3. Relire les trois scripts SQL, et les compléter si besoin (reprise de données, valeurs par défaut).
-4. `npm test`. La CI applique aussi les migrations sur PostgreSQL et MariaDB.
+4. `npm test`. La CI applique aussi les migrations sur le fournisseur utilisé en production (variable `DB_PROVIDER`).
 
 ### Conventions du schéma de départ
 
