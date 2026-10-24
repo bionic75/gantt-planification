@@ -6,6 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { afterAll, describe, expect, it } from 'vitest';
 import { createWorkDir, startServer } from './helpers/server.js';
+import { isSqlite } from './helpers/test-db.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const LEGACY_SCHEMA = fs.readFileSync(path.join(ROOT, 'tests/fixtures/legacy-schema.sql'), 'utf8');
@@ -59,7 +60,8 @@ function adopt(workDir, ...args) {
 const open = workDir => new Database(path.join(workDir, 'data', 'data.db'), { readonly: true });
 
 // Tests indépendants (une base temporaire chacun) : exécutés en parallèle, la CLI Prisma étant lente à démarrer
-describe.concurrent('adoption', { timeout: 120000 }, () => {
+// Adoption d'une base SQLite de l'ancienne version : sans objet avec PostgreSQL / MariaDB
+describe.skipIf(!isSqlite).concurrent('adoption', { timeout: 120000 }, () => {
     it('convertit le schéma en conservant les données, puis le serveur démarre sur la base', async () => {
         const workDir = legacyDatabase();
         const r = await adopt(workDir);
@@ -171,7 +173,7 @@ describe.concurrent('adoption', { timeout: 120000 }, () => {
     });
 });
 
-describe('démarrage', () => {
+describe.skipIf(!isSqlite)('démarrage', () => {
     it("refuse une base de l'ancienne version non adoptée", async () => {
         const workDir = legacyDatabase();
         let error;

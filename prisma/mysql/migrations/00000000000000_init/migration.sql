@@ -4,10 +4,10 @@ CREATE TABLE `action_logs` (
     `user_id` INTEGER NOT NULL,
     `action_type` LONGTEXT NOT NULL,
     `details` LONGTEXT NULL,
-    `created_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `created_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
 
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `affectation_assignments` (
@@ -15,11 +15,11 @@ CREATE TABLE `affectation_assignments` (
     `project_id` INTEGER NOT NULL,
     `stage_key` VARCHAR(191) NOT NULL,
     `resource_id` INTEGER NOT NULL,
-    `created_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `created_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
 
     UNIQUE INDEX `affectation_assignments_project_id_stage_key_resource_id_key`(`project_id`, `stage_key`, `resource_id`),
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `affectation_history` (
@@ -30,11 +30,11 @@ CREATE TABLE `affectation_history` (
     `user_name` LONGTEXT NULL,
     `action` LONGTEXT NOT NULL,
     `details` LONGTEXT NULL,
-    `created_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `created_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
 
     INDEX `idx_aff_hist_project`(`project_id`, `id`),
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `affectation_projects` (
@@ -47,11 +47,11 @@ CREATE TABLE `affectation_projects` (
     `date_mise_en_production` LONGTEXT NULL,
     `periods` LONGTEXT NOT NULL DEFAULT ('{}'),
     `created_by` INTEGER NULL,
-    `created_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
-    `updated_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `created_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `updated_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
 
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `api_keys` (
@@ -60,24 +60,24 @@ CREATE TABLE `api_keys` (
     `key_hash` VARCHAR(191) NOT NULL,
     `key_prefix` LONGTEXT NOT NULL,
     `created_by` INTEGER NULL,
-    `created_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `created_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
     `last_used_at` LONGTEXT NULL,
     `revoked` INTEGER NULL DEFAULT 0,
 
     UNIQUE INDEX `api_keys_key_hash_key`(`key_hash`),
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `app_user_access` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `app_key` VARCHAR(191) NOT NULL,
     `user_id` INTEGER NOT NULL,
-    `created_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `created_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
 
     UNIQUE INDEX `app_user_access_app_key_user_id_key`(`app_key`, `user_id`),
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `astreinte_disponibilites` (
@@ -85,11 +85,11 @@ CREATE TABLE `astreinte_disponibilites` (
     `resource_id` INTEGER NOT NULL,
     `date` VARCHAR(191) NOT NULL,
     `type_creneau` LONGTEXT NOT NULL,
-    `created_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `created_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
 
     UNIQUE INDEX `astreinte_disponibilites_resource_id_date_key`(`resource_id`, `date`),
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `astreinte_indisponibilites` (
@@ -98,11 +98,11 @@ CREATE TABLE `astreinte_indisponibilites` (
     `date` VARCHAR(191) NOT NULL,
     `type_creneau` VARCHAR(191) NOT NULL,
     `motif` LONGTEXT NULL,
-    `created_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `created_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
 
     UNIQUE INDEX `astreinte_indisponibilites_resource_id_date_type_creneau_key`(`resource_id`, `date`, `type_creneau`),
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `astreinte_planning` (
@@ -112,11 +112,11 @@ CREATE TABLE `astreinte_planning` (
     `resource_id` INTEGER NULL,
     `year` INTEGER NOT NULL,
     `month` INTEGER NOT NULL,
-    `created_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `created_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
 
     UNIQUE INDEX `astreinte_planning_date_type_creneau_key`(`date`, `type_creneau`),
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `astreintes_hno` (
@@ -130,11 +130,11 @@ CREATE TABLE `astreintes_hno` (
     `samu` LONGTEXT NULL,
     `tous_samu` INTEGER NULL DEFAULT 0,
     `objet` LONGTEXT NOT NULL,
-    `created_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
-    `updated_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `created_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `updated_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
 
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `automation_logs` (
@@ -144,13 +144,13 @@ CREATE TABLE `automation_logs` (
     `expert_name` LONGTEXT NULL,
     `expert_email` LONGTEXT NULL,
     `target_month` LONGTEXT NULL,
-    `sent_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `sent_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
     `recipients_list` LONGTEXT NULL,
     `file_content` LONGTEXT NULL,
     `filename` LONGTEXT NULL,
 
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `bons_commande` (
@@ -160,14 +160,14 @@ CREATE TABLE `bons_commande` (
     `date_debut` LONGTEXT NOT NULL,
     `date_fin` LONGTEXT NOT NULL,
     `nb_uo` INTEGER NOT NULL,
-    `created_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `created_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
     `created_by` INTEGER NULL,
     `actif` INTEGER NULL DEFAULT 1,
     `solde` INTEGER NULL DEFAULT 0,
     `regularisation_cible_bdc_id` INTEGER NULL,
 
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `connection_logs` (
@@ -177,11 +177,11 @@ CREATE TABLE `connection_logs` (
     `nom` LONGTEXT NOT NULL,
     `prenom` LONGTEXT NOT NULL,
     `profile` LONGTEXT NOT NULL,
-    `login_time` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `login_time` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
     `modifications` LONGTEXT NULL DEFAULT (''),
 
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `cra` (
@@ -198,7 +198,7 @@ CREATE TABLE `cra` (
     `vise_n2_at` LONGTEXT NULL,
     `vise_n2_by` INTEGER NULL,
     `diffuse_at` LONGTEXT NULL,
-    `created_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `created_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
     `rien_a_declarer` INTEGER NULL DEFAULT 0,
     `commentaire_refus` LONGTEXT NULL,
     `refuse_by` INTEGER NULL,
@@ -213,7 +213,7 @@ CREATE TABLE `cra` (
 
     UNIQUE INDEX `cra_user_id_mois_annee_key`(`user_id`, `mois`, `annee`),
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `cra_diffusion_log` (
@@ -222,11 +222,11 @@ CREATE TABLE `cra_diffusion_log` (
     `recipient_email` LONGTEXT NOT NULL,
     `recipient_name` LONGTEXT NULL,
     `recipient_type` VARCHAR(191) NULL DEFAULT 'rh_es',
-    `sent_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `sent_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
     `email_batch_id` LONGTEXT NULL,
 
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `cra_rh_recipients` (
@@ -237,7 +237,7 @@ CREATE TABLE `cra_rh_recipients` (
 
     UNIQUE INDEX `cra_rh_recipients_resource_id_email_key`(`resource_id`, `email`),
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `cra_signatures` (
@@ -247,7 +247,7 @@ CREATE TABLE `cra_signatures` (
     `signer_user_id` INTEGER NULL,
     `signer_name` LONGTEXT NOT NULL,
     `signer_email` LONGTEXT NOT NULL,
-    `signed_at` VARCHAR(19) NOT NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `signed_at` VARCHAR(32) NOT NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
     `ip_address` LONGTEXT NULL,
     `user_agent` LONGTEXT NULL,
     `token` VARCHAR(191) NULL,
@@ -256,7 +256,7 @@ CREATE TABLE `cra_signatures` (
 
     UNIQUE INDEX `cra_signatures_token_key`(`token`),
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `custom_event_external_participants` (
@@ -265,21 +265,21 @@ CREATE TABLE `custom_event_external_participants` (
     `nom` LONGTEXT NULL,
     `prenom` LONGTEXT NULL,
     `email` LONGTEXT NULL,
-    `added_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `added_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
 
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `custom_event_participants` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `event_id` INTEGER NOT NULL,
     `user_id` INTEGER NOT NULL,
-    `added_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `added_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
 
     UNIQUE INDEX `custom_event_participants_event_id_user_id_key`(`event_id`, `user_id`),
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `custom_events` (
@@ -289,7 +289,7 @@ CREATE TABLE `custom_events` (
     `end_date` LONGTEXT NOT NULL,
     `config` LONGTEXT NULL,
     `created_by` INTEGER NULL,
-    `created_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `created_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
     `needs_resources` INTEGER NULL DEFAULT 0,
     `resources_count` INTEGER NULL DEFAULT 1,
     `type_id` INTEGER NULL,
@@ -298,7 +298,7 @@ CREATE TABLE `custom_events` (
     `period` VARCHAR(191) NULL DEFAULT 'FULL',
 
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `deplacements` (
@@ -311,14 +311,14 @@ CREATE TABLE `deplacements` (
     `ville` LONGTEXT NOT NULL,
     `bon_commande_id` INTEGER NULL,
     `nb_uo` INTEGER NOT NULL,
-    `created_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `created_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
     `a_regulariser` INTEGER NULL DEFAULT 0,
     `regularisation_source_bdc_id` INTEGER NULL,
     `commentaire` LONGTEXT NULL,
     `regularisation_cible_bdc_id` INTEGER NULL,
 
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `email_config` (
@@ -328,10 +328,10 @@ CREATE TABLE `email_config` (
     `secure` INTEGER NULL DEFAULT 0,
     `user` LONGTEXT NOT NULL,
     `password` LONGTEXT NOT NULL,
-    `updated_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `updated_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
 
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `email_queue` (
@@ -354,13 +354,13 @@ CREATE TABLE `email_queue` (
     `error_message` LONGTEXT NULL,
     `action_type` LONGTEXT NULL,
     `resource_id` INTEGER NULL,
-    `created_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `created_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
     `processed_at` LONGTEXT NULL,
     `next_retry_at` LONGTEXT NULL,
     `cc_emails` LONGTEXT NULL,
 
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `event_types` (
@@ -377,7 +377,7 @@ CREATE TABLE `event_types` (
 
     UNIQUE INDEX `event_types_code_key`(`code`),
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `expert_notifications` (
@@ -388,11 +388,11 @@ CREATE TABLE `expert_notifications` (
     `activity_name` LONGTEXT NOT NULL,
     `requester_name` LONGTEXT NOT NULL,
     `action_type` LONGTEXT NOT NULL,
-    `created_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `created_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
     `is_read` INTEGER NULL DEFAULT 0,
 
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `ics_events` (
@@ -404,7 +404,7 @@ CREATE TABLE `ics_events` (
     `zone` LONGTEXT NULL,
 
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `ics_files` (
@@ -413,10 +413,10 @@ CREATE TABLE `ics_files` (
     `filename` LONGTEXT NOT NULL,
     `content` LONGTEXT NULL,
     `config` LONGTEXT NULL,
-    `imported_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `imported_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
 
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `locations` (
@@ -426,12 +426,12 @@ CREATE TABLE `locations` (
     `adresse` LONGTEXT NULL,
     `latitude` DOUBLE NULL,
     `longitude` DOUBLE NULL,
-    `created_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
-    `updated_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `created_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `updated_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
 
     UNIQUE INDEX `locations_libelle_long_key`(`libelle_long`),
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `mfa_codes` (
@@ -439,20 +439,20 @@ CREATE TABLE `mfa_codes` (
     `user_id` INTEGER NOT NULL,
     `code` LONGTEXT NOT NULL,
     `expires_at` LONGTEXT NOT NULL,
-    `created_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `created_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
 
     UNIQUE INDEX `mfa_codes_user_id_key`(`user_id`),
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `mfa_validations` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `user_id` INTEGER NOT NULL,
-    `validated_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `validated_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
 
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `password_reset_tokens` (
@@ -465,7 +465,7 @@ CREATE TABLE `password_reset_tokens` (
 
     UNIQUE INDEX `password_reset_tokens_token_hash_key`(`token_hash`),
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `pending_notifications` (
@@ -475,10 +475,10 @@ CREATE TABLE `pending_notifications` (
     `expert_id` INTEGER NOT NULL,
     `assignment_data` LONGTEXT NOT NULL,
     `created_by` INTEGER NOT NULL,
-    `created_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `created_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
 
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `pending_push_messages` (
@@ -488,10 +488,10 @@ CREATE TABLE `pending_push_messages` (
     `from_name` LONGTEXT NULL,
     `from_photo` LONGTEXT NULL,
     `message` LONGTEXT NOT NULL,
-    `sent_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `sent_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
 
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `poi` (
@@ -507,12 +507,12 @@ CREATE TABLE `poi` (
     `phone` LONGTEXT NULL,
     `osm_ref` LONGTEXT NULL,
     `created_by` INTEGER NULL,
-    `created_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
-    `updated_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `created_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `updated_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
 
     INDEX `idx_poi_location`(`location_id`),
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `poi_comments` (
@@ -520,12 +520,12 @@ CREATE TABLE `poi_comments` (
     `poi_id` INTEGER NOT NULL,
     `user_id` INTEGER NOT NULL,
     `text` LONGTEXT NOT NULL,
-    `created_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
-    `updated_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `created_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `updated_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
 
     INDEX `idx_poi_comments_poi`(`poi_id`),
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `poi_ratings` (
@@ -533,12 +533,12 @@ CREATE TABLE `poi_ratings` (
     `poi_id` INTEGER NOT NULL,
     `user_id` INTEGER NOT NULL,
     `rating` INTEGER NOT NULL,
-    `created_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
-    `updated_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `created_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `updated_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
 
     UNIQUE INDEX `poi_ratings_poi_id_user_id_key`(`poi_id`, `user_id`),
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `resource_mad_history` (
@@ -547,11 +547,11 @@ CREATE TABLE `resource_mad_history` (
     `taux` DOUBLE NOT NULL,
     `date_debut` LONGTEXT NOT NULL,
     `date_fin` LONGTEXT NULL,
-    `created_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `created_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
     `created_by` INTEGER NULL,
 
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `resource_mad_particularites` (
@@ -562,11 +562,11 @@ CREATE TABLE `resource_mad_particularites` (
     `date_debut` LONGTEXT NOT NULL,
     `date_fin` LONGTEXT NOT NULL,
     `motif` LONGTEXT NULL,
-    `created_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `created_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
     `created_by` INTEGER NULL,
 
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `resource_samu_assignments` (
@@ -574,11 +574,11 @@ CREATE TABLE `resource_samu_assignments` (
     `resource_id` INTEGER NOT NULL,
     `samu` VARCHAR(191) NOT NULL,
     `role` LONGTEXT NOT NULL,
-    `created_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `created_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
 
     UNIQUE INDEX `resource_samu_assignments_resource_id_samu_key`(`resource_id`, `samu`),
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `resources` (
@@ -595,7 +595,7 @@ CREATE TABLE `resources` (
     `date_fin` LONGTEXT NULL,
     `es_rattachement` LONGTEXT NULL,
     `fonction` LONGTEXT NULL,
-    `created_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `created_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
     `astreinte_volontaire` INTEGER NULL DEFAULT 0,
     `date_fin_mad` LONGTEXT NULL,
     `jours_max_mad` INTEGER NULL,
@@ -604,7 +604,7 @@ CREATE TABLE `resources` (
     `astreinte_date_activation` LONGTEXT NULL,
 
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `schedule_data` (
@@ -614,11 +614,11 @@ CREATE TABLE `schedule_data` (
     `type` VARCHAR(191) NOT NULL,
     `value` LONGTEXT NOT NULL,
     `notification` VARCHAR(191) NULL DEFAULT '0',
-    `created_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `created_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
 
     UNIQUE INDEX `schedule_data_resource_id_date_key_type_key`(`resource_id`, `date_key`, `type`),
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `settings` (
@@ -628,16 +628,16 @@ CREATE TABLE `settings` (
 
     UNIQUE INDEX `settings_key_key`(`key`),
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `system_config` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `version` LONGTEXT NOT NULL,
-    `updated_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `updated_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
 
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;
 
 -- CreateTable
 CREATE TABLE `users` (
@@ -653,7 +653,7 @@ CREATE TABLE `users` (
     `is_user` INTEGER NULL DEFAULT 0,
     `resource_id` INTEGER NULL,
     `actif` INTEGER NULL DEFAULT 1,
-    `created_at` VARCHAR(19) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
+    `created_at` VARCHAR(32) NULL DEFAULT (date_format(utc_timestamp(), '%Y-%m-%d %H:%i:%s')),
     `totp_secret` LONGTEXT NULL,
     `default_tab` VARCHAR(191) NULL DEFAULT 'planning',
     `profile_photo` LONGTEXT NULL,
@@ -664,4 +664,4 @@ CREATE TABLE `users` (
 
     UNIQUE INDEX `users_username_key`(`username`),
     PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;

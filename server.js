@@ -4,7 +4,7 @@ import { env } from './src/config/env.js';
 import fs from 'fs';
 import { registerDumpRoutes } from './scripts/db-dump.js';
 import { createApp, finalizeApp } from './src/app.js';
-import { checkMigrations, connectPrisma, prisma } from './src/db/prisma.js';
+import { checkEncoding, checkMigrations, connectPrisma, prisma } from './src/db/prisma.js';
 import { seedDatabase } from './src/db/seed.js';
 import { startScheduler } from './src/jobs/scheduler.js';
 import { emailConfig, loadEmailConfig } from './src/lib/mailer.js';
@@ -78,6 +78,11 @@ function listen(app, attempt = 1) {
 
 async function main() {
     await connectPrisma();
+    const encodingProblem = await checkEncoding();
+    if (encodingProblem) {
+        console.error(`❌ Base de données : ${encodingProblem}.`);
+        process.exit(1);
+    }
     const migrationProblem = await checkMigrations();
     if (migrationProblem) {
         console.error(`❌ Base de données : ${migrationProblem}. Lancez « npm run db:migrate » avant de démarrer.`);

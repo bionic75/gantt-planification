@@ -37,12 +37,13 @@ jobs:
       - name: Tests
         run: npm test
 
-  # Migrations appliquées sur une vraie base, uniquement pour le fournisseur utilisé : variable du dépôt DB_PROVIDER
+  # Migrations et tests sur une vraie base, uniquement pour le fournisseur utilisé : variable du dépôt DB_PROVIDER
   # (Settings › Secrets and variables › Actions › Variables) = postgresql ou mysql. Absente ou sqlite : jobs ignorés,
-  # SQLite étant couvert par les tests.
-  # Identifiants de la base de test : secrets du dépôt CI_DB_USER et CI_DB_PASSWORD.
+  # SQLite étant couvert par le job précédent.
+  # Identifiants de la base de test : secrets du dépôt CI_DB_USER et CI_DB_PASSWORD (MariaDB : aussi mot de passe root,
+  # les tests créant une base par serveur de test).
   migrations-postgresql:
-    name: Migrations postgresql
+    name: Migrations et tests postgresql
     if: vars.DB_PROVIDER == 'postgresql'
     runs-on: ubuntu-latest
     services:
@@ -52,6 +53,8 @@ jobs:
           POSTGRES_USER: ${{ secrets.CI_DB_USER }}
           POSTGRES_PASSWORD: ${{ secrets.CI_DB_PASSWORD }}
           POSTGRES_DB: planning
+          # Tri des textes selon les règles françaises, comme la base de production
+          POSTGRES_INITDB_ARGS: --encoding=UTF8 --locale-provider=icu --icu-locale=fr-FR
         ports: ['5432:5432']
         options: --health-cmd "pg_isready -h localhost" --health-interval 5s --health-retries 10
     env:
@@ -81,15 +84,23 @@ jobs:
       - name: No drift between migrations and schema
         run: npx prisma migrate diff --from-config-datasource --to-schema prisma/postgresql/schema.prisma --exit-code
 
+      - name: Tests
+        run: |
+          export TEST_DATABASE_URL="$(node -e 'const u = new URL("postgresql://localhost:5432/postgres"); u.username = encodeURIComponent(process.env.DB_USER); u.password = encodeURIComponent(process.env.DB_PASSWORD); console.log(u.href)')"
+          npm test
+        env:
+          TEST_DB_PROVIDER: postgresql
+
   migrations-mysql:
-    name: Migrations mysql
+    name: Migrations et tests mysql
     if: vars.DB_PROVIDER == 'mysql'
     runs-on: ubuntu-latest
     services:
       mariadb:
+        # 10.10 minimum : collation utf8mb4_uca1400_ai_ci (règles Unicode 14, tri français correct)
         image: mariadb:11
         env:
-          MARIADB_RANDOM_ROOT_PASSWORD: 'yes'
+          MARIADB_ROOT_PASSWORD: ${{ secrets.CI_DB_PASSWORD }}
           MARIADB_USER: ${{ secrets.CI_DB_USER }}
           MARIADB_PASSWORD: ${{ secrets.CI_DB_PASSWORD }}
           MARIADB_DATABASE: planning
@@ -122,6 +133,14 @@ jobs:
       - name: No drift between migrations and schema
         run: npx prisma migrate diff --from-config-datasource --to-schema prisma/mysql/schema.prisma --exit-code
 
+      # Connexion root (création des bases de test), même mot de passe que CI_DB_USER
+      - name: Tests
+        run: |
+          export TEST_DATABASE_URL="$(node -e 'const u = new URL("mysql://localhost:3306/mysql"); u.username = "root"; u.password = encodeURIComponent(process.env.DB_PASSWORD); console.log(u.href)')"
+          npm test
+        env:
+          TEST_DB_PROVIDER: mysql
+
   docker-build:
     name: Construction de l'image Docker
     runs-on: ubuntu-latest
@@ -129,11 +148,14 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v4
 
+      # Client Prisma généré pour la base utilisée (variable du dépôt DB_PROVIDER, sqlite par défaut)
       - name: Build image
-        run: docker build -t gantt-planification:ci .
+        run: docker build --build-arg DB_PROVIDER=${{ vars.DB_PROVIDER || 'sqlite' }} -t gantt-planification:ci .
 
-      # Vérifie que l'image démarre (dépendances natives compilées pour Node 22 / Alpine)
+      # Vérifie que l'image démarre (dépendances natives compilées pour Node 22 / Alpine) ; sans objet sans base
+      # PostgreSQL / MariaDB à disposition
       - name: Smoke test
+        if: (vars.DB_PROVIDER || 'sqlite') == 'sqlite'
         run: |
           docker run -d --name app -p 8080:8080 -e PORT=8080 -e SESSION_SECRET="$(openssl rand -hex 32)" -e APP_URL=http://localhost:8080 gantt-planification:ci
           for i in $(seq 1 30); do

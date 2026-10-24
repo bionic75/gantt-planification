@@ -37,6 +37,24 @@ export async function connectPrisma() {
 }
 
 /**
+ * PostgreSQL : la base doit être en UTF-8 (textes accentués, emojis des emails et de l'historique). Une base créée
+ * avec l'encodage par défaut d'un poste Windows (WIN1252) refuserait ces écritures au fil de l'eau.
+ * @returns {Promise<string | null>} message d'erreur, ou null si l'encodage convient
+ */
+export async function checkEncoding() {
+    if (env.DB_PROVIDER !== 'postgresql') return null;
+    const rows = /** @type {Array<{ encoding: string }>} */ (
+        await prisma.$queryRawUnsafe(
+            'SELECT pg_encoding_to_char(encoding) AS encoding FROM pg_database WHERE datname = current_database()'
+        )
+    );
+    const encoding = rows[0]?.encoding;
+    return encoding === 'UTF8'
+        ? null
+        : `la base PostgreSQL est encodée en ${encoding} : recréez-la en UTF-8 (CREATE DATABASE … ENCODING 'UTF8' TEMPLATE template0)`;
+}
+
+/**
  * Vérifie que toutes les migrations ont été appliquées (npm run db:migrate) avant de démarrer
  * @returns {Promise<string | null>} message d'erreur, ou null si la base est à jour
  */
