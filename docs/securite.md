@@ -59,14 +59,18 @@ Code : `src/middlewares/rate-limit.js`. Compteurs en mémoire, par processus ; r
 | `/api/login`, `/api/mobile-login`                                           | 10 échecs par identifiant et 30 échecs par adresse IP, 15 min   |
 | `/api/forgot-password`                                                      | 20 demandes par adresse IP, 15 min (et 1 par minute par compte) |
 | `/api/reset-password`, `/check`, `/api/mfa/verify`, `/api/mfa/totp-confirm` | 30 échecs par adresse IP, 15 min                                |
-| `/api/user/profiles`                                                        | 100 requêtes par adresse IP, 15 min                             |
 
 ## Comptes
 
-- `/api/user/profiles` (écran de connexion) répond pour un compte inconnu ou désactivé comme pour un compte
-  « utilisateur » simple, et la connexion à un compte inconnu prend le même temps qu'un mauvais mot de passe.
-  Limite connue : un compte à plusieurs profils reste reconnaissable, l'écran de connexion demandant les profils
-  avant le mot de passe.
+- Écran de connexion : identifiant et mot de passe sont vérifiés d'abord (`POST /api/login` sans profil) ; le choix
+  du profil n'est proposé qu'ensuite, pour un compte qui en a plusieurs. Un compte inconnu, désactivé ou un mauvais
+  mot de passe reçoivent la même réponse (« Identifiants incorrects »), dans le même temps.
+- Mot de passe donné par un administrateur (compte administrateur initial, compte créé ou mot de passe réinitialisé
+  par un administrateur) : à remplacer à la connexion suivante. Tant que ce n'est pas fait, l'application reste
+  bloquée sur l'écran de changement et l'API répond `403 PASSWORD_CHANGE_REQUIRED` à toute autre requête
+  (`src/middlewares/password-change.js`) ; le nouveau mot de passe doit respecter les règles de complexité et
+  différer de l'ancien. L'application mobile refuse la connexion de ces comptes. Un mot de passe choisi par
+  l'utilisateur (écran « Mon profil », lien « mot de passe oublié ») lève l'obligation.
 - Profil « utilisateur » : planning en lecture seule (modifications refusées, `403`).
 
 ## Données saisies dans les emails et les PDF

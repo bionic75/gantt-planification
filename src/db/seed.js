@@ -1,6 +1,7 @@
 // @ts-check
 // Données initiales, créées au démarrage si absentes (idempotent) : compte administrateur, paramètres par défaut,
 // types d'événements, accès initial à l'application d'affectation.
+import { env } from '../config/env.js';
 import { hashPassword } from '../lib/password.js';
 import { evtSeedTypes } from '../modules/events/events.service.js';
 import { prisma } from './prisma.js';
@@ -21,20 +22,25 @@ async function seedSettings() {
     }
 }
 
-/** Compte administrateur initial (identifiant « admin ») s'il n'existe pas */
+/**
+ * Compte administrateur initial, créé s'il n'existe pas : identifiant et mot de passe INITIAL_ADMIN_USERNAME /
+ * INITIAL_ADMIN_PASSWORD (défaut admin / admin). Un compte existant n'est jamais modifié.
+ */
 async function seedAdmin() {
-    if (await prisma.user.findUnique({ where: { username: 'admin' } })) return;
+    const username = env.INITIAL_ADMIN_USERNAME;
+    if (await prisma.user.findUnique({ where: { username } })) return;
     await prisma.user.create({
         data: {
-            username: 'admin',
-            password: await hashPassword('Admin2025!'),
+            username,
+            password: await hashPassword(env.INITIAL_ADMIN_PASSWORD),
+            must_change_password: 1,
             nom: 'Admin',
             prenom: 'Système',
             email: 'admin@example.com',
             is_admin: 1
         }
     });
-    console.log('Compte admin créé');
+    console.log(`👤 Compte administrateur initial créé : ${username} (mot de passe à changer à la première connexion)`);
 }
 
 /** Application « Aide à l'affectation opérationnelle » : accès accordé une fois aux administrateurs existants */

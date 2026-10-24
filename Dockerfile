@@ -25,7 +25,8 @@ COPY --chown=node:node . .
 # Installation (génère aussi le client Prisma : script postinstall)
 RUN npm ci --omit=dev
 
-EXPOSE 8080
+# Port d'écoute : PORT (défaut 3000)
+EXPOSE 3000
 
 # Migrations en attente appliquées à chaque démarrage, puis lancement du serveur
 CMD ["sh", "-c", "node scripts/db-migrate.mjs && exec node server.js"]

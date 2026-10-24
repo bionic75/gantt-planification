@@ -117,9 +117,6 @@ describe('administration des comptes', () => {
             amoaCed: true,
             availableApps: expect.arrayContaining(['affectation'])
         });
-        const profiles = (await server.client().get(`/api/user/profiles?username=${user.username}`)).data;
-        expect(profiles).toMatchObject({ amoaCed: true });
-
         const client = await loginAs(server, user, 'user');
         expect((await client.get('/api/affectation/config')).status).toBe(200);
 

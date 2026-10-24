@@ -1,0 +1,437 @@
+/* Mire de connexion */
+#loginPage.lp-page {
+    background: #0b3a66;
+    overflow: hidden;
+    padding: 20px;
+}
+
+#loginPage .lp-bg {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    background: linear-gradient(135deg, #082c4f 0%, #1d70b7 55%, #4aa3df 100%);
+}
+#loginPage .lp-bg::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+    background-size: 52px 52px;
+    -webkit-mask-image: radial-gradient(ellipse at center, #000 20%, transparent 75%);
+    mask-image: radial-gradient(ellipse at center, #000 20%, transparent 75%);
+}
+#loginPage .lp-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(70px);
+    opacity: 0.5;
+    animation: lp-float 20s ease-in-out infinite;
+}
+#loginPage .lp-orb-1 {
+    width: 460px;
+    height: 460px;
+    background: #7cc4ff;
+    top: -140px;
+    left: -120px;
+}
+#loginPage .lp-orb-2 {
+    width: 380px;
+    height: 380px;
+    background: #1b5fa6;
+    bottom: -120px;
+    right: -80px;
+    animation-delay: -7s;
+}
+#loginPage .lp-orb-3 {
+    width: 260px;
+    height: 260px;
+    background: #b0285a;
+    bottom: 12%;
+    left: 8%;
+    opacity: 0.22;
+    animation-delay: -12s;
+}
+
+@keyframes lp-float {
+    0%,
+    100% {
+        transform: translate(0, 0) scale(1);
+    }
+    50% {
+        transform: translate(30px, -24px) scale(1.08);
+    }
+}
+@keyframes lp-in {
+    from {
+        opacity: 0;
+        transform: translateY(18px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+#loginPage .lp-card {
+    position: relative;
+    width: min(440px, 100%);
+    background: rgba(255, 255, 255, 0.97);
+    border-radius: 22px;
+    box-shadow:
+        0 30px 80px rgba(4, 22, 48, 0.5),
+        0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+    overflow: hidden;
+    animation: lp-in 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+#loginPage .lp-card::before {
+    content: '';
+    display: block;
+    height: 5px;
+    background: linear-gradient(90deg, #1d70b7, #4aa3df 55%, #b0285a);
+}
+
+#loginPage .lp-head {
+    padding: 28px 40px 22px;
+    text-align: center;
+    border-bottom: 1px solid #eef1f6;
+    background: linear-gradient(180deg, #fff 0%, #f6f9fd 100%);
+}
+#loginPage .lp-logo {
+    max-width: 250px;
+    width: 100%;
+    height: auto;
+    display: block;
+    margin: 0 auto 18px;
+    mix-blend-mode: multiply;
+}
+#loginPage .lp-app {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+}
+#loginPage .lp-app-ico {
+    flex-shrink: 0;
+    border-radius: 12px;
+    box-shadow: 0 6px 16px rgba(29, 112, 183, 0.35);
+}
+#loginPage .lp-app-txt {
+    text-align: left;
+}
+#loginPage .lp-app-txt h2 {
+    margin: 0 0 3px;
+    padding: 0;
+    border: none;
+    font-size: 20px;
+    font-weight: 700;
+    color: #1d70b7;
+    letter-spacing: -0.2px;
+}
+#loginPage .lp-app-txt p {
+    margin: 0;
+    font-size: 12.5px;
+    color: #6b7a8d;
+}
+
+#loginPage .lp-body {
+    padding: 30px 40px 26px;
+}
+#loginPage .lp-group {
+    margin-bottom: 18px;
+}
+#loginPage .lp-group label {
+    display: block;
+    margin-bottom: 7px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #33475b;
+    letter-spacing: 0.1px;
+}
+#loginPage .lp-field {
+    position: relative;
+}
+#loginPage .lp-field .lp-ico {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 18px;
+    height: 18px;
+    color: #8a99ad;
+    pointer-events: none;
+    transition: color 0.2s;
+}
+#loginPage .lp-field .lp-ico svg,
+#loginPage .lp-eye svg {
+    width: 100%;
+    height: 100%;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.9;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+#loginPage .lp-field:focus-within .lp-ico {
+    color: #1d70b7;
+}
+
+#loginPage .lp-input {
+    width: 100%;
+    padding: 13px 14px 13px 44px;
+    border: 1.5px solid #dbe3ee;
+    border-radius: 12px;
+    background: #f7f9fc;
+    font-size: 15px;
+    color: #1f2d3d;
+    transition:
+        border-color 0.2s,
+        box-shadow 0.2s,
+        background 0.2s;
+}
+#loginPage .lp-input::placeholder {
+    color: #9aa8b9;
+}
+#loginPage .lp-input:focus {
+    outline: none;
+    border-color: #1d70b7;
+    background: #fff;
+    box-shadow: 0 0 0 4px rgba(29, 112, 183, 0.16);
+}
+#loginPage select.lp-input {
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+}
+#loginPage .lp-has-eye .lp-input {
+    padding-right: 46px;
+}
+
+#loginPage .lp-eye {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 34px;
+    height: 34px;
+    padding: 7px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: #8a99ad;
+    cursor: pointer;
+    transition:
+        background 0.15s,
+        color 0.15s;
+}
+#loginPage .lp-eye:hover {
+    background: #eaf1f9;
+    color: #1d70b7;
+}
+#loginPage .lp-eye .eye-off {
+    display: none;
+}
+#loginPage .lp-eye.on .eye-on {
+    display: none;
+}
+#loginPage .lp-eye.on .eye-off {
+    display: block;
+}
+
+#loginPage .lp-forgot {
+    text-align: right;
+    margin-top: 9px;
+}
+#loginPage .lp-forgot a {
+    font-size: 13px;
+    font-weight: 500;
+    color: #1d70b7;
+    text-decoration: none;
+}
+#loginPage .lp-forgot a:hover {
+    text-decoration: underline;
+}
+
+#loginPage .lp-btn {
+    width: 100%;
+    margin-top: 6px;
+    padding: 14px 18px;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #1d70b7 0%, #2d8fd8 100%);
+    color: #fff;
+    font-size: 15.5px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    box-shadow: 0 8px 20px rgba(29, 112, 183, 0.38);
+    transition:
+        transform 0.2s,
+        box-shadow 0.2s,
+        filter 0.2s;
+}
+#loginPage .lp-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 26px rgba(29, 112, 183, 0.48);
+    filter: brightness(1.05);
+}
+#loginPage .lp-btn:active {
+    transform: translateY(0);
+}
+#loginPage .lp-btn svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: transform 0.2s;
+}
+#loginPage .lp-btn:hover svg {
+    transform: translateX(4px);
+}
+
+#loginPage .lp-foot {
+    margin-top: 22px;
+    padding-top: 16px;
+    border-top: 1px solid #eef1f6;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 12px;
+    color: #8a99ad;
+}
+#loginPage .lp-secure {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+#loginPage .lp-secure svg {
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: #2e9d62;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+#loginPage .lp-version {
+    background: #eef3f9;
+    padding: 3px 10px;
+    border-radius: 10px;
+    font-weight: 600;
+    color: #5d6f84;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #loginPage .lp-orb,
+    #loginPage .lp-card {
+        animation: none;
+    }
+}
+@media (max-width: 480px) {
+    #loginPage .lp-head {
+        padding: 22px 22px 18px;
+    }
+    #loginPage .lp-body {
+        padding: 24px 22px 20px;
+    }
+}
+
+/* Mode sombre : le logo (fond blanc) devient une pastille blanche */
+html.dark-mode #loginPage .lp-logo {
+    mix-blend-mode: normal;
+    background: #fff;
+    padding: 8px 14px;
+    border-radius: 12px;
+    box-sizing: border-box;
+}
+
+/* Bouton de connexion : état « Connexion en cours… » */
+#loginPage .lp-btn {
+    position: relative;
+    overflow: hidden;
+}
+#loginPage .lp-btn .lp-busy-txt {
+    display: none;
+    position: absolute;
+    inset: 0;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+#loginPage .lp-btn.lp-busy {
+    cursor: progress;
+    pointer-events: none;
+    transform: none;
+    filter: none;
+    background: linear-gradient(110deg, #1d70b7 0%, #3a9be0 35%, #1d70b7 70%);
+    background-size: 220% 100%;
+    animation: lpShimmer 1.4s linear infinite;
+}
+#loginPage .lp-btn.lp-busy .lp-btn-label,
+#loginPage .lp-btn.lp-busy > svg {
+    opacity: 0;
+}
+#loginPage .lp-btn.lp-busy .lp-busy-txt {
+    display: flex;
+}
+#loginPage .lp-spin {
+    width: 17px;
+    height: 17px;
+    border-radius: 50%;
+    border: 2.5px solid rgba(255, 255, 255, 0.35);
+    border-top-color: #fff;
+    animation: lpSpin 0.75s linear infinite;
+}
+#loginPage .lp-dots b {
+    display: inline-block;
+    font-weight: 800;
+    animation: lpDot 1.2s ease-in-out infinite;
+}
+#loginPage .lp-dots b:nth-child(2) {
+    animation-delay: 0.18s;
+}
+#loginPage .lp-dots b:nth-child(3) {
+    animation-delay: 0.36s;
+}
+@keyframes lpShimmer {
+    from {
+        background-position: 100% 0;
+    }
+    to {
+        background-position: -120% 0;
+    }
+}
+@keyframes lpSpin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+@keyframes lpDot {
+    0%,
+    60%,
+    100% {
+        opacity: 0.25;
+        transform: translateY(0);
+    }
+    30% {
+        opacity: 1;
+        transform: translateY(-3px);
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    #loginPage .lp-btn.lp-busy,
+    #loginPage .lp-spin,
+    #loginPage .lp-dots b {
+        animation-duration: 3s;
+    }
+}

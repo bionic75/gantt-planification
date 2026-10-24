@@ -1,8 +1,11 @@
-// Contrôle d'accès sur l'ensemble des routes /api (inventaire : tests/fixtures/routes.json).
-// Toute nouvelle route doit être ajoutée à l'inventaire avec sa protection.
+// Contrôle d'accès sur l'ensemble des routes /api (inventaire : tests/fixtures/routes.json, généré par
+// « npm run routes » à partir des routeurs ; relire la protection des routes ajoutées).
+import fs from 'fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { apiDoc, inventory, listRoutes } from '../scripts/routes.mjs';
 import routes from './fixtures/routes.json' with { type: 'json' };
 import { startServer } from './helpers/server.js';
+import { isSqlite } from './helpers/test-db.js';
 import { createUser, loginAs } from './helpers/fixtures.js';
 
 // Les paramètres de chemin (:id, :userId…) sont remplacés par une valeur quelconque :
@@ -22,6 +25,16 @@ beforeAll(async () => {
 afterAll(() => server?.stop());
 
 describe('inventaire des routes', () => {
+    // Application chargée dans le processus de test, configuré pour SQLite (l'inventaire ne dépend pas de la base)
+    it.skipIf(!isSqlite)(
+        "correspond aux routes de l'application, documentation comprise (sinon : npm run routes)",
+        async () => {
+            const actual = await listRoutes();
+            expect(inventory(actual)).toEqual(routes);
+            expect(fs.readFileSync(new URL('../docs/api.md', import.meta.url), 'utf8')).toBe(apiDoc(actual));
+        }
+    );
+
     it('ne liste que les routes publiques attendues', () => {
         expect(routes.filter(r => r.guard === 'public').map(label)).toEqual([
             'GET /api/check-session',
@@ -33,7 +46,6 @@ describe('inventaire des routes', () => {
             'POST /api/reset-password/check',
             'GET /api/system/version',
             'GET /api/theme',
-            'GET /api/user/profiles',
             'GET /api/version'
         ]);
     });

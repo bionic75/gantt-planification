@@ -17,6 +17,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:parity": "node tests/parity/route-parity.mjs",
+    "routes": "node scripts/routes.mjs",
+    "app:version": "node scripts/set-version.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",

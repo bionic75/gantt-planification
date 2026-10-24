@@ -13,6 +13,8 @@ declare module 'express-session' {
         logId: number;
         /** Horodatage de la connexion */
         loginAt: number;
+        /** Mot de passe donné par un administrateur, à changer avant toute autre action (middlewares/password-change.js) */
+        mustChangePassword: boolean;
         /** Session fermée par une déconnexion forcée ou un changement de mot de passe (db/session-store.js) */
         terminated: boolean;
         mfaPending: {

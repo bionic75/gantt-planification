@@ -4,6 +4,7 @@ import crypto from 'crypto';
 export function createClient(baseUrl) {
     let cookie = '';
     const client = {
+        baseUrl,
         get cookie() {
             return cookie;
         },
