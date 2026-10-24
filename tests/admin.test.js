@@ -104,8 +104,9 @@ describe('journaux', () => {
         const report = await admin.get(
             `/api/reporting/connections?dateStart=${today}&dateEnd=${today}&userIds=${user.id}`
         );
+        // 3 connexions : celle du changement de mot de passe imposé à la création (createUser), puis les deux ci-dessus
         expect(report.data.rows).toEqual([
-            expect.objectContaining({ username: user.username, profile: 'user', nb_connexions: 2 })
+            expect.objectContaining({ username: user.username, profile: 'user', nb_connexions: 3 })
         ]);
         expect((await admin.get('/api/reporting/connections?dateStart=2000-01-01')).status).toBe(400);
 
@@ -122,17 +123,19 @@ describe('journaux', () => {
         });
         await admin.post('/api/schedule/save', { [`${res.data.id}_activity_2027-01-04_AM`]: '5' });
         // Journal écrit après la réponse
+        // (le journal contient aussi le changement de mot de passe de l'administrateur initial au démarrage)
+        const planningAction = logs => logs.find(a => a.action_type === 'planning_modification');
         let actions = [];
-        for (let i = 0; i < 40 && actions.length === 0; i++) {
+        for (let i = 0; i < 40 && !planningAction(actions); i++) {
             await new Promise(r => setTimeout(r, 100));
             actions = (await admin.get('/api/logs/actions?userId=1')).data.logs;
         }
-        expect(actions[0]).toMatchObject({ user_id: 1, action_type: 'planning_modification' });
+        expect(planningAction(actions)).toMatchObject({ user_id: 1, action_type: 'planning_modification' });
         expect((await admin.get('/api/logs/actions')).status).toBe(400);
         expect((await admin.get('/api/logs/planning-debug')).data).toHaveProperty('stats');
 
         const raz = await admin.delete('/api/logs/raz', { type: 'connexions', userId: user.id });
-        expect(raz.data).toMatchObject({ success: true, deleted: 2 });
+        expect(raz.data).toMatchObject({ success: true, deleted: 3 });
         expect((await admin.delete('/api/logs/raz', { type: 'autre', userId: user.id })).status).toBe(400);
         expect((await admin.delete('/api/logs/raz', { type: 'connexions', userId: 999999 })).status).toBe(404);
         expect((await admin.delete('/api/logs/purge-all', { table: 'users' })).status).toBe(400);
@@ -210,8 +213,23 @@ describe('paramètres et configuration', () => {
         expect(info.exists).toBe(true);
         const page = await server.client().get('/aide.html');
         expect(page.data).toContain('Aide maison');
-        expect(page.data).toContain('<script src="/ui-icons.js" defer></script></body>');
+        expect(page.data).toContain('<script src="/js/ui-icons.js" defer></script></body>');
         await admin.delete('/api/help/upload');
         expect((await admin.get('/api/help/info')).data).toEqual({ exists: false, updatedAt: null });
+    });
+
+    it('anciennes adresses des scripts, styles et images : redirection vers public/js, public/css et public/img', async () => {
+        for (const [from, to] of [
+            ['/ui-icons.js', '/js/ui-icons.js'],
+            ['/themes.js?v=1.0.0', '/js/themes.js?v=1.0.0'],
+            ['/login.css', '/css/login.css'],
+            ['/favicon-grille.svg?t=1', '/img/favicon-grille.svg?t=1'],
+            ['/asana-logo.png', '/img/asana-logo.png']
+        ]) {
+            const r = await server.client().get(from);
+            expect(r.status, from).toBe(301);
+            expect(r.headers.get('location'), from).toBe(to);
+            expect((await server.client().get(to)).status, to).toBe(200);
+        }
     });
 });

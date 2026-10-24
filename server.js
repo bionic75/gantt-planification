@@ -61,7 +61,6 @@ function listen(app, attempt = 1) {
     }
     const server = app.listen(PORT, () => {
         console.log(`🚀 Serveur démarré sur le port ${PORT}`);
-        console.log(`👤 Compte admin: admin / Admin2025!`);
         console.log(`⏰ Automatisations programmées actives`);
         setTimeout(() => warmupSMTPConnection(), 5000);
     });

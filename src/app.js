@@ -11,6 +11,7 @@ import { PrismaSessionStore } from './db/session-store.js';
 import { PUBLIC_DIR } from './lib/paths.js';
 import { rejectCrossOrigin } from './middlewares/csrf.js';
 import { errorHandler } from './middlewares/error-handler.js';
+import { requirePasswordChanged } from './middlewares/password-change.js';
 import pagesRoutes from './modules/admin/pages.routes.js';
 import apiRoutes from './routes.js';
 
@@ -122,6 +123,8 @@ export function createApp() {
         json(req, res, err => (err ? next(err) : urlencoded(req, res, next)));
     });
 
+    // Mot de passe donné par un administrateur : à changer avant toute autre action
+    app.use(requirePasswordChanged);
     app.use('/api', apiRoutes);
     // Pages hors /api, prioritaires sur les fichiers statiques
     app.use(pagesRoutes);

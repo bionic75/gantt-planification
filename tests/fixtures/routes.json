@@ -145,12 +145,12 @@
         "guard": "admin"
     },
     {
-        "method": "DELETE",
+        "method": "PUT",
         "path": "/api/affectation/projects/:id",
         "guard": "admin"
     },
     {
-        "method": "PUT",
+        "method": "DELETE",
         "path": "/api/affectation/projects/:id",
         "guard": "admin"
     },
@@ -235,17 +235,17 @@
         "guard": "affectation"
     },
     {
-        "method": "DELETE",
-        "path": "/api/affectation/template",
-        "guard": "admin"
-    },
-    {
         "method": "GET",
         "path": "/api/affectation/template",
         "guard": "affectation"
     },
     {
         "method": "PUT",
+        "path": "/api/affectation/template",
+        "guard": "admin"
+    },
+    {
+        "method": "DELETE",
         "path": "/api/affectation/template",
         "guard": "admin"
     },
@@ -360,12 +360,12 @@
         "guard": "auth"
     },
     {
-        "method": "DELETE",
+        "method": "PUT",
         "path": "/api/astreintes/:id",
         "guard": "auth"
     },
     {
-        "method": "PUT",
+        "method": "DELETE",
         "path": "/api/astreintes/:id",
         "guard": "auth"
     },
@@ -410,12 +410,12 @@
         "guard": "admin"
     },
     {
-        "method": "DELETE",
+        "method": "GET",
         "path": "/api/automation/logs/:id",
         "guard": "admin"
     },
     {
-        "method": "GET",
+        "method": "DELETE",
         "path": "/api/automation/logs/:id",
         "guard": "admin"
     },
@@ -450,12 +450,12 @@
         "guard": "auth"
     },
     {
-        "method": "DELETE",
+        "method": "PUT",
         "path": "/api/bons-commande/:id",
         "guard": "auth"
     },
     {
-        "method": "PUT",
+        "method": "DELETE",
         "path": "/api/bons-commande/:id",
         "guard": "auth"
     },
@@ -645,12 +645,12 @@
         "guard": "admin"
     },
     {
-        "method": "DELETE",
+        "method": "PUT",
         "path": "/api/custom-events/:id",
         "guard": "admin"
     },
     {
-        "method": "PUT",
+        "method": "DELETE",
         "path": "/api/custom-events/:id",
         "guard": "admin"
     },
@@ -670,17 +670,17 @@
         "guard": "auth"
     },
     {
-        "method": "DELETE",
-        "path": "/api/deplacements/:id",
-        "guard": "auth"
-    },
-    {
         "method": "GET",
         "path": "/api/deplacements/:id",
         "guard": "auth"
     },
     {
         "method": "PUT",
+        "path": "/api/deplacements/:id",
+        "guard": "auth"
+    },
+    {
+        "method": "DELETE",
         "path": "/api/deplacements/:id",
         "guard": "auth"
     },
@@ -730,12 +730,12 @@
         "guard": "admin"
     },
     {
-        "method": "DELETE",
+        "method": "PUT",
         "path": "/api/event-types/:id",
         "guard": "admin"
     },
     {
-        "method": "PUT",
+        "method": "DELETE",
         "path": "/api/event-types/:id",
         "guard": "admin"
     },
@@ -775,12 +775,12 @@
         "guard": "admin"
     },
     {
-        "method": "DELETE",
+        "method": "POST",
         "path": "/api/help/upload",
         "guard": "admin"
     },
     {
-        "method": "POST",
+        "method": "DELETE",
         "path": "/api/help/upload",
         "guard": "admin"
     },
@@ -845,12 +845,12 @@
         "guard": "auth"
     },
     {
-        "method": "DELETE",
+        "method": "PUT",
         "path": "/api/locations/:id",
         "guard": "admin"
     },
     {
-        "method": "PUT",
+        "method": "DELETE",
         "path": "/api/locations/:id",
         "guard": "admin"
     },
@@ -985,14 +985,14 @@
         "guard": "auth"
     },
     {
-        "method": "DELETE",
-        "path": "/api/my-custom-events/:id",
-        "guard": "admin"
-    },
-    {
         "method": "PUT",
         "path": "/api/my-custom-events/:id",
         "guard": "auth"
+    },
+    {
+        "method": "DELETE",
+        "path": "/api/my-custom-events/:id",
+        "guard": "admin"
     },
     {
         "method": "POST",
@@ -1030,12 +1030,12 @@
         "guard": "auth"
     },
     {
-        "method": "DELETE",
+        "method": "GET",
         "path": "/api/pending-notifications/:sessionId",
         "guard": "auth"
     },
     {
-        "method": "GET",
+        "method": "DELETE",
         "path": "/api/pending-notifications/:sessionId",
         "guard": "auth"
     },
@@ -1050,17 +1050,17 @@
         "guard": "auth"
     },
     {
-        "method": "DELETE",
-        "path": "/api/poi/:id",
-        "guard": "auth"
-    },
-    {
         "method": "GET",
         "path": "/api/poi/:id",
         "guard": "auth"
     },
     {
         "method": "PUT",
+        "path": "/api/poi/:id",
+        "guard": "auth"
+    },
+    {
+        "method": "DELETE",
         "path": "/api/poi/:id",
         "guard": "auth"
     },
@@ -1070,12 +1070,12 @@
         "guard": "auth"
     },
     {
-        "method": "DELETE",
+        "method": "PUT",
         "path": "/api/poi/:id/rating",
         "guard": "auth"
     },
     {
-        "method": "PUT",
+        "method": "DELETE",
         "path": "/api/poi/:id/rating",
         "guard": "auth"
     },
@@ -1085,12 +1085,12 @@
         "guard": "auth"
     },
     {
-        "method": "DELETE",
+        "method": "PUT",
         "path": "/api/poi/comments/:cid",
         "guard": "auth"
     },
     {
-        "method": "PUT",
+        "method": "DELETE",
         "path": "/api/poi/comments/:cid",
         "guard": "auth"
     },
@@ -1190,12 +1190,12 @@
         "guard": "admin"
     },
     {
-        "method": "DELETE",
+        "method": "PUT",
         "path": "/api/resources/:id",
         "guard": "admin"
     },
     {
-        "method": "PUT",
+        "method": "DELETE",
         "path": "/api/resources/:id",
         "guard": "admin"
     },
@@ -1220,12 +1220,12 @@
         "guard": "admin"
     },
     {
-        "method": "DELETE",
+        "method": "PUT",
         "path": "/api/resources/:id/mad-history/:historyId",
         "guard": "admin"
     },
     {
-        "method": "PUT",
+        "method": "DELETE",
         "path": "/api/resources/:id/mad-history/:historyId",
         "guard": "admin"
     },
@@ -1240,12 +1240,12 @@
         "guard": "admin"
     },
     {
-        "method": "DELETE",
+        "method": "PUT",
         "path": "/api/resources/:id/mad-history/:historyId/particularites/:particulariteId",
         "guard": "admin"
     },
     {
-        "method": "PUT",
+        "method": "DELETE",
         "path": "/api/resources/:id/mad-history/:historyId/particularites/:particulariteId",
         "guard": "admin"
     },
@@ -1396,11 +1396,6 @@
     },
     {
         "method": "GET",
-        "path": "/api/user/profiles",
-        "guard": "public"
-    },
-    {
-        "method": "GET",
         "path": "/api/users",
         "guard": "admin"
     },
@@ -1410,12 +1405,12 @@
         "guard": "admin"
     },
     {
-        "method": "DELETE",
+        "method": "PUT",
         "path": "/api/users/:id",
         "guard": "admin"
     },
     {
-        "method": "PUT",
+        "method": "DELETE",
         "path": "/api/users/:id",
         "guard": "admin"
     },

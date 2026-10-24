@@ -147,6 +147,8 @@ export async function createUser(data) {
             data: {
                 username: String(username),
                 password: await hashPassword(String(password)),
+                // Mot de passe choisi par l'administrateur : à remplacer à la première connexion
+                must_change_password: 1,
                 nom: required(nom),
                 prenom: required(prenom),
                 email: required(email),
@@ -289,7 +291,8 @@ export async function resetPassword(/** @type {string | number} */ id, /** @type
     const hashed = await hashPassword(newPassword);
     const user = await getUser(id);
     if (!user) throw notFound('Utilisateur non trouvé');
-    await prisma.user.update({ where: { id: user.id }, data: { password: hashed } });
+    // Mot de passe connu de l'administrateur : à remplacer à la prochaine connexion
+    await prisma.user.update({ where: { id: user.id }, data: { password: hashed, must_change_password: 1 } });
     return user;
 }
 
@@ -310,14 +313,22 @@ export async function changePassword(
     await prisma.user.update({ where: { id: user.id }, data: { password: await hashPassword(newPassword) } });
 }
 
-/** Changement depuis l'écran « Mon profil » (règles de complexité, sans ancien mot de passe) */
+/**
+ * Changement depuis l'écran « Mon profil » ou à la connexion quand il est obligatoire (règles de complexité, sans
+ * ancien mot de passe). Le nouveau mot de passe doit différer de l'actuel (mot de passe donné par un administrateur).
+ */
 export async function changeProfilePassword(/** @type {number} */ userId, /** @type {unknown} */ newPassword) {
     if (!newPassword) throw badRequest('Nouveau mot de passe requis');
     const weakness = passwordStrengthError(newPassword);
     if (weakness) throw badRequest(weakness);
-    await prisma.user.updateMany({
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { password: true } });
+    if (!user) throw notFound('Utilisateur introuvable');
+    if ((await verifyPassword(String(newPassword), user.password)).ok) {
+        throw badRequest('Le nouveau mot de passe doit être différent du mot de passe actuel');
+    }
+    await prisma.user.update({
         where: { id: userId },
-        data: { password: await hashPassword(String(newPassword)) }
+        data: { password: await hashPassword(String(newPassword)), must_change_password: 0 }
     });
 }
 

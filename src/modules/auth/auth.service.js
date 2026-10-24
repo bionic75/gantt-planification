@@ -138,19 +138,6 @@ export async function getUserProfiles(/** @type {number} */ userId) {
     return user ? profilesOf(user) : null;
 }
 
-/** Profils proposés sur l'écran de connexion pour un identifiant */
-export async function getProfilesByUsername(/** @type {string} */ username) {
-    const user = await prisma.user.findUnique({
-        where: { username },
-        select: { id: true, actif: true, ...PROFILE_FLAGS }
-    });
-    // Compte inconnu ou désactivé : même réponse qu'un compte « utilisateur » simple (ne révèle pas son
-    // existence) ; la connexion échoue ensuite comme avec un mauvais mot de passe
-    if (!user || user.actif !== 1) return { profiles: ['user'], amoaCed: false, availableApps: [] };
-    const availableApps = await getAvailableApps(user.id).catch(() => []);
-    return { profiles: profilesOf(user), amoaCed: availableApps.includes('deplacements'), availableApps };
-}
-
 /** Compte destinataire d'un code MFA par email */
 export function getUserContact(/** @type {number} */ userId) {
     return prisma.user.findUnique({ where: { id: userId }, select: { email: true, prenom: true, nom: true } });
@@ -250,7 +237,8 @@ export async function applyPasswordReset({ tokenId, user }, newPassword) {
     });
     if (count !== 1) return false;
 
-    await prisma.user.update({ where: { id: user.id }, data: { password: hashed } });
+    // Mot de passe choisi par l'utilisateur : plus de changement obligatoire
+    await prisma.user.update({ where: { id: user.id }, data: { password: hashed, must_change_password: 0 } });
     await prisma.passwordResetToken.deleteMany({ where: { user_id: user.id, id: { not: tokenId } } });
     logSystemAction(user, 'Réinitialisation mot de passe');
     return true;

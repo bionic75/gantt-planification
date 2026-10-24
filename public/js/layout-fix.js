@@ -2,7 +2,8 @@
 (function () {
     'use strict';
 
-    const ICON = '<path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="8" y="8" width="8" height="8" rx="1.5"/>';
+    const ICON =
+        '<path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="8" y="8" width="8" height="8" rx="1.5"/>';
 
     const style = document.createElement('style');
     style.textContent = `
@@ -54,7 +55,8 @@
     function updateButton() {
         const btn = document.getElementById('layoutResetBtn');
         if (!btn) return;
-        const logged = document.getElementById('userInfo') && document.getElementById('userInfo').style.display !== 'none';
+        const logged =
+            document.getElementById('userInfo') && document.getElementById('userInfo').style.display !== 'none';
         btn.style.display = logged ? 'flex' : 'none';
         const z = browserZoom();
         const zoomed = Math.abs(z - 100) > 7;
@@ -66,13 +68,20 @@
 
     function resetLayout() {
         // Zoom du planning
-        try { if (typeof window.resetZoomPlanning === 'function') window.resetZoomPlanning(); } catch (e) { /* sans effet */ }
+        try {
+            if (typeof window.resetZoomPlanning === 'function') window.resetZoomPlanning();
+        } catch (e) {
+            /* sans effet */
+        }
         // Largeurs de colonnes figées par le redimensionnement manuel
         document.querySelectorAll('table').forEach(t => {
             if (!t._colResizable) return;
             t._colResizable = false;
             t.style.tableLayout = '';
-            t.querySelectorAll('thead th').forEach(th => { th.style.width = ''; th.style.position = ''; });
+            t.querySelectorAll('thead th').forEach(th => {
+                th.style.width = '';
+                th.style.position = '';
+            });
             t.querySelectorAll('.col-resize-handle').forEach(h => h.remove());
             if (t.offsetWidth > 0 && typeof window.makeColResizable === 'function') window.makeColResizable(t);
         });
@@ -83,7 +92,9 @@
         const z = browserZoom();
         const key = isMac ? '⌘ + 0' : 'Ctrl + 0';
         if (Math.abs(z - 100) > 7) {
-            toast(`Zoom du navigateur détecté : <b>~${z} %</b>.<br>Pour revenir à 100 %, appuie sur <b>${key}</b> (un site web ne peut pas le faire à ta place).`);
+            toast(
+                `Zoom du navigateur détecté : <b>~${z} %</b>.<br>Pour revenir à 100 %, appuie sur <b>${key}</b> (un site web ne peut pas le faire à ta place).`
+            );
         } else {
             toast("Mise en page recalculée. Si l'affichage reste incorrect, recharge la page (F5).");
         }
@@ -103,8 +114,14 @@
             const ro = new ResizeObserver(updateSpacer);
             document.querySelectorAll('.fixed-header').forEach(h => ro.observe(h));
         }
-        window.addEventListener('resize', () => { updateSpacer(); updateButton(); });
-        setInterval(() => { updateSpacer(); updateButton(); }, 2000);
+        window.addEventListener('resize', () => {
+            updateSpacer();
+            updateButton();
+        });
+        setInterval(() => {
+            updateSpacer();
+            updateButton();
+        }, 2000);
         updateSpacer();
         updateButton();
     });

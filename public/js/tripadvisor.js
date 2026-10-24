@@ -5,7 +5,8 @@
 
 Object.assign(UI_ICONS, {
     bed: '<path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8v9"/>',
-    utensils: '<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>',
+    utensils:
+        '<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>',
     beer: '<path d="M17 11h1a3 3 0 0 1 0 6h-1"/><path d="M9 12v6"/><path d="M13 12v6"/><path d="M14 7.5c-1 0-1.44.5-3 .5s-2.5-.5-3-.5-1.72.5-2.5.5a2.5 2.5 0 0 1 0-5c.78 0 1.57.5 2.5.5S9.44 2 11 2s2 1.5 3 1.5 1.72-.5 2.5-.5a2.5 2.5 0 0 1 0 5c-.78 0-1.5-.5-2.5-.5Z"/><path d="M5 8v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V8"/>',
     comment: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
     tripPlus: '<path d="M12 5v14M5 12h14"/>',
@@ -18,10 +19,31 @@ const TRIP_CATS = {
     restaurant: { label: 'Restaurant', icon: 'utensils', color: '#e65100' },
     bar: { label: 'Bar', icon: 'beer', color: '#1565c0' }
 };
-const TRIP_FRANCE = [[41.2, -5.3], [51.2, 9.7]]; // France métropolitaine (Corse incluse)
-const trip = { meta: null, pois: [], filters: { loc: '', cat: '', creator: '', q: '' }, map: null, layer: null, markers: {}, built: false, detail: {}, isAdmin: false, userId: null, formState: null, timer: null };
-const tEsc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const tFmt = d => { // horodatage SQLite (UTC) → JJ/MM/AAAA HH:MM, heure locale
+const TRIP_FRANCE = [
+    [41.2, -5.3],
+    [51.2, 9.7]
+]; // France métropolitaine (Corse incluse)
+const trip = {
+    meta: null,
+    pois: [],
+    filters: { loc: '', cat: '', creator: '', q: '' },
+    map: null,
+    layer: null,
+    markers: {},
+    built: false,
+    detail: {},
+    isAdmin: false,
+    userId: null,
+    formState: null,
+    timer: null
+};
+const tEsc = v =>
+    String(v == null ? '' : v).replace(
+        /[&<>"']/g,
+        c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
+    );
+const tFmt = d => {
+    // horodatage SQLite (UTC) → JJ/MM/AAAA HH:MM, heure locale
     if (!d) return '';
     const x = new Date(String(d).replace(' ', 'T') + 'Z');
     if (isNaN(x)) return '';
@@ -29,25 +51,44 @@ const tFmt = d => { // horodatage SQLite (UTC) → JJ/MM/AAAA HH:MM, heure local
     return `${z(x.getDate())}/${z(x.getMonth() + 1)}/${x.getFullYear()} ${z(x.getHours())}:${z(x.getMinutes())}`;
 };
 async function tApi(path, opts) {
-    const r = await fetch(`${API_URL}${path}`, { credentials: 'include', headers: { 'Content-Type': 'application/json' }, ...(opts || {}) });
+    const r = await fetch(`${API_URL}${path}`, {
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        ...(opts || {})
+    });
     let d = {};
-    try { d = await r.json(); } catch (e) { /* réponse vide */ }
+    try {
+        d = await r.json();
+    } catch (e) {
+        /* réponse vide */
+    }
     if (!r.ok) throw new Error(d.error || `Erreur ${r.status}`);
     return d;
 }
 
 // ── Étoiles ────────────────────────────────────────────────────────────────
 const STAR_PATH = '<path d="m12 2.8 2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.6 6.2 20.7l1.1-6.5L2.6 9.6l6.5-.9z"/>';
-const tStarRow = (color, n, size) => Array.from({ length: n }, () => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" style="flex:none;" fill="${color}" stroke="${color}" stroke-width="1.2" stroke-linejoin="round">${STAR_PATH}</svg>`).join('');
+const tStarRow = (color, n, size) =>
+    Array.from(
+        { length: n },
+        () =>
+            `<svg viewBox="0 0 24 24" width="${size}" height="${size}" style="flex:none;" fill="${color}" stroke="${color}" stroke-width="1.2" stroke-linejoin="round">${STAR_PATH}</svg>`
+    ).join('');
 function tStars(avg, size) {
     size = size || 16;
-    const w = avg == null ? 0 : Math.max(0, Math.min(100, avg / 5 * 100));
+    const w = avg == null ? 0 : Math.max(0, Math.min(100, (avg / 5) * 100));
     return `<span style="position:relative;display:inline-flex;vertical-align:middle;" title="${avg == null ? 'Pas encore noté' : avg.toFixed(1).replace('.', ',') + ' / 5'}">
         <span style="display:inline-flex;">${tStarRow('#d5dbe5', 5, size)}</span>
         <span style="position:absolute;left:0;top:0;overflow:hidden;white-space:nowrap;width:${w}%;display:inline-flex;">${tStarRow('#f5a623', 5, size)}</span></span>`;
 }
-const tStarInput = (value, onclickFn, size) => `<span style="display:inline-flex;gap:2px;">${[1, 2, 3, 4, 5].map(i => `<button type="button" onclick="${onclickFn}(${i})" title="${i} / 5" style="border:none;background:none;padding:0;cursor:pointer;line-height:0;"><svg viewBox="0 0 24 24" width="${size || 22}" height="${size || 22}" fill="${i <= (value || 0) ? '#f5a623' : 'none'}" stroke="${i <= (value || 0) ? '#f5a623' : '#9aa7b8'}" stroke-width="1.5" stroke-linejoin="round">${STAR_PATH}</svg></button>`).join('')}</span>`;
-const tChip = c => { const k = TRIP_CATS[c]; return k ? `<span style="display:inline-flex;align-items:center;gap:5px;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700;background:${k.color};color:#fff;">${uiIcon(k.icon, 12, 'margin:0;')}${k.label}</span>` : ''; };
+const tStarInput = (value, onclickFn, size) =>
+    `<span style="display:inline-flex;gap:2px;">${[1, 2, 3, 4, 5].map(i => `<button type="button" onclick="${onclickFn}(${i})" title="${i} / 5" style="border:none;background:none;padding:0;cursor:pointer;line-height:0;"><svg viewBox="0 0 24 24" width="${size || 22}" height="${size || 22}" fill="${i <= (value || 0) ? '#f5a623' : 'none'}" stroke="${i <= (value || 0) ? '#f5a623' : '#9aa7b8'}" stroke-width="1.5" stroke-linejoin="round">${STAR_PATH}</svg></button>`).join('')}</span>`;
+const tChip = c => {
+    const k = TRIP_CATS[c];
+    return k
+        ? `<span style="display:inline-flex;align-items:center;gap:5px;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700;background:${k.color};color:#fff;">${uiIcon(k.icon, 12, 'margin:0;')}${k.label}</span>`
+        : '';
+};
 
 // ── Mise en page de l'onglet ───────────────────────────────────────────────
 function tripBuild() {
@@ -55,7 +96,8 @@ function tripBuild() {
     if (!root || trip.built) return;
     trip.built = true;
     if (!document.getElementById('tripStyle')) {
-        const st = document.createElement('style'); st.id = 'tripStyle';
+        const st = document.createElement('style');
+        st.id = 'tripStyle';
         st.textContent = `
         #tripRoot .tr-bar { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:12px; }
         #tripRoot .tr-bar h2 { margin:0; display:flex; align-items:center; gap:10px; }
@@ -106,25 +148,50 @@ function tripBuild() {
         <div id="tripModal"><div class="tr-box" id="tripBox"></div></div>`;
 }
 function tripRenderFilters() {
-    const f = trip.filters, m = trip.meta;
-    const box = document.getElementById('trFilters'); if (!box || !m) return;
+    const f = trip.filters,
+        m = trip.meta;
+    const box = document.getElementById('trFilters');
+    if (!box || !m) return;
     // Nombre de lieux par typologie pour le SAMU-SAS choisi (ou tous)
-    const cnt = {}; Object.entries(m.counts || {}).forEach(([lid, byCat]) => { if (!f.loc || String(lid) === String(f.loc)) Object.entries(byCat).forEach(([c, n]) => { cnt[c] = (cnt[c] || 0) + n; }); });
+    const cnt = {};
+    Object.entries(m.counts || {}).forEach(([lid, byCat]) => {
+        if (!f.loc || String(lid) === String(f.loc))
+            Object.entries(byCat).forEach(([c, n]) => {
+                cnt[c] = (cnt[c] || 0) + n;
+            });
+    });
     const total = Object.values(cnt).reduce((a, b) => a + b, 0);
     box.innerHTML = `
         <div><label for="trLoc">SAMU-SAS</label><select id="trLoc" onchange="tripSetFilter('loc', this.value)"><option value="">— Tous les SAMU-SAS —</option>${m.locations.map(l => `<option value="${l.id}" ${String(l.id) === String(f.loc) ? 'selected' : ''}>${tEsc(l.libelle_court)}${l.n_poi ? ' (' + l.n_poi + ')' : ''}</option>`).join('')}</select></div>
-        <div><label>Typologie</label><div class="tr-cats"><span class="tr-cat ${!f.cat ? 'on' : ''}" style="${!f.cat ? 'background:#455a64;' : ''}" onclick="tripSetFilter('cat','')">Tout (${total})</span>${Object.entries(TRIP_CATS).map(([k, c]) => `<span class="tr-cat ${f.cat === k ? 'on' : ''}" style="${f.cat === k ? 'background:' + c.color + ';' : ''}" onclick="tripSetFilter('cat','${k}')">${uiIcon(c.icon, 14, 'margin:0;')}${c.label} (${cnt[k] || 0})</span>`).join('')}</div></div>
+        <div><label>Typologie</label><div class="tr-cats"><span class="tr-cat ${!f.cat ? 'on' : ''}" style="${!f.cat ? 'background:#455a64;' : ''}" onclick="tripSetFilter('cat','')">Tout (${total})</span>${Object.entries(
+            TRIP_CATS
+        )
+            .map(
+                ([k, c]) =>
+                    `<span class="tr-cat ${f.cat === k ? 'on' : ''}" style="${f.cat === k ? 'background:' + c.color + ';' : ''}" onclick="tripSetFilter('cat','${k}')">${uiIcon(c.icon, 14, 'margin:0;')}${c.label} (${cnt[k] || 0})</span>`
+            )
+            .join('')}</div></div>
         <div><label for="trCreator">Créateur</label><select id="trCreator" onchange="tripSetFilter('creator', this.value)"><option value="">— Tous les créateurs —</option>${m.creators.map(c => `<option value="${c.id}" ${String(c.id) === String(f.creator) ? 'selected' : ''}>${tEsc(c.name)}</option>`).join('')}</select></div>
         <div><label for="trQ">Recherche</label><input type="search" id="trQ" value="${tEsc(f.q)}" placeholder="Nom, adresse, commentaire…" oninput="tripSearchInput(this.value)"></div>
         <div><button type="button" class="tr-btn" onclick="tripResetFilters()" title="Effacer les filtres">↺ Réinitialiser</button></div>`;
 }
 // Choisir un SAMU-SAS affiche tous ses lieux : les autres filtres (typologie, créateur, recherche) sont remis à zéro
 function tripSetFilter(k, v) {
-    if (k === 'loc') trip.filters = { loc: v, cat: '', creator: '', q: '' }; else trip.filters[k] = v;
-    tripRenderFilters(); tripFetch();
+    if (k === 'loc') trip.filters = { loc: v, cat: '', creator: '', q: '' };
+    else trip.filters[k] = v;
+    tripRenderFilters();
+    tripFetch();
 }
-function tripSearchInput(v) { trip.filters.q = v; clearTimeout(trip.timer); trip.timer = setTimeout(tripFetch, 300); }
-function tripResetFilters() { trip.filters = { loc: '', cat: '', creator: '', q: '' }; tripRenderFilters(); tripFetch(); }
+function tripSearchInput(v) {
+    trip.filters.q = v;
+    clearTimeout(trip.timer);
+    trip.timer = setTimeout(tripFetch, 300);
+}
+function tripResetFilters() {
+    trip.filters = { loc: '', cat: '', creator: '', q: '' };
+    tripRenderFilters();
+    tripFetch();
+}
 
 // ── Chargement ─────────────────────────────────────────────────────────────
 async function tripLoad() {
@@ -133,21 +200,33 @@ async function tripLoad() {
         trip.meta = await tApi('/poi/meta');
         tripRenderFilters();
         await tripFetch();
-    } catch (e) { const l = document.getElementById('trList'); if (l) l.innerHTML = `<p style="color:#b3261e;">${tEsc(e.message)}</p>`; }
+    } catch (e) {
+        const l = document.getElementById('trList');
+        if (l) l.innerHTML = `<p style="color:#b3261e;">${tEsc(e.message)}</p>`;
+    }
 }
 async function tripFetch() {
-    const f = trip.filters, p = new URLSearchParams();
+    const f = trip.filters,
+        p = new URLSearchParams();
     if (f.loc) p.set('location_id', f.loc);
     if (f.cat) p.set('category', f.cat);
     if (f.creator) p.set('creator', f.creator);
     if (f.q.trim()) p.set('q', f.q.trim());
     try {
         const d = await tApi('/poi?' + p.toString());
-        trip.pois = d.pois; trip.isAdmin = d.isAdmin; trip.userId = d.userId;
-        tripRenderList(); tripRenderMap();
+        trip.pois = d.pois;
+        trip.isAdmin = d.isAdmin;
+        trip.userId = d.userId;
+        tripRenderList();
+        tripRenderMap();
         // les listes de filtre (compteurs, créateurs) suivent les ajouts / suppressions
-        const m = await tApi('/poi/meta'); trip.meta = m; const a = document.activeElement; if (!(a && a.id === 'trQ')) tripRenderFilters();
-    } catch (e) { document.getElementById('trList').innerHTML = `<p style="color:#b3261e;">${tEsc(e.message)}</p>`; }
+        const m = await tApi('/poi/meta');
+        trip.meta = m;
+        const a = document.activeElement;
+        if (!(a && a.id === 'trQ')) tripRenderFilters();
+    } catch (e) {
+        document.getElementById('trList').innerHTML = `<p style="color:#b3261e;">${tEsc(e.message)}</p>`;
+    }
 }
 
 // ── Liste ──────────────────────────────────────────────────────────────────
@@ -172,11 +251,18 @@ function tripCardHtml(p) {
 }
 function tripRenderList() {
     tripClearRoute();
-    const box = document.getElementById('trList'); if (!box) return;
-    const open = Object.keys(trip.detail).filter(k => trip.detail[k] && trip.detail[k].open).map(Number);
+    const box = document.getElementById('trList');
+    if (!box) return;
+    const open = Object.keys(trip.detail)
+        .filter(k => trip.detail[k] && trip.detail[k].open)
+        .map(Number);
     document.getElementById('trCount').textContent = `${trip.pois.length} lieu${trip.pois.length > 1 ? 'x' : ''}`;
-    box.innerHTML = trip.pois.length ? trip.pois.map(tripCardHtml).join('') : `<div style="padding:30px;text-align:center;color:#8a97a8;background:#fff;border:1px dashed #cfd8e6;border-radius:12px;">Aucun lieu pour ces critères.<br><button type="button" class="tr-btn pri" style="margin-top:10px;" onclick="tripOpenForm()">${uiIcon('tripPlus', 14, 'margin:0;')}Ajouter le premier</button></div>`;
-    open.forEach(id => { if (document.getElementById('trRev_' + id)) tripToggleReviews(id, true); });
+    box.innerHTML = trip.pois.length
+        ? trip.pois.map(tripCardHtml).join('')
+        : `<div style="padding:30px;text-align:center;color:#8a97a8;background:#fff;border:1px dashed #cfd8e6;border-radius:12px;">Aucun lieu pour ces critères.<br><button type="button" class="tr-btn pri" style="margin-top:10px;" onclick="tripOpenForm()">${uiIcon('tripPlus', 14, 'margin:0;')}Ajouter le premier</button></div>`;
+    open.forEach(id => {
+        if (document.getElementById('trRev_' + id)) tripToggleReviews(id, true);
+    });
 }
 
 // ── Carte ──────────────────────────────────────────────────────────────────
@@ -185,44 +271,87 @@ function tripEnsureLeaflet() {
         if (window.L) return resolve();
         const s = document.createElement('script');
         s.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
-        s.onload = () => resolve(); s.onerror = () => reject(new Error('Carte indisponible'));
+        s.onload = () => resolve();
+        s.onerror = () => reject(new Error('Carte indisponible'));
         document.head.appendChild(s);
     });
 }
 async function tripRenderMap() {
-    try { await tripEnsureLeaflet(); } catch (e) { const m = document.getElementById('trMap'); if (m) m.innerHTML = '<p style="padding:20px;color:#8a97a8;">Carte indisponible (connexion aux fonds de carte impossible).</p>'; return; }
-    const el = document.getElementById('trMap'); if (!el) return;
+    try {
+        await tripEnsureLeaflet();
+    } catch (e) {
+        const m = document.getElementById('trMap');
+        if (m)
+            m.innerHTML =
+                '<p style="padding:20px;color:#8a97a8;">Carte indisponible (connexion aux fonds de carte impossible).</p>';
+        return;
+    }
+    const el = document.getElementById('trMap');
+    if (!el) return;
     if (!trip.map || trip.map._container !== el) {
         trip.map = L.map(el, { zoomControl: true }).fitBounds(TRIP_FRANCE);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(trip.map);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
+        }).addTo(trip.map);
         trip.layer = L.layerGroup().addTo(trip.map);
     }
-    trip.layer.clearLayers(); trip.markers = {};
+    trip.layer.clearLayers();
+    trip.markers = {};
     const pts = [];
-    const sas = (trip.meta ? trip.meta.locations : []).filter(l => l.latitude != null && l.longitude != null && (!trip.filters.loc || String(l.id) === String(trip.filters.loc)));
+    const sas = (trip.meta ? trip.meta.locations : []).filter(
+        l =>
+            l.latitude != null &&
+            l.longitude != null &&
+            (!trip.filters.loc || String(l.id) === String(trip.filters.loc))
+    );
     sas.forEach(l => {
-        const mk = L.marker([l.latitude, l.longitude], { icon: L.divIcon({ className: '', html: `<div class="tr-sas">${tEsc(l.libelle_court)}</div>`, iconSize: [0, 0], iconAnchor: [0, 0] }), zIndexOffset: 500 }).addTo(trip.layer);
+        const mk = L.marker([l.latitude, l.longitude], {
+            icon: L.divIcon({
+                className: '',
+                html: `<div class="tr-sas">${tEsc(l.libelle_court)}</div>`,
+                iconSize: [0, 0],
+                iconAnchor: [0, 0]
+            }),
+            zIndexOffset: 500
+        }).addTo(trip.layer);
         // Clic sur la vignette d'un SAMU-SAS : la carte se centre dessus et affiche tous ses lieux ; un second clic ouvre ses coordonnées
-        mk.bindTooltip(tEsc(l.libelle_court) + (l.n_poi ? ` · ${l.n_poi} lieu${l.n_poi > 1 ? 'x' : ''}` : ' · aucun lieu'), { direction: 'top', offset: [0, -14] });
-        mk.bindPopup(`<b>${tEsc(l.libelle_court)}</b><br><span style="color:#667;">${tEsc(l.libelle_long || '')}</span>${l.adresse ? '<br>' + tEsc(l.adresse) : ''}<br><a href="#" onclick="tripSetFilter('loc','');return false;">Afficher tous les SAMU-SAS</a>`);
+        mk.bindTooltip(
+            tEsc(l.libelle_court) + (l.n_poi ? ` · ${l.n_poi} lieu${l.n_poi > 1 ? 'x' : ''}` : ' · aucun lieu'),
+            { direction: 'top', offset: [0, -14] }
+        );
+        mk.bindPopup(
+            `<b>${tEsc(l.libelle_court)}</b><br><span style="color:#667;">${tEsc(l.libelle_long || '')}</span>${l.adresse ? '<br>' + tEsc(l.adresse) : ''}<br><a href="#" onclick="tripSetFilter('loc','');return false;">Afficher tous les SAMU-SAS</a>`
+        );
         mk.on('click', e => {
             if (String(trip.filters.loc) === String(l.id)) return; // déjà sélectionné : le popup s'ouvre normalement
-            mk.closePopup(); tripSetFilter('loc', String(l.id));
+            mk.closePopup();
+            tripSetFilter('loc', String(l.id));
         });
         pts.push([l.latitude, l.longitude]);
     });
     trip.pois.forEach(p => {
         if (p.latitude == null) return;
         const c = TRIP_CATS[p.category] || { color: '#607d8b', icon: 'pin' };
-        const mk = L.marker([p.latitude, p.longitude], { icon: L.divIcon({ className: '', html: `<div class="tr-pin" style="background:${c.color};">${uiIcon(c.icon, 15, 'margin:0;color:#fff;stroke:#fff;')}</div>`, iconSize: [30, 30], iconAnchor: [15, 30], popupAnchor: [0, -28] }) }).addTo(trip.layer);
+        const mk = L.marker([p.latitude, p.longitude], {
+            icon: L.divIcon({
+                className: '',
+                html: `<div class="tr-pin" style="background:${c.color};">${uiIcon(c.icon, 15, 'margin:0;color:#fff;stroke:#fff;')}</div>`,
+                iconSize: [30, 30],
+                iconAnchor: [15, 30],
+                popupAnchor: [0, -28]
+            })
+        }).addTo(trip.layer);
         mk.bindPopup(`<div style="min-width:190px;">${tChip(p.category)}<div style="font-size:15px;font-weight:700;margin:4px 0 2px;">${tEsc(p.name)}</div>${tStars(p.avg_rating, 14)} <span style="font-size:11px;color:#667;">${p.avg_rating != null ? p.avg_rating.toFixed(1).replace('.', ',') + ' (' + p.n_ratings + ')' : 'non noté'}</span>
             <div style="font-size:12px;color:#556;margin-top:3px;">${tEsc(p.address || '')}</div><div style="font-size:11px;color:#778;">${tEsc(p.loc_court)}${p.distance_km != null ? ' · ' + String(p.distance_km).replace('.', ',') + ' km' : ''}</div>
             <a href="#" onclick="tripScrollTo(${p.id});return false;" style="font-size:12px;">Voir la fiche</a></div>`);
         mk.on('click', () => tripScrollTo(p.id, true));
-        trip.markers[p.id] = mk; pts.push([p.latitude, p.longitude]);
+        trip.markers[p.id] = mk;
+        pts.push([p.latitude, p.longitude]);
     });
     // Sans filtre : vue d'ensemble de la France métropolitaine ; avec un filtre : cadrage sur les points affichés
-    const f = trip.filters, noFilter = !f.loc && !f.cat && !f.creator && !f.q.trim();
+    const f = trip.filters,
+        noFilter = !f.loc && !f.cat && !f.creator && !f.q.trim();
     setTimeout(() => {
         trip.map.invalidateSize();
         if (noFilter || !pts.length) trip.map.fitBounds(TRIP_FRANCE, { padding: [8, 8] });
@@ -231,69 +360,163 @@ async function tripRenderMap() {
     }, 80);
 }
 // ── Trajet lieu → SAMU-SAS (à pied, voiture, transports en commun) ──────────
-const TRIP_MODES = { walk: { label: 'À pied', ico: '🚶', color: '#2e7d32' }, car: { label: 'Voiture', ico: '🚗', color: '#1565c0' }, transit: { label: 'Transports en commun', ico: '🚆', color: '#6a1b9a' } };
-const tDur = s => { const m = Math.round(s / 60); return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`; };
-const tKm = m => m == null ? '' : ` · ${(m / 1000).toFixed(1).replace('.', ',')} km`;
-function tripClearRoute() { if (trip.routeLayer && trip.map) trip.map.removeLayer(trip.routeLayer); trip.routeLayer = null; trip.route = null; }
+const TRIP_MODES = {
+    walk: { label: 'À pied', ico: '🚶', color: '#2e7d32' },
+    car: { label: 'Voiture', ico: '🚗', color: '#1565c0' },
+    transit: { label: 'Transports en commun', ico: '🚆', color: '#6a1b9a' }
+};
+const tDur = s => {
+    const m = Math.round(s / 60);
+    return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`;
+};
+const tKm = m => (m == null ? '' : ` · ${(m / 1000).toFixed(1).replace('.', ',')} km`);
+function tripClearRoute() {
+    if (trip.routeLayer && trip.map) trip.map.removeLayer(trip.routeLayer);
+    trip.routeLayer = null;
+    trip.route = null;
+}
 async function tripToggleRoute(id) {
-    const box = document.getElementById('trRoute_' + id); if (!box) return;
-    if (box.style.display !== 'none') { box.style.display = 'none'; tripClearRoute(); return; }
-    document.querySelectorAll('#trList [id^="trRoute_"]').forEach(x => { x.style.display = 'none'; });
+    const box = document.getElementById('trRoute_' + id);
+    if (!box) return;
+    if (box.style.display !== 'none') {
+        box.style.display = 'none';
+        tripClearRoute();
+        return;
+    }
+    document.querySelectorAll('#trList [id^="trRoute_"]').forEach(x => {
+        x.style.display = 'none';
+    });
     tripClearRoute();
-    box.style.display = 'block'; box.innerHTML = '<span class="tr-meta">Calcul des trajets… (à pied, voiture, transports en commun)</span>';
-    try { trip.route = { id, data: await tApi(`/poi/${id}/route`) }; } catch (e) { box.innerHTML = `<p style="color:#b3261e;">${tEsc(e.message)}</p>`; return; }
+    box.style.display = 'block';
+    box.innerHTML = '<span class="tr-meta">Calcul des trajets… (à pied, voiture, transports en commun)</span>';
+    try {
+        trip.route = { id, data: await tApi(`/poi/${id}/route`) };
+    } catch (e) {
+        box.innerHTML = `<p style="color:#b3261e;">${tEsc(e.message)}</p>`;
+        return;
+    }
     tripRenderRoute(id);
     const first = ['walk', 'car', 'transit'].find(m => !trip.route.data.modes[m].error);
     if (first) tripDrawRoute(id, first);
 }
 function tripRenderRoute(id, sel) {
-    const box = document.getElementById('trRoute_' + id), d = trip.route && trip.route.id === id && trip.route.data; if (!box || !d) return;
+    const box = document.getElementById('trRoute_' + id),
+        d = trip.route && trip.route.id === id && trip.route.data;
+    if (!box || !d) return;
     box.innerHTML = `<div style="font-size:12px;color:#6b7a8d;margin-bottom:6px;">Du lieu jusqu'au <b>SAMU-SAS ${tEsc(d.samu)}</b> — choisissez un mode pour tracer le parcours sur la carte :</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">${Object.entries(TRIP_MODES).map(([k, m]) => { const r = d.modes[k]; return `<button type="button" class="tr-btn ${sel === k ? 'pri' : ''}" ${r.error ? 'disabled style="opacity:.55;cursor:default;"' : `onclick="tripDrawRoute(${id}, '${k}')"`} title="${tEsc(r.error || '')}" style="${sel === k ? 'background:' + m.color + ';border-color:' + m.color + ';' : ''}">${m.ico} ${m.label} · <b>${r.error ? 'indisponible' : tDur(r.duration)}</b>${r.error ? '' : tKm(r.distance)}</button>`; }).join('')}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">${Object.entries(TRIP_MODES)
+            .map(([k, m]) => {
+                const r = d.modes[k];
+                return `<button type="button" class="tr-btn ${sel === k ? 'pri' : ''}" ${r.error ? 'disabled style="opacity:.55;cursor:default;"' : `onclick="tripDrawRoute(${id}, '${k}')"`} title="${tEsc(r.error || '')}" style="${sel === k ? 'background:' + m.color + ';border-color:' + m.color + ';' : ''}">${m.ico} ${m.label} · <b>${r.error ? 'indisponible' : tDur(r.duration)}</b>${r.error ? '' : tKm(r.distance)}</button>`;
+            })
+            .join('')}</div>
         <div id="trRouteDet_${id}" style="margin-top:8px;font-size:12px;color:#4a5b70;"></div>`;
 }
 async function tripDrawRoute(id, mode) {
-    const d = trip.route && trip.route.id === id && trip.route.data; if (!d) return;
-    try { await tripEnsureLeaflet(); } catch (e) { return; }
-    const r = d.modes[mode]; if (!r || r.error || !trip.map) return;
+    const d = trip.route && trip.route.id === id && trip.route.data;
+    if (!d) return;
+    try {
+        await tripEnsureLeaflet();
+    } catch (e) {
+        return;
+    }
+    const r = d.modes[mode];
+    if (!r || r.error || !trip.map) return;
     if (trip.routeLayer) trip.map.removeLayer(trip.routeLayer);
-    const lg = trip.routeLayer = L.layerGroup().addTo(trip.map), col = TRIP_MODES[mode].color;
+    const lg = (trip.routeLayer = L.layerGroup().addTo(trip.map)),
+        col = TRIP_MODES[mode].color;
     if (mode === 'transit') {
-        r.legs.forEach(l => { if (l.path.length) { const w = l.mode === 'WALK'; L.polyline(l.path, { color: w ? '#607d8b' : col, weight: w ? 4 : 6, opacity: .9, dashArray: w ? '2 9' : null, lineCap: 'round' }).addTo(lg); } });
-    } else L.polyline(r.path, { color: col, weight: 6, opacity: .85, dashArray: mode === 'walk' ? '2 10' : null, lineCap: 'round' }).addTo(lg);
+        r.legs.forEach(l => {
+            if (l.path.length) {
+                const w = l.mode === 'WALK';
+                L.polyline(l.path, {
+                    color: w ? '#607d8b' : col,
+                    weight: w ? 4 : 6,
+                    opacity: 0.9,
+                    dashArray: w ? '2 9' : null,
+                    lineCap: 'round'
+                }).addTo(lg);
+            }
+        });
+    } else
+        L.polyline(r.path, {
+            color: col,
+            weight: 6,
+            opacity: 0.85,
+            dashArray: mode === 'walk' ? '2 10' : null,
+            lineCap: 'round'
+        }).addTo(lg);
     L.circleMarker(d.from, { radius: 7, color: '#fff', weight: 3, fillColor: col, fillOpacity: 1 }).addTo(lg);
     L.circleMarker(d.to, { radius: 7, color: '#fff', weight: 3, fillColor: '#d60b51', fillOpacity: 1 }).addTo(lg);
     trip.map.fitBounds(L.latLngBounds(r.path.length ? r.path : [d.from, d.to]), { padding: [50, 50] });
-    const el = document.getElementById('trMap'); if (el) window.scrollTo({ top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - 170), behavior: 'smooth' });
+    const el = document.getElementById('trMap');
+    if (el)
+        window.scrollTo({
+            top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - 170),
+            behavior: 'smooth'
+        });
     tripRenderRoute(id, mode);
     const det = document.getElementById('trRouteDet_' + id);
-    if (det) det.innerHTML = mode === 'transit'
-        ? `<b>${r.transfers ? r.transfers + ' correspondance' + (r.transfers > 1 ? 's' : '') : 'Direct'}</b> : ` + r.legs.map(l => l.mode === 'WALK' ? `🚶 ${tDur(l.duration)}` : `<b>${tEsc(l.line || l.mode)}</b> ${tEsc(l.from || '')} → ${tEsc(l.to || '')} (${tDur(l.duration)})`).join(' › ') + '<br><i>Horaires réels au moment de la consultation (Transitous / OpenStreetMap).</i>'
-        : `Parcours ${TRIP_MODES[mode].label.toLowerCase()} calculé avec OpenStreetMap.`;
+    if (det)
+        det.innerHTML =
+            mode === 'transit'
+                ? `<b>${r.transfers ? r.transfers + ' correspondance' + (r.transfers > 1 ? 's' : '') : 'Direct'}</b> : ` +
+                  r.legs
+                      .map(l =>
+                          l.mode === 'WALK'
+                              ? `🚶 ${tDur(l.duration)}`
+                              : `<b>${tEsc(l.line || l.mode)}</b> ${tEsc(l.from || '')} → ${tEsc(l.to || '')} (${tDur(l.duration)})`
+                      )
+                      .join(' › ') +
+                  '<br><i>Horaires réels au moment de la consultation (Transitous / OpenStreetMap).</i>'
+                : `Parcours ${TRIP_MODES[mode].label.toLowerCase()} calculé avec OpenStreetMap.`;
 }
 function tripFocus(id) {
-    const mk = trip.markers[id], el = document.getElementById('trMap');
-    if (el) window.scrollTo({ top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - 170), behavior: 'smooth' });
-    if (mk && trip.map) { trip.map.setView(mk.getLatLng(), Math.max(trip.map.getZoom(), 15)); mk.openPopup(); }
+    const mk = trip.markers[id],
+        el = document.getElementById('trMap');
+    if (el)
+        window.scrollTo({
+            top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - 170),
+            behavior: 'smooth'
+        });
+    if (mk && trip.map) {
+        trip.map.setView(mk.getLatLng(), Math.max(trip.map.getZoom(), 15));
+        mk.openPopup();
+    }
 }
 function tripScrollTo(id, quiet) {
-    const c = document.getElementById('trCard_' + id); if (!c) return;
+    const c = document.getElementById('trCard_' + id);
+    if (!c) return;
     c.scrollIntoView({ behavior: 'smooth', block: 'center' });
     document.querySelectorAll('#trList .tr-card.hl').forEach(x => x.classList.remove('hl'));
-    c.classList.add('hl'); setTimeout(() => c.classList.remove('hl'), 2500);
+    c.classList.add('hl');
+    setTimeout(() => c.classList.remove('hl'), 2500);
 }
 
 // ── Avis, notes et commentaires ────────────────────────────────────────────
 async function tripToggleReviews(id, forceOpen) {
-    const box = document.getElementById('trRev_' + id); if (!box) return;
-    const st = trip.detail[id] = trip.detail[id] || {};
-    if (!forceOpen && box.style.display !== 'none') { box.style.display = 'none'; st.open = false; return; }
-    st.open = true; box.style.display = 'block';
-    try { st.data = await tApi(`/poi/${id}`); } catch (e) { box.innerHTML = `<p style="color:#b3261e;">${tEsc(e.message)}</p>`; return; }
+    const box = document.getElementById('trRev_' + id);
+    if (!box) return;
+    const st = (trip.detail[id] = trip.detail[id] || {});
+    if (!forceOpen && box.style.display !== 'none') {
+        box.style.display = 'none';
+        st.open = false;
+        return;
+    }
+    st.open = true;
+    box.style.display = 'block';
+    try {
+        st.data = await tApi(`/poi/${id}`);
+    } catch (e) {
+        box.innerHTML = `<p style="color:#b3261e;">${tEsc(e.message)}</p>`;
+        return;
+    }
     tripRenderReviews(id);
 }
 function tripRenderReviews(id) {
-    const box = document.getElementById('trRev_' + id), d = trip.detail[id] && trip.detail[id].data; if (!box || !d) return;
+    const box = document.getElementById('trRev_' + id),
+        d = trip.detail[id] && trip.detail[id].data;
+    if (!box || !d) return;
     const mine = d.ratings.find(r => r.user_id === trip.userId);
     const st = trip.detail[id];
     box.innerHTML = `
@@ -301,49 +524,115 @@ function tripRenderReviews(id) {
             ${mine ? `<a href="#" onclick="tripUnrate(${id});return false;" style="font-size:12px;color:#b3261e;">retirer ma note</a>` : '<span style="font-size:12px;color:#8a97a8;">Cliquez sur une étoile pour noter ce lieu</span>'}</div>
         ${d.ratings.length ? `<div style="font-size:12px;color:#6b7a8d;margin-bottom:10px;">Notes : ${d.ratings.map(r => `<span style="display:inline-flex;align-items:center;gap:3px;margin-right:10px;" title="Le ${tFmt(r.updated_at)}">${tStars(r.rating, 11)} ${tEsc(r.author)}${r.can_edit && r.user_id !== trip.userId && trip.isAdmin ? ` <a href="#" onclick="tripUnrate(${id},${r.user_id});return false;" title="Supprimer cette note" style="color:#b3261e;">×</a>` : ''}</span>`).join('')}</div>` : ''}
         <div style="font-weight:700;font-size:13px;margin-bottom:4px;">Commentaires (${d.comments.length})</div>
-        ${d.comments.length ? d.comments.map(c => `<div class="tr-rv" id="trC_${c.id}"><div style="font-size:12px;color:#6b7a8d;display:flex;gap:8px;flex-wrap:wrap;align-items:center;"><b style="color:#2c3e50;">${tEsc(c.author)}</b> le ${tFmt(c.created_at)}${c.updated_at !== c.created_at ? ' · modifié le ' + tFmt(c.updated_at) : ''}
+        ${
+            d.comments.length
+                ? d.comments
+                      .map(
+                          c => `<div class="tr-rv" id="trC_${c.id}"><div style="font-size:12px;color:#6b7a8d;display:flex;gap:8px;flex-wrap:wrap;align-items:center;"><b style="color:#2c3e50;">${tEsc(c.author)}</b> le ${tFmt(c.created_at)}${c.updated_at !== c.created_at ? ' · modifié le ' + tFmt(c.updated_at) : ''}
             ${c.can_edit ? `<span style="margin-left:auto;display:inline-flex;gap:6px;"><a href="#" onclick="tripEditComment(${id},${c.id});return false;">Modifier</a><a href="#" style="color:#b3261e;" onclick="tripDeleteComment(${id},${c.id});return false;">Supprimer</a></span>` : ''}</div>
-            <div style="white-space:pre-wrap;margin-top:3px;">${tEsc(c.text)}</div></div>`).join('') : '<div style="font-size:12px;color:#8a97a8;">Aucun commentaire pour le moment.</div>'}
+            <div style="white-space:pre-wrap;margin-top:3px;">${tEsc(c.text)}</div></div>`
+                      )
+                      .join('')
+                : '<div style="font-size:12px;color:#8a97a8;">Aucun commentaire pour le moment.</div>'
+        }
         <div style="margin-top:8px;"><textarea id="trNew_${id}" rows="2" maxlength="2000" placeholder="Ajouter un commentaire…" style="width:100%;padding:8px 10px;border:1px solid #cfd8e6;border-radius:8px;font-size:13px;box-sizing:border-box;">${tEsc(st.draft || '')}</textarea>
             <div style="text-align:right;margin-top:4px;"><button type="button" class="tr-btn pri" onclick="tripAddComment(${id})">${uiIcon('comment', 14, 'margin:0;')}Publier</button></div></div>`;
-    const ta = document.getElementById('trNew_' + id); if (ta) ta.addEventListener('input', () => { st.draft = ta.value; });
+    const ta = document.getElementById('trNew_' + id);
+    if (ta)
+        ta.addEventListener('input', () => {
+            st.draft = ta.value;
+        });
 }
 async function tripRefreshOne(id) {
     try {
         await tripFetch();
-    } catch (e) { /* ignoré */ }
+    } catch (e) {
+        /* ignoré */
+    }
 }
-async function tripRate(id, n) { try { await tApi(`/poi/${id}/rating`, { method: 'PUT', body: JSON.stringify({ rating: n }) }); await tripFetch(); } catch (e) { alert(e.message); } }
-async function tripUnrate(id, userId) { try { await tApi(`/poi/${id}/rating${userId ? '?user_id=' + userId : ''}`, { method: 'DELETE' }); await tripFetch(); } catch (e) { alert(e.message); } }
+async function tripRate(id, n) {
+    try {
+        await tApi(`/poi/${id}/rating`, { method: 'PUT', body: JSON.stringify({ rating: n }) });
+        await tripFetch();
+    } catch (e) {
+        alert(e.message);
+    }
+}
+async function tripUnrate(id, userId) {
+    try {
+        await tApi(`/poi/${id}/rating${userId ? '?user_id=' + userId : ''}`, { method: 'DELETE' });
+        await tripFetch();
+    } catch (e) {
+        alert(e.message);
+    }
+}
 async function tripAddComment(id) {
-    const ta = document.getElementById('trNew_' + id); const text = ta ? ta.value.trim() : '';
-    if (!text) { alert('Saisissez un commentaire.'); return; }
-    try { await tApi(`/poi/${id}/comments`, { method: 'POST', body: JSON.stringify({ text }) }); trip.detail[id].draft = ''; await tripFetch(); } catch (e) { alert(e.message); }
+    const ta = document.getElementById('trNew_' + id);
+    const text = ta ? ta.value.trim() : '';
+    if (!text) {
+        alert('Saisissez un commentaire.');
+        return;
+    }
+    try {
+        await tApi(`/poi/${id}/comments`, { method: 'POST', body: JSON.stringify({ text }) });
+        trip.detail[id].draft = '';
+        await tripFetch();
+    } catch (e) {
+        alert(e.message);
+    }
 }
 function tripEditComment(id, cid) {
-    const c = trip.detail[id].data.comments.find(x => x.id === cid); const row = document.getElementById('trC_' + cid); if (!c || !row) return;
+    const c = trip.detail[id].data.comments.find(x => x.id === cid);
+    const row = document.getElementById('trC_' + cid);
+    if (!c || !row) return;
     row.innerHTML = `<textarea id="trEd_${cid}" rows="3" maxlength="2000" style="width:100%;padding:8px 10px;border:1px solid #1d70b7;border-radius:8px;font-size:13px;box-sizing:border-box;">${tEsc(c.text)}</textarea>
         <div style="text-align:right;margin-top:4px;display:flex;gap:6px;justify-content:flex-end;"><button type="button" class="tr-btn" onclick="tripRenderReviews(${id})">Annuler</button><button type="button" class="tr-btn pri" onclick="tripSaveComment(${id},${cid})">Enregistrer</button></div>`;
 }
 async function tripSaveComment(id, cid) {
     const text = (document.getElementById('trEd_' + cid) || {}).value || '';
-    try { await tApi(`/poi/comments/${cid}`, { method: 'PUT', body: JSON.stringify({ text }) }); await tripFetch(); } catch (e) { alert(e.message); }
+    try {
+        await tApi(`/poi/comments/${cid}`, { method: 'PUT', body: JSON.stringify({ text }) });
+        await tripFetch();
+    } catch (e) {
+        alert(e.message);
+    }
 }
 async function tripDeleteComment(id, cid) {
     if (!confirm('Supprimer ce commentaire ?')) return;
-    try { await tApi(`/poi/comments/${cid}`, { method: 'DELETE' }); await tripFetch(); } catch (e) { alert(e.message); }
+    try {
+        await tApi(`/poi/comments/${cid}`, { method: 'DELETE' });
+        await tripFetch();
+    } catch (e) {
+        alert(e.message);
+    }
 }
 async function tripDelete(id) {
-    const p = trip.pois.find(x => x.id === id); if (!p) return;
+    const p = trip.pois.find(x => x.id === id);
+    if (!p) return;
     if (!confirm(`Supprimer « ${p.name} » ainsi que ses commentaires et ses notes ?`)) return;
-    try { await tApi(`/poi/${id}`, { method: 'DELETE' }); delete trip.detail[id]; await tripFetch(); } catch (e) { alert(e.message); }
+    try {
+        await tApi(`/poi/${id}`, { method: 'DELETE' });
+        delete trip.detail[id];
+        await tripFetch();
+    } catch (e) {
+        alert(e.message);
+    }
 }
 
 // ── Formulaire d'ajout / modification (avec complétion par la base de référence) ──
 function tripOpenForm(id) {
     const p = id ? trip.pois.find(x => x.id === id) : null;
-    const loc = p ? p.location_id : (trip.filters.loc ? Number(trip.filters.loc) : '');
-    trip.formState = { id: p ? p.id : null, category: p ? p.category : (trip.filters.cat || ''), latitude: p ? p.latitude : null, longitude: p ? p.longitude : null, osm_ref: p ? p.osm_ref : '', rating: 0, website: p ? p.website || '' : '', phone: p ? p.phone || '' : '' };
+    const loc = p ? p.location_id : trip.filters.loc ? Number(trip.filters.loc) : '';
+    trip.formState = {
+        id: p ? p.id : null,
+        category: p ? p.category : trip.filters.cat || '',
+        latitude: p ? p.latitude : null,
+        longitude: p ? p.longitude : null,
+        osm_ref: p ? p.osm_ref : '',
+        rating: 0,
+        website: p ? p.website || '' : '',
+        phone: p ? p.phone || '' : ''
+    };
     const m = trip.meta || { locations: [] };
     document.getElementById('tripBox').innerHTML = `
         <div style="display:flex;justify-content:space-between;align-items:center;"><h3 style="margin:0;border:none;padding:0;">${p ? 'Modifier le lieu' : 'Ajouter un lieu'}</h3><button type="button" class="tr-btn" onclick="tripCloseForm()">✕</button></div>
@@ -364,57 +653,135 @@ function tripOpenForm(id) {
         ${p ? '' : `<label class="l">Ma note</label><div id="tfRate">${tStarInput(0, 'tripFormRate', 26)}</div>`}
         <div id="tfErr" style="color:#b3261e;font-size:13px;margin-top:8px;"></div>
         <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;"><button type="button" class="tr-btn" onclick="tripCloseForm()">Annuler</button><button type="button" class="tr-btn pri" onclick="tripSave()">${uiIcon('check', 14, 'margin:0;')}Enregistrer</button></div>`;
-    tripFormCats(); tripFormGeo();
+    tripFormCats();
+    tripFormGeo();
     document.getElementById('tripModal').classList.add('on');
 }
-function tripCloseForm() { document.getElementById('tripModal').classList.remove('on'); trip.formState = null; }
+function tripCloseForm() {
+    document.getElementById('tripModal').classList.remove('on');
+    trip.formState = null;
+}
 function tripFormCats() {
-    const s = trip.formState; const box = document.getElementById('tfCats'); if (!box) return;
-    box.innerHTML = Object.entries(TRIP_CATS).map(([k, c]) => `<span class="tr-cat ${s.category === k ? 'on' : ''}" style="${s.category === k ? 'background:' + c.color + ';' : ''}padding:8px 14px;" onclick="trip.formState.category='${k}';tripFormCats();">${uiIcon(c.icon, 16, 'margin:0;')}${c.label}</span>`).join('');
+    const s = trip.formState;
+    const box = document.getElementById('tfCats');
+    if (!box) return;
+    box.innerHTML = Object.entries(TRIP_CATS)
+        .map(
+            ([k, c]) =>
+                `<span class="tr-cat ${s.category === k ? 'on' : ''}" style="${s.category === k ? 'background:' + c.color + ';' : ''}padding:8px 14px;" onclick="trip.formState.category='${k}';tripFormCats();">${uiIcon(c.icon, 16, 'margin:0;')}${c.label}</span>`
+        )
+        .join('');
 }
 function tripFormGeo() {
-    const s = trip.formState, g = document.getElementById('tfGeo'); if (!g) return;
-    g.innerHTML = s.latitude != null ? `<span style="color:#1b7f3b;">✔ Position repérée (${Number(s.latitude).toFixed(5)}, ${Number(s.longitude).toFixed(5)})</span>` : '<span style="color:#8a97a8;">La position sera calculée à partir de l\'adresse à l\'enregistrement.</span>';
+    const s = trip.formState,
+        g = document.getElementById('tfGeo');
+    if (!g) return;
+    g.innerHTML =
+        s.latitude != null
+            ? `<span style="color:#1b7f3b;">✔ Position repérée (${Number(s.latitude).toFixed(5)}, ${Number(s.longitude).toFixed(5)})</span>`
+            : '<span style="color:#8a97a8;">La position sera calculée à partir de l\'adresse à l\'enregistrement.</span>';
 }
-function tripFormRate(n) { trip.formState.rating = n; document.getElementById('tfRate').innerHTML = tStarInput(n, 'tripFormRate', 26); }
-function tripFormLocChanged() { tripFormNameInput(true); }
-function tripFormAddrInput() { const s = trip.formState; s.latitude = null; s.longitude = null; s.osm_ref = ''; tripFormGeo(); }
-let tripSugTimer = null, tripSugSeq = 0;
+function tripFormRate(n) {
+    trip.formState.rating = n;
+    document.getElementById('tfRate').innerHTML = tStarInput(n, 'tripFormRate', 26);
+}
+function tripFormLocChanged() {
+    tripFormNameInput(true);
+}
+function tripFormAddrInput() {
+    const s = trip.formState;
+    s.latitude = null;
+    s.longitude = null;
+    s.osm_ref = '';
+    tripFormGeo();
+}
+let tripSugTimer = null,
+    tripSugSeq = 0;
 function tripFormNameInput(force) {
     clearTimeout(tripSugTimer);
     const q = (document.getElementById('tfName') || {}).value || '';
-    const box = document.getElementById('tfSug'), msg = document.getElementById('tfSugMsg');
-    if (q.trim().length < 3) { box.style.display = 'none'; msg.textContent = ''; return; }
-    tripSugTimer = setTimeout(async () => {
-        const seq = ++tripSugSeq, loc = (document.getElementById('tfLoc') || {}).value || '';
-        msg.textContent = 'Recherche dans la base de référence…';
-        try {
-            const d = await tApi(`/poi/places?q=${encodeURIComponent(q.trim())}${loc ? '&location_id=' + loc : ''}`);
-            if (seq !== tripSugSeq) return;
-            trip.sugs = d.places;
-            box.innerHTML = d.places.map((x, i) => `<div onclick="tripPickPlace(${i})"><b>${tEsc(x.name)}</b>${x.category ? ' ' + tChip(x.category) : ''}<br><span style="font-size:12px;color:#6b7a8d;">${tEsc(x.address || '')}${x.distance_km != null ? ' · ' + String(x.distance_km).replace('.', ',') + ' km du SAMU-SAS' : ''}</span></div>`).join('');
-            box.style.display = d.places.length ? 'block' : 'none';
-            msg.textContent = d.places.length ? 'Choisissez une suggestion pour compléter l\'adresse et la position (source : OpenStreetMap), ou continuez la saisie manuelle.' : 'Aucune suggestion : saisissez l\'adresse manuellement.';
-        } catch (e) { if (seq === tripSugSeq) { msg.textContent = 'Base de référence indisponible : saisie manuelle possible.'; box.style.display = 'none'; } }
-    }, force ? 50 : 500);
+    const box = document.getElementById('tfSug'),
+        msg = document.getElementById('tfSugMsg');
+    if (q.trim().length < 3) {
+        box.style.display = 'none';
+        msg.textContent = '';
+        return;
+    }
+    tripSugTimer = setTimeout(
+        async () => {
+            const seq = ++tripSugSeq,
+                loc = (document.getElementById('tfLoc') || {}).value || '';
+            msg.textContent = 'Recherche dans la base de référence…';
+            try {
+                const d = await tApi(
+                    `/poi/places?q=${encodeURIComponent(q.trim())}${loc ? '&location_id=' + loc : ''}`
+                );
+                if (seq !== tripSugSeq) return;
+                trip.sugs = d.places;
+                box.innerHTML = d.places
+                    .map(
+                        (x, i) =>
+                            `<div onclick="tripPickPlace(${i})"><b>${tEsc(x.name)}</b>${x.category ? ' ' + tChip(x.category) : ''}<br><span style="font-size:12px;color:#6b7a8d;">${tEsc(x.address || '')}${x.distance_km != null ? ' · ' + String(x.distance_km).replace('.', ',') + ' km du SAMU-SAS' : ''}</span></div>`
+                    )
+                    .join('');
+                box.style.display = d.places.length ? 'block' : 'none';
+                msg.textContent = d.places.length
+                    ? "Choisissez une suggestion pour compléter l'adresse et la position (source : OpenStreetMap), ou continuez la saisie manuelle."
+                    : "Aucune suggestion : saisissez l'adresse manuellement.";
+            } catch (e) {
+                if (seq === tripSugSeq) {
+                    msg.textContent = 'Base de référence indisponible : saisie manuelle possible.';
+                    box.style.display = 'none';
+                }
+            }
+        },
+        force ? 50 : 500
+    );
 }
 function tripPickPlace(i) {
-    const x = (trip.sugs || [])[i], s = trip.formState; if (!x) return;
+    const x = (trip.sugs || [])[i],
+        s = trip.formState;
+    if (!x) return;
     document.getElementById('tfName').value = x.name;
     document.getElementById('tfAddr').value = x.address || '';
     if (x.phone) document.getElementById('tfPhone').value = x.phone;
     if (x.website) document.getElementById('tfWeb').value = x.website;
-    s.latitude = x.latitude; s.longitude = x.longitude; s.osm_ref = x.osm_ref || '';
-    document.getElementById('tfSug').style.display = 'none'; document.getElementById('tfSugMsg').textContent = 'Informations complétées depuis OpenStreetMap : vérifiez-les avant d\'enregistrer.';
-    tripFormCats(); tripFormGeo();
+    s.latitude = x.latitude;
+    s.longitude = x.longitude;
+    s.osm_ref = x.osm_ref || '';
+    document.getElementById('tfSug').style.display = 'none';
+    document.getElementById('tfSugMsg').textContent =
+        "Informations complétées depuis OpenStreetMap : vérifiez-les avant d'enregistrer.";
+    tripFormCats();
+    tripFormGeo();
 }
 async function tripSave() {
-    const s = trip.formState, err = document.getElementById('tfErr'); err.textContent = '';
+    const s = trip.formState,
+        err = document.getElementById('tfErr');
+    err.textContent = '';
     const g = id => (document.getElementById(id) || {}).value || '';
-    const body = { location_id: Number(g('tfLoc')), category: s.category, name: g('tfName').trim(), address: g('tfAddr').trim(), latitude: s.latitude, longitude: s.longitude, osm_ref: s.osm_ref, phone: g('tfPhone').trim(), website: g('tfWeb').trim(), comment: g('tfComment').trim(), rating: s.rating || undefined };
+    const body = {
+        location_id: Number(g('tfLoc')),
+        category: s.category,
+        name: g('tfName').trim(),
+        address: g('tfAddr').trim(),
+        latitude: s.latitude,
+        longitude: s.longitude,
+        osm_ref: s.osm_ref,
+        phone: g('tfPhone').trim(),
+        website: g('tfWeb').trim(),
+        comment: g('tfComment').trim(),
+        rating: s.rating || undefined
+    };
     try {
         await tApi(s.id ? `/poi/${s.id}` : '/poi', { method: s.id ? 'PUT' : 'POST', body: JSON.stringify(body) });
-        tripCloseForm(); await tripFetch();
-    } catch (e) { err.textContent = e.message; }
+        tripCloseForm();
+        await tripFetch();
+    } catch (e) {
+        err.textContent = e.message;
+    }
 }
-document.addEventListener('click', e => { const b = document.getElementById('tfSug'); if (b && !(e.target.closest && e.target.closest('#tfName, #tfSug'))) b.style.display = 'none'; });
+document.addEventListener('click', e => {
+    const b = document.getElementById('tfSug');
+    if (b && !(e.target.closest && e.target.closest('#tfName, #tfSug'))) b.style.display = 'none';
+});

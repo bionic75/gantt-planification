@@ -1,0 +1,129 @@
+/* Extrait de index.html, ligne 1786 */
+#eventsMapContainer {
+    height: 520px;
+    border-radius: 8px;
+    border: 1px solid #90caf9;
+    z-index: 0;
+}
+#eventMapModalContainer {
+    height: calc(97vh - 180px);
+    min-height: 500px;
+    border-radius: 8px;
+    border: 1px solid #90caf9;
+    z-index: 0;
+}
+.leaflet-popup-content {
+    font-size: 12px;
+    min-width: 220px;
+}
+.leaflet-popup-content strong {
+    color: #1565c0;
+}
+
+/* Extrait de index.html, ligne 2852 */
+#tabAccessTable th {
+    background: #e8eaf6 !important;
+    color: #283593 !important;
+    cursor: default !important;
+}
+#tabAccessTable th::after {
+    content: none !important;
+}
+
+/* Extrait de index.html, ligne 27191 */
+@media print {
+    body * {
+        visibility: hidden;
+    }
+
+    /* Impression du planning principal */
+    #planning,
+    #planning * {
+        visibility: visible;
+    }
+    #planning {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+    }
+
+    /* Cacher les contrôles et légendes lors de l'impression */
+    #planning .form-section:not(#ganttDisplaySection):not(:has(#ganttDisplaySection)) {
+        display: none !important;
+    }
+
+    #planningControlsSection,
+    #planningLegendSection,
+    .planif-controls,
+    .legend {
+        display: none !important;
+    }
+
+    /* Afficher uniquement le tableau gantt */
+    #ganttDisplaySection {
+        display: block !important;
+    }
+
+    .gantt-wrapper {
+        overflow: visible !important;
+        border: none !important;
+    }
+
+    .gantt-table {
+        width: 100% !important;
+    }
+
+    .gantt-table th::after {
+        content: none !important;
+    }
+
+    /* Impression du calendrier individuel */
+    #calendarToPrint,
+    #calendarToPrint * {
+        visibility: visible;
+    }
+    #calendarToPrint {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+    }
+    #calendarToPrint th::after {
+        content: none !important;
+    }
+
+    .modal {
+        position: static !important;
+        background: none !important;
+    }
+    .modal-content {
+        box-shadow: none !important;
+        max-width: 100% !important;
+    }
+    .modal-button-group {
+        display: none !important;
+    }
+
+    /* Styles pour l'impression du calendrier mensuel */
+    #monthlyCalendarToPrint,
+    #monthlyCalendarToPrint * {
+        visibility: visible;
+    }
+    #monthlyCalendarToPrint {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+    }
+    #monthlyCalendarToPrint h3 {
+        page-break-after: avoid;
+    }
+    #monthlyCalendarContent table {
+        page-break-inside: auto;
+    }
+    #monthlyCalendarContent tr {
+        page-break-inside: avoid;
+        page-break-after: auto;
+    }
+}
