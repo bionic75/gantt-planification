@@ -14,8 +14,7 @@ const LEGACY_CODE = [
 
 export default [
     {
-        // Frontend : sera traité lors de l'extraction du JavaScript de index.html (phase 5)
-        ignores: ['node_modules/**', 'public/**', 'data/**', 'coverage/**', 'src/generated/**']
+        ignores: ['node_modules/**', 'data/**', 'coverage/**', 'src/generated/**']
     },
     js.configs.recommended,
     {
@@ -50,6 +49,35 @@ export default [
             'no-irregular-whitespace': 'warn',
             'preserve-caught-error': 'warn'
         }
+    },
+    {
+        // Frontend : scripts classiques d'une même page, qui partagent leur portée globale (fonctions appelées
+        // depuis un autre fichier ou depuis les attributs onclick= du HTML) : variables non définies ou non
+        // utilisées ne sont pas détectables fichier par fichier.
+        files: ['public/js/**/*.js'],
+        languageOptions: {
+            sourceType: 'script',
+            globals: { ...globals.browser, L: 'readonly', XLSX: 'readonly' }
+        },
+        rules: {
+            'no-undef': 'off',
+            'no-unused-vars': 'off',
+            'no-redeclare': 'off',
+            'no-var': 'off',
+            'prefer-const': 'off',
+            eqeqeq: 'off',
+            'no-restricted-globals': 'off',
+            // Code historique : règles de style signalées sans bloquer
+            'no-empty': 'warn',
+            'no-useless-escape': 'warn',
+            'no-useless-assignment': 'warn',
+            'no-irregular-whitespace': 'warn'
+        }
+    },
+    {
+        // Tests d'interface : fonctions exécutées dans la page (Puppeteer)
+        files: ['tests/ui.test.js'],
+        languageOptions: { globals: globals.browser }
     },
     prettier
 ];

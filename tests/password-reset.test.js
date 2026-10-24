@@ -141,6 +141,18 @@ describe('utilisation du lien', () => {
     });
 });
 
+describe('changement de mot de passe obligatoire', () => {
+    it('levé par un nouveau mot de passe choisi depuis le lien', async () => {
+        const user = await createUser(admin, { is_user: 1 }, { changePassword: false });
+        const token = await requestToken(user);
+        expect(
+            (await server.client().post('/api/reset-password', { token, newPassword: 'Choisi-par-moi-1' })).status
+        ).toBe(200);
+        const r = await server.client().login(user.username, 'Choisi-par-moi-1', 'user');
+        expect(r.data.user.mustChangePassword).toBe(false);
+    });
+});
+
 describe('fermeture des sessions persistée', () => {
     it('une session fermée le reste après un redémarrage du serveur ; les autres restent ouvertes', async () => {
         const target = await createUser(admin, { is_user: 1 });

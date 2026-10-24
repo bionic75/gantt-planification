@@ -190,6 +190,7 @@ export async function changePassword(/** @type {Request} */ req, /** @type {Resp
 
 export async function changeProfilePassword(/** @type {Request} */ req, /** @type {Response} */ res) {
     await service.changeProfilePassword(userId(req), req.body.newPassword);
+    req.session.mustChangePassword = false;
     logUserAction(req, 'Changement de mot de passe', { userId: userId(req) });
     res.json({ success: true });
 }

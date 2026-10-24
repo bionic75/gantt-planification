@@ -55,6 +55,16 @@ const schema = z
             .trim()
             .default('loopback, linklocal, uniquelocal')
             .transform(v => (/^\d+$/.test(v) ? Number(v) : v === 'true' ? true : v === 'false' ? false : v)),
+        // Compte administrateur créé au premier démarrage (s'il n'existe pas)
+        INITIAL_ADMIN_USERNAME: z
+            .string()
+            .trim()
+            .optional()
+            .transform(v => v || 'admin'),
+        INITIAL_ADMIN_PASSWORD: z
+            .string()
+            .optional()
+            .transform(v => v || 'admin'),
         SMTP_USER: optionalString,
         // Serveur SMTP au certificat invalide : vérification TLS désactivée (déconseillé)
         SMTP_TLS_INSECURE: z

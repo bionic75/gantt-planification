@@ -648,6 +648,8 @@ model User {
   has_reporting_access Int?      @default(0)
   amoa_ced             Int?      @default(0)
   is_rh                Int?      @default(0)
+  /// 1 : mot de passe donné par un administrateur, à remplacer à la prochaine connexion
+  must_change_password Int       @default(0)
 
   @@map("users")
 }
