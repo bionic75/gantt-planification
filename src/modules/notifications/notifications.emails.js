@@ -1,5 +1,6 @@
 // @ts-check
 // Emails des notifications : invitations d'affectation (avec ICS), demandes d'affectation, notifications Teams
+import { escapeHtml as e, escapeHtmlLines } from '../../lib/html.js';
 import {
     ACTIVITY_LABELS,
     HALF_DAY_HOURS,
@@ -35,28 +36,30 @@ export function buildInvitationHTML(attendeeName, requesterName, group, type) {
         .join('');
 
     const locationHTML =
-        group.location && group.location !== '-' ? `<p><strong>📍 Localisation :</strong> ${group.location}</p>` : '';
+        group.location && group.location !== '-'
+            ? `<p><strong>📍 Localisation :</strong> ${e(group.location)}</p>`
+            : '';
 
     return `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
             <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
                 <h2 style="color: ${color}; border-bottom: 2px solid ${color}; padding-bottom: 10px;">
-                    ${icon} ${title}
+                    ${icon} ${e(title)}
                 </h2>
 
-                <p>Bonjour ${attendeeName},</p>
+                <p>Bonjour ${e(attendeeName)},</p>
 
-                <p><strong>${requesterName}</strong> ${isCancel ? 'a annulé' : isModified ? 'a modifié' : 'vous a affecté'} :</p>
+                <p><strong>${e(requesterName)}</strong> ${isCancel ? 'a annulé' : isModified ? 'a modifié' : 'vous a affecté'} :</p>
 
                 <div style="background-color: ${isCancel ? '#fde8e8' : '#e3f2fd'}; padding: 15px; border-left: 4px solid ${color}; border-radius: 4px; margin: 15px 0;">
-                    <p style="margin: 0 0 8px 0;"><strong>Activité :</strong> ${group.activity}</p>
+                    <p style="margin: 0 0 8px 0;"><strong>Activité :</strong> ${e(group.activity)}</p>
                     ${locationHTML}
                     <ul style="margin: 8px 0 0 0; padding-left: 20px;">${slotsHTML}</ul>
                 </div>
 
                 ${!isCancel ? '<p style="font-size: 12px; color: #666;">💡 Cette invitation a été ajoutée à votre calendrier Outlook.</p>' : '<p style="font-size: 12px; color: #666;">Cette occurrence a été retirée de votre calendrier.</p>'}
 
-                <p style="margin-top: 20px;">Cordialement,<br>${requesterName}<br>Système de planification SI-SAMU</p>
+                <p style="margin-top: 20px;">Cordialement,<br>${e(requesterName)}<br>Système de planification SI-SAMU</p>
 
                 <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
 
@@ -260,12 +263,12 @@ export function buildAssignmentEmails(assignments, requesterName, senderEmailAdd
  */
 export const pendingAssignmentEmail = (notif, assignmentData) => `
                 <h2>Nouvelle affectation - Planification GANTT</h2>
-                <p>Bonjour ${notif.prenom} ${notif.nom},</p>
-                <p><strong>${notif.creator_prenom} ${notif.creator_nom}</strong> vous a affecté une nouvelle activité :</p>
+                <p>Bonjour ${e(notif.prenom)} ${e(notif.nom)},</p>
+                <p><strong>${e(notif.creator_prenom)} ${e(notif.creator_nom)}</strong> vous a affecté une nouvelle activité :</p>
                 <ul>
-                    <li><strong>Période :</strong> ${assignmentData.dates}</li>
-                    <li><strong>Activité :</strong> ${assignmentData.activity}</li>
-                    <li><strong>Localisation :</strong> ${assignmentData.location}</li>
+                    <li><strong>Période :</strong> ${e(assignmentData.dates)}</li>
+                    <li><strong>Activité :</strong> ${e(assignmentData.activity)}</li>
+                    <li><strong>Localisation :</strong> ${e(assignmentData.location)}</li>
                 </ul>
                 <p>Cordialement,<br>Le système de planification</p>
             `;
@@ -286,22 +289,24 @@ export const assignmentRequestEmail = ({
                             <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
                                 <h2 style="color: #1D70B7; border-bottom: 2px solid #1D70B7; padding-bottom: 10px;">Demande d'affectation</h2>
                                 <div style="margin: 20px 0; padding: 15px; background-color: #e3f2fd; border-left: 4px solid #2196f3; border-radius: 4px;">
-                                    <p style="margin: 5px 0;"><strong>De:</strong> ${fromName} (${fromEmail})</p>
-                                    <p style="margin: 5px 0;"><strong>Début:</strong> ${startDateFormatted}</p>
-                                    <p style="margin: 5px 0;"><strong>Fin:</strong> ${endDateFormatted}</p>
+                                    <p style="margin: 5px 0;"><strong>De:</strong> ${e(fromName)} (${e(fromEmail)})</p>
+                                    <p style="margin: 5px 0;"><strong>Début:</strong> ${e(startDateFormatted)}</p>
+                                    <p style="margin: 5px 0;"><strong>Fin:</strong> ${e(endDateFormatted)}</p>
                                 </div>
                                 <div style="margin: 20px 0; padding: 15px; background-color: #f9f9f9; border-radius: 4px; line-height: 1.8;">
                                     ${personalizedMessage
                                         .split('\n')
                                         .map(line =>
-                                            line.trim() === '' ? '<br>' : `<p style="margin: 0 0 10px 0;">${line}</p>`
+                                            line.trim() === ''
+                                                ? '<br>'
+                                                : `<p style="margin: 0 0 10px 0;">${e(line)}</p>`
                                         )
                                         .join('')}
                                 </div>
                                 <div style="text-align: center; margin: 25px 0;">
-                                    <a href="mailto:${fromEmail}?subject=${encodeURIComponent('Re: ' + subject)}"
+                                    <a href="mailto:${e(fromEmail)}?subject=${encodeURIComponent('Re: ' + subject)}"
                                        style="display: inline-block; padding: 12px 30px; background-color: #27ae60; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">
-                                        📧 Répondre à ${fromName}
+                                        📧 Répondre à ${e(fromName)}
                                     </a>
                                 </div>
                                 <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
@@ -323,11 +328,11 @@ export function teamsMessage(type, data, { detailedRequest }) {
                 subject: '📅 Nouvelle affectation',
                 color: '#3498db',
                 content: `
-                    <p><strong>Expert :</strong> ${data.expert || 'Non spécifié'}</p>
-                    <p><strong>Activité :</strong> ${data.activity || 'Non spécifiée'}</p>
-                    <p><strong>Date :</strong> ${data.date || 'Non spécifiée'}</p>
-                    <p><strong>Période :</strong> ${data.period || 'Non spécifiée'}</p>
-                    ${data.location ? `<p><strong>Localisation :</strong> ${data.location}</p>` : ''}
+                    <p><strong>Expert :</strong> ${e(data.expert || 'Non spécifié')}</p>
+                    <p><strong>Activité :</strong> ${e(data.activity || 'Non spécifiée')}</p>
+                    <p><strong>Date :</strong> ${e(data.date || 'Non spécifiée')}</p>
+                    <p><strong>Période :</strong> ${e(data.period || 'Non spécifiée')}</p>
+                    ${data.location ? `<p><strong>Localisation :</strong> ${e(data.location)}</p>` : ''}
                 `
             };
         case 'demande':
@@ -336,21 +341,21 @@ export function teamsMessage(type, data, { detailedRequest }) {
                 color: '#27ae60',
                 content: detailedRequest
                     ? `
-                    <p><strong>De :</strong> ${data.from || 'Non spécifié'}</p>
-                    <p><strong>Objet :</strong> ${data.subject || 'Non spécifié'}</p>
-                    ${data.experts ? `<p><strong>Expert(s) contacté(s) :</strong> ${data.experts}</p>` : ''}
-                    ${data.startDate ? `<p><strong>Période demandée :</strong></p><p style="margin-left: 15px;">📅 Du ${data.startDate}<br>📅 Au ${data.endDate}</p>` : ''}
+                    <p><strong>De :</strong> ${e(data.from || 'Non spécifié')}</p>
+                    <p><strong>Objet :</strong> ${e(data.subject || 'Non spécifié')}</p>
+                    ${data.experts ? `<p><strong>Expert(s) contacté(s) :</strong> ${e(data.experts)}</p>` : ''}
+                    ${data.startDate ? `<p><strong>Période demandée :</strong></p><p style="margin-left: 15px;">📅 Du ${e(data.startDate)}<br>📅 Au ${e(data.endDate)}</p>` : ''}
                     <p><strong>Message :</strong></p>
                     <div style="background: #ffffff; border: 1px solid #e0e0e0; padding: 12px; border-radius: 5px; margin-top: 5px; color: #333333; line-height: 1.6;">
-                        ${(data.message || '').replace(/\n/g, '<br>')}
+                        ${escapeHtmlLines(data.message)}
                     </div>
                 `
                     : `
-                    <p><strong>De :</strong> ${data.from || 'Non spécifié'}</p>
-                    <p><strong>Objet :</strong> ${data.subject || 'Non spécifié'}</p>
+                    <p><strong>De :</strong> ${e(data.from || 'Non spécifié')}</p>
+                    <p><strong>Objet :</strong> ${e(data.subject || 'Non spécifié')}</p>
                     <p><strong>Message :</strong></p>
                     <div style="background: #f5f5f5; padding: 10px; border-radius: 5px; margin-top: 5px;">
-                        ${(data.message || '').replace(/\n/g, '<br>').substring(0, 500)}
+                        ${escapeHtmlLines(String(data.message || '').substring(0, 500))}
                     </div>
                 `
             };
@@ -359,10 +364,10 @@ export function teamsMessage(type, data, { detailedRequest }) {
                 subject: '🔔 Nouvelle astreinte/HNO',
                 color: '#9c27b0',
                 content: `
-                    <p><strong>Expert :</strong> ${data.expert || 'Non spécifié'}</p>
+                    <p><strong>Expert :</strong> ${e(data.expert || 'Non spécifié')}</p>
                     <p><strong>Type :</strong> ${data.type === 'hno' ? 'HNO (Heures Non Ouvrées)' : data.type === 'activite_courante' ? 'Activité courante' : 'Astreinte'}</p>
-                    <p><strong>Date :</strong> ${data.date || 'Non spécifiée'}</p>
-                    ${data.heureDebut ? `<p><strong>Horaires :</strong> ${data.heureDebut} - ${data.heureFin}</p>` : ''}
+                    <p><strong>Date :</strong> ${e(data.date || 'Non spécifiée')}</p>
+                    ${data.heureDebut ? `<p><strong>Horaires :</strong> ${e(data.heureDebut)} - ${e(data.heureFin)}</p>` : ''}
                 `
             };
         case 'evenement':
@@ -370,9 +375,9 @@ export function teamsMessage(type, data, { detailedRequest }) {
                 subject: '📆 Nouvel événement',
                 color: '#ff9800',
                 content: `
-                    <p><strong>Événement :</strong> ${data.name || 'Non spécifié'}</p>
-                    <p><strong>Date :</strong> ${data.date || 'Non spécifiée'}</p>
-                    ${data.createdBy ? `<p><strong>Créé par :</strong> ${data.createdBy}</p>` : ''}
+                    <p><strong>Événement :</strong> ${e(data.name || 'Non spécifié')}</p>
+                    <p><strong>Date :</strong> ${e(data.date || 'Non spécifiée')}</p>
+                    ${data.createdBy ? `<p><strong>Créé par :</strong> ${e(data.createdBy)}</p>` : ''}
                 `
             };
         default:
@@ -389,7 +394,7 @@ export const teamsCardHtml = (
                 <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #f5f5f5;">
                     <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
                         <div style="background: linear-gradient(135deg, ${color} 0%, ${color}dd 100%); color: white; padding: 20px; text-align: center;">
-                            <h2 style="margin: 0;">${title}</h2>
+                            <h2 style="margin: 0;">${e(title)}</h2>
                         </div>
                         <div style="padding: 25px;">
                             ${content}

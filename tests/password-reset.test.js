@@ -66,6 +66,20 @@ describe('demande de réinitialisation', () => {
         expect(mail).not.toMatch(/evil\.example/);
     });
 
+    it("données de l'utilisateur échappées dans l'email (pas d'injection HTML)", async () => {
+        const user = await createUser(admin, {
+            is_user: 1,
+            prenom: '<b>Jean</b>',
+            nom: '<a href="https://x.example">X</a>'
+        });
+        await requestToken(user);
+        const mail = smtp.messages.find(m => m.includes(`To: ${user.email}`));
+        const body = mail.replace(/=\r?\n/g, '').replace(/=3D/g, '=');
+        expect(body).toContain('&lt;b&gt;Jean&lt;/b&gt;');
+        expect(body).not.toContain('<b>Jean</b>');
+        expect(body).not.toContain('href="https://x.example"');
+    });
+
     it('une seule demande par minute et par compte', async () => {
         const user = await createUser(admin, { is_user: 1 });
         await requestToken(user);
@@ -124,6 +138,23 @@ describe('utilisation du lien', () => {
 
         const fresh = await loginAs(server, { username: user.username, password: 'Nouveau-mdp-1' }, 'user');
         expect((await fresh.get('/api/resources')).status).toBe(200);
+    });
+});
+
+describe('fermeture des sessions persistée', () => {
+    it('une session fermée le reste après un redémarrage du serveur ; les autres restent ouvertes', async () => {
+        const target = await createUser(admin, { is_user: 1 });
+        const bystander = await createUser(admin, { is_user: 1 });
+        const targetSession = await loginAs(server, target, 'user');
+        const bystanderSession = await loginAs(server, bystander, 'user');
+        expect((await admin.post(`/api/users/${target.id}/force-logout`)).status).toBe(200);
+
+        server = await server.restart();
+        const r = await targetSession.get('/api/resources');
+        expect(r.status).toBe(401);
+        expect(r.data.error).toBe('SESSION_TERMINATED');
+        expect((await bystanderSession.get('/api/resources')).status).toBe(200);
+        expect((await admin.get('/api/users')).status).toBe(200);
     });
 });
 

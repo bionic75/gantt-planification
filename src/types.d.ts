@@ -11,8 +11,10 @@ declare module 'express-session' {
         activeProfile: 'admin' | 'expert' | 'user' | 'rh';
         resourceId: number | null;
         logId: number;
-        /** Horodatage de la connexion (révocation des sessions, voir state/sessions.js) */
+        /** Horodatage de la connexion */
         loginAt: number;
+        /** Session fermée par une déconnexion forcée ou un changement de mot de passe (db/session-store.js) */
+        terminated: boolean;
         mfaPending: {
             userId: number;
             profile: 'admin' | 'expert' | 'user' | 'rh';

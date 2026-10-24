@@ -34,13 +34,13 @@ datasource db {
 }
 `;
 
-/** Champs String utilisés par un index ou une contrainte d'unicité (longueur bornée sous MySQL) */
+/** Champs String clés, utilisés par un index ou une contrainte d'unicité (longueur bornée sous MySQL) */
 function indexedFields(modelBody) {
     const fields = new Set();
     for (const m of modelBody.matchAll(/@@(?:unique|index)\(\[([^\]]+)\]/g)) {
         for (const f of m[1].split(',')) fields.add(f.trim());
     }
-    for (const m of modelBody.matchAll(/^\s+(\w+)\s+String\??[^\n]*@unique/gm)) fields.add(m[1]);
+    for (const m of modelBody.matchAll(/^\s+(\w+)\s+String\??[^\n]*@(?:unique|id)\b/gm)) fields.add(m[1]);
     return fields;
 }
 
