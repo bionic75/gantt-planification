@@ -48,19 +48,29 @@ describe('POST /api/schedule', () => {
         expect(data[key(resource.id, 'available', '2025-06-04')]).toBe('2');
         expect(data).not.toHaveProperty(key(other.id, 'available', '2025-06-04'));
     });
+});
 
-    it("le profil utilisateur ne modifie pas la disponibilité (mais modifie l'activité)", async () => {
-        // Comportement actuel documenté : le README annonce un profil en lecture seule (à corriger en phase 4)
+describe('profil utilisateur : planning en lecture seule', () => {
+    it('consultation autorisée, toute modification refusée', async () => {
         const res = await createResource(admin);
+        await admin.post('/api/schedule', { [key(res.id, 'activity', '2025-06-06')]: '5' });
         const user = await createUser(admin, { is_user: 1 });
         const client = await loginAs(server, user, 'user');
-        await client.post('/api/schedule', {
-            [key(res.id, 'available', '2025-06-05')]: '2',
-            [key(res.id, 'activity', '2025-06-05')]: '5'
-        });
+
+        expect((await client.get('/api/schedule')).data[key(res.id, 'activity', '2025-06-06')]).toBe('5');
+        const cells = { [key(res.id, 'available', '2025-06-05')]: '2', [key(res.id, 'activity', '2025-06-05')]: '5' };
+        for (const [url, body] of [
+            ['/api/schedule', cells],
+            ['/api/schedule/save', cells],
+            ['/api/schedule/reset-month', { resourceId: res.id, year: 2025, month: 5 }]
+        ]) {
+            const r = await client.post(url, body);
+            expect(r.status, url).toBe(403);
+            expect(r.data.error).toMatch(/lecture seule/);
+        }
         const data = await schedule();
-        expect(data).not.toHaveProperty(key(res.id, 'available', '2025-06-05'));
-        expect(data[key(res.id, 'activity', '2025-06-05')]).toBe('5');
+        expect(data).not.toHaveProperty(key(res.id, 'activity', '2025-06-05'));
+        expect(data[key(res.id, 'activity', '2025-06-06')]).toBe('5');
     });
 });
 

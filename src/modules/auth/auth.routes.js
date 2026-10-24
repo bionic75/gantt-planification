@@ -3,20 +3,26 @@
 import { Router } from 'express';
 import { requireAdmin, requireAuth } from '../../middlewares/auth.js';
 import { asyncHandler as h } from '../../middlewares/error-handler.js';
+import {
+    loginLimiters,
+    passwordResetRequestLimiter,
+    profileLookupLimiter,
+    tokenCheckLimiter
+} from '../../middlewares/rate-limit.js';
 import * as ctrl from './auth.controller.js';
 import { requireMfaPending } from './mfa-pending.js';
 
 const router = Router();
 
-// Routes publiques
-router.post('/login', h(ctrl.login));
-router.post('/mobile-login', h(ctrl.mobileLogin));
+// Routes publiques (nombre de tentatives limité)
+router.post('/login', loginLimiters, h(ctrl.login));
+router.post('/mobile-login', loginLimiters, h(ctrl.mobileLogin));
 router.post('/logout', h(ctrl.logout));
-router.post('/forgot-password', h(ctrl.forgotPassword));
-router.post('/reset-password/check', h(ctrl.checkResetToken));
-router.post('/reset-password', h(ctrl.resetPassword));
+router.post('/forgot-password', passwordResetRequestLimiter, h(ctrl.forgotPassword));
+router.post('/reset-password/check', tokenCheckLimiter, h(ctrl.checkResetToken));
+router.post('/reset-password', tokenCheckLimiter, h(ctrl.resetPassword));
 router.get('/check-session', h(ctrl.checkSession));
-router.get('/user/profiles', h(ctrl.userProfiles));
+router.get('/user/profiles', profileLookupLimiter, h(ctrl.userProfiles));
 
 router.post('/switch-profile', requireAuth, h(ctrl.switchProfile));
 
@@ -28,10 +34,10 @@ router.post('/mfa/reset-all', requireAdmin, h(ctrl.resetAllMfa));
 
 // Double authentification : vérification d'une connexion en attente
 router.post('/mfa/send-code', requireMfaPending, h(ctrl.sendMfaCode));
-router.post('/mfa/verify', requireMfaPending, h(ctrl.verifyMfa));
+router.post('/mfa/verify', tokenCheckLimiter, requireMfaPending, h(ctrl.verifyMfa));
 // :userId conservé pour compatibilité, ignoré
 router.get('/mfa/totp-status/:userId', requireMfaPending, h(ctrl.totpStatus));
 router.post('/mfa/totp-setup', requireMfaPending, h(ctrl.setupTotp));
-router.post('/mfa/totp-confirm', requireMfaPending, h(ctrl.confirmTotp));
+router.post('/mfa/totp-confirm', tokenCheckLimiter, requireMfaPending, h(ctrl.confirmTotp));
 
 export default router;

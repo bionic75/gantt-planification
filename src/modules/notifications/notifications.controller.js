@@ -5,6 +5,7 @@ import { createEmailTransporter, emailConfig, sendEmail } from '../../lib/mailer
 import { logUserAction } from '../../services/action-log.js';
 import { enqueueEmail, getReusableTransporter } from '../../services/email-queue.js';
 import { activeSessions } from '../../state/sessions.js';
+import { getExpertByResource, isEmailOfResource } from '../users/users.service.js';
 import {
     assignmentRequestEmail,
     buildAssignmentEmails,
@@ -100,10 +101,23 @@ export async function pushMessage(/** @type {Request} */ req, /** @type {Respons
 
 // ---------- Emails ----------
 
+/**
+ * Calendrier d'une ressource envoyé à l'utilisateur rattaché à cette ressource. Le destinataire est lu en base
+ * (l'adresse éventuellement transmise est ignorée) : la route ne permet pas d'écrire à une adresse quelconque
+ * depuis le compte SMTP de l'application.
+ */
 export async function sendCalendarEmail(/** @type {Request} */ req, /** @type {Response} */ res) {
-    const { resourceId, email, html, subject } = req.body;
-    if (!email || !html || !subject) return res.status(400).json({ success: false, error: 'Paramètres manquants' });
+    const { resourceId, html, subject } = req.body;
+    if (!resourceId || !html || !subject) {
+        return res.status(400).json({ success: false, error: 'Paramètres manquants' });
+    }
     if (!emailConfig.user) return res.status(400).json({ success: false, error: 'Configuration email non définie' });
+    const email = (await getExpertByResource(resourceId))?.email;
+    if (!email) {
+        return res
+            .status(400)
+            .json({ success: false, error: 'Aucun utilisateur avec email associé à cette ressource' });
+    }
     try {
         await sendEmail(email, subject, html);
     } catch (/** @type {any} */ error) {
@@ -131,7 +145,13 @@ export async function sendAssignmentEmails(/** @type {Request} */ req, /** @type
     const requesterName = senderName || `${req.session.prenom || 'Admin'} ${req.session.nom || 'Système'}`;
     const senderEmailAddr = clientSenderEmail || emailConfig.user;
 
-    const emails = buildAssignmentEmails(assignments, requesterName, senderEmailAddr);
+    // Destinataires limités aux utilisateurs rattachés à la ressource concernée (pas d'adresse quelconque)
+    const allowed = [];
+    for (const item of assignments) {
+        if (await isEmailOfResource(item?.resourceId, item?.email)) allowed.push(item);
+        else console.warn(`⛔ send-assignment-emails : destinataire refusé pour la ressource ${item?.resourceId}`);
+    }
+    const emails = buildAssignmentEmails(allowed, requesterName, senderEmailAddr);
     if (emails.length === 0) return res.json({ success: false, error: 'Aucun email à envoyer (experts sans email ?)' });
 
     const batchId = crypto.randomUUID();

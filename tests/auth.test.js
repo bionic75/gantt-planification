@@ -112,9 +112,19 @@ describe('GET /api/user/profiles (avant connexion)', () => {
         expect(r.data.profiles).toEqual(['user', 'rh']);
     });
 
-    it('renvoie une liste vide pour un identifiant inconnu', async () => {
-        const r = await server.client().get('/api/user/profiles?username=inconnu');
-        expect(r.data.profiles).toEqual([]);
+    it("ne révèle pas l'existence d'un compte : inconnu ou désactivé = compte utilisateur simple", async () => {
+        const plain = await createUser(admin, { is_user: 1 });
+        const expected = (await server.client().get(`/api/user/profiles?username=${plain.username}`)).data;
+        expect((await server.client().get('/api/user/profiles?username=inconnu')).data).toEqual(expected);
+
+        const disabled = await createUser(admin, { is_user: 1, is_rh: 1 });
+        expect((await admin.post(`/api/users/${disabled.id}/toggle`)).status).toBe(200);
+        const r = await server.client().get(`/api/user/profiles?username=${disabled.username}`);
+        expect(r.data).toEqual(expected);
+        // La connexion échoue ensuite comme avec un mauvais mot de passe
+        const login = await server.client().login('inconnu', 'x', 'user');
+        expect(login.status).toBe(401);
+        expect(login.data.error).toBe('Identifiants incorrects');
     });
 });
 

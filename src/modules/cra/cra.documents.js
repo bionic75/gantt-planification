@@ -1,20 +1,22 @@
 // Comptes rendus d'activité (CRA) : emails du circuit de validation, document signé (HTML) et PDF
 import { env as appEnv } from '../../config/env.js';
-import { puppeteer } from '../../lib/puppeteer.js';
+import { escapeHtml as e } from '../../lib/html.js';
+import { isolatePage, puppeteer } from '../../lib/puppeteer.js';
 
+/** action : fragment HTML, dont les données sont échappées par l'appelant */
 export function buildCraEmailHtml({ title, expertNom, moisNom, craUrl, action }) {
     return `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
         <div style="background-color:#6a1b9a;padding:20px;border-radius:8px 8px 0 0;text-align:center;">
-            <h2 style="color:white;margin:0;">📝 Workflow CRA — ${title}</h2>
+            <h2 style="color:white;margin:0;">📝 Workflow CRA — ${e(title)}</h2>
         </div>
         <div style="background-color:#f9f9f9;padding:20px;border:1px solid #e0e0e0;">
             <div style="background:white;border-left:4px solid #6a1b9a;padding:15px;margin:15px 0;border-radius:0 8px 8px 0;">
-                <p style="margin:5px 0;"><strong>Expert :</strong> ${expertNom}</p>
-                <p style="margin:5px 0;"><strong>Période :</strong> ${moisNom}</p>
+                <p style="margin:5px 0;"><strong>Expert :</strong> ${e(expertNom)}</p>
+                <p style="margin:5px 0;"><strong>Période :</strong> ${e(moisNom)}</p>
             </div>
             <p>${action}</p>
             <div style="text-align:center;margin:20px 0;">
-                <a href="${craUrl}" style="background-color:#6a1b9a;color:white;padding:12px 30px;border-radius:6px;text-decoration:none;font-weight:bold;display:inline-block;">Accéder au CRA</a>
+                <a href="${e(craUrl)}" style="background-color:#6a1b9a;color:white;padding:12px 30px;border-radius:6px;text-decoration:none;font-weight:bold;display:inline-block;">Accéder au CRA</a>
             </div>
             <p style="color:#666;font-size:12px;">Ce lien vous connecte directement à l'application sur le CRA concerné.</p>
         </div>
@@ -38,11 +40,11 @@ export function buildCraDocumentHtml({
         .map(
             a => `<tr>
         <td style="padding:5px 8px;border:1px solid #ddd;white-space:nowrap;">${a.type === 'astreinte' ? 'Astreinte' : a.type === 'activite_courante' ? 'Activité courante' : 'HNO'}</td>
-        <td style="padding:5px 8px;border:1px solid #ddd;white-space:nowrap;">${a.date_debut}</td>
-        <td style="padding:5px 8px;border:1px solid #ddd;white-space:nowrap;">${a.date_fin}</td>
-        <td style="padding:5px 8px;border:1px solid #ddd;white-space:nowrap;">${a.heure_debut || ''} ${a.heure_fin ? '→ ' + a.heure_fin : ''}</td>
-        <td style="padding:5px 8px;border:1px solid #ddd;white-space:nowrap;">${a.samu || ''}</td>
-        <td style="padding:5px 8px;border:1px solid #ddd;">${a.objet || ''}</td>
+        <td style="padding:5px 8px;border:1px solid #ddd;white-space:nowrap;">${e(a.date_debut)}</td>
+        <td style="padding:5px 8px;border:1px solid #ddd;white-space:nowrap;">${e(a.date_fin)}</td>
+        <td style="padding:5px 8px;border:1px solid #ddd;white-space:nowrap;">${e(a.heure_debut || '')} ${a.heure_fin ? '→ ' + e(a.heure_fin) : ''}</td>
+        <td style="padding:5px 8px;border:1px solid #ddd;white-space:nowrap;">${e(a.samu || '')}</td>
+        <td style="padding:5px 8px;border:1px solid #ddd;">${e(a.objet || '')}</td>
     </tr>`
         )
         .join('');
@@ -62,16 +64,16 @@ export function buildCraDocumentHtml({
             const rang = s.rang === 1 ? 'Expert' : s.rang === 2 ? 'VISA N+1' : 'VISA N+2';
             return `<td style="width:33.33%;padding:14px;border:1px solid #6a1b9a;border-radius:6px;text-align:center;vertical-align:top;">
             <div style="font-size:11px;color:#666;margin-bottom:8px;">${rang}</div>
-            <div style="font-weight:bold;color:#2c3e50;">${s.signer_name}</div>
+            <div style="font-weight:bold;color:#2c3e50;">${e(s.signer_name)}</div>
             <div style="font-size:11px;color:#6a1b9a;margin-top:4px;">✅ Signé électroniquement</div>
             <div style="font-size:10px;color:#999;margin-top:4px;">${new Date(s.signed_at).toLocaleString('fr-FR')}</div>
-            ${!s._synthetic ? `<div style="font-size:9px;color:#ccc;margin-top:2px;">IP : ${s.ip_address || 'N/A'}</div>` : ''}
+            ${!s._synthetic ? `<div style="font-size:9px;color:#ccc;margin-top:2px;">IP : ${e(s.ip_address || 'N/A')}</div>` : ''}
         </td>`;
         })
         .join('');
 
     const esInfo = esRattachement
-        ? `<p style="color:#444;font-size:13px;margin:4px 0 0 0;">Établissement de rattachement : <strong>${esRattachement}</strong></p>`
+        ? `<p style="color:#444;font-size:13px;margin:4px 0 0 0;">Établissement de rattachement : <strong>${e(esRattachement)}</strong></p>`
         : '';
 
     return `<div style="font-family:Arial,sans-serif;max-width:800px;margin:0 auto;padding:20px;">
@@ -91,13 +93,13 @@ export function buildCraDocumentHtml({
         <div style="text-align:center;border:1px solid #1a237e;border-top:none;padding:18px 15px 14px;margin-bottom:20px;">
             <h1 style="color:#1a237e;margin:0;font-size:19px;letter-spacing:1px;">COMPTE-RENDU D'ACTIVITÉ</h1>
             <div style="color:#1a237e;font-size:12px;font-style:italic;margin:4px 0 6px;">Activités exceptionnelles, astreintes et interventions en heures ou jours non ouvrés</div>
-            <h2 style="color:#2c3e50;margin:6px 0 4px;font-size:16px;">${cra.expert_nom} — ${moisNom}</h2>
+            <h2 style="color:#2c3e50;margin:6px 0 4px;font-size:16px;">${e(cra.expert_nom)} — ${e(moisNom)}</h2>
             ${esInfo}
         </div>
 
         <!-- MESSAGE CONVENTION -->
         <div style="background:#e8eaf6;border-left:4px solid #1a237e;padding:12px 16px;border-radius:0 6px 6px 0;margin-bottom:20px;font-size:12px;color:#333;">
-            Ce document est transmis dans le cadre de la <strong>convention liant l'Agence du Numérique en Santé (ANS) et ${esRattachement || "l'établissement de santé de rattachement de l'expert"}</strong>, relative à la mise à disposition d'un expert dans le cadre du programme SI-SAMU.<br>
+            Ce document est transmis dans le cadre de la <strong>convention liant l'Agence du Numérique en Santé (ANS) et ${e(esRattachement || "l'établissement de santé de rattachement de l'expert")}</strong>, relative à la mise à disposition d'un expert dans le cadre du programme SI-SAMU.<br>
             Il atteste de l'activité réalisée par l'expert pour la période concernée et a été signé électroniquement par les parties habilitées.
             <br><br>
             <strong>Pour rappel, le cadre de la convention tripartite relative à ces activités est le suivant :</strong><br><br>
@@ -126,7 +128,7 @@ export function buildCraDocumentHtml({
             </tr></thead>
             <tbody>${lignes || '<tr><td colspan="6" style="padding:15px;color:#999;text-align:center;">Aucune activité enregistrée</td></tr>'}</tbody>
         </table>
-        ${cra.commentaire_expert ? `<div style="background:#f3e5f5;padding:12px 15px;border-radius:6px;margin-bottom:20px;border-left:3px solid #6a1b9a;"><strong style="font-size:12px;color:#6a1b9a;">Commentaire de l'expert :</strong><p style="margin:5px 0 0 0;font-size:13px;">${cra.commentaire_expert}</p></div>` : ''}
+        ${cra.commentaire_expert ? `<div style="background:#f3e5f5;padding:12px 15px;border-radius:6px;margin-bottom:20px;border-left:3px solid #6a1b9a;"><strong style="font-size:12px;color:#6a1b9a;">Commentaire de l'expert :</strong><p style="margin:5px 0 0 0;font-size:13px;">${e(cra.commentaire_expert)}</p></div>` : ''}
 
         <!-- SIGNATURES -->
         <div style="border-top:2px solid #1a237e;padding-top:20px;">
@@ -157,6 +159,7 @@ export async function renderPdf(html, margin) {
     try {
         const page = await browser.newPage();
         page.setDefaultNavigationTimeout(120000);
+        await isolatePage(page);
         await page.setContent(html, { waitUntil: 'domcontentloaded' });
         const pdf = await page.pdf({ format: 'A4', printBackground: true, margin });
         // Puppeteer ≥ 22 renvoie un Uint8Array : res.send() le sérialiserait en JSON
@@ -192,9 +195,9 @@ export function buildCraPdfHtml({ cra, astreintes, signatures, moisNom }) {
             <td style="padding:6px 10px;border:1px solid #ddd;font-weight:bold;color:${a.type === 'astreinte' ? '#e65100' : a.type === 'activite_courante' ? '#2e7d32' : '#1565c0'};">${a.type === 'astreinte' ? 'Astreinte' : a.type === 'activite_courante' ? 'Activité courante' : 'HNO'}</td>
             <td style="padding:6px 10px;border:1px solid #ddd;">${a.date_debut ? new Date(a.date_debut).toLocaleDateString('fr-FR') : ''}</td>
             <td style="padding:6px 10px;border:1px solid #ddd;">${a.date_fin ? new Date(a.date_fin).toLocaleDateString('fr-FR') : ''}</td>
-            <td style="padding:6px 10px;border:1px solid #ddd;">${a.heure_debut || ''} ${a.heure_fin ? '→ ' + a.heure_fin : ''}</td>
-            <td style="padding:6px 10px;border:1px solid #ddd;">${a.samu || ''}</td>
-            <td style="padding:6px 10px;border:1px solid #ddd;">${a.objet || ''}</td>
+            <td style="padding:6px 10px;border:1px solid #ddd;">${e(a.heure_debut || '')} ${a.heure_fin ? '→ ' + e(a.heure_fin) : ''}</td>
+            <td style="padding:6px 10px;border:1px solid #ddd;">${e(a.samu || '')}</td>
+            <td style="padding:6px 10px;border:1px solid #ddd;">${e(a.objet || '')}</td>
         </tr>`
               )
               .join('')
@@ -213,10 +216,10 @@ export function buildCraPdfHtml({ cra, astreintes, signatures, moisNom }) {
             <div style="font-size:10px;color:#bbb;">En attente</div></td>`;
         return `<td style="border:2px solid #6a1b9a;border-radius:6px;padding:12px;text-align:center;width:33%;background:#faf5ff;">
             <div style="font-size:10px;color:#6a1b9a;text-transform:uppercase;font-weight:bold;letter-spacing:0.5px;margin-bottom:6px;">${label}</div>
-            <div style="font-weight:bold;font-size:12px;color:#2c3e50;margin-bottom:3px;">${s.signer_name}</div>
+            <div style="font-weight:bold;font-size:12px;color:#2c3e50;margin-bottom:3px;">${e(s.signer_name)}</div>
             <div style="font-size:10px;color:#27ae60;font-weight:bold;">Signé electroniquement</div>
             <div style="font-size:9px;color:#888;margin-top:3px;">${new Date(s.signed_at).toLocaleString('fr-FR')}</div>
-            <div style="font-size:8px;color:#bbb;margin-top:2px;">IP : ${s.ip_address || 'N/A'}</div></td>`;
+            <div style="font-size:8px;color:#bbb;margin-top:2px;">IP : ${e(s.ip_address || 'N/A')}</div></td>`;
     };
     const moisCapitalize = moisNom.charAt(0).toUpperCase() + moisNom.slice(1);
     return `<!DOCTYPE html>
@@ -231,7 +234,7 @@ export function buildCraPdfHtml({ cra, astreintes, signatures, moisNom }) {
       </td>
       <td style="text-align:center;vertical-align:middle;">
         <div style="font-size:17px;font-weight:bold;color:#6a1b9a;text-transform:uppercase;letter-spacing:1px;">Compte-Rendu d'Activité</div>
-        <div style="font-size:13px;color:#2c3e50;margin-top:4px;">${cra.expert_nom} — ${moisCapitalize}</div>
+        <div style="font-size:13px;color:#2c3e50;margin-top:4px;">${e(cra.expert_nom)} — ${e(moisCapitalize)}</div>
       </td>
       <td style="width:160px;text-align:right;vertical-align:top;font-size:9px;color:#888;">
         <div>Produit le ${now}</div>
@@ -241,9 +244,9 @@ export function buildCraPdfHtml({ cra, astreintes, signatures, moisNom }) {
   <table style="width:100%;border-collapse:collapse;margin-bottom:16px;font-size:11px;">
     <tr style="background:#f3e5f5;">
       <td style="padding:6px 10px;border:1px solid #d1b3e0;font-weight:bold;width:120px;">Expert</td>
-      <td style="padding:6px 10px;border:1px solid #d1b3e0;">${cra.expert_nom}</td>
+      <td style="padding:6px 10px;border:1px solid #d1b3e0;">${e(cra.expert_nom)}</td>
       <td style="padding:6px 10px;border:1px solid #d1b3e0;font-weight:bold;width:80px;">Période</td>
-      <td style="padding:6px 10px;border:1px solid #d1b3e0;">${moisCapitalize}</td>
+      <td style="padding:6px 10px;border:1px solid #d1b3e0;">${e(moisCapitalize)}</td>
     </tr>
   </table>
   <div style="font-size:11px;font-weight:bold;color:#6a1b9a;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Activités Astreinte / HNO</div>
@@ -258,7 +261,7 @@ export function buildCraPdfHtml({ cra, astreintes, signatures, moisNom }) {
     </tr></thead>
     <tbody>${lignesHtml}</tbody>
   </table>
-  ${cra.commentaire_expert ? `<div style="background:#f3e5f5;border-left:4px solid #6a1b9a;padding:10px 14px;margin-bottom:20px;font-size:11px;"><strong style="color:#6a1b9a;">Commentaire :</strong> ${cra.commentaire_expert}</div>` : ''}
+  ${cra.commentaire_expert ? `<div style="background:#f3e5f5;border-left:4px solid #6a1b9a;padding:10px 14px;margin-bottom:20px;font-size:11px;"><strong style="color:#6a1b9a;">Commentaire :</strong> ${e(cra.commentaire_expert)}</div>` : ''}
   <div style="border-top:2px solid #6a1b9a;padding-top:14px;">
     <div style="font-size:11px;font-weight:bold;color:#6a1b9a;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">Signatures Electroniques</div>
     <table style="width:100%;border-collapse:separate;border-spacing:8px;">

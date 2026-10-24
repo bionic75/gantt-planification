@@ -3,7 +3,7 @@
 import crypto from 'crypto';
 import { prisma } from '../db/prisma.js';
 import { sqlTimestamp } from '../db/values.js';
-import { activeSessions, isSessionRevoked, touchSession } from '../state/sessions.js';
+import { activeSessions, touchSession } from '../state/sessions.js';
 
 /** @typedef {import('express').RequestHandler} RequestHandler */
 
@@ -14,8 +14,7 @@ import { activeSessions, isSessionRevoked, touchSession } from '../state/session
  * @returns {boolean} true si la requête a été rejetée
  */
 export function rejectRevokedSession(req, res) {
-    const { userId, loginAt } = req.session;
-    if (!userId || !isSessionRevoked(userId, loginAt)) return false;
+    if (!req.session.userId || !req.session.terminated) return false;
     req.session.destroy(() => {});
     res.status(401).json({
         error: 'SESSION_TERMINATED',
@@ -114,11 +113,19 @@ export function requireAffectationAccess(req, res, next) {
         .catch(() => res.status(403).json({ error: 'Accès refusé' }));
 }
 
-/** Clé d'API (en-tête X-Api-Key ou paramètre api_key) pour l'API publique */
-/** @type {RequestHandler} */
+/**
+ * Clé d'API (en-tête X-Api-Key) pour l'API publique. Plus acceptée dans l'URL (paramètre api_key) : elle
+ * apparaîtrait dans les journaux, l'historique du navigateur et des proxys.
+ * @type {RequestHandler}
+ */
 export function requireApiKey(req, res, next) {
-    const apiKey = req.headers['x-api-key'] || req.query.api_key;
-    if (!apiKey) return res.status(401).json({ error: 'Clé API manquante (header X-Api-Key ou paramètre api_key)' });
+    const apiKey = req.headers['x-api-key'];
+    if (!apiKey) {
+        const message = req.query.api_key
+            ? "Clé API refusée dans l'URL : la transmettre dans l'en-tête X-Api-Key"
+            : 'Clé API manquante (en-tête X-Api-Key)';
+        return res.status(401).json({ error: message });
+    }
     const keyHash = crypto.createHash('sha256').update(String(apiKey)).digest('hex');
     prisma.apiKey
         .findFirst({ where: { key_hash: keyHash, revoked: 0 }, select: { id: true } })

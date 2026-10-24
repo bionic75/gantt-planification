@@ -69,8 +69,10 @@ export async function prepareSignedPdf(/** @type {unknown} */ id) {
 
     const now = new Date();
     const ts = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
-    const nomSafe = (cra.expert_nom_seul || '').replace(/\s+/g, '_').toUpperCase();
-    const prenomSafe = (cra.expert_prenom || '').replace(/\s+/g, '_');
+    // Caractères interdits dans un nom de fichier (dont / et \ : écriture hors du répertoire des PDF) remplacés
+    const safe = (/** @type {string} */ s) => s.replace(/[\s/\\:*?"<>|]+/g, '_');
+    const nomSafe = safe(cra.expert_nom_seul || '').toUpperCase();
+    const prenomSafe = safe(cra.expert_prenom || '');
     const pdfFilename = `SI-SAMU_CRA_${nomSafe}_${prenomSafe}_${capitalize(moisNom).replace(/\s+/g, '_')}_${ts}.pdf`;
 
     fs.mkdirSync(PDF_DIR, { recursive: true });
@@ -204,8 +206,9 @@ export async function diffuse(id, { recipients, pdfFilename }, ctx) {
         );
         entries.push({ email: exp.email, nom: exp.nom || exp.email, type: 'expert', batchId: expertBatch });
     }
-    await service.markDiffused(cra.id, { diffusedAt: now, pdfFilename: String(pdfFilename), entries });
-    return { sent: allRh.length + experts.length, pdfFilename };
+    const savedFilename = path.basename(String(pdfFilename));
+    await service.markDiffused(cra.id, { diffusedAt: now, pdfFilename: savedFilename, entries });
+    return { sent: allRh.length + experts.length, pdfFilename: savedFilename };
 }
 
 /**
@@ -227,7 +230,7 @@ export async function prepareResendAll(id, ctx) {
         let pdfFilename = cra.pdf_filename || null;
         if (pdfFilename) {
             try {
-                pdfBase64 = fs.readFileSync(path.join(PDF_DIR, pdfFilename)).toString('base64');
+                pdfBase64 = fs.readFileSync(path.join(PDF_DIR, path.basename(pdfFilename))).toString('base64');
                 console.log(`📄 PDF CRA chargé depuis disque pour renvoi: ${pdfFilename}`);
             } catch (/** @type {any} */ e) {
                 console.warn('⚠️ PDF sur disque introuvable, renvoi sans PDF:', e.message);

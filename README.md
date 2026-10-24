@@ -49,11 +49,12 @@ Application de planification permettant de gérer les ressources humaines (exper
 
 ### 🔐 Authentification & Sécurité
 
-- **Connexion sécurisée** avec hashage des mots de passe (SHA-256)
+- **Connexion sécurisée** avec hashage des mots de passe (bcrypt) et double authentification
 - **Multi-profils** : un utilisateur peut avoir plusieurs rôles
-- **Sessions persistantes** avec gestion automatique
-- **Mot de passe oublié** avec temporisation (30s)
+- **Sessions persistantes** (en base) avec gestion automatique
+- **Mot de passe oublié** par lien de réinitialisation à usage unique
 - **Déconnexion automatique** après inactivité
+- **Protections** : CSRF, en-têtes de sécurité, limitation des tentatives… (voir [docs/securite.md](docs/securite.md))
 
 ### 👥 Gestion des Ressources
 

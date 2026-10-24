@@ -14,8 +14,13 @@ ARG DB_PROVIDER=sqlite
 ENV DB_PROVIDER=${DB_PROVIDER}
 
 WORKDIR /app
+RUN chown node:node /app
 
-COPY . .
+# Utilisateur sans privilèges (uid 1000) : les répertoires montés (config, data) doivent lui appartenir,
+# voir docs/securite.md
+USER node
+
+COPY --chown=node:node . .
 
 # Installation (génère aussi le client Prisma : script postinstall)
 RUN npm ci --omit=dev

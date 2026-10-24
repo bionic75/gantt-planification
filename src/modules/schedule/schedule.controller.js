@@ -10,13 +10,24 @@ import * as service from './schedule.service.js';
 const isOtherResource = (/** @type {Request} */ req, /** @type {unknown} */ resourceId) =>
     req.session.activeProfile === 'expert' && parseInt(String(resourceId)) !== req.session.resourceId;
 
+/** Profil « utilisateur » : consultation du planning seulement */
+export function rejectReadOnlyProfile(
+    /** @type {Request} */ req,
+    /** @type {Response} */ res,
+    /** @type {import('express').NextFunction} */ next
+) {
+    if (req.session.activeProfile === 'user') {
+        return res.status(403).json({ error: 'Profil utilisateur : planning en lecture seule' });
+    }
+    next();
+}
+
 export async function get(/** @type {Request} */ req, /** @type {Response} */ res) {
     res.json(await service.getSchedule());
 }
 
 /**
- * Enregistre des cellules { clé: valeur }. Les cellules non autorisées sont ignorées :
- * ligne d'une autre ressource pour un expert, disponibilité pour le profil utilisateur.
+ * Enregistre des cellules { clé: valeur }. Les cellules d'une autre ressource sont ignorées pour un expert.
  */
 export async function save(/** @type {Request} */ req, /** @type {Response} */ res) {
     const data = req.body;
@@ -24,11 +35,7 @@ export async function save(/** @type {Request} */ req, /** @type {Response} */ r
     if (entries.length === 0) return res.json({ success: true, saved: 0 });
 
     const profile = req.session.activeProfile;
-    const allowed = entries.filter(([key]) => {
-        const { resourceId, type } = service.parseKey(key);
-        if (isOtherResource(req, resourceId)) return false;
-        return !(profile === 'user' && type === 'available');
-    });
+    const allowed = entries.filter(([key]) => !isOtherResource(req, service.parseKey(key).resourceId));
     // Une modification faite par l'expert sur sa ligne ne lui est pas notifiée
     await Promise.all(
         allowed.map(([key, value]) => service.upsertCellWithNotification(key, value, profile !== 'expert'))
