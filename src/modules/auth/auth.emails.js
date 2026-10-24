@@ -1,5 +1,6 @@
 // @ts-check
 // Modèles des emails d'authentification
+import { escapeHtml as e } from '../../lib/html.js';
 
 /** @param {{ prenom?: string, code: string }} p */
 export const mfaCodeEmail = ({
@@ -12,7 +13,7 @@ export const mfaCodeEmail = ({
         </div>
         <div style="padding: 30px; text-align: center;">
             <p style="color: #666; margin-bottom: 20px;">
-                Bonjour ${prenom},<br>
+                Bonjour ${e(prenom)},<br>
                 Voici votre code de vérification pour accéder à l'application.
             </p>
             <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
@@ -30,12 +31,12 @@ export const mfaCodeEmail = ({
 export const passwordResetLinkEmail = ({ prenom, nom, username, link }) => `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #2c3e50;">Réinitialisation de mot de passe</h2>
-        <p>Bonjour ${prenom} ${nom},</p>
-        <p>Une réinitialisation du mot de passe du compte <strong>${username}</strong> a été demandée.</p>
+        <p>Bonjour ${e(prenom)} ${e(nom)},</p>
+        <p>Une réinitialisation du mot de passe du compte <strong>${e(username)}</strong> a été demandée.</p>
         <p style="margin: 25px 0; text-align: center;">
-            <a href="${link}" style="background-color: #2c3e50; color: #ffffff; padding: 12px 24px; border-radius: 5px; text-decoration: none; font-weight: bold;">Choisir un nouveau mot de passe</a>
+            <a href="${e(link)}" style="background-color: #2c3e50; color: #ffffff; padding: 12px 24px; border-radius: 5px; text-decoration: none; font-weight: bold;">Choisir un nouveau mot de passe</a>
         </p>
-        <p style="font-size: 12px; color: #7f8c8d;">Ce lien est valable 1 heure et ne peut être utilisé qu'une seule fois. Si le bouton ne fonctionne pas, copiez cette adresse dans votre navigateur :<br>${link}</p>
+        <p style="font-size: 12px; color: #7f8c8d;">Ce lien est valable 1 heure et ne peut être utilisé qu'une seule fois. Si le bouton ne fonctionne pas, copiez cette adresse dans votre navigateur :<br>${e(link)}</p>
         <p style="color: #7f8c8d; font-size: 12px; margin-top: 30px;">Si vous n'êtes pas à l'origine de cette demande, ignorez cet email : votre mot de passe actuel reste inchangé.</p>
     </div>
 `;

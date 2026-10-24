@@ -1,6 +1,7 @@
 // @ts-check
 // Emails du circuit de validation des CRA (mis en file d'attente)
 import { env } from '../../config/env.js';
+import { escapeHtml as e } from '../../lib/html.js';
 import { emailConfig } from '../../lib/mailer.js';
 import { enqueueEmail, newBatchId } from '../../services/email-queue.js';
 import { buildCraEmailHtml } from './cra.documents.js';
@@ -67,7 +68,7 @@ export async function notifyVisa(cra, niveau, expert, signer, appUrl) {
                 expertNom: expert.expert_nom,
                 moisNom,
                 craUrl,
-                action: `Le CRA a été visé par ${signer.name} (N1) et nécessite votre visa de niveau 2.`
+                action: `Le CRA a été visé par ${e(signer.name)} (N1) et nécessite votre visa de niveau 2.`
             }),
             actionType: 'cra_visa_n2'
         });
@@ -85,7 +86,7 @@ export async function notifyVisa(cra, niveau, expert, signer, appUrl) {
                 expertNom: expert.expert_nom,
                 moisNom,
                 craUrl,
-                action: `Votre CRA a été doublement visé par ${signer.name}. Il sera prochainement diffusé auprès de la RH.`
+                action: `Votre CRA a été doublement visé par ${e(signer.name)}. Il sera prochainement diffusé auprès de la RH.`
             }),
             actionType: 'cra_visa_n2'
         });
@@ -116,9 +117,9 @@ export async function notifyRefused(cra, niveau, expert, refuser, commentaire) {
             expertNom: expert.expert_nom,
             moisNom,
             craUrl: craLink(backgroundAppUrl(), cra),
-            action: `Votre CRA a été refusé par <strong>${refuser.name}</strong> (viseur ${niveauLabel}).<br><br>
+            action: `Votre CRA a été refusé par <strong>${e(refuser.name)}</strong> (viseur ${niveauLabel}).<br><br>
                         <div style="background:#fff3cd;border-left:4px solid #f39c12;padding:12px 16px;border-radius:0 6px 6px 0;margin:10px 0;">
-                            <strong>Motif du refus :</strong><br>${commentaire}
+                            <strong>Motif du refus :</strong><br>${e(commentaire)}
                         </div><br>
                         Merci de vous connecter pour corriger votre CRA et le soumettre à nouveau.`
         }),
@@ -151,7 +152,7 @@ export async function notifyAdminModified(
             expertNom,
             moisNom,
             craUrl: `${appUrl}/?tab=cra&craId=${cra.id}`,
-            action: `${admin.name} a préparé ou modifié votre CRA. Merci de le vérifier, de le corriger si besoin, puis de le soumettre pour validation.`
+            action: `${e(admin.name)} a préparé ou modifié votre CRA. Merci de le vérifier, de le corriger si besoin, puis de le soumettre pour validation.`
         }),
         actionType: 'cra_modifie_admin'
     });

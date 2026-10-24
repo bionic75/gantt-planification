@@ -8,10 +8,11 @@ import * as ctrl from './schedule.controller.js';
 const router = Router();
 
 router.get('/schedule', requireAuth, h(ctrl.get));
-router.post('/schedule', requireAuth, h(ctrl.save));
-router.post('/schedule/save', requireAuth, h(ctrl.saveBatch));
+// Profil « utilisateur » : planning en lecture seule
+router.post('/schedule', requireAuth, ctrl.rejectReadOnlyProfile, h(ctrl.save));
+router.post('/schedule/save', requireAuth, ctrl.rejectReadOnlyProfile, h(ctrl.saveBatch));
 router.post('/schedule/preview-reset-month', requireAuth, h(ctrl.previewResetMonth));
-router.post('/schedule/reset-month', requireAuth, h(ctrl.resetMonth));
+router.post('/schedule/reset-month', requireAuth, ctrl.rejectReadOnlyProfile, h(ctrl.resetMonth));
 router.post('/schedule/cleanup-old-format', requireAdmin, h(ctrl.cleanupLegacyFormat));
 
 export default router;

@@ -118,7 +118,7 @@ export async function forceLogout(/** @type {Request} */ req, /** @type {Respons
     const targetId = parseInt(req.params.id);
     if (targetId === req.session.userId) throw badRequest('Vous ne pouvez pas vous déconnecter vous-même.');
     const wasConnected = activeSessions.has(targetId);
-    revokeUserSessions(targetId);
+    await revokeUserSessions(targetId);
     logUserAction(req, 'Force déconnexion utilisateur', { targetUserId: targetId });
     res.json({ success: true, wasConnected });
 }

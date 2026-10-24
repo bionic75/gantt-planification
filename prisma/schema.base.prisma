@@ -599,6 +599,18 @@ model ScheduleData {
   @@map("schedule_data")
 }
 
+/// Sessions HTTP (express-session) : données de session en JSON, expiration « AAAA-MM-JJ HH:MM:SS » UTC
+model Session {
+  sid        String @id
+  user_id    Int?
+  data       String
+  expires_at String
+
+  @@index([user_id])
+  @@index([expires_at])
+  @@map("sessions")
+}
+
 model Setting {
   id    Int    @id @default(autoincrement())
   key   String @unique

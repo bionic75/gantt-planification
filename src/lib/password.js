@@ -27,6 +27,19 @@ export function hashPassword(password) {
     return bcrypt.hash(password, BCRYPT_COST);
 }
 
+/** @type {Promise<string> | null} */
+let dummyHash = null;
+
+/**
+ * Vérification factice, de même durée qu'une vraie, pour un compte inconnu : le temps de réponse de la
+ * connexion ne révèle pas si un identifiant existe.
+ * @param {string} plain
+ */
+export async function verifyAgainstDummy(plain) {
+    dummyHash ??= bcrypt.hash(crypto.randomBytes(16).toString('hex'), BCRYPT_COST);
+    await bcrypt.compare(plain, await dummyHash);
+}
+
 /**
  * Vérifie un mot de passe : bcrypt, ou ancien hash SHA-256 (à migrer vers bcrypt si correct).
  * @param {string} plain

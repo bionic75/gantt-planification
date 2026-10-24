@@ -1,27 +1,15 @@
 // @ts-check
-// Suivi en mémoire des utilisateurs connectés (sera persisté avec le store de sessions en phase 4)
+// Suivi en mémoire des utilisateurs connectés (liste des connectés, inactivité). Les sessions elles-mêmes sont
+// stockées en base (db/session-store.js) : après un redémarrage, ce suivi se reconstitue à la requête suivante.
+import { terminateUserSessions } from '../db/session-store.js';
 
 /** @type {Map<number, { lastActivity: number, profile?: string | null, userId?: number, username?: string, fullName?: string, profilePhoto?: string | null }>} */
 export const activeSessions = new Map();
 
-/** userId → date de révocation : les sessions ouvertes avant cette date sont fermées à leur prochaine requête */
-/** @type {Map<number, number>} */
-const revokedAt = new Map();
-
 /** Ferme toutes les sessions ouvertes de l'utilisateur (déconnexion forcée, changement de mot de passe) */
-export function revokeUserSessions(/** @type {number} */ userId) {
-    revokedAt.set(userId, Date.now());
+export async function revokeUserSessions(/** @type {number} */ userId) {
     activeSessions.delete(userId);
-}
-
-/**
- * La session a-t-elle été révoquée ?
- * @param {number} userId
- * @param {number | undefined} loginAt horodatage de la connexion (sessions antérieures à ce suivi : 0)
- */
-export function isSessionRevoked(userId, loginAt) {
-    const revoked = revokedAt.get(userId);
-    return revoked !== undefined && (loginAt || 0) <= revoked;
+    await terminateUserSessions(userId);
 }
 
 /** @param {number} userId */

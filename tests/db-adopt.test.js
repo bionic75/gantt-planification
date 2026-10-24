@@ -10,6 +10,13 @@ import { isSqlite } from './helpers/test-db.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const LEGACY_SCHEMA = fs.readFileSync(path.join(ROOT, 'tests/fixtures/legacy-schema.sql'), 'utf8');
+/** Migrations SQLite du dépôt, dans l'ordre d'application */
+const migrationNames = () =>
+    fs
+        .readdirSync(path.join(ROOT, 'prisma/sqlite/migrations'), { withFileTypes: true })
+        .filter(d => d.isDirectory())
+        .map(d => d.name)
+        .sort();
 const workDirs = [];
 afterAll(() => {
     for (const d of workDirs) fs.rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
@@ -69,9 +76,13 @@ describe.skipIf(!isSqlite).concurrent('adoption', { timeout: 120000 }, () => {
         expect(fs.readdirSync(path.join(workDir, 'data', 'backups'))).toHaveLength(1);
 
         const db = open(workDir);
-        expect(db.prepare('SELECT migration_name FROM _prisma_migrations').all()).toEqual([
-            { migration_name: '00000000000000_init' }
-        ]);
+        // Migration initiale marquée appliquée par l'adoption, puis les suivantes appliquées
+        expect(
+            db
+                .prepare('SELECT migration_name FROM _prisma_migrations ORDER BY migration_name')
+                .all()
+                .map(r => r.migration_name)
+        ).toEqual(migrationNames());
         expect(db.prepare('SELECT username, created_at FROM users').get()).toEqual({
             username: 'jdu',
             created_at: '2024-12-31 23:59:59'

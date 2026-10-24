@@ -18,8 +18,11 @@ const FORMAT_VERSION = 1;
 const MAX_UPLOAD_BYTES = 2 * 1024 * 1024 * 1024;
 const TOKEN_TTL_MS = 30 * 60 * 1000;
 const PDF_DIR = './data/pdfs';
-/** Historique des migrations : propre à chaque serveur, jamais sauvegardé ni restauré */
-const INTERNAL_TABLES = ['_prisma_migrations'];
+/**
+ * Propres à chaque serveur, jamais sauvegardées ni restaurées : historique des migrations, sessions ouvertes
+ * (dont celle de l'administrateur qui restaure)
+ */
+const INTERNAL_TABLES = ['_prisma_migrations', 'sessions'];
 
 let restoreInProgress = false;
 export const isRestoreInProgress = () => restoreInProgress;

@@ -2,7 +2,7 @@
 // Accès aux données : comptes pour la connexion, journal des connexions, mot de passe oublié
 import crypto from 'crypto';
 import { prisma } from '../../db/prisma.js';
-import { hashPassword, verifyPassword } from '../../lib/password.js';
+import { hashPassword, verifyAgainstDummy, verifyPassword } from '../../lib/password.js';
 
 /** @typedef {'admin' | 'expert' | 'user' | 'rh'} Profile */
 
@@ -44,7 +44,10 @@ export function profilesOf(/** @type {any} */ user) {
  */
 export async function authenticate(/** @type {string} */ username, /** @type {string} */ password) {
     const user = await prisma.user.findFirst({ where: { username: String(username), actif: 1 } });
-    if (!user) return null;
+    if (!user) {
+        await verifyAgainstDummy(String(password));
+        return null;
+    }
 
     const { ok, needsRehash } = await verifyPassword(String(password), user.password);
     if (!ok) return null;
@@ -141,8 +144,9 @@ export async function getProfilesByUsername(/** @type {string} */ username) {
         where: { username },
         select: { id: true, actif: true, ...PROFILE_FLAGS }
     });
-    if (!user) return { profiles: [], amoaCed: false, availableApps: [] };
-    if (user.actif !== 1) return { profiles: [], error: 'Compte désactivé', amoaCed: false, availableApps: [] };
+    // Compte inconnu ou désactivé : même réponse qu'un compte « utilisateur » simple (ne révèle pas son
+    // existence) ; la connexion échoue ensuite comme avec un mauvais mot de passe
+    if (!user || user.actif !== 1) return { profiles: ['user'], amoaCed: false, availableApps: [] };
     const availableApps = await getAvailableApps(user.id).catch(() => []);
     return { profiles: profilesOf(user), amoaCed: availableApps.includes('deplacements'), availableApps };
 }

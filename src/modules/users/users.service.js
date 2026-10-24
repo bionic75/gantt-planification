@@ -120,6 +120,16 @@ export function getExpertByResource(/** @type {string | number} */ resourceId) {
     });
 }
 
+/** L'adresse est-elle celle d'un utilisateur rattaché à la ressource ? (destinataires des emails d'affectation) */
+export async function isEmailOfResource(/** @type {unknown} */ resourceId, /** @type {unknown} */ email) {
+    if (!resourceId || typeof email !== 'string' || !email) return false;
+    const user = await prisma.user.findFirst({
+        where: { resource_id: idParam(resourceId), email },
+        select: { id: true }
+    });
+    return !!user;
+}
+
 // ---------- Création / modification ----------
 
 /**

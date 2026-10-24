@@ -1,5 +1,6 @@
 // @ts-check
 // Emails des automatisations : rappel de saisie des disponibilités (n°1), sauvegarde du planning (n°2)
+import { escapeHtml as e } from '../../lib/html.js';
 
 /** Rappel aux experts sans disponibilité saisie pour le mois à venir */
 export const reminderEmail = (
@@ -13,16 +14,16 @@ export const reminderEmail = (
                             📅 Rappel de saisie des disponibilités
                         </h2>
 
-                        <p>Bonjour ${expert.prenom} ${expert.nom},</p>
+                        <p>Bonjour ${e(expert.prenom)} ${e(expert.nom)},</p>
 
-                        <p>Nous vous rappelons que vos disponibilités pour le mois de <strong>${targetMonth}</strong> n'ont pas encore été renseignées dans l'application de planification.</p>
+                        <p>Nous vous rappelons que vos disponibilités pour le mois de <strong>${e(targetMonth)}</strong> n'ont pas encore été renseignées dans l'application de planification.</p>
 
                         <div style="margin: 20px 0; padding: 15px; background-color: #fff3e0; border-left: 4px solid #ff9800; border-radius: 4px;">
                             <p style="margin: 0;"><strong>Action requise :</strong></p>
                             <p style="margin: 5px 0 0 0;">Merci de vous connecter à l'application et de saisir vos disponibilités pour le mois à venir.</p>
                         </div>
 
-                        <p>Cordialement,<br>${senderName ? `${senderName}<br>` : ''}Système de planification SI-SAMU</p>
+                        <p>Cordialement,<br>${senderName ? `${e(senderName)}<br>` : ''}Système de planification SI-SAMU</p>
 
                         <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
 
@@ -41,8 +42,8 @@ export const scheduledBackupEmail = (
 ) => `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
                     <h2 style="color: #e65100;">📊 Sauvegarde automatique du planning</h2>
-                    <p>Veuillez trouver ci-joint la sauvegarde du planning pour : ${monthsLabels.join(', ')}</p>
-                    <p>• ${expertsCount} expert(s) inclus<br>• Format : ${format.toUpperCase()}</p>
+                    <p>Veuillez trouver ci-joint la sauvegarde du planning pour : ${e(monthsLabels.join(', '))}</p>
+                    <p>• ${expertsCount} expert(s) inclus<br>• Format : ${e(format.toUpperCase())}</p>
                     <hr><p style="color: #999; font-size: 12px;">Email automatique - Système SI-SAMU</p>
                 </div>
             `;
@@ -61,13 +62,13 @@ export const manualBackupEmail = (
 
                         <p>Veuillez trouver ci-joint la sauvegarde du planning${p.allMonths ? ' (toutes les données)' : ' pour les mois suivants :'}</p>
 
-                        ${!p.allMonths ? `<ul>${p.monthsLabels.map(m => `<li>${m}</li>`).join('')}</ul>` : ''}
+                        ${!p.allMonths ? `<ul>${p.monthsLabels.map(m => `<li>${e(m)}</li>`).join('')}</ul>` : ''}
 
                         <div style="margin: 20px 0; padding: 15px; background-color: #fff3e0; border-left: 4px solid #ff9800; border-radius: 4px;">
                             <p style="margin: 0;"><strong>Informations :</strong></p>
                             <p style="margin: 5px 0 0 0;">
                                 • ${p.expertsCount} expert(s) inclus<br>
-                                • Format : ${p.format.toUpperCase()}<br>
+                                • Format : ${e(p.format.toUpperCase())}<br>
                                 ${p.excludeEmpty ? '• Lignes vides exclues<br>' : ''}
                                 • Date de génération : ${new Date().toLocaleString('fr-FR')}
                             </p>
