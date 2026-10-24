@@ -1,8 +1,8 @@
 # Mac
 .DS_store
 
-# Logs
-logs
+# Logs (dossier à la racine uniquement : src/modules/logs est du code)
+/logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -149,3 +149,6 @@ data.db-wal
 data/data.db
 data/data.db-shm
 data/data.db-wal
+
+# Client Prisma généré (npm install / npm run db:generate)
+src/generated/

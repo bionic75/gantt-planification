@@ -1,0 +1,11 @@
+# Code historique : reformaté au fil de son découpage dans src/ (évite un diff massif)
+public/
+README.md
+.github/workflows/deploy-*.yml
+
+data/
+node_modules/
+coverage/
+package.json
+package-lock.json
+src/generated/
