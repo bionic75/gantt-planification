@@ -1,12 +1,12 @@
 // Aide à l'affectation : modèle PowerPoint et export PDF / PPTX du planning des déploiements
-// Code repris à l'identique de server.js (phase 1) ; découpage contrôleurs / services en phase 2.
-import { dbGet } from '../../db/database.js';
-import path from 'path';
-import { env as appEnv } from '../../config/env.js';
+import { execFile } from 'child_process';
 import fs from 'fs';
 import os from 'os';
-import { execFile } from 'child_process';
+import path from 'path';
+import { env as appEnv } from '../../config/env.js';
+import { HttpError } from '../../lib/http-error.js';
 import { puppeteer } from '../../lib/puppeteer.js';
+import { getJsonSetting } from '../../services/settings.js';
 
 // Le modèle (.pptx) fournit titre, logo, pied de page… ; le planning est inséré en image centrée dans la zone libre de la diapositive « Titre et contenu ».
 export const AFF_TPL_KEY = 'aff_ppt_template';
@@ -20,15 +20,8 @@ export const xmlEsc = v =>
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
 
-export async function affTplLoad() {
-    const r = await dbGet('SELECT value FROM settings WHERE key = ?', [AFF_TPL_KEY]);
-    if (!r) return null;
-    try {
-        return JSON.parse(r.value);
-    } catch (e) {
-        return null;
-    }
-}
+/** Modèle PowerPoint enregistré (nom, taille, analyse, contenu en base64) ; null si absent */
+export const affTplLoad = () => getJsonSetting(AFF_TPL_KEY);
 
 export const affTplMeta = t =>
     t
@@ -59,10 +52,10 @@ export const AFF_NS_REL = 'http://schemas.openxmlformats.org/officeDocument/2006
 
 export async function affTplAnalyze(zip) {
     const pres = zip.file('ppt/presentation.xml');
-    if (!pres) throw Object.assign(new Error('Fichier PowerPoint invalide (presentation.xml absent)'), { status: 400 });
+    if (!pres) throw new HttpError(400, 'Fichier PowerPoint invalide (presentation.xml absent)');
     const presXml = await pres.async('string');
     const sz = /<p:sldSz cx="(\d+)" cy="(\d+)"/.exec(presXml);
-    if (!sz) throw Object.assign(new Error('Taille de diapositive introuvable'), { status: 400 });
+    if (!sz) throw new HttpError(400, 'Taille de diapositive introuvable');
     const W = +sz[1],
         H = +sz[2];
     const relsXml = await zip.file('ppt/_rels/presentation.xml.rels').async('string');
@@ -74,7 +67,7 @@ export async function affTplAnalyze(zip) {
         if (id && tg && ty && /\/slide$/.test(ty[1])) relTarget[id[1]] = 'ppt/' + tg[1].replace(/^\/?(ppt\/)?/, '');
     }
     const slidePaths = [...presXml.matchAll(/<p:sldId [^>]*r:id="([^"]+)"/g)].map(m => relTarget[m[1]]).filter(Boolean);
-    if (!slidePaths.length) throw Object.assign(new Error('Le modèle ne contient aucune diapositive'), { status: 400 });
+    if (!slidePaths.length) throw new HttpError(400, 'Le modèle ne contient aucune diapositive');
     // Diapositive de référence : la première qui porte un vrai titre (pas la page de garde) = « Titre et contenu »
     let base = null;
     for (const sp of slidePaths) {
@@ -85,9 +78,9 @@ export async function affTplAnalyze(zip) {
         }
     }
     if (!base)
-        throw Object.assign(
-            new Error('Aucune diapositive « Titre et contenu » (avec un titre) dans le modèle : ajoutez-en une'),
-            { status: 400 }
+        throw new HttpError(
+            400,
+            'Aucune diapositive « Titre et contenu » (avec un titre) dans le modèle : ajoutez-en une'
         );
     const relPath = base.path.replace('slides/', 'slides/_rels/') + '.rels';
     const slideRels = await zip.file(relPath).async('string');
@@ -161,9 +154,7 @@ export async function affTplAnalyze(zip) {
     bottom -= 60000;
     const zone = { x: left, y: top, w: right - left, h: bottom - top };
     if (zone.w < W * 0.3 || zone.h < H * 0.25)
-        throw Object.assign(new Error('Zone libre trop petite sur la diapositive « Titre et contenu » du modèle'), {
-            status: 400
-        });
+        throw new HttpError(400, 'Zone libre trop petite sur la diapositive « Titre et contenu » du modèle');
     return { W, H, slidePaths, base, relPath, slideRels, zone, layoutName, coverPath, endPath };
 }
 
@@ -496,11 +487,9 @@ export function affSofficePath() {
 export async function affPptxToPdf(buf) {
     const exe = affSofficePath();
     if (!exe)
-        throw Object.assign(
-            new Error(
-                "Export PDF avec modèle PowerPoint indisponible : LibreOffice n'est pas installé sur le serveur. Exportez en PowerPoint, ou décochez « Utiliser le modèle »."
-            ),
-            { status: 501 }
+        throw new HttpError(
+            501,
+            "Export PDF avec modèle PowerPoint indisponible : LibreOffice n'est pas installé sur le serveur. Exportez en PowerPoint, ou décochez « Utiliser le modèle »."
         );
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aff-tpl-'));
     try {
@@ -522,13 +511,11 @@ export async function affPptxToPdf(buf) {
                 (e, so, se) =>
                     e
                         ? reject(
-                              Object.assign(
-                                  new Error(
-                                      /No such file|ENOENT|not found/i.test(String(se) + e.message)
-                                          ? "Export PDF avec modèle PowerPoint indisponible : LibreOffice n'est pas installé sur le serveur. Exportez en PowerPoint, ou décochez « Utiliser le modèle »."
-                                          : 'Conversion PDF impossible : ' + String(se || e.message).slice(0, 200)
-                                  ),
-                                  { status: 501 }
+                              new HttpError(
+                                  501,
+                                  /No such file|ENOENT|not found/i.test(String(se) + e.message)
+                                      ? "Export PDF avec modèle PowerPoint indisponible : LibreOffice n'est pas installé sur le serveur. Exportez en PowerPoint, ou décochez « Utiliser le modèle »."
+                                      : 'Conversion PDF impossible : ' + String(se || e.message).slice(0, 200)
                               )
                           )
                         : resolve()
@@ -558,7 +545,7 @@ export function affBrowserPath() {
 }
 
 export async function affRenderPages(html, wPx, hPx, mode, wMm, hMm, transparent) {
-    if (!puppeteer) throw Object.assign(new Error('Puppeteer non disponible sur ce serveur'), { status: 503 });
+    if (!puppeteer) throw new HttpError(503, 'Puppeteer non disponible sur ce serveur');
     const browser = await puppeteer.launch({
         executablePath: affBrowserPath(),
         args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
@@ -601,7 +588,7 @@ export function affExportParams(req) {
     const wMm = Number(b.wMm),
         hMm = Number(b.hMm);
     if (!html || html.length > 45 * 1024 * 1024 || !(wMm >= 100 && wMm <= 1000) || !(hMm >= 100 && hMm <= 1000))
-        throw Object.assign(new Error("Paramètres d'export invalides"), { status: 400 });
+        throw new HttpError(400, "Paramètres d'export invalides");
     return {
         html,
         wMm,
@@ -618,9 +605,9 @@ export function affExportParams(req) {
 export async function affExportWithTemplate(req, x) {
     const tpl = await affTplLoad();
     if (!tpl)
-        throw Object.assign(
-            new Error("Aucun modèle PowerPoint n'est configuré (Administration › Modèle PowerPoint d'export)"),
-            { status: 400 }
+        throw new HttpError(
+            400,
+            "Aucun modèle PowerPoint n'est configuré (Administration › Modèle PowerPoint d'export)"
         );
     const t = (req.body && req.body.tpl) || {};
     const shots = await affRenderPages(x.html, x.wPx, x.hPx, 'pptx', x.wMm, x.hMm, true);

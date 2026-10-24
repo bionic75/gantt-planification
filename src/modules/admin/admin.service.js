@@ -1,5 +1,4 @@
 // Administration : accès aux onglets par profil et thèmes saisonniers
-// Code repris à l'identique de server.js (phase 1) ; découpage contrôleurs / services en phase 2.
 
 export const TAB_KEYS = [
     'resources',

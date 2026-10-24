@@ -1,0 +1,15 @@
+services:
+  planif-ressources:
+    image: ghcr.io/bionic75/gantt-planification:${VERSION_PLANIF_RESSOURCES}
+    container_name: planif-ressources
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - '8080:3000'
+    volumes:
+      - type: bind
+        source: ${APP_DATA_PATH}/config
+        target: /app/config
+      - type: bind
+        source: ${APP_DATA_PATH}/data
+        target: /app/data

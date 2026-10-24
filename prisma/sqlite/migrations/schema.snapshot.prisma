@@ -1,0 +1,629 @@
+// FICHIER GÉNÉRÉ par « npm run db:schemas » depuis prisma/schema.base.prisma : ne pas modifier.
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "ts"
+}
+
+datasource db {
+  provider     = "sqlite"
+  relationMode = "prisma"
+}
+
+model ActionLog {
+  id          Int     @id @default(autoincrement())
+  user_id     Int
+  action_type String
+  details     String?
+  created_at  String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+
+  @@map("action_logs")
+}
+
+model AffectationAssignment {
+  id          Int     @id @default(autoincrement())
+  project_id  Int
+  stage_key   String
+  resource_id Int
+  created_at  String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+
+  @@unique([project_id, stage_key, resource_id])
+  @@map("affectation_assignments")
+}
+
+model AffectationHistory {
+  id         Int     @id @default(autoincrement())
+  project_id Int
+  samu_name  String?
+  user_id    Int?
+  user_name  String?
+  action     String
+  details    String?
+  created_at String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+
+  @@index([project_id, id], map: "idx_aff_hist_project")
+  @@map("affectation_history")
+}
+
+model AffectationProject {
+  id                      Int     @id @default(autoincrement())
+  samu_name               String
+  location_id             Int?
+  chef_projet_id          Int?
+  date_debut              String
+  date_mise_en_service    String?
+  date_mise_en_production String?
+  periods                 String  @default("{}")
+  created_by              Int?
+  created_at              String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+  updated_at              String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+
+  @@map("affectation_projects")
+}
+
+model ApiKey {
+  id           Int     @id @default(autoincrement())
+  label        String
+  key_hash     String  @unique
+  key_prefix   String
+  created_by   Int?
+  created_at   String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+  last_used_at String?
+  revoked      Int?    @default(0)
+
+  @@map("api_keys")
+}
+
+model AppUserAccess {
+  id         Int     @id @default(autoincrement())
+  app_key    String
+  user_id    Int
+  created_at String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+
+  @@unique([app_key, user_id])
+  @@map("app_user_access")
+}
+
+model AstreinteDisponibilite {
+  id           Int     @id @default(autoincrement())
+  resource_id  Int
+  date         String
+  type_creneau String
+  created_at   String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+
+  @@unique([resource_id, date])
+  @@map("astreinte_disponibilites")
+}
+
+model AstreinteIndisponibilite {
+  id           Int     @id @default(autoincrement())
+  resource_id  Int
+  date         String
+  type_creneau String
+  motif        String?
+  created_at   String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+
+  @@unique([resource_id, date, type_creneau])
+  @@map("astreinte_indisponibilites")
+}
+
+model AstreintePlanning {
+  id           Int     @id @default(autoincrement())
+  date         String
+  type_creneau String
+  resource_id  Int?
+  year         Int
+  month        Int
+  created_at   String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+
+  @@unique([date, type_creneau])
+  @@map("astreinte_planning")
+}
+
+model AstreinteHno {
+  id          Int     @id @default(autoincrement())
+  user_id     Int
+  type        String
+  date_debut  String
+  date_fin    String
+  heure_debut String?
+  heure_fin   String?
+  samu        String?
+  tous_samu   Int?    @default(0)
+  objet       String
+  created_at  String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+  updated_at  String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+
+  @@map("astreintes_hno")
+}
+
+model AutomationLog {
+  id              Int     @id @default(autoincrement())
+  automation_id   Int
+  expert_id       Int?
+  expert_name     String?
+  expert_email    String?
+  target_month    String?
+  sent_at         String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+  recipients_list String?
+  file_content    String?
+  filename        String?
+
+  @@map("automation_logs")
+}
+
+model BonCommande {
+  id                          Int     @id @default(autoincrement())
+  intitule                    String
+  titulaire                   String?
+  date_debut                  String
+  date_fin                    String
+  nb_uo                       Int
+  created_at                  String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+  created_by                  Int?
+  actif                       Int?    @default(1)
+  solde                       Int?    @default(0)
+  regularisation_cible_bdc_id Int?
+
+  @@map("bons_commande")
+}
+
+model ConnectionLog {
+  id            Int     @id @default(autoincrement())
+  user_id       Int?
+  username      String
+  nom           String
+  prenom        String
+  profile       String
+  login_time    String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+  modifications String? @default("")
+
+  @@map("connection_logs")
+}
+
+model Cra {
+  id                  Int     @id @default(autoincrement())
+  user_id             Int
+  resource_id         Int?
+  mois                Int
+  annee               Int
+  statut              String  @default("a_completer")
+  commentaire_expert  String?
+  submitted_at        String?
+  vise_n1_at          String?
+  vise_n1_by          Int?
+  vise_n2_at          String?
+  vise_n2_by          Int?
+  diffuse_at          String?
+  created_at          String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+  rien_a_declarer     Int?    @default(0)
+  commentaire_refus   String?
+  refuse_by           Int?
+  refuse_at           String?
+  deleted             Int?    @default(0)
+  pre_delete_statut   String?
+  pre_delete_archived Int?
+  modifie_admin_at    String?
+  modifie_admin_nom   String?
+  archived            Int?    @default(0)
+  pdf_filename        String?
+
+  @@unique([user_id, mois, annee])
+  @@map("cra")
+}
+
+model CraDiffusionLog {
+  id              Int     @id @default(autoincrement())
+  cra_id          Int
+  recipient_email String
+  recipient_name  String?
+  recipient_type  String? @default("rh_es")
+  sent_at         String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+  email_batch_id  String?
+
+  @@map("cra_diffusion_log")
+}
+
+model CraRhRecipient {
+  id          Int     @id @default(autoincrement())
+  resource_id Int
+  email       String
+  nom         String?
+
+  @@unique([resource_id, email])
+  @@map("cra_rh_recipients")
+}
+
+model CraSignature {
+  id               Int     @id @default(autoincrement())
+  cra_id           Int
+  rang             Int
+  signer_user_id   Int?
+  signer_name      String
+  signer_email     String
+  signed_at        String  @default(dbgenerated("CURRENT_TIMESTAMP"))
+  ip_address       String?
+  user_agent       String?
+  token            String? @unique
+  token_used       Int?    @default(0)
+  token_expires_at String?
+
+  @@map("cra_signatures")
+}
+
+model CustomEventExternalParticipant {
+  id       Int     @id @default(autoincrement())
+  event_id Int
+  nom      String?
+  prenom   String?
+  email    String?
+  added_at String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+
+  @@map("custom_event_external_participants")
+}
+
+model CustomEventParticipant {
+  id       Int     @id @default(autoincrement())
+  event_id Int
+  user_id  Int
+  added_at String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+
+  @@unique([event_id, user_id])
+  @@map("custom_event_participants")
+}
+
+model CustomEvent {
+  id              Int     @id @default(autoincrement())
+  label           String
+  start_date      String
+  end_date        String
+  config          String?
+  created_by      Int?
+  created_at      String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+  needs_resources Int?    @default(0)
+  resources_count Int?    @default(1)
+  type_id         Int?
+  grist           Int?    @default(0)
+  location_id     Int?
+  period          String? @default("FULL")
+
+  @@map("custom_events")
+}
+
+model Deplacement {
+  id                           Int     @id @default(autoincrement())
+  user_id                      Int
+  amoa_ced_id                  Int?
+  date_debut                   String
+  date_fin                     String
+  samu                         String
+  ville                        String
+  bon_commande_id              Int?
+  nb_uo                        Int
+  created_at                   String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+  a_regulariser                Int?    @default(0)
+  regularisation_source_bdc_id Int?
+  commentaire                  String?
+  regularisation_cible_bdc_id  Int?
+
+  @@map("deplacements")
+}
+
+model EmailConfig {
+  id         Int     @id @default(autoincrement())
+  host       String
+  port       Int
+  secure     Int?    @default(0)
+  user       String
+  password   String
+  updated_at String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+
+  @@map("email_config")
+}
+
+model EmailQueue {
+  id              Int     @id @default(autoincrement())
+  batch_id        String
+  recipient_email String
+  recipient_name  String
+  sender_name     String
+  sender_email    String
+  subject         String
+  html_body       String
+  ics_content     String?
+  ics_method      String?
+  ics_filename    String?
+  pdf_attachment  String?
+  pdf_filename    String?
+  status          String? @default("pending")
+  attempts        Int?    @default(0)
+  max_attempts    Int?    @default(3)
+  error_message   String?
+  action_type     String?
+  resource_id     Int?
+  created_at      String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+  processed_at    String?
+  next_retry_at   String?
+  cc_emails       String?
+
+  @@map("email_queue")
+}
+
+model EventType {
+  id           Int     @id @default(autoincrement())
+  code         String? @unique
+  label_long   String
+  label_short  String  @default("")
+  icon         String  @default("tag")
+  bg_color     String  @default("#ffeb3b")
+  text_color   String  @default("#000000")
+  border_color String  @default("#000000")
+  is_other     Int     @default(0)
+  sort_order   Int     @default(0)
+
+  @@map("event_types")
+}
+
+model ExpertNotification {
+  id             Int     @id @default(autoincrement())
+  expert_id      Int
+  date           String
+  period         String
+  activity_name  String
+  requester_name String
+  action_type    String
+  created_at     String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+  is_read        Int?    @default(0)
+
+  @@map("expert_notifications")
+}
+
+model IcsEvent {
+  id             Int     @id @default(autoincrement())
+  file_id        Int
+  event_date     String
+  event_end_date String?
+  summary        String?
+  zone           String?
+
+  @@map("ics_events")
+}
+
+model IcsFile {
+  id          Int     @id @default(autoincrement())
+  type        String
+  filename    String
+  content     String?
+  config      String?
+  imported_at String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+
+  @@map("ics_files")
+}
+
+model Location {
+  id            Int     @id @default(autoincrement())
+  libelle_long  String  @unique
+  libelle_court String
+  adresse       String?
+  latitude      Float?
+  longitude     Float?
+  created_at    String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+  updated_at    String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+
+  @@map("locations")
+}
+
+model MfaCode {
+  id         Int     @id @default(autoincrement())
+  user_id    Int     @unique
+  code       String
+  expires_at String
+  created_at String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+
+  @@map("mfa_codes")
+}
+
+model MfaValidation {
+  id           Int     @id @default(autoincrement())
+  user_id      Int
+  validated_at String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+
+  @@map("mfa_validations")
+}
+
+model PasswordResetToken {
+  id         Int     @id @default(autoincrement())
+  user_id    Int
+  token_hash String  @unique
+  created_at String
+  expires_at String
+  used_at    String?
+
+  @@map("password_reset_tokens")
+}
+
+model PendingNotification {
+  id              Int     @id @default(autoincrement())
+  session_id      String
+  resource_id     Int
+  expert_id       Int
+  assignment_data String
+  created_by      Int
+  created_at      String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+
+  @@map("pending_notifications")
+}
+
+model PendingPushMessage {
+  id           Int     @id @default(autoincrement())
+  to_user_id   Int
+  from_user_id Int
+  from_name    String?
+  from_photo   String?
+  message      String
+  sent_at      String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+
+  @@map("pending_push_messages")
+}
+
+model Poi {
+  id          Int     @id @default(autoincrement())
+  location_id Int
+  category    String
+  name        String
+  address     String?
+  latitude    Float?
+  longitude   Float?
+  comment     String?
+  website     String?
+  phone       String?
+  osm_ref     String?
+  created_by  Int?
+  created_at  String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+  updated_at  String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+
+  @@index([location_id], map: "idx_poi_location")
+  @@map("poi")
+}
+
+model PoiComment {
+  id         Int     @id @default(autoincrement())
+  poi_id     Int
+  user_id    Int
+  text       String
+  created_at String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+  updated_at String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+
+  @@index([poi_id], map: "idx_poi_comments_poi")
+  @@map("poi_comments")
+}
+
+model PoiRating {
+  id         Int     @id @default(autoincrement())
+  poi_id     Int
+  user_id    Int
+  rating     Int
+  created_at String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+  updated_at String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+
+  @@unique([poi_id, user_id])
+  @@map("poi_ratings")
+}
+
+model ResourceMadHistory {
+  id          Int     @id @default(autoincrement())
+  resource_id Int
+  taux        Float
+  date_debut  String
+  date_fin    String?
+  created_at  String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+  created_by  Int?
+
+  @@map("resource_mad_history")
+}
+
+model ResourceMadParticularite {
+  id             Int     @id @default(autoincrement())
+  resource_id    Int
+  mad_history_id Int
+  taux           Float
+  date_debut     String
+  date_fin       String
+  motif          String?
+  created_at     String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+  created_by     Int?
+
+  @@map("resource_mad_particularites")
+}
+
+model ResourceSamuAssignment {
+  id          Int     @id @default(autoincrement())
+  resource_id Int
+  samu        String
+  role        String
+  created_at  String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+
+  @@unique([resource_id, samu])
+  @@map("resource_samu_assignments")
+}
+
+model Resource {
+  id                        Int     @id @default(autoincrement())
+  nom                       String
+  prenom                    String
+  trigramme                 String
+  email                     String?
+  telephone                 String?
+  taux                      Float
+  samu                      String
+  actif                     Int?    @default(1)
+  date_debut                String?
+  date_fin                  String?
+  es_rattachement           String?
+  fonction                  String?
+  created_at                String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+  astreinte_volontaire      Int?    @default(0)
+  date_fin_mad              String?
+  jours_max_mad             Int?
+  is_mad_volante            Int?    @default(0)
+  contacts_rh               String?
+  astreinte_date_activation String?
+
+  @@map("resources")
+}
+
+model ScheduleData {
+  id           Int     @id @default(autoincrement())
+  resource_id  Int
+  date_key     String
+  type         String
+  value        String
+  notification String? @default("0")
+  created_at   String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+
+  @@unique([resource_id, date_key, type])
+  @@map("schedule_data")
+}
+
+model Setting {
+  id    Int    @id @default(autoincrement())
+  key   String @unique
+  value String
+
+  @@map("settings")
+}
+
+model SystemConfig {
+  id         Int     @id @default(autoincrement())
+  version    String
+  updated_at String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+
+  @@map("system_config")
+}
+
+model User {
+  id                   Int     @id @default(autoincrement())
+  username             String  @unique
+  password             String
+  nom                  String
+  prenom               String
+  email                String
+  telephone            String?
+  is_admin             Int?    @default(0)
+  is_expert            Int?    @default(0)
+  is_user              Int?    @default(0)
+  resource_id          Int?
+  actif                Int?    @default(1)
+  created_at           String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+  totp_secret          String?
+  default_tab          String? @default("planning")
+  profile_photo        String?
+  trigramme            String?
+  has_reporting_access Int?    @default(0)
+  amoa_ced             Int?    @default(0)
+  is_rh                Int?    @default(0)
+
+  @@map("users")
+}
