@@ -7,6 +7,7 @@ import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createClient } from './client.js';
+import { createDatabase, databaseEnv, dropDatabase, isSqlite, newDatabaseName, TEST_PROVIDER } from './test-db.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const ADMIN = { username: 'admin', password: 'Admin2025!' };
@@ -41,6 +42,11 @@ const isLegacyEntry = () => !!process.env.TEST_SERVER_ENTRY && process.env.TEST_
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const definedOnly = obj => Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined));
 
+/** Base PostgreSQL / MariaDB d'un serveur de test (nom conservé dans son répertoire de travail) */
+const databaseFile = workDir => path.join(workDir, 'test-database.txt');
+const databaseOf = workDir =>
+    fs.existsSync(databaseFile(workDir)) ? fs.readFileSync(databaseFile(workDir), 'utf8') : null;
+
 /** Applique les migrations sur la base de test (comme « npm start » avant le serveur) */
 function migrate(workDir) {
     execFileSync(process.execPath, [path.join(ROOT, 'scripts', 'db-migrate.mjs')], {
@@ -48,17 +54,18 @@ function migrate(workDir) {
         env: definedOnly({
             PATH: process.env.PATH,
             SYSTEMROOT: process.env.SYSTEMROOT,
-            DB_PATH: path.join(workDir, 'data')
+            DB_PATH: path.join(workDir, 'data'),
+            ...databaseEnv(databaseOf(workDir))
         }),
         stdio: 'pipe'
     });
 }
 
-/** Base modèle déjà migrée (tests/global-setup.js), absente hors de Vitest (script de comparaison) */
-async function templateDbDir() {
+/** Valeur fournie par tests/global-setup.js, absente hors de Vitest (script de comparaison) */
+async function injected(key) {
     try {
         const { inject } = await import('vitest');
-        return inject('templateDbDir') || null;
+        return inject(key) || null;
     } catch {
         return null;
     }
@@ -70,7 +77,20 @@ async function templateDbDir() {
  */
 async function prepareDatabase(workDir) {
     const dataDir = path.join(workDir, 'data');
-    const template = await templateDbDir();
+    if (!isSqlite) {
+        // PostgreSQL : copie de la base modèle ; MariaDB : base vide puis migrations
+        fs.mkdirSync(dataDir, { recursive: true });
+        if (!databaseOf(workDir)) {
+            const name = newDatabaseName('gantt_test');
+            const template = TEST_PROVIDER === 'postgresql' ? await injected('templateDatabase') : null;
+            await createDatabase(name, template);
+            fs.writeFileSync(databaseFile(workDir), name);
+            if (template) return;
+        }
+        migrate(workDir);
+        return;
+    }
+    const template = await injected('templateDbDir');
     if (!fs.existsSync(path.join(dataDir, 'data.db')) && template) {
         fs.mkdirSync(dataDir, { recursive: true });
         for (const suffix of ['', '-wal', '-shm']) {
@@ -101,6 +121,8 @@ export async function startServer({ workDir = createWorkDir() } = {}) {
         }
         return await bootServer(workDir);
     } catch (err) {
+        const database = databaseOf(workDir);
+        if (database) await dropDatabase(database).catch(() => {});
         fs.rmSync(workDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
         throw err;
     }
@@ -129,6 +151,7 @@ async function bootServer(workDir) {
             NODE_ENV: 'test',
             PORT: String(port),
             DB_PATH: path.join(workDir, 'data'),
+            ...databaseEnv(databaseOf(workDir)),
             APP_URL: APP_URL,
             SESSION_SECRET: 'test-secret-'.padEnd(48, 'x')
         }),
@@ -156,6 +179,8 @@ async function bootServer(workDir) {
             if (process.env.TEST_LOGS_DIR) {
                 fs.writeFileSync(path.join(process.env.TEST_LOGS_DIR, `${path.basename(workDir)}.log`), logs);
             }
+            const database = databaseOf(workDir);
+            if (database) await dropDatabase(database);
             fs.rmSync(workDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
         }
     };

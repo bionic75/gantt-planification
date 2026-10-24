@@ -4,13 +4,16 @@
 // ces fonctions reproduisent ce comportement de façon explicite et portable.
 import { env } from '../config/env.js';
 
+const INT32_MAX = 2147483647;
+
 /**
- * Identifiant lu dans l'URL : un identifiant invalide ne correspond à aucune ligne (comme en SQL)
+ * Identifiant lu dans l'URL : un identifiant invalide ne correspond à aucune ligne (comme en SQL).
+ * Hors des entiers 32 bits (colonnes INTEGER de PostgreSQL et MariaDB) : aucune ligne non plus, plutôt qu'une erreur.
  * @param {unknown} value
  */
 export function idParam(value) {
     const n = Number(value);
-    return Number.isSafeInteger(n) ? n : -1;
+    return Number.isSafeInteger(n) && Math.abs(n) <= INT32_MAX ? n : -1;
 }
 
 /**
