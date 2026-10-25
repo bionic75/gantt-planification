@@ -1,17 +1,32 @@
-FROM node:18-alpine
+FROM node:22-alpine
 
 # Chromium + libs requises par Puppeteer
 RUN apk add --no-cache chromium nss freetype freetype-dev harfbuzz ca-certificates ttf-freefont
 
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+# Nom de la variable depuis Puppeteer 20 (l'ancien est ignoré)
+ENV PUPPETEER_SKIP_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+# SESSION_SECRET (32 caractères min.) et APP_URL doivent être fournis au conteneur : le serveur refuse de démarrer sans
+ENV NODE_ENV=production
+# Base de données : sqlite (défaut), postgresql ou mysql. Le client Prisma est généré pour ce fournisseur.
+ARG DB_PROVIDER=sqlite
+ENV DB_PROVIDER=${DB_PROVIDER}
 
 WORKDIR /app
+RUN chown node:node /app
 
-COPY . .
+# Utilisateur sans privilèges (uid 1000) : les répertoires montés (config, data) doivent lui appartenir,
+# voir docs/securite.md
+USER node
 
-RUN npm install
+COPY --chown=node:node . .
 
-EXPOSE 8080
+# Installation (génère aussi le client Prisma : script postinstall)
+RUN npm ci --omit=dev
 
-CMD ["node", "server.js"]
+# Port d'écoute : PORT (défaut 3000)
+EXPOSE 3000
+
+# Migrations en attente appliquées à chaque démarrage, puis lancement du serveur
+CMD ["sh", "-c", "node scripts/db-migrate.mjs && exec node server.js"]

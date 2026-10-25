@@ -1,0 +1,228 @@
+/* Thèmes d'affichage saisonniers — activés par <html data-theme="..." data-theme-level="sobre|decore|anime"> */
+
+html[data-theme] .user-info {
+    background: linear-gradient(100deg, var(--th-bar-a), var(--th-bar-b));
+    border-bottom-color: var(--th-accent);
+}
+html[data-theme] .tabs {
+    background-color: var(--th-tabs);
+    border-bottom-color: var(--th-accent);
+    animation: th-glow 7s ease-in-out infinite;
+}
+html[data-theme] .tab-btn {
+    background-color: var(--th-tabs);
+}
+html[data-theme] .tab-btn:hover {
+    background-color: var(--th-tabs-hover);
+}
+html[data-theme] .tab-btn.active {
+    background-color: var(--th-active);
+    border-bottom-color: var(--th-accent);
+}
+html[data-theme] .user-info-role {
+    background-color: var(--th-active);
+}
+
+html[data-theme='halloween'] {
+    --th-bar-a: #1b1326;
+    --th-bar-b: #3b2152;
+    --th-tabs: #261a35;
+    --th-tabs-hover: #35244a;
+    --th-accent: #ff7a18;
+    --th-accent2: #7e3ff2;
+    --th-active: #d9590b;
+}
+html[data-theme='noel'] {
+    --th-bar-a: #8e1b24;
+    --th-bar-b: #14532d;
+    --th-tabs: #1d3b2b;
+    --th-tabs-hover: #29503b;
+    --th-accent: #e3b94f;
+    --th-accent2: #ef5350;
+    --th-active: #b3262f;
+}
+html[data-theme='saintvalentin'] {
+    --th-bar-a: #8a1f4a;
+    --th-bar-b: #c2185b;
+    --th-tabs: #6b1a3b;
+    --th-tabs-hover: #85244d;
+    --th-accent: #ff8fb1;
+    --th-accent2: #ffd1de;
+    --th-active: #d81b60;
+}
+html[data-theme='saintpatrick'] {
+    --th-bar-a: #0b5d1e;
+    --th-bar-b: #1f9d3a;
+    --th-tabs: #0e4a24;
+    --th-tabs-hover: #15622f;
+    --th-accent: #ffc107;
+    --th-accent2: #7ddc8a;
+    --th-active: #168a3a;
+}
+html[data-theme='paques'] {
+    --th-bar-a: #3f8f5f;
+    --th-bar-b: #78b27a;
+    --th-tabs: #357a52;
+    --th-tabs-hover: #428e63;
+    --th-accent: #f6d365;
+    --th-accent2: #f4a6c8;
+    --th-active: #8e6bb8;
+}
+html[data-theme='vacances'] {
+    --th-bar-a: #0a6c7e;
+    --th-bar-b: #17a2b8;
+    --th-tabs: #0b5565;
+    --th-tabs-hover: #0f6c7f;
+    --th-accent: #ffd166;
+    --th-accent2: #ff9f1c;
+    --th-active: #e8890c;
+}
+
+@keyframes th-glow {
+    0%,
+    100% {
+        border-bottom-color: var(--th-accent);
+    }
+    50% {
+        border-bottom-color: var(--th-accent2);
+    }
+}
+@keyframes th-sway {
+    0%,
+    100% {
+        transform: rotate(-7deg);
+    }
+    50% {
+        transform: rotate(7deg);
+    }
+}
+@keyframes th-fall {
+    0% {
+        transform: translate3d(0, -6vh, 0) rotate(0deg);
+        opacity: 0;
+    }
+    10% {
+        opacity: 0.75;
+    }
+    100% {
+        transform: translate3d(var(--th-drift, 20px), 108vh, 0) rotate(300deg);
+        opacity: 0.1;
+    }
+}
+@keyframes th-rise {
+    0% {
+        transform: translate3d(0, 108vh, 0) scale(0.8);
+        opacity: 0;
+    }
+    10% {
+        opacity: 0.7;
+    }
+    100% {
+        transform: translate3d(var(--th-drift, 20px), -8vh, 0) scale(1.1);
+        opacity: 0;
+    }
+}
+
+#themeBadge {
+    position: absolute;
+    left: 12px;
+    top: -5px;
+    width: 26px;
+    height: 26px;
+    pointer-events: none;
+    z-index: 3;
+    transform-origin: 70% 90%;
+    animation: th-sway 5s ease-in-out infinite;
+}
+#themeBadge svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.35));
+}
+
+#themeStrip {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    height: 14px;
+    pointer-events: none;
+    background-repeat: repeat-x;
+    background-size: 40px 14px;
+    z-index: 2;
+}
+html[data-theme-level='decore'] .header-spacer,
+html[data-theme-level='anime'] .header-spacer {
+    height: 124px;
+}
+
+#themeParticles {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 900;
+}
+#themeParticles span {
+    position: absolute;
+    top: 0;
+    display: block;
+    will-change: transform;
+}
+#themeParticles.fall span {
+    animation: th-fall linear infinite;
+}
+#themeParticles.rise span {
+    animation: th-rise linear infinite;
+}
+
+#themeQuickBtn {
+    display: none;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 50%;
+    background: #fff;
+    cursor: pointer;
+    z-index: 1001;
+    padding: 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s;
+}
+#themeQuickBtn:hover {
+    transform: scale(1.1);
+}
+#themeQuickBtn svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: var(--th-btn, #6c757d);
+    stroke-width: 1.9;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+#themeQuickBtn.off svg {
+    stroke: #9aa0a6;
+}
+#themeQuickBtn.off::after {
+    content: '';
+    position: absolute;
+    width: 22px;
+    height: 2px;
+    background: #9aa0a6;
+    transform: rotate(-45deg);
+    border-radius: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html[data-theme] .tabs,
+    #themeBadge {
+        animation: none;
+    }
+    #themeParticles {
+        display: none;
+    }
+}

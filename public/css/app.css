@@ -1,0 +1,1470 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+html,
+body {
+    height: 100%;
+}
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f5f5f5;
+    padding: 10px;
+    min-height: 100%;
+}
+.container {
+    max-width: 100%;
+    margin: 0;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    overflow: visible;
+    display: none;
+    min-height: calc(100vh - 20px);
+}
+.tabs {
+    display: flex;
+    background-color: #2c3e50;
+    border-bottom: 3px solid #1d70b7;
+}
+
+/* Header fixe en haut */
+.fixed-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    background-color: white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Espaceur pour compenser le header fixe */
+.header-spacer {
+    height: 110px; /* Ajuster selon la hauteur réelle du header */
+}
+.tab-btn {
+    flex: 1;
+    white-space: nowrap;
+    padding: 15px;
+    background-color: #2c3e50;
+    color: white;
+    border: none;
+    cursor: grab;
+    font-size: 14px;
+    font-weight: bold;
+    transition: all 0.3s;
+}
+.tab-btn:hover {
+    background-color: #34495e;
+}
+.tab-btn.active {
+    background-color: #1d70b7;
+    border-bottom: 4px solid #2980b9;
+}
+.app-ico {
+    fill: none;
+    stroke-width: 1.9;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    flex-shrink: 0;
+}
+.icon-actions {
+    display: flex;
+    gap: 5px;
+    flex-wrap: nowrap;
+    align-items: center;
+}
+.icon-btn {
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    margin: 0;
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition:
+        filter 0.15s,
+        transform 0.15s;
+}
+.icon-btn:hover {
+    filter: brightness(1.12);
+    transform: translateY(-1px);
+}
+.icon-btn svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.9;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+#usersTable {
+    min-width: 1350px;
+}
+#resourcesTable {
+    min-width: 1500px;
+}
+td.ell {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+svg.app-ico,
+svg.tab-ico {
+    vertical-align: middle !important;
+}
+.gantt-hide-btn {
+    position: absolute;
+    left: 2px;
+    top: 2px;
+    width: 20px;
+    height: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.65);
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.28);
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 !important;
+    margin: 0 !important;
+    min-width: 0 !important;
+    z-index: 2;
+    transition: background 0.15s;
+}
+.gantt-hide-btn:hover {
+    background: rgba(231, 76, 60, 0.85);
+}
+.gantt-hide-btn svg {
+    flex-shrink: 0;
+    width: 12px;
+    height: 12px;
+    stroke: currentColor;
+    stroke-width: 3.4;
+    fill: none;
+    stroke-linecap: round;
+}
+tr.gantt-row-hidden {
+    display: none !important;
+}
+#ganttHiddenWrap {
+    position: relative;
+    display: none;
+    margin-left: 8px;
+}
+#ganttHiddenBtn {
+    height: 36px;
+    padding: 0 12px;
+    border: none;
+    border-radius: 6px;
+    background: linear-gradient(145deg, #f59e0b, #d97706);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+#ganttHiddenBtn:hover {
+    filter: brightness(1.08);
+}
+#ganttHiddenBtn svg {
+    width: 16px;
+    height: 16px;
+    stroke: currentColor;
+    stroke-width: 2;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+#ganttHiddenPop {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    z-index: 200;
+    background: #fff;
+    border: 1px solid #d5dae6;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    min-width: 260px;
+    max-height: 320px;
+    overflow-y: auto;
+    padding: 8px;
+}
+#ganttHiddenPop .ghp-title {
+    font-size: 12px;
+    font-weight: bold;
+    color: #2c3e50;
+    padding: 4px 6px 8px;
+}
+#ganttHiddenPop .ghp-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 5px 6px;
+    border-radius: 6px;
+    font-size: 12px;
+    color: #2c3e50;
+}
+#ganttHiddenPop .ghp-row:hover {
+    background: #eef3fb;
+}
+#ganttHiddenPop button {
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 10px;
+}
+#ganttHiddenPop .ghp-show {
+    background: #e3f2fd;
+    color: #1565c0;
+}
+#ganttHiddenPop .ghp-all {
+    width: 100%;
+    margin-top: 6px;
+    padding: 8px;
+    background: #3949ab;
+    color: #fff;
+}
+.alert-ico {
+    width: 1.15em;
+    height: 1.15em;
+    vertical-align: -0.22em;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    flex-shrink: 0;
+}
+.tab-ico {
+    width: 18px;
+    height: 18px;
+    margin-right: 8px;
+    vertical-align: -3px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0.9;
+}
+.tab-btn.tab-dragging {
+    opacity: 0.4;
+    cursor: grabbing;
+    pointer-events: none;
+}
+.tab-btn.tab-drag-over {
+    background-color: #3d5a73;
+    box-shadow: inset 0 0 0 2px #5dade2;
+}
+.tab-content {
+    display: none;
+    padding: 20px;
+    animation: fadeIn 0.3s;
+}
+.tab-content.active {
+    display: block;
+}
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+h2 {
+    color: #2c3e50;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #1d70b7;
+    padding-bottom: 10px;
+}
+h3 {
+    color: #2c3e50;
+    margin-top: 15px;
+    margin-bottom: 10px;
+    font-size: 14px;
+    border-left: 3px solid #1d70b7;
+    padding-left: 10px;
+}
+.form-section {
+    background-color: #ecf0f1;
+    padding: 15px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+}
+.form-group {
+    margin-bottom: 12px;
+}
+label {
+    display: block;
+    margin-bottom: 5px;
+    color: #2c3e50;
+    font-weight: bold;
+    font-size: 13px;
+}
+input,
+select,
+textarea {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #bdc3c7;
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: Arial, sans-serif;
+}
+input:focus,
+select:focus,
+textarea:focus {
+    outline: none;
+    border-color: #1d70b7;
+    box-shadow: 0 0 8px rgba(0, 0, 145, 0.3);
+}
+#loginPage .lp-suggest {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% - 6px);
+    z-index: 30;
+    background: #fff;
+    border: 1px solid #cfd8e6;
+    border-radius: 10px;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.18);
+    padding: 4px;
+    max-height: 240px;
+    overflow-y: auto;
+}
+#loginPage .lp-suggest-t {
+    font-size: 11px;
+    color: #7a8799;
+    padding: 4px 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+#loginPage .lp-suggest-i {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 8px;
+    border-radius: 7px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #1f2d3d;
+}
+#loginPage .lp-suggest-i:hover {
+    background: #eaf2fb;
+}
+#loginPage .lp-suggest-i svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: #1d70b7;
+    stroke-width: 1.9;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    flex: none;
+}
+#loginPage .lp-suggest-i span {
+    flex: 1;
+}
+#loginPage .lp-suggest-i button {
+    border: none;
+    background: transparent;
+    color: #9aa7b8;
+    font-size: 17px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 4px;
+    border-radius: 50%;
+}
+#loginPage .lp-suggest-i button:hover {
+    color: #b3261e;
+    background: #fdecea;
+}
+#loginUsername:focus,
+#loginPassword:focus,
+#loginProfile:focus {
+    border-color: #1d70b7 !important;
+    box-shadow: 0 0 8px rgba(0, 0, 145, 0.3) !important;
+}
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 10px;
+}
+.button-group {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+    flex-wrap: wrap;
+}
+
+/* Tag-input pour affectation SAMU (expert principal / secondaire) */
+.samu-tag-box {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 4px 6px;
+    border: 1px solid #bdc3c7;
+    border-radius: 4px;
+    min-height: 36px;
+    align-items: center;
+    background: white;
+    cursor: text;
+}
+.samu-tag-input {
+    border: none !important;
+    outline: none;
+    flex: 1;
+    min-width: 100px;
+    padding: 4px 2px !important;
+    font-size: 12px;
+    box-shadow: none !important;
+}
+.samu-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border-radius: 14px;
+    padding: 3px 8px 3px 10px;
+    font-size: 11px;
+    font-weight: bold;
+    white-space: nowrap;
+    color: white;
+}
+.samu-tag.principal {
+    background-color: #1565c0;
+}
+.samu-tag.secondaire {
+    background-color: #78909c;
+}
+.samu-tag .samu-tag-remove {
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    margin-left: 2px;
+    opacity: 0.85;
+}
+.samu-tag .samu-tag-remove:hover {
+    opacity: 1;
+}
+.samu-tag-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 0 0 6px 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    max-height: 180px;
+    overflow-y: auto;
+    z-index: 1500;
+}
+.samu-tag-dropdown-item {
+    padding: 7px 12px;
+    cursor: pointer;
+    font-size: 12px;
+    border-bottom: 1px solid #f5f5f5;
+}
+.samu-tag-dropdown-item:hover {
+    background: #f0f4f8;
+}
+.samu-tag-dropdown-empty {
+    padding: 10px 12px;
+    font-size: 11px;
+    color: #999;
+    font-style: italic;
+}
+button {
+    padding: 10px 20px;
+    background-color: #1d70b7;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.3s;
+}
+button:hover {
+    background-color: #2980b9;
+}
+button.delete {
+    background-color: #d60b51;
+    padding: 5px 10px;
+    font-size: 12px;
+}
+button.delete:hover {
+    background-color: #c0392b;
+}
+button.edit {
+    background-color: #f39c12;
+    padding: 5px 10px;
+    font-size: 12px;
+}
+button.edit:hover {
+    background-color: #e67e22;
+}
+button.export-btn {
+    background-color: #27ae60;
+}
+button.export-btn:hover {
+    background-color: #229954;
+}
+.table-container {
+    overflow-x: auto;
+    margin-top: 20px;
+}
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+th {
+    background-color: #34495e;
+    color: white;
+    padding: 10px;
+    text-align: left;
+    font-weight: bold;
+    cursor: pointer;
+    user-select: none;
+}
+th:hover {
+    background-color: #2c3e50;
+}
+th::after {
+    content: ' ▲▼';
+    font-size: 11px;
+}
+th.no-sort {
+    cursor: default;
+}
+th.no-sort:hover {
+    background-color: #34495e;
+}
+th.no-sort::after {
+    content: none;
+}
+th.resource-label {
+    cursor: default;
+}
+th.resource-label:hover {
+    background-color: #34495e;
+}
+th.resource-label::after {
+    content: none;
+}
+th.day-header::after {
+    content: none;
+}
+th.week-number-header::after {
+    content: none;
+}
+th.week-number-header {
+    cursor: default !important;
+}
+/* Tableau reporting - pas de flèches par défaut */
+#reportingTable th {
+    cursor: default;
+}
+#reportingTable th::after {
+    content: none;
+}
+#reportingTable th:hover {
+    background-color: #34495e;
+}
+/* Tableaux événements personnalisés - pas de flèches CSS (gérées en JS) */
+#customEventsTableContainer th::after {
+    content: none;
+}
+/* Tables déplacements - flèches gérées manuellement */
+#mesDeplacementsTable th::after {
+    content: none;
+}
+#mesDeplacementsTable th.sortable::after {
+    content: ' ▲▼';
+    font-size: 11px;
+}
+#mesDeplacementsTable th.sortable.asc::after {
+    content: ' ▲';
+    font-size: 11px;
+}
+#mesDeplacementsTable th.sortable.desc::after {
+    content: ' ▼';
+    font-size: 11px;
+}
+#mesDeplacementsTable th.sortable {
+    cursor: pointer;
+}
+#mesDeplacementsTable th.sortable:hover {
+    background-color: #2c3e50;
+}
+/* Tables reporting déplacements */
+#reportingBonsCommandeTable th::after {
+    content: none;
+}
+#reportingBonsCommandeTable th.sortable::after {
+    content: ' ▲▼';
+    font-size: 11px;
+}
+#reportingBonsCommandeTable th.sortable.asc::after {
+    content: ' ▲';
+    font-size: 11px;
+}
+#reportingBonsCommandeTable th.sortable.desc::after {
+    content: ' ▼';
+    font-size: 11px;
+}
+#reportingBonsCommandeTable th.sortable {
+    cursor: pointer;
+}
+#deplacementsReportingTable th::after {
+    content: none;
+}
+#deplacementsReportingTable th.sortable::after {
+    content: ' ▲▼';
+    font-size: 11px;
+}
+#deplacementsReportingTable th.sortable.asc::after {
+    content: ' ▲';
+    font-size: 11px;
+}
+#deplacementsReportingTable th.sortable.desc::after {
+    content: ' ▼';
+    font-size: 11px;
+}
+#deplacementsReportingTable th.sortable {
+    cursor: pointer;
+}
+/* Tables admin BDC */
+#bonsCommandeTable th::after {
+    content: none;
+}
+#bonsCommandeTable th.sortable::after {
+    content: ' ▲▼';
+    font-size: 11px;
+}
+#bonsCommandeTable th.sortable.asc::after {
+    content: ' ▲';
+    font-size: 11px;
+}
+#bonsCommandeTable th.sortable.desc::after {
+    content: ' ▼';
+    font-size: 11px;
+}
+#bonsCommandeTable th.sortable {
+    cursor: pointer;
+}
+#myEventsTableContainer th::after {
+    content: none;
+}
+#specialDatesFilesList th::after {
+    content: none;
+}
+#evtTypesAdmin th::after,
+#evtRecoveryAdmin th::after {
+    content: none !important;
+}
+#evtTypesAdmin th:hover,
+#evtRecoveryAdmin th:hover {
+    background: #ffe0b2;
+}
+/* Calendrier disponibilités astreinte - pas de flèches */
+#astreinteDispoCalendarContent th::after {
+    content: none;
+}
+#astreinteDispoCalendarContent th {
+    cursor: default;
+}
+/* Planning astreinte généré - pas de flèches */
+#astreintePlanningTable th::after {
+    content: none;
+}
+#astreintePlanningActuelContainer th::after {
+    content: none;
+}
+/* Tables CRA — flèches gérées via classe sortable/asc/desc */
+#craSignaturesTable th::after {
+    content: none;
+}
+#craArchivesTable th::after {
+    content: none;
+}
+#craRhSignesTable th::after {
+    content: none;
+}
+#craRhArchivesTable th::after {
+    content: none;
+}
+#craSignaturesTable th.sortable::after {
+    content: ' ▲▼';
+    font-size: 10px;
+    opacity: 0.7;
+}
+#craSignaturesTable th.sortable.asc::after {
+    content: ' ▲';
+    font-size: 10px;
+    opacity: 1;
+}
+#craSignaturesTable th.sortable.desc::after {
+    content: ' ▼';
+    font-size: 10px;
+    opacity: 1;
+}
+#craArchivesTable th.sortable::after {
+    content: ' ▲▼';
+    font-size: 10px;
+    opacity: 0.7;
+}
+#craArchivesTable th.sortable.asc::after {
+    content: ' ▲';
+    font-size: 10px;
+    opacity: 1;
+}
+#craArchivesTable th.sortable.desc::after {
+    content: ' ▼';
+    font-size: 10px;
+    opacity: 1;
+}
+#craRhSignesTable th.sortable::after {
+    content: ' ▲▼';
+    font-size: 10px;
+    opacity: 0.7;
+}
+#craRhSignesTable th.sortable.asc::after {
+    content: ' ▲';
+    font-size: 10px;
+    opacity: 1;
+}
+#craRhSignesTable th.sortable.desc::after {
+    content: ' ▼';
+    font-size: 10px;
+    opacity: 1;
+}
+#craRhArchivesTable th.sortable::after {
+    content: ' ▲▼';
+    font-size: 10px;
+    opacity: 0.7;
+}
+#craRhArchivesTable th.sortable.asc::after {
+    content: ' ▲';
+    font-size: 10px;
+    opacity: 1;
+}
+#craRhArchivesTable th.sortable.desc::after {
+    content: ' ▼';
+    font-size: 10px;
+    opacity: 1;
+}
+/* Tableau localisations — flèches gérées en JS, supprimer celles du CSS */
+#localisationsTableContainer th::after {
+    content: none;
+}
+#localisationsTableContainer th {
+    cursor: default;
+}
+#reportingTable th.sortable {
+    cursor: pointer;
+}
+#reportingTable th.sortable:hover {
+    background-color: #2c3e50;
+}
+td {
+    padding: 10px;
+    border-bottom: 1px solid #ecf0f1;
+}
+tr:hover {
+    background-color: #f9f9f9;
+}
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
+}
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: 0.4s;
+    border-radius: 24px;
+}
+.slider:before {
+    position: absolute;
+    content: '';
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: 0.4s;
+    border-radius: 50%;
+}
+input:checked + .slider {
+    background-color: #27ae60;
+}
+input:checked + .slider:before {
+    transform: translateX(26px);
+}
+
+#planning {
+    position: relative;
+    overflow-x: visible;
+}
+
+.planning-sticky-header {
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 100;
+    padding-bottom: 10px;
+    margin-bottom: 10px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.gantt-wrapper {
+    overflow-x: auto;
+    overflow-y: visible !important;
+    max-height: none;
+    margin-top: 20px;
+    border: 1px solid #bdc3c7;
+    border-radius: 5px;
+    width: 100%;
+}
+.gantt-table {
+    width: max-content;
+    border-collapse: collapse;
+    font-size: 12px;
+    background-color: white;
+}
+.gantt-table th {
+    background-color: #1d70b7;
+    color: white;
+    padding: 8px;
+    text-align: center;
+    font-weight: bold;
+    border: 1px solid #bdc3c7;
+    vertical-align: middle;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+}
+.gantt-table td {
+    border: 1px solid #bdc3c7;
+    padding: 6px;
+    text-align: center;
+    vertical-align: middle;
+}
+.gantt-table td.day-separator {
+    border-right: 3px solid #2c3e50;
+}
+.gantt-table th.day-separator {
+    border-right: 3px solid #2c3e50;
+}
+
+/* Bordure plus épaisse pour séparer les journées (cellules PM) */
+.gantt-table td.day-separator {
+    border-right: 2px solid #7f8c8d;
+}
+.gantt-table th.day-separator {
+    border-right: 2px solid #34495e;
+}
+
+/* Bordure fine pour séparer AM/PM au sein d'une même journée */
+.gantt-table td.half-day-separator {
+    border-right: 1px solid #d0d0d0;
+}
+.gantt-table th.half-day-separator {
+    border-right: 1px solid #34495e;
+}
+.resource-header {
+    background-color: #2c3e50;
+    color: white;
+    text-align: left;
+    font-weight: bold;
+    min-width: 200px;
+    max-width: 200px;
+    width: 200px;
+    position: sticky;
+    left: 0;
+    z-index: 30;
+    padding: 10px;
+}
+.resource-label {
+    background-color: #ecf0f1;
+    text-align: center;
+    font-size: 11px;
+    font-weight: bold;
+    color: #7f8c8d;
+    min-width: 120px;
+    max-width: 120px;
+    width: 120px;
+    position: sticky;
+    left: 200px;
+    z-index: 29;
+    padding: 10px;
+    line-height: 1.4;
+}
+/* Header sticky pour les deux premières colonnes */
+.gantt-table thead th.resource-header {
+    z-index: 50;
+    background-color: #1d70b7;
+}
+.gantt-table thead th.resource-label {
+    z-index: 49;
+    background-color: #1d70b7;
+}
+/* Body sticky pour les deux premières colonnes */
+.gantt-table tbody td.resource-header {
+    z-index: 30;
+}
+.gantt-table tbody td.resource-label {
+    z-index: 29;
+}
+.day-header {
+    background-color: #1d70b7;
+    color: white;
+    min-width: 100px;
+    max-width: 100px;
+    width: 100px;
+    cursor: default;
+}
+.day-header::after {
+    content: none;
+}
+.day-header.weekend {
+    background-color: #ffc107;
+    color: #333;
+}
+.day-header.today {
+    background-color: #5eaa55 !important;
+    color: white !important;
+}
+.gantt-cell {
+    padding: 4px;
+    background-color: white;
+    min-width: 100px;
+    max-width: 100px;
+    width: 100px;
+    height: 90px;
+    vertical-align: middle;
+}
+.gantt-cell.today {
+    background-color: #5eaa55 !important;
+}
+.gantt-cell.disabled {
+    background-color: #e0e0e0;
+    opacity: 0.5;
+}
+.gantt-cell-content {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    gap: 2px;
+}
+.gantt-cell-row {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 3px;
+    font-weight: bold;
+    transition: all 0.2s;
+    font-size: 13px;
+    min-height: 28px;
+}
+.gantt-cell-row:hover {
+    filter: brightness(0.85);
+    transform: scale(1.02);
+}
+.gantt-cell-row.disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+.gantt-cell-row.disabled:hover {
+    filter: none;
+    transform: none;
+}
+.weekend-cell {
+    background-color: #fff8e1;
+}
+.total-row {
+    background-color: #34495e;
+    color: white;
+    font-weight: bold;
+}
+.total-cell.today {
+    background-color: #5eaa55 !important;
+    color: white !important;
+}
+.total-cell {
+    background-color: #34495e;
+    color: white;
+    font-weight: bold;
+    padding: 10px;
+    text-align: center;
+    border: 1px solid #2c3e50;
+}
+.total-label {
+    background-color: #2c3e50;
+    color: white;
+    font-weight: bold;
+    text-align: left;
+    padding: 10px;
+    position: sticky;
+    left: 0;
+    z-index: 10;
+}
+.total-sublabel {
+    background-color: #34495e;
+    color: white;
+    font-weight: bold;
+    text-align: center;
+    padding: 10px;
+    position: sticky;
+    left: 200px;
+    z-index: 9;
+}
+.color-code {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    margin-right: 8px;
+    border-radius: 3px;
+    vertical-align: middle;
+}
+.legend {
+    background-color: #ecf0f1;
+    padding: 15px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+}
+.legend-section {
+    margin-bottom: 15px;
+}
+.legend-section-title {
+    font-weight: bold;
+    color: #2c3e50;
+    margin-bottom: 8px;
+    font-size: 13px;
+    border-bottom: 1px solid #bdc3c7;
+    padding-bottom: 5px;
+}
+.legend-items {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px;
+}
+.legend-item {
+    display: flex;
+    align-items: center;
+    font-size: 12px;
+}
+.planif-controls {
+    padding: 15px;
+    border-radius: 5px;
+    display: flex;
+    gap: 15px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+.control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+.control-group label {
+    margin-bottom: 0;
+}
+.control-group select {
+    width: 150px;
+}
+.control-group.resource-filter select {
+    width: 250px !important;
+    height: 130px !important;
+}
+.sync-status {
+    padding: 10px 15px;
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+    border-radius: 4px;
+    color: #155724;
+    font-size: 12px;
+    margin-bottom: 15px;
+}
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+.modal.active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.modal-content {
+    background-color: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    max-width: 500px;
+    width: 90%;
+}
+.modal-content h3 {
+    margin-bottom: 20px;
+    color: #2c3e50;
+}
+.modal-button-group {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+    justify-content: flex-end;
+}
+.user-info {
+    background-color: #34495e;
+    color: white;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    border-bottom: 2px solid #3498db;
+}
+.user-info-name {
+    font-weight: bold;
+}
+.user-info-role {
+    background-color: #1d70b7;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
+}
+.logout-icon {
+    margin-left: auto;
+    padding: 8px 15px;
+    background-color: #d60b51;
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-size: 18px;
+    transition: all 0.3s;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.logout-icon:hover {
+    background-color: #c0392b;
+    transform: scale(1.05);
+}
+.logout-icon::before {
+    content: '';
+    width: 22px;
+    height: 22px;
+    background: currentColor;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4'/%3E%3Cpath d='m16 17 5-5-5-5'/%3E%3Cpath d='M21 12H9'/%3E%3C/svg%3E")
+        center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4'/%3E%3Cpath d='m16 17 5-5-5-5'/%3E%3Cpath d='M21 12H9'/%3E%3C/svg%3E")
+        center / contain no-repeat;
+}
+
+.checkbox-group {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    margin-top: 5px;
+}
+.checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.checkbox-item input[type='checkbox'] {
+    width: auto;
+    margin: 0;
+}
+.checkbox-item label {
+    font-weight: normal;
+    margin: 0;
+    cursor: pointer;
+}
+.error-message {
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+    padding: 10px;
+    border-radius: 4px;
+    margin-top: 10px;
+    font-size: 13px;
+    display: none;
+}
+
+.date-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    margin-left: 5px;
+}
+.date-badge.active {
+    background-color: #27ae60;
+    color: white;
+}
+.date-badge.inactive {
+    background-color: #95a5a6;
+    color: white;
+}
+.date-badge.pending {
+    background-color: #f39c12;
+    color: white;
+}
+
+@page {
+    size: A3 landscape;
+    margin: 10mm;
+}
+/* Supprimer les flèches de tri dans l'aperçu calendrier individuel */
+#printCalendarContent table th::after {
+    content: none !important;
+}
+#printCalendarContent table th {
+    cursor: default !important;
+}
+
+/* Supprimer les flèches de tri dans le calendrier mensuel collectif */
+#monthlyCalendarContent table th::after {
+    content: none !important;
+}
+#monthlyCalendarContent table th {
+    cursor: default !important;
+}
+
+@media print {
+    body {
+        background: white;
+        margin: 0;
+        padding: 0;
+    }
+    .container {
+        box-shadow: none;
+        max-width: 100%;
+        border-radius: 0;
+    }
+    .tabs,
+    .button-group,
+    .planif-controls,
+    .sync-status {
+        display: none !important;
+    }
+    h2 {
+        font-size: 14px;
+        margin-bottom: 5px;
+        padding-bottom: 5px;
+        page-break-after: avoid;
+    }
+
+    .planning-sticky-header {
+        position: static;
+    }
+    .legend {
+        padding: 8px;
+        margin-bottom: 8px;
+        page-break-inside: avoid;
+        font-size: 9px;
+    }
+    .legend-section {
+        margin-bottom: 5px;
+    }
+    .legend-section-title {
+        font-size: 10px;
+        margin-bottom: 3px;
+        padding-bottom: 2px;
+    }
+    .legend-items {
+        gap: 5px;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    }
+    .legend-item {
+        font-size: 9px;
+    }
+    .color-code {
+        width: 12px;
+        height: 12px;
+        margin-right: 4px;
+    }
+
+    /* Titre d'impression */
+    #planning::before {
+        content: 'Planification du mois de ' attr(data-month) ' ' attr(data-year);
+        display: block;
+        font-size: 18px;
+        font-weight: bold;
+        text-align: center;
+        margin-bottom: 15px;
+        padding: 10px;
+        border-bottom: 2px solid #2c3e50;
+    }
+
+    .gantt-wrapper {
+        overflow: visible !important;
+        border: none;
+        transform: scale(0.55);
+        transform-origin: top left;
+        width: 181.8%;
+        margin: 0;
+    }
+    .gantt-table {
+        font-size: 6px !important;
+        page-break-inside: avoid;
+    }
+    .gantt-table th,
+    .gantt-table td {
+        padding: 1px !important;
+        border: 0.5px solid #999;
+    }
+    .resource-header {
+        min-width: 100px !important;
+        max-width: 100px !important;
+        font-size: 7px !important;
+        padding: 3px !important;
+    }
+    .resource-label {
+        min-width: 60px !important;
+        max-width: 60px !important;
+        font-size: 6px !important;
+        padding: 2px !important;
+        line-height: 1.1;
+    }
+    .day-header {
+        min-width: 30px !important;
+        max-width: 30px !important;
+        font-size: 6px !important;
+        padding: 1px !important;
+    }
+    .day-header::after {
+        content: none !important;
+    }
+    .gantt-cell {
+        min-width: 30px !important;
+        max-width: 30px !important;
+        height: 30px !important;
+        padding: 0.5px !important;
+    }
+    .gantt-cell-content {
+        gap: 0.5px;
+    }
+    .gantt-cell-row {
+        font-size: 6px !important;
+        min-height: 9px !important;
+    }
+    .total-cell,
+    .total-label,
+    .total-sublabel {
+        font-size: 6px !important;
+        padding: 1px !important;
+    }
+    button {
+        display: none !important;
+    }
+}
+
+/* Animation pour le spinner de déconnexion */
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* Style de la scrollbar pour la liste des notifications */
+#notificationsList::-webkit-scrollbar {
+    width: 10px;
+}
+
+#notificationsList::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 5px;
+}
+
+#notificationsList::-webkit-scrollbar-thumb {
+    background: #1d70b7;
+    border-radius: 5px;
+}
+
+#notificationsList::-webkit-scrollbar-thumb:hover {
+    background: #2980b9;
+}
+
+/* Style de la scrollbar pour la liste de détails du nettoyage */
+#cleanupDetailsList::-webkit-scrollbar {
+    width: 8px;
+}
+
+#cleanupDetailsList::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+#cleanupDetailsList::-webkit-scrollbar-thumb {
+    background: #27ae60;
+    border-radius: 4px;
+}
+
+#cleanupDetailsList::-webkit-scrollbar-thumb:hover {
+    background: #229954;
+}
+
+/* Pastilles Astreinte/HNO */
+.astreinte-badge {
+    position: absolute;
+    top: 1px;
+    right: 1px;
+    background: #ffeb3b;
+    color: #d32f2f;
+    font-size: 7px;
+    font-weight: bold;
+    padding: 1px 3px;
+    border-radius: 8px;
+    border: 1px solid #333;
+    z-index: 1;
+    cursor: help;
+    line-height: 1;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.gantt-cell {
+    position: relative;
+    overflow: hidden;
+}
