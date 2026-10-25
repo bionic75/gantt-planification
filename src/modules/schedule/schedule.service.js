@@ -71,6 +71,29 @@ export async function upsertCellWithNotification(key, value, notifyExpert) {
 }
 
 /**
+ * Cellules dont la valeur diffère de celle enregistrée (ou nouvelles) ; cellules invalides écartées.
+ * Le navigateur envoie le planning complet à chaque enregistrement : seules ces cellules sont à écrire et à journaliser.
+ * @param {Array<{ key: string, value: unknown }>} updates
+ */
+export async function changedCells(updates) {
+    const valid = updates.filter(({ key, value }) => toCell(key, value) !== null);
+    const resourceIds = [...new Set(valid.map(({ key }) => Number(parseKey(key).resourceId)))];
+    /** @type {Map<string, string>} */
+    const stored = new Map();
+    for (const ids of chunks(resourceIds)) {
+        const rows = await prisma.scheduleData.findMany({
+            where: { resource_id: { in: ids } },
+            select: { resource_id: true, type: true, date_key: true, value: true }
+        });
+        for (const r of rows) stored.set(`${r.resource_id}_${r.type}_${r.date_key}`, r.value);
+    }
+    return valid.filter(({ key, value }) => {
+        const cell = /** @type {NonNullable<ReturnType<typeof toCell>>} */ (toCell(key, value));
+        return stored.get(`${cell.resource_id}_${cell.type}_${cell.date_key}`) !== cell.value;
+    });
+}
+
+/**
  * Enregistrement groupé dans une transaction (les cellules invalides sont ignorées)
  * @param {Array<{ key: string, value: unknown }>} updates
  */

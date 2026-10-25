@@ -53,15 +53,18 @@ export async function saveBatch(/** @type {Request} */ req, /** @type {Response}
     if (!updates || updates.length === 0) return res.json({ success: true, saved: 0 });
 
     updates = updates.filter(({ key }) => !isOtherResource(req, service.parseKey(key).resourceId));
-    await service.saveCells(updates);
+    // Planning complet envoyé par le navigateur : seules les cellules modifiées sont écrites et journalisées
+    const changed = await service.changedCells(updates);
+    await service.saveCells(changed);
 
     logUserAction(req, 'Sauvegarde planning rapide', {
-        modificationsCount: updates.length,
+        modificationsCount: changed.length,
         profile: req.session.activeProfile
     });
+    // « saved » : cellules reçues (réponse inchangée)
     res.json({ success: true, saved: updates.length });
 
-    service.logActivityChanges(updates, /** @type {number} */ (req.session.userId), req.session.activeProfile);
+    service.logActivityChanges(changed, /** @type {number} */ (req.session.userId), req.session.activeProfile);
 }
 
 /** Paramètres d'une remise à zéro mensuelle (month : 0 = janvier) */

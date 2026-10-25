@@ -128,8 +128,50 @@ describe('journal des modifications du planning', () => {
             }
             expect(count).toBe(expected);
             expect(server.logs).not.toMatch(/Erreur log planning/);
+
+            // Même planning renvoyé (enregistrement suivant du navigateur) : rien n'a changé, rien n'est journalisé
+            expect((await admin.post('/api/schedule/save', cells)).data).toEqual({ success: true, saved: 2920 });
+            // Une seule cellule modifiée : une seule entrée, avec la nouvelle localisation
+            const changedKey = key(res.id, 'localisation', day(10), 'PM');
+            const r2 = await admin.post('/api/schedule/save', { ...cells, [changedKey]: 'SAMU' });
+            expect(r2.data).toEqual({ success: true, saved: 2920 });
+            expect((await schedule())[changedKey]).toBe('SAMU');
+            for (let i = 0; i < 25 && count < expected + 1; i++) {
+                await new Promise(done => setTimeout(done, 200));
+                count = await planningLogs();
+            }
+            await new Promise(done => setTimeout(done, 500));
+            expect(await planningLogs()).toBe(expected + 1);
+            const last = (await admin.get('/api/logs/actions?userId=1')).data.logs.find(
+                l => l.action_type === 'planning_modification'
+            );
+            expect(JSON.parse(last.details)).toMatchObject({
+                resourceId: res.id,
+                date: day(10),
+                period: 'Après-midi',
+                location: 'SAMU'
+            });
         }
     );
+
+    it("chaque changement d'affectation est journalisé, une valeur renvoyée à l'identique ne l'est pas", async () => {
+        const res = await createResource(admin);
+        const cell = key(res.id, 'activity', '2029-03-05');
+        const planningLogs = async () =>
+            (await admin.get('/api/logs/planning-debug')).data.stats.find(s => s.user_id === 1)?.count || 0;
+        const waitFor = async n => {
+            for (let i = 0; i < 25 && (await planningLogs()) < n; i++) await new Promise(d => setTimeout(d, 200));
+            return planningLogs();
+        };
+        const start = await planningLogs();
+        await admin.post('/api/schedule/save', { [cell]: '5' });
+        expect(await waitFor(start + 1)).toBe(start + 1);
+        await admin.post('/api/schedule/save', { [cell]: '7' });
+        expect(await waitFor(start + 2)).toBe(start + 2);
+        await admin.post('/api/schedule/save', { [cell]: '7' });
+        await new Promise(d => setTimeout(d, 500));
+        expect(await planningLogs()).toBe(start + 2);
+    });
 });
 
 describe('POST /api/schedule/cleanup-old-format', () => {
