@@ -38,7 +38,6 @@
     "@prisma/client": "^7.10.1",
     "bcrypt": "^6.0.0",
     "better-sqlite3": "^12.11.1",
-    "body-parser": "^1.20.2",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^4.18.2",
@@ -52,21 +51,24 @@
     "prisma": "^7.10.1",
     "puppeteer": "^25.3.0",
     "qrcode": "^1.5.4",
-    "sqlite": "^5.0.1",
     "zod": "^4.6.7"
   },
   "engines": {
     "node": ">=22.18"
   },
+  "overrides": {
+    "image-size": "^2.0.4"
+  },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "body-parser": "^1.20.9",
     "eslint": "^10.13.0",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.13.0",
     "mariadb": "^3.5.4",
     "pg": "^8.23.1",
     "prettier": "^3.9.10",
-    "sqlite3": "^5.1.7",
+    "sqlite3": "^6.0.1",
     "vitest": "^5.0.5"
   }
 }
