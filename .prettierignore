@@ -1,0 +1,13 @@
+# Pages HTML du frontend : le reformatage peut modifier les espaces entre éléments, donc le rendu
+public/*.html
+.github/workflows/deploy-*.yml
+# Générés (npm run routes)
+docs/api.md
+tests/fixtures/routes.json
+
+data/
+node_modules/
+coverage/
+package.json
+package-lock.json
+src/generated/
