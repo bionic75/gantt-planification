@@ -12,7 +12,7 @@ if (PROVIDER === 'sqlite' && exists(sqliteFile())) {
             `❌ La base ${sqliteFile()} a été créée par une version précédente de l'application et n'est pas encore gérée par les migrations.\n` +
                 '   Adoptez-la une fois (sauvegarde automatique, conversion du schéma, données conservées) :\n' +
                 '     npm run db:adopt\n' +
-                '   (Docker : docker compose run --rm <service> npm run db:adopt)'
+                '   (Docker : docker compose run --rm <service> node scripts/db-adopt.mjs)'
         );
         process.exit(1);
     }
