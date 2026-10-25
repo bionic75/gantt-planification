@@ -97,6 +97,41 @@ describe('POST /api/schedule/save', () => {
     });
 });
 
+describe('journal des modifications du planning', () => {
+    it(
+        'planning complet (milliers de cellules) : toutes les affectations suivies journalisées, sans dépasser la limite de paramètres de la base',
+        { timeout: 60000 },
+        async () => {
+            const res = await createResource(admin);
+            const cells = {};
+            const day = i => new Date(Date.UTC(2028, 0, 1) + i * 86400000).toISOString().slice(0, 10);
+            // 2 × 730 demi-journées, chacune avec affectation suivie (5) et localisation : 2 920 cellules
+            for (let i = 0; i < 730; i++) {
+                for (const period of ['AM', 'PM']) {
+                    cells[key(res.id, 'activity', day(i), period)] = '5';
+                    cells[key(res.id, 'localisation', day(i), period)] = 'PSC';
+                }
+            }
+            // Entrées « planning_modification » de l'administrateur (user_id 1)
+            const planningLogs = async () =>
+                (await admin.get('/api/logs/planning-debug')).data.stats.find(s => s.user_id === 1)?.count || 0;
+            const before = await planningLogs();
+            const r = await admin.post('/api/schedule/save', cells);
+            expect(r.data).toEqual({ success: true, saved: 2920 });
+
+            // Journal écrit après la réponse : une entrée par affectation et une par localisation d'une affectation suivie
+            const expected = before + 2920;
+            let count = before;
+            for (let i = 0; i < 100 && count < expected; i++) {
+                await new Promise(done => setTimeout(done, 200));
+                count = await planningLogs();
+            }
+            expect(count).toBe(expected);
+            expect(server.logs).not.toMatch(/Erreur log planning/);
+        }
+    );
+});
+
 describe('POST /api/schedule/cleanup-old-format', () => {
     it("supprime les clés de l'ancien format (sans demi-journée)", async () => {
         const res = await createResource(admin);

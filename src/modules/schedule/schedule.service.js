@@ -101,55 +101,85 @@ export async function saveCells(updates) {
  * @param {string | undefined} profile
  */
 export function logActivityChanges(updates, userId, profile) {
-    const log = async (
-        /** @type {number} */ resId,
-        /** @type {string} */ dateKey,
-        /** @type {unknown} */ activity,
-        /** @type {unknown} */ location
-    ) => {
-        const resource = await prisma.resource.findUnique({
-            where: { id: resId },
-            select: { nom: true, prenom: true }
-        });
-        if (!resource) return;
-        const [date, period] = dateKey.split('_');
-        await prisma.actionLog.create({
-            data: {
-                user_id: userId,
-                action_type: 'planning_modification',
-                details: JSON.stringify({
-                    resourceId: resId,
-                    resourceName: `${resource.prenom} ${resource.nom}`,
-                    date,
-                    period: period === 'AM' ? 'Matin' : 'Après-midi',
-                    activity:
-                        LOGGED_ACTIVITIES[/** @type {keyof typeof LOGGED_ACTIVITIES} */ (Number(activity))] || activity,
-                    location,
-                    modifiedBy: profile
-                })
-            }
-        });
-    };
-    const cellValue = (/** @type {number} */ resource_id, /** @type {string} */ date_key, /** @type {string} */ type) =>
-        prisma.scheduleData.findUnique({
-            where: { resource_id_date_key_type: { resource_id, date_key, type } },
-            select: { value: true }
-        });
+    writeActivityLogs(updates, userId, profile).catch(err => console.error('❌ Erreur log planning:', err));
+}
 
+/** Lignes envoyées par requête (limite du nombre de paramètres SQL, SQLite notamment) */
+const CHUNK = 500;
+const chunks = (/** @type {any[]} */ list) =>
+    Array.from({ length: Math.ceil(list.length / CHUNK) }, (_, i) => list.slice(i * CHUNK, (i + 1) * CHUNK));
+
+/**
+ * Une seule lecture des cellules et ressources concernées, puis écriture groupée du journal. Le planning complet
+ * est envoyé à chaque enregistrement : une requête par cellule dépasserait la limite de paramètres de la base
+ * (Prisma regroupe les findUnique simultanés en une seule requête).
+ * @param {Array<{ key: string, value: unknown }>} updates
+ * @param {number} userId
+ * @param {string | undefined} profile
+ */
+async function writeActivityLogs(updates, userId, profile) {
+    /** @type {Array<{ resId: number, dateKey: string, type: string, value: unknown }>} */
+    const candidates = [];
     for (const { key, value } of updates) {
         const { resourceId, type, dateKey } = parseKey(key);
         const resId = parseInt(resourceId);
         if (!Number.isSafeInteger(resId)) continue;
-        let task = null;
-        if (type === 'activity' && isLoggedActivity(value)) {
-            task = cellValue(resId, dateKey, 'localisation').then(loc => log(resId, dateKey, value, loc?.value || '-'));
-        } else if (type === 'localisation') {
-            task = cellValue(resId, dateKey, 'activity').then(act =>
-                act && isLoggedActivity(act.value) ? log(resId, dateKey, act.value, value) : undefined
-            );
+        if ((type === 'activity' && isLoggedActivity(value)) || type === 'localisation') {
+            candidates.push({ resId, dateKey, type, value });
         }
-        task?.catch(err => console.error('❌ Erreur log planning:', err));
     }
+    if (candidates.length === 0) return;
+
+    // Cellule associée (localisation d'une affectation, affectation d'une localisation) et nom des ressources
+    const resourceIds = [...new Set(candidates.map(c => c.resId))];
+    /** @type {Map<string, string>} */
+    const cells = new Map();
+    /** @type {Map<number, { nom: string, prenom: string }>} */
+    const resources = new Map();
+    for (const ids of chunks(resourceIds)) {
+        const rows = await prisma.scheduleData.findMany({
+            where: { resource_id: { in: ids }, type: { in: ['activity', 'localisation'] } },
+            select: { resource_id: true, date_key: true, type: true, value: true }
+        });
+        for (const r of rows) cells.set(`${r.resource_id}_${r.type}_${r.date_key}`, r.value);
+        const res = await prisma.resource.findMany({
+            where: { id: { in: ids } },
+            select: { id: true, nom: true, prenom: true }
+        });
+        for (const r of res) resources.set(r.id, r);
+    }
+
+    const entries = [];
+    for (const { resId, dateKey, type, value } of candidates) {
+        let activity;
+        let location;
+        if (type === 'activity') {
+            activity = value;
+            location = cells.get(`${resId}_localisation_${dateKey}`) || '-';
+        } else {
+            activity = cells.get(`${resId}_activity_${dateKey}`);
+            if (activity === undefined || !isLoggedActivity(activity)) continue;
+            location = value;
+        }
+        const resource = resources.get(resId);
+        if (!resource) continue;
+        const [date, period] = dateKey.split('_');
+        entries.push({
+            user_id: userId,
+            action_type: 'planning_modification',
+            details: JSON.stringify({
+                resourceId: resId,
+                resourceName: `${resource.prenom} ${resource.nom}`,
+                date,
+                period: period === 'AM' ? 'Matin' : 'Après-midi',
+                activity:
+                    LOGGED_ACTIVITIES[/** @type {keyof typeof LOGGED_ACTIVITIES} */ (Number(activity))] || activity,
+                location,
+                modifiedBy: profile
+            })
+        });
+    }
+    for (const data of chunks(entries)) await prisma.actionLog.createMany({ data });
 }
 
 /** Préfixe des clés d'un mois (month : 0 = janvier) */
