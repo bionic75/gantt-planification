@@ -102,14 +102,14 @@ de la nouvelle version, `npm run db:migrate` refuse une telle base et demande de
 4. marque la migration initiale comme appliquée, puis vérifie qu'il ne reste aucun écart et qu'aucune ligne
    n'a été perdue.
 
-Procédure (Docker) :
+Procédure (Docker ; l'image ne contient pas npm : les scripts se lancent avec `node`) :
 
 ```bash
 # 1. Vérification sans modification : rapport et script de conversion
-docker compose run --rm <service> npm run db:adopt -- --dry-run
+docker compose run --rm <service> node scripts/db-adopt.mjs --dry-run
 
 # 2. Adoption
-docker compose run --rm <service> npm run db:adopt
+docker compose run --rm <service> node scripts/db-adopt.mjs
 
 # 3. Démarrage normal (les migrations suivantes sont appliquées automatiquement)
 docker compose up -d

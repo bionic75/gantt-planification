@@ -23,7 +23,15 @@ USER node
 COPY --chown=node:node . .
 
 # Installation (génère aussi le client Prisma : script postinstall)
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev && npm cache clean --force
+
+# Gestionnaires de paquets inutiles à l'exécution (l'application et ses commandes se lancent avec node) : retirés de
+# l'image, avec leurs propres dépendances, signalées par les analyses de vulnérabilités (Trivy)
+USER root
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+        /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /opt/yarn-* \
+        /usr/local/bin/yarn /usr/local/bin/yarnpkg
+USER node
 
 # Port d'écoute : PORT (défaut 3000)
 EXPOSE 3000
