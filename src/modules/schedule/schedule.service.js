@@ -99,20 +99,28 @@ export async function changedCells(updates) {
  */
 export async function saveCells(updates) {
     const cells = updates.map(({ key, value }) => toCell(key, value)).filter(c => c !== null);
+    if (cells.length === 0) return;
+    // Transaction interactive, cellules écrites une à une : durée proportionnelle au nombre de cellules et mémoire
+    // bornée. (Un tableau de requêtes passé à $transaction coûte un temps quadratique : 60 000 cellules prenaient
+    // plusieurs minutes et pouvaient épuiser la mémoire du serveur.)
     await prisma.$transaction(
-        cells.map(cell =>
-            prisma.scheduleData.upsert({
-                where: {
-                    resource_id_date_key_type: {
-                        resource_id: cell.resource_id,
-                        date_key: cell.date_key,
-                        type: cell.type
-                    }
-                },
-                update: { value: cell.value },
-                create: cell
-            })
-        )
+        async tx => {
+            for (const cell of cells) {
+                await tx.scheduleData.upsert({
+                    where: {
+                        resource_id_date_key_type: {
+                            resource_id: cell.resource_id,
+                            date_key: cell.date_key,
+                            type: cell.type
+                        }
+                    },
+                    update: { value: cell.value },
+                    create: cell
+                });
+            }
+        },
+        // Délais par défaut (5 s) insuffisants pour un planning entier (environ 20 s pour 150 000 cellules)
+        { maxWait: 30000, timeout: 10 * 60 * 1000 }
     );
 }
 
