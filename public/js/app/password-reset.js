@@ -655,6 +655,10 @@ async function openEditModal(id) {
     document.getElementById('editEsRattachement').value = resource.es_rattachement || '';
     document.getElementById('editFonction').value = resource.fonction || '';
     document.getElementById('editContactsRh').value = resource.contacts_rh || '';
+    if (window.bindEmailListField) {
+        bindEmailListField(document.getElementById('editContactsRh'));
+        document.getElementById('editContactsRh').checkEmails();
+    }
     // Pré-remplir MAD volante
     const madVolanteChk = document.getElementById('editMadVolante');
     madVolanteChk.checked = !!resource.is_mad_volante;
