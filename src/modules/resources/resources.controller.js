@@ -46,7 +46,7 @@ export async function toggle(/** @type {Request} */ req, /** @type {Response} */
 }
 
 export async function setAstreinte(/** @type {Request} */ req, /** @type {Response} */ res) {
-    await service.setAstreinteVolontaire(req.params.id, !!req.body.hasAccess);
+    await service.setAstreinteVolontaire(req.params.id, !!req.body.hasAccess, req.body.type || 'hno');
     res.json({ success: true });
 }
 

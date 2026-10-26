@@ -284,13 +284,13 @@ async function toggleAstreinteAccess(userId, hasAccess) {
     }
 }
 
-async function toggleAstreinteByResource(resourceId, hasAccess) {
+async function toggleAstreinteByResource(resourceId, hasAccess, type = 'hno') {
     try {
         const r = await fetch(`${API_URL}/resources/${resourceId}/astreinte`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify({ hasAccess })
+            body: JSON.stringify({ hasAccess, type })
         });
         if (!r.ok) throw new Error();
         await loadResources();

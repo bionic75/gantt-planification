@@ -1,4 +1,4 @@
-<!-- v2.0.2 -->
+<!-- v2.1.0 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -8,21 +8,21 @@
     <link rel="icon" type="image/svg+xml" href="/img/favicon-calendrier.svg" id="favicon">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="/css/app.css?v=2.0.2">
-    <link rel="stylesheet" href="/css/themes.css?v=2.0.2">
-    <link rel="stylesheet" href="/css/darkmode.css?v=2.0.2">
-    <link rel="stylesheet" href="/css/login.css?v=2.0.2">
-    <link rel="stylesheet" href="/css/ui-polish.css?v=2.0.2">
-    <script src="/js/darkmode.js?v=2.0.2"></script>
-    <script src="/js/themes.js?v=2.0.2" defer></script>
-    <script src="/js/layout-fix.js?v=2.0.2" defer></script>
-    <script src="/js/app/boot.js?v=2.0.2"></script>
-    <script src="/js/ui-icons.js?v=2.0.2" defer></script>
-    <script src="/js/affectation-app.js?v=2.0.2" defer></script>
-    <script src="/js/event-types.js?v=2.0.2" defer></script>
-    <script src="/js/tripadvisor.js?v=2.0.2" defer></script>
-    <script src="/js/map-timelapse.js?v=2.0.2" defer></script>
-    <link rel="stylesheet" href="/css/sections.css?v=2.0.2">
+    <link rel="stylesheet" href="/css/app.css?v=2.1.0">
+    <link rel="stylesheet" href="/css/themes.css?v=2.1.0">
+    <link rel="stylesheet" href="/css/darkmode.css?v=2.1.0">
+    <link rel="stylesheet" href="/css/login.css?v=2.1.0">
+    <link rel="stylesheet" href="/css/ui-polish.css?v=2.1.0">
+    <script src="/js/darkmode.js?v=2.1.0"></script>
+    <script src="/js/themes.js?v=2.1.0" defer></script>
+    <script src="/js/layout-fix.js?v=2.1.0" defer></script>
+    <script src="/js/app/boot.js?v=2.1.0"></script>
+    <script src="/js/ui-icons.js?v=2.1.0" defer></script>
+    <script src="/js/affectation-app.js?v=2.1.0" defer></script>
+    <script src="/js/event-types.js?v=2.1.0" defer></script>
+    <script src="/js/tripadvisor.js?v=2.1.0" defer></script>
+    <script src="/js/map-timelapse.js?v=2.1.0" defer></script>
+    <link rel="stylesheet" href="/css/sections.css?v=2.1.0">
 </head>
 <body>
     <div class="container">
@@ -232,16 +232,25 @@
                         <div id="samuDropdown_add_secondaire" class="samu-tag-dropdown"></div>
                     </div>
                 </div>
-                <!-- Dispositif Astreintes -->
+                <!-- Astreintes : HO, HNO, accompagnement post démarrage -->
                 <div style="margin-top:16px;padding:12px;background:#fff8e1;border:1px solid #ffe082;border-radius:6px;">
-                    <label style="font-size:13px;font-weight:bold;color:#e65100;display:flex;align-items:center;gap:10px;cursor:pointer;">
-                        <input type="checkbox" id="addAstreinteVolontaire" onchange="toggleAddAstreinteDate()" style="width:16px;height:16px;">
-                        🔔 Participe au dispositif Astreintes/HNO
+                    <div style="font-size:13px;font-weight:bold;color:#e65100;margin-bottom:8px;">🔔 Astreintes (activités à différencier)</div>
+                    <label style="font-size:13px;color:#33691e;display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:6px;">
+                        <input type="checkbox" id="addAstreinteHo" style="width:16px;height:16px;">
+                        <span><strong>Astreintes HO</strong> <span style="font-size:11px;color:#777;">(jours de la semaine, heures ouvrées)</span></span>
                     </label>
-                    <div id="addAstreinteDateBlock" style="display:none;margin-top:10px;">
-                        <label style="font-size:12px;color:#555;display:block;margin-bottom:4px;">📅 Date de démarrage du régime d'astreintes *</label>
+                    <label style="font-size:13px;color:#e65100;display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:6px;">
+                        <input type="checkbox" id="addAstreinteVolontaire" onchange="toggleAddAstreinteDate()" style="width:16px;height:16px;">
+                        <span><strong>Astreintes HNO</strong> <span style="font-size:11px;color:#777;">(jours et heures non ouvrés)</span></span>
+                    </label>
+                    <div id="addAstreinteDateBlock" style="display:none;margin:0 0 8px 26px;">
+                        <label style="font-size:12px;color:#555;display:block;margin-bottom:4px;">📅 Date de démarrage du régime d'astreintes HNO *</label>
                         <input type="date" id="addAstreinteDate" style="padding:6px 10px;border:1px solid #ffe082;border-radius:4px;font-size:13px;">
                     </div>
+                    <label style="font-size:13px;color:#4a148c;display:flex;align-items:center;gap:10px;cursor:pointer;">
+                        <input type="checkbox" id="addAstreinteApd" style="width:16px;height:16px;">
+                        <span><strong>Astreintes « Accompagnement post démarrage »</strong> <span style="font-size:11px;color:#777;">(jours et heures non ouvrés, dans le cadre d'un déploiement)</span></span>
+                    </label>
                 </div>
                 <div class="button-group" style="margin-top:12px;">
                     <button onclick="addResource()">Ajouter la ressource</button>
@@ -266,7 +275,9 @@
                             <th onclick="sortTable('resources', 9)">Début MAD</th>
                             <th onclick="sortTable('resources', 10)">Fin MAD</th>
                             <th onclick="sortTable('resources', 11)">Statut</th>
-                            <th class="no-sort">Astreinte</th>
+                            <th class="no-sort" title="Astreintes HO : jours de la semaine, heures ouvrées">Astreintes HO</th>
+                            <th class="no-sort" title="Astreintes HNO : jours et heures non ouvrés">Astreintes HNO</th>
+                            <th class="no-sort" title="Astreintes d'accompagnement post démarrage : jours et heures non ouvrés, dans le cadre d'un déploiement">Astreintes APD</th>
                             <th class="no-sort">Actif</th>
                             <th class="no-sort" style="width:84px;min-width:84px;">Actions</th>
                         </tr>
@@ -2295,6 +2306,117 @@
                 </div><!-- /automation4Body -->
             </div>
 
+            <!-- Automatisation n°5 -->
+            <div style="background-color: white; border: 1px solid #aed581; border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 15px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0;">
+                        <input type="checkbox" id="automation5Enabled" onchange="saveAutomationHo(5)" style="width: 18px; height: 18px; margin: 0;">
+                        <span style="font-weight: bold; color: #33691e; font-size: 14px;">🗓️ Automatisation n°5 : Construction du planning d'astreinte HO pour la semaine S+1</span>
+                    </label>
+                    <span onclick="toggleAdminSubSection('automation5Body')" style="cursor: pointer; font-size: 14px; color: #33691e; padding: 2px 8px;" title="Réduire / développer"><span id="automation5BodySubIcon">▶</span></span>
+                </div>
+                <div id="automation5Body" style="display: none;">
+                    <p style="font-size: 12px; color: #666; margin: 0 0 15px 0; padding-left: 26px;">Chaque semaine, envoie aux experts déclarés pour les astreintes HO le planning de la semaine suivante (S+1) à compléter.</p>
+                    <div style="padding-left: 26px; display: flex; flex-direction: column; gap: 15px;">
+                        <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-start;">
+                            <div style="flex: 0 0 180px; display: flex; flex-direction: column;">
+                                <label style="font-size: 12px; color: #555; margin-bottom: 4px;">Jour d'envoi (semaine)</label>
+                                <select id="automation5WeekDay" onchange="saveAutomationHo(5)" style="width: 100%;"></select>
+                            </div>
+                            <div style="flex: 0 0 120px; display: flex; flex-direction: column;">
+                                <label style="font-size: 12px; color: #555; margin-bottom: 4px;">Heure d'envoi</label>
+                                <select id="automation5Hour" onchange="saveAutomationHo(5)" style="width: 100%;"></select>
+                            </div>
+                        </div>
+                        <div>
+                            <label style="font-size: 12px; color: #33691e; font-weight: bold; display: block; margin-bottom: 6px;">👥 Destinataires : experts métier déclarés pour les astreintes HO</label>
+                            <label style="font-size: 12px; display: flex; align-items: center; gap: 6px; margin-bottom: 6px; cursor: pointer;">
+                                <input type="checkbox" id="automation5AllExperts" onchange="saveAutomationHo(5)" checked> Tous les experts HO
+                            </label>
+                            <select id="automation5Recipients" multiple onchange="saveAutomationHo(5)" style="width: 100%; max-width: 420px; height: 96px; border: 1px solid #c5e1a5; border-radius: 4px; padding: 4px;"></select>
+                            <div style="font-size: 11px; color: #777; margin-top: 3px;">Décochez « Tous » pour choisir les destinataires (Ctrl+clic). Seuls les experts ayant un compte avec e-mail sont listés.</div>
+                        </div>
+                        <div>
+                            <label style="font-size: 12px; color: #555; display: block; margin-bottom: 4px;">Sujet du mail</label>
+                            <input type="text" id="automation5Subject" onchange="saveAutomationHo(5)" style="width: 100%; padding: 7px; border: 1px solid #c5e1a5; border-radius: 4px; box-sizing: border-box;">
+                        </div>
+                        <div>
+                            <label style="font-size: 12px; color: #555; display: block; margin-bottom: 4px;">Corps du mail</label>
+                            <textarea id="automation5Body" rows="8" onchange="saveAutomationHo(5)" style="width: 100%; padding: 8px; border: 1px solid #c5e1a5; border-radius: 4px; box-sizing: border-box; font-family: inherit; font-size: 13px;"></textarea>
+                            <div id="automation5Fields" style="font-size: 11px; color: #777; margin-top: 4px;"></div>
+                        </div>
+
+                        <div style="padding: 15px; background-color: #f1f8e9; border-radius: 5px; border: 1px dashed #aed581;">
+                            <label style="font-size: 12px; font-weight: bold; color: #33691e;">🧪 Envoi immédiat</label>
+                            <p style="font-size: 11px; color: #666; margin: 5px 0 10px 0;">Envoie le mail maintenant, avec la configuration enregistrée, sans attendre le jour et l'heure choisis.</p>
+                            <button type="button" onclick="testAutomationHo(5)" style="background-color: #558b2f; color: white;">📨 Envoyer maintenant</button>
+                            <span id="automation5Msg" style="margin-left: 10px; font-size: 12px;"></span>
+                        </div>
+                    </div>
+                </div><!-- /automation5Body -->
+            </div>
+
+            <!-- Automatisation n°6 -->
+            <div style="background-color: white; border: 1px solid #aed581; border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 15px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0;">
+                        <input type="checkbox" id="automation6Enabled" onchange="saveAutomationHo(6)" style="width: 18px; height: 18px; margin: 0;">
+                        <span style="font-weight: bold; color: #33691e; font-size: 14px;">🗓️ Automatisation n°6 : Communication du planning d'astreinte HO</span>
+                    </label>
+                    <span onclick="toggleAdminSubSection('automation6Body')" style="cursor: pointer; font-size: 14px; color: #33691e; padding: 2px 8px;" title="Réduire / développer"><span id="automation6BodySubIcon">▶</span></span>
+                </div>
+                <div id="automation6Body" style="display: none;">
+                    <p style="font-size: 12px; color: #666; margin: 0 0 15px 0; padding-left: 26px;">Communique le planning d'astreinte HO aux destinataires choisis, aux jours et à l'heure paramétrés.</p>
+                    <div style="padding-left: 26px; display: flex; flex-direction: column; gap: 15px;">
+                        <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-start;">
+                            <div style="flex: 0 0 300px; display: flex; flex-direction: column;">
+                                <label style="font-size: 12px; color: #555; margin-bottom: 4px;">Jour(s) d'envoi</label>
+                                <div id="automation6WeekDays" style="display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px;"></div>
+                            </div>
+                            <div style="flex: 0 0 120px; display: flex; flex-direction: column;">
+                                <label style="font-size: 12px; color: #555; margin-bottom: 4px;">Heure d'envoi</label>
+                                <select id="automation6Hour" onchange="saveAutomationHo(6)" style="width: 100%;"></select>
+                            </div>
+                            <div style="flex: 0 0 220px; display: flex; flex-direction: column;">
+                                <label style="font-size: 12px; color: #555; margin-bottom: 4px;">Semaine communiquée</label>
+                                <select id="automation6Week" onchange="saveAutomationHo(6)" style="width: 100%;">
+                                    <option value="current">Semaine en cours</option>
+                                    <option value="next">Semaine suivante</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label style="font-size: 12px; color: #33691e; font-weight: bold; display: block; margin-bottom: 6px;">👥 Destinataires : parmi tous les utilisateurs de l'application</label>
+                            <div style="display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; margin-bottom: 6px;">
+                                <label style="cursor: pointer;"><input type="checkbox" id="automation6GroupAdmin" onchange="saveAutomationHo(6)"> Tous les administrateurs</label>
+                                <label style="cursor: pointer;"><input type="checkbox" id="automation6GroupUser" onchange="saveAutomationHo(6)"> Tous les utilisateurs</label>
+                                <label style="cursor: pointer;"><input type="checkbox" id="automation6GroupExpert" onchange="saveAutomationHo(6)"> Tous les experts</label>
+                            </div>
+                            <select id="automation6Recipients" multiple onchange="saveAutomationHo(6)" style="width: 100%; max-width: 420px; height: 110px; border: 1px solid #c5e1a5; border-radius: 4px; padding: 4px;"></select>
+                            <div style="font-size: 11px; color: #777; margin-top: 3px;">Sélection individuelle : Ctrl+clic.</div>
+                        </div>
+                        <div>
+                            <label style="font-size: 12px; color: #555; display: block; margin-bottom: 4px;">Sujet du mail</label>
+                            <input type="text" id="automation6Subject" onchange="saveAutomationHo(6)" style="width: 100%; padding: 7px; border: 1px solid #c5e1a5; border-radius: 4px; box-sizing: border-box;">
+                        </div>
+                        <div>
+                            <label style="font-size: 12px; color: #555; display: block; margin-bottom: 4px;">Corps du mail</label>
+                            <textarea id="automation6Body" rows="8" onchange="saveAutomationHo(6)" style="width: 100%; padding: 8px; border: 1px solid #c5e1a5; border-radius: 4px; box-sizing: border-box; font-family: inherit; font-size: 13px;"></textarea>
+                            <div id="automation6Fields" style="font-size: 11px; color: #777; margin-top: 4px;"></div>
+                        </div>
+                        <div style="font-size: 12px; color: #555; background: #fff8e1; border-left: 4px solid #ffb300; padding: 8px 10px; border-radius: 4px;">
+                            ℹ️ <strong>Mise à jour automatique</strong> : si le planning de la <em>semaine en cours</em> est modifié (par un expert ou un administrateur), le mail est renvoyé immédiatement aux mêmes destinataires, avec « MAJ » en tête du sujet et la liste des modifications dans le corps du mail.
+                        </div>
+                        <div style="padding: 15px; background-color: #f1f8e9; border-radius: 5px; border: 1px dashed #aed581;">
+                            <label style="font-size: 12px; font-weight: bold; color: #33691e;">🧪 Envoi immédiat</label>
+                            <p style="font-size: 11px; color: #666; margin: 5px 0 10px 0;">Envoie le mail maintenant, avec la configuration enregistrée, sans attendre le jour et l'heure choisis.</p>
+                            <button type="button" onclick="testAutomationHo(6)" style="background-color: #558b2f; color: white;">📨 Envoyer maintenant</button>
+                            <span id="automation6Msg" style="margin-left: 10px; font-size: 12px;"></span>
+                        </div>
+                    </div>
+                </div><!-- /automation6Body -->
+            </div>
+
             <!-- Signatures CRA — déplacé dans l'onglet CRA -->
             
         </div>
@@ -2447,13 +2569,41 @@
     </div>
 </div>
 
-<!-- ONGLET GESTION DES ASTREINTES (EXPERIMENTAL) -->
+<!-- ONGLET ASTREINTES : rubriques « Gestion des astreintes HO » et « Gestion des astreintes HNO » -->
 <div id="astreintesGestion" class="tab-content">
-    <h2>🧪 Gestion des Astreintes (Expérimental)</h2>
-    <p style="color: #856404; background-color: #fff3cd; padding: 10px; border-radius: 5px; margin-bottom: 20px;">
-        ⚠️ <strong>Module expérimental</strong> - Génération automatique du planning d'astreinte N2 (accompagnement métier des équipes support)
-    </p>
-    
+    <h2>🔔 Astreintes</h2>
+
+    <!-- Rubriques -->
+    <div id="astreinteSubTabs" style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 18px;">
+        <button type="button" id="astreinteSubTabHo" onclick="astreinteSwitchRubrique('ho')" class="astreinte-subtab active">🗓️ Gestion des astreintes HO</button>
+        <button type="button" id="astreinteSubTabHno" onclick="astreinteSwitchRubrique('hno')" class="astreinte-subtab" style="display:none;">🌙 Gestion des astreintes HNO</button>
+    </div>
+
+    <!-- RUBRIQUE : GESTION DES ASTREINTES HO -->
+    <div id="astreintesHoPanel">
+        <p style="font-size:13px;color:#33691e;background:#f1f8e9;border-left:4px solid #7cb342;padding:10px 12px;border-radius:4px;margin:0 0 14px;">
+            Planning des astreintes <strong>HO</strong> (heures ouvrées) : du lundi au vendredi, <strong>demi-journée par demi-journée</strong>.
+            Plusieurs experts peuvent être inscrits sur une même demi-journée.
+        </p>
+        <div id="hoRights" style="font-size:12px;color:#555;margin-bottom:10px;"></div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
+            <button type="button" class="ho-btn" onclick="hoNavigate(-1)" title="Mois précédent">◀</button>
+            <strong id="hoMonthLabel" style="min-width:150px;text-align:center;font-size:15px;"></strong>
+            <button type="button" class="ho-btn" onclick="hoNavigate(1)" title="Mois suivant">▶</button>
+            <button type="button" class="ho-btn" onclick="hoGoToday()">Aujourd'hui</button>
+            <span style="flex:1;"></span>
+            <button type="button" id="hoCancelBtn" class="ho-btn" onclick="hoCancelPending()" style="display:none;">↺ Annuler les modifications</button>
+            <button type="button" id="hoSaveBtn" class="ho-btn ho-btn-primary" onclick="hoOpenSaveDialog()" style="display:none;">💾 Enregistrer <span id="hoPendingCount"></span></button>
+        </div>
+        <div id="hoLegend" style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;margin-bottom:10px;"></div>
+        <div id="hoGrid"><p style="color:#999;font-style:italic;">Chargement…</p></div>
+    </div>
+
+    <!-- RUBRIQUE : GESTION DES ASTREINTES HNO (réservée aux administrateurs) -->
+    <div id="astreintesHnoPanel" style="display:none;">
+        <h3 style="color:#4a148c;border-left:none;margin:0 0 6px;">🌙 Gestion des astreintes HNO</h3>
+        <p style="font-size:13px;color:#555;margin:0 0 20px;">Génération du planning d'astreinte N2 (accompagnement métier des équipes support), heures non ouvrées.</p>
+
     <!-- SECTION 1: Gestion des volontaires -->
     <div class="form-section" style="background-color: #e8f5e9; border-left: 4px solid #4caf50;">
         <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleAstreinteSection('volontairesSection')">
@@ -2604,6 +2754,22 @@
             <div id="astreintePlanningActuelContainer">
                 <p style="color: #999; font-style: italic;">Sélectionnez un mois pour afficher le planning</p>
             </div>
+        </div>
+    </div>
+    </div><!-- /astreintesHnoPanel -->
+</div>
+
+<!-- Fenêtre : confirmation de l'enregistrement du planning HO -->
+<div id="hoSaveModal" class="modal" style="z-index:10010;">
+    <div class="modal-content" style="max-width:640px;max-height:88vh;overflow-y:auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+            <h3 style="margin:0;border:none;padding:0;">💾 Enregistrer le planning HO</h3>
+            <button type="button" class="ho-btn" onclick="hoCloseSaveDialog()">✕</button>
+        </div>
+        <div id="hoSaveBody" style="margin-top:12px;"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+            <button type="button" class="ho-btn" onclick="hoCloseSaveDialog()">Annuler</button>
+            <button type="button" id="hoConfirmBtn" class="ho-btn ho-btn-primary" onclick="hoConfirmSave()">Confirmer et enregistrer</button>
         </div>
     </div>
 </div>
@@ -3071,16 +3237,25 @@
                 </div>
             </div>
             
-            <!-- Dispositif Astreintes -->
-            <div style="margin-top:16px;padding:12px;background:#fff8e1;border:1px solid #ffe082;border-radius:6px;">
-                <label style="font-size:13px;font-weight:bold;color:#e65100;display:flex;align-items:center;gap:10px;cursor:pointer;">
-                    <input type="checkbox" id="editAstreinteVolontaire" onchange="toggleEditAstreinteDate()" style="width:16px;height:16px;">
-                    🔔 Participe au dispositif Astreintes/HNO
+            <!-- Astreintes : HO, HNO, accompagnement post démarrage -->
+            <div id="editAstreintesBlock" style="margin-top:16px;padding:12px;background:#fff8e1;border:1px solid #ffe082;border-radius:6px;">
+                <div style="font-size:13px;font-weight:bold;color:#e65100;margin-bottom:8px;">🔔 Astreintes (activités à différencier)</div>
+                <label style="font-size:13px;color:#33691e;display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:6px;">
+                    <input type="checkbox" id="editAstreinteHo" style="width:16px;height:16px;">
+                    <span><strong>Astreintes HO</strong> <span style="font-size:11px;color:#777;">(jours de la semaine, heures ouvrées)</span></span>
                 </label>
-                <div id="editAstreinteDateBlock" style="display:none;margin-top:10px;">
-                    <label style="font-size:12px;color:#555;display:block;margin-bottom:4px;">📅 Date de démarrage du régime d'astreintes *</label>
+                <label style="font-size:13px;color:#e65100;display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:6px;">
+                    <input type="checkbox" id="editAstreinteVolontaire" onchange="toggleEditAstreinteDate()" style="width:16px;height:16px;">
+                    <span><strong>Astreintes HNO</strong> <span style="font-size:11px;color:#777;">(jours et heures non ouvrés)</span></span>
+                </label>
+                <div id="editAstreinteDateBlock" style="display:none;margin:0 0 8px 26px;">
+                    <label style="font-size:12px;color:#555;display:block;margin-bottom:4px;">📅 Date de démarrage du régime d'astreintes HNO *</label>
                     <input type="date" id="editAstreinteDate" style="padding:6px 10px;border:1px solid #ffe082;border-radius:4px;font-size:13px;">
                 </div>
+                <label style="font-size:13px;color:#4a148c;display:flex;align-items:center;gap:10px;cursor:pointer;">
+                    <input type="checkbox" id="editAstreinteApd" style="width:16px;height:16px;">
+                    <span><strong>Astreintes « Accompagnement post démarrage »</strong> <span style="font-size:11px;color:#777;">(jours et heures non ouvrés, dans le cadre d'un déploiement)</span></span>
+                </label>
             </div>
 
             <!-- Contacts RH de l'ES -->
@@ -3439,38 +3614,40 @@
         </div>
     </div>
 
-    <script src="/js/app/core.js?v=2.0.2"></script>
-    <script src="/js/app/email-validation.js?v=2.0.2"></script>
-    <script src="/js/app/mfa.js?v=2.0.2"></script>
-    <script src="/js/app/tab-access.js?v=2.0.2"></script>
-    <script src="/js/app/hno.js?v=2.0.2"></script>
-    <script src="/js/app/deplacements.js?v=2.0.2"></script>
-    <script src="/js/app/password-reset.js?v=2.0.2"></script>
-    <script src="/js/app/particularites.js?v=2.0.2"></script>
-    <script src="/js/app/planning.js?v=2.0.2"></script>
-    <script src="/js/app/admin-users.js?v=2.0.2"></script>
-    <script src="/js/app/admin-api.js?v=2.0.2"></script>
-    <script src="/js/app/conges-scolaires.js?v=2.0.2"></script>
-    <script src="/js/app/automations.js?v=2.0.2"></script>
-    <script src="/js/app/automation-backup.js?v=2.0.2"></script>
-    <script src="/js/app/reporting.js?v=2.0.2"></script>
-    <script src="/js/app/cra.js?v=2.0.2"></script>
-    <script src="/js/app/ics-events.js?v=2.0.2"></script>
-    <script src="/js/app/search.js?v=2.0.2"></script>
-    <script src="/js/app/dump.js?v=2.0.2"></script>
-    <script src="/js/app/tabs.js?v=2.0.2"></script>
-    <script src="/js/app/settings.js?v=2.0.2"></script>
-    <script src="/js/app/assignment-notifications.js?v=2.0.2"></script>
-    <script src="/js/app/locations.js?v=2.0.2"></script>
-    <script src="/js/app/maps.js?v=2.0.2"></script>
-    <script src="/js/app/planning-tools.js?v=2.0.2"></script>
-    <script src="/js/app/calendar-views.js?v=2.0.2"></script>
-    <script src="/js/app/assignment-request.js?v=2.0.2"></script>
-    <script src="/js/app/planning-navigation.js?v=2.0.2"></script>
-    <script src="/js/app/profile.js?v=2.0.2"></script>
-    <script src="/js/app/realtime.js?v=2.0.2"></script>
-    <script src="/js/app/user-events.js?v=2.0.2"></script>
-    <script src="/js/app/astreintes.js?v=2.0.2"></script>
+    <script src="/js/app/core.js?v=2.1.0"></script>
+    <script src="/js/app/email-validation.js?v=2.1.0"></script>
+    <script src="/js/app/mfa.js?v=2.1.0"></script>
+    <script src="/js/app/tab-access.js?v=2.1.0"></script>
+    <script src="/js/app/hno.js?v=2.1.0"></script>
+    <script src="/js/app/deplacements.js?v=2.1.0"></script>
+    <script src="/js/app/password-reset.js?v=2.1.0"></script>
+    <script src="/js/app/particularites.js?v=2.1.0"></script>
+    <script src="/js/app/planning.js?v=2.1.0"></script>
+    <script src="/js/app/admin-users.js?v=2.1.0"></script>
+    <script src="/js/app/admin-api.js?v=2.1.0"></script>
+    <script src="/js/app/conges-scolaires.js?v=2.1.0"></script>
+    <script src="/js/app/automations.js?v=2.1.0"></script>
+    <script src="/js/app/automations-ho.js?v=2.1.0"></script>
+    <script src="/js/app/automation-backup.js?v=2.1.0"></script>
+    <script src="/js/app/reporting.js?v=2.1.0"></script>
+    <script src="/js/app/cra.js?v=2.1.0"></script>
+    <script src="/js/app/ics-events.js?v=2.1.0"></script>
+    <script src="/js/app/search.js?v=2.1.0"></script>
+    <script src="/js/app/dump.js?v=2.1.0"></script>
+    <script src="/js/app/tabs.js?v=2.1.0"></script>
+    <script src="/js/app/settings.js?v=2.1.0"></script>
+    <script src="/js/app/assignment-notifications.js?v=2.1.0"></script>
+    <script src="/js/app/locations.js?v=2.1.0"></script>
+    <script src="/js/app/maps.js?v=2.1.0"></script>
+    <script src="/js/app/planning-tools.js?v=2.1.0"></script>
+    <script src="/js/app/calendar-views.js?v=2.1.0"></script>
+    <script src="/js/app/assignment-request.js?v=2.1.0"></script>
+    <script src="/js/app/planning-navigation.js?v=2.1.0"></script>
+    <script src="/js/app/profile.js?v=2.1.0"></script>
+    <script src="/js/app/realtime.js?v=2.1.0"></script>
+    <script src="/js/app/user-events.js?v=2.1.0"></script>
+    <script src="/js/app/astreintes.js?v=2.1.0"></script>
+    <script src="/js/app/astreintes-ho.js?v=2.1.0"></script>
 
     <!-- MODALE VUE CALENDRIER MENSUEL -->
     <div id="monthlyCalendarModal" class="modal">
@@ -5266,7 +5443,7 @@
     </div>
 </div>
 
-<script src="/js/app/file-analysis.js?v=2.0.2"></script>
+<script src="/js/app/file-analysis.js?v=2.1.0"></script>
 
 <!-- ══ Modale vérification carte (pin draggable) ══ -->
     <div id="verifyMapModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:21000;align-items:center;justify-content:center;">
@@ -5292,9 +5469,9 @@
     <button id="deployBannerClose" onclick="deployBannerDismiss()" title="Masquer ce message" aria-label="Masquer" style="position:absolute; right:14px; top:50%; transform:translateY(-50%); background:rgba(255,255,255,.18); color:white; border:none; width:28px; height:28px; border-radius:50%; cursor:pointer; font-size:16px; line-height:1; padding:0;">×</button>
 </div>
 
-<script src="/js/app/version-watch.js?v=2.0.2"></script>
+<script src="/js/app/version-watch.js?v=2.1.0"></script>
 
 
-<script src="/js/app/warning-icons.js?v=2.0.2"></script>
+<script src="/js/app/warning-icons.js?v=2.1.0"></script>
 </body>
 </html>

@@ -24,7 +24,7 @@ Protections :
 | `mfaPending` | Connexion en attente de double authentification |
 | `apiKey` | Clé d’API (en-tête X-Api-Key) |
 
-297 routes, par module (`src/modules/<module>`) :
+301 routes, par module (`src/modules/<module>`) :
 
 ## admin
 
@@ -122,6 +122,15 @@ Protections :
 | DELETE | `/api/astreintes/:id` | auth |
 | GET | `/api/experts-list` | auth |
 | GET | `/api/mes-astreintes` | auth |
+
+## astreintes-ho
+
+| Méthode | Chemin | Protection |
+| --- | --- | --- |
+| GET | `/api/astreintes-ho` | auth |
+| POST | `/api/astreintes-ho/automation/:n/send` | admin |
+| GET | `/api/astreintes-ho/info` | admin |
+| POST | `/api/astreintes-ho/save` | auth |
 
 ## auth
 

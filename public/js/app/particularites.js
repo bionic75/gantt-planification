@@ -268,6 +268,8 @@ async function saveResourceEdit() {
                 fonction: document.getElementById('editFonction').value || null,
                 contacts_rh: contactsCheck.valid.join('\n') || null,
                 astreinte_volontaire: document.getElementById('editAstreinteVolontaire').checked,
+                astreinte_ho: document.getElementById('editAstreinteHo').checked,
+                astreinte_apd: document.getElementById('editAstreinteApd').checked,
                 astreinte_date_activation: document.getElementById('editAstreinteDate').value || null,
                 is_mad_volante: document.getElementById('editMadVolante').checked ? 1 : 0,
                 date_fin_mad: document.getElementById('editDateFinMad').value || null,
