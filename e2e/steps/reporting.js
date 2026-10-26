@@ -2,7 +2,7 @@
 // Reporting › Suivi des connexions utilisateurs
 import { expect } from '@playwright/test';
 import { profil as profilDe } from '../support/config.js';
-import { adminApi } from '../support/donnees.js';
+import { adminApi, aujourdhuiParis as aujourdhui, premierJourDuMois as premierDuMois } from '../support/donnees.js';
 import { Then, When } from '../support/fixtures.js';
 
 /** @typedef {import('../support/monde.js').Monde} Monde */
@@ -15,13 +15,6 @@ const COLONNES = /** @type {Record<string, { ck: string, index: number }>} */ ({
     'Nb connexions': { ck: 'total', index: 3 },
     'Dernière connexion': { ck: 'last', index: 4 }
 });
-
-const pad = (/** @type {number} */ n) => String(n).padStart(2, '0');
-const aujourdhui = () => {
-    const d = new Date();
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-};
-const premierDuMois = () => `${aujourdhui().slice(0, 8)}01`;
 
 /** Lignes affichées du rapport : cellules texte */
 const lignes = async (/** @type {Page} */ page) =>
@@ -39,25 +32,35 @@ const cliquerGenerer = (/** @type {Page} */ page) =>
         .evaluate(b => /** @type {HTMLElement} */ (b).click());
 
 async function generer(/** @type {Page} */ page) {
-    // Attente de la réponse du serveur : le tableau précédent reste affiché pendant le rechargement
+    // Le tableau précédent reste affiché pendant le rechargement : attente de la réponse du serveur, puis du tableau
+    // correspondant (une ligne par utilisateur, ou la ligne « Aucune connexion »)
     const reponse = page.waitForResponse(r => r.url().includes('/api/reporting/connections'));
     await cliquerGenerer(page);
-    await reponse;
-    await page.waitForTimeout(200);
+    const { rows } = await (await reponse).json();
+    const utilisateurs = new Set(rows.map((/** @type {any} */ r) => String(r.username || '').toLowerCase())).size;
     await expect(page.locator('#connexionsReportResult')).toBeVisible();
-    await expect(page.locator('#connexionsReportBody tr').first()).toBeVisible();
+    await expect(page.locator('#connexionsReportBody tr')).toHaveCount(Math.max(utilisateurs, 1));
+    const total = rows.reduce((/** @type {number} */ s, /** @type {any} */ r) => s + (r.nb_connexions || 0), 0);
+    await expect(page.locator('#connexionsTotalCount')).toHaveText(String(total));
 }
 
 When('je lance la génération du rapport des connexions', async ({ monde }) => {
-    await cliquerGenerer(monde.page);
+    const page = monde.page;
+    // Les deux dates de l'intervalle renseignées : appel au serveur, attendu ; sinon simple alerte de l'écran
+    const libre = await page.locator('#connexionsModeInterval').isChecked();
+    const complet =
+        !libre ||
+        ((await page.locator('#connexionsStart').inputValue()) && (await page.locator('#connexionsEnd').inputValue()));
+    if (complet) await generer(page);
+    else await cliquerGenerer(page);
 });
 
 When('je génère le rapport des connexions du mois courant', async ({ monde }) => {
     const page = monde.page;
     await page.locator('#connexionsModeMonth').check();
-    const now = new Date();
-    await page.locator('#connexionsMonth').selectOption(pad(now.getMonth() + 1));
-    await page.locator('#connexionsYear').selectOption(String(now.getFullYear()));
+    const [annee, mois] = aujourdhui().split('-');
+    await page.locator('#connexionsMonth').selectOption(mois);
+    await page.locator('#connexionsYear').selectOption(annee);
     await generer(page);
 });
 
@@ -77,7 +80,9 @@ Then('le compte {string} figure dans le rapport avec son badge de profil', async
 });
 
 Then('le compte {string} figure dans le rapport', async ({ monde }, label) => {
-    expect(await ligneDe(monde.page, profilDe(label).login), `${label} absent du rapport`).toBeTruthy();
+    await expect
+        .poll(() => ligneDe(monde.page, profilDe(label).login), { message: `${label} absent du rapport` })
+        .toBeTruthy();
 });
 
 Then('le total affiché est la somme des connexions des lignes', async ({ monde }) => {

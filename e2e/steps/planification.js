@@ -7,6 +7,7 @@ import {
     creerDeploiement,
     creerRessource,
     lireDeploiement,
+    moisCourantParis,
     nettoyerMoisExpert,
     ressourceExpert
 } from '../support/donnees.js';
@@ -106,8 +107,8 @@ When("j'affiche le mois de {string} dans la planification", async ({ monde }, li
 });
 
 Then('les en-têtes de semaine sont {string}', async ({ monde }, attendu) => {
-    const entetes = (await monde.page.locator('#planning th.week-number-header').allTextContents()).map(t => t.trim());
-    expect(entetes.join(', ')).toBe(attendu);
+    // Assertion réessayée : la grille du mois choisi peut être encore en cours d'affichage
+    await expect(monde.page.locator('#planning th.week-number-header')).toHaveText(attendu.split(', '));
 });
 
 const ligneExpert = (/** @type {Page} */ page, /** @type {string} */ id) =>
@@ -180,24 +181,38 @@ Then("aucune ligne n'est masquée", async ({ monde }) => {
 When('je navigue de {int} mois en avant puis de {int} mois en arrière', async ({ monde }, avant, arriere) => {
     const page = monde.page;
     await ongletPlanification(page);
-    for (let i = 0; i < avant; i++)
-        await page.locator('#ganttHeaderButtons button', { hasText: 'Mois suivant' }).click();
-    for (let i = 0; i < arriere; i++)
-        await page.locator('#ganttHeaderButtons button', { hasText: 'Mois précédent' }).click();
+    // Mois affiché (année × 12 + mois) : chaque clic est attendu avant le suivant, la grille se redessinant
+    const moisAffiche = async () =>
+        Number(await page.locator('#yearSelect').inputValue()) * 12 +
+        Number(await page.locator('#monthSelect').inputValue());
+    const naviguer = async (/** @type {string} */ libelle, /** @type {number} */ sens) => {
+        const avantClic = await moisAffiche();
+        await page.locator('#ganttHeaderButtons button', { hasText: libelle }).click();
+        await expect.poll(moisAffiche, { message: `navigation « ${libelle} »` }).toBe(avantClic + sens);
+    };
+    for (let i = 0; i < avant; i++) await naviguer('Mois suivant', 1);
+    for (let i = 0; i < arriere; i++) await naviguer('Mois précédent', -1);
 });
 
 Then('la grille affiche le mois courant', async ({ monde }) => {
-    const now = new Date();
-    await expect(monde.page.locator('#monthSelect')).toHaveValue(String(now.getMonth()));
-    await expect(monde.page.locator('#yearSelect')).toHaveValue(String(now.getFullYear()));
+    const { annee, mois } = moisCourantParis();
+    await expect(monde.page.locator('#monthSelect')).toHaveValue(String(mois - 1));
+    await expect(monde.page.locator('#yearSelect')).toHaveValue(String(annee));
 });
 
 Then("toutes les lignes d'expert ont le même nombre de cellules", async ({ monde }) => {
-    const comptes = await monde.page
-        .locator('#ganttBody tr[data-resource-id]')
-        .evaluateAll(trs => trs.map(tr => tr.querySelectorAll(':scope > td').length));
-    expect(comptes.length).toBeGreaterThan(0);
-    expect(new Set(comptes).size, `cellules par ligne : ${comptes.join(', ')}`).toBe(1);
+    // Lecture réessayée : la grille peut être en cours de réaffichage après la navigation
+    await expect
+        .poll(
+            async () => {
+                const comptes = await monde.page
+                    .locator('#ganttBody tr[data-resource-id]')
+                    .evaluateAll(trs => trs.map(tr => tr.querySelectorAll(':scope > td').length));
+                return comptes.length > 0 && new Set(comptes).size === 1;
+            },
+            { message: "nombre de cellules différent d'une ligne d'expert à l'autre" }
+        )
+        .toBe(true);
 });
 
 // ---------- Déploiement et conflit d'affectation ----------
