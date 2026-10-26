@@ -323,3 +323,75 @@
 #hoSaveModal th::after {
     content: none !important;
 }
+
+/* Cases à cocher des astreintes HO : case collée à son libellé, alignées en colonne, texte à gauche
+   (les règles globales input { width: 100% } et label { display: block } les étiraient) */
+.ho-check {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.25;
+    text-align: left;
+    cursor: pointer;
+}
+.ho-check input[type='checkbox'] {
+    flex: 0 0 16px;
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    padding: 0;
+}
+.ho-checks {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 18px;
+}
+.ho-popover label.ho-check {
+    display: flex;
+    width: 100%;
+    padding: 5px 6px;
+    box-sizing: border-box;
+}
+.ho-popover label.ho-check .ho-tri {
+    margin-left: auto;
+    color: #78909c;
+    font-size: 11px;
+    font-weight: 400;
+}
+
+/* Semaine en cours : bandeau bleu, cadre et fond distincts */
+.ho-grid th.ho-week-current {
+    background: #1d70b7;
+    color: #fff;
+    box-shadow: 0 2px 6px rgba(29, 112, 183, 0.45);
+}
+.ho-grid th.ho-week-current small {
+    display: block;
+    margin-top: 2px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.ho-grid tr.ho-current-week td.ho-day {
+    padding: 4px;
+    border-radius: 10px;
+    background: #e3f2fd;
+    box-shadow: inset 0 0 0 2px #1d70b7;
+}
+.ho-grid tr.ho-current-week .ho-half {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+.ho-legend-current {
+    display: inline-block;
+    width: 22px;
+    height: 16px;
+    border-radius: 4px;
+    background: #e3f2fd;
+    box-shadow: inset 0 0 0 2px #1d70b7;
+}

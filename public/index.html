@@ -2330,7 +2330,7 @@
                         </div>
                         <div>
                             <label style="font-size: 12px; color: #33691e; font-weight: bold; display: block; margin-bottom: 6px;">👥 Destinataires : experts métier déclarés pour les astreintes HO</label>
-                            <label style="font-size: 12px; display: flex; align-items: center; gap: 6px; margin-bottom: 6px; cursor: pointer;">
+                            <label class="ho-check" style="margin-bottom: 6px;">
                                 <input type="checkbox" id="automation5AllExperts" onchange="saveAutomationHo(5)" checked> Tous les experts HO
                             </label>
                             <select id="automation5Recipients" multiple onchange="saveAutomationHo(5)" style="width: 100%; max-width: 420px; height: 96px; border: 1px solid #c5e1a5; border-radius: 4px; padding: 4px;"></select>
@@ -2342,7 +2342,7 @@
                         </div>
                         <div>
                             <label style="font-size: 12px; color: #555; display: block; margin-bottom: 4px;">Corps du mail</label>
-                            <textarea id="automation5Body" rows="8" onchange="saveAutomationHo(5)" style="width: 100%; padding: 8px; border: 1px solid #c5e1a5; border-radius: 4px; box-sizing: border-box; font-family: inherit; font-size: 13px;"></textarea>
+                            <textarea id="automation5Text" rows="8" onchange="saveAutomationHo(5)" style="width: 100%; padding: 8px; border: 1px solid #c5e1a5; border-radius: 4px; box-sizing: border-box; font-family: inherit; font-size: 13px;"></textarea>
                             <div id="automation5Fields" style="font-size: 11px; color: #777; margin-top: 4px;"></div>
                         </div>
 
@@ -2371,7 +2371,7 @@
                         <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-start;">
                             <div style="flex: 0 0 300px; display: flex; flex-direction: column;">
                                 <label style="font-size: 12px; color: #555; margin-bottom: 4px;">Jour(s) d'envoi</label>
-                                <div id="automation6WeekDays" style="display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px;"></div>
+                                <div id="automation6WeekDays" class="ho-checks"></div>
                             </div>
                             <div style="flex: 0 0 120px; display: flex; flex-direction: column;">
                                 <label style="font-size: 12px; color: #555; margin-bottom: 4px;">Heure d'envoi</label>
@@ -2387,10 +2387,10 @@
                         </div>
                         <div>
                             <label style="font-size: 12px; color: #33691e; font-weight: bold; display: block; margin-bottom: 6px;">👥 Destinataires : parmi tous les utilisateurs de l'application</label>
-                            <div style="display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; margin-bottom: 6px;">
-                                <label style="cursor: pointer;"><input type="checkbox" id="automation6GroupAdmin" onchange="saveAutomationHo(6)"> Tous les administrateurs</label>
-                                <label style="cursor: pointer;"><input type="checkbox" id="automation6GroupUser" onchange="saveAutomationHo(6)"> Tous les utilisateurs</label>
-                                <label style="cursor: pointer;"><input type="checkbox" id="automation6GroupExpert" onchange="saveAutomationHo(6)"> Tous les experts</label>
+                            <div class="ho-checks" style="margin-bottom: 8px;">
+                                <label class="ho-check"><input type="checkbox" id="automation6GroupAdmin" onchange="saveAutomationHo(6)"> Tous les administrateurs</label>
+                                <label class="ho-check"><input type="checkbox" id="automation6GroupUser" onchange="saveAutomationHo(6)"> Tous les utilisateurs</label>
+                                <label class="ho-check"><input type="checkbox" id="automation6GroupExpert" onchange="saveAutomationHo(6)"> Tous les experts</label>
                             </div>
                             <select id="automation6Recipients" multiple onchange="saveAutomationHo(6)" style="width: 100%; max-width: 420px; height: 110px; border: 1px solid #c5e1a5; border-radius: 4px; padding: 4px;"></select>
                             <div style="font-size: 11px; color: #777; margin-top: 3px;">Sélection individuelle : Ctrl+clic.</div>
@@ -2401,7 +2401,7 @@
                         </div>
                         <div>
                             <label style="font-size: 12px; color: #555; display: block; margin-bottom: 4px;">Corps du mail</label>
-                            <textarea id="automation6Body" rows="8" onchange="saveAutomationHo(6)" style="width: 100%; padding: 8px; border: 1px solid #c5e1a5; border-radius: 4px; box-sizing: border-box; font-family: inherit; font-size: 13px;"></textarea>
+                            <textarea id="automation6Text" rows="8" onchange="saveAutomationHo(6)" style="width: 100%; padding: 8px; border: 1px solid #c5e1a5; border-radius: 4px; box-sizing: border-box; font-family: inherit; font-size: 13px;"></textarea>
                             <div id="automation6Fields" style="font-size: 11px; color: #777; margin-top: 4px;"></div>
                         </div>
                         <div style="font-size: 12px; color: #555; background: #fff8e1; border-left: 4px solid #ffb300; padding: 8px 10px; border-radius: 4px;">
