@@ -141,6 +141,127 @@ jobs:
         env:
           TEST_DB_PROVIDER: mysql
 
+  # Tests de bout en bout (Playwright BDD, dossier e2e/) sur l'application de la branche : base SQLite neuve,
+  # jeu de données synthétique (e2e/scripts/seed.mjs), codes de double authentification lus dans Mailpit.
+  # Instance jetable : mots de passe propres à ce job, aucun secret du dépôt.
+  e2e:
+    name: Tests de bout en bout
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: e2e-${{ github.ref }}
+      cancel-in-progress: true
+    services:
+      mailpit:
+        image: axllent/mailpit:v1.31.4
+        ports: ['1025:1025', '8025:8025']
+        env:
+          # L'application s'authentifie toujours auprès du SMTP : identifiants acceptés, sans TLS
+          MP_SMTP_AUTH_ACCEPT_ANY: 1
+          MP_SMTP_AUTH_ALLOW_INSECURE: 1
+    env:
+      PUPPETEER_SKIP_DOWNLOAD: 'true'
+      # Application
+      PORT: 3000
+      APP_URL: http://localhost:3000
+      DB_PROVIDER: sqlite
+      INITIAL_ADMIN_USERNAME: ci-bootstrap
+      INITIAL_ADMIN_PASSWORD: Ci-Bootstrap-2026!
+      # Chrome du runner pour les PDF des CRA
+      PUPPETEER_EXECUTABLE_PATH: /usr/bin/google-chrome
+      # Tests (logins des comptes : valeurs par défaut de e2e/support/config.js)
+      E2E_BASE_URL: http://localhost:3000
+      E2E_MAIL_PROVIDER: mailpit
+      E2E_MAILPIT_URL: http://localhost:8025
+      E2E_SHARED_MAILBOX: shared@ci.local
+      E2E_ADMINISTRATEUR_PASSWORD: Ci-E2e-Tests-2026!
+      E2E_EXPERT_PASSWORD: Ci-E2e-Tests-2026!
+      E2E_UTILISATEUR_PASSWORD: Ci-E2e-Tests-2026!
+      E2E_RH_PASSWORD: Ci-E2e-Tests-2026!
+      E2E_SEED_ADMIN_LOGIN: ci-bootstrap
+      E2E_SEED_ADMIN_PASSWORD: Ci-Bootstrap-2026!
+      E2E_SEED_SMTP_HOST: 127.0.0.1
+      E2E_SEED_SMTP_PORT: 1025
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            e2e/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm ci --prefix e2e
+
+      - name: Install Chromium (Playwright)
+        run: npx --prefix e2e playwright install --with-deps chromium
+
+      - name: Start application
+        run: |
+          export DB_PATH="$RUNNER_TEMP/e2e-data"
+          export SESSION_SECRET="$(openssl rand -hex 32)"
+          mkdir -p "$DB_PATH"
+          node scripts/db-migrate.mjs
+          nohup node server.js > "$RUNNER_TEMP/app.log" 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fs http://localhost:3000/api/version; then exit 0; fi
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/app.log"
+          exit 1
+
+      - name: Seed test data
+        run: node e2e/scripts/seed.mjs
+
+      # Scénarios à préalable externe (Internet, Asana) ou à paramètre global (inactivité) : exécution planifiée.
+      # Les scénarios @anomalie-connue (@fail) passent tant que l'anomalie existe, échouent dès qu'elle est corrigée.
+      - name: End-to-end tests
+        working-directory: e2e
+        run: npm test
+        env:
+          E2E_TAGS: not @manuel and not @destructif and not @exploitation and not @asana and not @lent and not @internet
+
+      # Dump puis restauration de la base : seul, après les autres scénarios
+      - name: End-to-end tests (restauration de la base)
+        working-directory: e2e
+        run: npm test
+        env:
+          E2E_TAGS: '@destructif and not @manuel and not @exploitation'
+          E2E_WORKERS: 1
+          E2E_RAPPORT: destructif
+
+      # Rapport Allure des deux exécutions (résultats écrits par allure-playwright)
+      - name: Allure report
+        if: ${{ !cancelled() }}
+        working-directory: e2e
+        run: |
+          dirs=$(ls -d allure-results* 2>/dev/null || true)
+          if [ -n "$dirs" ]; then npx allure generate $dirs --output allure-report --name "Planification e2e"; fi
+
+      - name: Upload reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-reports
+          path: |
+            e2e/playwright-report/
+            e2e/playwright-report-destructif/
+            e2e/cucumber-report/
+            e2e/cucumber-report-destructif/
+            e2e/monocart-report/
+            e2e/monocart-report-destructif/
+            e2e/allure-report/
+            e2e/test-results/
+            ${{ runner.temp }}/app.log
+          retention-days: 14
+
   docker-build:
     name: Construction de l'image Docker
     runs-on: ubuntu-latest

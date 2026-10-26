@@ -1,0 +1,36 @@
+{
+  "name": "gantt-planification-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Tests de bout en bout (Playwright BDD) de la plateforme de planification",
+  "type": "module",
+  "scripts": {
+    "bddgen": "bddgen",
+    "test": "bddgen && playwright test",
+    "test:headed": "bddgen && playwright test --headed",
+    "test:ui": "bddgen && playwright test --ui",
+    "test:auth": "bddgen && playwright test --project=authentification",
+    "seed": "node scripts/seed.mjs",
+    "test:complet": "cross-env E2E_TAGS=\"not @manuel\" E2E_WORKERS=1 npm test",
+    "report": "playwright show-report",
+    "report:monocart": "monocart show-report monocart-report/index.html",
+    "report:allure": "allure generate allure-results --output allure-report --name \"Planification e2e\"",
+    "report:allure:open": "allure open allure-report",
+    "steps": "bddgen export",
+    "install:browsers": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "allure": "3.20.1",
+    "allure-playwright": "3.13.0",
+    "cross-env": "^7.0.3",
+    "dotenv": "^17.2.3",
+    "imapflow": "^2.9.1",
+    "mailparser": "^3.12.4",
+    "monocart-reporter": "2.14.1",
+    "playwright-bdd": "9.2.1"
+  },
+  "engines": {
+    "node": ">=22.18"
+  }
+}
