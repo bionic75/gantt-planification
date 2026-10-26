@@ -5,6 +5,7 @@ import { requireAdmin, requireAffectationAccess } from '../../middlewares/auth.j
 import { asyncHandler as h } from '../../middlewares/error-handler.js';
 import * as ctrl from './affectation.controller.js';
 import * as asana from './asana.controller.js';
+import * as ateliers from './ateliers.controller.js';
 import * as exp from './export.controller.js';
 
 const router = Router();
@@ -40,6 +41,14 @@ router.post('/affectation/projects/:id/sync/:stage', requireAdmin, h(ctrl.syncAp
 
 // À chaque création, modification ou suppression d'événement, les affectations des déploiements suivent
 router.use(['/my-custom-events', '/custom-events'], ctrl.eventsHook);
+
+// Planification des ateliers métier : rétroplanning automatisé par SAMU
+router.get('/affectation/ateliers/meta', requireAffectationAccess, h(ateliers.meta));
+router.post('/affectation/ateliers/simulate', requireAffectationAccess, h(ateliers.simulate));
+router.get('/affectation/ateliers', requireAffectationAccess, h(ateliers.list));
+router.put('/affectation/ateliers', requireAdmin, h(ateliers.save));
+router.delete('/affectation/ateliers/:id', requireAdmin, h(ateliers.remove));
+router.post('/affectation/ateliers/:id/send', requireAdmin, h(ateliers.send));
 
 // Import depuis Asana
 router.post('/affectation/import/asana-csv', requireAdmin, h(asana.csvPreview));

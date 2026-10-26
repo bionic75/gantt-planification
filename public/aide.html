@@ -623,6 +623,22 @@
     </tbody>
   </table>
   <div class="note">Une ressource sans compte utilisateur ne peut pas être ajoutée comme participante : elle est signalée dans la fenêtre. Quand tout est déjà à jour, la fenêtre l'indique (« Tout est à jour ») et n'apparaît plus d'elle-même. Cette synchronisation est réservée aux administrateurs.</div>
+
+  <h3>Planification des ateliers métier</h3>
+  <p>L'onglet <strong>Planification des ateliers métier</strong> de l'application d'aide à l'affectation construit un <strong>rétroplanning automatisé</strong> des ateliers métier d'un SAMU, à partir de la date de mise en production (MEP). Il comporte trois rubriques :</p>
+  <ul>
+    <li><strong>Paramétrage</strong> : SAMU (parmi les déploiements), date de MEP, nombre d'ateliers (3 à 7), zone de vacances scolaires (A, B ou C, proposée selon le département du SAMU et corrigeable), date de la visite métier (reprise du déploiement si elle existe), délai entre la visite métier et l'atelier 1 (14 jours par défaut) et délai minimal avant la MEP (28 jours par défaut).</li>
+    <li><strong>Simulation</strong> : tableau des jalons — <em>visite métier + démo bandeau, ateliers 1 à N, livrables prêts, MEP</em> — avec le contenu, la <strong>date cible théorique</strong>, la <strong>date proposée</strong>, la <strong>date réellement planifiée</strong> (saisie manuelle) et le <strong>statut</strong>. Les jalons et contenus des ateliers se choisissent dans des listes.</li>
+    <li><strong>Rétroplanning</strong> : une ligne par SAMU enregistré, avec les icônes <em>modifier</em>, <em>supprimer</em> et <em>diffuser le calendrier par e-mail</em> (tableau et fichier .ics, un événement par jalon).</li>
+  </ul>
+  <h3>Règles de calcul</h3>
+  <ul>
+    <li>La MEP est <strong>ferme</strong>. Le dernier atelier est visé à <strong>MEP − 28 jours</strong> ; chaque atelier précédent <strong>14 jours</strong> avant le suivant, sauf l'atelier 1 placé <strong>7 jours</strong> avant l'atelier 2.</li>
+    <li>La visite métier est visée 14 jours avant l'atelier 1 ; si le déploiement a déjà une date de visite, elle est reprise et une alerte signale un délai insuffisant avant l'atelier 1.</li>
+    <li>Une date qui tombe un <strong>week-end</strong> ou pendant les <strong>vacances scolaires de la zone</strong> est reculée au dernier jour ouvré disponible (statut « Décalé hors vacances / week-end »). Les jours fériés ne sont pas pris en compte.</li>
+    <li>« Livrables prêts » reprend la date de l'atelier le plus tardif. Les vacances 2026-2027 et 2027-2028 sont intégrées ; au-delà, celles saisies dans l'Administration (congés scolaires) sont utilisées.</li>
+  </ul>
+  <div class="note">L'enregistrement, la suppression et la diffusion sont réservés aux administrateurs ; les autres utilisateurs de l'application peuvent simuler.</div>
 </section>
 
 <!-- ===================== 7. MOBILE ===================== -->
@@ -680,11 +696,25 @@
   <h2>🆕 Notes de version</h2>
   <p>Historique des évolutions de la Plateforme de Planification ANS.</p>
 
+  <!-- v2.2.0 -->
+  <div class="card card-green" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v2.2.0</strong>
+      <span class="badge badge-current">Actuelle</span>
+      <span style="color:#888; font-size:13px;">Octobre 2026</span>
+    </div>
+    <ul>
+      <li>🧭 <strong>Aide à l'affectation — nouvel onglet « Planification des ateliers métier »</strong> : rétroplanning automatisé des ateliers métier d'un SAMU, en trois rubriques (Paramétrage, Simulation, Rétroplanning).</li>
+      <li>📅 <strong>Calcul des dates</strong> à partir de la MEP, selon les règles du classeur « Rétroplanning SAMU automatique » : ateliers reculés depuis la MEP, week-ends et vacances scolaires de la zone (A, B, C) évités, zone proposée selon le département du SAMU, 3 à 7 ateliers, délais paramétrables.</li>
+      <li>📧 <strong>Diffusion</strong> du calendrier par e-mail (tableau et fichier .ics), avec icônes pour modifier, supprimer ou diffuser chaque rétroplanning.</li>
+    </ul>
+    <p style="font-size:12px; color:#888; margin-top:8px;">Au déploiement : une migration de base ajoute la table des rétroplannings (aucune donnée existante n'est modifiée).</p>
+  </div>
+
   <!-- v2.1.0 -->
   <div class="card card-green" style="margin-bottom:16px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
       <strong style="font-size:16px;">v2.1.0</strong>
-      <span class="badge badge-current">Actuelle</span>
       <span style="color:#888; font-size:13px;">Octobre 2026</span>
     </div>
     <ul>

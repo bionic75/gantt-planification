@@ -176,6 +176,28 @@ model AstreinteHoLog {
   @@map("astreinte_ho_log")
 }
 
+/// Rétroplanning automatisé des ateliers métier d'un SAMU (une ligne par SAMU) : paramètres et dates réellement planifiées
+model AtelierRetroplanning {
+  id                   Int       @id @default(autoincrement())
+  samu_name            String    @unique
+  project_id           Int?
+  zone                 String
+  mep_date             String
+  nb_ateliers          Int
+  visite_date          String?
+  delai_visite_atelier Int       @default(14)
+  delai_mep            Int       @default(28)
+  /// JSON : jalons et contenus choisis pour chaque atelier, dates réellement planifiées
+  lignes               String?
+  created_by           Int?
+  created_by_name      String?
+  last_sent_at         String?
+  created_at           String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+  updated_at           String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+
+  @@map("atelier_retroplannings")
+}
+
 model AutomationLog {
   id              Int       @id @default(autoincrement())
   automation_id   Int
