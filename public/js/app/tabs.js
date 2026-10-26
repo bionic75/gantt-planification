@@ -154,7 +154,13 @@ async function loadEmailConfig() {
         document.getElementById('smtpHost').value = config.host || 'smtp.office365.com';
         document.getElementById('smtpPort').value = config.port || 587;
         document.getElementById('smtpUser').value = config.user || '';
-        document.getElementById('smtpPassword').value = config.password || '';
+        // Le mot de passe n'est jamais renvoyé par le serveur : champ vide = mot de passe enregistré conservé
+        const passwordField = document.getElementById('smtpPassword');
+        passwordField.value = '';
+        passwordField.dataset.passwordSet = config.passwordSet ? '1' : '';
+        passwordField.placeholder = config.passwordSet
+            ? 'Mot de passe enregistré (laisser vide pour le conserver)'
+            : 'Mot de passe email';
     } catch (error) {
         console.error('Erreur chargement config email:', error);
     }

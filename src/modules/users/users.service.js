@@ -45,10 +45,12 @@ export async function listUsers() {
     const resources = await resourcesOf(users);
     const lastLogins = await prisma.connectionLog.groupBy({ by: ['user_id'], _max: { login_time: true } });
     const lastLogin = new Map(lastLogins.map(l => [l.user_id, l._max.login_time]));
-    return users.map(u => {
+    // Ni empreinte du mot de passe ni secret TOTP (il permettrait de générer les codes de double authentification)
+    return users.map(({ password: _password, totp_secret, ...u }) => {
         const r = u.resource_id !== null ? resources.get(u.resource_id) : undefined;
         return {
             ...u,
+            totp_configured: totp_secret !== null,
             // Libellé historique : contient en réalité le volontariat aux astreintes de la ressource
             resource_trigramme: r ? r.astreinte_volontaire : null,
             trigramme: u.trigramme ?? (r ? r.trigramme : null),
