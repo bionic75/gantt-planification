@@ -12,13 +12,18 @@ import { TAB_KEYS, TAB_PROFILES, sanitizeThemeConfig, tabAccessMerge } from './a
 
 // ---------- Configuration email ----------
 
+/** Configuration SMTP sans le mot de passe : seul passwordSet indique qu'il est enregistré */
 export async function getEmailConfig(/** @type {Request} */ req, /** @type {Response} */ res) {
     const row = await prisma.emailConfig.findUnique({ where: { id: 1 } });
-    res.json(row || { host: '', port: 587, secure: 0, user: '', password: '' });
+    if (!row) return res.json({ host: '', port: 587, secure: 0, user: '', passwordSet: false });
+    const { password, ...config } = row;
+    res.json({ ...config, passwordSet: !!password });
 }
 
+/** Mot de passe absent ou vide : celui déjà enregistré est conservé */
 export async function saveEmailConfig(/** @type {Request} */ req, /** @type {Response} */ res) {
-    const { host, port, secure, user, password } = req.body;
+    const { host, port, secure, user } = req.body;
+    const password = req.body.password || (await prisma.emailConfig.findUnique({ where: { id: 1 } }))?.password || '';
     if (!host || !port || !user || !password) throw badRequest('Tous les champs sont requis');
     const data = {
         host: String(host),
