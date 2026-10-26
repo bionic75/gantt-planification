@@ -639,11 +639,22 @@
   <h2>🆕 Notes de version</h2>
   <p>Historique des évolutions de la Plateforme de Planification ANS.</p>
 
+  <!-- v2.0.2 -->
+  <div class="card card-green" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v2.0.2</strong>
+      <span class="badge badge-current">Actuelle</span>
+      <span style="color:#888; font-size:13px;">Octobre 2026</span>
+    </div>
+    <ul>
+      <li>🔑 <strong>Connexion Asana</strong> : l'enregistrement du jeton ne provoque plus d'« Erreur interne du serveur » quand le fichier de clé de chiffrement (<code>.asana_key</code>) n'est pas accessible au serveur (droits du dossier de données). Dans ce cas, la clé est dérivée de <code>SESSION_SECRET</code> ; le jeton déjà enregistré avec l'ancienne clé inaccessible doit être ressaisi une fois. Une clé existante n'est jamais écrasée.</li>
+    </ul>
+  </div>
+
   <!-- v2.0.1 -->
   <div class="card card-green" style="margin-bottom:16px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
       <strong style="font-size:16px;">v2.0.1</strong>
-      <span class="badge badge-current">Actuelle</span>
       <span style="color:#888; font-size:13px;">Octobre 2026</span>
     </div>
     <ul>
