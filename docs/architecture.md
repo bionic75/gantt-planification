@@ -64,7 +64,7 @@ Détails des protections : [securite.md](securite.md). Liste des routes : [api.m
 Un dossier par fonctionnalité dans `src/modules/` : `auth` (connexion, double authentification, mot de passe
 oublié), `users`, `resources`, `schedule` (planning), `events`, `astreintes` (astreintes HNO), `astreintes-ho` (planning des astreintes HO et automatisations n°5 et n°6), `cra` (comptes rendus d'activité),
 `deplacements`, `locations`, `poi`, `calendar`, `notifications`, `automations`, `reporting`, `logs`, `admin`,
-`affectation` (application d'aide à l'affectation, Asana, exports), `public-api`.
+`affectation` (application d'aide à l'affectation, Asana, exports, rétroplanning des ateliers métier), `public-api`.
 
 Organisation d'un module :
 

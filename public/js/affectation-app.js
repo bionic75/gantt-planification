@@ -289,6 +289,7 @@
         <div class="tabs" id="affectationTabs">
             <button class="tab-btn active" id="affectationTabPlanning" onclick="AffectationApp.tab('planning')">${svg('planning', 'tab-ico')}Planning des déploiements</button>
             <button class="tab-btn" id="affectationTabEvents" onclick="AffectationApp.tab('events')">${svg('planning', 'tab-ico')}Événements</button>
+            <button class="tab-btn" id="affectationTabAteliers" onclick="AffectationApp.tab('ateliers')">${svg('rocket', 'tab-ico')}Planification des ateliers métier</button>
             <button class="tab-btn" id="affectationTabAdmin" onclick="AffectationApp.tab('admin')" style="display:none;">${svg('admin', 'tab-ico')}Administration</button>
             <button onclick="AffectationApp.search()" title="Recherche" style="padding:8px 15px;background-color:#3498db;color:white;border:none;cursor:pointer;font-size:18px;border-radius:4px;margin-right:10px;">
                 <span style="display:inline-flex;">${svg('search', 'app-ico', 'width:22px;height:22px;stroke:white;')}</span>
@@ -328,6 +329,10 @@
         <h2 style="margin:0 0 4px;">Événements des déploiements</h2>
         <p class="aff-muted" style="margin:0 0 12px;">Visite métier, Mise en service, Mise en production, VFT, Accompagnement post démarrage, Vérification des prérequis et Formation des utilisateurs — uniquement pour les SAMU-SAS du planning des déploiements.</p>
         <div id="affEvBody"><p class="aff-muted">Chargement…</p></div>
+    </div>
+
+    <div id="affectationAteliersTab" class="tab-content aff-panel">
+        <div id="atelierRoot"><p class="aff-muted">Chargement…</p></div>
     </div>
 
     <div id="affectationAdminTab" class="tab-content aff-panel">
@@ -4146,10 +4151,16 @@
             });
         },
         tab(name) {
-            const on = { planning: name === 'planning', events: name === 'events', admin: name === 'admin' };
+            const on = {
+                planning: name === 'planning',
+                events: name === 'events',
+                ateliers: name === 'ateliers',
+                admin: name === 'admin'
+            };
             [
                 ['Planning', 'planning'],
                 ['Events', 'events'],
+                ['Ateliers', 'ateliers'],
                 ['Admin', 'admin']
             ].forEach(([n, k]) => {
                 document.getElementById('affectationTab' + n).classList.toggle('active', on[k]);
@@ -4158,6 +4169,7 @@
             if (on.admin && !state.loaded) loadAdmin();
             if (on.planning) loadPlanning();
             if (on.events) loadEvents();
+            if (on.ateliers && window.AtelierPlanner) window.AtelierPlanner.show();
         },
         evSort(k) {
             evTab.sort = { k, dir: evTab.sort.k === k ? -evTab.sort.dir : 1 };

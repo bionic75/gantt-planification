@@ -90,6 +90,36 @@
         "guard": "admin"
     },
     {
+        "method": "GET",
+        "path": "/api/affectation/ateliers",
+        "guard": "affectation"
+    },
+    {
+        "method": "PUT",
+        "path": "/api/affectation/ateliers",
+        "guard": "admin"
+    },
+    {
+        "method": "DELETE",
+        "path": "/api/affectation/ateliers/:id",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/affectation/ateliers/:id/send",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/affectation/ateliers/meta",
+        "guard": "affectation"
+    },
+    {
+        "method": "POST",
+        "path": "/api/affectation/ateliers/simulate",
+        "guard": "affectation"
+    },
+    {
         "method": "PUT",
         "path": "/api/affectation/colors",
         "guard": "admin"
