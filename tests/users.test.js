@@ -33,6 +33,14 @@ describe('utilisateurs', () => {
         await loginAs(server, user, 'rh');
     });
 
+    it("liste de l'administration sans empreinte du mot de passe ni secret TOTP", async () => {
+        const user = await createUser(admin, { is_user: 1 });
+        const listed = await findUser(user.id);
+        expect(listed).not.toHaveProperty('password');
+        expect(listed).not.toHaveProperty('totp_secret');
+        expect(listed.totp_configured).toBe(false);
+    });
+
     it('identifiant unique', async () => {
         const user = await createUser(admin, { is_user: 1 });
         const r = await admin.post('/api/users', {

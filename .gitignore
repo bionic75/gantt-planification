@@ -149,6 +149,7 @@ data.db-wal
 data/data.db
 data/data.db-shm
 data/data.db-wal
+data/pdfs/*
 
 # Client Prisma généré (npm install / npm run db:generate)
 src/generated/

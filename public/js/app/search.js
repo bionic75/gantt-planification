@@ -673,7 +673,10 @@ async function saveEmailConfig() {
         password: document.getElementById('smtpPassword').value
     };
 
-    if (!config.host || !config.port || !config.user || !config.password) {
+    // Mot de passe vide : le serveur conserve celui déjà enregistré
+    const passwordField = document.getElementById('smtpPassword');
+    const passwordSet = passwordField.dataset.passwordSet === '1';
+    if (!config.host || !config.port || !config.user || (!config.password && !passwordSet)) {
         alert('❌ Tous les champs sont requis');
         return;
     }
@@ -689,6 +692,9 @@ async function saveEmailConfig() {
         const data = await response.json();
 
         if (data.success) {
+            passwordField.value = '';
+            passwordField.dataset.passwordSet = '1';
+            passwordField.placeholder = 'Mot de passe enregistré (laisser vide pour le conserver)';
             alert('✅ Configuration email sauvegardée !');
             logModification('Modification configuration email SMTP');
         } else {

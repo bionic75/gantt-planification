@@ -1,0 +1,10 @@
+node_modules/
+.auth/
+.features-gen/
+test-results/
+playwright-report*/
+cucumber-report*/
+monocart-report*/
+allure-results*/
+allure-report/
+blob-report/
