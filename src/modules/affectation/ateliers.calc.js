@@ -5,7 +5,7 @@
 // Règles :
 // - la MEP est ferme ; le dernier atelier est visé à MEP − marge (28 jours par défaut) ;
 // - chaque atelier précédent est visé 14 jours avant la date proposée du suivant, sauf l'atelier 1 : 7 jours avant l'atelier 2 ;
-// - la visite métier + démo bandeau est visée 14 jours (par défaut) avant la date proposée de l'atelier 1 ;
+// - la visite métier + démo bandeau est une date théorique visée 14 jours (par défaut) avant la date proposée de l'atelier 1 ;
 // - une date cible qui tombe un week-end ou pendant les vacances scolaires de la zone est reculée au dernier jour ouvré disponible ;
 // - « Livrables prêts » reprend la date proposée du dernier atelier.
 import { BUILTIN_HOLIDAYS } from './ateliers.data.js';
@@ -84,7 +84,7 @@ export function lastAvailable(/** @type {string} */ date, /** @type {Period[]} *
 /**
  * @typedef {{
  *   mep: string, nb: number, zone: string,
- *   delaiVisite?: number, delaiMep?: number, visiteDate?: string | null,
+ *   delaiVisite?: number, delaiMep?: number,
  *   holidays: Period[],
  *   jalons?: Record<string, string>, contenus?: Record<string, string>, planifiees?: Record<string, string>
  * }} RetroInput
@@ -114,7 +114,6 @@ export function validateInput(/** @type {Partial<RetroInput>} */ input) {
             return `${label} invalide (0 à 365 jours)`;
         }
     }
-    if (input.visiteDate && !isValidDate(input.visiteDate)) return 'Date de visite métier invalide';
     return null;
 }
 
@@ -142,9 +141,9 @@ export function computeRetroplanning(input) {
                 : addDays(/** @type {string} */ (at[k + 1].proposee), k === 1 ? -ECART_ATELIER_1_2 : -ECART_ATELIERS);
         at[k] = { cible, proposee: lastAvailable(cible, holidays) };
     }
-    const visiteFixe = input.visiteDate || null;
-    const visiteCible = visiteFixe || addDays(/** @type {string} */ (at[1].proposee), -delaiVisite);
-    const visiteProposee = visiteFixe || lastAvailable(visiteCible, holidays);
+    // La visite métier est toujours une date théorique calculée à partir de l'atelier 1
+    const visiteCible = addDays(/** @type {string} */ (at[1].proposee), -delaiVisite);
+    const visiteProposee = lastAvailable(visiteCible, holidays);
 
     /** @type {RetroRow[]} */
     const rows = [];
@@ -187,8 +186,8 @@ export function computeRetroplanning(input) {
         CONTENU_VISITE,
         visiteCible,
         visiteProposee,
-        visiteFixe ? 'Date du projet de déploiement' : statutDate(visiteCible, visiteProposee),
-        visiteFixe ? 'fix' : visiteProposee === visiteCible ? 'ok' : 'warn'
+        statutDate(visiteCible, visiteProposee),
+        visiteProposee === visiteCible ? 'ok' : 'warn'
     );
     for (let k = 1; k <= nb; k++) {
         push(
@@ -215,18 +214,10 @@ export function computeRetroplanning(input) {
     push('mep', nb + 2, 'MEP', CONTENU_MEP, mep, mep, 'Jalon ferme', 'fix');
 
     // Contrôles de cohérence
-    if (visiteFixe && at[1].proposee) {
-        const delai = diffDays(at[1].proposee, visiteFixe);
-        if (delai < delaiVisite) {
-            warnings.push(
-                `La visite métier (${visiteFixe}) est trop proche de l'atelier 1 (${at[1].proposee}) : ${delai} jour(s) au lieu de ${delaiVisite} au moins.`
-            );
-        }
-    }
     if (!isAvailable(mep, holidays))
         warnings.push(`La MEP (${mep}) tombe un week-end ou pendant les vacances scolaires de la zone ${input.zone}.`);
     const today = new Date().toISOString().slice(0, 10);
-    if (visiteProposee && visiteProposee < today && !visiteFixe)
+    if (visiteProposee && visiteProposee < today)
         warnings.push(
             'La date proposée pour la visite métier est déjà passée : avancez la MEP ou réduisez les délais.'
         );

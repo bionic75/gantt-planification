@@ -18,8 +18,6 @@
         mep: '',
         nb: 4,
         zone: '',
-        visite: '',
-        visiteFromProject: false,
         delaiVisite: 14,
         delaiMep: 28,
         jalons: {},
@@ -179,19 +177,6 @@
             ? `Zone ${p.zone} : zone scolaire de ce SAMU (corrigeable).`
             : `Zone proposée pour ce SAMU : ${p.zone}. <button type="button" onclick="AtelierPlanner.resetZone()">↺ la reprendre</button>`;
     }
-    function visiteHint() {
-        const p = currentProject();
-        const clear = ' <button type="button" onclick="AtelierPlanner.clearVisite()">× laisser le calcul</button>';
-        if (AT.f.visite && p && p.visite_metier && AT.f.visite === p.visite_metier) {
-            return `Visite métier : date reprise du projet de déploiement (${frShort(AT.f.visite)}).${clear}`;
-        }
-        if (AT.f.visite) return `Visite métier fixée au ${frShort(AT.f.visite)}.${clear}`;
-        if (p && p.visite_metier) {
-            return `Le déploiement prévoit une visite métier le ${frShort(p.visite_metier)}. <button type="button" onclick="AtelierPlanner.resetVisite()">↺ la reprendre</button>`;
-        }
-        return 'Visite métier : date calculée à partir de l’atelier 1 (modifiable dans « Date réellement planifiée »).';
-    }
-
     function render() {
         const f = AT.f;
         const root = document.getElementById('atelierRoot');
@@ -219,7 +204,6 @@
                 <div class="at-field"><label for="atNb2">Nombre d’ateliers</label><select id="atNb2" data-at="nb">${nbOptions()}</select></div>
                 <div class="at-field"><label for="atZone2">Zone de vacances scolaires</label><select id="atZone2" data-at="zone">${zoneOptions()}</select><div class="at-hint" id="atZoneHint">${zoneHint()}</div></div>
             </div>
-            <div class="at-hint" id="atVisiteHint" style="margin:-4px 0 12px;">${visiteHint()}</div>
             <div id="atWarnings"></div>
             <div style="overflow-x:auto;" id="atTableBox"><div class="at-empty">Choisissez un SAMU, une date de MEP et une zone pour simuler le rétroplanning.</div></div>
             <div class="at-bar">
@@ -254,12 +238,7 @@
         if (field === 'samu') return chooseSamu(v);
         if (field === 'nb') AT.f.nb = Number(v);
         else if (field === 'delaiVisite' || field === 'delaiMep') AT.f[field] = v === '' ? '' : Number(v);
-        else if (field === 'visite') {
-            AT.f.visite = v;
-            AT.f.visiteFromProject = false;
-            const h = document.getElementById('atVisiteHint');
-            if (h) h.innerHTML = visiteHint();
-        } else AT.f[field] = v;
+        else AT.f[field] = v;
         setField(field, v);
         if (field === 'zone') {
             const h = document.getElementById('atZoneHint');
@@ -279,7 +258,6 @@
             AT.f.mep = saved.mep_date;
             AT.f.nb = saved.nb_ateliers;
             AT.f.zone = saved.zone;
-            AT.f.visite = saved.visite_date || '';
             AT.f.delaiVisite = saved.delai_visite_atelier;
             AT.f.delaiMep = saved.delai_mep;
             AT.f.jalons = { ...(saved.lignes.jalons || {}) };
@@ -289,7 +267,6 @@
         } else if (p) {
             AT.f.mep = p.mep || '';
             AT.f.zone = p.zone || '';
-            AT.f.visite = p.visite_metier || '';
             AT.f.nb = keep.nb;
             AT.f.delaiVisite = keep.delaiVisite;
             AT.f.delaiMep = keep.delaiMep;
@@ -336,7 +313,6 @@
         mep: AT.f.mep,
         nb: Number(AT.f.nb),
         zone: AT.f.zone,
-        visiteDate: AT.f.visite || null,
         delaiVisite: AT.f.delaiVisite === '' ? 14 : AT.f.delaiVisite,
         delaiMep: AT.f.delaiMep === '' ? 28 : AT.f.delaiMep,
         lignes: { jalons: AT.f.jalons, contenus: AT.f.contenus, planifiees: AT.f.planifiees }
@@ -352,7 +328,7 @@
         const body = rows
             .map(r => {
                 const atelier = /^a\d$/.test(r.key);
-                const cls = r.key === 'mep' ? 'at-mep' : r.key === 'visite' || r.key === 'livrables' ? 'at-fixed' : '';
+                const cls = r.key === 'mep' ? 'at-mep' : r.key === 'livrables' ? 'at-fixed' : '';
                 const jalon = atelier
                     ? sel(r.key, AT.meta.jalons, r.jalon, 'jalons')
                     : `<span class="at-jalon">${esc(r.jalon)}</span>`;
@@ -592,21 +568,6 @@
                 document.getElementById('atZoneHint').innerHTML = zoneHint();
                 schedule();
             }
-        },
-        resetVisite() {
-            const p = currentProject();
-            if (p && p.visite_metier) {
-                AT.f.visite = p.visite_metier;
-                setField('visite', p.visite_metier);
-                document.getElementById('atVisiteHint').innerHTML = visiteHint();
-                schedule();
-            }
-        },
-        clearVisite() {
-            AT.f.visite = '';
-            setField('visite', '');
-            document.getElementById('atVisiteHint').innerHTML = visiteHint();
-            schedule();
         }
     };
 })();
