@@ -639,11 +639,39 @@
   <h2>🆕 Notes de version</h2>
   <p>Historique des évolutions de la Plateforme de Planification ANS.</p>
 
+  <!-- v2.0.1 -->
+  <div class="card card-green" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v2.0.1</strong>
+      <span class="badge badge-current">Actuelle</span>
+      <span style="color:#888; font-size:13px;">Octobre 2026</span>
+    </div>
+    <ul>
+      <li>📊 <strong>Analyse de fichiers</strong> : correction de la page blanche à l'ouverture de l'application (le fichier de l'application, renommé, n'est plus bloqué par certains bloqueurs de publicités ou de traceurs).</li>
+      <li>📅 <strong>Événements</strong> : le filtre « Libellé » retrouve maintenant tous les événements du modèle choisi (par exemple « CONGRÈS » renvoie « CONGRES AFARM », « CONGRÈS DES SAPEURS POMPIERS »…), par le début du libellé ou par le type de l'événement ; « AUTRES » exclut ces événements.</li>
+      <li>📧 <strong>Ressources</strong> : les adresses e-mail sont vérifiées (contacts RH de l'ES, une adresse valide par ligne, et e-mail de la ressource). Les lignes invalides sont signalées en rouge pendant la saisie et l'enregistrement est refusé ; lignes vides et doublons retirés. Le contrôle est aussi fait par le serveur.</li>
+      <li>🔖 Le numéro de version affiché correspond de nouveau à la version déployée.</li>
+    </ul>
+  </div>
+
+  <!-- v2.0.0 -->
+  <div class="card card-green" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v2.0.0</strong>
+      <span style="color:#888; font-size:13px;">Octobre 2026</span>
+    </div>
+    <ul>
+      <li>🏗️ <strong>Refonte de l'application</strong> : serveur réorganisé en modules, accès à la base par Prisma avec migrations (SQLite par défaut ; PostgreSQL et MariaDB pris en charge), scripts d'exploitation (adoption d'une base existante, migrations, transfert), plus de 680 tests automatisés.</li>
+      <li>🔐 <strong>Sécurité renforcée</strong> : protection contre les requêtes venant d'un autre site (CSRF), en-têtes de sécurité, limitation des tentatives de connexion, sessions conservées en base (elles survivent à un redémarrage), changement de mot de passe imposé à la première connexion et après une réinitialisation par un administrateur.</li>
+      <li>Les fonctionnalités de la v1.17.43 sont conservées.</li>
+    </ul>
+    <p style="font-size:12px; color:#888; margin-top:8px;">Au déploiement : une base de l'ancienne version doit d'abord être adoptée (<code>npm run db:adopt</code>) ; en production, <code>SESSION_SECRET</code> et <code>APP_URL</code> sont obligatoires.</p>
+  </div>
+
   <!-- v1.17.43 -->
   <div class="card card-green" style="margin-bottom:16px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
       <strong style="font-size:16px;">v1.17.43</strong>
-      <span class="badge badge-current">Actuelle</span>
       <span style="color:#888; font-size:13px;">Octobre 2026</span>
     </div>
     <ul>

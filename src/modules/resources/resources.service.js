@@ -3,6 +3,7 @@
 import { prisma } from '../../db/prisma.js';
 import { flag, idParam, optional, toFloat, toInt } from '../../db/values.js';
 import { badRequest, notFound } from '../../lib/http-error.js';
+import { isEmail, parseEmailLines } from '../../lib/email.js';
 
 export const today = () => new Date().toISOString().split('T')[0];
 const OPEN_END = '9999-12-31';
@@ -71,6 +72,7 @@ export async function createResource(data, createdBy) {
     if (is_mad_volante && (!date_fin_mad || !jours_max_mad)) {
         throw badRequest('Date de fin et jours max obligatoires pour une MAD volante');
     }
+    checkEmail(email);
     const tauxValue = is_mad_volante ? 0 : parseFloat(taux);
     if (!Number.isFinite(tauxValue)) throw badRequest('Taux invalide');
 
@@ -111,6 +113,20 @@ export async function createResource(data, createdBy) {
     return id;
 }
 
+/** Adresse e-mail de la ressource : vide ou syntaxe valide */
+const checkEmail = (/** @type {unknown} */ email) => {
+    if (typeof email === 'string' && email.trim() && !isEmail(email)) {
+        throw badRequest(`Adresse e-mail invalide : ${email.trim()}`);
+    }
+};
+
+/** Contacts RH : une adresse valide par ligne ; renvoie la liste normalisée (sans ligne vide ni doublon) ou null */
+const checkContactsRh = (/** @type {unknown} */ text) => {
+    const { valid, invalid } = parseEmailLines(text);
+    if (invalid.length) throw badRequest(`Contacts RH : adresse(s) e-mail invalide(s) : ${invalid.join(', ')}`);
+    return valid.length ? valid.join('\n') : null;
+};
+
 /**
  * @param {string | number} id
  * @param {Record<string, any>} data
@@ -127,6 +143,8 @@ export async function updateResource(id, data) {
         jours_max_mad
     } = data;
     const resourceId = idParam(id);
+    checkEmail(email);
+    const contactsRh = checkContactsRh(contacts_rh);
 
     await prisma.resource.updateMany({
         where: { id: resourceId },
@@ -142,7 +160,7 @@ export async function updateResource(id, data) {
             date_fin: optional(date_fin),
             es_rattachement: optional(es_rattachement),
             fonction: optional(fonction),
-            contacts_rh: optional(contacts_rh),
+            contacts_rh: contactsRh,
             astreinte_volontaire: flag(astreinte_volontaire),
             astreinte_date_activation: optional(astreinte_date_activation),
             is_mad_volante: flag(is_mad_volante),

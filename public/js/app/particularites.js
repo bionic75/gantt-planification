@@ -239,6 +239,17 @@ async function saveResourceEdit() {
                 return;
             }
         }
+        // Contacts RH : une adresse e-mail valide par ligne (les lignes qui n'en sont pas sont refusées)
+        const contactsField = document.getElementById('editContactsRh');
+        const contactsCheck = parseEmailLines(contactsField.value);
+        if (contactsCheck.invalid.length) {
+            if (contactsField.checkEmails) contactsField.checkEmails();
+            contactsField.focus();
+            alert(
+                `Contacts RH : adresse(s) e-mail invalide(s)\n\n${contactsCheck.invalid.join('\n')}\n\nCorrigez ou supprimez ces lignes (une adresse par ligne).`
+            );
+            return;
+        }
         const response = await fetch(`${API_URL}/resources/${currentEditId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -255,7 +266,7 @@ async function saveResourceEdit() {
                 date_fin: document.getElementById('editResourceId').dataset.dateFin || null,
                 es_rattachement: document.getElementById('editEsRattachement').value || null,
                 fonction: document.getElementById('editFonction').value || null,
-                contacts_rh: document.getElementById('editContactsRh').value.trim() || null,
+                contacts_rh: contactsCheck.valid.join('\n') || null,
                 astreinte_volontaire: document.getElementById('editAstreinteVolontaire').checked,
                 astreinte_date_activation: document.getElementById('editAstreinteDate').value || null,
                 is_mad_volante: document.getElementById('editMadVolante').checked ? 1 : 0,

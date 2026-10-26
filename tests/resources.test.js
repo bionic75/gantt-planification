@@ -60,6 +60,32 @@ describe('ressources', () => {
         expect(await findResource(admin, res.id)).toMatchObject({ nom: 'MODIFIE', taux: 30 });
     });
 
+    it('adresses e-mail : syntaxe vérifiée (e-mail de la ressource et contacts RH)', async () => {
+        const res = await createResource(admin);
+        const put = body => admin.put(`/api/resources/${res.id}`, { ...res, ...body });
+
+        const bad = await put({ email: 'pas-une-adresse' });
+        expect(bad.status).toBe(400);
+        expect(bad.data.error).toMatch(/Adresse e-mail invalide/);
+        expect((await put({ email: 'prenom.nom@esante.gouv.fr' })).status).toBe(200);
+        expect((await put({ email: '' })).status).toBe(200);
+
+        const rh = await put({ contacts_rh: 'rh@etablissement.fr\ntexte libre\ndrh@hopital' });
+        expect(rh.status).toBe(400);
+        expect(rh.data.error).toMatch(/texte libre, drh@hopital/);
+        expect((await put({ contacts_rh: 'a@b.fr; c@d.fr' })).status).toBe(400);
+        // une seule adresse par ligne, lignes vides et doublons retirés
+        expect(
+            (await put({ contacts_rh: ' rh@etablissement.fr \n\nRH@ETABLISSEMENT.FR\ndrh@hopital.fr\r\n' })).status
+        ).toBe(200);
+        expect((await findResource(admin, res.id)).contacts_rh).toBe('rh@etablissement.fr\ndrh@hopital.fr');
+        expect((await put({ contacts_rh: '' })).status).toBe(200);
+        expect((await findResource(admin, res.id)).contacts_rh).toBeNull();
+
+        const created = await admin.post('/api/resources', { ...res, trigramme: 'ZZZ', email: 'oups' });
+        expect(created.status).toBe(400);
+    });
+
     it('activation / désactivation', async () => {
         const res = await createResource(admin);
         const initial = (await findResource(admin, res.id)).actif;

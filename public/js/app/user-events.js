@@ -578,15 +578,39 @@ function exportMyEventsHTML() {
     a.click();
 }
 
+// Un événement correspond au libellé choisi dans le filtre (modèle d'événement) si son libellé est celui du modèle
+// ou commence par lui (« CONGRES AFARM » pour « CONGRÈS »), ou si son type est celui du modèle (code du type)
+function evMatchesTemplateLabel(ev, tplLabel) {
+    const n = s =>
+        (s || '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .trim();
+    const t = n(tplLabel);
+    if (!t) return true;
+    const l = n(ev.label);
+    if (l === t || l.startsWith(t + ' ')) return true;
+    const code = Object.keys(eventTemplates).find(k => n(eventTemplates[k].label) === t);
+    const type = ev.type_id != null && typeof evtTypeById === 'function' ? evtTypeById(ev.type_id) : null;
+    return !!(code && type && type.code === code);
+}
+
 function _getFilteredMyEvents() {
     const labelFilter = document.getElementById('myEventsLabelFilter')?.value || '';
     const locFilter = document.getElementById('myEventsLocFilter')?.value || '';
     const partFilterVal = document.getElementById('myEventsParticipantFilter')?.value.trim().toLowerCase() || '';
     const dateDebutFilter = document.getElementById('myEventsDateDebut')?.value || '';
     const dateFinFilter = document.getElementById('myEventsDateFin')?.value || '';
-    const normLabel = s => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    const templateLabelsForFilter = Object.values(eventTemplates)
+        .map(t => t.label)
+        .filter(Boolean);
     return (myEvents || []).filter(ev => {
-        if (labelFilter && normLabel(ev.label) !== normLabel(labelFilter)) return false;
+        if (labelFilter) {
+            if (labelFilter === '__AUTRES__') {
+                if (templateLabelsForFilter.some(tl => evMatchesTemplateLabel(ev, tl))) return false;
+            } else if (!evMatchesTemplateLabel(ev, labelFilter)) return false;
+        }
         if (locFilter && ev.location !== locFilter) return false;
         if (dateDebutFilter && ev.start_date < dateDebutFilter) return false;
         if (dateFinFilter && ev.end_date > dateFinFilter) return false;
@@ -647,11 +671,8 @@ function renderMyEventsTable() {
     const filteredEvents = myEvents.filter(ev => {
         if (_labelFilterVal) {
             if (_labelFilterVal === '__AUTRES__') {
-                const evNorm = normalize(ev.label);
-                if (templateLabelsForFilter.some(tl => normalize(tl) === evNorm)) return false;
-            } else {
-                if (normalize(ev.label) !== normalize(_labelFilterVal)) return false;
-            }
+                if (templateLabelsForFilter.some(tl => evMatchesTemplateLabel(ev, tl))) return false;
+            } else if (!evMatchesTemplateLabel(ev, _labelFilterVal)) return false;
         }
         if (locFilterVal && (ev.location_id || '').toString() !== locFilterVal) return false;
         if (partFilterVal) {
