@@ -184,7 +184,6 @@ model AtelierRetroplanning {
   zone                 String @db.LongText
   mep_date             String @db.LongText
   nb_ateliers          Int
-  visite_date          String? @db.LongText
   delai_visite_atelier Int       @default(14)
   delai_mep            Int       @default(28)
   /// JSON : jalons et contenus choisis pour chaque atelier, dates réellement planifiées

@@ -58,17 +58,11 @@ export async function meta() {
     return {
         samus: projects
             .map(p => {
-                const periods = parseJson(p.periods);
-                const visite =
-                    Array.isArray(periods.visite_metier) && periods.visite_metier[0]
-                        ? periods.visite_metier[0].start
-                        : null;
                 return {
                     project_id: p.id,
                     samu_name: p.samu_name,
                     zone: zoneOfDepartment(samuNumber(p.samu_name)),
                     mep: p.date_mise_en_production || null,
-                    visite_metier: visite || null,
                     saved: savedNames.has(p.samu_name.toLowerCase())
                 };
             })
@@ -108,8 +102,7 @@ async function toInput(b) {
         nb: Number(b.nb ?? b.nb_ateliers),
         zone: String(b.zone || '').toUpperCase(),
         delaiVisite: b.delaiVisite ?? b.delai_visite_atelier ?? DEFAULT_DELAI_VISITE,
-        delaiMep: b.delaiMep ?? b.delai_mep ?? DEFAULT_DELAI_MEP,
-        visiteDate: b.visiteDate ?? b.visite_date ?? null
+        delaiMep: b.delaiMep ?? b.delai_mep ?? DEFAULT_DELAI_MEP
     };
     const error = validateInput(input);
     if (error) throw badRequest(error);
@@ -118,7 +111,6 @@ async function toInput(b) {
         ...input,
         delaiVisite: Number(input.delaiVisite),
         delaiMep: Number(input.delaiMep),
-        visiteDate: input.visiteDate || null,
         holidays: holidaysOfZone(input.zone, await appHolidays(input.zone)),
         ...lignes
     };
@@ -158,7 +150,6 @@ export async function save(/** @type {any} */ body, /** @type {{ userId: number,
         zone: input.zone,
         mep_date: input.mep,
         nb_ateliers: input.nb,
-        visite_date: input.visiteDate,
         delai_visite_atelier: input.delaiVisite,
         delai_mep: input.delaiMep,
         lignes: JSON.stringify({ jalons: input.jalons, contenus: input.contenus, planifiees: input.planifiees }),

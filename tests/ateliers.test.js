@@ -95,19 +95,15 @@ describe('calcul des dates (cas calculés avec les formules du classeur Excel)',
         expect(diff(custom.find(r => r.key === 'a1').proposee, custom.find(r => r.key === 'visite').cible)).toBe(21);
     });
 
-    it('visite métier déjà fixée : date reprise, alerte si trop proche de l’atelier 1', async () => {
-        const r = await sim(admin, { mep: '2027-03-15', nb: 3, zone: 'B' });
-        const a1 = r.data.rows.find(x => x.key === 'a1').proposee;
-        const close = await sim(admin, {
-            mep: '2027-03-15',
-            nb: 3,
-            zone: 'B',
-            visiteDate: a1.replace(/-\d\d$/, d => `-${String(Number(d.slice(1)) - 3).padStart(2, '0')}`)
-        });
-        const visite = close.data.rows.find(x => x.key === 'visite');
-        expect(visite.statut).toBe('Date du projet de déploiement');
-        expect(visite.cible).toBe(visite.proposee);
-        expect(close.data.warnings.join(' ')).toMatch(/trop proche de l'atelier 1/);
+    it('la visite métier est une date théorique calculée (jamais reprise du déploiement)', async () => {
+        const r = await sim(admin, { mep: '2027-03-15', nb: 3, zone: 'B', visiteDate: '2027-01-04' });
+        expect(r.status).toBe(200);
+        const visite = r.data.rows.find(x => x.key === 'visite');
+        const a1 = r.data.rows.find(x => x.key === 'a1');
+        expect(['Date cible', 'Décalé hors vacances / week-end']).toContain(visite.statut);
+        expect(visite.cible).not.toBe('2027-01-04');
+        expect(Math.round((Date.parse(a1.proposee) - Date.parse(visite.cible)) / 86400000)).toBe(14);
+        expect(r.data.warnings.join(' ')).not.toMatch(/trop proche/);
     });
 
     it('dates réellement planifiées, jalons et contenus choisis : statut et écart', async () => {
@@ -134,8 +130,7 @@ describe('calcul des dates (cas calculés avec les formules du classeur Excel)',
             { mep: '2027-03-15', nb: 8, zone: 'B' },
             { mep: '2027-03-15', nb: 4, zone: 'D' },
             { mep: '2027-02-30', nb: 4, zone: 'B' },
-            { mep: '2027-03-15', nb: 4, zone: 'B', delaiMep: -1 },
-            { mep: '2027-03-15', nb: 4, zone: 'B', visiteDate: 'demain' }
+            { mep: '2027-03-15', nb: 4, zone: 'B', delaiMep: -1 }
         ]) {
             expect((await sim(admin, body)).status, JSON.stringify(body)).toBe(400);
         }
@@ -143,7 +138,7 @@ describe('calcul des dates (cas calculés avec les formules du classeur Excel)',
 });
 
 describe('paramétrage depuis les déploiements', () => {
-    it('SAMU des déploiements, zone selon le département, MEP et visite métier repris', async () => {
+    it('SAMU des déploiements, zone selon le département, MEP reprise', async () => {
         await deployment('SAMU-SAS 56', {
             date_mise_en_production: '2027-05-20',
             periods: { visite_metier: [{ start: '2027-03-02', end: '2027-03-02', needed: 1 }] }
@@ -157,7 +152,6 @@ describe('paramétrage depuis les déploiements', () => {
         expect(by('SAMU-SAS 56')).toMatchObject({
             zone: 'B',
             mep: '2027-05-20',
-            visite_metier: '2027-03-02',
             saved: false
         });
         expect(by('SAMU-SAS 75').zone).toBe('C');
@@ -177,7 +171,7 @@ describe('rétroplannings enregistrés', () => {
             mep: '2027-05-20',
             nb: 4,
             zone: 'B',
-            visiteDate: '2027-03-02',
+
             lignes: { planifiees: { a1: '2027-03-30' } }
         };
         const created = await admin.put('/api/affectation/ateliers', body);
@@ -189,7 +183,7 @@ describe('rétroplannings enregistrés', () => {
         const list = (await admin.get('/api/affectation/ateliers')).data.retroplannings;
         const row = list.find(r => r.samu_name === 'SAMU-SAS 56');
         expect(list.filter(r => r.samu_name === 'SAMU-SAS 56')).toHaveLength(1);
-        expect(row).toMatchObject({ nb_ateliers: 5, zone: 'A', mep_date: '2027-05-20', visite_date: '2027-03-02' });
+        expect(row).toMatchObject({ nb_ateliers: 5, zone: 'A', mep_date: '2027-05-20' });
         expect(row.jalons).toHaveLength(8);
         expect(row.jalons.find(j => j.key === 'a1').planifiee).toBe('2027-03-30');
         expect(
