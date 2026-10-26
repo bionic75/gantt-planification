@@ -69,6 +69,62 @@ describe('calcul des dates (cas calculés avec les formules du classeur Excel)',
         });
     });
 
+    it('cas de référence du classeur : zone B, MEP 15/11/2026, 7 ateliers (vacances d’été 2026 saisies dans l’application ignorées)', async () => {
+        const holidays = {
+            zoneA: [],
+            zoneB: [{ name: 'Vacances d’été 2026', start: '2026-07-04', end: '2026-09-01' }],
+            zoneC: []
+        };
+        expect((await admin.post('/api/school-holidays', { holidays })).status).toBe(200);
+        const r = await sim(admin, { mep: '2026-11-15', nb: 7, zone: 'B' });
+        expect(dates(r.data.rows)).toEqual({
+            visite: ['2026-07-17', '2026-07-17'],
+            a1: ['2026-07-31', '2026-07-31'],
+            a2: ['2026-08-07', '2026-08-07'],
+            a3: ['2026-08-21', '2026-08-21'],
+            a4: ['2026-09-04', '2026-09-04'],
+            a5: ['2026-09-18', '2026-09-18'],
+            a6: ['2026-10-02', '2026-10-02'],
+            a7: ['2026-10-18', '2026-10-16'],
+            livrables: ['2026-10-16', '2026-10-16'],
+            mep: ['2026-11-15', '2026-11-15']
+        });
+        expect(r.data.rows.find(x => x.key === 'a7').statut).toBe('Décalé hors vacances / week-end');
+    });
+
+    it('vacances saisies dans l’application : prises en compte après la période du classeur (après août 2028)', async () => {
+        const holidays = {
+            zoneA: [],
+            zoneB: [{ name: 'Hiver 2029', start: '2029-02-10', end: '2029-02-25' }],
+            zoneC: []
+        };
+        await admin.post('/api/school-holidays', { holidays });
+        const at = async zone =>
+            (await sim(admin, { mep: '2029-03-30', nb: 3, zone })).data.rows.find(x => x.key === 'a3');
+        // cible : MEP − 28 jours = 2029-03-02
+        expect(await at('A')).toMatchObject({ cible: '2029-03-02', proposee: '2029-03-02' });
+        expect(await at('B')).toMatchObject({ cible: '2029-03-02', proposee: '2029-03-02' });
+        const winter = (await sim(admin, { mep: '2029-03-16', nb: 3, zone: 'B' })).data.rows.find(x => x.key === 'a3');
+        expect(winter).toMatchObject({ cible: '2029-02-16', proposee: '2029-02-09' });
+        await admin.post('/api/school-holidays', { holidays: { zoneA: [], zoneB: [], zoneC: [] } });
+    });
+
+    it('écarts paramétrables : atelier 1 → 2 (7 j par défaut) et ateliers suivants (14 j par défaut)', async () => {
+        const gap = (rows, a, b) =>
+            Math.round(
+                (Date.parse(rows.find(r => r.key === b).cible) - Date.parse(rows.find(r => r.key === a).cible)) /
+                    86400000
+            );
+        const base = (await sim(admin, { mep: '2027-09-14', nb: 5, zone: 'A' })).data.rows;
+        expect(gap(base, 'a1', 'a2')).toBe(7);
+        expect(gap(base, 'a2', 'a3')).toBe(14);
+        const custom = (await sim(admin, { mep: '2027-09-14', nb: 5, zone: 'A', ecart12: 14, ecartAteliers: 21 })).data
+            .rows;
+        expect(gap(custom, 'a1', 'a2')).toBe(14);
+        expect(gap(custom, 'a2', 'a3')).toBe(21);
+        expect((await sim(admin, { mep: '2027-09-14', nb: 5, zone: 'A', ecart12: -1 })).status).toBe(400);
+    });
+
     it('zone C : atelier 2 et atelier 6 reculés avant les vacances de Toussaint et de Noël', async () => {
         const c = await sim(admin, { mep: '2027-02-08', nb: 7, zone: 'C' });
         expect(c.data.rows.find(x => x.key === 'a6')).toMatchObject({ cible: '2026-12-28', proposee: '2026-12-18' });

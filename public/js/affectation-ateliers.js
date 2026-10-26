@@ -20,6 +20,8 @@
         zone: '',
         delaiVisite: 14,
         delaiMep: 28,
+        ecart12: 7,
+        ecartAteliers: 14,
         jalons: {},
         contenus: {},
         planifiees: {},
@@ -193,6 +195,12 @@
                 <div class="at-field"><label for="atDelaiMep">Délai minimal avant la MEP (jours)</label>
                     <input type="number" min="0" max="365" id="atDelaiMep" data-at="delaiMep" value="${esc(f.delaiMep)}">
                     <div class="at-hint">Par défaut 28 jours : le dernier atelier a lieu au plus tard 28 jours avant la MEP.</div></div>
+                <div class="at-field"><label for="atEcart12">Écart atelier 1 → atelier 2 (jours)</label>
+                    <input type="number" min="0" max="365" id="atEcart12" data-at="ecart12" value="${esc(f.ecart12)}">
+                    <div class="at-hint">Par défaut 7 jours (règle du classeur de référence).</div></div>
+                <div class="at-field"><label for="atEcartAteliers">Écart entre les ateliers suivants (jours)</label>
+                    <input type="number" min="0" max="365" id="atEcartAteliers" data-at="ecartAteliers" value="${esc(f.ecartAteliers)}">
+                    <div class="at-hint">Par défaut 14 jours.</div></div>
             </div>
         </section>
 
@@ -237,7 +245,8 @@
         const v = el.value;
         if (field === 'samu') return chooseSamu(v);
         if (field === 'nb') AT.f.nb = Number(v);
-        else if (field === 'delaiVisite' || field === 'delaiMep') AT.f[field] = v === '' ? '' : Number(v);
+        else if (['delaiVisite', 'delaiMep', 'ecart12', 'ecartAteliers'].includes(field))
+            AT.f[field] = v === '' ? '' : Number(v);
         else AT.f[field] = v;
         setField(field, v);
         if (field === 'zone') {
@@ -250,7 +259,13 @@
     function chooseSamu(name) {
         const saved = AT.list.find(r => r.samu_name === name);
         const p = AT.meta.samus.find(s => s.samu_name === name);
-        const keep = { delaiVisite: AT.f.delaiVisite, delaiMep: AT.f.delaiMep, nb: AT.f.nb };
+        const keep = {
+            delaiVisite: AT.f.delaiVisite,
+            delaiMep: AT.f.delaiMep,
+            ecart12: AT.f.ecart12,
+            ecartAteliers: AT.f.ecartAteliers,
+            nb: AT.f.nb
+        };
         AT.f = blank();
         AT.f.samu = name;
         if (saved) {
@@ -260,6 +275,8 @@
             AT.f.zone = saved.zone;
             AT.f.delaiVisite = saved.delai_visite_atelier;
             AT.f.delaiMep = saved.delai_mep;
+            AT.f.ecart12 = saved.lignes.ecarts?.ecart12 ?? 7;
+            AT.f.ecartAteliers = saved.lignes.ecarts?.ecartAteliers ?? 14;
             AT.f.jalons = { ...(saved.lignes.jalons || {}) };
             AT.f.contenus = { ...(saved.lignes.contenus || {}) };
             AT.f.planifiees = { ...(saved.lignes.planifiees || {}) };
@@ -270,6 +287,8 @@
             AT.f.nb = keep.nb;
             AT.f.delaiVisite = keep.delaiVisite;
             AT.f.delaiMep = keep.delaiMep;
+            AT.f.ecart12 = keep.ecart12;
+            AT.f.ecartAteliers = keep.ecartAteliers;
         }
         render();
         recompute();
@@ -315,6 +334,8 @@
         zone: AT.f.zone,
         delaiVisite: AT.f.delaiVisite === '' ? 14 : AT.f.delaiVisite,
         delaiMep: AT.f.delaiMep === '' ? 28 : AT.f.delaiMep,
+        ecart12: AT.f.ecart12 === '' ? 7 : AT.f.ecart12,
+        ecartAteliers: AT.f.ecartAteliers === '' ? 14 : AT.f.ecartAteliers,
         lignes: { jalons: AT.f.jalons, contenus: AT.f.contenus, planifiees: AT.f.planifiees }
     });
 

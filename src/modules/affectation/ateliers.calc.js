@@ -4,7 +4,7 @@
 //
 // Règles :
 // - la MEP est ferme ; le dernier atelier est visé à MEP − marge (28 jours par défaut) ;
-// - chaque atelier précédent est visé 14 jours avant la date proposée du suivant, sauf l'atelier 1 : 7 jours avant l'atelier 2 ;
+// - chaque atelier précédent est visé 14 jours (paramétrable) avant la date proposée du suivant, sauf l'atelier 1 : 7 jours (paramétrable) avant l'atelier 2 ;
 // - la visite métier + démo bandeau est une date théorique visée 14 jours (par défaut) avant la date proposée de l'atelier 1 ;
 // - une date cible qui tombe un week-end ou pendant les vacances scolaires de la zone est reculée au dernier jour ouvré disponible ;
 // - « Livrables prêts » reprend la date proposée du dernier atelier.
@@ -15,7 +15,7 @@ export const MIN_ATELIERS = 3;
 export const MAX_ATELIERS = 7;
 export const DEFAULT_DELAI_VISITE = 14;
 export const DEFAULT_DELAI_MEP = 28;
-/** Écart entre l'atelier 1 et l'atelier 2, puis entre les ateliers suivants (jours) */
+/** Écart par défaut entre l'atelier 1 et l'atelier 2, puis entre les ateliers suivants (jours) */
 export const ECART_ATELIER_1_2 = 7;
 export const ECART_ATELIERS = 14;
 
@@ -53,19 +53,18 @@ export const isoDay = (/** @type {string} */ d) => new Date(toUtc(d)).getUTCDay(
 /** @typedef {{ start: string, end: string }} Period */
 
 /**
- * Vacances d'une zone : celles du classeur (2026-2028) et, hors de cette période, celles saisies dans l'application
+ * Vacances d'une zone : celles du classeur (2026-2028) et, après cette période, celles saisies dans l'application
  * @param {string} zone
  * @param {Array<{ start?: string, end?: string }>} [appPeriods] vacances de la zone saisies ou importées dans l'application
  * @returns {Period[]}
  */
 export function holidaysOfZone(zone, appPeriods = []) {
     const builtin = BUILTIN_HOLIDAYS.filter(h => h[2] === zone).map(h => ({ start: h[0], end: h[1] }));
-    const from = BUILTIN_HOLIDAYS.reduce((m, h) => (h[0] < m ? h[0] : m), '9999-12-31');
     const to = BUILTIN_HOLIDAYS.reduce((m, h) => (h[1] > m ? h[1] : m), '0000-01-01');
     const extra = appPeriods
         .filter(p => p && isValidDate(p.start) && isValidDate(p.end || p.start))
         .map(p => ({ start: /** @type {string} */ (p.start), end: /** @type {string} */ (p.end || p.start) }))
-        .filter(p => p.end < from || p.start > to);
+        .filter(p => p.start > to);
     return [...builtin, ...extra];
 }
 
@@ -84,7 +83,7 @@ export function lastAvailable(/** @type {string} */ date, /** @type {Period[]} *
 /**
  * @typedef {{
  *   mep: string, nb: number, zone: string,
- *   delaiVisite?: number, delaiMep?: number,
+ *   delaiVisite?: number, delaiMep?: number, ecart12?: number, ecartAteliers?: number,
  *   holidays: Period[],
  *   jalons?: Record<string, string>, contenus?: Record<string, string>, planifiees?: Record<string, string>
  * }} RetroInput
@@ -108,7 +107,9 @@ export function validateInput(/** @type {Partial<RetroInput>} */ input) {
     if (!ZONES.includes(String(input.zone))) return 'Zone scolaire invalide (A, B ou C)';
     for (const [label, v] of [
         ['Délai visite / atelier 1', input.delaiVisite],
-        ['Délai minimal avant la MEP', input.delaiMep]
+        ['Délai minimal avant la MEP', input.delaiMep],
+        ['Écart atelier 1 / atelier 2', input.ecart12],
+        ['Écart entre les ateliers', input.ecartAteliers]
     ]) {
         if (v !== undefined && v !== null && (!Number.isInteger(Number(v)) || Number(v) < 0 || Number(v) > 365)) {
             return `${label} invalide (0 à 365 jours)`;
@@ -126,6 +127,8 @@ export function computeRetroplanning(input) {
     const nb = Number(input.nb);
     const delaiVisite = input.delaiVisite == null ? DEFAULT_DELAI_VISITE : Number(input.delaiVisite);
     const delaiMep = input.delaiMep == null ? DEFAULT_DELAI_MEP : Number(input.delaiMep);
+    const ecart12 = input.ecart12 == null ? ECART_ATELIER_1_2 : Number(input.ecart12);
+    const ecartAteliers = input.ecartAteliers == null ? ECART_ATELIERS : Number(input.ecartAteliers);
     const { holidays, mep } = input;
     const planifiees = input.planifiees || {};
     /** @type {string[]} */
@@ -138,7 +141,7 @@ export function computeRetroplanning(input) {
         const cible =
             k === nb
                 ? addDays(mep, -delaiMep)
-                : addDays(/** @type {string} */ (at[k + 1].proposee), k === 1 ? -ECART_ATELIER_1_2 : -ECART_ATELIERS);
+                : addDays(/** @type {string} */ (at[k + 1].proposee), k === 1 ? -ecart12 : -ecartAteliers);
         at[k] = { cible, proposee: lastAvailable(cible, holidays) };
     }
     // La visite métier est toujours une date théorique calculée à partir de l'atelier 1
