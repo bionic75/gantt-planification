@@ -14,6 +14,8 @@ import {
     CONTENUS,
     DEFAULT_DELAI_MEP,
     DEFAULT_DELAI_VISITE,
+    ECART_ATELIER_1_2,
+    ECART_ATELIERS,
     holidaysOfZone,
     isoDay,
     isValidDate,
@@ -70,7 +72,13 @@ export async function meta() {
         contenus: CONTENUS,
         jalons: JALONS_ATELIER,
         zones: ZONES,
-        defaults: { nb: 4, delaiVisite: DEFAULT_DELAI_VISITE, delaiMep: DEFAULT_DELAI_MEP },
+        defaults: {
+            nb: 4,
+            delaiVisite: DEFAULT_DELAI_VISITE,
+            delaiMep: DEFAULT_DELAI_MEP,
+            ecart12: ECART_ATELIER_1_2,
+            ecartAteliers: ECART_ATELIERS
+        },
         limites: { min: MIN_ATELIERS, max: MAX_ATELIERS }
     };
 }
@@ -102,7 +110,9 @@ async function toInput(b) {
         nb: Number(b.nb ?? b.nb_ateliers),
         zone: String(b.zone || '').toUpperCase(),
         delaiVisite: b.delaiVisite ?? b.delai_visite_atelier ?? DEFAULT_DELAI_VISITE,
-        delaiMep: b.delaiMep ?? b.delai_mep ?? DEFAULT_DELAI_MEP
+        delaiMep: b.delaiMep ?? b.delai_mep ?? DEFAULT_DELAI_MEP,
+        ecart12: b.ecart12 ?? b.lignes?.ecarts?.ecart12 ?? ECART_ATELIER_1_2,
+        ecartAteliers: b.ecartAteliers ?? b.lignes?.ecarts?.ecartAteliers ?? ECART_ATELIERS
     };
     const error = validateInput(input);
     if (error) throw badRequest(error);
@@ -111,6 +121,8 @@ async function toInput(b) {
         ...input,
         delaiVisite: Number(input.delaiVisite),
         delaiMep: Number(input.delaiMep),
+        ecart12: Number(input.ecart12),
+        ecartAteliers: Number(input.ecartAteliers),
         holidays: holidaysOfZone(input.zone, await appHolidays(input.zone)),
         ...lignes
     };
@@ -152,7 +164,12 @@ export async function save(/** @type {any} */ body, /** @type {{ userId: number,
         nb_ateliers: input.nb,
         delai_visite_atelier: input.delaiVisite,
         delai_mep: input.delaiMep,
-        lignes: JSON.stringify({ jalons: input.jalons, contenus: input.contenus, planifiees: input.planifiees }),
+        lignes: JSON.stringify({
+            jalons: input.jalons,
+            contenus: input.contenus,
+            planifiees: input.planifiees,
+            ecarts: { ecart12: input.ecart12, ecartAteliers: input.ecartAteliers }
+        }),
         updated_at: sqlTimestamp()
     };
     const existing = await prisma.atelierRetroplanning.findUnique({ where: { samu_name: project.samu_name } });
