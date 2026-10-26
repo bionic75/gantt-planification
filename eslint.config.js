@@ -14,7 +14,20 @@ const LEGACY_CODE = [
 
 export default [
     {
-        ignores: ['node_modules/**', 'data/**', 'coverage/**', 'src/generated/**']
+        ignores: [
+            'node_modules/**',
+            'data/**',
+            'coverage/**',
+            'src/generated/**',
+            'e2e/node_modules/**',
+            'e2e/.features-gen/**',
+            'e2e/playwright-report*/**',
+            'e2e/test-results/**',
+            'e2e/cucumber-report*/**',
+            'e2e/monocart-report*/**',
+            'e2e/allure-results*/**',
+            'e2e/allure-report/**'
+        ]
     },
     js.configs.recommended,
     {
@@ -75,8 +88,8 @@ export default [
         }
     },
     {
-        // Tests d'interface : fonctions exécutées dans la page (Puppeteer)
-        files: ['tests/ui.test.js'],
+        // Tests d'interface : fonctions exécutées dans la page (Puppeteer, Playwright)
+        files: ['tests/ui.test.js', 'e2e/**/*.js'],
         languageOptions: { globals: globals.browser }
     },
     prettier

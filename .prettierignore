@@ -11,3 +11,12 @@ coverage/
 package.json
 package-lock.json
 src/generated/
+# Tests de bout en bout : sessions, tests générés et rapports
+e2e/.auth/
+e2e/.features-gen/
+e2e/playwright-report*/
+e2e/cucumber-report*/
+e2e/test-results/
+e2e/monocart-report*/
+e2e/allure-results*/
+e2e/allure-report/

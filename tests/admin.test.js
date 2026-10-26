@@ -177,6 +177,29 @@ describe("clés d'API et API publique", () => {
     });
 });
 
+describe('configuration email', () => {
+    it('mot de passe jamais renvoyé, conservé si non ressaisi', async () => {
+        const smtp = { host: 'smtp.example.test', port: 2525, secure: false, user: 'robot@example.test' };
+        expect((await admin.get('/api/email-config')).data).toMatchObject({ passwordSet: false });
+        expect((await admin.post('/api/email-config', smtp)).status).toBe(400);
+
+        expect((await admin.post('/api/email-config', { ...smtp, password: 'secret-smtp' })).status).toBe(200);
+        const saved = (await admin.get('/api/email-config')).data;
+        expect(saved).toMatchObject({
+            host: 'smtp.example.test',
+            port: 2525,
+            user: 'robot@example.test',
+            passwordSet: true
+        });
+        expect(saved).not.toHaveProperty('password');
+        expect(JSON.stringify(saved)).not.toContain('secret-smtp');
+
+        // Modification sans ressaisie : mot de passe conservé
+        expect((await admin.post('/api/email-config', { ...smtp, port: 2526, password: '' })).status).toBe(200);
+        expect((await admin.get('/api/email-config')).data).toMatchObject({ port: 2526, passwordSet: true });
+    });
+});
+
 describe('paramètres et configuration', () => {
     it('paramètres, accès aux onglets, thème, version', async () => {
         const key = unique('param');
