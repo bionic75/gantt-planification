@@ -3,6 +3,7 @@
 import { expect } from '@playwright/test';
 import {
     adminApi,
+    aujourdhuiParis,
     creerEvenement,
     creerLocalisation,
     creerTypeEvenement,
@@ -124,7 +125,7 @@ Then("l'événement créé a la période {string}", async ({ monde }, periode) =
 Given("{string} a créé un événement de test aujourd'hui", async ({ monde }, profil) => {
     const api = await monde.apiDe(profil);
     const label = monde.unique('Évt E2E');
-    const r = await api.post('/api/my-custom-events', { startDate: new Date().toISOString().slice(0, 10), label });
+    const r = await api.post('/api/my-custom-events', { startDate: aujourdhuiParis(), label });
     expect(r.status, JSON.stringify(r.data)).toBe(200);
     monde.d.evenement = r.data.eventId;
     monde.d.libelleEvenement = label;

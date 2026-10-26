@@ -33,10 +33,19 @@ export const cle = (
     /** @type {'AM' | 'PM'} */ p
 ) => `${rid}_${type}_${date}_${p}`;
 
-export const premierJourDuMois = () => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+/**
+ * Date du jour AAAA-MM-JJ à Paris, fuseau de l'application et du navigateur des tests, quel que soit celui de la
+ * machine qui exécute les tests (UTC sur les runners de CI)
+ */
+export const aujourdhuiParis = () => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Paris' }).format(new Date());
+
+/** Mois courant à Paris : { annee, mois } (mois de 1 à 12) */
+export const moisCourantParis = () => {
+    const [annee, mois] = aujourdhuiParis().split('-').map(Number);
+    return { annee, mois };
 };
+
+export const premierJourDuMois = () => `${aujourdhuiParis().slice(0, 8)}01`;
 
 /**
  * Ressource standard (supprimée en fin de scénario avec sa planification)

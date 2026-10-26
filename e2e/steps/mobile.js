@@ -3,7 +3,7 @@
 import { expect } from '@playwright/test';
 import { profil as profilDe } from '../support/config.js';
 import { connexionMobile } from '../support/connexion.js';
-import { PARIS } from '../support/donnees.js';
+import { moisCourantParis, PARIS } from '../support/donnees.js';
 import { Given, Then, When } from '../support/fixtures.js';
 
 /** @typedef {import('../support/monde.js').Monde} Monde */
@@ -90,8 +90,7 @@ Then("aucune donnée de planning n'est affichée sur mobile", async ({ monde }) 
 // ---------- Vues ----------
 
 Then('les vues {string} sont proposées', async ({ monde }, vues) => {
-    const libelles = (await monde.page.locator('#viewTabs button').allTextContents()).map(t => t.trim());
-    expect(libelles.join(', ')).toBe(vues);
+    await expect(monde.page.locator('#viewTabs button')).toHaveText(vues.split(', '));
 });
 
 When('je choisis la vue mobile {string}', async ({ monde }, vue) => {
@@ -106,8 +105,8 @@ When('je passe à la période suivante puis reviens à la période précédente'
 });
 
 Then('le libellé de période correspond au mois courant', async ({ monde }) => {
-    const now = new Date();
-    await expect(monde.page.locator('#periodLabel')).toHaveText(`${MOIS[now.getMonth()]} ${now.getFullYear()}`);
+    const { annee, mois } = moisCourantParis();
+    await expect(monde.page.locator('#periodLabel')).toHaveText(`${MOIS[mois - 1]} ${annee}`);
 });
 
 Then('le libellé de période change de format', async ({ monde }) => {
