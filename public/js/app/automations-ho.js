@@ -46,7 +46,7 @@ async function loadAutomationHoConfigs() {
         ).join('');
         autoHoEl('automation6WeekDays').innerHTML = AUTO_HO_DAYS.map(
             ([v, l]) =>
-                `<label style="cursor:pointer;"><input type="checkbox" class="automation6Day" value="${v}" onchange="saveAutomationHo(6)"> ${l}</label>`
+                `<label class="ho-check"><input type="checkbox" class="automation6Day" value="${v}" onchange="saveAutomationHo(6)"> ${l}</label>`
         ).join('');
 
         // n°5 : experts HO ayant un compte
@@ -74,7 +74,7 @@ async function loadAutomationHoConfigs() {
         autoHoEl('automation5AllExperts').checked = cfg5.allExperts !== false;
         autoHoSelect('automation5Recipients', cfg5.recipients);
         autoHoEl('automation5Subject').value = cfg5.subject || info.templates[5].subject;
-        autoHoEl('automation5Body').value = cfg5.body || info.templates[5].body;
+        autoHoEl('automation5Text').value = cfg5.body || info.templates[5].body;
         // n°6
         autoHoEl('automation6Enabled').checked = !!cfg6.enabled;
         const days = Array.isArray(cfg6.weekDays) ? cfg6.weekDays.map(Number) : [1];
@@ -86,7 +86,7 @@ async function loadAutomationHoConfigs() {
         autoHoEl('automation6GroupExpert').checked = !!cfg6.groupExpert;
         autoHoSelect('automation6Recipients', cfg6.recipients);
         autoHoEl('automation6Subject').value = cfg6.subject || info.templates[6].subject;
-        autoHoEl('automation6Body').value = cfg6.body || info.templates[6].body;
+        autoHoEl('automation6Text').value = cfg6.body || info.templates[6].body;
     } catch (e) {
         console.error('Erreur chargement des automatisations HO :', e);
     }
@@ -104,7 +104,7 @@ function autoHoConfig(n) {
         enabled: autoHoEl(`automation${n}Enabled`).checked,
         hour: parseInt(autoHoEl(`automation${n}Hour`).value),
         subject: autoHoEl(`automation${n}Subject`).value.trim(),
-        body: autoHoEl(`automation${n}Body`).value
+        body: autoHoEl(`automation${n}Text`).value
     };
     if (n === 5) {
         return {

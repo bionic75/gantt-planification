@@ -177,11 +177,12 @@ function hoRender() {
         ['ho-one', '1 expert'],
         ['ho-multi', '2 experts ou plus'],
         ['ho-pending', 'Modification non enregistrée'],
-        ['ho-one ho-past', 'Semaine passée']
+        ['ho-one ho-past', 'Semaine passée'],
+        ['ho-legend-current', 'Semaine en cours']
     ]
         .map(
             ([cls, label]) =>
-                `<span style="display:inline-flex;align-items:center;gap:6px;"><span class="ho-half ${cls}" style="min-height:0;width:22px;height:16px;padding:0;margin:0;display:inline-block;"></span>${label}</span>`
+                `<span style="display:inline-flex;align-items:center;gap:6px;">${cls === 'ho-legend-current' ? `<span class="${cls}"></span>` : `<span class="ho-half ${cls}" style="min-height:0;width:22px;height:16px;padding:0;margin:0;display:inline-block;"></span>`}${label}</span>`
         )
         .join('');
 
@@ -190,7 +191,8 @@ function hoRender() {
     html += HO_DAYS.map(n => `<th>${n}</th>`).join('') + '</tr></thead><tbody>';
     for (const w of d.weeks) {
         const past = w.monday < me.currentWeek;
-        html += `<tr><th class="ho-week" title="Semaine ${hoIsoWeek(w.monday)}">S${hoIsoWeek(w.monday)}</th>`;
+        const current = w.monday === me.currentWeek;
+        html += `<tr${current ? ' class="ho-current-week"' : ''}><th class="ho-week${current ? ' ho-week-current' : ''}" title="Semaine ${hoIsoWeek(w.monday)}${current ? ' (semaine en cours)' : ''}">S${hoIsoWeek(w.monday)}${current ? '<small>en cours</small>' : ''}</th>`;
         for (const date of w.days) {
             const inMonth = date.slice(0, 7) === HO.month;
             html += `<td class="ho-day"><div class="ho-dayhead" style="text-align:center;font-size:11px;font-weight:700;margin-bottom:3px;${date === today ? 'color:#1d70b7;' : 'color:#546e7a;'}">${hoFr(date).slice(0, 5)}${date === today ? ' • aujourd’hui' : ''}</div>`;
@@ -291,7 +293,7 @@ function hoOpenPopover(anchor, date, period) {
             ? experts
                   .map(
                       e =>
-                          `<label><input type="checkbox" data-rid="${e.resource_id}" ${here.has(e.resource_id) ? 'checked' : ''}> ${hoEsc(e.prenom)} ${hoEsc(e.nom.toUpperCase())} <span style="color:#78909c;font-size:11px;">${hoEsc(e.trigramme)}</span></label>`
+                          `<label class="ho-check"><input type="checkbox" data-rid="${e.resource_id}" ${here.has(e.resource_id) ? 'checked' : ''}><span>${hoEsc(e.prenom)} ${hoEsc(e.nom.toUpperCase())}</span><span class="ho-tri">${hoEsc(e.trigramme)}</span></label>`
                   )
                   .join('')
             : '<p style="color:#b26a00;font-size:12px;margin:4px 0;">Aucun expert déclaré pour les astreintes HO (onglet Ressources).</p>');
