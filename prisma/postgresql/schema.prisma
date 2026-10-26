@@ -145,6 +145,37 @@ model AstreinteHno {
   @@map("astreintes_hno")
 }
 
+/// Planning des astreintes HO (heures ouvrées) : une ligne par expert inscrit sur une demi-journée (AM / PM) d'un jour ouvré
+model AstreinteHoSlot {
+  id          Int       @id @default(autoincrement())
+  date        String
+  period      String
+  resource_id Int
+  created_by  Int?
+  created_at  String? @default(dbgenerated("to_char(timezone('UTC'::text, now()), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+
+  @@unique([date, period, resource_id])
+  @@index([date], map: "idx_astreinte_ho_slots_date")
+  @@map("astreinte_ho_slots")
+}
+
+/// Historique des modifications du planning HO (ajout / retrait d'un expert sur une demi-journée)
+model AstreinteHoLog {
+  id            Int       @id @default(autoincrement())
+  slot_date     String
+  period        String
+  resource_id   Int
+  resource_name String?
+  action        String
+  week_start    String
+  user_id       Int?
+  user_name     String?
+  created_at    String? @default(dbgenerated("to_char(timezone('UTC'::text, now()), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+
+  @@index([week_start], map: "idx_astreinte_ho_log_week")
+  @@map("astreinte_ho_log")
+}
+
 model AutomationLog {
   id              Int       @id @default(autoincrement())
   automation_id   Int
@@ -583,6 +614,8 @@ model Resource {
   is_mad_volante            Int?      @default(0)
   contacts_rh               String?
   astreinte_date_activation String?
+  astreinte_ho              Int?      @default(0)
+  astreinte_apd             Int?      @default(0)
 
   @@map("resources")
 }

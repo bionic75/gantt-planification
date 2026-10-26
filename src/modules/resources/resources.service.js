@@ -66,6 +66,7 @@ export async function createResource(data, createdBy) {
     const { nom, prenom, trigramme, email, telephone, taux, samu, date_debut, date_fin, es_rattachement, fonction } =
         data;
     const { astreinte_volontaire, astreinte_date_activation, is_mad_volante, date_fin_mad, jours_max_mad } = data;
+    const { astreinte_ho, astreinte_apd } = data;
 
     if (!nom || !prenom || !trigramme || !samu) throw badRequest('Champs obligatoires manquants');
     if (!is_mad_volante && !taux) throw badRequest('Champs obligatoires manquants');
@@ -90,6 +91,8 @@ export async function createResource(data, createdBy) {
             es_rattachement: optional(es_rattachement),
             fonction: optional(fonction),
             astreinte_volontaire: flag(astreinte_volontaire),
+            astreinte_ho: flag(astreinte_ho),
+            astreinte_apd: flag(astreinte_apd),
             astreinte_date_activation: optional(astreinte_date_activation),
             is_mad_volante: flag(is_mad_volante),
             date_fin_mad: optional(date_fin_mad),
@@ -137,6 +140,8 @@ export async function updateResource(id, data) {
     const {
         contacts_rh,
         astreinte_volontaire,
+        astreinte_ho,
+        astreinte_apd,
         astreinte_date_activation,
         is_mad_volante,
         date_fin_mad,
@@ -162,14 +167,16 @@ export async function updateResource(id, data) {
             fonction: optional(fonction),
             contacts_rh: contactsRh,
             astreinte_volontaire: flag(astreinte_volontaire),
+            astreinte_ho: flag(astreinte_ho),
+            astreinte_apd: flag(astreinte_apd),
             astreinte_date_activation: optional(astreinte_date_activation),
             is_mad_volante: flag(is_mad_volante),
             date_fin_mad: optional(date_fin_mad),
             jours_max_mad: toInt(jours_max_mad)
         }
     });
-    // Une ressource volontaire aux astreintes doit avoir un compte expert
-    if (astreinte_volontaire) {
+    // Une ressource volontaire aux astreintes (HNO ou HO) doit avoir un compte expert
+    if (astreinte_volontaire || astreinte_ho) {
         await prisma.user.updateMany({ where: { resource_id: resourceId }, data: { is_expert: 1 } }).catch(() => {});
     }
 }
@@ -200,11 +207,26 @@ export async function toggleResource(/** @type {string | number} */ id) {
     return actif;
 }
 
-/** Volontariat aux astreintes (implique le profil expert pour les comptes rattachés) */
-export async function setAstreinteVolontaire(/** @type {string | number} */ id, /** @type {boolean} */ enabled) {
+/** Types d'astreinte déclarables par une ressource : colonne de la table resources */
+const ASTREINTE_COLUMNS = /** @type {const} */ ({
+    hno: 'astreinte_volontaire',
+    ho: 'astreinte_ho',
+    apd: 'astreinte_apd'
+});
+
+/**
+ * Déclaration d'une ressource pour un type d'astreinte : HO (heures ouvrées), HNO (heures non ouvrées) ou APD
+ * (accompagnement post démarrage). HNO et HO impliquent le profil expert pour les comptes rattachés.
+ * @param {string | number} id
+ * @param {boolean} enabled
+ * @param {string} [type] 'hno' (défaut), 'ho' ou 'apd'
+ */
+export async function setAstreinteVolontaire(id, enabled, type = 'hno') {
+    const column = ASTREINTE_COLUMNS[/** @type {keyof typeof ASTREINTE_COLUMNS} */ (type)];
+    if (!column) throw badRequest("Type d'astreinte inconnu (ho, hno ou apd)");
     const resourceId = idParam(id);
-    await prisma.resource.updateMany({ where: { id: resourceId }, data: { astreinte_volontaire: flag(enabled) } });
-    if (enabled) {
+    await prisma.resource.updateMany({ where: { id: resourceId }, data: { [column]: flag(enabled) } });
+    if (enabled && type !== 'apd') {
         await prisma.user.updateMany({ where: { resource_id: resourceId }, data: { is_expert: 1 } }).catch(() => {});
     }
 }

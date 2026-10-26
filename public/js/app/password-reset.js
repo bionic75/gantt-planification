@@ -475,6 +475,8 @@ async function addResource() {
     const esRattachement = document.getElementById('esRattachement').value.trim();
     const fonction = document.getElementById('fonction').value.trim();
     const astreinteVolontaire = document.getElementById('addAstreinteVolontaire').checked;
+    const astreinteHo = document.getElementById('addAstreinteHo').checked;
+    const astreinteApd = document.getElementById('addAstreinteApd').checked;
     const astreinteDate = document.getElementById('addAstreinteDate').value;
 
     if (!nom || !prenom || !trigramme || !samu || !dateDebut) {
@@ -513,6 +515,8 @@ async function addResource() {
                 es_rattachement: esRattachement || null,
                 fonction: fonction || null,
                 astreinte_volontaire: astreinteVolontaire ? 1 : 0,
+                astreinte_ho: astreinteHo ? 1 : 0,
+                astreinte_apd: astreinteApd ? 1 : 0,
                 astreinte_date_activation: astreinteDate || null,
                 is_mad_volante: madVolante ? 1 : 0,
                 date_fin_mad: dateFinMad || null,
@@ -550,6 +554,8 @@ async function addResource() {
         renderSamuTags('add_secondaire');
         // Réinitialiser le bloc astreinte
         document.getElementById('addAstreinteVolontaire').checked = false;
+        document.getElementById('addAstreinteHo').checked = false;
+        document.getElementById('addAstreinteApd').checked = false;
         document.getElementById('addAstreinteDate').value = '';
         document.getElementById('addAstreinteDateBlock').style.display = 'none';
         updateGantt();
@@ -557,6 +563,28 @@ async function addResource() {
         console.error('Erreur:', error);
         alert("Erreur lors de l'ajout de la ressource: " + error.message);
     }
+}
+
+// Trois cases par ressource : astreintes HO (heures ouvrées), HNO (heures non ouvrées) et accompagnement post démarrage
+const ASTREINTE_TYPES = [
+    { type: 'ho', field: 'astreinte_ho', label: 'HO', tip: 'Astreintes HO : jours de la semaine, heures ouvrées' },
+    { type: 'hno', field: 'astreinte_volontaire', label: 'HNO', tip: 'Astreintes HNO : jours et heures non ouvrés' },
+    {
+        type: 'apd',
+        field: 'astreinte_apd',
+        label: 'APD',
+        tip: "Astreintes « Accompagnement post démarrage » : jours et heures non ouvrés, dans le cadre d'un déploiement"
+    }
+];
+
+function astreinteCellsHtml(r) {
+    const editable = currentUser && currentUser.activeProfile !== 'rh';
+    return ASTREINTE_TYPES.map(t => {
+        const checked = r[t.field] ? 'checked' : '';
+        return editable
+            ? `<td style="text-align:center;"><input type="checkbox" ${checked} onchange="toggleAstreinteByResource(${r.id}, this.checked, '${t.type}')" style="width:18px;height:18px;cursor:pointer;" title="${t.tip}"></td>`
+            : `<td style="text-align:center;"><input type="checkbox" ${checked} disabled style="width:18px;height:18px;opacity:0.5;cursor:not-allowed;" title="${t.tip}"></td>`;
+    }).join('');
 }
 
 function displayResources() {
@@ -575,9 +603,13 @@ function displayResources() {
         // Obtenir les dates depuis l'historique MAD
         const madDates = getResourceMadDates(r.id);
         const row = tbody.insertRow();
-        const noAccount = r.astreinte_volontaire && !r.user_id && currentUser && currentUser.activeProfile !== 'rh';
+        const noAccount =
+            (r.astreinte_volontaire || r.astreinte_ho) &&
+            !r.user_id &&
+            currentUser &&
+            currentUser.activeProfile !== 'rh';
         const noAccountTip =
-            "Astreinte volontaire sans compte utilisateur lié : cette ressource n'apparaîtra pas dans la liste de sélection des CRA.";
+            "Astreinte (HO ou HNO) sans compte utilisateur lié : cette ressource ne pourra pas se connecter pour modifier le planning HO et n'apparaîtra pas dans la liste de sélection des CRA.";
         row.innerHTML = `
                     <td${noAccount ? ` title="${noAccountTip}"` : ''}>${r.nom}${noAccount ? `<span style="color:#f9a825;margin-left:6px;cursor:help;">⚠️</span>` : ''}</td>
                     <td>${r.prenom}</td>
@@ -591,13 +623,7 @@ function displayResources() {
                     <td>${formatDate(madDates.dateDebut || r.date_debut)}</td>
                     <td>${formatDate(madDates.dateFin || r.date_fin)}</td>
                     <td><span class="date-badge ${status.class}">${status.text}</span></td>
-                    ${
-                        currentUser && currentUser.activeProfile !== 'rh'
-                            ? `<td style="text-align:center;">
-                             <input type="checkbox" ${r.astreinte_volontaire ? 'checked' : ''} onchange="toggleAstreinteByResource(${r.id}, this.checked)" style="width:18px;height:18px;cursor:pointer;" title="${r.user_id ? 'Accès astreinte/CRA' : 'Marquer comme expert astreinte (créez un compte utilisateur pour accès CRA)'}">
-                           </td>`
-                            : `<td style="text-align:center;"><input type="checkbox" ${r.astreinte_volontaire ? 'checked' : ''} disabled style="width:18px;height:18px;opacity:0.5;cursor:not-allowed;" title="${r.astreinte_volontaire ? 'Participe au dispositif astreintes' : 'Ne participe pas au dispositif astreintes'}"></td>`
-                    }
+                    ${astreinteCellsHtml(r)}
                     ${
                         currentUser && currentUser.activeProfile !== 'rh'
                             ? `<td><label class="toggle-switch"><input type="checkbox" ${r.actif ? 'checked' : ''} onchange="toggleActive(${r.id})"><span class="slider"></span></label></td>`
@@ -671,6 +697,8 @@ async function openEditModal(id) {
     // Pré-remplir astreinte
     const astrChk = document.getElementById('editAstreinteVolontaire');
     astrChk.checked = !!resource.astreinte_volontaire;
+    document.getElementById('editAstreinteHo').checked = !!resource.astreinte_ho;
+    document.getElementById('editAstreinteApd').checked = !!resource.astreinte_apd;
     document.getElementById('editAstreinteDate').value = resource.astreinte_date_activation || '';
     document.getElementById('editAstreinteDateBlock').style.display = resource.astreinte_volontaire ? 'block' : 'none';
 
@@ -703,9 +731,9 @@ async function openViewModalRh(id) {
         .querySelectorAll('.samu-tag-box .samu-tag-input, .samu-tag-dropdown')
         .forEach(el => (el.style.display = 'none'));
     modal.querySelectorAll('.samu-tag span[onclick]').forEach(el => (el.style.display = 'none'));
-    // Remplacer le bloc astreinte par un affichage lecture seule
+    // Remplacer le bloc astreintes par un affichage lecture seule
     const resource = resources.find(r => r.id === id);
-    const astrBlock = modal.querySelector('#editAstreinteDateBlock').parentElement;
+    const astrBlock = modal.querySelector('#editAstreintesBlock');
     if (resource) {
         const dateStr = resource.astreinte_date_activation
             ? new Date(resource.astreinte_date_activation).toLocaleDateString('fr-FR')
@@ -718,13 +746,15 @@ async function openViewModalRh(id) {
                   return months > 0 ? ` (depuis ${months} mois)` : '';
               })()
             : '';
-        astrBlock.innerHTML = resource.astreinte_volontaire
-            ? `<div style="padding:10px;background:#fff8e1;border:1px solid #ffe082;border-radius:6px;">
-                         <span style="font-weight:bold;color:#e65100;">🔔 Participe au dispositif Astreintes/HNO</span><br>
-                         <span style="font-size:12px;color:#555;margin-top:6px;display:block;">📅 Régime actif depuis le <strong>${dateStr}</strong>${since}</span>
-                       </div>`
-            : `<div style="padding:10px;background:#f5f5f5;border:1px solid #ddd;border-radius:6px;color:#999;">
-                         🔕 Ne participe pas au dispositif Astreintes/HNO
+        const line = (on, label, extra = '') =>
+            on
+                ? `<div style="margin:4px 0;"><span style="font-weight:bold;color:#2e7d32;">✔ ${label}</span>${extra}</div>`
+                : `<div style="margin:4px 0;color:#999;">✖ ${label} : non</div>`;
+        astrBlock.innerHTML = `<div style="padding:10px;background:#fff8e1;border:1px solid #ffe082;border-radius:6px;">
+                         <div style="font-weight:bold;color:#e65100;margin-bottom:4px;">🔔 Astreintes</div>
+                         ${line(resource.astreinte_ho, 'Astreintes HO')}
+                         ${line(resource.astreinte_volontaire, 'Astreintes HNO', `<span style="font-size:12px;color:#555;"> — régime actif depuis le <strong>${dateStr}</strong>${since}</span>`)}
+                         ${line(resource.astreinte_apd, 'Astreintes « Accompagnement post démarrage »')}
                        </div>`;
     }
     // Masquer le bouton "Ajouter un taux de MAD"

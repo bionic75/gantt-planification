@@ -2,6 +2,7 @@
 // Tâches planifiées (fuseau Europe/Paris)
 import cron from 'node-cron';
 import { runAutomation1, runAutomation2 } from '../modules/automations/automations.jobs.js';
+import { runHoAutomations } from '../modules/astreintes-ho/ho.automation.js';
 import { runAutomation4 } from '../modules/cra/cra.automation.js';
 
 export function startScheduler() {
@@ -11,6 +12,8 @@ export function startScheduler() {
         () => {
             console.log('⏰ [CRON] Vérification horaire - ' + new Date().toLocaleString('fr-FR'));
             runAutomation2();
+            // Astreintes HO : n°5 (planning S+1 à compléter) et n°6 (communication), jour et heure propres à chaque configuration
+            runHoAutomations();
         },
         { timezone: 'Europe/Paris' }
     );

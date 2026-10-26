@@ -128,7 +128,7 @@ function switchTab(tabName, event) {
     }
 
     if (tabName === 'astreintesGestion') {
-        initAstreintesTab();
+        astreintesTabOpen();
     }
 
     if (tabName === 'cra') {

@@ -25,6 +25,7 @@
     <li><a href="#section-planification">📅 Planification</a></li>
     <li><a href="#section-cra">📋 Compte Rendu d'Activité</a></li>
     <li><a href="#section-reporting">📊 Reporting</a></li>
+    <li><a href="#section-astreintes">🔔 Astreintes</a></li>
     <li><a href="#section-administration">⚙️ Administration</a></li>
     <li><a href="#section-affectation">🎯 Aide à l'affectation</a></li>
     <li><a href="#section-mobile">📱 Application mobile</a></li>
@@ -136,6 +137,15 @@
 
   <h3>MAD volante</h3>
   <p>Une ressource en <strong>MAD volante</strong> est reconnaissable à son icône dédiée dans la liste. Sa fiche demande une date de fin et un nombre de jours maximum à la place du taux de MAD. Le nombre de jours consommés n'est plus rappelé dans l'onglet Ressources. Les alertes de dépassement changent de couleur selon la gravité : <strong>jaune</strong> (information), <strong>orange</strong> (vigilance), <strong>rouge</strong> (seuil dépassé).</p>
+
+  <h3>Astreintes HO, HNO et accompagnement post démarrage</h3>
+  <p>Chaque ressource peut être déclarée, <strong>séparément</strong>, pour trois activités d'astreinte. Les cases se trouvent dans le tableau (colonnes « Astreintes HO », « Astreintes HNO », « Astreintes APD »), dans le formulaire d'ajout et dans la fenêtre <strong>Modifier</strong> :</p>
+  <ul>
+    <li><strong>Astreintes HO</strong> — jours de la semaine, sur les heures ouvrées. Les experts déclarés alimentent le <em>planning des astreintes HO</em> (onglet Astreintes).</li>
+    <li><strong>Astreintes HNO</strong> — jours et heures non ouvrés (dispositif existant, avec sa date de démarrage).</li>
+    <li><strong>Astreintes « Accompagnement post démarrage »</strong> — jours et heures non ouvrés, dans le cadre d'un déploiement.</li>
+  </ul>
+  <div class="note">Pour modifier le planning HO, un expert doit avoir un <strong>compte utilisateur lié</strong> à sa ressource : la déclaration HO lui donne le profil Expert métier.</div>
 
   <h3>Avertissements sur le nom de la ressource</h3>
   <p>Lorsqu'une ressource présente une anomalie (par exemple <em>astreinte volontaire sans compte utilisateur lié</em>), un panneau d'avertissement s'affiche <strong>directement sur son nom</strong> ; la description du problème apparaît au survol.</p>
@@ -315,6 +325,29 @@
 </section>
 
 <!-- ===================== 6. ADMINISTRATION ===================== -->
+<section id="section-astreintes">
+  <h2>🔔 Astreintes</h2>
+  <p>L'onglet <strong>Astreintes</strong> comporte deux rubriques : <strong>Gestion des astreintes HO</strong> (visible par tous les profils) et <strong>Gestion des astreintes HNO</strong> (génération du planning, réservée aux administrateurs).</p>
+
+  <h3>Gestion des astreintes HO</h3>
+  <p>Planning mensuel des astreintes en <strong>heures ouvrées</strong> : du lundi au vendredi (les week-ends ne sont pas affichés), chaque jour est divisé en <strong>matin</strong> et <strong>après-midi</strong>. Naviguez de mois en mois avec les flèches. Plusieurs experts peuvent être inscrits sur une même demi-journée.</p>
+  <table>
+    <tr><th>Couleur</th><th>Signification</th></tr>
+    <tr><td style="background:#ffebee;">Rouge pâle</td><td>demi-journée <strong>vide</strong> (à pourvoir)</td></tr>
+    <tr><td style="background:#e8f5e9;">Vert clair</td><td>1 expert inscrit</td></tr>
+    <tr><td style="background:#c8e6c9;">Vert</td><td>2 experts ou plus</td></tr>
+    <tr><td style="outline:2px dashed #f9a825;">Contour orange pointillé</td><td>modification non encore enregistrée</td></tr>
+  </table>
+  <h3>Qui peut modifier ?</h3>
+  <ul>
+    <li>Les <strong>experts métier déclarés pour les astreintes HO</strong> : un clic sur une demi-journée les inscrit ou les retire. Ils ne modifient que <strong>leurs propres inscriptions</strong>, et plus les semaines antérieures à la semaine en cours.</li>
+    <li>Les <strong>administrateurs</strong> : un clic ouvre la liste des experts HO à inscrire ou retirer ; toutes les semaines sont modifiables, y compris les semaines passées.</li>
+    <li>Les <strong>autres profils</strong> consultent le planning sans pouvoir le modifier.</li>
+  </ul>
+  <h3>Enregistrer</h3>
+  <p>Les modifications sont préparées à l'écran puis validées avec le bouton <strong>💾 Enregistrer</strong>. Une fenêtre liste les ajouts et retraits avant confirmation. Si la <strong>semaine en cours</strong> est modifiée, la fenêtre précise qu'un <strong>e-mail de mise à jour</strong> sera envoyé aux destinataires de l'automatisation n°6 (si elle est activée).</p>
+</section>
+
 <section id="section-administration">
   <h2>⚙️ Administration</h2>
 
@@ -405,6 +438,14 @@
 
   <h3>Accès aux applications</h3>
   <p>L'accès à chaque application du menu <strong>Applications</strong> est attribué utilisateur par utilisateur. Les administrateurs ont accès à <em>Aide à l'affectation opérationnelle</em> automatiquement ; les autres profils s'ouvrent l'accès depuis l'Administration.</p>
+
+  <h3>Automatisations n°5 et n°6 — astreintes HO</h3>
+  <p>Deux automatisations, activables et désactivables, se paramètrent dans <strong>Administration › Automatisations et rappels</strong> :</p>
+  <ul>
+    <li><strong>N°5 — Construction du planning d'astreinte HO pour la semaine S+1</strong> : un jour de la semaine et une heure d'envoi, des destinataires choisis parmi les experts déclarés HO, un sujet et un corps de mail personnalisables. Le mail contient le planning de la semaine suivante, à compléter.</li>
+    <li><strong>N°6 — Communication du planning d'astreinte HO</strong> : un ou plusieurs jours et une heure d'envoi, des destinataires choisis parmi tous les utilisateurs (groupes ou personnes), un sujet et un corps de mail personnalisables, et la semaine communiquée (en cours ou suivante). Si le planning de la <strong>semaine en cours</strong> est modifié, le mail est <strong>renvoyé automatiquement</strong> avec « MAJ » dans le sujet et la liste des modifications dans le corps du mail.</li>
+  </ul>
+  <p>Champs utilisables dans le sujet et le corps : <code>{semaine}</code>, <code>{debut}</code>, <code>{fin}</code>, <code>{planning}</code> (tableau de la semaine), <code>{modifications}</code> et <code>{lien}</code>. Le bouton « Envoyer maintenant » déclenche un envoi immédiat pour tester.</p>
 
   <h3>Automatisation Teams</h3>
   <p>Les types de notifications Teams sont présentés avec les mêmes icônes que dans le reste de l'application, pour les reconnaître d'un coup d'œil.</p>
@@ -639,11 +680,27 @@
   <h2>🆕 Notes de version</h2>
   <p>Historique des évolutions de la Plateforme de Planification ANS.</p>
 
+  <!-- v2.1.0 -->
+  <div class="card card-green" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v2.1.0</strong>
+      <span class="badge badge-current">Actuelle</span>
+      <span style="color:#888; font-size:13px;">Octobre 2026</span>
+    </div>
+    <ul>
+      <li>🔔 <strong>Gestion des astreintes</strong> : trois activités à différencier pour chaque ressource (onglet Ressources) — <strong>Astreintes HO</strong> (heures ouvrées), <strong>Astreintes HNO</strong> (heures non ouvrées) et <strong>Astreintes « Accompagnement post démarrage »</strong>.</li>
+      <li>🗓️ <strong>Onglet Astreintes</strong> : deux rubriques, « Gestion des astreintes HO » (nouvelle) et « Gestion des astreintes HNO » (ex « Gestion des Astreintes (Expérimental) », réservée aux administrateurs).</li>
+      <li>🗓️ <strong>Planning des astreintes HO</strong> : planning mensuel du lundi au vendredi, matin et après-midi, plusieurs experts par demi-journée, demi-journées vides signalées par une couleur. Droits : experts HO (leurs propres inscriptions, semaine en cours et à venir) et administrateurs (tout, y compris le passé) ; les autres profils consultent. Bouton « Enregistrer » avec fenêtre listant les modifications et prévenant d'un e-mail de mise à jour si la semaine en cours est modifiée.</li>
+      <li>📧 <strong>Automatisations n°5 et n°6</strong> (Administration) : construction du planning HO de la semaine S+1 et communication du planning, avec jours, heure, destinataires, sujet et corps de mail paramétrables ; renvoi automatique « MAJ » en cas de modification de la semaine en cours.</li>
+      <li>L'onglet Astreintes est désormais visible par défaut pour tous les profils (consultation du planning HO) ; la configuration d'accès aux onglets déjà enregistrée n'est pas modifiée : à cocher pour les profils concernés.</li>
+    </ul>
+    <p style="font-size:12px; color:#888; margin-top:8px;">Au déploiement : une migration de base ajoute deux colonnes aux ressources (astreintes HO et accompagnement post démarrage) et deux tables (planning et historique HO).</p>
+  </div>
+
   <!-- v2.0.2 -->
   <div class="card card-green" style="margin-bottom:16px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
       <strong style="font-size:16px;">v2.0.2</strong>
-      <span class="badge badge-current">Actuelle</span>
       <span style="color:#888; font-size:13px;">Octobre 2026</span>
     </div>
     <ul>

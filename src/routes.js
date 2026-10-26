@@ -3,6 +3,7 @@
 import { Router } from 'express';
 import adminRoutes from './modules/admin/admin.routes.js';
 import affectationRoutes from './modules/affectation/affectation.routes.js';
+import astreintesHoRoutes from './modules/astreintes-ho/ho.routes.js';
 import astreintesRoutes from './modules/astreintes/astreintes.routes.js';
 import authRoutes from './modules/auth/auth.routes.js';
 import automationsRoutes from './modules/automations/automations.routes.js';
@@ -38,6 +39,7 @@ api.use(eventsRoutes);
 api.use(poiRoutes);
 api.use(deplacementsRoutes);
 api.use(astreintesRoutes);
+api.use(astreintesHoRoutes);
 api.use(craRoutes);
 api.use(locationsRoutes);
 api.use(publicApiRoutes);

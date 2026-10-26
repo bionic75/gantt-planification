@@ -360,6 +360,26 @@
         "guard": "auth"
     },
     {
+        "method": "GET",
+        "path": "/api/astreintes-ho",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/astreintes-ho/automation/:n/send",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/astreintes-ho/info",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/astreintes-ho/save",
+        "guard": "auth"
+    },
+    {
         "method": "PUT",
         "path": "/api/astreintes/:id",
         "guard": "auth"

@@ -37,7 +37,7 @@ const TabAccess = {
             cra: false,
             reporting: false,
             admin: false,
-            astreintesGestion: false,
+            astreintesGestion: true,
             tripadvisor: true
         },
         rh: {
@@ -47,7 +47,7 @@ const TabAccess = {
             cra: true,
             reporting: false,
             admin: false,
-            astreintesGestion: false,
+            astreintesGestion: true,
             tripadvisor: true
         },
         expert: {
@@ -160,7 +160,10 @@ function updateTabsVisibility() {
     if (craBtn) craBtn.style.display = TabAccess.showCra(currentUser) ? 'block' : 'none';
     const astreintesBtn = document.getElementById('astreintesBtn');
     const astreintesBtnText = document.getElementById('astreintesBtnText');
-    if (astreintesBtn) astreintesBtn.style.display = can('astreintesGestion') ? 'inline-block' : 'none';
+    // Saisie des astreintes/HNO (CRA) : administrateurs et experts ; les autres profils consultent seulement le planning HO
+    if (astreintesBtn)
+        astreintesBtn.style.display =
+            can('astreintesGestion') && (profile === 'admin' || profile === 'expert') ? 'inline-block' : 'none';
     if (astreintesBtnText)
         astreintesBtnText.textContent = profile === 'expert' ? 'Gérer mes astreintes/HNO' : 'Gérer les astreintes/HNO';
 

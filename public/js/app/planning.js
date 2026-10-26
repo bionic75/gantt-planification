@@ -1004,6 +1004,8 @@ async function loadUsers() {
             loadAutomation3Config();
             // Automatisation 4 (CRA)
             loadAutomation4Config();
+            // Automatisations 5 et 6 (astreintes HO)
+            if (typeof loadAutomationHoConfigs === 'function') loadAutomationHoConfigs();
             // Configuration MFA
             loadMfaConfig();
         }

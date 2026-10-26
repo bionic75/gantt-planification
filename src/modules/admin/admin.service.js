@@ -32,7 +32,7 @@ export const TAB_ACCESS_DEFAULTS = {
         cra: false,
         reporting: false,
         admin: false,
-        astreintesGestion: false,
+        astreintesGestion: true,
         tripadvisor: true
     },
     rh: {
@@ -42,7 +42,7 @@ export const TAB_ACCESS_DEFAULTS = {
         cra: true,
         reporting: false,
         admin: false,
-        astreintesGestion: false,
+        astreintesGestion: true,
         tripadvisor: true
     },
     expert: {
