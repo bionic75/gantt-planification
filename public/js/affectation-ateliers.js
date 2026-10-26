@@ -181,13 +181,15 @@
     }
     function visiteHint() {
         const p = currentProject();
-        if (AT.f.visite && p && p.visite_metier && AT.f.visite === p.visite_metier)
-            return 'Date reprise du projet de déploiement.';
-        if (AT.f.visite)
-            return 'Date fixée : elle remplace la date calculée. <button type="button" onclick="AtelierPlanner.clearVisite()">× laisser le calcul</button>';
-        if (p && p.visite_metier)
+        const clear = ' <button type="button" onclick="AtelierPlanner.clearVisite()">× laisser le calcul</button>';
+        if (AT.f.visite && p && p.visite_metier && AT.f.visite === p.visite_metier) {
+            return `Visite métier : date reprise du projet de déploiement (${frShort(AT.f.visite)}).${clear}`;
+        }
+        if (AT.f.visite) return `Visite métier fixée au ${frShort(AT.f.visite)}.${clear}`;
+        if (p && p.visite_metier) {
             return `Le déploiement prévoit une visite métier le ${frShort(p.visite_metier)}. <button type="button" onclick="AtelierPlanner.resetVisite()">↺ la reprendre</button>`;
-        return 'Vide : la date est calculée à partir de l’atelier 1.';
+        }
+        return 'Visite métier : date calculée à partir de l’atelier 1 (modifiable dans « Date réellement planifiée »).';
     }
 
     function render() {
@@ -200,21 +202,6 @@
         <section class="aff-card" id="atCardParams">
             <header class="aff-card-head"><span class="at-card-title">${ico('sliders')}Paramétrage</span></header>
             <div class="at-grid">
-                <div class="at-field"><label for="atSamu">SAMU (déploiements)</label>
-                    <select id="atSamu" data-at="samu">${samuOptions()}</select>
-                    <div class="at-hint">${AT.meta.samus.length ? 'SAMU de la liste des déploiements ; ✔ = rétroplanning déjà enregistré.' : 'Aucun déploiement : créez d’abord un déploiement de SAMU.'}</div></div>
-                <div class="at-field"><label for="atMep">Date de MEP</label>
-                    <input type="date" id="atMep" data-at="mep" value="${esc(f.mep)}">
-                    <div class="at-hint">Date ferme de mise en production${currentProject() && currentProject().mep && currentProject().mep === f.mep ? ' (reprise du déploiement)' : ''}.</div></div>
-                <div class="at-field"><label for="atNb">Nombre d’ateliers métier</label>
-                    <select id="atNb" data-at="nb">${nbOptions()}</select>
-                    <div class="at-hint">De ${AT.meta.limites.min} à ${AT.meta.limites.max}.</div></div>
-                <div class="at-field"><label for="atZone">Zone de vacances scolaires</label>
-                    <select id="atZone" data-at="zone">${zoneOptions()}</select>
-                    <div class="at-hint" id="atZoneHint">${zoneHint()}</div></div>
-                <div class="at-field"><label for="atVisite">Date de la visite métier</label>
-                    <input type="date" id="atVisite" data-at="visite" value="${esc(f.visite)}">
-                    <div class="at-hint" id="atVisiteHint">${visiteHint()}</div></div>
                 <div class="at-field"><label for="atDelaiVisite">Délai visite métier → atelier 1 (jours)</label>
                     <input type="number" min="0" max="365" id="atDelaiVisite" data-at="delaiVisite" value="${esc(f.delaiVisite)}">
                     <div class="at-hint">Par défaut 14 jours.</div></div>
@@ -227,11 +214,12 @@
         <section class="aff-card" id="atCardSim">
             <header class="aff-card-head"><span class="at-card-title">${ico('flask')}Simulation</span><span id="atSavedBadge"></span></header>
             <div class="at-grid" style="margin-bottom:14px;">
-                <div class="at-field"><label for="atSamu2">SAMU</label><select id="atSamu2" data-at="samu">${samuOptions()}</select></div>
-                <div class="at-field"><label for="atMep2">Date de MEP</label><input type="date" id="atMep2" data-at="mep" value="${esc(f.mep)}"></div>
+                <div class="at-field"><label for="atSamu2">SAMU (déploiements)</label><select id="atSamu2" data-at="samu">${samuOptions()}</select><div class="at-hint">${AT.meta.samus.length ? '✔ = rétroplanning déjà enregistré.' : 'Aucun déploiement : créez d’abord un déploiement de SAMU.'}</div></div>
+                <div class="at-field"><label for="atMep2">Date de MEP</label><input type="date" id="atMep2" data-at="mep" value="${esc(f.mep)}"><div class="at-hint">${currentProject() && currentProject().mep && currentProject().mep === f.mep ? 'Reprise du déploiement.' : 'Date ferme de mise en production.'}</div></div>
                 <div class="at-field"><label for="atNb2">Nombre d’ateliers</label><select id="atNb2" data-at="nb">${nbOptions()}</select></div>
-                <div class="at-field"><label for="atZone2">Zone de vacances scolaires</label><select id="atZone2" data-at="zone">${zoneOptions()}</select></div>
+                <div class="at-field"><label for="atZone2">Zone de vacances scolaires</label><select id="atZone2" data-at="zone">${zoneOptions()}</select><div class="at-hint" id="atZoneHint">${zoneHint()}</div></div>
             </div>
+            <div class="at-hint" id="atVisiteHint" style="margin:-4px 0 12px;">${visiteHint()}</div>
             <div id="atWarnings"></div>
             <div style="overflow-x:auto;" id="atTableBox"><div class="at-empty">Choisissez un SAMU, une date de MEP et une zone pour simuler le rétroplanning.</div></div>
             <div class="at-bar">
