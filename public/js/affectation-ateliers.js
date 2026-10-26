@@ -350,9 +350,7 @@
             .map(r => {
                 const atelier = /^a\d$/.test(r.key);
                 const cls = r.key === 'mep' ? 'at-mep' : r.key === 'livrables' ? 'at-fixed' : '';
-                const jalon = atelier
-                    ? sel(r.key, AT.meta.jalons, r.jalon, 'jalons')
-                    : `<span class="at-jalon">${esc(r.jalon)}</span>`;
+                const jalon = `<span class="at-jalon">${esc(r.jalon)}</span>`;
                 const contenu = atelier ? sel(r.key, AT.meta.contenus, r.contenu, 'contenus') : esc(r.contenu);
                 const decale = r.proposee && r.cible && r.proposee !== r.cible;
                 return `<tr class="${cls}">
@@ -440,7 +438,7 @@
         const admin = isAdmin();
         box.innerHTML = `<div style="overflow-x:auto;"><table class="at-table"><thead><tr><th>SAMU</th><th>MEP</th><th>Zone</th><th>Ateliers</th><th>Avancement</th><th>Prochain jalon</th><th>Dernière diffusion</th><th style="width:${admin ? 130 : 50}px">Actions</th></tr></thead><tbody>${AT.list
             .map(r => {
-                const ateliers = r.jalons.filter(j => /^a\d$/.test(j.key));
+                const ateliers = r.jalons.filter(j => j.key === 'visite' || /^a\d$/.test(j.key));
                 const planned = ateliers.filter(j => j.planifiee).length;
                 return `<tr>
                     <td><strong>${esc(r.samu_name)}</strong></td>
@@ -484,6 +482,22 @@
     }
 
     // ---- Diffusion par e-mail ----
+    function sendStatus(text, done) {
+        let el = document.getElementById('atSendStatus');
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'atSendStatus';
+            el.setAttribute('role', 'status');
+            el.style.cssText =
+                'position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:10060;background:#1f2d3d;color:#fff;padding:12px 22px;border-radius:10px;font-weight:600;box-shadow:0 6px 24px rgba(0,0,0,.3);display:flex;align-items:center;gap:10px;';
+            document.body.appendChild(el);
+        }
+        el.style.background = done ? '#2e7d32' : '#1f2d3d';
+        el.innerHTML = `${done ? '✔' : '<span style="width:14px;height:14px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;display:inline-block;animation:atSpin .8s linear infinite;"></span>'} ${esc(text)}<style>@keyframes atSpin{to{transform:rotate(360deg)}}</style>`;
+        clearTimeout(el._t);
+        if (done) el._t = setTimeout(() => el.remove(), 3500);
+    }
+
     let users = null;
     async function openMail(id) {
         const r = AT.list.find(x => x.id === id);
@@ -550,6 +564,7 @@
         if (!userIds.length && !parsed.valid.length) return toast('Choisissez au moins un destinataire.', true);
         const btn = document.getElementById('atMailSend');
         btn.disabled = true;
+        sendStatus('Envoi en cours…');
         try {
             const r = await atApi(`/affectation/ateliers/${id}/send`, {
                 method: 'POST',
@@ -562,12 +577,13 @@
                 })
             });
             closeMail();
-            toast(`Calendrier envoyé à ${r.sent} destinataire${r.sent > 1 ? 's' : ''}.`);
+            sendStatus(`Envoi terminé (${r.sent} destinataire${r.sent > 1 ? 's' : ''})`, true);
             const list = await atApi('/affectation/ateliers');
             AT.list = list.retroplannings || [];
             renderList();
         } catch (e) {
             btn.disabled = false;
+            document.getElementById('atSendStatus')?.remove();
             toast(e.message, true);
         }
     }
