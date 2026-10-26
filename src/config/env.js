@@ -116,6 +116,7 @@ if (!parsed.success) {
 
 const cfg = parsed.data;
 
+const sessionSecretGenerated = !cfg.SESSION_SECRET;
 if (!cfg.SESSION_SECRET) {
     // Hors production uniquement : secret aléatoire, les sessions ne survivent pas à un redémarrage
     cfg.SESSION_SECRET = crypto.randomBytes(32).toString('hex');
@@ -125,6 +126,8 @@ if (!cfg.SESSION_SECRET) {
 export const env = Object.freeze({
     ...cfg,
     SESSION_SECRET: /** @type {string} */ (cfg.SESSION_SECRET),
+    // true : secret aléatoire propre à ce démarrage (hors production), à ne pas utiliser pour dériver des clés durables
+    SESSION_SECRET_GENERATED: sessionSecretGenerated,
     DATABASE_URL: /** @type {string} */ (resolveDatabaseUrl(cfg)),
     isProduction: cfg.NODE_ENV === 'production',
     isTest: cfg.NODE_ENV === 'test'

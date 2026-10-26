@@ -447,18 +447,66 @@ export async function asanaApplyCore(req, c, wantList, forcedId, source) {
     };
 }
 
-// Le jeton est chiffré (AES-256-GCM) avec une clé propre au serveur : il ne figure donc pas en clair dans la base ni dans un dump.
-export function asanaKey() {
-    const keyFile = path.join(appEnv.DB_PATH, '.asana_key');
-    try {
-        return Buffer.from(fs.readFileSync(keyFile, 'utf8').trim(), 'hex');
-    } catch (e) {
-        /* première utilisation */
-    }
-    const k = crypto.randomBytes(32);
-    fs.writeFileSync(keyFile, k.toString('hex'), { mode: 0o600 });
-    return k;
+// Le jeton est chiffré (AES-256-GCM) : il ne figure donc pas en clair dans la base ni dans un dump.
+// Clé : fichier DB_PATH/.asana_key, propre au serveur (créé une seule fois, jamais écrasé). Si ce fichier est inaccessible
+// (droits du conteneur sur le dossier de données, fichier créé par root par une ancienne version…), la clé est dérivée
+// de SESSION_SECRET (obligatoire en production) : l'enregistrement du jeton fonctionne alors sans intervention sur le
+// serveur. Le déchiffrement essaie les deux clés, dans cet ordre.
+let keyFileWarned = false;
+
+function readKeyFile(keyFile) {
+    const key = Buffer.from(fs.readFileSync(keyFile, 'utf8').trim(), 'hex');
+    if (key.length !== 32) throw Object.assign(new Error('clé invalide'), { code: 'EINVALIDKEY' });
+    return key;
 }
+
+/** Clés utilisables, par ordre de préférence */
+export function asanaKeys() {
+    const keyFile = path.join(appEnv.DB_PATH, '.asana_key');
+    const keys = [];
+    let problem = null;
+    try {
+        keys.push(readKeyFile(keyFile));
+    } catch (e) {
+        if (e.code !== 'ENOENT') problem = e;
+        else {
+            // Première utilisation : création sans jamais écraser un fichier existant
+            try {
+                fs.mkdirSync(appEnv.DB_PATH, { recursive: true });
+                const k = crypto.randomBytes(32);
+                fs.writeFileSync(keyFile, k.toString('hex'), { mode: 0o600, flag: 'wx' });
+                keys.push(k);
+            } catch (e2) {
+                if (e2.code === 'EEXIST') {
+                    try {
+                        keys.push(readKeyFile(keyFile)); // créée entre-temps par une autre requête
+                    } catch (e3) {
+                        problem = e3;
+                    }
+                } else problem = e2;
+            }
+        }
+    }
+    if (problem && !keyFileWarned) {
+        keyFileWarned = true;
+        console.warn(
+            `⚠️  Clé Asana (${keyFile}) inaccessible (${problem.code || problem.message}) : clé dérivée de SESSION_SECRET utilisée. ` +
+                'Pour utiliser le fichier : donner le dossier de données à l’utilisateur du conteneur (chown -R 1000:1000).'
+        );
+    }
+    if (!appEnv.SESSION_SECRET_GENERATED) {
+        keys.push(Buffer.from(crypto.hkdfSync('sha256', appEnv.SESSION_SECRET, 'planification-asana', 'jeton-v1', 32)));
+    }
+    if (!keys.length) {
+        throw new HttpError(
+            500,
+            `Clé de chiffrement Asana inaccessible (${problem?.code || 'erreur'}) : vérifier les droits du dossier de données ou définir SESSION_SECRET`
+        );
+    }
+    return keys;
+}
+
+export const asanaKey = () => asanaKeys()[0];
 
 export function asanaEncrypt(plain) {
     const iv = crypto.randomBytes(12),
@@ -468,16 +516,25 @@ export function asanaEncrypt(plain) {
 }
 
 export function asanaDecrypt(blob) {
+    let keys;
     try {
-        const [iv, tag, enc] = String(blob)
-            .split(':')
-            .map(x => Buffer.from(x, 'hex'));
-        const d = crypto.createDecipheriv('aes-256-gcm', asanaKey(), iv);
-        d.setAuthTag(tag);
-        return Buffer.concat([d.update(enc), d.final()]).toString('utf8');
+        keys = asanaKeys();
     } catch (e) {
         return null;
     }
+    const [iv, tag, enc] = String(blob)
+        .split(':')
+        .map(x => Buffer.from(x, 'hex'));
+    for (const key of keys) {
+        try {
+            const d = crypto.createDecipheriv('aes-256-gcm', key, iv);
+            d.setAuthTag(tag);
+            return Buffer.concat([d.update(enc), d.final()]).toString('utf8');
+        } catch (e) {
+            /* autre clé */
+        }
+    }
+    return null;
 }
 
 export const asanaSetting = getSetting;
