@@ -28,7 +28,7 @@ When("je décoche l'onglet {string} pour le profil {string}", async ({ monde }, 
 });
 
 When("j'enregistre la configuration de l'accès aux onglets", async ({ monde }) => {
-    await monde.page.locator('#tabAccessSection button[onclick="TabAccess.adminSave()"]').click();
+    await monde.page.locator('#tabAccessSection').getByRole('button', { name: 'Enregistrer', exact: true }).click();
 });
 
 Then("le message de l'accès aux onglets contient {string}", async ({ monde }, texte) => {

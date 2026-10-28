@@ -1,6 +1,8 @@
 import js from '@eslint/js';
 import globals from 'globals';
 import prettier from 'eslint-config-prettier';
+import pluginVue from 'eslint-plugin-vue';
+import tseslint from 'typescript-eslint';
 
 // Code historique repris tel quel (calculs, formats de fichiers, services externes) : les erreurs réelles
 // (variables non définies…) restent bloquantes, les règles de style sont assouplies.
@@ -26,7 +28,8 @@ export default [
             'e2e/cucumber-report*/**',
             'e2e/monocart-report*/**',
             'e2e/allure-results*/**',
-            'e2e/allure-report/**'
+            'e2e/allure-report/**',
+            'dist/**'
         ]
     },
     js.configs.recommended,
@@ -91,6 +94,24 @@ export default [
         // Tests d'interface : fonctions exécutées dans la page (Puppeteer, Playwright)
         files: ['tests/ui.test.js', 'e2e/**/*.js'],
         languageOptions: { globals: globals.browser }
+    },
+    // Interface Vue (frontend/, docs/migration-vue.md) : TypeScript et composants monofichiers
+    ...[...tseslint.configs.recommended, ...pluginVue.configs['flat/recommended']].map(config => ({
+        ...config,
+        files: ['frontend/**/*.{ts,vue}']
+    })),
+    {
+        files: ['frontend/**/*.{ts,vue}'],
+        languageOptions: {
+            globals: globals.browser,
+            parserOptions: { parser: tseslint.parser, extraFileExtensions: ['.vue'] }
+        },
+        rules: {
+            // Remplacées par leurs équivalents TypeScript
+            'no-unused-vars': 'off',
+            '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', caughtErrors: 'none' }],
+            'no-restricted-globals': 'off'
+        }
     },
     prettier
 ];

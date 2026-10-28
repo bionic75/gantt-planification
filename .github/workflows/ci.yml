@@ -34,6 +34,16 @@ jobs:
       - name: Format check
         run: npm run format:check
 
+      # Interface Vue (frontend/) : types, tests unitaires, build (servi ensuite par les tests du serveur)
+      - name: Frontend type check
+        run: npm run typecheck:front
+
+      - name: Frontend tests
+        run: npm run test:front
+
+      - name: Frontend build
+        run: npm run build:front
+
       - name: Tests
         run: npm test
 
@@ -203,7 +213,13 @@ jobs:
       - name: Install Chromium (Playwright)
         run: npx --prefix e2e playwright install --with-deps chromium
 
+      # Interface Vue construite comme en production (pas de serveur Vite)
+      - name: Build frontend
+        run: npm run build:front
+
       - name: Start application
+        env:
+          NODE_ENV: production
         run: |
           export DB_PATH="$RUNNER_TEMP/e2e-data"
           export SESSION_SECRET="$(openssl rand -hex 32)"
@@ -280,7 +296,14 @@ jobs:
         run: |
           docker run -d --name app -p 8080:8080 -e PORT=8080 -e SESSION_SECRET="$(openssl rand -hex 32)" -e APP_URL=http://localhost:8080 gantt-planification:ci
           for i in $(seq 1 30); do
-            if curl -fs http://localhost:8080/api/version; then exit 0; fi
+            if curl -fs http://localhost:8080/api/version; then
+              # Interface Vue présente dans l'image : point d'entrée référencé par la page et servi
+              entree=$(curl -fs http://localhost:8080/ | grep -o '/vue/assets/[^"]*\.js' | head -n 1)
+              if [ -n "$entree" ] && curl -fs -o /dev/null "http://localhost:8080$entree"; then exit 0; fi
+              echo "Interface Vue absente de l'image"
+              docker logs app
+              exit 1
+            fi
             sleep 1
           done
           docker logs app

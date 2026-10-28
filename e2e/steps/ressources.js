@@ -3,6 +3,7 @@
 import { expect } from '@playwright/test';
 import { adminApi, creerRessource, lireRessource, premierJourDuMois, ressourceParNom } from '../support/donnees.js';
 import { Given, Then, When } from '../support/fixtures.js';
+import { attendreFinDemarrage } from './commun.js';
 
 /** @typedef {import('../support/monde.js').Monde} Monde */
 /** @typedef {import('@playwright/test').Page} Page */
@@ -28,21 +29,29 @@ async function saisirRessource(
         const r = await ressourceParNom(monde, nom);
         if (r) await (await adminApi(monde)).delete(`/api/resources/${r.id}`);
     });
-    await page.locator('#nom').fill(nom);
-    await page.locator('#prenom').fill('Saisie');
-    // Sortie du champ Prénom : le trigramme est proposé automatiquement (remplacé plus bas par la saisie)
-    await page.locator('#prenom').blur();
-    if (taux != null) await page.locator('#taux').fill(String(taux));
     if ((await page.locator('#samu option:not([value=""])').count()) === 0) {
         // Anomalie constatée : à la reprise d'une session (page rechargée), les localisations ne sont pas chargées et
-        // la liste « SAMU de rattachement » reste vide. Signalée dans le rapport, puis contournée pour poursuivre.
+        // la liste « SAMU de rattachement » reste vide. Signalée dans le rapport, puis contournée comme le ferait un
+        // utilisateur : ouverture de la section Localisation de l'Administration, qui charge les localisations.
         monde.testInfo.annotations.push({
             type: 'anomalie',
             description:
                 'Liste « SAMU de rattachement » vide après rechargement de la page (localisations non chargées)'
         });
-        await page.evaluate(() => /** @type {any} */ (window).loadLocations());
+        const onglet = (/** @type {string} */ k) =>
+            page
+                .locator(`#mainTabsContainer button.tab-btn[data-tab="${k}"]`)
+                .evaluate(b => /** @type {HTMLElement} */ (b).click());
+        await onglet('admin');
+        await page.locator('#admin h3', { hasText: 'Localisation' }).first().click();
+        await expect(page.locator('#samu option:not([value=""])').first()).toBeAttached();
+        await onglet('resources');
     }
+    await page.locator('#nom').fill(nom);
+    await page.locator('#prenom').fill('Saisie');
+    // Sortie du champ Prénom : le trigramme est proposé automatiquement (remplacé plus bas par la saisie)
+    await page.locator('#prenom').blur();
+    if (taux != null) await page.locator('#taux').fill(String(taux));
     const premierSamu = await page.locator('#samu option:not([value=""])').first().getAttribute('value');
     expect(premierSamu, 'aucun SAMU proposé dans le formulaire (localisations absentes)').toBeTruthy();
     await page.locator('#samu').selectOption(/** @type {string} */ (premierSamu));
@@ -219,13 +228,17 @@ Given('une ressource non volante au taux de {int} % depuis le {string} existe', 
 
 When("j'ouvre la fiche de la ressource", async ({ monde }) => {
     const page = monde.page;
-    const id = monde.d.ressource.id;
-    const bouton = page.locator(`[onclick="openEditModal(${id})"]`).first();
-    // La liste peut avoir été chargée avant la création de la ressource : rechargement de la liste
-    if (!(await bouton.isVisible().catch(() => false)))
-        await page.evaluate(() => /** @type {any} */ (window).loadResources());
-    if (await bouton.isVisible().catch(() => false)) await bouton.click();
-    else await page.evaluate(i => /** @type {any} */ (window).openEditModal(i), id);
+    const ligne = () => page.locator('#resourcesTable tr', { hasText: monde.d.ressource.nom });
+    // Liste chargée avant la création de la ressource par l'API : rechargement de la page, comme un utilisateur
+    if (!(await ligne().count())) {
+        await page.reload();
+        await expect(page.locator('#userInfo')).toBeVisible({ timeout: 30000 });
+        await attendreFinDemarrage(page);
+        await page
+            .locator('#mainTabsContainer button.tab-btn[data-tab="resources"]')
+            .evaluate(b => /** @type {HTMLElement} */ (b).click());
+    }
+    await ligne().getByRole('button', { name: 'Modifier la ressource' }).click();
     await expect(page.locator('#editModal')).toHaveClass(/active/);
     await page.waitForLoadState('networkidle').catch(() => {});
 });
@@ -244,7 +257,8 @@ async function enregistrerFiche(/** @type {Page} */ page, /** @type {string} */ 
     await page.locator(sel).fill(valeur);
     // Clic par le DOM : le bas de la fenêtre peut être recouvert par la barre d'outils flottante
     await page
-        .locator('#editModal button[onclick="saveResourceEdit()"]')
+        .locator('#editModal')
+        .getByRole('button', { name: 'Enregistrer', exact: true })
         .last()
         .evaluate(b => /** @type {HTMLElement} */ (b).click());
 }

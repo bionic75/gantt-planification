@@ -1,3 +1,13 @@
+# Interface Vue (frontend/, docs/migration-vue.md) : construite à part, seul le résultat (dist/frontend) est copié
+# dans l'image finale, sans les outils de build (dépendances de développement)
+FROM node:22-alpine AS frontend
+WORKDIR /build
+COPY package.json package-lock.json ./
+# Sans scripts d'installation : ni client Prisma ni navigateur Puppeteer, inutiles au build
+RUN npm ci --ignore-scripts
+COPY frontend ./frontend
+RUN npm run build:front
+
 FROM node:22-alpine
 
 # Chromium + libs requises par Puppeteer
@@ -21,6 +31,7 @@ RUN chown node:node /app
 USER node
 
 COPY --chown=node:node . .
+COPY --from=frontend --chown=node:node /build/dist/frontend ./dist/frontend
 
 # Installation (génère aussi le client Prisma : script postinstall)
 RUN npm ci --omit=dev && npm cache clean --force
