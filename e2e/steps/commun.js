@@ -23,6 +23,15 @@ export const ongletCle = (/** @type {string} */ libelle) => {
     return k;
 };
 
+/**
+ * Fin du démarrage de l'application : le bandeau utilisateur s'affiche avant la fin des chargements initiaux, qui se
+ * terminent en replaçant la planification sur le mois courant. Une action faite entre les deux peut être annulée :
+ * on attend que le réseau se calme (aucune requête pendant 500 ms).
+ */
+export async function attendreFinDemarrage(/** @type {import('@playwright/test').Page} */ page) {
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+}
+
 /** Application ouverte avec la session enregistrée du profil */
 export async function ouvrirApplication(/** @type {Monde} */ monde, /** @type {string} */ profil) {
     const { page } = await monde.acteur(profil);
@@ -33,6 +42,7 @@ export async function ouvrirApplication(/** @type {Monde} */ monde, /** @type {s
     ).toBeVisible({
         timeout: 30000
     });
+    await attendreFinDemarrage(page);
     return page;
 }
 
@@ -78,7 +88,7 @@ When('je clique sur le bouton {string}', async ({ monde }, libelle) => {
 
 When('je recharge la page', async ({ monde }) => {
     await monde.page.reload();
-    await monde.page.waitForLoadState('networkidle').catch(() => {});
+    await attendreFinDemarrage(monde.page);
 });
 
 Then('une alerte affiche {string}', async ({ monde }, texte) => {

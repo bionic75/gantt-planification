@@ -31,6 +31,6 @@
     "playwright-bdd": "9.2.1"
   },
   "engines": {
-    "node": ">=22.18"
+    "node": ">=22.22.2"
   }
 }

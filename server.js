@@ -7,6 +7,7 @@ import { createApp, finalizeApp } from './src/app.js';
 import { checkEncoding, checkMigrations, connectPrisma, prisma } from './src/db/prisma.js';
 import { seedDatabase } from './src/db/seed.js';
 import { startScheduler } from './src/jobs/scheduler.js';
+import { installerFrontend } from './src/lib/frontend.js';
 import { emailConfig, loadEmailConfig } from './src/lib/mailer.js';
 import { requireAdmin } from './src/middlewares/auth.js';
 import { evtSeedTypes } from './src/modules/events/events.service.js';
@@ -98,6 +99,8 @@ async function main() {
         afterRestore: () => evtSeedTypes(),
         reloadEmailConfig: () => loadEmailConfig()
     });
+    // Interface Vue (îlots) : build ou serveur Vite selon l'environnement
+    await installerFrontend(app);
     // Fichiers statiques, page mobile, renvoi vers index.html et gestion des erreurs : après toutes les routes
     finalizeApp(app);
 
