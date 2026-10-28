@@ -1,16 +1,17 @@
 # Architecture
 
 Application web de planification des ressources : serveur Node.js (Express) et base de données gérée par Prisma,
-interface en HTML / JavaScript sans outil de build, servie par le même serveur.
+interface en HTML / JavaScript servie par le même serveur, en cours de migration vers Vue 3
+([migration-vue.md](migration-vue.md)).
 
-| Élément         | Technologie                                                                        |
-| --------------- | ---------------------------------------------------------------------------------- |
-| Serveur         | Node.js 22, Express 4, modules ES                                                  |
-| Base de données | Prisma 7 : SQLite (défaut), PostgreSQL ou MariaDB ([détails](base-de-donnees.md))  |
-| Interface       | HTML, CSS et JavaScript « classique » dans `public/`                               |
-| PDF             | Chromium piloté par Puppeteer (CRA, export du planning) ; LibreOffice (PPTX → PDF) |
-| Emails          | Nodemailer, file d'attente en base                                                 |
-| Tests           | Vitest (API par HTTP, interface dans Chromium)                                     |
+| Élément         | Technologie                                                                         |
+| --------------- | ----------------------------------------------------------------------------------- |
+| Serveur         | Node.js 22, Express 4, modules ES                                                   |
+| Base de données | Prisma 7 : SQLite (défaut), PostgreSQL ou MariaDB ([détails](base-de-donnees.md))   |
+| Interface       | HTML, CSS et JavaScript « classique » dans `public/` ; îlots Vue 3 dans `frontend/` |
+| PDF             | Chromium piloté par Puppeteer (CRA, export du planning) ; LibreOffice (PPTX → PDF)  |
+| Emails          | Nodemailer, file d'attente en base                                                  |
+| Tests           | Vitest (API par HTTP, interface dans Chromium)                                      |
 
 ## Arborescence
 
@@ -31,7 +32,9 @@ src/
 prisma/                schéma source (schema.base.prisma), schémas et migrations par base
 scripts/               commandes d'exploitation (migrations, adoption, transfert, sauvegarde, inventaire des routes)
 public/                interface (voir « Frontend »)
+frontend/              îlots Vue 3 / TypeScript (voir « Interface Vue ») ; build dans dist/frontend (non versionné)
 tests/                 tests automatisés
+e2e/                   tests de bout en bout (Playwright BDD, voir e2e/README.md)
 docs/                  documentation
 ```
 
@@ -54,7 +57,8 @@ Ordre des middlewares (`src/app.js`) :
 4. session (cookie `gantt.sid`, stockée en base) ;
 5. lecture du corps JSON (100 Ko sans session, 50 Mo connecté) ;
 6. routes `/api` des modules, pages (`/aide.html`, redirections des anciennes adresses) ;
-7. fichiers statiques de `public/`, page mobile, `index.html` pour toute autre adresse ;
+7. interface Vue sous `/vue/` (build ou serveur Vite), `index.html` avec le point d'entrée des îlots, fichiers
+   statiques de `public/`, page mobile, `index.html` pour toute autre adresse ;
 8. gestionnaire d'erreurs.
 
 Détails des protections : [securite.md](securite.md). Liste des routes : [api.md](api.md).
@@ -129,6 +133,29 @@ Version et cache : le commentaire `<!-- vX.Y.Z -->` en tête de `index.html` est
 `?v=X.Y.Z` des scripts force les navigateurs à recharger les fichiers modifiés. Les deux sont mis à jour par
 `npm run app:version -- X.Y.Z` ([déploiement](deploiement.md#publier-une-version)).
 
+### Interface Vue
+
+Les écrans sont migrés un par un vers Vue 3 + TypeScript ([plan et règles](migration-vue.md)). Chaque écran migré
+est un **îlot** : un composant monté dans le conteneur de son onglet de `index.html`, à la première ouverture de
+l'onglet, à la place de l'ancien code.
+
+| Élément                         | Rôle                                                                                     |
+| ------------------------------- | ---------------------------------------------------------------------------------------- |
+| `frontend/src/ilots.ts`         | point d'entrée : registre des îlots (onglet → composant)                                 |
+| `frontend/src/ilots/montage.ts` | montage à l'activation de l'onglet, démontage et magasins neufs à la déconnexion         |
+| `frontend/src/liaison.ts`       | événements échangés avec l'ancien code (`gp:session-terminee`, `gp:session-perdue`)      |
+| `frontend/src/api/client.ts`    | appels `/api` typés ; une réponse 401 signale la session perdue à l'ancien code          |
+| `frontend/src/stores/`          | magasins Pinia (session…)                                                                |
+| `src/lib/frontend.js` (serveur) | service de l'interface selon l'environnement et insertion du point d'entrée dans la page |
+
+Selon `NODE_ENV` :
+
+- `production` : build `dist/frontend` (`npm run build:front`) servi sous `/vue/`, fichiers à empreinte mis en cache
+  un an ; le serveur refuse de démarrer sans build. L'image Docker le construit dans une étape séparée ;
+- `development` (défaut) : serveur Vite intégré à Express (compilation à la volée, rechargement à chaud sur le port
+  24678, autorisé par la CSP en développement seulement) ;
+- `test` : build s'il existe, sinon page sans îlots.
+
 ## Tests
 
 `npm test` lance Vitest. Les tests sont « boîte noire » : chaque fichier démarre un vrai serveur (processus séparé,
@@ -145,12 +172,19 @@ base temporaire) et l'interroge par HTTP ; ils restent valables quelle que soit 
 Les tests PDF et interface utilisent un Chrome / Chromium / Edge installé (sinon ils sont ignorés ;
 `TEST_BROWSER_PATH` pour en indiquer un). Tests sur PostgreSQL ou MariaDB : [base-de-donnees.md](base-de-donnees.md#tests-et-ci).
 
+Interface Vue : tests unitaires des composants et magasins (`frontend/src/**/*.test.ts`, Vitest + jsdom,
+`npm run test:front`). Parcours métier de bout en bout : `e2e/` (Playwright BDD, [README](../e2e/README.md)),
+indépendants de l'implémentation de l'interface ; ils valident chaque îlot migré.
+
 ## Commandes
 
 | Commande                          | Usage                                                                |
 | --------------------------------- | -------------------------------------------------------------------- |
 | `npm start` / `npm run dev`       | migrations puis serveur (`dev` : redémarrage à chaque modification)  |
 | `npm test`                        | tests                                                                |
+| `npm run build:front`             | build de l'interface Vue (`dist/frontend`)                           |
+| `npm run test:front`              | tests unitaires de l'interface Vue                                   |
+| `npm run typecheck:front`         | vérification des types de l'interface Vue (vue-tsc)                  |
 | `npm run lint` / `npm run format` | ESLint / Prettier (`format:check` en CI)                             |
 | `npm run routes`                  | inventaire des routes et [api.md](api.md)                            |
 | `npm run app:version -- X.Y.Z`    | version de l'application                                             |

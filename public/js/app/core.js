@@ -547,6 +547,8 @@ function loginSuggestForget(u) {
 // Fin de session côté serveur (redémarrage, expiration…) : retour propre sur la mire de connexion
 // Remise à zéro de l'interface pour la mire de connexion : applications fermées, minuteurs et bandeaux flottants masqués
 function resetUiForLogin() {
+    // Interface Vue (îlots, frontend/src/liaison.ts) : démontage des îlots et oubli de la session
+    window.dispatchEvent(new CustomEvent('gp:session-terminee'));
     try {
         if (typeof _chatCloseAll === 'function') _chatCloseAll();
     } catch (e) {

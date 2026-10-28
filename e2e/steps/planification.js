@@ -102,8 +102,8 @@ When("j'affiche le mois de {string} dans la planification", async ({ monde }, li
         await page.locator('#planning h3', { hasText: "Options d'affichage" }).click();
     }
     await page.locator('#yearSelect').selectOption(annee);
+    // Le changement de mois redessine la grille
     await page.locator('#monthSelect').selectOption(String(mois));
-    await page.evaluate(() => /** @type {any} */ (window).updateGantt());
 });
 
 Then('les en-têtes de semaine sont {string}', async ({ monde }, attendu) => {
@@ -117,8 +117,13 @@ const ligneExpert = (/** @type {Page} */ page, /** @type {string} */ id) =>
 When("je masque la première ligne d'expert avec le bouton \\(−\\)", async ({ monde }) => {
     const page = monde.page;
     await ongletPlanification(page);
-    await page.evaluate(() => /** @type {any} */ (window).showAllGanttRows?.());
-    const lignes = page.locator('#ganttBody tr[data-resource-id]:not(.gantt-row-hidden)');
+    // Lignes masquées lors d'un scénario précédent (préférence mémorisée dans le navigateur) : affichage d'origine
+    if (await page.locator('#ganttHiddenWrap').isVisible()) {
+        await ouvrirLignesMasquees(page);
+        await page.locator('#ganttHiddenPop .ghp-all').click();
+    }
+    // Hors ressources temporaires (« E2E-… ») des scénarios exécutés en parallèle : elles peuvent disparaître
+    const lignes = page.locator('#ganttBody tr[data-resource-id]:not(.gantt-row-hidden):not([data-hide-name^="E2E-"])');
     expect(await lignes.count(), 'aucun expert dans la planification').toBeGreaterThan(0);
     const premiere = lignes.first();
     monde.d.ligneMasquee = {

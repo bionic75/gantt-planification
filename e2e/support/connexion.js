@@ -104,7 +104,8 @@ export async function connexionBureau(page, profil, options = {}) {
                         boite = boite || boiteMail();
                         repere = await boite.repere();
                         await page
-                            .locator('#mfaMethodChoiceModal button[onclick="chooseMfaMethod(\'email\')"]')
+                            .locator('#mfaMethodChoiceModal')
+                            .getByRole('button', { name: /Code par email/ })
                             .click();
                     }
                     exclus = ['choix-mfa', 'profil'];
