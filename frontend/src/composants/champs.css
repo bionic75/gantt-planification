@@ -1,0 +1,41 @@
+/* Champs de formulaire (AppInput, AppSelect) et texte réservé aux lecteurs d'écran */
+.gp-champ__libelle {
+    display: block;
+    font-size: var(--gp-police-xs);
+    font-weight: 700;
+    color: var(--gp-texte-libelle);
+    margin-bottom: 3px;
+}
+.gp-champ__aide {
+    font-weight: 400;
+    color: var(--gp-texte-discret);
+}
+.gp-champ__aide::before {
+    content: ' — ';
+}
+.gp-champ__saisie {
+    width: 100%;
+    padding: 7px 9px;
+    border: 1px solid var(--gp-bordure);
+    border-radius: var(--gp-rayon-1);
+    font-size: var(--gp-police-m);
+    font-family: inherit;
+    box-sizing: border-box;
+    background: var(--gp-fond);
+    color: var(--gp-texte);
+}
+.gp-champ__saisie:focus-visible {
+    outline: 2px solid var(--gp-primaire);
+    outline-offset: 1px;
+}
+.gp-masque {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}

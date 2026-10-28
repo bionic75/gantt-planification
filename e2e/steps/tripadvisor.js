@@ -7,7 +7,13 @@ import { Given, Then, When } from '../support/fixtures.js';
 /** @typedef {import('../support/monde.js').Monde} Monde */
 
 Given('un SAMU-SAS de test géolocalisé existe', async ({ monde }) => {
-    monde.d.samuSas = await creerLocalisation(monde, { geo: true, prefixe: 'SAS 9' });
+    const samuSas = (monde.d.samuSas = await creerLocalisation(monde, { geo: true, prefixe: 'SAS 9' }));
+    // Lieux créés depuis l'écran : supprimés avant le SAMU-SAS
+    const admin = await adminApi(monde);
+    monde.aNettoyer(`lieux du SAMU-SAS ${samuSas.court}`, async () => {
+        const { pois } = await admin.ok('GET', `/api/poi?location_id=${samuSas.id}`);
+        for (const p of pois) await admin.delete(`/api/poi/${p.id}`);
+    });
 });
 
 const lieuOk = (/** @type {Monde} */ monde) =>
@@ -323,6 +329,236 @@ Given('le SAMU-SAS de test perd sa géolocalisation', async ({ monde }) => {
         longitude: null
     });
     expect(r.status, JSON.stringify(r.data)).toBe(200);
+});
+
+// ---------- Écran ----------
+
+/** Onglet affiché */
+const onglet = (/** @type {Monde} */ monde) => monde.page.locator('#tripadvisor');
+/** Fenêtre d'ajout / de modification d'un lieu */
+const fenetre = (/** @type {Monde} */ monde) => monde.page.locator('#tripModal');
+/** Fiche d'un lieu dans la liste */
+const fiche = (/** @type {Monde} */ monde, /** @type {number} */ id = monde.d.lieu.id) =>
+    monde.page.locator(`#trCard_${id}`);
+/** Action présentée en lien ou en bouton */
+const action = (/** @type {import('@playwright/test').Locator} */ zone, /** @type {string | RegExp} */ nom) =>
+    zone.getByRole('link', { name: nom, exact: true }).or(zone.getByRole('button', { name: nom, exact: true }));
+
+/**
+ * Suggestions de la base de référence (OpenStreetMap) simulées dans le navigateur : pas d'accès Internet
+ * @param {Monde} monde
+ * @param {Array<Record<string, unknown>>} places
+ */
+async function simulerSuggestions(monde, places = []) {
+    await monde.page.route('**/api/poi/places?*', route =>
+        route.fulfill({ json: { places, reference: 'OpenStreetMap (Nominatim)' } })
+    );
+}
+
+/** Action à confirmer : fenêtre du navigateur (acceptée par le monde) ou fenêtre de confirmation de l'écran */
+async function confirmer(/** @type {Monde} */ monde, /** @type {() => Promise<void>} */ declencher) {
+    const avant = monde.dialogues.length;
+    const boite = monde.page.getByRole('alertdialog');
+    await declencher();
+    await expect
+        .poll(async () => monde.dialogues.length > avant || (await boite.isVisible()), { message: 'confirmation' })
+        .toBe(true);
+    if (monde.dialogues.length === avant) await boite.getByRole('button', { name: /^(Supprimer|Confirmer)$/ }).click();
+}
+
+/** Identifiant d'un lieu du SAMU-SAS de test d'après son nom */
+async function idLieu(/** @type {Monde} */ monde, /** @type {string} */ nom) {
+    /** @type {number | undefined} */
+    let id;
+    await expect
+        .poll(
+            async () => {
+                const { pois } = await (await adminApi(monde)).ok('GET', `/api/poi?location_id=${monde.d.samuSas.id}`);
+                id = pois.find((/** @type {any} */ p) => p.name === nom)?.id;
+                return id;
+            },
+            { message: `lieu « ${nom} » enregistré` }
+        )
+        .toBeTruthy();
+    return /** @type {number} */ (id);
+}
+
+When("j'ouvre la fenêtre d'ajout d'un lieu", async ({ monde }) => {
+    await simulerSuggestions(monde, [
+        {
+            name: 'Brasserie IHM E2E',
+            address: '3 rue du Test, 75001 Paris',
+            latitude: 48.8601,
+            longitude: 2.3402,
+            category: 'restaurant',
+            osm_ref: 'node/424242',
+            distance_km: 0.3
+        }
+    ]);
+    await expect(monde.page.locator('#trLoc')).toBeVisible({ timeout: 20000 });
+    await onglet(monde).getByRole('button', { name: 'Ajouter un lieu', exact: true }).click();
+    await expect(fenetre(monde)).toBeVisible();
+});
+
+When('je rattache le lieu au SAMU-SAS de test avec la typologie {string}', async ({ monde }, typologie) => {
+    await fenetre(monde)
+        .getByLabel(/SAMU-SAS de rattachement/)
+        .selectOption(String(monde.d.samuSas.id));
+    await fenetre(monde).getByText(typologie, { exact: true }).click();
+});
+
+When('je saisis le nom {string} et je choisis la suggestion {string}', async ({ monde }, nom, suggestion) => {
+    await fenetre(monde)
+        .getByLabel(/Nom du lieu/)
+        .fill(nom);
+    await fenetre(monde).getByText(suggestion, { exact: true }).click();
+    await expect(fenetre(monde).getByLabel(/Nom du lieu/)).toHaveValue(suggestion);
+});
+
+Then('la position du lieu est repérée', async ({ monde }) => {
+    await expect(fenetre(monde)).toContainText('Position repérée');
+});
+
+When("je donne la note {int} au lieu et je l'enregistre", async ({ monde }, note) => {
+    await fenetre(monde)
+        .getByRole('button', { name: `${note} / 5`, exact: true })
+        .click();
+    await fenetre(monde).getByRole('button', { name: 'Enregistrer' }).click();
+});
+
+When("j'enregistre le lieu", async ({ monde }) => {
+    await fenetre(monde).getByRole('button', { name: 'Enregistrer' }).click();
+});
+
+Then('la fenêtre du lieu est fermée', async ({ monde }) => {
+    await expect(fenetre(monde)).toBeHidden();
+});
+
+Then('la fenêtre du lieu affiche {string}', async ({ monde }, texte) => {
+    await expect(fenetre(monde)).toContainText(texte);
+});
+
+Then('la fiche du lieu {string} affiche {string}', async ({ monde }, nom, texte) => {
+    await expect(fiche(monde, await idLieu(monde, nom))).toContainText(texte);
+});
+
+Then('la fiche du lieu affiche {string}', async ({ monde }, texte) => {
+    await expect(fiche(monde)).toContainText(texte);
+});
+
+Then("la fiche du lieu n'est plus affichée", async ({ monde }) => {
+    await expect(fiche(monde)).toHaveCount(0);
+});
+
+Then('la fiche du lieu ne propose ni modification ni suppression', async ({ monde }) => {
+    await expect(fiche(monde)).toBeVisible();
+    await expect(fiche(monde).getByRole('button', { name: 'Modifier', exact: true })).toHaveCount(0);
+    await expect(fiche(monde).getByRole('button', { name: 'Supprimer', exact: true })).toHaveCount(0);
+});
+
+Then('la fiche du lieu propose la modification et la suppression', async ({ monde }) => {
+    await expect(fiche(monde).getByRole('button', { name: 'Modifier', exact: true })).toBeVisible();
+    await expect(fiche(monde).getByRole('button', { name: 'Supprimer', exact: true })).toBeVisible();
+});
+
+When('je renomme le lieu en {string} depuis sa fiche', async ({ monde }, nom) => {
+    await simulerSuggestions(monde);
+    await fiche(monde).getByRole('button', { name: 'Modifier', exact: true }).click();
+    await expect(fenetre(monde)).toBeVisible();
+    await fenetre(monde)
+        .getByLabel(/Nom du lieu/)
+        .fill(nom);
+    await fenetre(monde).getByRole('button', { name: 'Enregistrer' }).click();
+    await expect(fenetre(monde)).toBeHidden();
+});
+
+When('je supprime le lieu depuis sa fiche et je confirme', async ({ monde }) => {
+    await confirmer(monde, () => fiche(monde).getByRole('button', { name: 'Supprimer', exact: true }).click());
+});
+
+When('je demande le trajet vers le SAMU-SAS depuis la fiche', async ({ monde }) => {
+    await fiche(monde).getByRole('button', { name: 'Trajet vers le SAMU-SAS' }).click();
+});
+
+// Avis : notes et commentaires
+
+When("j'ouvre les avis du lieu", async ({ monde }) => {
+    await fiche(monde)
+        .getByRole('button', { name: /^Avis et notes/ })
+        .click();
+    await expect(fiche(monde).getByPlaceholder('Ajouter un commentaire…')).toBeVisible();
+});
+
+When('je note le lieu {int} depuis sa fiche', async ({ monde }, note) => {
+    await fiche(monde)
+        .getByRole('button', { name: `${note} / 5`, exact: true })
+        .click();
+});
+
+When('je retire ma note depuis la fiche', async ({ monde }) => {
+    await action(fiche(monde), /retirer ma note/i).click();
+});
+
+When('je publie le commentaire {string}', async ({ monde }, texte) => {
+    await fiche(monde).getByPlaceholder('Ajouter un commentaire…').fill(texte);
+    await fiche(monde).getByRole('button', { name: 'Publier' }).click();
+    monde.d.commentaireIhm = texte;
+    monde.d.commentaireIhmPublieA = Date.now();
+});
+
+/** Commentaire publié depuis l'écran (dernier texte saisi) */
+async function ligneCommentaire(/** @type {Monde} */ monde) {
+    const { comments } = (await detail(monde)).data;
+    const c = comments.find((/** @type {any} */ x) => x.text === monde.d.commentaireIhm);
+    expect(c, `commentaire « ${monde.d.commentaireIhm} »`).toBeTruthy();
+    return monde.page.locator(`#trC_${c.id}`);
+}
+
+When('je modifie mon commentaire en {string}', async ({ monde }, texte) => {
+    const ligne = await ligneCommentaire(monde);
+    // Horodatages à la seconde : modification dans une autre seconde que la publication (« modifié le » affiché)
+    await monde.page.waitForTimeout(Math.max(0, 1100 - (Date.now() - monde.d.commentaireIhmPublieA)));
+    await action(ligne, 'Modifier').click();
+    await ligne.getByRole('textbox').fill(texte);
+    await ligne.getByRole('button', { name: 'Enregistrer' }).click();
+    monde.d.commentaireIhm = texte;
+});
+
+When('je supprime mon commentaire depuis la fiche et je confirme', async ({ monde }) => {
+    const ligne = await ligneCommentaire(monde);
+    await confirmer(monde, () => action(ligne, 'Supprimer').click());
+});
+
+// Filtres
+
+When('je choisis le SAMU-SAS de test dans les filtres', async ({ monde }) => {
+    await expect(monde.page.locator('#trLoc')).toBeVisible({ timeout: 20000 });
+    await monde.page.locator('#trLoc').selectOption(String(monde.d.samuSas.id));
+});
+
+Then("l'onglet affiche les lieux {string} et le compteur {string}", async ({ monde }, noms, compteur) => {
+    const titres = onglet(monde).locator('[id^="trCard_"]').getByRole('heading');
+    await expect.poll(async () => (await titres.allTextContents()).map(t => t.trim()).sort()).toEqual(liste(noms));
+    await expect(monde.page.locator('#trCount')).toHaveText(compteur);
+});
+
+When('je filtre sur la typologie {string}', async ({ monde }, libelle) => {
+    await onglet(monde).getByText(libelle, { exact: true }).click();
+});
+
+When('je filtre sur le créateur {string}', async ({ monde }, profil) => {
+    const { userId } = await monde.sessionDe(profil);
+    await onglet(monde).getByLabel('Créateur', { exact: true }).selectOption(String(userId));
+});
+
+When('je réinitialise les filtres', async ({ monde }) => {
+    await onglet(monde)
+        .getByRole('button', { name: /Réinitialiser/ })
+        .click();
+});
+
+When('je recherche {string}', async ({ monde }, texte) => {
+    await onglet(monde).getByLabel('Recherche', { exact: true }).fill(texte);
 });
 
 // ---------- Échappement ----------

@@ -113,5 +113,10 @@ export default [
             'no-restricted-globals': 'off'
         }
     },
+    {
+        // Tests : composants d'essai déclarés dans le fichier de test
+        files: ['frontend/**/*.test.ts'],
+        rules: { 'vue/one-component-per-file': 'off' }
+    },
     prettier
 ];
