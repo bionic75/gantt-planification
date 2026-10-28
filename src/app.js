@@ -8,6 +8,7 @@ import path from 'path';
 import { isRestoreInProgress } from '../scripts/db-dump.js';
 import { env } from './config/env.js';
 import { PrismaSessionStore } from './db/session-store.js';
+import { envoyerIndex, modeFrontend, PORT_HMR } from './lib/frontend.js';
 import { PUBLIC_DIR } from './lib/paths.js';
 import { rejectCrossOrigin } from './middlewares/csrf.js';
 import { errorHandler } from './middlewares/error-handler.js';
@@ -43,7 +44,12 @@ function securityHeaders() {
                     'https://cdnjs.cloudflare.com'
                 ],
                 fontSrc: ["'self'", 'data:'],
-                connectSrc: ["'self'", 'https://nominatim.openstreetmap.org'],
+                connectSrc: [
+                    "'self'",
+                    'https://nominatim.openstreetmap.org',
+                    // Développement : rechargement à chaud de l'interface Vue (serveur Vite)
+                    ...(modeFrontend() === 'vite' ? [`ws://localhost:${PORT_HMR}`] : [])
+                ],
                 frameSrc: ["'self'", 'blob:', 'data:'],
                 objectSrc: ["'none'"],
                 baseUri: ["'self'"],
@@ -137,7 +143,9 @@ export function createApp() {
  * @param {import('express').Express} app
  */
 export function finalizeApp(app) {
-    app.use(express.static(PUBLIC_DIR));
+    // Page principale avec le point d'entrée de l'interface Vue (îlots)
+    app.get(['/', '/index.html'], envoyerIndex);
+    app.use(express.static(PUBLIC_DIR, { index: false }));
 
     app.get('/mobile', (req, res) => {
         const isMobile = /android|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile/i.test(
@@ -148,9 +156,7 @@ export function finalizeApp(app) {
         else res.redirect('/');
     });
 
-    app.get('*', (req, res) => {
-        res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
-    });
+    app.get('*', envoyerIndex);
 
     app.use(errorHandler);
 }

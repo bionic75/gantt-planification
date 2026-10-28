@@ -5,6 +5,7 @@ import { profil as profilDe } from '../support/config.js';
 import { connexionMobile } from '../support/connexion.js';
 import { moisCourantParis, PARIS } from '../support/donnees.js';
 import { Given, Then, When } from '../support/fixtures.js';
+import { attendreFinDemarrage } from './commun.js';
 
 /** @typedef {import('../support/monde.js').Monde} Monde */
 /** @typedef {import('@playwright/test').Page} Page */
@@ -49,6 +50,7 @@ async function ouvrirMobile(
     }
     await page.goto('/mobile.html');
     await visibleSansHidden(page, '#planningScreen');
+    await attendreFinDemarrage(page);
     return page;
 }
 

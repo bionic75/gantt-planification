@@ -20,7 +20,7 @@ déplacements.
 
 ## Démarrage rapide
 
-Prérequis : Node.js 22.18 ou plus. Les PDF utilisent le Chromium téléchargé par Puppeteer à l'installation (ou celui
+Prérequis : Node.js 22.22.2 ou plus. Les PDF utilisent le Chromium téléchargé par Puppeteer à l'installation (ou celui
 indiqué par `PUPPETEER_EXECUTABLE_PATH`).
 
 ```bash
@@ -28,6 +28,9 @@ npm install            # dépendances et client Prisma (SQLite par défaut)
 cp .env.example .env   # configuration (facultative en développement)
 npm run dev            # migrations de la base, puis serveur sur http://localhost:3000
 ```
+
+En développement, l'interface Vue (`frontend/`) est compilée à la volée par le serveur. Pour lancer le serveur avec
+`NODE_ENV=production` hors Docker, construire d'abord l'interface : `npm run build:front`.
 
 Première connexion : compte administrateur `admin` / `admin` (ou `INITIAL_ADMIN_USERNAME` /
 `INITIAL_ADMIN_PASSWORD` s'ils sont définis) ; l'application impose alors le choix d'un nouveau mot de passe.
@@ -47,6 +50,8 @@ dans l'écran Administration.
 | --------------------------------- | ------------------------------------------------ |
 | `npm run dev` / `npm start`       | serveur (avec / sans redémarrage automatique)    |
 | `npm test`                        | tests (API et interface)                         |
+| `npm run build:front`             | build de l'interface Vue (`dist/frontend`)       |
+| `npm run test:front`              | tests unitaires de l'interface Vue               |
 | `npm run lint` / `npm run format` | vérification et mise en forme du code            |
 | `npm run db:migrate`              | migrations de la base (automatique au démarrage) |
 | `npm run db:migration -- <nom>`   | nouvelle migration après modification du schéma  |
