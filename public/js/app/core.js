@@ -210,7 +210,12 @@ async function checkSession() {
             document.getElementById('loginPage').classList.remove('active');
             document.querySelector('.container').style.display = 'block';
 
+            // Déconnexion pendant les chargements ci-dessous : la suite de la reprise est abandonnée
+            const utilisateur = currentUser;
+            const sessionFermee = () => currentUser !== utilisateur;
+
             await TabAccess.load();
+            if (sessionFermee()) return;
             updateTabsVisibility();
             updateUserDisplay();
             updateAppSwitcher();
@@ -244,6 +249,7 @@ async function checkSession() {
             await loadUsers(); // Charger les users pour le Gantt
             await loadSchoolHolidays(); // Charger les congés scolaires
             await loadSpecialDates(); // Charger les dates particulières et événements personnalisés
+            if (sessionFermee()) return;
             loadAppVersion();
 
             // Démarrer le suivi des utilisateurs connectés en temps réel
@@ -732,7 +738,11 @@ async function completeFinalLogin(user, selectedApp) {
     document.getElementById('loginPage').classList.remove('active');
     document.querySelector('.container').style.display = 'block';
 
+    // Déconnexion pendant les chargements ci-dessous : la suite de l'ouverture est abandonnée
+    const sessionFermee = () => currentUser !== user;
+
     await TabAccess.load();
+    if (sessionFermee()) return;
     updateTabsVisibility();
     updateUserDisplay();
     updateAppSwitcher();
@@ -753,6 +763,7 @@ async function completeFinalLogin(user, selectedApp) {
     await loadSchoolHolidays(); // Charger les congés scolaires pour tous les profils
     await loadSpecialDates(); // Charger les dates particulières pour tous les profils
     await loadLocations(); // Charger les localisations
+    if (sessionFermee()) return;
 
     // Vérifier popup nouveautés version
     checkHelpVersionPopup();
@@ -783,6 +794,7 @@ async function completeFinalLogin(user, selectedApp) {
     if (currentUser.activeProfile === 'expert') {
         console.log('✅ Profil expert détecté, chargement des notifications...');
         await loadNewAssignments();
+        if (sessionFermee()) return;
     } else {
         console.log('⏭️ Pas un expert, pas de notifications');
     }

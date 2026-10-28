@@ -75,6 +75,13 @@ Fonctionnalité: Connexion, session et double authentification
     Alors la mire de connexion est affichée
     Et aucune session n'est ouverte
 
+  Scénario: Déconnexion pendant le chargement initial de l'application
+    Étant donné que la mire de connexion est ouverte
+    Et que je me déconnecterai pendant le dernier chargement de l'ouverture de l'application
+    Quand je me connecte avec les identifiants du profil "Utilisateur"
+    Alors la mire de connexion est affichée
+    Et l'ouverture interrompue de l'application ne produit ni erreur ni appel à l'API
+
   @mfa
   Scénario: MFA par e-mail
     Étant donné que la double authentification par e-mail est demandée au profil "Administrateur"

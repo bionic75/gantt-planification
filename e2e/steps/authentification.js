@@ -198,6 +198,51 @@ Then('les applications ouvertes sont fermées', async ({ monde }) => {
     }
 });
 
+// Ouverture de l'application interrompue par une déconnexion : chargements enchaînés (core.js, completeFinalLogin)
+
+/** Dernier chargement de l'ouverture de l'application (localisations) */
+const DERNIER_CHARGEMENT = '**/api/locations';
+
+Given("je me déconnecterai pendant le dernier chargement de l'ouverture de l'application", async ({ monde }) => {
+    const page = monde.page;
+    /** Événements après la déconnexion : appels à l'API, erreurs de la console */
+    const apres = (monde.d.apresDeconnexion = /** @type {string[]} */ ([]));
+    await page.route(DERNIER_CHARGEMENT, async route => {
+        if (!monde.d.deconnexion) {
+            // Chargement en attente : déconnexion par l'icône, réponse rendue une fois la mire affichée
+            monde.d.deconnexion = (async () => {
+                await page.locator('.logout-icon').first().click();
+                await mireAffichee(page);
+                page.on('request', r => {
+                    if (r.url().includes('/api/') && !r.url().includes('/api/version'))
+                        apres.push(`${r.method()} ${new URL(r.url()).pathname}`);
+                });
+                page.on('console', m => {
+                    if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) apres.push(m.text());
+                });
+            })();
+            await monde.d.deconnexion;
+        }
+        await route.continue().catch(() => {});
+    });
+});
+
+Then("l'ouverture interrompue de l'application ne produit ni erreur ni appel à l'API", async ({ monde }) => {
+    const page = monde.page;
+    // Booléen : une promesse renvoyée serait attendue par expect.poll
+    await expect
+        .poll(() => !!monde.d.deconnexion, {
+            message: `chargement des localisations non demandé (connexion : ${JSON.stringify(monde.d.connexion)})`
+        })
+        .toBe(true);
+    await monde.d.deconnexion;
+    // Le temps que la suite de l'ouverture s'exécute (avant correction : erreur, puis relance du suivi des connectés)
+    await page.waitForTimeout(5000);
+    expect(monde.d.apresDeconnexion).toEqual([]);
+    await expect(page.locator('#loginError')).not.toContainText('Erreur');
+    await expect(page.locator('#loginPage')).toHaveClass(/active/);
+});
+
 When("je clique sur l'icône de déconnexion et confirme", async ({ monde }) => {
     // La fenêtre de confirmation est acceptée automatiquement (monde.dialogues)
     await monde.page.locator('.logout-icon').first().click();
