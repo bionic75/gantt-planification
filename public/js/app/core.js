@@ -887,3 +887,24 @@ function showLoginError(message) {
     errorDiv.textContent = message;
     errorDiv.style.display = 'block';
 }
+
+// Fenêtres d'impression (planning, CRA, reporting…) : sans la feuille de style de l'application, les icônes SVG
+// prendraient toute la place
+(function () {
+    const nativeOpen = window.open;
+    const css =
+        '<style>svg.ui-emo,svg.app-ico{width:1.15em;height:1.15em;vertical-align:middle;margin:0 .15em;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}</style>';
+    window.open = function (url) {
+        const w = nativeOpen.apply(window, arguments);
+        if (w && !url) {
+            try {
+                const d = w.document,
+                    write = d.write.bind(d);
+                d.write = html => write(String(html).replace(/<head>/i, '<head>' + css));
+            } catch (e) {
+                /* fenêtre inaccessible */
+            }
+        }
+        return w;
+    };
+})();

@@ -768,15 +768,6 @@ function addColContextMenu(table) {
     if (hiddenCols.size > 0) applyHideRules();
 }
 
-function connSortBy(k) {
-    const st = window._connSort || (window._connSort = { k: 'total', dir: -1 });
-    if (st.k === k) st.dir = -st.dir;
-    else {
-        st.k = k;
-        st.dir = k === 'total' || k === 'last' ? -1 : 1;
-    }
-    if (window._connRender) window._connRender();
-}
 function makeColResizable(table) {
     if (!table || table._colResizable) return;
     table._colResizable = true;

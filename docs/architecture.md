@@ -150,7 +150,7 @@ l'onglet, à la place de l'ancien code.
 | `frontend/src/stores/`          | magasins Pinia partagés par les îlots (session…)                                                                                 |
 | `src/lib/frontend.js` (serveur) | service de l'interface selon l'environnement et insertion du point d'entrée dans la page                                         |
 
-Îlots en service : **SAMU-SAS TripAdVisor** (`#tripadvisor`). Les bibliothèques de l'interface Vue (Leaflet…) sont
+Îlots en service : **SAMU-SAS TripAdVisor** (`#tripadvisor`), **Reporting** (`#reporting`). Les bibliothèques de l'interface Vue (Leaflet…) sont
 intégrées au build, sans CDN.
 
 Selon `NODE_ENV` :
