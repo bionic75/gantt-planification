@@ -14,6 +14,11 @@ export default defineConfig({
     resolve: {
         alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) }
     },
+    // Développement : dépendances des îlots (chargés à la demande) préparées au démarrage, sans rechargement de la
+    // page à leur première utilisation
+    optimizeDeps: {
+        include: ['vue', 'pinia', 'leaflet']
+    },
     build: {
         outDir: fileURLToPath(new URL('../dist/frontend', import.meta.url)),
         emptyOutDir: true,

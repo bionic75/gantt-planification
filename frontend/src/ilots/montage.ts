@@ -1,7 +1,8 @@
 // Montage des îlots Vue dans les onglets de la page existante : à la première ouverture de l'onglet (classe « active »
 // posée par l'ancien code), démontage à la fin de la session, nouveau montage à la prochaine ouverture.
 import { createPinia, type Pinia } from 'pinia';
-import { createApp, type App, type Component } from 'vue';
+import { createApp, ref, type App, type Component, type Ref } from 'vue';
+import { CLE_ACTIVATIONS } from '@/ilots/activation';
 import { ecouter } from '@/liaison';
 
 /** Composant racine d'un îlot, chargé à la demande (fichier séparé dans le build) */
@@ -14,6 +15,9 @@ interface IlotSurveille {
     conteneur: HTMLElement;
     chargeur: ChargeurIlot;
     app: App | null;
+    /** Nombre de réouvertures de l'onglet depuis le montage */
+    activations: Ref<number>;
+    actif: boolean;
     observateur: MutationObserver | null;
 }
 
@@ -30,32 +34,45 @@ export function surveillerIlots(registre: RegistreIlots, creerMagasin: () => Pin
 
     async function monter(ilot: IlotSurveille) {
         if (ilot.app) return;
-        ilot.observateur?.disconnect();
-        ilot.observateur = null;
         const { default: composant } = await ilot.chargeur();
+        if (ilot.app) return;
         const app = createApp(composant);
         app.use(pinia);
+        ilot.activations = ref(0);
+        app.provide(CLE_ACTIVATIONS, ilot.activations);
         ilot.app = app;
         // Contenu de l'ancien onglet remplacé par l'îlot ; le conteneur (id, classes) est conservé
         app.mount(ilot.conteneur);
     }
 
-    /** Montage immédiat si l'onglet est affiché, sinon à sa première ouverture */
-    function armer(ilot: IlotSurveille) {
-        if (estActif(ilot.conteneur)) {
-            void monter(ilot);
-            return;
+    /** Ouverture de l'onglet : montage la première fois, signal de réouverture ensuite */
+    function surChangement(ilot: IlotSurveille) {
+        const actif = estActif(ilot.conteneur);
+        if (actif && !ilot.actif) {
+            if (ilot.app) ilot.activations.value++;
+            else void monter(ilot);
         }
-        ilot.observateur = new MutationObserver(() => {
-            if (estActif(ilot.conteneur)) void monter(ilot);
-        });
+        ilot.actif = actif;
+    }
+
+    function armer(ilot: IlotSurveille) {
+        ilot.actif = false;
+        ilot.observateur ??= new MutationObserver(() => surChangement(ilot));
         ilot.observateur.observe(ilot.conteneur, { attributes: true, attributeFilter: ['class'] });
+        surChangement(ilot);
     }
 
     for (const [id, chargeur] of Object.entries(registre)) {
         const conteneur = document.getElementById(id);
         if (!conteneur) continue;
-        const ilot: IlotSurveille = { conteneur, chargeur, app: null, observateur: null };
+        const ilot: IlotSurveille = {
+            conteneur,
+            chargeur,
+            app: null,
+            activations: ref(0),
+            actif: false,
+            observateur: null
+        };
         ilots.push(ilot);
         armer(ilot);
     }
@@ -66,7 +83,6 @@ export function surveillerIlots(registre: RegistreIlots, creerMagasin: () => Pin
         for (const ilot of ilots) {
             ilot.app?.unmount();
             ilot.app = null;
-            ilot.observateur?.disconnect();
             armer(ilot);
         }
     });

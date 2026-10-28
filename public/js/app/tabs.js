@@ -136,8 +136,6 @@ function switchTab(tabName, event) {
         loadCraPendingBadge();
     }
 
-    if (tabName === 'tripadvisor' && typeof tripLoad === 'function') tripLoad();
-
     if (tabName === 'evenements') {
         openMyEventsModal();
     }

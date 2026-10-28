@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { defineComponent, h, nextTick } from 'vue';
 import { useSessionStore } from '@/stores/session';
 import { emettre } from '@/liaison';
+import { surReouverture } from './activation';
 import { surveillerIlots } from './montage';
 
 /** Composant d'essai : affiche le profil de la session présente dans le magasin */
@@ -52,6 +53,32 @@ describe('montage des îlots', () => {
         arreter = surveillerIlots({ absent: async () => ({ default: Essai }) });
         await rendu();
         expect(conteneur().textContent).toBe('ancien contenu');
+    });
+
+    it("signale chaque réouverture de l'onglet à l'îlot monté", async () => {
+        let reouvertures = 0;
+        const Compteur = defineComponent({
+            setup() {
+                surReouverture(() => reouvertures++);
+                return () => h('p', 'îlot');
+            }
+        });
+        conteneur().classList.add('active');
+        arreter = surveillerIlots({ onglet: async () => ({ default: Compteur }) });
+        await rendu();
+        expect(reouvertures).toBe(0);
+
+        for (const n of [1, 2]) {
+            conteneur().classList.remove('active');
+            await rendu();
+            conteneur().classList.add('active');
+            await rendu();
+            expect(reouvertures).toBe(n);
+        }
+        // Autre changement de classe, onglet toujours affiché : pas de réouverture
+        conteneur().classList.add('autre');
+        await rendu();
+        expect(reouvertures).toBe(2);
     });
 
     it('fin de session : îlot démonté, nouveau magasin au montage suivant', async () => {
