@@ -35,7 +35,6 @@ const MOVED_ASSETS = {
         'ui-icons.js',
         'affectation-app.js',
         'event-types.js',
-        'tripadvisor.js',
         'map-timelapse.js'
     ],
     css: ['themes.css', 'darkmode.css', 'login.css', 'ui-polish.css'],

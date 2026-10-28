@@ -1,0 +1,65 @@
+/* Variables de l'interface Vue : couleurs, espacements, rayons (remplacées par celles du DSFR dans la phase 7) */
+:root {
+    --gp-primaire: #1d70b7;
+    --gp-primaire-halo: rgba(29, 112, 183, 0.35);
+    --gp-danger: #b3261e;
+    --gp-danger-bordure: #e5b3b0;
+    --gp-succes: #1b7f3b;
+    --gp-accent: #e65100;
+    --gp-etoile: #f5a623;
+    --gp-etoile-vide: #d5dbe5;
+    --gp-etoile-contour: #9aa7b8;
+    --gp-samu: #d60b51;
+
+    --gp-texte: #2c3e50;
+    --gp-texte-titre: #1f2d3d;
+    --gp-texte-doux: #6b7a8d;
+    --gp-texte-libelle: #5a6b80;
+    --gp-texte-discret: #8a97a8;
+    --gp-texte-action: #4a5b70;
+
+    --gp-fond: #fff;
+    --gp-fond-doux: #f6f8fc;
+    --gp-fond-survol: #eaf2fb;
+    --gp-bordure: #cfd8e6;
+    --gp-bordure-carte: #e3e8f2;
+    --gp-bordure-legere: #eef1f6;
+    --gp-bordure-tiretee: #d8e0ec;
+    --gp-voile: rgba(20, 30, 45, 0.55);
+    --gp-ombre-fenetre: 0 20px 50px rgba(0, 0, 0, 0.35);
+    --gp-ombre-liste: 0 10px 24px rgba(0, 0, 0, 0.2);
+
+    --gp-espace-1: 4px;
+    --gp-espace-2: 8px;
+    --gp-espace-3: 12px;
+    --gp-espace-4: 16px;
+    --gp-espace-5: 20px;
+
+    --gp-rayon-1: 8px;
+    --gp-rayon-2: 12px;
+    --gp-rayon-3: 14px;
+    --gp-rayon-pastille: 18px;
+
+    --gp-police-xs: 11px;
+    --gp-police-s: 12px;
+    --gp-police-m: 13px;
+    --gp-police-l: 14px;
+    --gp-police-xl: 16px;
+
+    /* Typologies des lieux (TripAdVisor) */
+    --gp-cat-hebergement: #6a1b9a;
+    --gp-cat-restaurant: #e65100;
+    --gp-cat-bar: #1565c0;
+    --gp-cat-aucune: #90a4ae;
+    --gp-cat-tout: #455a64;
+
+    /* Modes de trajet */
+    --gp-trajet-walk: #2e7d32;
+    --gp-trajet-car: #1565c0;
+    --gp-trajet-transit: #6a1b9a;
+}
+
+/* Mode sombre de l'ancien code (inversion de la page, public/css/darkmode.css) : éléments qui gardent leurs couleurs */
+html.dark-mode .gp-couleurs-fixes {
+    filter: invert(1) hue-rotate(180deg);
+}
