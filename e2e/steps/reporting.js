@@ -157,6 +157,18 @@ When("je choisis l'intervalle libre du premier jour du mois courant à aujourd'h
     await page.locator('#connexionsEnd').fill(aujourdhui());
 });
 
+When("je choisis l'intervalle libre du {string} au {string}", async ({ monde }, debut, fin) => {
+    const page = monde.page;
+    await page.locator('#connexionsModeInterval').check();
+    await page.locator('#connexionsStart').fill(debut);
+    await page.locator('#connexionsEnd').fill(fin);
+});
+
+Then('le rapport des connexions affiche {string} et un total de {int}', async ({ monde }, texte, total) => {
+    await expect(monde.page.locator('#connexionsReportBody')).toContainText(texte);
+    await expect(monde.page.locator('#connexionsTotalCount')).toHaveText(String(total));
+});
+
 Then("le rapport par l'API sur cette période, bornes incluses, donne les mêmes totaux", async ({ monde }) => {
     const page = monde.page;
     const reponse = page.waitForResponse(r => r.url().includes('/api/reporting/connections'));
