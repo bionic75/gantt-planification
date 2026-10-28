@@ -68,10 +68,17 @@ index.html (existant)
 
 ### Avancement
 
-| Phase | État                                                                                                                                                                             |
-| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0     | Terminée                                                                                                                                                                         |
-| 1     | Réalisée : îlot `frontend/src/ilots/tripadvisor/`, 7 scénarios d'écran ajoutés à `09-tripadvisor` (validés sur l'ancien code puis sur l'îlot) ; en attente de mise en production |
+| Phase | État                                                                                                                                                                                                                                                                                                                |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0     | Terminée                                                                                                                                                                                                                                                                                                            |
+| 1     | En production : îlot `frontend/src/ilots/tripadvisor/`, 7 scénarios d'écran ajoutés à `09-tripadvisor`                                                                                                                                                                                                              |
+| 2     | Découpée en trois îlots mis en production l'un après l'autre : Reporting, Événements, Administration. Reporting réalisé (`frontend/src/ilots/reporting/`) : 12 scénarios d'écran (`15-reporting-suivis`) et 1 ajouté à `08-reporting`, validés sur l'ancien code puis sur l'îlot ; en attente de mise en production |
+
+Anomalies relevées pendant la migration (comportement conservé, correction à part) :
+
+- Reporting : les listes d'experts (disponibilités, HNO / astreintes) et d'utilisateurs (connexions) ne sont chargées
+  que pour le profil administrateur ; un autre profil ayant accès à l'onglet (configuration des onglets, accès
+  reporting) les trouve vides.
 
 ### Critères de sortie d'un îlot
 

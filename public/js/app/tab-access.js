@@ -168,8 +168,7 @@ function updateTabsVisibility() {
         astreintesBtnText.textContent = profile === 'expert' ? 'Gérer mes astreintes/HNO' : 'Gérer les astreintes/HNO';
 
     if (profile === 'admin') {
-        // Charger les experts pour le reporting, les fichiers ICS, etc.
-        loadReportingExperts();
+        // Charger les fichiers ICS, etc. (listes du reporting : îlot Vue)
         loadSchoolHolidaysFiles();
         loadSpecialDatesFiles();
         loadCustomEvents();

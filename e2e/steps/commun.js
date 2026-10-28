@@ -91,8 +91,17 @@ When('je recharge la page', async ({ monde }) => {
     await attendreFinDemarrage(monde.page);
 });
 
+/**
+ * Message d'alerte : fenêtre du navigateur (ancien code, acceptée par le monde) ou message de la page annoncé aux
+ * lecteurs d'écran (role="alert", écrans migrés vers Vue)
+ */
 Then('une alerte affiche {string}', async ({ monde }, texte) => {
-    await expect.poll(() => monde.dialogues.join('\n'), { message: `alerte « ${texte} »` }).toContain(texte);
+    const messages = monde.page.locator('[role="alert"]:visible');
+    await expect
+        .poll(async () => [...monde.dialogues, ...(await messages.allTextContents())].join('\n'), {
+            message: `alerte « ${texte} »`
+        })
+        .toContain(texte);
 });
 
 Then('la réponse a le statut {int}', async ({ monde }, statut) => {

@@ -8,7 +8,8 @@ import { installerLiaisonAncienCode } from '@/liaison';
  * Un îlot s'ajoute ici quand son onglet est migré (docs/migration-vue.md).
  */
 const ILOTS: RegistreIlots = {
-    tripadvisor: () => import('@/ilots/tripadvisor/TripAdvisor.vue')
+    tripadvisor: () => import('@/ilots/tripadvisor/TripAdvisor.vue'),
+    reporting: () => import('@/ilots/reporting/OngletReporting.vue')
 };
 
 installerLiaisonAncienCode();

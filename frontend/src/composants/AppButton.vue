@@ -1,10 +1,12 @@
 <!-- Bouton ; interface de DsfrButton (VueDsfr) : label, secondary, tertiary, icon, iconOnly, size, disabled.
-     Extensions locales : danger (action destructrice), link (présentation en lien, ex. actions d'un commentaire). -->
+     Extensions locales : danger (action destructrice), link (présentation en lien, ex. actions d'un commentaire),
+     couleur (fond d'un bouton principal, ex. couleur d'une section du reporting). -->
 <script setup lang="ts">
+import { computed } from 'vue';
 import AppIcone from './AppIcone.vue';
 import type { NomIcone } from './icones';
 
-withDefaults(
+const props = withDefaults(
     defineProps<{
         label?: string;
         secondary?: boolean;
@@ -13,12 +15,15 @@ withDefaults(
         link?: boolean;
         icon?: NomIcone;
         iconOnly?: boolean;
-        size?: 'sm' | 'md';
+        size?: 'sm' | 'md' | 'lg';
         disabled?: boolean;
         type?: 'button' | 'submit';
+        couleur?: string;
     }>(),
-    { label: '', icon: undefined, size: 'md', type: 'button' }
+    { label: '', icon: undefined, size: 'md', type: 'button', couleur: undefined }
 );
+
+const variables = computed(() => (props.couleur ? { '--gp-bouton-couleur': props.couleur } : undefined));
 </script>
 
 <template>
@@ -30,8 +35,10 @@ withDefaults(
             'gp-bouton--danger': danger && !link,
             'gp-bouton--lien': link,
             'gp-bouton--lien-danger': link && danger,
-            'gp-bouton--sm': size === 'sm'
+            'gp-bouton--sm': size === 'sm',
+            'gp-bouton--lg': size === 'lg'
         }"
+        :style="variables"
         :disabled="disabled"
         :aria-label="iconOnly ? label : undefined"
         :title="iconOnly ? label : undefined"
@@ -66,9 +73,12 @@ withDefaults(
     outline-offset: 2px;
 }
 .gp-bouton--primaire {
-    background: var(--gp-primaire);
-    border-color: var(--gp-primaire);
+    background: var(--gp-bouton-couleur, var(--gp-primaire));
+    border-color: var(--gp-bouton-couleur, var(--gp-primaire));
     color: #fff;
+}
+.gp-bouton--primaire:hover:not(:disabled) {
+    filter: brightness(0.92);
 }
 .gp-bouton--danger {
     color: var(--gp-danger);
@@ -76,6 +86,12 @@ withDefaults(
 }
 .gp-bouton--sm {
     padding: 2px var(--gp-espace-2);
+}
+.gp-bouton--lg {
+    padding: 10px 22px;
+    border-radius: 4px;
+    font-size: var(--gp-police-m);
+    font-weight: 700;
 }
 .gp-bouton--lien {
     padding: 0;
