@@ -41,6 +41,11 @@ Fonctionnalité: Reporting des connexions
     Alors le compte "Administrateur" figure dans le rapport
     Et le rapport par l'API sur cette période, bornes incluses, donne les mêmes totaux
 
+  Scénario: Période sans connexion
+    Quand je choisis l'intervalle libre du "2020-01-01" au "2020-01-31"
+    Et je lance la génération du rapport des connexions
+    Alors le rapport des connexions affiche "Aucune connexion sur cette période" et un total de 0
+
   Scénario: Période personnalisée : contrôle côté serveur
     Quand "Administrateur" appelle "GET /api/reporting/connections?dateStart=2026-01-01"
     Alors la réponse a le statut 400
