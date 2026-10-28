@@ -37,6 +37,8 @@ async function loadLocations() {
     try {
         const res = await fetch(`${API_URL}/locations`, { credentials: 'include' });
         if (res.status === 401) {
+            // Déjà déconnecté (déconnexion pendant l'ouverture de l'application) : rien de plus à faire
+            if (!currentUser) return;
             console.warn('Session expirée lors du chargement des localisations');
             await performLogout();
             return;
