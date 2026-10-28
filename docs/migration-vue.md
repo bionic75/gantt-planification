@@ -45,8 +45,13 @@ index.html (existant)
 - Les tests e2e ne dépendent ni des attributs `onclick` ni des fonctions globales de l'ancien code (phase 0). Ils
   ciblent identifiants, rôles et libellés ; les sélecteurs sur des classes CSS de l'ancien code sont remplacés par
   des `data-testid` au moment de la migration de l'écran concerné, jamais ajoutés dans le nouveau code.
-- Pas de `alert()` / `confirm()` du navigateur dans le nouveau code : composants de message et de confirmation
-  (les étapes e2e s'adaptent au moment de la migration de l'écran concerné).
+- Pas de `alert()` / `confirm()` du navigateur dans le nouveau code : `AppAlert` pour les messages, confirmation
+  partagée par l'îlot (`fournirConfirmation` dans le composant racine, `useConfirmation` ailleurs). Les étapes e2e
+  acceptent les deux formes (fenêtre du navigateur ou `alertdialog`) pendant la migration.
+- Un îlot qui doit se mettre à jour à chaque ouverture de son onglet (comme l'ancien code) utilise
+  `surReouverture` (`frontend/src/ilots/activation.ts`).
+- Bibliothèques installées par npm et intégrées au build (pas de CDN) ; en développement, les dépendances des îlots
+  sont déclarées dans `optimizeDeps.include` (`frontend/vite.config.ts`) pour éviter un rechargement de la page.
 
 ## Phases
 
@@ -60,6 +65,13 @@ index.html (existant)
 | 5     | Applications : Aide à l'affectation, Déplacements, Analyse, **mobile**                                                                                                                               | L      | `06-aide-affectation`, `10-mobile`, `14-non-regression`                     |
 | 6     | Cadre de l'application : mire, double authentification, en-tête, connectés et messagerie, inactivité, thèmes, menu Applications ; Vue Router ; retrait de l'ancien code ; CSP sans `'unsafe-inline'` | M      | `01-authentification`, tous                                                 |
 | 7     | DSFR (phase distincte, après la migration)                                                                                                                                                           | M      | tous                                                                        |
+
+### Avancement
+
+| Phase | État                                                                                                                                                                             |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0     | Terminée                                                                                                                                                                         |
+| 1     | Réalisée : îlot `frontend/src/ilots/tripadvisor/`, 7 scénarios d'écran ajoutés à `09-tripadvisor` (validés sur l'ancien code puis sur l'îlot) ; en attente de mise en production |
 
 ### Critères de sortie d'un îlot
 

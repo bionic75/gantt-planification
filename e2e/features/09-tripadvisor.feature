@@ -132,6 +132,94 @@ Fonctionnalité: SAMU-SAS TripAdVisor (bonnes adresses autour des SAMU-SAS)
     Alors le texte "<script>window.__xss=1</script>" est affiché tel quel
     Et aucun script injecté n'a été exécuté
 
+  # ---------- Écran (sans Internet : suggestions OpenStreetMap simulées dans le navigateur) ----------
+
+  Scénario: Ajout d'un lieu depuis l'onglet, avec une suggestion et une note
+    Quand "Utilisateur" ouvre l'application
+    Et j'ouvre l'onglet "SAMU-SAS TripAdVisor"
+    Et j'ouvre la fenêtre d'ajout d'un lieu
+    Et je rattache le lieu au SAMU-SAS de test avec la typologie "Restaurant"
+    Et je saisis le nom "Brasserie IHM" et je choisis la suggestion "Brasserie IHM E2E"
+    Alors la position du lieu est repérée
+    Quand je donne la note 4 au lieu et je l'enregistre
+    Alors la fenêtre du lieu est fermée
+    Et la fiche du lieu "Brasserie IHM E2E" affiche "4,0 / 5 · 1 note"
+    Et la fiche du lieu "Brasserie IHM E2E" affiche "Ajouté par"
+
+  Scénario: Saisie incomplète : message d'erreur dans la fenêtre
+    Quand "Utilisateur" ouvre l'application
+    Et j'ouvre l'onglet "SAMU-SAS TripAdVisor"
+    Et j'ouvre la fenêtre d'ajout d'un lieu
+    Et j'enregistre le lieu
+    Alors la fenêtre du lieu affiche "Choisissez une typologie"
+
+  Scénario: Boutons de modification selon les droits
+    Étant donné que "Utilisateur" a ajouté un lieu de test
+    Quand "Expert" ouvre l'application
+    Et j'ouvre l'onglet "SAMU-SAS TripAdVisor"
+    Et j'affiche les lieux du SAMU-SAS de test
+    Alors la fiche du lieu ne propose ni modification ni suppression
+    Quand "Administrateur" ouvre l'application
+    Et j'ouvre l'onglet "SAMU-SAS TripAdVisor"
+    Et j'affiche les lieux du SAMU-SAS de test
+    Alors la fiche du lieu propose la modification et la suppression
+
+  Scénario: Modification puis suppression d'un lieu par son créateur
+    Étant donné que "Utilisateur" a ajouté un lieu de test
+    Quand "Utilisateur" ouvre l'application
+    Et j'ouvre l'onglet "SAMU-SAS TripAdVisor"
+    Et j'affiche les lieux du SAMU-SAS de test
+    Et je renomme le lieu en "Renommé IHM E2E" depuis sa fiche
+    Alors la fiche du lieu affiche "Renommé IHM E2E"
+    Quand je supprime le lieu depuis sa fiche et je confirme
+    Alors la fiche du lieu n'est plus affichée
+    Et le lieu n'existe plus
+
+  Scénario: Note et commentaires depuis la fiche
+    Étant donné que "Utilisateur" a ajouté un lieu de test
+    Quand "Expert" ouvre l'application
+    Et j'ouvre l'onglet "SAMU-SAS TripAdVisor"
+    Et j'affiche les lieux du SAMU-SAS de test
+    Et j'ouvre les avis du lieu
+    Et je note le lieu 4 depuis sa fiche
+    Alors la fiche du lieu affiche "4,0 / 5 · 1 note"
+    Quand je publie le commentaire "Calme et propre IHM"
+    Alors la fiche du lieu affiche "Calme et propre IHM"
+    Et la fiche du lieu affiche "Avis et notes (1 commentaire)"
+    Quand je modifie mon commentaire en "Calme, propre et bien situé IHM"
+    Alors la fiche du lieu affiche "Calme, propre et bien situé IHM"
+    Et la fiche du lieu affiche "modifié le"
+    Quand je supprime mon commentaire depuis la fiche et je confirme
+    Alors la fiche du lieu affiche "Aucun commentaire pour le moment."
+    Quand je retire ma note depuis la fiche
+    Alors la fiche du lieu affiche "Pas encore noté"
+
+  Scénario: Filtres de l'onglet
+    Étant donné que "Utilisateur" a ajouté un lieu "restaurant" nommé "Bistrot IHM E2E"
+    Et que "Expert" a ajouté un lieu "hebergement" nommé "Hôtel IHM E2E"
+    Quand "Utilisateur" ouvre l'application
+    Et j'ouvre l'onglet "SAMU-SAS TripAdVisor"
+    Et je choisis le SAMU-SAS de test dans les filtres
+    Alors l'onglet affiche les lieux "Bistrot IHM E2E, Hôtel IHM E2E" et le compteur "2 lieux"
+    Quand je filtre sur la typologie "Hébergement (1)"
+    Alors l'onglet affiche les lieux "Hôtel IHM E2E" et le compteur "1 lieu"
+    Quand je filtre sur la typologie "Tout (2)"
+    Et je filtre sur le créateur "Expert"
+    Alors l'onglet affiche les lieux "Hôtel IHM E2E" et le compteur "1 lieu"
+    Quand je réinitialise les filtres
+    Et je choisis le SAMU-SAS de test dans les filtres
+    Et je recherche "bistrot"
+    Alors l'onglet affiche les lieux "Bistrot IHM E2E" et le compteur "1 lieu"
+
+  Scénario: Trajet depuis la fiche : SAMU-SAS non géolocalisé
+    Étant donné que "Utilisateur" a ajouté un lieu de test
+    Et que le SAMU-SAS de test perd sa géolocalisation
+    Quand "Utilisateur" ouvre l'application
+    Et j'ouvre l'onglet "SAMU-SAS TripAdVisor"
+    Et j'affiche les lieux du SAMU-SAS de test
+    Et je demande le trajet vers le SAMU-SAS depuis la fiche
+    Alors la fiche du lieu affiche "n'est pas géolocalisé"
+
   Scénario: Scénario TripAdVisor complet
     Quand "Utilisateur" ajoute un lieu "hebergement" nommé "Hôtel complet E2E" au "2 rue du Test, Paris" avec ses coordonnées
     Et "Expert" note ce lieu 4

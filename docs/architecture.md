@@ -124,7 +124,7 @@ partagent leur portée globale :
 - un nouveau fichier s'ajoute par une balise `<script src="/js/app/<nom>.js?v=…">` à sa place dans l'ordre.
 
 `public/js/` contient les scripts autonomes (thèmes, mode sombre, icônes, application d'aide à l'affectation,
-types d'événements, TripAdvisor, frise cartographique), `public/css/` les feuilles de style, `public/img/` les images
+types d'événements, frise cartographique), `public/css/` les feuilles de style, `public/img/` les images
 (icônes d'onglet au choix dans l'administration, logos ; le logo ANS est aussi joint aux emails). Les anciennes
 adresses à la racine (`/ui-icons.js`, `/login.css`, `/favicon-….svg`…) redirigent vers ces répertoires. Les
 bibliothèques externes (Leaflet, SheetJS) sont chargées depuis leur CDN, autorisé par la politique de contenu.
@@ -139,14 +139,19 @@ Les écrans sont migrés un par un vers Vue 3 + TypeScript ([plan et règles](mi
 est un **îlot** : un composant monté dans le conteneur de son onglet de `index.html`, à la première ouverture de
 l'onglet, à la place de l'ancien code.
 
-| Élément                         | Rôle                                                                                     |
-| ------------------------------- | ---------------------------------------------------------------------------------------- |
-| `frontend/src/ilots.ts`         | point d'entrée : registre des îlots (onglet → composant)                                 |
-| `frontend/src/ilots/montage.ts` | montage à l'activation de l'onglet, démontage et magasins neufs à la déconnexion         |
-| `frontend/src/liaison.ts`       | événements échangés avec l'ancien code (`gp:session-terminee`, `gp:session-perdue`)      |
-| `frontend/src/api/client.ts`    | appels `/api` typés ; une réponse 401 signale la session perdue à l'ancien code          |
-| `frontend/src/stores/`          | magasins Pinia (session…)                                                                |
-| `src/lib/frontend.js` (serveur) | service de l'interface selon l'environnement et insertion du point d'entrée dans la page |
+| Élément                         | Rôle                                                                                                                             |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `frontend/src/ilots.ts`         | point d'entrée : registre des îlots (onglet → composant), variables CSS (`styles/theme.css`)                                     |
+| `frontend/src/ilots/montage.ts` | montage à l'activation de l'onglet, signal de réouverture (`activation.ts`), démontage et magasins neufs à la déconnexion        |
+| `frontend/src/ilots/<îlot>/`    | écran migré : composants, magasin Pinia, mises en forme (ex. `tripadvisor/`)                                                     |
+| `frontend/src/composants/`      | composants communs `App*` (bouton, champs, étiquette, fenêtre, confirmation, alerte, notes)                                      |
+| `frontend/src/liaison.ts`       | événements échangés avec l'ancien code (`gp:session-terminee`, `gp:session-perdue`)                                              |
+| `frontend/src/api/`             | appels `/api` typés (`client.ts`, un fichier par module : `poi.ts`…) ; une réponse 401 signale la session perdue à l'ancien code |
+| `frontend/src/stores/`          | magasins Pinia partagés par les îlots (session…)                                                                                 |
+| `src/lib/frontend.js` (serveur) | service de l'interface selon l'environnement et insertion du point d'entrée dans la page                                         |
+
+Îlots en service : **SAMU-SAS TripAdVisor** (`#tripadvisor`). Les bibliothèques de l'interface Vue (Leaflet…) sont
+intégrées au build, sans CDN.
 
 Selon `NODE_ENV` :
 
