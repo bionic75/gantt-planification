@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Types d'événements : paramétrage (Administration), formulaire de création, reprise des données
+// Types d'événements : paramétrage (Administration), reprise des données ; formulaire de l'onglet Événements : îlot Vue
 // Chargé après le script principal (defer) : partage ses variables et fonctions globales.
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -154,77 +154,6 @@ const evtChip = (t, small) =>
     t
         ? `<span style="display:inline-flex;align-items:center;gap:4px;padding:${small ? '1px 6px' : '3px 10px'};border-radius:10px;font-size:${small ? 10 : 11}px;font-weight:bold;background:${t.bg_color};color:${t.text_color};border:2px solid ${t.border_color};white-space:nowrap;">${uiIcon(t.icon, small ? 11 : 13, 'margin:0;')}${evtEsc(t.label_short || t.label_long)}</span>`
         : '<span style="color:#999;font-size:11px;font-style:italic;">Type non défini</span>';
-
-// ── Formulaire de création / modification d'un événement ────────────────────
-async function evtFillTypeSelect(selectedId) {
-    const sel = document.getElementById('myEventTypeId');
-    if (!sel) return;
-    await evtLoadTypes();
-    const keep = selectedId !== undefined ? selectedId : sel.value;
-    sel.innerHTML =
-        '<option value="">— Choisir un type —</option>' +
-        evtTypes
-            .map(
-                t =>
-                    `<option value="${t.id}">${evtEsc(t.label_long)}${t.label_short ? ' (' + evtEsc(t.label_short) + ')' : ''}</option>`
-            )
-            .join('');
-    sel.value = keep ? String(keep) : '';
-    evtApplyTypeColors();
-    updateMyEventPreview();
-}
-// Les couleurs de l'événement suivent celles du type (champs masqués conservés pour le reste du code)
-function evtApplyTypeColors() {
-    const t = evtTypeById((document.getElementById('myEventTypeId') || {}).value);
-    if (!t) return;
-    const set = (id, v) => {
-        const el = document.getElementById(id);
-        if (el) el.value = v;
-    };
-    set('myEventBgColor', t.bg_color);
-    set('myEventTextColor', t.text_color);
-    set('myEventBorderColor', t.border_color);
-}
-function evtOnTypeChange() {
-    const t = evtTypeById(document.getElementById('myEventTypeId').value);
-    evtApplyTypeColors();
-    if (t) {
-        const tpl = typeof eventTemplates !== 'undefined' ? eventTemplates[t.code] : null;
-        if (tpl && tpl.label && typeof autoCheckGristByLabel === 'function')
-            autoCheckGristByLabel(tpl.label, 'myEventGrist');
-    }
-    updateMyEventPreview();
-}
-// Prévisualisation : Date début - Date de fin | Type (icône et libellé court) | Libellé | Localisation | Participants
-function updateMyEventPreview() {
-    const box = document.getElementById('myEventPreview');
-    if (!box) return;
-    const g = id => document.getElementById(id);
-    const start = g('myEventStartDate') ? g('myEventStartDate').value : '',
-        end = (g('myEventEndDate') && g('myEventEndDate').value) || start;
-    const t = evtTypeById(g('myEventTypeId') && g('myEventTypeId').value);
-    const label = g('myEventLabel') ? g('myEventLabel').value.trim() : '';
-    const ls = g('myEventLocationId'),
-        loc = ls && ls.value ? ls.options[ls.selectedIndex].text.trim() : '';
-    const parts = (typeof myEventSelectedParticipants !== 'undefined' ? myEventSelectedParticipants : []).map(
-        p => `${p.prenom || ''} ${(p.nom || '').toUpperCase()}`.trim() || p.email || '?'
-    );
-    const sep = '<span style="color:#bbb;margin:0 8px;">|</span>';
-    const ph = txt => `<span style="color:#aaa;font-style:italic;">${txt}</span>`;
-    box.innerHTML = [
-        start ? `<b>${evtFd(start)}</b>${end !== start ? ' - <b>' + evtFd(end) + '</b>' : ''}` : ph('Dates'),
-        evtChip(t),
-        label ? evtEsc(label) : ph("Libellé de l'événement"),
-        loc ? `${uiIcon('pin', 13, 'margin-right:3px;')}${evtEsc(loc)}` : ph('Localisation'),
-        parts.length ? `${uiIcon('users', 13, 'margin-right:3px;')}${evtEsc(parts.join(', '))}` : ph('Participants')
-    ].join(sep);
-}
-document.addEventListener('input', e => {
-    if (e.target && e.target.closest && e.target.closest('#myEventFormBody')) updateMyEventPreview();
-});
-document.addEventListener('change', e => {
-    if (e.target && e.target.closest && e.target.closest('#myEventFormBody')) updateMyEventPreview();
-});
 
 // ── Administration : paramétrage des types ──────────────────────────────────
 const evtAdm = { editId: null, icon: 'tag', pickerOpen: false, tplOpen: false, tpl: null };
@@ -533,16 +462,11 @@ async function evtDeleteType(id) {
         alert(e.message);
     }
 }
-// Après modification des types : formulaire, planning et liste d'événements sont rafraîchis
+// Après modification des types : planning et onglet Événements (îlot Vue, frontend/src/liaison.ts) sont rafraîchis
 async function evtRefreshAfterTypeChange() {
-    try {
-        await evtFillTypeSelect();
-    } catch (e) {
-        /* formulaire absent */
-    }
+    window.dispatchEvent(new CustomEvent('gp:types-evenements-modifies'));
     try {
         if (typeof loadSpecialDates === 'function') await loadSpecialDates();
-        if (typeof loadMyEvents === 'function') await loadMyEvents();
         if (typeof updateGantt === 'function') updateGantt();
     } catch (e) {
         /* ignoré */
@@ -707,9 +631,10 @@ async function evtRecSave() {
             m2.style.color = '#1b7f3b';
             m2.textContent = `${d.updated} événement(s) mis à jour.`;
         }
+        // Onglet Événements (îlot Vue, frontend/src/liaison.ts) : types et événements rechargés
+        window.dispatchEvent(new CustomEvent('gp:types-evenements-modifies'));
         try {
             if (typeof loadSpecialDates === 'function') await loadSpecialDates();
-            if (typeof loadMyEvents === 'function') await loadMyEvents();
             if (typeof updateGantt === 'function') updateGantt();
         } catch (e) {
             /* ignoré */
@@ -796,9 +721,5 @@ function evtRecRender() {
     evtRecCounters();
 }
 
-// Chargement initial des types (formulaire de création)
-document.addEventListener('DOMContentLoaded', () => {
-    evtLoadTypes().then(() => {
-        if (document.getElementById('myEventTypeId')) evtFillTypeSelect();
-    });
-});
+// Chargement initial des types (libellés et icônes du planning, du calendrier et de l'aide à l'affectation)
+document.addEventListener('DOMContentLoaded', () => evtLoadTypes());

@@ -920,3 +920,14 @@ function showLoginError(message) {
         return w;
     };
 })();
+
+// Interface Vue (îlots, frontend/src/liaison.ts) : données modifiées par un îlot, rechargées pour le reste de la page
+window.addEventListener('gp:evenements-modifies', async () => {
+    await loadSpecialDates();
+    setTimeout(() => updateGantt(), 100);
+});
+window.addEventListener('gp:planning-modifie', async () => {
+    await loadSchedule();
+    setTimeout(() => updateGantt(), 100);
+});
+window.addEventListener('gp:localisations-modifiees', () => loadLocations());
