@@ -135,10 +135,6 @@ function switchTab(tabName, event) {
         loadCraList();
         loadCraPendingBadge();
     }
-
-    if (tabName === 'evenements') {
-        openMyEventsModal();
-    }
 }
 
 async function loadEmailConfig() {

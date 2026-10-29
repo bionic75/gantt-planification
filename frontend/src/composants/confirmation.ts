@@ -11,7 +11,7 @@ type Confirmer = (message: string, labelConfirmer?: string) => Promise<boolean>;
 
 const CLE: InjectionKey<Confirmer> = Symbol('confirmation');
 
-/** Dans le composant racine : état de la fenêtre à passer à AppConfirmation */
+/** Dans le composant racine : état de la fenêtre à passer à AppConfirmation, et demande de confirmation */
 export function fournirConfirmation() {
     const demande = ref<DemandeConfirmation | null>(null);
     let reponse: ((ok: boolean) => void) | null = null;
@@ -27,7 +27,7 @@ export function fournirConfirmation() {
         return new Promise<boolean>(r => (reponse = r));
     };
     provide(CLE, confirmer);
-    return { demande, repondre };
+    return { demande, repondre, confirmer };
 }
 
 /** Dans un composant de l'îlot : demande de confirmation */

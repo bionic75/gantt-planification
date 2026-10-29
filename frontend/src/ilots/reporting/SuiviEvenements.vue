@@ -1,18 +1,18 @@
 <!-- Suivi des événements : recherche par période, libellé et participants (tous requis), export CSV -->
 <script setup lang="ts">
 import { ref } from 'vue';
-import { apiReporting, type CompteReporting, type EvenementTrouve } from '@/api/reporting';
+import { apiReporting, type EvenementTrouve } from '@/api/reporting';
+import AppSaisieParticipants, { type Participant } from '@/composants/AppSaisieParticipants.vue';
 import AppButton from '@/composants/AppButton.vue';
 import { couleursEvenement, dateFr, libellePeriode, nomAffiche } from './calculs';
 import { csvDuTableau, nomFichierDuJour, telechargerCsv } from './export';
 import { useReportingStore } from './magasin';
-import SaisieParticipants from './SaisieParticipants.vue';
 
 const reporting = useReportingStore();
 const debut = ref('');
 const fin = ref('');
 const libelle = ref('');
-const participants = ref<CompteReporting[]>([]);
+const participants = ref<Participant[]>([]);
 const etat = ref<'attente' | 'chargement' | 'erreur' | 'vide' | 'resultat'>('attente');
 const erreur = ref('');
 const evenements = ref<EvenementTrouve[]>([]);
@@ -25,7 +25,7 @@ async function generer() {
             startDate: debut.value,
             endDate: fin.value,
             label: libelle.value,
-            participantIds: participants.value.map(p => p.id)
+            participantIds: participants.value.map(p => p.id ?? 0).filter(Boolean)
         });
         evenements.value = events ?? [];
         etat.value = evenements.value.length ? 'resultat' : 'vide';
@@ -77,7 +77,14 @@ const styleEtiquette = (e: EvenementTrouve) => {
                 placeholder="ex: FORMATION..."
             />
         </div>
-        <SaisieParticipants v-model="participants" :comptes="reporting.participants" />
+        <AppSaisieParticipants
+            v-model="participants"
+            :comptes="reporting.participants"
+            label="👥 Participant(s)"
+            id-saisie="eventsReportingParticipantInput"
+            id-cadre="eventsReportingParticipantsContainer"
+            id-liste="eventsReportingParticipantDropdown"
+        />
         <AppButton size="lg" couleur="#1976d2" label="📊 Générer" @click="generer" />
         <AppButton size="lg" couleur="#78909c" label="🔄 Réinitialiser" @click="reinitialiser" />
     </div>
