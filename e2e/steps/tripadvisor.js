@@ -3,6 +3,7 @@
 import { expect } from '@playwright/test';
 import { adminApi, creerLieu, creerLocalisation } from '../support/donnees.js';
 import { Given, Then, When } from '../support/fixtures.js';
+import { action, confirmer } from '../support/interface.js';
 
 /** @typedef {import('../support/monde.js').Monde} Monde */
 
@@ -340,10 +341,6 @@ const fenetre = (/** @type {Monde} */ monde) => monde.page.locator('#tripModal')
 /** Fiche d'un lieu dans la liste */
 const fiche = (/** @type {Monde} */ monde, /** @type {number} */ id = monde.d.lieu.id) =>
     monde.page.locator(`#trCard_${id}`);
-/** Action présentée en lien ou en bouton */
-const action = (/** @type {import('@playwright/test').Locator} */ zone, /** @type {string | RegExp} */ nom) =>
-    zone.getByRole('link', { name: nom, exact: true }).or(zone.getByRole('button', { name: nom, exact: true }));
-
 /**
  * Suggestions de la base de référence (OpenStreetMap) simulées dans le navigateur : pas d'accès Internet
  * @param {Monde} monde
@@ -353,17 +350,6 @@ async function simulerSuggestions(monde, places = []) {
     await monde.page.route('**/api/poi/places?*', route =>
         route.fulfill({ json: { places, reference: 'OpenStreetMap (Nominatim)' } })
     );
-}
-
-/** Action à confirmer : fenêtre du navigateur (acceptée par le monde) ou fenêtre de confirmation de l'écran */
-async function confirmer(/** @type {Monde} */ monde, /** @type {() => Promise<void>} */ declencher) {
-    const avant = monde.dialogues.length;
-    const boite = monde.page.getByRole('alertdialog');
-    await declencher();
-    await expect
-        .poll(async () => monde.dialogues.length > avant || (await boite.isVisible()), { message: 'confirmation' })
-        .toBe(true);
-    if (monde.dialogues.length === avant) await boite.getByRole('button', { name: /^(Supprimer|Confirmer)$/ }).click();
 }
 
 /** Identifiant d'un lieu du SAMU-SAS de test d'après son nom */

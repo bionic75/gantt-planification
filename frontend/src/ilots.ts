@@ -9,7 +9,8 @@ import { installerLiaisonAncienCode } from '@/liaison';
  */
 const ILOTS: RegistreIlots = {
     tripadvisor: () => import('@/ilots/tripadvisor/TripAdvisor.vue'),
-    reporting: () => import('@/ilots/reporting/OngletReporting.vue')
+    reporting: () => import('@/ilots/reporting/OngletReporting.vue'),
+    evenements: () => import('@/ilots/evenements/OngletEvenements.vue')
 };
 
 installerLiaisonAncienCode();

@@ -717,27 +717,6 @@ document.addEventListener('click', function (e) {
 
 // ========== FIN MODALE CARTE ==========
 
-// ── Toggle formulaire d'ajout dans myEventsModal ──────────────────
-function toggleMyEventForm() {
-    const body = document.getElementById('myEventFormBody');
-    const icon = document.getElementById('myEventFormIcon');
-    if (!body || !icon) return;
-    if (body.style.display === 'none') {
-        body.style.display = 'block';
-        icon.textContent = '▼';
-    } else {
-        body.style.display = 'none';
-        icon.textContent = '▶';
-        // Si on replie en mode modification, réinitialiser le bouton
-        const addBtn = document.getElementById('myEventActionBtn');
-        if (addBtn && addBtn.textContent.includes('Modifier')) {
-            addBtn.textContent = '➕ Ajouter';
-            addBtn.onclick = addMyEvent;
-            editingMyEventId = null;
-        }
-    }
-}
-
 function togglePlanningSection(sectionId) {
     const section = document.getElementById(sectionId);
     const icon = document.getElementById(sectionId + 'Icon');

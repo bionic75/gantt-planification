@@ -205,21 +205,6 @@ export function couleursEvenement(e: EvenementTrouve) {
     return { fond: cfg.bgColor || '#ffeb3b', texte: cfg.textColor || '#000', bordure: cfg.borderColor || '#ccc' };
 }
 
-/** Pastille d'un participant : initiales et couleur stable selon le nom */
-export function avatar(
-    prenom: string | null | undefined,
-    nom: string | null | undefined,
-    nomAff = nomAffiche(prenom, nom)
-) {
-    const couleurs = ['#e91e63', '#9c27b0', '#3f51b5', '#2196f3', '#009688', '#4caf50', '#ff9800'];
-    let h = 0;
-    for (let i = 0; i < nomAff.length; i++) h = nomAff.charCodeAt(i) + ((h << 5) - h);
-    return {
-        initiales: ((prenom || '')[0] || '').toUpperCase() + ((nom || '')[0] || '').toUpperCase(),
-        couleur: couleurs[Math.abs(h) % couleurs.length] as string
-    };
-}
-
 // ── Connexions ────────────────────────────────────────────────────────────
 
 export const libelleProfil = (p: string) =>

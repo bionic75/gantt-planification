@@ -54,7 +54,7 @@ async function loadLocations() {
 }
 
 function populateLocationSelects() {
-    const selects = [document.getElementById('customEventLocationId'), document.getElementById('myEventLocationId')];
+    const selects = [document.getElementById('customEventLocationId')];
     selects.forEach(sel => {
         if (!sel) return;
         const current = sel.value;

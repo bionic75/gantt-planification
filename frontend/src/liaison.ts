@@ -1,5 +1,6 @@
 // Liaison entre l'interface Vue (îlots) et l'ancien code de la page (public/js) : événements du navigateur préfixés
 // « gp: », émis et écoutés des deux côtés. Disparaît avec l'ancien code (phase 6 de docs/migration-vue.md).
+// Côté ancien code : resetUiForLogin, evtRefreshAfterTypeChange et les écouteurs de public/js/app/core.js.
 
 /** Événements échangés et leur contenu */
 export interface EvenementsLiaison {
@@ -7,6 +8,14 @@ export interface EvenementsLiaison {
     'session-terminee': undefined;
     /** Session refusée par le serveur lors d'un appel d'un îlot (401) : l'ancien code renvoie vers la mire */
     'session-perdue': { message?: string };
+    /** Événements créés, modifiés ou supprimés par un îlot : l'ancien code recharge ceux du planning */
+    'evenements-modifies': undefined;
+    /** Planification modifiée par un îlot (inscription d'un expert à un événement) : l'ancien code la recharge */
+    'planning-modifie': undefined;
+    /** Localisation créée par un îlot : l'ancien code recharge ses listes de localisations */
+    'localisations-modifiees': undefined;
+    /** Types d'événements modifiés dans l'administration (ancien code) : les îlots rechargent types et événements */
+    'types-evenements-modifies': undefined;
 }
 
 export type NomEvenement = keyof EvenementsLiaison;
@@ -24,14 +33,24 @@ export function ecouter<N extends NomEvenement>(nom: N, fn: (detail: EvenementsL
     return () => window.removeEventListener(prefixe(nom), handler);
 }
 
-/** Fonction globale de l'ancien code qui ramène sur la mire de connexion (public/js/app/core.js) */
+/** Fonctions globales de l'ancien code appelées par les îlots */
 interface FenetreAncienCode {
+    /** Retour sur la mire de connexion (public/js/app/core.js) */
     forceSessionEnd?: (message?: string) => void;
+    /** Carte des événements et déplacements, fenêtre plein écran (public/js/app/maps.js) */
+    openEventMapModal?: () => void;
 }
+
+const ancienCode = () => window as unknown as FenetreAncienCode;
 
 /** Session perdue : l'ancien code (mire, démontage de l'interface) prend le relais */
 export function installerLiaisonAncienCode(): void {
     ecouter('session-perdue', detail => {
-        (window as unknown as FenetreAncienCode).forceSessionEnd?.(detail?.message);
+        ancienCode().forceSessionEnd?.(detail?.message);
     });
+}
+
+/** Carte des événements de l'ancien code (non migrée) */
+export function ouvrirCarteEvenements(): void {
+    ancienCode().openEventMapModal?.();
 }
