@@ -93,10 +93,10 @@ When('je recharge la page', async ({ monde }) => {
 
 /**
  * Message d'alerte : fenêtre du navigateur (ancien code, acceptée par le monde) ou message de la page annoncé aux
- * lecteurs d'écran (role="alert", écrans migrés vers Vue)
+ * lecteurs d'écran (role="alert" ou "status", écrans migrés vers Vue)
  */
 Then('une alerte affiche {string}', async ({ monde }, texte) => {
-    const messages = monde.page.locator('[role="alert"]:visible');
+    const messages = monde.page.locator('[role="alert"]:visible, [role="status"]:visible');
     await expect
         .poll(async () => [...monde.dialogues, ...(await messages.allTextContents())].join('\n'), {
             message: `alerte « ${texte} »`

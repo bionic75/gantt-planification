@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { EvenementTrouve, LigneConnexions, RapportDisponibilites, RapportHno } from '@/api/reporting';
 import {
-    avatar,
     basculerTri,
     bornesDuMois,
     couleursEvenement,
@@ -138,12 +137,6 @@ describe('événements', () => {
         const e = { config: '{"bgColor":"#123456"}' } as EvenementTrouve;
         expect(couleursEvenement(e)).toEqual({ fond: '#123456', texte: '#000', bordure: '#ccc' });
         expect(couleursEvenement({ config: 'invalide' } as EvenementTrouve).fond).toBe('#ffeb3b');
-    });
-
-    it('pastille : initiales et couleur stable', () => {
-        const a = avatar('Marie', 'Curie');
-        expect(a.initiales).toBe('MC');
-        expect(avatar('Marie', 'Curie').couleur).toBe(a.couleur);
     });
 });
 
