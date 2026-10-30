@@ -1,5 +1,7 @@
 // Montage des îlots Vue dans les onglets de la page existante : à la première ouverture de l'onglet (classe « active »
 // posée par l'ancien code), démontage à la fin de la session, nouveau montage à la prochaine ouverture.
+// Un îlot peut aussi n'occuper qu'une section d'un onglet (sous-îlot) : il se monte dans son propre conteneur, placé
+// dans l'onglet, à l'ouverture de cet onglet.
 import { createPinia, type Pinia } from 'pinia';
 import { createApp, ref, type App, type Component, type Ref } from 'vue';
 import { CLE_ACTIVATIONS } from '@/ilots/activation';
@@ -8,11 +10,22 @@ import { ecouter } from '@/liaison';
 /** Composant racine d'un îlot, chargé à la demande (fichier séparé dans le build) */
 export type ChargeurIlot = () => Promise<{ default: Component }>;
 
-/** Îlots : identifiant du conteneur de l'onglet (ex. « tripadvisor ») → composant racine */
-export type RegistreIlots = Record<string, ChargeurIlot>;
+/** Sous-îlot : section d'un onglet (identifiant du conteneur de l'onglet, ex. « admin ») */
+export interface SousIlot {
+    chargeur: ChargeurIlot;
+    onglet: string;
+}
+
+/**
+ * Îlots : identifiant du conteneur → composant racine. Conteneur de l'onglet (ex. « tripadvisor »), ou conteneur
+ * d'une section placé dans l'onglet (sous-îlot, ex. « adminLocalisations »)
+ */
+export type RegistreIlots = Record<string, ChargeurIlot | SousIlot>;
 
 interface IlotSurveille {
     conteneur: HTMLElement;
+    /** Élément dont la classe « active » déclenche le montage : l'onglet */
+    onglet: HTMLElement;
     chargeur: ChargeurIlot;
     app: App | null;
     /** Nombre de réouvertures de l'onglet depuis le montage */
@@ -47,7 +60,7 @@ export function surveillerIlots(registre: RegistreIlots, creerMagasin: () => Pin
 
     /** Ouverture de l'onglet : montage la première fois, signal de réouverture ensuite */
     function surChangement(ilot: IlotSurveille) {
-        const actif = estActif(ilot.conteneur);
+        const actif = estActif(ilot.onglet);
         if (actif && !ilot.actif) {
             if (ilot.app) ilot.activations.value++;
             else void monter(ilot);
@@ -58,15 +71,18 @@ export function surveillerIlots(registre: RegistreIlots, creerMagasin: () => Pin
     function armer(ilot: IlotSurveille) {
         ilot.actif = false;
         ilot.observateur ??= new MutationObserver(() => surChangement(ilot));
-        ilot.observateur.observe(ilot.conteneur, { attributes: true, attributeFilter: ['class'] });
+        ilot.observateur.observe(ilot.onglet, { attributes: true, attributeFilter: ['class'] });
         surChangement(ilot);
     }
 
-    for (const [id, chargeur] of Object.entries(registre)) {
+    for (const [id, entree] of Object.entries(registre)) {
         const conteneur = document.getElementById(id);
-        if (!conteneur) continue;
+        const { chargeur, onglet: idOnglet } = typeof entree === 'function' ? { chargeur: entree, onglet: id } : entree;
+        const onglet = document.getElementById(idOnglet);
+        if (!conteneur || !onglet) continue;
         const ilot: IlotSurveille = {
             conteneur,
+            onglet,
             chargeur,
             app: null,
             activations: ref(0),

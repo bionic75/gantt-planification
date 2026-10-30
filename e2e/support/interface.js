@@ -7,7 +7,7 @@ import { expect } from '@playwright/test';
 
 /**
  * Action à confirmer : fenêtre du navigateur (ancien code, acceptée par le monde) ou fenêtre de confirmation de
- * l'écran (îlot Vue, rôle alertdialog)
+ * l'écran (îlot Vue, rôle alertdialog). Renvoie le texte de la confirmation.
  */
 export async function confirmer(/** @type {Monde} */ monde, /** @type {() => Promise<void>} */ declencher) {
     const avant = monde.dialogues.length;
@@ -16,7 +16,10 @@ export async function confirmer(/** @type {Monde} */ monde, /** @type {() => Pro
     await expect
         .poll(async () => monde.dialogues.length > avant || (await boite.isVisible()), { message: 'confirmation' })
         .toBe(true);
-    if (monde.dialogues.length === avant) await boite.getByRole('button', { name: /^(Supprimer|Confirmer)$/ }).click();
+    if (monde.dialogues.length > avant) return /** @type {string} */ (monde.dialogues.at(-1));
+    const texte = (await boite.textContent()) ?? '';
+    await boite.getByRole('button', { name: /^(Supprimer|Confirmer)$/ }).click();
+    return texte;
 }
 
 /** Action présentée en lien (ancien code) ou en bouton (îlot Vue) */
