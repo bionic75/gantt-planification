@@ -5,23 +5,28 @@ Fonctionnalité: Profils et accès aux onglets
   Les routes d'administration sont refusées aux autres profils. La configuration modifiée par un scénario
   est rétablie à la fin du scénario.
 
+  # Onglet CRA du profil RH : utilisé par aucune autre fonctionnalité, qui peut s'exécuter en parallèle pendant que
+  # l'onglet est masqué (configuration globale)
   Scénario: Configuration de l'accès aux onglets par profil
     Étant donné que la configuration de l'accès aux onglets sera rétablie après le scénario
     Et que je suis connecté en tant que "Administrateur"
     Quand j'ouvre l'onglet "Administration"
     Et j'ouvre la section "Configuration de l'accès aux onglets"
-    Et je décoche l'onglet "Événements" pour le profil "Utilisateur"
+    Et je décoche l'onglet "CRA" pour le profil "RH"
     Et j'enregistre la configuration de l'accès aux onglets
     Alors le message de l'accès aux onglets contient "Enregistré"
-    Quand "Utilisateur" ouvre l'application
-    Alors l'onglet "Événements" n'est pas affiché
+    Quand "RH" ouvre l'application
+    Alors l'onglet "CRA" n'est pas affiché
 
-  Scénario: Onglet masqué = inaccessible
+  # La configuration des onglets ne règle que l'affichage : le serveur ne filtre pas les API selon cette
+  # configuration (filtrage prévu dans une phase ultérieure). Le refus vérifié ici est celui d'une route réservée
+  # aux administrateurs.
+  Scénario: Onglet masqué, route d'administration toujours refusée
     Étant donné que la configuration de l'accès aux onglets sera rétablie après le scénario
-    Et que l'onglet "Événements" est décoché pour le profil "Utilisateur"
-    Quand "Utilisateur" ouvre l'application
-    Alors l'onglet "Événements" n'est pas affiché
-    Quand "Utilisateur" appelle "GET /api/custom-events"
+    Et que l'onglet "CRA" est décoché pour le profil "RH"
+    Quand "RH" ouvre l'application
+    Alors l'onglet "CRA" n'est pas affiché
+    Quand "RH" appelle "GET /api/custom-events"
     Alors la réponse a le statut 403
 
   Plan du scénario: Onglet « SAMU-SAS TripAdVisor » accessible à tous (<profil>)
