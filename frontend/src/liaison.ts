@@ -21,6 +21,8 @@ export interface EvenementsLiaison {
     'types-evenements-modifies': undefined;
     /** Accès aux applications modifiés : l'ancien code relit ceux de la session (menu Applications) */
     'applications-modifiees': undefined;
+    /** Comptes utilisateurs modifiés : l'ancien code recharge ses utilisateurs et ses ressources */
+    'utilisateurs-modifies': undefined;
     /** Accès aux onglets enregistrés : l'ancien code applique la configuration à la barre d'onglets */
     'onglets-modifies': { config: Record<string, Record<string, boolean>> };
 }

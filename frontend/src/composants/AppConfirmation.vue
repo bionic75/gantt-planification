@@ -4,8 +4,15 @@ import AppButton from './AppButton.vue';
 import AppModal from './AppModal.vue';
 
 withDefaults(
-    defineProps<{ opened: boolean; title?: string; message: string; labelConfirmer?: string; danger?: boolean }>(),
-    { title: 'Confirmation', labelConfirmer: 'Confirmer', danger: true }
+    defineProps<{
+        opened: boolean;
+        title?: string;
+        message: string;
+        labelConfirmer?: string;
+        labelAnnuler?: string;
+        danger?: boolean;
+    }>(),
+    { title: 'Confirmation', labelConfirmer: 'Confirmer', labelAnnuler: 'Annuler', danger: true }
 );
 const emit = defineEmits<{ confirm: []; cancel: [] }>();
 </script>
@@ -14,7 +21,7 @@ const emit = defineEmits<{ confirm: []; cancel: [] }>();
     <AppModal :opened="opened" :title="title" is-alert @close="emit('cancel')">
         <p class="gp-confirmation__message">{{ message }}</p>
         <template #footer>
-            <AppButton secondary label="Annuler" @click="emit('cancel')" />
+            <AppButton secondary :label="labelAnnuler" @click="emit('cancel')" />
             <AppButton :danger="danger" :label="labelConfirmer" @click="emit('confirm')" />
         </template>
     </AppModal>

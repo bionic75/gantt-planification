@@ -70,8 +70,6 @@ let oldScheduleData = {}; // Pour comparer les changements
 let users = [];
 let currentEditId = null;
 let currentLocalisationCell = null;
-let currentResetUserId = null;
-let currentEditUserId = null;
 let sortDirection = {};
 let currentUser = null;
 let availableProfiles = [];
@@ -109,38 +107,9 @@ function getUserProfiles(user) {
     return profiles.join(', ') || 'Aucun';
 }
 
-function updateResourceSelect() {
-    const select = document.getElementById('adminUserResource');
-    if (!select) return;
-
-    select.innerHTML = '<option value="">-- Sélectionner une ressource --</option>';
-    resources
-        .filter(r => r.actif)
-        .forEach(r => {
-            const option = document.createElement('option');
-            option.value = r.id;
-            option.textContent = `${r.prenom} ${r.nom} (${r.trigramme})`;
-            select.appendChild(option);
-        });
-}
-
 window.addEventListener('load', async () => {
     openPasswordResetFromUrl();
     await checkSession();
-
-    // Gérer l'affichage du select ressource quand Expert Métier est coché
-    const expertCheckbox = document.getElementById('adminProfileExpert');
-    if (expertCheckbox) {
-        expertCheckbox.addEventListener('change', function () {
-            const resourceGroup = document.getElementById('expertResourceGroup');
-            if (this.checked) {
-                resourceGroup.style.display = 'block';
-                updateResourceSelect();
-            } else {
-                resourceGroup.style.display = 'none';
-            }
-        });
-    }
 });
 
 async function checkSession() {
@@ -944,6 +913,12 @@ window.addEventListener('gp:applications-modifiees', async () => {
     } catch {
         /* menu inchangé */
     }
+});
+// Comptes modifiés par l'îlot de gestion des utilisateurs : utilisateurs et ressources rechargés
+window.addEventListener('gp:utilisateurs-modifies', async () => {
+    await loadUsers();
+    await loadResources();
+    showSyncStatus();
 });
 // Accès aux onglets enregistrés : barre d'onglets mise à jour
 window.addEventListener('gp:onglets-modifies', e => {
