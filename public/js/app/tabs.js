@@ -109,7 +109,6 @@ function switchTab(tabName, event) {
 
     if (tabName === 'admin') {
         loadUsers();
-        loadEmailConfig();
         loadAppVersion(); // NOUVEAU
 
         // Rafraîchir les statuts de connexion toutes les 30 secondes
@@ -134,29 +133,6 @@ function switchTab(tabName, event) {
     if (tabName === 'cra') {
         loadCraList();
         loadCraPendingBadge();
-    }
-}
-
-async function loadEmailConfig() {
-    try {
-        const response = await fetch(`${API_URL}/email-config`, { credentials: 'include' });
-        if (!response.ok) {
-            console.warn('Config email non accessible (nécessite admin)');
-            return;
-        }
-        const config = await response.json();
-        document.getElementById('smtpHost').value = config.host || 'smtp.office365.com';
-        document.getElementById('smtpPort').value = config.port || 587;
-        document.getElementById('smtpUser').value = config.user || '';
-        // Le mot de passe n'est jamais renvoyé par le serveur : champ vide = mot de passe enregistré conservé
-        const passwordField = document.getElementById('smtpPassword');
-        passwordField.value = '';
-        passwordField.dataset.passwordSet = config.passwordSet ? '1' : '';
-        passwordField.placeholder = config.passwordSet
-            ? 'Mot de passe enregistré (laisser vide pour le conserver)'
-            : 'Mot de passe email';
-    } catch (error) {
-        console.error('Erreur chargement config email:', error);
     }
 }
 

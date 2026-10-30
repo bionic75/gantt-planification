@@ -151,8 +151,10 @@ l'onglet, à la place de l'ancien code.
 | `src/lib/frontend.js` (serveur) | service de l'interface selon l'environnement et insertion du point d'entrée dans la page                                                                                                                                                                         |
 
 Îlots en service : **SAMU-SAS TripAdVisor** (`#tripadvisor`), **Reporting** (`#reporting`), **Événements**
-(`#evenements`), et dans l'onglet Administration le sous-îlot **Localisations** (`#adminLocalisations`, section
-montée à l'ouverture de l'onglet ; les autres sections restent dans l'ancien code). Les bibliothèques de l'interface
+(`#evenements`), et dans l'onglet Administration les sous-îlots **Localisations** (`#adminLocalisations`),
+**Configuration Email (SMTP)** (`#adminSmtp`), **Authentification à deux facteurs** (`#adminMfa`) et **Gestion des
+API** (`#adminApi`) : sections montées à l'ouverture de l'onglet (composant commun `AppSectionAdmin`), les autres
+restent dans l'ancien code. Les bibliothèques de l'interface
 Vue (Leaflet…) sont intégrées au build, sans CDN.
 
 Selon `NODE_ENV` :
