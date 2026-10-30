@@ -931,3 +931,22 @@ window.addEventListener('gp:planning-modifie', async () => {
     setTimeout(() => updateGantt(), 100);
 });
 window.addEventListener('gp:localisations-modifiees', () => loadLocations());
+// Accès aux applications de la session relus (l'administrateur a pu modifier les siens) : menu Applications
+window.addEventListener('gp:applications-modifiees', async () => {
+    try {
+        const r = await fetch(`${API_URL}/check-session`, { credentials: 'include' });
+        if (!r.ok) return;
+        const data = await r.json();
+        if (data && data.availableApps) {
+            currentUser.availableApps = data.availableApps;
+            updateAppSwitcher();
+        }
+    } catch {
+        /* menu inchangé */
+    }
+});
+// Accès aux onglets enregistrés : barre d'onglets mise à jour
+window.addEventListener('gp:onglets-modifies', e => {
+    TabAccess.cfg = e.detail.config;
+    updateTabsVisibility();
+});

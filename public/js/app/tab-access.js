@@ -68,7 +68,6 @@ const TabAccess = {
             if (r.ok) {
                 const d = await r.json();
                 TabAccess.cfg = d.config;
-                TabAccess.serverDefaults = d.defaults;
             }
         } catch (e) {
             /* valeurs par défaut */
@@ -85,62 +84,9 @@ const TabAccess = {
     showCra(u) {
         if (!u || !TabAccess.can(u.activeProfile, 'cra')) return false;
         return u.activeProfile !== 'expert' || !!(u.astreinte_volontaire || u.is_admin || u.is_rh);
-    },
-    // --- écran d'administration ---
-    async adminLoad() {
-        await TabAccess.load();
-        TabAccess.adminRender(TabAccess.cfg || TabAccess.DEFAULTS);
-    },
-    adminRender(cfg) {
-        const head = TabAccess.PROFILES.map(p => `<th style="padding:6px 10px;text-align:center;">${p[1]}</th>`).join(
-            ''
-        );
-        const rows = TabAccess.TABS.map(
-            t =>
-                `<tr><td style="padding:6px 10px;font-weight:600;">${t[1]}</td>${TabAccess.PROFILES.map(p => {
-                    const locked = p[0] === 'admin' && t[0] === 'admin';
-                    const on = locked || !!(cfg[p[0]] || {})[t[0]];
-                    return `<td style="text-align:center;padding:6px 10px;"><input type="checkbox" data-ta="${p[0]}|${t[0]}" ${on ? 'checked' : ''} ${locked ? "disabled title=\"L'administrateur garde toujours l'accès à l'Administration\"" : ''} style="width:auto;display:inline-block;margin:0;cursor:pointer;"></td>`;
-                }).join('')}</tr>`
-        ).join('');
-        document.getElementById('tabAccessTable').innerHTML =
-            `<thead><tr style="background:#e8eaf6;"><th style="padding:6px 10px;text-align:left;">Onglet</th>${head}</tr></thead><tbody>${rows}</tbody>`;
-    },
-    adminCollect() {
-        const cfg = {};
-        document.querySelectorAll('#tabAccessTable input[data-ta]').forEach(i => {
-            const [p, t] = i.dataset.ta.split('|');
-            (cfg[p] = cfg[p] || {})[t] = i.checked;
-        });
-        return cfg;
-    },
-    adminReset() {
-        TabAccess.adminRender(TabAccess.serverDefaults || TabAccess.DEFAULTS);
-        const m = document.getElementById('tabAccessMsg');
-        m.style.color = '#e65100';
-        m.textContent = 'Valeurs par défaut rétablies : pensez à enregistrer.';
-    },
-    async adminSave() {
-        const m = document.getElementById('tabAccessMsg');
-        try {
-            const r = await fetch(`${API_URL}/tab-access`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ config: TabAccess.adminCollect() })
-            });
-            const d = await r.json();
-            if (!r.ok) throw new Error(d.error || 'Erreur');
-            TabAccess.cfg = d.config;
-            m.style.color = '#2e7d32';
-            m.textContent =
-                'Enregistré. Les utilisateurs verront les changements à leur prochaine connexion ou changement de profil.';
-            updateTabsVisibility();
-        } catch (e) {
-            m.style.color = '#c62828';
-            m.textContent = e.message;
-        }
     }
+    // Écran d'administration : îlot Vue (frontend/src/ilots/admin/acces), qui signale l'enregistrement
+    // (gp:onglets-modifies, public/js/app/core.js)
 };
 
 function updateTabsVisibility() {

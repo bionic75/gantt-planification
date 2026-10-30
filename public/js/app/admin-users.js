@@ -268,22 +268,6 @@ async function toggleRhAccess(id, hasAccess) {
     }
 }
 
-async function toggleAstreinteAccess(userId, hasAccess) {
-    try {
-        const r = await fetch(`${API_URL}/users/${userId}/astreinte-access`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ hasAccess })
-        });
-        if (!r.ok) throw new Error();
-        await loadUsers();
-    } catch {
-        alert('Erreur modification accès astreinte');
-        await loadUsers();
-    }
-}
-
 async function toggleAstreinteByResource(resourceId, hasAccess, type = 'hno') {
     try {
         const r = await fetch(`${API_URL}/resources/${resourceId}/astreinte`, {

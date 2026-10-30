@@ -390,45 +390,6 @@ function isDateInHoliday(dateStr, zone) {
 
 // ========== FIN GESTION DES CONGÉS SCOLAIRES ==========
 
-function showCleanupResult(data) {
-    // Afficher le total
-    document.getElementById('cleanupTotalCount').textContent = data.totalDeleted || 0;
-
-    // Construire la liste des détails par expert
-    const detailsList = document.getElementById('cleanupDetailsList');
-    detailsList.innerHTML = '';
-
-    if (data.statsByExpert && data.statsByExpert.length > 0) {
-        data.statsByExpert.forEach(stat => {
-            const expertDiv = document.createElement('div');
-            expertDiv.style.cssText =
-                'display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; margin-bottom: 8px; background-color: #f8f9fa; border-radius: 6px; border-left: 3px solid #27ae60;';
-
-            const expertName = document.createElement('div');
-            expertName.style.cssText = 'font-weight: 500; color: #2c3e50;';
-            expertName.textContent = stat.username || `Expert ID ${stat.expert_id}`;
-
-            const expertCount = document.createElement('div');
-            expertCount.style.cssText = 'font-weight: bold; color: #27ae60; font-size: 18px;';
-            expertCount.textContent = stat.count;
-
-            expertDiv.appendChild(expertName);
-            expertDiv.appendChild(expertCount);
-            detailsList.appendChild(expertDiv);
-        });
-    } else {
-        detailsList.innerHTML =
-            '<p style="text-align: center; color: #7f8c8d; padding: 20px;">Aucune notification n\'a été trouvée</p>';
-    }
-
-    // Afficher la modal
-    document.getElementById('cleanupResultModal').style.display = 'block';
-}
-
-function closeCleanupResultModal() {
-    document.getElementById('cleanupResultModal').style.display = 'none';
-}
-
 function showPasswordConfirmModal(password, emailSent) {
     document.getElementById('passwordConfirmValue').textContent = password;
     document.getElementById('passwordConfirmEmailMsg').textContent = emailSent
