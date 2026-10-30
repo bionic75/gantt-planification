@@ -920,6 +920,14 @@ window.addEventListener('gp:utilisateurs-modifies', async () => {
     await loadResources();
     showSyncStatus();
 });
+// Paramétrages divers enregistrés par l'îlot de l'Administration : affichage de la version, compteur
+// d'inactivité de la session, favicon
+window.addEventListener('gp:version-modifiee', () => loadSettings());
+window.addEventListener('gp:inactivite-modifiee', e => {
+    if (e.detail.active) startInactivityTimer(e.detail.minutes);
+    else stopInactivityTimer();
+});
+window.addEventListener('gp:favicon-modifie', e => applyFavicon(e.detail.favicon));
 // Accès aux onglets enregistrés : barre d'onglets mise à jour
 window.addEventListener('gp:onglets-modifies', e => {
     TabAccess.cfg = e.detail.config;

@@ -25,6 +25,12 @@ export interface EvenementsLiaison {
     'utilisateurs-modifies': undefined;
     /** Accès aux onglets enregistrés : l'ancien code applique la configuration à la barre d'onglets */
     'onglets-modifies': { config: Record<string, Record<string, boolean>> };
+    /** Version de l'application enregistrée : l'ancien code met à jour son affichage (en-tête) */
+    'version-modifiee': undefined;
+    /** Compteur d'inactivité enregistré : l'ancien code redémarre ou arrête celui de la session */
+    'inactivite-modifiee': { active: boolean; minutes: number };
+    /** Favicon enregistré : l'ancien code l'applique à la page */
+    'favicon-modifie': { favicon: string };
 }
 
 export type NomEvenement = keyof EvenementsLiaison;
@@ -50,6 +56,28 @@ interface FenetreAncienCode {
     openEventMapModal?: () => void;
     /** Colonnes d'un tableau redimensionnables et masquables (clic droit), état mémorisé (public/js/app/planning.js) */
     makeColResizable?: (tableau: HTMLTableElement) => void;
+    /** Son de notification (réglage du navigateur), lu pour l'essai (public/js/app/realtime.js) */
+    playNotifSound?: () => void;
+    /** Thèmes saisonniers : décor de la page (public/js/themes.js) */
+    Themes?: ThemesAncienCode;
+}
+
+/** Thème affiché : identifiant et raison (« forcé », « dates ») */
+export interface ThemeAffiche {
+    id: string;
+    reason: string;
+}
+
+/** Décor des thèmes de l'ancien code, piloté par l'écran d'administration */
+export interface ThemesAncienCode {
+    /** Libellés et vignettes (tracés SVG 32×32) */
+    catalogue: () => Record<string, { label: string; badge: string }>;
+    /** Configuration relue ou enregistrée : appliquée au décor */
+    appliquerConfig: (config: unknown) => void;
+    /** Aperçu de quelques secondes, à l'intensité donnée */
+    apercu: (id: string, intensite: string) => void;
+    /** Thème affiché selon la configuration appliquée */
+    compute: () => ThemeAffiche | null;
 }
 
 const ancienCode = () => window as unknown as FenetreAncienCode;
@@ -70,3 +98,11 @@ export function ouvrirCarteEvenements(): void {
 export function rendreColonnesRedimensionnables(tableau: HTMLTableElement): void {
     ancienCode().makeColResizable?.(tableau);
 }
+
+/** Son de notification du navigateur (essai) */
+export function jouerSonNotification(): void {
+    ancienCode().playNotifSound?.();
+}
+
+/** Décor des thèmes de l'ancien code (absent hors de la page principale) */
+export const themesAncienCode = (): ThemesAncienCode | undefined => ancienCode().Themes;
