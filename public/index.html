@@ -1621,87 +1621,8 @@
     <div id="adminApplications"></div>
     <div id="adminOnglets"></div>
 
-    <!-- SECTION 6: Gestion des utilisateurs (repliable) -->
-    <div class="form-section" style="margin-top: 20px; background-color: #fce4ec; border-left: 4px solid #e91e63;">
-        <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleAdminSection('usersListSection')">
-            <h3 style="color: #880e4f; border-left: none; margin: 0;">
-                <span id="usersListSectionIcon">▶</span> Gestion des utilisateurs <span id="usersListCount" style="font-size:12px;font-weight:normal;color:#ad1457;"></span>
-            </h3>
-        </div>
-        <div id="usersListSection" style="margin-top: 15px; display: none;">
-            <!-- Formulaire de création d'utilisateur -->
-            <div style="background:#e3f2fd;border:1px solid #90caf9;border-radius:8px;padding:15px;margin-bottom:20px;">
-                <h4 style="color:#1565c0;margin:0 0 12px 0;font-size:14px;">➕ Ajouter un nouvel utilisateur</h4>
-                <div class="form-row">
-                    <div class="form-group"><label>Nom *</label><input type="text" id="adminUserNom" placeholder="Nom"></div>
-                    <div class="form-group"><label>Prénom *</label><input type="text" id="adminUserPrenom" placeholder="Prénom"></div>
-                    <div class="form-group"><label>Login (prenom.nom) *</label><input type="text" id="adminUserUsername" placeholder="prenom.nom"></div>
-                    <div class="form-group"><label>Email *</label><input type="email" id="adminUserEmail" placeholder="email@example.com"></div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group"><label>Téléphone</label><input type="tel" id="adminUserTelephone" placeholder="+33 6 XX XX XX XX"></div>
-                    <div class="form-group">
-                        <label>Mot de passe *</label>
-                        <div style="display: flex; gap: 5px;">
-                            <input type="password" id="adminUserPassword" placeholder="Mot de passe" style="flex: 1;">
-                            <button type="button" onclick="generatePassword()" style="padding: 8px 12px; background-color: #9b59b6;" title="Générer un mot de passe"><svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:20px;height:20px;stroke:currentColor;vertical-align:-3px;margin-right:6px;stroke:white;margin-right:0;vertical-align:middle;"><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg></button>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Profils * (au moins un requis)</label>
-                        <div class="checkbox-group">
-                            <div class="checkbox-item">
-                                <input type="checkbox" id="adminProfileAdmin">
-                                <label for="adminProfileAdmin">Administrateur</label>
-                            </div>
-                            <div class="checkbox-item">
-                                <input type="checkbox" id="adminProfileExpert">
-                                <label for="adminProfileExpert">Expert Métier</label>
-                            </div>
-                            <div class="checkbox-item">
-                                <input type="checkbox" id="adminProfileUser">
-                                <label for="adminProfileUser">Utilisateur</label>
-                            </div>
-                            <div class="checkbox-item">
-                                <input type="checkbox" id="adminProfileRh">
-                                <label for="adminProfileRh">RH</label>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="form-group" id="expertResourceGroup" style="display:none;">
-                        <label>Ressource associée (pour Expert Métier)</label>
-                        <select id="adminUserResource">
-                            <option value="">-- Sélectionner une ressource --</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="button-group">
-                    <button onclick="addUser()">Créer l'utilisateur</button>
-                </div>
-            </div>
-            <div class="table-container">
-                <table id="usersTable">
-                    <thead>
-                        <tr>
-                            <th onclick="sortTable('users', 0)">Nom</th>
-                            <th onclick="sortTable('users', 1)">Prénom</th>
-                            <th onclick="sortTable('users', 2)">Trigramme</th>
-                            <th onclick="sortTable('users', 3)">Login</th>
-                            <th onclick="sortTable('users', 4)">Email</th>
-                            <th class="no-sort">Téléphone</th>
-                            <th onclick="sortTable('users', 6)">Profil(s)</th>
-                            <th class="no-sort" title="Accès à l'onglet Reporting">Reporting</th>
-                            <th class="no-sort" title="Validation RH">Validation RH</th>
-                            <th onclick="sortTable('users', 9)">Actif</th>
-                            <th onclick="sortTable('users', 11)">Dernière connexion</th>
-                            <th class="no-sort" style="width:192px;min-width:192px;">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="usersList"></tbody>
-                </table>
-            </div>
-        </div>
-    </div>
+    <!-- SECTION Gestion des utilisateurs : îlot Vue (frontend/src/ilots/admin/utilisateurs) -->
+    <div id="adminUtilisateurs"></div>
 </div>
 
 <!-- ONGLET ASTREINTES : rubriques « Gestion des astreintes HO » et « Gestion des astreintes HNO » -->
@@ -2643,112 +2564,6 @@
         </div>
     </div>
     
-    <div id="resetPasswordModal" class="modal">
-        <div class="modal-content">
-            <h3>Réinitialiser le mot de passe</h3>
-            <div class="form-group">
-                <label>Nouveau mot de passe</label>
-                <div style="display: flex; gap: 10px;">
-                    <input type="text" id="adminResetPassword" placeholder="Nouveau mot de passe" style="flex: 1;">
-                    <button onclick="generateAndFillPassword()" style="background-color: #9b59b6; padding: 8px 15px;">🎲 Générer</button>
-                </div>
-            </div>
-            <div class="form-group">
-                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                    <input type="checkbox" id="sendPasswordEmail" checked style="width: auto; margin: 0;">
-                    <span>Envoyer le mot de passe par email</span>
-                </label>
-            </div>
-            <div class="modal-button-group">
-                <button onclick="closeResetPasswordModal()" style="background-color: #95a5a6;">Annuler</button>
-                <button onclick="saveNewPassword()">Réinitialiser</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modale confirmation mot de passe réinitialisé -->
-    <div id="passwordConfirmModal" class="modal">
-        <div class="modal-content" style="max-width:460px;text-align:center;">
-            <h3 style="color:#2e7d32;margin-bottom:8px;">✅ Mot de passe réinitialisé</h3>
-            <p id="passwordConfirmEmailMsg" style="font-size:13px;color:#555;margin-bottom:16px;"></p>
-            <p style="font-size:13px;color:#333;margin-bottom:8px;font-weight:bold;">Nouveau mot de passe :</p>
-            <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:20px;">
-                <code id="passwordConfirmValue" style="font-size:20px;letter-spacing:3px;background:#f5f5f5;border:2px solid #a5d6a7;border-radius:6px;padding:10px 18px;color:#1b5e20;font-family:monospace;"></code>
-                <button onclick="copyConfirmedPassword()" id="copyConfirmBtn" style="background:#2e7d32;color:white;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;font-size:13px;white-space:nowrap;">📋 Copier</button>
-            </div>
-            <p style="font-size:11px;color:#e53935;margin-bottom:20px;">⚠️ Notez ce mot de passe — il ne sera plus affiché.</p>
-            <button onclick="document.getElementById('passwordConfirmModal').classList.remove('active')" style="background:#546e7a;color:white;border:none;padding:8px 24px;border-radius:6px;cursor:pointer;font-size:13px;">Fermer</button>
-        </div>
-    </div>
-
-    <div id="editUserModal" class="modal">
-        <div class="modal-content" style="max-width: 700px;">
-            <h3>Modifier l'utilisateur</h3>
-            <div class="form-group">
-                <label>Nom d'utilisateur</label>
-                <input type="text" id="editUserUsername" required>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Nom</label>
-                    <input type="text" id="editUserNom" required>
-                </div>
-                <div class="form-group">
-                    <label>Prénom</label>
-                    <input type="text" id="editUserPrenom" required>
-                </div>
-                <div class="form-group" style="max-width: 120px;">
-                    <label>Trigramme</label>
-                    <input type="text" id="editUserTrigramme" maxlength="5" style="text-transform: uppercase; font-weight: bold; letter-spacing: 1px; text-align: center;" oninput="this.value = this.value.toUpperCase();" placeholder="ABC">
-                </div>
-            </div>
-            <div class="form-group">
-                <label>Email</label>
-                <input type="email" id="editUserEmail" required>
-            </div>
-            <div class="form-group">
-                <label>Ressource liée (optionnel)</label>
-                <select id="editUserResourceId">
-                    <option value="">-- Aucune ressource --</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Profils autorisés</label>
-                <div class="checkbox-group">
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="editUserIsAdmin">
-                        <label for="editUserIsAdmin">Administrateur</label>
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="editUserIsExpert">
-                        <label for="editUserIsExpert">Expert</label>
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="editUserIsUser">
-                        <label for="editUserIsUser">Utilisateur</label>
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="editProfileRh">
-                        <label for="editProfileRh">RH</label>
-                    </div>
-                </div>
-            </div>
-            <div class="form-group">
-                <label>Statut</label>
-                <div class="checkbox-group">
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="editUserActif">
-                        <label for="editUserActif">Compte actif</label>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-button-group">
-                <button onclick="closeEditUserModal()" style="background-color: #95a5a6;">Annuler</button>
-                <button onclick="saveUserChanges()">Enregistrer les modifications</button>
-            </div>
-        </div>
-    </div>
-
     <script src="/js/app/core.js?v=2.2.0"></script>
     <script src="/js/app/email-validation.js?v=2.2.0"></script>
     <script src="/js/app/mfa.js?v=2.2.0"></script>
@@ -2759,7 +2574,6 @@
     <script src="/js/app/particularites.js?v=2.2.0"></script>
     <script src="/js/app/planning.js?v=2.2.0"></script>
     <script src="/js/app/admin-users.js?v=2.2.0"></script>
-    <script src="/js/app/admin-api.js?v=2.2.0"></script>
     <script src="/js/app/conges-scolaires.js?v=2.2.0"></script>
     <script src="/js/app/automations.js?v=2.2.0"></script>
     <script src="/js/app/automations-ho.js?v=2.2.0"></script>
@@ -3072,27 +2886,6 @@
             </div>
             
             <button onclick="closeProfilePhotoModal()" style="background-color: #95a5a6; width: 100%; padding: 12px; border: none; border-radius: 5px; color: white; cursor: pointer; margin-top: 20px;">Fermer</button>
-        </div>
-    </div>
-
-    <!-- Modal détails utilisateur -->
-    <div id="userDetailsModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10002; overflow-y: auto;">
-        <div style="background-color: white; max-width: 800px; margin: 50px auto; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <div style="display: flex; align-items: center; gap: 15px;">
-                    <h2 style="color: #2c3e50; margin: 0; border-bottom: 2px solid #1D70B7; padding-bottom: 10px; display: inline-block;">
-                        👤 Détails de l'utilisateur
-                    </h2>
-                    <button onclick="downloadUserLogs()" style="padding: 8px 15px; background-color: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: bold; display: flex; align-items: center; gap: 5px;" onmouseover="this.style.backgroundColor='#229954'" onmouseout="this.style.backgroundColor='#27ae60'" title="Télécharger tous les logs de cet utilisateur en CSV">
-                        📥 Export CSV
-                    </button>
-                </div>
-                <span onclick="closeUserDetailsModal()" style="cursor: pointer; font-size: 28px; color: #7f8c8d;">&times;</span>
-            </div>
-            
-            <div id="userDetailsContent" style="margin-top: 20px;">
-                <!-- Les détails de l'utilisateur seront chargés ici -->
-            </div>
         </div>
     </div>
 

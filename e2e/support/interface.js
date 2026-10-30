@@ -22,8 +22,15 @@ export async function confirmer(/** @type {Monde} */ monde, /** @type {() => Pro
     return texte;
 }
 
-/** Action à confirmer, annulée : fenêtre du navigateur refusée ou bouton « Annuler ». Renvoie le texte affiché. */
-export async function annulerConfirmation(/** @type {Monde} */ monde, /** @type {() => Promise<void>} */ declencher) {
+/**
+ * Action à confirmer, annulée : fenêtre du navigateur refusée ou bouton de refus de la fenêtre de l'écran (« Annuler »
+ * par défaut). Renvoie le texte affiché.
+ */
+export async function annulerConfirmation(
+    /** @type {Monde} */ monde,
+    /** @type {() => Promise<void>} */ declencher,
+    /** @type {string} */ refus = 'Annuler'
+) {
     const avant = monde.dialogues.length;
     const boite = monde.page.getByRole('alertdialog');
     monde.refuserProchainDialogue = true;
@@ -37,7 +44,7 @@ export async function annulerConfirmation(/** @type {Monde} */ monde, /** @type 
     }
     if (monde.dialogues.length > avant) return /** @type {string} */ (monde.dialogues.at(-1));
     const texte = (await boite.textContent()) ?? '';
-    await boite.getByRole('button', { name: 'Annuler', exact: true }).click();
+    await boite.getByRole('button', { name: refus, exact: true }).click();
     await expect(boite).toBeHidden();
     return texte;
 }

@@ -5,9 +5,17 @@ import { inject, provide, ref, type InjectionKey } from 'vue';
 export interface DemandeConfirmation {
     message: string;
     labelConfirmer: string;
+    /** Bouton de refus (« Annuler » par défaut) */
+    labelAnnuler?: string;
+    /** Action destructrice (bouton de confirmation rouge, par défaut) ; false pour un simple choix */
+    danger?: boolean;
 }
 
-type Confirmer = (message: string, labelConfirmer?: string) => Promise<boolean>;
+type Confirmer = (
+    message: string,
+    labelConfirmer?: string,
+    options?: Pick<DemandeConfirmation, 'labelAnnuler' | 'danger'>
+) => Promise<boolean>;
 
 const CLE: InjectionKey<Confirmer> = Symbol('confirmation');
 
@@ -21,9 +29,9 @@ export function fournirConfirmation() {
         reponse?.(ok);
         reponse = null;
     };
-    const confirmer: Confirmer = (message, labelConfirmer = 'Confirmer') => {
+    const confirmer: Confirmer = (message, labelConfirmer = 'Confirmer', options = {}) => {
         reponse?.(false);
-        demande.value = { message, labelConfirmer };
+        demande.value = { message, labelConfirmer, ...options };
         return new Promise<boolean>(r => (reponse = r));
     };
     provide(CLE, confirmer);

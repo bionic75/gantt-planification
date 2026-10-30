@@ -218,6 +218,3 @@ function showSyncStatus() {
         status.style.display = 'none';
     }, 3000);
 }
-
-// Variable pour stocker l'intervalle de rafraîchissement des statuts
-let activeSessionsRefreshInterval = null;

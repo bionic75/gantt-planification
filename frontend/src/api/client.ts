@@ -49,5 +49,6 @@ export const api = {
     post: <T>(chemin: string, corps: unknown = {}) => appel<T>('POST', chemin, corps),
     put: <T>(chemin: string, corps: unknown = {}) => appel<T>('PUT', chemin, corps),
     patch: <T>(chemin: string, corps: unknown = {}) => appel<T>('PATCH', chemin, corps),
-    delete: <T>(chemin: string) => appel<T>('DELETE', chemin)
+    /** Corps facultatif (ex. DELETE /logs/raz) */
+    delete: <T>(chemin: string, corps?: unknown) => appel<T>('DELETE', chemin, corps)
 };

@@ -252,7 +252,7 @@ export async function creerCompte(monde, champs = {}) {
         username: login,
         password: 'Compte-E2E-2026!',
         nom: 'E2E',
-        prenom: `Compte${id}`,
+        prenom: `Compte${id.toLowerCase()}`,
         email: `${login}@example.invalid`,
         is_user: 1,
         ...champs
