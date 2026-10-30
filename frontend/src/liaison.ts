@@ -12,7 +12,10 @@ export interface EvenementsLiaison {
     'evenements-modifies': undefined;
     /** Planification modifiée par un îlot (inscription d'un expert à un événement) : l'ancien code la recharge */
     'planning-modifie': undefined;
-    /** Localisation créée par un îlot : l'ancien code recharge ses listes de localisations */
+    /**
+     * Localisations créées ou modifiées par un îlot, ou section d'administration ouverte : l'ancien code recharge ses
+     * listes de localisations
+     */
     'localisations-modifiees': undefined;
     /** Types d'événements modifiés dans l'administration (ancien code) : les îlots rechargent types et événements */
     'types-evenements-modifies': undefined;
@@ -39,6 +42,8 @@ interface FenetreAncienCode {
     forceSessionEnd?: (message?: string) => void;
     /** Carte des événements et déplacements, fenêtre plein écran (public/js/app/maps.js) */
     openEventMapModal?: () => void;
+    /** Colonnes d'un tableau redimensionnables et masquables (clic droit), état mémorisé (public/js/app/planning.js) */
+    makeColResizable?: (tableau: HTMLTableElement) => void;
 }
 
 const ancienCode = () => window as unknown as FenetreAncienCode;
@@ -53,4 +58,9 @@ export function installerLiaisonAncienCode(): void {
 /** Carte des événements de l'ancien code (non migrée) */
 export function ouvrirCarteEvenements(): void {
     ancienCode().openEventMapModal?.();
+}
+
+/** Colonnes redimensionnables et masquables, comme les autres tableaux de l'application (utilitaire de l'ancien code) */
+export function rendreColonnesRedimensionnables(tableau: HTMLTableElement): void {
+    ancienCode().makeColResizable?.(tableau);
 }
