@@ -101,20 +101,9 @@ function switchTab(tabName, event) {
         });
     }
 
-    // Arrêter le rafraîchissement automatique si on quitte l'onglet admin
-    if (activeSessionsRefreshInterval) {
-        clearInterval(activeSessionsRefreshInterval);
-        activeSessionsRefreshInterval = null;
-    }
-
     if (tabName === 'admin') {
         loadUsers();
         loadAppVersion(); // NOUVEAU
-
-        // Rafraîchir les statuts de connexion toutes les 30 secondes
-        activeSessionsRefreshInterval = setInterval(() => {
-            displayUsers();
-        }, 30000);
     }
 
     if (tabName === 'planning') {
@@ -139,13 +128,9 @@ function switchTab(tabName, event) {
 document.addEventListener('click', function (event) {
     const editModal = document.getElementById('editModal');
     const locModal = document.getElementById('localisationModal');
-    const resetModal = document.getElementById('resetPasswordModal');
-    const editUserModal = document.getElementById('editUserModal');
     const forgotModal = document.getElementById('forgotPasswordModal');
     if (event.target === editModal) closeEditModal();
     if (event.target === locModal) closeLocalisationModal();
-    if (event.target === resetModal) closeResetPasswordModal();
-    if (event.target === editUserModal) closeEditUserModal();
     if (event.target === forgotModal) closeForgotPasswordModal();
 });
 
@@ -158,9 +143,7 @@ function autoUppercaseNom(event) {
 document.addEventListener('DOMContentLoaded', function () {
     const nomFields = [
         'nom', // Ressources
-        'editNom', // Édition ressource
-        'adminUserNom', // Création utilisateur
-        'editUserNom' // Édition utilisateur
+        'editNom' // Édition ressource
     ];
 
     nomFields.forEach(fieldId => {

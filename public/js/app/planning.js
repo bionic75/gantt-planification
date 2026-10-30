@@ -984,7 +984,7 @@ async function loadUsers() {
             }))
         );
         if (currentUser?.activeProfile === 'admin') {
-            await displayUsers();
+            // Liste des comptes : îlot Vue (frontend/src/ilots/admin/utilisateurs)
             // Charger les configurations d'automatisation
             populateAutomation1CopyUsers();
             loadAutomation1Config();
@@ -1003,42 +1003,6 @@ async function loadUsers() {
     }
 }
 
-function generatePassword() {
-    const length = 12;
-    const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    const lowercase = 'abcdefghijklmnopqrstuvwxyz';
-    const numbers = '0123456789';
-    const symbols = '!@#$%&*';
-    const allChars = uppercase + lowercase + numbers + symbols;
-
-    let password = '';
-    // S'assurer qu'on a au moins un de chaque type
-    password += uppercase[Math.floor(Math.random() * uppercase.length)];
-    password += lowercase[Math.floor(Math.random() * lowercase.length)];
-    password += numbers[Math.floor(Math.random() * numbers.length)];
-    password += symbols[Math.floor(Math.random() * symbols.length)];
-
-    // Remplir le reste aléatoirement
-    for (let i = password.length; i < length; i++) {
-        password += allChars[Math.floor(Math.random() * allChars.length)];
-    }
-
-    // Mélanger le mot de passe
-    password = password
-        .split('')
-        .sort(() => Math.random() - 0.5)
-        .join('');
-
-    // Afficher dans le champ
-    document.getElementById('adminUserPassword').value = password;
-    document.getElementById('adminUserPassword').type = 'text'; // Afficher en clair temporairement
-
-    // Repasser en type password après 3 secondes
-    setTimeout(() => {
-        document.getElementById('adminUserPassword').type = 'password';
-    }, 3000);
-}
-
 // Fonction pour retirer les accents
 function removeAccents(str) {
     return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -1048,27 +1012,6 @@ function removeAccents(str) {
 function capitalizeFirstLetter(str) {
     if (!str) return str;
     return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
-}
-
-// Fonction pour générer le login à partir du nom et prénom
-function generateUsername() {
-    const nom = document.getElementById('adminUserNom').value.trim();
-    const prenom = document.getElementById('adminUserPrenom').value.trim();
-
-    if (!nom || !prenom) return;
-
-    // Retirer les accents, espaces et tirets, puis mettre en minuscule
-    const nomClean = removeAccents(nom)
-        .replace(/[\s\-]/g, '')
-        .toLowerCase();
-    const prenomClean = removeAccents(prenom)
-        .replace(/[\s\-]/g, '')
-        .toLowerCase();
-
-    // Générer le login: prenom.nom
-    const username = `${prenomClean}.${nomClean}`;
-
-    document.getElementById('adminUserUsername').value = username;
 }
 
 // Fonction pour purger les cookies du site
@@ -1108,26 +1051,8 @@ document.addEventListener('DOMContentLoaded', function () {
     // Charger les congés scolaires
     loadSchoolHolidays();
 
-    // ========== AUTOMATISATION UTILISATEURS ==========
-
-    // Capitaliser automatiquement le prénom
-    const prenomInput = document.getElementById('adminUserPrenom');
-    if (prenomInput) {
-        prenomInput.addEventListener('blur', function () {
-            this.value = capitalizeFirstLetter(this.value);
-            generateUsername();
-        });
-    }
-
-    // Régénérer le login quand le nom change
-    const nomInput = document.getElementById('adminUserNom');
-    if (nomInput) {
-        nomInput.addEventListener('blur', function () {
-            generateUsername();
-        });
-    }
-
     // ========== AUTOMATISATION RESSOURCES ==========
+    // (création des comptes utilisateurs : îlot Vue, frontend/src/ilots/admin/utilisateurs)
 
     // Capitaliser automatiquement le prénom de la ressource
     const resourcePrenomInput = document.getElementById('prenom');

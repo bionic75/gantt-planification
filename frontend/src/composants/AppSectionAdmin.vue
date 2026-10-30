@@ -2,7 +2,7 @@
      d'ouverture, état annoncé par aria-expanded), corps masqué tant que la section est fermée. Teinte : couleurs de
      fond, de bordure et de titre propres à chaque section. -->
 <script setup lang="ts">
-export type TeinteSection = 'indigo' | 'indigo-fonce' | 'jaune' | 'vert' | 'vert-fonce';
+export type TeinteSection = 'indigo' | 'indigo-fonce' | 'jaune' | 'vert' | 'vert-fonce' | 'rose';
 
 defineProps<{ titre: string; idCorps: string; teinte: TeinteSection }>();
 const emit = defineEmits<{ ouverture: [] }>();
@@ -28,6 +28,8 @@ function basculer() {
                 @click="basculer"
             >
                 <span aria-hidden="true">{{ ouverte ? '▼' : '▶' }}</span> {{ titre }}
+                <!-- Complément du titre (ex. compteur) -->
+                <slot name="complement" />
             </button>
         </h3>
         <div v-show="ouverte" :id="idCorps" class="gp-section-admin__corps">
@@ -95,5 +97,12 @@ function basculer() {
 }
 .gp-section-admin--vert-fonce .gp-section-admin__titre {
     color: #1b5e20;
+}
+.gp-section-admin--rose {
+    background-color: #fce4ec;
+    border-left-color: #e91e63;
+}
+.gp-section-admin--rose .gp-section-admin__titre {
+    color: #880e4f;
 }
 </style>
