@@ -24,7 +24,7 @@ Protections :
 | `mfaPending` | Connexion en attente de double authentification |
 | `apiKey` | Clé d’API (en-tête X-Api-Key) |
 
-307 routes, par module (`src/modules/<module>`) :
+308 routes, par module (`src/modules/<module>`) :
 
 ## admin
 
@@ -356,6 +356,7 @@ Protections :
 | GET | `/api/admin/api-keys` | admin |
 | POST | `/api/admin/api-keys` | admin |
 | DELETE | `/api/admin/api-keys/:id` | admin |
+| DELETE | `/api/admin/api-keys/:id/permanent` | admin |
 | GET | `/api/public/events` | apiKey |
 
 ## reporting

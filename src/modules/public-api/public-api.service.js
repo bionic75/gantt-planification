@@ -3,7 +3,7 @@
 import crypto from 'crypto';
 import { prisma } from '../../db/prisma.js';
 import { idParam } from '../../db/values.js';
-import { badRequest } from '../../lib/http-error.js';
+import { badRequest, notFound } from '../../lib/http-error.js';
 
 /** Nouvelle clé : seule son empreinte est conservée, la clé n'est montrée qu'une fois */
 export async function createApiKey(/** @type {unknown} */ label, /** @type {number} */ createdBy) {
@@ -45,6 +45,12 @@ export async function listApiKeys() {
 
 export async function revokeApiKey(/** @type {unknown} */ id) {
     await prisma.apiKey.updateMany({ where: { id: idParam(id) }, data: { revoked: 1 } });
+}
+
+/** Suppression définitive (clés de test, par exemple), au lieu de la révocation qui conserve la clé */
+export async function deleteApiKey(/** @type {unknown} */ id) {
+    const { count } = await prisma.apiKey.deleteMany({ where: { id: idParam(id) } });
+    if (!count) throw notFound('Clé API introuvable');
 }
 
 const PERIOD_LABELS = /** @type {Record<string, string>} */ ({

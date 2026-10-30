@@ -47,7 +47,8 @@ index.html (existant)
   des `data-testid` au moment de la migration de l'écran concerné, jamais ajoutés dans le nouveau code.
 - Pas de `alert()` / `confirm()` du navigateur dans le nouveau code : `AppAlert` pour les messages, confirmation
   partagée par l'îlot (`fournirConfirmation` dans le composant racine, `useConfirmation` ailleurs). Les étapes e2e
-  acceptent les deux formes (fenêtre du navigateur ou `alertdialog`) pendant la migration.
+  acceptent les deux formes (fenêtre du navigateur ou `alertdialog`) pendant la migration, pour confirmer
+  (`confirmer`) comme pour annuler (`annulerConfirmation`, `e2e/support/interface.js`).
 - Un îlot qui doit se mettre à jour à chaque ouverture de son onglet (comme l'ancien code) utilise
   `surReouverture` (`frontend/src/ilots/activation.ts`).
 - Un onglet trop gros pour un seul îlot est migré par **sous-îlots** : chacun remplace une section de l'onglet (son
@@ -82,14 +83,14 @@ index.html (existant)
 
 Sous-îlots de l'Administration, mis en production l'un après l'autre :
 
-| #   | Sous-îlot                    | Sections                                                                                               | État                                                                                                                       |
-| --- | ---------------------------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
-| 4a  | Localisations                | Formulaire, liste, import CSV et conflits                                                              | Réalisé (`frontend/src/ilots/admin/localisations/`, scénarios `17-admin-localisations`) ; en attente de mise en production |
-| 4b  | Sécurité et messagerie       | SMTP, double authentification, clés d'API publiques, connexion Asana                                   | À faire                                                                                                                    |
-| 4c  | Utilisateurs et accès        | Utilisateurs, accès aux applications, accès aux onglets par profil                                     | À faire                                                                                                                    |
-| 4d  | Paramétrages divers          | Version, inactivité, favicon, aide en ligne, sauvegarde et restauration, thèmes, son des notifications | À faire                                                                                                                    |
-| 4e  | Jours et événements spéciaux | Congés scolaires, dates particulières, types d'événements et reprise, événements de l'administration   | À faire                                                                                                                    |
-| 4f  | Automatisations              | Automatisations 1 à 6                                                                                  | À faire                                                                                                                    |
+| #   | Sous-îlot                    | Sections                                                                                               | État                                                                                                                               |
+| --- | ---------------------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| 4a  | Localisations                | Formulaire, liste, import CSV et conflits                                                              | En production (`frontend/src/ilots/admin/localisations/`, scénarios `17-admin-localisations`)                                      |
+| 4b  | Sécurité et messagerie       | SMTP, double authentification, clés d'API publiques, connexion Asana                                   | Réalisé (`frontend/src/ilots/admin/securite/`, trois sous-îlots, scénarios `18-admin-securite`) ; en attente de mise en production |
+| 4c  | Utilisateurs et accès        | Utilisateurs, accès aux applications, accès aux onglets par profil                                     | À faire                                                                                                                            |
+| 4d  | Paramétrages divers          | Version, inactivité, favicon, aide en ligne, sauvegarde et restauration, thèmes, son des notifications | À faire                                                                                                                            |
+| 4e  | Jours et événements spéciaux | Congés scolaires, dates particulières, types d'événements et reprise, événements de l'administration   | À faire                                                                                                                            |
+| 4f  | Automatisations              | Automatisations 1 à 6                                                                                  | À faire                                                                                                                            |
 
 Anomalies relevées pendant la migration (comportement conservé, correction à part) :
 
