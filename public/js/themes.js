@@ -239,71 +239,8 @@
         refresh();
     }
 
-    // ---------- Administration ----------
-    const toISO = mmdd => `${new Date().getFullYear()}-${mmdd}`;
-
-    function adminStatus() {
-        const el = document.getElementById('themeAdminStatus');
-        if (!el) return;
-        const a = computeTheme();
-        el.textContent = a
-            ? `Thème affiché actuellement : ${META[a.id].label} (${a.reason})`
-            : 'Aucun thème affiché actuellement.';
-    }
-
-    function adminRender() {
-        const host = document.getElementById('themeAdminRows');
-        if (!host) return;
-        const rows = ['halloween', 'noel', 'saintvalentin', 'saintpatrick', 'paques', 'vacances']
-            .map(id => {
-                const t = (cfg.themes || {})[id] || {};
-                const meta = META[id];
-                const win =
-                    id === 'paques'
-                        ? `Pâques −<input type="number" min="0" max="30" id="thEasterBefore" value="${t.before ?? 7}" style="width:60px;display:inline-block;"> j / +<input type="number" min="0" max="30" id="thEasterAfter" value="${t.after ?? 1}" style="width:60px;display:inline-block;"> j`
-                        : `du <input type="date" id="thStart_${id}" value="${toISO(t.start || '01-01')}" style="width:auto;display:inline-block;"> au <input type="date" id="thEnd_${id}" value="${toISO(t.end || '01-01')}" style="width:auto;display:inline-block;">`;
-                return `<tr style="border-top:1px solid #e0e0e0;">
-                <td style="padding:6px 8px;white-space:nowrap;"><span style="display:inline-block;width:22px;height:22px;vertical-align:middle;margin-right:6px;">${svg(meta.badge)}</span><strong>${meta.label}</strong></td>
-                <td style="padding:6px 8px;text-align:center;"><input type="checkbox" id="thAuto_${id}" ${t.auto === false ? '' : 'checked'} style="width:auto;display:inline-block;"></td>
-                <td style="padding:6px 8px;">${win}</td>
-                <td style="padding:6px 8px;"><button type="button" onclick="Themes.adminPreview('${id}')" style="background:#6c757d;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:12px;">Aperçu</button></td>
-            </tr>`;
-            })
-            .join('');
-        host.innerHTML = rows;
-        const forced = document.getElementById('themeForced');
-        if (forced && !forced.options.length) {
-            forced.innerHTML = ['halloween', 'noel', 'saintvalentin', 'saintpatrick', 'paques', 'vacances']
-                .map(id => `<option value="${id}">${META[id].label}</option>`)
-                .join('');
-        }
-        if (forced) forced.value = cfg.forced || 'noel';
-        const r = document.querySelector(`input[name="themeMode"][value="${cfg.mode || 'off'}"]`);
-        if (r) r.checked = true;
-        const lvl = document.getElementById('themeIntensity');
-        if (lvl) lvl.value = cfg.intensity || 'sobre';
-        adminStatus();
-    }
-
-    function collect() {
-        const out = { mode: 'off', forced: 'noel', intensity: 'sobre', themes: {} };
-        out.mode = document.querySelector('input[name="themeMode"]:checked')?.value || 'off';
-        out.forced = document.getElementById('themeForced').value;
-        out.intensity = document.getElementById('themeIntensity').value;
-        ['halloween', 'noel', 'saintvalentin', 'saintpatrick', 'paques', 'vacances'].forEach(id => {
-            const t = { auto: document.getElementById('thAuto_' + id).checked };
-            if (id === 'paques') {
-                t.before = Number(document.getElementById('thEasterBefore').value);
-                t.after = Number(document.getElementById('thEasterAfter').value);
-            } else {
-                t.start = (document.getElementById('thStart_' + id).value || '').slice(5);
-                t.end = (document.getElementById('thEnd_' + id).value || '').slice(5);
-            }
-            out.themes[id] = t;
-        });
-        return out;
-    }
-
+    // Écran d'administration : îlot Vue (frontend/src/ilots/admin/parametrages), qui pilote le décor par catalogue,
+    // appliquerConfig, apercu et compute
     const Themes = {
         setUserEnabled(enabled) {
             try {
@@ -316,14 +253,20 @@
         syncProfileUI() {
             refresh();
         },
-        async adminLoad() {
-            await load();
-            adminRender();
+        /** Libellés et vignettes des thèmes */
+        catalogue() {
+            return Object.fromEntries(Object.entries(META).map(([id, m]) => [id, { label: m.label, badge: m.badge }]));
         },
-        adminPreview(id) {
+        /** Configuration relue ou enregistrée par l'administration : appliquée au décor */
+        appliquerConfig(config) {
+            cfg = config || DEFAULT_CFG;
+            refresh();
+        },
+        /** Aperçu de 6 secondes d'un thème, à l'intensité choisie */
+        apercu(id, intensite) {
             previewId = id;
             const prevLevel = cfg.intensity;
-            cfg = { ...cfg, intensity: document.getElementById('themeIntensity').value };
+            cfg = { ...cfg, intensity: intensite };
             refresh();
             setTimeout(() => {
                 previewId = null;
@@ -331,28 +274,7 @@
                 refresh();
             }, 6000);
         },
-        async adminSave() {
-            const msg = document.getElementById('themeAdminMsg');
-            try {
-                const res = await fetch('/api/theme', {
-                    method: 'PUT',
-                    credentials: 'include',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(collect())
-                });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || res.status);
-                cfg = data;
-                refresh();
-                adminStatus();
-                msg.style.color = '#2e7d32';
-                msg.textContent = 'Enregistré.';
-            } catch (e) {
-                msg.style.color = '#c62828';
-                msg.textContent = 'Erreur : ' + e.message;
-            }
-        },
-        compute: computeTheme
+        compute: () => computeTheme()
     };
     window.Themes = Themes;
 

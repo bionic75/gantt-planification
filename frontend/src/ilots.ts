@@ -21,6 +21,10 @@ const ILOTS: RegistreIlots = {
     adminApi: { chargeur: () => import('@/ilots/admin/securite/SectionApi.vue'), onglet: 'admin' },
     adminApplications: { chargeur: () => import('@/ilots/admin/acces/SectionApplications.vue'), onglet: 'admin' },
     adminOnglets: { chargeur: () => import('@/ilots/admin/acces/SectionOnglets.vue'), onglet: 'admin' },
+    adminParametrages: {
+        chargeur: () => import('@/ilots/admin/parametrages/SectionParametrages.vue'),
+        onglet: 'admin'
+    },
     adminUtilisateurs: {
         chargeur: () => import('@/ilots/admin/utilisateurs/SectionUtilisateurs.vue'),
         onglet: 'admin'
