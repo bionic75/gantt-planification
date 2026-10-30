@@ -81,6 +81,19 @@ describe('montage des îlots', () => {
         expect(reouvertures).toBe(2);
     });
 
+    it("sous-îlot : monté dans sa section à l'ouverture de l'onglet qui la contient", async () => {
+        document.body.innerHTML =
+            '<div id="onglet" class="tab-content"><div id="section"><p>ancienne section</p></div><p>autre section</p></div>';
+        arreter = surveillerIlots({ section: { chargeur: async () => ({ default: Essai }), onglet: 'onglet' } });
+        await rendu();
+        expect(document.getElementById('section')?.textContent).toBe('ancienne section');
+
+        conteneur().classList.add('active');
+        await rendu();
+        expect(document.querySelector('#section [data-testid="essai"]')).not.toBeNull();
+        expect(conteneur().textContent).toContain('autre section');
+    });
+
     it('fin de session : îlot démonté, nouveau magasin au montage suivant', async () => {
         conteneur().classList.add('active');
         let magasins = 0;

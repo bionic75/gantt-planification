@@ -766,7 +766,6 @@ function toggleAdminSection(sectionId) {
     if (section.style.display === 'none') {
         section.style.display = 'block';
         icon.textContent = '▼';
-        if (sectionId === 'localisationAdminSection') loadLocations();
     } else {
         section.style.display = 'none';
         icon.textContent = '▶';

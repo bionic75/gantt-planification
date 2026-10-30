@@ -50,6 +50,12 @@ index.html (existant)
   acceptent les deux formes (fenêtre du navigateur ou `alertdialog`) pendant la migration.
 - Un îlot qui doit se mettre à jour à chaque ouverture de son onglet (comme l'ancien code) utilise
   `surReouverture` (`frontend/src/ilots/activation.ts`).
+- Un onglet trop gros pour un seul îlot est migré par **sous-îlots** : chacun remplace une section de l'onglet (son
+  conteneur) et se monte à l'ouverture de l'onglet (`{ chargeur, onglet }` dans `frontend/src/ilots.ts`) ; les
+  sections non migrées restent dans l'ancien code.
+- `public/js/ui-icons.js` remplace les émojis des textes de la page par des icônes, îlots compris : un nœud texte
+  converti n'est plus mis à jour par Vue. Un texte variable contenant un émoji est donc recréé à chaque changement
+  (élément avec `:key` sur le texte, comme dans `AppAlert`), ou la partie variable isolée dans son propre élément.
 - Bibliothèques installées par npm et intégrées au build (pas de CDN) ; en développement, les dépendances des îlots
   sont déclarées dans `optimizeDeps.include` (`frontend/vite.config.ts`) pour éviter un rechargement de la page.
 
@@ -68,13 +74,28 @@ index.html (existant)
 
 ### Avancement
 
-| Phase | État                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0     | Terminée                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| 1     | En production : îlot `frontend/src/ilots/tripadvisor/`, 7 scénarios d'écran ajoutés à `09-tripadvisor`                                                                                                                                                                                                                                                                                                                                                    |
-| 2     | Découpée en trois îlots mis en production l'un après l'autre : Reporting, Événements, Administration. Reporting en production (`frontend/src/ilots/reporting/`, scénarios `15-reporting-suivis`). Événements réalisé (`frontend/src/ilots/evenements/`) : 10 scénarios d'écran (`16-evenements-ecran`), validés sur l'ancien code puis sur l'îlot ; carte des événements laissée dans l'ancien code (migration à part) ; en attente de mise en production |
+| Phase | État                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0     | Terminée                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| 1     | En production : îlot `frontend/src/ilots/tripadvisor/`, 7 scénarios d'écran ajoutés à `09-tripadvisor`                                                                                                                                                                                                                                                                                                                       |
+| 2     | Découpée en trois îlots mis en production l'un après l'autre : Reporting, Événements, Administration. Reporting en production (`frontend/src/ilots/reporting/`, scénarios `15-reporting-suivis`). Événements en production (`frontend/src/ilots/evenements/`, scénarios `16-evenements-ecran`) ; carte des événements laissée dans l'ancien code (migration à part). Administration découpée en sous-îlots (voir ci-dessous) |
+
+Sous-îlots de l'Administration, mis en production l'un après l'autre :
+
+| #   | Sous-îlot                    | Sections                                                                                               | État                                                                                                                       |
+| --- | ---------------------------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| 4a  | Localisations                | Formulaire, liste, import CSV et conflits                                                              | Réalisé (`frontend/src/ilots/admin/localisations/`, scénarios `17-admin-localisations`) ; en attente de mise en production |
+| 4b  | Sécurité et messagerie       | SMTP, double authentification, clés d'API publiques, connexion Asana                                   | À faire                                                                                                                    |
+| 4c  | Utilisateurs et accès        | Utilisateurs, accès aux applications, accès aux onglets par profil                                     | À faire                                                                                                                    |
+| 4d  | Paramétrages divers          | Version, inactivité, favicon, aide en ligne, sauvegarde et restauration, thèmes, son des notifications | À faire                                                                                                                    |
+| 4e  | Jours et événements spéciaux | Congés scolaires, dates particulières, types d'événements et reprise, événements de l'administration   | À faire                                                                                                                    |
+| 4f  | Automatisations              | Automatisations 1 à 6                                                                                  | À faire                                                                                                                    |
 
 Anomalies relevées pendant la migration (comportement conservé, correction à part) :
+
+- Localisations : à la reprise d'une session (page rechargée), l'ancien code ne charge pas les localisations ; la
+  liste « SAMU de rattachement » des ressources reste vide jusqu'à l'ouverture de la section Localisation de
+  l'Administration (le sous-îlot conserve ce rechargement à l'ouverture).
 
 - Reporting : les listes d'experts (disponibilités, HNO / astreintes) et d'utilisateurs (connexions) ne sont chargées
   que pour le profil administrateur ; un autre profil ayant accès à l'onglet (configuration des onglets, accès

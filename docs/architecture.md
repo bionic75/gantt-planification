@@ -141,7 +141,7 @@ l'onglet, à la place de l'ancien code.
 
 | Élément                         | Rôle                                                                                                                                                                                                                                                             |
 | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `frontend/src/ilots.ts`         | point d'entrée : registre des îlots (onglet → composant), variables CSS (`styles/theme.css`)                                                                                                                                                                     |
+| `frontend/src/ilots.ts`         | point d'entrée : registre des îlots (onglet → composant ; section d'onglet → composant et onglet pour un sous-îlot), variables CSS (`styles/theme.css`)                                                                                                          |
 | `frontend/src/ilots/montage.ts` | montage à l'activation de l'onglet, signal de réouverture (`activation.ts`), démontage et magasins neufs à la déconnexion                                                                                                                                        |
 | `frontend/src/ilots/<îlot>/`    | écran migré : composants, magasin Pinia, mises en forme (ex. `tripadvisor/`)                                                                                                                                                                                     |
 | `frontend/src/composants/`      | composants communs `App*` (bouton, champs, étiquette, fenêtre, confirmation, alerte, notes)                                                                                                                                                                      |
@@ -151,8 +151,9 @@ l'onglet, à la place de l'ancien code.
 | `src/lib/frontend.js` (serveur) | service de l'interface selon l'environnement et insertion du point d'entrée dans la page                                                                                                                                                                         |
 
 Îlots en service : **SAMU-SAS TripAdVisor** (`#tripadvisor`), **Reporting** (`#reporting`), **Événements**
-(`#evenements`). Les bibliothèques de l'interface Vue (Leaflet…) sont
-intégrées au build, sans CDN.
+(`#evenements`), et dans l'onglet Administration le sous-îlot **Localisations** (`#adminLocalisations`, section
+montée à l'ouverture de l'onglet ; les autres sections restent dans l'ancien code). Les bibliothèques de l'interface
+Vue (Leaflet…) sont intégrées au build, sans CDN.
 
 Selon `NODE_ENV` :
 
