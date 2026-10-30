@@ -1,6 +1,8 @@
 // Application principale : settings
 // Extrait de index.html : script classique, portée globale partagée avec les autres scripts de la page
-// ==================== NOUVELLES FONCTIONS ====================
+// Écran « Paramétrages divers » de l'Administration : îlot Vue (frontend/src/ilots/admin/parametrages). Restent ici
+// l'affichage de la version, le compteur d'inactivité, le favicon et la fenêtre des nouveautés, communs à toute
+// l'application (déclenchés par l'îlot : gp:version-modifiee, gp:inactivite-modifiee, gp:favicon-modifie).
 
 // ========== GESTION DE LA VERSION ==========
 
@@ -13,17 +15,11 @@ async function loadAppVersion() {
             if (versionElement) {
                 versionElement.textContent = data.version || '1.0.0';
             }
-            const adminVersionInput = document.getElementById('adminVersion');
-            if (adminVersionInput) {
-                adminVersionInput.value = data.version || '1.0.0';
-            }
         }
     } catch (error) {
         console.error('Erreur chargement version:', error);
     }
 }
-
-// ========== GESTION DES PARAMÈTRES DIVERS ==========
 
 // ========== CHARGEMENT VERSION (PUBLIC) ==========
 
@@ -56,70 +52,24 @@ async function loadVersion() {
 // ========== CHARGEMENT PARAMÈTRES (AUTHENTIFIÉ) ==========
 
 async function loadSettings() {
-    console.log('🔄 loadSettings() appelé');
     try {
         const response = await fetch(`${API_URL}/settings`, {
             credentials: 'include'
         });
 
-        console.log('📥 GET /api/settings - Status:', response.status);
-
         if (response.ok) {
             const settings = await response.json();
-            console.log('📥 Settings reçus:', settings);
-
-            // Charger la version de l'application (uniquement si l'élément existe - admin)
-            const appVersionInput = document.getElementById('appVersionInput');
-            console.log('🔍 Element appVersionInput:', appVersionInput);
-
-            if (appVersionInput && settings.app_version) {
-                console.log('✅ Chargement version dans input:', settings.app_version);
-                appVersionInput.value = settings.app_version;
-            } else {
-                console.log('⚠️ Pas de chargement version:', {
-                    inputExists: !!appVersionInput,
-                    hasVersion: !!settings.app_version
-                });
-            }
 
             // Mettre à jour le span d'affichage de la version (visible par tous)
             const appVersionDisplay = document.getElementById('appVersion');
             if (appVersionDisplay && settings.app_version) {
-                console.log('✅ Mise à jour affichage version:', settings.app_version);
                 appVersionDisplay.textContent = settings.app_version;
-            }
-
-            // Charger les paramètres d'inactivité (uniquement si les éléments existent - admin)
-            const inactivityEnabledEl = document.getElementById('inactivityEnabled');
-            const inactivityTimeoutEl = document.getElementById('inactivityTimeout');
-
-            if (inactivityEnabledEl && settings.inactivity_enabled) {
-                inactivityEnabledEl.checked = settings.inactivity_enabled === 'true';
-                toggleInactivityTimeout();
-            }
-
-            if (inactivityTimeoutEl && settings.inactivity_timeout) {
-                inactivityTimeoutEl.value = settings.inactivity_timeout;
-            }
-
-            // Charger le favicon sélectionné
-            const faviconSelect = document.getElementById('faviconSelect');
-            if (faviconSelect && settings.favicon) {
-                faviconSelect.value = settings.favicon;
-                renderFaviconPicker();
             }
 
             // Appliquer le favicon actuel
             if (settings.favicon) {
                 applyFavicon(settings.favicon);
             }
-
-            // Aide en ligne — version label et publication
-            const vLabel = document.getElementById('currentVersionLabel');
-            if (vLabel && settings.app_version) vLabel.textContent = settings.app_version;
-            const helpPub = document.getElementById('helpPublicationEnabled');
-            if (helpPub) helpPub.checked = settings.help_publication_enabled === 'true';
-            loadHelpFileInfo();
 
             // Démarrer le compteur d'inactivité si activé (pour tous les utilisateurs)
             if (settings.inactivity_enabled === 'true') {
@@ -138,102 +88,6 @@ async function loadSettings() {
 function openHelp(anchor) {
     const url = anchor ? `/aide.html#${anchor}` : '/aide.html';
     window.open(url, '_blank', 'width=1200,height=800');
-}
-
-async function saveHelpPublication() {
-    const enabled = document.getElementById('helpPublicationEnabled').checked;
-    try {
-        const vRes = await fetch(`${API_URL}/settings`, { credentials: 'include' });
-        const vData = await vRes.json();
-        const version = vData.app_version || '';
-
-        await fetch(`${API_URL}/settings`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ key: 'help_publication_enabled', value: enabled ? 'true' : 'false' })
-        });
-        await fetch(`${API_URL}/settings`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ key: 'help_publication_version', value: version })
-        });
-        // Stocker un timestamp unique de publication → force la réaffichage pour tous les utilisateurs
-        const pubTimestamp = Date.now().toString();
-        await fetch(`${API_URL}/settings`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ key: 'help_publication_timestamp', value: pubTimestamp })
-        });
-
-        alert(
-            enabled
-                ? `Publication activée pour la version ${version}.\nLa popup s'affichera à la prochaine connexion de chaque utilisateur.`
-                : 'Publication désactivée.'
-        );
-    } catch (e) {
-        alert('Erreur sauvegarde');
-    }
-}
-
-async function uploadHelpFile() {
-    const file = document.getElementById('helpFileInput').files[0];
-    if (!file) return alert('Sélectionnez un fichier HTML');
-    const status = document.getElementById('helpUploadStatus');
-    status.textContent = 'Upload en cours...';
-    const reader = new FileReader();
-    reader.onload = async e => {
-        try {
-            const res = await fetch(`${API_URL}/help/upload`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ content: e.target.result })
-            });
-            const data = await res.json();
-            if (data.success) {
-                status.style.color = 'green';
-                status.textContent = "✅ Page d'aide mise à jour avec succès";
-                loadHelpFileInfo();
-            } else {
-                throw new Error(data.error);
-            }
-        } catch (e) {
-            status.style.color = 'red';
-            status.textContent = '❌ Erreur : ' + e.message;
-        }
-    };
-    reader.readAsText(file);
-}
-
-async function loadHelpFileInfo() {
-    try {
-        const res = await fetch(`${API_URL}/help/info`, { credentials: 'include' });
-        const data = await res.json();
-        const el = document.getElementById('helpCurrentFile');
-        if (!el) return;
-        if (data.exists) {
-            const d = new Date(data.updatedAt);
-            el.innerHTML = `📄 Page d'aide active — mise à jour le ${d.toLocaleDateString('fr-FR')} à ${d.toLocaleTimeString('fr-FR')} — <button onclick="deleteHelpFile()" style="background:none;border:none;color:#c0392b;cursor:pointer;text-decoration:underline;font-size:12px;padding:0;">🗑️ Supprimer (revenir à la page par défaut)</button>`;
-        } else {
-            el.textContent = "Page d'aide par défaut (aucun fichier uploadé)";
-        }
-    } catch (e) {
-        const el = document.getElementById('helpCurrentFile');
-        if (el) el.textContent = 'Impossible de vérifier le fichier';
-    }
-}
-
-async function deleteHelpFile() {
-    if (!confirm("Supprimer la page d'aide uploadée et revenir à la page par défaut ?")) return;
-    try {
-        await fetch(`${API_URL}/help/upload`, { method: 'DELETE', credentials: 'include' });
-        loadHelpFileInfo();
-    } catch (e) {
-        alert('Erreur suppression');
-    }
 }
 
 async function checkHelpVersionPopup() {
@@ -295,56 +149,6 @@ function closeHelpVersionModal() {
     document.getElementById('helpVersionModal').classList.remove('active');
 }
 
-function toggleInactivityTimeout() {
-    const enabled = document.getElementById('inactivityEnabled');
-    const timeoutGroup = document.getElementById('inactivityTimeoutGroup');
-
-    // Vérifier que les éléments existent avant de les manipuler
-    if (!enabled || !timeoutGroup) {
-        return;
-    }
-
-    if (enabled.checked) {
-        timeoutGroup.style.display = 'block';
-    } else {
-        timeoutGroup.style.display = 'none';
-    }
-}
-
-const FAVICON_CHOICES = [
-    { id: 'calendrier', label: 'Calendrier', hint: 'Planning par jour' },
-    { id: 'gantt', label: 'Gantt', hint: 'Barres de planification' },
-    { id: 'grille', label: 'Grille', hint: 'Affectations par case' },
-    { id: 'timeline', label: 'Timeline', hint: 'Expert dans le temps' }
-];
-function renderFaviconPicker() {
-    const sel = document.getElementById('faviconSelect');
-    const box = document.getElementById('faviconPicker');
-    if (!sel || !box) return;
-    const cur = sel.value || 'calendrier';
-    box.innerHTML = FAVICON_CHOICES.map(
-        c => `
-                <div onclick="pickFavicon('${c.id}')" role="radio" aria-checked="${c.id === cur}" tabindex="0"
-                     onkeydown="if(event.key==='Enter'||event.key===' '){pickFavicon('${c.id}');event.preventDefault();}"
-                     style="width:120px;padding:12px 8px 10px;border:2px solid ${c.id === cur ? '#3949ab' : '#d5dae6'};border-radius:12px;background:${c.id === cur ? '#eef0fb' : '#fff'};text-align:center;cursor:pointer;position:relative;transition:all .15s;">
-                    ${c.id === cur ? `<span style="position:absolute;top:-8px;right:-8px;width:22px;height:22px;border-radius:50%;background:#3949ab;display:flex;align-items:center;justify-content:center;"><svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true" style="fill:none;stroke:#fff;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;"><path d="m5 12 5 5L20 7"/></svg></span>` : ''}
-                    <img src="/img/favicon-${c.id}.svg" alt="" width="52" height="52" style="display:block;margin:0 auto 8px;border-radius:12px;box-shadow:0 3px 10px rgba(0,0,0,.18);">
-                    <div style="font-size:13px;font-weight:bold;color:#2c3e50;">${c.label}</div>
-                    <div style="font-size:10.5px;color:#7a8799;margin-top:2px;">${c.hint}</div>
-                </div>`
-    ).join('');
-    const mock = document.getElementById('faviconTabMock');
-    if (mock)
-        mock.innerHTML = `<img src="/img/favicon-${cur}.svg" alt="" width="16" height="16" style="border-radius:4px;"> Plateforme de Planification`;
-}
-function pickFavicon(id) {
-    const sel = document.getElementById('faviconSelect');
-    if (!sel) return;
-    sel.value = id;
-    renderFaviconPicker();
-}
-document.addEventListener('DOMContentLoaded', renderFaviconPicker);
-
 function applyFavicon(faviconName) {
     // Récupérer ou créer le lien favicon
     let faviconLink = document.querySelector('link[rel="icon"]');
@@ -360,180 +164,6 @@ function applyFavicon(faviconName) {
     faviconLink.href = `/img/favicon-${faviconName}.svg?t=${Date.now()}`;
 
     console.log(`✅ Favicon appliqué: ${faviconName}, href: ${faviconLink.href}`);
-}
-
-function previewFavicon() {
-    const faviconName = document.getElementById('faviconSelect').value;
-    // Ne pas appliquer directement, juste un aperçu visuel si nécessaire
-    console.log(`📋 Favicon sélectionné: ${faviconName} (sauvegardez pour appliquer)`);
-}
-
-async function saveSettings() {
-    const enabled = document.getElementById('inactivityEnabled').checked;
-    const timeout = document.getElementById('inactivityTimeout').value;
-    const favicon = document.getElementById('faviconSelect').value;
-
-    try {
-        // Sauvegarder l'activation
-        await fetch(`${API_URL}/settings`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({
-                key: 'inactivity_enabled',
-                value: enabled.toString()
-            })
-        });
-
-        // Sauvegarder le timeout
-        await fetch(`${API_URL}/settings`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({
-                key: 'inactivity_timeout',
-                value: timeout
-            })
-        });
-
-        // Sauvegarder le favicon
-        await fetch(`${API_URL}/settings`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({
-                key: 'favicon',
-                value: favicon
-            })
-        });
-
-        // Appliquer le nouveau favicon
-        applyFavicon(favicon);
-
-        alert('✅ Paramètres sauvegardés');
-
-        // Redémarrer le timer si activé
-        if (enabled) {
-            startInactivityTimer(parseInt(timeout));
-        } else {
-            stopInactivityTimer();
-        }
-    } catch (error) {
-        console.error('Erreur sauvegarde settings:', error);
-        alert('Erreur lors de la sauvegarde');
-    }
-}
-
-// Nouvelles fonctions de sauvegarde individuelles
-async function saveAppVersion() {
-    const input = document.getElementById('appVersionInput');
-    console.log('🔍 Element appVersionInput:', input);
-    console.log('🔍 Value:', input ? input.value : 'ELEMENT NOT FOUND');
-
-    const version = input ? input.value : null;
-    if (!version) {
-        alert('⚠️ Veuillez saisir une version');
-        return;
-    }
-
-    console.log('📤 Envoi requête PUT /api/settings avec:', { key: 'app_version', value: version });
-
-    try {
-        const response = await fetch(`${API_URL}/settings`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({
-                key: 'app_version',
-                value: version
-            })
-        });
-
-        console.log('📥 Response status:', response.status);
-        console.log('📥 Response ok:', response.ok);
-
-        const data = await response.json();
-        console.log('📥 Response data:', data);
-
-        if (data.success) {
-            alert('✅ Version sauvegardée');
-            console.log('🔄 Appel loadSettings()...');
-            loadSettings(); // Recharger pour mettre à jour l'affichage
-        } else {
-            alert('❌ Erreur lors de la sauvegarde');
-            console.error('❌ Erreur:', data);
-        }
-    } catch (error) {
-        console.error('❌ Exception:', error);
-        alert('❌ Erreur lors de la sauvegarde');
-    }
-}
-
-async function saveInactivityConfig() {
-    const enabled = document.getElementById('inactivityEnabled').checked;
-    const timeout = document.getElementById('inactivityTimeout').value;
-
-    try {
-        const response1 = await fetch(`${API_URL}/settings`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({
-                key: 'inactivity_enabled',
-                value: enabled.toString()
-            })
-        });
-
-        const response2 = await fetch(`${API_URL}/settings`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({
-                key: 'inactivity_timeout',
-                value: timeout
-            })
-        });
-
-        const data1 = await response1.json();
-        const data2 = await response2.json();
-
-        if (data1.success && data2.success) {
-            alert("✅ Configuration d'inactivité sauvegardée");
-
-            if (enabled) {
-                startInactivityTimer(parseInt(timeout));
-            } else {
-                stopInactivityTimer();
-            }
-        } else {
-            alert('❌ Erreur lors de la sauvegarde');
-        }
-    } catch (error) {
-        console.error('Erreur sauvegarde inactivité:', error);
-        alert('❌ Erreur lors de la sauvegarde');
-    }
-}
-
-async function saveFavicon() {
-    const favicon = document.getElementById('faviconSelect').value;
-
-    try {
-        await fetch(`${API_URL}/settings`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({
-                key: 'favicon',
-                value: favicon
-            })
-        });
-
-        applyFavicon(favicon);
-        alert('✅ Favicon sauvegardé');
-    } catch (error) {
-        console.error('Erreur sauvegarde favicon:', error);
-        alert('❌ Erreur lors de la sauvegarde');
-    }
 }
 
 // Variables globales pour le timer d'inactivité

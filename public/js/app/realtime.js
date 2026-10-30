@@ -731,48 +731,7 @@ function _playDefaultBeep() {
     } catch (e) {}
 }
 
-function previewNotifSound() {
-    playNotifSound();
-}
-
-function loadNotifSoundAdminUI() {
-    const cb = document.getElementById('notifSoundEnabled');
-    if (cb) cb.checked = localStorage.getItem('notifSoundEnabled') !== 'false';
-    const status = document.getElementById('notifSoundStatus');
-    if (status) {
-        const hasCustom = !!localStorage.getItem('notifSoundData');
-        status.textContent = hasCustom ? '🎵 Son personnalisé chargé' : '🎵 Son par défaut';
-        status.style.color = hasCustom ? '#2e7d32' : '#888';
-    }
-}
-
-function saveNotifSoundEnabled(val) {
-    localStorage.setItem('notifSoundEnabled', val ? 'true' : 'false');
-}
-
-function handleNotifSoundUpload(input) {
-    const file = input.files[0];
-    if (!file) return;
-    if (file.size > 3 * 1024 * 1024) {
-        alert('Fichier trop volumineux (max 3 Mo — privilégiez un son court de 2-3 s).');
-        input.value = '';
-        return;
-    }
-    const reader = new FileReader();
-    reader.onload = e => {
-        localStorage.setItem('notifSoundData', e.target.result);
-        loadNotifSoundAdminUI();
-        alert('Son personnalisé enregistré. Cliquez sur "Tester" pour vérifier.');
-    };
-    reader.readAsDataURL(file);
-}
-
-function resetNotifSound() {
-    localStorage.removeItem('notifSoundData');
-    const fi = document.getElementById('notifSoundFile');
-    if (fi) fi.value = '';
-    loadNotifSoundAdminUI();
-}
+// Réglage du son (Administration › Paramétrages divers) : îlot Vue (frontend/src/ilots/admin/parametrages)
 
 function openSendPushMessage(toUserId, toName, toPhoto) {
     // Fermer le tooltip utilisateurs
