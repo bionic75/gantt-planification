@@ -87,6 +87,8 @@ export class Monde {
         this.nettoyages = [];
         /** Messages des fenêtres alert / confirm, acceptées automatiquement @type {string[]} */
         this.dialogues = [];
+        /** Prochaine fenêtre confirm refusée au lieu d'être acceptée (annulation d'une action) */
+        this.refuserProchainDialogue = false;
         /** Erreurs JavaScript, violations CSP et réponses en erreur de l'application @type {string[]} */
         this.problemes = [];
         /** Dernière réponse API d'une étape « Quand » @type {Reponse | null} */
@@ -152,7 +154,10 @@ export class Monde {
         const page = await context.newPage();
         page.on('dialog', d => {
             this.dialogues.push(d.message());
-            d.accept().catch(() => {});
+            if (this.refuserProchainDialogue && d.type() === 'confirm') {
+                this.refuserProchainDialogue = false;
+                d.dismiss().catch(() => {});
+            } else d.accept().catch(() => {});
         });
         // Navigateur piloté : gestionnaire de mots de passe (Credential Management) indisponible, sans rapport avec l'application
         page.on('pageerror', e => {

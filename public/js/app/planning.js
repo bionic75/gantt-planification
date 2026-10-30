@@ -997,8 +997,6 @@ async function loadUsers() {
             loadAutomation4Config();
             // Automatisations 5 et 6 (astreintes HO)
             if (typeof loadAutomationHoConfigs === 'function') loadAutomationHoConfigs();
-            // Configuration MFA
-            loadMfaConfig();
         }
     } catch (error) {
         console.error('Erreur:', error);

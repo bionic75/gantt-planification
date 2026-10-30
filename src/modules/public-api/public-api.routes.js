@@ -33,6 +33,14 @@ router.delete(
         res.json({ success: true });
     })
 );
+router.delete(
+    '/admin/api-keys/:id/permanent',
+    requireAdmin,
+    h(async (req, res) => {
+        await service.deleteApiKey(req.params.id);
+        res.json({ success: true });
+    })
+);
 
 // API publique : événements
 router.get(

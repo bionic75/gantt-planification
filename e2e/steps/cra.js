@@ -17,9 +17,15 @@ async function nettoyerCra(/** @type {Monde} */ monde, /** @type {number} */ id)
     await api.delete(`/api/cra/${id}/purge`);
 }
 
+/** CRA de l'expert de test pour un mois, archivés compris (repris par « find-or-create » comme les autres) */
 const crasDuMois = async (/** @type {Monde} */ monde, /** @type {number} */ mois, /** @type {number} */ annee) => {
     const { userId } = await ressourceExpert(monde);
-    return (await adminApi(monde)).ok('GET', `/api/cra/admin/list?user_id=${userId}&mois=${mois}&annee=${annee}`);
+    const api = await adminApi(monde);
+    const filtre = `user_id=${userId}&mois=${mois}&annee=${annee}`;
+    return [
+        ...(await api.ok('GET', `/api/cra/admin/list?${filtre}`)),
+        ...(await api.ok('GET', `/api/cra/admin/archives?${filtre}`))
+    ];
 };
 
 /** Mois sans CRA pour l'expert de test (année 2090 et suivantes) ; ses CRA sont purgés en fin de scénario */

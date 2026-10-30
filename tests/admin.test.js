@@ -175,6 +175,16 @@ describe("clés d'API et API publique", () => {
         expect((await pub.get('/api/public/events', { 'X-API-Key': created.data.key })).status).toBe(401);
         expect((await admin.post('/api/admin/api-keys', {})).status).toBe(400);
     });
+
+    it('suppression définitive : clé retirée de la liste et refusée', async () => {
+        const created = await admin.post('/api/admin/api-keys', { label: 'Temporaire' });
+        const supprimee = await admin.delete(`/api/admin/api-keys/${created.data.id}/permanent`);
+        expect(supprimee.status, JSON.stringify(supprimee.data)).toBe(200);
+        expect((await admin.get('/api/admin/api-keys')).data.some(k => k.id === created.data.id)).toBe(false);
+        const pub = server.client();
+        expect((await pub.get('/api/public/events', { 'X-API-Key': created.data.key })).status).toBe(401);
+        expect((await admin.delete(`/api/admin/api-keys/${created.data.id}/permanent`)).status).toBe(404);
+    });
 });
 
 describe('configuration email', () => {

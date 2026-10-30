@@ -73,8 +73,14 @@ When("j'ouvre la section {string}", async ({ monde }, titre) => {
     const page = monde.page;
     const h3 = page.locator('.tab-content.active h3', { hasText: titre }).first();
     await expect(h3).toBeVisible();
+    // État de la section : bouton aria-expanded (îlot Vue) ou icône ▶ / ▼ (ancien code)
+    const bouton = h3.locator('button[aria-expanded]');
     const icone = h3.locator('span[id$="Icon"]');
-    const ouverte = (await icone.count()) ? (await icone.first().textContent())?.includes('▼') : false;
+    const ouverte = (await bouton.count())
+        ? (await bouton.first().getAttribute('aria-expanded')) === 'true'
+        : (await icone.count())
+          ? (await icone.first().textContent())?.includes('▼')
+          : false;
     if (!ouverte) await h3.click();
     await page.waitForTimeout(300);
 });
