@@ -202,7 +202,11 @@ Then('pour chaque périmètre proposé, le décompte des lieux est mis à jour',
 });
 
 When('je touche le lieu de test sur la carte', async ({ monde }) => {
-    await marqueurLieu(monde).locator('.near-pin').click();
+    // Marqueur activé au clavier (bouton Leaflet) : les lieux de test des autres fonctionnalités, créés en parallèle
+    // aux mêmes coordonnées, peuvent le recouvrir et intercepter un clic
+    const marqueur = marqueurLieu(monde);
+    await marqueur.focus();
+    await marqueur.press('Enter');
 });
 
 Then(

@@ -4,11 +4,13 @@ Fonctionnalité: Planification (grille des experts)
   Codes de la grille : disponibilité 1 = indisponible, 2 = disponible, 3 = congés ;
   affectation 2 = en attente d'affectation, 3 = déploiement, 5 à 8 = activités ANS.
 
+  # Mois propre à ce scénario : la planification de l'expert de test est remise à zéro mois par mois en fin de
+  # scénario, et d'autres fonctionnalités exécutées en parallèle l'utilisent (mars 2031 : 06, mai 2031 : 16)
   Scénario: Saisie d'une journée dans la planification
     Étant donné que la ressource de l'expert de test est connue
-    Et que la demi-journée du "2031-03-12" matin de l'expert de test sera remise en état après le scénario
-    Quand "Expert" enregistre pour lui-même le "2031-03-12" matin : disponibilité "2", affectation "5", SAMU "SAMU 75"
-    Alors la planification de l'expert de test contient pour le "2031-03-12" matin la disponibilité "2" et l'affectation "5"
+    Et que la demi-journée du "2031-07-16" matin de l'expert de test sera remise en état après le scénario
+    Quand "Expert" enregistre pour lui-même le "2031-07-16" matin : disponibilité "2", affectation "5", SAMU "SAMU 75"
+    Alors la planification de l'expert de test contient pour le "2031-07-16" matin la disponibilité "2" et l'affectation "5"
     Et "Administrateur" voit la même saisie dans la planification
     Et "Utilisateur" voit la même saisie dans la planification
 
