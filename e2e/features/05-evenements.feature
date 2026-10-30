@@ -53,8 +53,10 @@ Fonctionnalité: Événements et types d'événements
     Quand l'administrateur crée un événement d'un type inexistant le "2031-05-22"
     Alors l'événement créé est du type « Autre »
 
+  # Période propre à cette fonctionnalité : l'expert de test est aussi affecté à des visites métier par
+  # 06-aide-affectation, exécutée en parallèle en CI (affectation refusée sur une période déjà prise)
   Scénario: Événement ↔ affectations (participants)
-    Étant donné qu'un déploiement de test avec une visite métier du "2031-03-03" au "2031-03-05" pour 2 ressources existe
+    Étant donné qu'un déploiement de test avec une visite métier du "2031-03-17" au "2031-03-19" pour 2 ressources existe
     Et que l'expert de test est affecté à la visite métier du déploiement
     Quand l'administrateur crée l'événement de la visite métier depuis le déploiement
     Alors l'événement créé a "Expert" pour participant
@@ -62,7 +64,7 @@ Fonctionnalité: Événements et types d'événements
     Alors l'événement créé n'a plus de participant
 
   Scénario: Suppression d'un événement
-    Étant donné qu'un déploiement de test avec une visite métier du "2031-03-03" au "2031-03-05" pour 2 ressources existe
+    Étant donné qu'un déploiement de test avec une visite métier du "2031-03-17" au "2031-03-19" pour 2 ressources existe
     Et que l'expert de test est affecté à la visite métier du déploiement
     Et que l'administrateur a créé l'événement de la visite métier depuis le déploiement
     Quand l'administrateur supprime l'événement
