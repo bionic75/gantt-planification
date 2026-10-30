@@ -19,6 +19,10 @@ export interface EvenementsLiaison {
     'localisations-modifiees': undefined;
     /** Types d'événements modifiés dans l'administration (ancien code) : les îlots rechargent types et événements */
     'types-evenements-modifies': undefined;
+    /** Accès aux applications modifiés : l'ancien code relit ceux de la session (menu Applications) */
+    'applications-modifiees': undefined;
+    /** Accès aux onglets enregistrés : l'ancien code applique la configuration à la barre d'onglets */
+    'onglets-modifies': { config: Record<string, Record<string, boolean>> };
 }
 
 export type NomEvenement = keyof EvenementsLiaison;

@@ -238,6 +238,32 @@ export async function creerLieu(
     return r;
 }
 
+/**
+ * Compte de test (profil Utilisateur par défaut), supprimé en fin de scénario. Distinct des quatre comptes partagés :
+ * les actions sur un compte (désactivation, mot de passe, déconnexion…) ne gênent aucun autre scénario.
+ * @param {Monde} monde
+ * @param {Record<string, unknown>} [champs]
+ */
+export async function creerCompte(monde, champs = {}) {
+    const api = await adminApi(monde);
+    const id = `${monde.suffixe}${++monde.seq}`;
+    const login = `e2e.compte.${id.toLowerCase()}`;
+    const body = {
+        username: login,
+        password: 'Compte-E2E-2026!',
+        nom: 'E2E',
+        prenom: `Compte${id}`,
+        email: `${login}@example.invalid`,
+        is_user: 1,
+        ...champs
+    };
+    const r = await api.post('/api/users', body);
+    expect(r.status, JSON.stringify(r.data)).toBe(200);
+    const compte = { id: /** @type {number} */ (r.data.id), ...body };
+    monde.aNettoyer(`compte ${login}`, () => api.delete(`/api/users/${compte.id}`));
+    return compte;
+}
+
 /** Ressource de l'expert de test (compte rattaché à une ressource) */
 export async function ressourceExpert(/** @type {Monde} */ monde) {
     const s = await monde.sessionDe('Expert');
