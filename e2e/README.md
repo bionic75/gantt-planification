@@ -103,6 +103,15 @@ E2E_TAGS="@cra" npm test                                        # une fonctionna
 - Chaque scénario crée ses données (préfixe « E2E », localisations « SAMU 9xxx », dates en 2031, CRA sur des
   années ≥ 2090) et les supprime en fin de scénario, même en cas d'échec.
 - Les paramètres globaux modifiés (accès aux onglets, thème, couleurs, modèle de nom, automatisations) sont rétablis.
+- Les fonctionnalités s'exécutent en parallèle (2 workers) : une donnée partagée ne doit être utilisée que par une
+  seule d'entre elles à la fois.
+    - **Expert de test** (un seul compte, une seule ressource) : un mois de planification et une période de visite
+      métier par fonctionnalité (la remise en état efface le mois entier). Mars 2031 (03-05) : `06` ; mars 2031
+      (17-19) : `05` ; mai 2031 : `16` ; juillet 2031 : `04` ; mois courant : `07`.
+    - **Accès aux onglets** : `02` masque un onglet qu'aucune autre fonctionnalité n'ouvre avec ce profil (CRA du
+      profil RH).
+    - **Carte** : les lieux de test sont créés aux mêmes coordonnées ; un marqueur s'active au clavier (focus puis
+      Entrée), un clic pouvant être intercepté par un autre marqueur.
 - Préalables de l'environnement : au moins une localisation (SAMU), le compte Expert rattaché à une ressource,
   un SMTP **de test** (jamais de production) pour les codes OTP et la diffusion des CRA.
 
