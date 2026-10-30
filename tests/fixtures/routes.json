@@ -20,6 +20,11 @@
         "guard": "admin"
     },
     {
+        "method": "DELETE",
+        "path": "/api/admin/api-keys/:id/permanent",
+        "guard": "admin"
+    },
+    {
         "method": "GET",
         "path": "/api/admin/dump",
         "guard": "admin"

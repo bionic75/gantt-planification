@@ -4,6 +4,7 @@ import { defineComponent, h, nextTick } from 'vue';
 import AppConfirmation from './AppConfirmation.vue';
 import AppModal from './AppModal.vue';
 import AppNotation from './AppNotation.vue';
+import AppSectionAdmin from './AppSectionAdmin.vue';
 import { fournirConfirmation, useConfirmation } from './confirmation';
 
 afterEach(() => {
@@ -116,5 +117,37 @@ describe('confirmation', () => {
         annuler.click();
         expect(await reponse()).toBe(false);
         w.unmount();
+    });
+});
+
+describe('AppSectionAdmin', () => {
+    it('fermée par défaut ; ouverture signalée une fois, aussi quand le parent contrôle l’état (v-model)', async () => {
+        const Parent = defineComponent({
+            data: () => ({ ouverte: false, ouvertures: 0 }),
+            render() {
+                return h(
+                    AppSectionAdmin,
+                    {
+                        titre: 'Gestion des API',
+                        idCorps: 'corps',
+                        teinte: 'vert',
+                        ouverte: this.ouverte,
+                        'onUpdate:ouverte': (v: boolean) => (this.ouverte = v),
+                        onOuverture: () => this.ouvertures++
+                    },
+                    () => h('p', 'Contenu')
+                );
+            }
+        });
+        const w = mount(Parent);
+        const bouton = w.get('h3 button');
+        expect(bouton.attributes('aria-expanded')).toBe('false');
+        expect(w.get('#corps').isVisible()).toBe(false);
+        await bouton.trigger('click');
+        expect(bouton.attributes('aria-expanded')).toBe('true');
+        expect(w.vm.ouvertures).toBe(1);
+        await bouton.trigger('click');
+        expect(bouton.attributes('aria-expanded')).toBe('false');
+        expect(w.vm.ouvertures).toBe(1);
     });
 });
