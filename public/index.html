@@ -1116,83 +1116,8 @@
         </div>
     </div>
     
-    <!-- SECTION LOCALISATION -->
-    <div class="form-section" style="background-color: #e8eaf6; border-left: 4px solid #3f51b5;">
-        <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleAdminSection('localisationAdminSection')">
-            <h3 style="color: #283593; border-left: none; margin: 0;">
-                <span id="localisationAdminSectionIcon">▶</span> Localisation
-            </h3>
-        </div>
-        <div id="localisationAdminSection" style="margin-top: 15px; display: none;">
-
-            <!-- Formulaire ajout/édition -->
-            <div style="background: #c5cae9; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                <div style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 0;" onclick="toggleLocalisationForm()">
-                    <span id="localisationFormIcon" style="font-size: 13px; color: #283593;">▶</span>
-                    <h4 id="localisationFormTitle" style="margin: 0; color: #283593;">Ajouter une localisation</h4>
-                </div>
-                <div id="localisationFormBody" style="display: none; margin-top: 15px;">
-                    <input type="hidden" id="localisationEditId">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
-                        <div>
-                            <label style="font-size: 12px; color: #283593; display: block; margin-bottom: 3px;">Libellé long *</label>
-                            <input type="text" id="locLong" placeholder="Ex: CENTRE HOSPITALIER DE BORDEAUX" style="width:100%;padding:6px;text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()">
-                        </div>
-                        <div>
-                            <label style="font-size: 12px; color: #283593; display: block; margin-bottom: 3px;">Libellé court *</label>
-                            <input type="text" id="locCourt" placeholder="Ex: CHB" style="width:100%;padding:6px;text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()">
-                        </div>
-                    </div>
-                    <div style="margin-bottom: 10px; position:relative;">
-                        <label style="font-size: 12px; color: #283593; display: block; margin-bottom: 3px;">Adresse</label>
-                        <input type="text" id="locAdresse" placeholder="Ex: 1 RUE DE LA PAIX, 75001 PARIS" style="width:100%;padding:6px;text-transform:uppercase;" oninput="this.value=this.value.toUpperCase(); scheduleGeocode('locAdresse','locLat','locLng','locGeoSuggest')" autocomplete="off">
-                        <div id="locGeoSuggest" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #9fa8da;border-radius:0 0 6px 6px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:5000;max-height:160px;overflow-y:auto;"></div>
-                    </div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
-                        <div>
-                            <label style="font-size: 12px; color: #283593; display: block; margin-bottom: 3px;">Latitude</label>
-                            <input type="number" id="locLat" placeholder="Ex: 44.8378" step="any" style="width:100%;padding:6px;">
-                        </div>
-                        <div>
-                            <label style="font-size: 12px; color: #283593; display: block; margin-bottom: 3px;">Longitude</label>
-                            <input type="number" id="locLng" placeholder="Ex: -0.5792" step="any" style="width:100%;padding:6px;">
-                        </div>
-                    </div>
-                    <div style="margin-bottom:15px;">
-                        <button type="button" onclick="openVerifyMapModal('locLat','locLng')" style="background:#1565c0;color:white;padding:6px 14px;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🗺️ Vérifier sur la carte</button>
-                    </div>
-                    <div style="display: flex; gap: 10px;">
-                        <button onclick="saveLocalisation()" style="background:#3f51b5;color:white;padding:8px 20px;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">💾 Enregistrer</button>
-                        <button onclick="resetLocalisationForm()" style="background:#95a5a6;color:white;padding:8px 20px;border:none;border-radius:4px;cursor:pointer;">🔄 Annuler</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Import CSV -->
-            <div style="background: #e8eaf6; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #9fa8da;">
-                <label style="font-size: 13px; color: #283593; font-weight: bold; display: block; margin-bottom: 8px;">📥 Import CSV</label>
-                <p style="font-size: 11px; color: #3949ab; margin-bottom: 8px;">Format attendu : <code>libelle_long;libelle_court;adresse;latitude;longitude</code> (avec en-tête)</p>
-                <div style="display: flex; gap: 10px; align-items: center;">
-                    <input type="file" id="locCsvFile" accept=".csv" style="flex:1;">
-                    <button onclick="importLocalisationsCSV()" style="background:#3f51b5;color:white;padding:8px 15px;border:none;border-radius:4px;cursor:pointer;white-space:nowrap;">📤 Importer</button>
-                </div>
-                <div id="locImportStatus" style="margin-top: 8px; font-size: 12px;"></div>
-            </div>
-
-            <!-- Liste des localisations (collapsible) -->
-            <div style="background:#e8eaf6;border:1px solid #9fa8da;border-radius:8px;overflow:hidden;">
-                <div style="padding:10px 15px;cursor:pointer;display:flex;align-items:center;gap:8px;" onclick="toggleAdminSubSection('locListSub')">
-                    <span id="locListSubSubIcon">▶</span>
-                    <label style="color:#283593;font-weight:bold;font-size:13px;cursor:pointer;margin:0;">📋 Liste des localisations renseignées</label>
-                </div>
-                <div id="locListSub" style="display:none;padding:0 15px 15px 15px;">
-                    <div id="localisationsTableContainer">
-                        <p style="color:#999;font-size:12px;font-style:italic;">Chargement...</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+    <!-- SECTION LOCALISATION : îlot Vue (frontend/src/ilots/admin/localisations) -->
+    <div id="adminLocalisations"></div>
 
     <!-- SECTION 3: Configuration Email (repliable) -->
     <div class="form-section" style="background-color: #fff3cd; border-left: 4px solid #ffc107;">
@@ -4630,22 +4555,6 @@
             </div>
         </div>
     </div>
-    <div id="locConflictModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:11000;overflow-y:auto;">
-        <div style="background:white;max-width:900px;margin:40px auto;padding:30px;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.3);">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-                <h3 style="color:#c0392b;margin:0;">⚠️ Conflits détectés lors de l'import</h3>
-                <span onclick="closeLocConflictModal()" style="cursor:pointer;font-size:28px;color:#7f8c8d;">&times;</span>
-            </div>
-            <p style="color:#555;font-size:13px;margin-bottom:20px;">Pour chaque localisation en conflit, choisissez l'action à effectuer :</p>
-            <div id="locConflictList"></div>
-            <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:25px;border-top:1px solid #eee;padding-top:15px;">
-                <button onclick="applyAllLocConflicts('keep')" style="background:#27ae60;color:white;padding:8px 18px;border:none;border-radius:4px;cursor:pointer;">✅ Tout conserver</button>
-                <button onclick="applyAllLocConflicts('overwrite')" style="background:#e74c3c;color:white;padding:8px 18px;border:none;border-radius:4px;cursor:pointer;">🔄 Tout écraser</button>
-                <button onclick="resolveLocConflicts()" style="background:#3f51b5;color:white;padding:8px 18px;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">💾 Appliquer les choix</button>
-            </div>
-        </div>
-    </div>
-
     <!-- ══ Modale création localisation depuis formulaire événement ══ -->
     <div id="newLocationModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:20000;align-items:center;justify-content:center;">
         <div style="background:white;border-radius:12px;padding:24px;width:480px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.25);">

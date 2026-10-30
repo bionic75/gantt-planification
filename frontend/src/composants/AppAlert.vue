@@ -19,7 +19,11 @@ withDefaults(
         :role="type === 'error' ? 'alert' : 'status'"
     >
         <strong v-if="title" class="gp-alerte__titre">{{ title }}</strong>
-        <slot>{{ description }}</slot>
+        <!-- Recréé à chaque message : les émojis du texte sont remplacés par des icônes (public/js/ui-icons.js),
+             un nœud texte converti n'est plus mis à jour par Vue -->
+        <slot
+            ><span :key="description">{{ description }}</span></slot
+        >
     </div>
 </template>
 

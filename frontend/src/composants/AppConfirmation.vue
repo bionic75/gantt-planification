@@ -24,5 +24,7 @@ const emit = defineEmits<{ confirm: []; cancel: [] }>();
 .gp-confirmation__message {
     margin: var(--gp-espace-3) 0 0;
     font-size: var(--gp-police-l);
+    /* Messages sur plusieurs lignes (liste des éléments concernés) */
+    white-space: pre-line;
 }
 </style>
