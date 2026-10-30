@@ -18,7 +18,9 @@ const ILOTS: RegistreIlots = {
     },
     adminSmtp: { chargeur: () => import('@/ilots/admin/securite/SectionSmtp.vue'), onglet: 'admin' },
     adminMfa: { chargeur: () => import('@/ilots/admin/securite/SectionMfa.vue'), onglet: 'admin' },
-    adminApi: { chargeur: () => import('@/ilots/admin/securite/SectionApi.vue'), onglet: 'admin' }
+    adminApi: { chargeur: () => import('@/ilots/admin/securite/SectionApi.vue'), onglet: 'admin' },
+    adminApplications: { chargeur: () => import('@/ilots/admin/acces/SectionApplications.vue'), onglet: 'admin' },
+    adminOnglets: { chargeur: () => import('@/ilots/admin/acces/SectionOnglets.vue'), onglet: 'admin' }
 };
 
 installerLiaisonAncienCode();
