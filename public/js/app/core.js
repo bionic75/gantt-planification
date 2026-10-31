@@ -928,6 +928,15 @@ window.addEventListener('gp:inactivite-modifiee', e => {
     else stopInactivityTimer();
 });
 window.addEventListener('gp:favicon-modifie', e => applyFavicon(e.detail.favicon));
+// Fichiers .ics importés ou supprimés par l'îlot des jours spéciaux : congés et dates de la planification rechargés
+window.addEventListener('gp:conges-modifies', async () => {
+    await reloadAllSchoolHolidays();
+    updateGantt();
+});
+window.addEventListener('gp:dates-particulieres-modifiees', async () => {
+    await loadSpecialDates();
+    updateGantt();
+});
 // Accès aux onglets enregistrés : barre d'onglets mise à jour
 window.addEventListener('gp:onglets-modifies', e => {
     TabAccess.cfg = e.detail.config;
