@@ -2189,7 +2189,6 @@ function closeAllModals() {
         'localisationsManagementModal',
         // Modales sans classe .modal
         'sendEmailModalContainer',
-        'editCustomEventModal',
         'confirmationModal',
         'notificationsModal',
         'searchModal',
@@ -2197,8 +2196,7 @@ function closeAllModals() {
         'mfaModal',
         'totpSetupModal',
         'totpVerifyModal',
-        'debugLogsModal',
-        'editSpecialDatesModal'
+        'debugLogsModal'
     ];
 
     modalIds.forEach(id => {

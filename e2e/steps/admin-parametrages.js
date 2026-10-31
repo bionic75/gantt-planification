@@ -16,7 +16,12 @@ const SOUS_SECTIONS = /** @type {Record<string, string>} */ ({
     "Administration de l'aide en ligne": 'subAideEnLigne',
     'Dump complet & restauration (test avec données de production)': 'subDump',
     "Thèmes d'affichage": 'subTheme',
-    'Son de notification push': 'subNotifSound'
+    'Son de notification push': 'subNotifSound',
+    // Administration des jours ou événements spéciaux
+    'Injection des périodes de congés scolaires': 'specialSub1',
+    'Injection de dates particulières (jours fériés, ...)': 'specialSub2',
+    "Paramétrage des types d'événements": 'specialSub3',
+    'Reprise des données des événements (type et libellé)': 'specialSub4'
 });
 
 const sousSection = (/** @type {Monde} */ monde, /** @type {string} */ titre) => {
@@ -29,7 +34,7 @@ const lireParametres = async (/** @type {Monde} */ monde) => (await adminApi(mon
 
 When("j'ouvre la sous-section {string}", async ({ monde }, titre) => {
     const corps = sousSection(monde, titre);
-    if (!(await corps.isVisible())) await monde.page.locator('#settingsSection').getByText(titre).first().click();
+    if (!(await corps.isVisible())) await monde.page.locator('.tab-content.active').getByText(titre).first().click();
     await expect(corps).toBeVisible();
 });
 

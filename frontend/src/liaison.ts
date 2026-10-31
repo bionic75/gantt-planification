@@ -31,6 +31,10 @@ export interface EvenementsLiaison {
     'inactivite-modifiee': { active: boolean; minutes: number };
     /** Favicon enregistré : l'ancien code l'applique à la page */
     'favicon-modifie': { favicon: string };
+    /** Fichiers de congés scolaires importés ou supprimés : l'ancien code recharge les congés de la planification */
+    'conges-modifies': undefined;
+    /** Fichiers de dates particulières modifiés : l'ancien code recharge les dates de la planification */
+    'dates-particulieres-modifiees': undefined;
 }
 
 export type NomEvenement = keyof EvenementsLiaison;
