@@ -29,8 +29,8 @@ const ILOTS: RegistreIlots = {
         chargeur: () => import('@/ilots/admin/utilisateurs/SectionUtilisateurs.vue'),
         onglet: 'admin'
     },
-    adminJoursSpeciauxIcs: {
-        chargeur: () => import('@/ilots/admin/jours-speciaux/ImportsIcs.vue'),
+    adminJoursSpeciaux: {
+        chargeur: () => import('@/ilots/admin/jours-speciaux/JoursSpeciaux.vue'),
         onglet: 'admin'
     }
 };
