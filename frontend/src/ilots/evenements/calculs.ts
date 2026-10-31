@@ -17,8 +17,8 @@ export const MOIS = [
 ];
 
 /**
- * Modèles d'événements de l'ancien code (public/js/app/ics-events.js : eventTemplates, EVENT_TPL_ICONS) : filtre
- * « Libellé » de la liste et icône d'un événement sans type
+ * Modèles d'événements de l'ancien code (eventTemplates et EVENT_TPL_ICONS de l'ancien ics-events.js, supprimé) :
+ * filtre « Libellé » de la liste et icône d'un événement sans type
  */
 export const MODELES: Array<{ code: string; label: string; icone: string }> = [
     { code: 'formation', label: 'FORMATION', icone: 'graduation' },

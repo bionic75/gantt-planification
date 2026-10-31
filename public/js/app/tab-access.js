@@ -114,10 +114,7 @@ function updateTabsVisibility() {
         astreintesBtnText.textContent = profile === 'expert' ? 'Gérer mes astreintes/HNO' : 'Gérer les astreintes/HNO';
 
     if (profile === 'admin') {
-        // Charger les fichiers ICS, etc. (listes du reporting : îlot Vue)
-        loadSchoolHolidaysFiles();
-        loadSpecialDatesFiles();
-        loadCustomEvents();
+        // Fichiers ICS et listes du reporting : îlots Vue
         populateLocationSelects();
     } else if (profile === 'rh') {
         const addResSection = document.getElementById('addResourceFormSection');
