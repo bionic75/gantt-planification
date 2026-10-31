@@ -1,5 +1,6 @@
 // Icônes de l'ancien code (public/js/app/tab-access.js : UI_ICONS, et ajouts de public/js/event-types.js), par leur nom
-// d'origine : noms enregistrés en base pour les types d'événements (EVT_ICON_BANK). Fichier extrait de l'ancien code.
+// d'origine : noms enregistrés en base pour les types d'événements (BANQUE_ICONES, ilots/admin/jours-speciaux). Fichier
+// extrait de l'ancien code.
 export const ICONES_APPLICATION: Record<string, string> = {
     ban: '<circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/>',
     bell: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>',
