@@ -360,22 +360,6 @@ function displaySearchResults(results) {
 
 // ========== FIN GESTION DES FICHIERS ICS ==========
 
-// Supprimer les congés scolaires (ancienne fonction - gardée pour compatibilité)
-async function clearSchoolHolidays() {
-    if (!confirm('Voulez-vous vraiment supprimer tous les congés scolaires ?')) {
-        return;
-    }
-
-    schoolHolidays = { zoneA: [], zoneB: [], zoneC: [] };
-    await saveSchoolHolidays();
-
-    document.getElementById('schoolHolidaysStatus').innerHTML =
-        '<span style="color: #4CAF50;">✅ Congés scolaires supprimés</span>';
-    document.getElementById('schoolHolidaysInfo').innerHTML = '<em>Aucun congé scolaire chargé</em>';
-
-    updateGantt();
-}
-
 // Vérifier si une date est dans une période de congés pour une zone
 function isDateInHoliday(dateStr, zone) {
     const holidays = schoolHolidays[zone] || [];

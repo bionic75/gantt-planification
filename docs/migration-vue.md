@@ -83,15 +83,16 @@ index.html (existant)
 
 Sous-îlots de l'Administration, mis en production l'un après l'autre :
 
-| #    | Sous-îlot                    | Sections                                                                                               | État                                                                                                                     |
-| ---- | ---------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| 4a   | Localisations                | Formulaire, liste, import CSV et conflits                                                              | En production (`frontend/src/ilots/admin/localisations/`, scénarios `17-admin-localisations`)                            |
-| 4b   | Sécurité et messagerie       | SMTP, double authentification, clés d'API publiques, connexion Asana                                   | En production (`frontend/src/ilots/admin/securite/`, trois sous-îlots, scénarios `18-admin-securite`)                    |
-| 4c-1 | Accès                        | Accès aux applications, accès aux onglets par profil                                                   | En production (`frontend/src/ilots/admin/acces/`, deux sous-îlots, scénarios `19-admin-acces`)                           |
-| 4c-2 | Utilisateurs                 | Création, liste, modification, mot de passe, TOTP, déconnexion, suppression, détails et journaux       | En production (`frontend/src/ilots/admin/utilisateurs/`, scénarios `20-admin-utilisateurs`)                              |
-| 4d   | Paramétrages divers          | Version, inactivité, favicon, aide en ligne, sauvegarde et restauration, thèmes, son des notifications | Réalisé (`frontend/src/ilots/admin/parametrages/`, scénarios `21-admin-parametrages`) ; en attente de mise en production |
-| 4e   | Jours et événements spéciaux | Congés scolaires, dates particulières, types d'événements et reprise, événements de l'administration   | À faire                                                                                                                  |
-| 4f   | Automatisations              | Automatisations 1 à 6                                                                                  | À faire                                                                                                                  |
+| #    | Sous-îlot              | Sections                                                                                               | État                                                                                                                         |
+| ---- | ---------------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| 4a   | Localisations          | Formulaire, liste, import CSV et conflits                                                              | En production (`frontend/src/ilots/admin/localisations/`, scénarios `17-admin-localisations`)                                |
+| 4b   | Sécurité et messagerie | SMTP, double authentification, clés d'API publiques, connexion Asana                                   | En production (`frontend/src/ilots/admin/securite/`, trois sous-îlots, scénarios `18-admin-securite`)                        |
+| 4c-1 | Accès                  | Accès aux applications, accès aux onglets par profil                                                   | En production (`frontend/src/ilots/admin/acces/`, deux sous-îlots, scénarios `19-admin-acces`)                               |
+| 4c-2 | Utilisateurs           | Création, liste, modification, mot de passe, TOTP, déconnexion, suppression, détails et journaux       | En production (`frontend/src/ilots/admin/utilisateurs/`, scénarios `20-admin-utilisateurs`)                                  |
+| 4d   | Paramétrages divers    | Version, inactivité, favicon, aide en ligne, sauvegarde et restauration, thèmes, son des notifications | En production (`frontend/src/ilots/admin/parametrages/`, scénarios `21-admin-parametrages`)                                  |
+| 4e-1 | Jours spéciaux (.ics)  | Congés scolaires, dates particulières ; formulaire masqué des événements de l'administration supprimé  | Réalisé (`frontend/src/ilots/admin/jours-speciaux/`, scénarios `22-admin-jours-speciaux`) ; en attente de mise en production |
+| 4e-2 | Types d'événements     | Paramétrage des types d'événements, reprise des données des événements                                 | À faire                                                                                                                      |
+| 4f   | Automatisations        | Automatisations 1 à 6                                                                                  | À faire                                                                                                                      |
 
 Anomalies relevées pendant la migration (comportement conservé, correction à part) :
 
@@ -111,6 +112,8 @@ Anomalies relevées pendant la migration (comportement conservé, correction à 
 - Utilisateurs : l'export CSV des journaux écrit « undefined » à chaque ligne de connexion (champ `login_time` absent
   des connexions regroupées renvoyées par l'API).
 - Utilisateurs : le tri par « Actif » ou par « Dernière connexion » est sans effet (colonnes mal référencées).
+- Congés scolaires : à l'import, une période n'est rattachée à une zone que si son résumé contient « zone a », « zone b
+  » ou « zone c » ; une période commune à plusieurs zones (« Zones A/B/C ») est ignorée.
 
 ### Critères de sortie d'un îlot
 

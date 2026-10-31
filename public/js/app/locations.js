@@ -26,20 +26,6 @@ async function loadLocations() {
 }
 
 function populateLocationSelects() {
-    const selects = [document.getElementById('customEventLocationId')];
-    selects.forEach(sel => {
-        if (!sel) return;
-        const current = sel.value;
-        sel.innerHTML = '<option value="">— Aucune localisation —</option>';
-        allLocations.forEach(loc => {
-            const opt = document.createElement('option');
-            opt.value = loc.id;
-            opt.textContent = `${loc.libelle_court} – ${loc.libelle_long}`;
-            sel.appendChild(opt);
-        });
-        if (current) sel.value = current;
-    });
-
     // Peupler les selects SAMU depuis allLocations
     const samuOptions =
         '<option value="">-- Choisir un SAMU --</option>' +
