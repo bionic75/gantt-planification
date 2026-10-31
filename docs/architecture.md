@@ -155,7 +155,8 @@ l'onglet, à la place de l'ancien code.
 **Configuration Email (SMTP)** (`#adminSmtp`), **Authentification à deux facteurs** (`#adminMfa`), **Gestion des
 API** (`#adminApi`), **Accès aux applications** (`#adminApplications`), **Accès aux onglets** (`#adminOnglets`), **Gestion des
 utilisateurs** (`#adminUtilisateurs`), **Paramétrages divers** (`#adminParametrages`) et, dans la section des jours
-ou événements spéciaux, les **congés scolaires et dates particulières** (`#adminJoursSpeciauxIcs`) :
+ou événements spéciaux, les **congés scolaires, dates particulières, types d'événements et reprise des données**
+(`#adminJoursSpeciaux`) :
 sections montées à l'ouverture de l'onglet (composant commun `AppSectionAdmin`), les autres
 restent dans l'ancien code. Les bibliothèques de l'interface
 Vue (Leaflet…) sont intégrées au build, sans CDN.

@@ -1,7 +1,8 @@
 // @ts-check
-// Administration › Jours et événements spéciaux : congés scolaires et dates particulières (fichiers .ics)
+// Administration › Jours et événements spéciaux : congés scolaires et dates particulières (fichiers .ics), types
+// d'événements, reprise des données des événements
 import { expect } from '@playwright/test';
-import { adminApi } from '../support/donnees.js';
+import { adminApi, lireEvenement } from '../support/donnees.js';
 import { Then, When } from '../support/fixtures.js';
 import { confirmer } from '../support/interface.js';
 
@@ -226,4 +227,186 @@ When('je supprime le fichier de dates particulières de test et je confirme', as
 Then('la liste des fichiers de dates particulières ne présente plus le fichier de test', async ({ monde }) => {
     await expect(ligneDates(monde)).toHaveCount(0);
     expect(await fichierDatesEnregistre(monde)).toBeUndefined();
+});
+
+// ---------- Types d'événements ----------
+
+const types = async (/** @type {Monde} */ monde) => (await (await adminApi(monde)).ok('GET', '/api/event-types')).types;
+const typeDeTest = async (/** @type {Monde} */ monde) =>
+    (await types(monde)).find((/** @type {any} */ t) => t.label_long === monde.d.libelleType);
+const typeAutre = async (/** @type {Monde} */ monde) => (await types(monde)).find((/** @type {any} */ t) => t.is_other);
+
+const parametrage = (/** @type {Monde} */ monde) => monde.page.locator('#evtTypesAdmin');
+const ligneType = (/** @type {Monde} */ monde, /** @type {string} */ libelle) =>
+    monde.page.locator('#evtTypesTblBox tbody tr').filter({ hasText: libelle });
+
+When(
+    "je saisis un type d'événement de test avec le libellé court {string}, l'icône {string} et le gabarit {string}",
+    async ({ monde }, court, icone, gabarit) => {
+        const page = monde.page;
+        monde.d.libelleType = monde.unique('Type E2E');
+        monde.aNettoyer(`type ${monde.d.libelleType}`, async () => {
+            const t = await typeDeTest(monde);
+            if (t) await (await adminApi(monde)).delete(`/api/event-types/${t.id}`);
+        });
+        await page.locator('#evtTLong').fill(monde.d.libelleType);
+        await page.locator('#evtTShort').fill(court);
+        await page.locator('#evtTIconBtn').click();
+        await page.locator('#evtTPicker').getByTitle(icone, { exact: true }).click();
+        await page.locator('#evtTplBtn').click();
+        await page.locator('#evtTplList').getByTitle(gabarit, { exact: true }).click();
+    }
+);
+
+Then("l'aperçu du type d'événement affiche {string}", async ({ monde }, texte) => {
+    await expect(monde.page.locator('#evtTPrev')).toHaveText(texte);
+});
+
+When("j'ajoute le type d'événement", async ({ monde }) => {
+    await parametrage(monde)
+        .getByRole('button', { name: /Ajouter$/ })
+        .click();
+});
+
+Then(
+    "le type d'événement de test est enregistré avec le libellé court {string}, l'icône {string} et les couleurs {string}, {string}, {string}",
+    async ({ monde }, court, icon, bg, text, border) => {
+        await expect
+            .poll(() => typeDeTest(monde))
+            .toMatchObject({ label_short: court, icon, bg_color: bg, text_color: text, border_color: border });
+    }
+);
+
+Then("la liste des types présente le type d'événement de test", async ({ monde }) => {
+    await expect(ligneType(monde, monde.d.libelleType)).toHaveCount(1);
+});
+
+When("je modifie directement le libellé court du type d'événement de test en {string}", async ({ monde }, court) => {
+    const ligne = ligneType(monde, monde.d.libelleType);
+    await ligne.locator('td').nth(2).click();
+    await ligne.locator('input').fill(court);
+    await ligne.locator('input').press('Enter');
+});
+
+Then("le type d'événement de test est enregistré avec le libellé court {string}", async ({ monde }, court) => {
+    await expect.poll(async () => (await typeDeTest(monde))?.label_short).toBe(court);
+    await expect(ligneType(monde, monde.d.libelleType).locator('td').nth(2)).toHaveText(court);
+});
+
+When(
+    "je modifie le type d'événement de test avec les couleurs personnalisées {string}, {string}, {string}",
+    async ({ monde }, bg, text, border) => {
+        const page = monde.page;
+        await ligneType(monde, monde.d.libelleType)
+            .getByRole('button', { name: /Modifier/ })
+            .click();
+        await expect(page.locator('#evtTLong')).toHaveValue(monde.d.libelleType);
+        await page.locator('#evtTplBtn').click();
+        await page
+            .locator('#evtTplList')
+            .getByRole('button', { name: /Personnalisé/ })
+            .click();
+        await page.locator('#evtTBg').fill(bg);
+        await page.locator('#evtTTx').fill(text);
+        await page.locator('#evtTBd').fill(border);
+        await parametrage(monde)
+            .getByRole('button', { name: /Enregistrer$/ })
+            .click();
+    }
+);
+
+Then(
+    "le type d'événement de test est enregistré avec les couleurs {string}, {string}, {string}",
+    async ({ monde }, bg, text, border) => {
+        await expect
+            .poll(() => typeDeTest(monde))
+            .toMatchObject({ bg_color: bg, text_color: text, border_color: border });
+    }
+);
+
+When("je supprime le type d'événement de test et je confirme", async ({ monde }) => {
+    const texte = await confirmer(monde, () =>
+        ligneType(monde, monde.d.libelleType)
+            .getByRole('button', { name: /Supprimer/ })
+            .click()
+    );
+    expect(texte).toContain(`Supprimer le type « ${monde.d.libelleType} » ?`);
+});
+
+Then("la liste des types ne présente plus le type d'événement de test", async ({ monde }) => {
+    await expect(ligneType(monde, monde.d.libelleType)).toHaveCount(0);
+    expect(await typeDeTest(monde)).toBeUndefined();
+});
+
+Then('le paramétrage des types indique {string}', async ({ monde }, texte) => {
+    await expect(monde.page.locator('#evtTMsg')).toHaveText(texte);
+});
+
+Then("le type « Autre\\(s) » n'est ni modifiable ni supprimable", async ({ monde }) => {
+    const autre = await typeAutre(monde);
+    const ligne = ligneType(monde, autre.label_long);
+    await expect(ligne).toHaveCount(1);
+    await expect(ligne.getByRole('button')).toHaveCount(0);
+    await ligne.locator('td').nth(1).click();
+    await expect(ligne.locator('input')).toHaveCount(0);
+});
+
+// ---------- Reprise des données ----------
+
+const reprise = (/** @type {Monde} */ monde) => monde.page.locator('#evtRecoveryAdmin');
+const ligneReprise = (/** @type {Monde} */ monde) => reprise(monde).locator('tbody tr');
+
+When("j'affiche les événements traités de la reprise et je recherche l'événement de test", async ({ monde }) => {
+    monde.d.libelleEvenement = (await lireEvenement(monde, monde.d.evenement)).label;
+    await reprise(monde)
+        .getByRole('button', { name: /^\s*Traité/ })
+        .click();
+    await reprise(monde).locator('#evtRecQ').fill(monde.d.libelleEvenement);
+});
+
+Then("la reprise présente l'événement de test seul, du type « Autre\\(s) »", async ({ monde }) => {
+    await expect(ligneReprise(monde)).toHaveCount(1);
+    await expect(ligneReprise(monde).locator('input[type=text]')).toHaveValue(monde.d.libelleEvenement);
+    await expect(ligneReprise(monde).locator('select')).toHaveValue(String((await typeAutre(monde)).id));
+});
+
+const saisirLibelleReprise = async (/** @type {Monde} */ monde, /** @type {string} */ libelle) => {
+    const champ = ligneReprise(monde).locator('input[type=text]');
+    await champ.fill(libelle);
+    await champ.press('Tab');
+};
+
+When("je change le libellé de l'événement de test dans la reprise", async ({ monde }) => {
+    await saisirLibelleReprise(monde, `${monde.d.libelleEvenement} modifié`);
+});
+
+Then("le bouton d'enregistrement de la reprise indique {string}", async ({ monde }, texte) => {
+    await expect(reprise(monde).locator('#evtRecSave')).toContainText(texte);
+});
+
+When('je recharge la reprise', async ({ monde }) => {
+    await reprise(monde)
+        .getByRole('button', { name: /Recharger/ })
+        .click();
+    await expect(ligneReprise(monde).locator('input[type=text]')).toHaveValue(monde.d.libelleEvenement);
+});
+
+When("j'affecte le type de test et un nouveau libellé à l'événement de test dans la reprise", async ({ monde }) => {
+    monde.d.nouveauLibelle = `${monde.d.libelleEvenement} repris`;
+    await ligneReprise(monde).locator('select').selectOption(String(monde.d.type.id));
+    await saisirLibelleReprise(monde, monde.d.nouveauLibelle);
+});
+
+When("j'enregistre la reprise", async ({ monde }) => {
+    await reprise(monde).locator('#evtRecSave').click();
+});
+
+Then('la reprise indique {string}', async ({ monde }, texte) => {
+    await expect(reprise(monde).locator('#evtRecMsg')).toHaveText(texte);
+});
+
+Then("l'événement de test est enregistré avec le type de test et son nouveau libellé", async ({ monde }) => {
+    await expect
+        .poll(() => lireEvenement(monde, monde.d.evenement))
+        .toMatchObject({ type_id: monde.d.type.id, label: monde.d.nouveauLibelle });
 });
