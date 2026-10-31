@@ -192,9 +192,14 @@ async function supprimer(t: TypeAdmin) {
 
 // ---------- Ouverture, reprise enregistrée ----------
 
+/**
+ * Formulaire réaffiché avant le chargement des types : affiché dès l'ouverture, une saisie faite pendant le chargement
+ * ne doit pas être effacée (l'ancien écran n'affichait le formulaire qu'une fois les types chargés)
+ */
 async function ouverture() {
-    await magasin.charger();
     reafficher();
+    await magasin.charger();
+    if (enEdition.value && !typeEdite.value) reinitialiser();
 }
 
 // Reprise enregistrée : types relus (nombre d'événements), formulaire réaffiché
