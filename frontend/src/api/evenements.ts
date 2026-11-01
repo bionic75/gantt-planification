@@ -48,6 +48,8 @@ export interface Evenement {
     period: 'FULL' | 'AM' | 'PM' | string | null;
     creator_nom: string | null;
     creator_prenom: string | null;
+    /** Libellé court de la localisation (jointure faite par le serveur) */
+    location_libelle_court?: string | null;
     type_long: string | null;
     type_short: string | null;
     type_icon: string | null;

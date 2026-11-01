@@ -6,7 +6,16 @@ import { badRequest, notFound, unauthorized } from '../../lib/http-error.js';
 import { hashPassword, passwordStrengthError, verifyPassword } from '../../lib/password.js';
 
 const MIN_PASSWORD_LENGTH = 6;
-const DEFAULT_TABS = ['resources', 'planning', 'evenements', 'cra', 'reporting', 'admin', 'astreintesGestion'];
+const DEFAULT_TABS = [
+    'accueil',
+    'resources',
+    'planning',
+    'evenements',
+    'cra',
+    'reporting',
+    'admin',
+    'astreintesGestion'
+];
 
 /** Applications soumises à autorisation individuelle */
 export const APP_DEFINITIONS = {

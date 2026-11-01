@@ -227,6 +227,7 @@ async function checkSession() {
             setTimeout(_chatRestoreSessions, 400);
 
             setCurrentMonth();
+            openLandingTab();
         } else {
             document.getElementById('loginPage').classList.add('active');
             document.querySelector('.container').style.display = 'none';
@@ -780,16 +781,7 @@ async function completeFinalLogin(user, selectedApp) {
     initTabDragDrop();
 
     // Afficher l'onglet par défaut selon la préférence de l'utilisateur
-    const defaultTab = currentUser.defaultTab || 'planning'; // Planification par défaut
-    const availableTabs = getAvailableTabsForProfile(currentUser.activeProfile);
-
-    // Vérifier que l'onglet par défaut est accessible pour ce profil
-    if (availableTabs.includes(defaultTab)) {
-        switchTab(defaultTab, null);
-    } else {
-        // Si l'onglet n'est pas accessible, afficher Planification
-        switchTab('planning', null);
-    }
+    openLandingTab();
 
     // Deep link CRA depuis email
     const urlParams = new URLSearchParams(window.location.search);
@@ -808,6 +800,14 @@ async function completeFinalLogin(user, selectedApp) {
 }
 
 // Obtenir la liste des onglets accessibles selon le profil
+// Onglet d'ouverture : celui choisi dans le profil s'il est accessible, sinon l'Accueil (accessible à tous les profils)
+function openLandingTab() {
+    const preferred = currentUser.defaultTab || 'accueil';
+    const accessible =
+        preferred === 'accueil' || getAvailableTabsForProfile(currentUser.activeProfile).includes(preferred);
+    switchTab(accessible ? preferred : 'accueil', null);
+}
+
 function getAvailableTabsForProfile(profile) {
     return TabAccess.available(profile);
 }

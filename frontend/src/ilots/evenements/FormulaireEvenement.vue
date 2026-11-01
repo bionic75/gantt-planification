@@ -5,6 +5,7 @@ import type { CorpsEvenement, Evenement } from '@/api/evenements';
 import AppAlert from '@/composants/AppAlert.vue';
 import AppIcone from '@/composants/AppIcone.vue';
 import AppSaisieParticipants, { type Participant } from '@/composants/AppSaisieParticipants.vue';
+import { demandeNouvelEvenement } from '@/ilots/demandes';
 import { COULEURS_PARTICIPANTS, cocheGrist, couleurs, dateFr, libelleModele } from './calculs';
 import { useEvenementsStore } from './magasin';
 import NouvelleLocalisation from './NouvelleLocalisation.vue';
@@ -120,6 +121,17 @@ function remplir(e: Evenement) {
     ouvert.value = true;
     void nextTick(() => zone.value?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
 }
+// Demande de l'accueil (« Créer un événement ») : rubrique dépliée à l'arrivée sur l'onglet
+watch(
+    demandeNouvelEvenement,
+    demande => {
+        if (!demande) return;
+        demandeNouvelEvenement.value = false;
+        ouvert.value = true;
+        void nextTick(() => zone.value?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    },
+    { immediate: true }
+);
 watch(
     () => ev.ouvertureFormulaire,
     () => {

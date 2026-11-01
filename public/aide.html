@@ -21,6 +21,7 @@
   <h3>Sommaire</h3>
   <ul>
     <li><a href="#section-presentation">🏠 Présentation générale</a></li>
+    <li><a href="#section-accueil">🏡 Accueil</a></li>
     <li><a href="#section-ressources">👥 Gestion des Ressources</a></li>
     <li><a href="#section-planification">📅 Planification</a></li>
     <li><a href="#section-cra">📋 Compte Rendu d'Activité</a></li>
@@ -101,6 +102,47 @@
     <li><strong>Messagerie instantanée</strong> — chaque interlocuteur est identifié par sa photo ou ses initiales et par une vignette de son profil (Admin, Utilisateur, Expert, RH).</li>
     <li><strong>Mire de connexion</strong> — formulaire moderne avec icônes, bouton afficher / masquer le mot de passe et prise en charge du mode sombre.</li>
   </ul>
+</section>
+
+<!-- ===================== ACCUEIL ===================== -->
+<section id="section-accueil">
+  <h2>🏡 Accueil</h2>
+  <p>L'Accueil s'ouvre à la connexion. On y revient à tout moment avec le bouton <strong>maison</strong>, en haut à droite, à côté de l'aide en ligne ; il est aussi présent dans les applications « Aide à l'affectation opérationnelle », « Suivi des déplacements » et « Analyse de fichiers » pour y revenir. Il rassemble l'essentiel de la journée et de la semaine.</p>
+
+  <h3>Aujourd'hui</h3>
+  <ul>
+    <li><strong>Qui travaille aujourd'hui</strong> : les experts disponibles pour l'ANS, avec leur mission (activité et localisation) le matin et l'après-midi. Un expert disponible mais sans affectation est indiqué « En attente d'affectation ».</li>
+    <li><strong>Qui est en astreinte HO</strong> : les experts inscrits au planning des astreintes HO, le matin et l'après-midi.</li>
+    <li><strong>Événements du jour</strong> : les événements dont la période couvre la date du jour.</li>
+  </ul>
+
+  <h3>La semaine</h3>
+  <ul>
+    <li><strong>Qui travaille cette semaine</strong> : tableau expert × jour (lundi au vendredi), avec la mission de chaque demi-journée ; la colonne du jour est mise en évidence.</li>
+    <li><strong>Événements de la semaine</strong> (lundi au dimanche). Les boutons <strong>‹ ›</strong> affichent la semaine précédente ou suivante ; « Semaine en cours » revient à la semaine d'aujourd'hui.</li>
+    <li>Chaque événement s'affiche sous la forme <em>Localisation | Type | Libellé (date de début - date de fin) - Participants</em>, pour la journée comme pour la semaine.</li>
+  </ul>
+
+  <h3>Déploiements en cours</h3>
+  <p>Pour les utilisateurs habilités à l'application « Aide à l'affectation opérationnelle », une frise mensuelle (12 mois) présente les déploiements en cours, une ligne par SAMU :</p>
+  <ul>
+    <li><strong>En barre</strong> : le cadrage et le déploiement opérationnel.</li>
+    <li><strong>En point</strong> : la visite métier, la mise en service, la mise en production, la VFT et la formation (survolez un point pour voir sa date). Les couleurs sont celles choisies dans l'Aide à l'affectation.</li>
+    <li>Un trait rouge repère aujourd'hui. Les boutons <strong>‹ ›</strong> décalent la frise de trois mois ; « Mois en cours » revient à la période d'origine. Les déploiements terminés avant le mois en cours ne sont pas affichés.</li>
+  </ul>
+
+  <h3>Accès rapides</h3>
+  <p>Des boutons renvoient vers la fonction voulue ; seuls ceux auxquels votre profil donne droit sont affichés :</p>
+  <ul>
+    <li><strong>Affecter à une mission</strong> (hors profil expert) et <strong>Renseigner mon planning</strong> (compte rattaché à une ressource) → onglet Planification</li>
+    <li><strong>Créer un événement</strong> → onglet Événements, avec la rubrique « Ajouter / Modifier un événement » dépliée</li>
+    <li><strong>Ajouter un lieu</strong> (hôtel, restaurant…) → onglet SAMU-SAS TripAdVisor, avec ouverture de la fenêtre « Ajouter un lieu »</li>
+    <li><strong>M'ajouter en astreinte HO</strong> (experts déclarés pour les astreintes HO) → onglet Astreintes</li>
+    <li><strong>Gérer le planning d'un déploiement</strong> → application « Aide à l'affectation opérationnelle » (si vous y êtes habilité)</li>
+    <li><strong>Gérer mes déplacements</strong> → application « Suivi des déplacements » (si vous y êtes habilité)</li>
+    <li><strong>Voir et gérer mes CRA</strong> → onglet CRA (si vous y avez accès)</li>
+  </ul>
+  <p>Votre onglet d'ouverture se choisit dans votre profil (« Accueil » par défaut).</p>
 </section>
 
 <!-- ===================== 2. RESSOURCES ===================== -->
@@ -697,11 +739,27 @@
   <h2>🆕 Notes de version</h2>
   <p>Historique des évolutions de la Plateforme de Planification ANS.</p>
 
+  <!-- v2.3.0 -->
+  <div class="card card-green" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v2.3.0</strong>
+      <span class="badge badge-current">Actuelle</span>
+      <span style="color:#888; font-size:13px;">Novembre 2026</span>
+    </div>
+    <ul>
+      <li>🏡 <strong>Nouvelle page d'Accueil</strong>, ouverte à la connexion et accessible par le bouton « maison » en haut à droite : qui travaille aujourd'hui et cette semaine (avec sa mission), qui est en astreinte HO aujourd'hui, événements du jour et de la semaine.</li>
+      <li>📊 <strong>Déploiements en cours</strong> (utilisateurs habilités à l'Aide à l'affectation) : frise mensuelle avec le cadrage et le déploiement opérationnel en barres, la visite métier, la mise en service, la mise en production, la VFT et la formation en points.</li>
+      <li>⚡ <strong>Accès rapides</strong> : affecter à une mission, renseigner mon planning, créer un événement, ajouter un lieu, m'ajouter en astreinte HO (experts), gérer le planning d'un déploiement, gérer mes déplacements, voir et gérer mes CRA — affichés selon vos droits.</li>
+      <li>⚙️ <strong>Onglet d'ouverture</strong> : « Accueil » devient le choix par défaut du profil.</li>
+      <li>🧭 <strong>Aide à l'affectation</strong> : jalons des ateliers en texte fixe, avancement des rétroplannings incluant la visite métier, message « Envoi en cours / Envoi terminé » lors de la diffusion, écarts entre ateliers paramétrables (7 j puis 14 j), vacances scolaires saisies dans l'application utilisées après août 2028.</li>
+    </ul>
+    <p style="font-size:12px; color:#888; margin-top:8px;">Au déploiement : une migration de base fixe « Accueil » comme onglet d'ouverture par défaut. Les utilisateurs qui avaient « Planification » (l'ancien défaut) arrivent désormais sur l'Accueil et peuvent rechoisir leur onglet dans leur profil.</p>
+  </div>
+
   <!-- v2.2.0 -->
   <div class="card card-green" style="margin-bottom:16px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
       <strong style="font-size:16px;">v2.2.0</strong>
-      <span class="badge badge-current">Actuelle</span>
       <span style="color:#888; font-size:13px;">Octobre 2026</span>
     </div>
     <ul>

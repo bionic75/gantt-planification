@@ -75,13 +75,24 @@ function restoreTabOrder() {
         return;
     }
     // Récupérer le bouton help (non-draggable, reste en dernière position)
-    const helpBtn = document.getElementById('helpBtn');
+    const helpBtn = document.getElementById('homeBtn') || document.getElementById('helpBtn');
     order.forEach(tabName => {
         const btn = container.querySelector(`button.tab-btn[data-tab="${tabName}"]`);
         if (btn) container.insertBefore(btn, helpBtn || null);
     });
 }
 // ========== /DRAG & DROP DES ONGLETS ==========
+
+// Bouton « Accueil » de l'en-tête
+function openHome() {
+    switchTab('accueil', null);
+}
+
+// Bouton « Accueil » des autres applications (Aide à l'affectation, Déplacements, Analyse) : retour à la Planification, sur l'Accueil
+function goHome() {
+    backToPlanification();
+    openHome();
+}
 
 function switchTab(tabName, event) {
     document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
