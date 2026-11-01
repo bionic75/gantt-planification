@@ -291,6 +291,7 @@
             <button class="tab-btn" id="affectationTabEvents" onclick="AffectationApp.tab('events')">${svg('planning', 'tab-ico')}Événements</button>
             <button class="tab-btn" id="affectationTabAteliers" onclick="AffectationApp.tab('ateliers')">${svg('rocket', 'tab-ico')}Planification des ateliers métier</button>
             <button class="tab-btn" id="affectationTabAdmin" onclick="AffectationApp.tab('admin')" style="display:none;">${svg('admin', 'tab-ico')}Administration</button>
+            <button type="button" onclick="goHome()" title="Accueil" aria-label="Accueil" style="padding:8px 15px;background-color:#16a085;color:white;border:none;cursor:pointer;font-size:18px;border-radius:4px;margin-right:5px;"><svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:22px;height:22px;stroke:white;vertical-align:middle;"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9v12h14V9"/><path d="M10 21v-6h4v6"/></svg></button>
             <button onclick="AffectationApp.search()" title="Recherche" style="padding:8px 15px;background-color:#3498db;color:white;border:none;cursor:pointer;font-size:18px;border-radius:4px;margin-right:10px;">
                 <span style="display:inline-flex;">${svg('search', 'app-ico', 'width:22px;height:22px;stroke:white;')}</span>
             </button>

@@ -89,6 +89,24 @@ const TabAccess = {
     // (gp:onglets-modifies, public/js/app/core.js)
 };
 
+// Fonctions proposées par l'accueil (îlot Vue) selon le profil, la configuration des onglets et les applications
+function accueilAcces() {
+    if (!currentUser) return null;
+    const profile = currentUser.activeProfile;
+    const applications = currentUser.availableApps || [];
+    return {
+        planning: TabAccess.can(profile, 'planning'),
+        affecter: profile !== 'expert',
+        evenements: TabAccess.can(profile, 'evenements'),
+        lieux: TabAccess.can(profile, 'tripadvisor'),
+        astreintes: profile === 'expert' && TabAccess.can(profile, 'astreintesGestion'),
+        cra: TabAccess.showCra(currentUser),
+        affectation: applications.includes('affectation'),
+        deplacements: applications.includes('deplacements'),
+        ressource: !!currentUser.resourceId
+    };
+}
+
 function updateTabsVisibility() {
     const profile = currentUser.activeProfile;
     const can = k => TabAccess.can(profile, k);
@@ -126,10 +144,7 @@ function updateTabsVisibility() {
         if (sendEmailBtn) sendEmailBtn.style.display = 'none';
     }
     if (profile !== 'admin') {
-        // Onglet d'ouverture : Ressources pour RH, Planification sinon ; à défaut le premier onglet accessible
-        const avail = TabAccess.available(profile);
-        const prefer = profile === 'rh' ? 'resources' : 'planning';
-        switchTab(avail.includes(prefer) ? prefer : avail[0] || 'planning', null);
+        openLandingTab();
     }
 }
 

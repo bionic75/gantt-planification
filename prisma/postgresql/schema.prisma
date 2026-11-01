@@ -698,7 +698,7 @@ model User {
   actif                Int?      @default(1)
   created_at           String? @default(dbgenerated("to_char(timezone('UTC'::text, now()), 'YYYY-MM-DD HH24:MI:SS'::text)"))
   totp_secret          String?
-  default_tab          String?   @default("planning")
+  default_tab          String?   @default("accueil")
   profile_photo        String?
   trigramme            String?
   has_reporting_access Int?      @default(0)

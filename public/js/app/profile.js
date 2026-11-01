@@ -41,6 +41,7 @@ function populateDefaultTabSelect() {
     if (!select || !currentUser) return;
 
     const tabLabels = {
+        accueil: 'Accueil',
         resources: 'Ressources',
         evenements: 'Événements',
         planning: 'Planification',
@@ -50,8 +51,9 @@ function populateDefaultTabSelect() {
         astreintesGestion: 'Astreintes'
     };
 
-    const availableTabs = getAvailableTabsForProfile(currentUser.activeProfile);
-    const currentDefault = currentUser.defaultTab || 'planning';
+    // L'Accueil est accessible à tous les profils et ouvert par défaut
+    const availableTabs = ['accueil', ...getAvailableTabsForProfile(currentUser.activeProfile)];
+    const currentDefault = currentUser.defaultTab || 'accueil';
 
     select.innerHTML = '';
     availableTabs.forEach(tab => {
@@ -78,6 +80,8 @@ function renderDefaultTabPicker(select, labels) {
         });
     }
     const iconOf = tab => {
+        if (tab === 'accueil')
+            return '<svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:18px;height:18px;margin-right:10px;vertical-align:middle;"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9v12h14V9"/><path d="M10 21v-6h4v6"/></svg>';
         const svg = document.querySelector(`#mainTabsContainer [data-tab="${tab}"] svg.tab-ico`);
         return svg
             ? svg.outerHTML.replace(

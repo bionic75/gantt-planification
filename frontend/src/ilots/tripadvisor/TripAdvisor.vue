@@ -1,6 +1,6 @@
 <!-- Onglet SAMU-SAS TripAdVisor : bonnes adresses (hébergements, restaurants, bars) autour des SAMU-SAS -->
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 import type { Lieu } from '@/api/poi';
 import AppAlert from '@/composants/AppAlert.vue';
 import AppButton from '@/composants/AppButton.vue';
@@ -9,6 +9,7 @@ import AppIcone from '@/composants/AppIcone.vue';
 import { fournirConfirmation } from '@/composants/confirmation';
 import '@/composants/champs.css';
 import { surReouverture } from '@/ilots/activation';
+import { demandeAjoutLieu } from '@/ilots/demandes';
 import CarteLieux from './CarteLieux.vue';
 import FicheLieu from './FicheLieu.vue';
 import FiltresLieux from './FiltresLieux.vue';
@@ -23,6 +24,16 @@ const { demande, repondre } = fournirConfirmation();
 const formulaire = ref<{ lieu: Lieu | null } | null>(null);
 
 onMounted(() => void lieux.charger());
+// Demande de l'accueil : fenêtre d'ajout ouverte à l'arrivée sur l'onglet
+watch(
+    demandeAjoutLieu,
+    demande => {
+        if (!demande) return;
+        formulaire.value = { lieu: null };
+        demandeAjoutLieu.value = false;
+    },
+    { immediate: true }
+);
 // Comme à chaque ouverture de l'onglet dans l'ancien code : données rechargées
 surReouverture(() => void lieux.charger());
 </script>

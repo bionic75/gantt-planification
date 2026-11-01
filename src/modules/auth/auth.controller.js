@@ -75,7 +75,7 @@ async function completeLogin(req, res, user, profile) {
             is_rh: user.is_rh === 1,
             astreinte_volontaire: user.astreinte_volontaire === 1,
             astreinte_date_activation: user.astreinte_date_activation || null,
-            defaultTab: user.default_tab || 'planning',
+            defaultTab: user.default_tab || 'accueil',
             mustChangePassword: user.must_change_password === 1,
             availableApps,
             amoaCed,

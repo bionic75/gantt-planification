@@ -64,6 +64,29 @@ interface FenetreAncienCode {
     playNotifSound?: () => void;
     /** Thèmes saisonniers : décor de la page (public/js/themes.js) */
     Themes?: ThemesAncienCode;
+    /** Accès de l'utilisateur aux fonctions proposées par l'accueil (public/js/app/tab-access.js) */
+    accueilAcces?: () => AccesAccueil | null;
+    /** Ouverture d'un onglet de la Planification (public/js/app/tabs.js) */
+    switchTab?: (onglet: string, evenement: null) => void;
+    /** Ouverture d'une application (public/js/app/tab-access.js) */
+    switchToApp?: (application: string) => void;
+}
+
+/** Fonctions de l'accueil accessibles à l'utilisateur connecté (profil, configuration des onglets, applications) */
+export interface AccesAccueil {
+    planning: boolean;
+    /** Affecter des experts à une mission : tous les profils sauf l'expert */
+    affecter: boolean;
+    evenements: boolean;
+    cra: boolean;
+    affectation: boolean;
+    deplacements: boolean;
+    /** Ajout d'un lieu (SAMU-SAS TripAdVisor) */
+    lieux: boolean;
+    /** Planning des astreintes HO, proposé aux experts */
+    astreintes: boolean;
+    /** Compte rattaché à une ressource : il renseigne son propre planning */
+    ressource: boolean;
 }
 
 /** Thème affiché : identifiant et raison (« forcé », « dates ») */
@@ -110,3 +133,16 @@ export function jouerSonNotification(): void {
 
 /** Décor des thèmes de l'ancien code (absent hors de la page principale) */
 export const themesAncienCode = (): ThemesAncienCode | undefined => ancienCode().Themes;
+
+/** Accès de l'utilisateur aux fonctions de l'accueil ; null hors de la page principale */
+export const accesAccueil = (): AccesAccueil | null => ancienCode().accueilAcces?.() ?? null;
+
+/** Ouvre un onglet de la Planification */
+export function ouvrirOnglet(onglet: string): void {
+    ancienCode().switchTab?.(onglet, null);
+}
+
+/** Ouvre une application (Aide à l'affectation, Suivi des déplacements) */
+export function ouvrirApplication(application: 'affectation' | 'deplacements'): void {
+    ancienCode().switchToApp?.(application);
+}

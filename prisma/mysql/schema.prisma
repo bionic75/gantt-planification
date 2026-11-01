@@ -698,7 +698,7 @@ model User {
   actif                Int?      @default(1)
   created_at           String? @db.VarChar(32) @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))"))
   totp_secret          String? @db.LongText
-  default_tab          String? @db.VarChar(191)   @default("planning")
+  default_tab          String? @db.VarChar(191)   @default("accueil")
   profile_photo        String? @db.LongText
   trigramme            String? @db.LongText
   has_reporting_access Int?      @default(0)
