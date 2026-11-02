@@ -985,12 +985,7 @@ async function loadUsers() {
         );
         if (currentUser?.activeProfile === 'admin') {
             // Liste des comptes : îlot Vue (frontend/src/ilots/admin/utilisateurs)
-            // Charger les configurations d'automatisation
-            populateAutomation1CopyUsers();
-            loadAutomation1Config();
-            // Automatisation 2
-            initAutomation2Options();
-            loadAutomation2Config();
+            // Charger les configurations d'automatisation (n°1 et n°2 : îlot Vue, frontend/src/ilots/admin/automatisations)
             // Automatisation 3 (Teams)
             loadAutomation3Config();
             // Automatisation 4 (CRA)

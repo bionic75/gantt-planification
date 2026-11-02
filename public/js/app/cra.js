@@ -2582,11 +2582,11 @@ async function testTeamsNotification() {
     }
 }
 
-// Ouvrir la modal d'historique des envois Teams
+// Ouvrir la modal d'historique des envois Teams (fenêtre propre : celles des automatisations n°1 et n°2 sont dans l'îlot
+// Vue frontend/src/ilots/admin/automatisations)
 function openAutomation3Logs() {
-    currentAutomationLogsId = 3;
-    const modal = document.getElementById('automationLogsModal');
-    const content = document.getElementById('automationLogsContent');
+    const modal = document.getElementById('automation3LogsModal');
+    const content = document.getElementById('automation3LogsContent');
 
     modal.querySelector('h2').textContent = '📋 Historique des notifications Teams';
     content.innerHTML = '<p style="text-align: center; color: #666;">Chargement...</p>';
@@ -2646,6 +2646,33 @@ function openAutomation3Logs() {
             console.error('Erreur chargement logs Teams:', error);
             content.innerHTML = '<p style="color: #e74c3c;">Erreur lors du chargement</p>';
         });
+}
+
+function closeAutomation3LogsModal() {
+    document.getElementById('automation3LogsModal').style.display = 'none';
+}
+
+// Vider l'historique des envois Teams (libellé de la confirmation repris de l'ancienne fenêtre partagée)
+async function clearAutomation3Logs() {
+    if (!confirm("Voulez-vous vraiment supprimer tout l'historique des sauvegardes de planning ?")) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_URL}/automation/logs/3`, {
+            method: 'DELETE',
+            credentials: 'include'
+        });
+
+        if (response.ok) {
+            document.getElementById('automation3LogsContent').innerHTML =
+                '<p style="text-align: center; color: #4CAF50;">✅ Historique vidé avec succès</p>';
+        }
+    } catch (error) {
+        console.error('Erreur suppression logs:', error);
+        document.getElementById('automation3LogsContent').innerHTML =
+            '<p style="text-align: center; color: #e74c3c;">❌ Erreur lors de la suppression</p>';
+    }
 }
 
 // Envoyer une notification Teams (appelée depuis d'autres parties du code)

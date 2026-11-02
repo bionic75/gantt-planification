@@ -83,16 +83,17 @@ index.html (existant)
 
 Sous-îlots de l'Administration, mis en production l'un après l'autre :
 
-| #    | Sous-îlot              | Sections                                                                                               | État                                                                                                                 |
-| ---- | ---------------------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
-| 4a   | Localisations          | Formulaire, liste, import CSV et conflits                                                              | En production (`frontend/src/ilots/admin/localisations/`, scénarios `17-admin-localisations`)                        |
-| 4b   | Sécurité et messagerie | SMTP, double authentification, clés d'API publiques, connexion Asana                                   | En production (`frontend/src/ilots/admin/securite/`, trois sous-îlots, scénarios `18-admin-securite`)                |
-| 4c-1 | Accès                  | Accès aux applications, accès aux onglets par profil                                                   | En production (`frontend/src/ilots/admin/acces/`, deux sous-îlots, scénarios `19-admin-acces`)                       |
-| 4c-2 | Utilisateurs           | Création, liste, modification, mot de passe, TOTP, déconnexion, suppression, détails et journaux       | En production (`frontend/src/ilots/admin/utilisateurs/`, scénarios `20-admin-utilisateurs`)                          |
-| 4d   | Paramétrages divers    | Version, inactivité, favicon, aide en ligne, sauvegarde et restauration, thèmes, son des notifications | En production (`frontend/src/ilots/admin/parametrages/`, scénarios `21-admin-parametrages`)                          |
-| 4e-1 | Jours spéciaux (.ics)  | Congés scolaires, dates particulières ; formulaire masqué des événements de l'administration supprimé  | En production (`frontend/src/ilots/admin/jours-speciaux/`, scénarios `22-admin-jours-speciaux`)                      |
-| 4e-2 | Types d'événements     | Paramétrage des types d'événements, reprise des données des événements                                 | Réalisé (même dossier et mêmes scénarios, sous-îlot `#adminJoursSpeciaux` étendu) ; en attente de mise en production |
-| 4f   | Automatisations        | Automatisations 1 à 6                                                                                  | À faire                                                                                                              |
+| #    | Sous-îlot                  | Sections                                                                                                                | État                                                                                                                                                              |
+| ---- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 4a   | Localisations              | Formulaire, liste, import CSV et conflits                                                                               | En production (`frontend/src/ilots/admin/localisations/`, scénarios `17-admin-localisations`)                                                                     |
+| 4b   | Sécurité et messagerie     | SMTP, double authentification, clés d'API publiques, connexion Asana                                                    | En production (`frontend/src/ilots/admin/securite/`, trois sous-îlots, scénarios `18-admin-securite`)                                                             |
+| 4c-1 | Accès                      | Accès aux applications, accès aux onglets par profil                                                                    | En production (`frontend/src/ilots/admin/acces/`, deux sous-îlots, scénarios `19-admin-acces`)                                                                    |
+| 4c-2 | Utilisateurs               | Création, liste, modification, mot de passe, TOTP, déconnexion, suppression, détails et journaux                        | En production (`frontend/src/ilots/admin/utilisateurs/`, scénarios `20-admin-utilisateurs`)                                                                       |
+| 4d   | Paramétrages divers        | Version, inactivité, favicon, aide en ligne, sauvegarde et restauration, thèmes, son des notifications                  | En production (`frontend/src/ilots/admin/parametrages/`, scénarios `21-admin-parametrages`)                                                                       |
+| 4e-1 | Jours spéciaux (.ics)      | Congés scolaires, dates particulières ; formulaire masqué des événements de l'administration supprimé                   | En production (`frontend/src/ilots/admin/jours-speciaux/`, scénarios `22-admin-jours-speciaux`)                                                                   |
+| 4e-2 | Types d'événements         | Paramétrage des types d'événements, reprise des données des événements                                                  | En production (même dossier et mêmes scénarios, sous-îlot `#adminJoursSpeciaux` étendu)                                                                           |
+| 4f-1 | Automatisations n°1 et n°2 | Rappel de saisie des disponibilités, sauvegarde des plannings (historiques, diagnostic et nettoyage des données, tests) | Réalisé (`frontend/src/ilots/admin/automatisations/`, sous-îlot `#adminAutomatisations`, scénarios `23-admin-automatisations`) ; en attente de mise en production |
+| 4f-2 | Automatisations n°3 à n°6  | Notifications Teams, workflow CRA, astreintes HO ; en-tête de la section                                                | À faire                                                                                                                                                           |
 
 Anomalies relevées pendant la migration (comportement conservé, correction à part) :
 
@@ -117,6 +118,14 @@ Anomalies relevées pendant la migration (comportement conservé, correction à 
 - Types d'événements : modifier ou supprimer un type recharge la reprise des données, dont les modifications non
   enregistrées sont perdues ; enregistrer la reprise efface les libellés en cours de saisie dans le formulaire des types.
 - Reprise des données : le tri « Créé par » se fait sur « nom prénom », la colonne affiche « prénom NOM ».
+- Automatisation n°1 : dans la fenêtre de test, la case « Sélectionner » de l'en-tête est sans effet sur les experts
+  cochés (fonction homonyme de l'aide à l'affectation chargée après celle de l'automatisation).
+- Automatisation n°2 : après un envoi de test réussi, les boutons du récapitulatif restent masqués jusqu'au
+  rechargement de la page.
+- Automatisations : la fenêtre de l'historique sert aussi au diagnostic des mois et à l'aperçu du nettoyage ; son
+  bouton « Vider l'historique » y reste proposé et vide l'historique de la dernière automatisation consultée (n°1 par
+  défaut).
+- Automatisation n°3 : la confirmation du vidage de l'historique Teams parle des « sauvegardes de planning ».
 
 ### Critères de sortie d'un îlot
 
