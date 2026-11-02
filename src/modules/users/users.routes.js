@@ -20,6 +20,7 @@ router.post('/users/:id/force-logout', requireAdmin, h(ctrl.forceLogout));
 router.post('/users/:id/reset-password', requireAdmin, h(ctrl.resetPassword));
 router.post('/users/:id/reporting-access', requireAdmin, h(ctrl.setReportingAccess));
 router.post('/users/:id/rh-access', requireAdmin, h(ctrl.setRhAccess));
+router.post('/users/:id/astreinte-ho-ans', requireAdmin, h(ctrl.setAstreinteHoAns));
 router.post('/users/:id/astreinte-access', requireAdmin, h(ctrl.setAstreinteAccess));
 router.post('/users/:id/amoa-ced', requireAdmin, h(ctrl.setAmoaCed));
 router.put('/users/:id/default-tab', requireAuth, h(ctrl.setDefaultTab));

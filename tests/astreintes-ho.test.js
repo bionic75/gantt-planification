@@ -276,7 +276,7 @@ describe('e-mail de mise à jour (automatisation n°6) et envois', () => {
         );
         const user = await loginAs(server, await createUser(admin, { is_user: 1 }), 'user');
         expect((await user.post('/api/astreintes-ho/automation/6/send')).status).toBe(403);
-        expect((await admin.post('/api/astreintes-ho/automation/7/send')).status).toBe(400);
+        expect((await admin.post('/api/astreintes-ho/automation/9/send')).status).toBe(400);
         const info = (await admin.get('/api/astreintes-ho/info')).data;
         expect(info.templates[5].subject).toBeTruthy();
         expect(info.fields.map(f => f[0])).toContain('{planning}');

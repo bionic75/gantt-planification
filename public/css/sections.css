@@ -404,3 +404,50 @@
     margin: 0;
     vertical-align: top;
 }
+
+/* Astreinte HO ANS : ligne « ANS » sous les demi-journées de chaque jour, menu des utilisateurs */
+.ho-half.ho-ans {
+    min-height: 30px;
+    margin-bottom: 0;
+    padding-left: 36px;
+    /* Trait plus large : distingue l'astreinte ANS des demi-journées HO */
+    border-width: 3px;
+    border-style: solid;
+}
+.ho-half.ho-ans.ho-empty {
+    border-color: #e57373;
+}
+.ho-half.ho-ans.ho-one {
+    border-color: #66bb6a;
+}
+.ho-ans-popover .ho-ans-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    margin: 0;
+    padding: 6px 8px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: #263238;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+.ho-ans-popover .ho-ans-item:hover:not(:disabled) {
+    background: #eceff1;
+}
+.ho-ans-popover .ho-ans-item.selected {
+    background: #e8f5e9;
+    font-weight: 700;
+}
+.ho-ans-popover .ho-ans-item:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.ho-ans-popover .ho-tri {
+    color: #607d8b;
+    font-size: 11px;
+}

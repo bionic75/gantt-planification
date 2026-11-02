@@ -17,6 +17,8 @@ export interface Utilisateur {
     is_user: number;
     is_rh: number;
     has_reporting_access: number;
+    /** Peut être désigné sur le planning des astreintes HO ANS */
+    astreinte_ho_ans?: number | null;
     actif: number;
     last_login: string | null;
 }
@@ -88,6 +90,7 @@ export const apiUtilisateurs = {
     basculerActif: (id: number) => api.post(`/users/${id}/toggle`),
     accesReporting: (id: number, hasAccess: boolean) => api.post(`/users/${id}/reporting-access`, { hasAccess }),
     validationRh: (id: number, hasAccess: boolean) => api.post(`/users/${id}/rh-access`, { hasAccess }),
+    astreinteHoAns: (id: number, hasAccess: boolean) => api.post(`/users/${id}/astreinte-ho-ans`, { hasAccess }),
     nouveauMotDePasse: (id: number, newPassword: string, sendEmail: boolean) =>
         api.post<{ emailSent?: boolean }>(`/users/${id}/reset-password`, { newPassword, sendEmail }),
     deconnecter: (id: number) =>

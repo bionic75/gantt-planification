@@ -196,6 +196,13 @@ function missions(jour: JourPersonne): Array<{ moment: string | null; mission: M
                         }}</span>
                         <span v-else class="ac-vide">Personne</span>
                     </li>
+                    <li class="ac-ligne" data-testid="accueil-jour-astreinte-ans">
+                        <span class="ac-evt-periode ac-moment">ANS</span>
+                        <span v-if="accueil.astreinteAnsAujourdhui" class="ac-nom">{{
+                            accueil.astreinteAnsAujourdhui
+                        }}</span>
+                        <span v-else class="ac-vide">Personne</span>
+                    </li>
                 </ul>
 
                 <h4 class="ac-sous-titre"><AppIcone name="calendar" /> Événements du jour</h4>

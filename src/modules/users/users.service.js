@@ -233,7 +233,7 @@ export async function toggleUser(/** @type {string | number} */ id) {
 
 // ---------- Droits ----------
 
-/** @param {'has_reporting_access' | 'is_rh' | 'amoa_ced'} column */
+/** @param {'has_reporting_access' | 'is_rh' | 'amoa_ced' | 'astreinte_ho_ans'} column */
 export async function setUserFlag(/** @type {string | number} */ id, column, /** @type {boolean} */ enabled) {
     await prisma.user.updateMany({ where: { id: idParam(id) }, data: { [column]: flag(enabled) } });
 }

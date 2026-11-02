@@ -136,6 +136,12 @@ export async function setRhAccess(/** @type {Request} */ req, /** @type {Respons
     res.json({ success: true });
 }
 
+/** Case « Astreinte HO ANS » : le compte peut être désigné sur le planning des astreintes HO ANS */
+export async function setAstreinteHoAns(/** @type {Request} */ req, /** @type {Response} */ res) {
+    await service.setUserFlag(req.params.id, 'astreinte_ho_ans', !!req.body.hasAccess);
+    res.json({ success: true });
+}
+
 export async function setAmoaCed(/** @type {Request} */ req, /** @type {Response} */ res) {
     const { hasAccess } = req.body;
     await service.setUserFlag(req.params.id, 'amoa_ced', !!hasAccess);

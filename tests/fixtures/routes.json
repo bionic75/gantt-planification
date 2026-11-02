@@ -190,6 +190,11 @@
         "guard": "admin"
     },
     {
+        "method": "POST",
+        "path": "/api/affectation/projects/:id/asana-conflicts",
+        "guard": "admin"
+    },
+    {
         "method": "PUT",
         "path": "/api/affectation/projects/:id/asana-overrides",
         "guard": "admin"
@@ -203,6 +208,11 @@
         "method": "GET",
         "path": "/api/affectation/projects/:id/asana-tasks",
         "guard": "admin"
+    },
+    {
+        "method": "PUT",
+        "path": "/api/affectation/projects/:id/assignment-days/:stage",
+        "guard": "affectation"
     },
     {
         "method": "PUT",
@@ -1477,6 +1487,11 @@
     {
         "method": "POST",
         "path": "/api/users/:id/astreinte-access",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/users/:id/astreinte-ho-ans",
         "guard": "admin"
     },
     {

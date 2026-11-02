@@ -37,6 +37,11 @@ const COLONNES: Array<{ libelle: string; tri?: ColonneTri; titre?: string; class
     { libelle: 'Profil(s)', tri: 'profils' },
     { libelle: 'Reporting', classe: 'no-sort', titre: "Accès à l'onglet Reporting" },
     { libelle: 'Validation RH', classe: 'no-sort', titre: 'Validation RH' },
+    {
+        libelle: 'Astreinte HO ANS',
+        classe: 'no-sort',
+        titre: 'Peut être désigné sur le planning des astreintes HO ANS'
+    },
     // Tri sans effet dans l'ancien écran (colonne mal référencée) : anomalie conservée
     { libelle: 'Actif' },
     { libelle: 'Dernière connexion' },
@@ -73,6 +78,15 @@ async function validationRh(u: Utilisateur, oui: boolean) {
         await apiUtilisateurs.validationRh(u.id, oui);
     } catch {
         store.signaler('error', 'Erreur modification accès RH');
+    }
+    await store.apresModification();
+}
+
+async function astreinteHoAns(u: Utilisateur, oui: boolean) {
+    try {
+        await apiUtilisateurs.astreinteHoAns(u.id, oui);
+    } catch {
+        store.signaler('error', "Erreur modification de l'astreinte HO ANS");
     }
     await store.apresModification();
 }
@@ -193,6 +207,16 @@ async function supprimer(u: Utilisateur) {
                             disabled
                             title="Réservé aux profils Admin, Utilisateur et RH"
                             :aria-label="`Validation RH de ${nomComplet(u)} (réservée aux profils Admin, Utilisateur et RH)`"
+                        />
+                    </td>
+                    <td class="liste__centre">
+                        <input
+                            type="checkbox"
+                            class="liste__case"
+                            :checked="u.astreinte_ho_ans === 1"
+                            title="Astreinte HO ANS"
+                            :aria-label="`Astreinte HO ANS de ${nomComplet(u)}`"
+                            @change="astreinteHoAns(u, ($event.target as HTMLInputElement).checked)"
                         />
                     </td>
                     <td>

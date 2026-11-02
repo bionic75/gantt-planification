@@ -7,6 +7,7 @@ import { deleteSettings } from '../../services/settings.js';
 import * as svc from './affectation.service.js';
 import {
     ASANA_KEYS,
+    ASANA_MILESTONES,
     ASANA_RULES,
     asanaApi,
     asanaApplyCore,
@@ -24,7 +25,9 @@ import {
     asanaPreviewPayload,
     asanaProjectList,
     asanaPut,
+    asanaConflictsOf,
     asanaRefreshDeployment,
+    asanaResolveConflicts,
     asanaRememberLink,
     asanaSamuNoOf,
     asanaSetting,
@@ -196,18 +199,28 @@ export async function apply(/** @type {Request} */ req, /** @type {Response} */ 
     if (!c.samuNo) throw badRequest("Impossible d'identifier le SAMU");
     const forced = await asanaForcedId(gid);
     let keys = req.body.apply;
+    /** @type {any[]} */
+    let conflicts = [];
     if (keys === 'auto') {
         const pv = await asanaPreviewPayload(c, forced);
         keys = changedKeys(pv);
+        // Rubriques modifiées dans l'application et dans Asana : non reprises, signalées pour arbitrage
+        conflicts = asanaConflictsOf(pv);
         if (!keys.length) {
             if (pv.existing) await asanaRememberLink(gid, pv.existing.id);
-            return res.json({ success: true, unchanged: true, samu_name: pv.samuName });
+            return res.json({
+                success: true,
+                unchanged: !conflicts.length,
+                samu_name: pv.samuName,
+                id: pv.existing ? pv.existing.id : null,
+                conflicts
+            });
         }
     }
     const applied = await asanaApplyCore(req, c, keys, forced, 'api');
     // Les rafraîchissements suivants reprendront ce projet, pas un autre du même numéro
     await asanaRememberLink(gid, applied.id);
-    res.json(applied);
+    res.json({ ...applied, conflicts });
 }
 
 // ---------- Rafraîchissement des déploiements ----------
@@ -231,13 +244,16 @@ export async function refreshAll(/** @type {Request} */ req, /** @type {Response
     const deps = (await svc.loadProjectRows())
         .map(d => ({ id: d.id, samu_name: d.samu_name }))
         .sort((a, b) => (a.samu_name === b.samu_name ? a.id - b.id : a.samu_name < b.samu_name ? -1 : 1));
-    /** @type {{ total: number, updated: any[], unchanged: string[], noMatch: string[], errors: any[] }} */
-    const out = { total: deps.length, updated: [], unchanged: [], noMatch: [], errors: [] };
+    /** @type {{ total: number, updated: any[], unchanged: string[], noMatch: string[], errors: any[], conflicts: any[] }} */
+    const out = { total: deps.length, updated: [], unchanged: [], noMatch: [], errors: [], conflicts: [] };
     for (const dep of deps) {
         try {
             const r = await asanaRefreshDeployment(req, token, ctx, dep);
+            if (r.conflicts && r.conflicts.length)
+                out.conflicts.push({ id: dep.id, samu: dep.samu_name, asana: r.asana, rows: r.conflicts });
             if (r.unchanged) out.unchanged.push(dep.samu_name);
-            else out.updated.push({ samu: dep.samu_name, rows: r.updated, asana: r.asana, changes: r.changes || [] });
+            else if (r.updated)
+                out.updated.push({ samu: dep.samu_name, rows: r.updated, asana: r.asana, changes: r.changes || [] });
         } catch (/** @type {any} */ e) {
             if (e.noMatch) out.noMatch.push(dep.samu_name);
             else out.errors.push({ samu: dep.samu_name, error: e.message });
@@ -247,9 +263,39 @@ export async function refreshAll(/** @type {Request} */ req, /** @type {Response
         maj: out.updated.length,
         inchanges: out.unchanged.length,
         sansProjet: out.noMatch.length,
+        conflits: out.conflicts.length,
         erreurs: out.errors.length
     });
     res.json({ success: true, ...out });
+}
+
+/** Arbitrage des conflits d'un déploiement : { choices: { <rubrique>: 'app' | 'asana' } } */
+export async function resolveConflicts(/** @type {Request} */ req, /** @type {Response} */ res) {
+    const dep = await svc.getProject(req.params.id);
+    if (!dep) throw notFound('Déploiement introuvable');
+    const raw = (req.body && req.body.choices) || {};
+    /** @type {Record<string, 'app' | 'asana'>} */
+    const choices = {};
+    for (const key of ASANA_KEYS) if (raw[key] === 'app' || raw[key] === 'asana') choices[key] = raw[key];
+    if (!Object.keys(choices).length) throw badRequest('Aucun choix à enregistrer');
+    const token = await asanaToken();
+    const r = await asanaResolveConflicts(
+        req,
+        token,
+        await asanaListSamuProjects(token),
+        {
+            id: dep.id,
+            samu_name: dep.samu_name
+        },
+        choices
+    );
+    logUserAction(req, 'Arbitrage de conflits Asana pour un déploiement', {
+        id: dep.id,
+        samu: dep.samu_name,
+        reprises: r.applied,
+        conservees: r.kept
+    });
+    res.json(r);
 }
 
 // ---------- Tâches Asana et remplacements manuels ----------
@@ -268,7 +314,10 @@ export async function tasks(/** @type {Request} */ req, /** @type {Response} */ 
     const c1 = asanaApplyOverrides(JSON.parse(JSON.stringify({ ...c0 })), ov);
     const periods = svc.parsePeriods(dep.periods);
     const isDate = (/** @type {string} */ key) =>
-        key === 'date_debut' || key === 'mise_en_service' || key === 'mise_en_production';
+        key === 'date_debut' ||
+        key === 'mise_en_service' ||
+        key === 'mise_en_production' ||
+        ASANA_MILESTONES.includes(key);
     const cur = (/** @type {string} */ key) =>
         key === 'date_debut'
             ? dep.date_debut
@@ -331,7 +380,10 @@ export async function saveOverrides(/** @type {Request} */ req, /** @type {Respo
         const sp = raw[key];
         if (!sp) continue;
         const o =
-            key === 'date_debut' || key === 'mise_en_service' || key === 'mise_en_production'
+            key === 'date_debut' ||
+            key === 'mise_en_service' ||
+            key === 'mise_en_production' ||
+            ASANA_MILESTONES.includes(key)
                 ? g(sp.task)
                     ? { task: g(sp.task) }
                     : null

@@ -365,7 +365,7 @@ export function couleurJournal(ligne: string): 'ok' | 'erreur' | 'etape' | 'deta
     return 'normal';
 }
 
-// ---------- N°5 et n°6 : astreintes HO ----------
+// ---------- N°5 à n°8 : astreintes HO et HO ANS ----------
 
 export const JOURS_HO: ReadonlyArray<Option> = [
     [1, 'lundi'],
@@ -389,10 +389,10 @@ export interface FormulaireHo {
     sujet: string;
     corps: string;
     destinataires: number[];
-    /** N°5 */
+    /** N°5 et n°7 */
     jour: string;
     tousLesExperts: boolean;
-    /** N°6 */
+    /** N°6 et n°8 */
     jours: string[];
     semaine: 'current' | 'next';
     groupeAdmin: boolean;
@@ -402,7 +402,7 @@ export interface FormulaireHo {
 
 /** Formulaire d'une automatisation HO (valeurs par défaut de l'écran ; sujet et corps : modèles du serveur) */
 export function formulaireHo(
-    n: 5 | 6,
+    n: 5 | 6 | 7 | 8,
     c: ConfigAutomatisation | null | undefined,
     modele: { subject: string; body: string },
     destinataires: ReadonlyArray<Option<number>>
@@ -410,7 +410,7 @@ export function formulaireHo(
     const jours = Array.isArray(c?.weekDays) ? (c.weekDays as unknown[]).map(Number) : [1];
     return {
         actif: !!c?.enabled,
-        heure: dansListe(String(c?.hour ?? (n === 5 ? 9 : 8)), HEURES),
+        heure: dansListe(String(c?.hour ?? (n === 5 || n === 7 ? 9 : 8)), HEURES),
         sujet: (c?.subject as string) || modele.subject,
         corps: (c?.body as string) || modele.body,
         // Sélection d'après le texte des identifiants (configurations enregistrées en texte ou en nombre)
@@ -430,13 +430,14 @@ export function formulaireHo(
 
 /** Configuration enregistrée d'une automatisation HO (ordre des champs de l'ancien écran) */
 export function configHo(
-    n: 5 | 6,
+    n: 5 | 6 | 7 | 8,
     f: FormulaireHo,
     destinataires: ReadonlyArray<Option<number>>
 ): ConfigAutomatisation {
     const base = { enabled: f.actif, hour: entier(f.heure), subject: f.sujet.trim(), body: f.corps };
     const choisis = selection(f.destinataires, destinataires);
-    if (n === 5) return { ...base, weekDay: entier(f.jour), allExperts: f.tousLesExperts, recipients: choisis };
+    if (n === 5 || n === 7)
+        return { ...base, weekDay: entier(f.jour), allExperts: f.tousLesExperts, recipients: choisis };
     return {
         ...base,
         weekDays: JOURS_HO.filter(j => f.jours.includes(j.valeur)).map(j => Number(j.valeur)),
