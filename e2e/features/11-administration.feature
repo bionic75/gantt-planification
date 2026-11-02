@@ -1,8 +1,9 @@
 # language: fr
 @administration
 Fonctionnalité: Administration
-  Les paramètres globaux modifiés par un scénario (thème, couleurs, modèle de nom, automatisations) sont rétablis
-  à leur valeur d'origine en fin de scénario.
+  Les paramètres globaux modifiés par un scénario (thème, couleurs, modèle de nom) sont rétablis à leur valeur
+  d'origine en fin de scénario. Automatisations : fonctionnalité 23 (leurs scénarios ne doivent pas s'exécuter en
+  parallèle).
 
   Scénario: Gestion des localisations
     Quand l'administrateur crée une localisation avec le libellé long "E2E Lieu", le libellé court "e2e" et l'adresse "1 rue du test"
@@ -86,20 +87,6 @@ Fonctionnalité: Administration
     Alors la réponse a le statut 200
     Quand l'administrateur envoie un e-mail de test
     Alors l'envoi de l'e-mail de test est confirmé
-
-  # Activation brève sur l'environnement de test : SMTP de test exigé (jamais de production)
-  @smtp
-  Plan du scénario: Automatisations (<numéro>)
-    Étant donné que la configuration de l'automatisation <numéro> sera rétablie après le scénario
-    Quand l'administrateur bascule l'activation de l'automatisation <numéro>
-    Alors l'activation de l'automatisation <numéro> est inversée et ses autres paramètres sont conservés
-
-    Exemples:
-      | numéro |
-      | 1      |
-      | 2      |
-      | 3      |
-      | 4      |
 
   Scénario: Aide en ligne et notes de version
     Quand j'ouvre l'aide en ligne

@@ -33,6 +33,10 @@ const ILOTS: RegistreIlots = {
     adminJoursSpeciaux: {
         chargeur: () => import('@/ilots/admin/jours-speciaux/JoursSpeciaux.vue'),
         onglet: 'admin'
+    },
+    adminAutomatisations: {
+        chargeur: () => import('@/ilots/admin/automatisations/SectionAutomatisations.vue'),
+        onglet: 'admin'
     }
 };
 
