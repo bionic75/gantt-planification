@@ -80,7 +80,7 @@ index.html (existant)
 | 0     | Terminée                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | 1     | En production : îlot `frontend/src/ilots/tripadvisor/`, 7 scénarios d'écran ajoutés à `09-tripadvisor`                                                                                                                                                                                                                                                                                                                                                                                    |
 | 2     | Découpée en trois îlots mis en production l'un après l'autre : Reporting, Événements, Administration. Reporting en production (`frontend/src/ilots/reporting/`, scénarios `15-reporting-suivis`). Événements en production (`frontend/src/ilots/evenements/`, scénarios `16-evenements-ecran`) ; carte des événements laissée dans l'ancien code (migration à part). Administration entièrement migrée en sous-îlots (voir ci-dessous) : phase terminée à la mise en production du lot 4g |
-| 3     | Ressources puis CRA, chacun découpé en deux lots (voir ci-dessous). Ressources entièrement migrées (lot 3b en production). CRA : circuit (lot 3c) réalisé, administration et vue RH (lot 3d) à faire                                                                                                                                                                                                                                                                                      |
+| 3     | Ressources puis CRA, chacun découpé en deux lots (voir ci-dessous). Ressources entièrement migrées (lot 3b en production). CRA : circuit (lot 3c) en production, administration et vue RH (lot 3d) réalisé : phase terminée à sa mise en production                                                                                                                                                                                                                                       |
 
 Sous-îlots de l'Administration, mis en production l'un après l'autre :
 
@@ -106,16 +106,14 @@ Lots de l'onglet Ressources (phase 3), mis en production l'un après l'autre :
 
 Lots de l'onglet CRA (phase 3) :
 
-| #   | Lot                      | Contenu                                                                                                                                                                                                                                                                                                                        | État                                                                                                                                                                   |
-| --- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 3c  | Circuit du CRA           | Cartes en cours (expert, administrateur, archivage), cartes signées (expert), détail (étapes, signatures, lignes, motifs), saisie des lignes et collecte (MAD volante), soumission, rappel, « Rien à déclarer », visas N1 / N2, refus motivé, correction et renvoi par l'administrateur, document PDF, lien d'une notification | Réalisé (`frontend/src/ilots/cra/`, sous-îlots `#craExpert`, `#craCartesAdmin`, `#craDetail`, scénarios `25-cra-ecran` et `07-cra`) ; en attente de mise en production |
-| 3d  | Administration et vue RH | CRA à lancer, signés, archivés, supprimés, en attente de diffusion, fenêtre de diffusion, visualisation, vue RH (filtre « Mois » corrigé) ; `cra.js` et le reste du HTML de l'onglet supprimés                                                                                                                                 | À faire                                                                                                                                                                |
+| #   | Lot                      | Contenu                                                                                                                                                                                                                                                                                                                        | État                                                                                                                           |
+| --- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| 3c  | Circuit du CRA           | Cartes en cours (expert, administrateur, archivage), cartes signées (expert), détail (étapes, signatures, lignes, motifs), saisie des lignes et collecte (MAD volante), soumission, rappel, « Rien à déclarer », visas N1 / N2, refus motivé, correction et renvoi par l'administrateur, document PDF, lien d'une notification | En production (`frontend/src/ilots/cra/`, trois sous-îlots, scénarios `25-cra-ecran` et `07-cra`)                              |
+| 3d  | Administration et vue RH | CRA à lancer, signés, archivés, supprimés, en attente de diffusion, fenêtre de diffusion, visualisation, vue RH (filtre « Mois » corrigé) ; `cra.js` et le reste du HTML de l'onglet supprimés                                                                                                                                 | Réalisé (îlot d'onglet `#cra` remplaçant les sous-îlots, scénarios `26-cra-administration`) ; en attente de mise en production |
 
 Duplication temporaire (lot 3c, jusqu'à la migration de la planification, phase 4) : la saisie des astreintes / HNO du
 menu contextuel du Gantt garde une copie réduite de l'ancienne saisie du CRA (`public/js/app/particularites.js`,
-fenêtre `#ganttAstreinteModal`), sans la collecte ni le report vers la planification, propres au CRA. De même,
-`downloadCraPdf` (document d'un CRA en cours) reste dans `cra.js` pour la fenêtre de visualisation des administrateurs
-jusqu'au lot 3d.
+fenêtre `#ganttAstreinteModal`), sans la collecte ni le report vers la planification, propres au CRA.
 
 Anomalies relevées pendant la migration (comportement conservé, correction à part) :
 
@@ -166,6 +164,8 @@ Anomalies relevées pendant la migration (comportement conservé, correction à 
   par le serveur) ; un compte RH connecté sous le profil expert a la vue RH, sans ses propres CRA.
 - CRA (saisie) : les lignes sont repérées par leur rang ; supprimer une ligne placée avant celle en cours de
   modification fait porter la modification sur la ligne suivante.
+- CRA (administration) : la ligne d'un CRA archivé (ou signé) propose « Statut » quel que soit son statut ; le
+  filtre « Année » ne propose que l'année courante et les cinq précédentes.
 - CRA : pour un CRA en cours, « Télécharger PDF » ouvre une page à imprimer (bouton « Imprimer / Enregistrer PDF »),
   pas un fichier.
 
@@ -185,6 +185,12 @@ Changements de comportement décidés pendant la migration :
 - CRA : les messages (alert) et confirmations (confirm) du navigateur sont remplacés par des messages et des fenêtres
   de la page ; la question de la collecte propose « Remplacer » ou « Conserver ». La configuration des viseurs N1 / N2
   est relue à chaque ouverture du détail (l'ancien écran la lisait à la connexion et à son enregistrement).
+- CRA (vue RH) : le filtre « Mois » des CRA signés et archivés propose les douze mois (l'ancien écran n'affichait que
+  « Tous », son modèle de liste n'étant pas interprété).
+- CRA (administration) : les messages (alert) de lancement, diffusion, archivage, restauration et renvoi d'e-mails
+  s'affichent sous le titre de l'onglet ; la sélection de « CRA à lancer » n'est plus remise à zéro après chaque
+  traitement d'une autre liste (seulement après un lancement et à la réouverture de l'onglet) ; les colonnes des
+  tableaux de CRA signés et archivés utilisent le redimensionnement commun aux autres tableaux.
 - CRA : dans le document d'un CRA en cours, le texte saisi (objet, commentaire…) est affiché tel quel, sans être
   interprété comme du HTML.
 

@@ -1,36 +1,17 @@
-<!-- Onglet CRA, profil expert : « Mes CRA en cours de traitement » et « Mes CRA signés » (CRA diffusés).
-     Cartes relues à chaque ouverture de l'onglet. -->
+<!-- Onglet CRA, profil expert : « Mes CRA en cours de traitement » et « Mes CRA signés » (CRA diffusés) -->
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted } from 'vue';
-import { surReouverture } from '@/ilots/activation';
-import { ecouter } from '@/liaison';
-import { useSessionStore } from '@/stores/session';
+import { computed } from 'vue';
 import CarteCra from './CarteCra.vue';
-import { cartesExpert, vueCra } from './calculs';
+import { cartesExpert } from './calculs';
 import { useCraStore } from './magasin';
 import SectionCra from './SectionCra.vue';
 
 const magasin = useCraStore();
-const session = useSessionStore();
-
-const expert = computed(() => !!session.session && vueCra(session.session) === 'expert');
 const cartes = computed(() => cartesExpert(magasin.cras));
-
-const recharger = () => {
-    if (expert.value) void magasin.charger();
-};
-surReouverture(recharger);
-const arreter = ecouter('cra-recharges', recharger);
-onBeforeUnmount(arreter);
-
-onMounted(async () => {
-    await session.charger().catch(() => null);
-    recharger();
-});
 </script>
 
 <template>
-    <div v-if="expert" id="craExpertSections" class="cra-expert">
+    <div id="craExpertSections" class="cra-expert">
         <SectionCra titre="📋 Mes CRA en cours de traitement" teinte="orange" ouverte>
             <div id="craListEnCours">
                 <p v-if="!magasin.charge" class="cra-expert__attente">⏳ Chargement...</p>
