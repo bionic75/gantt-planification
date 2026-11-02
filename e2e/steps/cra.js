@@ -29,11 +29,37 @@ const crasDuMois = async (/** @type {Monde} */ monde, /** @type {number} */ mois
 };
 
 /** Mois sans CRA pour l'expert de test (année 2090 et suivantes) ; ses CRA sont purgés en fin de scénario */
+/** Mois relatif (décalage en mois) */
+const moisDecale = (/** @type {number} */ mois, /** @type {number} */ annee, /** @type {number} */ decalage) => {
+    const i = annee * 12 + (mois - 1) + decalage;
+    return { mois: (i % 12) + 1, annee: Math.floor(i / 12) };
+};
+
+/**
+ * Lignes d'astreinte / HNO de l'expert de test autour d'un mois : du mois précédent (astreinte de nuit commencée la
+ * veille) au mois suivant (« autre mois » de certains scénarios). Une base réutilisée peut en contenir (lignes de
+ * scénarios interrompus) : elles fausseraient le nombre de lignes des CRA.
+ */
+async function lignesAutourDuMois(/** @type {Monde} */ monde, /** @type {number} */ mois, /** @type {number} */ annee) {
+    const { userId } = await ressourceExpert(monde);
+    const api = await adminApi(monde);
+    let n = 0;
+    for (const decalage of [-1, 0, 1]) {
+        const p = moisDecale(mois, annee, decalage);
+        n += (await api.ok('GET', `/api/astreintes-hno/direct?user_id=${userId}&mois=${p.mois}&annee=${p.annee}`))
+            .length;
+    }
+    return n;
+}
+
 async function moisInedit(/** @type {Monde} */ monde) {
     for (let essai = 0; essai < 20; essai++) {
         const annee = 2090 + Math.floor(Math.random() * 100);
         const mois = 1 + Math.floor(Math.random() * 12);
-        if ((await crasDuMois(monde, mois, annee)).length === 0) {
+        if (
+            (await crasDuMois(monde, mois, annee)).length === 0 &&
+            (await lignesAutourDuMois(monde, mois, annee)) === 0
+        ) {
             monde.aNettoyer(`CRA ${mois}/${annee}`, async () => {
                 for (const c of await crasDuMois(monde, mois, annee)) await nettoyerCra(monde, c.id);
             });

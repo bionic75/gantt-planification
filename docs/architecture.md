@@ -150,15 +150,13 @@ l'onglet, à la place de l'ancien code.
 | `frontend/src/stores/`          | magasins Pinia partagés par les îlots (session…)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `src/lib/frontend.js` (serveur) | service de l'interface selon l'environnement et insertion du point d'entrée dans la page                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 
-Îlots en service : **SAMU-SAS TripAdVisor** (`#tripadvisor`), **Reporting** (`#reporting`), **Événements**
-(`#evenements`), et dans l'onglet Administration les sous-îlots **Localisations** (`#adminLocalisations`),
-**Configuration Email (SMTP)** (`#adminSmtp`), **Authentification à deux facteurs** (`#adminMfa`), **Gestion des
-API** (`#adminApi`), **Accès aux applications** (`#adminApplications`), **Accès aux onglets** (`#adminOnglets`), **Gestion des
-utilisateurs** (`#adminUtilisateurs`), **Paramétrages divers** (`#adminParametrages`) et, dans la section des jours
-ou événements spéciaux, les **congés scolaires, dates particulières, types d'événements et reprise des données**
-(`#adminJoursSpeciaux`) et la section **Automatisations et rappels** (`#adminAutomatisations`) :
-sections montées à l'ouverture de l'onglet (composant commun `AppSectionAdmin`), les autres
-restent dans l'ancien code. Les bibliothèques de l'interface
+Îlots en service : **Accueil** (`#accueil`), **SAMU-SAS TripAdVisor** (`#tripadvisor`), **Reporting** (`#reporting`),
+**Événements** (`#evenements`) et l'onglet **Administration**, entièrement migré en sous-îlots : **Paramétrages divers**
+(`#adminParametrages`), **Administration des jours ou événements spéciaux** (`#adminJoursSpeciaux`), **Localisations**
+(`#adminLocalisations`), **Configuration Email (SMTP)** (`#adminSmtp`), **Authentification à deux facteurs**
+(`#adminMfa`), **Automatisations et rappels** (`#adminAutomatisations`), **Gestion des API** (`#adminApi`), **Accès aux
+applications** (`#adminApplications`), **Accès aux onglets** (`#adminOnglets`) et **Gestion des utilisateurs**
+(`#adminUtilisateurs`) : sections montées à l'ouverture de l'onglet (composant commun `AppSectionAdmin`). Les bibliothèques de l'interface
 Vue (Leaflet…) sont intégrées au build, sans CDN.
 
 Selon `NODE_ENV` :
