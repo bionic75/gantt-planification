@@ -5,11 +5,10 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { ErreurApi } from '@/api/client';
-import { apiCra, urlPdfEnregistre, type DetailCra, type NiveauVisa } from '@/api/cra';
+import { apiCra, type DetailCra, type NiveauVisa } from '@/api/cra';
 import { apiParametres } from '@/api/parametrages';
 import AppAlert from '@/composants/AppAlert.vue';
-import AppConfirmation from '@/composants/AppConfirmation.vue';
-import { fournirConfirmation } from '@/composants/confirmation';
+import { useConfirmation } from '@/composants/confirmation';
 import { ecouter, emettre, prendreCraDemande } from '@/liaison';
 import { useSessionStore } from '@/stores/session';
 import {
@@ -23,20 +22,20 @@ import {
     libelleMois,
     majuscule,
     messageModifAdmin,
-    pdfEnregistre,
     rienADeclarerPropose,
     signatures as signaturesDe,
     typeLigne,
     type ActionCra,
     type ConfigCra
 } from './calculs';
-import { ouvrirDocument } from './document';
+import AttentePdf from './AttentePdf.vue';
 import { useCraStore } from './magasin';
+import { ouvrirPdf } from './pdf';
 import SaisieCra from './SaisieCra.vue';
 
 const magasin = useCraStore();
 const session = useSessionStore();
-const { demande, repondre, confirmer } = fournirConfirmation();
+const confirmer = useConfirmation();
 
 const cra = ref<DetailCra | null>(null);
 const config = ref<ConfigCra>({});
@@ -108,9 +107,9 @@ onMounted(async () => {
     ouvrirDemande();
 });
 
-/** Après un traitement : cartes relues, ancien code prévenu (listes, pastille), détail relu ou fermé */
+/** Après un traitement : cartes et listes relues, ancien code prévenu (pastille de l'onglet), détail relu ou fermé */
 async function apresTraitement(id: number, rouvrir: boolean) {
-    await magasin.charger();
+    await magasin.rafraichir();
     emettre('cra-modifies');
     if (rouvrir) await afficher(id);
     else fermer();
@@ -288,47 +287,8 @@ async function pdf() {
     const c = cra.value;
     if (!c) return;
     magasin.message = null;
-    if (pdfEnregistre(c)) await pdfSigne(c);
-    else await documentEnCours(c.id);
-}
-
-/** CRA en cours : document produit par le navigateur, d'après le CRA relu */
-async function documentEnCours(id: number) {
-    let d: DetailCra;
-    try {
-        d = await apiCra.detail(id);
-    } catch {
-        erreur('Erreur chargement CRA');
-        return;
-    }
-    if (!ouvrirDocument(d)) erreur('Veuillez autoriser les popups pour télécharger le PDF');
-}
-
-/** CRA visé N2 ou diffusé : PDF signé enregistré, créé sur le serveur s'il manque (sauf pour l'expert) */
-async function pdfSigne(c: DetailCra) {
-    if (c.pdf_filename && (await apiCra.pdfEnregistre(c.pdf_filename).catch(() => false))) {
-        window.open(urlPdfEnregistre(c.pdf_filename), '_blank');
-        return;
-    }
-    if (session.profil === 'expert') {
-        erreur("Le fichier PDF de ce CRA n'est pas encore disponible. Contactez un administrateur pour le générer.");
-        return;
-    }
-    attentePdf.value = true;
-    try {
-        const r = await apiCra.preparerPdf(c.id);
-        attentePdf.value = false;
-        // Nouveau fichier retenu : pas de nouvelle création au clic suivant
-        c.pdf_filename = r.pdfFilename;
-        window.open(urlPdfEnregistre(r.pdfFilename), '_blank');
-    } catch (e) {
-        attentePdf.value = false;
-        erreur(
-            e instanceof ErreurApi
-                ? `Erreur lors de la génération du PDF : ${e.message || 'Erreur inconnue'}`
-                : `Erreur réseau lors de la génération du PDF : ${(e as Error).message}`
-        );
-    }
+    const echec = await ouvrirPdf(c, session.profil, attentePdf);
+    if (echec) erreur(echec);
 }
 </script>
 
@@ -488,29 +448,7 @@ async function pdfSigne(c: DetailCra) {
         @termine="saisieTerminee"
     />
 
-    <Teleport to="body">
-        <div v-if="attentePdf" class="cra-attente">
-            <div class="cra-attente__boite" role="status">
-                <div class="cra-attente__icone">⏳</div>
-                <div class="cra-attente__titre">Création du PDF en cours</div>
-                <div class="cra-attente__texte">
-                    Le fichier PDF n'existe pas sur le serveur et est en cours de création.<br />Veuillez patienter
-                    (30-60 secondes)…
-                </div>
-                <div class="cra-attente__barre"><div class="cra-attente__progression"></div></div>
-            </div>
-        </div>
-    </Teleport>
-
-    <AppConfirmation
-        :opened="!!demande"
-        :message="demande?.message ?? ''"
-        :label-confirmer="demande?.labelConfirmer"
-        :label-annuler="demande?.labelAnnuler"
-        :danger="demande?.danger"
-        @confirm="repondre(true)"
-        @cancel="repondre(false)"
-    />
+    <AttentePdf v-if="attentePdf" />
 </template>
 
 <style scoped>
@@ -833,57 +771,5 @@ async function pdfSigne(c: DetailCra) {
     background: #78909c;
     padding: 10px 18px;
     display: inline-flex;
-}
-.cra-attente {
-    position: fixed;
-    inset: 0;
-    z-index: 99999;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-.cra-attente__boite {
-    background: white;
-    border-radius: 10px;
-    padding: 32px 40px;
-    text-align: center;
-    max-width: 380px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-}
-.cra-attente__icone {
-    font-size: 36px;
-    margin-bottom: 14px;
-}
-.cra-attente__titre {
-    font-weight: bold;
-    font-size: 15px;
-    color: #333;
-    margin-bottom: 10px;
-}
-.cra-attente__texte {
-    font-size: 13px;
-    color: #666;
-    line-height: 1.5;
-}
-.cra-attente__barre {
-    margin-top: 18px;
-    height: 4px;
-    background: #e0e0e0;
-    border-radius: 2px;
-    overflow: hidden;
-}
-.cra-attente__progression {
-    height: 100%;
-    background: #6a1b9a;
-    animation: cra-progression 40s linear forwards;
-}
-@keyframes cra-progression {
-    from {
-        width: 0%;
-    }
-    to {
-        width: 95%;
-    }
 }
 </style>

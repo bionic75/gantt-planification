@@ -39,9 +39,7 @@ const ILOTS: RegistreIlots = {
         chargeur: () => import('@/ilots/admin/automatisations/SectionAutomatisations.vue'),
         onglet: 'admin'
     },
-    craExpert: { chargeur: () => import('@/ilots/cra/CartesExpert.vue'), onglet: 'cra' },
-    craCartesAdmin: { chargeur: () => import('@/ilots/cra/CartesAdmin.vue'), onglet: 'cra' },
-    craDetail: { chargeur: () => import('@/ilots/cra/DetailCra.vue'), onglet: 'cra' }
+    cra: () => import('@/ilots/cra/OngletCra.vue')
 };
 
 installerLiaisonAncienCode();

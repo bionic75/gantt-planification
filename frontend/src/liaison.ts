@@ -39,14 +39,10 @@ export interface EvenementsLiaison {
     'ressources-modifiees': undefined;
     /** Ressources rechargées par l'ancien code (fiche enregistrée, connexion…) : les îlots relisent les leurs */
     'ressources-rechargees': undefined;
-    /**
-     * CRA modifiés par l'îlot du circuit (soumission, visa, refus, archivage…) : l'ancien code recharge ses listes
-     * (CRA signés, en attente de diffusion, archivés) et la pastille de l'onglet
-     */
+    /** CRA modifiés par l'îlot de l'onglet CRA (lancement, circuit, diffusion, archivage…) : l'ancien code relit la
+     * pastille de l'onglet */
     'cra-modifies': undefined;
-    /** CRA lancés, désarchivés ou restaurés par l'ancien code : l'îlot du circuit relit ses cartes */
-    'cra-recharges': undefined;
-    /** Lien d'une notification (« ?tab=cra&cra_id= ») : l'îlot du circuit ouvre le CRA demandé (prendreCraDemande) */
+    /** Lien d'une notification (« ?tab=cra&cra_id= ») : l'îlot de l'onglet CRA ouvre le CRA demandé (prendreCraDemande) */
     'cra-demande': undefined;
 }
 

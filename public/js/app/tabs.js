@@ -131,9 +131,31 @@ function switchTab(tabName, event) {
     }
 
     if (tabName === 'cra') {
-        // Cartes et détail : îlot Vue (frontend/src/ilots/cra), relu à chaque ouverture de l'onglet
-        loadCraList(false);
+        // Contenu de l'onglet : îlot Vue (frontend/src/ilots/cra), relu à chaque ouverture de l'onglet
         loadCraPendingBadge();
+    }
+}
+
+// Pastille de l'onglet CRA : nombre de CRA en cours de traitement (non archivés, non diffusés)
+async function loadCraPendingBadge() {
+    const isAdmin = currentUser && (currentUser.is_admin || currentUser.activeProfile === 'admin');
+    const isExpert = currentUser && (currentUser.astreinte_volontaire || currentUser.activeProfile === 'expert');
+    if (!currentUser || (!isAdmin && !isExpert)) return;
+    try {
+        const res = await fetch(`${API_URL}/cra/my-list`, { credentials: 'include' });
+        const data = await res.json();
+        const badge = document.getElementById('craPendingBadge');
+        if (!badge) return;
+        // CRA "en cours de traitement" : non archivés et statut != diffuse
+        const enCours = data.filter(c => !c.archived && c.statut !== 'diffuse').length;
+        if (enCours > 0) {
+            badge.textContent = enCours;
+            badge.style.display = 'inline-block';
+        } else {
+            badge.style.display = 'none';
+        }
+    } catch (e) {
+        console.warn('Erreur badge CRA:', e);
     }
 }
 
