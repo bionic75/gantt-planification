@@ -7,19 +7,23 @@ import {
     apiAutomatisations,
     type ApercuNettoyage,
     type EnvoiAutomatisation,
+    type InfosHo,
     type MoisDiagnostic
 } from '@/api/automatisations';
 import { ErreurApi } from '@/api/client';
-import { apiUtilisateurs } from '@/api/utilisateurs';
+import { apiUtilisateurs, type Utilisateur } from '@/api/utilisateurs';
 import type { Option } from './calculs';
 
 export type ContenuFenetre =
-    | { type: 'envois'; n: 1 | 2; envois: EnvoiAutomatisation[] | null; erreur?: boolean }
+    | { type: 'envois'; n: 1 | 2 | 3; envois: EnvoiAutomatisation[] | null; erreur?: boolean }
     | { type: 'vidage'; reussi: boolean }
     | { type: 'diagnostic'; mois: MoisDiagnostic[]; orphelins: unknown[] }
     | { type: 'nettoyage'; apercu: ApercuNettoyage };
 
 export const useAutomatisationsStore = defineStore('admin-automatisations', () => {
+    /** Comptes (GET /users) : viseurs RH du workflow CRA, destinataires de la communication HO */
+    const utilisateurs = ref<Utilisateur[]>([]);
+    /** Comptes avec e-mail : destinataires et copie des automatisations n°1 et n°2 */
     const comptes = ref<Option<number>[]>([]);
     const ressources = ref<Array<Option<number> & { inactif: boolean }>>([]);
     const mois = ref<Option[]>([]);
@@ -28,6 +32,7 @@ export const useAutomatisationsStore = defineStore('admin-automatisations', () =
 
     async function chargerListes() {
         const [c, r] = await Promise.allSettled([apiUtilisateurs.liste(), apiUtilisateurs.ressources()]);
+        if (c.status === 'fulfilled') utilisateurs.value = c.value;
         if (c.status === 'fulfilled')
             comptes.value = c.value
                 .filter(u => u.email)
@@ -56,17 +61,25 @@ export const useAutomatisationsStore = defineStore('admin-automatisations', () =
     /** Listes chargées une fois (comptes, ressources, mois), avant d'afficher les configurations */
     const preparer = () => (listesPretes ??= Promise.all([chargerListes(), chargerMois()]).then(() => undefined));
 
+    let infosHo: Promise<InfosHo | null> | null = null;
+    /** Astreintes HO (n°5 et n°6) : experts, champs et modèles des mails, chargés une fois */
+    const chargerInfosHo = () => (infosHo ??= apiAutomatisations.infosHo().catch(() => null));
+
     // ---------- Fenêtre partagée ----------
 
     const fenetre = ref<{ titre: string; contenu: ContenuFenetre } | null>(null);
     /** Automatisation de « Vider l'historique » : dernière dont l'historique a été ouvert (n°1 par défaut) */
-    const historiqueCourant = ref<1 | 2>(1);
+    const historiqueCourant = ref<1 | 2 | 3>(1);
     /** Message des outils de l'automatisation n°2 (diagnostic, nettoyage), affiché sous leurs boutons */
     const messageOutils = ref<{ texte: string; erreur: boolean } | null>(null);
 
-    async function ouvrirEnvois(n: 1 | 2) {
+    async function ouvrirEnvois(n: 1 | 2 | 3) {
         historiqueCourant.value = n;
-        const titre = n === 1 ? '📋 Historique des envois de rappels' : '📋 Historique des sauvegardes de planning';
+        const titre = {
+            1: '📋 Historique des envois de rappels',
+            2: '📋 Historique des sauvegardes de planning',
+            3: '📋 Historique des notifications Teams'
+        }[n];
         fenetre.value = { titre, contenu: { type: 'envois', n, envois: null } };
         try {
             const envois = (await apiAutomatisations.envois(n)).logs ?? [];
@@ -105,6 +118,7 @@ export const useAutomatisationsStore = defineStore('admin-automatisations', () =
     }
 
     return {
+        utilisateurs,
         comptes,
         ressources,
         mois,
@@ -112,6 +126,7 @@ export const useAutomatisationsStore = defineStore('admin-automatisations', () =
         chargerListes,
         chargerMois,
         preparer,
+        chargerInfosHo,
         fenetre,
         historiqueCourant,
         messageOutils,

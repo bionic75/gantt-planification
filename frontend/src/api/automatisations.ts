@@ -100,5 +100,35 @@ export const apiAutomatisations = {
     nettoyer: () =>
         api.post<{ deleted: number; normalized: number; duplicatesRemoved: number }>(
             '/automation/cleanup-dates-execute'
+        ),
+    /** N°3 : message de test vers le canal Teams */
+    testTeams: (teamsEmail: string) => api.post('/teams/test', { teamsEmail }),
+    /** N°4 : experts d'astreinte participant au workflow CRA */
+    expertsCra: () => api.get<ExpertCra[]>('/cra/experts-astreinte'),
+    /** N°4 : rappel CRA envoyé maintenant (à un expert, ou à tous) ; journal détaillé */
+    declencherCra: (userId: string | null) =>
+        api.post<{ success?: boolean; sent?: number; logs?: string[] }>('/automation/cra/trigger', { user_id: userId }),
+    /** N°5 et n°6 : experts HO, champs des modèles de mail et modèles par défaut */
+    infosHo: () => api.get<InfosHo>('/astreintes-ho/info'),
+    /** N°5 et n°6 : envoi immédiat avec la configuration enregistrée */
+    envoyerHo: (n: 5 | 6) =>
+        api.post<{ sent?: boolean; recipients?: number; week?: string; reason?: string }>(
+            `/astreintes-ho/automation/${n}/send`,
+            {}
         )
 };
+
+export interface ExpertCra {
+    user_id: number | null;
+    nom: string | null;
+    prenom: string | null;
+    samu: string | null;
+    es_rattachement: string | null;
+}
+
+export interface InfosHo {
+    experts?: Array<{ user_id: number | null; nom: string | null; prenom: string | null; email: string | null }>;
+    /** Champs des modèles : code, description */
+    fields?: Array<[string, string]>;
+    templates: Record<'5' | '6', { subject: string; body: string }>;
+}

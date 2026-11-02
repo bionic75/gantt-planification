@@ -1,9 +1,13 @@
-<!-- Cadre d'une automatisation : case d'activation et titre, bouton de repli du contenu (replié à l'ouverture) -->
+<!-- Cadre d'une automatisation : case d'activation et titre, bouton de repli du contenu (replié à l'ouverture).
+     Teinte : orange (n°1 à 3), violet (workflow CRA), vert (astreintes HO). -->
 <script setup lang="ts">
 import { ref } from 'vue';
 
-/** icone : tracés SVG 24×24 (constantes de l'écran, jamais de donnée saisie) */
-const props = defineProps<{ numero: number; titre: string; icone: string }>();
+/** icone : tracés SVG 24×24 (constantes de l'écran, jamais de donnée saisie) ; absente : titre seul (émoji) */
+const props = withDefaults(
+    defineProps<{ numero: number; titre: string; icone?: string; teinte?: 'orange' | 'violet' | 'vert' }>(),
+    { icone: undefined, teinte: 'orange' }
+);
 /** bascule : nouvelle activation (à enregistrer ; le modèle du parent peut ne pas être encore à jour) */
 const emit = defineEmits<{ bascule: [actif: boolean] }>();
 const actif = defineModel<boolean>('actif', { required: true });
@@ -13,7 +17,7 @@ const idCorps = `automation${props.numero}Body`;
 </script>
 
 <template>
-    <div class="automatisation">
+    <div class="automatisation" :class="`automatisation--${teinte}`">
         <div class="automatisation__entete">
             <label class="automatisation__activation">
                 <input
@@ -24,10 +28,16 @@ const idCorps = `automation${props.numero}Body`;
                     @change="emit('bascule', ($event.target as HTMLInputElement).checked)"
                 />
                 <span class="automatisation__titre">
-                    <!-- eslint-disable-next-line vue/no-v-html -->
-                    <svg class="automatisation__icone" viewBox="0 0 24 24" aria-hidden="true" v-html="icone" />{{
-                        titre
-                    }}
+                    <!-- Tracés constants de l'écran, jamais de donnée saisie -->
+                    <!-- eslint-disable vue/no-v-html -->
+                    <svg
+                        v-if="icone"
+                        class="automatisation__icone"
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                        v-html="icone"
+                    />
+                    <!-- eslint-enable vue/no-v-html -->{{ titre }}
                 </span>
             </label>
             <button
@@ -99,5 +109,19 @@ const idCorps = `automation${props.numero}Body`;
     font-size: 14px;
     color: #e65100;
     padding: 2px 8px;
+}
+.automatisation--violet {
+    border-color: #b39ddb;
+}
+.automatisation--violet .automatisation__titre,
+.automatisation--violet .automatisation__repli {
+    color: #6a1b9a;
+}
+.automatisation--vert {
+    border-color: #aed581;
+}
+.automatisation--vert .automatisation__titre,
+.automatisation--vert .automatisation__repli {
+    color: #33691e;
 }
 </style>
