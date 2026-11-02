@@ -131,7 +131,8 @@ function switchTab(tabName, event) {
     }
 
     if (tabName === 'cra') {
-        loadCraList();
+        // Cartes et détail : îlot Vue (frontend/src/ilots/cra), relu à chaque ouverture de l'onglet
+        loadCraList(false);
         loadCraPendingBadge();
     }
 }

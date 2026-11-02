@@ -197,18 +197,6 @@ async function checkSession() {
                 document.getElementById('craTabLabel').textContent = 'CRA';
             }
 
-            // Charger la config CRA pour les boutons visa
-            fetch(`${API_URL}/settings`, { credentials: 'include' })
-                .then(r => r.json())
-                .then(data => {
-                    if (data.automation_4_config) {
-                        try {
-                            window._craConfig = JSON.parse(data.automation_4_config);
-                        } catch (e) {}
-                    }
-                })
-                .catch(() => {});
-
             // Badge CRA en attente
             loadCraPendingBadge();
 
@@ -740,18 +728,6 @@ async function completeFinalLogin(user, selectedApp) {
     // Badge CRA en attente (admin)
     loadCraPendingBadge();
 
-    // Charger la config CRA pour tous les profils (nécessaire pour les boutons visa)
-    fetch(`${API_URL}/settings`, { credentials: 'include' })
-        .then(r => r.json())
-        .then(data => {
-            if (data.automation_4_config) {
-                try {
-                    window._craConfig = JSON.parse(data.automation_4_config);
-                } catch (e) {}
-            }
-        })
-        .catch(() => {});
-
     // Démarrer le suivi des utilisateurs connectés en temps réel
     startOnlineUsersPolling();
 
@@ -782,12 +758,16 @@ async function completeFinalLogin(user, selectedApp) {
     // Afficher l'onglet par défaut selon la préférence de l'utilisateur
     openLandingTab();
 
-    // Deep link CRA depuis email
+    // Deep link CRA depuis email : CRA ouvert par l'îlot du circuit (frontend/src/ilots/cra), à son montage ou aussitôt
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('tab') === 'cra') {
         switchTab('cra', null);
         const craId = urlParams.get('cra_id');
-        if (craId) setTimeout(() => openCraDetail(parseInt(craId)), 500);
+        if (craId)
+            setTimeout(() => {
+                window.craDemande = parseInt(craId);
+                window.dispatchEvent(new CustomEvent('gp:cra-demande'));
+            }, 500);
     }
 
     document.getElementById('loginUsername').value = '';
@@ -941,9 +921,11 @@ window.addEventListener('gp:ressources-modifiees', async () => {
     await loadResources();
     updateGantt();
 });
-// Workflow CRA enregistré (automatisation n°4, îlot Vue) : configuration des boutons de visa
-window.addEventListener('gp:config-cra-modifiee', e => {
-    window._craConfig = e.detail.config;
+// CRA traités par l'îlot du circuit (onglet CRA) : listes de l'ancien code (CRA signés, à diffuser, archivés) et
+// pastille de l'onglet
+window.addEventListener('gp:cra-modifies', () => {
+    loadCraList(false);
+    loadCraPendingBadge();
 });
 // Accès aux onglets enregistrés : barre d'onglets mise à jour
 window.addEventListener('gp:onglets-modifies', e => {

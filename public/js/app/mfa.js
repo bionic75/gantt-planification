@@ -356,3 +356,49 @@ function updateUserDisplay() {
     // Mettre à jour l'affichage de la photo de profil
     updateProfileDisplay();
 }
+
+// Sélecteur de profil de l'en-tête (comptes multi-profils) : liste ouverte ou fermée, changement de profil
+function toggleProfileDropdown() {
+    const dd = document.getElementById('profileDropdown');
+    if (!dd) return;
+    const isOpen = dd.style.display !== 'none';
+    dd.style.display = isOpen ? 'none' : 'block';
+    if (!isOpen) {
+        setTimeout(
+            () =>
+                document.addEventListener('click', function h(e) {
+                    if (!document.getElementById('profileSwitcher').contains(e.target)) {
+                        dd.style.display = 'none';
+                        document.removeEventListener('click', h);
+                    }
+                }),
+            50
+        );
+    }
+}
+
+async function switchToProfile(profile) {
+    if (profile === currentUser.activeProfile) {
+        document.getElementById('profileDropdown').style.display = 'none';
+        return;
+    }
+    try {
+        const res = await fetch(`${API_URL}/switch-profile`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ profile })
+        });
+        const data = await res.json();
+        if (!data.success) {
+            alert('Erreur : ' + (data.error || 'Impossible de changer de profil'));
+            return;
+        }
+        currentUser.activeProfile = profile;
+        document.getElementById('profileDropdown').style.display = 'none';
+        // Recharger la page pour garantir une interface cohérente avec le nouveau profil
+        location.reload();
+    } catch (e) {
+        alert('Erreur réseau : ' + e.message);
+    }
+}
