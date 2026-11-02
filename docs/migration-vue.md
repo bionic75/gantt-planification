@@ -80,7 +80,7 @@ index.html (existant)
 | 0     | Terminée                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | 1     | En production : îlot `frontend/src/ilots/tripadvisor/`, 7 scénarios d'écran ajoutés à `09-tripadvisor`                                                                                                                                                                                                                                                                                                                                                                                    |
 | 2     | Découpée en trois îlots mis en production l'un après l'autre : Reporting, Événements, Administration. Reporting en production (`frontend/src/ilots/reporting/`, scénarios `15-reporting-suivis`). Événements en production (`frontend/src/ilots/evenements/`, scénarios `16-evenements-ecran`) ; carte des événements laissée dans l'ancien code (migration à part). Administration entièrement migrée en sous-îlots (voir ci-dessous) : phase terminée à la mise en production du lot 4g |
-| 3     | Ressources puis CRA. Ressources découpées en deux lots (voir ci-dessous) : onglet entièrement migré à la mise en production du lot 3b ; CRA à faire                                                                                                                                                                                                                                                                                                                                       |
+| 3     | Ressources puis CRA, chacun découpé en deux lots (voir ci-dessous). Ressources entièrement migrées (lot 3b en production). CRA : circuit (lot 3c) réalisé, administration et vue RH (lot 3d) à faire                                                                                                                                                                                                                                                                                      |
 
 Sous-îlots de l'Administration, mis en production l'un après l'autre :
 
@@ -102,7 +102,20 @@ Lots de l'onglet Ressources (phase 3), mis en production l'un après l'autre :
 | #   | Lot            | Contenu                                                                                                                                                                                     | État                                                                                                                    |
 | --- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | 3a  | Liste et ajout | Liste (tri, bascules des astreintes et de l'activation, suppression, export), formulaire d'ajout (trigramme proposé, expert principal / secondaire sur des SAMU), profil RH en consultation | En production (`frontend/src/ilots/ressources/`, îlot `#resources`, scénarios `24-ressources-ecran` et `03-ressources`) |
-| 3b  | Fiche          | Modification, consultation RH, historique des taux de MAD et particularités, contacts RH                                                                                                    | Réalisé (même îlot et mêmes scénarios ; onglet Ressources entièrement migré) ; en attente de mise en production         |
+| 3b  | Fiche          | Modification, consultation RH, historique des taux de MAD et particularités, contacts RH                                                                                                    | En production (même îlot et mêmes scénarios ; onglet Ressources entièrement migré)                                      |
+
+Lots de l'onglet CRA (phase 3) :
+
+| #   | Lot                      | Contenu                                                                                                                                                                                                                                                                                                                        | État                                                                                                                                                                   |
+| --- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 3c  | Circuit du CRA           | Cartes en cours (expert, administrateur, archivage), cartes signées (expert), détail (étapes, signatures, lignes, motifs), saisie des lignes et collecte (MAD volante), soumission, rappel, « Rien à déclarer », visas N1 / N2, refus motivé, correction et renvoi par l'administrateur, document PDF, lien d'une notification | Réalisé (`frontend/src/ilots/cra/`, sous-îlots `#craExpert`, `#craCartesAdmin`, `#craDetail`, scénarios `25-cra-ecran` et `07-cra`) ; en attente de mise en production |
+| 3d  | Administration et vue RH | CRA à lancer, signés, archivés, supprimés, en attente de diffusion, fenêtre de diffusion, visualisation, vue RH (filtre « Mois » corrigé) ; `cra.js` et le reste du HTML de l'onglet supprimés                                                                                                                                 | À faire                                                                                                                                                                |
+
+Duplication temporaire (lot 3c, jusqu'à la migration de la planification, phase 4) : la saisie des astreintes / HNO du
+menu contextuel du Gantt garde une copie réduite de l'ancienne saisie du CRA (`public/js/app/particularites.js`,
+fenêtre `#ganttAstreinteModal`), sans la collecte ni le report vers la planification, propres au CRA. De même,
+`downloadCraPdf` (document d'un CRA en cours) reste dans `cra.js` pour la fenêtre de visualisation des administrateurs
+jusqu'au lot 3d.
 
 Anomalies relevées pendant la migration (comportement conservé, correction à part) :
 
@@ -147,6 +160,14 @@ Anomalies relevées pendant la migration (comportement conservé, correction à 
   modification et la suppression d'une particularité ne rechargent pas la planification.
 - Ressources (fiche) : la modification d'une particularité n'est pas contrôlée (dates et taux), contrairement à l'ajout.
 - Ressources (consultation RH) : l'historique des taux garde son en-tête « Actions », sans cellules.
+- CRA : le lien d'une notification (`?tab=cra&cra_id=`) n'ouvre le CRA qu'à la connexion par la mire ; une session
+  déjà ouverte affiche l'application sans l'ouvrir.
+- CRA : un compte administrateur connecté sous un autre profil voit les actions d'administration du détail (refusées
+  par le serveur) ; un compte RH connecté sous le profil expert a la vue RH, sans ses propres CRA.
+- CRA (saisie) : les lignes sont repérées par leur rang ; supprimer une ligne placée avant celle en cours de
+  modification fait porter la modification sur la ligne suivante.
+- CRA : pour un CRA en cours, « Télécharger PDF » ouvre une page à imprimer (bouton « Imprimer / Enregistrer PDF »),
+  pas un fichier.
 
 Changements de comportement décidés pendant la migration :
 
@@ -158,6 +179,14 @@ Changements de comportement décidés pendant la migration :
   fiche (l'ancien écran le laissait en lecture seule jusqu'au rechargement de la page, y compris après un passage au
   profil administrateur) ; les dates proposées pour une particularité sont bornées par la période affichée (l'ancien
   écran gardait la borne de fin d'une période consultée auparavant).
+- CRA : la saisie du CRA et celle du menu contextuel du Gantt sont séparées. L'ancienne fenêtre commune pouvait garder
+  le titre du Gantt, afficher le bouton de collecte d'un CRA ouvert auparavant, et, après une fenêtre du Gantt fermée
+  sans « Terminer », enregistrer les lignes d'un CRA dans le mois et pour la personne du Gantt.
+- CRA : les messages (alert) et confirmations (confirm) du navigateur sont remplacés par des messages et des fenêtres
+  de la page ; la question de la collecte propose « Remplacer » ou « Conserver ». La configuration des viseurs N1 / N2
+  est relue à chaque ouverture du détail (l'ancien écran la lisait à la connexion et à son enregistrement).
+- CRA : dans le document d'un CRA en cours, le texte saisi (objet, commentaire…) est affiché tel quel, sans être
+  interprété comme du HTML.
 
 ### Critères de sortie d'un îlot
 

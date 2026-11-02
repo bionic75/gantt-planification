@@ -417,15 +417,8 @@
                             <button onclick="lancerCra()" style="background:#1565c0;color:white;border:none;padding:8px 18px;border-radius:4px;cursor:pointer;font-size:13px;font-weight:bold;">▶ Lancer le CRA</button>
                         </div>
                     </div>
-                    <!-- En cours de traitement -->
-                    <div style="background:#fff3e0;border:1px solid #ffb74d;border-radius:8px;padding:15px;margin-bottom:16px;">
-                        <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="toggleCraAdminSection('enCours')">
-                            <h3 style="color:#e65100;margin:0;font-size:15px;"><span id="craAdminEnCoursIcon">▼</span> 📋 CRA en cours de traitement</h3>
-                        </div>
-                        <div id="craAdminEnCoursBody" style="margin-top:12px;">
-                            <div id="craAdminEnCours"><div style="text-align:center;padding:20px;color:#999;">⏳ Chargement...</div></div>
-                        </div>
-                    </div>
+                    <!-- En cours de traitement : îlot Vue (frontend/src/ilots/cra) -->
+                    <div id="craCartesAdmin"></div>
                     <!-- CRA signés -->
                     <div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:15px;margin-bottom:16px;">
                         <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="toggleCraAdminSection('signes')">
@@ -493,25 +486,8 @@
                     </div>
                 </div>
 
-                <!-- ===== EXPERT : 2 catégories ===== -->
-                <div id="craExpertSections" style="display:none; margin-top:20px;">
-                    <div style="background:#fff3e0;border:1px solid #ffb74d;border-radius:8px;padding:15px;margin-bottom:16px;">
-                        <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="toggleCraExpertSection('enCours')">
-                            <h3 style="color:#e65100;margin:0;font-size:15px;"><span id="craExpertEnCoursIcon">▼</span> 📋 Mes CRA en cours de traitement</h3>
-                        </div>
-                        <div id="craExpertEnCoursBody" style="margin-top:12px;">
-                            <div id="craListEnCours"><div style="text-align:center;padding:20px;color:#999;">⏳ Chargement...</div></div>
-                        </div>
-                    </div>
-                    <div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:15px;margin-bottom:16px;">
-                        <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="toggleCraExpertSection('signes')">
-                            <h3 style="color:#2e7d32;margin:0;font-size:15px;"><span id="craExpertSignesIcon">▶</span> ✅ Mes CRA signés</h3>
-                        </div>
-                        <div id="craExpertSignesBody" style="margin-top:12px;display:none;">
-                            <div id="craListSignes"><div style="text-align:center;padding:20px;color:#999;">⏳ Chargement...</div></div>
-                        </div>
-                    </div>
-                </div>
+                <!-- ===== EXPERT : 2 catégories : îlot Vue (frontend/src/ilots/cra) ===== -->
+                <div id="craExpert"></div>
 
                 <!-- ===== RH : lecture seule, CRA signés uniquement ===== -->
                 <div id="craRhSections" style="display:none; margin-top:20px;">
@@ -559,45 +535,8 @@
                     </div>
                 </div>
 
-                <!-- Compatibilité (non utilisé, conservé pour les refs JS) -->
-                <div id="craList" style="display:none;"></div>
-                <div id="craDetailPanel" style="display: none; margin-top: 20px; padding: 20px; background: #f3e5f5; border-radius: 8px; border: 1px solid #b39ddb;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h3 id="craDetailTitle" style="color: #6a1b9a; margin: 0;"></h3>
-                        <button onclick="closeCraDetail()" style="background: none; border: none; font-size: 20px; cursor: pointer;">✕</button>
-                    </div>
-                    <div id="craStatusTimeline" style="margin-bottom: 20px;"></div>
-                    <div id="craDataSection" style="margin-bottom: 20px;"></div>
-                    <div style="margin-bottom: 15px;">
-                        <label style="font-size: 13px; font-weight: bold; color: #6a1b9a; display: block; margin-bottom: 5px;">💬 Commentaire de l'expert</label>
-                        <textarea id="craCommentaire" rows="3" style="width: 100%; padding: 8px; border: 1px solid #b39ddb; border-radius: 4px; font-size: 13px;" placeholder="Ajoutez des informations complémentaires si nécessaire..."></textarea>
-                    </div>
-
-                    <!-- CRA modifié par un administrateur -->
-                    <div id="craAdminModPanel" style="display:none; margin-bottom:15px; background:#e3f2fd; border-left:4px solid #1565c0; padding:10px 14px; border-radius:0 6px 6px 0;">
-                        <div style="font-size:12px; font-weight:bold; color:#0d47a1; margin-bottom:4px;">🛠️ CRA modifié par un administrateur</div>
-                        <div id="craAdminModText" style="font-size:12px; color:#2c3e50;"></div>
-                    </div>
-
-                    <!-- Commentaire de refus précédent -->
-                    <div id="craRefusPanel" style="display:none; margin-bottom:15px; background:#fff3cd; border-left:4px solid #f39c12; padding:10px 14px; border-radius:0 6px 6px 0;">
-                        <div style="font-size:12px; font-weight:bold; color:#e65100; margin-bottom:4px;">⚠️ Motif de refus précédent</div>
-                        <div id="craRefusCommentaire" style="font-size:12px; color:#2c3e50;"></div>
-                        <div id="craRefusInfo" style="font-size:11px; color:#888; margin-top:4px;"></div>
-                    </div>
-
-                    <!-- Commentaire de refus du viseur -->
-                    <div id="craRefusViseurPanel" style="display:none; margin-bottom:15px;">
-                        <label style="font-size: 13px; font-weight: bold; color: #e65100; display: block; margin-bottom: 5px;">❌ Motif de refus (obligatoire)</label>
-                        <textarea id="craCommentaireRefus" rows="3" style="width: 100%; padding: 8px; border: 1px solid #f39c12; border-radius: 4px; font-size: 13px;" placeholder="Expliquez pourquoi vous refusez ce CRA..."></textarea>
-                    </div>
-                    <div id="craActionButtons" style="display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap;">
-                        <!-- Bouton "Rien à déclarer" — expert uniquement, CRA en statut a_completer -->
-                        <button id="craRienADeclarerBtn" onclick="submitRienADeclarer()" style="display:none;background:#ff9800;color:white;padding:10px 18px;font-weight:bold;border:none;border-radius:4px;cursor:pointer;" title="Je n'ai ni astreinte ni HNO à déclarer ce mois">📭 Rien à déclarer</button>
-                        <!-- Bouton PDF toujours disponible -->
-                        <button id="craPdfBtn" onclick="downloadCraPdf()" style="background:#78909c;color:white;padding:10px 18px;font-weight:bold;border:none;border-radius:4px;cursor:pointer;display:none;">📄 Télécharger PDF</button>
-                    </div>
-                </div>
+                <!-- Détail d'un CRA (circuit, saisie) : îlot Vue (frontend/src/ilots/cra) -->
+                <div id="craDetail"></div>
             </div>
         </div>
 
@@ -911,12 +850,12 @@
     </div>
 </div>
 
-<!-- Modal saisie astreintes/HNO pour CRA -->
-<div id="craSaisieModal" class="modal" style="z-index: 10001;">
+<!-- Saisie des astreintes/HNO depuis le menu contextuel du Gantt (planification) -->
+<div id="ganttAstreinteModal" class="modal" style="z-index: 10001;">
     <div class="modal-content" style="max-width: 750px; max-height: 90vh; overflow-y: auto; padding: 0;">
         <div style="position: sticky; top: 0; background: #6a1b9a; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 1;">
-            <h3 style="margin: 0; color: white; font-size: 15px;">📝 Compléter mon CRA — <span id="craSaisieModalTitle"></span></h3>
-            <button onclick="closeCraSaisieModal()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; line-height: 1;">✕</button>
+            <h3 style="margin: 0; color: white; font-size: 15px;">➕/🗑️ Astreinte/HNO — <span id="ganttAstreinteModalTitle"></span></h3>
+            <button onclick="closeGanttAstreinteModal()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; line-height: 1;">✕</button>
         </div>
 
         <!-- Formulaire d'ajout ligne -->
@@ -924,7 +863,7 @@
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
                 <div>
                     <label style="display: block; margin-bottom: 4px; font-weight: bold; color: #333; font-size: 12px;">Type *</label>
-                    <select id="craSaisieType" style="width: 100%; padding: 8px; border: 1px solid #b39ddb; border-radius: 4px; font-size: 13px;">
+                    <select id="ganttAstreinteType" style="width: 100%; padding: 8px; border: 1px solid #b39ddb; border-radius: 4px; font-size: 13px;">
                         <option value="activite_courante">Activité courante</option>
                         <option value="astreinte">Astreinte</option>
                         <option value="hno">Travail HNO</option>
@@ -932,53 +871,51 @@
                 </div>
                 <div>
                     <label style="display: block; margin-bottom: 4px; font-weight: bold; color: #333; font-size: 12px;">Date de début *</label>
-                    <input type="date" id="craSaisieDateDebut" onchange="if(!document.getElementById('craSaisieDateFin').value) document.getElementById('craSaisieDateFin').value = this.value" style="width: 100%; padding: 8px; border: 1px solid #b39ddb; border-radius: 4px; font-size: 13px;">
+                    <input type="date" id="ganttAstreinteDateDebut" onchange="if(!document.getElementById('ganttAstreinteDateFin').value) document.getElementById('ganttAstreinteDateFin').value = this.value" style="width: 100%; padding: 8px; border: 1px solid #b39ddb; border-radius: 4px; font-size: 13px;">
                 </div>
                 <div>
                     <label style="display: block; margin-bottom: 4px; font-weight: bold; color: #333; font-size: 12px;">Date de fin *</label>
-                    <input type="date" id="craSaisieDateFin" style="width: 100%; padding: 8px; border: 1px solid #b39ddb; border-radius: 4px; font-size: 13px;">
+                    <input type="date" id="ganttAstreinteDateFin" style="width: 100%; padding: 8px; border: 1px solid #b39ddb; border-radius: 4px; font-size: 13px;">
                 </div>
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px;">
                 <div>
                     <label style="display: block; margin-bottom: 4px; font-weight: bold; color: #333; font-size: 12px;">Heure de début *</label>
-                    <input type="time" id="craSaisieHeureDebut" style="width: 100%; padding: 8px; border: 1px solid #b39ddb; border-radius: 4px; font-size: 13px;">
+                    <input type="time" id="ganttAstreinteHeureDebut" style="width: 100%; padding: 8px; border: 1px solid #b39ddb; border-radius: 4px; font-size: 13px;">
                 </div>
                 <div>
                     <label style="display: block; margin-bottom: 4px; font-weight: bold; color: #333; font-size: 12px;">Heure de fin *</label>
-                    <input type="time" id="craSaisieHeureFin" style="width: 100%; padding: 8px; border: 1px solid #b39ddb; border-radius: 4px; font-size: 13px;">
+                    <input type="time" id="ganttAstreinteHeureFin" style="width: 100%; padding: 8px; border: 1px solid #b39ddb; border-radius: 4px; font-size: 13px;">
                 </div>
             </div>
             <div style="margin-top: 12px;">
                 <label style="display: block; margin-bottom: 4px; font-weight: bold; color: #333; font-size: 12px;">SAMU *</label>
-                <select id="craSaisieSamu" style="width: 100%; padding: 8px; border: 1px solid #b39ddb; border-radius: 4px; font-size: 13px;">
+                <select id="ganttAstreinteSamu" style="width: 100%; padding: 8px; border: 1px solid #b39ddb; border-radius: 4px; font-size: 13px;">
                     <option value="">-- Sélectionner un SAMU --</option>
                 </select>
             </div>
             <div style="margin-top: 12px;">
                 <label style="display: block; margin-bottom: 4px; font-weight: bold; color: #333; font-size: 12px;">Objet *</label>
-                <input type="text" id="craSaisieObjet" placeholder="Objet de l'astreinte/HNO" style="width: 100%; padding: 8px; border: 1px solid #b39ddb; border-radius: 4px; font-size: 13px;">
+                <input type="text" id="ganttAstreinteObjet" placeholder="Objet de l'astreinte/HNO" style="width: 100%; padding: 8px; border: 1px solid #b39ddb; border-radius: 4px; font-size: 13px;">
             </div>
             <div style="margin-top: 15px;">
-                <button id="craSaisieAddBtn" onclick="craSaisieAjouter()" style="background: #6a1b9a; color: white; padding: 9px 22px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px;">➕ Ajouter</button>
-                <button onclick="craSaisieResetForm()" style="background: #95a5a6; color: white; padding: 9px 18px; border: none; border-radius: 4px; cursor: pointer; margin-left: 8px; font-size: 13px;">🔄 Réinitialiser</button>
-                <button id="craSaisieCollectBtn" onclick="craSaisieCollecter()" style="display:none;background: #1565c0; color: white; padding: 9px 18px; border: none; border-radius: 4px; cursor: pointer; margin-left: 8px; font-size: 13px; font-weight: bold;" title="Reprend les activités courantes, astreintes et HNO marquées dans la page de planification (jour entier 9h-18h, matin 9h-12h, après-midi 14h-18h)">📥 Collecter depuis la planification</button>
-                <span id="craSaisieCollectMsg" style="margin-left:10px;font-size:12px;color:#1565c0;"></span>
+                <button id="ganttAstreinteAddBtn" onclick="ganttAstreinteAjouter()" style="background: #6a1b9a; color: white; padding: 9px 22px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px;">➕ Ajouter</button>
+                <button onclick="ganttAstreinteResetForm()" style="background: #95a5a6; color: white; padding: 9px 18px; border: none; border-radius: 4px; cursor: pointer; margin-left: 8px; font-size: 13px;">🔄 Réinitialiser</button>
             </div>
         </div>
 
         <!-- Liste des lignes saisies -->
         <div style="padding: 20px;">
             <h4 style="color: #6a1b9a; margin: 0 0 12px 0; font-size: 13px;">Liste des astreintes/HNO</h4>
-            <div id="craSaisieList" style="min-height: 60px; max-height: 300px; overflow-y: auto;">
+            <div id="ganttAstreinteList" style="min-height: 60px; max-height: 300px; overflow-y: auto;">
                 <p style="color: #999; text-align: center; font-size: 13px; padding: 20px 0;">Aucune ligne saisie</p>
             </div>
         </div>
 
         <!-- Footer -->
         <div style="padding: 15px 20px; border-top: 1px solid #e1bee7; background: #f9f4ff; display: flex; justify-content: flex-end; gap: 10px;">
-            <button onclick="closeCraSaisieModal()" style="background: #78909c; color: white; padding: 10px 22px; border: none; border-radius: 4px; cursor: pointer; font-size: 13px;">Fermer</button>
-            <button onclick="craSaisieTerminer()" style="background: #27ae60; color: white; padding: 10px 22px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px;">✅ Terminer</button>
+            <button onclick="closeGanttAstreinteModal()" style="background: #78909c; color: white; padding: 10px 22px; border: none; border-radius: 4px; cursor: pointer; font-size: 13px;">Fermer</button>
+            <button onclick="ganttAstreinteTerminer()" style="background: #27ae60; color: white; padding: 10px 22px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px;">✅ Terminer</button>
         </div>
     </div>
 </div>

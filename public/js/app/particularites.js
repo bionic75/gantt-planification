@@ -296,7 +296,12 @@ async function deleteGanttAstreinte(entry, data) {
     }
 }
 
+// ===== SAISIE DES ASTREINTES / HNO DEPUIS LE GANTT =====
+// Copie réduite de l'ancienne saisie du CRA, propre au menu contextuel du Gantt (le CRA a sa saisie : îlot Vue
+// frontend/src/ilots/cra), en attendant la migration de la planification (phase 4 de docs/migration-vue.md)
 let _ganttAstreinteCtx = null; // contexte sauvegardé pour la sauvegarde directe
+let _ganttAstreinteLines = [];
+let _ganttAstreinteEditIdx = null; // index de la ligne en cours d'édition
 
 async function openGanttAstreinteModal(data, editEntry) {
     const snap = { ...data };
@@ -317,11 +322,8 @@ async function openGanttAstreinteModal(data, editEntry) {
         }
         const lignes = await res.json();
 
-        // Préparer le modal en mode direct (sans CRA)
-        _craSaisieId = null;
-        _craSaisieFromGantt = true;
         _ganttAstreinteCtx = snap;
-        _craSaisieLines = lignes.map(l => ({
+        _ganttAstreinteLines = lignes.map(l => ({
             id: l.id,
             type: l.type,
             date_debut: l.date_debut,
@@ -331,29 +333,28 @@ async function openGanttAstreinteModal(data, editEntry) {
             samu: l.samu || '',
             objet: l.objet || ''
         }));
-        _craSaisieEditIdx = null;
+        _ganttAstreinteEditIdx = null;
 
         // Titre
         const moisNom = new Date(snap.year, snap.month - 1, 1).toLocaleDateString('fr-FR', {
             month: 'long',
             year: 'numeric'
         });
-        document.querySelector('#craSaisieModal h3').innerHTML =
-            `➕/🗑️ Astreinte/HNO — <span id="craSaisieModalTitle">${snap.resourceName} — ${moisNom}</span>`;
+        document.getElementById('ganttAstreinteModalTitle').textContent = `${snap.resourceName} — ${moisNom}`;
 
         // Bornes du mois pour les champs date
         const pad = n => String(n).padStart(2, '0');
         const lastDay = new Date(snap.year, snap.month, 0).getDate();
         const minDate = `${snap.year}-${pad(snap.month)}-01`;
         const maxDate = `${snap.year}-${pad(snap.month)}-${pad(lastDay)}`;
-        document.getElementById('craSaisieDateDebut').min = minDate;
-        document.getElementById('craSaisieDateDebut').max = maxDate;
-        document.getElementById('craSaisieDateFin').min = minDate;
-        document.getElementById('craSaisieDateFin').max = maxDate;
+        document.getElementById('ganttAstreinteDateDebut').min = minDate;
+        document.getElementById('ganttAstreinteDateDebut').max = maxDate;
+        document.getElementById('ganttAstreinteDateFin').min = minDate;
+        document.getElementById('ganttAstreinteDateFin').max = maxDate;
 
         if (!allLocations || allLocations.length === 0) await loadLocations();
         // Peupler le select SAMU
-        const samuSel = document.getElementById('craSaisieSamu');
+        const samuSel = document.getElementById('ganttAstreinteSamu');
         samuSel.innerHTML = '<option value="">-- Sélectionner un SAMU --</option>';
         (allLocations || []).forEach(loc => {
             const opt = document.createElement('option');
@@ -362,27 +363,30 @@ async function openGanttAstreinteModal(data, editEntry) {
             samuSel.appendChild(opt);
         });
 
-        craSaisieResetForm();
-        renderCraSaisieList();
+        ganttAstreinteResetForm();
+        renderGanttAstreinteList();
 
-        const hDebut = document.getElementById('craSaisieHeureDebut');
-        const hFin = document.getElementById('craSaisieHeureFin');
+        const hDebut = document.getElementById('ganttAstreinteHeureDebut');
+        const hFin = document.getElementById('ganttAstreinteHeureFin');
 
         if (editEntry) {
             // Mode édition : pré-remplir avec l'entrée existante
-            const idx = _craSaisieLines.findIndex(l => l.id === editEntry.id);
+            const idx = _ganttAstreinteLines.findIndex(l => l.id === editEntry.id);
             if (idx >= 0) {
-                craSaisieEditLigne(idx);
+                ganttAstreinteEditLigne(idx);
             } else {
                 // Entrée pas encore dans la liste locale (vient d'allAstreintesHno) → l'ajouter temporairement
-                document.getElementById('craSaisieType').value = editEntry.type;
-                document.getElementById('craSaisieDateDebut').value = (editEntry.date_debut || '').substring(0, 10);
-                document.getElementById('craSaisieDateFin').value = (editEntry.date_fin || '').substring(0, 10);
+                document.getElementById('ganttAstreinteType').value = editEntry.type;
+                document.getElementById('ganttAstreinteDateDebut').value = (editEntry.date_debut || '').substring(
+                    0,
+                    10
+                );
+                document.getElementById('ganttAstreinteDateFin').value = (editEntry.date_fin || '').substring(0, 10);
                 hDebut.value = editEntry.heure_debut || '';
                 hFin.value = editEntry.heure_fin || '';
-                document.getElementById('craSaisieSamu').value = editEntry.samu || '';
-                document.getElementById('craSaisieObjet').value = editEntry.objet || '';
-                _craSaisieEditIdx = null;
+                document.getElementById('ganttAstreinteSamu').value = editEntry.samu || '';
+                document.getElementById('ganttAstreinteObjet').value = editEntry.objet || '';
+                _ganttAstreinteEditIdx = null;
             }
             // Contraintes horaires selon période cliquée
             if (snap.period === 'AM') {
@@ -398,8 +402,8 @@ async function openGanttAstreinteModal(data, editEntry) {
             }
         } else {
             // Mode ajout : pré-remplir la date et les heures selon AM/PM
-            document.getElementById('craSaisieDateDebut').value = snap.dateStr;
-            document.getElementById('craSaisieDateFin').value = snap.dateStr;
+            document.getElementById('ganttAstreinteDateDebut').value = snap.dateStr;
+            document.getElementById('ganttAstreinteDateFin').value = snap.dateStr;
             if (snap.period === 'AM') {
                 hDebut.min = '00:00';
                 hDebut.max = '11:59';
@@ -417,11 +421,180 @@ async function openGanttAstreinteModal(data, editEntry) {
             }
         }
 
-        document.getElementById('craSaisieModal').classList.add('active');
+        document.getElementById('ganttAstreinteModal').classList.add('active');
     } catch (e) {
         alert('Erreur : ' + e.message);
     }
 }
+
+function closeGanttAstreinteModal() {
+    document.getElementById('ganttAstreinteModal').classList.remove('active');
+    _ganttAstreinteCtx = null;
+    _ganttAstreinteLines = [];
+    _ganttAstreinteEditIdx = null;
+}
+
+function ganttAstreinteResetForm() {
+    document.getElementById('ganttAstreinteType').selectedIndex = 0;
+    document.getElementById('ganttAstreinteSamu').selectedIndex = 0;
+    document.getElementById('ganttAstreinteDateDebut').value = '';
+    document.getElementById('ganttAstreinteDateFin').value = '';
+    document.getElementById('ganttAstreinteHeureDebut').value = '';
+    document.getElementById('ganttAstreinteHeureFin').value = '';
+    document.getElementById('ganttAstreinteObjet').value = '';
+    _ganttAstreinteEditIdx = null;
+    const btn = document.getElementById('ganttAstreinteAddBtn');
+    if (btn) {
+        btn.textContent = '➕ Ajouter';
+        btn.style.background = '#6a1b9a';
+    }
+}
+
+function ganttAstreinteEditLigne(idx) {
+    const l = _ganttAstreinteLines[idx];
+    if (!l) return;
+    _ganttAstreinteEditIdx = idx;
+    document.getElementById('ganttAstreinteType').value = l.type;
+    document.getElementById('ganttAstreinteDateDebut').value = l.date_debut;
+    document.getElementById('ganttAstreinteDateFin').value = l.date_fin;
+    document.getElementById('ganttAstreinteHeureDebut').value = l.heure_debut;
+    document.getElementById('ganttAstreinteHeureFin').value = l.heure_fin;
+    document.getElementById('ganttAstreinteSamu').value = l.samu;
+    document.getElementById('ganttAstreinteObjet').value = l.objet;
+    const btn = document.getElementById('ganttAstreinteAddBtn');
+    if (btn) {
+        btn.textContent = '💾 Modifier';
+        btn.style.background = '#e65100';
+    }
+    document.getElementById('ganttAstreinteType').focus();
+}
+
+// Vérifie les chevauchements date+heure pour le même type (retourne l'entrée en conflit ou null)
+function findGanttAstreinteConflict(newLigne, skipIdx) {
+    const newStart = newLigne.date_debut + 'T' + (newLigne.heure_debut || '00:00');
+    const newEnd = newLigne.date_fin + 'T' + (newLigne.heure_fin || '23:59');
+    for (let i = 0; i < _ganttAstreinteLines.length; i++) {
+        if (i === skipIdx) continue;
+        const l = _ganttAstreinteLines[i];
+        if (l.type !== newLigne.type) continue; // seul le même type génère un conflit
+        const lStart = l.date_debut + 'T' + (l.heure_debut || '00:00');
+        const lEnd = l.date_fin + 'T' + (l.heure_fin || '23:59');
+        if (newStart < lEnd && newEnd > lStart) return l;
+    }
+    return null;
+}
+
+function ganttAstreinteAjouter() {
+    const type = document.getElementById('ganttAstreinteType').value;
+    const dateDebut = document.getElementById('ganttAstreinteDateDebut').value;
+    const dateFin = document.getElementById('ganttAstreinteDateFin').value;
+    const heureDebut = document.getElementById('ganttAstreinteHeureDebut').value;
+    const heureFin = document.getElementById('ganttAstreinteHeureFin').value;
+    const samu = document.getElementById('ganttAstreinteSamu').value;
+    const objet = document.getElementById('ganttAstreinteObjet').value.trim();
+
+    if (!dateDebut || !dateFin || !heureDebut || !heureFin || !samu || !objet) {
+        alert('Veuillez remplir tous les champs obligatoires (*)');
+        return;
+    }
+    if (dateFin < dateDebut) {
+        alert('La date de fin doit être ≥ à la date de début');
+        return;
+    }
+    if (heureFin <= heureDebut && dateDebut === dateFin) {
+        alert("L'heure de fin doit être > à l'heure de début");
+        return;
+    }
+
+    const ligne = {
+        type,
+        date_debut: dateDebut,
+        date_fin: dateFin,
+        heure_debut: heureDebut,
+        heure_fin: heureFin,
+        samu,
+        objet
+    };
+    const skipIdx = _ganttAstreinteEditIdx !== null ? _ganttAstreinteEditIdx : -1;
+    const conflict = findGanttAstreinteConflict(ligne, skipIdx);
+    if (conflict) {
+        const typeLabel =
+            type === 'astreinte' ? 'Astreinte' : type === 'activite_courante' ? 'Activité courante' : 'HNO';
+        const conflictDates =
+            conflict.date_debut === conflict.date_fin
+                ? formatDateFRClient(conflict.date_debut)
+                : `${formatDateFRClient(conflict.date_debut)} → ${formatDateFRClient(conflict.date_fin)}`;
+        const msg = `⚠️ Conflit détecté\n\nUn(e) ${typeLabel} existe déjà sur cette période :\n📅 ${conflictDates}  ⏰ ${conflict.heure_debut}–${conflict.heure_fin}\n📝 ${conflict.objet}\n\nModifiez les dates/heures ou supprimez l'entrée existante.`;
+        alert(msg);
+        return;
+    }
+
+    if (_ganttAstreinteEditIdx !== null) {
+        ligne.id = _ganttAstreinteLines[_ganttAstreinteEditIdx].id;
+        _ganttAstreinteLines[_ganttAstreinteEditIdx] = ligne;
+    } else {
+        _ganttAstreinteLines.push(ligne);
+    }
+    renderGanttAstreinteList();
+    ganttAstreinteResetForm();
+}
+
+function ganttAstreinteSupprimer(idx) {
+    if (!confirm('Supprimer cette ligne ?')) return;
+    _ganttAstreinteLines.splice(idx, 1);
+    renderGanttAstreinteList();
+    if (_ganttAstreinteEditIdx === idx) ganttAstreinteResetForm();
+}
+
+function renderGanttAstreinteList() {
+    const container = document.getElementById('ganttAstreinteList');
+    if (!_ganttAstreinteLines.length) {
+        container.innerHTML =
+            '<p style="color:#999;text-align:center;font-size:13px;padding:20px 0;">Aucune ligne saisie</p>';
+        return;
+    }
+    container.innerHTML = _ganttAstreinteLines
+        .map(
+            (l, i) => `
+                <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:${i % 2 ? '#f9f4ff' : 'white'};border:1px solid #e1bee7;border-radius:6px;margin-bottom:6px;font-size:12px;">
+                    <span style="padding:2px 8px;border-radius:4px;background:${l.type === 'astreinte' ? '#ff980022' : l.type === 'activite_courante' ? '#2e7d3222' : '#2196f322'};color:${l.type === 'astreinte' ? '#e65100' : l.type === 'activite_courante' ? '#2e7d32' : '#1565c0'};font-weight:bold;white-space:nowrap;">${l.type === 'astreinte' ? '🔔 Astreinte' : l.type === 'activite_courante' ? '✅ Activité courante' : '🌙 HNO'}</span>
+                    <span style="white-space:nowrap;">${formatDateFRClient(l.date_debut)}${l.date_fin !== l.date_debut ? ' → ' + formatDateFRClient(l.date_fin) : ''}</span>
+                    <span style="white-space:nowrap;color:#666;">${l.heure_debut} → ${l.heure_fin}</span>
+                    <span style="white-space:nowrap;color:#6a1b9a;font-weight:bold;">${l.samu}</span>
+                    <span style="flex:1;color:#444;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${l.objet}</span>
+                    <button onclick="ganttAstreinteEditLigne(${i})" title="Modifier" style="background:#ff9800;color:white;border:none;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;">✏️</button>
+                    <button onclick="ganttAstreinteSupprimer(${i})" title="Supprimer" style="background:#e53935;color:white;border:none;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;">🗑️</button>
+                </div>`
+        )
+        .join('');
+}
+
+async function ganttAstreinteTerminer() {
+    const ctx = _ganttAstreinteCtx;
+    if (!ctx) return;
+    try {
+        // Sauvegarde directe sans CRA
+        const res = await fetch(`${API_URL}/astreintes-hno/direct`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+                user_id: ctx.userId,
+                mois: ctx.month,
+                annee: ctx.year,
+                lignes: _ganttAstreinteLines
+            })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Erreur');
+        closeGanttAstreinteModal();
+        await loadAllAstreintesForPlanning();
+        updateGantt();
+    } catch (e) {
+        alert("Erreur lors de l'enregistrement : " + e.message);
+    }
+}
+// ===== /SAISIE DES ASTREINTES / HNO DEPUIS LE GANTT =====
 
 // Flag pour savoir si un envoi d'email est en cours (pour protéger saveSchedule)
 let emailSendingInProgress = false;

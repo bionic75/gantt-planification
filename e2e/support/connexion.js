@@ -13,7 +13,7 @@ import { sousVerrou } from './verrou.js';
 /**
  * @typedef {'application' | 'profil' | 'choix-mfa' | 'code-mfa' | 'totp-setup' | 'mot-de-passe-a-changer' | 'erreur' | 'erreur-mfa'} EtatMire
  * @typedef {{ etat: EtatMire, message?: string, codeUtilise?: string, messageCodeErrone?: string, mfaDemandee?: boolean }} ResultatConnexion
- * @typedef {{ password?: string, login?: string, methode?: 'email' | 'totp', codeMfa?: string, codeErroneAvant?: boolean }} OptionsConnexion
+ * @typedef {{ password?: string, login?: string, methode?: 'email' | 'totp', codeMfa?: string, codeErroneAvant?: boolean, url?: string }} OptionsConnexion
  */
 
 /** État courant de la mire de connexion du bureau, attendu hors des états listés */
@@ -61,7 +61,8 @@ export async function connexionBureau(page, profil, options = {}) {
     const password = options.password ?? profil.password;
     if (!password) throw new Error(`Mot de passe du profil ${profil.label} absent : renseigner e2e/.env`);
     const run = async () => {
-        await page.goto('/');
+        // Adresse de la page : lien d'une notification (« /?tab=cra&cra_id=… »), traité à la connexion
+        await page.goto(options.url ?? '/');
         await expect(page.locator('#loginPage')).toHaveClass(/active/);
         await page.locator('#loginUsername').fill(options.login ?? profil.login);
         await page.locator('#loginPassword').fill(password);
