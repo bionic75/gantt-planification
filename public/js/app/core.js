@@ -921,12 +921,8 @@ window.addEventListener('gp:ressources-modifiees', async () => {
     await loadResources();
     updateGantt();
 });
-// CRA traités par l'îlot du circuit (onglet CRA) : listes de l'ancien code (CRA signés, à diffuser, archivés) et
-// pastille de l'onglet
-window.addEventListener('gp:cra-modifies', () => {
-    loadCraList(false);
-    loadCraPendingBadge();
-});
+// CRA traités par l'îlot de l'onglet CRA : pastille de l'onglet
+window.addEventListener('gp:cra-modifies', () => loadCraPendingBadge());
 // Accès aux onglets enregistrés : barre d'onglets mise à jour
 window.addEventListener('gp:onglets-modifies', e => {
     TabAccess.cfg = e.detail.config;

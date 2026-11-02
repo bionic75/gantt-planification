@@ -99,8 +99,61 @@ export interface ResultatReport {
     skipped?: string[];
 }
 
+/** GET /cra/admin/list, /cra/admin/archives : CRA avec le nombre de lignes du mois */
+export interface CraListe extends Cra {
+    expert_nom: string;
+    nb_lignes: number;
+}
+
+/** GET /cra/admin/deleted : CRA dans la corbeille, statut et archivage avant suppression */
+export interface CraSupprime extends Cra {
+    expert_nom: string;
+    pre_delete_statut: StatutCra | null;
+    pre_delete_archived: number | null;
+}
+
+/** Filtres des listes d'administration (vides : non appliqués) */
+export interface FiltresCra {
+    user_id?: string;
+    statut?: string;
+    mois?: string;
+    annee?: string;
+}
+
+/** GET /cra/all-experts, /cra/all-experts-full */
+export interface ExpertCra {
+    user_id: number;
+    nom: string | null;
+    prenom: string | null;
+}
+
+export type CategorieDestinataire = 'expert' | 'rh_es' | 'drh_ans';
+export interface DestinataireDiffusion {
+    email: string;
+    nom: string | null;
+}
+export type DestinatairesDiffusion = Record<CategorieDestinataire, DestinataireDiffusion[]>;
+
+/** GET /cra/:id/diffusion-log : un e-mail de diffusion et son état dans la file d'envoi */
+export interface JournalDiffusion {
+    id: number;
+    recipient_email: string;
+    recipient_name: string | null;
+    recipient_type: string;
+    sent_at: string;
+    email_status: 'sent' | 'failed' | 'pending' | null;
+    error_message: string | null;
+}
+
 const action = <T = { success: boolean }>(id: number, chemin: string, corps: unknown = {}) =>
     api.post<T>(`/cra/${id}/${chemin}`, corps);
+
+const requete = (filtres: FiltresCra) => {
+    const p = new URLSearchParams();
+    for (const [k, v] of Object.entries(filtres)) if (v) p.set(k, v);
+    const q = p.toString();
+    return q ? `?${q}` : '';
+};
 
 export const apiCra = {
     mesCra: () => api.get<Cra[]>('/cra/my-list'),
@@ -122,7 +175,28 @@ export const apiCra = {
         if (r.status === 401) emettre('session-perdue', {});
         return r.ok;
     },
-    preparerPdf: (id: number) => action<{ success: boolean; pdfFilename: string; error?: string }>(id, 'prepare-pdf')
+    preparerPdf: (id: number) => action<{ success: boolean; pdfFilename: string; error?: string }>(id, 'prepare-pdf'),
+
+    // ---------- Administration ----------
+    liste: (filtres: FiltresCra) => api.get<CraListe[]>(`/cra/admin/list${requete(filtres)}`),
+    archives: (filtres: FiltresCra) => api.get<CraListe[]>(`/cra/admin/archives${requete(filtres)}`),
+    supprimes: () => api.get<CraSupprime[]>('/cra/admin/deleted'),
+    /** Experts proposés au lancement (ressources actives) */
+    expertsLancement: () => api.get<ExpertCra[]>('/cra/all-experts-full'),
+    /** Experts des filtres (actifs ou non) */
+    experts: () => api.get<ExpertCra[]>('/cra/all-experts'),
+    lancer: (user_id: number, mois: number, annee: number) =>
+        api.post<{ success: boolean }>('/cra/launch', { user_id, mois, annee }),
+    desarchiver: (id: number) => action(id, 'unarchive'),
+    supprimer: (id: number) => action(id, 'soft-delete'),
+    restaurer: (id: number) => action(id, 'restore-deleted'),
+    purger: (id: number) => api.delete<{ success: boolean }>(`/cra/${id}/purge`),
+    destinataires: (id: number) => api.get<DestinatairesDiffusion>(`/cra/${id}/diffusion-recipients`),
+    diffuser: (id: number, recipients: DestinatairesDiffusion, pdfFilename: string) =>
+        action<{ success: boolean; sent: number }>(id, 'diffuser', { recipients, pdfFilename }),
+    journal: (id: number) => api.get<JournalDiffusion[]>(`/cra/${id}/diffusion-log`),
+    renvoyerDiffusion: (id: number) => action<{ success: boolean; sent: number }>(id, 'diffusion-resend-all'),
+    renvoyerEmail: (id: number, logId: number) => action(id, `diffusion-resend/${logId}`)
 };
 
 export const urlPdfEnregistre = (nom: string) => `/api/cra/pdf-saved/${encodeURIComponent(nom)}`;
