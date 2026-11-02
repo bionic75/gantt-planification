@@ -239,7 +239,7 @@ When("j'ouvre la fiche de la ressource", async ({ monde }) => {
             .evaluate(b => /** @type {HTMLElement} */ (b).click());
     }
     await ligne().getByRole('button', { name: 'Modifier la ressource' }).click();
-    await expect(page.locator('#editModal')).toHaveClass(/active/);
+    await expect(page.locator('#editModal')).toBeVisible();
     await page.waitForLoadState('networkidle').catch(() => {});
 });
 
@@ -265,12 +265,12 @@ async function enregistrerFiche(/** @type {Page} */ page, /** @type {string} */ 
 
 When("je remplace la date de début MAD par {string} et j'enregistre la fiche", async ({ monde }, date) => {
     await enregistrerFiche(monde.page, '#editDateDebutMad', date);
-    await expect(monde.page.locator('#editModal')).not.toHaveClass(/active/);
+    await expect(monde.page.locator('#editModal')).toBeHidden();
 });
 
 When("je remplace la fonction par {string} et j'enregistre la fiche", async ({ monde }, fonction) => {
     await enregistrerFiche(monde.page, '#editFonction', fonction);
-    await expect(monde.page.locator('#editModal')).not.toHaveClass(/active/);
+    await expect(monde.page.locator('#editModal')).toBeHidden();
 });
 
 When("je remplace la date de fin MAD par {string} et j'enregistre la fiche", async ({ monde }, date) => {

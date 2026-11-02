@@ -2170,7 +2170,6 @@ function closeAllModals() {
 
     // Fermer toutes les modales connues par ID (y compris celles sans classe .modal)
     const modalIds = [
-        'editModal',
         'localisationModal',
         'samuModal',
         'localisationConfirmModal',

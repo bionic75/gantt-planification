@@ -10,6 +10,8 @@ export const useRessourcesStore = defineStore('ressources', () => {
     const affectations = ref<Record<number, { principal: string[]; secondaire: string[] }>>({});
     const localisations = ref<Localisation[]>([]);
     const charge = ref(false);
+    /** Fiche ouverte : ressource, en modification ou en consultation (profil RH) */
+    const fiche = ref<{ id: number; consultation: boolean } | null>(null);
     /** Rechargement : incrémenté à chaque nouvelle liste (ordre d'affichage remis à zéro, comme l'ancien écran) */
     const version = ref(0);
 
@@ -46,5 +48,15 @@ export const useRessourcesStore = defineStore('ressources', () => {
         }
     }
 
-    return { ressources, historiques, affectations, localisations, charge, version, charger, chargerLocalisations };
+    return {
+        ressources,
+        historiques,
+        affectations,
+        localisations,
+        charge,
+        version,
+        fiche,
+        charger,
+        chargerLocalisations
+    };
 });

@@ -7,7 +7,7 @@ import { apiRessources, type Ressource, type TypeAstreinte } from '@/api/ressour
 import AppAlert from '@/composants/AppAlert.vue';
 import AppIcone from '@/composants/AppIcone.vue';
 import { useConfirmation } from '@/composants/confirmation';
-import { afficherSynchronisation, emettre, ouvrirFicheRessource, rendreColonnesRedimensionnables } from '@/liaison';
+import { afficherSynchronisation, emettre, rendreColonnesRedimensionnables } from '@/liaison';
 import { dateFr, datesMad, ordreAlphabetique, statutMad, trierParTexte } from './calculs';
 import { useRessourcesStore } from './magasin';
 
@@ -104,19 +104,20 @@ watch(
 );
 
 /** Modification enregistrée : bandeau, journal, ressources rechargées par l'ancien code puis par l'îlot */
-function modifiees(journal: boolean) {
+async function modifiees(journal: boolean) {
     if (journal) {
         afficherSynchronisation();
         apiRessources.journaliser('Modification du planning').catch(() => undefined);
     }
     emettre('ressources-modifiees');
+    await magasin.charger();
 }
 
 async function basculerActif(r: Ressource) {
     erreur.value = '';
     try {
         await apiRessources.basculerActif(r.id);
-        modifiees(true);
+        await modifiees(true);
     } catch {
         /* état inchangé (ancien écran : erreur dans la console) */
         emettre('ressources-modifiees');
@@ -130,7 +131,7 @@ async function basculerAstreinte(r: Ressource, type: TypeAstreinte, coche: boole
     } catch {
         erreur.value = 'Erreur modification accès astreinte';
     }
-    modifiees(false);
+    await modifiees(false);
 }
 
 async function supprimer(r: Ressource) {
@@ -138,7 +139,7 @@ async function supprimer(r: Ressource) {
     erreur.value = '';
     try {
         await apiRessources.supprimer(r.id);
-        modifiees(true);
+        await modifiees(true);
     } catch {
         erreur.value = 'Erreur lors de la suppression';
     }
@@ -238,7 +239,7 @@ const statuts = computed(() =>
                                 class="icon-btn liste__voir"
                                 title="Voir la ressource"
                                 aria-label="Voir la ressource"
-                                @click="ouvrirFicheRessource(r.id, true)"
+                                @click="magasin.fiche = { id: r.id, consultation: true }"
                             >
                                 <AppIcone name="eye" />
                             </button>
@@ -248,7 +249,7 @@ const statuts = computed(() =>
                                     class="icon-btn liste__modifier"
                                     title="Modifier la ressource"
                                     aria-label="Modifier la ressource"
-                                    @click="ouvrirFicheRessource(r.id, false)"
+                                    @click="magasin.fiche = { id: r.id, consultation: false }"
                                 >
                                     <AppIcone name="pencil" />
                                 </button>

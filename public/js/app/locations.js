@@ -1,8 +1,9 @@
 // Application principale : locations
 // Extrait de index.html : script classique, portée globale partagée avec les autres scripts de la page
 // ========== LOCALISATIONS ==========
-// Liste partagée par le planning, le CRA et les listes déroulantes de l'ancien code ; l'administration des
-// localisations est un îlot Vue (frontend/src/ilots/admin/localisations), qui signale ses modifications (gp:localisations-modifiees)
+// Liste partagée par le planning et le CRA (listes SAMU des ressources : îlot Vue frontend/src/ilots/ressources) ;
+// l'administration des localisations est un îlot Vue (frontend/src/ilots/admin/localisations), qui signale ses
+// modifications (gp:localisations-modifiees)
 
 let allLocations = [];
 
@@ -19,34 +20,8 @@ async function loadLocations() {
         if (!res.ok) return;
         const data = await res.json();
         allLocations = data.locations || [];
-        populateLocationSelects();
     } catch (e) {
         console.error('Erreur chargement localisations:', e);
-    }
-}
-
-function populateLocationSelects() {
-    // Peupler le select SAMU de la fiche de la ressource depuis allLocations (formulaire d'ajout : îlot Vue,
-    // frontend/src/ilots/ressources)
-    const samuOptions =
-        '<option value="">-- Choisir un SAMU --</option>' +
-        [...allLocations]
-            .sort((a, b) => (a.libelle_court || '').localeCompare(b.libelle_court || ''))
-            .map(l => `<option value="${l.libelle_court}">${l.libelle_court}</option>`)
-            .join('');
-    const editSamu = document.getElementById('editSamu');
-    if (editSamu) editSamu.innerHTML = samuOptions;
-
-    // Listener SAMU → ES auto-remplissage (modification)
-    const editSamuSel = document.getElementById('editSamu');
-    if (editSamuSel && !editSamuSel._listenerSet) {
-        editSamuSel._listenerSet = true;
-        editSamuSel.addEventListener('change', function () {
-            const selected = allLocations.find(l => l.libelle_court === this.value);
-            const adresse = selected?.adresse || '';
-            const es = adresse.includes(',') ? adresse.split(',')[0].trim() : adresse.trim();
-            document.getElementById('editEsRattachement').value = es;
-        });
     }
 }
 
