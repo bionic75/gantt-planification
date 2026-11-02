@@ -10,7 +10,7 @@ import { Given, Then, When } from '../support/fixtures.js';
 const pad = (/** @type {number | string} */ n) => String(n).padStart(2, '0');
 
 /** Suppression définitive d'un CRA de test (archivage, corbeille puis purge) */
-async function nettoyerCra(/** @type {Monde} */ monde, /** @type {number} */ id) {
+export async function nettoyerCra(/** @type {Monde} */ monde, /** @type {number} */ id) {
     const api = await adminApi(monde);
     await api.post(`/api/cra/${id}/archive`, {});
     await api.post(`/api/cra/${id}/soft-delete`, {});
@@ -18,7 +18,11 @@ async function nettoyerCra(/** @type {Monde} */ monde, /** @type {number} */ id)
 }
 
 /** CRA de l'expert de test pour un mois, archivés compris (repris par « find-or-create » comme les autres) */
-const crasDuMois = async (/** @type {Monde} */ monde, /** @type {number} */ mois, /** @type {number} */ annee) => {
+export const crasDuMois = async (
+    /** @type {Monde} */ monde,
+    /** @type {number} */ mois,
+    /** @type {number} */ annee
+) => {
     const { userId } = await ressourceExpert(monde);
     const api = await adminApi(monde);
     const filtre = `user_id=${userId}&mois=${mois}&annee=${annee}`;
