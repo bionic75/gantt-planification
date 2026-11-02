@@ -76,9 +76,6 @@ interface FenetreAncienCode {
     switchTab?: (onglet: string, evenement: null) => void;
     /** Ouverture d'une application (public/js/app/tab-access.js) */
     switchToApp?: (application: string) => void;
-    /** Fiche d'une ressource : modification, ou consultation pour le profil RH (public/js/app/password-reset.js) */
-    openEditModal?: (id: number) => void;
-    openViewModalRh?: (id: number) => void;
     /** Bandeau « Données synchronisées » de l'onglet Ressources (public/js/app/dump.js) */
     showSyncStatus?: () => void;
 }
@@ -156,12 +153,6 @@ export function ouvrirOnglet(onglet: string): void {
 /** Ouvre une application (Aide à l'affectation, Suivi des déplacements) */
 export function ouvrirApplication(application: 'affectation' | 'deplacements'): void {
     ancienCode().switchToApp?.(application);
-}
-
-/** Fiche d'une ressource de l'ancien code (non migrée) : modification, ou consultation seule */
-export function ouvrirFicheRessource(id: number, consultation: boolean): void {
-    if (consultation) ancienCode().openViewModalRh?.(id);
-    else ancienCode().openEditModal?.(id);
 }
 
 /** Bandeau « Données synchronisées » (quelques secondes) */

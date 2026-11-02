@@ -136,11 +136,10 @@ function switchTab(tabName, event) {
     }
 }
 
+// Fiche de la ressource (fermée par un clic sur le fond) : îlot Vue (frontend/src/ilots/ressources)
 document.addEventListener('click', function (event) {
-    const editModal = document.getElementById('editModal');
     const locModal = document.getElementById('localisationModal');
     const forgotModal = document.getElementById('forgotPasswordModal');
-    if (event.target === editModal) closeEditModal();
     if (event.target === locModal) closeLocalisationModal();
     if (event.target === forgotModal) closeForgotPasswordModal();
 });

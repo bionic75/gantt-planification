@@ -80,6 +80,7 @@ index.html (existant)
 | 0     | Terminée                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | 1     | En production : îlot `frontend/src/ilots/tripadvisor/`, 7 scénarios d'écran ajoutés à `09-tripadvisor`                                                                                                                                                                                                                                                                                                                                                                                    |
 | 2     | Découpée en trois îlots mis en production l'un après l'autre : Reporting, Événements, Administration. Reporting en production (`frontend/src/ilots/reporting/`, scénarios `15-reporting-suivis`). Événements en production (`frontend/src/ilots/evenements/`, scénarios `16-evenements-ecran`) ; carte des événements laissée dans l'ancien code (migration à part). Administration entièrement migrée en sous-îlots (voir ci-dessous) : phase terminée à la mise en production du lot 4g |
+| 3     | Ressources puis CRA. Ressources découpées en deux lots (voir ci-dessous) : onglet entièrement migré à la mise en production du lot 3b ; CRA à faire                                                                                                                                                                                                                                                                                                                                       |
 
 Sous-îlots de l'Administration, mis en production l'un après l'autre :
 
@@ -98,16 +99,16 @@ Sous-îlots de l'Administration, mis en production l'un après l'autre :
 
 Lots de l'onglet Ressources (phase 3), mis en production l'un après l'autre :
 
-| #   | Lot            | Contenu                                                                                                                                                                                     | État                                                                                                                                                                                                                  |
-| --- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 3a  | Liste et ajout | Liste (tri, bascules des astreintes et de l'activation, suppression, export), formulaire d'ajout (trigramme proposé, expert principal / secondaire sur des SAMU), profil RH en consultation | Réalisé (`frontend/src/ilots/ressources/`, îlot `#resources`, scénarios `24-ressources-ecran` et `03-ressources`) ; la fiche reste celle de l'ancien code, ouverte depuis la liste ; en attente de mise en production |
-| 3b  | Fiche          | Modification, consultation RH, historique des taux de MAD et particularités, contacts RH                                                                                                    | À faire                                                                                                                                                                                                               |
+| #   | Lot            | Contenu                                                                                                                                                                                     | État                                                                                                                    |
+| --- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| 3a  | Liste et ajout | Liste (tri, bascules des astreintes et de l'activation, suppression, export), formulaire d'ajout (trigramme proposé, expert principal / secondaire sur des SAMU), profil RH en consultation | En production (`frontend/src/ilots/ressources/`, îlot `#resources`, scénarios `24-ressources-ecran` et `03-ressources`) |
+| 3b  | Fiche          | Modification, consultation RH, historique des taux de MAD et particularités, contacts RH                                                                                                    | Réalisé (même îlot et mêmes scénarios ; onglet Ressources entièrement migré) ; en attente de mise en production         |
 
 Anomalies relevées pendant la migration (comportement conservé, correction à part) :
 
-- Localisations : à la reprise d'une session (page rechargée), l'ancien code ne charge pas les localisations ; la
-  liste « SAMU » de la fiche des ressources (ancien code jusqu'au lot 3b) reste vide jusqu'à l'ouverture de la section
-  Localisation de l'Administration (le sous-îlot conserve ce rechargement à l'ouverture).
+- Localisations : à la reprise d'une session (page rechargée), l'ancien code ne charge pas les localisations (listes de
+  l'ancien code qui en dépendent vides jusqu'à l'ouverture de la section Localisation de l'Administration ; le sous-îlot
+  conserve ce rechargement à l'ouverture). Les listes SAMU des ressources sont chargées par leur îlot.
 
 - Reporting : les listes d'experts (disponibilités, HNO / astreintes) et d'utilisateurs (connexions) ne sont chargées
   que pour le profil administrateur ; un autre profil ayant accès à l'onglet (configuration des onglets, accès
@@ -138,6 +139,14 @@ Anomalies relevées pendant la migration (comportement conservé, correction à 
 - Ressources : après un ajout, la case « MAD volante », la date de fin et les jours max du formulaire restent remplis.
 - Ressources : le tri de la liste se fait sur le texte affiché des cellules (badges SAMU compris) ; la liste revient à
   l'ordre alphabétique à chaque rechargement, le sens du dernier tri de chaque colonne étant conservé.
+- Ressources (fiche) : le taux enregistré avec la fiche est celui de la période de MAD en cours, ou, si aucune n'est en
+  cours ou si son taux vaut 0, celui de la période qui commence le plus tard.
+- Ressources (fiche) : sans historique de taux, une période est créée à l'ouverture de la fiche (taux et date de début
+  de la ressource ; refusée au profil RH, dont la fiche reste alors sans historique).
+- Ressources (fiche) : la suppression d'une période de MAD ne recharge pas la liste des ressources ; l'ajout, la
+  modification et la suppression d'une particularité ne rechargent pas la planification.
+- Ressources (fiche) : la modification d'une particularité n'est pas contrôlée (dates et taux), contrairement à l'ajout.
+- Ressources (consultation RH) : l'historique des taux garde son en-tête « Actions », sans cellules.
 
 Changements de comportement décidés pendant la migration :
 
@@ -145,6 +154,10 @@ Changements de comportement décidés pendant la migration :
   enregistrée (champ vide) ; une adresse déjà enregistrée est conservée.
 - Ressources : la liste « SAMU de rattachement » du formulaire d'ajout est chargée par l'îlot (plus vide après le
   rechargement de la page) ; le pré-remplissage « SAMU » au focus, hérité d'un ancien champ texte, n'est pas repris.
+- Ressources (fiche) : la consultation par le profil RH ne remplace plus définitivement le bloc des astreintes de la
+  fiche (l'ancien écran le laissait en lecture seule jusqu'au rechargement de la page, y compris après un passage au
+  profil administrateur) ; les dates proposées pour une particularité sont bornées par la période affichée (l'ancien
+  écran gardait la borne de fin d'une période consultée auparavant).
 
 ### Critères de sortie d'un îlot
 
