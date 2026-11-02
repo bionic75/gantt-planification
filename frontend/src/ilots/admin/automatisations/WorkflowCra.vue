@@ -6,7 +6,6 @@ import { apiAutomatisations, type ExpertCra } from '@/api/automatisations';
 import { ErreurApi } from '@/api/client';
 import { apiParametres } from '@/api/parametrages';
 import AppModal from '@/composants/AppModal.vue';
-import { emettre } from '@/liaison';
 import BlocAutomatisation from './BlocAutomatisation.vue';
 import {
     configCra,
@@ -47,9 +46,8 @@ onMounted(async () => {
 });
 
 async function enregistrer() {
+    // Boutons de visa du détail d'un CRA : configuration relue à chaque ouverture (frontend/src/ilots/cra)
     const config = configCra(f.value, rh.value);
-    // Boutons de visa de l'ancien code : configuration reprise aussitôt, comme l'ancien écran
-    emettre('config-cra-modifiee', { config });
     try {
         await apiParametres.enregistrer('automation_4_config', JSON.stringify(config));
     } catch {
