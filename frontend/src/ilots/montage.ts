@@ -93,13 +93,15 @@ export function surveillerIlots(registre: RegistreIlots, creerMagasin: () => Pin
         armer(ilot);
     }
 
-    // Fin de session : îlots démontés et nouveau magasin, aucune donnée d'un utilisateur visible par le suivant
+    // Fin de session : îlots démontés et nouveau magasin, aucune donnée d'un utilisateur visible par le suivant.
+    // Un onglet resté marqué « active » (la mire de connexion le masque sans changer sa classe) n'est pas remonté
+    // aussitôt : sans session, l'îlot appellerait l'API ; il l'est à la réouverture de l'onglet par la connexion suivante
     const arreterEcoute = ecouter('session-terminee', () => {
         pinia = creerMagasin();
         for (const ilot of ilots) {
             ilot.app?.unmount();
             ilot.app = null;
-            armer(ilot);
+            ilot.actif = false;
         }
     });
 
