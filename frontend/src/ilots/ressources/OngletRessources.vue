@@ -1,4 +1,5 @@
-<!-- Onglet Ressources : formulaire d'ajout (sauf profil RH, en consultation seule) et liste des ressources. Rechargé
+<!-- Onglet Ressources : formulaire d'ajout (sauf profil RH, en consultation seule), liste des ressources et fiche d'une
+     ressource. Rechargé
      quand l'ancien code recharge ses ressources (fiche enregistrée, connexion…), SAMU proposés relus quand les
      localisations changent. -->
 <script setup lang="ts">
@@ -7,6 +8,7 @@ import AppConfirmation from '@/composants/AppConfirmation.vue';
 import { fournirConfirmation } from '@/composants/confirmation';
 import { ecouter } from '@/liaison';
 import { useSessionStore } from '@/stores/session';
+import FicheRessource from './FicheRessource.vue';
 import FormulaireAjout from './FormulaireAjout.vue';
 import ListeRessources from './ListeRessources.vue';
 import { useRessourcesStore } from './magasin';
@@ -16,6 +18,10 @@ const session = useSessionStore();
 const { demande, repondre } = fournirConfirmation();
 
 const rh = computed(() => session.profil === 'rh');
+/** Ressource de la fiche ouverte (fiche fermée si la ressource n'existe plus) */
+const ressourceFiche = computed(() =>
+    magasin.fiche ? magasin.ressources.find(r => r.id === magasin.fiche!.id) : undefined
+);
 
 const arrets = [
     ecouter('ressources-rechargees', () => void magasin.charger()),
@@ -37,6 +43,13 @@ onMounted(() => {
     <FormulaireAjout v-if="session.session && !rh" />
     <!-- Profil connu avant l'affichage : liste en consultation seule pour le profil RH -->
     <ListeRessources v-if="session.session" :rh="rh" />
+    <FicheRessource
+        v-if="ressourceFiche"
+        :key="ressourceFiche.id"
+        :ressource="ressourceFiche"
+        :consultation="magasin.fiche!.consultation"
+        @fermer="magasin.fiche = null"
+    />
     <AppConfirmation
         :opened="!!demande"
         :message="demande?.message ?? ''"

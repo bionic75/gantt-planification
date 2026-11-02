@@ -31,6 +31,10 @@ const ressource = (champs: Partial<Ressource> = {}): Ressource => ({
     astreinte_volontaire: 0,
     astreinte_ho: 0,
     astreinte_apd: 0,
+    astreinte_date_activation: null,
+    date_fin_mad: null,
+    jours_max_mad: null,
+    contacts_rh: null,
     user_id: null,
     ...champs
 });

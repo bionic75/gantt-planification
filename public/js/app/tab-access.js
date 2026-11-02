@@ -132,8 +132,7 @@ function updateTabsVisibility() {
         astreintesBtnText.textContent = profile === 'expert' ? 'Gérer mes astreintes/HNO' : 'Gérer les astreintes/HNO';
 
     if (profile === 'admin') {
-        // Fichiers ICS et listes du reporting : îlots Vue
-        populateLocationSelects();
+        // Fichiers ICS, listes du reporting et des ressources : îlots Vue
     } else if (profile === 'rh') {
         // Formulaire d'ajout de ressource masqué pour le profil RH : îlot Vue (frontend/src/ilots/ressources)
         // Masquer loupe et enveloppe

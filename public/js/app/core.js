@@ -68,7 +68,6 @@ let resources = [];
 let scheduleData = {};
 let oldScheduleData = {}; // Pour comparer les changements
 let users = [];
-let currentEditId = null;
 let currentLocalisationCell = null;
 let sortDirection = {};
 let currentUser = null;

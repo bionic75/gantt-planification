@@ -7,7 +7,8 @@ import AppButton from './AppButton.vue';
 
 defineOptions({ inheritAttrs: false });
 
-const props = defineProps<{ opened: boolean; title: string; isAlert?: boolean }>();
+/** fermerSurFond : un clic sur le fond (hors de la fenêtre) ferme la fenêtre */
+const props = defineProps<{ opened: boolean; title: string; isAlert?: boolean; fermerSurFond?: boolean }>();
 const emit = defineEmits<{ close: [] }>();
 
 const idTitre = `gp-modale-${useId()}`;
@@ -66,7 +67,13 @@ onBeforeUnmount(() => origine?.focus());
 
 <template>
     <Teleport to="body">
-        <div v-if="opened" v-bind="$attrs" class="gp-modale">
+        <div
+            v-if="opened"
+            v-bind="$attrs"
+            class="gp-modale"
+            :class="{ 'gp-modale--alerte': isAlert }"
+            @click.self="fermerSurFond && emit('close')"
+        >
             <div
                 ref="boite"
                 class="gp-modale__boite"
@@ -107,6 +114,10 @@ onBeforeUnmount(() => origine?.focus());
     justify-content: center;
     overflow: auto;
     padding: 30px var(--gp-espace-3);
+}
+/* Confirmation : au-dessus des autres fenêtres (ouverte depuis une fenêtre montée après elle) */
+.gp-modale--alerte {
+    z-index: 3100;
 }
 .gp-modale__boite {
     background: var(--gp-fond);
