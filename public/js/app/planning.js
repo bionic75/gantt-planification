@@ -983,16 +983,7 @@ async function loadUsers() {
                 photo_length: u.profile_photo?.length
             }))
         );
-        if (currentUser?.activeProfile === 'admin') {
-            // Liste des comptes : îlot Vue (frontend/src/ilots/admin/utilisateurs)
-            // Charger les configurations d'automatisation (n°1 et n°2 : îlot Vue, frontend/src/ilots/admin/automatisations)
-            // Automatisation 3 (Teams)
-            loadAutomation3Config();
-            // Automatisation 4 (CRA)
-            loadAutomation4Config();
-            // Automatisations 5 et 6 (astreintes HO)
-            if (typeof loadAutomationHoConfigs === 'function') loadAutomationHoConfigs();
-        }
+        // Administrateur : liste des comptes et automatisations dans les îlots Vue (frontend/src/ilots/admin)
     } catch (error) {
         console.error('Erreur:', error);
     }

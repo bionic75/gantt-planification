@@ -1,4 +1,4 @@
-<!-- Fenêtre partagée de l'ancien écran : historique des envois (n°1, n°2 avec téléchargement des fichiers), diagnostic
+<!-- Fenêtre partagée de l'ancien écran : historique des envois (n°1, n°2 avec téléchargement des fichiers, n°3), diagnostic
      des mois, aperçu et exécution du nettoyage des données. « Vider l'historique » y reste proposé quel que soit le
      contenu et vide l'historique de la dernière automatisation consultée (anomalie conservée). -->
 <script setup lang="ts">
@@ -6,7 +6,7 @@ import { ref, watch } from 'vue';
 import { apiAutomatisations } from '@/api/automatisations';
 import AppModal from '@/composants/AppModal.vue';
 import { useConfirmation } from '@/composants/confirmation';
-import { dateEnvoi, destinatairesEnvoi } from './calculs';
+import { dateEnvoi, destinatairesEnvoi, TYPES_ENVOI_TEAMS } from './calculs';
 import { useAutomatisationsStore } from './magasin';
 
 const magasin = useAutomatisationsStore();
@@ -19,6 +19,9 @@ watch(
 );
 
 const fermer = () => (magasin.fenetre = null);
+
+/** Type d'une notification Teams (enregistré dans le mois concerné du journal) */
+const typeTeams = (t: string | null) => TYPES_ENVOI_TEAMS[t || ''] ?? (t || 'Notification');
 
 async function vider() {
     const nom = magasin.historiqueCourant === 1 ? 'rappels de disponibilités' : 'sauvegardes de planning';
@@ -89,8 +92,28 @@ async function executerNettoyage() {
                 <p v-if="magasin.fenetre.contenu.erreur" class="historique__erreur">Erreur lors du chargement</p>
                 <p v-else-if="!magasin.fenetre.contenu.envois" class="historique__centre">Chargement...</p>
                 <p v-else-if="!magasin.fenetre.contenu.envois.length" class="historique__centre">
-                    Aucun envoi enregistré
+                    {{
+                        magasin.fenetre.contenu.n === 3
+                            ? 'Aucune notification Teams enregistrée'
+                            : 'Aucun envoi enregistré'
+                    }}
                 </p>
+                <table v-else-if="magasin.fenetre.contenu.n === 3" class="historique__tableau">
+                    <thead>
+                        <tr>
+                            <th>Date d'envoi</th>
+                            <th>Type</th>
+                            <th>Détails</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="e in magasin.fenetre.contenu.envois" :key="e.id">
+                            <td>{{ dateEnvoi(e.sent_at) }}</td>
+                            <td>{{ typeTeams(e.target_month) }}</td>
+                            <td>{{ (e.expert_name || '-') + (e.expert_email ? ` (${e.expert_email})` : '') }}</td>
+                        </tr>
+                    </tbody>
+                </table>
                 <table v-else-if="magasin.fenetre.contenu.n === 1" class="historique__tableau">
                     <thead>
                         <tr>

@@ -156,8 +156,7 @@ l'onglet, à la place de l'ancien code.
 API** (`#adminApi`), **Accès aux applications** (`#adminApplications`), **Accès aux onglets** (`#adminOnglets`), **Gestion des
 utilisateurs** (`#adminUtilisateurs`), **Paramétrages divers** (`#adminParametrages`) et, dans la section des jours
 ou événements spéciaux, les **congés scolaires, dates particulières, types d'événements et reprise des données**
-(`#adminJoursSpeciaux`) et, dans la section des automatisations, les **automatisations n°1 et n°2**
-(`#adminAutomatisations`) :
+(`#adminJoursSpeciaux`) et la section **Automatisations et rappels** (`#adminAutomatisations`) :
 sections montées à l'ouverture de l'onglet (composant commun `AppSectionAdmin`), les autres
 restent dans l'ancien code. Les bibliothèques de l'interface
 Vue (Leaflet…) sont intégrées au build, sans CDN.

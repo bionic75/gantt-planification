@@ -2,7 +2,7 @@
      d'ouverture, état annoncé par aria-expanded), corps masqué tant que la section est fermée. Teinte : couleurs de
      fond, de bordure et de titre propres à chaque section. -->
 <script setup lang="ts">
-export type TeinteSection = 'indigo' | 'indigo-fonce' | 'jaune' | 'vert' | 'vert-fonce' | 'rose' | 'lavande';
+export type TeinteSection = 'indigo' | 'indigo-fonce' | 'jaune' | 'vert' | 'vert-fonce' | 'rose' | 'lavande' | 'orange';
 
 defineProps<{ titre: string; idCorps: string; teinte: TeinteSection }>();
 const emit = defineEmits<{ ouverture: [] }>();
@@ -112,5 +112,13 @@ function basculer() {
 }
 .gp-section-admin--lavande .gp-section-admin__titre {
     color: #3949ab;
+}
+/* Automatisations et rappels */
+.gp-section-admin--orange {
+    background-color: #fff3e0;
+    border-left-color: #ff9800;
+}
+.gp-section-admin--orange .gp-section-admin__titre {
+    color: #e65100;
 }
 </style>

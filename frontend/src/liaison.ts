@@ -35,6 +35,8 @@ export interface EvenementsLiaison {
     'conges-modifies': undefined;
     /** Fichiers de dates particulières modifiés : l'ancien code recharge les dates de la planification */
     'dates-particulieres-modifiees': undefined;
+    /** Workflow CRA (automatisation n°4) enregistré : l'ancien code reprend la configuration (boutons de visa) */
+    'config-cra-modifiee': { config: Record<string, unknown> };
 }
 
 export type NomEvenement = keyof EvenementsLiaison;
