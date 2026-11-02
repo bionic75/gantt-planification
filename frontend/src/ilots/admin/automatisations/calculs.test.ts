@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { EnvoiAutomatisation } from '@/api/automatisations';
 import {
+    configCra,
+    configHo,
+    configTeams,
+    couleurJournal,
+    formulaireCra,
+    formulaireHo,
+    formulaireTeams,
     configRappel,
     configSauvegarde,
     destinatairesEnvoi,
@@ -158,5 +165,126 @@ describe('historique', () => {
             noms: []
         });
         expect(destinatairesEnvoi(envoi({ recipients_list: '[]' }))).toEqual({ nombre: '-', noms: [] });
+    });
+});
+
+describe('automatisation n°3', () => {
+    it('sans configuration : inactive, adresse vide (plus d’adresse réelle par défaut), aucun type', () => {
+        expect(formulaireTeams({})).toEqual({ actif: false, adresse: '', notifications: [] });
+    });
+
+    it('types relus et enregistrés dans l’ordre de la liste, inconnus ignorés', () => {
+        const f = formulaireTeams({
+            enabled: true,
+            teamsEmail: 'canal@x.fr',
+            notifications: ['evenement', 'x', 'demande']
+        });
+        expect(f).toEqual({ actif: true, adresse: 'canal@x.fr', notifications: ['demande', 'evenement'] });
+        expect(configTeams({ ...f, notifications: ['evenement', 'affectation'] })).toEqual({
+            enabled: true,
+            teamsEmail: 'canal@x.fr',
+            notifications: ['affectation', 'evenement']
+        });
+    });
+});
+
+describe('automatisation n°4', () => {
+    const RH = [
+        { id: 3, nom: 'Martin', prenom: 'Léa', email: 'lea@ex.fr' },
+        { id: 8, nom: null, prenom: 'Sam', email: null }
+    ];
+
+    it('sans configuration : jour 1, aucun viseur ni DRH', () => {
+        expect(formulaireCra({}, RH)).toEqual({ actif: false, jour: '1', n1: '', n2: '', drh: [] });
+    });
+
+    it('configuration relue ; viseur inconnu retiré', () => {
+        expect(
+            formulaireCra({ enabled: true, day: 27, admin_n1_id: '3', admin_n2_id: '99', drh_ans_ids: [8, 3, 5] }, RH)
+        ).toEqual({ actif: true, jour: '27', n1: '3', n2: '', drh: [3, 8] });
+    });
+
+    it('configuration enregistrée comme l’ancien écran (viseur absent : nom « »)', () => {
+        expect(configCra({ actif: true, jour: '27', n1: '3', n2: '', drh: [8] }, RH)).toEqual({
+            enabled: true,
+            day: 27,
+            admin_n1_id: '3',
+            admin_n1_email: 'lea@ex.fr',
+            admin_n1_nom: 'Léa Martin',
+            admin_n2_id: null,
+            admin_n2_email: '',
+            admin_n2_nom: ' ',
+            drh_ans_ids: [8],
+            drh_ans_infos: [{ id: 8, email: 'null', nom: 'Sam null' }]
+        });
+    });
+
+    it('couleur des lignes du journal', () => {
+        expect(couleurJournal('✅ envoyé')).toBe('ok');
+        expect(couleurJournal('⚠️ sans e-mail')).toBe('erreur');
+        expect(couleurJournal('─── Expert')).toBe('etape');
+        expect(couleurJournal('  • détail')).toBe('detail');
+        expect(couleurJournal('Début')).toBe('normal');
+    });
+});
+
+describe('automatisations n°5 et n°6', () => {
+    const MODELE = { subject: 'Sujet', body: 'Corps' };
+    const DEST = [
+        { valeur: 4, libelle: 'A' },
+        { valeur: 2, libelle: 'B' }
+    ];
+
+    it('sans configuration : valeurs initiales et modèles du serveur', () => {
+        expect(formulaireHo(5, {}, MODELE, DEST)).toMatchObject({
+            actif: false,
+            heure: '9',
+            jour: '4',
+            tousLesExperts: true,
+            sujet: 'Sujet',
+            corps: 'Corps',
+            destinataires: []
+        });
+        expect(formulaireHo(6, {}, MODELE, DEST)).toMatchObject({ heure: '8', jours: ['1'], semaine: 'current' });
+    });
+
+    it('n°5 : configuration relue et enregistrée (destinataires dans l’ordre de la liste, sujet sans espaces)', () => {
+        const f = formulaireHo(
+            5,
+            { enabled: true, hour: 21, weekDay: 0, recipients: ['2', 4], subject: ' S ' },
+            MODELE,
+            DEST
+        );
+        expect(f).toMatchObject({ heure: '21', jour: '0', destinataires: [4, 2], sujet: ' S ' });
+        expect(configHo(5, f, DEST)).toEqual({
+            enabled: true,
+            hour: 21,
+            subject: 'S',
+            body: 'Corps',
+            weekDay: 0,
+            allExperts: true,
+            recipients: [4, 2]
+        });
+    });
+
+    it('n°6 : jours dans l’ordre lundi → dimanche, semaine et groupes', () => {
+        const f = formulaireHo(6, { weekDays: ['0', 3], week: 'next', groupUser: true }, MODELE, DEST);
+        expect(f).toMatchObject({ jours: ['3', '0'], semaine: 'next', groupeUtilisateur: true });
+        expect(configHo(6, f, DEST)).toEqual({
+            enabled: false,
+            hour: 8,
+            subject: 'Sujet',
+            body: 'Corps',
+            weekDays: [3, 0],
+            week: 'next',
+            groupAdmin: false,
+            groupUser: true,
+            groupExpert: false,
+            recipients: []
+        });
+    });
+
+    it('heure inconnue : aucune (null enregistré)', () => {
+        expect(configHo(5, formulaireHo(5, { hour: 30 }, MODELE, DEST), DEST)).toMatchObject({ hour: null });
     });
 });

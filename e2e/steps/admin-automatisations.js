@@ -14,7 +14,9 @@ const envois = async (/** @type {Monde} */ monde, /** @type {number} */ n) =>
     (await (await adminApi(monde)).ok('GET', `/api/automation/logs/${n}`)).logs || [];
 
 const corps = (/** @type {Monde} */ monde, /** @type {number} */ n) => monde.page.locator(`#automation${n}Body`);
-const historique = (/** @type {Monde} */ monde) => monde.page.locator('#automationLogsModal');
+/** Fenêtre de l'historique (îlot : une fenêtre ; ancien écran : fenêtre propre à l'automatisation n°3) */
+const historique = (/** @type {Monde} */ monde) =>
+    monde.page.locator('#automationLogsModal:visible, #automation3LogsModal:visible');
 /** Bouton « Fermer » d'une fenêtre (le dernier : celui du pied de la fenêtre) */
 const fermer = (/** @type {import('@playwright/test').Locator} */ fenetre) =>
     fenetre.getByRole('button', { name: 'Fermer', exact: true }).last().click();
@@ -109,7 +111,10 @@ Then("l'historique « {}» présente les envois enregistrés de l'automatisation
     const liste = await envois(monde, n);
     monde.d.envoisHistorique = liste.length;
     if (liste.length) await expect(fenetre.locator('tbody tr')).toHaveCount(liste.length);
-    else await expect(fenetre).toContainText('Aucun envoi enregistré');
+    else
+        await expect(fenetre).toContainText(
+            n === 3 ? 'Aucune notification Teams enregistrée' : 'Aucun envoi enregistré'
+        );
 });
 
 When("je refuse de vider l'historique", async ({ monde }) => {
@@ -291,3 +296,209 @@ When("j'annule le nettoyage", async ({ monde }) => {
 Then('la fenêtre du nettoyage est fermée', async ({ monde }) => {
     await expect(historique(monde)).toBeHidden();
 });
+
+// ---------- N°3 : notifications Teams ----------
+
+/** Adresses fictives (domaine réservé .invalid) : aucun message ne peut partir vers un vrai canal */
+const TEAMS_FICTIVE = 'e2e-teams.canal@example.invalid';
+const TEAMS_FICTIVE_2 = 'e2e-teams.autre@example.invalid';
+
+Given(
+    "l'automatisation 3 est active avec une adresse Teams fictive et sans type de notification",
+    async ({ monde }) => {
+        await (
+            await adminApi(monde)
+        ).ok('POST', '/api/automation/config/3', {
+            config: { ...monde.d.automatisation3, enabled: true, teamsEmail: TEAMS_FICTIVE, notifications: [] }
+        });
+    }
+);
+
+Then("l'automatisation 3 affiche sa configuration enregistrée", async ({ monde }) => {
+    const page = monde.page;
+    await expect(page.locator('#automation3Enabled')).toBeChecked();
+    await expect(page.locator('#automation3Config')).toBeVisible();
+    await expect(page.locator('#automation3TeamsEmail')).toHaveValue(TEAMS_FICTIVE);
+    const cases = page.locator('#automation3NotifList input[type=checkbox]');
+    await expect(cases).toHaveCount(4);
+    for (const c of await cases.all()) await expect(c).not.toBeChecked();
+});
+
+When('je coche la notification Teams {string}', async ({ monde }, libelle) => {
+    // Clic simple : l'ancien écran redessine la liste (case remplacée) à chaque changement
+    await monde.page.locator('#automation3NotifList label', { hasText: libelle }).locator('input').click();
+});
+
+Then("l'automatisation 3 est enregistrée avec les notifications {string}", async ({ monde }, types) => {
+    await expect
+        .poll(async () => {
+            const c = await configuration(monde, 3);
+            return { enabled: !!c.enabled, teamsEmail: c.teamsEmail, notifications: c.notifications };
+        })
+        .toEqual({ enabled: true, teamsEmail: TEAMS_FICTIVE, notifications: types.split(', ') });
+});
+
+When("je remplace l'adresse du canal Teams par une autre adresse fictive", async ({ monde }) => {
+    const champ = monde.page.locator('#automation3TeamsEmail');
+    await champ.fill(TEAMS_FICTIVE_2);
+    await champ.press('Tab');
+});
+
+Then("l'automatisation 3 est enregistrée avec la nouvelle adresse fictive", async ({ monde }) => {
+    await expect.poll(async () => (await configuration(monde, 3)).teamsEmail).toBe(TEAMS_FICTIVE_2);
+});
+
+When("je refuse de vider l'historique des notifications Teams", async ({ monde }) => {
+    const texte = await annulerConfirmation(monde, () =>
+        historique(monde)
+            .getByRole('button', { name: /Vider l'historique/ })
+            .click()
+    );
+    // Libellé de l'ancienne fenêtre partagée (anomalie conservée)
+    expect(texte).toContain("Voulez-vous vraiment supprimer tout l'historique des sauvegardes de planning ?");
+});
+
+When("j'efface l'adresse du canal Teams puis j'envoie un test", async ({ monde }) => {
+    const champ = monde.page.locator('#automation3TeamsEmail');
+    await champ.fill('');
+    await champ.press('Tab');
+    await expect.poll(async () => (await configuration(monde, 3)).teamsEmail).toBe('');
+    await corps(monde, 3)
+        .getByRole('button', { name: /Envoyer un test/ })
+        .click();
+});
+
+Then('le test Teams indique {string}', async ({ monde }, texte) => {
+    await expect(monde.page.locator('#automation3TestResult')).toContainText(texte);
+});
+
+// ---------- N°4 : workflow CRA ----------
+
+Then(
+    "l'automatisation 4 affiche sa configuration enregistrée, les viseurs RH et les experts d'astreinte",
+    async ({ monde }) => {
+        const c = monde.d.automatisation4;
+        const page = monde.page;
+        const api = await adminApi(monde);
+        const comptes = await api.ok('GET', '/api/users');
+        const rh = (comptes.users || comptes).filter((/** @type {any} */ u) => u.is_rh === 1 && u.actif === 1);
+        const experts = await api.ok('GET', '/api/cra/experts-astreinte');
+        await expect(page.locator('#automation4Enabled')).toBeChecked({ checked: !!c.enabled });
+        await expect(page.locator('#automation4Day option')).toHaveCount(28);
+        await expect(page.locator('#automation4Day')).toHaveValue(String(c.day || 1));
+        for (const id of ['automation4AdminN1', 'automation4AdminN2']) {
+            await expect(page.locator(`#${id} option`)).toHaveCount(rh.length + 1);
+        }
+        await expect(page.locator('#automation4AdminN1')).toHaveValue(String(c.admin_n1_id || ''));
+        await expect(page.locator('#automation4AdminN2')).toHaveValue(String(c.admin_n2_id || ''));
+        await expect(page.locator('#automation4DrhAns option')).toHaveCount(rh.length);
+        const liste = page.locator('#automation4ExpertsList');
+        if (experts.length) await expect(liste).toContainText('Contacts RH définis dans la fiche ressource');
+        else await expect(liste).toContainText('Aucun expert avec astreinte activée.');
+        await expect(page.locator('#automation4TestExpert option')).toHaveCount(
+            experts.filter((/** @type {any} */ e) => e.user_id).length + 1
+        );
+    }
+);
+
+When('je choisis le jour de déclenchement {string}', async ({ monde }, jour) => {
+    await monde.page.locator('#automation4Day').selectOption(jour);
+});
+
+Then("l'automatisation 4 est enregistrée le jour 27, ses viseurs et son activation inchangés", async ({ monde }) => {
+    const c = monde.d.automatisation4;
+    await expect
+        .poll(async () => {
+            const lue = await configuration(monde, 4);
+            return {
+                day: lue.day,
+                enabled: !!lue.enabled,
+                n1: String(lue.admin_n1_id || ''),
+                n2: String(lue.admin_n2_id || ''),
+                drh: lue.drh_ans_ids || []
+            };
+        })
+        .toEqual({
+            day: 27,
+            enabled: !!c.enabled,
+            n1: String(c.admin_n1_id || ''),
+            n2: String(c.admin_n2_id || ''),
+            drh: c.drh_ans_ids || []
+        });
+});
+
+// ---------- N°5 et n°6 : astreintes HO ----------
+
+Then(
+    'les automatisations 5 et 6 affichent leur configuration enregistrée et les champs disponibles',
+    async ({ monde }) => {
+        const page = monde.page;
+        const info = await (await adminApi(monde)).ok('GET', '/api/astreintes-ho/info');
+        const c5 = monde.d.automatisation5;
+        const c6 = monde.d.automatisation6;
+        await expect(page.locator('#automation5Enabled')).toBeChecked({ checked: !!c5.enabled });
+        await expect(page.locator('#automation5WeekDay')).toHaveValue(String(c5.weekDay ?? 4));
+        await expect(page.locator('#automation5Hour')).toHaveValue(String(c5.hour ?? 9));
+        await expect(page.locator('#automation5AllExperts')).toBeChecked({ checked: c5.allExperts !== false });
+        await expect(page.locator('#automation5Subject')).toHaveValue(c5.subject || info.templates[5].subject);
+        await expect(page.locator('#automation5Text')).toHaveValue(c5.body || info.templates[5].body);
+        await expect(page.locator('#automation6Enabled')).toBeChecked({ checked: !!c6.enabled });
+        const jours = (Array.isArray(c6.weekDays) ? c6.weekDays : [1]).map(String);
+        for (const c of await page.locator('.automation6Day').all())
+            await expect(c).toBeChecked({ checked: jours.includes((await c.getAttribute('value')) ?? '') });
+        await expect(page.locator('#automation6Hour')).toHaveValue(String(c6.hour ?? 8));
+        await expect(page.locator('#automation6Week')).toHaveValue(c6.week === 'next' ? 'next' : 'current');
+        await expect(page.locator('#automation6Subject')).toHaveValue(c6.subject || info.templates[6].subject);
+        for (const n of [5, 6]) {
+            await expect(page.locator(`#automation${n}Fields`)).toContainText('Champs disponibles :');
+            if (info.fields?.length)
+                await expect(page.locator(`#automation${n}Fields`)).toContainText(info.fields[0][0]);
+        }
+    }
+);
+
+When("je choisis l'heure d'envoi {string} de l'automatisation 5", async ({ monde }, heure) => {
+    await monde.page.locator('#automation5Hour').selectOption({ label: heure });
+});
+
+When("je choisis de communiquer la {string} dans l'automatisation 6", async ({ monde }, semaine) => {
+    await monde.page.locator('#automation6Week').selectOption({ label: semaine });
+});
+
+Then("l'automatisation {int} indique {string}", async ({ monde }, n, texte) => {
+    await expect(monde.page.locator(`#automation${n}Msg`)).toContainText(texte);
+});
+
+/** Paramètres d'une automatisation HO, valeurs par défaut de l'écran pour les absents */
+const parametresHo = (/** @type {number} */ n, /** @type {any} */ c) =>
+    n === 5
+        ? { enabled: !!c.enabled, weekDay: c.weekDay ?? 4, allExperts: c.allExperts !== false }
+        : {
+              enabled: !!c.enabled,
+              hour: c.hour ?? 8,
+              weekDays: Array.isArray(c.weekDays) ? c.weekDays.map(Number) : [1],
+              groupAdmin: !!c.groupAdmin,
+              groupUser: !!c.groupUser,
+              groupExpert: !!c.groupExpert
+          };
+
+Then("l'automatisation 5 est enregistrée à 21 h, ses autres paramètres inchangés", async ({ monde }) => {
+    await expect
+        .poll(async () => {
+            const lue = await configuration(monde, 5);
+            return { hour: lue.hour, ...parametresHo(5, lue) };
+        })
+        .toEqual({ hour: 21, ...parametresHo(5, monde.d.automatisation5) });
+});
+
+Then(
+    "l'automatisation 6 est enregistrée pour la semaine suivante, ses autres paramètres inchangés",
+    async ({ monde }) => {
+        await expect
+            .poll(async () => {
+                const lue = await configuration(monde, 6);
+                return { week: lue.week, ...parametresHo(6, lue) };
+            })
+            .toEqual({ week: 'next', ...parametresHo(6, monde.d.automatisation6) });
+    }
+);
