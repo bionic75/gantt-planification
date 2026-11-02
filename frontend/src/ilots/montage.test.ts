@@ -114,4 +114,31 @@ describe('montage des îlots', () => {
         await rendu();
         expect(conteneur().querySelector('[data-testid="essai"]')).not.toBeNull();
     });
+
+    it("fin de session, onglet resté affiché : pas de remontage avant la réouverture de l'onglet", async () => {
+        conteneur().classList.add('active');
+        let montages = 0;
+        const Compte = defineComponent({
+            setup() {
+                montages++;
+                return () => h('p', { 'data-testid': 'essai' }, 'îlot');
+            }
+        });
+        arreter = surveillerIlots({ onglet: async () => ({ default: Compte }) });
+        await rendu();
+        expect(montages).toBe(1);
+
+        // Mire de connexion affichée : l'onglet garde sa classe « active »
+        emettre('session-terminee');
+        await rendu();
+        expect(conteneur().querySelector('[data-testid="essai"]')).toBeNull();
+        expect(montages).toBe(1);
+
+        // Connexion suivante : l'ancien code rouvre l'onglet (classe retirée puis remise, switchTab)
+        conteneur().classList.remove('active');
+        conteneur().classList.add('active');
+        await rendu();
+        expect(montages).toBe(2);
+        expect(conteneur().querySelector('[data-testid="essai"]')).not.toBeNull();
+    });
 });

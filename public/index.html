@@ -749,256 +749,8 @@
         </div>
         <div id="automationSection" style="margin-top: 15px; display: none;">
             
-            <!-- Automatisation n°1: Rappel disponibilités -->
-            <div style="background-color: white; border: 1px solid #ffcc80; border-radius: 8px; padding: 15px; margin-bottom: 15px;">
-                <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 15px;">
-                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0;">
-                        <input type="checkbox" id="automation1Enabled" onchange="saveAutomation1Config()" style="width: 18px; height: 18px; margin: 0;">
-                        <span style="font-weight: bold; color: #e65100; font-size: 14px;"><svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:19px;height:19px;stroke:currentColor;vertical-align:-3px;margin-right:6px;"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>Automatisation n°1 : Rappel de saisie des disponibilités</span>
-                    </label>
-                    <span onclick="toggleAdminSubSection('automation1Body')" style="cursor: pointer; font-size: 14px; color: #e65100; padding: 2px 8px;" title="Réduire / développer"><span id="automation1BodySubIcon">▶</span></span>
-                </div>
-                <div id="automation1Body" style="display: none;">
-                <p style="font-size: 12px; color: #666; margin: 0 0 15px 0; padding-left: 26px;">
-                    Envoie automatiquement un email aux experts qui n'ont pas renseigné leurs disponibilités pour le mois M+1, 
-                    X jours avant la fin du mois en cours.
-                </p>
-                
-                <div style="display: flex; flex-wrap: wrap; gap: 15px; padding-left: 26px; align-items: flex-end;">
-                    <div style="flex: 0 0 150px;">
-                        <label style="font-size: 12px; color: #555;">Jours avant fin du mois</label>
-                        <select id="automation1Days" onchange="saveAutomation1Config()" style="width: 100%;">
-                            <option value="3">3 jours</option>
-                            <option value="5" selected>5 jours</option>
-                            <option value="7">7 jours</option>
-                            <option value="10">10 jours</option>
-                            <option value="15">15 jours</option>
-                        </select>
-                    </div>
-                    <div style="flex: 1; min-width: 200px;">
-                        <label style="font-size: 12px; color: #555;">Mettre en copie (optionnel)</label>
-                        <select id="automation1CopyUser" onchange="saveAutomation1Config()" style="width: 100%;">
-                            <option value="">-- Aucun --</option>
-                            <!-- Options remplies dynamiquement -->
-                        </select>
-                    </div>
-                    <div style="flex: 0 0 auto;">
-                        <button onclick="openAutomation1Logs()" style="background-color: #ff9800; color: white; white-space: nowrap;">
-                            📋 Historique des envois
-                        </button>
-                    </div>
-                </div>
-                
-                <!-- Section de test -->
-                <div style="margin-top: 20px; padding: 15px; background-color: #fff8e1; border-radius: 5px; border: 1px dashed #ffcc80;">
-                    <label style="font-size: 12px; font-weight: bold; color: #e65100;">🧪 Test de l'automatisation</label>
-                    <p style="font-size: 11px; color: #666; margin: 5px 0 10px 0;">
-                        Recherche les experts sans disponibilités sur le mois M+1 et propose d'envoyer un email de rappel.
-                    </p>
-                    <button onclick="testAutomation1()" style="background-color: #4CAF50; color: white;">
-                        🔍 Tester maintenant
-                    </button>
-                    <div id="automation1TestResult" style="margin-top: 10px; font-size: 12px;"></div>
-                </div>
-                </div><!-- /automation1Body -->
-            </div>
-            
-            <!-- Automatisation n°2: Sauvegarde des plannings mensuels -->
-            <div style="background-color: white; border: 1px solid #ffcc80; border-radius: 8px; padding: 15px; margin-bottom: 15px;">
-                <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 15px;">
-                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0;">
-                        <input type="checkbox" id="automation2Enabled" onchange="saveAutomation2Config()" style="width: 18px; height: 18px; margin: 0;">
-                        <span style="font-weight: bold; color: #e65100; font-size: 14px;"><svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:19px;height:19px;stroke:currentColor;vertical-align:-3px;margin-right:6px;"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6" rx=".6"/><rect x="12" y="8" width="3" height="10" rx=".6"/><rect x="17" y="5" width="3" height="13" rx=".6"/></svg>Automatisation n°2 : Sauvegarde des plannings mensuels</span>
-                    </label>
-                    <span onclick="toggleAdminSubSection('automation2Body')" style="cursor: pointer; font-size: 14px; color: #e65100; padding: 2px 8px;" title="Réduire / développer"><span id="automation2BodySubIcon">▶</span></span>
-                </div>
-                <div id="automation2Body" style="display: none;">
-                
-                <p style="font-size: 12px; color: #666; margin: 0 0 15px 0; padding-left: 26px;">
-                    Envoie automatiquement un fichier de sauvegarde du planning aux destinataires sélectionnés selon la fréquence choisie.
-                </p>
-                
-                <!-- Ligne 1: Destinataires -->
-                <div style="padding-left: 26px; margin-bottom: 15px;">
-                    <label style="font-size: 12px; color: #555; font-weight: bold; display: block; margin-bottom: 8px;">📬 Destinataires</label>
-                    <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-start;">
-                        <div style="flex: 1; min-width: 250px;">
-                            <label style="font-size: 11px; color: #777;">Groupes de destinataires</label>
-                            <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 5px;">
-                                <label style="display: flex; align-items: center; gap: 5px; font-size: 12px; cursor: pointer;">
-                                    <input type="checkbox" id="automation2GroupAdmin" onchange="saveAutomation2Config()"> Administrateurs
-                                </label>
-                                <label style="display: flex; align-items: center; gap: 5px; font-size: 12px; cursor: pointer;">
-                                    <input type="checkbox" id="automation2GroupUser" onchange="saveAutomation2Config()"> Utilisateurs
-                                </label>
-                                <label style="display: flex; align-items: center; gap: 5px; font-size: 12px; cursor: pointer;">
-                                    <input type="checkbox" id="automation2GroupExpert" onchange="saveAutomation2Config()"> Experts
-                                </label>
-                            </div>
-                        </div>
-                        <div style="flex: 1; min-width: 250px;">
-                            <label style="font-size: 11px; color: #777;">Destinataires individuels (optionnel)</label>
-                            <select id="automation2Recipients" multiple onchange="saveAutomation2Config()" style="width: 100%; height: 80px; font-size: 12px;">
-                                <!-- Options remplies dynamiquement -->
-                            </select>
-                            <small style="color: #999; font-size: 10px;">Ctrl+clic pour sélection multiple</small>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Ligne 2: Fréquence -->
-                <div style="padding-left: 26px; margin-bottom: 15px;">
-                    <label style="font-size: 12px; color: #555; font-weight: bold; display: block; margin-bottom: 8px;">⏰ Fréquence d'envoi</label>
-                    <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end;">
-                        <div style="flex: 0 0 150px;">
-                            <select id="automation2Frequency" onchange="updateAutomation2FrequencyOptions(); saveAutomation2Config()" style="width: 100%;">
-                                <option value="daily">Tous les jours</option>
-                                <option value="weekly">Toutes les semaines</option>
-                                <option value="monthly">Une fois par mois</option>
-                            </select>
-                        </div>
-                        <div id="automation2WeeklyOptions" style="flex: 0 0 150px; display: none;">
-                            <label style="font-size: 11px; color: #777;">Jour de la semaine</label>
-                            <select id="automation2WeekDay" onchange="saveAutomation2Config()" style="width: 100%;">
-                                <option value="1">Lundi</option>
-                                <option value="2">Mardi</option>
-                                <option value="3">Mercredi</option>
-                                <option value="4">Jeudi</option>
-                                <option value="5">Vendredi</option>
-                                <option value="6">Samedi</option>
-                                <option value="0">Dimanche</option>
-                            </select>
-                        </div>
-                        <div id="automation2MonthlyOptions" style="flex: 0 0 150px; display: none;">
-                            <label style="font-size: 11px; color: #777;">Jour du mois</label>
-                            <select id="automation2MonthDay" onchange="saveAutomation2Config()" style="width: 100%;">
-                                <!-- Options 1-31 générées dynamiquement -->
-                            </select>
-                        </div>
-                        <div style="flex: 0 0 100px;">
-                            <label style="font-size: 11px; color: #777;">Heure d'envoi</label>
-                            <select id="automation2Hour" onchange="saveAutomation2Config()" style="width: 100%;">
-                                <option value="0">00:00</option>
-                                <option value="1">01:00</option>
-                                <option value="2">02:00</option>
-                                <option value="3">03:00</option>
-                                <option value="4">04:00</option>
-                                <option value="5">05:00</option>
-                                <option value="6">06:00</option>
-                                <option value="7">07:00</option>
-                                <option value="8" selected>08:00</option>
-                                <option value="9">09:00</option>
-                                <option value="10">10:00</option>
-                                <option value="11">11:00</option>
-                                <option value="12">12:00</option>
-                                <option value="13">13:00</option>
-                                <option value="14">14:00</option>
-                                <option value="15">15:00</option>
-                                <option value="16">16:00</option>
-                                <option value="17">17:00</option>
-                                <option value="18">18:00</option>
-                                <option value="19">19:00</option>
-                                <option value="20">20:00</option>
-                                <option value="21">21:00</option>
-                                <option value="22">22:00</option>
-                                <option value="23">23:00</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Ligne 3: Contenu du fichier -->
-                <div style="padding-left: 26px; margin-bottom: 15px;">
-                    <label style="font-size: 12px; color: #555; font-weight: bold; display: block; margin-bottom: 8px;">📁 Contenu du fichier</label>
-                    <table style="width: 100%; border-collapse: collapse;">
-                        <tr>
-                            <!-- Mois à inclure -->
-                            <td style="vertical-align: top; padding-right: 15px; width: 33%;">
-                                <div style="font-size: 11px; color: #777; margin-bottom: 5px;">Mois à inclure</div>
-                                <table style="border-collapse: collapse; margin-bottom: 5px;">
-                                    <tr>
-                                        <td style="padding: 0; vertical-align: middle; width: 20px;">
-                                            <input type="checkbox" id="automation2AllMonths" onchange="toggleAutomation2AllMonths()" checked style="margin: 0;">
-                                        </td>
-                                        <td style="padding: 0 0 0 6px; vertical-align: middle;">
-                                            <label for="automation2AllMonths" style="font-size: 12px; cursor: pointer; white-space: nowrap;"><strong>Toutes les données</strong></label>
-                                        </td>
-                                    </tr>
-                                </table>
-                                <select id="automation2Months" multiple onchange="saveAutomation2Config()" style="width: 100%; height: 100px; font-size: 12px;" disabled>
-                                    <!-- Options remplies dynamiquement -->
-                                </select>
-                                <div style="color: #999; font-size: 10px;">Décochez "Toutes" pour sélection manuelle</div>
-                            </td>
-                            
-                            <!-- Experts à inclure -->
-                            <td style="vertical-align: top; padding-right: 15px; width: 33%;">
-                                <div style="font-size: 11px; color: #777; margin-bottom: 5px;">Experts à inclure</div>
-                                <table style="border-collapse: collapse; margin-bottom: 5px;">
-                                    <tr>
-                                        <td style="padding: 0; vertical-align: middle; width: 20px;">
-                                            <input type="checkbox" id="automation2AllExperts" onchange="toggleAutomation2AllExperts()" checked style="margin: 0;">
-                                        </td>
-                                        <td style="padding: 0 0 0 6px; vertical-align: middle;">
-                                            <label for="automation2AllExperts" style="font-size: 12px; cursor: pointer; white-space: nowrap;"><strong>Tous les experts</strong></label>
-                                        </td>
-                                    </tr>
-                                </table>
-                                <select id="automation2ExpertsList" multiple onchange="saveAutomation2Config()" style="width: 100%; height: 100px; font-size: 12px;" disabled>
-                                    <!-- Options remplies dynamiquement -->
-                                </select>
-                                <div style="color: #999; font-size: 10px;">Décochez "Tous" pour sélection manuelle</div>
-                            </td>
-                            
-                            <!-- Options d'export -->
-                            <td style="vertical-align: top; width: 200px;">
-                                <div style="font-size: 11px; color: #777; margin-bottom: 5px;">Options d'export</div>
-                                <table style="border-collapse: collapse; margin-bottom: 12px;">
-                                    <tr>
-                                        <td style="padding: 0; vertical-align: middle; width: 20px;">
-                                            <input type="checkbox" id="automation2ExcludeEmpty" onchange="saveAutomation2Config()" checked style="margin: 0;">
-                                        </td>
-                                        <td style="padding: 0 0 0 6px; vertical-align: middle;">
-                                            <label for="automation2ExcludeEmpty" style="font-size: 12px; cursor: pointer; white-space: nowrap;">Exclure lignes vides</label>
-                                        </td>
-                                    </tr>
-                                </table>
-                                <div style="font-size: 11px; color: #777; margin-bottom: 3px;">Format du fichier</div>
-                                <select id="automation2Format" onchange="saveAutomation2Config()" style="width: 100%;">
-                                    <option value="csv">CSV</option>
-                                    <option value="xlsx">XLSX (Excel)</option>
-                                </select>
-                            </td>
-                        </tr>
-                    </table>
-                </div>
-                
-                <!-- Ligne 4: Boutons -->
-                <div style="display: flex; flex-wrap: wrap; gap: 10px; padding-left: 26px; align-items: center;">
-                    <button onclick="openAutomation2Logs()" style="background-color: #ff9800; color: white; white-space: nowrap;">
-                        📋 Historique des envois
-                    </button>
-                    <button onclick="diagnoseMoisData()" style="background-color: #9c27b0; color: white; white-space: nowrap;">
-                        🔍 Diagnostic mois
-                    </button>
-                    <button onclick="cleanupInvalidDates()" style="background-color: #f44336; color: white; white-space: nowrap;">
-                        🧹 Nettoyer données invalides
-                    </button>
-                </div>
-                
-                <!-- Section de test -->
-                <div style="margin-top: 20px; padding: 15px; background-color: #fff8e1; border-radius: 5px; border: 1px dashed #ffcc80;">
-                    <label style="font-size: 12px; font-weight: bold; color: #e65100;">🧪 Test de l'automatisation</label>
-                    <p style="font-size: 11px; color: #666; margin: 5px 0 10px 0;">
-                        Génère et envoie le fichier de sauvegarde avec la configuration actuelle.
-                    </p>
-                    <button onclick="testAutomation2()" style="background-color: #4CAF50; color: white;">
-                        🔍 Tester maintenant
-                    </button>
-                    <div id="automation2TestResult" style="margin-top: 10px; font-size: 12px;"></div>
-                </div>
-                </div><!-- /automation2Body -->
-            </div>
+            <!-- Automatisations n°1 et n°2 : îlot Vue (frontend/src/ilots/admin/automatisations) -->
+            <div id="adminAutomatisations"></div>
             
             <!-- Automatisation n°3: Notifications Teams -->
             <div style="background-color: white; border: 1px solid #ffcc80; border-radius: 8px; padding: 15px; margin-bottom: 15px;">
@@ -2192,9 +1944,7 @@
     <script src="/js/app/planning.js?v=2.3.0"></script>
     <script src="/js/app/admin-users.js?v=2.3.0"></script>
     <script src="/js/app/conges-scolaires.js?v=2.3.0"></script>
-    <script src="/js/app/automations.js?v=2.3.0"></script>
     <script src="/js/app/automations-ho.js?v=2.3.0"></script>
-    <script src="/js/app/automation-backup.js?v=2.3.0"></script>
     <script src="/js/app/cra.js?v=2.3.0"></script>
     <script src="/js/app/search.js?v=2.3.0"></script>
     <script src="/js/app/dump.js?v=2.3.0"></script>
@@ -2547,70 +2297,24 @@
         </div>
     </div>
 
-    <!-- Modal Historique des automatisations -->
-    <div id="automationLogsModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); z-index: 10002;">
+    <!-- Modal Historique des notifications Teams (automatisation n°3 ; n°1 et n°2 : îlot Vue) -->
+    <div id="automation3LogsModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); z-index: 10002;">
         <div style="position: relative; background-color: white; margin: 5% auto; padding: 30px; width: 90%; max-width: 800px; border-radius: 12px; max-height: 80vh; overflow-y: auto;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <h2 style="color: #e65100; margin: 0;">📋 Historique des envois automatiques</h2>
-                <span onclick="closeAutomationLogsModal()" style="cursor: pointer; font-size: 28px; color: #7f8c8d;">&times;</span>
+                <span onclick="closeAutomation3LogsModal()" style="cursor: pointer; font-size: 28px; color: #7f8c8d;">&times;</span>
             </div>
             
-            <div id="automationLogsContent" style="margin-top: 20px;">
+            <div id="automation3LogsContent" style="margin-top: 20px;">
                 <!-- Le contenu sera chargé dynamiquement -->
             </div>
             
             <div style="margin-top: 20px; text-align: right;">
-                <button onclick="clearAutomationLogs()" style="background-color: #e74c3c; color: white; margin-right: 10px;">
+                <button onclick="clearAutomation3Logs()" style="background-color: #e74c3c; color: white; margin-right: 10px;">
                     🗑️ Vider l'historique
                 </button>
-                <button onclick="closeAutomationLogsModal()" style="background-color: #95a5a6; color: white;">
+                <button onclick="closeAutomation3LogsModal()" style="background-color: #95a5a6; color: white;">
                     Fermer
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal Test Automatisation -->
-    <div id="automationTestModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); z-index: 10002;">
-        <div style="position: relative; background-color: white; margin: 5% auto; padding: 30px; width: 90%; max-width: 700px; border-radius: 12px; max-height: 80vh; overflow-y: auto;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2 style="color: #4CAF50; margin: 0;">🧪 Test - Experts sans disponibilités M+1</h2>
-                <span onclick="closeAutomationTestModal()" style="cursor: pointer; font-size: 28px; color: #7f8c8d;">&times;</span>
-            </div>
-            
-            <div id="automationTestContent" style="margin-top: 20px;">
-                <!-- Le contenu sera chargé dynamiquement -->
-            </div>
-            
-            <div id="automationTestActions" style="margin-top: 20px; text-align: right; display: none;">
-                <button onclick="sendReminderToAllExperts()" style="background-color: #4CAF50; color: white; margin-right: 10px;">
-                    📧 Envoyer un rappel à tous
-                </button>
-                <button onclick="closeAutomationTestModal()" style="background-color: #95a5a6; color: white;">
-                    Fermer
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal Prévisualisation Automatisation 2 -->
-    <div id="automation2PreviewModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); z-index: 10002;">
-        <div style="position: relative; background-color: white; margin: 5% auto; padding: 30px; width: 90%; max-width: 700px; border-radius: 12px; max-height: 80vh; overflow-y: auto;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2 style="color: #e65100; margin: 0;">📊 Test - Sauvegarde du planning</h2>
-                <span onclick="closeAutomation2PreviewModal()" style="cursor: pointer; font-size: 28px; color: #7f8c8d;">&times;</span>
-            </div>
-            
-            <div id="automation2PreviewContent" style="margin-top: 20px;">
-                <!-- Le contenu sera chargé dynamiquement -->
-            </div>
-            
-            <div id="automation2PreviewActions" style="margin-top: 20px; text-align: right;">
-                <button onclick="confirmAutomation2Send()" style="background-color: #4CAF50; color: white; margin-right: 10px;">
-                    ✅ Confirmer et envoyer
-                </button>
-                <button onclick="closeAutomation2PreviewModal()" style="background-color: #95a5a6; color: white;">
-                    Annuler
                 </button>
             </div>
         </div>
