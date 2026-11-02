@@ -26,29 +26,17 @@ async function loadLocations() {
 }
 
 function populateLocationSelects() {
-    // Peupler les selects SAMU depuis allLocations
+    // Peupler le select SAMU de la fiche de la ressource depuis allLocations (formulaire d'ajout : îlot Vue,
+    // frontend/src/ilots/ressources)
     const samuOptions =
         '<option value="">-- Choisir un SAMU --</option>' +
         [...allLocations]
             .sort((a, b) => (a.libelle_court || '').localeCompare(b.libelle_court || ''))
             .map(l => `<option value="${l.libelle_court}">${l.libelle_court}</option>`)
             .join('');
-    ['samu', 'editSamu'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.innerHTML = samuOptions;
-    });
+    const editSamu = document.getElementById('editSamu');
+    if (editSamu) editSamu.innerHTML = samuOptions;
 
-    // Listener SAMU → ES auto-remplissage (ajout)
-    const samuSel = document.getElementById('samu');
-    if (samuSel && !samuSel._listenerSet) {
-        samuSel._listenerSet = true;
-        samuSel.addEventListener('change', function () {
-            const selected = allLocations.find(l => l.libelle_court === this.value);
-            const adresse = selected?.adresse || '';
-            const es = adresse.includes(',') ? adresse.split(',')[0].trim() : adresse.trim();
-            document.getElementById('esRattachement').value = es;
-        });
-    }
     // Listener SAMU → ES auto-remplissage (modification)
     const editSamuSel = document.getElementById('editSamu');
     if (editSamuSel && !editSamuSel._listenerSet) {

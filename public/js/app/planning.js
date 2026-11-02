@@ -816,36 +816,6 @@ function makeColResizable(table) {
     addColContextMenu(table);
 }
 
-function sortTable(tableId, columnIndex) {
-    const table = document.getElementById(tableId + 'Table');
-    const tbody = table.tBodies[0];
-    const rows = Array.from(tbody.rows);
-    const isAscending = !sortDirection[columnIndex];
-    sortDirection[columnIndex] = isAscending;
-    // Converts dd/MM/yyyy HH:mm:ss to sortable string yyyy/MM/dd HH:mm:ss
-    function toSortable(val) {
-        const m = val.match(/^(\d{2})\/(\d{2})\/(\d{4})(.*)/);
-        return m ? m[3] + '/' + m[2] + '/' + m[1] + m[4] : val;
-    }
-    rows.sort((a, b) => {
-        let aVal = a.cells[columnIndex].textContent.toLowerCase().trim();
-        let bVal = b.cells[columnIndex].textContent.toLowerCase().trim();
-        aVal = toSortable(aVal);
-        bVal = toSortable(bVal);
-        if (!isNaN(aVal) && !isNaN(bVal)) {
-            aVal = parseFloat(aVal);
-            bVal = parseFloat(bVal);
-            return isAscending ? aVal - bVal : bVal - aVal;
-        }
-        return isAscending ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-    });
-    rows.forEach(row => tbody.appendChild(row));
-}
-
-function exportResourcesToExcel() {
-    window.location.href = `${API_URL}/export/resources`;
-}
-
 // Ouvrir la modal de téléchargement
 function openDownloadModal() {
     const select = document.getElementById('downloadMonthSelect');
@@ -989,17 +959,6 @@ async function loadUsers() {
     }
 }
 
-// Fonction pour retirer les accents
-function removeAccents(str) {
-    return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-}
-
-// Fonction pour capitaliser la première lettre
-function capitalizeFirstLetter(str) {
-    if (!str) return str;
-    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
-}
-
 // Fonction pour purger les cookies du site
 function clearSiteCookies() {
     const cookies = document.cookie.split(';');
@@ -1036,34 +995,4 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Charger les congés scolaires
     loadSchoolHolidays();
-
-    // ========== AUTOMATISATION RESSOURCES ==========
-    // (création des comptes utilisateurs : îlot Vue, frontend/src/ilots/admin/utilisateurs)
-
-    // Capitaliser automatiquement le prénom de la ressource
-    const resourcePrenomInput = document.getElementById('prenom');
-    if (resourcePrenomInput) {
-        resourcePrenomInput.addEventListener('blur', function () {
-            this.value = capitalizeFirstLetter(this.value);
-            generateTrigramme();
-        });
-    }
-
-    // Régénérer le trigramme quand le nom change
-    const resourceNomInput = document.getElementById('nom');
-    if (resourceNomInput) {
-        resourceNomInput.addEventListener('blur', function () {
-            generateTrigramme();
-        });
-    }
-
-    // Pré-remplir SAMU avec "SAMU " si vide
-    const samuInput = document.getElementById('samu');
-    if (samuInput) {
-        samuInput.addEventListener('focus', function () {
-            if (!this.value || this.value.trim() === '') {
-                this.value = 'SAMU ';
-            }
-        });
-    }
 });

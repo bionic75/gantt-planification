@@ -10,6 +10,7 @@ import { installerLiaisonAncienCode } from '@/liaison';
  */
 const ILOTS: RegistreIlots = {
     accueil: () => import('@/ilots/accueil/OngletAccueil.vue'),
+    resources: () => import('@/ilots/ressources/OngletRessources.vue'),
     tripadvisor: () => import('@/ilots/tripadvisor/TripAdvisor.vue'),
     reporting: () => import('@/ilots/reporting/OngletReporting.vue'),
     evenements: () => import('@/ilots/evenements/OngletEvenements.vue'),
