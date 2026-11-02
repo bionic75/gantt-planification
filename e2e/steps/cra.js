@@ -62,6 +62,11 @@ async function moisInedit(/** @type {Monde} */ monde) {
         ) {
             monde.aNettoyer(`CRA ${mois}/${annee}`, async () => {
                 for (const c of await crasDuMois(monde, mois, annee)) await nettoyerCra(monde, c.id);
+                // Lignes du mois : rattachées à l'expert et non au CRA, elles survivent à sa purge
+                const { userId } = await ressourceExpert(monde);
+                await (
+                    await adminApi(monde)
+                ).post('/api/astreintes-hno/direct', { user_id: userId, mois, annee, lignes: [] });
             });
             return { mois, annee };
         }

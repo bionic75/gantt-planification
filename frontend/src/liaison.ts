@@ -35,12 +35,19 @@ export interface EvenementsLiaison {
     'conges-modifies': undefined;
     /** Fichiers de dates particulières modifiés : l'ancien code recharge les dates de la planification */
     'dates-particulieres-modifiees': undefined;
-    /** Workflow CRA (automatisation n°4) enregistré : l'ancien code reprend la configuration (boutons de visa) */
-    'config-cra-modifiee': { config: Record<string, unknown> };
     /** Ressources créées, modifiées ou supprimées par un îlot : l'ancien code recharge les siennes et la planification */
     'ressources-modifiees': undefined;
     /** Ressources rechargées par l'ancien code (fiche enregistrée, connexion…) : les îlots relisent les leurs */
     'ressources-rechargees': undefined;
+    /**
+     * CRA modifiés par l'îlot du circuit (soumission, visa, refus, archivage…) : l'ancien code recharge ses listes
+     * (CRA signés, en attente de diffusion, archivés) et la pastille de l'onglet
+     */
+    'cra-modifies': undefined;
+    /** CRA lancés, désarchivés ou restaurés par l'ancien code : l'îlot du circuit relit ses cartes */
+    'cra-recharges': undefined;
+    /** Lien d'une notification (« ?tab=cra&cra_id= ») : l'îlot du circuit ouvre le CRA demandé (prendreCraDemande) */
+    'cra-demande': undefined;
 }
 
 export type NomEvenement = keyof EvenementsLiaison;
@@ -78,6 +85,8 @@ interface FenetreAncienCode {
     switchToApp?: (application: string) => void;
     /** Bandeau « Données synchronisées » de l'onglet Ressources (public/js/app/dump.js) */
     showSyncStatus?: () => void;
+    /** CRA demandé par le lien d'une notification, en attente d'ouverture (public/js/app/core.js) */
+    craDemande?: number;
 }
 
 /** Fonctions de l'accueil accessibles à l'utilisateur connecté (profil, configuration des onglets, applications) */
@@ -158,4 +167,11 @@ export function ouvrirApplication(application: 'affectation' | 'deplacements'): 
 /** Bandeau « Données synchronisées » (quelques secondes) */
 export function afficherSynchronisation(): void {
     ancienCode().showSyncStatus?.();
+}
+
+/** CRA demandé par le lien d'une notification, retiré de l'attente ; null si aucun */
+export function prendreCraDemande(): number | null {
+    const id = ancienCode().craDemande;
+    delete ancienCode().craDemande;
+    return id ?? null;
 }
