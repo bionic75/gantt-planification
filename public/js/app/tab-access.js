@@ -135,8 +135,7 @@ function updateTabsVisibility() {
         // Fichiers ICS et listes du reporting : îlots Vue
         populateLocationSelects();
     } else if (profile === 'rh') {
-        const addResSection = document.getElementById('addResourceFormSection');
-        if (addResSection) addResSection.style.display = 'none';
+        // Formulaire d'ajout de ressource masqué pour le profil RH : îlot Vue (frontend/src/ilots/ressources)
         // Masquer loupe et enveloppe
         const searchBtn = document.getElementById('searchBtn');
         if (searchBtn) searchBtn.style.display = 'none';

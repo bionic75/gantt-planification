@@ -37,6 +37,10 @@ export interface EvenementsLiaison {
     'dates-particulieres-modifiees': undefined;
     /** Workflow CRA (automatisation n°4) enregistré : l'ancien code reprend la configuration (boutons de visa) */
     'config-cra-modifiee': { config: Record<string, unknown> };
+    /** Ressources créées, modifiées ou supprimées par un îlot : l'ancien code recharge les siennes et la planification */
+    'ressources-modifiees': undefined;
+    /** Ressources rechargées par l'ancien code (fiche enregistrée, connexion…) : les îlots relisent les leurs */
+    'ressources-rechargees': undefined;
 }
 
 export type NomEvenement = keyof EvenementsLiaison;
@@ -72,6 +76,11 @@ interface FenetreAncienCode {
     switchTab?: (onglet: string, evenement: null) => void;
     /** Ouverture d'une application (public/js/app/tab-access.js) */
     switchToApp?: (application: string) => void;
+    /** Fiche d'une ressource : modification, ou consultation pour le profil RH (public/js/app/password-reset.js) */
+    openEditModal?: (id: number) => void;
+    openViewModalRh?: (id: number) => void;
+    /** Bandeau « Données synchronisées » de l'onglet Ressources (public/js/app/dump.js) */
+    showSyncStatus?: () => void;
 }
 
 /** Fonctions de l'accueil accessibles à l'utilisateur connecté (profil, configuration des onglets, applications) */
@@ -147,4 +156,15 @@ export function ouvrirOnglet(onglet: string): void {
 /** Ouvre une application (Aide à l'affectation, Suivi des déplacements) */
 export function ouvrirApplication(application: 'affectation' | 'deplacements'): void {
     ancienCode().switchToApp?.(application);
+}
+
+/** Fiche d'une ressource de l'ancien code (non migrée) : modification, ou consultation seule */
+export function ouvrirFicheRessource(id: number, consultation: boolean): void {
+    if (consultation) ancienCode().openViewModalRh?.(id);
+    else ancienCode().openEditModal?.(id);
+}
+
+/** Bandeau « Données synchronisées » (quelques secondes) */
+export function afficherSynchronisation(): void {
+    ancienCode().showSyncStatus?.();
 }

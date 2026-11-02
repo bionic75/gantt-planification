@@ -193,112 +193,8 @@
         <!-- Espaceur pour compenser le header fixe -->
         <div class="header-spacer"></div>
         
-        <div id="resources" class="tab-content active">
-            <h2>Gestion des Ressources</h2>
-            <div id="syncStatus" class="sync-status" style="display:none;">Données synchronisées</div>
-            
-            <div class="form-section" id="addResourceFormSection">
-                <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="togglePlanningSection('addResourceSection')">
-                    <h3 style="border-left: none; margin: 0;">
-                        <span id="addResourceSectionIcon">▶</span> Ajouter une nouvelle ressource
-                    </h3>
-                </div>
-                <div id="addResourceSection" style="display: none; margin-top: 15px;">
-                <div class="form-row">
-                    <div class="form-group"><label>Nom *</label><input type="text" id="nom" placeholder="Nom"></div>
-                    <div class="form-group"><label>Prénom *</label><input type="text" id="prenom" placeholder="Prénom"></div>
-                    <div class="form-group"><label>Trigramme *</label><input type="text" id="trigramme" placeholder="XXX" maxlength="3"></div>
-                    <div class="form-group" id="addTauxGroup"><label>Taux de MAD (%) *</label><input type="number" id="taux" placeholder="100" min="0" max="100"></div>
-                    <div class="form-group" id="addDateFinMadGroup" style="display:none;"><label>Date de fin MAD *</label><input type="date" id="dateFinMad"></div>
-                    <div class="form-group" id="addJoursMaxGroup" style="display:none;"><label>Jours max sur la période *</label><input type="number" id="joursMaxMad" placeholder="Ex: 20" min="1"></div>
-                </div>
-                <!-- Case MAD volante -->
-                <div style="margin-bottom:10px;padding:10px 14px;background:#f3e5f5;border:1px solid #ce93d8;border-radius:6px;display:flex;align-items:center;gap:10px;">
-                    <input type="checkbox" id="addMadVolante" onchange="toggleMadVolanteFields('add')" style="width:16px;height:16px;cursor:pointer;">
-                    <label for="addMadVolante" style="font-size:13px;font-weight:bold;color:#6a1b9a;cursor:pointer;margin:0;"><svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:16px;height:16px;stroke:#7b1fa2;fill:#e1bee7;vertical-align:-2px;margin-right:6px;vertical-align:-3px;"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg>MAD volante <span style="font-weight:normal;color:#888;font-size:12px;">(contrat à durée déterminée avec un nombre de jours maximum)</span></label>
-                </div>
-                <div class="form-row">
-                    <div class="form-group"><label>SAMU de rattachement *</label><select id="samu"><option value="">-- Choisir un SAMU --</option></select></div>
-                    <div class="form-group"><label>Date début MAD *</label><input type="date" id="dateDebut"></div>
-                    <div class="form-group"><label>ES de rattachement</label><input type="text" id="esRattachement" readonly placeholder="Auto-rempli selon le SAMU choisi" style="background-color: #f5f5f5; cursor: not-allowed;"></div>
-                    <div class="form-group"><label>Fonction</label><input type="text" id="fonction" placeholder="Ex: Médecin, Infirmier..."></div>
-                </div>
-                <div class="form-row" style="grid-template-columns: 1fr 1fr;">
-                    <div class="form-group" style="position: relative;">
-                        <label>🅿️ Expert principal sur le(s) SAMU</label>
-                        <div id="samuTags_add_principal" class="samu-tag-box" onclick="document.getElementById('samuInput_add_principal').focus()">
-                            <input type="text" id="samuInput_add_principal" placeholder="Taper le nom d'un SAMU..." class="samu-tag-input"
-                                oninput="filterSamuOptions('add_principal', this.value)"
-                                onfocus="filterSamuOptions('add_principal', this.value)"
-                                onkeydown="handleSamuTagKeydown('add_principal', event)">
-                        </div>
-                        <div id="samuDropdown_add_principal" class="samu-tag-dropdown"></div>
-                    </div>
-                    <div class="form-group" style="position: relative;">
-                        <label>🅢 Expert secondaire sur le(s) SAMU</label>
-                        <div id="samuTags_add_secondaire" class="samu-tag-box" onclick="document.getElementById('samuInput_add_secondaire').focus()">
-                            <input type="text" id="samuInput_add_secondaire" placeholder="Taper le nom d'un SAMU..." class="samu-tag-input"
-                                oninput="filterSamuOptions('add_secondaire', this.value)"
-                                onfocus="filterSamuOptions('add_secondaire', this.value)"
-                                onkeydown="handleSamuTagKeydown('add_secondaire', event)">
-                        </div>
-                        <div id="samuDropdown_add_secondaire" class="samu-tag-dropdown"></div>
-                    </div>
-                </div>
-                <!-- Astreintes : HO, HNO, accompagnement post démarrage -->
-                <div style="margin-top:16px;padding:12px;background:#fff8e1;border:1px solid #ffe082;border-radius:6px;">
-                    <div style="font-size:13px;font-weight:bold;color:#e65100;margin-bottom:8px;">🔔 Astreintes (activités à différencier)</div>
-                    <label style="font-size:13px;color:#33691e;display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:6px;">
-                        <input type="checkbox" id="addAstreinteHo" style="width:16px;height:16px;">
-                        <span><strong>Astreintes HO</strong> <span style="font-size:11px;color:#777;">(jours de la semaine, heures ouvrées)</span></span>
-                    </label>
-                    <label style="font-size:13px;color:#e65100;display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:6px;">
-                        <input type="checkbox" id="addAstreinteVolontaire" onchange="toggleAddAstreinteDate()" style="width:16px;height:16px;">
-                        <span><strong>Astreintes HNO</strong> <span style="font-size:11px;color:#777;">(jours et heures non ouvrés)</span></span>
-                    </label>
-                    <div id="addAstreinteDateBlock" style="display:none;margin:0 0 8px 26px;">
-                        <label style="font-size:12px;color:#555;display:block;margin-bottom:4px;">📅 Date de démarrage du régime d'astreintes HNO *</label>
-                        <input type="date" id="addAstreinteDate" style="padding:6px 10px;border:1px solid #ffe082;border-radius:4px;font-size:13px;">
-                    </div>
-                    <label style="font-size:13px;color:#4a148c;display:flex;align-items:center;gap:10px;cursor:pointer;">
-                        <input type="checkbox" id="addAstreinteApd" style="width:16px;height:16px;">
-                        <span><strong>Astreintes « Accompagnement post démarrage »</strong> <span style="font-size:11px;color:#777;">(jours et heures non ouvrés, dans le cadre d'un déploiement)</span></span>
-                    </label>
-                </div>
-                <div class="button-group" style="margin-top:12px;">
-                    <button onclick="addResource()">Ajouter la ressource</button>
-                    <button class="export-btn" onclick="exportResourcesToExcel()">Exporter (Excel)</button>
-                </div>
-                </div><!-- /addResourceSection -->
-            </div>
-            
-            <div class="table-container">
-                <table id="resourcesTable">
-                    <thead>
-                        <tr>
-                            <th onclick="sortTable('resources', 0)">Nom</th>
-                            <th onclick="sortTable('resources', 1)">Prénom</th>
-                            <th onclick="sortTable('resources', 2)">Trigramme</th>
-                            <th onclick="sortTable('resources', 3)">Taux MAD</th>
-                            <th onclick="sortTable('resources', 4)">SAMU</th>
-                            <th onclick="sortTable('resources', 5)">🅿️ Affectation(s) SAMU principales</th>
-                            <th onclick="sortTable('resources', 6)">🅢 Affectation(s) SAMU secondaires</th>
-                            <th onclick="sortTable('resources', 7)">ES rattachement</th>
-                            <th onclick="sortTable('resources', 8)">Fonction</th>
-                            <th onclick="sortTable('resources', 9)">Début MAD</th>
-                            <th onclick="sortTable('resources', 10)">Fin MAD</th>
-                            <th onclick="sortTable('resources', 11)">Statut</th>
-                            <th class="no-sort" title="Astreintes HO : jours de la semaine, heures ouvrées">Astreintes HO</th>
-                            <th class="no-sort" title="Astreintes HNO : jours et heures non ouvrés">Astreintes HNO</th>
-                            <th class="no-sort" title="Astreintes d'accompagnement post démarrage : jours et heures non ouvrés, dans le cadre d'un déploiement">Astreintes APD</th>
-                            <th class="no-sort">Actif</th>
-                            <th class="no-sort" style="width:84px;min-width:84px;">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="resourcesList"></tbody>
-                </table>
-            </div>
-        </div>
+        <!-- Îlot Vue (frontend/src/ilots/ressources) -->
+        <div id="resources" class="tab-content active"></div>
         
         <!-- Îlot Vue (frontend/src/ilots/tripadvisor) -->
         <div id="accueil" class="tab-content"></div>
@@ -1690,7 +1586,6 @@
     <script src="/js/app/password-reset.js?v=2.3.0"></script>
     <script src="/js/app/particularites.js?v=2.3.0"></script>
     <script src="/js/app/planning.js?v=2.3.0"></script>
-    <script src="/js/app/admin-users.js?v=2.3.0"></script>
     <script src="/js/app/conges-scolaires.js?v=2.3.0"></script>
     <script src="/js/app/cra.js?v=2.3.0"></script>
     <script src="/js/app/search.js?v=2.3.0"></script>
