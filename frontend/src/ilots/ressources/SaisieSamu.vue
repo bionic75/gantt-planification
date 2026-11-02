@@ -12,6 +12,8 @@ const props = defineProps<{
     libelle: string;
     /** Libellés courts des localisations */
     samus: ReadonlyArray<string | null>;
+    /** Consultation : étiquettes seules, sans saisie ni retrait */
+    lectureSeule?: boolean;
 }>();
 const choisis = defineModel<string[]>({ required: true });
 /** SAMU de l'autre rôle */
@@ -54,6 +56,7 @@ onBeforeUnmount(() => document.removeEventListener('click', clicAilleurs));
             <span v-for="s in choisis" :key="s" class="samu-tag" :class="role">
                 <span>{{ s }}</span>
                 <button
+                    v-if="!lectureSeule"
                     type="button"
                     class="samu-tag-remove samu__retirer"
                     title="Retirer"
@@ -64,6 +67,7 @@ onBeforeUnmount(() => document.removeEventListener('click', clicAilleurs));
                 </button>
             </span>
             <input
+                v-if="!lectureSeule"
                 :id="`samuInput_${cle}`"
                 ref="champ"
                 v-model="saisie"
@@ -76,7 +80,12 @@ onBeforeUnmount(() => document.removeEventListener('click', clicAilleurs));
                 @keydown="clavier"
             />
         </div>
-        <div :id="`samuDropdown_${cle}`" class="samu-tag-dropdown" :class="{ samu__ouverte: ouverte }">
+        <div
+            v-if="!lectureSeule"
+            :id="`samuDropdown_${cle}`"
+            class="samu-tag-dropdown"
+            :class="{ samu__ouverte: ouverte }"
+        >
             <template v-if="ouverte">
                 <div v-if="!suggestions.length" class="samu-tag-dropdown-empty">Aucun SAMU disponible</div>
                 <div
