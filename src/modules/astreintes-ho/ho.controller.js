@@ -2,8 +2,19 @@
 import { badRequest } from '../../lib/http-error.js';
 import { logUserAction } from '../../services/action-log.js';
 import { DEFAULT_TEMPLATES, TEMPLATE_FIELDS } from './ho.emails.js';
-import { notifyUpdate, runAutomation5, runAutomation6, updateMailInfo } from './ho.automation.js';
+import {
+    ansUpdateMailInfo,
+    notifyAnsUpdate,
+    notifyUpdate,
+    runAutomation5,
+    runAutomation6,
+    runAutomation7,
+    runAutomation8,
+    updateMailInfo
+} from './ho.automation.js';
 import * as service from './ho.service.js';
+import * as ans from './ans.service.js';
+import { addDays } from './ho.dates.js';
 
 /** @typedef {import('express').Request} Request */
 /** @typedef {import('express').Response} Response */
@@ -23,13 +34,39 @@ export async function getMonth(/** @type {Request} */ req, /** @type {Response} 
         service.editorOf(sessionOf(req)),
         updateMailInfo()
     ]);
-    res.json({ ...planning, experts, me, updateMail });
+    // Astreinte HO ANS : un utilisateur par jour ouvré, sur les mêmes semaines que le planning HO
+    const weeks = planning.weeks;
+    const ansSlots = await ans.ansSlotsBetween(weeks[0].monday, addDays(weeks[weeks.length - 1].monday, 4));
+    const ansUsers = await ans.listAnsUsers();
+    const ansMe = await ans.ansEditorOf(sessionOf(req));
+    const ansNames = await ans.ansNames(ansSlots.map(s => s.user_id));
+    res.json({
+        ...planning,
+        experts,
+        me,
+        updateMail,
+        ans: { slots: ansSlots, users: ansUsers, names: ansNames, me: ansMe, updateMail: await ansUpdateMailInfo() }
+    });
 }
 
 /** Enregistrement d'ajouts / retraits ; e-mail de mise à jour si la semaine en cours est touchée */
 export async function save(/** @type {Request} */ req, /** @type {Response} */ res) {
     const session = sessionOf(req);
-    const result = await service.applyChanges(session, req.body?.changes);
+    const hoChanges = Array.isArray(req.body?.changes) ? req.body.changes : [];
+    const ansChanges = Array.isArray(req.body?.ansChanges) ? req.body.ansChanges : [];
+    if (!hoChanges.length && !ansChanges.length) throw badRequest('Aucune modification à enregistrer');
+    const empty = { applied: [], skipped: 0, touchesCurrentWeek: false, currentWeek: '' };
+    const result = hoChanges.length ? await service.applyChanges(session, hoChanges) : empty;
+    const ansResult = ansChanges.length ? await ans.applyAnsChanges(session, ansChanges) : null;
+    let ansMail = { sent: false, reason: 'aucune modification' };
+    if (ansResult && ansResult.applied.length) {
+        logUserAction(req, 'Astreintes HO ANS : modification du planning', {
+            designations: ansResult.applied.filter(c => c.action === 'set').length,
+            retraits: ansResult.applied.filter(c => c.action === 'clear').length
+        });
+        if (ansResult.touchesCurrentWeek)
+            ansMail = await notifyAnsUpdate(session.name, ansResult.applied, ansResult.currentWeek);
+    }
     let mail = { sent: false, reason: 'aucune modification' };
     if (result.applied.length) {
         logUserAction(req, 'Astreintes HO : modification du planning', {
@@ -38,13 +75,15 @@ export async function save(/** @type {Request} */ req, /** @type {Response} */ r
         });
         if (result.touchesCurrentWeek) mail = await notifyUpdate(session.name, result.applied, result.currentWeek);
     }
-    res.json({ success: true, ...result, mail });
+    res.json({ success: true, ...result, mail, ans: ansResult ? { ...ansResult, mail: ansMail } : null });
 }
 
 /** Envoi immédiat d'une automatisation (n°5 ou n°6), sans attendre le jour et l'heure configurés */
 export async function sendNow(/** @type {Request} */ req, /** @type {Response} */ res) {
-    const run = { 5: runAutomation5, 6: runAutomation6 }[/** @type {5 | 6} */ (Number(req.params.n))];
-    if (!run) throw badRequest('Automatisation inconnue (5 ou 6)');
+    const run = { 5: runAutomation5, 6: runAutomation6, 7: runAutomation7, 8: runAutomation8 }[
+        /** @type {5 | 6 | 7 | 8} */ (Number(req.params.n))
+    ];
+    if (!run) throw badRequest('Automatisation inconnue (5 à 8)');
     try {
         res.json({ success: true, ...(await run({ force: true })) });
     } catch (/** @type {any} */ e) {
@@ -54,5 +93,10 @@ export async function sendNow(/** @type {Request} */ req, /** @type {Response} *
 
 /** Gabarits par défaut, champs disponibles et experts HO pour l'écran d'administration */
 export async function info(/** @type {Request} */ _req, /** @type {Response} */ res) {
-    res.json({ templates: DEFAULT_TEMPLATES, fields: TEMPLATE_FIELDS, experts: await service.listHoExperts() });
+    res.json({
+        templates: DEFAULT_TEMPLATES,
+        fields: TEMPLATE_FIELDS,
+        experts: await service.listHoExperts(),
+        ansUsers: await ans.listAnsUsers()
+    });
 }

@@ -1,6 +1,7 @@
 // Point d'entrée : connexion à la base (schéma géré par les migrations : npm run db:migrate), données initiales,
 // application Express (src/app.js, routes dans src/modules), tâches de fond et démarrage du serveur HTTP.
 import { env } from './src/config/env.js';
+import { execFileSync } from 'child_process';
 import fs from 'fs';
 import { registerDumpRoutes } from './scripts/db-dump.js';
 import { createApp, finalizeApp } from './src/app.js';
@@ -76,7 +77,24 @@ function listen(app, attempt = 1) {
     });
 }
 
+// Développement : migrations en attente appliquées à chaque démarrage, y compris les redémarrages automatiques de
+// « node --watch » (sinon une migration récupérée par un pull donne « table ou colonne inexistante » jusqu'au prochain
+// « npm run dev »). En production, les migrations sont appliquées avant le démarrage (Docker, npm start).
+function appliquerMigrationsEnDeveloppement() {
+    if (env.NODE_ENV !== 'development') return;
+    try {
+        execFileSync(process.execPath, [new URL('./scripts/db-migrate.mjs', import.meta.url).pathname], {
+            stdio: 'inherit',
+            env: process.env
+        });
+    } catch {
+        console.error('❌ Migrations de la base : échec (voir ci-dessus).');
+        process.exit(1);
+    }
+}
+
 async function main() {
+    appliquerMigrationsEnDeveloppement();
     await connectPrisma();
     const encodingProblem = await checkEncoding();
     if (encodingProblem) {

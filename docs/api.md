@@ -24,7 +24,7 @@ Protections :
 | `mfaPending` | Connexion en attente de double authentification |
 | `apiKey` | Clé d’API (en-tête X-Api-Key) |
 
-308 routes, par module (`src/modules/<module>`) :
+311 routes, par module (`src/modules/<module>`) :
 
 ## admin
 
@@ -81,9 +81,11 @@ Protections :
 | POST | `/api/affectation/projects` | admin |
 | PUT | `/api/affectation/projects/:id` | admin |
 | DELETE | `/api/affectation/projects/:id` | admin |
+| POST | `/api/affectation/projects/:id/asana-conflicts` | admin |
 | PUT | `/api/affectation/projects/:id/asana-overrides` | admin |
 | POST | `/api/affectation/projects/:id/asana-refresh` | admin |
 | GET | `/api/affectation/projects/:id/asana-tasks` | admin |
+| PUT | `/api/affectation/projects/:id/assignment-days/:stage` | affectation |
 | PUT | `/api/affectation/projects/:id/assignments/:stage` | affectation |
 | POST | `/api/affectation/projects/:id/assignments/:stage/release` | admin |
 | GET | `/api/affectation/projects/:id/availability/:stage` | affectation |
@@ -423,6 +425,7 @@ Protections :
 | DELETE | `/api/users/:id` | admin |
 | POST | `/api/users/:id/amoa-ced` | admin |
 | POST | `/api/users/:id/astreinte-access` | admin |
+| POST | `/api/users/:id/astreinte-ho-ans` | admin |
 | PUT | `/api/users/:id/default-tab` | auth |
 | POST | `/api/users/:id/force-logout` | admin |
 | POST | `/api/users/:id/reporting-access` | admin |

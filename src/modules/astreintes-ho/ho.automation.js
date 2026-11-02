@@ -1,12 +1,14 @@
 // @ts-check
 // Automatisations n°5 (construction du planning d'astreinte HO de la semaine S+1) et n°6 (communication du planning,
-// avec renvoi « MAJ » quand la semaine en cours est modifiée)
+// avec renvoi « MAJ » quand la semaine en cours est modifiée) ; n°7 et n°8 : les mêmes pour les astreintes HO ANS
 import { prisma } from '../../db/prisma.js';
 import { env } from '../../config/env.js';
 import { createEmailTransporter, emailConfig } from '../../lib/mailer.js';
 import { addLog, getConfig, resolveRecipients } from '../automations/automations.service.js';
 import { backgroundAppUrl } from '../cra/cra.notifications.js';
 import {
+    ansModificationsHtml,
+    ansWeekTableHtml,
     DEFAULT_TEMPLATES,
     modificationsHtml,
     renderSubject,
@@ -17,13 +19,14 @@ import {
 } from './ho.emails.js';
 import { addDays, frDate, isoWeek, parisClock, parisToday, weekStart } from './ho.dates.js';
 import { listHoExperts, slotsBetween } from './ho.service.js';
+import { ansSlotsBetween, listAnsUsers } from './ans.service.js';
 
 const FROM = () => `"Domaine des Urgences - Planification des ressources" <${emailConfig.user}>`;
 
 /** @typedef {{ enabled?: boolean, weekDay?: number, weekDays?: number[], hour?: number, week?: string, allExperts?: boolean, recipients?: number[], groupAdmin?: boolean, groupUser?: boolean, groupExpert?: boolean, subject?: string, body?: string }} HoConfig */
 
 /** Configuration enregistrée, complétée des valeurs par défaut (sujet et corps) */
-export async function hoConfig(/** @type {5 | 6} */ n) {
+export async function hoConfig(/** @type {5 | 6 | 7 | 8} */ n) {
     const saved = /** @type {HoConfig} */ (await getConfig(String(n)));
     return {
         ...saved,
@@ -45,10 +48,33 @@ async function recipients5(/** @type {HoConfig} */ config) {
     };
 }
 
-/** Destinataires de la n°6 : groupes et utilisateurs choisis */
+/** Destinataires de la n°7 : utilisateurs « Astreinte HO ANS » (tous, ou ceux choisis) ayant un e-mail */
+async function recipients7(/** @type {HoConfig} */ config) {
+    const users = (await listAnsUsers()).filter(u => u.email);
+    const chosen =
+        config.allExperts === false
+            ? users.filter(u => Array.isArray(config.recipients) && config.recipients.includes(u.user_id))
+            : users;
+    return {
+        emails: [...new Set(chosen.map(u => /** @type {string} */ (u.email)))],
+        names: chosen.map(u => `${u.prenom} ${u.nom}`)
+    };
+}
+
+/** Destinataires de la n°6 et de la n°8 : groupes et utilisateurs choisis */
 async function recipients6(/** @type {HoConfig} */ config) {
     const { emails, people } = await resolveRecipients(config);
     return { emails, names: people.map(p => p.name) };
+}
+
+/** Planning ANS de la semaine commençant le lundi donné */
+async function ansWeekContent(/** @type {string} */ monday) {
+    const slots = await ansSlotsBetween(monday, addDays(monday, 4));
+    const users = await prisma.user.findMany({
+        where: { id: { in: slots.map(s => s.user_id) } },
+        select: { id: true, nom: true, prenom: true }
+    });
+    return ansWeekTableHtml(monday, slots, new Map(users.map(u => [u.id, u])));
 }
 
 /** Planning de la semaine commençant le lundi donné */
@@ -62,18 +88,21 @@ const appLink = () => env.APP_URL || backgroundAppUrl();
 
 /**
  * Envoie un e-mail du planning d'une semaine
- * @param {5 | 6} n
+ * @param {5 | 6 | 7 | 8} n
  * @param {HoConfig} config
  * @param {string} monday
  * @param {{ emails: string[], names: string[] }} to
- * @param {{ changes?: Array<{ date: string, period: string, name: string, action: string }>, author?: string, maj?: boolean }} [options]
+ * @param {{ changes?: Array<any>, author?: string, maj?: boolean }} [options]
  */
 async function sendWeekMail(n, config, monday, to, options = {}) {
     const transporter = createEmailTransporter();
     if (!transporter) throw new Error('Configuration e-mail non disponible');
     const vars = weekVars(monday, appLink());
-    const modif = modificationsHtml(options.changes || [], options.author);
-    const planning = await weekContent(monday);
+    const ans = n === 7 || n === 8;
+    const modif = ans
+        ? ansModificationsHtml(options.changes || [], options.author)
+        : modificationsHtml(options.changes || [], options.author);
+    const planning = ans ? await ansWeekContent(monday) : await weekContent(monday);
     const body = config.body || DEFAULT_TEMPLATES[n].body;
     let html = renderTemplate(body, {
         semaine: { text: vars.semaine },
@@ -136,11 +165,46 @@ export async function runAutomation6(/** @type {{ force?: boolean }} */ { force 
     return { sent: true, recipients: to.emails.length, week: label };
 }
 
+/** N°7 : planning ANS de la semaine S+1 à compléter, envoyé aux utilisateurs « Astreinte HO ANS » */
+export async function runAutomation7(/** @type {{ force?: boolean }} */ { force = false } = {}) {
+    const config = await hoConfig(7);
+    if (!force) {
+        const { hour, day } = parisClock();
+        if (!config.enabled) return { sent: false, reason: 'désactivée' };
+        if (day !== Number(config.weekDay) || hour !== Number(config.hour))
+            return { sent: false, reason: 'pas le bon moment' };
+    }
+    const to = await recipients7(config);
+    if (!to.emails.length) return { sent: false, reason: 'aucun destinataire' };
+    const monday = addDays(weekStart(parisToday()), 7);
+    const label = await sendWeekMail(7, config, monday, to);
+    return { sent: true, recipients: to.emails.length, week: label };
+}
+
+/** N°8 : communication du planning ANS (semaine en cours, ou suivante selon la configuration) */
+export async function runAutomation8(/** @type {{ force?: boolean }} */ { force = false } = {}) {
+    const config = await hoConfig(8);
+    if (!force) {
+        const { hour, day } = parisClock();
+        if (!config.enabled) return { sent: false, reason: 'désactivée' };
+        const days = Array.isArray(config.weekDays) ? config.weekDays.map(Number) : [];
+        if (!days.includes(day) || hour !== Number(config.hour)) return { sent: false, reason: 'pas le bon moment' };
+    }
+    const to = await recipients6(config);
+    if (!to.emails.length) return { sent: false, reason: 'aucun destinataire' };
+    const current = weekStart(parisToday());
+    const monday = config.week === 'next' ? addDays(current, 7) : current;
+    const label = await sendWeekMail(8, config, monday, to);
+    return { sent: true, recipients: to.emails.length, week: label };
+}
+
 /** Déclenchements planifiés (une fois par heure) : les erreurs sont journalisées, jamais propagées */
 export async function runHoAutomations() {
     for (const [n, run] of /** @type {const} */ ([
         [5, runAutomation5],
-        [6, runAutomation6]
+        [6, runAutomation6],
+        [7, runAutomation7],
+        [8, runAutomation8]
     ])) {
         try {
             const r = await run();
@@ -177,6 +241,36 @@ export async function notifyUpdate(author, applied, currentWeek) {
 /** Informations pour la fenêtre de confirmation : un e-mail de mise à jour sera-t-il envoyé, et à combien de personnes */
 export async function updateMailInfo() {
     const config = await hoConfig(6);
+    if (!config.enabled) return { enabled: false, recipients: 0 };
+    const to = await recipients6(config);
+    return { enabled: true, recipients: to.emails.length };
+}
+
+/**
+ * Modification du planning ANS de la semaine en cours : e-mail de mise à jour (« MAJ ») aux destinataires de la n°8, si elle est activée
+ * @param {string} author
+ * @param {Array<{ date: string, name: string, action: string, previous?: string | null }>} applied
+ * @param {string} currentWeek lundi de la semaine en cours
+ */
+export async function notifyAnsUpdate(author, applied, currentWeek) {
+    const changes = applied.filter(c => weekStart(c.date) === currentWeek);
+    if (!changes.length) return { sent: false, reason: 'hors semaine en cours' };
+    try {
+        const config = await hoConfig(8);
+        if (!config.enabled) return { sent: false, reason: 'automatisation n°8 désactivée' };
+        const to = await recipients6(config);
+        if (!to.emails.length) return { sent: false, reason: 'aucun destinataire' };
+        await sendWeekMail(8, config, currentWeek, to, { changes, author, maj: true });
+        return { sent: true, recipients: to.emails.length };
+    } catch (/** @type {any} */ e) {
+        console.error('Astreintes HO ANS : e-mail de mise à jour non envoyé :', e.message);
+        return { sent: false, reason: 'erreur', error: e.message };
+    }
+}
+
+/** Fenêtre de confirmation du planning ANS : un e-mail de mise à jour sera-t-il envoyé, et à combien de personnes */
+export async function ansUpdateMailInfo() {
+    const config = await hoConfig(8);
     if (!config.enabled) return { enabled: false, recipients: 0 };
     const to = await recipients6(config);
     return { enabled: true, recipients: to.emails.length };

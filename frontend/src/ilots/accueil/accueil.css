@@ -186,8 +186,15 @@
 .ac-table th::after {
     content: none;
 }
-.ac-table .ac-aujourdhui {
-    background: var(--gp-fond-survol);
+.ac-table td.ac-aujourdhui {
+    background: #d8f0dc;
+    box-shadow:
+        inset 2px 0 0 #2e7d32,
+        inset -2px 0 0 #2e7d32;
+}
+.ac-table thead th.ac-aujourdhui {
+    background: #2e7d32;
+    color: #fff;
 }
 .ac-table tbody th {
     background: var(--gp-fond-doux);

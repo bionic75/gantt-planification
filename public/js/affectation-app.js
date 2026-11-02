@@ -77,7 +77,7 @@
         @keyframes affspin { to { transform: rotate(360deg); } }
         .aff-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 20000; background: #263238; color: #fff; padding: 10px 18px; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.3); font-size: 13px; max-width: 80vw; }
         .aff-toast.err { background: #b3261e; }
-        #affAsanaChgBody th { background: transparent !important; color: #6b7a8d !important; font-weight: 700; } #affAsanaChgBody th::after { content: none !important; } #affAsanaChgBody table { background: #fff; }
+        #affAsanaChgBody th, #affAsanaConfBody th { background: transparent !important; color: #6b7a8d !important; font-weight: 700; } #affAsanaChgBody th::after, #affAsanaConfBody th::after { content: none !important; } #affAsanaChgBody table, #affAsanaConfBody table { background: #fff; }
         .aff-rowhide { position: absolute; top: 6px; right: 8px; width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 1px solid #cfd8e6; background: #fff; color: #6b7a8d; font-size: 16px; font-weight: 700; line-height: 18px; cursor: pointer; opacity: .4; }
         #affectationContainer table.aff-plan-table tbody th.sam:hover .aff-rowhide, .aff-rowhide:focus { opacity: 1; }
         .aff-rowhide:hover { background: #fdecea; color: #b3261e; border-color: #e57373; opacity: 1; }
@@ -238,6 +238,12 @@
         .aff-pc .ph, .aff-pc .st { display: flex; flex-direction: column; gap: 1px; }
         .aff-pc .ph { flex: 0 0 auto; gap: 3px; margin-bottom: 4px; } .aff-pc .st { flex: 0 0 auto; gap: 3px; }
           .aff-pc .b { flex: 0 0 18px; height: 18px; min-height: 18px; max-height: 18px; box-sizing: border-box; font-size: 11px; line-height: 18px; color: #fff; font-weight: 700; white-space: nowrap; overflow: visible; text-shadow: 0 0 2px rgba(0,0,0,.45); padding-left: 3px; }
+        /* Trigrammes des experts dans les barres des étapes : hauteur commune à toute la voie (lignes empilées) */
+        .aff-pc .b.tri { --bh: 18px; --lh: 9px; height: calc(var(--bh) + (var(--tl) - 1) * var(--lh)); min-height: calc(var(--bh) + (var(--tl) - 1) * var(--lh)); max-height: calc(var(--bh) + (var(--tl) - 1) * var(--lh)); flex: 0 0 calc(var(--bh) + (var(--tl) - 1) * var(--lh)); line-height: var(--lh); font-size: 8.5px; white-space: normal; overflow: hidden; display: flex; flex-direction: column; justify-content: center; padding: 0 1px; text-align: center; letter-spacing: .2px; }
+        .aff-pc .b.tri > span { display: block; }
+        .chip.tri-sw .sw { display: inline-block; width: 26px; height: 14px; border-radius: 999px; background: #0f766e; position: relative; margin-right: 6px; vertical-align: -3px; transition: background .15s; }
+        .chip.tri-sw .sw i { position: absolute; top: 2px; left: 14px; width: 10px; height: 10px; border-radius: 50%; background: #fff; transition: left .15s; }
+        .chip.tri-sw.off .sw { background: #b6c0cc; } .chip.tri-sw.off .sw i { left: 2px; }
         .aff-pc .b.hd { border-top-left-radius: 5px; border-bottom-left-radius: 5px; }
         .aff-pc .b.tl { border-top-right-radius: 5px; border-bottom-right-radius: 5px; }
         .aff-pc .b.go { cursor: pointer; } .aff-pc .b.go:hover { filter: brightness(1.15); outline: 2px solid rgba(15,118,110,.7); outline-offset: -1px; }
@@ -246,7 +252,22 @@
         .aff-mk.start { top: 0; bottom: 0; height: auto; width: 2px; margin-left: -1px; background: #263238; opacity: .85; }
         .aff-mk.start i { left: -4px; top: -1px; width: 10px; height: 10px; border-width: 1px; }
         .aff-mk i { position: absolute; top: 0; left: -8px; width: 16px; height: 16px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.4); }
-        .aff-assign-list { max-height: 300px; overflow: auto; border: 1px solid #dfe5ef; border-radius: 10px; margin-top: 8px; }
+        .aff-asg { border-collapse: separate; border-spacing: 0; font-size: 12px; }
+        .aff-asg th, .aff-asg td { padding: 0; text-align: center; border: 0; background: #fff; }
+        .aff-asg th::after { content: none !important; }
+        .aff-asg thead th { position: sticky; top: 0; z-index: 3; background: #eef3f9 !important; color: #4a5b70 !important; font-size: 10px; font-weight: 700; padding: 3px 2px; min-width: 38px; }
+        .aff-asg thead th .c { font-weight: 600; color: #6b7a8d; } .aff-asg thead th.full .c { color: #b3261e; }
+        .aff-asg th.who { position: sticky; left: 0; z-index: 4; text-align: left; min-width: 230px; max-width: 230px; padding: 4px 10px; background: #fff !important; color: #2c3e50 !important; font-weight: 400; border-bottom: 1px solid #eef1f6; }
+        .aff-asg thead th.who { background: #eef3f9 !important; z-index: 5; }
+        .aff-asg tr.sel th.who { background: #eaf6f2 !important; } .aff-asg .tri { font-size: 10px; color: #6b7a8d; margin-left: 4px; }
+        .aff-asg td { padding: 2px; border-bottom: 1px solid #eef1f6; }
+        .aff-dc { width: 32px; height: 24px; border-radius: 6px; border: 1px solid transparent; font-weight: 800; font-size: 13px; line-height: 1; padding: 0; cursor: pointer; display: inline-block; vertical-align: middle; color: #fff; }
+        .aff-dc.ok { background: #e3f5ea; border-color: #bfe5cd; } .aff-dc.here { background: #e0ecfb; border-color: #bcd4f3; } .aff-dc.mid { background: #fff0d6; border-color: #f2d9a6; }
+        .aff-dc.na { background: #eceff3; border-color: #d9dee6; } .aff-dc.ko { background: #fbd9d9; border-color: #f0b4b4; }
+        .aff-dc.on { background: #0f766e !important; border-color: #0b5a54 !important; }
+        .aff-dc:disabled { opacity: .45; cursor: not-allowed; } .aff-dc:not(:disabled):hover { outline: 2px solid rgba(15,118,110,.6); }
+        .aff-asg-leg { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 11px; color: #6b7a8d; margin-top: 8px; } .aff-asg-leg .aff-dc { width: 14px; height: 12px; margin-right: 4px; cursor: default; }
+        .aff-assign-list { max-height: 62vh; overflow: auto; border: 1px solid #dfe5ef; border-radius: 10px; margin-top: 8px; }
         .aff-assign-list label { display: flex; align-items: center; gap: 10px; padding: 7px 12px; cursor: pointer; border-bottom: 1px solid #eef1f6; font-size: 13px; }
         .aff-assign-list label:nth-child(even) { background: #f6f9fc; }
         .aff-assign-list label input { width: auto; display: inline-block; margin: 0; }
@@ -424,13 +445,14 @@
     </div>
 
     <div class="modal" id="affAssignModal">
-        <div class="modal-content" style="max-width:520px; width:94%; max-height:90vh; overflow-y:auto; padding:0;">
+        <div class="modal-content" style="max-width:1180px; width:96%; max-height:92vh; overflow-y:auto; padding:0;">
             <div class="aff-modal-head">
                 <span id="affAssignTitle" class="aff-card-title"></span>
                 <button type="button" class="aff-x" onclick="AffectationApp.closeAssign()" aria-label="Fermer">${svg('x', 'aff-ico-sm')}</button>
             </div>
             <div class="aff-modal-body">
                 <div id="affAssignInfo" class="aff-muted"></div>
+                 <p class="aff-muted" style="margin:8px 0 0;font-size:12px;">Cochez, pour chaque expert, les <b>journées</b> où il intervient (le nombre de ressources nécessaires est le maximum <b>par jour</b>). Ces journées alimentent la planification ; l'événement associé réunit tous les intervenants de l'étape.</p>
                 <input id="affAssignFilter" type="text" placeholder="Filtrer les ressources…" oninput="AffectationApp.assignFilter()" style="margin-top:10px;padding:8px 10px;border:1px solid #cfd8e6;border-radius:8px;">
                 <div id="affAssignList" class="aff-assign-list"></div>
             </div>
@@ -482,6 +504,21 @@
             </div>
             <div id="affAsanaChgBody" class="aff-modal-body"></div>
             <div class="aff-modal-foot"><button type="button" class="aff-btn aff-btn-primary" onclick="AffectationApp.asanaChgClose()">Fermer</button></div>
+        </div>
+    </div>
+
+    <div class="modal" id="affAsanaConfModal" style="z-index:10040;">
+        <div class="modal-content" style="max-width:900px; width:96%; max-height:92vh; overflow-y:auto; padding:0;">
+            <div class="aff-modal-head">
+                <span id="affAsanaConfTitle" class="aff-card-title">${svg('asanasync', 'aff-ico')}Conflits avec Asana : à vous de trancher</span>
+                <button type="button" class="aff-x" onclick="AffectationApp.asanaConflictsClose()" aria-label="Fermer">${svg('x', 'aff-ico-sm')}</button>
+            </div>
+            <div id="affAsanaConfBody" class="aff-modal-body"></div>
+            <div class="aff-modal-foot">
+                <span id="affAsanaConfMsg" class="aff-error"></span>
+                <button type="button" class="aff-btn" onclick="AffectationApp.asanaConflictsClose()">Plus tard</button>
+                <button type="button" class="aff-btn aff-btn-primary" id="affAsanaConfOk" onclick="AffectationApp.asanaConflictsApply()">${svg('save', 'aff-ico-sm')}Valider mes choix</button>
+            </div>
         </div>
     </div>
 
@@ -954,8 +991,11 @@
         const es = eff(o.start),
             ee = eff(o.end),
             base = r.current || r.auto || {};
-        const a = es ? es.start : base.start,
+        let a = es ? es.start : base.start,
             b = ee ? ee.end : base.end;
+        // Une seule tâche choisie : son intervalle complet est repris
+        if (es && !ee && es.end > es.start) b = es.end;
+        if (ee && !es && ee.end > ee.start) a = ee.start;
         const st = a || b,
             en = b || a;
         return st ? (st <= en ? { start: st, end: en } : { start: en, end: st }) : null;
@@ -1066,6 +1106,45 @@
         document.getElementById('affAsanaChgModal').classList.add('active');
     }
 
+    // Conflits Asana : une rubrique modifiée dans l'application ET dans Asana depuis la dernière reprise n'est jamais écrasée
+    // sans accord ; l'utilisateur choisit, rubrique par rubrique, de conserver la valeur de l'application ou de reprendre
+    // celle d'Asana
+    const asanaConf = { list: [] };
+    function showAsanaConflicts(list) {
+        asanaConf.list = (list || []).filter(x => x && x.rows && x.rows.length);
+        if (!asanaConf.list.length) return;
+        const box = document.getElementById('affAsanaConfBody');
+        const n = asanaConf.list.reduce((s, x) => s + x.rows.length, 0);
+        box.innerHTML =
+            `<p style="margin:0 0 12px;font-size:13px;color:#4a5b70;"><b>${n}</b> donnée(s) ont été modifiées <b>dans l'application</b> et ont aussi changé <b>dans Asana</b> : rien n'a été écrasé. Pour chacune, choisissez la valeur à conserver.</p>` +
+            asanaConf.list
+                .map(
+                    (
+                        d,
+                        di
+                    ) => `<div style="border:1px solid #dfe5ef;border-radius:10px;margin-bottom:12px;overflow:hidden;">
+                <div style="background:#fff3e0;padding:8px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><b style="font-size:14px;">${esc(d.samu)}</b>${d.asana ? `<span class="aff-muted" style="font-size:12px;">Projet Asana : ${esc(d.asana)}</span>` : ''}
+                    <span style="margin-left:auto;font-size:12px;"><a href="#" onclick="AffectationApp.asanaConflictsAll(${di},'app');return false;">tout conserver (application)</a> · <a href="#" onclick="AffectationApp.asanaConflictsAll(${di},'asana');return false;">tout reprendre (Asana)</a></span></div>
+                <table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="text-align:left;color:#6b7a8d;font-size:11px;"><th style="padding:6px 12px;width:24%;">Rubrique</th><th style="padding:6px 8px;">Dans l'application</th><th style="padding:6px 8px;">Dans Asana</th><th style="padding:6px 8px;">Votre choix</th></tr></thead><tbody>
+                ${d.rows
+                    .map(
+                        r => `<tr style="border-top:1px solid #eef1f6;vertical-align:top;">
+                    <td style="padding:6px 12px;font-weight:600;">${esc(r.label)}${r.previous ? `<div class="aff-muted" style="font-size:11px;font-weight:400;">Dernière reprise d'Asana : ${esc(r.previous)}</div>` : ''}</td>
+                    <td style="padding:6px 8px;color:#b26a00;">✎ ${esc(r.app) || '—'}</td>
+                    <td style="padding:6px 8px;color:#1b7f3b;">${esc(r.asana) || '—'}</td>
+                    <td style="padding:6px 8px;white-space:nowrap;">
+                        <label style="display:flex;align-items:center;gap:6px;margin:0 0 4px;font-weight:400;"><input type="radio" style="width:auto;margin:0;" name="aconf_${di}_${r.key}" data-ci="${di}" data-ck="${r.key}" value="app" checked> Conserver l'application</label>
+                        <label style="display:flex;align-items:center;gap:6px;margin:0;font-weight:400;"><input type="radio" style="width:auto;margin:0;" name="aconf_${di}_${r.key}" data-ci="${di}" data-ck="${r.key}" value="asana"> Reprendre Asana</label></td></tr>`
+                    )
+                    .join('')}
+                </tbody></table></div>`
+                )
+                .join('');
+        document.getElementById('affAsanaConfMsg').textContent = '';
+        document.getElementById('affAsanaConfOk').disabled = false;
+        document.getElementById('affAsanaConfModal').classList.add('active');
+    }
+
     async function loadAdmin() {
         setTimeout(loadTpl, 0);
         setTimeout(loadStageTypes, 0);
@@ -1117,7 +1196,7 @@
         const pos = d => ((Date.parse(d) - t0) / span) * 100;
         let h = '<div class="aff-tl">';
         state.config.stages
-            .filter(st => st.kind !== 'date')
+            .filter(st => st.kind !== 'date' && st.kind !== 'milestone')
             .forEach(st => {
                 (p.periods[st.key] || []).forEach(x => {
                     const left = pos(x.start),
@@ -1127,7 +1206,8 @@
             });
         [
             ['mise_en_service', p.date_mise_en_service],
-            ['mise_en_production', p.date_mise_en_production]
+            ['mise_en_production', p.date_mise_en_production],
+            ...MILESTONES.map(k => [k, p.periods && p.periods[k] && p.periods[k][0] ? p.periods[k][0].start : null])
         ].forEach(([k, d]) => {
             if (d)
                 h += `<span class="aff-tl-mark" style="left:${pos(d)}%;${bgStyle(color(k), pattern(k))}" title="${esc(stageDef(k).label)} : ${fmt(d)}"></span>`;
@@ -1174,7 +1254,7 @@
                 <span class="aff-pat-prev" id="affPatPrev_${st.key}" style="${bgStyle(color(st.key), pattern(st.key))}" title="Aperçu"></span>
                 <span class="lbl">${esc(st.label)}</span>
                 <select class="aff-pat-sel" title="Motif" onchange="AffectationApp.previewPattern('${st.key}', this.value)">${PATTERNS.map(p => `<option value="${p[0]}" ${pattern(st.key) === p[0] ? 'selected' : ''}>${p[1]}</option>`).join('')}</select>
-                <span class="aff-tl-scale" style="margin:0;">${st.kind === 'date' ? 'date' : 'période'}</span>
+                <span class="aff-tl-scale" style="margin:0;">${st.kind === 'date' || st.kind === 'milestone' ? 'jalon' : 'période'}</span>
             </div>`
             )
             .join('');
@@ -1218,10 +1298,14 @@
         const w = isoWeek(iso);
         return `${w.year}-W${String(w.week).padStart(2, '0')}`;
     };
+    // Jalons (une date, sans ressources expertes) : enregistrés dans les périodes sous la forme d'un jour
+    const MILESTONES = ['reunion_lancement', 'visite_ob'];
     const EVLINK_KEYS = [
         'mise_en_service',
         'mise_en_production',
+        'reunion_lancement',
         'visite_metier',
+        'visite_ob',
         'test_prerequis',
         'vft',
         'formation_utilisateurs',
@@ -1260,6 +1344,10 @@
         if (def.kind === 'date') {
             return `<div class="aff-stage">${head}<div class="dates"><div class="pr"><input type="date" data-df="${key}" value="${esc(f['date_' + key] || '')}" aria-label="${esc(def.label)}"></div>${evLinkRow(key)}</div><span></span></div>`;
         }
+        if (def.kind === 'milestone') {
+            const d = (f.periods[key] && f.periods[key][0] && f.periods[key][0].start) || '';
+            return `<div class="aff-stage">${head}<div class="dates"><div class="pr"><input type="date" data-mk="${key}" value="${esc(d)}" aria-label="${esc(def.label)}"></div>${evLinkRow(key)}</div><span></span></div>`;
+        }
         return `<div class="aff-stage">${head}${periodRows(key, f.periods[key])}<span></span></div>`;
     }
 
@@ -1273,8 +1361,19 @@
                 )
             )
             .join('');
+        // Étapes de mise en œuvre : la mise en service et la mise en production en font partie
         const g = ['cadrage', 'deploiement', 'gel'],
-            h = ['visite_metier', 'test_prerequis', 'vft', 'formation_utilisateurs', 'accompagnement'];
+            h = [
+                'mise_en_service',
+                'mise_en_production',
+                'reunion_lancement',
+                'visite_metier',
+                'visite_ob',
+                'test_prerequis',
+                'vft',
+                'formation_utilisateurs',
+                'accompagnement'
+            ];
         document.getElementById('affModalBody').innerHTML = `
             <div class="aff-form-grid">
                 <div class="aff-field" style="position:relative;">
@@ -1294,7 +1393,6 @@
             <p class="aff-muted" style="margin:10px 0 0;">Toutes les autres dates doivent être postérieures ou égales à la date de début du projet.</p>
             <div class="aff-section-title">Phases du projet</div>
             ${g.map(k => stageRow(k, f)).join('')}
-            ${['mise_en_service', 'mise_en_production'].map(k => stageRow(k, f)).join('')}
             <div class="aff-section-title">Étapes de mise en œuvre</div>
             ${h.map(k => stageRow(k, f)).join('')}`;
         AffectationApp.syncMin();
@@ -1306,7 +1404,9 @@
     const evOpt = (e, sel) =>
         `<option value="${e.id}" ${sel ? 'selected' : ''}>${esc(evDates(e))} · ${esc(e.label)}${e.participants ? ' · ' + e.participants + ' part.' : ''}${e.type ? ' · ' + esc(e.type) : ''}</option>`;
     function evRowDates(key) {
-        const one = document.querySelector(`#affModalBody input[data-df="${key}"]`);
+        const one = document.querySelector(
+            `#affModalBody input[data-df="${key}"], #affModalBody input[data-mk="${key}"]`
+        );
         if (one) return one.value ? { start: one.value, end: one.value } : null;
         const st = document.querySelector(`#affModalBody input[data-pk="${key}"][data-pi="0"][data-pf="start"]`),
             en = document.querySelector(`#affModalBody input[data-pk="${key}"][data-pi="0"][data-pf="end"]`);
@@ -1385,6 +1485,10 @@
             periods[k] = periods[k].filter(x => x && (x.start || x.end));
             if (!periods[k].length) delete periods[k];
         });
+        // Jalons : une date, enregistrée comme une période d'un jour
+        document.querySelectorAll('#affModalBody input[data-mk]').forEach(inp => {
+            if (inp.value) periods[inp.dataset.mk] = [{ start: inp.value, end: inp.value }];
+        });
         f.periods = periods;
         document.querySelectorAll('#affModalBody input[data-df]').forEach(inp => {
             f['date_' + inp.dataset.df] = inp.value;
@@ -1404,6 +1508,14 @@
                 add(
                     `${stageDef(k).label} : la date (${d.split('-').reverse().join('/')}) précède le début du projet.`,
                     `input[data-df="${k}"]`
+                );
+        }
+        for (const k of MILESTONES) {
+            const d = f.periods[k] && f.periods[k][0] && f.periods[k][0].start;
+            if (d && f.date_debut && d < f.date_debut)
+                add(
+                    `${stageDef(k).label} : la date (${d.split('-').reverse().join('/')}) précède le début du projet.`,
+                    `input[data-mk="${k}"]`
                 );
         }
         document.querySelectorAll('#affModalBody input[data-pf="start"]').forEach(st => {
@@ -1572,6 +1684,7 @@
                 target = 'utilisateurs';
             btn.disabled = true;
             const out = { created: 0, updated: 0, unchanged: 0, errors: 0 };
+            const conflicts = [];
             const popup = {
                 title: 'Import Asana — changements constatés',
                 items: [],
@@ -1591,6 +1704,8 @@
                         method: 'POST',
                         body: JSON.stringify({ gid: tr.dataset.gid, formationTarget: target, apply: 'auto' })
                     });
+                    if (r.conflicts && r.conflicts.length && r.id)
+                        conflicts.push({ id: r.id, samu: r.samu_name, rows: r.conflicts });
                     if (r.unchanged) {
                         out.unchanged++;
                         popup.unchanged.push(r.samu_name || tr.dataset.gid);
@@ -1612,6 +1727,7 @@
                 }
             }
             showAsanaChanges(popup);
+            showAsanaConflicts(conflicts);
             msg.style.color = out.errors ? '#c62828' : '#2e7d32';
             msg.textContent =
                 `Terminé : ${out.created} créé(s), ${out.updated} mis à jour, ${out.unchanged} déjà à jour` +
@@ -1662,9 +1778,16 @@
                         body: JSON.stringify({ gid, formationTarget: 'utilisateurs' })
                     });
                     const n = d.rows.filter(r => r.status === 'nouveau' || r.status === 'modifié').length;
-                    cell.innerHTML = n
-                        ? `<span class="aff-av-b mid">${n} à mettre à jour</span>`
-                        : '<span class="aff-av-b na">à jour</span>';
+                    const k = d.rows.filter(r => r.status === 'conflit').length;
+                    cell.innerHTML =
+                        (n
+                            ? `<span class="aff-av-b mid">${n} à mettre à jour</span>`
+                            : k
+                              ? ''
+                              : '<span class="aff-av-b na">à jour</span>') +
+                        (k
+                            ? ` <span class="aff-av-b ko" title="Modifiés dans l'application et dans Asana">⚠ ${k} conflit${k > 1 ? 's' : ''}</span>`
+                            : '');
                 } catch (e) {
                     cell.innerHTML = `<span class="aff-error" title="${esc(e.message)}">erreur</span>`;
                 }
@@ -1698,6 +1821,9 @@
                     ({
                         nouveau: '<span class="aff-av-b ok">Nouveau</span>',
                         modifié: '<span class="aff-av-b mid">Modifié</span>',
+                        local: '<span class="aff-av-b na" title="Valeur modifiée dans l\'application ; Asana n\'a pas changé depuis la dernière reprise : rien à reprendre">Modifié dans l\'outil</span>',
+                        conflit:
+                            '<span class="aff-av-b ko" title="Modifiée dans l\'application et dans Asana depuis la dernière reprise">⚠ Conflit</span>',
                         identique: '<span class="aff-av-b na">Identique</span>',
                         absent: '<span class="aff-av-b ko">Non importé</span>'
                     })[st];
@@ -1712,16 +1838,16 @@
                         <tbody>${d.rows
                             .map(
                                 r => `<tr style="border-top:1px solid #eef1f6;">
-                            <td style="padding:6px 8px;"><input type="checkbox" data-ak="${r.key}" ${r.status === 'nouveau' || r.status === 'modifié' ? 'checked' : ''} ${r.status === 'absent' || r.status === 'identique' ? 'disabled' : ''} style="width:auto;display:inline-block;margin:0;"></td>
+                            <td style="padding:6px 8px;"><input type="checkbox" data-ak="${r.key}" ${r.status === 'nouveau' || r.status === 'modifié' ? 'checked' : ''} ${r.status === 'absent' || r.status === 'identique' || r.status === 'local' ? 'disabled' : ''} style="width:auto;display:inline-block;margin:0;"></td>
                             <td style="padding:6px 8px;font-weight:600;">${esc(r.label)}</td>
                             <td style="padding:6px 8px;">${esc(r.old) || '<span class="aff-muted">—</span>'}</td>
-                            <td style="padding:6px 8px;">${esc(r.new) || '<span class="aff-muted">—</span>'}${r.reason ? `<div class="aff-muted" style="font-size:11px;">${esc(r.reason)}</div>` : ''}</td>
+                            <td style="padding:6px 8px;">${esc(r.new) || '<span class="aff-muted">—</span>'}${r.reason ? `<div class="aff-muted" style="font-size:11px;">${esc(r.reason)}</div>` : ''}${r.status === 'conflit' ? `<div style="font-size:11px;color:#b3261e;">⚠ Modifiée dans l'application${r.previous ? ` (dernière reprise d'Asana : ${esc(r.previous)})` : ''} : cochez pour reprendre la valeur d'Asana ; sinon la valeur de l'application est conservée.</div>` : ''}</td>
                             <td style="padding:6px 8px;">${badge(r.status)}</td></tr>`
                             )
                             .join('')}</tbody>
                     </table>`;
                 document.getElementById('affAsanaOk').style.display = d.rows.some(
-                    r => r.status === 'nouveau' || r.status === 'modifié'
+                    r => r.status === 'nouveau' || r.status === 'modifié' || r.status === 'conflit'
                 )
                     ? ''
                     : 'none';
@@ -1842,10 +1968,14 @@
         },
         syncMin() {
             const d = document.getElementById('affDebut').value;
-            document.querySelectorAll('#affModalBody input[data-pk], #affModalBody input[data-df]').forEach(inp => {
-                if (d) inp.min = d;
-                else inp.removeAttribute('min');
-            });
+            document
+                .querySelectorAll(
+                    '#affModalBody input[data-pk], #affModalBody input[data-df], #affModalBody input[data-mk]'
+                )
+                .forEach(inp => {
+                    if (d) inp.min = d;
+                    else inp.removeAttribute('min');
+                });
             // La borne haute d'une période ne peut pas précéder sa borne basse
             document.querySelectorAll('#affModalBody input[data-pf="start"]').forEach(st => {
                 if (st.value) adminApi.startChanged(st, true);
@@ -2324,8 +2454,11 @@
         const chip = (k, dot) =>
             `<button type="button" class="chip ${hiddenKeys.has(k) ? 'off' : ''}" onclick="AffectationApp.toggleStage('${k}')" title="${hiddenKeys.has(k) ? 'Afficher' : 'Masquer'} : ${esc(planDef(k).label)}"><i class="${dot ? 'dot' : ''}" style="${bgStyle(planColor(k), planPattern(k))}"></i>${esc(planDef(k).label)}</button>`;
         const pastChip = `<button type="button" class="chip ${hiddenKeys.has('_past') ? 'off' : ''}" onclick="AffectationApp.toggleStage('_past')" title="${hiddenKeys.has('_past') ? 'Afficher' : 'Masquer'} les SAMU dont la date de mise en service est passée"><i class="dot" style="background:#7a8799"></i>SAMU déjà en service</button>`;
+        // Commutateur : trigrammes des experts dans les étapes (VFT, formation, accompagnement, prérequis, visite métier)
+        const triOff = hiddenKeys.has('_tri');
+        const triSwitch = `<button type="button" class="chip tri-sw ${triOff ? 'off' : ''}" role="switch" aria-checked="${triOff ? 'false' : 'true'}" onclick="AffectationApp.toggleStage('_tri')" title="${triOff ? 'Afficher' : 'Masquer'} les trigrammes des experts dans les étapes (VFT, formation, accompagnement, prérequis, visite métier)"><span class="sw"><i></i></span>Trigrammes des experts</button>`;
         bar.innerHTML =
-            `<span class="t">Légende</span>${PHASES.map(k => chip(k)).join('')}<span class="sep"></span>${['mise_en_service', 'mise_en_production'].map(k => chip(k, true)).join('')}<span class="sep"></span>${STEPS.map(k => chip(k)).join('')}<span class="sep"></span>${pastChip}` +
+            `<span class="t">Légende</span>${PHASES.map(k => chip(k)).join('')}<span class="sep"></span>${['mise_en_service', 'mise_en_production', ...MILESTONES].map(k => chip(k, true)).join('')}<span class="sep"></span>${STEPS.map(k => chip(k)).join('')}<span class="sep"></span>${triSwitch}<span class="sep"></span>${pastChip}` +
             `<span class="aff-muted" style="margin-left:auto;font-size:11px;">Cliquer sur une rubrique pour l'afficher / la masquer</span>`;
     }
     const PHASES = ['cadrage', 'deploiement', 'gel'];
@@ -2334,6 +2467,49 @@
     const planPattern = k => (plan.patterns && plan.patterns[k]) || 'none';
     const planDef = k => (plan.config && plan.config.stages.find(x => x.key === k)) || { label: k };
     const frd = iso => iso.split('-').reverse().join('/');
+
+    // Trigrammes des experts intervenant sur les étapes : contexte des colonnes affichées (aperçu ou impression)
+    let triCols = [],
+        triZoom = 'week',
+        triW = 44,
+        triCache = new Map();
+    function triContext(cols, zoom, w) {
+        triCols = cols || [];
+        triZoom = zoom;
+        triW = w || 44;
+        triCache = new Map();
+    }
+    const triOfRid = rid => {
+        const r = (plan.resources || []).find(z => z.id === rid);
+        return r ? r.trigramme || `${(r.prenom || '').charAt(0)}${(r.nom || '').slice(0, 2)}`.toUpperCase() : '?';
+    };
+    /** Trigrammes (triés, sans doublon) des experts intervenant entre deux dates sur une période d'étape */
+    function triList(p, k, x, from, to) {
+        const set = new Set();
+        for (const [d, rids] of Object.entries((p.assignment_days || {})[k] || {}))
+            if (d >= from && d <= to && d >= x.start && d <= x.end) rids.forEach(r => set.add(triOfRid(r)));
+        return [...set].sort();
+    }
+    // Nombre de lignes d'une barre : une par trigramme en vue jour, sinon trigrammes à la suite (retour à la ligne)
+    const triLines = (n, w) => (!n ? 1 : triZoom === 'day' ? n : Math.max(1, Math.ceil((n * 21) / Math.max(24, w))));
+    /** Nombre de lignes commun à toutes les barres d'une voie d'un déploiement (hauteur constante d'une colonne à l'autre) */
+    function triLaneLines(p, k, x, i) {
+        const key = `${p.id}|${k}|${i}`;
+        if (triCache.has(key)) return triCache.get(key);
+        let max = 1;
+        for (const c of triCols) {
+            if (!(x.start <= c.to && x.end >= c.from)) continue;
+            const list = triList(p, k, x, c.from, c.to);
+            if (!list.length) continue;
+            const span = (utcMs(c.to) - utcMs(c.from)) / 86400000 + 1;
+            const o1 = (utcMs(x.start < c.from ? c.from : x.start) - utcMs(c.from)) / 86400000;
+            const o2 = (utcMs(x.end > c.to ? c.to : x.end) - utcMs(c.from)) / 86400000 + 1;
+            const w = ((c.w || triW) * (o2 - o1)) / span;
+            max = Math.max(max, triLines(list.length, w));
+        }
+        triCache.set(key, max);
+        return max;
+    }
 
     // Contenu d'une cellule : phases (bandeau haut), étapes (bandes du bas, cliquables en vue jour/semaine), jalons
     let printMode = false; // vrai pendant la mise en page d'impression : pas d'interaction, rendu statique
@@ -2353,8 +2529,7 @@
             const tip =
                 `${def.label} : ${frd(x.start)} → ${frd(x.end)}` +
                 (isStep && needed
-                    ? ` — ${got}/${needed} ressource(s) affectée(s)` +
-                      (names.length ? ` :\n• ${names.join('\n• ')}` : '')
+                    ? ` — ${got}/${needed} ressource(s) par jour` + (names.length ? ` :\n• ${names.join('\n• ')}` : '')
                     : '') +
                 (isStep && needed ? ' (cliquer pour voir / affecter)' : '');
             const go = isStep && clickable && needed;
@@ -2366,8 +2541,20 @@
                 span > 1
                     ? `margin-left:${((o1 / span) * 100).toFixed(2)}%;width:max(${(((o2 - o1) / span) * 100).toFixed(2)}%,24px);flex:0 0 auto;`
                     : '';
-            const label = head && isStep && needed ? `${got}/${needed}` : '';
-            return `<div class="b ${head ? 'hd' : ''} ${tail ? 'tl' : ''} ${go ? 'go' : ''} ${isStep && needed && got >= needed ? 'ok' : ''} ${k === 'gel' ? 'gel' : ''}" style="${bgStyle(planColor(k), planPattern(k))}${pos}" title="${esc(tip)}" ${go ? `onclick="AffectationApp.openAssign(${p.id},'${k}')"` : ''}>${label}</div>`;
+            // Trigrammes des experts du jour (ou des jours de la colonne), sauf si masqués par le commutateur de la légende
+            const showTri = isStep && needed && !hiddenKeys.has('_tri');
+            const tri = showTri ? triList(p, k, x, c.from, c.to) : [];
+            const lanes = showTri ? triLaneLines(p, k, x, i) : 1;
+            const label = tri.length
+                ? triZoom === 'day'
+                    ? tri.map(t => `<span>${esc(t)}</span>`).join('')
+                    : esc(tri.join(' '))
+                : head && isStep && needed
+                  ? `${got}/${needed}`
+                  : '';
+            const triCls = showTri ? ' tri' : '';
+            const triStyle = showTri ? `--tl:${lanes};` : '';
+            return `<div class="b${triCls} ${head ? 'hd' : ''} ${tail ? 'tl' : ''} ${go ? 'go' : ''} ${isStep && needed && got >= needed ? 'ok' : ''} ${k === 'gel' ? 'gel' : ''}" style="${triStyle}${bgStyle(planColor(k), planPattern(k))}${pos}" title="${esc(tip)}" ${go ? `onclick="AffectationApp.openAssign(${p.id},'${k}')"` : ''}>${label}</div>`;
         };
         // Une voie fixe par période du projet : une barre garde la même hauteur d'une colonne à l'autre
         const lanes = (keys, isStep) =>
@@ -2391,7 +2578,8 @@
         const posOf = d => ((utcMs(d) - utcMs(c.from)) / 86400000 / span) * 100;
         [
             ['mise_en_service', p.date_mise_en_service],
-            ['mise_en_production', p.date_mise_en_production]
+            ['mise_en_production', p.date_mise_en_production],
+            ...MILESTONES.map(k => [k, p.periods && p.periods[k] && p.periods[k][0] ? p.periods[k][0].start : null])
         ].forEach(([k, d]) => {
             if (d && !hiddenKeys.has(k) && d >= c.from && d <= c.to)
                 mk += `<span class="aff-mk" style="left:${(posOf(d) + 50 / span).toFixed(2)}%" title="${esc(planDef(k).label)} : ${frd(d)}"><i style="${bgStyle(planColor(k), planPattern(k))}"></i></span>`;
@@ -2630,6 +2818,7 @@
         const corner = rows =>
             `<th class="corner" rowspan="${rows}">SAMU<span class="aff-rs" title="Glisser pour ajuster la largeur de la colonne"></span></th>`;
         const { cols, rows: headRows } = buildColumns(plan.zoom, min, max);
+        triContext(cols, plan.zoom, 44);
         const head = headRows.map((r, i) => `<tr>${i === 0 ? corner(headRows.length) : ''}${r}</tr>`).join('');
 
         // En-têtes à plusieurs niveaux : top collant propre à chaque ligne de l'en-tête
@@ -2808,6 +2997,7 @@
         .aff-print-root table.pt tbody td { height: auto !important; vertical-align: top; overflow: visible; position: relative; }
         .aff-print-root table.pt .aff-pc { min-height: 0; gap: 2px; padding: 3px 0; }
         .aff-print-root table.pt .aff-pc .ph { margin-bottom: 2px; }
+        .aff-print-root table.pt .aff-pc .b.tri { --bh: 12px; --lh: 7px; font-size: 6.5px; }
         .aff-print-root table.pt .aff-pc .b { flex: 0 0 12px; height: 12px; min-height: 12px; max-height: 12px; font-size: 7.5px; line-height: 12px; cursor: default; }
         .aff-print-root table.pt .aff-mk i { width: 11px; height: 11px; }
         .aff-print-root table.pt .aff-mk.start i { width: 8px; height: 8px; }`;
@@ -2822,6 +3012,7 @@
             paper: g('prPaper').value,
             orient: g('prOrient').value,
             fit: g('prFit').value,
+            keepMonths: !!(g('prMonths') && g('prMonths').checked),
             legend: g('prLegend').checked,
             tpl: !!(g('prTpl') && g('prTpl').checked),
             cover: !!(g('prCover') && g('prCover').checked),
@@ -2852,19 +3043,48 @@
         try {
             const base = buildColumns(o.zoom, o.from, o.to, { print: true, noToday: true });
             const n = base.cols.length;
-            const perPage = o.fit === 'fit' ? n : Math.max(1, Math.floor((contentW - samW) / colWBase));
+            // « Ne pas couper un mois » (échelle jour ou semaine, mode réparti) : les pages se terminent en fin de mois ;
+            // si un mois est plus large qu'une page, les colonnes sont resserrées pour qu'il y tienne
+            let groups = null,
+                colWUse = colWBase;
+            if (o.keepMonths && o.fit !== 'fit' && (o.zoom === 'day' || o.zoom === 'week')) {
+                groups = [];
+                base.cols.forEach((c, i) => {
+                    const mk = String(c.from).slice(0, 7);
+                    if (!groups.length || groups[groups.length - 1].mk !== mk) groups.push({ mk, start: i, len: 0 });
+                    groups[groups.length - 1].len++;
+                });
+                const widest = Math.max(...groups.map(g => g.len));
+                if (widest > Math.floor((contentW - samW) / colWBase))
+                    colWUse = Math.max(6, (contentW - samW) / widest);
+            }
+            const perPage = o.fit === 'fit' ? n : Math.max(1, Math.floor((contentW - samW) / colWUse));
             // « Tout sur une page » comprime ; en mode réparti, un planning plus étroit que la page est étalé sur toute la largeur
-            const colW = o.fit === 'fit' || n <= perPage ? Math.max(1, (contentW - samW) / n) : colWBase;
+            const colW = o.fit === 'fit' || n <= perPage ? Math.max(1, (contentW - samW) / n) : colWUse;
             const fs = Math.max(5.5, Math.min(10, colW * 0.4));
-            const colPages = [];
-            for (let a = 0; a < n; a += perPage) {
-                const slice = base.cols.slice(a, a + perPage);
-                const sub = buildColumns(o.zoom, slice[0].from, slice[slice.length - 1].to, {
+            // Trigrammes des experts : lignes communes à toute la voie, calculées sur l'ensemble des colonnes imprimées
+            triContext(base.cols, o.zoom, colW);
+            const slices = [];
+            if (groups) {
+                let from = 0,
+                    count = 0;
+                groups.forEach(g => {
+                    if (count && count + g.len > perPage) {
+                        slices.push([from, from + count]);
+                        from += count;
+                        count = 0;
+                    }
+                    count += g.len;
+                });
+                if (count) slices.push([from, from + count]);
+            } else for (let a = 0; a < n; a += perPage) slices.push([a, Math.min(n, a + perPage)]);
+            const colPages = slices.map(([a, b]) => {
+                const slice = base.cols.slice(a, b);
+                return buildColumns(o.zoom, slice[0].from, slice[slice.length - 1].to, {
                     print: true,
                     noToday: true
                 });
-                colPages.push(sub);
-            }
+            });
             const projects = sortedProjects(true).filter(p => o.samu.has(p.id));
             const tableHtml = (sub, list) => {
                 const w = samW + sub.cols.length * colW;
@@ -2888,14 +3108,16 @@
                 'gel',
                 'mise_en_service',
                 'mise_en_production',
+                'reunion_lancement',
                 'visite_metier',
+                'visite_ob',
                 'test_prerequis',
                 'vft',
                 'formation_utilisateurs',
                 'accompagnement'
             ].filter(k => !o.hidden.has(k));
             const legend = o.legend
-                ? `<div class="pg-leg">${keys.map(k => `<span><i class="${k === 'mise_en_service' || k === 'mise_en_production' ? 'dot' : ''}" style="${bgStyle(planColor(k), planPattern(k))}"></i>${esc(planDef(k).label)}</span>`).join('')}</div>`
+                ? `<div class="pg-leg">${keys.map(k => `<span><i class="${k === 'mise_en_service' || k === 'mise_en_production' || MILESTONES.includes(k) ? 'dot' : ''}" style="${bgStyle(planColor(k), planPattern(k))}"></i>${esc(planDef(k).label)}</span>`).join('')}</div>`
                 : '';
             // Mesure : hauteur de chaque ligne, de l'en-tête de tableau et des blocs fixes de la page
             const meas = document.createElement('div');
@@ -3119,60 +3341,65 @@
         }
     }
 
-    const asg = { project: null, stage: null, selected: new Set(), needed: 0 };
-    // Disponibilité d'une ressource sur la période (demi-journées ouvrées), d'après la planification
-    function availBadges(a) {
-        if (!asg.total) return '';
-        if (!a)
-            return '<div class="aff-av"><span class="aff-av-b na" title="Aucune donnée de planification sur cette période">Planning non renseigné</span></div>';
-        const tone = a.free >= asg.total * 0.8 ? 'ok' : a.free > 0 ? 'mid' : 'ko';
-        const j = n => {
-            const d = n / 2;
-            return `${String(d).replace('.', ',')} j`;
-        };
-        const b = (n, cls, txt, tip) =>
-            n ? `<span class="aff-av-b ${cls}" title="${esc(tip)}">${txt} : ${j(n)}</span>` : '';
-        const others = (a.others || []).length ? ` (${a.others.join(', ')})` : '';
-        return (
-            `<div class="aff-av"><span class="aff-av-b ${tone}" title="Disponible pour l'ANS et sans affectation, sur ${j(asg.total)} ouvrés">Libre : ${j(a.free)} / ${j(asg.total)}</span>` +
-            b(a.here, 'here', 'Déjà sur ce SAMU', 'Déjà affecté(e) à ce SAMU dans la planification') +
-            b(
-                a.other,
-                'ko',
-                'Affecté(e) ailleurs' + others,
-                'Affecté(e) à un autre SAMU sur cette période (planification) : conflit'
-            ) +
-            b(a.ans, 'mid', 'Activité ANS', 'Affecté(e) à des activités ANS / qualification / divers') +
-            b(a.leave, 'na', 'Congés', 'Congés') +
-            b(a.off, 'na', 'Indisponible', 'Indisponible') +
-            '</div>'
-        );
-    }
+    const asg = { project: null, stage: null, days: {}, dates: [], needed: 0 };
+    // Grille ressources × jours ouvrés de l'étape : chaque case = l'expert intervient ce jour-là (au plus « nécessaires » par jour)
+    const ASG_STATE = {
+        free: ['Disponible', 'ok'],
+        here: ['Déjà sur ce SAMU dans la planification', 'here'],
+        ans: ['Activité ANS ce jour-là', 'mid'],
+        off: ['Indisponible', 'na'],
+        leave: ['Congés', 'na'],
+        other: ['Affecté(e) à un autre SAMU ce jour-là', 'ko']
+    };
+    const asgDayCount = d => (asg.days[d] || new Set()).size;
+    const asgUnion = () => {
+        const s = new Set();
+        Object.values(asg.days).forEach(set => set.forEach(r => s.add(r)));
+        return s;
+    };
     function assignList() {
         const q = norm(document.getElementById('affAssignFilter').value);
         const av = asg.av || {};
+        const union = asgUnion();
+        const mine = r => asg.dates.filter(d => (asg.days[d] || new Set()).has(r.id)).length;
         const score = r =>
-            (asg.selected.has(r.id) ? 1e6 : 0) +
-            ((av[r.id] || {}).free || 0) * 10 +
-            ((av[r.id] || {}).here || 0) -
-            ((av[r.id] || {}).other || 0);
+            (union.has(r.id) ? 1e6 : 0) + ((av[r.id] || {}).free || 0) * 10 - ((av[r.id] || {}).other || 0);
         const list = (plan.resources || [])
-            .filter(r => !q || norm(`${r.nom} ${r.prenom} ${r.trigramme || ''}`).includes(q))
+            .filter(r => !q || union.has(r.id) || norm(`${r.nom} ${r.prenom} ${r.trigramme || ''}`).includes(q))
             .sort((a, b) => score(b) - score(a) || (a.nom || '').localeCompare(b.nom || '', 'fr'));
-        const full = asg.selected.size >= asg.needed;
+        const DOW = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'];
+        const head = asg.dates
+            .map(d => {
+                const n = asgDayCount(d);
+                const dt = new Date(Date.parse(d + 'T00:00:00Z'));
+                return `<th class="d ${n >= asg.needed ? 'full' : ''}" title="${esc(frd(d))} : ${n} / ${asg.needed} ressource(s)"><div>${DOW[dt.getUTCDay()]}</div><div>${d.slice(8)}/${d.slice(5, 7)}</div><div class="c">${n}/${asg.needed}</div></th>`;
+            })
+            .join('');
+        const body = list
+            .map(r => {
+                const state = (av[r.id] || {}).byDay || {};
+                const row = asg.dates
+                    .map(d => {
+                        const on = (asg.days[d] || new Set()).has(r.id);
+                        const st = state[d];
+                        const full = !on && asgDayCount(d) >= asg.needed;
+                        const blocked = !on && st === 'other';
+                        const [txt, cls] = ASG_STATE[st] || ['Planning non renseigné', 'na'];
+                        return `<td><button type="button" class="aff-dc ${cls} ${on ? 'on' : ''}" ${full || blocked ? 'disabled' : ''} title="${esc(txt)}${full ? ' — journée complète' : ''}" onclick="AffectationApp.assignDay(${r.id},'${d}')">${on ? '✓' : ''}</button></td>`;
+                    })
+                    .join('');
+                const nb = mine(r);
+                return `<tr class="${nb ? 'sel' : ''}"><th class="who"><div class="n"><b>${esc((r.nom || '').toUpperCase())}</b> ${esc(r.prenom || '')} <span class="tri">${esc(r.trigramme || '')}</span></div><div class="aff-muted" style="font-size:11px;">${nb} / ${asg.dates.length} j · <a href="#" onclick="AffectationApp.assignRow(${r.id},true);return false;">tout</a> · <a href="#" onclick="AffectationApp.assignRow(${r.id},false);return false;">aucun</a></div></th>${row}</tr>`;
+            })
+            .join('');
         document.getElementById('affAssignList').innerHTML = list.length
-            ? list
-                  .map(r => {
-                      const on = asg.selected.has(r.id);
-                      // Affecté(e) à un autre SAMU sur la période : grisé et non affectable tant qu'il n'est pas désaffecté de cet autre SAMU
-                      const elsewhere = !on && (av[r.id] || {}).other > 0;
-                      const off = !on && (full || elsewhere);
-                      return `<label class="${off ? 'off' : ''}" ${elsewhere ? `title="Déjà affecté(e) à ${esc(((av[r.id] || {}).others || []).join(', ') || 'un autre SAMU')} sur cette période : désaffectez-le d'abord de cet autre SAMU pour pouvoir l'affecter ici"` : ''}><input type="checkbox" value="${r.id}" ${on ? 'checked' : ''} ${off ? 'disabled' : ''} onchange="AffectationApp.assignToggle(this)"><span style="flex:1;"><b>${esc((r.nom || '').toUpperCase())}</b> ${esc(r.prenom || '')}${r.fonction ? ` <span class="aff-muted">— ${esc(r.fonction)}</span>` : ''}${availBadges(av[r.id])}${elsewhere ? `<div style="font-size:11px;color:#b26a00;margin-top:2px;">🔒 Affecté(e) à ${esc(((av[r.id] || {}).others || []).join(', ') || 'un autre SAMU')} : à désaffecter d'abord</div>` : ''}</span></label>`;
-                  })
-                  .join('')
+            ? `<table class="aff-asg"><thead><tr><th class="who">Ressource</th>${head}</tr></thead><tbody>${body}</tbody></table>
+               <div class="aff-asg-leg">${Object.values(ASG_STATE)
+                   .map(([txt, cls]) => `<span><i class="aff-dc ${cls}"></i>${esc(txt)}</span>`)
+                   .join('')}</div>`
             : '<div style="padding:14px;" class="aff-muted">Aucune ressource</div>';
         document.getElementById('affAssignInfo').innerHTML =
-            `${esc(asg.info)}<br><b>${asg.selected.size} / ${asg.needed}</b> ressource(s) affectée(s)`;
+            `${esc(asg.info)}<br><b>${union.size}</b> intervenant(s) sur l'étape · ${asg.needed} ressource(s) au maximum par jour`;
     }
 
     // ---- Calendrier de saisie des dates avec numéros de semaine ----
@@ -3340,11 +3567,14 @@
                 ['gel', 'Période(s) de gel'],
                 ['mise_en_service', 'Mise en service'],
                 ['mise_en_production', 'Mise en production'],
+                ['reunion_lancement', 'Réunion de lancement stratégique'],
                 ['visite_metier', 'Visite métier'],
+                ['visite_ob', 'Visite OB'],
                 ['test_prerequis', 'Test des prérequis'],
                 ['vft', 'VFT'],
                 ['formation_utilisateurs', 'Formation « Utilisateurs »'],
-                ['accompagnement', 'Accompagnement']
+                ['accompagnement', 'Accompagnement'],
+                ['_tri', 'Trigrammes des experts (dans les étapes)']
             ];
             document.getElementById('affPrintCtl').innerHTML = `
                 <div class="g"><label class="lbl">Format de page</label>
@@ -3369,6 +3599,7 @@
                     .map(z => `<option value="${z[0]}" ${z[0] === plan.zoom ? 'selected' : ''}>${z[1]}</option>`)
                     .join('')}</select></div>
                 <div class="g"><label class="lbl" for="prFit">Largeur</label><select id="prFit"><option value="split">Répartir sur plusieurs pages (colonnes lisibles)</option><option value="fit">Tout sur une page en largeur</option></select></div>
+                <div class="g"><label class="chk" title="Échelle jour ou semaine : chaque page se termine en fin de mois (les colonnes sont resserrées si un mois est plus large qu'une page)"><input type="checkbox" id="prMonths"> Ne pas couper un mois sur deux pages</label></div>
                 <div class="g"><label class="chk"><input type="checkbox" id="prLegend" checked> Afficher la légende</label></div>
                 <div class="g"><label class="lbl">Rubriques affichées</label><div class="box" id="prStages">${stages.map(s => `<label class="chk"><input type="checkbox" value="${s[0]}" ${hiddenKeys.has(s[0]) ? '' : 'checked'}> ${s[1]}</label>`).join('')}</div></div>
                 <div class="g"><label class="lbl">SAMU à inclure <a href="#" onclick="document.querySelectorAll('#prSamu input').forEach(i=>i.checked=true);AffectationApp.printUpdate();return false;" style="font-weight:400;">tous</a> · <a href="#" onclick="document.querySelectorAll('#prSamu input').forEach(i=>i.checked=false);AffectationApp.printUpdate();return false;" style="font-weight:400;">aucun</a></label>
@@ -3560,7 +3791,7 @@
                 document.getElementById('affSyncBody').innerHTML = `
                     <p class="aff-muted" style="margin:0 0 12px;">Les ressources ont été affectées dans l'aide à l'affectation. Autorisez-vous le report dans la planification et les événements ?</p>
                     <div class="aff-sync-sec"><h4><input type="checkbox" id="affSyncPlan" ${needPlan ? 'checked' : 'disabled'}>1. Planification des experts</h4>
-                        <div class="aff-muted">Du ${frd(d.start)} au ${frd(d.end)} (jours ouvrés) : activité ${esc(d.activity)} « SAMU (Déploiement) », localisation « ${esc(d.samuLoc)} », disponibilité ANS.</div>${rowsPlan}</div>
+                        <div class="aff-muted">Du ${frd(d.start)} au ${frd(d.end)}, sur les journées d'intervention de chaque expert : activité ${esc(d.activity)} « SAMU (Déploiement) », localisation « ${esc(d.samuLoc)} », disponibilité ANS.</div>${rowsPlan}</div>
                     <div class="aff-sync-sec"><h4><input type="checkbox" id="affSyncEvt" ${needEvent ? 'checked' : 'disabled'}>2. Événement</h4>
                         ${
                             ex
@@ -3651,7 +3882,7 @@
             box.scrollLeft = left;
         },
         async openAssign(projectId, stageKey) {
-            const p = plan.projects.find(x => x.id === projectId);
+            let p = plan.projects.find(x => x.id === projectId);
             const x = p && ((p.periods || {})[stageKey] || [])[0];
             if (!x || !x.needed) return;
             try {
@@ -3666,13 +3897,12 @@
                     method: 'POST',
                     body: JSON.stringify({ projectId: p.id })
                 });
-                (sy.changes || []).forEach(c => {
-                    if (c.project === p.id) {
-                        p.assignments = p.assignments || {};
-                        p.assignments[c.stage] = [...new Set([...(p.assignments[c.stage] || []), ...c.added])];
-                    }
-                });
-                if ((sy.changes || []).length) renderPlanning();
+                if ((sy.changes || []).length) {
+                    // Intervenants ajoutés depuis des événements : déploiements rechargés (journées d'intervention comprises)
+                    plan.projects = (await api('/affectation/projects')).projects;
+                    p = plan.projects.find(z => z.id === projectId) || p;
+                    renderPlanning();
+                }
             } catch (e) {
                 /* synchronisation indisponible : l'affectation reste manuelle */
             }
@@ -3680,15 +3910,22 @@
             asg.stage = stageKey;
             asg.needed = x.needed;
             asg.av = null;
-            asg.total = 0;
+            asg.dates = [];
+            for (let d = x.start; d <= x.end; d = addDaysIso(d, 1)) {
+                const dow = new Date(Date.parse(d + 'T00:00:00Z')).getUTCDay();
+                if (dow !== 0 && dow !== 6) asg.dates.push(d);
+            }
             try {
                 const r = await api(`/affectation/projects/${p.id}/availability/${stageKey}`);
                 asg.av = r.availability;
-                asg.total = r.total;
+                if (r.dates) asg.dates = r.dates;
             } catch (e) {
-                /* disponibilités indisponibles : liste sans indicateurs */
+                /* disponibilités indisponibles : grille sans indicateurs */
             }
-            asg.selected = new Set((p.assignments || {})[stageKey] || []);
+            // Journées d'intervention actuelles (étape entière pour une ressource sans journées enregistrées)
+            const current = (p.assignment_days || {})[stageKey] || {};
+            asg.days = {};
+            asg.dates.forEach(d => (asg.days[d] = new Set(current[d] || [])));
             asg.info = `${p.samu_name} — ${planDef(stageKey).label} (${frd(x.start)} → ${frd(x.end)})`;
             document.getElementById('affAssignTitle').textContent = 'Affecter des ressources';
             document.getElementById('affAssignError').textContent = '';
@@ -3696,10 +3933,19 @@
             assignList();
             document.getElementById('affAssignModal').classList.add('active');
         },
-        assignToggle(cb) {
-            const id = Number(cb.value);
-            if (cb.checked) asg.selected.add(id);
-            else asg.selected.delete(id);
+        assignDay(rid, date) {
+            const set = (asg.days[date] = asg.days[date] || new Set());
+            if (set.has(rid)) set.delete(rid);
+            else if (set.size < asg.needed) set.add(rid);
+            assignList();
+        },
+        // Toute l'étape (dans la limite du nombre de ressources par jour) ou aucune journée pour une ressource
+        assignRow(rid, all) {
+            asg.dates.forEach(d => {
+                const set = (asg.days[d] = asg.days[d] || new Set());
+                if (!all) set.delete(rid);
+                else if (set.size < asg.needed) set.add(rid);
+            });
             assignList();
         },
         assignFilter: assignList,
@@ -3709,12 +3955,19 @@
         async saveAssign() {
             try {
                 const prev = (asg.project.assignments || {})[asg.stage] || [];
-                const r = await api(`/affectation/projects/${asg.project.id}/assignments/${asg.stage}`, {
+                const days = {};
+                asg.dates.forEach(d => {
+                    if (asg.days[d] && asg.days[d].size) days[d] = [...asg.days[d]];
+                });
+                const r = await api(`/affectation/projects/${asg.project.id}/assignment-days/${asg.stage}`, {
                     method: 'PUT',
-                    body: JSON.stringify({ resource_ids: [...asg.selected] })
+                    body: JSON.stringify({ days })
                 });
                 asg.project.assignments = asg.project.assignments || {};
                 asg.project.assignments[asg.stage] = r.resource_ids;
+                asg.project.assignment_days = asg.project.assignment_days || {};
+                if (r.resource_ids.length) asg.project.assignment_days[asg.stage] = r.assignment_days;
+                else delete asg.project.assignment_days[asg.stage];
                 AffectationApp.closeAssign();
                 renderPlanning();
                 // Désaffectation : proposition de remettre les experts retirés en « 2 - Disponible » / « 2 - En attente d'affectation »
@@ -3764,12 +4017,16 @@
             try {
                 const r = await api(`/affectation/projects/${id}/asana-refresh`, { method: 'POST', body: '{}' });
                 if (r.unchanged) toast(`${r.samu_name} : déjà à jour avec Asana (${r.asana}).`, false);
-                else
+                else if (!r.updated && !r.created) {
+                    /* seuls des conflits : rien n'a été modifié */
+                } else
                     showAsanaChanges({
                         title: `Changements issus d'Asana — ${r.samu_name}`,
                         items: [{ samu: r.samu_name, created: r.created, asana: r.asana, changes: r.changes || [] }]
                     });
-                if (!r.unchanged) {
+                if (r.conflicts && r.conflicts.length)
+                    showAsanaConflicts([{ id, samu: r.samu_name, asana: r.asana, rows: r.conflicts }]);
+                if (!r.unchanged && (r.updated || r.created)) {
                     const b = document.getElementById('affPlan'),
                         l = b ? b.scrollLeft : 0,
                         t = b ? b.scrollTop : 0;
@@ -3813,6 +4070,7 @@
                 if (r.updated.length) {
                     await Promise.all([loadAdmin(), state.loaded ? loadPlanning() : null]);
                 }
+                showAsanaConflicts(r.conflicts);
             } catch (e) {
                 toast(esc(e.message), true);
             } finally {
@@ -3979,6 +4237,46 @@
         },
         asanaChgClose() {
             document.getElementById('affAsanaChgModal').classList.remove('active');
+        },
+        asanaConflictsClose() {
+            document.getElementById('affAsanaConfModal').classList.remove('active');
+        },
+        asanaConflictsAll(di, choice) {
+            document
+                .querySelectorAll(`#affAsanaConfBody input[data-ci="${di}"][value="${choice}"]`)
+                .forEach(i => (i.checked = true));
+        },
+        async asanaConflictsApply() {
+            const msg = document.getElementById('affAsanaConfMsg'),
+                ok = document.getElementById('affAsanaConfOk');
+            ok.disabled = true;
+            msg.textContent = '';
+            let reprises = 0,
+                gardees = 0;
+            try {
+                for (const [di, d] of asanaConf.list.entries()) {
+                    const choices = {};
+                    document
+                        .querySelectorAll(`#affAsanaConfBody input[data-ci="${di}"]:checked`)
+                        .forEach(i => (choices[i.dataset.ck] = i.value));
+                    const r = await api(`/affectation/projects/${d.id}/asana-conflicts`, {
+                        method: 'POST',
+                        body: JSON.stringify({ choices })
+                    });
+                    reprises += r.applied;
+                    gardees += r.kept;
+                }
+                AffectationApp.asanaConflictsClose();
+                await Promise.all([loadPlanning(), state.loaded ? loadAdmin() : null]);
+                const t = document.createElement('div');
+                t.className = 'aff-toast';
+                t.textContent = `Conflits tranchés : ${reprises} reprise(s) depuis Asana, ${gardees} valeur(s) conservée(s) dans l'application.`;
+                document.body.appendChild(t);
+                setTimeout(() => t.remove(), 6000);
+            } catch (e) {
+                msg.textContent = e.message;
+                ok.disabled = false;
+            }
         },
         toggleSamuDd(ev) {
             ev.stopPropagation();
