@@ -754,30 +754,3 @@ function closeLogDetailsModal() {
 }
 
 // ========== ENVOI DE BACKUP PAR EMAIL ==========
-
-// ========== GESTION DES SECTIONS REPLIABLES ==========
-
-function toggleAdminSection(sectionId) {
-    const section = document.getElementById(sectionId);
-    const icon = document.getElementById(sectionId + 'Icon');
-
-    if (!section || !icon) return;
-
-    if (section.style.display === 'none') {
-        section.style.display = 'block';
-        icon.textContent = '▼';
-    } else {
-        section.style.display = 'none';
-        icon.textContent = '▶';
-    }
-}
-
-// Pliage/dépliage des sous-catégories à l'intérieur d'une section d'administration
-function toggleAdminSubSection(subId) {
-    const sub = document.getElementById(subId);
-    const icon = document.getElementById(subId + 'SubIcon');
-    if (!sub) return;
-    const isHidden = sub.style.display === 'none';
-    sub.style.display = isHidden ? 'block' : 'none';
-    if (icon) icon.textContent = isHidden ? '▼' : '▶';
-}
