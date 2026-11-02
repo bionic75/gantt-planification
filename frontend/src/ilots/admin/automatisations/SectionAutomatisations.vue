@@ -1,18 +1,29 @@
-<!-- Administration › Automatisations et rappels (sous-îlot, dans la section de l'ancien code) : rappel de saisie des
-     disponibilités (n°1), sauvegarde des plannings (n°2), fenêtre partagée de l'historique et des outils -->
+<!-- Administration › Automatisations et rappels (sous-îlot) : rappel de saisie des disponibilités (n°1), sauvegarde des
+     plannings (n°2), notifications Teams (n°3), workflow CRA (n°4), astreintes HO (n°5 et n°6), fenêtre partagée de
+     l'historique et des outils -->
 <script setup lang="ts">
 import AppConfirmation from '@/composants/AppConfirmation.vue';
+import AppSectionAdmin from '@/composants/AppSectionAdmin.vue';
 import { fournirConfirmation } from '@/composants/confirmation';
+import AstreinteHo from './AstreinteHo.vue';
+import FenetreHistorique from './FenetreHistorique.vue';
+import NotificationsTeams from './NotificationsTeams.vue';
 import RappelDisponibilites from './RappelDisponibilites.vue';
 import SauvegardePlannings from './SauvegardePlannings.vue';
-import FenetreHistorique from './FenetreHistorique.vue';
+import WorkflowCra from './WorkflowCra.vue';
 
 const { demande, repondre } = fournirConfirmation();
 </script>
 
 <template>
-    <RappelDisponibilites />
-    <SauvegardePlannings />
+    <AppSectionAdmin titre="Automatisations et rappels" id-corps="automationSection" teinte="orange">
+        <RappelDisponibilites />
+        <SauvegardePlannings />
+        <NotificationsTeams />
+        <WorkflowCra />
+        <AstreinteHo :numero="5" />
+        <AstreinteHo :numero="6" />
+    </AppSectionAdmin>
     <FenetreHistorique />
     <AppConfirmation
         :opened="!!demande"

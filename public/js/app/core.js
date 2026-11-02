@@ -937,6 +937,10 @@ window.addEventListener('gp:dates-particulieres-modifiees', async () => {
     await loadSpecialDates();
     updateGantt();
 });
+// Workflow CRA enregistré (automatisation n°4, îlot Vue) : configuration des boutons de visa
+window.addEventListener('gp:config-cra-modifiee', e => {
+    window._craConfig = e.detail.config;
+});
 // Accès aux onglets enregistrés : barre d'onglets mise à jour
 window.addEventListener('gp:onglets-modifies', e => {
     TabAccess.cfg = e.detail.config;
