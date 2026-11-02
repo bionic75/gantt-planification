@@ -99,7 +99,8 @@ async function loadResources() {
         // Charger les affectations SAMU (expert principal / secondaire)
         await loadResourceSamuAssignments();
 
-        displayResources();
+        // Onglet Ressources : îlot Vue (frontend/src/ilots/ressources), qui relit ses données
+        window.dispatchEvent(new CustomEvent('gp:ressources-rechargees'));
         updateResourceFilter();
     } catch (error) {
         console.error('Erreur:', error);
@@ -109,10 +110,9 @@ async function loadResources() {
 // === AFFECTATIONS SAMU (expert principal / secondaire) ===
 
 let resourceSamuAssignments = {}; // { [resourceId]: { principal: [samu...], secondaire: [samu...] } }
-let samuTagState = { add_principal: [], add_secondaire: [], edit_principal: [], edit_secondaire: [] };
+// Fiche de la ressource (formulaire d'ajout : îlot Vue, frontend/src/ilots/ressources)
+let samuTagState = { edit_principal: [], edit_secondaire: [] };
 const SAMU_TAG_PAIRS = {
-    add_principal: 'add_secondaire',
-    add_secondaire: 'add_principal',
     edit_principal: 'edit_secondaire',
     edit_secondaire: 'edit_principal'
 };
@@ -216,7 +216,7 @@ function handleSamuTagKeydown(key, e) {
 
 // Fermer les dropdowns SAMU si clic en dehors
 document.addEventListener('click', function (e) {
-    ['add_principal', 'add_secondaire', 'edit_principal', 'edit_secondaire'].forEach(key => {
+    ['edit_principal', 'edit_secondaire'].forEach(key => {
         const box = document.getElementById(`samuTags_${key}`);
         const dropdown = document.getElementById(`samuDropdown_${key}`);
         if (dropdown && box && !box.contains(e.target) && !dropdown.contains(e.target)) {
@@ -237,26 +237,6 @@ async function saveSamuAssignmentsForResource(resourceId, principalArr, secondai
     } catch (e) {
         console.error('Erreur sauvegarde affectations SAMU:', e);
     }
-}
-
-function buildSamuAssignmentsBadgesHtml(resourceId, role) {
-    const assign = resourceSamuAssignments[resourceId];
-    if (!assign) return '<span style="color:#bbb;font-size:11px;">-</span>';
-    const list = role === 'secondaire' ? assign.secondaire : assign.principal;
-    if (!list || !list.length) return '<span style="color:#bbb;font-size:11px;">-</span>';
-    const color = role === 'secondaire' ? '#78909c' : '#1565c0';
-    const icon = role === 'secondaire' ? '🅢' : '🅿️';
-    const perRow = 3;
-    let html = '<div style="display:flex;flex-direction:column;gap:2px;">';
-    for (let i = 0; i < list.length; i += perRow) {
-        html += '<div style="display:flex;flex-wrap:wrap;gap:3px;">';
-        list.slice(i, i + perRow).forEach(samu => {
-            html += `<span style="background:${color};color:white;font-size:9px;padding:1px 6px;border-radius:8px;">${icon} ${samu}</span>`;
-        });
-        html += '</div>';
-    }
-    html += '</div>';
-    return html;
 }
 
 function updateResourceFilter() {
@@ -320,68 +300,6 @@ function updateFonctionFilter() {
     });
 }
 
-function getResourceStatus(resource) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayStr = today.toISOString().split('T')[0];
-
-    // Utiliser l'historique MAD si disponible
-    const madHistory = window.resourceMadHistoryCache ? window.resourceMadHistoryCache[resource.id] : null;
-
-    let dateDebut = resource.date_debut;
-    let dateFin = resource.date_fin;
-
-    if (madHistory && madHistory.length > 0) {
-        // Trier par date de début
-        const sorted = [...madHistory].sort((a, b) => a.date_debut.localeCompare(b.date_debut));
-        // La première date de début de l'historique
-        dateDebut = sorted[0].date_debut;
-        // La dernière date de fin (null = en cours)
-        const lastPeriod = sorted[sorted.length - 1];
-        dateFin = lastPeriod.date_fin;
-    }
-
-    if (!dateDebut) {
-        return { text: 'Non démarré', class: 'pending' };
-    }
-
-    const dateDebutObj = new Date(dateDebut);
-    dateDebutObj.setHours(0, 0, 0, 0);
-
-    if (today < dateDebutObj) {
-        return { text: 'À venir', class: 'pending' };
-    }
-
-    if (dateFin) {
-        const dateFinObj = new Date(dateFin);
-        dateFinObj.setHours(0, 0, 0, 0);
-
-        if (today > dateFinObj) {
-            return { text: 'Terminé', class: 'inactive' };
-        }
-    }
-
-    return { text: 'En cours', class: 'active' };
-}
-
-// Obtenir les dates de début et fin MAD depuis l'historique
-function getResourceMadDates(resourceId) {
-    const madHistory = window.resourceMadHistoryCache ? window.resourceMadHistoryCache[resourceId] : null;
-    const resource = resources.find(r => r.id === resourceId);
-
-    let dateDebut = resource ? resource.date_debut : null;
-    let dateFin = resource ? resource.date_fin : null;
-
-    if (madHistory && madHistory.length > 0) {
-        const sorted = [...madHistory].sort((a, b) => a.date_debut.localeCompare(b.date_debut));
-        dateDebut = sorted[0].date_debut;
-        const lastPeriod = sorted[sorted.length - 1];
-        dateFin = lastPeriod.date_fin;
-    }
-
-    return { dateDebut, dateFin };
-}
-
 function isDateAccessible(resource, date) {
     const checkDate = new Date(date);
     checkDate.setHours(0, 0, 0, 0);
@@ -423,12 +341,6 @@ function isDateAccessible(resource, date) {
     return true;
 }
 
-function formatDate(dateString) {
-    if (!dateString) return '-';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('fr-FR');
-}
-
 // Calcule le numéro de semaine ISO 8601 pour une date donnée
 function getISOWeekNumber(date) {
     const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
@@ -438,207 +350,10 @@ function getISOWeekNumber(date) {
     return Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
 }
 
-function toggleAddAstreinteDate() {
-    const checked = document.getElementById('addAstreinteVolontaire').checked;
-    document.getElementById('addAstreinteDateBlock').style.display = checked ? 'block' : 'none';
-    if (!checked) document.getElementById('addAstreinteDate').value = '';
-}
-
-function toggleMadVolanteFields(prefix) {
-    const checked = document.getElementById(`${prefix}MadVolante`).checked;
-    if (prefix === 'add') {
-        document.getElementById('addTauxGroup').style.display = checked ? 'none' : '';
-        document.getElementById('addDateFinMadGroup').style.display = checked ? '' : 'none';
-        document.getElementById('addJoursMaxGroup').style.display = checked ? '' : 'none';
-        if (!checked) {
-            document.getElementById('dateFinMad').value = '';
-            document.getElementById('joursMaxMad').value = '';
-        } else {
-            document.getElementById('taux').value = '';
-        }
-    } else {
-        const fieldsDiv = document.getElementById('editMadVolanteFields');
-        fieldsDiv.style.display = checked ? 'grid' : 'none';
-    }
-}
-
-async function addResource() {
-    const nom = document.getElementById('nom').value.trim();
-    const prenom = document.getElementById('prenom').value.trim();
-    const trigramme = document.getElementById('trigramme').value.trim().toUpperCase();
-    const madVolante = document.getElementById('addMadVolante').checked;
-    const taux = document.getElementById('taux').value;
-    const dateFinMad = document.getElementById('dateFinMad').value;
-    const joursMaxMad = document.getElementById('joursMaxMad').value;
-    const samu = document.getElementById('samu').value.trim();
-    const dateDebut = document.getElementById('dateDebut').value;
-    const esRattachement = document.getElementById('esRattachement').value.trim();
-    const fonction = document.getElementById('fonction').value.trim();
-    const astreinteVolontaire = document.getElementById('addAstreinteVolontaire').checked;
-    const astreinteHo = document.getElementById('addAstreinteHo').checked;
-    const astreinteApd = document.getElementById('addAstreinteApd').checked;
-    const astreinteDate = document.getElementById('addAstreinteDate').value;
-
-    if (!nom || !prenom || !trigramme || !samu || !dateDebut) {
-        alert('Remplissez tous les champs obligatoires (*)');
-        return;
-    }
-    if (!madVolante && !taux) {
-        alert('Remplissez le taux de MAD');
-        return;
-    }
-    if (madVolante && (!dateFinMad || !joursMaxMad)) {
-        alert('Remplissez la date de fin et les jours max pour une MAD volante');
-        return;
-    }
-    if (astreinteVolontaire && !astreinteDate) {
-        alert("Veuillez saisir la date de démarrage du régime d'astreintes");
-        return;
-    }
-
-    try {
-        const response = await fetch(`${API_URL}/resources`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({
-                nom,
-                prenom,
-                trigramme,
-                email: null,
-                telephone: null,
-                taux: madVolante ? 0 : parseFloat(taux),
-                samu,
-                actif: 1,
-                date_debut: dateDebut,
-                date_fin: null,
-                es_rattachement: esRattachement || null,
-                fonction: fonction || null,
-                astreinte_volontaire: astreinteVolontaire ? 1 : 0,
-                astreinte_ho: astreinteHo ? 1 : 0,
-                astreinte_apd: astreinteApd ? 1 : 0,
-                astreinte_date_activation: astreinteDate || null,
-                is_mad_volante: madVolante ? 1 : 0,
-                date_fin_mad: dateFinMad || null,
-                jours_max_mad: joursMaxMad ? parseInt(joursMaxMad) : null
-            })
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Erreur ajout ressource');
-        }
-
-        const newResourceData = await response.json();
-
-        // Enregistrer les affectations SAMU (expert principal / secondaire) saisies dans le formulaire
-        if (newResourceData && newResourceData.id) {
-            await saveSamuAssignmentsForResource(
-                newResourceData.id,
-                samuTagState.add_principal,
-                samuTagState.add_secondaire
-            );
-        }
-
-        showSyncStatus();
-        logModification('Modification du planning');
-        await loadResources();
-        ['nom', 'prenom', 'trigramme', 'taux', 'samu', 'dateDebut', 'esRattachement', 'fonction'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.value = '';
-        });
-        // Réinitialiser les tags SAMU du formulaire d'ajout
-        samuTagState.add_principal = [];
-        samuTagState.add_secondaire = [];
-        renderSamuTags('add_principal');
-        renderSamuTags('add_secondaire');
-        // Réinitialiser le bloc astreinte
-        document.getElementById('addAstreinteVolontaire').checked = false;
-        document.getElementById('addAstreinteHo').checked = false;
-        document.getElementById('addAstreinteApd').checked = false;
-        document.getElementById('addAstreinteDate').value = '';
-        document.getElementById('addAstreinteDateBlock').style.display = 'none';
-        updateGantt();
-    } catch (error) {
-        console.error('Erreur:', error);
-        alert("Erreur lors de l'ajout de la ressource: " + error.message);
-    }
-}
-
-// Trois cases par ressource : astreintes HO (heures ouvrées), HNO (heures non ouvrées) et accompagnement post démarrage
-const ASTREINTE_TYPES = [
-    { type: 'ho', field: 'astreinte_ho', label: 'HO', tip: 'Astreintes HO : jours de la semaine, heures ouvrées' },
-    { type: 'hno', field: 'astreinte_volontaire', label: 'HNO', tip: 'Astreintes HNO : jours et heures non ouvrés' },
-    {
-        type: 'apd',
-        field: 'astreinte_apd',
-        label: 'APD',
-        tip: "Astreintes « Accompagnement post démarrage » : jours et heures non ouvrés, dans le cadre d'un déploiement"
-    }
-];
-
-function astreinteCellsHtml(r) {
-    const editable = currentUser && currentUser.activeProfile !== 'rh';
-    return ASTREINTE_TYPES.map(t => {
-        const checked = r[t.field] ? 'checked' : '';
-        return editable
-            ? `<td style="text-align:center;"><input type="checkbox" ${checked} onchange="toggleAstreinteByResource(${r.id}, this.checked, '${t.type}')" style="width:18px;height:18px;cursor:pointer;" title="${t.tip}"></td>`
-            : `<td style="text-align:center;"><input type="checkbox" ${checked} disabled style="width:18px;height:18px;opacity:0.5;cursor:not-allowed;" title="${t.tip}"></td>`;
-    }).join('');
-}
-
-function displayResources() {
-    const tbody = document.getElementById('resourcesList');
-    tbody.innerHTML = '';
-
-    // Trier les ressources par ordre alphabétique (nom, puis prénom)
-    const sortedResources = [...resources].sort((a, b) => {
-        const nameA = `${a.nom} ${a.prenom}`.toLowerCase();
-        const nameB = `${b.nom} ${b.prenom}`.toLowerCase();
-        return nameA.localeCompare(nameB);
-    });
-
-    sortedResources.forEach(r => {
-        const status = getResourceStatus(r);
-        // Obtenir les dates depuis l'historique MAD
-        const madDates = getResourceMadDates(r.id);
-        const row = tbody.insertRow();
-        const noAccount =
-            (r.astreinte_volontaire || r.astreinte_ho) &&
-            !r.user_id &&
-            currentUser &&
-            currentUser.activeProfile !== 'rh';
-        const noAccountTip =
-            "Astreinte (HO ou HNO) sans compte utilisateur lié : cette ressource ne pourra pas se connecter pour modifier le planning HO et n'apparaîtra pas dans la liste de sélection des CRA.";
-        row.innerHTML = `
-                    <td${noAccount ? ` title="${noAccountTip}"` : ''}>${r.nom}${noAccount ? `<span style="color:#f9a825;margin-left:6px;cursor:help;">⚠️</span>` : ''}</td>
-                    <td>${r.prenom}</td>
-                    <td>${r.trigramme}</td>
-                    <td>${r.is_mad_volante ? `<span style="background:#f3e5f5;color:#6a1b9a;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:bold;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;"><svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:14px;height:14px;stroke:#7b1fa2;fill:#e1bee7;vertical-align:-2px;"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg> MAD volante</span>` : `${r.taux}%`}</td>
-                    <td>${r.samu}</td>
-                    <td>${buildSamuAssignmentsBadgesHtml(r.id, 'principal')}</td>
-                    <td>${buildSamuAssignmentsBadgesHtml(r.id, 'secondaire')}</td>
-                    <td>${r.es_rattachement || '-'}</td>
-                    <td>${r.fonction || '-'}</td>
-                    <td>${formatDate(madDates.dateDebut || r.date_debut)}</td>
-                    <td>${formatDate(madDates.dateFin || r.date_fin)}</td>
-                    <td><span class="date-badge ${status.class}">${status.text}</span></td>
-                    ${astreinteCellsHtml(r)}
-                    ${
-                        currentUser && currentUser.activeProfile !== 'rh'
-                            ? `<td><label class="toggle-switch"><input type="checkbox" ${r.actif ? 'checked' : ''} onchange="toggleActive(${r.id})"><span class="slider"></span></label></td>`
-                            : `<td style="text-align:center;"><span style="font-size:11px;padding:2px 8px;border-radius:10px;font-weight:bold;background:${r.actif ? '#e8f5e9' : '#ffebee'};color:${r.actif ? '#2e7d32' : '#c62828'};">${r.actif ? 'Actif' : 'Inactif'}</span></td>`
-                    }
-                    <td>
-                        ${
-                            currentUser && currentUser.activeProfile === 'rh'
-                                ? `<div class="icon-actions"><button type="button" class="icon-btn" style="background-color:#f39c12;" onclick="openViewModalRh(${r.id})" title="Voir la ressource" aria-label="Voir la ressource">${uiIcon('eye', 16, 'margin:0;vertical-align:middle;')}</button></div>`
-                                : `<div class="icon-actions"><button type="button" class="icon-btn" style="background-color:#f39c12;" onclick="openEditModal(${r.id})" title="Modifier la ressource" aria-label="Modifier la ressource">${uiIcon('pencil', 16, 'margin:0;vertical-align:middle;')}</button><button type="button" class="icon-btn" style="background-color:#D60B51;" onclick="deleteResource(${r.id})" title="Supprimer la ressource" aria-label="Supprimer la ressource">${uiIcon('trash', 16, 'margin:0;vertical-align:middle;')}</button></div>`
-                        }
-                    </td>
-                `;
-    });
-    makeColResizable(document.getElementById('resourcesTable'));
+// Champs de la MAD volante dans la fiche de la ressource (formulaire d'ajout : îlot Vue, frontend/src/ilots/ressources)
+function toggleMadVolanteFields() {
+    const checked = document.getElementById('editMadVolante').checked;
+    document.getElementById('editMadVolanteFields').style.display = checked ? 'grid' : 'none';
 }
 
 // Variable pour stocker l'historique MAD de la ressource en cours d'édition

@@ -311,34 +311,6 @@ function closeEditModal() {
     samuTagState.edit_secondaire = [];
 }
 
-async function toggleActive(id) {
-    try {
-        const response = await fetch(`${API_URL}/resources/${id}/toggle`, { method: 'POST', credentials: 'include' });
-        if (!response.ok) throw new Error('Erreur toggle');
-        await loadResources();
-        updateGantt();
-        showSyncStatus();
-        logModification('Modification du planning');
-    } catch (error) {
-        console.error('Erreur:', error);
-    }
-}
-
-async function deleteResource(id) {
-    if (!confirm('Confirmer la suppression ?')) return;
-    try {
-        const response = await fetch(`${API_URL}/resources/${id}`, { method: 'DELETE', credentials: 'include' });
-        if (!response.ok) throw new Error('Erreur suppression');
-        await loadResources();
-        updateGantt();
-        showSyncStatus();
-        logModification('Modification du planning');
-    } catch (error) {
-        console.error('Erreur:', error);
-        alert('Erreur lors de la suppression');
-    }
-}
-
 async function loadSchedule() {
     try {
         const response = await fetch(`${API_URL}/schedule`, { credentials: 'include' });

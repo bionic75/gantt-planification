@@ -389,11 +389,6 @@ async function goToPlanificationApp() {
         updateGantt();
     }
 
-    // Afficher les ressources si on est sur l'onglet ressources
-    if (document.getElementById('resources').classList.contains('active')) {
-        displayResources();
-    }
-
     // Démarrer le polling des utilisateurs connectés
     startOnlineUsersPolling();
 

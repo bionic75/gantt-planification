@@ -94,13 +94,20 @@ Sous-îlots de l'Administration, mis en production l'un après l'autre :
 | 4e-2 | Types d'événements         | Paramétrage des types d'événements, reprise des données des événements                                                                                   | En production (même dossier et mêmes scénarios, sous-îlot `#adminJoursSpeciaux` étendu)                |
 | 4f-1 | Automatisations n°1 et n°2 | Rappel de saisie des disponibilités, sauvegarde des plannings (historiques, diagnostic et nettoyage des données, tests)                                  | En production (`frontend/src/ilots/admin/automatisations/`, scénarios `23-admin-automatisations`)      |
 | 4f-2 | Automatisations n°3 à n°6  | Notifications Teams, workflow CRA, astreintes HO ; section entière « Automatisations et rappels »                                                        | En production (même dossier et mêmes scénarios, sous-îlot `#adminAutomatisations` étendu à la section) |
-| 4g   | Clôture                    | En-tête de la section des jours ou événements spéciaux (dernier élément de l'onglet dans l'ancien code) ; fonctions de repli de l'ancien code supprimées | Réalisé (`#adminJoursSpeciaux` étendu à la section) ; en attente de mise en production                 |
+| 4g   | Clôture                    | En-tête de la section des jours ou événements spéciaux (dernier élément de l'onglet dans l'ancien code) ; fonctions de repli de l'ancien code supprimées | En production (`#adminJoursSpeciaux` étendu à la section)                                              |
+
+Lots de l'onglet Ressources (phase 3), mis en production l'un après l'autre :
+
+| #   | Lot            | Contenu                                                                                                                                                                                     | État                                                                                                                                                                                                                  |
+| --- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 3a  | Liste et ajout | Liste (tri, bascules des astreintes et de l'activation, suppression, export), formulaire d'ajout (trigramme proposé, expert principal / secondaire sur des SAMU), profil RH en consultation | Réalisé (`frontend/src/ilots/ressources/`, îlot `#resources`, scénarios `24-ressources-ecran` et `03-ressources`) ; la fiche reste celle de l'ancien code, ouverte depuis la liste ; en attente de mise en production |
+| 3b  | Fiche          | Modification, consultation RH, historique des taux de MAD et particularités, contacts RH                                                                                                    | À faire                                                                                                                                                                                                               |
 
 Anomalies relevées pendant la migration (comportement conservé, correction à part) :
 
 - Localisations : à la reprise d'une session (page rechargée), l'ancien code ne charge pas les localisations ; la
-  liste « SAMU de rattachement » des ressources reste vide jusqu'à l'ouverture de la section Localisation de
-  l'Administration (le sous-îlot conserve ce rechargement à l'ouverture).
+  liste « SAMU » de la fiche des ressources (ancien code jusqu'au lot 3b) reste vide jusqu'à l'ouverture de la section
+  Localisation de l'Administration (le sous-îlot conserve ce rechargement à l'ouverture).
 
 - Reporting : les listes d'experts (disponibilités, HNO / astreintes) et d'utilisateurs (connexions) ne sont chargées
   que pour le profil administrateur ; un autre profil ayant accès à l'onglet (configuration des onglets, accès
@@ -127,11 +134,17 @@ Anomalies relevées pendant la migration (comportement conservé, correction à 
   bouton « Vider l'historique » y reste proposé et vide l'historique de la dernière automatisation consultée (n°1 par
   défaut).
 - Automatisation n°3 : la confirmation du vidage de l'historique Teams parle des « sauvegardes de planning ».
+- Ressources : le bouton « Exporter (Excel) » télécharge un fichier CSV.
+- Ressources : après un ajout, la case « MAD volante », la date de fin et les jours max du formulaire restent remplis.
+- Ressources : le tri de la liste se fait sur le texte affiché des cellules (badges SAMU compris) ; la liste revient à
+  l'ordre alphabétique à chaque rechargement, le sens du dernier tri de chaque colonne étant conservé.
 
 Changements de comportement décidés pendant la migration :
 
 - Automatisation n°3 : l'adresse du canal Teams n'est plus pré-remplie avec une adresse réelle lorsqu'aucune n'est
   enregistrée (champ vide) ; une adresse déjà enregistrée est conservée.
+- Ressources : la liste « SAMU de rattachement » du formulaire d'ajout est chargée par l'îlot (plus vide après le
+  rechargement de la page) ; le pré-remplissage « SAMU » au focus, hérité d'un ancien champ texte, n'est pas repris.
 
 ### Critères de sortie d'un îlot
 
