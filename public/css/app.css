@@ -1150,6 +1150,7 @@ input:checked + .slider:before {
     justify-content: flex-end;
 }
 .user-info {
+    position: relative;
     background-color: #34495e;
     color: white;
     padding: 10px 20px;
@@ -1467,4 +1468,23 @@ input:checked + .slider:before {
 .gantt-cell {
     position: relative;
     overflow: hidden;
+}
+
+/* Nom de l'application affichée, au centre de l'encart du haut */
+.app-title-center {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    color: #fff;
+    white-space: nowrap;
+    pointer-events: none;
+}
+@media (max-width: 1100px) {
+    .app-title-center {
+        display: none;
+    }
 }
