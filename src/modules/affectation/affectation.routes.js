@@ -2,10 +2,12 @@
 // Aide à l'affectation opérationnelle (déploiements des SAMU) : /api/affectation
 import { Router } from 'express';
 import { requireAdmin, requireAffectationAccess } from '../../middlewares/auth.js';
+import { sondagePublicLimiters } from '../../middlewares/rate-limit.js';
 import { asyncHandler as h } from '../../middlewares/error-handler.js';
 import * as ctrl from './affectation.controller.js';
 import * as asana from './asana.controller.js';
 import * as ateliers from './ateliers.controller.js';
+import * as sondages from './sondages.controller.js';
 import * as exp from './export.controller.js';
 
 const router = Router();
@@ -50,6 +52,14 @@ router.get('/affectation/ateliers', requireAffectationAccess, h(ateliers.list));
 router.put('/affectation/ateliers', requireAdmin, h(ateliers.save));
 router.delete('/affectation/ateliers/:id', requireAdmin, h(ateliers.remove));
 router.post('/affectation/ateliers/:id/send', requireAdmin, h(ateliers.send));
+// Sondages de date des jalons (conception par les administrateurs ; accès public par jeton)
+router.get('/affectation/ateliers-sondages', requireAffectationAccess, h(sondages.list));
+router.get('/affectation/ateliers/:id/sondages/:ligne', requireAffectationAccess, h(sondages.get));
+router.put('/affectation/ateliers/:id/sondages/:ligne', requireAdmin, h(sondages.save));
+router.post('/affectation/ateliers/:id/sondages/:ligne/send', requireAdmin, h(sondages.send));
+router.delete('/affectation/ateliers/:id/sondages/:ligne', requireAdmin, h(sondages.remove));
+router.get('/sondages-publics/:token', sondagePublicLimiters.read, h(sondages.publicGet));
+router.post('/sondages-publics/:token/reponses', sondagePublicLimiters.answer, h(sondages.publicRespond));
 
 // Import depuis Asana
 router.post('/affectation/import/asana-csv', requireAdmin, h(asana.csvPreview));

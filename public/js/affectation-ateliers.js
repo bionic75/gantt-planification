@@ -9,7 +9,9 @@
         f: null, // formulaire (état partagé entre « Paramétrage » et « Simulation »)
         sim: null,
         timer: null,
-        seq: 0
+        seq: 0,
+        sond: [], // sondages du rétroplanning affiché
+        sondFor: null
     };
 
     const blank = () => ({
@@ -120,6 +122,19 @@
         .at-users label:hover { background: #eceff1; }
         .at-users input { width: 16px; height: 16px; margin: 0; flex: 0 0 16px; }
         .at-modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+        #atelierRoot .at-sd { border: 1px solid #1d70b7; background: #fff; color: #1d70b7; border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+        #atelierRoot .at-sd:disabled { opacity: .5; cursor: not-allowed; }
+        #atelierRoot .at-sd.brouillon { background: #e3f0fb; }
+        #atelierRoot .at-sd.envoye { background: #fff3e0; border-color: #e08a00; color: #a65f00; }
+        #atelierRoot .at-sd.reponses { background: #e6f4ea; border-color: #1b7f3b; color: #1b7f3b; }
+        .at-modal.large { max-width: 760px; }
+        .at-opt { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; flex-wrap: wrap; }
+        .at-opt input { padding: 6px 8px; border: 1px solid #cfd8e6; border-radius: 8px; font-size: 13px; font-family: inherit; }
+        .at-url { display: flex; gap: 6px; align-items: center; }
+        .at-res { border-collapse: collapse; width: 100%; font-size: 12px; margin-top: 4px; }
+        .at-res th, .at-res td { border: 1px solid #d5deea; padding: 4px 6px; text-align: center; }
+        .at-res td.nom, .at-res th.nom { text-align: left; }
+        .at-res td.oui { background: #e6f4ea; color: #1b7f3b; font-weight: 700; }
     `;
 
     function ensureStyle() {
@@ -339,7 +354,38 @@
         lignes: { jalons: AT.f.jalons, contenus: AT.f.contenus, planifiees: AT.f.planifiees }
     });
 
+    // ---- Sondages de date (un par jalon) ----
+    const SD_LABEL = { brouillon: 'Sondage (brouillon)', envoye: 'Sondage en cours', reponses: 'Réponses en cours' };
+    const sondageOf = key => AT.sond.find(x => x.retroplanning_id === AT.f.id && x.ligne === key);
+    function sondageCell(r) {
+        if (r.key === 'mep' || r.key === 'livrables') return '<span class="aff-muted">—</span>';
+        const sd = AT.f.id ? sondageOf(r.key) : null;
+        const st = sd ? sd.statut : '';
+        const label = st === 'reponses' ? `Réponses en cours (${sd.reponses})` : SD_LABEL[st] || 'Sondage';
+        const off = !AT.f.id || (!sd && !isAdmin());
+        return `<button type="button" class="at-sd ${st}" ${off ? 'disabled' : ''} title="${AT.f.id ? 'Concevoir ou suivre le sondage de date de ce jalon' : 'Enregistrez d’abord le rétroplanning'}" onclick="AtelierPlanner.openSondage('${r.key}')">${esc(label)}</button>`;
+    }
+    async function loadSondages() {
+        const id = AT.f.id;
+        if (!id) {
+            AT.sond = [];
+            AT.sondFor = null;
+            return;
+        }
+        try {
+            AT.sond = (await atApi('/affectation/ateliers-sondages')).sondages || [];
+        } catch (e) {
+            AT.sond = [];
+        }
+        AT.sondFor = id;
+        if (AT.sim && document.getElementById('atTableBox')) renderTable();
+    }
+
     function renderTable() {
+        if (AT.f.id && AT.sondFor !== AT.f.id) {
+            AT.sondFor = AT.f.id;
+            loadSondages();
+        }
         const { rows, warnings } = AT.sim;
         document.getElementById('atWarnings').innerHTML = warnings
             .map(w => `<div class="at-warn">⚠ ${esc(w)}</div>`)
@@ -358,12 +404,13 @@
                     <td>${contenu}</td>
                     <td>${esc(frDate(r.cible))}</td>
                     <td style="font-weight:700;${decale ? 'color:#b26a00;' : ''}">${esc(frDate(r.proposee))}</td>
+                    <td>${sondageCell(r)}</td>
                     <td><input type="date" data-row="${r.key}" data-kind="planifiees" value="${esc(r.planifiee || '')}" ${isAdmin() ? '' : 'disabled'}></td>
                     <td><span class="at-badge ${r.niveau}">${esc(r.statut)}</span></td></tr>`;
             })
             .join('');
         document.getElementById('atTableBox').innerHTML =
-            `<table class="at-table"><thead><tr><th>Jalon</th><th>Contenu / objectifs</th><th>Date cible théorique</th><th>Date proposée</th><th>Date réellement planifiée</th><th>Statut</th></tr></thead><tbody>${body}</tbody></table>`;
+            `<table class="at-table"><thead><tr><th>Jalon</th><th>Contenu / objectifs</th><th>Date cible théorique</th><th>Date proposée</th><th>Sondage</th><th>Date réellement planifiée</th><th>Statut</th></tr></thead><tbody>${body}</tbody></table>`;
         document.querySelectorAll('#atTableBox [data-row]').forEach(el => {
             el.addEventListener('change', () => {
                 const key = el.dataset.row;
@@ -588,6 +635,196 @@
         }
     }
 
+    // ---- Fenêtre de conception d'un sondage ----
+    const SD = { key: null, data: null, row: null };
+    async function loadUsers() {
+        if (!users) {
+            const all = await atApi('/users');
+            users = (Array.isArray(all) ? all : all.users || []).filter(u => u.actif !== 0);
+        }
+        return users;
+    }
+    const sdOptRow = o =>
+        `<div class="at-opt" data-id="${o.id || ''}"><input type="date" class="d" value="${esc(o.date || '')}"><input type="time" class="h" value="${esc(o.heure || '')}" title="Heure de début"> – <input type="time" class="f" value="${esc(o.heure_fin || '')}" title="Heure de fin (facultative)"><button type="button" class="aff-btn" style="padding:3px 8px;" onclick="this.parentNode.remove()" title="Retirer cette date">×</button></div>`;
+    const sdOrgName = u => `${u.prenom || ''} ${(u.nom || '').toUpperCase()}`.trim();
+
+    async function openSondage(key) {
+        const row = AT.sim && AT.sim.rows.find(x => x.key === key);
+        if (!row || !AT.f.id) return;
+        let all;
+        try {
+            all = await loadUsers();
+        } catch (e) {
+            return toast(e.message, true);
+        }
+        let sd = null;
+        try {
+            sd = (await atApi(`/affectation/ateliers/${AT.f.id}/sondages/${key}`)).sondage;
+        } catch (e) {
+            return toast(e.message, true);
+        }
+        SD.key = key;
+        SD.data = sd;
+        SD.row = row;
+        const ro = !isAdmin();
+        const me = typeof currentUser !== 'undefined' && currentUser ? currentUser.id : null;
+        const d = sd || {
+            nom: `[SI-SAMU] ${AT.f.samu} - Sondage - ${row.jalon}`,
+            organisateur_id: me,
+            destinataires: [],
+            cc_user_ids: [],
+            message: '',
+            options: [{ date: row.proposee || row.cible || '' }],
+            reponses: [],
+            statut: ''
+        };
+        const bg = document.createElement('div');
+        bg.className = 'at-modal-bg';
+        bg.id = 'atSondageModal';
+        const dis = ro ? 'disabled' : '';
+        bg.innerHTML = `<div class="at-modal large" role="dialog" aria-label="Sondage">
+            <h3>${ico('calendar')} Sondage — ${esc(row.jalon)} <span class="at-badge" style="margin-left:8px;">${esc(SD_LABEL[d.statut] || 'Nouveau')}</span></h3>
+            <label>Nom du sondage</label>
+            <input type="text" id="sdNom" value="${esc(d.nom)}" ${dis}>
+            <label>Identité (organisateur)</label>
+            <select id="sdOrg" style="width:100%;padding:8px;border:1px solid #cfd8e6;border-radius:8px;" ${dis}>
+                <option value="">— Choisir —</option>${all.map(u => `<option value="${u.id}" ${u.id === d.organisateur_id ? 'selected' : ''}>${esc(sdOrgName(u))}</option>`).join('')}
+            </select>
+            <label>Dates et heures proposées <span class="aff-muted" style="font-weight:400;">(le calendrier s’ouvre autour de la date proposée : ${esc(frShort(row.proposee))})</span></label>
+            <div id="sdOpts">${d.options.map(sdOptRow).join('')}</div>
+            ${ro ? '' : '<button type="button" class="aff-btn" onclick="AtelierPlanner.sondageAddDate()">+ Ajouter une date</button>'}
+            <label>Destinataires du sondage (adresses e-mail, une par ligne)</label>
+            <textarea id="sdDest" rows="3" placeholder="prenom.nom@exemple.fr" ${dis}>${esc((d.destinataires || []).join('\n'))}</textarea>
+            <div id="sdDestErr" style="color:#c62828;font-size:11px;margin-top:3px;"></div>
+            <label>En copie (utilisateurs de l’application)</label>
+            <input type="text" id="sdCcFilter" placeholder="Filtrer par nom…" style="margin-bottom:6px;">
+            <div class="at-users" id="sdCc">${all
+                .filter(u => u.email)
+                .map(
+                    u =>
+                        `<label data-n="${esc(sdOrgName(u).toLowerCase())}"><input type="checkbox" value="${u.id}" ${(d.cc_user_ids || []).includes(u.id) ? 'checked' : ''} ${dis}> ${esc(sdOrgName(u))} <span class="aff-muted">${esc(u.email)}</span></label>`
+                )
+                .join('')}</div>
+            <label>Message (facultatif)</label>
+            <textarea id="sdMsg" rows="2" ${dis}>${esc(d.message || '')}</textarea>
+            <label>Adresse d’accès unique</label>
+            <div class="at-url"><input type="text" id="sdUrl" readonly value="${esc(sd ? sd.url : 'Générée à l’enregistrement')}"><button type="button" class="aff-btn" ${sd ? '' : 'disabled'} onclick="AtelierPlanner.sondageCopy()">Copier</button></div>
+            <div id="sdResults">${sdResults(d)}</div>
+            <div class="at-modal-actions">
+                ${sd && !ro ? '<button type="button" class="aff-btn" style="margin-right:auto;color:#b3261e;" onclick="AtelierPlanner.sondageDelete()">Supprimer</button>' : ''}
+                <button type="button" class="aff-btn" onclick="AtelierPlanner.closeSondage()">Fermer</button>
+                ${ro ? '' : `<button type="button" class="aff-btn" id="sdSave" onclick="AtelierPlanner.sondageSave()">Enregistrer</button><button type="button" class="aff-btn aff-btn-primary" id="sdSend" onclick="AtelierPlanner.sondageSend()">${ico('mail', 'at-ico-sm')}${sd && sd.statut !== 'brouillon' ? 'Renvoyer le mail' : 'Envoyer le mail'}</button>`}
+            </div>
+        </div>`;
+        document.body.appendChild(bg);
+        document.getElementById('sdCcFilter').addEventListener('input', e => {
+            const q = e.target.value.toLowerCase().trim();
+            document
+                .querySelectorAll('#sdCc label')
+                .forEach(l => (l.style.display = !q || l.dataset.n.includes(q) ? 'flex' : 'none'));
+        });
+    }
+
+    function sdResults(d) {
+        if (!d.reponses || !d.reponses.length) return '';
+        const opts = d.options;
+        return `<label>Réponses (${d.reponses.length})</label><div style="overflow:auto;"><table class="at-res"><thead><tr><th class="nom">Nom</th>${opts.map(o => `<th>${esc(frShort(o.date))}${o.heure ? '<br>' + esc(o.heure) : ''}</th>`).join('')}</tr></thead><tbody>${d.reponses
+            .map(
+                r =>
+                    `<tr><td class="nom">${esc(r.nom)}</td>${opts.map(o => (r.options.includes(o.id) ? '<td class="oui">✓</td>' : '<td>–</td>')).join('')}</tr>`
+            )
+            .join(
+                ''
+            )}<tr><td class="nom"><b>Total</b></td>${opts.map(o => `<td><b>${d.reponses.filter(r => r.options.includes(o.id)).length}</b></td>`).join('')}</tr></tbody></table></div>`;
+    }
+
+    function sondageForm() {
+        const options = [...document.querySelectorAll('#sdOpts .at-opt')]
+            .map(el => ({
+                id: el.dataset.id ? Number(el.dataset.id) : undefined,
+                date: el.querySelector('.d').value,
+                heure: el.querySelector('.h').value || null,
+                heure_fin: el.querySelector('.f').value || null
+            }))
+            .filter(o => o.date);
+        const parsed = window.parseEmailLines
+            ? parseEmailLines(document.getElementById('sdDest').value)
+            : { valid: [], invalid: [] };
+        document.getElementById('sdDestErr').textContent = parsed.invalid.length
+            ? `Adresse(s) invalide(s) : ${parsed.invalid.join(' · ')}`
+            : '';
+        if (parsed.invalid.length) throw new Error(`Adresse(s) e-mail invalide(s) : ${parsed.invalid.join(', ')}`);
+        return {
+            nom: document.getElementById('sdNom').value,
+            organisateur_id: Number(document.getElementById('sdOrg').value) || null,
+            options,
+            destinataires: parsed.valid,
+            cc_user_ids: [...document.querySelectorAll('#sdCc input:checked')].map(i => Number(i.value)),
+            message: document.getElementById('sdMsg').value
+        };
+    }
+
+    async function sondageSave(thenSend) {
+        const btns = ['sdSave', 'sdSend'].map(i => document.getElementById(i)).filter(Boolean);
+        try {
+            const body = sondageForm();
+            btns.forEach(b => (b.disabled = true));
+            const r = await atApi(`/affectation/ateliers/${AT.f.id}/sondages/${SD.key}`, {
+                method: 'PUT',
+                body: JSON.stringify(body)
+            });
+            if (thenSend) {
+                const sent = await atApi(`/affectation/ateliers/${AT.f.id}/sondages/${SD.key}/send`, {
+                    method: 'POST',
+                    body: '{}'
+                });
+                toast(
+                    `Sondage envoyé (${sent.sent} destinataire${sent.sent > 1 ? 's' : ''}${sent.cc ? `, ${sent.cc} en copie` : ''}).`
+                );
+            } else {
+                toast(`Sondage enregistré. Adresse : ${r.sondage.url}`);
+            }
+            closeSondage();
+            await loadSondages();
+        } catch (e) {
+            btns.forEach(b => (b.disabled = false));
+            toast(e.message, true);
+        }
+    }
+
+    async function sondageDelete() {
+        if (!confirm('Supprimer ce sondage, ses dates et ses réponses ?')) return;
+        try {
+            await atApi(`/affectation/ateliers/${AT.f.id}/sondages/${SD.key}`, { method: 'DELETE' });
+            closeSondage();
+            await loadSondages();
+        } catch (e) {
+            toast(e.message, true);
+        }
+    }
+
+    function closeSondage() {
+        const m = document.getElementById('atSondageModal');
+        if (m) m.remove();
+    }
+
+    async function sondageCopy() {
+        const v = document.getElementById('sdUrl').value;
+        try {
+            await navigator.clipboard.writeText(v);
+            toast('Adresse copiée.');
+        } catch (e) {
+            document.getElementById('sdUrl').select();
+        }
+    }
+
+    function sondageAddDate() {
+        const last = [...document.querySelectorAll('#sdOpts .at-opt .d')].pop();
+        const tpl = document.createElement('div');
+        tpl.innerHTML = sdOptRow({ date: (last && last.value) || (SD.row && (SD.row.proposee || SD.row.cible)) || '' });
+        document.getElementById('sdOpts').appendChild(tpl.firstChild);
+    }
+
     window.AtelierPlanner = {
         show,
         save,
@@ -597,6 +834,13 @@
         openMail,
         closeMail,
         sendMail,
+        openSondage,
+        closeSondage,
+        sondageSave: () => sondageSave(false),
+        sondageSend: () => sondageSave(true),
+        sondageDelete,
+        sondageCopy,
+        sondageAddDate,
         resetZone() {
             const p = currentProject();
             if (p && p.zone) {
