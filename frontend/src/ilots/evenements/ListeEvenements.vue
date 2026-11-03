@@ -165,13 +165,15 @@ function exporter(format: 'csv' | 'html') {
                         </button>
                     </div>
                 </div>
+                <div v-if="tableauProposable" class="ev-liste__filtre">
+                    <span class="ev-liste__espace" aria-hidden="true">_</span>
+                    <label class="ev-liste__bascule">
+                        <input v-model="enTableau" type="checkbox" data-testid="evenements-vue-tableau" />
+                        Afficher sous forme de tableau triable (sans accordéon)
+                    </label>
+                </div>
             </div>
             <AppAlert v-if="message" type="error" small :description="message" />
-            <label v-if="tableauProposable" class="ev-liste__bascule">
-                <input v-model="enTableau" type="checkbox" data-testid="evenements-vue-tableau" />
-                Afficher sous forme de tableau triable (sans accordéon)
-            </label>
-
             <TableauEvenements v-if="tableauActif" :evenements="affiches" @supprimer="x => emit('supprimer', x)" />
             <div v-else>
                 <div v-for="g in arbre" :key="g.annee" class="ev-liste__annee">
@@ -307,13 +309,18 @@ function exporter(format: 'csv' | 'html') {
 .ev-liste__export--html:hover {
     background: #1565c0;
 }
-.ev-liste__bascule {
+.ev-liste__filtre .ev-liste__bascule {
     display: flex;
     align-items: center;
     gap: 6px;
     font-size: 12px;
     color: #555;
-    margin: 0 0 10px;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.ev-liste__filtre .ev-liste__bascule input {
+    width: auto;
+    margin: 0;
 }
 .ev-liste__annee {
     margin-bottom: 10px;
