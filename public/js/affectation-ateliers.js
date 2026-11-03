@@ -130,7 +130,12 @@
         #atelierRoot .at-sd.reponses { background: #e6f4ea; border-color: #1b7f3b; color: #1b7f3b; }
         #atelierRoot .at-sd.termine { background: #455a64; border-color: #455a64; color: #fff; }
         .at-modal.large { max-width: 760px; }
-        .at-opt { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; flex-wrap: wrap; }
+        .at-opt { display: flex; gap: 8px; align-items: center; margin-bottom: 0; padding: 7px 10px; border-radius: 8px; flex-wrap: nowrap; }
+        .at-opt:nth-child(odd) { background: #f3f5f8; }
+        .at-opt:nth-child(even) { background: #e2e7ee; }
+        .at-modal .at-opt input.d { width: auto !important; flex: 1 1 160px; min-width: 0; }
+        .at-modal .at-opt input.h, .at-modal .at-opt input.f { width: 120px !important; flex: 0 0 120px; }
+        .at-modal .at-opt button { flex: 0 0 auto; }
         .at-opt input { padding: 6px 8px; border: 1px solid #cfd8e6; border-radius: 8px; font-size: 13px; font-family: inherit; }
         .at-url { display: flex; gap: 6px; align-items: center; }
         .at-res { border-collapse: collapse; width: 100%; font-size: 12px; margin-top: 4px; }
@@ -723,7 +728,7 @@
             <label>Message (facultatif)</label>
             <textarea id="sdMsg" rows="2" ${dis}>${esc(d.message || '')}</textarea>
             <label>Adresse d’accès unique</label>
-            <div class="at-url"><input type="text" id="sdUrl" readonly value="${esc(sd ? sd.url : 'Générée à l’enregistrement')}"><button type="button" class="aff-btn" ${sd ? '' : 'disabled'} onclick="AtelierPlanner.sondageCopy()">Copier</button></div>
+            <div class="at-url"><input type="text" id="sdUrl" readonly value="${esc(sd ? sd.url : 'Générée à l’enregistrement')}"><button type="button" class="aff-btn" ${sd ? '' : 'disabled'} onclick="AtelierPlanner.sondageCopy()">Copier</button><button type="button" class="aff-btn" ${sd ? '' : 'disabled'} onclick="AtelierPlanner.sondagePreview()" title="Ouvre la page publique du sondage dans un nouvel onglet">Prévisualiser</button></div>
             <div id="sdChoix">${sd ? sdChoix(d, ro || closed) : ''}</div>
             <div id="sdResults">${sdResults(d)}</div>
             <div class="at-modal-actions">
@@ -883,6 +888,11 @@
         if (m) m.remove();
     }
 
+    function sondagePreview() {
+        const v = document.getElementById('sdUrl').value;
+        if (/^https?:\/\//.test(v)) window.open(v, '_blank', 'noopener');
+    }
+
     async function sondageCopy() {
         const v = document.getElementById('sdUrl').value;
         try {
@@ -917,6 +927,7 @@
         sondageClose,
         sondageReopen,
         sondageCopy,
+        sondagePreview,
         sondageAddDate,
         resetZone() {
             const p = currentProject();
