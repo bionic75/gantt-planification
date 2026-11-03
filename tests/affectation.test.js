@@ -630,6 +630,29 @@ describe('activité découpée en plusieurs parties (événements séparés de p
     });
 });
 
+describe('journées retirées de la grille', () => {
+    it("remises en « Disponible / En attente d'affectation » sans toucher aux autres journées ni aux événements", async () => {
+        const samu = await newSamu();
+        const p = await createProject(samu, {
+            accompagnement: [{ start: '2027-03-01', end: '2027-03-07', needed: 2 }]
+        });
+        const { resource } = await createExpert(admin);
+        const url = `/api/affectation/projects/${p.id}`;
+        const days = {};
+        for (const d of ['01', '02', '03', '04', '05', '06', '07']) days[`2027-03-${d}`] = [resource.id];
+        expect((await admin.put(`${url}/assignment-days/accompagnement`, { days })).status).toBe(200);
+        await admin.post(`${url}/sync/accompagnement`, { planning: { resource_ids: [resource.id] } });
+        const rel = await admin.post(`${url}/assignments/accompagnement/release`, {
+            days: { [resource.id]: ['2027-03-06', '2027-03-07'] }
+        });
+        expect(rel.data).toMatchObject({ planningReset: 4, removedFromEvents: 0 });
+        const sch = await schedule();
+        expect(sch[`${resource.id}_activity_2027-03-06_AM`]).toBe('2');
+        expect(sch[`${resource.id}_localisation_2027-03-07_PM`]).toBeUndefined();
+        expect(sch[`${resource.id}_activity_2027-03-05_AM`]).toBe('3');
+    });
+});
+
 describe('affectations depuis les participants : plafond par jour', () => {
     it('rotation acceptée sur des jours distincts, ressource en trop ignorée', async () => {
         const samu = await newSamu();

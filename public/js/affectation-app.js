@@ -4127,6 +4127,8 @@
             const current = (p.assignment_days || {})[stageKey] || {};
             asg.days = {};
             asg.dates.forEach(d => (asg.days[d] = new Set(current[d] || [])));
+            asg.initial = {};
+            asg.dates.forEach(d => (asg.initial[d] = new Set(asg.days[d])));
             asg.info = `${p.samu_name} — ${planDef(stageKey).label} (${frd(x.start)} → ${frd(x.end)})`;
             document.getElementById('affAssignTitle').textContent = 'Affecter des ressources';
             document.getElementById('affAssignError').textContent = '';
@@ -4200,6 +4202,37 @@
                         } catch (e2) {
                             alert(e2.message);
                         }
+                    }
+                }
+                // Journées décochées pour des experts qui restent affectés : proposition de remettre ces journées en situation
+                const dropped = {};
+                let nDropped = 0;
+                asg.dates.forEach(d => {
+                    for (const rid of (asg.initial && asg.initial[d]) || []) {
+                        if (r.resource_ids.includes(rid) && !(asg.days[d] && asg.days[d].has(rid))) {
+                            (dropped[rid] = dropped[rid] || []).push(d);
+                            nDropped++;
+                        }
+                    }
+                });
+                if (
+                    nDropped &&
+                    confirm(
+                        `${nDropped} journée(s) retirée(s) de la grille pour des experts qui restent affectés.\n\nLes remettre dans leur planification en « 2 - Disponible » / « 2 - En attente d'affectation » (localisation effacée) ? Seules les demi-journées posées par l'affectation pour ce SAMU sont modifiées.`
+                    )
+                ) {
+                    try {
+                        const rl = await api(
+                            `/affectation/projects/${asg.project.id}/assignments/${asg.stage}/release`,
+                            { method: 'POST', body: JSON.stringify({ days: dropped }) }
+                        );
+                        const t = document.createElement('div');
+                        t.className = 'aff-toast';
+                        t.textContent = `${rl.planningReset} demi-journée(s) remise(s) en « Disponible / En attente d'affectation ».`;
+                        document.body.appendChild(t);
+                        setTimeout(() => t.remove(), 6000);
+                    } catch (e2) {
+                        alert(e2.message);
                     }
                 }
                 if (r.resource_ids.length) AffectationApp.openSync(asg.project.id, asg.stage, true);
