@@ -8,6 +8,7 @@ import { sendEmail } from '../../lib/mailer.js';
 import { samuNumber } from '../../lib/samu.js';
 import { getJsonSetting } from '../../services/settings.js';
 import { zoneOfDepartment } from './ateliers.data.js';
+import { removeOfRetroplanning } from './sondages.service.js';
 import {
     addDays,
     computeRetroplanning,
@@ -184,6 +185,7 @@ export async function save(/** @type {any} */ body, /** @type {{ userId: number,
 export async function remove(/** @type {unknown} */ id) {
     const row = await prisma.atelierRetroplanning.findUnique({ where: { id: idParam(id) } });
     if (!row) throw notFound('Rétroplanning introuvable');
+    await removeOfRetroplanning(row.id);
     await prisma.atelierRetroplanning.delete({ where: { id: row.id } });
     return row.samu_name;
 }

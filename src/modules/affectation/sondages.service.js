@@ -1,0 +1,329 @@
+// @ts-check
+// Sondages de date des jalons d'un rétroplanning d'ateliers métier : conception, envoi par e-mail, réponses publiques
+import { randomBytes } from 'crypto';
+import { env } from '../../config/env.js';
+import { prisma } from '../../db/prisma.js';
+import { idParam, sqlTimestamp } from '../../db/values.js';
+import { isEmail } from '../../lib/email.js';
+import { badRequest, notFound } from '../../lib/http-error.js';
+import { sendEmail } from '../../lib/mailer.js';
+import { isValidDate } from './ateliers.calc.js';
+
+const MAX_OPTIONS = 60;
+const MAX_REPONSES = 500;
+
+const esc = (/** @type {unknown} */ v) =>
+    String(v == null ? '' : v).replace(
+        /[&<>"']/g,
+        c =>
+            /** @type {Record<string, string>} */ ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            })[c]
+    );
+
+const parseList = (/** @type {string | null | undefined} */ text) => {
+    try {
+        const v = JSON.parse(text || '[]');
+        return Array.isArray(v) ? v : [];
+    } catch {
+        return [];
+    }
+};
+
+const timeOrNull = (/** @type {unknown} */ v) => (/^([01]\d|2[0-3]):[0-5]\d$/.test(String(v || '')) ? String(v) : null);
+
+const DAYS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+export const optionLabel = (/** @type {{ date: string, heure: string | null, heure_fin: string | null }} */ o) => {
+    const [y, m, d] = o.date.split('-').map(Number);
+    const day = `${DAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]} ${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
+    return o.heure ? `${day} · ${o.heure}${o.heure_fin ? ' – ' + o.heure_fin : ''}` : day;
+};
+
+/** Statut de chaque sondage (bouton « Sondage » de chaque jalon) */
+export async function list() {
+    const rows = await prisma.atelierSondage.findMany({
+        select: { id: true, retroplanning_id: true, ligne: true, nom: true, statut: true }
+    });
+    const counts = rows.length
+        ? await prisma.atelierSondageReponse.groupBy({
+              by: ['sondage_id'],
+              where: { sondage_id: { in: rows.map(r => r.id) } },
+              _count: { _all: true }
+          })
+        : [];
+    const n = new Map(counts.map(c => [c.sondage_id, c._count._all]));
+    return rows.map(r => ({ ...r, reponses: n.get(r.id) || 0 }));
+}
+
+/** Sondage d'un jalon avec ses dates et ses réponses ; null s'il n'existe pas encore */
+export async function get(/** @type {unknown} */ retroId, /** @type {string} */ ligne) {
+    const row = await prisma.atelierSondage.findUnique({
+        where: { retroplanning_id_ligne: { retroplanning_id: idParam(retroId), ligne } }
+    });
+    if (!row) return null;
+    const options = await prisma.atelierSondageOption.findMany({
+        where: { sondage_id: row.id },
+        orderBy: [{ ordre: 'asc' }, { id: 'asc' }]
+    });
+    const reponses = await prisma.atelierSondageReponse.findMany({
+        where: { sondage_id: row.id },
+        orderBy: { id: 'asc' }
+    });
+    return {
+        id: row.id,
+        nom: row.nom,
+        token: row.token,
+        statut: row.statut,
+        organisateur_id: row.organisateur_id,
+        destinataires: parseList(row.destinataires),
+        cc_user_ids: parseList(row.cc_user_ids),
+        message: row.message || '',
+        sent_at: row.sent_at,
+        options: options.map(o => ({ id: o.id, date: o.date, heure: o.heure, heure_fin: o.heure_fin })),
+        reponses: reponses.map(r => ({ id: r.id, nom: r.nom, options: parseList(r.options) }))
+    };
+}
+
+/** Adresse publique du sondage */
+export const sondageUrl = (/** @type {string} */ token, /** @type {string} */ origin) =>
+    `${env.APP_URL ? env.APP_URL.replace(/\/+$/, '') : origin}/sondage/${token}`;
+
+/**
+ * Crée ou met à jour le sondage d'un jalon (brouillon) : nom, dates proposées, destinataires, copie
+ * @param {unknown} retroId
+ * @param {string} ligne
+ * @param {any} body
+ * @param {number | null} userId
+ */
+export async function save(retroId, ligne, body, userId) {
+    const rid = idParam(retroId);
+    const retro = await prisma.atelierRetroplanning.findUnique({ where: { id: rid }, select: { id: true } });
+    if (!retro) throw notFound('Rétroplanning introuvable : enregistrez-le avant de créer un sondage');
+    if (!/^[a-z0-9_]{1,20}$/.test(ligne)) throw badRequest('Jalon inconnu');
+    const nom = String(body.nom || '')
+        .trim()
+        .slice(0, 200);
+    if (!nom) throw badRequest('Donnez un nom au sondage');
+    const opts = (Array.isArray(body.options) ? body.options : []).slice(0, MAX_OPTIONS);
+    for (const o of opts) if (!isValidDate(String(o.date || ''))) throw badRequest('Date proposée invalide');
+    const invalid = [];
+    const dest = [
+        ...new Set(
+            (Array.isArray(body.destinataires) ? body.destinataires : [])
+                .map((/** @type {unknown} */ e) => String(e || '').trim())
+                .filter(Boolean)
+                .filter((/** @type {string} */ e) => (isEmail(e) ? true : (invalid.push(e), false)))
+        )
+    ];
+    if (invalid.length) throw badRequest(`Adresse(s) e-mail invalide(s) : ${invalid.join(', ')}`);
+    const cc = [
+        ...new Set(
+            (Array.isArray(body.cc_user_ids) ? body.cc_user_ids : [])
+                .map(Number)
+                .filter((/** @type {number} */ n) => Number.isInteger(n) && n > 0)
+        )
+    ];
+    const organisateur = Number(body.organisateur_id) > 0 ? Number(body.organisateur_id) : null;
+    const data = {
+        nom,
+        organisateur_id: organisateur,
+        destinataires: JSON.stringify(dest),
+        cc_user_ids: JSON.stringify(cc),
+        message:
+            String(body.message || '')
+                .trim()
+                .slice(0, 4000) || null,
+        updated_at: sqlTimestamp()
+    };
+    const key = { retroplanning_id_ligne: { retroplanning_id: rid, ligne } };
+    const existing = await prisma.atelierSondage.findUnique({ where: key, select: { id: true } });
+    const row = existing
+        ? await prisma.atelierSondage.update({ where: key, data })
+        : await prisma.atelierSondage.create({
+              data: {
+                  ...data,
+                  retroplanning_id: rid,
+                  ligne,
+                  token: randomBytes(16).toString('hex'),
+                  created_by: userId
+              }
+          });
+    // Dates : celles reconnues par identifiant sont conservées (leurs réponses aussi), les autres sont créées ou supprimées
+    const old = await prisma.atelierSondageOption.findMany({ where: { sondage_id: row.id } });
+    const keep = new Set(
+        opts.map((/** @type {any} */ o) => Number(o.id)).filter((/** @type {number} */ n) => old.some(x => x.id === n))
+    );
+    const removed = old.filter(o => !keep.has(o.id)).map(o => o.id);
+    if (removed.length) await prisma.atelierSondageOption.deleteMany({ where: { id: { in: removed } } });
+    let ordre = 0;
+    for (const o of opts) {
+        const fields = {
+            date: String(o.date),
+            heure: timeOrNull(o.heure),
+            heure_fin: timeOrNull(o.heure) ? timeOrNull(o.heure_fin) : null,
+            ordre: ordre++
+        };
+        if (keep.has(Number(o.id)))
+            await prisma.atelierSondageOption.update({ where: { id: Number(o.id) }, data: fields });
+        else await prisma.atelierSondageOption.create({ data: { ...fields, sondage_id: row.id } });
+    }
+    if (removed.length) {
+        for (const r of await prisma.atelierSondageReponse.findMany({ where: { sondage_id: row.id } })) {
+            const kept = parseList(r.options).filter(id => !removed.includes(id));
+            if (kept.length !== parseList(r.options).length)
+                await prisma.atelierSondageReponse.update({
+                    where: { id: r.id },
+                    data: { options: JSON.stringify(kept) }
+                });
+        }
+    }
+    return { id: row.id, created: !existing };
+}
+
+/** Suppression d'un sondage, de ses dates et de ses réponses */
+export async function remove(/** @type {unknown} */ retroId, /** @type {string} */ ligne) {
+    const row = await prisma.atelierSondage.findUnique({
+        where: { retroplanning_id_ligne: { retroplanning_id: idParam(retroId), ligne } }
+    });
+    if (!row) throw notFound('Sondage introuvable');
+    await prisma.$transaction([
+        prisma.atelierSondageReponse.deleteMany({ where: { sondage_id: row.id } }),
+        prisma.atelierSondageOption.deleteMany({ where: { sondage_id: row.id } }),
+        prisma.atelierSondage.delete({ where: { id: row.id } })
+    ]);
+    return row.nom;
+}
+
+/** Suppression des sondages d'un rétroplanning supprimé */
+export async function removeOfRetroplanning(/** @type {number} */ retroId) {
+    for (const row of await prisma.atelierSondage.findMany({
+        where: { retroplanning_id: retroId },
+        select: { ligne: true }
+    }))
+        await remove(retroId, row.ligne);
+}
+
+/**
+ * Envoie le sondage par e-mail (adresse d'accès unique, dates proposées) ; copie aux utilisateurs choisis
+ * @param {unknown} retroId
+ * @param {string} ligne
+ * @param {string} origin origine de l'application, si APP_URL n'est pas renseignée
+ */
+export async function send(retroId, ligne, origin) {
+    const s = await get(retroId, ligne);
+    if (!s) throw notFound('Enregistrez le sondage avant de l’envoyer');
+    if (!s.options.length) throw badRequest('Proposez au moins une date');
+    if (!s.destinataires.length) throw badRequest('Renseignez au moins un destinataire');
+    const users = await prisma.user.findMany({
+        where: { id: { in: [...s.cc_user_ids, ...(s.organisateur_id ? [s.organisateur_id] : [])] } },
+        select: { id: true, nom: true, prenom: true, email: true }
+    });
+    const org = users.find(u => u.id === s.organisateur_id);
+    const cc = [
+        ...new Set(
+            users
+                .filter(u => s.cc_user_ids.includes(u.id) && u.email && isEmail(u.email))
+                .map(u => /** @type {string} */ (u.email))
+        )
+    ];
+    const url = sondageUrl(s.token, origin);
+    const orgName = org ? `${org.prenom || ''} ${(org.nom || '').toUpperCase()}`.trim() : '';
+    const html = `<div style="font-family:Arial,sans-serif;font-size:14px;color:#222;max-width:640px;">
+        <h2 style="color:#1d70b7;margin:0 0 10px;">${esc(s.nom)}</h2>
+        <p style="margin:0 0 10px;">${orgName ? `<strong>${esc(orgName)}</strong> vous invite` : 'Vous êtes invité(e)'} à indiquer vos disponibilités parmi les dates suivantes :</p>
+        ${s.message ? `<p>${esc(s.message).replace(/\n/g, '<br>')}</p>` : ''}
+        <ul>${s.options.map(o => `<li>${esc(optionLabel(o))}</li>`).join('')}</ul>
+        <p style="margin:18px 0;"><a href="${esc(url)}" style="background:#1d70b7;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700;">Répondre au sondage</a></p>
+        <p style="font-size:12px;color:#666;">Ou copiez ce lien dans votre navigateur : ${esc(url)}</p>
+    </div>`;
+    await sendEmail(s.destinataires.join(', '), s.nom, html, [], {
+        cc: cc.join(', ') || undefined,
+        replyTo: org && org.email ? org.email : undefined
+    });
+    await prisma.atelierSondage.update({
+        where: { id: s.id },
+        data: {
+            statut: s.statut === 'reponses' ? 'reponses' : 'envoye',
+            sent_at: sqlTimestamp(),
+            updated_at: sqlTimestamp()
+        }
+    });
+    return { sent: s.destinataires.length, cc: cc.length, url };
+}
+
+// ---------- Accès public (adresse unique, sans connexion) ----------
+
+async function byToken(/** @type {string} */ token) {
+    if (!/^[a-f0-9]{32}$/.test(token)) throw notFound('Sondage introuvable');
+    const row = await prisma.atelierSondage.findUnique({ where: { token } });
+    if (!row) throw notFound('Sondage introuvable');
+    return row;
+}
+
+/** Sondage vu par un répondant : nom, dates et réponses (ni adresses e-mail ni identifiants d'utilisateurs) */
+export async function publicGet(/** @type {string} */ token) {
+    const row = await byToken(token);
+    const options = await prisma.atelierSondageOption.findMany({
+        where: { sondage_id: row.id },
+        orderBy: [{ ordre: 'asc' }, { id: 'asc' }]
+    });
+    const reponses = await prisma.atelierSondageReponse.findMany({
+        where: { sondage_id: row.id },
+        orderBy: { id: 'asc' }
+    });
+    const org = row.organisateur_id
+        ? await prisma.user.findUnique({ where: { id: row.organisateur_id }, select: { nom: true, prenom: true } })
+        : null;
+    return {
+        nom: row.nom,
+        organisateur: org ? `${org.prenom || ''} ${(org.nom || '').toUpperCase()}`.trim() : null,
+        options: options.map(o => ({ id: o.id, date: o.date, heure: o.heure, heure_fin: o.heure_fin })),
+        reponses: reponses.map(r => ({ nom: r.nom, options: parseList(r.options) }))
+    };
+}
+
+/** Réponse d'une personne : remplace sa réponse précédente (même nom) ; la première réponse passe le sondage en « réponses » */
+export async function publicRespond(/** @type {string} */ token, /** @type {any} */ body) {
+    const row = await byToken(token);
+    const nom = String((body || {}).nom || '')
+        .trim()
+        .slice(0, 100);
+    if (!nom) throw badRequest('Indiquez votre nom');
+    const options = await prisma.atelierSondageOption.findMany({ where: { sondage_id: row.id }, select: { id: true } });
+    const valid = new Set(options.map(o => o.id));
+    const picked = [
+        ...new Set(
+            (Array.isArray((body || {}).options) ? body.options : [])
+                .map(Number)
+                .filter((/** @type {number} */ n) => valid.has(n))
+        )
+    ];
+    if (!picked.length) throw badRequest('Cochez au moins une date');
+    const all = await prisma.atelierSondageReponse.findMany({
+        where: { sondage_id: row.id },
+        select: { id: true, nom: true }
+    });
+    const same = all.find(r => r.nom.toLowerCase() === nom.toLowerCase());
+    if (same) {
+        await prisma.atelierSondageReponse.update({
+            where: { id: same.id },
+            data: { nom, options: JSON.stringify(picked), updated_at: sqlTimestamp() }
+        });
+    } else {
+        if (all.length >= MAX_REPONSES) throw badRequest('Nombre maximal de réponses atteint');
+        await prisma.atelierSondageReponse.create({
+            data: { sondage_id: row.id, nom, options: JSON.stringify(picked) }
+        });
+    }
+    if (row.statut !== 'reponses') {
+        await prisma.atelierSondage.update({
+            where: { id: row.id },
+            data: { statut: 'reponses', updated_at: sqlTimestamp() }
+        });
+    }
+    return { replaced: !!same };
+}

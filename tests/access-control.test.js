@@ -44,6 +44,8 @@ describe('inventaire des routes', () => {
             'POST /api/mobile-login',
             'POST /api/reset-password',
             'POST /api/reset-password/check',
+            'GET /api/sondages-publics/:token',
+            'POST /api/sondages-publics/:token/reponses',
             'GET /api/system/version',
             'GET /api/theme',
             'GET /api/version'
