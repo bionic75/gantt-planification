@@ -342,8 +342,10 @@ export async function syncPreview(/** @type {Request} */ req, /** @type {Respons
             done: r.done,
             conflicts: r.conflicts.slice(0, 12),
             conflictCount: r.conflicts.length,
+            forceableCount: r.conflicts.filter(x => x.forceable).length,
             extra: r.extra.slice(0, 12),
-            extraCount: r.extra.length
+            extraCount: r.extra.length,
+            addableCount: r.extra.filter(k => k.slice(0, 10) >= c.per.start && k.slice(0, 10) <= c.per.end).length
         })),
         event: c.event
     });
@@ -354,13 +356,27 @@ export async function syncApply(/** @type {Request} */ req, /** @type {Response}
     const stage = req.params.stage;
     const c = await svc.affSyncCompute(Number(req.params.id), stage);
     const body = req.body || {};
-    /** @type {{ planning: number, cleared: number, event: { id: number, created: boolean, participants: number } | null }} */
-    const result = { planning: 0, cleared: 0, event: null };
+    /** @type {{ planning: number, cleared: number, forced: number, dropped: number, added: number, event: { id: number, created: boolean, participants: number } | null }} */
+    const result = { planning: 0, cleared: 0, forced: 0, dropped: 0, added: 0, event: null };
     if (body.planning && Array.isArray(body.planning.resource_ids)) {
         result.planning = await svc.writeStagePlanning(c, body.planning.resource_ids.map(Number), userId(req));
     }
-    if (body.planning && Array.isArray(body.planning.clear_ids)) {
-        result.cleared = await svc.clearStageExtraPlanning(c, body.planning.clear_ids.map(Number));
+    if (body.planning) {
+        const ids = (/** @type {unknown} */ l) => (Array.isArray(l) ? l.map(Number) : []);
+        const r = await svc.resolveStageGaps(
+            c,
+            {
+                force: ids(body.planning.force_ids),
+                drop: ids(body.planning.drop_ids),
+                clear: ids(body.planning.clear_ids),
+                add: ids(body.planning.add_ids)
+            },
+            userId(req)
+        );
+        result.cleared = r.cleared;
+        result.forced = r.forced;
+        result.dropped = r.dropped;
+        result.added = r.added;
     }
     const ev = body.event;
     if (ev && ev.apply) {
@@ -403,6 +419,27 @@ export async function syncApply(/** @type {Request} */ req, /** @type {Response}
             label: `${stLabel} — planification des experts`,
             from: `${result.cleared} demi-journée(s) sans journée d'affectation`,
             to: "remises en « Disponible / En attente d'affectation »"
+        });
+    }
+    if (result.forced) {
+        ch.push({
+            label: `${stLabel} — planification des experts`,
+            from: `${result.forced} demi-journée(s) indisponible(s) ou occupée(s) par une activité ANS`,
+            to: "remplacées par l'affectation au déploiement"
+        });
+    }
+    if (result.dropped) {
+        ch.push({
+            label: `${stLabel} — journées d'intervention`,
+            from: `${result.dropped} journée(s) en conflit avec la planification`,
+            to: 'retirées de la grille'
+        });
+    }
+    if (result.added) {
+        ch.push({
+            label: `${stLabel} — journées d'intervention`,
+            from: "planifiées sans journée d'affectation",
+            to: `${result.added} journée(s) ajoutée(s) à la grille`
         });
     }
     if (result.planning) {

@@ -1306,11 +1306,17 @@ export async function affSyncCompute(/** @type {number} */ projectId, /** @type 
         })
         .sort((a, b) => (a.nom === b.nom ? 0 : a.nom < b.nom ? -1 : 1));
 
+    // Les demi-journées en trop se cherchent sur tout le déploiement, pas seulement sur la période de l'étape
+    const allPeriods = Object.values(parsePeriods(proj.periods)).flatMap(l => l.slice(0, 1));
+    const span = {
+        start: allPeriods.reduce((m, p) => (p.start < m ? p.start : m), per.start),
+        end: allPeriods.reduce((m, p) => (p.end > m ? p.end : m), per.end)
+    };
     /** @type {Record<number, Record<string, Record<string, string>>>} */
     const cells = {};
     if (assigned.length) {
         for (const r of await scheduleCells(
-            per,
+            span,
             assigned.map(a => a.id)
         )) {
             ((cells[r.resource_id] ??= {})[r.date_key] ??= {})[r.type] = r.value;
@@ -1348,13 +1354,13 @@ export async function affSyncCompute(/** @type {number} */ projectId, /** @type 
     const plan = assigned.map(a => {
         /** @type {string[]} */
         const toWrite = [];
-        /** @type {Array<{ key: string, reason: string }>} */
+        /** @type {Array<{ key: string, reason: string, forceable: boolean }>} */
         const conflicts = [];
         /** @type {string[]} */
         const extra = [];
         let done = 0;
-        for (const day of calendarDays(per.start, per.end)) {
-            if (!(effective[day] || []).includes(a.id)) {
+        for (const day of calendarDays(span.start, span.end)) {
+            if (day < per.start || day > per.end || !(effective[day] || []).includes(a.id)) {
                 if (!covered.some(m => (m[day] || []).includes(a.id)))
                     for (const h of ['AM', 'PM']) {
                         const c = (cells[a.id] || {})[`${day}_${h}`] || {};
@@ -1370,16 +1376,19 @@ export async function affSyncCompute(/** @type {number} */ projectId, /** @type 
                     done++;
                     continue;
                 }
-                if (c.available === '3') conflicts.push({ key, reason: 'Congés' });
-                else if (c.available === '1' || c.activity === '1') conflicts.push({ key, reason: 'Indisponible' });
+                // forceable : la planification peut être écrasée (indisponibilité, activité ANS) ; congés et autre SAMU, non
+                if (c.available === '3') conflicts.push({ key, reason: 'Congés', forceable: false });
+                else if (c.available === '1' || c.activity === '1')
+                    conflicts.push({ key, reason: 'Indisponible', forceable: true });
                 else if (c.activity === '3' || c.activity === '4') {
                     conflicts.push({
                         key,
                         reason:
-                            'Affecté(e) à ' + String(c.localisation || 'un autre SAMU').replace(/^[^A-Za-z0-9]+/, '')
+                            'Affecté(e) à ' + String(c.localisation || 'un autre SAMU').replace(/^[^A-Za-z0-9]+/, ''),
+                        forceable: false
                     });
                 } else if (['5', '6', '7', '8'].includes(c.activity)) {
-                    conflicts.push({ key, reason: 'Activité ANS (' + c.activity + ')' });
+                    conflicts.push({ key, reason: 'Activité ANS (' + c.activity + ')', forceable: true });
                 } else toWrite.push(key);
             }
         }
@@ -1420,6 +1429,7 @@ export async function affSyncCompute(/** @type {number} */ projectId, /** @type 
     }
     return {
         proj,
+        stageKey,
         per,
         samuLoc,
         samuNo,
@@ -1479,6 +1489,91 @@ export async function clearStageExtraPlanning(
         }
     }
     return n;
+}
+
+/**
+ * Journées d'intervention d'une ressource sur l'étape, matérialisées en lignes enregistrées (sans ligne, elle
+ * intervient sur tous les jours ouvrés) puis modifiées
+ * @returns {Promise<number>} nombre de journées retirées ou ajoutées
+ */
+async function changeStageDays(
+    /** @type {Awaited<ReturnType<typeof affSyncCompute>>} */ c,
+    /** @type {number} */ resourceId,
+    /** @type {string[]} */ dates,
+    /** @type {'drop' | 'add'} */ mode
+) {
+    const where = { project_id: c.proj.id, stage_key: c.stageKey, resource_id: resourceId };
+    const rows = await prisma.affectationAssignmentDay.findMany({ where });
+    const current = new Set(rows.length ? rows.map(r => r.date) : [...workingDays(c.per.start, c.per.end)]);
+    let changed = 0;
+    if (mode === 'drop') {
+        for (const d of dates) if (current.delete(d)) changed++;
+    } else {
+        // Ajout : dans la période de l'étape et dans la limite des ressources par jour
+        const stage = { project_id: c.proj.id, stage_key: c.stageKey };
+        const others = await prisma.affectationAssignment.findMany({
+            where: { ...stage, resource_id: { not: resourceId } },
+            select: { resource_id: true }
+        });
+        /** @type {Record<number, string[]>} */
+        const explicit = {};
+        for (const d of await prisma.affectationAssignmentDay.findMany({ where: stage }))
+            (explicit[d.resource_id] ??= []).push(d.date);
+        const taken = affEffectiveDays(
+            c.per,
+            others.map(o => o.resource_id),
+            explicit
+        );
+        for (const d of dates)
+            if (d >= c.per.start && d <= c.per.end && !current.has(d) && (taken[d] || []).length < c.per.needed) {
+                current.add(d);
+                changed++;
+            }
+    }
+    const kept = [...current].sort();
+    await prisma.$transaction([
+        prisma.affectationAssignmentDay.deleteMany({ where }),
+        prisma.affectationAssignmentDay.createMany({ data: kept.map(date => ({ ...where, date })) }),
+        ...(kept.length ? [] : [prisma.affectationAssignment.deleteMany({ where })])
+    ]);
+    return changed;
+}
+
+/**
+ * Écarts entre l'aide à l'affectation (grille) et la planification, résolus au choix pour chaque ressource :
+ * - conflits : « force » écrase la planification (indisponibilité, activité ANS) ; « drop » retire la journée de la grille
+ * - demi-journées en trop : « clear » les remet en Disponible ; « add » les ajoute à la grille
+ * @param {{ force?: number[], drop?: number[], clear?: number[], add?: number[] }} choices identifiants de ressources
+ * @returns {Promise<{ forced: number, dropped: number, cleared: number, added: number }>}
+ */
+export async function resolveStageGaps(
+    /** @type {Awaited<ReturnType<typeof affSyncCompute>>} */ c,
+    /** @type {{ force?: number[], drop?: number[], clear?: number[], add?: number[] }} */ choices,
+    /** @type {number} */ authorUserId
+) {
+    const author = await prisma.user.findUnique({ where: { id: authorUserId }, select: { prenom: true, nom: true } });
+    const authorName = author ? `${author.prenom}.${author.nom}` : '';
+    const out = { forced: 0, dropped: 0, cleared: 0, added: 0 };
+    const days = (/** @type {string[]} */ keys) => [...new Set(keys.map(k => k.slice(0, 10)))];
+    for (const r of c.resources) {
+        if ((choices.force || []).includes(r.id))
+            for (const { key } of r.conflicts.filter(x => x.forceable)) {
+                await setScheduleCell(r.id, key, 'available', '2');
+                await setScheduleCell(r.id, key, 'activity', c.activity);
+                await setScheduleCell(r.id, key, 'localisation', c.samuLoc);
+                if (authorName) await setScheduleCell(r.id, key, 'author', authorName);
+                out.forced++;
+            }
+        if ((choices.drop || []).includes(r.id) && r.conflicts.length)
+            out.dropped += await changeStageDays(c, r.id, days(r.conflicts.map(x => x.key)), 'drop');
+        if ((choices.add || []).includes(r.id) && r.extra.length)
+            out.added += await changeStageDays(c, r.id, days(r.extra), 'add');
+    }
+    out.cleared = await clearStageExtraPlanning(
+        c,
+        (choices.clear || []).filter(id => !(choices.add || []).includes(id))
+    );
+    return out;
 }
 
 /** Ajout de participants à un événement (doublons ignorés) */
