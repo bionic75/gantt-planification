@@ -2941,6 +2941,11 @@
         }
         renderEvents();
     }
+    /** Participants d'un événement ; ceux qui n'interviennent que certains jours de l'activité sont suivis de ces jours */
+    function evPartNames(e) {
+        const jours = e.participants_jours || {};
+        return e.participants.map(n => (jours[n] ? `${n} (${jours[n]})` : n));
+    }
     function renderEvents() {
         const box = document.getElementById('affEvBody'),
             d = evTab.data;
@@ -2988,7 +2993,7 @@
                 <td style="padding:8px;"><span style="display:inline-block;padding:2px 9px;border-radius:10px;font-size:12px;font-weight:700;background:${esc(e.type.bg)};color:${esc(e.type.color)};border:1px solid ${esc(e.type.border)};">${esc(e.type.label)}</span></td>
                 <td style="padding:8px;">${esc(e.label)}</td>
                 <td style="padding:8px;white-space:nowrap;">${esc(evDates(e))}${e.period && e.period !== 'FULL' ? ` <span class="aff-muted">(${e.period === 'AM' ? 'matin' : e.period === 'PM' ? 'après-midi' : esc(e.period)})</span>` : ''}</td>
-                <td style="padding:8px;">${e.participants.length ? `<span title="${esc(e.participants.join(', '))}">${e.participants.length} · ${esc(e.participants.slice(0, 3).join(', '))}${e.participants.length > 3 ? '…' : ''}</span>` : '<span class="aff-muted">—</span>'}</td>
+                <td style="padding:8px;">${e.participants.length ? `<span title="${esc(evPartNames(e).join(', '))}">${e.participants.length} · ${esc(evPartNames(e).slice(0, 3).join(', '))}${e.participants.length > 3 ? '…' : ''}</span>` : '<span class="aff-muted">—</span>'}</td>
                 <td style="padding:8px;font-size:12px;">${e.planned ? (same ? '<span style="color:#1b7f3b;">✔ mêmes dates</span>' : `<span style="color:#b26a00;">⚠ activité prévue : ${esc(evDates(e.planned))}</span>`) : '<span class="aff-muted">activité non datée</span>'}</td>${isAdminUser ? `<td style="padding:8px;text-align:right;"><button type="button" class="aff-icon-btn" style="background:#D60B51" title="Supprimer cet événement" aria-label="Supprimer l'événement ${esc(e.label)}" onclick="AffectationApp.evDelete(${e.id})">${svg('trash', 'aff-ico-sm')}</button></td>` : ''}</tr>`;
                 })
                 .join('')}

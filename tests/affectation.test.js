@@ -512,6 +512,13 @@ describe('affectations depuis les participants : plafond par jour', () => {
             '2027-03-04': [b.resource.id],
             '2027-03-05': [b.resource.id]
         });
+        // Onglet Événements : les jours d'un participant qui ne couvre pas toute l'activité sont indiqués
+        const listed = (await admin.get('/api/affectation/events')).data.events.filter(e => e.project_id === p.id);
+        const name = u => `${u.prenom || ''} ${u.nom || ''}`.trim();
+        expect(listed.map(e => e.participants_jours)).toEqual([
+            { [name(a.user)]: '01/03, 02/03' },
+            { [name(b.user)]: '04/03, 05/03' }
+        ]);
     });
 });
 
