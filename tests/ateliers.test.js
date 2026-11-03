@@ -381,6 +381,7 @@ describe('sondages de date des jalons', () => {
         expect((await anon.get('/api/sondages-publics/' + 'f'.repeat(32))).status).toBe(404);
         const page = await anon.get(`/sondage/${token}`);
         expect(page.status).toBe(200);
+        expect((await anon.get('/img/logo-telephonie-si-samu.png')).status).toBe(200);
 
         const [o1, o2] = pub.data.options;
         expect((await anon.post(`/api/sondages-publics/${token}/reponses`, { nom: '', options: [o1.id] })).status).toBe(
