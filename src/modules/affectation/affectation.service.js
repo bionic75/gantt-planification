@@ -1358,6 +1358,8 @@ export async function affSyncCompute(/** @type {number} */ projectId, /** @type 
         const conflicts = [];
         /** @type {string[]} */
         const extra = [];
+        /** @type {Record<string, { s: string, reason?: string }>} état de chaque demi-journée à afficher */
+        const states = {};
         let done = 0;
         for (const day of calendarDays(span.start, span.end)) {
             if (day < per.start || day > per.end || !(effective[day] || []).includes(a.id)) {
@@ -1365,7 +1367,7 @@ export async function affSyncCompute(/** @type {number} */ projectId, /** @type 
                     for (const h of ['AM', 'PM']) {
                         const c = (cells[a.id] || {})[`${day}_${h}`] || {};
                         if ((c.activity === '3' || c.activity === '4') && affSamuNumber(c.localisation) === samuNo)
-                            extra.push(`${day}_${h}`);
+                            (extra.push(`${day}_${h}`), (states[`${day}_${h}`] = { s: 'extra' }));
                     }
                 continue;
             }
@@ -1374,6 +1376,7 @@ export async function affSyncCompute(/** @type {number} */ projectId, /** @type 
                 const c = (cells[a.id] || {})[key] || {};
                 if ((c.activity === '3' || c.activity === '4') && affSamuNumber(c.localisation) === samuNo) {
                     done++;
+                    states[key] = { s: 'ok' };
                     continue;
                 }
                 // forceable : la planification peut être écrasée (indisponibilité, activité ANS) ; congés et autre SAMU, non
@@ -1392,7 +1395,9 @@ export async function affSyncCompute(/** @type {number} */ projectId, /** @type 
                 } else toWrite.push(key);
             }
         }
-        return { id: a.id, nom: a.nom, prenom: a.prenom, user_id: a.user_id, toWrite, done, conflicts, extra };
+        for (const k of toWrite) states[k] = { s: 'write' };
+        for (const x of conflicts) states[x.key] = { s: 'conflict', reason: x.reason };
+        return { id: a.id, nom: a.nom, prenom: a.prenom, user_id: a.user_id, toWrite, done, conflicts, extra, states };
     });
 
     const tpl = AFF_STAGE_EVENT[stageKey];
@@ -1431,6 +1436,7 @@ export async function affSyncCompute(/** @type {number} */ projectId, /** @type 
         proj,
         stageKey,
         per,
+        span,
         samuLoc,
         samuNo,
         locationId,
