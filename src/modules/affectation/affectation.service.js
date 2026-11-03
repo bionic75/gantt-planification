@@ -295,16 +295,15 @@ export async function affReconcileAssignments(
             if (!needed || counts[a.stage_key] > needed) toDelete.push(a.id);
         }
     }
-    // Journées enregistrées : celles hors de la période (ou d'un week-end) et au-delà du nombre de ressources par jour sont retirées
+    // Journées enregistrées : celles hors de la période et au-delà du nombre de ressources par jour sont retirées
     /** @type {Record<string, number>} */
     const perDay = {};
     const kept = new Set();
     for (const d of dayRows) {
         const per = periods[d.stage_key] && periods[d.stage_key][0];
         const needed = per ? per.needed : 0;
-        const dow = new Date(d.date + 'T00:00:00Z').getUTCDay();
         const key = `${d.stage_key}|${d.date}`;
-        if (!per || !needed || d.date < per.start || d.date > per.end || dow === 0 || dow === 6) {
+        if (!per || !needed || d.date < per.start || d.date > per.end) {
             daysToDelete.push(d.id);
             continue;
         }
@@ -535,6 +534,14 @@ function scheduleCells(
     });
 }
 
+/** Tous les jours (UTC) d'une période, week-ends compris */
+function* calendarDays(/** @type {string} */ start, /** @type {string} */ end) {
+    for (let t = Date.parse(start + 'T00:00:00Z'); t <= Date.parse(end + 'T00:00:00Z'); t += 86400000)
+        yield new Date(t).toISOString().slice(0, 10);
+}
+
+const isWeekendDay = (/** @type {string} */ d) => [0, 6].includes(new Date(d + 'T00:00:00Z').getUTCDay());
+
 /** Jours ouvrés (UTC) d'une période */
 function* workingDays(/** @type {string} */ start, /** @type {string} */ end) {
     for (let t = Date.parse(start + 'T00:00:00Z'); t <= Date.parse(end + 'T00:00:00Z'); t += 86400000) {
@@ -555,13 +562,10 @@ export async function affComputeAvailability(row, stageKey) {
     const samuNo = affSamuNumber(row.samu_name);
     /** @type {Record<number, Record<string, Record<string, string>>>} */
     const slots = {};
-    for (const r of await scheduleCells(per)) {
-        const dow = new Date(r.date_key.slice(0, 10) + 'T00:00:00Z').getUTCDay();
-        if (dow === 0 || dow === 6) continue;
-        ((slots[r.resource_id] ??= {})[r.date_key] ??= {})[r.type] = r.value;
-    }
-    const dates = [...workingDays(per.start, per.end)];
-    const total = dates.length * 2;
+    for (const r of await scheduleCells(per)) ((slots[r.resource_id] ??= {})[r.date_key] ??= {})[r.type] = r.value;
+    // Journées affectables : tous les jours de l'étape, week-ends compris ; les compteurs ne portent que sur les jours ouvrés
+    const dates = [...calendarDays(per.start, per.end)];
+    const total = [...workingDays(per.start, per.end)].length * 2;
     /** @type {Record<string, any>} */
     const out = {};
     for (const [rid, days] of Object.entries(slots)) {
@@ -583,32 +587,34 @@ export async function affComputeAvailability(row, stageKey) {
         for (const [dateKey, d] of Object.entries(days)) {
             const act = d.activity;
             const av = d.available;
+            const weekend = isWeekendDay(dateKey.slice(0, 10));
             /** @type {string | null} */
             let state = null;
             if (av === '3') {
-                st.leave++;
+                if (!weekend) st.leave++;
                 state = 'leave';
             } else if (av === '1' || act === '1') {
-                st.off++;
+                if (!weekend) st.off++;
                 state = 'off';
             } else if (act === '3' || act === '4') {
                 if (affSamuNumber(d.localisation) === samuNo && samuNo) {
-                    st.here++;
+                    if (!weekend) st.here++;
                     state = 'here';
                 } else {
-                    st.other++;
+                    if (!weekend) st.other++;
                     state = 'other';
-                    otherSet.add(
-                        String(d.localisation || 'SAMU')
-                            .replace(/^[^A-Za-z0-9]+/, '')
-                            .trim()
-                    );
+                    if (!weekend)
+                        otherSet.add(
+                            String(d.localisation || 'SAMU')
+                                .replace(/^[^A-Za-z0-9]+/, '')
+                                .trim()
+                        );
                 }
             } else if (['5', '6', '7', '8'].includes(act)) {
-                st.ans++;
+                if (!weekend) st.ans++;
                 state = 'ans';
             } else if (av === '2') {
-                st.free++; // disponible ANS, activité 2 ou non renseignée
+                if (!weekend) st.free++; // disponible ANS, activité 2 ou non renseignée
                 state = 'free';
             }
             if (state) {
@@ -686,7 +692,7 @@ export async function setAssignments(
 }
 
 /**
- * Journées d'intervention d'une étape : { AAAA-MM-JJ: [ressources] }, jours ouvrés de la période seulement, au plus
+ * Journées d'intervention d'une étape : { AAAA-MM-JJ: [ressources] }, tous les jours de la période (week-ends compris), au plus
  * « nombre de ressources » par jour. Les ressources retenues sont l'ensemble des intervenants de l'étape ; une journée
  * déjà prise par un autre SAMU dans la planification est refusée (sauf si la ressource y était déjà affectée ici).
  * @returns {Promise<{ samuName: string, before: number[], ids: number[], days: Record<string, number[]> }>}
@@ -706,12 +712,11 @@ export async function setAssignmentDays(
     if (!per || !needed) throw new HttpError(400, "Cette étape n'a pas de nombre de ressources défini");
     if (!rawDays || typeof rawDays !== 'object' || Array.isArray(rawDays))
         throw new HttpError(400, 'Journées invalides');
-    const allowed = new Set(workingDays(per.start, per.end));
+    const allowed = new Set(calendarDays(per.start, per.end));
     /** @type {Map<number, string[]>} */
     const byResource = new Map();
     for (const [date, ids] of Object.entries(/** @type {Record<string, unknown>} */ (rawDays))) {
-        if (!allowed.has(date))
-            throw new HttpError(400, `${affFd(date)} : jour hors de la période de l'étape (jours ouvrés uniquement)`);
+        if (!allowed.has(date)) throw new HttpError(400, `${affFd(date)} : jour hors de la période de l'étape`);
         const list = [...new Set((Array.isArray(ids) ? ids : []).map(Number))];
         if (list.some(n => !Number.isInteger(n) || n <= 0)) throw new HttpError(400, 'Ressources invalides');
         if (list.length > needed)
@@ -1139,7 +1144,7 @@ export async function affResetPlanning(snap) {
     const halves = snap.period === 'AM' ? ['AM'] : snap.period === 'PM' ? ['PM'] : ['AM', 'PM'];
     let n = 0;
     for (const rid of snap.resourceIds) {
-        for (const day of workingDays(snap.start, snap.end)) {
+        for (const day of calendarDays(snap.start, snap.end)) {
             for (const h of halves) {
                 const key = `${day}_${h}`;
                 const cells = await prisma.scheduleData.findMany({
@@ -1250,7 +1255,7 @@ export async function affSyncCompute(/** @type {number} */ projectId, /** @type 
         /** @type {Array<{ key: string, reason: string }>} */
         const conflicts = [];
         let done = 0;
-        for (const day of workingDays(per.start, per.end)) {
+        for (const day of calendarDays(per.start, per.end)) {
             if (!(effective[day] || []).includes(a.id)) continue;
             for (const h of ['AM', 'PM']) {
                 const key = `${day}_${h}`;

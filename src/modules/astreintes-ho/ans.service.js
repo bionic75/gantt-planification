@@ -1,6 +1,6 @@
 // @ts-check
-// Astreintes HO ANS : un utilisateur (case « Astreinte HO ANS » cochée) désigné par jour ouvré.
-// Droits : les administrateurs désignent n'importe quel utilisateur, sur toutes les semaines ; un utilisateur ayant la case
+// Astreintes HO ANS : un ou plusieurs utilisateurs (case « Astreinte HO ANS » cochée) désignés par jour ouvré.
+// Droits : les administrateurs désignent n'importe quels utilisateurs, sur toutes les semaines ; un utilisateur ayant la case
 // cochée ne s'inscrit ou ne se retire que lui-même, de la semaine en cours aux semaines à venir.
 import { prisma } from '../../db/prisma.js';
 import { badRequest, forbidden } from '../../lib/http-error.js';
@@ -89,7 +89,8 @@ export async function ansEditorOf(session) {
 }
 
 /**
- * Applique des désignations : { date, user_id } désigne l'utilisateur ce jour-là (remplace le précédent), user_id null libère le jour
+ * Applique des désignations : { date, user_ids } fixe les utilisateurs en astreinte HO ANS ce jour-là (liste vide : jour
+ * libéré). Ancien format accepté : { date, user_id } (un seul utilisateur, ou null).
  * @param {{ userId: number, activeProfile?: string | null, name: string }} session
  * @param {unknown} changes
  */
@@ -104,68 +105,65 @@ export async function applyAnsChanges(session, changes) {
     if (changes.length > 200) throw badRequest('Trop de modifications en une fois');
 
     const candidates = new Map((await listAnsUsers()).map(u => [u.user_id, u]));
-    /** @type {Array<{ date: string, user_id: number | null }>} */
+    /** @type {Array<{ date: string, ids: number[] }>} */
     const wanted = [];
     const seen = new Set();
     for (const raw of changes) {
         const c = /** @type {any} */ (raw) || {};
-        const userId = c.user_id === null || c.user_id === undefined || c.user_id === '' ? null : Number(c.user_id);
         if (!isValidDate(c.date) || !isWeekday(c.date)) throw badRequest('Date invalide (jours ouvrés uniquement)');
-        if (seen.has(c.date)) throw badRequest('Un seul utilisateur par jour');
+        if (seen.has(c.date)) throw badRequest('Une seule ligne de modification par jour');
         seen.add(c.date);
-        if (userId !== null && !candidates.has(userId))
-            throw badRequest("Cet utilisateur n'a pas la case « Astreinte HO ANS » cochée");
-        wanted.push({ date: c.date, user_id: userId });
+        const list = Array.isArray(c.user_ids)
+            ? c.user_ids
+            : c.user_id === null || c.user_id === undefined || c.user_id === ''
+              ? []
+              : [c.user_id];
+        const ids = [...new Set(list.map(Number))];
+        if (ids.some(n => !Number.isInteger(n) || n <= 0)) throw badRequest('Utilisateurs invalides');
+        if (ids.some(id => !candidates.has(id)))
+            throw badRequest("Un utilisateur n'a pas la case « Astreinte HO ANS » cochée");
+        wanted.push({ date: c.date, ids });
     }
-    const current = new Map(
-        (await prisma.astreinteHoAnsSlot.findMany({ where: { date: { in: wanted.map(w => w.date) } } })).map(s => [
-            s.date,
-            s
-        ])
-    );
+    const currentRows = await prisma.astreinteHoAnsSlot.findMany({ where: { date: { in: wanted.map(w => w.date) } } });
+    /** @type {Map<string, number[]>} */
+    const current = new Map();
+    for (const s of currentRows) current.set(s.date, [...(current.get(s.date) || []), s.user_id]);
+    const others = (/** @type {number[]} */ ids) => ids.filter(id => id !== editor.userId).sort((a, b) => a - b);
     for (const w of wanted) {
         if (editor.isAdmin) continue;
         if (weekStart(w.date) < editor.currentWeek) throw forbidden('Les semaines passées ne sont plus modifiables');
-        const before = current.get(w.date)?.user_id ?? null;
-        const touchesOther =
-            (w.user_id !== null && w.user_id !== editor.userId) || (before !== null && before !== editor.userId);
-        if (touchesOther) throw forbidden('Vous ne pouvez modifier que votre propre astreinte');
+        // Un utilisateur ne s'ajoute ou ne se retire que lui-même : les autres astreintes du jour restent telles quelles
+        if (others(w.ids).join() !== others(current.get(w.date) || []).join())
+            throw forbidden('Vous ne pouvez modifier que votre propre astreinte');
     }
 
-    /** @type {Array<{ date: string, user_id: number | null, name: string, action: 'set' | 'clear', previous: string | null }>} */
+    /** @type {Array<{ date: string, user_id: number, name: string, action: 'add' | 'remove' }>} */
     const applied = [];
     let skipped = 0;
-    const nameOf = async (/** @type {number | null} */ id) => {
-        if (id === null) return null;
+    const nameOf = async (/** @type {number} */ id) => {
         const c = candidates.get(id);
         if (c) return `${c.prenom} ${c.nom}`;
         const u = (await ansNames([id]))[0];
         return u ? `${u.prenom} ${u.nom}` : `#${id}`;
     };
     for (const w of wanted) {
-        const before = current.get(w.date) ?? null;
-        if ((before?.user_id ?? null) === w.user_id) {
+        const before = current.get(w.date) || [];
+        const toAdd = w.ids.filter(id => !before.includes(id));
+        const toRemove = before.filter(id => !w.ids.includes(id));
+        if (!toAdd.length && !toRemove.length) {
             skipped++;
             continue;
         }
-        const previous = await nameOf(before?.user_id ?? null);
-        if (w.user_id === null) await prisma.astreinteHoAnsSlot.deleteMany({ where: { date: w.date } });
-        else if (before)
-            await prisma.astreinteHoAnsSlot.update({
-                where: { id: before.id },
-                data: { user_id: w.user_id, created_by: session.userId }
-            });
-        else
+        for (const id of toRemove) {
+            await prisma.astreinteHoAnsSlot.deleteMany({ where: { date: w.date, user_id: id } });
+            applied.push({ date: w.date, user_id: id, name: await nameOf(id), action: 'remove' });
+        }
+        for (const id of toAdd) {
             await prisma.astreinteHoAnsSlot.create({
-                data: { date: w.date, user_id: w.user_id, created_by: session.userId }
+                data: { date: w.date, user_id: id, created_by: session.userId }
             });
-        applied.push({
-            date: w.date,
-            user_id: w.user_id,
-            name: (await nameOf(w.user_id)) ?? previous ?? '',
-            action: w.user_id === null ? 'clear' : 'set',
-            previous
-        });
+            applied.push({ date: w.date, user_id: id, name: await nameOf(id), action: 'add' });
+        }
     }
     return {
         applied,

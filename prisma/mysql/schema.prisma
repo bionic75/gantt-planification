@@ -174,7 +174,7 @@ model AstreinteHoSlot {
   @@map("astreinte_ho_slots")
 }
 
-/// Astreinte HO ANS : un utilisateur (case « Astreinte HO ANS » cochée) par jour ouvré
+/// Astreinte HO ANS : un ou plusieurs utilisateurs (case « Astreinte HO ANS » cochée) par jour ouvré
 model AstreinteHoAnsSlot {
   id         Int       @id @default(autoincrement())
   date       String @db.VarChar(191)
@@ -182,7 +182,7 @@ model AstreinteHoAnsSlot {
   created_by Int?
   created_at String? @db.VarChar(32) @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))"))
 
-  @@unique([date])
+  @@unique([date, user_id])
   @@index([user_id], map: "idx_astreinte_ho_ans_user")
   @@map("astreinte_ho_ans_slots")
 }

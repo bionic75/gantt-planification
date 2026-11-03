@@ -249,7 +249,7 @@ export async function updateMailInfo() {
 /**
  * Modification du planning ANS de la semaine en cours : e-mail de mise à jour (« MAJ ») aux destinataires de la n°8, si elle est activée
  * @param {string} author
- * @param {Array<{ date: string, name: string, action: string, previous?: string | null }>} applied
+ * @param {Array<{ date: string, name: string, action: string }>} applied
  * @param {string} currentWeek lundi de la semaine en cours
  */
 export async function notifyAnsUpdate(author, applied, currentWeek) {

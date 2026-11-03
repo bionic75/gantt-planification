@@ -6,7 +6,7 @@ const HO = {
     month: null, // « AAAA-MM »
     data: null, // réponse de GET /api/astreintes-ho
     pending: new Map(), // « date|période|ressource » -> 'add' | 'remove' (modification non enregistrée)
-    pendingAns: new Map(), // astreinte HO ANS : date -> identifiant de l'utilisateur désigné, ou null (jour libéré)
+    pendingAns: new Map(), // astreinte HO ANS : date -> identifiants des utilisateurs désignés (liste vide : jour libéré)
     popover: null,
     saving: false
 };
@@ -127,7 +127,7 @@ function hoGoToday() {
 
 const hoPendingCount = () => HO.pending.size + HO.pendingAns.size;
 
-// ---- Astreinte HO ANS : un utilisateur par jour ----
+// ---- Astreinte HO ANS : un ou plusieurs utilisateurs par jour ----
 function hoAnsUserName(uid) {
     const ans = HO.data.ans;
     const u = (ans.users || []).find(x => x.user_id === uid) || (ans.names || []).find(x => x.id === uid);
@@ -136,14 +136,17 @@ function hoAnsUserName(uid) {
         : { prenom: '?', nom: `#${uid}`, trigramme: '?' };
 }
 
-function hoAnsServerHolder(date) {
-    const s = HO.data.ans.slots.find(x => x.date === date);
-    return s ? s.user_id : null;
+/** Utilisateurs enregistrés en astreinte ce jour-là (triés par identifiant) */
+function hoAnsServerHolders(date) {
+    return HO.data.ans.slots
+        .filter(x => x.date === date)
+        .map(x => x.user_id)
+        .sort((a, b) => a - b);
 }
 
-/** Utilisateur désigné ce jour-là (modification non enregistrée comprise) */
-function hoAnsHolder(date) {
-    return HO.pendingAns.has(date) ? HO.pendingAns.get(date) : hoAnsServerHolder(date);
+/** Utilisateurs en astreinte ce jour-là, modification non enregistrée comprise */
+function hoAnsHolders(date) {
+    return HO.pendingAns.has(date) ? HO.pendingAns.get(date) : hoAnsServerHolders(date);
 }
 
 /** Jour modifiable par l'utilisateur connecté : administrateur (tout), ou utilisateur ANS (semaine en cours et suivantes) */
@@ -152,75 +155,85 @@ function hoAnsEditable(date) {
     return me.canEdit && (me.isAdmin || hoMondayOf(date) >= me.currentWeek);
 }
 
-function hoAnsSet(date, uid) {
-    if (uid === hoAnsServerHolder(date)) HO.pendingAns.delete(date);
-    else HO.pendingAns.set(date, uid);
+function hoAnsSet(date, ids) {
+    const sorted = [...new Set(ids)].sort((a, b) => a - b);
+    if (sorted.join() === hoAnsServerHolders(date).join()) HO.pendingAns.delete(date);
+    else HO.pendingAns.set(date, sorted);
 }
 
 function hoAnsCellHtml(date, inMonth, past) {
-    const holder = hoAnsHolder(date);
-    const cls = ['ho-half', 'ho-ans', holder === null ? 'ho-empty' : 'ho-one'];
+    const holders = hoAnsHolders(date);
+    const cls = ['ho-half', 'ho-ans', holders.length === 0 ? 'ho-empty' : holders.length === 1 ? 'ho-one' : 'ho-multi'];
     if (past) cls.push('ho-past');
     if (!inMonth) cls.push('ho-out');
     if (HO.pendingAns.has(date)) cls.push('ho-pending');
     const editable = hoAnsEditable(date);
     if (editable) cls.push('ho-editable');
-    const n = holder === null ? null : hoAnsUserName(holder);
-    const chip =
-        n === null
-            ? 'vide'
-            : `<span class="ho-chip${holder === HO.data.ans.me.userId ? ' ho-me' : ''}" title="${hoEsc(`${n.prenom} ${n.nom}`)}">${hoEsc(n.trigramme || `${n.prenom} ${n.nom}`)}</span>`;
-    const title = `Astreinte HO ANS — ${hoFr(date)}${n === null ? ' : personne' : ` : ${n.prenom} ${n.nom}`}`;
-    return `<div class="${cls.join(' ')}" data-ans="${date}" ${editable ? `onclick="hoAnsCellClick(event, '${date}')"` : ''} title="${hoEsc(title)}"><span class="ho-pl">ANS</span>${chip}</div>`;
+    const me = HO.data.ans.me;
+    const chips = holders.length
+        ? holders
+              .map(uid => {
+                  const n = hoAnsUserName(uid);
+                  const serverHas = hoAnsServerHolders(date).includes(uid);
+                  return `<span class="ho-chip${uid === me.userId ? ' ho-me' : ''}${serverHas ? '' : ' ho-add'}" title="${hoEsc(`${n.prenom} ${n.nom}`)}">${hoEsc(n.trigramme || `${n.prenom} ${n.nom}`)}</span>`;
+              })
+              .join('')
+        : 'vide';
+    const names = holders.map(uid => {
+        const n = hoAnsUserName(uid);
+        return `${n.prenom} ${n.nom}`;
+    });
+    const title = `Astreinte HO ANS — ${hoFr(date)}${names.length ? ` : ${names.join(', ')}` : ' : personne'}`;
+    return `<div class="${cls.join(' ')}" data-ans="${date}" ${editable ? `onclick="hoAnsCellClick(event, '${date}')"` : ''} title="${hoEsc(title)}"><span class="ho-pl">ANS</span>${chips}</div>`;
 }
 
-/** Menu des utilisateurs « Astreinte HO ANS » : l'administrateur choisit n'importe lequel, un utilisateur ne se choisit que lui-même */
+/** Administrateur : menu à cases à cocher des utilisateurs « Astreinte HO ANS » ; utilisateur : un clic l'inscrit ou le retire */
 function hoAnsCellClick(event, date) {
     event.stopPropagation();
     if (!hoAnsEditable(date)) return;
+    const me = HO.data.ans.me;
+    if (!me.isAdmin) {
+        const holders = hoAnsHolders(date);
+        hoAnsSet(date, holders.includes(me.userId) ? holders.filter(x => x !== me.userId) : [...holders, me.userId]);
+        hoRender();
+        return;
+    }
     hoOpenAnsPopover(event.currentTarget, date);
 }
 
 function hoOpenAnsPopover(anchor, date) {
     hoClosePopover();
     const ans = HO.data.ans;
-    const me = ans.me;
-    const holder = hoAnsHolder(date);
-    // Un utilisateur ne libère ni ne remplace l'astreinte d'un autre
-    const blocked = !me.isAdmin && holder !== null && holder !== me.userId;
-    const candidates = me.isAdmin ? ans.users : ans.users.filter(u => u.user_id === me.userId);
-    const known = new Set(candidates.map(u => u.user_id));
-    const options = [...candidates];
-    // Désigné mais n'ayant plus la case cochée : conservé dans la liste pour l'afficher
-    if (holder !== null && !known.has(holder)) options.unshift({ user_id: holder, ...hoAnsUserName(holder) });
+    const holders = new Set(hoAnsHolders(date));
+    const known = new Set(ans.users.map(u => u.user_id));
+    const options = [...ans.users];
+    // Désigné mais n'ayant plus la case cochée : conservé dans la liste pour pouvoir le retirer
+    for (const uid of holders) if (!known.has(uid)) options.unshift({ user_id: uid, ...hoAnsUserName(uid) });
     const pop = document.createElement('div');
     pop.className = 'ho-popover ho-ans-popover';
     pop.addEventListener('click', e => e.stopPropagation());
-    const item = (uid, label, extra = '') =>
-        `<button type="button" class="ho-ans-item${uid === holder ? ' selected' : ''}" data-uid="${uid === null ? '' : uid}"${blocked ? ' disabled' : ''}>${label}${extra}</button>`;
     pop.innerHTML =
         `<div style="font-weight:700;margin-bottom:6px;">Astreinte HO ANS — ${HO_DAY_NAMES[(new Date(`${date}T00:00:00Z`).getUTCDay() + 6) % 7]} ${hoFr(date)}</div>` +
-        (blocked
-            ? `<p style="color:#b26a00;font-size:12px;margin:4px 0;">Cette astreinte est assignée à quelqu'un d'autre : vous ne pouvez modifier que la vôtre.</p>`
-            : '') +
-        item(null, '<em>— Personne —</em>') +
         (options.length
             ? options
-                  .map(u =>
-                      item(
-                          u.user_id,
-                          `${hoEsc(u.prenom)} ${hoEsc((u.nom || '').toUpperCase())}`,
-                          u.trigramme ? `<span class="ho-tri">${hoEsc(u.trigramme)}</span>` : ''
-                      )
+                  .map(
+                      u =>
+                          `<label class="ho-check"><input type="checkbox" data-uid="${u.user_id}" ${holders.has(u.user_id) ? 'checked' : ''}><span>${hoEsc(u.prenom)} ${hoEsc((u.nom || '').toUpperCase())}</span>${u.trigramme ? `<span class="ho-tri">${hoEsc(u.trigramme)}</span>` : ''}</label>`
                   )
                   .join('')
             : '<p style="color:#b26a00;font-size:12px;margin:4px 0;">Aucun utilisateur n\'a la case « Astreinte HO ANS » cochée (Administration, gestion des utilisateurs).</p>');
-    pop.addEventListener('click', e => {
-        const btn = e.target instanceof Element ? e.target.closest('.ho-ans-item') : null;
-        if (!btn || btn.disabled) return;
-        hoAnsSet(date, btn.dataset.uid === '' ? null : Number(btn.dataset.uid));
-        hoClosePopover();
+    pop.addEventListener('change', e => {
+        const input = e.target;
+        if (!(input instanceof HTMLInputElement) || !input.dataset.uid) return;
+        const uid = Number(input.dataset.uid);
+        const now = new Set(hoAnsHolders(date));
+        if (input.checked) now.add(uid);
+        else now.delete(uid);
+        hoAnsSet(date, [...now]);
         hoRender();
+        // le rendu remplace la grille : on garde la fenêtre ouverte sur la même cellule
+        const cell = document.querySelector(`#hoGrid [data-ans="${date}"]`);
+        if (cell) hoPlacePopover(pop, cell);
     });
     document.body.appendChild(pop);
     hoPlacePopover(pop, anchor);
@@ -279,9 +292,9 @@ function hoRender() {
           : '👁️ <strong>Consultation seule</strong> : seuls les experts déclarés pour les astreintes HO et les administrateurs peuvent modifier ce planning.';
 
     const ansRights = d.ans.me.isAdmin
-        ? ' Ligne « ANS » : cliquez sur un jour pour désigner l’utilisateur en astreinte HO ANS (menu des utilisateurs ayant la case « Astreinte HO ANS » cochée).'
+        ? ' Ligne « ANS » : cliquez sur un jour pour désigner un ou plusieurs utilisateurs en astreinte HO ANS (menu des utilisateurs ayant la case « Astreinte HO ANS » cochée).'
         : d.ans.me.canEdit
-          ? ' Ligne « ANS » : cliquez sur un jour pour vous désigner en astreinte HO ANS ou vous retirer.'
+          ? ' Ligne « ANS » : cliquez sur un jour pour vous ajouter à l’astreinte HO ANS ou vous retirer (les autres utilisateurs désignés sont conservés).'
           : '';
     document.getElementById('hoRights').innerHTML += ansRights;
 
@@ -451,7 +464,7 @@ function hoCancelPending() {
 
 // ---- Enregistrement ----
 function hoAnsPendingChanges() {
-    return [...HO.pendingAns].map(([date, user_id]) => ({ date, user_id }));
+    return [...HO.pendingAns].map(([date, user_ids]) => ({ date, user_ids }));
 }
 
 function hoPendingChanges() {
@@ -492,16 +505,21 @@ function hoOpenSaveDialog() {
             ? `<div style="background:#fff3e0;border-left:4px solid #ef6c00;padding:10px 12px;border-radius:4px;margin-bottom:12px;font-size:13px;">📧 <strong>L’astreinte HO ANS de la semaine en cours est modifiée</strong> : un e-mail de mise à jour (« MAJ ») sera envoyé ${ansMail.recipients ? `à <strong>${ansMail.recipients} destinataire${ansMail.recipients > 1 ? 's' : ''}</strong>` : 'aux destinataires de l’automatisation n°8 (aucun destinataire configuré pour l’instant)'}.</div>`
             : '<div style="background:#eceff1;border-left:4px solid #78909c;padding:10px 12px;border-radius:4px;margin-bottom:12px;font-size:13px;">L’astreinte HO ANS de la semaine en cours est modifiée. Aucun e-mail de mise à jour ne sera envoyé : l’automatisation n°8 est désactivée.</div>';
     }
+    // Une ligne par utilisateur ajouté ou retiré
     const ansRows = ansChanges
-        .map(c => {
-            const set = c.user_id !== null;
-            const n = set ? hoAnsUserName(c.user_id) : null;
-            const before = hoAnsServerHolder(c.date);
-            const was = before !== null ? hoAnsUserName(before) : null;
-            return `<tr><td style="padding:4px 8px;">${dayName(c.date)} ${hoFr(c.date)}</td><td style="padding:4px 8px;">HO ANS</td><td style="padding:4px 8px;">${set ? `${hoEsc(n.prenom)} ${hoEsc(n.nom.toUpperCase())}` : was ? `${hoEsc(was.prenom)} ${hoEsc(was.nom.toUpperCase())}` : ''}</td><td style="padding:4px 8px;font-weight:700;color:${set ? '#1b5e20' : '#b71c1c'};">${set ? `➕ désignation${was ? ' (remplace ' + hoEsc(was.prenom) + ' ' + hoEsc(was.nom.toUpperCase()) + ')' : ''}` : '➖ retrait'}</td></tr>`;
+        .flatMap(c => {
+            const before = hoAnsServerHolders(c.date);
+            const lines = [
+                ...c.user_ids.filter(id => !before.includes(id)).map(id => [id, true]),
+                ...before.filter(id => !c.user_ids.includes(id)).map(id => [id, false])
+            ];
+            return lines.map(([id, add]) => {
+                const n = hoAnsUserName(id);
+                return `<tr><td style="padding:4px 8px;">${dayName(c.date)} ${hoFr(c.date)}</td><td style="padding:4px 8px;">HO ANS</td><td style="padding:4px 8px;">${hoEsc(n.prenom)} ${hoEsc(n.nom.toUpperCase())}</td><td style="padding:4px 8px;font-weight:700;color:${add ? '#1b5e20' : '#b71c1c'};">${add ? '➕ ajout' : '➖ retrait'}</td></tr>`;
+            });
         })
         .join('');
-    const total = changes.length + ansChanges.length;
+    const total = changes.length + ansRows.split('</tr>').length - 1;
     document.getElementById('hoSaveBody').innerHTML =
         `${banner}${ansBanner}<p style="margin:0 0 8px;font-size:13px;"><strong>${total}</strong> modification${total > 1 ? 's' : ''} à enregistrer :</p>
         <table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="text-align:left;color:#607d8b;font-size:11px;"><th style="padding:4px 8px;">Jour</th><th style="padding:4px 8px;">Demi-journée</th><th style="padding:4px 8px;">Expert</th><th style="padding:4px 8px;">Modification</th></tr></thead><tbody>${rows}${ansRows}</tbody></table>
