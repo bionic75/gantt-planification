@@ -3842,10 +3842,15 @@
                         const conf = r.conflictCount
                             ? `<div class="aff-av"><span class="aff-av-b ko" title="${esc(r.conflicts.map(c => c.key.replace('_', ' ') + ' : ' + c.reason).join('\n'))}">${j(r.conflictCount)} non modifiable(s) (conflit)</span></div>`
                             : '';
-                        return `<label class="aff-sync-row"><input type="checkbox" data-sp="${r.id}" ${r.toWrite ? 'checked' : 'disabled'}><span><b>${esc((r.nom || '').toUpperCase())}</b> ${esc(r.prenom || '')}<br>${state}${r.done && r.toWrite ? ` · ${j(r.done)} déjà faits` : ''}${conf}</span></label>`;
+                        const extra = r.extraCount
+                            ? `<div class="aff-av"><span class="aff-av-b ko" title="${esc(r.extra.map(k => k.replace('_', ' ')).join(', '))}">${j(r.extraCount)} planifiée(s) sans journée d'affectation</span> <label style="font-weight:400;"><input type="checkbox" data-sx="${r.id}" style="width:auto;margin:0 4px;">les remettre en « Disponible »</label></div>`
+                            : '';
+                        return `<label class="aff-sync-row"><input type="checkbox" data-sp="${r.id}" ${r.toWrite ? 'checked' : 'disabled'}><span><b>${esc((r.nom || '').toUpperCase())}</b> ${esc(r.prenom || '')}<br>${state}${r.done && r.toWrite ? ` · ${j(r.done)} déjà faits` : ''}${conf}${extra}</span></label>`;
                     })
                     .join('');
                 const needPlan = d.resources.some(r => r.toWrite);
+                const needExtra = d.resources.some(r => r.extraCount);
+                const nbConflicts = d.resources.reduce((t, r) => t + (r.conflictCount || 0), 0);
                 const ev = d.event,
                     ex = ev.existing;
                 const partRows = d.resources
@@ -3873,12 +3878,16 @@
                                <div class="aff-field"><span class="lbl">SAMU concerné</span> <b>${esc(d.samu)}</b>${d.locationId ? '' : ' <span class="aff-error">(entité introuvable : événement sans lieu)</span>'}</div>`
                         }
                         <div style="margin-top:8px;"><span class="lbl">Participants</span>${partRows}</div></div>`;
-                const nothing = !needPlan && !needEvent;
+                const nothing = !needPlan && !needEvent && !needExtra;
                 document.getElementById('affSyncOk').style.display = nothing ? 'none' : '';
                 document.getElementById('affSyncLater').textContent = nothing ? 'Fermer' : 'Plus tard';
                 if (nothing)
+                    document.querySelector('#affSyncBody > p').innerHTML = nbConflicts
+                        ? `<b>Rien à reporter,</b> mais ${j(nbConflicts)} ne peuvent pas être écrites dans la planification (conflit : indisponibilité, congés, autre SAMU ou activité ANS). Survolez l'indication « conflit » pour le détail, puis corrigez la planification ou décochez ces journées dans la grille.`
+                        : '<b>Tout est à jour :</b> la planification et les événements correspondent déjà à cette affectation.';
+                else if (!needPlan && !needEvent)
                     document.querySelector('#affSyncBody > p').innerHTML =
-                        '<b>Tout est à jour :</b> la planification et les événements correspondent déjà à cette affectation.';
+                        "<b>Rien à écrire,</b> mais des demi-journées de la planification ne correspondent plus à l'affectation (voir ci-dessous).";
                 document.getElementById('affSyncModal').classList.add('active');
             } catch (e) {
                 alert(e.message);
@@ -3892,11 +3901,14 @@
             err.textContent = '';
             const q = sel => document.querySelector(sel);
             const body = {};
-            if (q('#affSyncPlan') && q('#affSyncPlan').checked)
+            const clearIds = [...document.querySelectorAll('input[data-sx]:checked')].map(i => Number(i.dataset.sx));
+            if ((q('#affSyncPlan') && q('#affSyncPlan').checked) || clearIds.length)
                 body.planning = {
-                    resource_ids: [...document.querySelectorAll('input[data-sp]:checked')].map(i =>
-                        Number(i.dataset.sp)
-                    )
+                    resource_ids:
+                        q('#affSyncPlan') && q('#affSyncPlan').checked
+                            ? [...document.querySelectorAll('input[data-sp]:checked')].map(i => Number(i.dataset.sp))
+                            : [],
+                    clear_ids: clearIds
                 };
             if (q('#affSyncEvt') && q('#affSyncEvt').checked) {
                 body.event = {
@@ -3924,6 +3936,7 @@
                 AffectationApp.closeSync();
                 alert(
                     `Report effectué : ${r.planning} demi-journée(s) planifiée(s)` +
+                        (r.cleared ? `, ${r.cleared} remise(s) en « Disponible »` : '') +
                         (r.event
                             ? `, événement ${r.event.created ? 'créé' : 'mis à jour'} (${r.event.participants} participant(s)).`
                             : '.')

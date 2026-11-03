@@ -373,6 +373,34 @@ describe('synchronisation vers la planification et les événements', () => {
         expect(put.status).toBe(400);
     });
 
+    it("demi-journées planifiées sans journée d'affectation : signalées, remises en « Disponible » sur demande", async () => {
+        const samu = await newSamu();
+        const p = await createProject(samu);
+        const { resource } = await createExpert(admin);
+        const url = `/api/affectation/projects/${p.id}`;
+        const put = days => admin.put(`${url}/assignment-days/visite_metier`, { days });
+        expect((await put({ '2027-03-01': [resource.id], '2027-03-02': [resource.id] })).status).toBe(200);
+        await admin.post(`${url}/sync/visite_metier`, { planning: { resource_ids: [resource.id] } });
+        // La journée du mardi est décochée dans la grille, mais la planification la garde
+        expect((await put({ '2027-03-01': [resource.id] })).status).toBe(200);
+        const preview = (await admin.get(`${url}/sync/visite_metier`)).data.resources[0];
+        expect(preview).toMatchObject({ toWrite: 0, done: 2, extraCount: 2 });
+        expect(preview.extra).toEqual(['2027-03-02_AM', '2027-03-02_PM']);
+
+        const cleared = await admin.post(`${url}/sync/visite_metier`, {
+            planning: { resource_ids: [], clear_ids: [resource.id] }
+        });
+        expect(cleared.data).toMatchObject({ planning: 0, cleared: 2 });
+        const sch = await schedule();
+        expect(sch[`${resource.id}_activity_2027-03-02_AM`]).toBe('2');
+        expect(sch[`${resource.id}_localisation_2027-03-02_AM`]).toBeUndefined();
+        expect(sch[`${resource.id}_activity_2027-03-01_AM`]).toBe('3');
+        expect((await admin.get(`${url}/sync/visite_metier`)).data.resources[0]).toMatchObject({
+            extraCount: 0,
+            done: 2
+        });
+    });
+
     it('aperçu, planification renseignée, événement créé puis repris ; désaffectation et suppression', async () => {
         const samu = await newSamu();
         const p = await createProject(samu);
