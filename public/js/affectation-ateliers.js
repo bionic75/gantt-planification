@@ -27,6 +27,7 @@
         jalons: {},
         contenus: {},
         planifiees: {},
+        heures: {},
         savedAt: null
     });
     AT.f = blank();
@@ -127,6 +128,7 @@
         #atelierRoot .at-sd.brouillon { background: #e3f0fb; }
         #atelierRoot .at-sd.envoye { background: #fff3e0; border-color: #e08a00; color: #a65f00; }
         #atelierRoot .at-sd.reponses { background: #e6f4ea; border-color: #1b7f3b; color: #1b7f3b; }
+        #atelierRoot .at-sd.termine { background: #455a64; border-color: #455a64; color: #fff; }
         .at-modal.large { max-width: 760px; }
         .at-opt { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; flex-wrap: wrap; }
         .at-opt input { padding: 6px 8px; border: 1px solid #cfd8e6; border-radius: 8px; font-size: 13px; font-family: inherit; }
@@ -295,6 +297,7 @@
             AT.f.jalons = { ...(saved.lignes.jalons || {}) };
             AT.f.contenus = { ...(saved.lignes.contenus || {}) };
             AT.f.planifiees = { ...(saved.lignes.planifiees || {}) };
+            AT.f.heures = { ...(saved.lignes.heures || {}) };
             AT.f.savedAt = saved.updated_at;
         } else if (p) {
             AT.f.mep = p.mep || '';
@@ -351,11 +354,16 @@
         delaiMep: AT.f.delaiMep === '' ? 28 : AT.f.delaiMep,
         ecart12: AT.f.ecart12 === '' ? 7 : AT.f.ecart12,
         ecartAteliers: AT.f.ecartAteliers === '' ? 14 : AT.f.ecartAteliers,
-        lignes: { jalons: AT.f.jalons, contenus: AT.f.contenus, planifiees: AT.f.planifiees }
+        lignes: { jalons: AT.f.jalons, contenus: AT.f.contenus, planifiees: AT.f.planifiees, heures: AT.f.heures }
     });
 
     // ---- Sondages de date (un par jalon) ----
-    const SD_LABEL = { brouillon: 'Sondage (brouillon)', envoye: 'Sondage en cours', reponses: 'Réponses en cours' };
+    const SD_LABEL = {
+        brouillon: 'Sondage (brouillon)',
+        envoye: 'Sondage en cours',
+        reponses: 'Réponses en cours',
+        termine: 'Sondage terminé'
+    };
     const sondageOf = key => AT.sond.find(x => x.retroplanning_id === AT.f.id && x.ligne === key);
     function sondageCell(r) {
         if (r.key === 'mep' || r.key === 'livrables') return '<span class="aff-muted">—</span>';
@@ -405,7 +413,7 @@
                     <td>${esc(frDate(r.cible))}</td>
                     <td style="font-weight:700;${decale ? 'color:#b26a00;' : ''}">${esc(frDate(r.proposee))}</td>
                     <td>${sondageCell(r)}</td>
-                    <td><input type="date" data-row="${r.key}" data-kind="planifiees" value="${esc(r.planifiee || '')}" ${isAdmin() ? '' : 'disabled'}></td>
+                    <td style="white-space:nowrap;"><input type="date" data-row="${r.key}" data-kind="planifiees" value="${esc(r.planifiee || '')}" ${isAdmin() ? '' : 'disabled'}> <input type="time" data-row="${r.key}" data-kind="heures" value="${esc((r.planifiee && AT.f.heures[r.key]) || '')}" title="Heure retenue (facultative)" ${isAdmin() && r.planifiee ? '' : 'disabled'} style="width:96px;"></td>
                     <td><span class="at-badge ${r.niveau}">${esc(r.statut)}</span></td></tr>`;
             })
             .join('');
@@ -417,7 +425,13 @@
                 const kind = el.dataset.kind;
                 if (kind === 'planifiees') {
                     if (el.value) AT.f.planifiees[key] = el.value;
-                    else delete AT.f.planifiees[key];
+                    else {
+                        delete AT.f.planifiees[key];
+                        delete AT.f.heures[key];
+                    }
+                } else if (kind === 'heures') {
+                    if (el.value) AT.f.heures[key] = el.value;
+                    else delete AT.f.heures[key];
                 } else AT.f[kind][key] = el.value;
                 schedule();
             });
@@ -681,7 +695,8 @@
         const bg = document.createElement('div');
         bg.className = 'at-modal-bg';
         bg.id = 'atSondageModal';
-        const dis = ro ? 'disabled' : '';
+        const closed = d.statut === 'termine';
+        const dis = ro || closed ? 'disabled' : '';
         bg.innerHTML = `<div class="at-modal large" role="dialog" aria-label="Sondage">
             <h3>${ico('calendar')} Sondage — ${esc(row.jalon)} <span class="at-badge" style="margin-left:8px;">${esc(SD_LABEL[d.statut] || 'Nouveau')}</span></h3>
             <label>Nom du sondage</label>
@@ -692,7 +707,7 @@
             </select>
             <label>Dates et heures proposées <span class="aff-muted" style="font-weight:400;">(le calendrier s’ouvre autour de la date proposée : ${esc(frShort(row.proposee))})</span></label>
             <div id="sdOpts">${d.options.map(sdOptRow).join('')}</div>
-            ${ro ? '' : '<button type="button" class="aff-btn" onclick="AtelierPlanner.sondageAddDate()">+ Ajouter une date</button>'}
+            ${ro || closed ? '' : '<button type="button" class="aff-btn" onclick="AtelierPlanner.sondageAddDate()">+ Ajouter une date</button>'}
             <label>Destinataires du sondage (adresses e-mail, une par ligne)</label>
             <textarea id="sdDest" rows="3" placeholder="prenom.nom@exemple.fr" ${dis}>${esc((d.destinataires || []).join('\n'))}</textarea>
             <div id="sdDestErr" style="color:#c62828;font-size:11px;margin-top:3px;"></div>
@@ -709,20 +724,80 @@
             <textarea id="sdMsg" rows="2" ${dis}>${esc(d.message || '')}</textarea>
             <label>Adresse d’accès unique</label>
             <div class="at-url"><input type="text" id="sdUrl" readonly value="${esc(sd ? sd.url : 'Générée à l’enregistrement')}"><button type="button" class="aff-btn" ${sd ? '' : 'disabled'} onclick="AtelierPlanner.sondageCopy()">Copier</button></div>
+            <div id="sdChoix">${sd ? sdChoix(d, ro || closed) : ''}</div>
             <div id="sdResults">${sdResults(d)}</div>
             <div class="at-modal-actions">
                 ${sd && !ro ? '<button type="button" class="aff-btn" style="margin-right:auto;color:#b3261e;" onclick="AtelierPlanner.sondageDelete()">Supprimer</button>' : ''}
                 <button type="button" class="aff-btn" onclick="AtelierPlanner.closeSondage()">Fermer</button>
-                ${ro ? '' : `<button type="button" class="aff-btn" id="sdSave" onclick="AtelierPlanner.sondageSave()">Enregistrer</button><button type="button" class="aff-btn aff-btn-primary" id="sdSend" onclick="AtelierPlanner.sondageSend()">${ico('mail', 'at-ico-sm')}${sd && sd.statut !== 'brouillon' ? 'Renvoyer le mail' : 'Envoyer le mail'}</button>`}
+                ${sd && !ro ? (closed ? '<button type="button" class="aff-btn aff-btn-primary" id="sdReopen" onclick="AtelierPlanner.sondageReopen()">Réouvrir</button>' : '<button type="button" class="aff-btn" id="sdClose" style="border-color:#455a64;color:#455a64;" onclick="AtelierPlanner.sondageClose()">Clôturer</button>') : ''}
+                ${ro || closed ? '' : `<button type="button" class="aff-btn" id="sdSave" onclick="AtelierPlanner.sondageSave()">Enregistrer</button><button type="button" class="aff-btn aff-btn-primary" id="sdSend" onclick="AtelierPlanner.sondageSend()">${ico('mail', 'at-ico-sm')}${sd && sd.statut !== 'brouillon' ? 'Renvoyer le mail' : 'Envoyer le mail'}</button>`}
             </div>
         </div>`;
         document.body.appendChild(bg);
+        if (ro || closed)
+            bg.querySelectorAll('#sdOpts input, #sdOpts button, .at-modal > button').forEach(
+                el => (el.disabled = true)
+            );
         document.getElementById('sdCcFilter').addEventListener('input', e => {
             const q = e.target.value.toLowerCase().trim();
             document
                 .querySelectorAll('#sdCc label')
                 .forEach(l => (l.style.display = !q || l.dataset.n.includes(q) ? 'flex' : 'none'));
         });
+    }
+
+    const sdLabel = o => `${frDate(o.date)}${o.heure ? ` · ${o.heure}${o.heure_fin ? ' – ' + o.heure_fin : ''}` : ''}`;
+    // Créneau retenu : une des dates proposées, avec le nombre de réponses favorables
+    function sdChoix(d, locked) {
+        if (!d.options.length) return '';
+        return `<label>Créneau retenu${locked && !d.option_retenue_id ? ' <span class="aff-muted" style="font-weight:400;">(aucun)</span>' : ''}</label>${d.options
+            .map(
+                o =>
+                    `<label style="display:flex;align-items:center;gap:8px;margin:0;padding:3px 0;font-weight:600;cursor:pointer;"><input type="radio" name="sdRet" value="${o.id}" ${d.option_retenue_id === o.id ? 'checked' : ''} ${locked ? 'disabled' : ''} style="width:16px;height:16px;margin:0;flex:0 0 16px;"> ${esc(sdLabel(o))} <span class="aff-muted" style="font-weight:400;">${d.reponses.filter(r => r.options.includes(o.id)).length} réponse(s)</span></label>`
+            )
+            .join('')}`;
+    }
+
+    async function refreshRetro() {
+        AT.list = (await atApi('/affectation/ateliers')).retroplannings || [];
+        const r = AT.list.find(x => x.id === AT.f.id);
+        if (r) {
+            AT.f.planifiees = { ...(r.lignes.planifiees || {}) };
+            AT.f.heures = { ...(r.lignes.heures || {}) };
+        }
+        closeSondage();
+        await loadSondages();
+        recompute();
+    }
+
+    async function sondageClose() {
+        const pick = document.querySelector('input[name="sdRet"]:checked');
+        const opt = pick && SD.data && SD.data.options.find(o => o.id === Number(pick.value));
+        const msg = opt
+            ? `Clôturer le sondage avec le créneau retenu :\n${sdLabel(opt)}\n\nLa date réellement planifiée du jalon sera renseignée (date et heure). Les réponses ne seront plus modifiables.`
+            : 'Clôturer le sondage sans créneau retenu ?\n\nLes réponses ne seront plus modifiables.';
+        if (!confirm(msg)) return;
+        try {
+            await atApi(`/affectation/ateliers/${AT.f.id}/sondages/${SD.key}/close`, {
+                method: 'POST',
+                body: JSON.stringify({ option_id: opt ? opt.id : null })
+            });
+            toast(opt ? `Sondage terminé : ${sdLabel(opt)}.` : 'Sondage clôturé.');
+            await refreshRetro();
+        } catch (e) {
+            toast(e.message, true);
+        }
+    }
+
+    async function sondageReopen() {
+        if (!confirm('Rouvrir le sondage ? Il redevient modifiable et accepte de nouveau des réponses.')) return;
+        try {
+            await atApi(`/affectation/ateliers/${AT.f.id}/sondages/${SD.key}/reopen`, { method: 'POST', body: '{}' });
+            toast('Sondage rouvert.');
+            await refreshRetro();
+        } catch (e) {
+            toast(e.message, true);
+        }
     }
 
     function sdResults(d) {
@@ -839,6 +914,8 @@
         sondageSave: () => sondageSave(false),
         sondageSend: () => sondageSave(true),
         sondageDelete,
+        sondageClose,
+        sondageReopen,
         sondageCopy,
         sondageAddDate,
         resetZone() {

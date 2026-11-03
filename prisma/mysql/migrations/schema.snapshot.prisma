@@ -234,8 +234,11 @@ model AtelierSondage {
   nom             String @db.LongText
   /// Jeton de l'adresse d'accès publique (/sondage/<jeton>)
   token           String @db.VarChar(191)    @unique
-  /// brouillon, envoye (mail parti), reponses (une première réponse reçue)
+  /// brouillon, envoye (mail parti), reponses (une première réponse reçue), termine (clôturé)
   statut          String @db.VarChar(191)    @default("brouillon")
+  /// Date de clôture et créneau retenu (option du sondage), le cas échéant
+  cloture_at      String? @db.LongText
+  option_retenue_id Int?
   organisateur_id Int?
   /// JSON : adresses e-mail destinataires
   destinataires   String? @db.LongText

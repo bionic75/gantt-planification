@@ -146,6 +146,16 @@
     },
     {
         "method": "POST",
+        "path": "/api/affectation/ateliers/:id/sondages/:ligne/close",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/affectation/ateliers/:id/sondages/:ligne/reopen",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
         "path": "/api/affectation/ateliers/:id/sondages/:ligne/send",
         "guard": "admin"
     },

@@ -57,6 +57,8 @@ router.get('/affectation/ateliers-sondages', requireAffectationAccess, h(sondage
 router.get('/affectation/ateliers/:id/sondages/:ligne', requireAffectationAccess, h(sondages.get));
 router.put('/affectation/ateliers/:id/sondages/:ligne', requireAdmin, h(sondages.save));
 router.post('/affectation/ateliers/:id/sondages/:ligne/send', requireAdmin, h(sondages.send));
+router.post('/affectation/ateliers/:id/sondages/:ligne/close', requireAdmin, h(sondages.close));
+router.post('/affectation/ateliers/:id/sondages/:ligne/reopen', requireAdmin, h(sondages.reopen));
 router.delete('/affectation/ateliers/:id/sondages/:ligne', requireAdmin, h(sondages.remove));
 router.get('/sondages-publics/:token', sondagePublicLimiters.read, h(sondages.publicGet));
 router.post('/sondages-publics/:token/reponses', sondagePublicLimiters.answer, h(sondages.publicRespond));

@@ -42,6 +42,21 @@ export async function send(/** @type {Request} */ req, /** @type {Response} */ r
     }
 }
 
+export async function close(/** @type {Request} */ req, /** @type {Response} */ res) {
+    const r = await svc.close(req.params.id, req.params.ligne, (req.body || {}).option_id);
+    logUserAction(req, 'Ateliers métier : sondage clôturé', {
+        sondage: r.nom,
+        creneau: r.retenu || 'aucun créneau retenu'
+    });
+    res.json({ success: true, sondage: withUrl(req, await svc.get(req.params.id, req.params.ligne)) });
+}
+
+export async function reopen(/** @type {Request} */ req, /** @type {Response} */ res) {
+    const nom = await svc.reopen(req.params.id, req.params.ligne);
+    logUserAction(req, 'Ateliers métier : sondage rouvert', { sondage: nom });
+    res.json({ success: true, sondage: withUrl(req, await svc.get(req.params.id, req.params.ligne)) });
+}
+
 export async function remove(/** @type {Request} */ req, /** @type {Response} */ res) {
     const nom = await svc.remove(req.params.id, req.params.ligne);
     logUserAction(req, 'Ateliers métier : sondage supprimé', { sondage: nom });

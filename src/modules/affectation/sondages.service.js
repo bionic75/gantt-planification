@@ -34,6 +34,14 @@ const parseList = (/** @type {string | null | undefined} */ text) => {
     }
 };
 
+const parseJson = (/** @type {string | null | undefined} */ text) => {
+    try {
+        return JSON.parse(text || '{}') || {};
+    } catch {
+        return {};
+    }
+};
+
 const timeOrNull = (/** @type {unknown} */ v) => (/^([01]\d|2[0-3]):[0-5]\d$/.test(String(v || '')) ? String(v) : null);
 
 const DAYS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
@@ -78,6 +86,8 @@ export async function get(/** @type {unknown} */ retroId, /** @type {string} */ 
         nom: row.nom,
         token: row.token,
         statut: row.statut,
+        cloture_at: row.cloture_at,
+        option_retenue_id: row.option_retenue_id,
         organisateur_id: row.organisateur_id,
         destinataires: parseList(row.destinataires),
         cc_user_ids: parseList(row.cc_user_ids),
@@ -108,6 +118,11 @@ export async function save(retroId, ligne, body, userId) {
         .trim()
         .slice(0, 200);
     if (!nom) throw badRequest('Donnez un nom au sondage');
+    const closed = await prisma.atelierSondage.findUnique({
+        where: { retroplanning_id_ligne: { retroplanning_id: rid, ligne } },
+        select: { statut: true }
+    });
+    if (closed && closed.statut === 'termine') throw badRequest('Sondage clôturé : rouvrez-le pour le modifier');
     const opts = (Array.isArray(body.options) ? body.options : []).slice(0, MAX_OPTIONS);
     for (const o of opts) if (!isValidDate(String(o.date || ''))) throw badRequest('Date proposée invalide');
     const invalid = [];
@@ -216,6 +231,7 @@ export async function removeOfRetroplanning(/** @type {number} */ retroId) {
 export async function send(retroId, ligne, origin) {
     const s = await get(retroId, ligne);
     if (!s) throw notFound('Enregistrez le sondage avant de l’envoyer');
+    if (s.statut === 'termine') throw badRequest('Sondage clôturé : rouvrez-le pour le renvoyer');
     if (!s.options.length) throw badRequest('Proposez au moins une date');
     if (!s.destinataires.length) throw badRequest('Renseignez au moins un destinataire');
     const users = await prisma.user.findMany({
@@ -255,6 +271,75 @@ export async function send(retroId, ligne, origin) {
     return { sent: s.destinataires.length, cc: cc.length, url };
 }
 
+/** Statut d'un sondage rouvert : selon l'avancement (réponses reçues, mail envoyé) */
+const reopenedStatus = (/** @type {{ sent_at: string | null }} */ row, /** @type {number} */ answers) =>
+    answers ? 'reponses' : row.sent_at ? 'envoye' : 'brouillon';
+
+/**
+ * Clôture d'un sondage, avec le créneau retenu (facultatif). Le créneau devient la date réellement planifiée
+ * (date et heure) du jalon dans le rétroplanning.
+ * @param {unknown} retroId
+ * @param {string} ligne
+ * @param {unknown} optionId
+ */
+export async function close(retroId, ligne, optionId) {
+    const rid = idParam(retroId);
+    const row = await prisma.atelierSondage.findUnique({
+        where: { retroplanning_id_ligne: { retroplanning_id: rid, ligne } }
+    });
+    if (!row) throw notFound('Sondage introuvable');
+    if (row.statut === 'termine') throw badRequest('Ce sondage est déjà clôturé');
+    const chosen = Number(optionId) > 0 ? Number(optionId) : null;
+    const option = chosen
+        ? await prisma.atelierSondageOption.findFirst({ where: { id: chosen, sondage_id: row.id } })
+        : null;
+    if (chosen && !option) throw badRequest('Créneau retenu inconnu');
+    if (option) {
+        const retro = await prisma.atelierRetroplanning.findUnique({ where: { id: rid } });
+        if (retro) {
+            const lignes = parseJson(retro.lignes);
+            lignes.planifiees = { ...(lignes.planifiees || {}), [ligne]: option.date };
+            lignes.heures = { ...(lignes.heures || {}) };
+            if (option.heure) lignes.heures[ligne] = option.heure;
+            else delete lignes.heures[ligne];
+            await prisma.atelierRetroplanning.update({
+                where: { id: rid },
+                data: { lignes: JSON.stringify(lignes), updated_at: sqlTimestamp() }
+            });
+        }
+    }
+    await prisma.atelierSondage.update({
+        where: { id: row.id },
+        data: {
+            statut: 'termine',
+            cloture_at: sqlTimestamp(),
+            option_retenue_id: option ? option.id : null,
+            updated_at: sqlTimestamp()
+        }
+    });
+    return { nom: row.nom, retenu: option ? optionLabel(option) : null };
+}
+
+/** Réouverture : le sondage redevient modifiable et accepte de nouveau des réponses (la date planifiée est conservée) */
+export async function reopen(/** @type {unknown} */ retroId, /** @type {string} */ ligne) {
+    const row = await prisma.atelierSondage.findUnique({
+        where: { retroplanning_id_ligne: { retroplanning_id: idParam(retroId), ligne } }
+    });
+    if (!row) throw notFound('Sondage introuvable');
+    if (row.statut !== 'termine') throw badRequest('Ce sondage n’est pas clôturé');
+    const answers = await prisma.atelierSondageReponse.count({ where: { sondage_id: row.id } });
+    await prisma.atelierSondage.update({
+        where: { id: row.id },
+        data: {
+            statut: reopenedStatus(row, answers),
+            cloture_at: null,
+            option_retenue_id: null,
+            updated_at: sqlTimestamp()
+        }
+    });
+    return row.nom;
+}
+
 // ---------- Accès public (adresse unique, sans connexion) ----------
 
 async function byToken(/** @type {string} */ token) {
@@ -280,6 +365,8 @@ export async function publicGet(/** @type {string} */ token) {
         : null;
     return {
         nom: row.nom,
+        termine: row.statut === 'termine',
+        retenue: row.option_retenue_id,
         organisateur: org ? `${org.prenom || ''} ${(org.nom || '').toUpperCase()}`.trim() : null,
         options: options.map(o => ({ id: o.id, date: o.date, heure: o.heure, heure_fin: o.heure_fin })),
         reponses: reponses.map(r => ({ nom: r.nom, options: parseList(r.options) }))
@@ -289,6 +376,7 @@ export async function publicGet(/** @type {string} */ token) {
 /** Réponse d'une personne : remplace sa réponse précédente (même nom) ; la première réponse passe le sondage en « réponses » */
 export async function publicRespond(/** @type {string} */ token, /** @type {any} */ body) {
     const row = await byToken(token);
+    if (row.statut === 'termine') throw badRequest('Ce sondage est clôturé : les réponses ne sont plus modifiables');
     const nom = String((body || {}).nom || '')
         .trim()
         .slice(0, 100);
