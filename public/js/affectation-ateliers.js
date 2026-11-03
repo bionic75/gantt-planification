@@ -657,7 +657,7 @@
         } catch (e) {
             return toast(e.message, true);
         }
-        let sd = null;
+        let sd;
         try {
             sd = (await atApi(`/affectation/ateliers/${AT.f.id}/sondages/${key}`)).sondage;
         } catch (e) {
