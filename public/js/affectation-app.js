@@ -308,6 +308,7 @@
     const html = `
     <div class="fixed-header">
         <div class="user-info" id="affectationUserInfo">
+            <span class="app-title-center">Aide à l'affectation opérationnelle</span>
             <div style="position: relative; display: flex; align-items: center;">
                 <div id="affectationProfileCircle" onclick="openProfilePhotoModal()" style="width:50px;height:50px;border-radius:50%;border:3px solid #1D70B7;background-color:#7f8c8d;display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;" title="Mon profil">
                     <span id="affectationProfileTrigramme" style="color:white;font-weight:bold;font-size:16px;">?</span>
@@ -323,9 +324,6 @@
             <button class="tab-btn" id="affectationTabAteliers" onclick="AffectationApp.tab('ateliers')">${svg('rocket', 'tab-ico')}Planification des ateliers métier</button>
             <button class="tab-btn" id="affectationTabAdmin" onclick="AffectationApp.tab('admin')" style="display:none;">${svg('admin', 'tab-ico')}Administration</button>
             <button type="button" onclick="goHome()" title="Accueil" aria-label="Accueil" style="padding:8px 15px;background-color:#16a085;color:white;border:none;cursor:pointer;font-size:18px;border-radius:4px;margin-right:5px;"><svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:22px;height:22px;stroke:white;vertical-align:middle;"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9v12h14V9"/><path d="M10 21v-6h4v6"/></svg></button>
-            <button onclick="AffectationApp.search()" title="Recherche" style="padding:8px 15px;background-color:#3498db;color:white;border:none;cursor:pointer;font-size:18px;border-radius:4px;margin-right:10px;">
-                <span style="display:inline-flex;">${svg('search', 'app-ico', 'width:22px;height:22px;stroke:white;')}</span>
-            </button>
             <button class="logout-icon" onclick="AffectationApp.logout()" title="Déconnexion"></button>
         </div>
     </div>
@@ -4757,9 +4755,6 @@
                     i.setSelectionRange(v.length, v.length);
                 }
             }
-        },
-        search() {
-            alert('Recherche - Fonctionnalité en cours de développement');
         },
         async logout() {
             if (!confirm('Voulez-vous vraiment vous déconnecter ?')) return;
