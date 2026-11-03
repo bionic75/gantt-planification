@@ -275,6 +275,15 @@
         .aff-sync-sec { border: 1px solid #dfe5ef; border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; }
         .aff-sync-sec h4 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .4px; color: #0f766e; display: flex; align-items: center; gap: 8px; }
         .aff-sync-sec h4 input, .aff-sync-row input[type=checkbox] { width: auto; display: inline-block; margin: 0; }
+        .aff-sg { display: flex; gap: 3px; flex-wrap: wrap; margin: 6px 0; }
+        .aff-sg-d { text-align: center; font-size: 10px; line-height: 1.2; color: #667; width: 30px; }
+        .aff-sg-d.we { opacity: .6; }
+        .aff-sg-c { height: 12px; border-radius: 3px; margin-top: 2px; background: #eef1f6; }
+        .aff-sg-c.ok { background: #43a047; } .aff-sg-c.write { background: #1e88e5; }
+        .aff-sg-c.conflict { background: #e53935; } .aff-sg-c.extra { background: #fb8c00; }
+        .aff-sg-lg { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; margin: 8px 0; }
+        .aff-sg-lg i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 4px; vertical-align: -2px; }
+        .aff-sg-fix { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12px; margin: 2px 0 4px; }
         .aff-sync-row { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; border-top: 1px solid #f0f3f8; font-size: 13px; }
         .aff-sync-row:first-of-type { border-top: none; }
         .aff-sync-sec .aff-field { margin-top: 8px; }
@@ -3837,15 +3846,38 @@
                         const state = r.toWrite
                             ? `<b>${j(r.toWrite)}</b> à renseigner`
                             : r.done
-                              ? 'Déjà à jour dans la planification'
+                              ? r.conflictCount || r.extraCount
+                                  ? `${j(r.done)} à jour dans la planification`
+                                  : 'Déjà à jour dans la planification'
                               : 'Rien à écrire';
+                        const dayList = [];
+                        for (
+                            let t = Date.parse(d.spanStart + 'T00:00:00Z');
+                            t <= Date.parse(d.spanEnd + 'T00:00:00Z');
+                            t += 864e5
+                        ) {
+                            const iso = new Date(t).toISOString().slice(0, 10);
+                            if ((iso >= d.start && iso <= d.end) || r.states[iso + '_AM'] || r.states[iso + '_PM'])
+                                dayList.push(iso);
+                        }
+                        const cell = k => {
+                            const st = r.states[k];
+                            return `<div class="aff-sg-c ${st ? st.s : ''}" title="${esc(st ? { ok: 'Planifié (à jour)', write: 'À renseigner', conflict: st.reason || 'Conflit', extra: "Planifié sans journée d'affectation" }[st.s] : 'Rien')}"></div>`;
+                        };
+                        const strip = `<div class="aff-sg">${dayList
+                            .map(iso => {
+                                const dt = new Date(iso + 'T00:00:00Z');
+                                const we = [0, 6].includes(dt.getUTCDay());
+                                return `<div class="aff-sg-d${we ? ' we' : ''}">${['d', 'l', 'm', 'm', 'j', 'v', 's'][dt.getUTCDay()]}<br>${iso.slice(8)}/${iso.slice(5, 7)}${cell(iso + '_AM')}${cell(iso + '_PM')}</div>`;
+                            })
+                            .join('')}</div>`;
                         const conf = r.conflictCount
-                            ? `<div class="aff-av"><span class="aff-av-b ko" title="${esc(r.conflicts.map(c => c.key.replace('_', ' ') + ' : ' + c.reason).join('\n'))}">${j(r.conflictCount)} en conflit avec la planification</span> <select data-sc="${r.id}" style="width:auto;" onclick="event.preventDefault()"><option value="">Laisser tel quel</option>${r.forceableCount ? `<option value="force">Écraser la planification (${j(r.forceableCount)})</option>` : ''}<option value="drop">Retirer ces journées de la grille</option></select></div>`
+                            ? `<div class="aff-sg-fix"><b style="color:#e53935;">${j(r.conflictCount)} en conflit (rouge)</b> → <select data-sc="${r.id}" style="width:auto;" onclick="event.preventDefault()"><option value="">Laisser tel quel</option>${r.forceableCount ? `<option value="force">Écraser la planification (${j(r.forceableCount)})</option>` : ''}<option value="drop">Retirer ces journées de la grille</option></select></div>`
                             : '';
                         const extra = r.extraCount
-                            ? `<div class="aff-av"><span class="aff-av-b ko" title="${esc(r.extra.map(k => k.replace('_', ' ')).join(', '))}">${j(r.extraCount)} planifiée(s) sans journée d'affectation</span> <select data-sx="${r.id}" style="width:auto;" onclick="event.preventDefault()"><option value="">Laisser tel quel</option><option value="clear">Remettre en « Disponible »</option>${r.addableCount ? '<option value="add">Ajouter à la grille</option>' : ''}</select></div>`
+                            ? `<div class="aff-sg-fix"><b style="color:#fb8c00;">${j(r.extraCount)} planifiée(s) hors grille (orange)</b> → <select data-sx="${r.id}" style="width:auto;" onclick="event.preventDefault()"><option value="">Laisser tel quel</option><option value="clear">Remettre en « Disponible »</option>${r.addableCount ? '<option value="add">Ajouter à la grille</option>' : ''}</select></div>`
                             : '';
-                        return `<label class="aff-sync-row"><input type="checkbox" data-sp="${r.id}" ${r.toWrite ? 'checked' : 'disabled'}><span><b>${esc((r.nom || '').toUpperCase())}</b> ${esc(r.prenom || '')}<br>${state}${r.done && r.toWrite ? ` · ${j(r.done)} déjà faits` : ''}${conf}${extra}</span></label>`;
+                        return `<label class="aff-sync-row"><input type="checkbox" data-sp="${r.id}" ${r.toWrite ? 'checked' : 'disabled'}><span><b>${esc((r.nom || '').toUpperCase())}</b> ${esc(r.prenom || '')}<br>${state}${r.done && r.toWrite ? ` · ${j(r.done)} déjà faits` : ''}${strip}${conf}${extra}</span></label>`;
                     })
                     .join('');
                 const needPlan = d.resources.some(r => r.toWrite);
@@ -3866,7 +3898,8 @@
                 document.getElementById('affSyncBody').innerHTML = `
                     <p class="aff-muted" style="margin:0 0 12px;">Les ressources ont été affectées dans l'aide à l'affectation. Autorisez-vous le report dans la planification et les événements ?</p>
                     <div class="aff-sync-sec"><h4><input type="checkbox" id="affSyncPlan" ${needPlan ? 'checked' : 'disabled'}>1. Planification des experts</h4>
-                        <div class="aff-muted">Du ${frd(d.start)} au ${frd(d.end)}, sur les journées d'intervention de chaque expert : activité ${esc(d.activity)} « SAMU (Déploiement) », localisation « ${esc(d.samuLoc)} », disponibilité ANS.</div>${rowsPlan}</div>
+                        <div class="aff-muted">Du ${frd(d.start)} au ${frd(d.end)}, sur les journées d'intervention de chaque expert : activité ${esc(d.activity)} « SAMU (Déploiement) », localisation « ${esc(d.samuLoc)} », disponibilité ANS.</div>
+                        <div class="aff-sg-lg"><span><i style="background:#43a047"></i>À jour</span><span><i style="background:#1e88e5"></i>À renseigner</span><span><i style="background:#e53935"></i>Conflit grille / planification</span><span><i style="background:#fb8c00"></i>Planifié hors grille</span><span><i style="background:#eef1f6"></i>Rien</span><span class="aff-muted">(haut = matin, bas = après-midi)</span></div>${rowsPlan}</div>
                     <div class="aff-sync-sec"><h4><input type="checkbox" id="affSyncEvt" ${needEvent ? 'checked' : 'disabled'}>2. Événement</h4>
                         ${
                             ex

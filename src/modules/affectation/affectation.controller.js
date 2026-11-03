@@ -333,7 +333,10 @@ export async function syncPreview(/** @type {Request} */ req, /** @type {Respons
         start: c.per.start,
         end: c.per.end,
         activity: c.activity,
+        spanStart: c.span.start,
+        spanEnd: c.span.end,
         resources: c.resources.map(r => ({
+            states: r.states,
             id: r.id,
             nom: r.nom,
             prenom: r.prenom,
