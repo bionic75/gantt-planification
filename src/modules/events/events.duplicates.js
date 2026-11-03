@@ -49,6 +49,12 @@ const SIMILAR = 0.8;
 /** Libellés « voisins » : suffisant quand le type et le lieu sont identiques et que les dates se recoupent */
 const NEIGHBOUR = 0.6;
 
+/** Écart maximal (en jours) entre deux périodes qui ne se recoupent pas pour des événements identiques */
+const NEAR_DAYS = 14;
+
+const daysBetween = (/** @type {string} */ from, /** @type {string} */ to) =>
+    Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000);
+
 /**
  * Niveau de ressemblance de deux événements : « certain » (même type, même lieu, mêmes dates et période, même libellé),
  * « probable » (même lieu et dates qui se recoupent, avec un libellé très proche ou voisin à type identique, ou même type et
@@ -61,7 +67,24 @@ export function compareEvents(a, b) {
     if ((a.location_id ?? null) !== (b.location_id ?? null)) return null;
     const sameDates = a.start_date === b.start_date && a.end_date === b.end_date;
     const overlap = a.start_date <= b.end_date && b.start_date <= a.end_date;
-    if (!overlap) return null;
+    if (!overlap) {
+        // Même type, même lieu et même libellé sur des périodes voisines : probablement le même événement saisi deux fois
+        const gap = daysBetween(
+            a.end_date < b.end_date ? a.end_date : b.end_date,
+            a.start_date < b.start_date ? b.start_date : a.start_date
+        );
+        if (
+            a.location_id != null &&
+            (a.type_id ?? null) === (b.type_id ?? null) &&
+            a.norm === b.norm &&
+            gap <= NEAR_DAYS
+        )
+            return {
+                niveau: 'probable',
+                raison: `même type, même lieu, même libellé, dates voisines (${gap} jour${gap > 1 ? 's' : ''} d'écart)`
+            };
+        return null;
+    }
     const samePeriod = (a.period || 'FULL') === (b.period || 'FULL');
     const sameType = (a.type_id ?? null) === (b.type_id ?? null);
     const sim = labelSimilarity(a.norm, b.norm);
@@ -137,7 +160,7 @@ export async function findDuplicateGroups() {
             for (let j = i + 1; j < list.length; j++) {
                 const a = list[i];
                 const b = list[j];
-                if (b.start_date > a.end_date) break; // triés par début : plus aucun recoupement possible pour a
+                if (daysBetween(a.end_date, b.start_date) > NEAR_DAYS) break; // triés par début : plus rien de proche pour a
                 const c = compareEvents(a, b);
                 if (!c) continue;
                 union(a.id, b.id);

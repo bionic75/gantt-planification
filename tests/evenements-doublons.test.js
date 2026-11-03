@@ -83,6 +83,28 @@ describe('ressemblance (calculs)', () => {
         expect(compareEvents(e(), e({ start_date: '2031-05-01', end_date: '2031-05-01' }))).toBeNull();
         expect(compareEvents(e({ location_id: null }), e({ location_id: null, norm: 'autre' }))).toBeNull();
         expect(compareEvents(e({ period: 'AM' }), e({ period: 'PM' }))?.niveau).not.toBe('certain');
+        // Périodes voisines qui ne se recoupent pas : même type, lieu et libellé → probable
+        const vft = (debut, fin, champs = {}) =>
+            e({ norm: 'vft sur site', start_date: debut, end_date: fin, ...champs });
+        const voisin = compareEvents(vft('2026-10-19', '2026-10-22'), vft('2026-10-26', '2026-11-06'));
+        expect(voisin).toMatchObject({ niveau: 'probable' });
+        expect(voisin?.raison).toContain('4 jours');
+        expect(compareEvents(vft('2026-10-26', '2026-11-06'), vft('2026-10-19', '2026-10-22'))?.niveau).toBe(
+            'probable'
+        );
+        expect(compareEvents(vft('2026-10-19', '2026-10-22'), vft('2026-12-01', '2026-12-04'))).toBeNull();
+        expect(
+            compareEvents(vft('2026-10-19', '2026-10-22'), vft('2026-10-26', '2026-11-06', { type_id: 2 }))
+        ).toBeNull();
+        expect(
+            compareEvents(vft('2026-10-19', '2026-10-22'), vft('2026-10-26', '2026-11-06', { norm: 'vft a distance' }))
+        ).toBeNull();
+        expect(
+            compareEvents(
+                vft('2026-10-19', '2026-10-22', { location_id: null }),
+                vft('2026-10-26', '2026-11-06', { location_id: null })
+            )
+        ).toBeNull();
     });
 });
 
