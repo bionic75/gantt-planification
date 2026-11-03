@@ -197,6 +197,33 @@ export async function release(/** @type {Request} */ req, /** @type {Response} *
     if (!proj) throw notFound('Déploiement introuvable');
     const per = svc.parsePeriods(proj.periods)[key]?.[0];
     if (!per) throw badRequest('Étape sans période');
+    // Journées retirées de la grille pour des ressources qui restent affectées : planification remise en situation
+    // sur ces seules journées, sans toucher aux événements
+    const dayMap = (req.body || {}).days;
+    if (dayMap && typeof dayMap === 'object' && !Array.isArray(dayMap)) {
+        let planningReset = 0;
+        for (const [rid, list] of Object.entries(dayMap)) {
+            const n = Number(rid);
+            const dates = (Array.isArray(list) ? list : []).filter(
+                d => /^\d{4}-\d{2}-\d{2}$/.test(String(d)) && d >= per.start && d <= per.end
+            );
+            if (!Number.isInteger(n) || n <= 0 || !dates.length) continue;
+            planningReset += await svc.affResetPlanning({
+                resourceIds: [n],
+                start: per.start,
+                end: per.end,
+                period: 'FULL',
+                samuNo: affSamuNumber(proj.samu_name),
+                days: new Set(dates.map(String))
+            });
+        }
+        logUserAction(req, 'Journées retirées de la grille : planification remise en situation', {
+            id,
+            activite: key,
+            demiJournees: planningReset
+        });
+        return res.json({ success: true, planningReset, removedFromEvents: 0 });
+    }
     const rids = [
         ...new Set(
             ((req.body || {}).resource_ids || [])
