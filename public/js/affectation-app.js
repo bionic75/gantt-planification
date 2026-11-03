@@ -1436,22 +1436,32 @@
     // Événements du SAMU correspondant à chaque activité (liste déroulante ; création proposée s'il n'y en a pas)
     const evFr = d => (d ? d.split('-').reverse().join('/') : '');
     const evDates = e => (e.start === e.end ? evFr(e.start) : `${evFr(e.start)} → ${evFr(e.end)}`);
-    // Activité découpable en plusieurs parties : cases à cocher + ajout d'une partie (dates propres)
+    // Activité découpable en plusieurs parties : liste déroulante à choix multiple + ajout d'une partie (dates propres)
+    const evOpen = new Set();
+    function evSummary(c) {
+        const lk = [...c.matching, ...c.others].filter(e => c.linkedIds.includes(e.id));
+        return lk.length ? `${lk.length} partie(s) : ${lk.map(evDates).join(' ; ')}` : '— Aucun événement lié —';
+    }
     function evMultiHtml(h, key, c) {
         const rows = [...c.matching.map(e => [e, true]), ...c.others.map(e => [e, false])]
             .map(
                 ([e, m]) =>
-                    `<label style="display:flex;gap:6px;align-items:center;font-size:12px;"><input type="checkbox" data-eid="${e.id}" ${c.linkedIds.includes(e.id) ? 'checked' : ''} onchange="AffectationApp.${h}Toggle(this)"><span>${esc(evDates(e))} · ${esc(e.label)}${e.participants ? ' · ' + e.participants + ' part.' : ''}${m ? '' : ' · <i>autre type</i>'}</span></label>`
+                    `<label style="display:flex;gap:8px;align-items:flex-start;font-size:12px;text-align:left;padding:3px 0;cursor:pointer;"><input type="checkbox" style="flex:none;margin-top:2px;" data-eid="${e.id}" ${c.linkedIds.includes(e.id) ? 'checked' : ''} onchange="AffectationApp.${h}Toggle(this)"><span>${esc(evDates(e))} · ${esc(e.label)}${e.participants ? ' · ' + e.participants + ' part.' : ''}${m ? '' : ' · <i>autre type</i>'}</span></label>`
             )
             .join('');
-        return `<div data-evbox="${key}" style="display:flex;flex-direction:column;gap:3px;">
-            <div style="font-size:11px;color:#6b7a8d;">Parties de l'événement (jours de l'activité ${c.linkedIds.length ? '= jours des parties cochées' : "non restreints tant qu'aucune partie n'est cochée"})</div>
-            ${rows || '<span class="aff-muted" style="font-size:12px;">Aucun événement pour ce SAMU.</span>'}
-            <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin-top:2px;">
-                <input type="date" id="${h}PS_${key}" style="padding:3px;" title="Début de la partie"><span class="aff-muted">→</span>
-                <input type="date" id="${h}PE_${key}" style="padding:3px;" title="Fin de la partie (facultative)">
-                <button type="button" class="aff-btn aff-btn-primary" style="padding:3px 9px;font-size:11px;" onclick="AffectationApp.${h}PartAdd('${key}')" title="Crée une partie de l'événement (SAMU, type, dates saisies, ressources affectées en participants)">${svg('plus', 'aff-ico-sm')}Ajouter une partie</button>
-            </div>
+        return `<div data-evbox="${key}">
+            <details style="position:relative;" ${evOpen.has(h + key) ? 'open' : ''} ontoggle="AffectationApp.evOpenState('${h}${key}',this.open)">
+                <summary style="list-style:none;cursor:pointer;border:1px solid #767676;border-radius:4px;padding:5px 24px 5px 8px;background:#fff;color:#1a2b3c;font-size:13px;position:relative;white-space:normal;">${esc(evSummary(c))}<span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:10px;">▼</span></summary>
+                <div style="position:absolute;z-index:20;left:0;right:0;background:#fff;border:1px solid #cfd8e3;border-radius:6px;padding:8px;max-height:300px;overflow:auto;box-shadow:0 6px 18px rgba(0,0,0,.15);">
+                    <div style="font-size:11px;color:#6b7a8d;margin-bottom:4px;">Cochez les parties de l'événement (jours de l'activité = jours des parties cochées dès deux parties)</div>
+                    ${rows || '<span class="aff-muted" style="font-size:12px;">Aucun événement pour ce SAMU.</span>'}
+                    <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin-top:6px;border-top:1px solid #e3e9f0;padding-top:6px;">
+                        <input type="date" id="${h}PS_${key}" style="padding:3px;" title="Début de la partie"><span class="aff-muted">→</span>
+                        <input type="date" id="${h}PE_${key}" style="padding:3px;" title="Fin de la partie (facultative)">
+                        <button type="button" class="aff-btn aff-btn-primary" style="padding:3px 9px;font-size:11px;" onclick="AffectationApp.${h}PartAdd('${key}')" title="Crée une partie de l'événement (SAMU, type, dates saisies, ressources affectées en participants)">${svg('plus', 'aff-ico-sm')}Ajouter une partie</button>
+                    </div>
+                </div>
+            </details>
         </div>`;
     }
     const evCheckedIds = cb =>
@@ -1995,6 +2005,10 @@
                 document.getElementById('affModalError').textContent = e.message;
             }
         },
+        evOpenState(k, open) {
+            if (open) evOpen.add(k);
+            else evOpen.delete(k);
+        },
         async evToggle(cb) {
             const key = cb.closest('[data-evbox]').dataset.evbox,
                 c = state.evc && state.evc.candidates[key],
@@ -2005,7 +2019,7 @@
                     body: JSON.stringify({ key, eventIds: ids })
                 });
                 if (c) c.linkedIds = ids;
-                renderEventLinks();
+                if (c) cb.closest('details').querySelector('summary').firstChild.textContent = evSummary(c);
             } catch (e) {
                 document.getElementById('affModalError').textContent = e.message;
             }
@@ -4442,8 +4456,7 @@
                     body: JSON.stringify({ key, eventIds: ids })
                 });
                 if (c) c.linkedIds = ids;
-                const td = document.getElementById('aTEv_' + key);
-                if (td) td.innerHTML = asanaEvCell(key);
+                if (c) cb.closest('details').querySelector('summary').firstChild.textContent = evSummary(c);
             } catch (e) {
                 document.getElementById('affAsanaTasksMsg').textContent = e.message;
             }
