@@ -115,7 +115,15 @@ export const useEvenementsStore = defineStore('evenements', () => {
         message.value = null;
         try {
             const r = await apiEvenements.participer(id);
-            if (r.planningUpdated) {
+            if (r.deploiements?.length) {
+                const etapes = r.deploiements.map(d => `${d.label} (${d.samu})`).join(', ');
+                message.value = {
+                    type: 'success',
+                    texte:
+                        `✅ Vous avez été inscrit(e) comme participant à "${r.eventLabel}".\n\n` +
+                        `Vous êtes désormais intervenant(e) de : ${etapes}. Votre planning sera renseigné par la synchronisation du déploiement.`
+                };
+            } else if (r.planningUpdated) {
                 message.value = {
                     type: 'success',
                     texte:
