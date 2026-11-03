@@ -134,7 +134,8 @@
         .at-opt:nth-child(odd) { background: #f3f5f8; }
         .at-opt:nth-child(even) { background: #e2e7ee; }
         .at-modal .at-opt input.d { width: auto !important; flex: 1 1 160px; min-width: 0; }
-        .at-modal .at-opt input.h, .at-modal .at-opt input.f { width: 120px !important; flex: 0 0 120px; }
+        .at-modal .at-opt .hm { display: inline-flex; align-items: center; gap: 3px; flex: 0 0 auto; white-space: nowrap; }
+        .at-modal .at-opt select { width: auto !important; padding: 6px 4px; border: 1px solid #cfd8e6; border-radius: 8px; font-size: 13px; }
         .at-modal .at-opt button { flex: 0 0 auto; }
         .at-opt input { padding: 6px 8px; border: 1px solid #cfd8e6; border-radius: 8px; font-size: 13px; font-family: inherit; }
         .at-url { display: flex; gap: 6px; align-items: center; }
@@ -663,8 +664,26 @@
         }
         return users;
     }
+    // Heure en deux listes : choisir l'heure suffit, les minutes valent 00 par défaut
+    const sdHourSel = (cls, v, title) => {
+        const [hh = '', mm = ''] = (v || '').split(':');
+        const mins = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0'));
+        if (mm && !mins.includes(mm)) (mins.push(mm), mins.sort());
+        return `<span class="hm" title="${title}"><select class="${cls}h" aria-label="${title} (heure)"><option value="">--</option>${Array.from(
+            { length: 24 },
+            (_, i) => String(i).padStart(2, '0')
+        )
+            .map(h => `<option ${h === hh ? 'selected' : ''}>${h}</option>`)
+            .join(
+                ''
+            )}</select> h <select class="${cls}m" aria-label="${title} (minutes)">${mins.map(m => `<option ${m === (mm || '00') ? 'selected' : ''}>${m}</option>`).join('')}</select></span>`;
+    };
+    const sdTime = (el, cls) => {
+        const h = el.querySelector(`.${cls}h`).value;
+        return h ? `${h}:${el.querySelector(`.${cls}m`).value || '00'}` : null;
+    };
     const sdOptRow = o =>
-        `<div class="at-opt" data-id="${o.id || ''}"><input type="date" class="d" value="${esc(o.date || '')}"><input type="time" class="h" value="${esc(o.heure || '')}" title="Heure de début"> – <input type="time" class="f" value="${esc(o.heure_fin || '')}" title="Heure de fin (facultative)"><button type="button" class="aff-btn" style="padding:3px 8px;" onclick="this.parentNode.remove()" title="Retirer cette date">×</button></div>`;
+        `<div class="at-opt" data-id="${o.id || ''}"><input type="date" class="d" value="${esc(o.date || '')}">${sdHourSel('s', o.heure, 'Heure de début')} – ${sdHourSel('e', o.heure_fin, 'Heure de fin (facultative)')}<button type="button" class="aff-btn" style="padding:3px 8px;" onclick="this.parentNode.remove()" title="Retirer cette date">×</button></div>`;
     const sdOrgName = u => `${u.prenom || ''} ${(u.nom || '').toUpperCase()}`.trim();
 
     async function openSondage(key) {
@@ -728,7 +747,7 @@
             <label>Message (facultatif)</label>
             <textarea id="sdMsg" rows="2" ${dis}>${esc(d.message || '')}</textarea>
             <label>Adresse d’accès unique</label>
-            <div class="at-url"><input type="text" id="sdUrl" readonly value="${esc(sd ? sd.url : 'Générée à l’enregistrement')}"><button type="button" class="aff-btn" ${sd ? '' : 'disabled'} onclick="AtelierPlanner.sondageCopy()">Copier</button><button type="button" class="aff-btn" ${sd ? '' : 'disabled'} onclick="AtelierPlanner.sondagePreview()" title="Ouvre la page publique du sondage dans un nouvel onglet">Prévisualiser</button></div>
+            <div class="at-url"><input type="text" id="sdUrl" readonly value="${esc(sd ? sd.url : '')}" placeholder="Pas encore générée">${sd ? '' : `<button type="button" class="aff-btn aff-btn-primary" id="sdGen" ${ro ? 'disabled' : ''} onclick="AtelierPlanner.sondageGenerate()" title="Crée le sondage (brouillon) et son adresse d’accès, sans l’envoyer">Génération</button>`}<button type="button" class="aff-btn" ${sd ? '' : 'disabled'} onclick="AtelierPlanner.sondageCopy()">Copier</button><button type="button" class="aff-btn" ${sd ? '' : 'disabled'} onclick="AtelierPlanner.sondagePreview()" title="Ouvre la page publique du sondage dans un nouvel onglet">Prévisualiser</button></div>
             <div id="sdChoix">${sd ? sdChoix(d, ro || closed) : ''}</div>
             <div id="sdResults">${sdResults(d)}</div>
             <div class="at-modal-actions">
@@ -740,9 +759,7 @@
         </div>`;
         document.body.appendChild(bg);
         if (ro || closed)
-            bg.querySelectorAll('#sdOpts input, #sdOpts button, .at-modal > button').forEach(
-                el => (el.disabled = true)
-            );
+            bg.querySelectorAll('#sdOpts input, #sdOpts select, #sdOpts button').forEach(el => (el.disabled = true));
         document.getElementById('sdCcFilter').addEventListener('input', e => {
             const q = e.target.value.toLowerCase().trim();
             document
@@ -860,8 +877,8 @@
             .map(el => ({
                 id: el.dataset.id ? Number(el.dataset.id) : undefined,
                 date: el.querySelector('.d').value,
-                heure: el.querySelector('.h').value || null,
-                heure_fin: el.querySelector('.f').value || null
+                heure: sdTime(el, 's'),
+                heure_fin: sdTime(el, 'e')
             }))
             .filter(o => o.date);
         const parsed = window.parseEmailLines
@@ -879,6 +896,27 @@
             cc_user_ids: [...document.querySelectorAll('#sdCc input:checked')].map(i => Number(i.value)),
             message: document.getElementById('sdMsg').value
         };
+    }
+
+    // Crée le sondage (brouillon) pour obtenir son adresse, puis rouvre la fenêtre sur le sondage créé
+    async function sondageGenerate() {
+        const btn = document.getElementById('sdGen');
+        try {
+            const body = sondageForm();
+            if (btn) btn.disabled = true;
+            await atApi(`/affectation/ateliers/${AT.f.id}/sondages/${SD.key}`, {
+                method: 'PUT',
+                body: JSON.stringify(body)
+            });
+            const key = SD.key;
+            closeSondage();
+            await loadSondages();
+            toast('Adresse générée. Le sondage reste en brouillon tant que le mail n’est pas envoyé.');
+            await openSondage(key);
+        } catch (e) {
+            if (btn) btn.disabled = false;
+            toast(e.message, true);
+        }
     }
 
     async function sondageSave(thenSend) {
@@ -964,6 +1002,7 @@
         sondageClose,
         sondageReopen,
         sondageCopy,
+        sondageGenerate,
         sondageRefresh,
         sondagePreview,
         sondageAddDate,
