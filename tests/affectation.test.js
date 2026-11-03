@@ -342,6 +342,35 @@ describe('journées d’intervention par étape', () => {
     });
 });
 
+describe('correspondance activité / activité Asana / type d’événement', () => {
+    it('règles Asana par activité : enregistrées, normalisées, rétablies par défaut', async () => {
+        const before = (await admin.get('/api/affectation/stage-event-types')).data;
+        expect(before.asanaRules).toEqual({});
+        expect(before.asanaActivities.map(a => a.value)).toEqual(expect.arrayContaining(['5.1', '5.9', '6.6']));
+        const put = await admin.put('/api/affectation/stage-event-types', {
+            mapping: before.mapping,
+            asanaRules: {
+                vft: '5.4',
+                visite_metier: ' Visite Métier ',
+                accompagnement: '6.6, 6.7',
+                formation_utilisateurs: ''
+            }
+        });
+        expect(put.status).toBe(200);
+        expect(put.data.asanaRules).toEqual({
+            vft: '5.4',
+            visite_metier: 'title:visite metier',
+            accompagnement: '6.6,6.7'
+        });
+        expect((await admin.get('/api/affectation/stage-event-types')).data.asanaRules).toEqual(put.data.asanaRules);
+        const reset = await admin.put('/api/affectation/stage-event-types', {
+            mapping: before.mapping,
+            asanaRules: {}
+        });
+        expect(reset.data.asanaRules).toEqual({});
+    });
+});
+
 describe('synchronisation vers la planification et les événements', () => {
     it('« Réunion de lancement stratégique » et « Visite OB » : jalons sans ressources, reliés aux événements', async () => {
         const types = (await admin.get('/api/event-types')).data.types;

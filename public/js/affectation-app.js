@@ -926,12 +926,18 @@
             box = document.getElementById('affStageTypes');
         if (!d || !box) return;
         const chip = t => (typeof evtChip === 'function' && t ? evtChip(t, true) : '');
+        const acts = d.asanaActivities || [];
+        const rules = d.asanaRules || {};
         box.innerHTML = `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;">
-            <thead><tr style="text-align:left;color:#6b7a8d;font-size:11px;"><th style="padding:6px 8px;">Activité reprise d'Asana</th><th style="padding:6px 8px;min-width:300px;">Type d'événement</th><th style="padding:6px 8px;">Aperçu (planning / carte)</th></tr></thead><tbody>
+            <thead><tr style="text-align:left;color:#6b7a8d;font-size:11px;"><th style="padding:6px 8px;">Activité de l'outil de planification</th><th style="padding:6px 8px;min-width:260px;">Activité Asana</th><th style="padding:6px 8px;min-width:260px;">Type d'événement</th><th style="padding:6px 8px;">Aperçu (planning / carte)</th></tr></thead><tbody>
             ${d.stages
                 .map(st => {
                     const cur = d.types.find(t => t.id === d.mapping[st.key]);
-                    return `<tr style="border-top:1px solid #eef1f6;"><td style="padding:8px;"><b>${esc(st.label)}</b><div class="aff-muted" style="font-size:11px;">${esc(st.rule)}</div></td>
+                    const rule = rules[st.key] || '';
+                    const known = acts.some(x => x.value === rule);
+                    return `<tr style="border-top:1px solid #eef1f6;"><td style="padding:8px;"><b>${esc(st.label)}</b></td>
+                    <td style="padding:8px;"><select data-stage="${st.key}" onchange="AffectationApp.asanaRuleSet(this)" style="width:100%;padding:6px;"><option value="">Par défaut : ${esc(st.rule)}</option>${acts.map(x => `<option value="${esc(x.value)}" ${rule === x.value ? 'selected' : ''}>${esc(x.label)}</option>`).join('')}<option value="__custom" ${rule && !known ? 'selected' : ''}>Autre (code ou titre de tâche)…</option></select>
+                    <input type="text" data-stage-custom="${st.key}" value="${rule && !known ? esc(rule.replace(/^title:/, '')) : ''}" placeholder="ex. 5.4 ou titre de la tâche" onchange="AffectationApp.asanaRuleSet(this)" style="width:100%;padding:6px;margin-top:4px;${rule && !known ? '' : 'display:none;'}"></td>
                     <td style="padding:8px;"><select data-stage="${st.key}" onchange="AffectationApp.stageTypeSet(this)" style="width:100%;padding:6px;">${d.types.map(t => `<option value="${t.id}" ${cur && cur.id === t.id ? 'selected' : ''}>${esc(t.label_long)}${t.label_short ? ' (' + esc(t.label_short) + ')' : ''}</option>`).join('')}</select></td>
                     <td style="padding:8px;" id="affStChip_${st.key}">${chip(cur)}</td></tr>`;
                 })
@@ -4205,19 +4211,34 @@
                 btn.lastChild.textContent = old;
             }
         },
+        async asanaRuleSet(el) {
+            const d = stageTypes.data,
+                key = el.dataset.stage || el.dataset.stageCustom;
+            const custom = document.querySelector(`input[data-stage-custom="${key}"]`);
+            const sel = document.querySelector(`select[data-stage="${key}"][onchange*="asanaRuleSet"]`);
+            if (el === sel) custom.style.display = sel.value === '__custom' ? '' : 'none';
+            const v = sel.value === '__custom' ? custom.value.trim() : sel.value;
+            if (sel.value === '__custom' && !v) return;
+            d.asanaRules = { ...(d.asanaRules || {}), [key]: v };
+            if (!v) delete d.asanaRules[key];
+            await AffectationApp.stageTypeSet(null);
+        },
         async stageTypeSet(sel) {
             const d = stageTypes.data,
                 msg = document.getElementById('affStageTypesMsg');
-            d.mapping[sel.dataset.stage] = Number(sel.value);
-            const t = d.types.find(x => x.id === Number(sel.value));
-            const c = document.getElementById('affStChip_' + sel.dataset.stage);
-            if (c && typeof evtChip === 'function') c.innerHTML = evtChip(t, true);
+            if (sel) {
+                d.mapping[sel.dataset.stage] = Number(sel.value);
+                const t = d.types.find(x => x.id === Number(sel.value));
+                const c = document.getElementById('affStChip_' + sel.dataset.stage);
+                if (c && typeof evtChip === 'function') c.innerHTML = evtChip(t, true);
+            }
             try {
                 const r = await api('/affectation/stage-event-types', {
                     method: 'PUT',
-                    body: JSON.stringify({ mapping: d.mapping })
+                    body: JSON.stringify({ mapping: d.mapping, asanaRules: d.asanaRules || {} })
                 });
                 d.mapping = r.mapping;
+                d.asanaRules = r.asanaRules;
                 msg.style.color = '#1b7f3b';
                 msg.textContent = 'Correspondance enregistrée.';
                 setTimeout(() => {

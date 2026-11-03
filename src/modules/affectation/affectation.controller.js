@@ -4,7 +4,7 @@ import { samuNumber as affSamuNumber } from '../../lib/samu.js';
 import { logUserAction } from '../../services/action-log.js';
 import { evtResolveType } from '../events/events.service.js';
 import * as svc from './affectation.service.js';
-import { ASANA_RULES } from './asana.service.js';
+import { ASANA_ACTIVITIES, ASANA_RULES, asanaReloadStageRules, asanaSaveStageRules } from './asana.service.js';
 
 /** @typedef {import('express').Request} Request */
 /** @typedef {import('express').Response} Response */
@@ -236,14 +236,17 @@ export async function stageEventTypes(/** @type {Request} */ req, /** @type {Res
             rule: /** @type {Record<string, string>} */ (ASANA_RULES)[x.key] || ''
         })),
         mapping: await svc.affStageTypeMap(),
-        types: await svc.sortedEventTypes()
+        types: await svc.sortedEventTypes(),
+        asanaActivities: ASANA_ACTIVITIES,
+        asanaRules: await asanaReloadStageRules()
     });
 }
 
 export async function saveStageEventTypes(/** @type {Request} */ req, /** @type {Response} */ res) {
     const clean = await svc.saveStageTypeMap((req.body && req.body.mapping) || {});
-    logUserAction(req, "Correspondance activités Asana / types d'événements", { mapping: clean });
-    res.json({ success: true, mapping: await svc.affStageTypeMap() });
+    const rules = req.body && req.body.asanaRules ? await asanaSaveStageRules(req.body.asanaRules) : undefined;
+    logUserAction(req, "Correspondance activités / activités Asana / types d'événements", { mapping: clean, rules });
+    res.json({ success: true, mapping: await svc.affStageTypeMap(), asanaRules: await asanaReloadStageRules() });
 }
 
 /** Événements des activités de tous les déploiements (types correspondant aux activités) */
