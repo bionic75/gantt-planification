@@ -1105,6 +1105,38 @@ export async function affSyncStageFromEvents(
     return { added, full };
 }
 
+/** Étapes à ressources des déploiements auxquelles un événement est rattaché (lien explicite, ou même lieu et même type) */
+export async function affStagesOfEvent(/** @type {number} */ eventId) {
+    /** @type {Array<{ project: number, samu: string, stage: string, label: string }>} */
+    const out = [];
+    const ctx = { map: await affStageTypeMap(), types: await allEventTypes() };
+    for (const proj of await prisma.affectationProject.findMany({ orderBy: { id: 'asc' } })) {
+        const locId = await affProjectLocationId(proj);
+        const links = await affEventLinks(proj.id);
+        const periods = parsePeriods(proj.periods);
+        for (const def of AFF_STAGES.filter(x => x.resources && AFF_EVENT_KEYS.includes(x.key))) {
+            const per = periods[def.key]?.[0];
+            if (!per || !per.needed) continue;
+            if ((await affStageEvents(proj, def.key, per, links, ctx.map, ctx.types, locId)).includes(eventId))
+                out.push({ project: proj.id, samu: proj.samu_name, stage: def.key, label: def.label });
+        }
+    }
+    return out;
+}
+
+/** Parmi des étapes de déploiements, celles où la ressource est affectée */
+export async function affAssignedAmong(
+    /** @type {number} */ resourceId,
+    /** @type {Array<{ project: number, stage: string }>} */ stages
+) {
+    if (!stages.length) return [];
+    const rows = await prisma.affectationAssignment.findMany({
+        where: { resource_id: resourceId, OR: stages.map(s => ({ project_id: s.project, stage_key: s.stage })) },
+        select: { project_id: true, stage_key: true }
+    });
+    return stages.filter(s => rows.some(r => r.project_id === s.project && r.stage_key === s.stage));
+}
+
 /** Synchronisation des affectations depuis les événements, pour tous les déploiements ou un seul */
 export async function affSyncAllFromEvents(
     /** @type {Request | null} */ req,

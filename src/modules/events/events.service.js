@@ -679,49 +679,58 @@ export async function deleteEvent(/** @type {unknown} */ id) {
 }
 
 /**
- * Inscription comme participant ; pour un expert, la planification est mise à jour :
- * disponibilité ANS (2) et activité « Divers » (8) sur les demi-journées encore libres
- * @param {unknown} id
- * @param {{ userId: number, resourceId: number | null | undefined, isExpert: boolean }} participant
+ * Planification d'un expert inscrit à un événement : disponibilité ANS (2) et activité « Divers » (8)
+ * sur les demi-journées encore libres
+ * @param {{ start_date: string, end_date: string | null, period: string | null }} event
+ * @param {number} resourceId
  */
-export async function joinEvent(id, { userId, resourceId, isExpert }) {
-    const event = await prisma.customEvent.findUnique({ where: { id: idParam(id) } });
-    if (!event) throw notFound('Événement introuvable');
-    await addParticipants(event.id, [userId]);
-
+export async function applyJoinPlanning(event, resourceId) {
+    /** @type {Array<{ dateStr: string, period: string, newAvail: string, newAct: string }>} */
     const planningUpdates = [];
-    if (isExpert && resourceId) {
-        const start = new Date(event.start_date);
-        const end = new Date(event.end_date || event.start_date);
-        const dates = [];
-        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) dates.push(d.toISOString().split('T')[0]);
-        const periods = event.period === 'AM' ? ['AM'] : event.period === 'PM' ? ['PM'] : ['AM', 'PM'];
-        const setCell = (/** @type {string} */ date_key, /** @type {string} */ type, /** @type {string} */ value) =>
-            prisma.scheduleData.upsert({
-                where: { resource_id_date_key_type: { resource_id: resourceId, date_key, type } },
-                create: { resource_id: resourceId, date_key, type, value, notification: '0' },
-                update: { value }
-            });
+    const start = new Date(event.start_date);
+    const end = new Date(event.end_date || event.start_date);
+    const dates = [];
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) dates.push(d.toISOString().split('T')[0]);
+    const periods = event.period === 'AM' ? ['AM'] : event.period === 'PM' ? ['PM'] : ['AM', 'PM'];
+    const setCell = (/** @type {string} */ date_key, /** @type {string} */ type, /** @type {string} */ value) =>
+        prisma.scheduleData.upsert({
+            where: { resource_id_date_key_type: { resource_id: resourceId, date_key, type } },
+            create: { resource_id: resourceId, date_key, type, value, notification: '0' },
+            update: { value }
+        });
 
-        for (const dateStr of dates) {
-            for (const period of periods) {
-                const dateKey = `${dateStr}_${period}`;
-                const cells = await prisma.scheduleData.findMany({
-                    where: { resource_id: resourceId, date_key: dateKey, type: { in: ['available', 'activity'] } },
-                    select: { type: true, value: true }
-                });
-                const availVal = cells.find(c => c.type === 'available')?.value || '1';
-                const actVal = cells.find(c => c.type === 'activity')?.value || '1';
-                const newAvail = availVal === '1' ? '2' : availVal;
-                const newAct = actVal === '1' ? '8' : actVal;
-                if (newAvail !== availVal || newAct !== actVal) {
-                    await setCell(dateKey, 'available', newAvail);
-                    await setCell(dateKey, 'activity', newAct);
-                    planningUpdates.push({ dateStr, period, newAvail, newAct });
-                }
+    for (const dateStr of dates) {
+        for (const period of periods) {
+            const dateKey = `${dateStr}_${period}`;
+            const cells = await prisma.scheduleData.findMany({
+                where: { resource_id: resourceId, date_key: dateKey, type: { in: ['available', 'activity'] } },
+                select: { type: true, value: true }
+            });
+            const availVal = cells.find(c => c.type === 'available')?.value || '1';
+            const actVal = cells.find(c => c.type === 'activity')?.value || '1';
+            const newAvail = availVal === '1' ? '2' : availVal;
+            const newAct = actVal === '1' ? '8' : actVal;
+            if (newAvail !== availVal || newAct !== actVal) {
+                await setCell(dateKey, 'available', newAvail);
+                await setCell(dateKey, 'activity', newAct);
+                planningUpdates.push({ dateStr, period, newAvail, newAct });
             }
         }
     }
+    return planningUpdates;
+}
+
+/**
+ * Inscription comme participant. Pour un expert, la planification est mise à jour (voir applyJoinPlanning), sauf
+ * avec `skipPlanning` : l'événement relève d'un déploiement dont l'affectation écrit elle-même la planification.
+ * @param {unknown} id
+ * @param {{ userId: number, resourceId: number | null | undefined, isExpert: boolean, skipPlanning?: boolean }} participant
+ */
+export async function joinEvent(id, { userId, resourceId, isExpert, skipPlanning = false }) {
+    const event = await prisma.customEvent.findUnique({ where: { id: idParam(id) } });
+    if (!event) throw notFound('Événement introuvable');
+    await addParticipants(event.id, [userId]);
+    const planningUpdates = isExpert && resourceId && !skipPlanning ? await applyJoinPlanning(event, resourceId) : [];
     return { event, planningUpdates };
 }
 

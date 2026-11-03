@@ -515,6 +515,49 @@ describe('affectations depuis les participants : plafond par jour', () => {
     });
 });
 
+describe("inscription à un événement d'un déploiement", () => {
+    async function visiteEvent(samu) {
+        const visite = await typeByCode('visiteMetier');
+        const r = await admin.post('/api/custom-events', {
+            startDate: '2027-03-01',
+            endDate: '2027-03-02',
+            label: 'Visite',
+            type_id: visite.id,
+            location_id: samu.locationId
+        });
+        return r.data.eventId;
+    }
+    const key = (rid, type, date, period) => `${rid}_${type}_${date}_${period}`;
+
+    it("l'expert devient intervenant et la planification n'est pas écrite en « Divers »", async () => {
+        const samu = await newSamu();
+        const p = await createProject(samu, { visite_metier: [{ start: '2027-03-01', end: '2027-03-05', needed: 1 }] });
+        const eventId = await visiteEvent(samu);
+        const { user, resource } = await createExpert(admin);
+        const expert = await loginAs(server, user, 'expert');
+        const r = await expert.post(`/api/my-custom-events/${eventId}/join`);
+        expect(r.data).toMatchObject({ success: true, planningUpdated: false });
+        expect(r.data.deploiements).toMatchObject([{ project: p.id, stage: 'visite_metier' }]);
+        expect((await project(p.id)).assignments.visite_metier).toEqual([resource.id]);
+        expect((await schedule())[key(resource.id, 'activity', '2027-03-01', 'AM')]).toBeUndefined();
+    });
+
+    it('étape complète : planification mise à jour comme pour un événement ordinaire', async () => {
+        const samu = await newSamu();
+        const p = await createProject(samu, { visite_metier: [{ start: '2027-03-01', end: '2027-03-05', needed: 1 }] });
+        const eventId = await visiteEvent(samu);
+        const first = await createExpert(admin);
+        const second = await createExpert(admin);
+        const e1 = await loginAs(server, first.user, 'expert');
+        const e2 = await loginAs(server, second.user, 'expert');
+        await e1.post(`/api/my-custom-events/${eventId}/join`);
+        const r = await e2.post(`/api/my-custom-events/${eventId}/join`);
+        expect(r.data).toMatchObject({ planningUpdated: true, deploiements: [] });
+        expect((await project(p.id)).assignments.visite_metier).toEqual([first.resource.id]);
+        expect((await schedule())[key(second.resource.id, 'activity', '2027-03-01', 'AM')]).toBe('8');
+    });
+});
+
 describe('import Asana (fichier CSV)', () => {
     it('aperçu puis création du déploiement', async () => {
         await admin.post('/api/locations', { libelle_long: `SAMU SAS 4X ${Date.now()}`, libelle_court: 'SAMU-SAS 4X' });

@@ -116,6 +116,8 @@ export interface CorpsEvenement {
 /** Réponse de l'inscription d'un participant */
 export interface Inscription {
     planningUpdated: boolean;
+    /** Étapes de déploiement où l'expert devient intervenant (sa planification est écrite par l'affectation) */
+    deploiements?: Array<{ project: number; samu: string; stage: string; label: string }>;
     eventLabel: string;
 }
 
