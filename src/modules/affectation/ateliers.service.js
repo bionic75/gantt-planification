@@ -4,7 +4,7 @@ import { prisma } from '../../db/prisma.js';
 import { idParam, sqlTimestamp } from '../../db/values.js';
 import { isEmail } from '../../lib/email.js';
 import { badRequest, notFound } from '../../lib/http-error.js';
-import { sendEmail } from '../../lib/mailer.js';
+import { emailConfig, sendEmail } from '../../lib/mailer.js';
 import { samuNumber } from '../../lib/samu.js';
 import { getJsonSetting } from '../../services/settings.js';
 import { zoneOfDepartment } from './ateliers.data.js';
@@ -84,12 +84,24 @@ export async function meta() {
     };
 }
 
+/** Lien de réunion Teams : adresse https seulement ('' si absent ou invalide) */
+export function cleanTeamsLink(/** @type {unknown} */ v) {
+    const t = String(v || '').trim();
+    if (!t || t.length > 2000) return '';
+    try {
+        return new URL(t).protocol === 'https:' ? t : '';
+    } catch {
+        return '';
+    }
+}
+
 /** Nettoie les choix de lignes : jalons et contenus parmi les listes, dates valides */
 function cleanLignes(/** @type {any} */ raw) {
     const jalons = /** @type {Record<string, string>} */ ({});
     const contenus = /** @type {Record<string, string>} */ ({});
     const planifiees = /** @type {Record<string, string>} */ ({});
     const heures = /** @type {Record<string, string>} */ ({});
+    const invites = /** @type {Record<string, string>} */ ({});
     const src = raw && typeof raw === 'object' ? raw : {};
     for (let k = 1; k <= MAX_ATELIERS; k++) {
         const key = `a${k}`;
@@ -100,7 +112,11 @@ function cleanLignes(/** @type {any} */ raw) {
         if (isValidDate(src.planifiees?.[key])) planifiees[key] = src.planifiees[key];
         if (planifiees[key] && /^([01]\d|2[0-3]):[0-5]\d$/.test(src.heures?.[key])) heures[key] = src.heures[key];
     }
-    return { jalons, contenus, planifiees, heures };
+    for (const [k, v] of Object.entries(src.invites || {})) {
+        if (/^[a-z0-9]{1,10}$/.test(k) && typeof v === 'string') invites[k] = v.slice(0, 30);
+    }
+    const teams = cleanTeamsLink(src.teams);
+    return { jalons, contenus, planifiees, heures, invites, ...(teams ? { teams } : {}) };
 }
 
 /**
@@ -172,6 +188,8 @@ export async function save(/** @type {any} */ body, /** @type {{ userId: number,
             contenus: input.contenus,
             planifiees: input.planifiees,
             heures: input.heures,
+            invites: input.invites,
+            teams: input.teams,
             ecarts: { ecart12: input.ecart12, ecartAteliers: input.ecartAteliers }
         }),
         updated_at: sqlTimestamp()
@@ -309,4 +327,182 @@ export async function send(id, body) {
     await sendEmail(to.join(', '), subject, html, attachments);
     await prisma.atelierRetroplanning.update({ where: { id: row.id }, data: { last_sent_at: sqlTimestamp() } });
     return { sent: to.length, samu_name: row.samu_name };
+}
+
+// ---------- Invitation à un atelier (ICS avec lien Teams) ----------
+
+const pad2 = (/** @type {number} */ n) => String(n).padStart(2, '0');
+const validTime = (/** @type {unknown} */ v) => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(v || ''));
+const plusHour = (/** @type {string} */ t) => {
+    const [h, m] = t.split(':').map(Number);
+    return h >= 23 ? '23:59' : `${pad2(h + 1)}:${pad2(m)}`;
+};
+const icsText = (/** @type {string} */ s) =>
+    s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+/** Lignes de 75 caractères au plus, la suite commençant par une espace (RFC 5545) */
+const fold = (/** @type {string} */ line) => {
+    const out = [];
+    let rest = line;
+    while (rest.length > 74) {
+        out.push(rest.slice(0, 74));
+        rest = ' ' + rest.slice(74);
+    }
+    out.push(rest);
+    return out.join('\r\n');
+};
+const VTIMEZONE_PARIS = [
+    'BEGIN:VTIMEZONE',
+    'TZID:Europe/Paris',
+    'BEGIN:STANDARD',
+    'DTSTART:19701025T030000',
+    'RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU',
+    'TZOFFSETFROM:+0200',
+    'TZOFFSETTO:+0100',
+    'TZNAME:CET',
+    'END:STANDARD',
+    'BEGIN:DAYLIGHT',
+    'DTSTART:19700329T020000',
+    'RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU',
+    'TZOFFSETFROM:+0100',
+    'TZOFFSETTO:+0200',
+    'TZNAME:CEST',
+    'END:DAYLIGHT',
+    'END:VTIMEZONE'
+];
+
+/**
+ * Invitation (.ics, METHOD:REQUEST) à un atelier : date et heure planifiées du jalon, lien Teams, participants
+ * @param {{ uid: string, summary: string, description: string, day: string, start: string | null, end: string | null,
+ *   teams: string, organizer: { name: string, email: string }, attendees: string[] }} e
+ */
+export function inviteIcs(e) {
+    const compact = (/** @type {string} */ d) => d.replace(/-/g, '');
+    const hm = (/** @type {string} */ t) => t.replace(':', '') + '00';
+    const stamp = new Date()
+        .toISOString()
+        .replace(/[-:]/g, '')
+        .replace(/\.\d{3}/, '');
+    const when =
+        e.start && e.end
+            ? [
+                  `DTSTART;TZID=Europe/Paris:${compact(e.day)}T${hm(e.start)}`,
+                  `DTEND;TZID=Europe/Paris:${compact(e.day)}T${hm(e.end)}`
+              ]
+            : [`DTSTART;VALUE=DATE:${compact(e.day)}`, `DTEND;VALUE=DATE:${compact(addDays(e.day, 1))}`];
+    const lines = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//Planification des ressources//Ateliers métier//FR',
+        'CALSCALE:GREGORIAN',
+        'METHOD:REQUEST',
+        ...(e.start ? VTIMEZONE_PARIS : []),
+        'BEGIN:VEVENT',
+        `UID:${e.uid}`,
+        `DTSTAMP:${stamp}`,
+        ...when,
+        `SUMMARY:${icsText(e.summary)}`,
+        `DESCRIPTION:${icsText(e.description)}`,
+        ...(e.teams ? [`LOCATION:${icsText('Réunion Microsoft Teams')}`, `URL:${e.teams}`] : []),
+        `ORGANIZER;CN=${icsText(e.organizer.name).replace(/:/g, '')}:mailto:${e.organizer.email}`,
+        ...e.attendees.map(a => `ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:${a}`),
+        'SEQUENCE:0',
+        'STATUS:CONFIRMED',
+        'END:VEVENT',
+        'END:VCALENDAR'
+    ];
+    return lines.map(fold).join('\r\n');
+}
+
+/**
+ * Envoie l'invitation à un atelier planifié (e-mail + .ics avec le lien Teams). Le lien Teams est retenu pour le SAMU
+ * (proposé pour ses autres ateliers) et l'envoi est inscrit sur le jalon.
+ * @param {unknown} id
+ * @param {string} ligne clé du jalon
+ * @param {any} body
+ * @param {{ name: string, email: string | null }} sender
+ */
+export async function sendInvitation(id, ligne, body, sender) {
+    const row = await prisma.atelierRetroplanning.findUnique({ where: { id: idParam(id) } });
+    if (!row) throw notFound('Rétroplanning introuvable');
+    const lignes = parseJson(row.lignes);
+    const { rows: jalons } = computeRetroplanning(await toInput({ ...row, lignes }));
+    const j = jalons.find(r => r.key === ligne);
+    if (!j) throw notFound('Jalon introuvable');
+    if (!j.planifiee) throw badRequest("Renseignez d'abord la date réellement planifiée de ce jalon");
+    const userIds = (Array.isArray(body.userIds) ? body.userIds : [])
+        .map(Number)
+        .filter((/** @type {number} */ n) => Number.isInteger(n) && n > 0);
+    const users = userIds.length
+        ? await prisma.user.findMany({ where: { id: { in: userIds }, actif: 1 }, select: { email: true } })
+        : [];
+    /** @type {string[]} */
+    const invalid = [];
+    const extra = (Array.isArray(body.emails) ? body.emails : [])
+        .map((/** @type {unknown} */ e) => String(e || '').trim())
+        .filter(Boolean)
+        .filter((/** @type {string} */ e) => (isEmail(e) ? true : (invalid.push(e), false)));
+    if (invalid.length) throw badRequest(`Adresse(s) e-mail invalide(s) : ${invalid.join(', ')}`);
+    const to = [
+        ...new Map(
+            [...users.map(u => u.email), ...extra].filter(e => isEmail(e)).map(e => [e.toLowerCase(), e])
+        ).values()
+    ];
+    if (!to.length) throw badRequest('Choisissez au moins un destinataire');
+    const teams = cleanTeamsLink(body.teams);
+    if (String(body.teams || '').trim() && !teams) throw badRequest('Le lien Teams doit être une adresse https valide');
+
+    const start = validTime(lignes.heures?.[ligne]) ? lignes.heures[ligne] : null;
+    const end = start ? (validTime(body.heure_fin) && body.heure_fin > start ? body.heure_fin : plusHour(start)) : null;
+    const subject = String(body.subject || '').trim() || `[SI-SAMU] ${row.samu_name} - ${j.jalon}`;
+    const message = String(body.message || '').trim();
+    const horaire = start ? ` de ${start} à ${end}` : '';
+    const description = [
+        `${row.samu_name} — ${j.jalon}`,
+        j.contenu,
+        message,
+        teams ? `Rejoindre la réunion Microsoft Teams : ${teams}` : ''
+    ]
+        .filter(Boolean)
+        .join('\n\n');
+    const html = `<div style="font-family:Arial,sans-serif;font-size:14px;color:#222;max-width:640px;">
+        <h2 style="color:#1d70b7;margin:0 0 8px;">${esc(j.jalon)} — ${esc(row.samu_name)}</h2>
+        <p style="margin:0 0 6px;"><strong>${esc(frDate(j.planifiee))}${esc(horaire)}</strong></p>
+        <p style="margin:0 0 12px;">${esc(j.contenu)}</p>
+        ${message ? `<p>${esc(message).replace(/\n/g, '<br>')}</p>` : ''}
+        ${teams ? `<p style="margin:16px 0;"><a href="${esc(teams)}" style="background:#464eb8;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700;">Rejoindre la réunion Teams</a></p><p style="font-size:12px;color:#666;">Lien : ${esc(teams)}</p>` : ''}
+        <p style="font-size:12px;color:#666;margin-top:14px;">L'invitation (.ics) jointe ajoute cet atelier à votre agenda.</p>
+    </div>`;
+    const organizerEmail = sender.email && isEmail(sender.email) ? sender.email : emailConfig.user || '';
+    const ics = inviteIcs({
+        uid: `atelier-${row.id}-${ligne}@planning-ans`,
+        summary: subject,
+        description,
+        day: j.planifiee,
+        start,
+        end,
+        teams,
+        organizer: { name: sender.name, email: organizerEmail },
+        attendees: to
+    });
+    await sendEmail(
+        to.join(', '),
+        subject,
+        html,
+        [
+            {
+                filename: `Invitation_${row.samu_name.replace(/\W+/g, '_')}_${ligne}.ics`,
+                content: ics,
+                contentType: 'text/calendar; charset=utf-8; method=REQUEST'
+            }
+        ],
+        { replyTo: sender.email && isEmail(sender.email) ? sender.email : undefined }
+    );
+    const next = { ...lignes };
+    if (teams) next.teams = teams;
+    next.invites = { ...(lignes.invites || {}), [ligne]: sqlTimestamp() };
+    await prisma.atelierRetroplanning.update({
+        where: { id: row.id },
+        data: { lignes: JSON.stringify(next), updated_at: sqlTimestamp() }
+    });
+    return { sent: to.length, samu_name: row.samu_name, jalon: j.jalon };
 }
