@@ -766,6 +766,27 @@
         document.body.appendChild(bg);
         if (ro || closed)
             bg.querySelectorAll('#sdOpts input, #sdOpts select, #sdOpts button').forEach(el => (el.disabled = true));
+        // Heure de fin proposée : début + 1 h, tant que l'heure de fin n'a pas été choisie à la main
+        document.getElementById('sdOpts').addEventListener('change', e => {
+            const row = e.target.closest('.at-opt');
+            if (!row) return;
+            const cls = e.target.className;
+            if (cls === 'eh' || cls === 'em') {
+                row.dataset.auto = '';
+                return;
+            }
+            if (cls !== 'sh' && cls !== 'sm') return;
+            const eh = row.querySelector('.eh');
+            if (eh.value && row.dataset.auto !== '1') return;
+            const h = row.querySelector('.sh').value;
+            if (!h || Number(h) >= 23) {
+                if (row.dataset.auto === '1') eh.value = '';
+                return;
+            }
+            eh.value = String(Number(h) + 1).padStart(2, '0');
+            row.querySelector('.em').value = row.querySelector('.sm').value;
+            row.dataset.auto = '1';
+        });
         document.getElementById('sdCcFilter').addEventListener('input', e => {
             const q = e.target.value.toLowerCase().trim();
             document
