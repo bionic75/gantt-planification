@@ -2906,6 +2906,7 @@
         const th = (k, lbl) =>
             `<th style="padding:6px 8px;cursor:pointer;user-select:none;" onclick="AffectationApp.evSort('${k}')" title="Trier">${lbl} ${evTab.sort.k === k ? (evTab.sort.dir > 0 ? '▲' : '▼') : '<span style="opacity:.4;">▲▼</span>'}</th>`;
         const today = todayIso();
+        const isAdminUser = !!(currentUser && currentUser.activeProfile === 'admin');
         const samus = [...new Set(d.events.map(e => e.samu))].sort((a, b) =>
             a.localeCompare(b, 'fr', { numeric: true })
         );
@@ -2917,7 +2918,7 @@
             ${
                 list.length
                     ? `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;">
-            <thead><tr style="text-align:left;font-size:11px;">${th('samu', 'SAMU')}${th('type', 'Type')}${th('label', 'Intitulé')}${th('start', 'Dates')}${th('part', 'Participants')}${th('plan', 'Planning des déploiements')}</tr></thead><tbody>
+            <thead><tr style="text-align:left;font-size:11px;">${th('samu', 'SAMU')}${th('type', 'Type')}${th('label', 'Intitulé')}${th('start', 'Dates')}${th('part', 'Participants')}${th('plan', 'Planning des déploiements')}${isAdminUser ? '<th style="padding:6px 8px;"></th>' : ''}</tr></thead><tbody>
             ${list
                 .map(e => {
                     const same = evSame(e);
@@ -2926,7 +2927,7 @@
                 <td style="padding:8px;">${esc(e.label)}</td>
                 <td style="padding:8px;white-space:nowrap;">${esc(evDates(e))}${e.period && e.period !== 'FULL' ? ` <span class="aff-muted">(${e.period === 'AM' ? 'matin' : e.period === 'PM' ? 'après-midi' : esc(e.period)})</span>` : ''}</td>
                 <td style="padding:8px;">${e.participants.length ? `<span title="${esc(e.participants.join(', '))}">${e.participants.length} · ${esc(e.participants.slice(0, 3).join(', '))}${e.participants.length > 3 ? '…' : ''}</span>` : '<span class="aff-muted">—</span>'}</td>
-                <td style="padding:8px;font-size:12px;">${e.planned ? (same ? '<span style="color:#1b7f3b;">✔ mêmes dates</span>' : `<span style="color:#b26a00;">⚠ activité prévue : ${esc(evDates(e.planned))}</span>`) : '<span class="aff-muted">activité non datée</span>'}</td></tr>`;
+                <td style="padding:8px;font-size:12px;">${e.planned ? (same ? '<span style="color:#1b7f3b;">✔ mêmes dates</span>' : `<span style="color:#b26a00;">⚠ activité prévue : ${esc(evDates(e.planned))}</span>`) : '<span class="aff-muted">activité non datée</span>'}</td>${isAdminUser ? `<td style="padding:8px;text-align:right;"><button type="button" class="aff-icon-btn" style="background:#D60B51" title="Supprimer cet événement" aria-label="Supprimer l'événement ${esc(e.label)}" onclick="AffectationApp.evDelete(${e.id})">${svg('trash', 'aff-ico-sm')}</button></td>` : ''}</tr>`;
                 })
                 .join('')}
             </tbody></table></div>`
@@ -4472,6 +4473,30 @@
             if (on.planning) loadPlanning();
             if (on.events) loadEvents();
             if (on.ateliers && window.AtelierPlanner) window.AtelierPlanner.show();
+        },
+        // Suppression d'un événement (administrateur) : la planification posée par l'affectation pour ses participants est
+        // remise en situation par le serveur (« Disponible / En attente d'affectation »)
+        async evDelete(id) {
+            const e = evTab.data && evTab.data.events.find(x => x.id === id);
+            if (!e) return;
+            if (
+                !confirm(
+                    `Supprimer l'événement « ${e.label} » (${e.samu}, ${evDates(e)}) ?\n\nSes participants sont retirés, et leur planification posée par l'affectation de ce SAMU sur la période est remise en « Disponible / En attente d'affectation ». L'événement ne pourra pas être rétabli.`
+                )
+            )
+                return;
+            try {
+                await api(`/my-custom-events/${id}`, { method: 'DELETE' });
+                window.dispatchEvent(new CustomEvent('gp:evenements-modifies'));
+                const toast = document.createElement('div');
+                toast.className = 'aff-toast';
+                toast.textContent = `Événement « ${e.label} » supprimé.`;
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 4000);
+                await Promise.all([loadEvents(), plan.loaded ? loadPlanning() : null]);
+            } catch (x) {
+                alert(x.message);
+            }
         },
         evSort(k) {
             evTab.sort = { k, dir: evTab.sort.k === k ? -evTab.sort.dir : 1 };
