@@ -401,6 +401,43 @@ describe('synchronisation vers la planification et les événements', () => {
         });
     });
 
+    it('écarts grille / planification : conflits écrasés ou retirés de la grille, demi-journées en trop ajoutées à la grille', async () => {
+        const samu = await newSamu();
+        const p = await createProject(samu);
+        const { resource } = await createExpert(admin);
+        const url = `/api/affectation/projects/${p.id}`;
+        const put = days => admin.put(`${url}/assignment-days/visite_metier`, { days });
+        const cell = (k, v) => admin.post('/api/schedule', { [`${resource.id}_${k}`]: v });
+        expect((await put({ '2027-03-01': [resource.id], '2027-03-02': [resource.id] })).status).toBe(200);
+        await cell('available_2027-03-01_AM', '1'); // indisponible : peut être écrasé
+        await cell('available_2027-03-02_AM', '3'); // congés : jamais écrasés
+        const first = (await admin.get(`${url}/sync/visite_metier`)).data.resources[0];
+        expect(first).toMatchObject({ conflictCount: 2, forceableCount: 1 });
+
+        // Écraser : seule l'indisponibilité est remplacée, les congés restent
+        const forced = await admin.post(`${url}/sync/visite_metier`, { planning: { force_ids: [resource.id] } });
+        expect(forced.data).toMatchObject({ forced: 1 });
+        const sch = await schedule();
+        expect(sch[`${resource.id}_activity_2027-03-01_AM`]).toBe('3');
+        expect(sch[`${resource.id}_available_2027-03-02_AM`]).toBe('3');
+
+        // Retirer de la grille la journée en congés : il ne reste que le lundi
+        const dropped = await admin.post(`${url}/sync/visite_metier`, { planning: { drop_ids: [resource.id] } });
+        expect(dropped.data).toMatchObject({ dropped: 1 });
+        expect((await project(p.id)).assignment_days.visite_metier).toEqual({ '2027-03-01': [resource.id] });
+
+        // Demi-journées planifiées sans journée d'affectation : ajoutées à la grille (période de l'étape)
+        await admin.post(`${url}/sync/visite_metier`, { planning: { resource_ids: [resource.id] } });
+        await cell('available_2027-03-03_AM', '2');
+        await cell('activity_2027-03-03_AM', '3');
+        await cell('localisation_2027-03-03_AM', `🚨 SAMU ${samu.no}`);
+        const gap = (await admin.get(`${url}/sync/visite_metier`)).data.resources[0];
+        expect(gap).toMatchObject({ extraCount: 1, addableCount: 1 });
+        const added = await admin.post(`${url}/sync/visite_metier`, { planning: { add_ids: [resource.id] } });
+        expect(added.data).toMatchObject({ added: 1 });
+        expect(Object.keys((await project(p.id)).assignment_days.visite_metier)).toEqual(['2027-03-01', '2027-03-03']);
+    });
+
     it('aperçu, planification renseignée, événement créé puis repris ; désaffectation et suppression', async () => {
         const samu = await newSamu();
         const p = await createProject(samu);
@@ -422,7 +459,7 @@ describe('synchronisation vers la planification et les événements', () => {
         expect(preview.resources).toEqual([
             expect.objectContaining({ id: resource.id, user_id: user.id, toWrite: 5, done: 0, conflictCount: 1 })
         ]);
-        expect(preview.resources[0].conflicts).toEqual([{ key: '2027-03-03_PM', reason: 'Congés' }]);
+        expect(preview.resources[0].conflicts).toEqual([{ key: '2027-03-03_PM', reason: 'Congés', forceable: false }]);
 
         const applied = await admin.post(`/api/affectation/projects/${p.id}/sync/visite_metier`, {
             planning: { resource_ids: [resource.id] },
