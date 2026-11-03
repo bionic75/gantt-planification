@@ -1306,12 +1306,8 @@ export async function affSyncCompute(/** @type {number} */ projectId, /** @type 
         })
         .sort((a, b) => (a.nom === b.nom ? 0 : a.nom < b.nom ? -1 : 1));
 
-    // Les demi-journées en trop se cherchent sur tout le déploiement, pas seulement sur la période de l'étape
-    const allPeriods = Object.values(parsePeriods(proj.periods)).flatMap(l => l.slice(0, 1));
-    const span = {
-        start: allPeriods.reduce((m, p) => (p.start < m ? p.start : m), per.start),
-        end: allPeriods.reduce((m, p) => (p.end > m ? p.end : m), per.end)
-    };
+    // Les écarts se mesurent sur la seule période de l'étape (celle de l'événement)
+    const span = per;
     /** @type {Record<number, Record<string, Record<string, string>>>} */
     const cells = {};
     if (assigned.length) {
