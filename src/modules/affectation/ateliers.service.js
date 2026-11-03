@@ -89,6 +89,7 @@ function cleanLignes(/** @type {any} */ raw) {
     const jalons = /** @type {Record<string, string>} */ ({});
     const contenus = /** @type {Record<string, string>} */ ({});
     const planifiees = /** @type {Record<string, string>} */ ({});
+    const heures = /** @type {Record<string, string>} */ ({});
     const src = raw && typeof raw === 'object' ? raw : {};
     for (let k = 1; k <= MAX_ATELIERS; k++) {
         const key = `a${k}`;
@@ -97,8 +98,9 @@ function cleanLignes(/** @type {any} */ raw) {
     }
     for (const key of ['visite', ...Array.from({ length: MAX_ATELIERS }, (_, i) => `a${i + 1}`), 'livrables', 'mep']) {
         if (isValidDate(src.planifiees?.[key])) planifiees[key] = src.planifiees[key];
+        if (planifiees[key] && /^([01]\d|2[0-3]):[0-5]\d$/.test(src.heures?.[key])) heures[key] = src.heures[key];
     }
-    return { jalons, contenus, planifiees };
+    return { jalons, contenus, planifiees, heures };
 }
 
 /**
@@ -169,6 +171,7 @@ export async function save(/** @type {any} */ body, /** @type {{ userId: number,
             jalons: input.jalons,
             contenus: input.contenus,
             planifiees: input.planifiees,
+            heures: input.heures,
             ecarts: { ecart12: input.ecart12, ecartAteliers: input.ecartAteliers }
         }),
         updated_at: sqlTimestamp()

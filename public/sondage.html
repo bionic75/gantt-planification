@@ -36,6 +36,9 @@
     .actions { margin-top: 14px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
     .msg { font-size: 13px; }
     .msg.ok { color: var(--ok); } .msg.err { color: #b3261e; }
+    .retenu { background: #e6f4ea; border: 1px solid #1b7f3b; color: #14602c; border-radius: 10px; padding: 12px 14px; margin-top: 12px; font-weight: 700; font-size: 14px; }
+    .retenu.aucun { background: #f1f4f8; border-color: var(--bord); color: var(--doux); }
+    th.choisi, td.choisi { box-shadow: inset 0 0 0 2px var(--ok); }
     .erreur { text-align: center; padding: 40px 10px; color: var(--doux); }
 </style>
 </head>
@@ -56,32 +59,41 @@
     const dateFr = d => { const [y, m, j] = d.split('-').map(Number); return { jour: JOURS[new Date(Date.UTC(y, m - 1, j)).getUTCDay()], date: `${String(j).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}` }; };
     let data = null;
 
+    let ret0 = null;
     function entete(o) {
         const f = dateFr(o.date);
         const h = o.heure ? `${o.heure}${o.heure_fin ? ' – ' + o.heure_fin : ''}` : '';
-        return `<th><div class="j">${f.jour}</div><div class="h">${f.date}</div>${h ? `<div class="j">${h}</div>` : ''}</th>`;
+        return `<th class="${ret0 === o.id ? 'choisi' : ''}"><div class="j">${f.jour}</div><div class="h">${f.date}</div>${h ? `<div class="j">${h}</div>` : ''}</th>`;
     }
     function render(msg, err) {
         const opts = data.options;
         const totaux = opts.map(o => data.reponses.filter(r => r.options.includes(o.id)).length);
         const max = Math.max(0, ...totaux);
-        const lignes = data.reponses.map(r => `<tr><td class="nom">${esc(r.nom)}</td>${opts.map(o => r.options.includes(o.id) ? '<td class="oui">✓</td>' : '<td class="non">–</td>').join('')}</tr>`).join('');
+        const ret = data.termine ? opts.find(o => o.id === data.retenue) : null;
+        ret0 = ret ? ret.id : null;
+        const lignes = data.reponses.map(r => `<tr><td class="nom">${esc(r.nom)}</td>${opts.map(o => r.options.includes(o.id) ? `<td class="oui${ret && ret.id === o.id ? ' choisi' : ''}">✓</td>` : `<td class="non${ret && ret.id === o.id ? ' choisi' : ''}">–</td>`).join('')}</tr>`).join('');
+        const f = ret && dateFr(ret.date);
+        const bandeau = data.termine
+            ? (ret ? `<div class="retenu">✔ Sondage clôturé — créneau retenu : ${f.jour} ${f.date}${ret.heure ? ' · ' + ret.heure + (ret.heure_fin ? ' – ' + ret.heure_fin : '') : ''}</div>` : '<div class="retenu aucun">Sondage clôturé — aucun créneau n’a été retenu.</div>')
+            : '';
         app.innerHTML = `
             <div class="carte">
                 <h1>${esc(data.nom)}</h1>
-                <p class="sous">${data.organisateur ? 'Organisé par ' + esc(data.organisateur) + ' · ' : ''}Indiquez votre nom et cochez la ou les dates qui vous conviennent.</p>
+                <p class="sous">${data.organisateur ? 'Organisé par ' + esc(data.organisateur) + ' · ' : ''}${data.termine ? 'Les réponses ne sont plus modifiables.' : 'Indiquez votre nom et cochez la ou les dates qui vous conviennent.'}</p>
+                ${bandeau}
             </div>
             <div class="carte">
                 <div class="scroll"><table>
                     <thead><tr><th class="nom">Participants</th>${opts.map(entete).join('')}</tr></thead>
                     <tbody>
                         ${lignes}
-                        <tr class="moi"><td class="nom"><input type="text" id="nom" maxlength="100" placeholder="Votre nom" autocomplete="name"></td>${opts.map(o => `<td><input type="checkbox" data-o="${o.id}" aria-label="Disponible"></td>`).join('')}</tr>
-                        <tr class="total"><td class="nom">Total</td>${totaux.map(t => `<td class="${t && t === max ? 'best' : ''}">${t}</td>`).join('')}</tr>
+                        ${data.termine ? '' : `<tr class="moi"><td class="nom"><input type="text" id="nom" maxlength="100" placeholder="Votre nom" autocomplete="name"></td>${opts.map(o => `<td><input type="checkbox" data-o="${o.id}" aria-label="Disponible"></td>`).join('')}</tr>`}
+                        <tr class="total"><td class="nom">Total</td>${totaux.map((t, i) => `<td class="${t && t === max ? 'best' : ''}${ret && ret.id === opts[i].id ? ' choisi' : ''}">${t}</td>`).join('')}</tr>
                     </tbody>
                 </table></div>
-                <div class="actions"><button type="button" id="envoi">Enregistrer ma réponse</button><span class="msg ${err ? 'err' : 'ok'}" id="msg">${esc(msg || '')}</span></div>
+                ${data.termine ? '' : `<div class="actions"><button type="button" id="envoi">Enregistrer ma réponse</button><span class="msg ${err ? 'err' : 'ok'}" id="msg">${esc(msg || '')}</span></div>`}
             </div>`;
+        if (data.termine) return;
         document.getElementById('envoi').addEventListener('click', envoyer);
         // Une personne qui revient retrouve sa réponse en saisissant le même nom
         document.getElementById('nom').addEventListener('input', e => {

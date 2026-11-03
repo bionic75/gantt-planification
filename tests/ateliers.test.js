@@ -419,3 +419,64 @@ describe('sondages de date des jalons', () => {
         expect((await anon.get(`/api/sondages-publics/${token}`)).status).toBe(404);
     });
 });
+
+describe('clôture et réouverture d’un sondage', () => {
+    it('créneau retenu → date et heure planifiées, sondage figé (lien actif), réouverture', async () => {
+        await deployment('SAMU-SAS 78');
+        const created = await admin.put('/api/affectation/ateliers', {
+            samu_name: 'SAMU-SAS 78',
+            mep: '2027-06-10',
+            nb: 3,
+            zone: 'C'
+        });
+        const id = created.data.id;
+        const base = `/api/affectation/ateliers/${id}/sondages/a1`;
+        const saved = await admin.put(base, {
+            nom: 'Sondage clôture',
+            options: [
+                { date: '2027-04-12', heure: '09:00', heure_fin: '12:00' },
+                { date: '2027-04-13', heure: '14:00' }
+            ],
+            destinataires: ['direct@example.test']
+        });
+        const sd = saved.data.sondage;
+        const token = sd.url.split('/').pop();
+        const anon = server.client();
+        const [o1, o2] = sd.options;
+        await anon.post(`/api/sondages-publics/${token}/reponses`, { nom: 'Alice', options: [o1.id, o2.id] });
+
+        expect((await admin.post(`${base}/close`, { option_id: 999999 })).status).toBe(400);
+        const closed = await admin.post(`${base}/close`, { option_id: o2.id });
+        expect(closed.status, JSON.stringify(closed.data)).toBe(200);
+        expect(closed.data.sondage).toMatchObject({ statut: 'termine', option_retenue_id: o2.id });
+        const row = (await admin.get('/api/affectation/ateliers')).data.retroplannings.find(r => r.id === id);
+        expect(row.lignes.planifiees.a1).toBe('2027-04-13');
+        expect(row.lignes.heures.a1).toBe('14:00');
+        const jalon = row.jalons.find(j => j.key === 'a1');
+        expect(jalon.planifiee).toBe('2027-04-13');
+
+        // Lien toujours actif, mais plus modifiable
+        const pub = await anon.get(`/api/sondages-publics/${token}`);
+        expect(pub.data).toMatchObject({ termine: true, retenue: o2.id });
+        expect(
+            (await anon.post(`/api/sondages-publics/${token}/reponses`, { nom: 'Bob', options: [o1.id] })).status
+        ).toBe(400);
+        expect((await admin.put(base, { nom: 'x', options: [] })).status).toBe(400);
+        expect((await admin.post(`${base}/send`, {})).status).toBe(400);
+        expect((await admin.post(`${base}/close`, {})).status).toBe(400);
+        expect(
+            (await admin.get('/api/affectation/ateliers-sondages')).data.sondages.find(x => x.ligne === 'a1').statut
+        ).toBe('termine');
+
+        const reopened = await admin.post(`${base}/reopen`, {});
+        expect(reopened.data.sondage).toMatchObject({ statut: 'reponses', option_retenue_id: null });
+        expect(
+            (await anon.post(`/api/sondages-publics/${token}/reponses`, { nom: 'Bob', options: [o1.id] })).status
+        ).toBe(200);
+        expect((await admin.post(`${base}/reopen`, {})).status).toBe(400);
+
+        // Clôture sans créneau : la date planifiée n'est pas modifiée
+        const none = await admin.post(`${base}/close`, {});
+        expect(none.data.sondage).toMatchObject({ statut: 'termine', option_retenue_id: null });
+    });
+});
