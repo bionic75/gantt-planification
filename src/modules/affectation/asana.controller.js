@@ -9,6 +9,7 @@ import {
     ASANA_KEYS,
     ASANA_MILESTONES,
     ASANA_RULES,
+    asanaReloadStageRules,
     asanaApi,
     asanaApplyCore,
     asanaApplyOverrides,
@@ -55,12 +56,14 @@ const changedKeys = (/** @type {{ rows: Array<{ key: string, status: string }> }
 // ---------- Import d'un fichier CSV ----------
 
 export async function csvPreview(/** @type {Request} */ req, /** @type {Response} */ res) {
+    await asanaReloadStageRules();
     const c = asanaCompute(req.body && req.body.csv, req.body && req.body.formationTarget);
     if (!c.samuNo) throw badRequest("Impossible d'identifier le SAMU : le nom du projet doit contenir « [SAMU 25] »");
     res.json(await asanaPreviewPayload(c));
 }
 
 export async function csvApply(/** @type {Request} */ req, /** @type {Response} */ res) {
+    await asanaReloadStageRules();
     const c = asanaCompute(req.body && req.body.csv, req.body && req.body.formationTarget);
     if (!c.samuNo) throw badRequest("Impossible d'identifier le SAMU");
     res.json(await asanaApplyCore(req, c, req.body.apply, null, 'csv'));

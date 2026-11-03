@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
     asanaApplyOverrides,
     asanaComputeTasks,
+    asanaUseStageRules,
     asanaStatus,
     asanaValueOf
 } from '../src/modules/affectation/asana.service.js';
@@ -140,5 +141,29 @@ describe('intervalles de dates des tâches Asana', () => {
         const un = [...projet(), task('Atelier', '2026-09-10', '2026-09-10', { gid: '11' })];
         const c4 = asanaApplyOverrides(asanaComputeTasks(un, '[SAMU 56] SF4'), { vft: { start: '11' } });
         expect(c4.found.vft).toEqual({ start: '2026-09-10', end: '2026-09-25' });
+    });
+});
+
+describe('activité Asana choisie dans l’administration', () => {
+    const tasks = () => [
+        task('5.1 Visite métier', '2027-03-01', '2027-03-02'),
+        task('5.4 Visite complémentaire', '2027-03-08', '2027-03-09'),
+        task('Visite OB sur site', '2027-03-10', '2027-03-11'),
+        task('Démarrage projet auprès de l’ES', '', '2027-01-04')
+    ];
+    it('règle par défaut sans choix, tâche désignée par code ou par titre sinon', () => {
+        try {
+            asanaUseStageRules({});
+            expect(asanaComputeTasks(tasks(), '[SAMU 25] SF4').found.visite_metier).toEqual({
+                start: '2027-03-01',
+                end: '2027-03-02'
+            });
+            asanaUseStageRules({ visite_metier: '5.4', vft: 'title:visite ob' });
+            const c = asanaComputeTasks(tasks(), '[SAMU 25] SF4');
+            expect(c.found.visite_metier).toEqual({ start: '2027-03-08', end: '2027-03-09' });
+            expect(c.found.vft).toEqual({ start: '2027-03-10', end: '2027-03-11' });
+        } finally {
+            asanaUseStageRules({});
+        }
     });
 });
