@@ -1551,6 +1551,7 @@ export async function listStageEvents() {
         return x === y ? a.id - b.id : x < y ? -1 : 1;
     });
     const out = [];
+    const explicitDays = await affLoadAssignmentDays();
     if (typeIds.length) {
         for (const proj of projects) {
             const locId = await affProjectLocationId(proj);
@@ -1575,6 +1576,21 @@ export async function listStageEvents() {
                         ? /** @type {any} */ (proj)['date_' + key]
                         : null;
                 const per = dd ? { start: dd, end: dd } : periods[key]?.[0];
+                // Participants qui n'interviennent que certains jours de l'activité : { nom: « 01/03, 02/03 » }
+                /** @type {Record<string, string>} */
+                const partialDays = {};
+                const mine = per && !dd ? explicitDays[proj.id]?.[key] : undefined;
+                if (per && mine) {
+                    const total = [...workingDays(per.start, per.end)].length;
+                    for (const x of parts.filter(x => x.event_id === e.id)) {
+                        const days = (x.user.resource_id != null && mine[x.user.resource_id]) || null;
+                        const inRange = days ? days.filter(d => d >= per.start && d <= per.end) : [];
+                        if (inRange.length && inRange.length < total)
+                            partialDays[`${x.user.prenom || ''} ${x.user.nom || ''}`.trim()] = inRange
+                                .map(d => `${d.slice(8)}/${d.slice(5, 7)}`)
+                                .join(', ');
+                    }
+                }
                 out.push({
                     id: e.id,
                     project_id: proj.id,
@@ -1598,6 +1614,7 @@ export async function listStageEvents() {
                         .filter(x => x.event_id === e.id)
                         .map(x => `${x.user.prenom || ''} ${x.user.nom || ''}`.trim())
                         .filter(Boolean),
+                    participants_jours: partialDays,
                     planned: per ? { start: per.start, end: per.end } : null
                 });
             }
