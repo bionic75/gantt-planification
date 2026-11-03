@@ -306,7 +306,7 @@ describe('diffusion par e-mail', () => {
         const recipient = await createUser(admin, { is_user: 1 });
         expect((await admin.post(`/api/affectation/ateliers/${id}/send`, {})).status).toBe(400);
         const bad = await admin.post(`/api/affectation/ateliers/${id}/send`, { emails: ['pas-une-adresse'] });
-        expect(bad.status).toBe(400);
+        expect(bad.status, JSON.stringify(bad.data)).toBe(400);
         expect(bad.data.error).toMatch(/invalide/);
 
         const r = await admin.post(`/api/affectation/ateliers/${id}/send`, {
@@ -324,5 +324,215 @@ describe('diffusion par e-mail', () => {
         expect(mail).toMatch(/\.ics/);
         const list = (await admin.get('/api/affectation/ateliers')).data.retroplannings;
         expect(list.find(x => x.id === id).last_sent_at).toBeTruthy();
+    });
+});
+
+describe('sondages de date des jalons', () => {
+    it('conception, envoi (copie, adresse unique), réponses publiques et statuts', async () => {
+        await deployment('SAMU-SAS 77');
+        const created = await admin.put('/api/affectation/ateliers', {
+            samu_name: 'SAMU-SAS 77',
+            mep: '2027-06-10',
+            nb: 3,
+            zone: 'C'
+        });
+        expect(created.status, JSON.stringify(created.data)).toBe(200);
+        const id = created.data.id;
+        const cc = await createUser(admin, { is_user: 1 });
+        const base = `/api/affectation/ateliers/${id}/sondages/a1`;
+        expect((await admin.get(base)).data.sondage).toBeNull();
+        // Pas d'envoi sans date ni destinataire
+        expect((await admin.post(`${base}/send`, {})).status).toBe(404);
+        const bad = await admin.put(base, { nom: 'x', options: [{ date: '2027-13-45' }] });
+        expect(bad.status, JSON.stringify(bad.data)).toBe(400);
+
+        const saved = await admin.put(base, {
+            nom: '[SI-SAMU] SAMU-SAS 77 - Sondage - Atelier 1',
+            options: [
+                { date: '2027-04-12', heure: '09:00', heure_fin: '12:00' },
+                { date: '2027-04-13', heure: '14:00' }
+            ],
+            destinataires: ['direct@example.test', 'direct@example.test'],
+            cc_user_ids: [cc.id],
+            message: 'Merci de répondre'
+        });
+        expect(saved.status, JSON.stringify(saved.data)).toBe(200);
+        const sd = saved.data.sondage;
+        expect(sd).toMatchObject({ statut: 'brouillon', destinataires: ['direct@example.test'] });
+        expect(sd.url).toMatch(/\/sondage\/[a-f0-9]{32}$/);
+        expect(sd.options).toHaveLength(2);
+
+        const sent = await admin.post(`${base}/send`, {});
+        expect(sent.status, JSON.stringify(sent.data)).toBe(200);
+        expect(sent.data).toMatchObject({ sent: 1, cc: 1 });
+        const mail = await smtp.waitFor(/Subject: \[SI-SAMU\] SAMU-SAS 77 - Sondage - Atelier 1/, 15000);
+        expect(mail).toContain(sd.url);
+        expect(mail).toContain(cc.email);
+        const statuts = () => admin.get('/api/affectation/ateliers-sondages').then(r => r.data.sondages);
+        expect((await statuts()).find(x => x.ligne === 'a1')).toMatchObject({ statut: 'envoye', reponses: 0 });
+
+        // Accès public : sans connexion, ni adresses e-mail ni identifiants d'utilisateurs
+        const token = sd.url.split('/').pop();
+        const anon = server.client();
+        const pub = await anon.get(`/api/sondages-publics/${token}`);
+        expect(pub.status).toBe(200);
+        expect(pub.data.options).toHaveLength(2);
+        expect(JSON.stringify(pub.data)).not.toContain('direct@example.test');
+        expect((await anon.get('/api/sondages-publics/' + 'f'.repeat(32))).status).toBe(404);
+        const page = await anon.get(`/sondage/${token}`);
+        expect(page.status).toBe(200);
+        expect((await anon.get('/img/logo-telephonie-si-samu.png')).status).toBe(200);
+
+        const [o1, o2] = pub.data.options;
+        expect((await anon.post(`/api/sondages-publics/${token}/reponses`, { nom: '', options: [o1.id] })).status).toBe(
+            400
+        );
+        expect(
+            (await anon.post(`/api/sondages-publics/${token}/reponses`, { nom: 'Alice', options: [999999] })).status
+        ).toBe(400);
+        expect(
+            (await anon.post(`/api/sondages-publics/${token}/reponses`, { nom: 'Alice', options: [o1.id] })).status
+        ).toBe(200);
+        expect((await statuts()).find(x => x.ligne === 'a1')).toMatchObject({ statut: 'reponses', reponses: 1 });
+        // Même nom : réponse remplacée
+        const again = await anon.post(`/api/sondages-publics/${token}/reponses`, {
+            nom: 'alice',
+            options: [o1.id, o2.id]
+        });
+        expect(again.data.replaced).toBe(true);
+        expect((await admin.get(base)).data.sondage.reponses).toEqual([
+            { id: expect.any(Number), nom: 'alice', options: [o1.id, o2.id] }
+        ]);
+
+        // Date supprimée : retirée aussi des réponses
+        const upd = await admin.put(base, {
+            nom: sd.nom,
+            options: [sd.options[0]],
+            destinataires: ['direct@example.test']
+        });
+        expect(upd.data.sondage.reponses[0].options).toEqual([o1.id]);
+
+        // Droits : seuls les administrateurs conçoivent
+        const user = await loginAs(server, await createUser(admin, { is_user: 1 }), 'user');
+        expect((await user.put(base, { nom: 'x', options: [] })).status).toBe(403);
+
+        expect((await admin.delete(base)).status).toBe(200);
+        expect((await anon.get(`/api/sondages-publics/${token}`)).status).toBe(404);
+    });
+});
+
+describe('clôture et réouverture d’un sondage', () => {
+    it('créneau retenu → date et heure planifiées, sondage figé (lien actif), réouverture', async () => {
+        await deployment('SAMU-SAS 78');
+        const created = await admin.put('/api/affectation/ateliers', {
+            samu_name: 'SAMU-SAS 78',
+            mep: '2027-06-10',
+            nb: 3,
+            zone: 'C'
+        });
+        const id = created.data.id;
+        const base = `/api/affectation/ateliers/${id}/sondages/a1`;
+        const saved = await admin.put(base, {
+            nom: 'Sondage clôture',
+            options: [
+                { date: '2027-04-12', heure: '09:00', heure_fin: '12:00' },
+                { date: '2027-04-13', heure: '14:00' }
+            ],
+            destinataires: ['direct@example.test']
+        });
+        const sd = saved.data.sondage;
+        const token = sd.url.split('/').pop();
+        const anon = server.client();
+        const [o1, o2] = sd.options;
+        await anon.post(`/api/sondages-publics/${token}/reponses`, { nom: 'Alice', options: [o1.id, o2.id] });
+
+        expect((await admin.post(`${base}/close`, { option_id: 999999 })).status).toBe(400);
+        const closed = await admin.post(`${base}/close`, { option_id: o2.id });
+        expect(closed.status, JSON.stringify(closed.data)).toBe(200);
+        expect(closed.data.sondage).toMatchObject({ statut: 'termine', option_retenue_id: o2.id });
+        const row = (await admin.get('/api/affectation/ateliers')).data.retroplannings.find(r => r.id === id);
+        expect(row.lignes.planifiees.a1).toBe('2027-04-13');
+        expect(row.lignes.heures.a1).toBe('14:00');
+        const jalon = row.jalons.find(j => j.key === 'a1');
+        expect(jalon.planifiee).toBe('2027-04-13');
+
+        // Lien toujours actif, mais plus modifiable
+        const pub = await anon.get(`/api/sondages-publics/${token}`);
+        expect(pub.data).toMatchObject({ termine: true, retenue: o2.id });
+        expect(
+            (await anon.post(`/api/sondages-publics/${token}/reponses`, { nom: 'Bob', options: [o1.id] })).status
+        ).toBe(400);
+        expect((await admin.put(base, { nom: 'x', options: [] })).status).toBe(400);
+        expect((await admin.post(`${base}/send`, {})).status).toBe(400);
+        expect((await admin.post(`${base}/close`, {})).status).toBe(400);
+        expect(
+            (await admin.get('/api/affectation/ateliers-sondages')).data.sondages.find(x => x.ligne === 'a1').statut
+        ).toBe('termine');
+
+        const reopened = await admin.post(`${base}/reopen`, {});
+        expect(reopened.data.sondage).toMatchObject({ statut: 'reponses', option_retenue_id: null });
+        expect(
+            (await anon.post(`/api/sondages-publics/${token}/reponses`, { nom: 'Bob', options: [o1.id] })).status
+        ).toBe(200);
+        expect((await admin.post(`${base}/reopen`, {})).status).toBe(400);
+
+        // Clôture sans créneau : la date planifiée n'est pas modifiée
+        const none = await admin.post(`${base}/close`, {});
+        expect(none.data.sondage).toMatchObject({ statut: 'termine', option_retenue_id: null });
+    });
+});
+
+describe('invitation à un atelier planifié (ics + lien Teams)', () => {
+    it('refusée sans date planifiée ; envoyée avec le lien Teams retenu pour le SAMU', async () => {
+        await deployment('SAMU-SAS 79');
+        const created = await admin.put('/api/affectation/ateliers', {
+            samu_name: 'SAMU-SAS 79',
+            mep: '2027-06-10',
+            nb: 3,
+            zone: 'C'
+        });
+        const id = created.data.id;
+        const url = `/api/affectation/ateliers/${id}/invitation/a1`;
+        expect((await admin.post(url, { emails: ['direct@example.test'] })).status).toBe(400);
+
+        const row = (await admin.get('/api/affectation/ateliers')).data.retroplannings.find(r => r.id === id);
+        const a1 = row.jalons.find(j => j.key === 'a1');
+        const saved = await admin.put('/api/affectation/ateliers', {
+            samu_name: 'SAMU-SAS 79',
+            mep: '2027-06-10',
+            nb: 3,
+            zone: 'C',
+            lignes: { planifiees: { a1: a1.proposee }, heures: { a1: '10:00' } }
+        });
+        expect(saved.status, JSON.stringify(saved.data)).toBe(200);
+        expect((await admin.post(url, { emails: [] })).status).toBe(400);
+        const badLink = await admin.post(url, { emails: ['direct@example.test'], teams: 'javascript:alert(1)' });
+        expect(badLink.status).toBe(400);
+
+        const teams = 'https://teams.microsoft.com/l/meetup-join/atelier79';
+        const r = await admin.post(url, {
+            emails: ['direct@example.test'],
+            subject: 'Invitation atelier SAMU 79',
+            message: 'À bientôt',
+            teams
+        });
+        expect(r.status, JSON.stringify(r.data)).toBe(200);
+        const mail = await smtp.waitFor(/Subject: Invitation atelier SAMU 79/, 15000);
+        expect(mail).toContain('multipart/alternative');
+        expect(mail).toMatch(/Content-Type: text\/calendar;[^\n]*method=REQUEST/i);
+        expect(mail).toMatch(/Invitation_SAMU_SAS_79_a1\.ics/);
+        expect(mail).toContain(teams);
+        const after = (await admin.get('/api/affectation/ateliers')).data.retroplannings.find(x => x.id === id);
+        expect(after.lignes.teams).toBe(teams);
+        expect(after.lignes.invites.a1).toBeTruthy();
+        // Enregistrer le rétroplanning conserve le lien Teams et l'inscription de l'envoi
+        const again = await admin.put('/api/affectation/ateliers', {
+            samu_name: 'SAMU-SAS 79',
+            mep: '2027-06-10',
+            nb: 3,
+            zone: 'C',
+            lignes: { planifiees: { a1: a1.proposee }, heures: { a1: '10:00' }, teams, invites: after.lignes.invites }
+        });
+        expect(again.status).toBe(200);
     });
 });

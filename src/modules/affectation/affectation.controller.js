@@ -197,6 +197,33 @@ export async function release(/** @type {Request} */ req, /** @type {Response} *
     if (!proj) throw notFound('Déploiement introuvable');
     const per = svc.parsePeriods(proj.periods)[key]?.[0];
     if (!per) throw badRequest('Étape sans période');
+    // Journées retirées de la grille pour des ressources qui restent affectées : planification remise en situation
+    // sur ces seules journées, sans toucher aux événements
+    const dayMap = (req.body || {}).days;
+    if (dayMap && typeof dayMap === 'object' && !Array.isArray(dayMap)) {
+        let planningReset = 0;
+        for (const [rid, list] of Object.entries(dayMap)) {
+            const n = Number(rid);
+            const dates = (Array.isArray(list) ? list : []).filter(
+                d => /^\d{4}-\d{2}-\d{2}$/.test(String(d)) && d >= per.start && d <= per.end
+            );
+            if (!Number.isInteger(n) || n <= 0 || !dates.length) continue;
+            planningReset += await svc.affResetPlanning({
+                resourceIds: [n],
+                start: per.start,
+                end: per.end,
+                period: 'FULL',
+                samuNo: affSamuNumber(proj.samu_name),
+                days: new Set(dates.map(String))
+            });
+        }
+        logUserAction(req, 'Journées retirées de la grille : planification remise en situation', {
+            id,
+            activite: key,
+            demiJournees: planningReset
+        });
+        return res.json({ success: true, planningReset, removedFromEvents: 0 });
+    }
     const rids = [
         ...new Set(
             ((req.body || {}).resource_ids || [])
@@ -210,7 +237,8 @@ export async function release(/** @type {Request} */ req, /** @type {Response} *
         start: per.start,
         end: per.end,
         period: 'FULL',
-        samuNo: affSamuNumber(proj.samu_name)
+        samuNo: affSamuNumber(proj.samu_name),
+        days: await svc.affPartDays(id, key, per)
     });
     const evs = await svc.affStageEvents(
         proj,
@@ -274,8 +302,11 @@ export async function setEventLink(/** @type {Request} */ req, /** @type {Respon
     const eventId = Number((req.body || {}).eventId) || null;
     if (!svc.AFF_EVENT_KEYS.includes(key)) throw badRequest('Activité inconnue');
     if (eventId && !(await svc.eventExists(eventId))) throw notFound('Événement introuvable');
-    await svc.affSetEventLink(id, key, eventId);
-    logUserAction(req, 'Lien déploiement / événement', { id, activite: key, evenement: eventId });
+    const ids = Array.isArray(req.body && req.body.eventIds) ? req.body.eventIds : eventId ? [eventId] : [];
+    const known = [];
+    for (const n of svc.affLinkIds(ids)) if (await svc.eventExists(n)) known.push(n);
+    await svc.affSetEventLinks(id, key, known);
+    logUserAction(req, 'Lien déploiement / événement', { id, activite: key, evenements: known });
     res.json({ success: true });
 }
 
@@ -322,7 +353,7 @@ export async function createEvent(/** @type {Request} */ req, /** @type {Respons
     });
     const participants = await svc.stageAssignedUsers(id, key);
     await svc.addEventParticipants(eventId, participants);
-    await svc.affSetEventLink(id, key, eventId);
+    await svc.affAddEventLink(id, key, eventId);
     logUserAction(req, "Création d'un événement depuis un déploiement SAMU", {
         id,
         activite: key,

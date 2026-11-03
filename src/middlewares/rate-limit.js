@@ -40,3 +40,9 @@ export const passwordResetRequestLimiter = limiter(15 * MINUTE, 20, { keyGenerat
 
 /** Vérification des liens de réinitialisation et des codes de double authentification : échecs par adresse IP */
 export const tokenCheckLimiter = limiter(15 * MINUTE, 30, { skipSuccessfulRequests: true, keyGenerator: clientIp });
+
+/** Sondages publics : consultation (jetons inconnus comptés) et réponses, par adresse IP */
+export const sondagePublicLimiters = {
+    read: limiter(15 * MINUTE, 60, { skipSuccessfulRequests: true, keyGenerator: clientIp }),
+    answer: limiter(15 * MINUTE, 60, { keyGenerator: clientIp })
+};

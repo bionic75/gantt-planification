@@ -1047,6 +1047,7 @@
                 ? '<div style="font-size:11px;color:#1b7f3b;">✔ mêmes dates que l\'activité</div>'
                 : `<div style="font-size:11px;color:#b26a00;" title="Dates de l'événement : ${esc(evDates(lk))}">⚠ dates différentes de l'activité</div>`
             : '';
+        if (c.multi) return evMultiHtml('asanaEv', key, c);
         return `<select data-ek="${key}" onchange="AffectationApp.asanaEvLink(this)" style="width:100%;padding:5px;" title="Événements de ce SAMU${c.typeLong ? ' (type « ' + esc(c.typeLong) + ' »)' : ''}">
                 <option value="">— Aucun événement lié —</option>
                 ${c.matching.length ? `<optgroup label="Correspondant au SAMU et au type « ${esc(c.typeLong || '')} »">${c.matching.map(e => evOpt(e, e.id === c.linked)).join('')}</optgroup>` : ''}
@@ -1435,6 +1436,41 @@
     // Événements du SAMU correspondant à chaque activité (liste déroulante ; création proposée s'il n'y en a pas)
     const evFr = d => (d ? d.split('-').reverse().join('/') : '');
     const evDates = e => (e.start === e.end ? evFr(e.start) : `${evFr(e.start)} → ${evFr(e.end)}`);
+    // Activité découpable en plusieurs parties : liste déroulante à choix multiple + ajout d'une partie (dates propres)
+    const evOpen = new Set();
+    function evSummary(c) {
+        const lk = [...c.matching, ...c.others].filter(e => c.linkedIds.includes(e.id));
+        return lk.length ? `${lk.length} partie(s) : ${lk.map(evDates).join(' ; ')}` : '— Aucun événement lié —';
+    }
+    function evMultiHtml(h, key, c) {
+        const rows = [...c.matching.map(e => [e, true]), ...c.others.map(e => [e, false])]
+            .map(
+                ([e, m]) =>
+                    `<label style="display:flex;gap:8px;align-items:flex-start;width:100%;margin:0;font-size:12px;font-weight:400;text-align:left;padding:3px 0;cursor:pointer;"><input type="checkbox" style="flex:none;width:auto;min-width:0;margin:2px 0 0;" data-eid="${e.id}" ${c.linkedIds.includes(e.id) ? 'checked' : ''} onchange="AffectationApp.${h}Toggle(this)"><span style="flex:1;min-width:0;font-weight:400;">${esc(evDates(e))} · ${esc(e.label)}${e.participants ? ' · ' + e.participants + ' part.' : ''}${m ? '' : ' · <i>autre type</i>'}</span></label>`
+            )
+            .join('');
+        return `<div data-evbox="${key}">
+            <details style="position:relative;" ${evOpen.has(h + key) ? 'open' : ''} ontoggle="AffectationApp.evOpenState('${h}${key}',this.open)">
+                <summary style="list-style:none;cursor:pointer;border:1px solid #767676;border-radius:4px;padding:5px 24px 5px 8px;background:#fff;color:#1a2b3c;font-size:13px;position:relative;white-space:normal;">${esc(evSummary(c))}<span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:10px;">▼</span></summary>
+                <div style="margin-top:4px;background:#fff;border:1px solid #cfd8e3;border-radius:6px;padding:8px;max-height:300px;overflow:auto;text-align:left;">
+                    <div style="font-size:11px;color:#6b7a8d;margin-bottom:4px;">Cochez les parties de l'événement (jours de l'activité = jours des parties cochées dès deux parties)</div>
+                    ${rows || '<span class="aff-muted" style="font-size:12px;">Aucun événement pour ce SAMU.</span>'}
+                    <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin-top:6px;border-top:1px solid #e3e9f0;padding-top:6px;">
+                        <input type="date" id="${h}PS_${key}" style="padding:3px;" title="Début de la partie"><span class="aff-muted">→</span>
+                        <input type="date" id="${h}PE_${key}" style="padding:3px;" title="Fin de la partie (facultative)">
+                        <button type="button" class="aff-btn aff-btn-primary" style="padding:3px 9px;font-size:11px;" onclick="AffectationApp.${h}PartAdd('${key}')" title="Crée une partie de l'événement (SAMU, type, dates saisies, ressources affectées en participants)">${svg('plus', 'aff-ico-sm')}Ajouter une partie</button>
+                    </div>
+                </div>
+            </details>
+        </div>`;
+    }
+    const evCheckedIds = cb =>
+        [...cb.closest('[data-evbox]').querySelectorAll('input[data-eid]:checked')].map(i => Number(i.dataset.eid));
+    function evPartDates(h, key) {
+        const a = document.getElementById(`${h}PS_${key}`).value,
+            b = document.getElementById(`${h}PE_${key}`).value;
+        return { start: a, end: b || a };
+    }
     const evOpt = (e, sel) =>
         `<option value="${e.id}" ${sel ? 'selected' : ''}>${esc(evDates(e))} · ${esc(e.label)}${e.participants ? ' · ' + e.participants + ' part.' : ''}${e.type ? ' · ' + esc(e.type) : ''}</option>`;
     function evRowDates(key) {
@@ -1454,6 +1490,10 @@
             if (!state.form || !state.form.id) return;
             if (!c) {
                 row.innerHTML = '<span class="aff-muted">Événements indisponibles.</span>';
+                return;
+            }
+            if (c.multi) {
+                row.innerHTML = `<span class="aff-muted" style="white-space:nowrap;">${svg('calendar', 'aff-ico-sm')}Événement</span>${evMultiHtml('ev', key, c)}`;
                 return;
             }
             const none = !c.matching.length;
@@ -1963,6 +2003,43 @@
                 evInfo(key);
             } catch (e) {
                 document.getElementById('affModalError').textContent = e.message;
+            }
+        },
+        evOpenState(k, open) {
+            if (open) evOpen.add(k);
+            else evOpen.delete(k);
+        },
+        async evToggle(cb) {
+            const key = cb.closest('[data-evbox]').dataset.evbox,
+                c = state.evc && state.evc.candidates[key],
+                ids = evCheckedIds(cb);
+            try {
+                await api(`/affectation/projects/${state.form.id}/event-link`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ key, eventIds: ids })
+                });
+                if (c) c.linkedIds = ids;
+                if (c) cb.closest('details').querySelector('summary').firstChild.textContent = evSummary(c);
+            } catch (e) {
+                document.getElementById('affModalError').textContent = e.message;
+            }
+        },
+        async evPartAdd(key) {
+            const err = document.getElementById('affModalError');
+            err.textContent = '';
+            const d = evPartDates('ev', key);
+            if (!d.start) {
+                err.textContent = `${stageDef(key).label} : renseignez le début de la partie.`;
+                return;
+            }
+            try {
+                await api(`/affectation/projects/${state.form.id}/event-create`, {
+                    method: 'POST',
+                    body: JSON.stringify({ key, start: d.start, end: d.end })
+                });
+                await loadEventCandidates(state.form.id);
+            } catch (e) {
+                err.textContent = e.message;
             }
         },
         async evCreate(key) {
@@ -4064,6 +4141,8 @@
             const current = (p.assignment_days || {})[stageKey] || {};
             asg.days = {};
             asg.dates.forEach(d => (asg.days[d] = new Set(current[d] || [])));
+            asg.initial = {};
+            asg.dates.forEach(d => (asg.initial[d] = new Set(asg.days[d])));
             asg.info = `${p.samu_name} — ${planDef(stageKey).label} (${frd(x.start)} → ${frd(x.end)})`;
             document.getElementById('affAssignTitle').textContent = 'Affecter des ressources';
             document.getElementById('affAssignError').textContent = '';
@@ -4137,6 +4216,41 @@
                         } catch (e2) {
                             alert(e2.message);
                         }
+                    }
+                }
+                // Journées décochées pour des experts qui restent affectés : proposition de remettre ces journées en situation
+                const dropped = {};
+                let nDropped = 0;
+                // (cochées à l'ouverture, ou déjà posées pour ce SAMU dans la planification : cellules bleues de la grille)
+                asg.dates.forEach(d => {
+                    for (const rid of r.resource_ids) {
+                        if (asg.days[d] && asg.days[d].has(rid)) continue;
+                        const was = asg.initial && asg.initial[d] && asg.initial[d].has(rid);
+                        const here = ((asg.av || {})[rid] || {}).byDay && asg.av[rid].byDay[d] === 'here';
+                        if (was || here) {
+                            (dropped[rid] = dropped[rid] || []).push(d);
+                            nDropped++;
+                        }
+                    }
+                });
+                if (
+                    nDropped &&
+                    confirm(
+                        `${nDropped} journée(s) sans affectation dans la grille mais posées pour ce SAMU dans la planification (retirées ou jamais cochées).\n\nLes remettre dans leur planification en « 2 - Disponible » / « 2 - En attente d'affectation » (localisation effacée) ? Seules les demi-journées posées par l'affectation pour ce SAMU sont modifiées.`
+                    )
+                ) {
+                    try {
+                        const rl = await api(
+                            `/affectation/projects/${asg.project.id}/assignments/${asg.stage}/release`,
+                            { method: 'POST', body: JSON.stringify({ days: dropped }) }
+                        );
+                        const t = document.createElement('div');
+                        t.className = 'aff-toast';
+                        t.textContent = `${rl.planningReset} demi-journée(s) remise(s) en « Disponible / En attente d'affectation ».`;
+                        document.body.appendChild(t);
+                        setTimeout(() => t.remove(), 6000);
+                    } catch (e2) {
+                        alert(e2.message);
                     }
                 }
                 if (r.resource_ids.length) AffectationApp.openSync(asg.project.id, asg.stage, true);
@@ -4330,6 +4444,41 @@
                 if (td) td.innerHTML = asanaEvCell(key);
             } catch (e) {
                 document.getElementById('affAsanaTasksMsg').textContent = e.message;
+            }
+        },
+        async asanaEvToggle(cb) {
+            const key = cb.closest('[data-evbox]').dataset.evbox,
+                c = asanaT.evc && asanaT.evc.candidates[key],
+                ids = evCheckedIds(cb);
+            try {
+                await api(`/affectation/projects/${asanaT.id}/event-link`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ key, eventIds: ids })
+                });
+                if (c) c.linkedIds = ids;
+                if (c) cb.closest('details').querySelector('summary').firstChild.textContent = evSummary(c);
+            } catch (e) {
+                document.getElementById('affAsanaTasksMsg').textContent = e.message;
+            }
+        },
+        async asanaEvPartAdd(key) {
+            const msg = document.getElementById('affAsanaTasksMsg');
+            msg.style.color = '#b3261e';
+            msg.textContent = '';
+            const d = evPartDates('asanaEv', key);
+            if (!d.start) {
+                msg.textContent = `${stageDef(key).label} : renseignez le début de la partie.`;
+                return;
+            }
+            try {
+                await api(`/affectation/projects/${asanaT.id}/event-create`, {
+                    method: 'POST',
+                    body: JSON.stringify({ key, start: d.start, end: d.end })
+                });
+                asanaT.evc = await api(`/affectation/projects/${asanaT.id}/events-candidates`);
+                renderAsanaTasks();
+            } catch (e) {
+                msg.textContent = e.message;
             }
         },
         async asanaEvCreate(key) {

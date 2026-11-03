@@ -9,7 +9,9 @@
         f: null, // formulaire (état partagé entre « Paramétrage » et « Simulation »)
         sim: null,
         timer: null,
-        seq: 0
+        seq: 0,
+        sond: [], // sondages du rétroplanning affiché
+        sondFor: null
     };
 
     const blank = () => ({
@@ -25,6 +27,9 @@
         jalons: {},
         contenus: {},
         planifiees: {},
+        heures: {},
+        invites: {},
+        teams: '',
         savedAt: null
     });
     AT.f = blank();
@@ -72,7 +77,8 @@
         mail: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 7 10-7"/>',
         save: '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8M7 3v5h8"/>',
         undo: '<path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/>',
-        pin: '<path d="M12 22s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12Z"/><circle cx="12" cy="10" r="2.5"/>'
+        pin: '<path d="M12 22s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12Z"/><circle cx="12" cy="10" r="2.5"/>',
+        calendar: '<rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/>'
     };
     const ico = (name, cls = 'at-ico') =>
         `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`;
@@ -92,7 +98,7 @@
         #atelierRoot table.at-table td { padding: 7px 10px; border-top: 1px solid #e6ebf2; vertical-align: top; }
         #atelierRoot table.at-table tr.at-fixed td { background: #f0f4fa; }
         #atelierRoot table.at-table tr.at-mep td { background: #e8f5e9; font-weight: 700; }
-        #atelierRoot table.at-table select, #atelierRoot table.at-table input[type=date] { width: 100%; min-width: 150px; padding: 5px 7px; border: 1px solid #cfd8e6; border-radius: 6px; font-size: 12px; box-sizing: border-box; }
+        #atelierRoot table.at-table select, #atelierRoot table.at-table input[type=date], #atelierRoot table.at-table input[type=time] { width: 100%; min-width: 150px; padding: 5px 7px; border: 1px solid #cfd8e6; border-radius: 6px; font-size: 12px; box-sizing: border-box; }
         #atelierRoot .at-jalon { font-weight: 700; color: #1f2d3d; }
         #atelierRoot .at-badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; background: #e9edf3; color: #455a64; }
         #atelierRoot .at-badge.ok { background: #d7f2e3; color: #167a45; }
@@ -105,7 +111,6 @@
         #atelierRoot .at-icon-btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
         #atelierRoot .at-icon-btn.edit { background: #f39c12; }
         #atelierRoot .at-icon-btn.del { background: #e74c3c; }
-        #atelierRoot .at-icon-btn.mail { background: #1d70b7; }
         #atelierRoot .at-bar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 14px; }
         #atelierRoot .at-empty { padding: 22px; text-align: center; color: #8a97a8; border: 1px dashed #cfd8e6; border-radius: 10px; }
         .at-toast { position: fixed; right: 20px; bottom: 20px; z-index: 10040; max-width: 420px; padding: 12px 16px; border-radius: 8px; background: #263238; color: #fff; font-size: 13px; box-shadow: 0 6px 20px rgba(0,0,0,.3); }
@@ -120,6 +125,26 @@
         .at-users label:hover { background: #eceff1; }
         .at-users input { width: 16px; height: 16px; margin: 0; flex: 0 0 16px; }
         .at-modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+        #atelierRoot .at-sd { border: 1px solid #1d70b7; background: #fff; color: #1d70b7; border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+        #atelierRoot .at-sd:disabled { opacity: .5; cursor: not-allowed; }
+        #atelierRoot .at-sd.brouillon { background: #e3f0fb; }
+        #atelierRoot .at-sd.envoye { background: #fff3e0; border-color: #e08a00; color: #a65f00; }
+        #atelierRoot .at-sd.reponses { background: #e6f4ea; border-color: #1b7f3b; color: #1b7f3b; }
+        #atelierRoot .at-sd.termine { background: #455a64; border-color: #455a64; color: #fff; }
+        .at-modal.large { max-width: 760px; }
+        .at-opt { display: flex; gap: 8px; align-items: center; margin-bottom: 0; padding: 7px 10px; border-radius: 8px; flex-wrap: nowrap; }
+        .at-opt:nth-child(odd) { background: #f3f5f8; }
+        .at-opt:nth-child(even) { background: #e2e7ee; }
+        .at-modal .at-opt input.d { width: auto !important; flex: 1 1 160px; min-width: 0; }
+        .at-modal .at-opt .hm { display: inline-flex; align-items: center; gap: 3px; flex: 0 0 auto; white-space: nowrap; }
+        .at-modal .at-opt select { width: auto !important; padding: 6px 4px; border: 1px solid #cfd8e6; border-radius: 8px; font-size: 13px; }
+        .at-modal .at-opt button { flex: 0 0 auto; }
+        .at-opt input { padding: 6px 8px; border: 1px solid #cfd8e6; border-radius: 8px; font-size: 13px; font-family: inherit; }
+        .at-url { display: flex; gap: 6px; align-items: center; }
+        .at-res { border-collapse: collapse; width: 100%; font-size: 12px; margin-top: 4px; }
+        .at-res th, .at-res td { border: 1px solid #d5deea; padding: 4px 6px; text-align: center; }
+        .at-res td.nom, .at-res th.nom { text-align: left; }
+        .at-res td.oui { background: #e6f4ea; color: #1b7f3b; font-weight: 700; }
     `;
 
     function ensureStyle() {
@@ -268,6 +293,7 @@
         };
         AT.f = blank();
         AT.f.samu = name;
+        AT.sondFor = null; // statuts des sondages rechargés pour ce SAMU
         if (saved) {
             AT.f.id = saved.id;
             AT.f.mep = saved.mep_date;
@@ -280,6 +306,9 @@
             AT.f.jalons = { ...(saved.lignes.jalons || {}) };
             AT.f.contenus = { ...(saved.lignes.contenus || {}) };
             AT.f.planifiees = { ...(saved.lignes.planifiees || {}) };
+            AT.f.heures = { ...(saved.lignes.heures || {}) };
+            AT.f.invites = { ...(saved.lignes.invites || {}) };
+            AT.f.teams = saved.lignes.teams || '';
             AT.f.savedAt = saved.updated_at;
         } else if (p) {
             AT.f.mep = p.mep || '';
@@ -336,10 +365,61 @@
         delaiMep: AT.f.delaiMep === '' ? 28 : AT.f.delaiMep,
         ecart12: AT.f.ecart12 === '' ? 7 : AT.f.ecart12,
         ecartAteliers: AT.f.ecartAteliers === '' ? 14 : AT.f.ecartAteliers,
-        lignes: { jalons: AT.f.jalons, contenus: AT.f.contenus, planifiees: AT.f.planifiees }
+        lignes: {
+            jalons: AT.f.jalons,
+            contenus: AT.f.contenus,
+            planifiees: AT.f.planifiees,
+            heures: AT.f.heures,
+            invites: AT.f.invites,
+            teams: AT.f.teams
+        }
     });
 
+    // ---- Sondages de date (un par jalon) ----
+    const SD_LABEL = {
+        brouillon: 'Sondage (brouillon)',
+        envoye: 'Sondage en cours',
+        reponses: 'Réponses en cours',
+        termine: 'Sondage terminé'
+    };
+    const sondageOf = key => AT.sond.find(x => x.retroplanning_id === AT.f.id && x.ligne === key);
+    function sondageCell(r) {
+        if (r.key === 'mep' || r.key === 'livrables') return '<span class="aff-muted">—</span>';
+        const sd = AT.f.id ? sondageOf(r.key) : null;
+        const st = sd ? sd.statut : '';
+        const label = st === 'reponses' ? `Réponses en cours (${sd.reponses})` : SD_LABEL[st] || 'Sondage';
+        const off = !AT.f.id || (!sd && !isAdmin());
+        return `<button type="button" class="at-sd ${st}" ${off ? 'disabled' : ''} title="${AT.f.id ? 'Concevoir ou suivre le sondage de date de ce jalon' : 'Enregistrez d’abord le rétroplanning'}" onclick="AtelierPlanner.openSondage('${r.key}')">${esc(label)}</button>`;
+    }
+    async function loadSondages() {
+        const id = AT.f.id;
+        if (!id) {
+            AT.sond = [];
+            AT.sondFor = null;
+            return;
+        }
+        try {
+            AT.sond = (await atApi('/affectation/ateliers-sondages')).sondages || [];
+        } catch (e) {
+            AT.sond = [];
+        }
+        AT.sondFor = id;
+        if (AT.sim && document.getElementById('atTableBox')) renderTable();
+    }
+
+    // Bouton d'invitation à l'atelier, dès que le jalon est planifié
+    function inviteBtn(r) {
+        if (!r.planifiee || r.key === 'mep' || r.key === 'livrables' || !/^Planifi/.test(r.statut) || !AT.f.id)
+            return '';
+        const sent = AT.f.invites[r.key];
+        return `<button type="button" class="at-sd ${sent ? 'reponses' : ''}" ${isAdmin() ? '' : 'disabled'} title="${sent ? 'Invitation déjà envoyée le ' + esc(sent.slice(0, 10).split('-').reverse().join('/')) + ' : renvoyer' : 'Envoyer l’invitation (ics avec lien Teams)'}" onclick="AtelierPlanner.openInvite('${r.key}')">${ico('calendar', 'at-ico-sm')} ${sent ? 'Invitation envoyée' : 'Inviter'}</button>`;
+    }
+
     function renderTable() {
+        if (AT.f.id && AT.sondFor !== AT.f.id) {
+            AT.sondFor = AT.f.id;
+            loadSondages();
+        }
         const { rows, warnings } = AT.sim;
         document.getElementById('atWarnings').innerHTML = warnings
             .map(w => `<div class="at-warn">⚠ ${esc(w)}</div>`)
@@ -358,19 +438,26 @@
                     <td>${contenu}</td>
                     <td>${esc(frDate(r.cible))}</td>
                     <td style="font-weight:700;${decale ? 'color:#b26a00;' : ''}">${esc(frDate(r.proposee))}</td>
-                    <td><input type="date" data-row="${r.key}" data-kind="planifiees" value="${esc(r.planifiee || '')}" ${isAdmin() ? '' : 'disabled'}></td>
-                    <td><span class="at-badge ${r.niveau}">${esc(r.statut)}</span></td></tr>`;
+                    <td>${sondageCell(r)}</td>
+                    <td><div style="display:flex;flex-direction:column;gap:4px;"><input type="date" data-row="${r.key}" data-kind="planifiees" value="${esc(r.planifiee || '')}" ${isAdmin() ? '' : 'disabled'}> <input type="time" data-row="${r.key}" data-kind="heures" value="${esc((r.planifiee && AT.f.heures[r.key]) || '')}" title="Heure retenue (facultative)" ${isAdmin() && r.planifiee ? '' : 'disabled'}></div></td>
+                    <td><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span class="at-badge ${r.niveau}">${esc(r.statut)}</span>${inviteBtn(r)}</div></td></tr>`;
             })
             .join('');
         document.getElementById('atTableBox').innerHTML =
-            `<table class="at-table"><thead><tr><th>Jalon</th><th>Contenu / objectifs</th><th>Date cible théorique</th><th>Date proposée</th><th>Date réellement planifiée</th><th>Statut</th></tr></thead><tbody>${body}</tbody></table>`;
+            `<table class="at-table"><thead><tr><th>Jalon</th><th>Contenu / objectifs</th><th>Date cible théorique</th><th>Date proposée</th><th>Sondage</th><th>Date réellement planifiée</th><th>Statut</th></tr></thead><tbody>${body}</tbody></table>`;
         document.querySelectorAll('#atTableBox [data-row]').forEach(el => {
             el.addEventListener('change', () => {
                 const key = el.dataset.row;
                 const kind = el.dataset.kind;
                 if (kind === 'planifiees') {
                     if (el.value) AT.f.planifiees[key] = el.value;
-                    else delete AT.f.planifiees[key];
+                    else {
+                        delete AT.f.planifiees[key];
+                        delete AT.f.heures[key];
+                    }
+                } else if (kind === 'heures') {
+                    if (el.value) AT.f.heures[key] = el.value;
+                    else delete AT.f.heures[key];
                 } else AT.f[kind][key] = el.value;
                 schedule();
             });
@@ -452,8 +539,7 @@
                         <button type="button" class="at-icon-btn edit" title="Modifier : ouvrir dans la simulation" aria-label="Modifier" onclick="AtelierPlanner.edit(${r.id})">${ico('edit', 'at-ico-sm')}</button>
                         ${
                             admin
-                                ? `<button type="button" class="at-icon-btn del" title="Supprimer ce rétroplanning" aria-label="Supprimer" onclick="AtelierPlanner.remove(${r.id})">${ico('trash', 'at-ico-sm')}</button>
-                        <button type="button" class="at-icon-btn mail" title="Diffuser le calendrier par e-mail" aria-label="Diffuser par e-mail" onclick="AtelierPlanner.openMail(${r.id})">${ico('mail', 'at-ico-sm')}</button>`
+                                ? `<button type="button" class="at-icon-btn del" title="Supprimer ce rétroplanning" aria-label="Supprimer" onclick="AtelierPlanner.remove(${r.id})">${ico('trash', 'at-ico-sm')}</button>`
                                 : ''
                         }
                     </div></td></tr>`;
@@ -464,8 +550,13 @@
     function edit(id) {
         const r = AT.list.find(x => x.id === id);
         if (!r) return;
-        chooseSamu(r.samu_name);
-        document.getElementById('atCardSim').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        try {
+            chooseSamu(r.samu_name);
+            document.getElementById('atCardSim').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch (e) {
+            console.error(e);
+            toast(`Ouverture impossible : ${e.message}`, true);
+        }
     }
 
     async function remove(id) {
@@ -499,9 +590,15 @@
     }
 
     let users = null;
-    async function openMail(id) {
-        const r = AT.list.find(x => x.id === id);
-        if (!r) return;
+    // ---- Invitation à un atelier planifié (e-mail + .ics avec lien Teams) ----
+    const timeAdd1h = t => {
+        const [h, m] = t.split(':').map(Number);
+        return h >= 23 ? '23:59' : `${String(h + 1).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    };
+
+    async function openInvite(key) {
+        const row = AT.sim && AT.sim.rows.find(x => x.key === key);
+        if (!row || !row.planifiee || !AT.f.id) return;
         try {
             if (!users) {
                 const all = await atApi('/users');
@@ -510,11 +607,15 @@
         } catch (e) {
             return toast(e.message, true);
         }
+        const start = AT.f.heures[key] || '';
+        const teams = AT.f.teams || ''; // lien déjà renseigné pour ce SAMU, proposé pour ses autres ateliers
         const bg = document.createElement('div');
         bg.className = 'at-modal-bg';
         bg.id = 'atMailModal';
-        bg.innerHTML = `<div class="at-modal" role="dialog" aria-label="Diffuser le calendrier">
-            <h3>${ico('mail')} Diffuser le calendrier — ${esc(r.samu_name)}</h3>
+        bg.dataset.key = key;
+        bg.innerHTML = `<div class="at-modal" role="dialog" aria-label="Invitation à l’atelier">
+            <h3>${ico('calendar')} Invitation — ${esc(row.jalon)} · ${esc(AT.f.samu)}</h3>
+            <p class="aff-muted" style="margin:0 0 4px;font-size:12px;">${esc(row.contenu)}<br><b>${esc(frDate(row.planifiee))}${start ? ' à ' + esc(start) : ' (journée entière : aucune heure retenue)'}</b></p>
             <label>Destinataires (utilisateurs de l’application)</label>
             <input type="text" id="atMailFilter" placeholder="Filtrer par nom…" style="margin-bottom:6px;">
             <div class="at-users" id="atMailUsers">${users
@@ -527,12 +628,14 @@
             <label>Autres adresses e-mail (une par ligne)</label>
             <textarea id="atMailExtra" rows="3" placeholder="prenom.nom@exemple.fr"></textarea>
             <div id="atMailExtraErr" style="color:#c62828;font-size:11px;margin-top:3px;"></div>
+            <label>Lien de la réunion Teams <span class="aff-muted" style="font-weight:400;">${teams ? '(repris de ce SAMU, modifiable)' : '(à renseigner une fois : proposé pour les autres ateliers de ce SAMU)'}</span></label>
+            <input type="text" id="atMailTeams" value="${esc(teams)}" placeholder="https://teams.microsoft.com/l/meetup-join/…">
+            ${start ? `<label>Fin de l’atelier</label><input type="time" id="atMailEnd" value="${timeAdd1h(start)}" style="padding:6px 8px;border:1px solid #cfd8e6;border-radius:8px;">` : ''}
             <label>Objet</label>
-            <input type="text" id="atMailSubject" value="${esc(`Rétroplanning des ateliers métier — ${r.samu_name}`)}">
+            <input type="text" id="atMailSubject" value="${esc(`[SI-SAMU] ${AT.f.samu} - ${row.jalon}`)}">
             <label>Message (facultatif)</label>
             <textarea id="atMailMessage" rows="3"></textarea>
-            <label style="display:flex;align-items:center;gap:8px;font-weight:600;margin-top:12px;"><input type="checkbox" id="atMailIcs" checked style="width:16px;height:16px;margin:0;"> Joindre le calendrier (.ics) : un événement par jalon</label>
-            <div class="at-modal-actions"><button type="button" class="aff-btn" onclick="AtelierPlanner.closeMail()">Annuler</button><button type="button" class="aff-btn aff-btn-primary" id="atMailSend" onclick="AtelierPlanner.sendMail(${id})">${ico('mail', 'at-ico-sm')}Envoyer</button></div>
+            <div class="at-modal-actions"><button type="button" class="aff-btn" onclick="AtelierPlanner.closeMail()">Annuler</button><button type="button" class="aff-btn aff-btn-primary" id="atMailSend" onclick="AtelierPlanner.sendInvite()">${ico('mail', 'at-ico-sm')}Envoyer l’invitation</button></div>
         </div>`;
         document.body.appendChild(bg);
         document.getElementById('atMailFilter').addEventListener('input', e => {
@@ -555,7 +658,8 @@
         if (m) m.remove();
     }
 
-    async function sendMail(id) {
+    async function sendInvite() {
+        const key = document.getElementById('atMailModal').dataset.key;
         const userIds = [...document.querySelectorAll('#atMailUsers input:checked')].map(i => Number(i.value));
         const parsed = window.parseEmailLines
             ? parseEmailLines(document.getElementById('atMailExtra').value)
@@ -566,26 +670,385 @@
         btn.disabled = true;
         sendStatus('Envoi en cours…');
         try {
-            const r = await atApi(`/affectation/ateliers/${id}/send`, {
+            const end = document.getElementById('atMailEnd');
+            const r = await atApi(`/affectation/ateliers/${AT.f.id}/invitation/${key}`, {
                 method: 'POST',
                 body: JSON.stringify({
                     userIds,
                     emails: parsed.valid,
+                    teams: document.getElementById('atMailTeams').value,
+                    heure_fin: end ? end.value : null,
                     subject: document.getElementById('atMailSubject').value,
-                    message: document.getElementById('atMailMessage').value,
-                    ics: document.getElementById('atMailIcs').checked
+                    message: document.getElementById('atMailMessage').value
                 })
             });
             closeMail();
-            sendStatus(`Envoi terminé (${r.sent} destinataire${r.sent > 1 ? 's' : ''})`, true);
+            sendStatus(`Invitation envoyée (${r.sent} destinataire${r.sent > 1 ? 's' : ''})`, true);
             const list = await atApi('/affectation/ateliers');
             AT.list = list.retroplannings || [];
+            const saved = AT.list.find(x => x.id === AT.f.id);
+            if (saved) {
+                AT.f.teams = saved.lignes.teams || '';
+                AT.f.invites = { ...(saved.lignes.invites || {}) };
+            }
             renderList();
+            renderTable();
         } catch (e) {
             btn.disabled = false;
             document.getElementById('atSendStatus')?.remove();
             toast(e.message, true);
         }
+    }
+
+    // ---- Fenêtre de conception d'un sondage ----
+    const SD = { key: null, data: null, row: null };
+    async function loadUsers() {
+        if (!users) {
+            const all = await atApi('/users');
+            users = (Array.isArray(all) ? all : all.users || []).filter(u => u.actif !== 0);
+        }
+        return users;
+    }
+    // Heure en deux listes : choisir l'heure suffit, les minutes valent 00 par défaut
+    const sdHourSel = (cls, v, title) => {
+        const [hh = '', mm = ''] = (v || '').split(':');
+        const mins = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0'));
+        if (mm && !mins.includes(mm)) (mins.push(mm), mins.sort());
+        return `<span class="hm" title="${title}"><select class="${cls}h" aria-label="${title} (heure)"><option value="">--</option>${Array.from(
+            { length: 24 },
+            (_, i) => String(i).padStart(2, '0')
+        )
+            .map(h => `<option ${h === hh ? 'selected' : ''}>${h}</option>`)
+            .join(
+                ''
+            )}</select> h <select class="${cls}m" aria-label="${title} (minutes)">${mins.map(m => `<option ${m === (mm || '00') ? 'selected' : ''}>${m}</option>`).join('')}</select></span>`;
+    };
+    const sdTime = (el, cls) => {
+        const h = el.querySelector(`.${cls}h`).value;
+        return h ? `${h}:${el.querySelector(`.${cls}m`).value || '00'}` : null;
+    };
+    const sdOptRow = o =>
+        `<div class="at-opt" data-id="${o.id || ''}"><input type="date" class="d" value="${esc(o.date || '')}">${sdHourSel('s', o.heure, 'Heure de début')} – ${sdHourSel('e', o.heure_fin, 'Heure de fin (facultative)')}<button type="button" class="aff-btn" style="padding:3px 8px;" onclick="this.parentNode.remove()" title="Retirer cette date">×</button></div>`;
+    const sdOrgName = u => `${u.prenom || ''} ${(u.nom || '').toUpperCase()}`.trim();
+
+    async function openSondage(key) {
+        const row = AT.sim && AT.sim.rows.find(x => x.key === key);
+        if (!row || !AT.f.id) return;
+        let all;
+        try {
+            all = await loadUsers();
+        } catch (e) {
+            return toast(e.message, true);
+        }
+        let sd;
+        try {
+            sd = (await atApi(`/affectation/ateliers/${AT.f.id}/sondages/${key}`)).sondage;
+        } catch (e) {
+            return toast(e.message, true);
+        }
+        SD.key = key;
+        SD.data = sd;
+        SD.row = row;
+        const ro = !isAdmin();
+        const me = typeof currentUser !== 'undefined' && currentUser ? currentUser.id : null;
+        const d = sd || {
+            nom: `[SI-SAMU] ${AT.f.samu} - Sondage - ${row.jalon}`,
+            organisateur_id: me,
+            destinataires: [],
+            cc_user_ids: [],
+            message: '',
+            options: [{ date: row.proposee || row.cible || '' }],
+            reponses: [],
+            statut: ''
+        };
+        const bg = document.createElement('div');
+        bg.className = 'at-modal-bg';
+        bg.id = 'atSondageModal';
+        const closed = d.statut === 'termine';
+        const dis = ro || closed ? 'disabled' : '';
+        bg.innerHTML = `<div class="at-modal large" role="dialog" aria-label="Sondage">
+            <h3>${ico('calendar')} Sondage — ${esc(row.jalon)} <span class="at-badge" id="sdBadge" style="margin-left:8px;">${esc(SD_LABEL[d.statut] || 'Nouveau')}</span></h3>
+            <label>Nom du sondage</label>
+            <input type="text" id="sdNom" value="${esc(d.nom)}" ${dis}>
+            <label>Identité (organisateur)</label>
+            <select id="sdOrg" style="width:100%;padding:8px;border:1px solid #cfd8e6;border-radius:8px;" ${dis}>
+                <option value="">— Choisir —</option>${all.map(u => `<option value="${u.id}" ${u.id === d.organisateur_id ? 'selected' : ''}>${esc(sdOrgName(u))}</option>`).join('')}
+            </select>
+            <label>Dates et heures proposées <span class="aff-muted" style="font-weight:400;">(le calendrier s’ouvre autour de la date proposée : ${esc(frShort(row.proposee))})</span></label>
+            <div id="sdOpts">${d.options.map(sdOptRow).join('')}</div>
+            ${ro || closed ? '' : '<button type="button" class="aff-btn" onclick="AtelierPlanner.sondageAddDate()">+ Ajouter une date</button>'}
+            <label>Destinataires du sondage (adresses e-mail, une par ligne)</label>
+            <textarea id="sdDest" rows="3" placeholder="prenom.nom@exemple.fr" ${dis}>${esc((d.destinataires || []).join('\n'))}</textarea>
+            <div id="sdDestErr" style="color:#c62828;font-size:11px;margin-top:3px;"></div>
+            <label>En copie (utilisateurs de l’application)</label>
+            <input type="text" id="sdCcFilter" placeholder="Filtrer par nom…" style="margin-bottom:6px;">
+            <div class="at-users" id="sdCc">${all
+                .filter(u => u.email)
+                .map(
+                    u =>
+                        `<label data-n="${esc(sdOrgName(u).toLowerCase())}"><input type="checkbox" value="${u.id}" ${(d.cc_user_ids || []).includes(u.id) ? 'checked' : ''} ${dis}> ${esc(sdOrgName(u))} <span class="aff-muted">${esc(u.email)}</span></label>`
+                )
+                .join('')}</div>
+            <label>Message (facultatif)</label>
+            <textarea id="sdMsg" rows="2" ${dis}>${esc(d.message || '')}</textarea>
+            <label>Adresse d’accès unique</label>
+            <div class="at-url"><input type="text" id="sdUrl" readonly value="${esc(sd ? sd.url : '')}" placeholder="Pas encore générée">${sd ? '' : `<button type="button" class="aff-btn aff-btn-primary" id="sdGen" ${ro ? 'disabled' : ''} onclick="AtelierPlanner.sondageGenerate()" title="Crée le sondage (brouillon) et son adresse d’accès, sans l’envoyer">Génération</button>`}<button type="button" class="aff-btn" ${sd ? '' : 'disabled'} onclick="AtelierPlanner.sondageCopy()">Copier</button><button type="button" class="aff-btn" ${sd ? '' : 'disabled'} onclick="AtelierPlanner.sondagePreview()" title="Ouvre la page publique du sondage dans un nouvel onglet">Prévisualiser</button></div>
+            <div id="sdChoix">${sd ? sdChoix(d, ro || closed) : ''}</div>
+            <div id="sdResults">${sdResults(d)}</div>
+            <div class="at-modal-actions">
+                ${sd && !ro ? '<button type="button" class="aff-btn" style="margin-right:auto;color:#b3261e;" onclick="AtelierPlanner.sondageDelete()">Supprimer</button>' : ''}
+                <button type="button" class="aff-btn" onclick="AtelierPlanner.closeSondage()">Fermer</button>
+                ${sd && !ro ? (closed ? '<button type="button" class="aff-btn aff-btn-primary" id="sdReopen" onclick="AtelierPlanner.sondageReopen()">Réouvrir</button>' : '<button type="button" class="aff-btn" id="sdClose" style="border-color:#455a64;color:#455a64;" onclick="AtelierPlanner.sondageClose()">Clôturer</button>') : ''}
+                ${ro || closed ? '' : `<button type="button" class="aff-btn" id="sdSave" onclick="AtelierPlanner.sondageSave()">Enregistrer</button><button type="button" class="aff-btn aff-btn-primary" id="sdSend" onclick="AtelierPlanner.sondageSend()">${ico('mail', 'at-ico-sm')}${sd && sd.statut !== 'brouillon' ? 'Renvoyer le mail' : 'Envoyer le mail'}</button>`}
+            </div>
+        </div>`;
+        document.body.appendChild(bg);
+        if (ro || closed)
+            bg.querySelectorAll('#sdOpts input, #sdOpts select, #sdOpts button').forEach(el => (el.disabled = true));
+        // Heure de fin proposée : début + 1 h, tant que l'heure de fin n'a pas été choisie à la main
+        document.getElementById('sdOpts').addEventListener('change', e => {
+            const row = e.target.closest('.at-opt');
+            if (!row) return;
+            const cls = e.target.className;
+            if (cls === 'eh' || cls === 'em') {
+                row.dataset.auto = '';
+                return;
+            }
+            if (cls !== 'sh' && cls !== 'sm') return;
+            const eh = row.querySelector('.eh');
+            if (eh.value && row.dataset.auto !== '1') return;
+            const h = row.querySelector('.sh').value;
+            if (!h || Number(h) >= 23) {
+                if (row.dataset.auto === '1') eh.value = '';
+                return;
+            }
+            eh.value = String(Number(h) + 1).padStart(2, '0');
+            row.querySelector('.em').value = row.querySelector('.sm').value;
+            row.dataset.auto = '1';
+        });
+        document.getElementById('sdCcFilter').addEventListener('input', e => {
+            const q = e.target.value.toLowerCase().trim();
+            document
+                .querySelectorAll('#sdCc label')
+                .forEach(l => (l.style.display = !q || l.dataset.n.includes(q) ? 'flex' : 'none'));
+        });
+    }
+
+    const sdLabel = o => `${frDate(o.date)}${o.heure ? ` · ${o.heure}${o.heure_fin ? ' – ' + o.heure_fin : ''}` : ''}`;
+    // Créneau retenu : une des dates proposées, avec le nombre de réponses favorables
+    function sdChoix(d, locked) {
+        if (!d.options.length) return '';
+        return `<label>Créneau retenu${locked && !d.option_retenue_id ? ' <span class="aff-muted" style="font-weight:400;">(aucun)</span>' : ''}</label>${locked ? `<div class="aff-muted" style="font-size:12px;margin-bottom:4px;">${d.statut === 'termine' ? '🔒 Sondage clôturé : cliquez sur « Réouvrir » pour changer le créneau retenu.' : 'Lecture seule : seuls les administrateurs choisissent le créneau retenu.'}</div>` : '<div class="aff-muted" style="font-size:12px;margin-bottom:4px;">Cochez le créneau à retenir, puis « Clôturer ».</div>'}${d.options
+            .map(
+                o =>
+                    `<label style="display:flex;align-items:center;gap:8px;margin:0;padding:3px 0;font-weight:600;cursor:pointer;"><input type="radio" name="sdRet" value="${o.id}" ${d.option_retenue_id === o.id ? 'checked' : ''} ${locked ? 'disabled' : ''} style="width:16px;height:16px;margin:0;flex:0 0 16px;"> ${esc(sdLabel(o))} <span class="aff-muted" style="font-weight:400;">${d.reponses.filter(r => r.options.includes(o.id)).length} réponse(s)</span></label>`
+            )
+            .join('')}`;
+    }
+
+    async function refreshRetro() {
+        AT.list = (await atApi('/affectation/ateliers')).retroplannings || [];
+        const r = AT.list.find(x => x.id === AT.f.id);
+        if (r) {
+            AT.f.planifiees = { ...(r.lignes.planifiees || {}) };
+            AT.f.heures = { ...(r.lignes.heures || {}) };
+        }
+        closeSondage();
+        await loadSondages();
+        recompute();
+    }
+
+    async function sondageClose() {
+        const pick = document.querySelector('input[name="sdRet"]:checked');
+        const opt = pick && SD.data && SD.data.options.find(o => o.id === Number(pick.value));
+        const msg = opt
+            ? `Clôturer le sondage avec le créneau retenu :\n${sdLabel(opt)}\n\nLa date réellement planifiée du jalon sera renseignée (date et heure). Les réponses ne seront plus modifiables.`
+            : 'Clôturer le sondage sans créneau retenu ?\n\nLes réponses ne seront plus modifiables.';
+        if (!confirm(msg)) return;
+        try {
+            await atApi(`/affectation/ateliers/${AT.f.id}/sondages/${SD.key}/close`, {
+                method: 'POST',
+                body: JSON.stringify({ option_id: opt ? opt.id : null })
+            });
+            toast(opt ? `Sondage terminé : ${sdLabel(opt)}.` : 'Sondage clôturé.');
+            await refreshRetro();
+        } catch (e) {
+            toast(e.message, true);
+        }
+    }
+
+    async function sondageReopen() {
+        if (!confirm('Rouvrir le sondage ? Il redevient modifiable et accepte de nouveau des réponses.')) return;
+        try {
+            await atApi(`/affectation/ateliers/${AT.f.id}/sondages/${SD.key}/reopen`, { method: 'POST', body: '{}' });
+            toast('Sondage rouvert.');
+            await refreshRetro();
+        } catch (e) {
+            toast(e.message, true);
+        }
+    }
+
+    const SD_REFRESH_ICO =
+        '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px;margin-right:6px;"><path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"/><path d="M3 12A9 9 0 0 1 18.5 5.8L21 8"/><path d="M21 3v5h-5"/><path d="M3 21v-5h5"/></svg>';
+    // Réponses reçues, avec un bouton pour les actualiser sans perdre la saisie en cours
+    function sdResults(d) {
+        if (!d.id) return '';
+        const opts = d.options;
+        const head = `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;"><span style="font-size:12px;font-weight:700;color:#455a64;">Réponses (${d.reponses.length})</span><button type="button" class="aff-btn" id="sdRefresh" style="border-color:#1d70b7;color:#1d70b7;font-weight:700;" onclick="AtelierPlanner.sondageRefresh()" title="Recharger les réponses reçues">${SD_REFRESH_ICO}Actualiser</button></div>`;
+        if (!d.reponses.length)
+            return `${head}<div class="aff-muted" style="padding:8px 0;font-size:12px;">Aucune réponse pour le moment.</div>`;
+        return `${head}<div style="overflow:auto;"><table class="at-res"><thead><tr><th class="nom">Nom</th>${opts.map(o => `<th>${esc(frShort(o.date))}${o.heure ? '<br>' + esc(o.heure) : ''}</th>`).join('')}</tr></thead><tbody>${d.reponses
+            .map(
+                r =>
+                    `<tr><td class="nom">${esc(r.nom)}</td>${opts.map(o => (r.options.includes(o.id) ? '<td class="oui">✓</td>' : '<td>–</td>')).join('')}</tr>`
+            )
+            .join(
+                ''
+            )}<tr><td class="nom"><b>Total</b></td>${opts.map(o => `<td><b>${d.reponses.filter(r => r.options.includes(o.id)).length}</b></td>`).join('')}</tr></tbody></table></div>`;
+    }
+
+    async function sondageRefresh() {
+        const btn = document.getElementById('sdRefresh');
+        if (btn) {
+            btn.disabled = true;
+            btn.style.opacity = '.6';
+        }
+        try {
+            const sd = (await atApi(`/affectation/ateliers/${AT.f.id}/sondages/${SD.key}`)).sondage;
+            if (!sd) throw new Error('Sondage introuvable');
+            const kept = document.querySelector('input[name="sdRet"]:checked');
+            SD.data = sd;
+            const locked = !isAdmin() || sd.statut === 'termine';
+            document.getElementById('sdChoix').innerHTML = sdChoix(
+                { ...sd, option_retenue_id: kept && !locked ? Number(kept.value) : sd.option_retenue_id },
+                locked
+            );
+            document.getElementById('sdResults').innerHTML = sdResults(sd);
+            const badge = document.getElementById('sdBadge');
+            if (badge) badge.textContent = SD_LABEL[sd.statut] || 'Nouveau';
+            toast(`Réponses actualisées (${sd.reponses.length}).`);
+            loadSondages();
+        } catch (e) {
+            const again = document.getElementById('sdRefresh');
+            if (again) {
+                again.disabled = false;
+                again.style.opacity = '';
+            }
+            toast(e.message, true);
+        }
+    }
+
+    function sondageForm() {
+        const options = [...document.querySelectorAll('#sdOpts .at-opt')]
+            .map(el => ({
+                id: el.dataset.id ? Number(el.dataset.id) : undefined,
+                date: el.querySelector('.d').value,
+                heure: sdTime(el, 's'),
+                heure_fin: sdTime(el, 'e')
+            }))
+            .filter(o => o.date);
+        const parsed = window.parseEmailLines
+            ? parseEmailLines(document.getElementById('sdDest').value)
+            : { valid: [], invalid: [] };
+        document.getElementById('sdDestErr').textContent = parsed.invalid.length
+            ? `Adresse(s) invalide(s) : ${parsed.invalid.join(' · ')}`
+            : '';
+        if (parsed.invalid.length) throw new Error(`Adresse(s) e-mail invalide(s) : ${parsed.invalid.join(', ')}`);
+        return {
+            nom: document.getElementById('sdNom').value,
+            organisateur_id: Number(document.getElementById('sdOrg').value) || null,
+            options,
+            destinataires: parsed.valid,
+            cc_user_ids: [...document.querySelectorAll('#sdCc input:checked')].map(i => Number(i.value)),
+            message: document.getElementById('sdMsg').value
+        };
+    }
+
+    // Crée le sondage (brouillon) pour obtenir son adresse, puis rouvre la fenêtre sur le sondage créé
+    async function sondageGenerate() {
+        const btn = document.getElementById('sdGen');
+        try {
+            const body = sondageForm();
+            if (btn) btn.disabled = true;
+            await atApi(`/affectation/ateliers/${AT.f.id}/sondages/${SD.key}`, {
+                method: 'PUT',
+                body: JSON.stringify(body)
+            });
+            const key = SD.key;
+            closeSondage();
+            await loadSondages();
+            toast('Adresse générée. Le sondage reste en brouillon tant que le mail n’est pas envoyé.');
+            await openSondage(key);
+        } catch (e) {
+            if (btn) btn.disabled = false;
+            toast(e.message, true);
+        }
+    }
+
+    async function sondageSave(thenSend) {
+        const btns = ['sdSave', 'sdSend'].map(i => document.getElementById(i)).filter(Boolean);
+        try {
+            const body = sondageForm();
+            btns.forEach(b => (b.disabled = true));
+            const r = await atApi(`/affectation/ateliers/${AT.f.id}/sondages/${SD.key}`, {
+                method: 'PUT',
+                body: JSON.stringify(body)
+            });
+            if (thenSend) {
+                const sent = await atApi(`/affectation/ateliers/${AT.f.id}/sondages/${SD.key}/send`, {
+                    method: 'POST',
+                    body: '{}'
+                });
+                toast(
+                    `Sondage envoyé (${sent.sent} destinataire${sent.sent > 1 ? 's' : ''}${sent.cc ? `, ${sent.cc} en copie` : ''}).`
+                );
+            } else {
+                toast(`Sondage enregistré. Adresse : ${r.sondage.url}`);
+            }
+            closeSondage();
+            await loadSondages();
+        } catch (e) {
+            btns.forEach(b => (b.disabled = false));
+            toast(e.message, true);
+        }
+    }
+
+    async function sondageDelete() {
+        if (!confirm('Supprimer ce sondage, ses dates et ses réponses ?')) return;
+        try {
+            await atApi(`/affectation/ateliers/${AT.f.id}/sondages/${SD.key}`, { method: 'DELETE' });
+            closeSondage();
+            await loadSondages();
+        } catch (e) {
+            toast(e.message, true);
+        }
+    }
+
+    function closeSondage() {
+        const m = document.getElementById('atSondageModal');
+        if (m) m.remove();
+    }
+
+    function sondagePreview() {
+        const v = document.getElementById('sdUrl').value;
+        if (/^https?:\/\//.test(v)) window.open(v, '_blank', 'noopener');
+    }
+
+    async function sondageCopy() {
+        const v = document.getElementById('sdUrl').value;
+        try {
+            await navigator.clipboard.writeText(v);
+            toast('Adresse copiée.');
+        } catch (e) {
+            document.getElementById('sdUrl').select();
+        }
+    }
+
+    function sondageAddDate() {
+        const last = [...document.querySelectorAll('#sdOpts .at-opt .d')].pop();
+        const tpl = document.createElement('div');
+        tpl.innerHTML = sdOptRow({ date: (last && last.value) || (SD.row && (SD.row.proposee || SD.row.cible)) || '' });
+        document.getElementById('sdOpts').appendChild(tpl.firstChild);
     }
 
     window.AtelierPlanner = {
@@ -594,9 +1057,21 @@
         reset,
         edit,
         remove,
-        openMail,
+        openInvite,
         closeMail,
-        sendMail,
+        sendInvite,
+        openSondage,
+        closeSondage,
+        sondageSave: () => sondageSave(false),
+        sondageSend: () => sondageSave(true),
+        sondageDelete,
+        sondageClose,
+        sondageReopen,
+        sondageCopy,
+        sondageGenerate,
+        sondageRefresh,
+        sondagePreview,
+        sondageAddDate,
         resetZone() {
             const p = currentProject();
             if (p && p.zone) {

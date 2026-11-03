@@ -24,7 +24,7 @@ Protections :
 | `mfaPending` | Connexion en attente de double authentification |
 | `apiKey` | Clé d’API (en-tête X-Api-Key) |
 
-315 routes, par module (`src/modules/<module>`) :
+326 routes, par module (`src/modules/<module>`) :
 
 ## admin
 
@@ -47,6 +47,7 @@ Protections :
 | GET | `/api/theme` | public |
 | PUT | `/api/theme` | admin |
 | GET | `/api/version` | public |
+| GET | `/sondage/:token` | public |
 
 ## affectation
 
@@ -66,8 +67,16 @@ Protections :
 | DELETE | `/api/affectation/asana/token` | admin |
 | GET | `/api/affectation/ateliers` | affectation |
 | PUT | `/api/affectation/ateliers` | admin |
+| GET | `/api/affectation/ateliers-sondages` | affectation |
 | DELETE | `/api/affectation/ateliers/:id` | admin |
+| POST | `/api/affectation/ateliers/:id/invitation/:ligne` | admin |
 | POST | `/api/affectation/ateliers/:id/send` | admin |
+| GET | `/api/affectation/ateliers/:id/sondages/:ligne` | affectation |
+| PUT | `/api/affectation/ateliers/:id/sondages/:ligne` | admin |
+| DELETE | `/api/affectation/ateliers/:id/sondages/:ligne` | admin |
+| POST | `/api/affectation/ateliers/:id/sondages/:ligne/close` | admin |
+| POST | `/api/affectation/ateliers/:id/sondages/:ligne/reopen` | admin |
+| POST | `/api/affectation/ateliers/:id/sondages/:ligne/send` | admin |
 | GET | `/api/affectation/ateliers/meta` | affectation |
 | POST | `/api/affectation/ateliers/simulate` | affectation |
 | PUT | `/api/affectation/colors` | admin |
@@ -106,6 +115,8 @@ Protections :
 | DELETE | `/api/affectation/template` | admin |
 | GET | `/api/affectation/template/preview` | affectation |
 | GET | `/api/affectation/users` | admin |
+| GET | `/api/sondages-publics/:token` | public |
+| POST | `/api/sondages-publics/:token/reponses` | public |
 
 ## astreintes
 

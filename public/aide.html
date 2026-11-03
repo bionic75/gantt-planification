@@ -773,11 +773,65 @@
   <h2>🆕 Notes de version</h2>
   <p>Historique des évolutions de la Plateforme de Planification ANS.</p>
 
+  <!-- v2.15.0 -->
+  <div class="card card-green" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v2.15.0</strong>
+      <span class="badge badge-current">Actuelle</span>
+      <span style="color:#888; font-size:13px;">Novembre 2026</span>
+    </div>
+    <ul>
+      <li>📨 <strong>Ateliers métier › invitation</strong> : dès qu'un jalon est « Planifié », un bouton « Inviter » apparaît à droite du statut. La fenêtre reprend le nom de l'atelier (objet « [SI-SAMU] SAMU - Atelier n »), les destinataires (utilisateurs et adresses libres) et un message, et envoie une <em>invitation .ics</em> (date et heure planifiées, fin par défaut +1 h) contenant le <em>lien Teams</em>. Le lien Teams saisi une fois est retenu pour le SAMU et proposé pour ses autres ateliers (modifiable). Le bouton devient « Invitation envoyée » (vert). L'invitation est reconnue par Outlook et Gmail comme une vraie invitation de réunion (boutons Accepter, Provisoire, Refuser), avec le fichier .ics en pièce jointe.</li>
+      <li>🧹 L'icône d'envoi par e-mail du tableau « Rétroplanning » est retirée : la diffusion se fait désormais atelier par atelier.</li>
+    </ul>
+  </div>
+
+  <!-- v2.14.0 -->
+  <div class="card card-green" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v2.14.0</strong>
+      <span style="color:#888; font-size:13px;">Novembre 2026</span>
+    </div>
+    <ul>
+      <li>🔒 <strong>Sondage › clôturer / réouvrir</strong> : dans la fenêtre du sondage, choisissez le <em>créneau retenu</em> parmi les dates proposées (nombre de réponses affiché), puis « Clôturer ». Le bouton du jalon passe à « Sondage terminé » (gris foncé) et la <em>Date réellement planifiée</em> reçoit la date et l'heure retenues (une heure s'affiche désormais à côté de la date). « Réouvrir » rend le sondage modifiable et de nouveau ouvert aux réponses ; la date planifiée est conservée.</li>
+      <li>👁️ <strong>Sondage › présentation</strong> : les créneaux proposés s'affichent sur une ligne (date, heure de début, heure de fin) avec un fond gris alterné ; le bouton « Prévisualiser » ouvre la page publique du sondage dans un nouvel onglet ; le bouton « Actualiser » (au-dessus du tableau des réponses) recharge les réponses reçues sans perdre la saisie en cours.</li>
+      <li>✏️ <strong>Page du sondage</strong> : l'en-tête porte le logo « Téléphonie SI-SAMU ». Après avoir enregistré sa réponse, une personne la retrouve dans la ligne de saisie (cases cochées) et peut la modifier avec « Modifier ma réponse » (sur le même navigateur) ; « Ce n'est pas moi » permet de répondre sous un autre nom.</li>
+      <li>🔑 <strong>Sondage › adresse d'accès</strong> : le bouton « Génération » crée le sondage (brouillon) et son adresse sans passer par « Enregistrer » ni envoyer de mail. Les heures de chaque créneau se choisissent en deux listes (heure, minutes) : les minutes valent 00 par défaut, il suffit de choisir l'heure. L'heure de fin est proposée automatiquement une heure après le début, tant qu'elle n'a pas été choisie à la main.</li>
+      <li>🔗 <strong>Lien d'un sondage clôturé</strong> : il reste actif mais plus rien n'est modifiable ; la page affiche le créneau retenu.</li>
+    </ul>
+  </div>
+
+  <!-- v2.13.0 -->
+  <div class="card card-green" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v2.13.0</strong>
+      <span style="color:#888; font-size:13px;">Novembre 2026</span>
+    </div>
+    <ul>
+      <li>🗳️ <strong>Planification des ateliers métier › Sondage</strong> : une colonne « Sondage » (entre « Date proposée » et « Date réellement planifiée ») propose, pour chaque jalon d'un rétroplanning enregistré, un outil de conception de sondage de date façon Framadate : nom (« [SI-SAMU] SAMU - Sondage - Atelier »), identité de l'organisateur, autant de dates et d'heures que nécessaire (le calendrier s'ouvre autour de la date proposée), adresses e-mail destinataires, utilisateurs en copie, message, et <em>adresse d'accès unique</em> (/sondage/…) générée à l'enregistrement.</li>
+      <li>🎨 <strong>Statut sur le bouton</strong> : « Sondage » → « Sondage (brouillon) » une fois enregistré → « Sondage en cours » (orange) quand le mail est parti → « Réponses en cours » (vert, avec le nombre de réponses) dès la première réponse.</li>
+      <li>📝 <strong>Page publique du sondage</strong> : sans connexion, interface dépouillée SI-SAMU avec toutes les dates ; chacun saisit son nom et coche les dates retenues (saisir de nouveau le même nom remplace sa réponse). Les réponses sont visibles dans la fenêtre du sondage.</li>
+    </ul>
+  </div>
+
+  <!-- v2.12.0 -->
+  <div class="card card-green" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v2.12.0</strong>
+      <span style="color:#888; font-size:13px;">Novembre 2026</span>
+    </div>
+    <ul>
+      <li>🧩 <strong>Formation utilisateurs, VFT et Accompagnement en plusieurs parties</strong> : dans le déploiement et dans l'administration des projets Asana, ces phases peuvent être reliées à <em>plusieurs événements</em> (un même événement découpé en parties séparées de plusieurs jours). Dans la liste déroulante à choix multiple, cochez les événements existants du SAMU ou utilisez « Ajouter une partie » (dates de la partie) pour en créer. Les autres activités gardent un seul événement.</li>
+      <li>📏 <strong>Synchronisation</strong> : quand au moins deux parties sont liées, les écarts se mesurent sur les seuls jours de ces parties (les journées cochées dans la grille comptent toujours) ; les jours qui les séparent ne sont plus signalés.</li>
+      <li>🗓️ <strong>Journées décochées dans la grille</strong> : à l'enregistrement, les journées non cochées mais déjà posées pour ce SAMU dans la planification (cellules bleues de la grille, ex. samedi et dimanche retirés) sont signalées : l'enregistrement propose de les remettre dans sa planification en « 2 - Disponible » / « 2 - En attente d'affectation » (localisation effacée). Seules les demi-journées posées par l'affectation pour ce SAMU sont modifiées.</li>
+      <li>↩️ <strong>Désaffectation</strong> : la remise en « 2 - Disponible » / « 2 - En attente d'affectation » ne porte que sur les jours des parties, et l'expert est retiré de toutes les parties de la phase.</li>
+    </ul>
+  </div>
+
   <!-- v2.11.0 -->
   <div class="card card-green" style="margin-bottom:16px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
       <strong style="font-size:16px;">v2.11.0</strong>
-      <span class="badge badge-current">Actuelle</span>
       <span style="color:#888; font-size:13px;">Novembre 2026</span>
     </div>
     <ul>
