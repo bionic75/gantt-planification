@@ -1047,6 +1047,7 @@
                 ? '<div style="font-size:11px;color:#1b7f3b;">✔ mêmes dates que l\'activité</div>'
                 : `<div style="font-size:11px;color:#b26a00;" title="Dates de l'événement : ${esc(evDates(lk))}">⚠ dates différentes de l'activité</div>`
             : '';
+        if (c.multi) return evMultiHtml('asanaEv', key, c);
         return `<select data-ek="${key}" onchange="AffectationApp.asanaEvLink(this)" style="width:100%;padding:5px;" title="Événements de ce SAMU${c.typeLong ? ' (type « ' + esc(c.typeLong) + ' »)' : ''}">
                 <option value="">— Aucun événement lié —</option>
                 ${c.matching.length ? `<optgroup label="Correspondant au SAMU et au type « ${esc(c.typeLong || '')} »">${c.matching.map(e => evOpt(e, e.id === c.linked)).join('')}</optgroup>` : ''}
@@ -1435,6 +1436,31 @@
     // Événements du SAMU correspondant à chaque activité (liste déroulante ; création proposée s'il n'y en a pas)
     const evFr = d => (d ? d.split('-').reverse().join('/') : '');
     const evDates = e => (e.start === e.end ? evFr(e.start) : `${evFr(e.start)} → ${evFr(e.end)}`);
+    // Activité découpable en plusieurs parties : cases à cocher + ajout d'une partie (dates propres)
+    function evMultiHtml(h, key, c) {
+        const rows = [...c.matching.map(e => [e, true]), ...c.others.map(e => [e, false])]
+            .map(
+                ([e, m]) =>
+                    `<label style="display:flex;gap:6px;align-items:center;font-size:12px;"><input type="checkbox" data-eid="${e.id}" ${c.linkedIds.includes(e.id) ? 'checked' : ''} onchange="AffectationApp.${h}Toggle(this)"><span>${esc(evDates(e))} · ${esc(e.label)}${e.participants ? ' · ' + e.participants + ' part.' : ''}${m ? '' : ' · <i>autre type</i>'}</span></label>`
+            )
+            .join('');
+        return `<div data-evbox="${key}" style="display:flex;flex-direction:column;gap:3px;">
+            <div style="font-size:11px;color:#6b7a8d;">Parties de l'événement (jours de l'activité ${c.linkedIds.length ? '= jours des parties cochées' : "non restreints tant qu'aucune partie n'est cochée"})</div>
+            ${rows || '<span class="aff-muted" style="font-size:12px;">Aucun événement pour ce SAMU.</span>'}
+            <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin-top:2px;">
+                <input type="date" id="${h}PS_${key}" style="padding:3px;" title="Début de la partie"><span class="aff-muted">→</span>
+                <input type="date" id="${h}PE_${key}" style="padding:3px;" title="Fin de la partie (facultative)">
+                <button type="button" class="aff-btn aff-btn-primary" style="padding:3px 9px;font-size:11px;" onclick="AffectationApp.${h}PartAdd('${key}')" title="Crée une partie de l'événement (SAMU, type, dates saisies, ressources affectées en participants)">${svg('plus', 'aff-ico-sm')}Ajouter une partie</button>
+            </div>
+        </div>`;
+    }
+    const evCheckedIds = cb =>
+        [...cb.closest('[data-evbox]').querySelectorAll('input[data-eid]:checked')].map(i => Number(i.dataset.eid));
+    function evPartDates(h, key) {
+        const a = document.getElementById(`${h}PS_${key}`).value,
+            b = document.getElementById(`${h}PE_${key}`).value;
+        return { start: a, end: b || a };
+    }
     const evOpt = (e, sel) =>
         `<option value="${e.id}" ${sel ? 'selected' : ''}>${esc(evDates(e))} · ${esc(e.label)}${e.participants ? ' · ' + e.participants + ' part.' : ''}${e.type ? ' · ' + esc(e.type) : ''}</option>`;
     function evRowDates(key) {
@@ -1454,6 +1480,10 @@
             if (!state.form || !state.form.id) return;
             if (!c) {
                 row.innerHTML = '<span class="aff-muted">Événements indisponibles.</span>';
+                return;
+            }
+            if (c.multi) {
+                row.innerHTML = `<span class="aff-muted" style="white-space:nowrap;">${svg('calendar', 'aff-ico-sm')}Événement</span>${evMultiHtml('ev', key, c)}`;
                 return;
             }
             const none = !c.matching.length;
@@ -1963,6 +1993,39 @@
                 evInfo(key);
             } catch (e) {
                 document.getElementById('affModalError').textContent = e.message;
+            }
+        },
+        async evToggle(cb) {
+            const key = cb.closest('[data-evbox]').dataset.evbox,
+                c = state.evc && state.evc.candidates[key],
+                ids = evCheckedIds(cb);
+            try {
+                await api(`/affectation/projects/${state.form.id}/event-link`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ key, eventIds: ids })
+                });
+                if (c) c.linkedIds = ids;
+                renderEventLinks();
+            } catch (e) {
+                document.getElementById('affModalError').textContent = e.message;
+            }
+        },
+        async evPartAdd(key) {
+            const err = document.getElementById('affModalError');
+            err.textContent = '';
+            const d = evPartDates('ev', key);
+            if (!d.start) {
+                err.textContent = `${stageDef(key).label} : renseignez le début de la partie.`;
+                return;
+            }
+            try {
+                await api(`/affectation/projects/${state.form.id}/event-create`, {
+                    method: 'POST',
+                    body: JSON.stringify({ key, start: d.start, end: d.end })
+                });
+                await loadEventCandidates(state.form.id);
+            } catch (e) {
+                err.textContent = e.message;
             }
         },
         async evCreate(key) {
@@ -4330,6 +4393,42 @@
                 if (td) td.innerHTML = asanaEvCell(key);
             } catch (e) {
                 document.getElementById('affAsanaTasksMsg').textContent = e.message;
+            }
+        },
+        async asanaEvToggle(cb) {
+            const key = cb.closest('[data-evbox]').dataset.evbox,
+                c = asanaT.evc && asanaT.evc.candidates[key],
+                ids = evCheckedIds(cb);
+            try {
+                await api(`/affectation/projects/${asanaT.id}/event-link`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ key, eventIds: ids })
+                });
+                if (c) c.linkedIds = ids;
+                const td = document.getElementById('aTEv_' + key);
+                if (td) td.innerHTML = asanaEvCell(key);
+            } catch (e) {
+                document.getElementById('affAsanaTasksMsg').textContent = e.message;
+            }
+        },
+        async asanaEvPartAdd(key) {
+            const msg = document.getElementById('affAsanaTasksMsg');
+            msg.style.color = '#b3261e';
+            msg.textContent = '';
+            const d = evPartDates('asanaEv', key);
+            if (!d.start) {
+                msg.textContent = `${stageDef(key).label} : renseignez le début de la partie.`;
+                return;
+            }
+            try {
+                await api(`/affectation/projects/${asanaT.id}/event-create`, {
+                    method: 'POST',
+                    body: JSON.stringify({ key, start: d.start, end: d.end })
+                });
+                asanaT.evc = await api(`/affectation/projects/${asanaT.id}/events-candidates`);
+                renderAsanaTasks();
+            } catch (e) {
+                msg.textContent = e.message;
             }
         },
         async asanaEvCreate(key) {

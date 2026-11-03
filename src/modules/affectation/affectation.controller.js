@@ -210,7 +210,8 @@ export async function release(/** @type {Request} */ req, /** @type {Response} *
         start: per.start,
         end: per.end,
         period: 'FULL',
-        samuNo: affSamuNumber(proj.samu_name)
+        samuNo: affSamuNumber(proj.samu_name),
+        days: await svc.affPartDays(id, key, per)
     });
     const evs = await svc.affStageEvents(
         proj,
@@ -274,8 +275,11 @@ export async function setEventLink(/** @type {Request} */ req, /** @type {Respon
     const eventId = Number((req.body || {}).eventId) || null;
     if (!svc.AFF_EVENT_KEYS.includes(key)) throw badRequest('Activité inconnue');
     if (eventId && !(await svc.eventExists(eventId))) throw notFound('Événement introuvable');
-    await svc.affSetEventLink(id, key, eventId);
-    logUserAction(req, 'Lien déploiement / événement', { id, activite: key, evenement: eventId });
+    const ids = Array.isArray(req.body && req.body.eventIds) ? req.body.eventIds : eventId ? [eventId] : [];
+    const known = [];
+    for (const n of svc.affLinkIds(ids)) if (await svc.eventExists(n)) known.push(n);
+    await svc.affSetEventLinks(id, key, known);
+    logUserAction(req, 'Lien déploiement / événement', { id, activite: key, evenements: known });
     res.json({ success: true });
 }
 
@@ -322,7 +326,7 @@ export async function createEvent(/** @type {Request} */ req, /** @type {Respons
     });
     const participants = await svc.stageAssignedUsers(id, key);
     await svc.addEventParticipants(eventId, participants);
-    await svc.affSetEventLink(id, key, eventId);
+    await svc.affAddEventLink(id, key, eventId);
     logUserAction(req, "Création d'un événement depuis un déploiement SAMU", {
         id,
         activite: key,

@@ -893,9 +893,31 @@ export const sortedEventTypes = () =>
 /** Liens explicites déploiement / activité / événement (paramètre JSON) */
 export const AFF_EVLINK_KEY = 'aff_event_links';
 
+/** Activités dont l'événement peut être découpé en plusieurs parties (séparées de plusieurs jours) */
+export const AFF_MULTI_EVENT_KEYS = ['vft', 'formation_utilisateurs', 'accompagnement'];
+
+/** Événements liés à une activité : ancien format (un identifiant) ou liste d'identifiants */
+export const affLinkIds = (/** @type {unknown} */ v) =>
+    (Array.isArray(v) ? v : [v]).map(Number).filter(n => Number.isInteger(n) && n > 0);
+
 export async function affEventLinks(/** @type {number} */ depId) {
     const all = (await getJsonSetting(AFF_EVLINK_KEY)) || {};
     return all[String(depId)] || {};
+}
+
+/** Remplace les événements liés à une activité (un seul hors activités découpables) */
+export async function affSetEventLinks(
+    /** @type {number} */ depId,
+    /** @type {string} */ key,
+    /** @type {number[]} */ eventIds
+) {
+    const all = (await getJsonSetting(AFF_EVLINK_KEY)) || {};
+    const cur = (all[String(depId)] = all[String(depId)] || {});
+    const ids = [...new Set(affLinkIds(eventIds))].slice(0, AFF_MULTI_EVENT_KEYS.includes(key) ? 50 : 1);
+    if (ids.length) cur[key] = AFF_MULTI_EVENT_KEYS.includes(key) ? ids : ids[0];
+    else delete cur[key];
+    if (!Object.keys(cur).length) delete all[String(depId)];
+    await setSetting(AFF_EVLINK_KEY, JSON.stringify(all));
 }
 
 export async function affSetEventLink(
@@ -903,12 +925,46 @@ export async function affSetEventLink(
     /** @type {string} */ key,
     /** @type {number | null} */ eventId
 ) {
-    const all = (await getJsonSetting(AFF_EVLINK_KEY)) || {};
-    const cur = (all[String(depId)] = all[String(depId)] || {});
-    if (eventId) cur[key] = eventId;
-    else delete cur[key];
-    if (!Object.keys(cur).length) delete all[String(depId)];
-    await setSetting(AFF_EVLINK_KEY, JSON.stringify(all));
+    await affSetEventLinks(depId, key, eventId ? [eventId] : []);
+}
+
+/** Ajoute une partie aux événements liés à une activité (remplace l'événement lié hors activités découpables) */
+export async function affAddEventLink(
+    /** @type {number} */ depId,
+    /** @type {string} */ key,
+    /** @type {number} */ eventId
+) {
+    const cur = AFF_MULTI_EVENT_KEYS.includes(key) ? affLinkIds((await affEventLinks(depId))[key]) : [];
+    await affSetEventLinks(depId, key, [...cur, eventId]);
+}
+
+/**
+ * Jours ouvrés couverts par les parties (événements liés) d'une activité découpable, dans la période de l'activité ;
+ * null quand aucune partie n'est liée (toute la période compte)
+ * @returns {Promise<Set<string> | null>}
+ */
+export async function affPartDays(
+    /** @type {number} */ depId,
+    /** @type {string} */ key,
+    /** @type {{ start: string, end: string }} */ per
+) {
+    if (!AFF_MULTI_EVENT_KEYS.includes(key)) return null;
+    const ids = affLinkIds((await affEventLinks(depId))[key]);
+    if (!ids.length) return null;
+    const evs = await prisma.customEvent.findMany({
+        where: { id: { in: ids.map(idParam) } },
+        select: { start_date: true, end_date: true }
+    });
+    if (!evs.length) return null;
+    /** @type {Set<string>} */
+    const days = new Set();
+    for (const e of evs) {
+        const from = e.start_date > per.start ? e.start_date : per.start;
+        const end = e.end_date || e.start_date;
+        const to = end < per.end ? end : per.end;
+        if (from <= to) for (const d of workingDays(from, to)) days.add(d);
+    }
+    return days;
 }
 
 /** Retire les données propres à un déploiement d'un paramètre JSON indexé par déploiement */
@@ -962,10 +1018,14 @@ export async function affStageEvents(
 ) {
     /** @type {number[]} */
     const evs = [];
-    const linked = links[key]
-        ? await prisma.customEvent.findUnique({ where: { id: idParam(links[key]) }, select: { id: true } })
-        : null;
-    if (linked) evs.push(linked.id);
+    const linkIds = affLinkIds(links[key]);
+    if (linkIds.length) {
+        const rows = await prisma.customEvent.findMany({
+            where: { id: { in: linkIds.map(idParam) } },
+            select: { id: true }
+        });
+        for (const id of linkIds) if (rows.some(r => r.id === id)) evs.push(id);
+    }
     if (locId && per) {
         const t = types.find(x => x.id === map[key]);
         const tpl = AFF_STAGE_EVENT[key]?.label;
@@ -1216,7 +1276,7 @@ function setScheduleCell(
 
 /**
  * Demi-journées remises en « 2 - Disponible / 2 - En attente d'affectation » (localisation et auteur effacés)
- * @param {{ resourceIds: number[], start: string, end: string, period: string | null, samuNo: string | null }} snap
+ * @param {{ resourceIds: number[], start: string, end: string, period: string | null, samuNo: string | null, days?: Set<string> | null }} snap
  * @returns {Promise<number>} nombre de demi-journées remises en situation
  */
 export async function affResetPlanning(snap) {
@@ -1225,6 +1285,7 @@ export async function affResetPlanning(snap) {
     let n = 0;
     for (const rid of snap.resourceIds) {
         for (const day of calendarDays(snap.start, snap.end)) {
+            if (snap.days && !snap.days.has(day)) continue;
             for (const h of halves) {
                 const key = `${day}_${h}`;
                 const cells = await prisma.scheduleData.findMany({
@@ -1347,6 +1408,8 @@ export async function affSyncCompute(/** @type {number} */ projectId, /** @type 
             (await affLoadAssignmentDays())[projectId] || undefined
         )
     );
+    // Activité en plusieurs parties : seuls les jours des parties comptent, pas les jours qui les séparent
+    const partDays = await affPartDays(projectId, stageKey, per);
     const plan = assigned.map(a => {
         /** @type {string[]} */
         const toWrite = [];
@@ -1358,7 +1421,12 @@ export async function affSyncCompute(/** @type {number} */ projectId, /** @type 
         const states = {};
         let done = 0;
         for (const day of calendarDays(span.start, span.end)) {
-            if (day < per.start || day > per.end || !(effective[day] || []).includes(a.id)) {
+            if (
+                day < per.start ||
+                day > per.end ||
+                (partDays && !partDays.has(day)) ||
+                !(effective[day] || []).includes(a.id)
+            ) {
                 if (!covered.some(m => (m[day] || []).includes(a.id)))
                     for (const h of ['AM', 'PM']) {
                         const c = (cells[a.id] || {})[`${day}_${h}`] || {};
@@ -1817,8 +1885,11 @@ export async function eventCandidates(/** @type {ProjectRow} */ proj) {
             participants: pc[e.id] || 0,
             type: types.find(x => x.id === e.type_id)?.label_long || null
         });
-        const linked = events.find(e => e.id === links[key]);
+        const linkIds = affLinkIds(links[key]);
+        const linked = events.find(e => linkIds.includes(e.id));
         out[key] = {
+            multi: AFF_MULTI_EVENT_KEYS.includes(key),
+            linkedIds: linkIds.filter(id => events.some(e => e.id === id)),
             typeId: t ? t.id : null,
             typeLong: t ? t.label_long : null,
             matching: events.filter(isMatch).map(fmt),
