@@ -939,8 +939,8 @@ export async function affAddEventLink(
 }
 
 /**
- * Jours ouvrés couverts par les parties (événements liés) d'une activité découpable, dans la période de l'activité ;
- * null quand aucune partie n'est liée (toute la période compte)
+ * Jours ouvrés couverts par les parties (au moins deux événements liés) d'une activité découpable, dans la période
+ * de l'activité ; null sinon (toute la période compte)
  * @returns {Promise<Set<string> | null>}
  */
 export async function affPartDays(
@@ -955,7 +955,8 @@ export async function affPartDays(
         where: { id: { in: ids.map(idParam) } },
         select: { start_date: true, end_date: true }
     });
-    if (!evs.length) return null;
+    // Un seul événement lié : pas de jours « entre les parties », toute la période de l'activité compte
+    if (evs.length < 2) return null;
     /** @type {Set<string>} */
     const days = new Set();
     for (const e of evs) {
@@ -1424,7 +1425,7 @@ export async function affSyncCompute(/** @type {number} */ projectId, /** @type 
             if (
                 day < per.start ||
                 day > per.end ||
-                (partDays && !partDays.has(day)) ||
+                (partDays && !explicit[a.id] && !partDays.has(day)) ||
                 !(effective[day] || []).includes(a.id)
             ) {
                 if (!covered.some(m => (m[day] || []).includes(a.id)))

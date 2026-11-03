@@ -628,6 +628,23 @@ describe('activité découpée en plusieurs parties (événements séparés de p
         expect(single.status).toBe(200);
         expect((await admin.get(`${url}/events-candidates`)).data.candidates.visite_metier.multi).toBe(false);
     });
+    it("un événement lié plus court que l'activité ne masque pas les journées cochées (week-end)", async () => {
+        const samu = await newSamu();
+        const p = await createProject(samu, {
+            accompagnement: [{ start: '2027-03-01', end: '2027-03-07', needed: 1 }]
+        });
+        const { resource } = await createExpert(admin);
+        const url = `/api/affectation/projects/${p.id}`;
+        const days = {};
+        for (const d of ['01', '05', '06', '07']) days[`2027-03-${d}`] = [resource.id];
+        expect((await admin.put(`${url}/assignment-days/accompagnement`, { days })).status).toBe(200);
+        expect(
+            (await admin.post(`${url}/event-create`, { key: 'accompagnement', start: '2027-03-01', end: '2027-03-05' }))
+                .status
+        ).toBe(200);
+        const pv = (await admin.get(`${url}/sync/accompagnement`)).data.resources[0];
+        expect(pv.toWrite).toBe(8);
+    });
 });
 
 describe('journées retirées de la grille', () => {
