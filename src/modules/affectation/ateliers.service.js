@@ -402,11 +402,22 @@ export function inviteIcs(e) {
         ...when,
         `SUMMARY:${icsText(e.summary)}`,
         `DESCRIPTION:${icsText(e.description)}`,
-        ...(e.teams ? [`LOCATION:${icsText('Réunion Microsoft Teams')}`, `URL:${e.teams}`] : []),
-        `ORGANIZER;CN=${icsText(e.organizer.name).replace(/:/g, '')}:mailto:${e.organizer.email}`,
-        ...e.attendees.map(a => `ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:${a}`),
+        ...(e.teams
+            ? [
+                  `LOCATION:${icsText('Réunion Microsoft Teams')}`,
+                  `URL:${e.teams}`,
+                  `X-MICROSOFT-SKYPETEAMSMEETINGURL:${e.teams}`,
+                  'X-MICROSOFT-ONLINEMEETINGTYPE:teamsForBusiness'
+              ]
+            : []),
+        `ORGANIZER;CN="${e.organizer.name.replace(/["\\:;,]/g, '')}":mailto:${e.organizer.email}`,
+        ...e.attendees.map(
+            a => `ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN="${a}":mailto:${a}`
+        ),
         'SEQUENCE:0',
         'STATUS:CONFIRMED',
+        'TRANSP:OPAQUE',
+        'X-MICROSOFT-CDO-BUSYSTATUS:BUSY',
         'END:VEVENT',
         'END:VCALENDAR'
     ];
@@ -484,19 +495,16 @@ export async function sendInvitation(id, ligne, body, sender) {
         organizer: { name: sender.name, email: organizerEmail },
         attendees: to
     });
-    await sendEmail(
-        to.join(', '),
-        subject,
-        html,
-        [
-            {
-                filename: `Invitation_${row.samu_name.replace(/\W+/g, '_')}_${ligne}.ics`,
-                content: ics,
-                contentType: 'text/calendar; charset=utf-8; method=REQUEST'
-            }
-        ],
-        { replyTo: sender.email && isEmail(sender.email) ? sender.email : undefined }
-    );
+    // Invitation de calendrier : partie text/calendar (méthode REQUEST) que Outlook et Gmail reconnaissent
+    // (Accepter, Refuser, Provisoire), avec le fichier .ics en pièce jointe
+    await sendEmail(to.join(', '), subject, html, [], {
+        replyTo: sender.email && isEmail(sender.email) ? sender.email : undefined,
+        icalEvent: {
+            method: 'REQUEST',
+            content: ics,
+            filename: `Invitation_${row.samu_name.replace(/\W+/g, '_')}_${ligne}.ics`
+        }
+    });
     const next = { ...lignes };
     if (teams) next.teams = teams;
     next.invites = { ...(lignes.invites || {}), [ligne]: sqlTimestamp() };
