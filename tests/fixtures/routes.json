@@ -721,6 +721,16 @@
     },
     {
         "method": "GET",
+        "path": "/api/custom-events/duplicates",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/custom-events/merge",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
         "path": "/api/custom-events/search",
         "guard": "auth"
     },

@@ -523,6 +523,17 @@
         </div>
     </div>
 
+    <div class="modal" id="affDupModal" style="z-index:10040;">
+        <div class="modal-content" style="max-width:1000px; width:96%; max-height:92vh; overflow-y:auto; padding:0;">
+            <div class="aff-modal-head">
+                <span class="aff-card-title">${svg('search', 'aff-ico')}Doublons d'événements</span>
+                <button type="button" class="aff-x" onclick="AffectationApp.evDupClose()" aria-label="Fermer">${svg('x', 'aff-ico-sm')}</button>
+            </div>
+            <div id="affDupBody" class="aff-modal-body"></div>
+            <div class="aff-modal-foot"><span id="affDupMsg" class="aff-error"></span><button type="button" class="aff-btn" onclick="AffectationApp.evDupClose()">Fermer</button></div>
+        </div>
+    </div>
+
     <div class="modal" id="affHistModal">
         <div class="modal-content" style="max-width:860px; width:96%; max-height:92vh; overflow-y:auto; padding:0;">
             <div class="aff-modal-head">
@@ -2867,6 +2878,57 @@
 
     // ================= Onglet « Événements » : événements des activités suivies, pour les SAMU du planning =================
     const evTab = { data: null, samu: '', stage: '', q: '', sort: { k: 'start', dir: 1 } };
+    // ---- Doublons d'événements : certains (même type, lieu, dates, libellé) et probables ; fusion = une seule occurrence conservée ----
+    const evDup = { groups: [], choice: {} };
+    const evDupPeriod = e =>
+        e.start_date === e.end_date ? frd(e.start_date) : `${frd(e.start_date)} → ${frd(e.end_date)}`;
+    function evDupRender(message) {
+        const box = document.getElementById('affDupBody');
+        const gs = evDup.groups;
+        const certains = gs.filter(g => g.niveau === 'certain').length;
+        box.innerHTML =
+            `<p class="aff-muted" style="margin:0 0 10px;font-size:12px;">Un doublon <b>certain</b> a le même type, le même lieu, les mêmes dates et le même libellé ; un doublon <b>probable</b> s'en approche (mêmes dates et même type, ou libellés très proches sur des dates qui se recoupent). Choisissez l'occurrence à conserver : les autres sont supprimées, leurs participants sont reportés sur l'événement conservé. Seuls les événements de cet onglet sont examinés.</p>` +
+            (message
+                ? `<p style="color:#1b7f3b;font-weight:600;margin:0 0 10px;" id="affDupOk">${esc(message)}</p>`
+                : '') +
+            (gs.length
+                ? `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;"><span id="affDupCount"><b>${gs.length}</b> groupe${gs.length > 1 ? 's' : ''} : ${certains} certain${certains > 1 ? 's' : ''}, ${gs.length - certains} probable${gs.length - certains > 1 ? 's' : ''}</span>${certains ? `<button type="button" class="aff-btn" style="margin-left:auto;" onclick="AffectationApp.evDupMergeCertains()">Fusionner tous les doublons certains</button>` : ''}</div>` +
+                  gs
+                      .map(
+                          g => `<div class="aff-sync-sec" style="margin-bottom:12px;padding:0;overflow:hidden;">
+                <div style="background:#f0f4fa;padding:8px 12px;display:flex;align-items:center;gap:10px;"><span class="aff-av-b ${g.niveau === 'certain' ? 'ko' : 'mid'}">${g.niveau === 'certain' ? 'Certain' : 'Probable'}</span><span class="aff-muted" style="font-size:12px;">${esc(g.raison)}</span></div>
+                <table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="text-align:left;color:#6b7a8d;font-size:11px;"><th style="padding:5px 10px;">Conserver</th><th style="padding:5px 8px;">Libellé</th><th style="padding:5px 8px;">Dates</th><th style="padding:5px 8px;">Type</th><th style="padding:5px 8px;">Lieu</th><th style="padding:5px 8px;">Participants</th></tr></thead><tbody>
+                ${g.events
+                    .map(
+                        e =>
+                            `<tr style="border-top:1px solid #eef1f6;${evDup.choice[g.id] === e.id ? 'background:#e8f5e9;' : ''}vertical-align:top;"><td style="padding:6px 10px;"><input type="radio" name="affDup_${g.id}" value="${e.id}" ${evDup.choice[g.id] === e.id ? 'checked' : ''} style="width:auto;margin:0;" aria-label="Conserver ${esc(e.label)}" onchange="AffectationApp.evDupChoose(${g.id}, ${e.id})"></td><td style="padding:6px 8px;">${esc(e.label)}</td><td style="padding:6px 8px;white-space:nowrap;">${esc(evDupPeriod(e))}</td><td style="padding:6px 8px;">${esc(e.type_label || '—')}</td><td style="padding:6px 8px;">${esc(e.location_label || '—')}</td><td style="padding:6px 8px;" title="${esc(e.participants.join(', '))}">${e.participants.length}${e.participants.length ? ` · ${esc(e.participants.slice(0, 3).join(', '))}${e.participants.length > 3 ? '…' : ''}` : ''}</td></tr>`
+                    )
+                    .join('')}
+                </tbody></table>
+                <div style="padding:8px 12px;text-align:right;"><button type="button" class="aff-btn aff-btn-primary" onclick="AffectationApp.evDupMerge(${g.id})">${svg('save', 'aff-ico-sm')}Fusionner (conserver la sélection)</button></div></div>`
+                      )
+                      .join('')
+                : '<p class="aff-muted" id="affDupNone">Aucun doublon trouvé.</p>');
+    }
+    async function evDupLoad(message) {
+        const ids = new Set(((evTab.data && evTab.data.events) || []).map(e => e.id));
+        const all = (await api('/custom-events/duplicates')).groups;
+        // Groupes dont tous les événements figurent dans la liste de l'onglet
+        evDup.groups = all.filter(g => g.events.every(e => ids.has(e.id)));
+        evDup.choice = Object.fromEntries(
+            evDup.groups.map(g => [
+                g.id,
+                [...g.events].sort((a, b) => b.participants.length - a.participants.length || a.id - b.id)[0].id
+            ])
+        );
+        evDupRender(message);
+    }
+    async function evDupAfter(message) {
+        window.dispatchEvent(new CustomEvent('gp:evenements-modifies'));
+        await loadEvents();
+        await evDupLoad(message);
+    }
+
     async function loadEvents() {
         const box = document.getElementById('affEvBody');
         if (!box) return;
@@ -2914,7 +2976,7 @@
             <div><label class="lbl">SAMU</label><select onchange="AffectationApp.evFilter('samu', this.value)" style="padding:7px;min-width:170px;"><option value="">Tous</option>${samus.map(x => `<option ${evTab.samu === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></div>
             <div><label class="lbl">Type d'événement</label><select onchange="AffectationApp.evFilter('stage', this.value)" style="padding:7px;min-width:240px;"><option value="">Tous</option>${d.stages.map(x => `<option value="${x.key}" ${evTab.stage === x.key ? 'selected' : ''}>${esc(x.label)}</option>`).join('')}</select></div>
             <div style="flex:1;min-width:180px;"><label class="lbl">Recherche</label><input type="text" value="${esc(evTab.q)}" placeholder="SAMU, intitulé, participant…" oninput="AffectationApp.evFilter('q', this.value)" style="width:100%;padding:7px;box-sizing:border-box;"></div>
-            <span class="aff-muted" style="padding-bottom:8px;">${list.length} événement${list.length > 1 ? 's' : ''}</span></div>
+            <span class="aff-muted" style="padding-bottom:8px;">${list.length} événement${list.length > 1 ? 's' : ''}</span>${currentUser && currentUser.activeProfile === 'admin' ? `<button type="button" class="aff-btn" style="margin-left:auto;" onclick="AffectationApp.evDoublons()" title="Rechercher les doublons certains et probables parmi ces événements">${svg('search', 'aff-ico-sm')}Rechercher les doublons</button>` : ''}</div>
             ${
                 list.length
                     ? `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;">
@@ -4496,6 +4558,76 @@
                 await Promise.all([loadEvents(), plan.loaded ? loadPlanning() : null]);
             } catch (x) {
                 alert(x.message);
+            }
+        },
+        async evDoublons() {
+            const box = document.getElementById('affDupBody');
+            document.getElementById('affDupMsg').textContent = '';
+            box.innerHTML = '<p class="aff-muted">Recherche des doublons…</p>';
+            document.getElementById('affDupModal').classList.add('active');
+            try {
+                await evDupLoad('');
+            } catch (e) {
+                box.innerHTML = `<p class="aff-error">${esc(e.message)}</p>`;
+            }
+        },
+        evDupClose() {
+            document.getElementById('affDupModal').classList.remove('active');
+        },
+        evDupChoose(groupId, eventId) {
+            evDup.choice[groupId] = eventId;
+            evDupRender('');
+        },
+        async evDupMerge(groupId) {
+            const g = evDup.groups.find(x => x.id === groupId);
+            if (!g) return;
+            const keep = evDup.choice[groupId];
+            const others = g.events.filter(e => e.id !== keep);
+            const kept = g.events.find(e => e.id === keep);
+            if (
+                !confirm(
+                    `Conserver « ${kept.label} » (${evDupPeriod(kept)}) et supprimer ${others.length} autre${others.length > 1 ? 's' : ''} ?\n\nLes participants des événements supprimés sont ajoutés à celui qui est conservé.`
+                )
+            )
+                return;
+            try {
+                const r = await api('/custom-events/merge', {
+                    method: 'POST',
+                    body: JSON.stringify({ keep_id: keep, remove_ids: others.map(e => e.id) })
+                });
+                await evDupAfter(
+                    `Fusion effectuée : ${others.length} événement${others.length > 1 ? 's' : ''} supprimé${others.length > 1 ? 's' : ''}, ${r.participantsAdded} participant${r.participantsAdded > 1 ? 's' : ''} ajouté${r.participantsAdded > 1 ? 's' : ''}.`
+                );
+            } catch (e) {
+                document.getElementById('affDupMsg').textContent = e.message;
+            }
+        },
+        async evDupMergeCertains() {
+            const list = evDup.groups.filter(g => g.niveau === 'certain');
+            if (
+                !list.length ||
+                !confirm(
+                    `Fusionner les ${list.length} groupe${list.length > 1 ? 's' : ''} de doublons certains ?\n\nDans chacun, l'événement présélectionné est conservé et ses doublons sont supprimés (leurs participants sont ajoutés à celui qui est conservé).`
+                )
+            )
+                return;
+            let removed = 0;
+            try {
+                for (const g of list) {
+                    const keep = evDup.choice[g.id];
+                    const ids = g.events.filter(e => e.id !== keep).map(e => e.id);
+                    await api('/custom-events/merge', {
+                        method: 'POST',
+                        body: JSON.stringify({ keep_id: keep, remove_ids: ids })
+                    });
+                    removed += ids.length;
+                }
+                await evDupAfter(
+                    `Fusion effectuée : ${removed} événement${removed > 1 ? 's' : ''} supprimé${removed > 1 ? 's' : ''}.`
+                );
+            } catch (e) {
+                document.getElementById('affDupMsg').textContent = e.message;
+                await evDupAfter('').catch(() => {});
             }
         },
         evSort(k) {

@@ -3,6 +3,7 @@ import { formatDateFR } from '../../lib/utils.js';
 import { logUserAction } from '../../services/action-log.js';
 import { sendTeamsNotificationFromServer } from '../notifications/notifications.service.js';
 import { notifyEventCreated } from './events.notifications.js';
+import * as duplicates from './events.duplicates.js';
 import * as service from './events.service.js';
 
 /** @typedef {import('express').Request} Request */
@@ -126,4 +127,23 @@ export async function update(/** @type {Request} */ req, /** @type {Response} */
 export async function remove(/** @type {Request} */ req, /** @type {Response} */ res) {
     await service.deleteEvent(req.params.id);
     res.json({ success: true });
+}
+
+// ---------- Doublons ----------
+
+/** Doublons certains et probables, par groupes */
+export async function listDuplicates(/** @type {Request} */ _req, /** @type {Response} */ res) {
+    res.json({ groups: await duplicates.findDuplicateGroups() });
+}
+
+/** Fusion : { keep_id, remove_ids } — un seul événement conservé, participants réunis */
+export async function mergeDuplicates(/** @type {Request} */ req, /** @type {Response} */ res) {
+    const r = await duplicates.mergeEvents(req.body && req.body.keep_id, req.body && req.body.remove_ids);
+    logUserAction(req, "Fusion d'événements en doublon", {
+        conserve: r.kept,
+        supprimes: r.removed,
+        participantsAjoutes: r.participantsAdded,
+        liensAffectation: r.relinked
+    });
+    res.json({ success: true, ...r });
 }

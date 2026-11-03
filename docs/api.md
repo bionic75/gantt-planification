@@ -24,7 +24,7 @@ Protections :
 | `mfaPending` | Connexion en attente de double authentification |
 | `apiKey` | Clé d’API (en-tête X-Api-Key) |
 
-311 routes, par module (`src/modules/<module>`) :
+313 routes, par module (`src/modules/<module>`) :
 
 ## admin
 
@@ -273,6 +273,8 @@ Protections :
 | POST | `/api/custom-events` | admin |
 | PUT | `/api/custom-events/:id` | admin |
 | DELETE | `/api/custom-events/:id` | admin |
+| GET | `/api/custom-events/duplicates` | admin |
+| POST | `/api/custom-events/merge` | admin |
 | GET | `/api/custom-events/search` | auth |
 | GET | `/api/event-types` | auth |
 | POST | `/api/event-types` | admin |
