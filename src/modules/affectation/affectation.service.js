@@ -1329,14 +1329,40 @@ export async function affSyncCompute(/** @type {number} */ projectId, /** @type 
         assignments.map(a => a.resource_id),
         explicit
     );
+    // Journées d'intervention de toutes les étapes du déploiement : une demi-journée posée pour ce SAMU hors de ces
+    // journées n'a plus d'affectation qui la justifie
+    /** @type {Record<string, number[]>} */
+    const idsByStage = {};
+    for (const a of await prisma.affectationAssignment.findMany({
+        where: { project_id: projectId },
+        select: { stage_key: true, resource_id: true }
+    }))
+        (idsByStage[a.stage_key] ??= []).push(a.resource_id);
+    const covered = Object.values(
+        affAssignmentDaysJson(
+            parsePeriods(proj.periods),
+            idsByStage,
+            (await affLoadAssignmentDays())[projectId] || undefined
+        )
+    );
     const plan = assigned.map(a => {
         /** @type {string[]} */
         const toWrite = [];
         /** @type {Array<{ key: string, reason: string }>} */
         const conflicts = [];
+        /** @type {string[]} */
+        const extra = [];
         let done = 0;
         for (const day of calendarDays(per.start, per.end)) {
-            if (!(effective[day] || []).includes(a.id)) continue;
+            if (!(effective[day] || []).includes(a.id)) {
+                if (!covered.some(m => (m[day] || []).includes(a.id)))
+                    for (const h of ['AM', 'PM']) {
+                        const c = (cells[a.id] || {})[`${day}_${h}`] || {};
+                        if ((c.activity === '3' || c.activity === '4') && affSamuNumber(c.localisation) === samuNo)
+                            extra.push(`${day}_${h}`);
+                    }
+                continue;
+            }
             for (const h of ['AM', 'PM']) {
                 const key = `${day}_${h}`;
                 const c = (cells[a.id] || {})[key] || {};
@@ -1357,7 +1383,7 @@ export async function affSyncCompute(/** @type {number} */ projectId, /** @type 
                 } else toWrite.push(key);
             }
         }
-        return { id: a.id, nom: a.nom, prenom: a.prenom, user_id: a.user_id, toWrite, done, conflicts };
+        return { id: a.id, nom: a.nom, prenom: a.prenom, user_id: a.user_id, toWrite, done, conflicts, extra };
     });
 
     const tpl = AFF_STAGE_EVENT[stageKey];
@@ -1426,6 +1452,29 @@ export async function writeStagePlanning(
             await setScheduleCell(r.id, key, 'activity', c.activity);
             await setScheduleCell(r.id, key, 'localisation', c.samuLoc);
             if (authorName) await setScheduleCell(r.id, key, 'author', authorName);
+            n++;
+        }
+    }
+    return n;
+}
+
+/**
+ * Demi-journées posées pour ce SAMU sans journée d'affectation correspondante, remises en « Disponible / En attente
+ * d'affectation » (localisation et auteur effacés) pour les ressources indiquées
+ * @returns {Promise<number>} nombre de demi-journées remises en situation
+ */
+export async function clearStageExtraPlanning(
+    /** @type {Awaited<ReturnType<typeof affSyncCompute>>} */ c,
+    /** @type {number[]} */ resourceIds
+) {
+    let n = 0;
+    for (const r of c.resources.filter(x => resourceIds.includes(x.id))) {
+        for (const key of r.extra) {
+            await setScheduleCell(r.id, key, 'available', '2');
+            await setScheduleCell(r.id, key, 'activity', '2');
+            await prisma.scheduleData.deleteMany({
+                where: { resource_id: r.id, date_key: key, type: { in: ['localisation', 'author'] } }
+            });
             n++;
         }
     }

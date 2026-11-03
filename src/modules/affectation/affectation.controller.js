@@ -341,7 +341,9 @@ export async function syncPreview(/** @type {Request} */ req, /** @type {Respons
             toWrite: r.toWrite.length,
             done: r.done,
             conflicts: r.conflicts.slice(0, 12),
-            conflictCount: r.conflicts.length
+            conflictCount: r.conflicts.length,
+            extra: r.extra.slice(0, 12),
+            extraCount: r.extra.length
         })),
         event: c.event
     });
@@ -352,10 +354,13 @@ export async function syncApply(/** @type {Request} */ req, /** @type {Response}
     const stage = req.params.stage;
     const c = await svc.affSyncCompute(Number(req.params.id), stage);
     const body = req.body || {};
-    /** @type {{ planning: number, event: { id: number, created: boolean, participants: number } | null }} */
-    const result = { planning: 0, event: null };
+    /** @type {{ planning: number, cleared: number, event: { id: number, created: boolean, participants: number } | null }} */
+    const result = { planning: 0, cleared: 0, event: null };
     if (body.planning && Array.isArray(body.planning.resource_ids)) {
         result.planning = await svc.writeStagePlanning(c, body.planning.resource_ids.map(Number), userId(req));
+    }
+    if (body.planning && Array.isArray(body.planning.clear_ids)) {
+        result.cleared = await svc.clearStageExtraPlanning(c, body.planning.clear_ids.map(Number));
     }
     const ev = body.event;
     if (ev && ev.apply) {
@@ -393,6 +398,13 @@ export async function syncApply(/** @type {Request} */ req, /** @type {Response}
     logUserAction(req, 'Synchronisation affectation déploiement SAMU', { projectId: c.proj.id, stage, ...result });
     const stLabel = svc.stageLabel(stage);
     const ch = [];
+    if (result.cleared) {
+        ch.push({
+            label: `${stLabel} — planification des experts`,
+            from: `${result.cleared} demi-journée(s) sans journée d'affectation`,
+            to: "remises en « Disponible / En attente d'affectation »"
+        });
+    }
     if (result.planning) {
         ch.push({
             label: `${stLabel} — planification des experts`,
