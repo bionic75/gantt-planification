@@ -579,6 +579,97 @@ describe('synchronisation vers la planification et les événements', () => {
     });
 });
 
+describe('activité découpée en plusieurs parties (événements séparés de plusieurs jours)', () => {
+    it('liaison de n parties, écarts mesurés sur les seuls jours des parties, remise en disponibilité limitée à ces jours', async () => {
+        const samu = await newSamu();
+        const p = await createProject(samu, {
+            formation_utilisateurs: [{ start: '2027-03-01', end: '2027-03-12', needed: 1 }]
+        });
+        const { resource } = await createExpert(admin);
+        const url = `/api/affectation/projects/${p.id}`;
+        expect(
+            (await admin.put(`${url}/assignments/formation_utilisateurs`, { resource_ids: [resource.id] })).status
+        ).toBe(200);
+
+        // Deux parties de la même formation, séparées de plusieurs jours
+        for (const [start, end] of [
+            ['2027-03-01', '2027-03-02'],
+            ['2027-03-10', '2027-03-11']
+        ]) {
+            const r = await admin.post(`${url}/event-create`, { key: 'formation_utilisateurs', start, end });
+            expect(r.status, JSON.stringify(r.data)).toBe(200);
+        }
+        const cand = (await admin.get(`${url}/events-candidates`)).data.candidates.formation_utilisateurs;
+        expect(cand.multi).toBe(true);
+        expect(cand.linkedIds).toHaveLength(2);
+
+        // Les jours qui séparent les parties ne sont pas des écarts
+        const preview = (await admin.get(`${url}/sync/formation_utilisateurs`)).data.resources[0];
+        expect(preview.toWrite).toBe(8);
+        await admin.post(`${url}/sync/formation_utilisateurs`, { planning: { resource_ids: [resource.id] } });
+        const sch = await schedule();
+        expect(sch[`${resource.id}_activity_2027-03-10_AM`]).toBe('3');
+        expect(sch[`${resource.id}_activity_2027-03-05_AM`]).toBeUndefined();
+
+        // Une partie décochée : plus de lien pour elle
+        const one = await admin.put(`${url}/event-link`, {
+            key: 'formation_utilisateurs',
+            eventIds: [cand.linkedIds[0]]
+        });
+        expect(one.status).toBe(200);
+        const after = (await admin.get(`${url}/events-candidates`)).data.candidates.formation_utilisateurs;
+        expect(after.linkedIds).toEqual([cand.linkedIds[0]]);
+
+        // Une activité non découpable ne garde qu'un événement
+        const single = await admin.put(`${url}/event-link`, {
+            key: 'visite_metier',
+            eventIds: [cand.linkedIds[0], cand.linkedIds[1]]
+        });
+        expect(single.status).toBe(200);
+        expect((await admin.get(`${url}/events-candidates`)).data.candidates.visite_metier.multi).toBe(false);
+    });
+    it("un événement lié plus court que l'activité ne masque pas les journées cochées (week-end)", async () => {
+        const samu = await newSamu();
+        const p = await createProject(samu, {
+            accompagnement: [{ start: '2027-03-01', end: '2027-03-07', needed: 1 }]
+        });
+        const { resource } = await createExpert(admin);
+        const url = `/api/affectation/projects/${p.id}`;
+        const days = {};
+        for (const d of ['01', '05', '06', '07']) days[`2027-03-${d}`] = [resource.id];
+        expect((await admin.put(`${url}/assignment-days/accompagnement`, { days })).status).toBe(200);
+        expect(
+            (await admin.post(`${url}/event-create`, { key: 'accompagnement', start: '2027-03-01', end: '2027-03-05' }))
+                .status
+        ).toBe(200);
+        const pv = (await admin.get(`${url}/sync/accompagnement`)).data.resources[0];
+        expect(pv.toWrite).toBe(8);
+    });
+});
+
+describe('journées retirées de la grille', () => {
+    it("remises en « Disponible / En attente d'affectation » sans toucher aux autres journées ni aux événements", async () => {
+        const samu = await newSamu();
+        const p = await createProject(samu, {
+            accompagnement: [{ start: '2027-03-01', end: '2027-03-07', needed: 2 }]
+        });
+        const { resource } = await createExpert(admin);
+        const url = `/api/affectation/projects/${p.id}`;
+        const days = {};
+        for (const d of ['01', '02', '03', '04', '05', '06', '07']) days[`2027-03-${d}`] = [resource.id];
+        expect((await admin.put(`${url}/assignment-days/accompagnement`, { days })).status).toBe(200);
+        await admin.post(`${url}/sync/accompagnement`, { planning: { resource_ids: [resource.id] } });
+        const rel = await admin.post(`${url}/assignments/accompagnement/release`, {
+            days: { [resource.id]: ['2027-03-06', '2027-03-07'] }
+        });
+        expect(rel.data).toMatchObject({ planningReset: 4, removedFromEvents: 0 });
+        const sch = await schedule();
+        expect(sch[`${resource.id}_activity_2027-03-06_AM`]).toBe('2');
+        expect(sch[`${resource.id}_localisation_2027-03-07_PM`]).toBeUndefined();
+        expect(sch[`${resource.id}_activity_2027-03-05_AM`]).toBe('3');
+    });
+});
+
 describe('affectations depuis les participants : plafond par jour', () => {
     it('rotation acceptée sur des jours distincts, ressource en trop ignorée', async () => {
         const samu = await newSamu();

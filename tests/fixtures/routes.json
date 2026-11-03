@@ -115,13 +115,53 @@
         "guard": "admin"
     },
     {
+        "method": "GET",
+        "path": "/api/affectation/ateliers-sondages",
+        "guard": "affectation"
+    },
+    {
         "method": "DELETE",
         "path": "/api/affectation/ateliers/:id",
         "guard": "admin"
     },
     {
         "method": "POST",
+        "path": "/api/affectation/ateliers/:id/invitation/:ligne",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
         "path": "/api/affectation/ateliers/:id/send",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/affectation/ateliers/:id/sondages/:ligne",
+        "guard": "affectation"
+    },
+    {
+        "method": "PUT",
+        "path": "/api/affectation/ateliers/:id/sondages/:ligne",
+        "guard": "admin"
+    },
+    {
+        "method": "DELETE",
+        "path": "/api/affectation/ateliers/:id/sondages/:ligne",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/affectation/ateliers/:id/sondages/:ligne/close",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/affectation/ateliers/:id/sondages/:ligne/reopen",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/affectation/ateliers/:id/sondages/:ligne/send",
         "guard": "admin"
     },
     {
@@ -1423,6 +1463,16 @@
         "method": "PUT",
         "path": "/api/settings",
         "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/sondages-publics/:token",
+        "guard": "public"
+    },
+    {
+        "method": "POST",
+        "path": "/api/sondages-publics/:token/reponses",
+        "guard": "public"
     },
     {
         "method": "GET",

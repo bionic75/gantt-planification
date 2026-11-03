@@ -223,6 +223,61 @@ model AtelierRetroplanning {
   @@map("atelier_retroplannings")
 }
 
+/// Sondage de date d'un jalon (visite métier, atelier) d'un rétroplanning : un seul sondage par jalon
+model AtelierSondage {
+  id              Int       @id @default(autoincrement())
+  retroplanning_id Int
+  /// Clé du jalon du rétroplanning (visite, a1…)
+  ligne           String
+  nom             String
+  /// Jeton de l'adresse d'accès publique (/sondage/<jeton>)
+  token           String    @unique
+  /// brouillon, envoye (mail parti), reponses (une première réponse reçue), termine (clôturé)
+  statut          String    @default("brouillon")
+  /// Date de clôture et créneau retenu (option du sondage), le cas échéant
+  cloture_at      String?
+  option_retenue_id Int?
+  organisateur_id Int?
+  /// JSON : adresses e-mail destinataires
+  destinataires   String?
+  /// JSON : identifiants des utilisateurs en copie
+  cc_user_ids     String?
+  message         String?
+  created_by      Int?
+  sent_at         String?
+  created_at      String? @default(dbgenerated("CURRENT_TIMESTAMP")) /// @timestamp
+  updated_at      String? @default(dbgenerated("CURRENT_TIMESTAMP")) /// @timestamp
+
+  @@unique([retroplanning_id, ligne])
+  @@map("atelier_sondages")
+}
+
+/// Date et heure proposées dans un sondage
+model AtelierSondageOption {
+  id         Int    @id @default(autoincrement())
+  sondage_id Int
+  date       String
+  heure      String?
+  heure_fin  String?
+  ordre      Int    @default(0)
+
+  @@index([sondage_id])
+  @@map("atelier_sondage_options")
+}
+
+/// Réponse d'une personne : dates retenues (JSON : identifiants d'options)
+model AtelierSondageReponse {
+  id         Int    @id @default(autoincrement())
+  sondage_id Int
+  nom        String
+  options    String
+  created_at String? @default(dbgenerated("CURRENT_TIMESTAMP")) /// @timestamp
+  updated_at String? @default(dbgenerated("CURRENT_TIMESTAMP")) /// @timestamp
+
+  @@index([sondage_id])
+  @@map("atelier_sondage_reponses")
+}
+
 model AutomationLog {
   id              Int       @id @default(autoincrement())
   automation_id   Int

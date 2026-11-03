@@ -87,8 +87,10 @@ export function createEmailTransporter() {
  * @param {string} subject
  * @param {string} html
  * @param {Array<{ filename?: string, content?: any, contentType?: string }>} [attachments]
+ * @param {{ cc?: string, replyTo?: string, icalEvent?: { method: string, content: string, filename?: string } }} [extra]
+ *   copie, adresse de réponse et invitation de calendrier (partie text/calendar : boutons Accepter / Refuser)
  */
-export async function sendEmail(to, subject, html, attachments = []) {
+export async function sendEmail(to, subject, html, attachments = [], extra = {}) {
     const startTime = Date.now();
     console.log(`📧 sendEmail: Début envoi à ${to}, ${attachments.length} pièce(s) jointe(s)`);
 
@@ -118,6 +120,9 @@ export async function sendEmail(to, subject, html, attachments = []) {
             subject,
             html
         };
+        if (extra.cc) mailOptions.cc = extra.cc;
+        if (extra.replyTo) mailOptions.replyTo = extra.replyTo;
+        if (extra.icalEvent) mailOptions.icalEvent = extra.icalEvent;
 
         if (attachments.length > 0) {
             // Les invitations ICS ont besoin de cet en-tête pour être reconnues (Gmail)

@@ -25,6 +25,13 @@ router.get(
     })
 );
 
+// Page publique d'un sondage de date (adresse unique : le jeton figure dans l'adresse)
+router.get('/sondage/:token', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('X-Robots-Tag', 'noindex');
+    res.sendFile(path.join(PUBLIC_DIR, 'sondage.html'));
+});
+
 // Anciennes adresses des scripts, feuilles de style et images, rangés dans public/js, public/css et public/img :
 // pages en cache dans les navigateurs et aides personnalisées qui y font encore référence
 const MOVED_ASSETS = {
