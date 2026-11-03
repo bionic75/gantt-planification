@@ -52,6 +52,7 @@ router.get('/affectation/ateliers', requireAffectationAccess, h(ateliers.list));
 router.put('/affectation/ateliers', requireAdmin, h(ateliers.save));
 router.delete('/affectation/ateliers/:id', requireAdmin, h(ateliers.remove));
 router.post('/affectation/ateliers/:id/send', requireAdmin, h(ateliers.send));
+router.post('/affectation/ateliers/:id/invitation/:ligne', requireAdmin, h(ateliers.invite));
 // Sondages de date des jalons (conception par les administrateurs ; accès public par jeton)
 router.get('/affectation/ateliers-sondages', requireAffectationAccess, h(sondages.list));
 router.get('/affectation/ateliers/:id/sondages/:ligne', requireAffectationAccess, h(sondages.get));

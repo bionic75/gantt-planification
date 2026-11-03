@@ -1,4 +1,5 @@
 // @ts-check
+import { prisma } from '../../db/prisma.js';
 import { badRequest } from '../../lib/http-error.js';
 import { logUserAction } from '../../services/action-log.js';
 import * as svc from './ateliers.service.js';
@@ -42,6 +43,27 @@ export async function send(/** @type {Request} */ req, /** @type {Response} */ r
         const r = await svc.send(req.params.id, req.body || {});
         logUserAction(req, 'Ateliers métier : rétroplanning diffusé par e-mail', {
             samu: r.samu_name,
+            destinataires: r.sent
+        });
+        res.json({ success: true, ...r });
+    } catch (/** @type {any} */ e) {
+        if (e.status) throw e;
+        throw badRequest(`Envoi impossible : ${e.message}`);
+    }
+}
+
+export async function invite(/** @type {Request} */ req, /** @type {Response} */ res) {
+    const user = req.session.userId
+        ? await prisma.user.findUnique({ where: { id: req.session.userId }, select: { email: true } })
+        : null;
+    try {
+        const r = await svc.sendInvitation(req.params.id, req.params.ligne, req.body || {}, {
+            name: author(req).name,
+            email: user ? user.email : null
+        });
+        logUserAction(req, 'Ateliers métier : invitation à un atelier envoyée', {
+            samu: r.samu_name,
+            atelier: r.jalon,
             destinataires: r.sent
         });
         res.json({ success: true, ...r });

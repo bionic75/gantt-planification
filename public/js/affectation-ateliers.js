@@ -28,6 +28,8 @@
         contenus: {},
         planifiees: {},
         heures: {},
+        invites: {},
+        teams: '',
         savedAt: null
     });
     AT.f = blank();
@@ -75,7 +77,8 @@
         mail: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 7 10-7"/>',
         save: '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8M7 3v5h8"/>',
         undo: '<path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/>',
-        pin: '<path d="M12 22s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12Z"/><circle cx="12" cy="10" r="2.5"/>'
+        pin: '<path d="M12 22s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12Z"/><circle cx="12" cy="10" r="2.5"/>',
+        calendar: '<rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/>'
     };
     const ico = (name, cls = 'at-ico') =>
         `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`;
@@ -108,7 +111,6 @@
         #atelierRoot .at-icon-btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
         #atelierRoot .at-icon-btn.edit { background: #f39c12; }
         #atelierRoot .at-icon-btn.del { background: #e74c3c; }
-        #atelierRoot .at-icon-btn.mail { background: #1d70b7; }
         #atelierRoot .at-bar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 14px; }
         #atelierRoot .at-empty { padding: 22px; text-align: center; color: #8a97a8; border: 1px dashed #cfd8e6; border-radius: 10px; }
         .at-toast { position: fixed; right: 20px; bottom: 20px; z-index: 10040; max-width: 420px; padding: 12px 16px; border-radius: 8px; background: #263238; color: #fff; font-size: 13px; box-shadow: 0 6px 20px rgba(0,0,0,.3); }
@@ -305,6 +307,8 @@
             AT.f.contenus = { ...(saved.lignes.contenus || {}) };
             AT.f.planifiees = { ...(saved.lignes.planifiees || {}) };
             AT.f.heures = { ...(saved.lignes.heures || {}) };
+            AT.f.invites = { ...(saved.lignes.invites || {}) };
+            AT.f.teams = saved.lignes.teams || '';
             AT.f.savedAt = saved.updated_at;
         } else if (p) {
             AT.f.mep = p.mep || '';
@@ -361,7 +365,14 @@
         delaiMep: AT.f.delaiMep === '' ? 28 : AT.f.delaiMep,
         ecart12: AT.f.ecart12 === '' ? 7 : AT.f.ecart12,
         ecartAteliers: AT.f.ecartAteliers === '' ? 14 : AT.f.ecartAteliers,
-        lignes: { jalons: AT.f.jalons, contenus: AT.f.contenus, planifiees: AT.f.planifiees, heures: AT.f.heures }
+        lignes: {
+            jalons: AT.f.jalons,
+            contenus: AT.f.contenus,
+            planifiees: AT.f.planifiees,
+            heures: AT.f.heures,
+            invites: AT.f.invites,
+            teams: AT.f.teams
+        }
     });
 
     // ---- Sondages de date (un par jalon) ----
@@ -396,6 +407,14 @@
         if (AT.sim && document.getElementById('atTableBox')) renderTable();
     }
 
+    // Bouton d'invitation à l'atelier, dès que le jalon est planifié
+    function inviteBtn(r) {
+        if (!r.planifiee || r.key === 'mep' || r.key === 'livrables' || !/^Planifi/.test(r.statut) || !AT.f.id)
+            return '';
+        const sent = AT.f.invites[r.key];
+        return `<button type="button" class="at-sd ${sent ? 'reponses' : ''}" ${isAdmin() ? '' : 'disabled'} title="${sent ? 'Invitation déjà envoyée le ' + esc(sent.slice(0, 10).split('-').reverse().join('/')) + ' : renvoyer' : 'Envoyer l’invitation (ics avec lien Teams)'}" onclick="AtelierPlanner.openInvite('${r.key}')">${ico('calendar', 'at-ico-sm')} ${sent ? 'Invitation envoyée' : 'Inviter'}</button>`;
+    }
+
     function renderTable() {
         if (AT.f.id && AT.sondFor !== AT.f.id) {
             AT.sondFor = AT.f.id;
@@ -421,7 +440,7 @@
                     <td style="font-weight:700;${decale ? 'color:#b26a00;' : ''}">${esc(frDate(r.proposee))}</td>
                     <td>${sondageCell(r)}</td>
                     <td><div style="display:flex;flex-direction:column;gap:4px;"><input type="date" data-row="${r.key}" data-kind="planifiees" value="${esc(r.planifiee || '')}" ${isAdmin() ? '' : 'disabled'}> <input type="time" data-row="${r.key}" data-kind="heures" value="${esc((r.planifiee && AT.f.heures[r.key]) || '')}" title="Heure retenue (facultative)" ${isAdmin() && r.planifiee ? '' : 'disabled'}></div></td>
-                    <td><span class="at-badge ${r.niveau}">${esc(r.statut)}</span></td></tr>`;
+                    <td><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span class="at-badge ${r.niveau}">${esc(r.statut)}</span>${inviteBtn(r)}</div></td></tr>`;
             })
             .join('');
         document.getElementById('atTableBox').innerHTML =
@@ -520,8 +539,7 @@
                         <button type="button" class="at-icon-btn edit" title="Modifier : ouvrir dans la simulation" aria-label="Modifier" onclick="AtelierPlanner.edit(${r.id})">${ico('edit', 'at-ico-sm')}</button>
                         ${
                             admin
-                                ? `<button type="button" class="at-icon-btn del" title="Supprimer ce rétroplanning" aria-label="Supprimer" onclick="AtelierPlanner.remove(${r.id})">${ico('trash', 'at-ico-sm')}</button>
-                        <button type="button" class="at-icon-btn mail" title="Diffuser le calendrier par e-mail" aria-label="Diffuser par e-mail" onclick="AtelierPlanner.openMail(${r.id})">${ico('mail', 'at-ico-sm')}</button>`
+                                ? `<button type="button" class="at-icon-btn del" title="Supprimer ce rétroplanning" aria-label="Supprimer" onclick="AtelierPlanner.remove(${r.id})">${ico('trash', 'at-ico-sm')}</button>`
                                 : ''
                         }
                     </div></td></tr>`;
@@ -572,9 +590,15 @@
     }
 
     let users = null;
-    async function openMail(id) {
-        const r = AT.list.find(x => x.id === id);
-        if (!r) return;
+    // ---- Invitation à un atelier planifié (e-mail + .ics avec lien Teams) ----
+    const timeAdd1h = t => {
+        const [h, m] = t.split(':').map(Number);
+        return h >= 23 ? '23:59' : `${String(h + 1).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    };
+
+    async function openInvite(key) {
+        const row = AT.sim && AT.sim.rows.find(x => x.key === key);
+        if (!row || !row.planifiee || !AT.f.id) return;
         try {
             if (!users) {
                 const all = await atApi('/users');
@@ -583,11 +607,15 @@
         } catch (e) {
             return toast(e.message, true);
         }
+        const start = AT.f.heures[key] || '';
+        const teams = AT.f.teams || ''; // lien déjà renseigné pour ce SAMU, proposé pour ses autres ateliers
         const bg = document.createElement('div');
         bg.className = 'at-modal-bg';
         bg.id = 'atMailModal';
-        bg.innerHTML = `<div class="at-modal" role="dialog" aria-label="Diffuser le calendrier">
-            <h3>${ico('mail')} Diffuser le calendrier — ${esc(r.samu_name)}</h3>
+        bg.dataset.key = key;
+        bg.innerHTML = `<div class="at-modal" role="dialog" aria-label="Invitation à l’atelier">
+            <h3>${ico('calendar')} Invitation — ${esc(row.jalon)} · ${esc(AT.f.samu)}</h3>
+            <p class="aff-muted" style="margin:0 0 4px;font-size:12px;">${esc(row.contenu)}<br><b>${esc(frDate(row.planifiee))}${start ? ' à ' + esc(start) : ' (journée entière : aucune heure retenue)'}</b></p>
             <label>Destinataires (utilisateurs de l’application)</label>
             <input type="text" id="atMailFilter" placeholder="Filtrer par nom…" style="margin-bottom:6px;">
             <div class="at-users" id="atMailUsers">${users
@@ -600,12 +628,14 @@
             <label>Autres adresses e-mail (une par ligne)</label>
             <textarea id="atMailExtra" rows="3" placeholder="prenom.nom@exemple.fr"></textarea>
             <div id="atMailExtraErr" style="color:#c62828;font-size:11px;margin-top:3px;"></div>
+            <label>Lien de la réunion Teams <span class="aff-muted" style="font-weight:400;">${teams ? '(repris de ce SAMU, modifiable)' : '(à renseigner une fois : proposé pour les autres ateliers de ce SAMU)'}</span></label>
+            <input type="text" id="atMailTeams" value="${esc(teams)}" placeholder="https://teams.microsoft.com/l/meetup-join/…">
+            ${start ? `<label>Fin de l’atelier</label><input type="time" id="atMailEnd" value="${timeAdd1h(start)}" style="padding:6px 8px;border:1px solid #cfd8e6;border-radius:8px;">` : ''}
             <label>Objet</label>
-            <input type="text" id="atMailSubject" value="${esc(`Rétroplanning des ateliers métier — ${r.samu_name}`)}">
+            <input type="text" id="atMailSubject" value="${esc(`[SI-SAMU] ${AT.f.samu} - ${row.jalon}`)}">
             <label>Message (facultatif)</label>
             <textarea id="atMailMessage" rows="3"></textarea>
-            <label style="display:flex;align-items:center;gap:8px;font-weight:600;margin-top:12px;"><input type="checkbox" id="atMailIcs" checked style="width:16px;height:16px;margin:0;"> Joindre le calendrier (.ics) : un événement par jalon</label>
-            <div class="at-modal-actions"><button type="button" class="aff-btn" onclick="AtelierPlanner.closeMail()">Annuler</button><button type="button" class="aff-btn aff-btn-primary" id="atMailSend" onclick="AtelierPlanner.sendMail(${id})">${ico('mail', 'at-ico-sm')}Envoyer</button></div>
+            <div class="at-modal-actions"><button type="button" class="aff-btn" onclick="AtelierPlanner.closeMail()">Annuler</button><button type="button" class="aff-btn aff-btn-primary" id="atMailSend" onclick="AtelierPlanner.sendInvite()">${ico('mail', 'at-ico-sm')}Envoyer l’invitation</button></div>
         </div>`;
         document.body.appendChild(bg);
         document.getElementById('atMailFilter').addEventListener('input', e => {
@@ -628,7 +658,8 @@
         if (m) m.remove();
     }
 
-    async function sendMail(id) {
+    async function sendInvite() {
+        const key = document.getElementById('atMailModal').dataset.key;
         const userIds = [...document.querySelectorAll('#atMailUsers input:checked')].map(i => Number(i.value));
         const parsed = window.parseEmailLines
             ? parseEmailLines(document.getElementById('atMailExtra').value)
@@ -639,21 +670,29 @@
         btn.disabled = true;
         sendStatus('Envoi en cours…');
         try {
-            const r = await atApi(`/affectation/ateliers/${id}/send`, {
+            const end = document.getElementById('atMailEnd');
+            const r = await atApi(`/affectation/ateliers/${AT.f.id}/invitation/${key}`, {
                 method: 'POST',
                 body: JSON.stringify({
                     userIds,
                     emails: parsed.valid,
+                    teams: document.getElementById('atMailTeams').value,
+                    heure_fin: end ? end.value : null,
                     subject: document.getElementById('atMailSubject').value,
-                    message: document.getElementById('atMailMessage').value,
-                    ics: document.getElementById('atMailIcs').checked
+                    message: document.getElementById('atMailMessage').value
                 })
             });
             closeMail();
-            sendStatus(`Envoi terminé (${r.sent} destinataire${r.sent > 1 ? 's' : ''})`, true);
+            sendStatus(`Invitation envoyée (${r.sent} destinataire${r.sent > 1 ? 's' : ''})`, true);
             const list = await atApi('/affectation/ateliers');
             AT.list = list.retroplannings || [];
+            const saved = AT.list.find(x => x.id === AT.f.id);
+            if (saved) {
+                AT.f.teams = saved.lignes.teams || '';
+                AT.f.invites = { ...(saved.lignes.invites || {}) };
+            }
             renderList();
+            renderTable();
         } catch (e) {
             btn.disabled = false;
             document.getElementById('atSendStatus')?.remove();
@@ -1018,9 +1057,9 @@
         reset,
         edit,
         remove,
-        openMail,
+        openInvite,
         closeMail,
-        sendMail,
+        sendInvite,
         openSondage,
         closeSondage,
         sondageSave: () => sondageSave(false),

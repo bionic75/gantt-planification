@@ -481,3 +481,56 @@ describe('clôture et réouverture d’un sondage', () => {
         expect(none.data.sondage).toMatchObject({ statut: 'termine', option_retenue_id: null });
     });
 });
+
+describe('invitation à un atelier planifié (ics + lien Teams)', () => {
+    it('refusée sans date planifiée ; envoyée avec le lien Teams retenu pour le SAMU', async () => {
+        await deployment('SAMU-SAS 79');
+        const created = await admin.put('/api/affectation/ateliers', {
+            samu_name: 'SAMU-SAS 79',
+            mep: '2027-06-10',
+            nb: 3,
+            zone: 'C'
+        });
+        const id = created.data.id;
+        const url = `/api/affectation/ateliers/${id}/invitation/a1`;
+        expect((await admin.post(url, { emails: ['direct@example.test'] })).status).toBe(400);
+
+        const row = (await admin.get('/api/affectation/ateliers')).data.retroplannings.find(r => r.id === id);
+        const a1 = row.jalons.find(j => j.key === 'a1');
+        const saved = await admin.put('/api/affectation/ateliers', {
+            samu_name: 'SAMU-SAS 79',
+            mep: '2027-06-10',
+            nb: 3,
+            zone: 'C',
+            lignes: { planifiees: { a1: a1.proposee }, heures: { a1: '10:00' } }
+        });
+        expect(saved.status, JSON.stringify(saved.data)).toBe(200);
+        expect((await admin.post(url, { emails: [] })).status).toBe(400);
+        const badLink = await admin.post(url, { emails: ['direct@example.test'], teams: 'javascript:alert(1)' });
+        expect(badLink.status).toBe(400);
+
+        const teams = 'https://teams.microsoft.com/l/meetup-join/atelier79';
+        const r = await admin.post(url, {
+            emails: ['direct@example.test'],
+            subject: 'Invitation atelier SAMU 79',
+            message: 'À bientôt',
+            teams
+        });
+        expect(r.status, JSON.stringify(r.data)).toBe(200);
+        const mail = await smtp.waitFor(/Subject: Invitation atelier SAMU 79/, 15000);
+        expect(mail).toContain('method=REQUEST');
+        expect(mail).toContain(teams);
+        const after = (await admin.get('/api/affectation/ateliers')).data.retroplannings.find(x => x.id === id);
+        expect(after.lignes.teams).toBe(teams);
+        expect(after.lignes.invites.a1).toBeTruthy();
+        // Enregistrer le rétroplanning conserve le lien Teams et l'inscription de l'envoi
+        const again = await admin.put('/api/affectation/ateliers', {
+            samu_name: 'SAMU-SAS 79',
+            mep: '2027-06-10',
+            nb: 3,
+            zone: 'C',
+            lignes: { planifiees: { a1: a1.proposee }, heures: { a1: '10:00' }, teams, invites: after.lignes.invites }
+        });
+        expect(again.status).toBe(200);
+    });
+});

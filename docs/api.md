@@ -24,7 +24,7 @@ Protections :
 | `mfaPending` | Connexion en attente de double authentification |
 | `apiKey` | Clé d’API (en-tête X-Api-Key) |
 
-325 routes, par module (`src/modules/<module>`) :
+326 routes, par module (`src/modules/<module>`) :
 
 ## admin
 
@@ -69,6 +69,7 @@ Protections :
 | PUT | `/api/affectation/ateliers` | admin |
 | GET | `/api/affectation/ateliers-sondages` | affectation |
 | DELETE | `/api/affectation/ateliers/:id` | admin |
+| POST | `/api/affectation/ateliers/:id/invitation/:ligne` | admin |
 | POST | `/api/affectation/ateliers/:id/send` | admin |
 | GET | `/api/affectation/ateliers/:id/sondages/:ligne` | affectation |
 | PUT | `/api/affectation/ateliers/:id/sondages/:ligne` | admin |
