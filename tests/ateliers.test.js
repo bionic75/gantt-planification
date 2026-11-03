@@ -518,7 +518,9 @@ describe('invitation à un atelier planifié (ics + lien Teams)', () => {
         });
         expect(r.status, JSON.stringify(r.data)).toBe(200);
         const mail = await smtp.waitFor(/Subject: Invitation atelier SAMU 79/, 15000);
-        expect(mail).toContain('method=REQUEST');
+        expect(mail).toContain('multipart/alternative');
+        expect(mail).toMatch(/Content-Type: text\/calendar;[^\n]*method=REQUEST/i);
+        expect(mail).toMatch(/Invitation_SAMU_SAS_79_a1\.ics/);
         expect(mail).toContain(teams);
         const after = (await admin.get('/api/affectation/ateliers')).data.retroplannings.find(x => x.id === id);
         expect(after.lignes.teams).toBe(teams);
