@@ -1446,13 +1446,13 @@
         const rows = [...c.matching.map(e => [e, true]), ...c.others.map(e => [e, false])]
             .map(
                 ([e, m]) =>
-                    `<label style="display:flex;gap:8px;align-items:flex-start;font-size:12px;text-align:left;padding:3px 0;cursor:pointer;"><input type="checkbox" style="flex:none;margin-top:2px;" data-eid="${e.id}" ${c.linkedIds.includes(e.id) ? 'checked' : ''} onchange="AffectationApp.${h}Toggle(this)"><span>${esc(evDates(e))} · ${esc(e.label)}${e.participants ? ' · ' + e.participants + ' part.' : ''}${m ? '' : ' · <i>autre type</i>'}</span></label>`
+                    `<label style="display:flex;gap:8px;align-items:flex-start;width:100%;margin:0;font-size:12px;font-weight:400;text-align:left;padding:3px 0;cursor:pointer;"><input type="checkbox" style="flex:none;width:auto;min-width:0;margin:2px 0 0;" data-eid="${e.id}" ${c.linkedIds.includes(e.id) ? 'checked' : ''} onchange="AffectationApp.${h}Toggle(this)"><span style="flex:1;min-width:0;font-weight:400;">${esc(evDates(e))} · ${esc(e.label)}${e.participants ? ' · ' + e.participants + ' part.' : ''}${m ? '' : ' · <i>autre type</i>'}</span></label>`
             )
             .join('');
         return `<div data-evbox="${key}">
             <details style="position:relative;" ${evOpen.has(h + key) ? 'open' : ''} ontoggle="AffectationApp.evOpenState('${h}${key}',this.open)">
                 <summary style="list-style:none;cursor:pointer;border:1px solid #767676;border-radius:4px;padding:5px 24px 5px 8px;background:#fff;color:#1a2b3c;font-size:13px;position:relative;white-space:normal;">${esc(evSummary(c))}<span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:10px;">▼</span></summary>
-                <div style="position:absolute;z-index:20;left:0;right:0;background:#fff;border:1px solid #cfd8e3;border-radius:6px;padding:8px;max-height:300px;overflow:auto;box-shadow:0 6px 18px rgba(0,0,0,.15);">
+                <div style="margin-top:4px;background:#fff;border:1px solid #cfd8e3;border-radius:6px;padding:8px;max-height:300px;overflow:auto;text-align:left;">
                     <div style="font-size:11px;color:#6b7a8d;margin-bottom:4px;">Cochez les parties de l'événement (jours de l'activité = jours des parties cochées dès deux parties)</div>
                     ${rows || '<span class="aff-muted" style="font-size:12px;">Aucun événement pour ce SAMU.</span>'}
                     <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin-top:6px;border-top:1px solid #e3e9f0;padding-top:6px;">
