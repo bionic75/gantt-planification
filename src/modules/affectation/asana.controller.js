@@ -9,6 +9,9 @@ import {
     ASANA_KEYS,
     ASANA_MILESTONES,
     ASANA_RULES,
+    asanaReloadStageRules,
+    asanaTemplateChoices,
+    ASANA_TEMPLATE_KEY,
     asanaApi,
     asanaApplyCore,
     asanaApplyOverrides,
@@ -55,12 +58,14 @@ const changedKeys = (/** @type {{ rows: Array<{ key: string, status: string }> }
 // ---------- Import d'un fichier CSV ----------
 
 export async function csvPreview(/** @type {Request} */ req, /** @type {Response} */ res) {
+    await asanaReloadStageRules();
     const c = asanaCompute(req.body && req.body.csv, req.body && req.body.formationTarget);
     if (!c.samuNo) throw badRequest("Impossible d'identifier le SAMU : le nom du projet doit contenir « [SAMU 25] »");
     res.json(await asanaPreviewPayload(c));
 }
 
 export async function csvApply(/** @type {Request} */ req, /** @type {Response} */ res) {
+    await asanaReloadStageRules();
     const c = asanaCompute(req.body && req.body.csv, req.body && req.body.formationTarget);
     if (!c.samuNo) throw badRequest("Impossible d'identifier le SAMU");
     res.json(await asanaApplyCore(req, c, req.body.apply, null, 'csv'));
@@ -410,4 +415,30 @@ export async function saveOverrides(/** @type {Request} */ req, /** @type {Respo
     if (!keys.length) return res.json({ success: true, unchanged: true, samu_name: dep.samu_name, asana: projectName });
     const r = await asanaApplyCore(req, c, keys, id, 'api');
     res.json({ ...r, updated: keys.length, asana: projectName });
+}
+
+/** Projets Asana parmi lesquels choisir le projet type (tout le périmètre, sans filtre sur le nom) */
+export async function templateProjects(/** @type {Request} */ req, /** @type {Response} */ res) {
+    const list = await asanaProjectList(await asanaToken());
+    res.json({
+        projects: list
+            .map((/** @type {any} */ p) => ({ gid: String(p.gid), name: String(p.name) }))
+            .sort((/** @type {any} */ a, /** @type {any} */ b) => a.name.localeCompare(b.name, 'fr', { numeric: true }))
+    });
+}
+
+/** Choix du projet Asana type : ses tâches deviennent les choix de la liste des activités Asana */
+export async function saveTemplate(/** @type {Request} */ req, /** @type {Response} */ res) {
+    const gid = String((req.body && req.body.gid) || '');
+    if (!gid) {
+        await asanaPut(ASANA_TEMPLATE_KEY, 'null');
+        logUserAction(req, 'Projet Asana type retiré', {});
+        res.json({ success: true, template: null });
+        return;
+    }
+    const { projectName, tasks } = await asanaFetchProject(await asanaToken(), gid);
+    const tpl = { gid, name: projectName, tasks: asanaTemplateChoices(tasks) };
+    await asanaPut(ASANA_TEMPLATE_KEY, JSON.stringify(tpl));
+    logUserAction(req, 'Projet Asana type choisi', { gid, name: projectName, taches: tpl.tasks.length });
+    res.json({ success: true, template: tpl });
 }

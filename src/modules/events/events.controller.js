@@ -1,8 +1,10 @@
 // @ts-check
 import { formatDateFR } from '../../lib/utils.js';
 import { logUserAction } from '../../services/action-log.js';
+import * as affectation from '../affectation/affectation.service.js';
 import { sendTeamsNotificationFromServer } from '../notifications/notifications.service.js';
 import { notifyEventCreated } from './events.notifications.js';
+import * as duplicates from './events.duplicates.js';
 import * as service from './events.service.js';
 
 /** @typedef {import('express').Request} Request */
@@ -94,20 +96,43 @@ export async function create(/** @type {Request} */ req, /** @type {Response} */
     res.json({ success: true, eventId: id });
 }
 
-/** Inscription comme participant (planification de l'expert mise à jour) */
+/**
+ * Inscription comme participant. Quand l'événement relève d'une étape à ressources d'un déploiement, l'expert devient
+ * intervenant de l'étape (dans la limite des ressources par jour) et c'est l'affectation qui écrit sa planification ;
+ * sinon, ou si l'étape est complète, sa planification est mise à jour directement.
+ */
 export async function join(/** @type {Request} */ req, /** @type {Response} */ res) {
     const isExpert = req.session.activeProfile === 'expert';
-    const { event, planningUpdates } = await service.joinEvent(req.params.id, {
+    const resourceId = req.session.resourceId;
+    const eventId = Number(req.params.id);
+    const stages =
+        isExpert && resourceId && Number.isInteger(eventId) ? await affectation.affStagesOfEvent(eventId) : [];
+    const joined = await service.joinEvent(req.params.id, {
         userId: userId(req),
-        resourceId: req.session.resourceId,
-        isExpert
+        resourceId,
+        isExpert,
+        skipPlanning: stages.length > 0
     });
+    let { planningUpdates } = joined;
+    /** @type {typeof stages} */
+    let deploiements = [];
+    if (stages.length && resourceId) {
+        try {
+            for (const project of new Set(stages.map(s => s.project)))
+                await affectation.affSyncAllFromEvents(req, project);
+            deploiements = await affectation.affAssignedAmong(resourceId, stages);
+        } catch (e) {
+            console.error('Synchro événements → affectations :', /** @type {Error} */ (e).message);
+        }
+        if (!deploiements.length) planningUpdates = await service.applyJoinPlanning(joined.event, resourceId);
+    }
     res.json({
         success: true,
         planningUpdated: planningUpdates.length > 0,
         planningUpdates,
+        deploiements,
         isExpert,
-        eventLabel: event.label
+        eventLabel: joined.event.label
     });
 }
 
@@ -126,4 +151,23 @@ export async function update(/** @type {Request} */ req, /** @type {Response} */
 export async function remove(/** @type {Request} */ req, /** @type {Response} */ res) {
     await service.deleteEvent(req.params.id);
     res.json({ success: true });
+}
+
+// ---------- Doublons ----------
+
+/** Doublons certains et probables, par groupes */
+export async function listDuplicates(/** @type {Request} */ _req, /** @type {Response} */ res) {
+    res.json({ groups: await duplicates.findDuplicateGroups() });
+}
+
+/** Fusion : { keep_id, remove_ids } — un seul événement conservé, participants réunis */
+export async function mergeDuplicates(/** @type {Request} */ req, /** @type {Response} */ res) {
+    const r = await duplicates.mergeEvents(req.body && req.body.keep_id, req.body && req.body.remove_ids);
+    logUserAction(req, "Fusion d'événements en doublon", {
+        conserve: r.kept,
+        supprimes: r.removed,
+        participantsAjoutes: r.participantsAdded,
+        liensAffectation: r.relinked
+    });
+    res.json({ success: true, ...r });
 }

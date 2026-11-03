@@ -18,6 +18,9 @@ router.delete('/event-types/:id', requireAdmin, h(ctrl.deleteType));
 
 // Événements : administration
 router.get('/custom-events/search', requireAuth, h(ctrl.search));
+// Doublons (avant /custom-events/:id)
+router.get('/custom-events/duplicates', requireAdmin, h(ctrl.listDuplicates));
+router.post('/custom-events/merge', requireAdmin, h(ctrl.mergeDuplicates));
 router.get('/custom-events', requireAdmin, h(ctrl.adminList));
 router.post('/custom-events', requireAdmin, h(ctrl.adminCreate));
 router.put('/custom-events/:id', requireAdmin, h(ctrl.adminUpdate));

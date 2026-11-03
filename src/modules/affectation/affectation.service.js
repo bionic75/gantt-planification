@@ -295,16 +295,15 @@ export async function affReconcileAssignments(
             if (!needed || counts[a.stage_key] > needed) toDelete.push(a.id);
         }
     }
-    // Journées enregistrées : celles hors de la période (ou d'un week-end) et au-delà du nombre de ressources par jour sont retirées
+    // Journées enregistrées : celles hors de la période et au-delà du nombre de ressources par jour sont retirées
     /** @type {Record<string, number>} */
     const perDay = {};
     const kept = new Set();
     for (const d of dayRows) {
         const per = periods[d.stage_key] && periods[d.stage_key][0];
         const needed = per ? per.needed : 0;
-        const dow = new Date(d.date + 'T00:00:00Z').getUTCDay();
         const key = `${d.stage_key}|${d.date}`;
-        if (!per || !needed || d.date < per.start || d.date > per.end || dow === 0 || dow === 6) {
+        if (!per || !needed || d.date < per.start || d.date > per.end) {
             daysToDelete.push(d.id);
             continue;
         }
@@ -535,6 +534,14 @@ function scheduleCells(
     });
 }
 
+/** Tous les jours (UTC) d'une période, week-ends compris */
+function* calendarDays(/** @type {string} */ start, /** @type {string} */ end) {
+    for (let t = Date.parse(start + 'T00:00:00Z'); t <= Date.parse(end + 'T00:00:00Z'); t += 86400000)
+        yield new Date(t).toISOString().slice(0, 10);
+}
+
+const isWeekendDay = (/** @type {string} */ d) => [0, 6].includes(new Date(d + 'T00:00:00Z').getUTCDay());
+
 /** Jours ouvrés (UTC) d'une période */
 function* workingDays(/** @type {string} */ start, /** @type {string} */ end) {
     for (let t = Date.parse(start + 'T00:00:00Z'); t <= Date.parse(end + 'T00:00:00Z'); t += 86400000) {
@@ -555,13 +562,10 @@ export async function affComputeAvailability(row, stageKey) {
     const samuNo = affSamuNumber(row.samu_name);
     /** @type {Record<number, Record<string, Record<string, string>>>} */
     const slots = {};
-    for (const r of await scheduleCells(per)) {
-        const dow = new Date(r.date_key.slice(0, 10) + 'T00:00:00Z').getUTCDay();
-        if (dow === 0 || dow === 6) continue;
-        ((slots[r.resource_id] ??= {})[r.date_key] ??= {})[r.type] = r.value;
-    }
-    const dates = [...workingDays(per.start, per.end)];
-    const total = dates.length * 2;
+    for (const r of await scheduleCells(per)) ((slots[r.resource_id] ??= {})[r.date_key] ??= {})[r.type] = r.value;
+    // Journées affectables : tous les jours de l'étape, week-ends compris ; les compteurs ne portent que sur les jours ouvrés
+    const dates = [...calendarDays(per.start, per.end)];
+    const total = [...workingDays(per.start, per.end)].length * 2;
     /** @type {Record<string, any>} */
     const out = {};
     for (const [rid, days] of Object.entries(slots)) {
@@ -583,32 +587,34 @@ export async function affComputeAvailability(row, stageKey) {
         for (const [dateKey, d] of Object.entries(days)) {
             const act = d.activity;
             const av = d.available;
+            const weekend = isWeekendDay(dateKey.slice(0, 10));
             /** @type {string | null} */
             let state = null;
             if (av === '3') {
-                st.leave++;
+                if (!weekend) st.leave++;
                 state = 'leave';
             } else if (av === '1' || act === '1') {
-                st.off++;
+                if (!weekend) st.off++;
                 state = 'off';
             } else if (act === '3' || act === '4') {
                 if (affSamuNumber(d.localisation) === samuNo && samuNo) {
-                    st.here++;
+                    if (!weekend) st.here++;
                     state = 'here';
                 } else {
-                    st.other++;
+                    if (!weekend) st.other++;
                     state = 'other';
-                    otherSet.add(
-                        String(d.localisation || 'SAMU')
-                            .replace(/^[^A-Za-z0-9]+/, '')
-                            .trim()
-                    );
+                    if (!weekend)
+                        otherSet.add(
+                            String(d.localisation || 'SAMU')
+                                .replace(/^[^A-Za-z0-9]+/, '')
+                                .trim()
+                        );
                 }
             } else if (['5', '6', '7', '8'].includes(act)) {
-                st.ans++;
+                if (!weekend) st.ans++;
                 state = 'ans';
             } else if (av === '2') {
-                st.free++; // disponible ANS, activité 2 ou non renseignée
+                if (!weekend) st.free++; // disponible ANS, activité 2 ou non renseignée
                 state = 'free';
             }
             if (state) {
@@ -686,7 +692,7 @@ export async function setAssignments(
 }
 
 /**
- * Journées d'intervention d'une étape : { AAAA-MM-JJ: [ressources] }, jours ouvrés de la période seulement, au plus
+ * Journées d'intervention d'une étape : { AAAA-MM-JJ: [ressources] }, tous les jours de la période (week-ends compris), au plus
  * « nombre de ressources » par jour. Les ressources retenues sont l'ensemble des intervenants de l'étape ; une journée
  * déjà prise par un autre SAMU dans la planification est refusée (sauf si la ressource y était déjà affectée ici).
  * @returns {Promise<{ samuName: string, before: number[], ids: number[], days: Record<string, number[]> }>}
@@ -706,12 +712,11 @@ export async function setAssignmentDays(
     if (!per || !needed) throw new HttpError(400, "Cette étape n'a pas de nombre de ressources défini");
     if (!rawDays || typeof rawDays !== 'object' || Array.isArray(rawDays))
         throw new HttpError(400, 'Journées invalides');
-    const allowed = new Set(workingDays(per.start, per.end));
+    const allowed = new Set(calendarDays(per.start, per.end));
     /** @type {Map<number, string[]>} */
     const byResource = new Map();
     for (const [date, ids] of Object.entries(/** @type {Record<string, unknown>} */ (rawDays))) {
-        if (!allowed.has(date))
-            throw new HttpError(400, `${affFd(date)} : jour hors de la période de l'étape (jours ouvrés uniquement)`);
+        if (!allowed.has(date)) throw new HttpError(400, `${affFd(date)} : jour hors de la période de l'étape`);
         const list = [...new Set((Array.isArray(ids) ? ids : []).map(Number))];
         if (list.some(n => !Number.isInteger(n) || n <= 0)) throw new HttpError(400, 'Ressources invalides');
         if (list.length > needed)
@@ -999,9 +1004,10 @@ async function participantUsers(/** @type {number[]} */ eventIds) {
 }
 
 /**
- * Affectations complétées d'après les participants des événements de l'activité (ajouts seulement,
- * dans la limite du nombre de ressources nécessaires)
- * @returns {Promise<{ added: number[] }>}
+ * Affectations complétées d'après les participants des événements de l'activité (ajouts seulement). Un participant
+ * n'est ajouté que sur les jours ouvrés de son événement où le nombre de ressources par jour n'est pas atteint ;
+ * ces journées sont enregistrées, comme dans la grille d'affectation.
+ * @returns {Promise<{ added: number[], full: number[] }>} ressources ajoutées, ressources sans jour disponible
  */
 export async function affSyncStageFromEvents(
     /** @type {Request | null} */ req,
@@ -1010,16 +1016,35 @@ export async function affSyncStageFromEvents(
     /** @type {any} */ ctx
 ) {
     const per = parsePeriods(proj.periods)[key]?.[0];
-    if (!per || !per.needed) return { added: [] };
+    if (!per || !per.needed) return { added: [], full: [] };
     const evs = await affStageEvents(proj, key, per, await affEventLinks(proj.id), ctx.map, ctx.types, ctx.locId);
-    if (!evs.length) return { added: [] };
-    const candidates = [
-        ...new Set((await participantUsers(evs)).map(p => p.user.resource_id).filter(id => id != null))
-    ];
+    if (!evs.length) return { added: [], full: [] };
+    const evDates = new Map(
+        (
+            await prisma.customEvent.findMany({
+                where: { id: { in: evs } },
+                select: { id: true, start_date: true, end_date: true }
+            })
+        ).map(e => [e.id, e])
+    );
+    // Jours ouvrés de la période où chaque participant est inscrit à un événement de l'activité
+    /** @type {Map<number, Set<string>>} */
+    const wanted = new Map();
+    for (const p of await participantUsers(evs)) {
+        const rid = p.user.resource_id;
+        const ev = evDates.get(p.event_id);
+        if (rid == null || !ev) continue;
+        const from = ev.start_date > per.start ? ev.start_date : per.start;
+        const evEnd = ev.end_date || ev.start_date;
+        const to = evEnd < per.end ? evEnd : per.end;
+        const days = wanted.get(rid) ?? new Set();
+        for (const d of workingDays(from, to)) days.add(d);
+        wanted.set(rid, days);
+    }
     const active = new Set(
         (
             await prisma.resource.findMany({
-                where: { id: { in: /** @type {number[]} */ (candidates) }, actif: 1 },
+                where: { id: { in: [...wanted.keys()] }, actif: 1 },
                 select: { id: true }
             })
         ).map(r => r.id)
@@ -1031,25 +1056,85 @@ export async function affSyncStageFromEvents(
             orderBy: { id: 'asc' }
         })
     ).map(x => x.resource_id);
-    const toAdd = /** @type {number[]} */ (candidates)
-        .filter(r => active.has(r) && !cur.includes(r))
-        .slice(0, Math.max(0, per.needed - cur.length));
-    if (!toAdd.length) return { added: [] };
-    await prisma.affectationAssignment.createMany({
-        data: toAdd.map(resource_id => ({ project_id: proj.id, stage_key: key, resource_id }))
-    });
-    const names = await resourceNames([...cur, ...toAdd]);
+    /** @type {Record<number, string[]>} */
+    const explicit = {};
+    for (const d of await prisma.affectationAssignmentDay.findMany({
+        where: { project_id: proj.id, stage_key: key }
+    }))
+        (explicit[d.resource_id] ??= []).push(d.date);
+    const taken = affEffectiveDays(per, cur, explicit);
+    /** @type {Array<{ rid: number, days: string[] }>} */
+    const toAdd = [];
+    /** @type {number[]} */
+    const full = [];
+    for (const [rid, days] of wanted) {
+        if (!active.has(rid) || cur.includes(rid)) continue;
+        const free = [...days].sort().filter(d => (taken[d] || []).length < per.needed);
+        if (!free.length) {
+            full.push(rid);
+            continue;
+        }
+        for (const d of free) (taken[d] ??= []).push(rid);
+        toAdd.push({ rid, days: free });
+    }
+    if (!toAdd.length) return { added: [], full };
+    await prisma.$transaction([
+        prisma.affectationAssignment.createMany({
+            data: toAdd.map(a => ({ project_id: proj.id, stage_key: key, resource_id: a.rid }))
+        }),
+        prisma.affectationAssignmentDay.createMany({
+            data: toAdd.flatMap(a =>
+                a.days.map(date => ({ project_id: proj.id, stage_key: key, resource_id: a.rid, date }))
+            )
+        })
+    ]);
+    const added = toAdd.map(a => a.rid);
+    const names = await resourceNames([...cur, ...added]);
     const list = (/** @type {number[]} */ a) => a.map(i => names[i] || `#${i}`).join(', ') || '—';
     await affHist(req, proj.id, proj.samu_name, 'affectation', {
         changes: [
             {
                 label: `${stageLabel(key)} — ressources (depuis les participants de l'événement)`,
                 from: list(cur),
-                to: list([...cur, ...toAdd])
+                to:
+                    list([...cur, ...added]) +
+                    ` (${toAdd.map(a => `${names[a.rid] || `#${a.rid}`} : ${a.days.length} jour(s)`).join(', ')})`
             }
         ]
     });
-    return { added: toAdd };
+    return { added, full };
+}
+
+/** Étapes à ressources des déploiements auxquelles un événement est rattaché (lien explicite, ou même lieu et même type) */
+export async function affStagesOfEvent(/** @type {number} */ eventId) {
+    /** @type {Array<{ project: number, samu: string, stage: string, label: string }>} */
+    const out = [];
+    const ctx = { map: await affStageTypeMap(), types: await allEventTypes() };
+    for (const proj of await prisma.affectationProject.findMany({ orderBy: { id: 'asc' } })) {
+        const locId = await affProjectLocationId(proj);
+        const links = await affEventLinks(proj.id);
+        const periods = parsePeriods(proj.periods);
+        for (const def of AFF_STAGES.filter(x => x.resources && AFF_EVENT_KEYS.includes(x.key))) {
+            const per = periods[def.key]?.[0];
+            if (!per || !per.needed) continue;
+            if ((await affStageEvents(proj, def.key, per, links, ctx.map, ctx.types, locId)).includes(eventId))
+                out.push({ project: proj.id, samu: proj.samu_name, stage: def.key, label: def.label });
+        }
+    }
+    return out;
+}
+
+/** Parmi des étapes de déploiements, celles où la ressource est affectée */
+export async function affAssignedAmong(
+    /** @type {number} */ resourceId,
+    /** @type {Array<{ project: number, stage: string }>} */ stages
+) {
+    if (!stages.length) return [];
+    const rows = await prisma.affectationAssignment.findMany({
+        where: { resource_id: resourceId, OR: stages.map(s => ({ project_id: s.project, stage_key: s.stage })) },
+        select: { project_id: true, stage_key: true }
+    });
+    return stages.filter(s => rows.some(r => r.project_id === s.project && r.stage_key === s.stage));
 }
 
 /** Synchronisation des affectations depuis les événements, pour tous les déploiements ou un seul */
@@ -1139,7 +1224,7 @@ export async function affResetPlanning(snap) {
     const halves = snap.period === 'AM' ? ['AM'] : snap.period === 'PM' ? ['PM'] : ['AM', 'PM'];
     let n = 0;
     for (const rid of snap.resourceIds) {
-        for (const day of workingDays(snap.start, snap.end)) {
+        for (const day of calendarDays(snap.start, snap.end)) {
             for (const h of halves) {
                 const key = `${day}_${h}`;
                 const cells = await prisma.scheduleData.findMany({
@@ -1221,11 +1306,13 @@ export async function affSyncCompute(/** @type {number} */ projectId, /** @type 
         })
         .sort((a, b) => (a.nom === b.nom ? 0 : a.nom < b.nom ? -1 : 1));
 
+    // Les écarts se mesurent sur la seule période de l'étape (celle de l'événement)
+    const span = per;
     /** @type {Record<number, Record<string, Record<string, string>>>} */
     const cells = {};
     if (assigned.length) {
         for (const r of await scheduleCells(
-            per,
+            span,
             assigned.map(a => a.id)
         )) {
             ((cells[r.resource_id] ??= {})[r.date_key] ??= {})[r.type] = r.value;
@@ -1244,35 +1331,69 @@ export async function affSyncCompute(/** @type {number} */ projectId, /** @type 
         assignments.map(a => a.resource_id),
         explicit
     );
+    // Journées d'intervention de toutes les étapes du déploiement : une demi-journée posée pour ce SAMU hors de ces
+    // journées n'a plus d'affectation qui la justifie
+    /** @type {Record<string, number[]>} */
+    const idsByStage = {};
+    for (const a of await prisma.affectationAssignment.findMany({
+        where: { project_id: projectId },
+        select: { stage_key: true, resource_id: true }
+    }))
+        (idsByStage[a.stage_key] ??= []).push(a.resource_id);
+    const covered = Object.values(
+        affAssignmentDaysJson(
+            parsePeriods(proj.periods),
+            idsByStage,
+            (await affLoadAssignmentDays())[projectId] || undefined
+        )
+    );
     const plan = assigned.map(a => {
         /** @type {string[]} */
         const toWrite = [];
-        /** @type {Array<{ key: string, reason: string }>} */
+        /** @type {Array<{ key: string, reason: string, forceable: boolean }>} */
         const conflicts = [];
+        /** @type {string[]} */
+        const extra = [];
+        /** @type {Record<string, { s: string, reason?: string }>} état de chaque demi-journée à afficher */
+        const states = {};
         let done = 0;
-        for (const day of workingDays(per.start, per.end)) {
-            if (!(effective[day] || []).includes(a.id)) continue;
+        for (const day of calendarDays(span.start, span.end)) {
+            if (day < per.start || day > per.end || !(effective[day] || []).includes(a.id)) {
+                if (!covered.some(m => (m[day] || []).includes(a.id)))
+                    for (const h of ['AM', 'PM']) {
+                        const c = (cells[a.id] || {})[`${day}_${h}`] || {};
+                        if ((c.activity === '3' || c.activity === '4') && affSamuNumber(c.localisation) === samuNo)
+                            (extra.push(`${day}_${h}`), (states[`${day}_${h}`] = { s: 'extra' }));
+                    }
+                continue;
+            }
             for (const h of ['AM', 'PM']) {
                 const key = `${day}_${h}`;
                 const c = (cells[a.id] || {})[key] || {};
                 if ((c.activity === '3' || c.activity === '4') && affSamuNumber(c.localisation) === samuNo) {
                     done++;
+                    states[key] = { s: 'ok' };
                     continue;
                 }
-                if (c.available === '3') conflicts.push({ key, reason: 'Congés' });
-                else if (c.available === '1' || c.activity === '1') conflicts.push({ key, reason: 'Indisponible' });
+                // forceable : la planification peut être écrasée (indisponibilité, activité ANS) ; congés et autre SAMU, non
+                if (c.available === '3') conflicts.push({ key, reason: 'Congés', forceable: false });
+                else if (c.available === '1' || c.activity === '1')
+                    conflicts.push({ key, reason: 'Indisponible', forceable: true });
                 else if (c.activity === '3' || c.activity === '4') {
                     conflicts.push({
                         key,
                         reason:
-                            'Affecté(e) à ' + String(c.localisation || 'un autre SAMU').replace(/^[^A-Za-z0-9]+/, '')
+                            'Affecté(e) à ' + String(c.localisation || 'un autre SAMU').replace(/^[^A-Za-z0-9]+/, ''),
+                        forceable: false
                     });
                 } else if (['5', '6', '7', '8'].includes(c.activity)) {
-                    conflicts.push({ key, reason: 'Activité ANS (' + c.activity + ')' });
+                    conflicts.push({ key, reason: 'Activité ANS (' + c.activity + ')', forceable: true });
                 } else toWrite.push(key);
             }
         }
-        return { id: a.id, nom: a.nom, prenom: a.prenom, user_id: a.user_id, toWrite, done, conflicts };
+        for (const k of toWrite) states[k] = { s: 'write' };
+        for (const x of conflicts) states[x.key] = { s: 'conflict', reason: x.reason };
+        return { id: a.id, nom: a.nom, prenom: a.prenom, user_id: a.user_id, toWrite, done, conflicts, extra, states };
     });
 
     const tpl = AFF_STAGE_EVENT[stageKey];
@@ -1309,7 +1430,9 @@ export async function affSyncCompute(/** @type {number} */ projectId, /** @type 
     }
     return {
         proj,
+        stageKey,
         per,
+        span,
         samuLoc,
         samuNo,
         locationId,
@@ -1345,6 +1468,114 @@ export async function writeStagePlanning(
         }
     }
     return n;
+}
+
+/**
+ * Demi-journées posées pour ce SAMU sans journée d'affectation correspondante, remises en « Disponible / En attente
+ * d'affectation » (localisation et auteur effacés) pour les ressources indiquées
+ * @returns {Promise<number>} nombre de demi-journées remises en situation
+ */
+export async function clearStageExtraPlanning(
+    /** @type {Awaited<ReturnType<typeof affSyncCompute>>} */ c,
+    /** @type {number[]} */ resourceIds
+) {
+    let n = 0;
+    for (const r of c.resources.filter(x => resourceIds.includes(x.id))) {
+        for (const key of r.extra) {
+            await setScheduleCell(r.id, key, 'available', '2');
+            await setScheduleCell(r.id, key, 'activity', '2');
+            await prisma.scheduleData.deleteMany({
+                where: { resource_id: r.id, date_key: key, type: { in: ['localisation', 'author'] } }
+            });
+            n++;
+        }
+    }
+    return n;
+}
+
+/**
+ * Journées d'intervention d'une ressource sur l'étape, matérialisées en lignes enregistrées (sans ligne, elle
+ * intervient sur tous les jours ouvrés) puis modifiées
+ * @returns {Promise<number>} nombre de journées retirées ou ajoutées
+ */
+async function changeStageDays(
+    /** @type {Awaited<ReturnType<typeof affSyncCompute>>} */ c,
+    /** @type {number} */ resourceId,
+    /** @type {string[]} */ dates,
+    /** @type {'drop' | 'add'} */ mode
+) {
+    const where = { project_id: c.proj.id, stage_key: c.stageKey, resource_id: resourceId };
+    const rows = await prisma.affectationAssignmentDay.findMany({ where });
+    const current = new Set(rows.length ? rows.map(r => r.date) : [...workingDays(c.per.start, c.per.end)]);
+    let changed = 0;
+    if (mode === 'drop') {
+        for (const d of dates) if (current.delete(d)) changed++;
+    } else {
+        // Ajout : dans la période de l'étape et dans la limite des ressources par jour
+        const stage = { project_id: c.proj.id, stage_key: c.stageKey };
+        const others = await prisma.affectationAssignment.findMany({
+            where: { ...stage, resource_id: { not: resourceId } },
+            select: { resource_id: true }
+        });
+        /** @type {Record<number, string[]>} */
+        const explicit = {};
+        for (const d of await prisma.affectationAssignmentDay.findMany({ where: stage }))
+            (explicit[d.resource_id] ??= []).push(d.date);
+        const taken = affEffectiveDays(
+            c.per,
+            others.map(o => o.resource_id),
+            explicit
+        );
+        for (const d of dates)
+            if (d >= c.per.start && d <= c.per.end && !current.has(d) && (taken[d] || []).length < c.per.needed) {
+                current.add(d);
+                changed++;
+            }
+    }
+    const kept = [...current].sort();
+    await prisma.$transaction([
+        prisma.affectationAssignmentDay.deleteMany({ where }),
+        prisma.affectationAssignmentDay.createMany({ data: kept.map(date => ({ ...where, date })) }),
+        ...(kept.length ? [] : [prisma.affectationAssignment.deleteMany({ where })])
+    ]);
+    return changed;
+}
+
+/**
+ * Écarts entre l'aide à l'affectation (grille) et la planification, résolus au choix pour chaque ressource :
+ * - conflits : « force » écrase la planification (indisponibilité, activité ANS) ; « drop » retire la journée de la grille
+ * - demi-journées en trop : « clear » les remet en Disponible ; « add » les ajoute à la grille
+ * @param {{ force?: number[], drop?: number[], clear?: number[], add?: number[] }} choices identifiants de ressources
+ * @returns {Promise<{ forced: number, dropped: number, cleared: number, added: number }>}
+ */
+export async function resolveStageGaps(
+    /** @type {Awaited<ReturnType<typeof affSyncCompute>>} */ c,
+    /** @type {{ force?: number[], drop?: number[], clear?: number[], add?: number[] }} */ choices,
+    /** @type {number} */ authorUserId
+) {
+    const author = await prisma.user.findUnique({ where: { id: authorUserId }, select: { prenom: true, nom: true } });
+    const authorName = author ? `${author.prenom}.${author.nom}` : '';
+    const out = { forced: 0, dropped: 0, cleared: 0, added: 0 };
+    const days = (/** @type {string[]} */ keys) => [...new Set(keys.map(k => k.slice(0, 10)))];
+    for (const r of c.resources) {
+        if ((choices.force || []).includes(r.id))
+            for (const { key } of r.conflicts.filter(x => x.forceable)) {
+                await setScheduleCell(r.id, key, 'available', '2');
+                await setScheduleCell(r.id, key, 'activity', c.activity);
+                await setScheduleCell(r.id, key, 'localisation', c.samuLoc);
+                if (authorName) await setScheduleCell(r.id, key, 'author', authorName);
+                out.forced++;
+            }
+        if ((choices.drop || []).includes(r.id) && r.conflicts.length)
+            out.dropped += await changeStageDays(c, r.id, days(r.conflicts.map(x => x.key)), 'drop');
+        if ((choices.add || []).includes(r.id) && r.extra.length)
+            out.added += await changeStageDays(c, r.id, days(r.extra), 'add');
+    }
+    out.cleared = await clearStageExtraPlanning(
+        c,
+        (choices.clear || []).filter(id => !(choices.add || []).includes(id))
+    );
+    return out;
 }
 
 /** Ajout de participants à un événement (doublons ignorés) */
@@ -1466,6 +1697,7 @@ export async function listStageEvents() {
         return x === y ? a.id - b.id : x < y ? -1 : 1;
     });
     const out = [];
+    const explicitDays = await affLoadAssignmentDays();
     if (typeIds.length) {
         for (const proj of projects) {
             const locId = await affProjectLocationId(proj);
@@ -1490,6 +1722,21 @@ export async function listStageEvents() {
                         ? /** @type {any} */ (proj)['date_' + key]
                         : null;
                 const per = dd ? { start: dd, end: dd } : periods[key]?.[0];
+                // Participants qui n'interviennent que certains jours de l'activité : { nom: « 01/03, 02/03 » }
+                /** @type {Record<string, string>} */
+                const partialDays = {};
+                const mine = per && !dd ? explicitDays[proj.id]?.[key] : undefined;
+                if (per && mine) {
+                    const total = [...workingDays(per.start, per.end)].length;
+                    for (const x of parts.filter(x => x.event_id === e.id)) {
+                        const days = (x.user.resource_id != null && mine[x.user.resource_id]) || null;
+                        const inRange = days ? days.filter(d => d >= per.start && d <= per.end) : [];
+                        if (inRange.length && inRange.length < total)
+                            partialDays[`${x.user.prenom || ''} ${x.user.nom || ''}`.trim()] = inRange
+                                .map(d => `${d.slice(8)}/${d.slice(5, 7)}`)
+                                .join(', ');
+                    }
+                }
                 out.push({
                     id: e.id,
                     project_id: proj.id,
@@ -1513,6 +1760,7 @@ export async function listStageEvents() {
                         .filter(x => x.event_id === e.id)
                         .map(x => `${x.user.prenom || ''} ${x.user.nom || ''}`.trim())
                         .filter(Boolean),
+                    participants_jours: partialDays,
                     planned: per ? { start: per.start, end: per.end } : null
                 });
             }

@@ -7,6 +7,7 @@ import AppConfirmation from '@/composants/AppConfirmation.vue';
 import { fournirConfirmation } from '@/composants/confirmation';
 import { surReouverture } from '@/ilots/activation';
 import { ecouter, ouvrirCarteEvenements } from '@/liaison';
+import FenetreDoublons from './FenetreDoublons.vue';
 import FormulaireEvenement from './FormulaireEvenement.vue';
 import ListeEvenements from './ListeEvenements.vue';
 import { useEvenementsStore } from './magasin';
@@ -14,6 +15,8 @@ import { useEvenementsStore } from './magasin';
 const ev = useEvenementsStore();
 const { demande, repondre, confirmer } = fournirConfirmation();
 const erreur = ref('');
+/** Fenêtre des doublons ouverte (administrateur) */
+const doublons = ref(false);
 
 async function supprimer(e: Evenement) {
     if (!(await confirmer('Êtes-vous sûr de vouloir supprimer cet événement ?', 'Supprimer'))) return;
@@ -46,8 +49,18 @@ onBeforeUnmount(arreter);
         <button type="button" class="ev-onglet__bouton-carte" @click="ouvrirCarteEvenements">
             🗺️ Carte des Événements / Déplacements
         </button>
+        <button
+            v-if="ev.estAdmin"
+            type="button"
+            class="ev-onglet__bouton-doublons"
+            data-testid="evenements-doublons"
+            @click="doublons = true"
+        >
+            🔍 Rechercher les doublons
+        </button>
     </div>
     <ListeEvenements @supprimer="supprimer" />
+    <FenetreDoublons v-if="doublons" @close="doublons = false" />
     <AppConfirmation
         :opened="!!demande"
         :message="demande?.message ?? ''"
@@ -71,6 +84,21 @@ onBeforeUnmount(arreter);
     justify-content: flex-start;
     align-items: center;
     margin-bottom: 15px;
+}
+.ev-onglet__carte {
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.ev-onglet__bouton-doublons,
+.ev-onglet__bouton-doublons:hover {
+    background-color: #e65100;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 13px;
 }
 .ev-onglet__bouton-carte,
 .ev-onglet__bouton-carte:hover {

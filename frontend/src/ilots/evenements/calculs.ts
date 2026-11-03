@@ -158,6 +158,51 @@ export function grouperParAnnee(events: Evenement[], sens: Sens): GroupeAnnee[] 
         }));
 }
 
+// ── Tableau triable ───────────────────────────────────────────────────────
+
+export type ColonneTableau = 'type' | 'libelle' | 'debut' | 'jours' | 'lieu' | 'participants' | 'createur';
+
+/** Un filtre libellé, localisation ou participant est choisi : le tableau remplace alors l'accordéon au choix */
+export const tableauPossible = (f: FiltresListe) => !!(f.libelle || f.localisation || f.participant.trim());
+
+/** Participants (internes puis invités externes) d'un événement, par nom */
+export const nomsParticipants = (ev: Evenement) => [
+    ...(ev.participants || []).map(nomParticipant),
+    ...(ev.external_participants || []).map(p => p.email || nomParticipant(p) || '?')
+];
+
+/** Événements triés sur une colonne ; à égalité, par date de début puis par identifiant */
+export function trierTableau(events: Evenement[], localisations: Localisation[], colonne: ColonneTableau, sens: Sens) {
+    const cle = (ev: Evenement): string | number => {
+        switch (colonne) {
+            case 'type':
+                return libelleAffiche(ev, localisations);
+            case 'libelle':
+                return ev.label || '';
+            case 'debut':
+                return ev.start_date + ev.end_date;
+            case 'jours':
+                return periodeAffichee(ev).jours;
+            case 'lieu':
+                return localisations.find(l => l.id === ev.location_id)?.libelle_court ?? '';
+            case 'participants':
+                return nomsParticipants(ev).length;
+            case 'createur':
+                return nomCreateur(ev);
+        }
+    };
+    const dir = sens === 'asc' ? 1 : -1;
+    return [...events].sort((a, b) => {
+        const x = cle(a);
+        const y = cle(b);
+        const c =
+            typeof x === 'number' && typeof y === 'number'
+                ? x - y
+                : String(x).localeCompare(String(y), 'fr', { numeric: true, sensitivity: 'base' });
+        return c * dir || a.start_date.localeCompare(b.start_date) || a.id - b.id;
+    });
+}
+
 // ── Mises en forme ────────────────────────────────────────────────────────
 
 /** « AAAA-MM-JJ » → « JJ/MM/AAAA » */

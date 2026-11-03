@@ -125,6 +125,55 @@ export function asanaEff(tasks, t) {
 //  Visite métier = 5.1 · VFT sur site = 5.9 · Formation utilisateurs = 6.3.4 (à défaut 6.3) · Accompagnement post démarrage = 6.6
 //  Vérification des prérequis = tâche à créer dans Asana (« Vérification / Test des prérequis »)
 //  Réunion de lancement stratégique = tâche « Réunion de lancement stratégique » · Visite OB = tâche « Visite OB »
+// Tâche Asana de chaque activité, modifiable dans l'administration : { clé d'activité: règle }. Une règle est une liste de
+// codes de tâche (« 5.1 » ou « 6.3.4,6.3 » : le premier code daté est retenu) ou « title:texte » (titre contenant le texte).
+// Sans règle, la règle par défaut ci-dessous s'applique.
+export const ASANA_STAGE_RULES_KEY = 'asana_stage_rules';
+export const ASANA_ACTIVITIES = [
+    { value: '5.1', label: 'Tâche 5.1 (Visite métier)' },
+    { value: '5.9', label: 'Tâche 5.9 (VFT sur site)' },
+    { value: '6.3.4,6.3', label: 'Tâche 6.3.4, à défaut 6.3 (Formation utilisateurs)' },
+    { value: '6.6', label: 'Tâche 6.6 (Accompagnement post démarrage)' },
+    { value: '2.9', label: 'Tâche 2.9 (Fin du cadrage)' },
+    { value: 'title:verification des prerequis', label: 'Tâche « Vérification des prérequis »' },
+    { value: 'title:test des prerequis', label: 'Tâche « Test des prérequis »' },
+    { value: 'title:reunion de lancement strategique', label: 'Tâche « Réunion de lancement stratégique »' },
+    { value: 'title:visite ob', label: 'Tâche « Visite OB »' },
+    { value: 'title:mise en service du bandeau', label: 'Jalon « Mise en service du bandeau »' },
+    { value: 'title:mise en production du bandeau', label: 'Jalon « Mise en production du bandeau »' }
+];
+/** @type {Record<string, string>} */
+let asanaStageRules = {};
+/** Règles en vigueur pour les calculs suivants (sans accès à la base) */
+export function asanaUseStageRules(/** @type {Record<string, string>} */ rules) {
+    asanaStageRules = rules;
+}
+export async function asanaReloadStageRules() {
+    try {
+        const v = JSON.parse((await getSetting(ASANA_STAGE_RULES_KEY)) || '{}');
+        asanaStageRules = v && typeof v === 'object' ? v : {};
+    } catch {
+        asanaStageRules = {};
+    }
+    return asanaStageRules;
+}
+export async function asanaSaveStageRules(raw) {
+    /** @type {Record<string, string>} */
+    const clean = {};
+    for (const [k, v] of Object.entries(raw || {})) {
+        const t = String(v || '')
+            .trim()
+            .slice(0, 120);
+        if (!t) continue;
+        if (/^title:/i.test(t)) clean[k] = 'title:' + asanaNorm(t.slice(6));
+        else if (/^\d+(\.\d+)*(\s*,\s*\d+(\.\d+)*)*$/.test(t)) clean[k] = t.replace(/\s+/g, '');
+        else clean[k] = 'title:' + asanaNorm(t);
+    }
+    await setSetting(ASANA_STAGE_RULES_KEY, JSON.stringify(clean));
+    asanaStageRules = clean;
+    return clean;
+}
+
 export function asanaComputeTasks(tasks, projectName, formationTarget) {
     tasks.forEach(t => {
         const m = /^\s*(\d+(?:\.\d+)*)\.?\s/.exec(t.name);
@@ -151,6 +200,17 @@ export function asanaComputeTasks(tasks, projectName, formationTarget) {
         return ds.length ? { start: ds[0], end: ds[ds.length - 1] } : null;
     };
     const byCode = c => tasks.filter(t => t.code === c);
+    // Tâches désignées par une règle choisie dans l'administration (null : règle par défaut)
+    const ruleTasks = key => {
+        const r = asanaStageRules[key];
+        if (!r) return null;
+        if (r.startsWith('title:')) {
+            const q = asanaNorm(r.slice(6));
+            return tasks.filter(t => t.n.includes(q));
+        }
+        for (const code of r.split(',')) if (span(byCode(code))) return byCode(code);
+        return byCode(r.split(',')[0]);
+    };
     const found = {},
         reasons = {},
         sources = {};
@@ -180,8 +240,13 @@ export function asanaComputeTasks(tasks, projectName, formationTarget) {
             ? 'fin de cadrage (tâche 2.9) non datée dans Asana'
             : "jalon « Démarrage projet auprès de l'ES » non daté ou absent";
 
-    const mes = tasks.find(t => t.n.includes('mise en service du bandeau')) || tasks.find(t => t.phase === 'MES');
-    const mep = tasks.find(t => t.n.includes('mise en production du bandeau')) || tasks.find(t => t.phase === 'MEP');
+    const firstDated = l => (l && (l.find(t => eff(t)) || l[0])) || undefined;
+    const mes = ruleTasks('mise_en_service')
+        ? firstDated(ruleTasks('mise_en_service'))
+        : tasks.find(t => t.n.includes('mise en service du bandeau')) || tasks.find(t => t.phase === 'MES');
+    const mep = ruleTasks('mise_en_production')
+        ? firstDated(ruleTasks('mise_en_production'))
+        : tasks.find(t => t.n.includes('mise en production du bandeau')) || tasks.find(t => t.phase === 'MEP');
     const mesD = mes && eff(mes) ? eff(mes).end : null,
         mepD = mep && eff(mep) ? eff(mep).end : null;
     if (mesD) {
@@ -212,7 +277,7 @@ export function asanaComputeTasks(tasks, projectName, formationTarget) {
             sources[key] = list.map(t => t.name);
         } else reasons[key] = why;
     };
-    const lancement = tasks.filter(t => /reunion de lancement strategique/.test(t.n));
+    const lancement = ruleTasks('reunion_lancement') || tasks.filter(t => /reunion de lancement strategique/.test(t.n));
     setMilestone(
         'reunion_lancement',
         lancement,
@@ -220,8 +285,8 @@ export function asanaComputeTasks(tasks, projectName, formationTarget) {
             ? 'tâche « Réunion de lancement stratégique » non datée'
             : 'aucune tâche « Réunion de lancement stratégique » dans ce projet Asana'
     );
-    setP('visite_metier', byCode('5.1'), 'tâche 5.1 non datée ou absente dans Asana');
-    const visiteOb = tasks.filter(t => /(^|[^a-z0-9])visite ob([^a-z0-9]|$)/.test(t.n));
+    setP('visite_metier', ruleTasks('visite_metier') || byCode('5.1'), 'tâche non datée ou absente dans Asana');
+    const visiteOb = ruleTasks('visite_ob') || tasks.filter(t => /(^|[^a-z0-9])visite ob([^a-z0-9]|$)/.test(t.n));
     setMilestone(
         'visite_ob',
         visiteOb,
@@ -229,7 +294,7 @@ export function asanaComputeTasks(tasks, projectName, formationTarget) {
             ? 'tâche « Visite OB » non datée'
             : 'aucune tâche « Visite OB » dans ce projet Asana (à créer ou à choisir dans les tâches du projet)'
     );
-    const tp = tasks.filter(t => /(tests?|verifications?) des prerequis/.test(t.n));
+    const tp = ruleTasks('test_prerequis') || tasks.filter(t => /(tests?|verifications?) des prerequis/.test(t.n));
     setP(
         'test_prerequis',
         tp,
@@ -237,14 +302,18 @@ export function asanaComputeTasks(tasks, projectName, formationTarget) {
             ? 'tâche « Vérification des prérequis » non datée'
             : 'aucune tâche « Vérification des prérequis » dans ce projet Asana (à créer)'
     );
-    setP('vft', byCode('5.9'), 'tâche 5.9 (VFT sur site) non datée ou absente dans Asana');
+    setP('vft', ruleTasks('vft') || byCode('5.9'), 'tâche (VFT sur site) non datée ou absente dans Asana');
     // Tâche 6.3.4 ; à défaut (non chargée quand la tâche 6.3 porte ses propres dates, ou absente), tâche 6.3 « Formation » entière
     setP(
         'formation_utilisateurs',
-        span(byCode('6.3.4')) ? byCode('6.3.4') : byCode('6.3'),
+        ruleTasks('formation_utilisateurs') || (span(byCode('6.3.4')) ? byCode('6.3.4') : byCode('6.3')),
         'tâche 6.3.4 (ou 6.3, formation) non datée ou absente dans Asana'
     );
-    setP('accompagnement', byCode('6.6'), 'tâche 6.6 (accompagnement post démarrage) non datée ou absente dans Asana');
+    setP(
+        'accompagnement',
+        ruleTasks('accompagnement') || byCode('6.6'),
+        'tâche (accompagnement post démarrage) non datée ou absente dans Asana'
+    );
     return { samuNo, projectName, taskCount: tasks.length, demarDate, found, reasons, sources, tasks };
 }
 
@@ -728,6 +797,7 @@ export const ASANA_TASK_FIELDS =
     'name,start_on,due_on,num_subtasks,parent.name,memberships.section.name,custom_fields.name,custom_fields.display_value';
 
 export async function asanaFetchProject(token, gid) {
+    await asanaReloadStageRules();
     const proj = (await asanaApi(token, `/projects/${encodeURIComponent(gid)}?opt_fields=name`)).data;
     const raw = await asanaPaged(token, `/projects/${encodeURIComponent(gid)}/tasks?opt_fields=${ASANA_TASK_FIELDS}`);
     const tasks = raw.map(t => asanaNormTask(t, proj.name));
@@ -756,6 +826,34 @@ export async function asanaProjectList(token) {
         token,
         `/projects?workspace=${encodeURIComponent(ws)}&archived=false&opt_fields=name,permalink_url`
     );
+}
+
+// Projet Asana type : ses tâches alimentent la liste des activités Asana de l'administration
+export const ASANA_TEMPLATE_KEY = 'asana_template';
+
+/** Tâches d'un projet Asana sous forme de choix : { value (code ou « title:… »), label } */
+export function asanaTemplateChoices(tasks) {
+    const seen = new Set();
+    const out = [];
+    for (const t of tasks) {
+        const name = String(t.name || '').trim();
+        if (!name) continue;
+        const m = /^\s*(\d+(?:\.\d+)*)\.?\s+(.*)$/.exec(name);
+        const value = m ? m[1] : 'title:' + asanaNorm(name);
+        if (seen.has(value)) continue;
+        seen.add(value);
+        out.push({ value, label: (m ? `${m[1]} ${m[2]}` : name).slice(0, 90) });
+    }
+    return out.slice(0, 600);
+}
+
+export async function asanaLoadTemplate() {
+    try {
+        const v = JSON.parse((await getSetting(ASANA_TEMPLATE_KEY)) || 'null');
+        return v && Array.isArray(v.tasks) ? v : null;
+    } catch {
+        return null;
+    }
 }
 
 export async function asanaForcedId(gid) {

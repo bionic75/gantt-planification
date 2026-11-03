@@ -85,6 +85,16 @@
         "guard": "admin"
     },
     {
+        "method": "PUT",
+        "path": "/api/affectation/asana/template",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/affectation/asana/template-projects",
+        "guard": "admin"
+    },
+    {
         "method": "POST",
         "path": "/api/affectation/asana/test",
         "guard": "admin"
@@ -717,6 +727,16 @@
     {
         "method": "DELETE",
         "path": "/api/custom-events/:id",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
+        "path": "/api/custom-events/duplicates",
+        "guard": "admin"
+    },
+    {
+        "method": "POST",
+        "path": "/api/custom-events/merge",
         "guard": "admin"
     },
     {
