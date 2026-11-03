@@ -755,7 +755,7 @@
     // Créneau retenu : une des dates proposées, avec le nombre de réponses favorables
     function sdChoix(d, locked) {
         if (!d.options.length) return '';
-        return `<label>Créneau retenu${locked && !d.option_retenue_id ? ' <span class="aff-muted" style="font-weight:400;">(aucun)</span>' : ''}</label>${d.options
+        return `<label>Créneau retenu${locked && !d.option_retenue_id ? ' <span class="aff-muted" style="font-weight:400;">(aucun)</span>' : ''}</label>${locked ? `<div class="aff-muted" style="font-size:12px;margin-bottom:4px;">${d.statut === 'termine' ? '🔒 Sondage clôturé : cliquez sur « Réouvrir » pour changer le créneau retenu.' : 'Lecture seule : seuls les administrateurs choisissent le créneau retenu.'}</div>` : '<div class="aff-muted" style="font-size:12px;margin-bottom:4px;">Cochez le créneau à retenir, puis « Clôturer ».</div>'}${d.options
             .map(
                 o =>
                     `<label style="display:flex;align-items:center;gap:8px;margin:0;padding:3px 0;font-weight:600;cursor:pointer;"><input type="radio" name="sdRet" value="${o.id}" ${d.option_retenue_id === o.id ? 'checked' : ''} ${locked ? 'disabled' : ''} style="width:16px;height:16px;margin:0;flex:0 0 16px;"> ${esc(sdLabel(o))} <span class="aff-muted" style="font-weight:400;">${d.reponses.filter(r => r.options.includes(o.id)).length} réponse(s)</span></label>`
