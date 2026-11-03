@@ -24,7 +24,7 @@ Protections :
 | `mfaPending` | Connexion en attente de double authentification |
 | `apiKey` | Clé d’API (en-tête X-Api-Key) |
 
-313 routes, par module (`src/modules/<module>`) :
+315 routes, par module (`src/modules/<module>`) :
 
 ## admin
 
@@ -60,6 +60,8 @@ Protections :
 | GET | `/api/affectation/asana/projects` | admin |
 | POST | `/api/affectation/asana/refresh-all` | admin |
 | GET | `/api/affectation/asana/teams` | admin |
+| PUT | `/api/affectation/asana/template` | admin |
+| GET | `/api/affectation/asana/template-projects` | admin |
 | POST | `/api/affectation/asana/test` | admin |
 | DELETE | `/api/affectation/asana/token` | admin |
 | GET | `/api/affectation/ateliers` | affectation |
