@@ -482,6 +482,39 @@ describe('synchronisation vers la planification et les événements', () => {
     });
 });
 
+describe('affectations depuis les participants : plafond par jour', () => {
+    it('rotation acceptée sur des jours distincts, ressource en trop ignorée', async () => {
+        const samu = await newSamu();
+        const p = await createProject(samu, { visite_metier: [{ start: '2027-03-01', end: '2027-03-05', needed: 1 }] });
+        const a = await createExpert(admin);
+        const b = await createExpert(admin);
+        const c = await createExpert(admin);
+        const visite = await typeByCode('visiteMetier');
+        const event = (startDate, endDate, participants) =>
+            admin.post('/api/custom-events', {
+                startDate,
+                endDate,
+                label: 'Visite',
+                type_id: visite.id,
+                location_id: samu.locationId,
+                participants
+            });
+        await event('2027-03-01', '2027-03-02', [a.user.id, c.user.id]);
+        await event('2027-03-04', '2027-03-05', [b.user.id]);
+        const proj = await waitFor(async () => {
+            const x = await project(p.id);
+            return x.assignments.visite_metier?.length === 2 ? x : null;
+        });
+        expect(proj.assignments.visite_metier).toEqual([a.resource.id, b.resource.id]);
+        expect(proj.assignment_days.visite_metier).toEqual({
+            '2027-03-01': [a.resource.id],
+            '2027-03-02': [a.resource.id],
+            '2027-03-04': [b.resource.id],
+            '2027-03-05': [b.resource.id]
+        });
+    });
+});
+
 describe('import Asana (fichier CSV)', () => {
     it('aperçu puis création du déploiement', async () => {
         await admin.post('/api/locations', { libelle_long: `SAMU SAS 4X ${Date.now()}`, libelle_court: 'SAMU-SAS 4X' });

@@ -1004,9 +1004,10 @@ async function participantUsers(/** @type {number[]} */ eventIds) {
 }
 
 /**
- * Affectations complétées d'après les participants des événements de l'activité (ajouts seulement,
- * dans la limite du nombre de ressources nécessaires)
- * @returns {Promise<{ added: number[] }>}
+ * Affectations complétées d'après les participants des événements de l'activité (ajouts seulement). Un participant
+ * n'est ajouté que sur les jours ouvrés de son événement où le nombre de ressources par jour n'est pas atteint ;
+ * ces journées sont enregistrées, comme dans la grille d'affectation.
+ * @returns {Promise<{ added: number[], full: number[] }>} ressources ajoutées, ressources sans jour disponible
  */
 export async function affSyncStageFromEvents(
     /** @type {Request | null} */ req,
@@ -1015,16 +1016,35 @@ export async function affSyncStageFromEvents(
     /** @type {any} */ ctx
 ) {
     const per = parsePeriods(proj.periods)[key]?.[0];
-    if (!per || !per.needed) return { added: [] };
+    if (!per || !per.needed) return { added: [], full: [] };
     const evs = await affStageEvents(proj, key, per, await affEventLinks(proj.id), ctx.map, ctx.types, ctx.locId);
-    if (!evs.length) return { added: [] };
-    const candidates = [
-        ...new Set((await participantUsers(evs)).map(p => p.user.resource_id).filter(id => id != null))
-    ];
+    if (!evs.length) return { added: [], full: [] };
+    const evDates = new Map(
+        (
+            await prisma.customEvent.findMany({
+                where: { id: { in: evs } },
+                select: { id: true, start_date: true, end_date: true }
+            })
+        ).map(e => [e.id, e])
+    );
+    // Jours ouvrés de la période où chaque participant est inscrit à un événement de l'activité
+    /** @type {Map<number, Set<string>>} */
+    const wanted = new Map();
+    for (const p of await participantUsers(evs)) {
+        const rid = p.user.resource_id;
+        const ev = evDates.get(p.event_id);
+        if (rid == null || !ev) continue;
+        const from = ev.start_date > per.start ? ev.start_date : per.start;
+        const evEnd = ev.end_date || ev.start_date;
+        const to = evEnd < per.end ? evEnd : per.end;
+        const days = wanted.get(rid) ?? new Set();
+        for (const d of workingDays(from, to)) days.add(d);
+        wanted.set(rid, days);
+    }
     const active = new Set(
         (
             await prisma.resource.findMany({
-                where: { id: { in: /** @type {number[]} */ (candidates) }, actif: 1 },
+                where: { id: { in: [...wanted.keys()] }, actif: 1 },
                 select: { id: true }
             })
         ).map(r => r.id)
@@ -1036,25 +1056,53 @@ export async function affSyncStageFromEvents(
             orderBy: { id: 'asc' }
         })
     ).map(x => x.resource_id);
-    const toAdd = /** @type {number[]} */ (candidates)
-        .filter(r => active.has(r) && !cur.includes(r))
-        .slice(0, Math.max(0, per.needed - cur.length));
-    if (!toAdd.length) return { added: [] };
-    await prisma.affectationAssignment.createMany({
-        data: toAdd.map(resource_id => ({ project_id: proj.id, stage_key: key, resource_id }))
-    });
-    const names = await resourceNames([...cur, ...toAdd]);
+    /** @type {Record<number, string[]>} */
+    const explicit = {};
+    for (const d of await prisma.affectationAssignmentDay.findMany({
+        where: { project_id: proj.id, stage_key: key }
+    }))
+        (explicit[d.resource_id] ??= []).push(d.date);
+    const taken = affEffectiveDays(per, cur, explicit);
+    /** @type {Array<{ rid: number, days: string[] }>} */
+    const toAdd = [];
+    /** @type {number[]} */
+    const full = [];
+    for (const [rid, days] of wanted) {
+        if (!active.has(rid) || cur.includes(rid)) continue;
+        const free = [...days].sort().filter(d => (taken[d] || []).length < per.needed);
+        if (!free.length) {
+            full.push(rid);
+            continue;
+        }
+        for (const d of free) (taken[d] ??= []).push(rid);
+        toAdd.push({ rid, days: free });
+    }
+    if (!toAdd.length) return { added: [], full };
+    await prisma.$transaction([
+        prisma.affectationAssignment.createMany({
+            data: toAdd.map(a => ({ project_id: proj.id, stage_key: key, resource_id: a.rid }))
+        }),
+        prisma.affectationAssignmentDay.createMany({
+            data: toAdd.flatMap(a =>
+                a.days.map(date => ({ project_id: proj.id, stage_key: key, resource_id: a.rid, date }))
+            )
+        })
+    ]);
+    const added = toAdd.map(a => a.rid);
+    const names = await resourceNames([...cur, ...added]);
     const list = (/** @type {number[]} */ a) => a.map(i => names[i] || `#${i}`).join(', ') || '—';
     await affHist(req, proj.id, proj.samu_name, 'affectation', {
         changes: [
             {
                 label: `${stageLabel(key)} — ressources (depuis les participants de l'événement)`,
                 from: list(cur),
-                to: list([...cur, ...toAdd])
+                to:
+                    list([...cur, ...added]) +
+                    ` (${toAdd.map(a => `${names[a.rid] || `#${a.rid}`} : ${a.days.length} jour(s)`).join(', ')})`
             }
         ]
     });
-    return { added: toAdd };
+    return { added, full };
 }
 
 /** Synchronisation des affectations depuis les événements, pour tous les déploiements ou un seul */
