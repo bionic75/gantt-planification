@@ -291,6 +291,7 @@
         };
         AT.f = blank();
         AT.f.samu = name;
+        AT.sondFor = null; // statuts des sondages rechargés pour ce SAMU
         if (saved) {
             AT.f.id = saved.id;
             AT.f.mep = saved.mep_date;
@@ -531,8 +532,13 @@
     function edit(id) {
         const r = AT.list.find(x => x.id === id);
         if (!r) return;
-        chooseSamu(r.samu_name);
-        document.getElementById('atCardSim').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        try {
+            chooseSamu(r.samu_name);
+            document.getElementById('atCardSim').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch (e) {
+            console.error(e);
+            toast(`Ouverture impossible : ${e.message}`, true);
+        }
     }
 
     async function remove(id) {
