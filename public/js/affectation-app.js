@@ -4207,9 +4207,13 @@
                 // Journées décochées pour des experts qui restent affectés : proposition de remettre ces journées en situation
                 const dropped = {};
                 let nDropped = 0;
+                // (cochées à l'ouverture, ou déjà posées pour ce SAMU dans la planification : cellules bleues de la grille)
                 asg.dates.forEach(d => {
-                    for (const rid of (asg.initial && asg.initial[d]) || []) {
-                        if (r.resource_ids.includes(rid) && !(asg.days[d] && asg.days[d].has(rid))) {
+                    for (const rid of r.resource_ids) {
+                        if (asg.days[d] && asg.days[d].has(rid)) continue;
+                        const was = asg.initial && asg.initial[d] && asg.initial[d].has(rid);
+                        const here = ((asg.av || {})[rid] || {}).byDay && asg.av[rid].byDay[d] === 'here';
+                        if (was || here) {
                             (dropped[rid] = dropped[rid] || []).push(d);
                             nDropped++;
                         }
@@ -4218,7 +4222,7 @@
                 if (
                     nDropped &&
                     confirm(
-                        `${nDropped} journée(s) retirée(s) de la grille pour des experts qui restent affectés.\n\nLes remettre dans leur planification en « 2 - Disponible » / « 2 - En attente d'affectation » (localisation effacée) ? Seules les demi-journées posées par l'affectation pour ce SAMU sont modifiées.`
+                        `${nDropped} journée(s) sans affectation dans la grille mais posées pour ce SAMU dans la planification (retirées ou jamais cochées).\n\nLes remettre dans leur planification en « 2 - Disponible » / « 2 - En attente d'affectation » (localisation effacée) ? Seules les demi-journées posées par l'affectation pour ce SAMU sont modifiées.`
                     )
                 ) {
                     try {
