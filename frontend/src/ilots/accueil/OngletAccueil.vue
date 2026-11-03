@@ -198,8 +198,8 @@ function missions(jour: JourPersonne): Array<{ moment: string | null; mission: M
                     </li>
                     <li class="ac-ligne" data-testid="accueil-jour-astreinte-ans">
                         <span class="ac-evt-periode ac-moment">ANS</span>
-                        <span v-if="accueil.astreinteAnsAujourdhui" class="ac-nom">{{
-                            accueil.astreinteAnsAujourdhui
+                        <span v-if="accueil.astreinteAnsAujourdhui.length" class="ac-nom">{{
+                            accueil.astreinteAnsAujourdhui.join(', ')
                         }}</span>
                         <span v-else class="ac-vide">Personne</span>
                     </li>

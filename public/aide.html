@@ -387,10 +387,10 @@
     <li>Les <strong>autres profils</strong> consultent le planning sans pouvoir le modifier.</li>
   </ul>
   <h3>Astreinte HO ANS</h3>
-  <p>Sous les deux demi-journées de chaque jour, une ligne <strong>ANS</strong> désigne <strong>un utilisateur</strong> en astreinte HO ANS pour la journée. Elle reprend les codes couleur du planning : <strong style="color:#1b5e20;">vert</strong> si l'astreinte est pourvue, <strong style="color:#c62828;">rouge</strong> si elle ne l'est pas.</p>
+  <p>Sous les deux demi-journées de chaque jour, une ligne <strong>ANS</strong> désigne <strong>un ou plusieurs utilisateurs</strong> en astreinte HO ANS pour la journée (plusieurs trigrammes dans la même case). Elle reprend les codes couleur du planning : <strong style="color:#1b5e20;">vert</strong> si l'astreinte est pourvue, <strong style="color:#c62828;">rouge</strong> si elle ne l'est pas.</p>
   <ul>
-    <li>Un clic sur la case ouvre le <strong>menu des utilisateurs</strong> ayant la case <strong>« Astreinte HO ANS »</strong> cochée (Administration › Gestion des utilisateurs, colonne à droite de « Validation RH »).</li>
-    <li>Les <strong>administrateurs</strong> désignent n'importe quel utilisateur, sur toutes les semaines. Un <strong>utilisateur ayant la case cochée</strong> ne se désigne et ne se retire que lui-même, de la semaine en cours aux semaines à venir.</li>
+    <li>Pour un administrateur, un clic sur la case ouvre le <strong>menu des utilisateurs</strong> ayant la case <strong>« Astreinte HO ANS »</strong> cochée, à cocher en nombre voulu (Administration › Gestion des utilisateurs, colonne à droite de « Validation RH »).</li>
+    <li>Les <strong>administrateurs</strong> désignent n'importe quels utilisateurs, sur toutes les semaines. Un <strong>utilisateur ayant la case cochée</strong> s'ajoute ou se retire lui-même d'un clic sur la case, sans toucher aux autres utilisateurs du jour, de la semaine en cours aux semaines à venir.</li>
     <li>Les désignations s'enregistrent avec le même bouton « Enregistrer » ; si l'astreinte ANS de la <strong>semaine en cours</strong> est modifiée, un e-mail de mise à jour est envoyé aux destinataires de l'automatisation n°8 (si elle est activée).</li>
   </ul>
   <h3>Enregistrer</h3>
@@ -496,7 +496,7 @@
     <li><strong>N°6 — Communication du planning d'astreinte HO</strong> : un ou plusieurs jours et une heure d'envoi, des destinataires choisis parmi tous les utilisateurs (groupes ou personnes), un sujet et un corps de mail personnalisables, et la semaine communiquée (en cours ou suivante). Si le planning de la <strong>semaine en cours</strong> est modifié, le mail est <strong>renvoyé automatiquement</strong> avec « MAJ » dans le sujet et la liste des modifications dans le corps du mail.</li>
   </ul>
   <h3>Automatisations n°7 et n°8 — astreintes HO ANS</h3>
-  <p>Les mêmes automatisations existent pour les astreintes HO ANS (un utilisateur par jour) :</p>
+  <p>Les mêmes automatisations existent pour les astreintes HO ANS (un ou plusieurs utilisateurs par jour) :</p>
   <ul>
     <li><strong>N°7 — Construction du planning d'astreinte HO ANS pour la semaine S+1</strong> : mêmes réglages que la n°5, destinataires choisis parmi les utilisateurs ayant la case « Astreinte HO ANS » cochée.</li>
     <li><strong>N°8 — Communication du planning d'astreinte HO ANS</strong> : mêmes réglages que la n°6, avec renvoi automatique « MAJ » si l'astreinte ANS de la semaine en cours est modifiée.</li>
@@ -648,7 +648,7 @@
   <p>Par défaut, les bornes couvrent toutes les dates des déploiements. Une borne laissée à sa valeur automatique reste automatique ; <strong>Tout afficher</strong> supprime les bornes choisies. Le choix est mémorisé dans le navigateur, et la fenêtre d'impression / d'export reprend la période affichée comme valeur de départ.</p>
 
   <h3>Affecter des ressources à une étape</h3>
-  <p>Cliquez sur la barre d'une étape <em>(Visite métier, Test des prérequis, VFT, Formation « Utilisateurs », Accompagnement)</em> : la fenêtre <strong>Affecter des ressources</strong> présente une <strong>grille ressources × jours ouvrés</strong> de l'étape. Cochez, pour chaque expert, les <strong>journées</strong> où il intervient ; le <em>nombre de ressources nécessaires</em> est le maximum <strong>par jour</strong> (une journée complète grise les autres cases, avec son compteur en rouge). Les liens « tout » / « aucun » d'une ligne cochent ou décochent toute l'étape. Les cases sont colorées d'après la planification : disponible, déjà sur ce SAMU, activité ANS, indisponible, congés, ou <strong>affecté à un autre SAMU ce jour-là</strong> (case bloquée).</p>
+  <p>Cliquez sur la barre d'une étape <em>(Visite métier, Test des prérequis, VFT, Formation « Utilisateurs », Accompagnement)</em> : la fenêtre <strong>Affecter des ressources</strong> présente une <strong>grille ressources × jours</strong> de l'étape, <strong>samedi et dimanche compris</strong> (colonnes en jaune, à cocher à la main si l'activité s'y tient, même sur une période de congés). Cochez, pour chaque expert, les <strong>journées</strong> où il intervient ; le <em>nombre de ressources nécessaires</em> est le maximum <strong>par jour</strong> (une journée complète grise les autres cases, avec son compteur en rouge). Les liens « tout » / « aucun » d'une ligne cochent tous les jours ouvrés de l'étape ou décochent tout. Les cases sont colorées d'après la planification : disponible, déjà sur ce SAMU, activité ANS, indisponible, congés, ou <strong>affecté à un autre SAMU ce jour-là</strong> (case bloquée).</p>
   <ul>
     <li><strong>Planification</strong> : seules les journées d'intervention de chaque expert alimentent son planning (activité, localisation, disponibilité) lors de la synchronisation.</li>
     <li><strong>Événement associé</strong> : il réunit l'ensemble des intervenants de l'étape (tous ceux qui ont au moins une journée).</li>
@@ -762,11 +762,25 @@
   <h2>🆕 Notes de version</h2>
   <p>Historique des évolutions de la Plateforme de Planification ANS.</p>
 
+  <!-- v2.9.0 -->
+  <div class="card card-green" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v2.9.0</strong>
+      <span class="badge badge-current">Actuelle</span>
+      <span style="color:#888; font-size:13px;">Novembre 2026</span>
+    </div>
+    <ul>
+      <li>🔔 <strong>Astreinte HO ANS</strong> : plusieurs utilisateurs possibles dans la même case journalière (menu à cases à cocher pour l'administrateur, clic pour s'ajouter ou se retirer pour un utilisateur) ; l'accueil, les e-mails et les mises à jour (« MAJ ») les listent tous.</li>
+      <li>🎯 <strong>Aide à l'affectation</strong> : le samedi et le dimanche de la période d'une étape sont désormais affectables dans la grille jour par jour (planification, désaffectation et trigrammes en tiennent compte).</li>
+    </ul>
+    <p style="font-size:12px; color:#888; margin-top:8px;">Au déploiement : une migration de base autorise plusieurs utilisateurs par jour dans le planning ANS (aucune donnée existante n'est modifiée).</p>
+  </div>
+
   <!-- v2.8.0 -->
   <div class="card card-green" style="margin-bottom:16px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
       <strong style="font-size:16px;">v2.8.0</strong>
-      <span class="badge badge-current">Actuelle</span>
+      
       <span style="color:#888; font-size:13px;">Novembre 2026</span>
     </div>
     <ul>
@@ -775,7 +789,7 @@
       <li>📧 <strong>Automatisations n°7 et n°8</strong> (Administration) : construction du planning ANS de la semaine S+1 et communication du planning, sur le modèle des n°5 et n°6.</li>
       <li>🎯 <strong>Aide à l'affectation</strong> : deux nouveaux <strong>jalons</strong> (une date, sans ressources expertes), <strong>Réunion de lancement stratégique</strong> et <strong>Visite OB</strong>, affichés en points dans le planning (légende activable, impression, liste des événements, reprise depuis Asana ou saisie manuelle, couplage à un événement) ; « Mise en service » et « Mise en production » rejoignent les étapes de mise en œuvre dans la fenêtre du déploiement.</li>
       <li>🔄 <strong>Asana</strong> : une donnée modifiée à la fois dans l'application et dans Asana n'est plus écrasée au rafraîchissement ; une fenêtre permet de choisir la valeur à conserver.</li>
-      <li>👥 <strong>Affectation par journée</strong> : pour les étapes à ressources (VFT, formation, accompagnement, prérequis, visite métier), grille ressources × jours ouvrés ; seules les journées d'intervention alimentent la planification, l'événement associé réunit tous les intervenants ; trigrammes des experts affichés dans le planning (commutateur dans la légende, repris à l'impression).</li>
+      <li>👥 <strong>Affectation par journée</strong> : pour les étapes à ressources (VFT, formation, accompagnement, prérequis, visite métier), grille ressources × jours (week-ends compris) ; seules les journées d'intervention alimentent la planification, l'événement associé réunit tous les intervenants ; trigrammes des experts affichés dans le planning (commutateur dans la légende, repris à l'impression).</li>
       <li>🔧 <strong>Reprise Asana</strong> : quand une seule tâche est choisie pour une rubrique dans « Tâches du projet Asana », tout son intervalle (début et fin) est repris ; la formation reprend la tâche 6.3 entière à défaut de la tâche 6.3.4.</li>
       <li>🖨️ <strong>Impression du planning</strong> : option « Ne pas couper un mois sur deux pages ».</li>
       <li>🏡 <strong>Accueil</strong> : l'astreinte HO ANS du jour s'affiche dans « Qui est en astreinte HO » ; la colonne du jour est en vert dans « Qui travaille cette semaine ».</li>

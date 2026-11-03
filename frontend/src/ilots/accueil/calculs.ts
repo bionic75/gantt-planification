@@ -231,12 +231,15 @@ export function astreintesDuJour(planning: AstreintesHo | null, date: string): R
     return noms;
 }
 
-/** Utilisateur en astreinte HO ANS un jour donné (« Prénom NOM »), null si personne */
-export function astreinteAnsDuJour(planning: AstreintesHo | null, date: string): string | null {
-    const slot = planning?.ans?.slots.find(s => s.date === date);
-    if (!slot) return null;
-    const u = planning?.ans?.names.find(n => n.id === slot.user_id);
-    return u
-        ? nomAffiche({ id: u.id, nom: u.nom, prenom: u.prenom, trigramme: u.trigramme })
-        : `Utilisateur ${slot.user_id}`;
+/** Utilisateurs en astreinte HO ANS un jour donné (« Prénom NOM », triés), liste vide si personne */
+export function astreinteAnsDuJour(planning: AstreintesHo | null, date: string): string[] {
+    const noms = (planning?.ans?.slots ?? [])
+        .filter(s => s.date === date)
+        .map(s => {
+            const u = planning?.ans?.names.find(n => n.id === s.user_id);
+            return u
+                ? nomAffiche({ id: u.id, nom: u.nom, prenom: u.prenom, trigramme: u.trigramme })
+                : `Utilisateur ${s.user_id}`;
+        });
+    return [...new Set(noms)].sort((a, b) => a.localeCompare(b, 'fr'));
 }

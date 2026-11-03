@@ -261,6 +261,7 @@
         .aff-asg thead th.who { background: #eef3f9 !important; z-index: 5; }
         .aff-asg tr.sel th.who { background: #eaf6f2 !important; } .aff-asg .tri { font-size: 10px; color: #6b7a8d; margin-left: 4px; }
         .aff-asg td { padding: 2px; border-bottom: 1px solid #eef1f6; }
+        .aff-asg thead th.we { background: #fbe9bd !important; } .aff-asg td.we { background: #fff6dc; }
         .aff-dc { width: 32px; height: 24px; border-radius: 6px; border: 1px solid transparent; font-weight: 800; font-size: 13px; line-height: 1; padding: 0; cursor: pointer; display: inline-block; vertical-align: middle; color: #fff; }
         .aff-dc.ok { background: #e3f5ea; border-color: #bfe5cd; } .aff-dc.here { background: #e0ecfb; border-color: #bcd4f3; } .aff-dc.mid { background: #fff0d6; border-color: #f2d9a6; }
         .aff-dc.na { background: #eceff3; border-color: #d9dee6; } .aff-dc.ko { background: #fbd9d9; border-color: #f0b4b4; }
@@ -452,7 +453,7 @@
             </div>
             <div class="aff-modal-body">
                 <div id="affAssignInfo" class="aff-muted"></div>
-                 <p class="aff-muted" style="margin:8px 0 0;font-size:12px;">Cochez, pour chaque expert, les <b>journées</b> où il intervient (le nombre de ressources nécessaires est le maximum <b>par jour</b>). Ces journées alimentent la planification ; l'événement associé réunit tous les intervenants de l'étape.</p>
+                 <p class="aff-muted" style="margin:8px 0 0;font-size:12px;">Cochez, pour chaque expert, les <b>journées</b> où il intervient, week-ends compris (le nombre de ressources nécessaires est le maximum <b>par jour</b>). Ces journées alimentent la planification ; l'événement associé réunit tous les intervenants de l'étape.</p>
                 <input id="affAssignFilter" type="text" placeholder="Filtrer les ressources…" oninput="AffectationApp.assignFilter()" style="margin-top:10px;padding:8px 10px;border:1px solid #cfd8e6;border-radius:8px;">
                 <div id="affAssignList" class="aff-assign-list"></div>
             </div>
@@ -3342,7 +3343,7 @@
     }
 
     const asg = { project: null, stage: null, days: {}, dates: [], needed: 0 };
-    // Grille ressources × jours ouvrés de l'étape : chaque case = l'expert intervient ce jour-là (au plus « nécessaires » par jour)
+    // Grille ressources × jours de l'étape : chaque case = l'expert intervient ce jour-là (au plus « nécessaires » par jour)
     const ASG_STATE = {
         free: ['Disponible', 'ok'],
         here: ['Déjà sur ce SAMU dans la planification', 'here'],
@@ -3372,7 +3373,8 @@
             .map(d => {
                 const n = asgDayCount(d);
                 const dt = new Date(Date.parse(d + 'T00:00:00Z'));
-                return `<th class="d ${n >= asg.needed ? 'full' : ''}" title="${esc(frd(d))} : ${n} / ${asg.needed} ressource(s)"><div>${DOW[dt.getUTCDay()]}</div><div>${d.slice(8)}/${d.slice(5, 7)}</div><div class="c">${n}/${asg.needed}</div></th>`;
+                const we = [0, 6].includes(dt.getUTCDay());
+                return `<th class="d ${we ? 'we' : ''} ${n >= asg.needed ? 'full' : ''}" title="${esc(frd(d))} : ${n} / ${asg.needed} ressource(s)"><div>${DOW[dt.getUTCDay()]}</div><div>${d.slice(8)}/${d.slice(5, 7)}</div><div class="c">${n}/${asg.needed}</div></th>`;
             })
             .join('');
         const body = list
@@ -3385,11 +3387,12 @@
                         const full = !on && asgDayCount(d) >= asg.needed;
                         const blocked = !on && st === 'other';
                         const [txt, cls] = ASG_STATE[st] || ['Planning non renseigné', 'na'];
-                        return `<td><button type="button" class="aff-dc ${cls} ${on ? 'on' : ''}" ${full || blocked ? 'disabled' : ''} title="${esc(txt)}${full ? ' — journée complète' : ''}" onclick="AffectationApp.assignDay(${r.id},'${d}')">${on ? '✓' : ''}</button></td>`;
+                        const we = [0, 6].includes(new Date(Date.parse(d + 'T00:00:00Z')).getUTCDay());
+                        return `<td class="${we ? 'we' : ''}"><button type="button" class="aff-dc ${cls} ${on ? 'on' : ''}" ${full || blocked ? 'disabled' : ''} title="${esc(txt)}${full ? ' — journée complète' : ''}" onclick="AffectationApp.assignDay(${r.id},'${d}')">${on ? '✓' : ''}</button></td>`;
                     })
                     .join('');
                 const nb = mine(r);
-                return `<tr class="${nb ? 'sel' : ''}"><th class="who"><div class="n"><b>${esc((r.nom || '').toUpperCase())}</b> ${esc(r.prenom || '')} <span class="tri">${esc(r.trigramme || '')}</span></div><div class="aff-muted" style="font-size:11px;">${nb} / ${asg.dates.length} j · <a href="#" onclick="AffectationApp.assignRow(${r.id},true);return false;">tout</a> · <a href="#" onclick="AffectationApp.assignRow(${r.id},false);return false;">aucun</a></div></th>${row}</tr>`;
+                return `<tr class="${nb ? 'sel' : ''}"><th class="who"><div class="n"><b>${esc((r.nom || '').toUpperCase())}</b> ${esc(r.prenom || '')} <span class="tri">${esc(r.trigramme || '')}</span></div><div class="aff-muted" style="font-size:11px;">${nb} / ${asg.dates.length} j · <a href="#" onclick="AffectationApp.assignRow(${r.id},true);return false;" title="Tous les jours ouvrés de l'étape">tout</a> · <a href="#" onclick="AffectationApp.assignRow(${r.id},false);return false;">aucun</a></div></th>${row}</tr>`;
             })
             .join('');
         document.getElementById('affAssignList').innerHTML = list.length
@@ -3911,10 +3914,8 @@
             asg.needed = x.needed;
             asg.av = null;
             asg.dates = [];
-            for (let d = x.start; d <= x.end; d = addDaysIso(d, 1)) {
-                const dow = new Date(Date.parse(d + 'T00:00:00Z')).getUTCDay();
-                if (dow !== 0 && dow !== 6) asg.dates.push(d);
-            }
+            // Tous les jours de l'étape, week-ends compris (certaines activités se tiennent le samedi ou le dimanche)
+            for (let d = x.start; d <= x.end; d = addDaysIso(d, 1)) asg.dates.push(d);
             try {
                 const r = await api(`/affectation/projects/${p.id}/availability/${stageKey}`);
                 asg.av = r.availability;
@@ -3939,11 +3940,13 @@
             else if (set.size < asg.needed) set.add(rid);
             assignList();
         },
-        // Toute l'étape (dans la limite du nombre de ressources par jour) ou aucune journée pour une ressource
+        // Tous les jours ouvrés de l'étape (dans la limite du nombre de ressources par jour ; les week-ends se cochent à la main)
+        // ou aucune journée pour une ressource
         assignRow(rid, all) {
             asg.dates.forEach(d => {
                 const set = (asg.days[d] = asg.days[d] || new Set());
                 if (!all) set.delete(rid);
+                else if ([0, 6].includes(new Date(Date.parse(d + 'T00:00:00Z')).getUTCDay())) return;
                 else if (set.size < asg.needed) set.add(rid);
             });
             assignList();

@@ -231,6 +231,49 @@ describe('journées d’intervention par étape', () => {
         expect((await days(p.id, 'cadrage')({ days: {} })).status).toBe(400);
     });
 
+    it('samedi et dimanche de la période sont affectables ; planification et désaffectation les prennent en compte', async () => {
+        const samu = await newSamu();
+        // Du lundi 8 au dimanche 14 mars 2027
+        const p = await createProject(samu, { vft: [{ start: '2027-03-08', end: '2027-03-14', needed: 2 }] });
+        const a = await createResource(admin);
+        const r = await days(p.id)({ days: { '2027-03-12': [a.id], '2027-03-13': [a.id], '2027-03-14': [a.id] } });
+        expect(r.status, JSON.stringify(r.data)).toBe(200);
+        expect(Object.keys((await project(p.id)).assignment_days.vft)).toEqual([
+            '2027-03-12',
+            '2027-03-13',
+            '2027-03-14'
+        ]);
+        // Hors période : toujours refusé
+        expect((await days(p.id)({ days: { '2027-03-15': [a.id] } })).status).toBe(400);
+        // Disponibilités : tous les jours de l'étape, week-ends compris
+        const av = (await admin.get(`/api/affectation/projects/${p.id}/availability/vft`)).data;
+        expect(av.dates).toHaveLength(7);
+        // Planification : 3 jours × 2 demi-journées, dont les week-ends
+        const sync = (await admin.get(`/api/affectation/projects/${p.id}/sync/vft`)).data;
+        expect(sync.resources[0].toWrite).toBe(6);
+        const applied = await admin.post(`/api/affectation/projects/${p.id}/sync/vft`, {
+            planning: { resource_ids: [a.id] }
+        });
+        expect(applied.data.planning).toBe(6);
+        const sch = await schedule();
+        expect(sch[`${a.id}_activity_2027-03-13_AM`]).toBe('3');
+        expect(sch[`${a.id}_activity_2027-03-14_PM`]).toBe('3');
+        // Les journées de week-end survivent à la modification de la période, tant qu'elles restent dans la période
+        const upd = await admin.put(`/api/affectation/projects/${p.id}`, {
+            samu_name: samu.name,
+            date_debut: '2027-01-04',
+            periods: { vft: [{ start: '2027-03-08', end: '2027-03-13', needed: 2 }] }
+        });
+        expect(Object.keys(upd.data.assignment_days.vft)).toEqual(['2027-03-12', '2027-03-13']);
+        // Désaffectation : le week-end est remis en situation comme les jours ouvrés
+        const release = await admin.post(`/api/affectation/projects/${p.id}/assignments/vft/release`, {
+            resource_ids: [a.id]
+        });
+        expect(release.status).toBe(200);
+        const sch2 = await schedule();
+        expect(sch2[`${a.id}_activity_2027-03-13_AM`]).not.toBe('3');
+    });
+
     it('sans journée enregistrée : toute l’étape ; l’affectation de l’étape entière efface les journées', async () => {
         const samu = await newSamu();
         const p = await createProject(samu, periods);
