@@ -15,10 +15,12 @@ import {
     MOIS,
     nomFichierDuJour,
     SANS_FILTRE,
+    tableauPossible,
     telecharger,
     type Sens
 } from './calculs';
 import FicheEvenement from './FicheEvenement.vue';
+import TableauEvenements from './TableauEvenements.vue';
 import { useEvenementsStore } from './magasin';
 
 const emit = defineEmits<{ supprimer: [evenement: Evenement] }>();
@@ -27,6 +29,10 @@ const ev = useEvenementsStore();
 const filtres = ref({ ...SANS_FILTRE });
 const sens = ref<Sens>('desc');
 const message = ref('');
+/** Tableau triable au lieu de l'accordéon : proposé dès qu'un libellé, une localisation ou un participant est choisi */
+const enTableau = ref(false);
+const tableauProposable = computed(() => tableauPossible(filtres.value));
+const tableauActif = computed(() => tableauProposable.value && enTableau.value);
 
 const affiches = computed(() => filtrerListe(ev.evenements, filtres.value, ev.typesParId));
 const arbre = computed(() => grouperParAnnee(affiches.value, sens.value));
@@ -159,10 +165,17 @@ function exporter(format: 'csv' | 'html') {
                         </button>
                     </div>
                 </div>
+                <div v-if="tableauProposable" class="ev-liste__filtre">
+                    <span class="ev-liste__espace" aria-hidden="true">_</span>
+                    <label class="ev-liste__bascule">
+                        <input v-model="enTableau" type="checkbox" data-testid="evenements-vue-tableau" />
+                        Afficher sous forme de tableau triable (sans accordéon)
+                    </label>
+                </div>
             </div>
             <AppAlert v-if="message" type="error" small :description="message" />
-
-            <div>
+            <TableauEvenements v-if="tableauActif" :evenements="affiches" @supprimer="x => emit('supprimer', x)" />
+            <div v-else>
                 <div v-for="g in arbre" :key="g.annee" class="ev-liste__annee">
                     <button
                         type="button"
@@ -295,6 +308,19 @@ function exporter(format: 'csv' | 'html') {
 .ev-liste__export--html,
 .ev-liste__export--html:hover {
     background: #1565c0;
+}
+.ev-liste__filtre .ev-liste__bascule {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #555;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.ev-liste__filtre .ev-liste__bascule input {
+    width: auto;
+    margin: 0;
 }
 .ev-liste__annee {
     margin-bottom: 10px;

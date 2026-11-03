@@ -233,6 +233,14 @@
 
   <h3>Types d'événements</h3>
   <p>À la création d'un événement (onglet <strong>Événements</strong>), on choisit d'abord son <strong>Type</strong> dans un menu déroulant. La <strong>prévisualisation</strong> montre le rendu final : <em>Date début - Date de fin | Type (icône et libellé court) | Libellé de l'événement | Localisation | Participants</em>. Les couleurs (fond, texte, bordure) sont celles du type.</p>
+
+  <h3 id="doublons-evenements">Doublons d'événements</h3>
+  <p>Dans l'onglet <strong>Événements</strong> (application principale) comme dans l'onglet <strong>Événements</strong> de l'aide à l'affectation, le bouton <strong>🔍 Rechercher les doublons</strong> (administrateurs) propose les événements en double, par groupes :</p>
+  <ul>
+    <li><strong>Doublon certain</strong> : même type, même lieu, mêmes dates et période, même libellé (accents et casse ignorés).</li>
+    <li><strong>Doublon probable</strong> : même lieu avec mêmes dates et même type (libellés différents), ou dates qui se recoupent et libellés proches ou voisins (tous les mots du plus court figurent dans l'autre), ou même type, même lieu et même libellé sur des périodes qui ne se recoupent pas mais sont distantes de 14 jours au plus (ex. « VFT sur site » du 19 au 22/10 puis du 26/10 au 06/11). Sans lieu, seuls des libellés identiques comptent.</li>
+  </ul>
+  <p>Pour chaque groupe, une case <strong>Conserver</strong> désigne l'occurrence à garder (par défaut celle qui a le plus de participants). Le bouton <strong>Fusionner</strong> supprime les autres et <strong>ajoute leurs participants</strong> (internes et externes) à l'événement conservé ; <strong>Fusionner tous les doublons certains</strong> traite d'un coup tous les groupes certains. Les liens d'un déploiement vers un événement supprimé pointent alors vers l'événement conservé, et la planification des participants <strong>n'est pas remise en situation</strong> (contrairement à une suppression). Dans l'aide à l'affectation, seuls les événements de l'onglet sont examinés.</p>
   <ul>
     <li>Sur la <strong>page de planification</strong> et sur la <strong>carte</strong>, l'événement s'affiche avec l'<strong>icône</strong> et le <strong>libellé court</strong> de son type (à défaut, le libellé long) ; le libellé de l'événement figure dans l'info-bulle. Les événements de type « Autre(s) » ou sans type gardent l'affichage de leur propre libellé.</li>
     <li><strong>Administration › Administration des jours ou événements spéciaux › Paramétrage des types d'événements</strong> : ajout, modification et suppression des types (libellé long, libellé court, icône choisie dans une banque d'une cinquantaine de pictogrammes, gabarit de couleurs choisi sur des vignettes ou couleurs personnalisées). Les libellés long et court se modifient directement en cliquant sur le texte dans le tableau (Entrée ou clic ailleurs pour valider, Échap pour annuler). Types fournis : Formations utilisateurs, Mise en service, Accompagnement post démarrage, Visite terrain, Visite métier, Congrès, VFT sur site, Vérification des prérequis, Visite OB, Visite post MES, Réunion de lancement stratégique, Autre(s).</li>
@@ -387,10 +395,10 @@
     <li>Les <strong>autres profils</strong> consultent le planning sans pouvoir le modifier.</li>
   </ul>
   <h3>Astreinte HO ANS</h3>
-  <p>Sous les deux demi-journées de chaque jour, une ligne <strong>ANS</strong> désigne <strong>un utilisateur</strong> en astreinte HO ANS pour la journée. Elle reprend les codes couleur du planning : <strong style="color:#1b5e20;">vert</strong> si l'astreinte est pourvue, <strong style="color:#c62828;">rouge</strong> si elle ne l'est pas.</p>
+  <p>Sous les deux demi-journées de chaque jour, une ligne <strong>ANS</strong> désigne <strong>un ou plusieurs utilisateurs</strong> en astreinte HO ANS pour la journée (plusieurs trigrammes dans la même case). Elle reprend les codes couleur du planning : <strong style="color:#1b5e20;">vert</strong> si l'astreinte est pourvue, <strong style="color:#c62828;">rouge</strong> si elle ne l'est pas.</p>
   <ul>
-    <li>Un clic sur la case ouvre le <strong>menu des utilisateurs</strong> ayant la case <strong>« Astreinte HO ANS »</strong> cochée (Administration › Gestion des utilisateurs, colonne à droite de « Validation RH »).</li>
-    <li>Les <strong>administrateurs</strong> désignent n'importe quel utilisateur, sur toutes les semaines. Un <strong>utilisateur ayant la case cochée</strong> ne se désigne et ne se retire que lui-même, de la semaine en cours aux semaines à venir.</li>
+    <li>Pour un administrateur, un clic sur la case ouvre le <strong>menu des utilisateurs</strong> ayant la case <strong>« Astreinte HO ANS »</strong> cochée, à cocher en nombre voulu (Administration › Gestion des utilisateurs, colonne à droite de « Validation RH »).</li>
+    <li>Les <strong>administrateurs</strong> désignent n'importe quels utilisateurs, sur toutes les semaines. Un <strong>utilisateur ayant la case cochée</strong> s'ajoute ou se retire lui-même d'un clic sur la case, sans toucher aux autres utilisateurs du jour, de la semaine en cours aux semaines à venir.</li>
     <li>Les désignations s'enregistrent avec le même bouton « Enregistrer » ; si l'astreinte ANS de la <strong>semaine en cours</strong> est modifiée, un e-mail de mise à jour est envoyé aux destinataires de l'automatisation n°8 (si elle est activée).</li>
   </ul>
   <h3>Enregistrer</h3>
@@ -496,7 +504,7 @@
     <li><strong>N°6 — Communication du planning d'astreinte HO</strong> : un ou plusieurs jours et une heure d'envoi, des destinataires choisis parmi tous les utilisateurs (groupes ou personnes), un sujet et un corps de mail personnalisables, et la semaine communiquée (en cours ou suivante). Si le planning de la <strong>semaine en cours</strong> est modifié, le mail est <strong>renvoyé automatiquement</strong> avec « MAJ » dans le sujet et la liste des modifications dans le corps du mail.</li>
   </ul>
   <h3>Automatisations n°7 et n°8 — astreintes HO ANS</h3>
-  <p>Les mêmes automatisations existent pour les astreintes HO ANS (un utilisateur par jour) :</p>
+  <p>Les mêmes automatisations existent pour les astreintes HO ANS (un ou plusieurs utilisateurs par jour) :</p>
   <ul>
     <li><strong>N°7 — Construction du planning d'astreinte HO ANS pour la semaine S+1</strong> : mêmes réglages que la n°5, destinataires choisis parmi les utilisateurs ayant la case « Astreinte HO ANS » cochée.</li>
     <li><strong>N°8 — Communication du planning d'astreinte HO ANS</strong> : mêmes réglages que la n°6, avec renvoi automatique « MAJ » si l'astreinte ANS de la semaine en cours est modifiée.</li>
@@ -648,7 +656,7 @@
   <p>Par défaut, les bornes couvrent toutes les dates des déploiements. Une borne laissée à sa valeur automatique reste automatique ; <strong>Tout afficher</strong> supprime les bornes choisies. Le choix est mémorisé dans le navigateur, et la fenêtre d'impression / d'export reprend la période affichée comme valeur de départ.</p>
 
   <h3>Affecter des ressources à une étape</h3>
-  <p>Cliquez sur la barre d'une étape <em>(Visite métier, Test des prérequis, VFT, Formation « Utilisateurs », Accompagnement)</em> : la fenêtre <strong>Affecter des ressources</strong> présente une <strong>grille ressources × jours ouvrés</strong> de l'étape. Cochez, pour chaque expert, les <strong>journées</strong> où il intervient ; le <em>nombre de ressources nécessaires</em> est le maximum <strong>par jour</strong> (une journée complète grise les autres cases, avec son compteur en rouge). Les liens « tout » / « aucun » d'une ligne cochent ou décochent toute l'étape. Les cases sont colorées d'après la planification : disponible, déjà sur ce SAMU, activité ANS, indisponible, congés, ou <strong>affecté à un autre SAMU ce jour-là</strong> (case bloquée).</p>
+  <p>Cliquez sur la barre d'une étape <em>(Visite métier, Test des prérequis, VFT, Formation « Utilisateurs », Accompagnement)</em> : la fenêtre <strong>Affecter des ressources</strong> présente une <strong>grille ressources × jours</strong> de l'étape, <strong>samedi et dimanche compris</strong> (colonnes en jaune, à cocher à la main si l'activité s'y tient, même sur une période de congés). Cochez, pour chaque expert, les <strong>journées</strong> où il intervient ; le <em>nombre de ressources nécessaires</em> est le maximum <strong>par jour</strong> (une journée complète grise les autres cases, avec son compteur en rouge). Les liens « tout » / « aucun » d'une ligne cochent tous les jours ouvrés de l'étape ou décochent tout. Les cases sont colorées d'après la planification : disponible, déjà sur ce SAMU, activité ANS, indisponible, congés, ou <strong>affecté à un autre SAMU ce jour-là</strong> (case bloquée).</p>
   <ul>
     <li><strong>Planification</strong> : seules les journées d'intervention de chaque expert alimentent son planning (activité, localisation, disponibilité) lors de la synchronisation.</li>
     <li><strong>Événement associé</strong> : il réunit l'ensemble des intervenants de l'étape (tous ceux qui ont au moins une journée).</li>
@@ -687,7 +695,10 @@
       <tr><td>Accompagnement</td><td>ACCOMP. POST DÉM.</td></tr>
     </tbody>
   </table>
-  <div class="note">Une ressource sans compte utilisateur ne peut pas être ajoutée comme participante : elle est signalée dans la fenêtre. Quand tout est déjà à jour, la fenêtre l'indique (« Tout est à jour ») et n'apparaît plus d'elle-même. Cette synchronisation est réservée aux administrateurs.</div>
+  <div class="note">Une ressource sans compte utilisateur ne peut pas être ajoutée comme participante : elle est signalée dans la fenêtre. Les écarts entre la grille et la planification s'y résolvent un par un (liste « Laisser tel quel / Écraser / Retirer… »). Quand tout est déjà à jour, la fenêtre l'indique (« Tout est à jour ») et n'apparaît plus d'elle-même. Cette synchronisation est réservée aux administrateurs.</div>
+
+  <h3>Onglet Événements de l'aide à l'affectation</h3>
+  <p>L'onglet <strong>Événements</strong> de l'application liste les événements des SAMU-SAS du planning des déploiements (visite métier, Visite OB, réunion de lancement stratégique, mise en service, mise en production, VFT, accompagnement, vérification des prérequis, formation), avec filtres SAMU / type / recherche et tri par colonne. Le bouton <strong>🔍 Rechercher les doublons</strong> (administrateurs) ouvre la fenêtre des <a href="#doublons-evenements">doublons d'événements</a>. Les <strong>administrateurs</strong> disposent d'une icône <strong>corbeille</strong> en bout de ligne pour <strong>supprimer individuellement</strong> un événement, après confirmation : ses participants sont retirés et la planification posée par l'affectation de ce SAMU sur la période est remise en « Disponible / En attente d'affectation ».</p>
 
   <h3>Planification des ateliers métier</h3>
   <p>L'onglet <strong>Planification des ateliers métier</strong> de l'application d'aide à l'affectation construit un <strong>rétroplanning automatisé</strong> des ateliers métier d'un SAMU, à partir de la date de mise en production (MEP). Il comporte trois rubriques :</p>
@@ -762,11 +773,56 @@
   <h2>🆕 Notes de version</h2>
   <p>Historique des évolutions de la Plateforme de Planification ANS.</p>
 
+  <!-- v2.11.0 -->
+  <div class="card card-green" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v2.11.0</strong>
+      <span class="badge badge-current">Actuelle</span>
+      <span style="color:#888; font-size:13px;">Novembre 2026</span>
+    </div>
+    <ul>
+      <li>🔗 <strong>Événements et déploiements</strong> : un participant d'un événement n'est ajouté comme intervenant d'une étape que sur les jours ouvrés de cet événement où le nombre de ressources <em>par jour</em> n'est pas atteint (une rotation d'experts sur des jours distincts est donc acceptée).</li>
+      <li>🙋 <strong>Bouton « Participer »</strong> sur un événement d'une étape à ressources : l'expert devient intervenant de l'étape et sa planification est écrite par la synchronisation du déploiement (plus d'activité « Divers »). Si l'étape est complète, la planification est mise à jour comme pour un événement ordinaire.</li>
+      <li>🔍 <strong>Doublons d'événements</strong> : deux événements de même type, même lieu et même libellé sur des périodes voisines (14 jours au plus d'écart) sont désormais proposés comme doublons probables.</li>
+      <li>🔄 <strong>Synchronisation des déploiements</strong> : elle compare la grille de l'aide à l'affectation et la planification des experts, sur la période de l'étape, et propose d'aligner chaque écart. Demi-journées affectées mais indisponibles ou occupées par une activité ANS : <em>écraser la planification</em> ou <em>retirer ces journées de la grille</em> (congés et autre SAMU : retrait de la grille seulement). Demi-journées planifiées pour ce SAMU sans journée dans la grille : <em>les remettre en « Disponible »</em> ou <em>les ajouter à la grille</em>. Rien n'est modifié sans choix explicite ; chaque résolution est inscrite dans l'historique du SAMU.</li>
+      <li>🔗 <strong>Correspondance activités</strong> (Administration de l'aide à l'affectation) : le tableau relie désormais chaque <em>activité de l'outil de planification</em> à une <em>activité Asana</em> (liste déroulante : tâche 5.1, 5.9, 6.3.4 / 6.3, 6.6, « Vérification des prérequis », jalons…, ou « Autre » pour saisir un code de tâche ou un titre) puis à un <em>type d'événement</em>. Un bouton « Choisir le projet type… » charge les tâches d'un <em>projet Asana type</em> (liste des projets de l'équipe configurée) : elles alimentent la liste déroulante, rangées sous le nom du projet. Par défaut, les règles de reprise Asana restent celles d'origine ; le choix s'applique à toutes les reprises suivantes.</li>
+      <li>📋 <strong>Événements › affichage en tableau</strong> : dès qu'un libellé, une localisation (SAMU) ou un participant est choisi dans les filtres, une case permet de remplacer l'accordéon année / mois par un <em>tableau triable</em> (clic sur un en-tête de colonne : événement, libellé, dates, jours, localisation, participants, créé par). Modification et suppression restent disponibles sur chaque ligne.</li>
+      <li>🧭 <strong>En-têtes</strong> : le nom de l'application affichée apparaît au centre de l'encart du haut ; l'icône de recherche de l'aide à l'affectation, qui n'avait pas encore de fonction, est retirée.</li>
+      <li>📅 <strong>Aide à l'affectation › Événements</strong> : un participant qui n'intervient que certains jours de l'activité est suivi de ces jours (ex. « Alice Martin (01/03, 02/03) »).</li>
+    </ul>
+  </div>
+
+  <!-- v2.10.0 -->
+  <div class="card card-green" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v2.10.0</strong>
+      <span style="color:#888; font-size:13px;">Novembre 2026</span>
+    </div>
+    <ul>
+      <li>🔍 <strong>Doublons d'événements</strong> : recherche des doublons certains et probables dans l'onglet Événements (application principale et aide à l'affectation), choix de l'occurrence à conserver et fusion (participants réunis, liens des déploiements reportés, planification conservée).</li>
+    </ul>
+  </div>
+
+  <!-- v2.9.0 -->
+  <div class="card card-green" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v2.9.0</strong>
+      
+      <span style="color:#888; font-size:13px;">Novembre 2026</span>
+    </div>
+    <ul>
+      <li>🔔 <strong>Astreinte HO ANS</strong> : plusieurs utilisateurs possibles dans la même case journalière (menu à cases à cocher pour l'administrateur, clic pour s'ajouter ou se retirer pour un utilisateur) ; l'accueil, les e-mails et les mises à jour (« MAJ ») les listent tous.</li>
+      <li>🗑️ <strong>Aide à l'affectation › Événements</strong> : suppression individuelle d'un événement (administrateurs), avec remise en situation de la planification de ses participants.</li>
+      <li>🎯 <strong>Aide à l'affectation</strong> : le samedi et le dimanche de la période d'une étape sont désormais affectables dans la grille jour par jour (planification, désaffectation et trigrammes en tiennent compte).</li>
+    </ul>
+    <p style="font-size:12px; color:#888; margin-top:8px;">Au déploiement : une migration de base autorise plusieurs utilisateurs par jour dans le planning ANS (aucune donnée existante n'est modifiée).</p>
+  </div>
+
   <!-- v2.8.0 -->
   <div class="card card-green" style="margin-bottom:16px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
       <strong style="font-size:16px;">v2.8.0</strong>
-      <span class="badge badge-current">Actuelle</span>
+      
       <span style="color:#888; font-size:13px;">Novembre 2026</span>
     </div>
     <ul>
@@ -775,7 +831,7 @@
       <li>📧 <strong>Automatisations n°7 et n°8</strong> (Administration) : construction du planning ANS de la semaine S+1 et communication du planning, sur le modèle des n°5 et n°6.</li>
       <li>🎯 <strong>Aide à l'affectation</strong> : deux nouveaux <strong>jalons</strong> (une date, sans ressources expertes), <strong>Réunion de lancement stratégique</strong> et <strong>Visite OB</strong>, affichés en points dans le planning (légende activable, impression, liste des événements, reprise depuis Asana ou saisie manuelle, couplage à un événement) ; « Mise en service » et « Mise en production » rejoignent les étapes de mise en œuvre dans la fenêtre du déploiement.</li>
       <li>🔄 <strong>Asana</strong> : une donnée modifiée à la fois dans l'application et dans Asana n'est plus écrasée au rafraîchissement ; une fenêtre permet de choisir la valeur à conserver.</li>
-      <li>👥 <strong>Affectation par journée</strong> : pour les étapes à ressources (VFT, formation, accompagnement, prérequis, visite métier), grille ressources × jours ouvrés ; seules les journées d'intervention alimentent la planification, l'événement associé réunit tous les intervenants ; trigrammes des experts affichés dans le planning (commutateur dans la légende, repris à l'impression).</li>
+      <li>👥 <strong>Affectation par journée</strong> : pour les étapes à ressources (VFT, formation, accompagnement, prérequis, visite métier), grille ressources × jours (week-ends compris) ; seules les journées d'intervention alimentent la planification, l'événement associé réunit tous les intervenants ; trigrammes des experts affichés dans le planning (commutateur dans la légende, repris à l'impression).</li>
       <li>🔧 <strong>Reprise Asana</strong> : quand une seule tâche est choisie pour une rubrique dans « Tâches du projet Asana », tout son intervalle (début et fin) est repris ; la formation reprend la tâche 6.3 entière à défaut de la tâche 6.3.4.</li>
       <li>🖨️ <strong>Impression du planning</strong> : option « Ne pas couper un mois sur deux pages ».</li>
       <li>🏡 <strong>Accueil</strong> : l'astreinte HO ANS du jour s'affiche dans « Qui est en astreinte HO » ; la colonne du jour est en vert dans « Qui travaille cette semaine ».</li>

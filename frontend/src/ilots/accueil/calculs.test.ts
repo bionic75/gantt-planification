@@ -186,15 +186,21 @@ describe('astreinte HO ANS du jour', () => {
         names: [],
         me: { canEdit: false, isAdmin: false, resourceId: null },
         ans: {
-            slots: [{ date: '2026-11-03', user_id: 5 }],
-            names: [{ id: 5, nom: 'Dupont', prenom: 'Alice' }]
+            slots: [
+                { date: '2026-11-03', user_id: 5 },
+                { date: '2026-11-03', user_id: 6 }
+            ],
+            names: [
+                { id: 5, nom: 'Martin', prenom: 'Zoé' },
+                { id: 6, nom: 'Dupont', prenom: 'Alice' }
+            ]
         }
     };
 
-    it('utilisateur désigné ou personne', () => {
-        expect(astreinteAnsDuJour(planning, '2026-11-03')).toBe('Alice DUPONT');
-        expect(astreinteAnsDuJour(planning, '2026-11-04')).toBeNull();
-        expect(astreinteAnsDuJour(null, '2026-11-03')).toBeNull();
-        expect(astreinteAnsDuJour({ ...planning, ans: undefined }, '2026-11-03')).toBeNull();
+    it('plusieurs utilisateurs par jour, triés ; personne sinon', () => {
+        expect(astreinteAnsDuJour(planning, '2026-11-03')).toEqual(['Alice DUPONT', 'Zoé MARTIN']);
+        expect(astreinteAnsDuJour(planning, '2026-11-04')).toEqual([]);
+        expect(astreinteAnsDuJour(null, '2026-11-03')).toEqual([]);
+        expect(astreinteAnsDuJour({ ...planning, ans: undefined }, '2026-11-03')).toEqual([]);
     });
 });

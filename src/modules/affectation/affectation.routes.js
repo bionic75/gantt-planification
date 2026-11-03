@@ -59,6 +59,8 @@ router.get('/affectation/asana/config', requireAdmin, h(asana.getConfig));
 router.put('/affectation/asana/config', requireAdmin, h(asana.saveConfig));
 router.delete('/affectation/asana/token', requireAdmin, h(asana.deleteToken));
 router.post('/affectation/asana/test', requireAdmin, h(asana.test));
+router.get('/affectation/asana/template-projects', requireAdmin, h(asana.templateProjects));
+router.put('/affectation/asana/template', requireAdmin, h(asana.saveTemplate));
 router.get('/affectation/asana/projects', requireAdmin, h(asana.projects));
 router.put('/affectation/asana/links', requireAdmin, h(asana.setLink));
 router.post('/affectation/asana/preview', requireAdmin, h(asana.preview));

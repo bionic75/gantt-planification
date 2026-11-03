@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { Evenement, TypeEvenement } from '@/api/evenements';
 import {
     AUTRES,
+    type ColonneTableau,
+    type Sens,
     cocheGrist,
     correspondAuModele,
     couleurs,
@@ -15,7 +17,9 @@ import {
     libelleModele,
     mentionCreation,
     periodeAffichee,
-    SANS_FILTRE
+    SANS_FILTRE,
+    tableauPossible,
+    trierTableau
 } from './calculs';
 
 const evt = (champs: Partial<Evenement>): Evenement => ({
@@ -181,5 +185,33 @@ describe('exports', () => {
         expect(html).toContain('<title>Événements exportés</title>');
         expect(html).toContain('export du 12/05/2031');
         expect(html).toContain('FORMATION &quot;A&quot;');
+    });
+});
+
+describe('tableau triable', () => {
+    const locs = [
+        { id: 1, libelle_court: 'SAMU 44', libelle_long: 'SAMU 44' },
+        { id: 2, libelle_court: 'SAMU 13', libelle_long: 'SAMU 13' }
+    ];
+    const liste = [
+        evt({ id: 1, label: 'B', start_date: '2031-05-12', end_date: '2031-05-12', location_id: 1 }),
+        evt({ id: 2, label: 'A', start_date: '2031-04-01', end_date: '2031-04-03', location_id: 2 }),
+        evt({ id: 3, label: 'C', start_date: '2031-06-01', end_date: '2031-06-01', location_id: 2 })
+    ];
+    const ids = (c: ColonneTableau, sens: Sens) => trierTableau(liste, locs, c, sens).map(e => e.id);
+
+    it('proposé dès qu’un libellé, une localisation ou un participant est choisi', () => {
+        expect(tableauPossible(SANS_FILTRE)).toBe(false);
+        expect(tableauPossible({ ...SANS_FILTRE, debut: '2031-01-01' })).toBe(false);
+        expect(tableauPossible({ ...SANS_FILTRE, localisation: '1' })).toBe(true);
+        expect(tableauPossible({ ...SANS_FILTRE, participant: ' ali ' })).toBe(true);
+        expect(tableauPossible({ ...SANS_FILTRE, libelle: AUTRES })).toBe(true);
+    });
+    it('tri par colonne, dans les deux sens, à égalité par date puis identifiant', () => {
+        expect(ids('libelle', 'asc')).toEqual([2, 1, 3]);
+        expect(ids('libelle', 'desc')).toEqual([3, 1, 2]);
+        expect(ids('debut', 'desc')).toEqual([3, 1, 2]);
+        expect(ids('jours', 'desc')).toEqual([2, 1, 3]);
+        expect(ids('lieu', 'asc')).toEqual([2, 3, 1]);
     });
 });

@@ -64,6 +64,25 @@ export interface ListeEvenements {
     userId: number;
 }
 
+/** Événement d'un groupe de doublons (GET /custom-events/duplicates) */
+export interface EvenementDoublon {
+    id: number;
+    label: string;
+    start_date: string;
+    end_date: string;
+    period: string;
+    type_label: string | null;
+    location_label: string | null;
+    participants: string[];
+}
+
+export interface GroupeDoublons {
+    id: number;
+    niveau: 'certain' | 'probable';
+    raison: string;
+    events: EvenementDoublon[];
+}
+
 export interface Localisation {
     id: number;
     libelle_court: string;
@@ -97,11 +116,18 @@ export interface CorpsEvenement {
 /** Réponse de l'inscription d'un participant */
 export interface Inscription {
     planningUpdated: boolean;
+    /** Étapes de déploiement où l'expert devient intervenant (sa planification est écrite par l'affectation) */
+    deploiements?: Array<{ project: number; samu: string; stage: string; label: string }>;
     eventLabel: string;
 }
 
 export const apiEvenements = {
     liste: () => api.get<ListeEvenements>('/my-custom-events'),
+    /** Doublons certains et probables (administrateur) */
+    doublons: () => api.get<{ groups: GroupeDoublons[] }>('/custom-events/duplicates'),
+    /** Fusion : un seul événement conservé, participants réunis */
+    fusionner: (keepId: number, removeIds: number[]) =>
+        api.post<{ participantsAdded: number }>('/custom-events/merge', { keep_id: keepId, remove_ids: removeIds }),
     types: () => api.get<{ types: TypeEvenement[] }>('/event-types'),
     localisations: () => api.get<{ locations: Localisation[] }>('/locations'),
     comptes: (admin: boolean) => api.get<Compte[]>(admin ? '/users' : '/users/public'),

@@ -87,7 +87,7 @@ export function weekTableHtml(monday, slots, names) {
 }
 
 /**
- * Tableau de la semaine des astreintes HO ANS : une colonne par jour ouvré, un utilisateur par jour ; un jour sans personne est signalé
+ * Tableau de la semaine des astreintes HO ANS : une colonne par jour ouvré, un ou plusieurs utilisateurs par jour ; un jour sans personne est signalé
  * @param {string} monday
  * @param {Array<{ date: string, user_id: number }>} slots
  * @param {Map<number, { prenom: string, nom: string }>} names
@@ -95,10 +95,13 @@ export function weekTableHtml(monday, slots, names) {
 export function ansWeekTableHtml(monday, slots, names) {
     const days = weekDays(monday);
     const cell = (/** @type {string} */ date) => {
-        const slot = slots.find(s => s.date === date);
-        const n = slot ? names.get(slot.user_id) : undefined;
-        return n
-            ? `<td style="padding:6px 8px;border:1px solid #c8e6c9;background:#e8f5e9;color:#1b5e20;vertical-align:top;">${esc(n.prenom)} ${esc((n.nom || '').toUpperCase())}</td>`
+        const who = slots
+            .filter(s => s.date === date)
+            .map(s => names.get(s.user_id))
+            .filter(Boolean)
+            .map(n => `${esc(n?.prenom)} ${esc((n?.nom || '').toUpperCase())}`);
+        return who.length
+            ? `<td style="padding:6px 8px;border:1px solid #c8e6c9;background:#e8f5e9;color:#1b5e20;vertical-align:top;">${who.join('<br>')}</td>`
             : `<td style="padding:6px 8px;border:1px solid #ffcdd2;background:#ffebee;color:#b71c1c;font-style:italic;vertical-align:top;">à pourvoir</td>`;
     };
     const head = days
@@ -110,9 +113,9 @@ export function ansWeekTableHtml(monday, slots, names) {
     return `<table style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:13px;margin:8px 0;"><thead><tr><th style="border:1px solid #cfd8dc;background:#eceff1;"></th>${head}</tr></thead><tbody><tr><th style="padding:6px 8px;border:1px solid #cfd8dc;background:#eceff1;text-align:left;white-space:nowrap;">HO ANS</th>${days.map(cell).join('')}</tr></tbody></table>`;
 }
 
-/** Liste des modifications du planning ANS (désignation ou libération d'un jour) */
+/** Liste des modifications du planning ANS (ajout ou retrait d'un utilisateur sur un jour) */
 export function ansModificationsHtml(
-    /** @type {Array<{ date: string, name: string, action: string, previous?: string | null }>} */ changes,
+    /** @type {Array<{ date: string, name: string, action: string }>} */ changes,
     /** @type {string} */ author = ''
 ) {
     if (!changes.length) return '';
@@ -123,11 +126,7 @@ export function ansModificationsHtml(
     const items = changes
         .map(
             c =>
-                `<li>${esc(day(c.date))} : ${
-                    c.action === 'set'
-                        ? `<b style="color:#1b5e20;">${esc(c.name)}</b> désigné${c.previous ? ` (à la place de ${esc(c.previous)})` : ''}`
-                        : `<b style="color:#b71c1c;">retrait</b> de ${esc(c.previous || c.name)}`
-                }</li>`
+                `<li>${esc(day(c.date))} : ${c.action === 'add' ? '<b style="color:#1b5e20;">ajout</b>' : '<b style="color:#b71c1c;">retrait</b>'} de ${esc(c.name)}</li>`
         )
         .join('');
     return `<p><b>Modifications apportées</b>${author ? ` par ${esc(author)}` : ''} :</p><ul>${items}</ul>`;

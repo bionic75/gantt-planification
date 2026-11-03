@@ -61,8 +61,8 @@ export async function save(/** @type {Request} */ req, /** @type {Response} */ r
     let ansMail = { sent: false, reason: 'aucune modification' };
     if (ansResult && ansResult.applied.length) {
         logUserAction(req, 'Astreintes HO ANS : modification du planning', {
-            designations: ansResult.applied.filter(c => c.action === 'set').length,
-            retraits: ansResult.applied.filter(c => c.action === 'clear').length
+            ajouts: ansResult.applied.filter(c => c.action === 'add').length,
+            retraits: ansResult.applied.filter(c => c.action === 'remove').length
         });
         if (ansResult.touchesCurrentWeek)
             ansMail = await notifyAnsUpdate(session.name, ansResult.applied, ansResult.currentWeek);

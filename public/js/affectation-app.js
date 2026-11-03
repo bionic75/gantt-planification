@@ -261,6 +261,7 @@
         .aff-asg thead th.who { background: #eef3f9 !important; z-index: 5; }
         .aff-asg tr.sel th.who { background: #eaf6f2 !important; } .aff-asg .tri { font-size: 10px; color: #6b7a8d; margin-left: 4px; }
         .aff-asg td { padding: 2px; border-bottom: 1px solid #eef1f6; }
+        .aff-asg thead th.we { background: #fbe9bd !important; } .aff-asg td.we { background: #fff6dc; }
         .aff-dc { width: 32px; height: 24px; border-radius: 6px; border: 1px solid transparent; font-weight: 800; font-size: 13px; line-height: 1; padding: 0; cursor: pointer; display: inline-block; vertical-align: middle; color: #fff; }
         .aff-dc.ok { background: #e3f5ea; border-color: #bfe5cd; } .aff-dc.here { background: #e0ecfb; border-color: #bcd4f3; } .aff-dc.mid { background: #fff0d6; border-color: #f2d9a6; }
         .aff-dc.na { background: #eceff3; border-color: #d9dee6; } .aff-dc.ko { background: #fbd9d9; border-color: #f0b4b4; }
@@ -274,6 +275,15 @@
         .aff-sync-sec { border: 1px solid #dfe5ef; border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; }
         .aff-sync-sec h4 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .4px; color: #0f766e; display: flex; align-items: center; gap: 8px; }
         .aff-sync-sec h4 input, .aff-sync-row input[type=checkbox] { width: auto; display: inline-block; margin: 0; }
+        .aff-sg { display: flex; gap: 3px; flex-wrap: wrap; margin: 6px 0; }
+        .aff-sg-d { text-align: center; font-size: 10px; line-height: 1.2; color: #667; width: 30px; }
+        .aff-sg-d.we { opacity: .6; }
+        .aff-sg-c { height: 12px; border-radius: 3px; margin-top: 2px; background: #eef1f6; }
+        .aff-sg-c.ok { background: #43a047; } .aff-sg-c.write { background: #1e88e5; }
+        .aff-sg-c.conflict { background: #e53935; } .aff-sg-c.extra { background: #fb8c00; }
+        .aff-sg-lg { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; margin: 8px 0; }
+        .aff-sg-lg i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 4px; vertical-align: -2px; }
+        .aff-sg-fix { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12px; margin: 2px 0 4px; }
         .aff-sync-row { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; border-top: 1px solid #f0f3f8; font-size: 13px; }
         .aff-sync-row:first-of-type { border-top: none; }
         .aff-sync-sec .aff-field { margin-top: 8px; }
@@ -298,6 +308,7 @@
     const html = `
     <div class="fixed-header">
         <div class="user-info" id="affectationUserInfo">
+            <span class="app-title-center">Aide à l'affectation opérationnelle</span>
             <div style="position: relative; display: flex; align-items: center;">
                 <div id="affectationProfileCircle" onclick="openProfilePhotoModal()" style="width:50px;height:50px;border-radius:50%;border:3px solid #1D70B7;background-color:#7f8c8d;display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;" title="Mon profil">
                     <span id="affectationProfileTrigramme" style="color:white;font-weight:bold;font-size:16px;">?</span>
@@ -313,9 +324,6 @@
             <button class="tab-btn" id="affectationTabAteliers" onclick="AffectationApp.tab('ateliers')">${svg('rocket', 'tab-ico')}Planification des ateliers métier</button>
             <button class="tab-btn" id="affectationTabAdmin" onclick="AffectationApp.tab('admin')" style="display:none;">${svg('admin', 'tab-ico')}Administration</button>
             <button type="button" onclick="goHome()" title="Accueil" aria-label="Accueil" style="padding:8px 15px;background-color:#16a085;color:white;border:none;cursor:pointer;font-size:18px;border-radius:4px;margin-right:5px;"><svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:22px;height:22px;stroke:white;vertical-align:middle;"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9v12h14V9"/><path d="M10 21v-6h4v6"/></svg></button>
-            <button onclick="AffectationApp.search()" title="Recherche" style="padding:8px 15px;background-color:#3498db;color:white;border:none;cursor:pointer;font-size:18px;border-radius:4px;margin-right:10px;">
-                <span style="display:inline-flex;">${svg('search', 'app-ico', 'width:22px;height:22px;stroke:white;')}</span>
-            </button>
             <button class="logout-icon" onclick="AffectationApp.logout()" title="Déconnexion"></button>
         </div>
     </div>
@@ -452,7 +460,7 @@
             </div>
             <div class="aff-modal-body">
                 <div id="affAssignInfo" class="aff-muted"></div>
-                 <p class="aff-muted" style="margin:8px 0 0;font-size:12px;">Cochez, pour chaque expert, les <b>journées</b> où il intervient (le nombre de ressources nécessaires est le maximum <b>par jour</b>). Ces journées alimentent la planification ; l'événement associé réunit tous les intervenants de l'étape.</p>
+                 <p class="aff-muted" style="margin:8px 0 0;font-size:12px;">Cochez, pour chaque expert, les <b>journées</b> où il intervient, week-ends compris (le nombre de ressources nécessaires est le maximum <b>par jour</b>). Ces journées alimentent la planification ; l'événement associé réunit tous les intervenants de l'étape.</p>
                 <input id="affAssignFilter" type="text" placeholder="Filtrer les ressources…" oninput="AffectationApp.assignFilter()" style="margin-top:10px;padding:8px 10px;border:1px solid #cfd8e6;border-radius:8px;">
                 <div id="affAssignList" class="aff-assign-list"></div>
             </div>
@@ -519,6 +527,17 @@
                 <button type="button" class="aff-btn" onclick="AffectationApp.asanaConflictsClose()">Plus tard</button>
                 <button type="button" class="aff-btn aff-btn-primary" id="affAsanaConfOk" onclick="AffectationApp.asanaConflictsApply()">${svg('save', 'aff-ico-sm')}Valider mes choix</button>
             </div>
+        </div>
+    </div>
+
+    <div class="modal" id="affDupModal" style="z-index:10040;">
+        <div class="modal-content" style="max-width:1000px; width:96%; max-height:92vh; overflow-y:auto; padding:0;">
+            <div class="aff-modal-head">
+                <span class="aff-card-title">${svg('search', 'aff-ico')}Doublons d'événements</span>
+                <button type="button" class="aff-x" onclick="AffectationApp.evDupClose()" aria-label="Fermer">${svg('x', 'aff-ico-sm')}</button>
+            </div>
+            <div id="affDupBody" class="aff-modal-body"></div>
+            <div class="aff-modal-foot"><span id="affDupMsg" class="aff-error"></span><button type="button" class="aff-btn" onclick="AffectationApp.evDupClose()">Fermer</button></div>
         </div>
     </div>
 
@@ -905,12 +924,27 @@
             box = document.getElementById('affStageTypes');
         if (!d || !box) return;
         const chip = t => (typeof evtChip === 'function' && t ? evtChip(t, true) : '');
-        box.innerHTML = `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;">
-            <thead><tr style="text-align:left;color:#6b7a8d;font-size:11px;"><th style="padding:6px 8px;">Activité reprise d'Asana</th><th style="padding:6px 8px;min-width:300px;">Type d'événement</th><th style="padding:6px 8px;">Aperçu (planning / carte)</th></tr></thead><tbody>
+        const acts = d.asanaActivities || [];
+        const tpl = d.asanaTemplate;
+        const tplActs = tpl ? tpl.tasks : [];
+        const rules = d.asanaRules || {};
+        const optsAsana = rule =>
+            (tpl
+                ? `<optgroup label="Projet type : ${esc(tpl.name)}">${tplActs.map(x => `<option value="${esc(x.value)}" ${rule === x.value ? 'selected' : ''}>${esc(x.label)}</option>`).join('')}</optgroup>`
+                : '') +
+            `<optgroup label="Règles usuelles">${acts.map(x => `<option value="${esc(x.value)}" ${rule === x.value && !tplActs.some(y => y.value === rule) ? 'selected' : ''}>${esc(x.label)}</option>`).join('')}</optgroup>`;
+        box.innerHTML = `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;font-size:13px;"><b>Projet Asana type :</b> <span>${tpl ? `${esc(tpl.name)} · ${tplActs.length} tâche(s)` : '<span class="aff-muted">aucun (règles usuelles seulement)</span>'}</span>
+            <button type="button" class="aff-btn" onclick="AffectationApp.tplChoose()">${tpl ? 'Changer' : 'Choisir'} le projet type…</button>${tpl ? '<button type="button" class="aff-btn" onclick="AffectationApp.tplLoad(\'\')">Retirer</button>' : ''}<span id="affTplPick"></span></div>
+            <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead><tr style="text-align:left;color:#6b7a8d;font-size:11px;"><th style="padding:6px 8px;">Activité de l'outil de planification</th><th style="padding:6px 8px;min-width:260px;">Activité Asana</th><th style="padding:6px 8px;min-width:260px;">Type d'événement</th><th style="padding:6px 8px;">Aperçu (planning / carte)</th></tr></thead><tbody>
             ${d.stages
                 .map(st => {
                     const cur = d.types.find(t => t.id === d.mapping[st.key]);
-                    return `<tr style="border-top:1px solid #eef1f6;"><td style="padding:8px;"><b>${esc(st.label)}</b><div class="aff-muted" style="font-size:11px;">${esc(st.rule)}</div></td>
+                    const rule = rules[st.key] || '';
+                    const known = acts.some(x => x.value === rule) || tplActs.some(x => x.value === rule);
+                    return `<tr style="border-top:1px solid #eef1f6;"><td style="padding:8px;"><b>${esc(st.label)}</b></td>
+                    <td style="padding:8px;"><select data-stage="${st.key}" onchange="AffectationApp.asanaRuleSet(this)" style="width:100%;padding:6px;"><option value="">Par défaut : ${esc(st.rule)}</option>${optsAsana(rule)}<option value="__custom" ${rule && !known ? 'selected' : ''}>Autre (code ou titre de tâche)…</option></select>
+                    <input type="text" data-stage-custom="${st.key}" value="${rule && !known ? esc(rule.replace(/^title:/, '')) : ''}" placeholder="ex. 5.4 ou titre de la tâche" onchange="AffectationApp.asanaRuleSet(this)" style="width:100%;padding:6px;margin-top:4px;${rule && !known ? '' : 'display:none;'}"></td>
                     <td style="padding:8px;"><select data-stage="${st.key}" onchange="AffectationApp.stageTypeSet(this)" style="width:100%;padding:6px;">${d.types.map(t => `<option value="${t.id}" ${cur && cur.id === t.id ? 'selected' : ''}>${esc(t.label_long)}${t.label_short ? ' (' + esc(t.label_short) + ')' : ''}</option>`).join('')}</select></td>
                     <td style="padding:8px;" id="affStChip_${st.key}">${chip(cur)}</td></tr>`;
                 })
@@ -2866,6 +2900,57 @@
 
     // ================= Onglet « Événements » : événements des activités suivies, pour les SAMU du planning =================
     const evTab = { data: null, samu: '', stage: '', q: '', sort: { k: 'start', dir: 1 } };
+    // ---- Doublons d'événements : certains (même type, lieu, dates, libellé) et probables ; fusion = une seule occurrence conservée ----
+    const evDup = { groups: [], choice: {} };
+    const evDupPeriod = e =>
+        e.start_date === e.end_date ? frd(e.start_date) : `${frd(e.start_date)} → ${frd(e.end_date)}`;
+    function evDupRender(message) {
+        const box = document.getElementById('affDupBody');
+        const gs = evDup.groups;
+        const certains = gs.filter(g => g.niveau === 'certain').length;
+        box.innerHTML =
+            `<p class="aff-muted" style="margin:0 0 10px;font-size:12px;">Un doublon <b>certain</b> a le même type, le même lieu, les mêmes dates et le même libellé ; un doublon <b>probable</b> s'en approche (mêmes dates et même type, ou libellés très proches sur des dates qui se recoupent, ou même libellé sur des périodes distantes de 14 jours au plus). Choisissez l'occurrence à conserver : les autres sont supprimées, leurs participants sont reportés sur l'événement conservé. Seuls les événements de cet onglet sont examinés.</p>` +
+            (message
+                ? `<p style="color:#1b7f3b;font-weight:600;margin:0 0 10px;" id="affDupOk">${esc(message)}</p>`
+                : '') +
+            (gs.length
+                ? `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;"><span id="affDupCount"><b>${gs.length}</b> groupe${gs.length > 1 ? 's' : ''} : ${certains} certain${certains > 1 ? 's' : ''}, ${gs.length - certains} probable${gs.length - certains > 1 ? 's' : ''}</span>${certains ? `<button type="button" class="aff-btn" style="margin-left:auto;" onclick="AffectationApp.evDupMergeCertains()">Fusionner tous les doublons certains</button>` : ''}</div>` +
+                  gs
+                      .map(
+                          g => `<div class="aff-sync-sec" style="margin-bottom:12px;padding:0;overflow:hidden;">
+                <div style="background:#f0f4fa;padding:8px 12px;display:flex;align-items:center;gap:10px;"><span class="aff-av-b ${g.niveau === 'certain' ? 'ko' : 'mid'}">${g.niveau === 'certain' ? 'Certain' : 'Probable'}</span><span class="aff-muted" style="font-size:12px;">${esc(g.raison)}</span></div>
+                <table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="text-align:left;color:#6b7a8d;font-size:11px;"><th style="padding:5px 10px;">Conserver</th><th style="padding:5px 8px;">Libellé</th><th style="padding:5px 8px;">Dates</th><th style="padding:5px 8px;">Type</th><th style="padding:5px 8px;">Lieu</th><th style="padding:5px 8px;">Participants</th></tr></thead><tbody>
+                ${g.events
+                    .map(
+                        e =>
+                            `<tr style="border-top:1px solid #eef1f6;${evDup.choice[g.id] === e.id ? 'background:#e8f5e9;' : ''}vertical-align:top;"><td style="padding:6px 10px;"><input type="radio" name="affDup_${g.id}" value="${e.id}" ${evDup.choice[g.id] === e.id ? 'checked' : ''} style="width:auto;margin:0;" aria-label="Conserver ${esc(e.label)}" onchange="AffectationApp.evDupChoose(${g.id}, ${e.id})"></td><td style="padding:6px 8px;">${esc(e.label)}</td><td style="padding:6px 8px;white-space:nowrap;">${esc(evDupPeriod(e))}</td><td style="padding:6px 8px;">${esc(e.type_label || '—')}</td><td style="padding:6px 8px;">${esc(e.location_label || '—')}</td><td style="padding:6px 8px;" title="${esc(e.participants.join(', '))}">${e.participants.length}${e.participants.length ? ` · ${esc(e.participants.slice(0, 3).join(', '))}${e.participants.length > 3 ? '…' : ''}` : ''}</td></tr>`
+                    )
+                    .join('')}
+                </tbody></table>
+                <div style="padding:8px 12px;text-align:right;"><button type="button" class="aff-btn aff-btn-primary" onclick="AffectationApp.evDupMerge(${g.id})">${svg('save', 'aff-ico-sm')}Fusionner (conserver la sélection)</button></div></div>`
+                      )
+                      .join('')
+                : '<p class="aff-muted" id="affDupNone">Aucun doublon trouvé.</p>');
+    }
+    async function evDupLoad(message) {
+        const ids = new Set(((evTab.data && evTab.data.events) || []).map(e => e.id));
+        const all = (await api('/custom-events/duplicates')).groups;
+        // Groupes dont tous les événements figurent dans la liste de l'onglet
+        evDup.groups = all.filter(g => g.events.every(e => ids.has(e.id)));
+        evDup.choice = Object.fromEntries(
+            evDup.groups.map(g => [
+                g.id,
+                [...g.events].sort((a, b) => b.participants.length - a.participants.length || a.id - b.id)[0].id
+            ])
+        );
+        evDupRender(message);
+    }
+    async function evDupAfter(message) {
+        window.dispatchEvent(new CustomEvent('gp:evenements-modifies'));
+        await loadEvents();
+        await evDupLoad(message);
+    }
+
     async function loadEvents() {
         const box = document.getElementById('affEvBody');
         if (!box) return;
@@ -2877,6 +2962,11 @@
             return;
         }
         renderEvents();
+    }
+    /** Participants d'un événement ; ceux qui n'interviennent que certains jours de l'activité sont suivis de ces jours */
+    function evPartNames(e) {
+        const jours = e.participants_jours || {};
+        return e.participants.map(n => (jours[n] ? `${n} (${jours[n]})` : n));
     }
     function renderEvents() {
         const box = document.getElementById('affEvBody'),
@@ -2905,6 +2995,7 @@
         const th = (k, lbl) =>
             `<th style="padding:6px 8px;cursor:pointer;user-select:none;" onclick="AffectationApp.evSort('${k}')" title="Trier">${lbl} ${evTab.sort.k === k ? (evTab.sort.dir > 0 ? '▲' : '▼') : '<span style="opacity:.4;">▲▼</span>'}</th>`;
         const today = todayIso();
+        const isAdminUser = !!(currentUser && currentUser.activeProfile === 'admin');
         const samus = [...new Set(d.events.map(e => e.samu))].sort((a, b) =>
             a.localeCompare(b, 'fr', { numeric: true })
         );
@@ -2912,11 +3003,11 @@
             <div><label class="lbl">SAMU</label><select onchange="AffectationApp.evFilter('samu', this.value)" style="padding:7px;min-width:170px;"><option value="">Tous</option>${samus.map(x => `<option ${evTab.samu === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></div>
             <div><label class="lbl">Type d'événement</label><select onchange="AffectationApp.evFilter('stage', this.value)" style="padding:7px;min-width:240px;"><option value="">Tous</option>${d.stages.map(x => `<option value="${x.key}" ${evTab.stage === x.key ? 'selected' : ''}>${esc(x.label)}</option>`).join('')}</select></div>
             <div style="flex:1;min-width:180px;"><label class="lbl">Recherche</label><input type="text" value="${esc(evTab.q)}" placeholder="SAMU, intitulé, participant…" oninput="AffectationApp.evFilter('q', this.value)" style="width:100%;padding:7px;box-sizing:border-box;"></div>
-            <span class="aff-muted" style="padding-bottom:8px;">${list.length} événement${list.length > 1 ? 's' : ''}</span></div>
+            <span class="aff-muted" style="padding-bottom:8px;">${list.length} événement${list.length > 1 ? 's' : ''}</span>${currentUser && currentUser.activeProfile === 'admin' ? `<button type="button" class="aff-btn" style="margin-left:auto;" onclick="AffectationApp.evDoublons()" title="Rechercher les doublons certains et probables parmi ces événements">${svg('search', 'aff-ico-sm')}Rechercher les doublons</button>` : ''}</div>
             ${
                 list.length
                     ? `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;">
-            <thead><tr style="text-align:left;font-size:11px;">${th('samu', 'SAMU')}${th('type', 'Type')}${th('label', 'Intitulé')}${th('start', 'Dates')}${th('part', 'Participants')}${th('plan', 'Planning des déploiements')}</tr></thead><tbody>
+            <thead><tr style="text-align:left;font-size:11px;">${th('samu', 'SAMU')}${th('type', 'Type')}${th('label', 'Intitulé')}${th('start', 'Dates')}${th('part', 'Participants')}${th('plan', 'Planning des déploiements')}${isAdminUser ? '<th style="padding:6px 8px;"></th>' : ''}</tr></thead><tbody>
             ${list
                 .map(e => {
                     const same = evSame(e);
@@ -2924,8 +3015,8 @@
                 <td style="padding:8px;"><span style="display:inline-block;padding:2px 9px;border-radius:10px;font-size:12px;font-weight:700;background:${esc(e.type.bg)};color:${esc(e.type.color)};border:1px solid ${esc(e.type.border)};">${esc(e.type.label)}</span></td>
                 <td style="padding:8px;">${esc(e.label)}</td>
                 <td style="padding:8px;white-space:nowrap;">${esc(evDates(e))}${e.period && e.period !== 'FULL' ? ` <span class="aff-muted">(${e.period === 'AM' ? 'matin' : e.period === 'PM' ? 'après-midi' : esc(e.period)})</span>` : ''}</td>
-                <td style="padding:8px;">${e.participants.length ? `<span title="${esc(e.participants.join(', '))}">${e.participants.length} · ${esc(e.participants.slice(0, 3).join(', '))}${e.participants.length > 3 ? '…' : ''}</span>` : '<span class="aff-muted">—</span>'}</td>
-                <td style="padding:8px;font-size:12px;">${e.planned ? (same ? '<span style="color:#1b7f3b;">✔ mêmes dates</span>' : `<span style="color:#b26a00;">⚠ activité prévue : ${esc(evDates(e.planned))}</span>`) : '<span class="aff-muted">activité non datée</span>'}</td></tr>`;
+                <td style="padding:8px;">${e.participants.length ? `<span title="${esc(evPartNames(e).join(', '))}">${e.participants.length} · ${esc(evPartNames(e).slice(0, 3).join(', '))}${e.participants.length > 3 ? '…' : ''}</span>` : '<span class="aff-muted">—</span>'}</td>
+                <td style="padding:8px;font-size:12px;">${e.planned ? (same ? '<span style="color:#1b7f3b;">✔ mêmes dates</span>' : `<span style="color:#b26a00;">⚠ activité prévue : ${esc(evDates(e.planned))}</span>`) : '<span class="aff-muted">activité non datée</span>'}</td>${isAdminUser ? `<td style="padding:8px;text-align:right;"><button type="button" class="aff-icon-btn" style="background:#D60B51" title="Supprimer cet événement" aria-label="Supprimer l'événement ${esc(e.label)}" onclick="AffectationApp.evDelete(${e.id})">${svg('trash', 'aff-ico-sm')}</button></td>` : ''}</tr>`;
                 })
                 .join('')}
             </tbody></table></div>`
@@ -3342,7 +3433,7 @@
     }
 
     const asg = { project: null, stage: null, days: {}, dates: [], needed: 0 };
-    // Grille ressources × jours ouvrés de l'étape : chaque case = l'expert intervient ce jour-là (au plus « nécessaires » par jour)
+    // Grille ressources × jours de l'étape : chaque case = l'expert intervient ce jour-là (au plus « nécessaires » par jour)
     const ASG_STATE = {
         free: ['Disponible', 'ok'],
         here: ['Déjà sur ce SAMU dans la planification', 'here'],
@@ -3372,7 +3463,8 @@
             .map(d => {
                 const n = asgDayCount(d);
                 const dt = new Date(Date.parse(d + 'T00:00:00Z'));
-                return `<th class="d ${n >= asg.needed ? 'full' : ''}" title="${esc(frd(d))} : ${n} / ${asg.needed} ressource(s)"><div>${DOW[dt.getUTCDay()]}</div><div>${d.slice(8)}/${d.slice(5, 7)}</div><div class="c">${n}/${asg.needed}</div></th>`;
+                const we = [0, 6].includes(dt.getUTCDay());
+                return `<th class="d ${we ? 'we' : ''} ${n >= asg.needed ? 'full' : ''}" title="${esc(frd(d))} : ${n} / ${asg.needed} ressource(s)"><div>${DOW[dt.getUTCDay()]}</div><div>${d.slice(8)}/${d.slice(5, 7)}</div><div class="c">${n}/${asg.needed}</div></th>`;
             })
             .join('');
         const body = list
@@ -3385,11 +3477,12 @@
                         const full = !on && asgDayCount(d) >= asg.needed;
                         const blocked = !on && st === 'other';
                         const [txt, cls] = ASG_STATE[st] || ['Planning non renseigné', 'na'];
-                        return `<td><button type="button" class="aff-dc ${cls} ${on ? 'on' : ''}" ${full || blocked ? 'disabled' : ''} title="${esc(txt)}${full ? ' — journée complète' : ''}" onclick="AffectationApp.assignDay(${r.id},'${d}')">${on ? '✓' : ''}</button></td>`;
+                        const we = [0, 6].includes(new Date(Date.parse(d + 'T00:00:00Z')).getUTCDay());
+                        return `<td class="${we ? 'we' : ''}"><button type="button" class="aff-dc ${cls} ${on ? 'on' : ''}" ${full || blocked ? 'disabled' : ''} title="${esc(txt)}${full ? ' — journée complète' : ''}" onclick="AffectationApp.assignDay(${r.id},'${d}')">${on ? '✓' : ''}</button></td>`;
                     })
                     .join('');
                 const nb = mine(r);
-                return `<tr class="${nb ? 'sel' : ''}"><th class="who"><div class="n"><b>${esc((r.nom || '').toUpperCase())}</b> ${esc(r.prenom || '')} <span class="tri">${esc(r.trigramme || '')}</span></div><div class="aff-muted" style="font-size:11px;">${nb} / ${asg.dates.length} j · <a href="#" onclick="AffectationApp.assignRow(${r.id},true);return false;">tout</a> · <a href="#" onclick="AffectationApp.assignRow(${r.id},false);return false;">aucun</a></div></th>${row}</tr>`;
+                return `<tr class="${nb ? 'sel' : ''}"><th class="who"><div class="n"><b>${esc((r.nom || '').toUpperCase())}</b> ${esc(r.prenom || '')} <span class="tri">${esc(r.trigramme || '')}</span></div><div class="aff-muted" style="font-size:11px;">${nb} / ${asg.dates.length} j · <a href="#" onclick="AffectationApp.assignRow(${r.id},true);return false;" title="Tous les jours ouvrés de l'étape">tout</a> · <a href="#" onclick="AffectationApp.assignRow(${r.id},false);return false;">aucun</a></div></th>${row}</tr>`;
             })
             .join('');
         document.getElementById('affAssignList').innerHTML = list.length
@@ -3766,15 +3859,42 @@
                         const state = r.toWrite
                             ? `<b>${j(r.toWrite)}</b> à renseigner`
                             : r.done
-                              ? 'Déjà à jour dans la planification'
+                              ? r.conflictCount || r.extraCount
+                                  ? `${j(r.done)} à jour dans la planification`
+                                  : 'Déjà à jour dans la planification'
                               : 'Rien à écrire';
+                        const dayList = [];
+                        for (
+                            let t = Date.parse(d.spanStart + 'T00:00:00Z');
+                            t <= Date.parse(d.spanEnd + 'T00:00:00Z');
+                            t += 864e5
+                        ) {
+                            const iso = new Date(t).toISOString().slice(0, 10);
+                            if ((iso >= d.start && iso <= d.end) || r.states[iso + '_AM'] || r.states[iso + '_PM'])
+                                dayList.push(iso);
+                        }
+                        const cell = k => {
+                            const st = r.states[k];
+                            return `<div class="aff-sg-c ${st ? st.s : ''}" title="${esc(st ? { ok: 'Planifié (à jour)', write: 'À renseigner', conflict: st.reason || 'Conflit', extra: "Planifié sans journée d'affectation" }[st.s] : 'Rien')}"></div>`;
+                        };
+                        const strip = `<div class="aff-sg">${dayList
+                            .map(iso => {
+                                const dt = new Date(iso + 'T00:00:00Z');
+                                const we = [0, 6].includes(dt.getUTCDay());
+                                return `<div class="aff-sg-d${we ? ' we' : ''}">${['d', 'l', 'm', 'm', 'j', 'v', 's'][dt.getUTCDay()]}<br>${iso.slice(8)}/${iso.slice(5, 7)}${cell(iso + '_AM')}${cell(iso + '_PM')}</div>`;
+                            })
+                            .join('')}</div>`;
                         const conf = r.conflictCount
-                            ? `<div class="aff-av"><span class="aff-av-b ko" title="${esc(r.conflicts.map(c => c.key.replace('_', ' ') + ' : ' + c.reason).join('\n'))}">${j(r.conflictCount)} non modifiable(s) (conflit)</span></div>`
+                            ? `<div class="aff-sg-fix"><b style="color:#e53935;">${j(r.conflictCount)} en conflit (rouge)</b> → <select data-sc="${r.id}" style="width:auto;" onclick="event.preventDefault()"><option value="">Laisser tel quel</option>${r.forceableCount ? `<option value="force">Écraser la planification (${j(r.forceableCount)})</option>` : ''}<option value="drop">Retirer ces journées de la grille</option></select></div>`
                             : '';
-                        return `<label class="aff-sync-row"><input type="checkbox" data-sp="${r.id}" ${r.toWrite ? 'checked' : 'disabled'}><span><b>${esc((r.nom || '').toUpperCase())}</b> ${esc(r.prenom || '')}<br>${state}${r.done && r.toWrite ? ` · ${j(r.done)} déjà faits` : ''}${conf}</span></label>`;
+                        const extra = r.extraCount
+                            ? `<div class="aff-sg-fix"><b style="color:#fb8c00;">${j(r.extraCount)} planifiée(s) hors grille (orange)</b> → <select data-sx="${r.id}" style="width:auto;" onclick="event.preventDefault()"><option value="">Laisser tel quel</option><option value="clear">Remettre en « Disponible »</option>${r.addableCount ? '<option value="add">Ajouter à la grille</option>' : ''}</select></div>`
+                            : '';
+                        return `<label class="aff-sync-row"><input type="checkbox" data-sp="${r.id}" ${r.toWrite ? 'checked' : 'disabled'}><span><b>${esc((r.nom || '').toUpperCase())}</b> ${esc(r.prenom || '')}<br>${state}${r.done && r.toWrite ? ` · ${j(r.done)} déjà faits` : ''}${strip}${conf}${extra}</span></label>`;
                     })
                     .join('');
                 const needPlan = d.resources.some(r => r.toWrite);
+                const needExtra = d.resources.some(r => r.extraCount || r.conflictCount);
                 const ev = d.event,
                     ex = ev.existing;
                 const partRows = d.resources
@@ -3786,12 +3906,13 @@
                     })
                     .join('');
                 const needEvent = !ex || d.resources.some(r => r.user_id && !ex.participants.includes(r.user_id));
-                if (auto && !needPlan && !needEvent) return; // rien à reporter : on n'interrompt pas l'utilisateur
+                if (auto && !needPlan && !needEvent && !needExtra) return; // rien à reporter : on n'interrompt pas l'utilisateur
                 document.getElementById('affSyncTitle').textContent = `Reporter l'affectation — ${d.samu}`;
                 document.getElementById('affSyncBody').innerHTML = `
                     <p class="aff-muted" style="margin:0 0 12px;">Les ressources ont été affectées dans l'aide à l'affectation. Autorisez-vous le report dans la planification et les événements ?</p>
                     <div class="aff-sync-sec"><h4><input type="checkbox" id="affSyncPlan" ${needPlan ? 'checked' : 'disabled'}>1. Planification des experts</h4>
-                        <div class="aff-muted">Du ${frd(d.start)} au ${frd(d.end)}, sur les journées d'intervention de chaque expert : activité ${esc(d.activity)} « SAMU (Déploiement) », localisation « ${esc(d.samuLoc)} », disponibilité ANS.</div>${rowsPlan}</div>
+                        <div class="aff-muted">Du ${frd(d.start)} au ${frd(d.end)}, sur les journées d'intervention de chaque expert : activité ${esc(d.activity)} « SAMU (Déploiement) », localisation « ${esc(d.samuLoc)} », disponibilité ANS.</div>
+                        <div class="aff-sg-lg"><span><i style="background:#43a047"></i>À jour</span><span><i style="background:#1e88e5"></i>À renseigner</span><span><i style="background:#e53935"></i>Conflit grille / planification</span><span><i style="background:#fb8c00"></i>Planifié hors grille</span><span><i style="background:#eef1f6"></i>Rien</span><span class="aff-muted">(haut = matin, bas = après-midi)</span></div>${rowsPlan}</div>
                     <div class="aff-sync-sec"><h4><input type="checkbox" id="affSyncEvt" ${needEvent ? 'checked' : 'disabled'}>2. Événement</h4>
                         ${
                             ex
@@ -3802,12 +3923,15 @@
                                <div class="aff-field"><span class="lbl">SAMU concerné</span> <b>${esc(d.samu)}</b>${d.locationId ? '' : ' <span class="aff-error">(entité introuvable : événement sans lieu)</span>'}</div>`
                         }
                         <div style="margin-top:8px;"><span class="lbl">Participants</span>${partRows}</div></div>`;
-                const nothing = !needPlan && !needEvent;
+                const nothing = !needPlan && !needEvent && !needExtra;
                 document.getElementById('affSyncOk').style.display = nothing ? 'none' : '';
                 document.getElementById('affSyncLater').textContent = nothing ? 'Fermer' : 'Plus tard';
                 if (nothing)
                     document.querySelector('#affSyncBody > p').innerHTML =
                         '<b>Tout est à jour :</b> la planification et les événements correspondent déjà à cette affectation.';
+                else if (!needPlan && !needEvent)
+                    document.querySelector('#affSyncBody > p').innerHTML =
+                        "<b>Rien à écrire,</b> mais la planification et la grille d'affectation ne concordent pas (voir ci-dessous). Choisissez, pour chaque écart, la façon de les aligner.";
                 document.getElementById('affSyncModal').classList.add('active');
             } catch (e) {
                 alert(e.message);
@@ -3821,11 +3945,23 @@
             err.textContent = '';
             const q = sel => document.querySelector(sel);
             const body = {};
-            if (q('#affSyncPlan') && q('#affSyncPlan').checked)
+            const picked = (attr, value) =>
+                [...document.querySelectorAll(`select[${attr}]`)]
+                    .filter(i => i.value === value)
+                    .map(i => Number(i.getAttribute(attr)));
+            const fix = {
+                force_ids: picked('data-sc', 'force'),
+                drop_ids: picked('data-sc', 'drop'),
+                clear_ids: picked('data-sx', 'clear'),
+                add_ids: picked('data-sx', 'add')
+            };
+            if ((q('#affSyncPlan') && q('#affSyncPlan').checked) || Object.values(fix).some(l => l.length))
                 body.planning = {
-                    resource_ids: [...document.querySelectorAll('input[data-sp]:checked')].map(i =>
-                        Number(i.dataset.sp)
-                    )
+                    resource_ids:
+                        q('#affSyncPlan') && q('#affSyncPlan').checked
+                            ? [...document.querySelectorAll('input[data-sp]:checked')].map(i => Number(i.dataset.sp))
+                            : [],
+                    ...fix
                 };
             if (q('#affSyncEvt') && q('#affSyncEvt').checked) {
                 body.event = {
@@ -3853,6 +3989,10 @@
                 AffectationApp.closeSync();
                 alert(
                     `Report effectué : ${r.planning} demi-journée(s) planifiée(s)` +
+                        (r.cleared ? `, ${r.cleared} remise(s) en « Disponible »` : '') +
+                        (r.forced ? `, ${r.forced} remplacée(s) dans la planification` : '') +
+                        (r.dropped ? `, ${r.dropped} journée(s) retirée(s) de la grille` : '') +
+                        (r.added ? `, ${r.added} journée(s) ajoutée(s) à la grille` : '') +
                         (r.event
                             ? `, événement ${r.event.created ? 'créé' : 'mis à jour'} (${r.event.participants} participant(s)).`
                             : '.')
@@ -3911,10 +4051,8 @@
             asg.needed = x.needed;
             asg.av = null;
             asg.dates = [];
-            for (let d = x.start; d <= x.end; d = addDaysIso(d, 1)) {
-                const dow = new Date(Date.parse(d + 'T00:00:00Z')).getUTCDay();
-                if (dow !== 0 && dow !== 6) asg.dates.push(d);
-            }
+            // Tous les jours de l'étape, week-ends compris (certaines activités se tiennent le samedi ou le dimanche)
+            for (let d = x.start; d <= x.end; d = addDaysIso(d, 1)) asg.dates.push(d);
             try {
                 const r = await api(`/affectation/projects/${p.id}/availability/${stageKey}`);
                 asg.av = r.availability;
@@ -3939,11 +4077,13 @@
             else if (set.size < asg.needed) set.add(rid);
             assignList();
         },
-        // Toute l'étape (dans la limite du nombre de ressources par jour) ou aucune journée pour une ressource
+        // Tous les jours ouvrés de l'étape (dans la limite du nombre de ressources par jour ; les week-ends se cochent à la main)
+        // ou aucune journée pour une ressource
         assignRow(rid, all) {
             asg.dates.forEach(d => {
                 const set = (asg.days[d] = asg.days[d] || new Set());
                 if (!all) set.delete(rid);
+                else if ([0, 6].includes(new Date(Date.parse(d + 'T00:00:00Z')).getUTCDay())) return;
                 else if (set.size < asg.needed) set.add(rid);
             });
             assignList();
@@ -4078,19 +4218,56 @@
                 btn.lastChild.textContent = old;
             }
         },
+        async tplChoose() {
+            const pick = document.getElementById('affTplPick');
+            pick.textContent = 'Chargement des projets Asana…';
+            try {
+                const r = await api('/affectation/asana/template-projects');
+                const cur = stageTypes.data.asanaTemplate && stageTypes.data.asanaTemplate.gid;
+                pick.innerHTML = `<select id="affTplSel" style="padding:6px;max-width:360px;">${r.projects.map(p => `<option value="${esc(p.gid)}" ${p.gid === cur ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select> <button type="button" class="aff-btn aff-btn-primary" onclick="AffectationApp.tplLoad(document.getElementById('affTplSel').value)">Charger les tâches</button>`;
+            } catch (e) {
+                pick.innerHTML = `<span class="aff-error">${esc(e.message)}</span>`;
+            }
+        },
+        async tplLoad(gid) {
+            const pick = document.getElementById('affTplPick');
+            if (pick) pick.textContent = 'Lecture des tâches du projet…';
+            try {
+                const r = await api('/affectation/asana/template', { method: 'PUT', body: JSON.stringify({ gid }) });
+                stageTypes.data.asanaTemplate = r.template;
+                renderStageTypes();
+            } catch (e) {
+                if (pick) pick.innerHTML = `<span class="aff-error">${esc(e.message)}</span>`;
+            }
+        },
+        async asanaRuleSet(el) {
+            const d = stageTypes.data,
+                key = el.dataset.stage || el.dataset.stageCustom;
+            const custom = document.querySelector(`input[data-stage-custom="${key}"]`);
+            const sel = document.querySelector(`select[data-stage="${key}"][onchange*="asanaRuleSet"]`);
+            if (el === sel) custom.style.display = sel.value === '__custom' ? '' : 'none';
+            const v = sel.value === '__custom' ? custom.value.trim() : sel.value;
+            if (sel.value === '__custom' && !v) return;
+            d.asanaRules = { ...(d.asanaRules || {}), [key]: v };
+            if (!v) delete d.asanaRules[key];
+            await AffectationApp.stageTypeSet(null);
+        },
         async stageTypeSet(sel) {
             const d = stageTypes.data,
                 msg = document.getElementById('affStageTypesMsg');
-            d.mapping[sel.dataset.stage] = Number(sel.value);
-            const t = d.types.find(x => x.id === Number(sel.value));
-            const c = document.getElementById('affStChip_' + sel.dataset.stage);
-            if (c && typeof evtChip === 'function') c.innerHTML = evtChip(t, true);
+            if (sel) {
+                d.mapping[sel.dataset.stage] = Number(sel.value);
+                const t = d.types.find(x => x.id === Number(sel.value));
+                const c = document.getElementById('affStChip_' + sel.dataset.stage);
+                if (c && typeof evtChip === 'function') c.innerHTML = evtChip(t, true);
+            }
             try {
                 const r = await api('/affectation/stage-event-types', {
                     method: 'PUT',
-                    body: JSON.stringify({ mapping: d.mapping })
+                    body: JSON.stringify({ mapping: d.mapping, asanaRules: d.asanaRules || {} })
                 });
                 d.mapping = r.mapping;
+                d.asanaRules = r.asanaRules;
                 msg.style.color = '#1b7f3b';
                 msg.textContent = 'Correspondance enregistrée.';
                 setTimeout(() => {
@@ -4470,6 +4647,100 @@
             if (on.events) loadEvents();
             if (on.ateliers && window.AtelierPlanner) window.AtelierPlanner.show();
         },
+        // Suppression d'un événement (administrateur) : la planification posée par l'affectation pour ses participants est
+        // remise en situation par le serveur (« Disponible / En attente d'affectation »)
+        async evDelete(id) {
+            const e = evTab.data && evTab.data.events.find(x => x.id === id);
+            if (!e) return;
+            if (
+                !confirm(
+                    `Supprimer l'événement « ${e.label} » (${e.samu}, ${evDates(e)}) ?\n\nSes participants sont retirés, et leur planification posée par l'affectation de ce SAMU sur la période est remise en « Disponible / En attente d'affectation ». L'événement ne pourra pas être rétabli.`
+                )
+            )
+                return;
+            try {
+                await api(`/my-custom-events/${id}`, { method: 'DELETE' });
+                window.dispatchEvent(new CustomEvent('gp:evenements-modifies'));
+                const toast = document.createElement('div');
+                toast.className = 'aff-toast';
+                toast.textContent = `Événement « ${e.label} » supprimé.`;
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 4000);
+                await Promise.all([loadEvents(), plan.loaded ? loadPlanning() : null]);
+            } catch (x) {
+                alert(x.message);
+            }
+        },
+        async evDoublons() {
+            const box = document.getElementById('affDupBody');
+            document.getElementById('affDupMsg').textContent = '';
+            box.innerHTML = '<p class="aff-muted">Recherche des doublons…</p>';
+            document.getElementById('affDupModal').classList.add('active');
+            try {
+                await evDupLoad('');
+            } catch (e) {
+                box.innerHTML = `<p class="aff-error">${esc(e.message)}</p>`;
+            }
+        },
+        evDupClose() {
+            document.getElementById('affDupModal').classList.remove('active');
+        },
+        evDupChoose(groupId, eventId) {
+            evDup.choice[groupId] = eventId;
+            evDupRender('');
+        },
+        async evDupMerge(groupId) {
+            const g = evDup.groups.find(x => x.id === groupId);
+            if (!g) return;
+            const keep = evDup.choice[groupId];
+            const others = g.events.filter(e => e.id !== keep);
+            const kept = g.events.find(e => e.id === keep);
+            if (
+                !confirm(
+                    `Conserver « ${kept.label} » (${evDupPeriod(kept)}) et supprimer ${others.length} autre${others.length > 1 ? 's' : ''} ?\n\nLes participants des événements supprimés sont ajoutés à celui qui est conservé.`
+                )
+            )
+                return;
+            try {
+                const r = await api('/custom-events/merge', {
+                    method: 'POST',
+                    body: JSON.stringify({ keep_id: keep, remove_ids: others.map(e => e.id) })
+                });
+                await evDupAfter(
+                    `Fusion effectuée : ${others.length} événement${others.length > 1 ? 's' : ''} supprimé${others.length > 1 ? 's' : ''}, ${r.participantsAdded} participant${r.participantsAdded > 1 ? 's' : ''} ajouté${r.participantsAdded > 1 ? 's' : ''}.`
+                );
+            } catch (e) {
+                document.getElementById('affDupMsg').textContent = e.message;
+            }
+        },
+        async evDupMergeCertains() {
+            const list = evDup.groups.filter(g => g.niveau === 'certain');
+            if (
+                !list.length ||
+                !confirm(
+                    `Fusionner les ${list.length} groupe${list.length > 1 ? 's' : ''} de doublons certains ?\n\nDans chacun, l'événement présélectionné est conservé et ses doublons sont supprimés (leurs participants sont ajoutés à celui qui est conservé).`
+                )
+            )
+                return;
+            let removed = 0;
+            try {
+                for (const g of list) {
+                    const keep = evDup.choice[g.id];
+                    const ids = g.events.filter(e => e.id !== keep).map(e => e.id);
+                    await api('/custom-events/merge', {
+                        method: 'POST',
+                        body: JSON.stringify({ keep_id: keep, remove_ids: ids })
+                    });
+                    removed += ids.length;
+                }
+                await evDupAfter(
+                    `Fusion effectuée : ${removed} événement${removed > 1 ? 's' : ''} supprimé${removed > 1 ? 's' : ''}.`
+                );
+            } catch (e) {
+                document.getElementById('affDupMsg').textContent = e.message;
+                await evDupAfter('').catch(() => {});
+            }
+        },
         evSort(k) {
             evTab.sort = { k, dir: evTab.sort.k === k ? -evTab.sort.dir : 1 };
             renderEvents();
@@ -4484,9 +4755,6 @@
                     i.setSelectionRange(v.length, v.length);
                 }
             }
-        },
-        search() {
-            alert('Recherche - Fonctionnalité en cours de développement');
         },
         async logout() {
             if (!confirm('Voulez-vous vraiment vous déconnecter ?')) return;
