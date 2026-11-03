@@ -2887,7 +2887,7 @@
         const gs = evDup.groups;
         const certains = gs.filter(g => g.niveau === 'certain').length;
         box.innerHTML =
-            `<p class="aff-muted" style="margin:0 0 10px;font-size:12px;">Un doublon <b>certain</b> a le même type, le même lieu, les mêmes dates et le même libellé ; un doublon <b>probable</b> s'en approche (mêmes dates et même type, ou libellés très proches sur des dates qui se recoupent). Choisissez l'occurrence à conserver : les autres sont supprimées, leurs participants sont reportés sur l'événement conservé. Seuls les événements de cet onglet sont examinés.</p>` +
+            `<p class="aff-muted" style="margin:0 0 10px;font-size:12px;">Un doublon <b>certain</b> a le même type, le même lieu, les mêmes dates et le même libellé ; un doublon <b>probable</b> s'en approche (mêmes dates et même type, ou libellés très proches sur des dates qui se recoupent, ou même libellé sur des périodes distantes de 14 jours au plus). Choisissez l'occurrence à conserver : les autres sont supprimées, leurs participants sont reportés sur l'événement conservé. Seuls les événements de cet onglet sont examinés.</p>` +
             (message
                 ? `<p style="color:#1b7f3b;font-weight:600;margin:0 0 10px;" id="affDupOk">${esc(message)}</p>`
                 : '') +

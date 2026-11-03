@@ -238,7 +238,7 @@
   <p>Dans l'onglet <strong>Événements</strong> (application principale) comme dans l'onglet <strong>Événements</strong> de l'aide à l'affectation, le bouton <strong>🔍 Rechercher les doublons</strong> (administrateurs) propose les événements en double, par groupes :</p>
   <ul>
     <li><strong>Doublon certain</strong> : même type, même lieu, mêmes dates et période, même libellé (accents et casse ignorés).</li>
-    <li><strong>Doublon probable</strong> : même lieu avec mêmes dates et même type (libellés différents), ou dates qui se recoupent et libellés proches ou voisins (tous les mots du plus court figurent dans l'autre). Sans lieu, seuls des libellés identiques comptent.</li>
+    <li><strong>Doublon probable</strong> : même lieu avec mêmes dates et même type (libellés différents), ou dates qui se recoupent et libellés proches ou voisins (tous les mots du plus court figurent dans l'autre), ou même type, même lieu et même libellé sur des périodes qui ne se recoupent pas mais sont distantes de 14 jours au plus (ex. « VFT sur site » du 19 au 22/10 puis du 26/10 au 06/11). Sans lieu, seuls des libellés identiques comptent.</li>
   </ul>
   <p>Pour chaque groupe, une case <strong>Conserver</strong> désigne l'occurrence à garder (par défaut celle qui a le plus de participants). Le bouton <strong>Fusionner</strong> supprime les autres et <strong>ajoute leurs participants</strong> (internes et externes) à l'événement conservé ; <strong>Fusionner tous les doublons certains</strong> traite d'un coup tous les groupes certains. Les liens d'un déploiement vers un événement supprimé pointent alors vers l'événement conservé, et la planification des participants <strong>n'est pas remise en situation</strong> (contrairement à une suppression). Dans l'aide à l'affectation, seuls les événements de l'onglet sont examinés.</p>
   <ul>
@@ -783,6 +783,7 @@
     <ul>
       <li>🔗 <strong>Événements et déploiements</strong> : un participant d'un événement n'est ajouté comme intervenant d'une étape que sur les jours ouvrés de cet événement où le nombre de ressources <em>par jour</em> n'est pas atteint (une rotation d'experts sur des jours distincts est donc acceptée).</li>
       <li>🙋 <strong>Bouton « Participer »</strong> sur un événement d'une étape à ressources : l'expert devient intervenant de l'étape et sa planification est écrite par la synchronisation du déploiement (plus d'activité « Divers »). Si l'étape est complète, la planification est mise à jour comme pour un événement ordinaire.</li>
+      <li>🔍 <strong>Doublons d'événements</strong> : deux événements de même type, même lieu et même libellé sur des périodes voisines (14 jours au plus d'écart) sont désormais proposés comme doublons probables.</li>
       <li>📅 <strong>Aide à l'affectation › Événements</strong> : un participant qui n'intervient que certains jours de l'activité est suivi de ces jours (ex. « Alice Martin (01/03, 02/03) »).</li>
     </ul>
   </div>

@@ -110,8 +110,9 @@ async function fusionnerCertains() {
         <p class="ev-dbl__intro">
             Un doublon <strong>certain</strong> a le même type, le même lieu, les mêmes dates et le même libellé. Un
             doublon <strong>probable</strong> s'en approche (mêmes dates et même type, ou libellés très proches sur des
-            dates qui se recoupent). Choisissez l'occurrence à conserver : les autres sont supprimées, leurs
-            participants sont reportés sur l'événement conservé.
+            dates qui se recoupent, ou même libellé sur des périodes distantes de 14 jours au plus). Choisissez
+            l'occurrence à conserver : les autres sont supprimées, leurs participants sont reportés sur l'événement
+            conservé.
         </p>
         <AppAlert v-if="erreur" type="error" small :description="erreur" />
         <AppAlert v-if="message" type="success" small :description="message" data-testid="doublons-message" />
