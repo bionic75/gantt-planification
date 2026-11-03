@@ -122,8 +122,9 @@ export function asanaEff(tasks, t) {
 //  Début du projet / début du cadrage  = jalon « Démarrage projet auprès de l'ES »     Fin du cadrage = tâche 2.9
 //  Déploiement opérationnel            = de la fin du cadrage + 1 jour au jalon « Mise en service du bandeau »
 //  Mise en service / mise en production = jalons « Mise en service du bandeau » / « Mise en production du bandeau »
-//  Visite métier = 5.1 · VFT sur site = 5.9 · Formation utilisateurs = 6.3.4 · Accompagnement post démarrage = 6.6
+//  Visite métier = 5.1 · VFT sur site = 5.9 · Formation utilisateurs = 6.3.4 (à défaut 6.3) · Accompagnement post démarrage = 6.6
 //  Vérification des prérequis = tâche à créer dans Asana (« Vérification / Test des prérequis »)
+//  Réunion de lancement stratégique = tâche « Réunion de lancement stratégique » · Visite OB = tâche « Visite OB »
 export function asanaComputeTasks(tasks, projectName, formationTarget) {
     tasks.forEach(t => {
         const m = /^\s*(\d+(?:\.\d+)*)\.?\s/.exec(t.name);
@@ -203,7 +204,31 @@ export function asanaComputeTasks(tasks, projectName, formationTarget) {
               ? 'dépend de la mise en service, non datée'
               : 'la mise en service précède la fin du cadrage';
 
+    // Jalons : une date, celle d'échéance (la plus tardive des tâches reconnues)
+    const setMilestone = (key, list, why) => {
+        const v = span(list);
+        if (v) {
+            found[key] = { start: v.end, end: v.end };
+            sources[key] = list.map(t => t.name);
+        } else reasons[key] = why;
+    };
+    const lancement = tasks.filter(t => /reunion de lancement strategique/.test(t.n));
+    setMilestone(
+        'reunion_lancement',
+        lancement,
+        lancement.length
+            ? 'tâche « Réunion de lancement stratégique » non datée'
+            : 'aucune tâche « Réunion de lancement stratégique » dans ce projet Asana'
+    );
     setP('visite_metier', byCode('5.1'), 'tâche 5.1 non datée ou absente dans Asana');
+    const visiteOb = tasks.filter(t => /(^|[^a-z0-9])visite ob([^a-z0-9]|$)/.test(t.n));
+    setMilestone(
+        'visite_ob',
+        visiteOb,
+        visiteOb.length
+            ? 'tâche « Visite OB » non datée'
+            : 'aucune tâche « Visite OB » dans ce projet Asana (à créer ou à choisir dans les tâches du projet)'
+    );
     const tp = tasks.filter(t => /(tests?|verifications?) des prerequis/.test(t.n));
     setP(
         'test_prerequis',
@@ -213,10 +238,11 @@ export function asanaComputeTasks(tasks, projectName, formationTarget) {
             : 'aucune tâche « Vérification des prérequis » dans ce projet Asana (à créer)'
     );
     setP('vft', byCode('5.9'), 'tâche 5.9 (VFT sur site) non datée ou absente dans Asana');
+    // Tâche 6.3.4 ; à défaut (non chargée quand la tâche 6.3 porte ses propres dates, ou absente), tâche 6.3 « Formation » entière
     setP(
         'formation_utilisateurs',
-        byCode('6.3.4'),
-        'tâche 6.3.4 (formation utilisateurs) non datée ou absente dans Asana'
+        span(byCode('6.3.4')) ? byCode('6.3.4') : byCode('6.3'),
+        'tâche 6.3.4 (ou 6.3, formation) non datée ou absente dans Asana'
     );
     setP('accompagnement', byCode('6.6'), 'tâche 6.6 (accompagnement post démarrage) non datée ou absente dans Asana');
     return { samuNo, projectName, taskCount: tasks.length, demarDate, found, reasons, sources, tasks };
@@ -243,6 +269,12 @@ export function asanaApplyOverrides(c, ov) {
                 c.found[key] = { date: e.end };
                 delete c.reasons[key];
             }
+        } else if (ASANA_MILESTONES.includes(key)) {
+            const e = E(spec.task);
+            if (e) {
+                c.found[key] = { start: e.end, end: e.end };
+                delete c.reasons[key];
+            }
         } else {
             const es = E(spec.start),
                 ee = E(spec.end);
@@ -250,6 +282,10 @@ export function asanaApplyOverrides(c, ov) {
                 const cur = c.found[key] || {};
                 let start = es ? es.start : cur.start,
                     end = ee ? ee.end : cur.end;
+                // Une seule tâche choisie : si elle couvre un intervalle, c'est tout son intervalle qui est repris
+                // (et non sa seule date de début ou de fin complétée par la règle automatique)
+                if (es && !ee && es.end > es.start) end = es.end;
+                if (ee && !es && ee.end > ee.start) start = ee.start;
                 if (!start) start = end;
                 if (!end) end = start;
                 if (end < start) [start, end] = [end, start];
@@ -283,6 +319,53 @@ export async function asanaOverridesFor(depId) {
     }
 }
 
+// Dernières valeurs reprises (ou constatées) d'Asana, par déploiement : elles permettent de savoir si une donnée a été
+// modifiée dans l'application depuis, et donc de proposer un arbitrage quand Asana a aussi changé
+//  { "<id du déploiement>": { "<rubrique>": "<valeur Asana au format d'affichage>" } }
+export const ASANA_SNAPSHOT_KEY = 'asana_snapshots';
+
+async function asanaSnapshots() {
+    try {
+        return JSON.parse((await asanaSetting(ASANA_SNAPSHOT_KEY)) || '{}') || {};
+    } catch (e) {
+        return {};
+    }
+}
+
+export async function asanaSnapshotOf(depId) {
+    return (await asanaSnapshots())[String(depId)] || {};
+}
+
+/** Mémorise les valeurs Asana vues pour des rubriques d'un déploiement ({ rubrique: valeur au format d'affichage }) */
+export async function asanaSaveSnapshot(depId, values) {
+    if (!depId || !Object.keys(values).length) return;
+    const all = await asanaSnapshots();
+    all[String(depId)] = { ...(all[String(depId)] || {}), ...values };
+    await asanaPut(ASANA_SNAPSHOT_KEY, JSON.stringify(all));
+}
+
+/** Valeur Asana d'une rubrique d'un calcul, au format d'affichage ('' si absente) */
+export const asanaValueOf = (c, key) =>
+    key === 'date_debut' ? asanaFmt(c.demarDate ? { date: c.demarDate } : null) : asanaFmt(c.found[key] || null);
+
+/**
+ * Statut d'une rubrique : absent d'Asana, identique, nouveau (rien dans l'application), modifié (Asana a changé, pas
+ * l'application : reprise sans risque), local (modifié dans l'application, Asana inchangé), conflit (modifié des deux
+ * côtés, ou modifié dans l'application sans historique d'import : l'utilisateur tranche)
+ * @param {string} cur valeur de l'application
+ * @param {string} neu valeur d'Asana
+ * @param {string | undefined} snap dernière valeur Asana vue
+ */
+export function asanaStatus(cur, neu, snap) {
+    if (!neu) return 'absent';
+    if (cur && cur === neu) return 'identique';
+    if (!cur) return 'nouveau';
+    if (snap === undefined) return 'conflit';
+    if (cur === snap) return 'modifié';
+    if (neu === snap) return 'local';
+    return 'conflit';
+}
+
 export function asanaCompute(csvText, formationTarget) {
     const { tasks, projectName } = asanaTasksFromCsv(csvText);
     return asanaComputeTasks(tasks, projectName, formationTarget);
@@ -310,13 +393,18 @@ export async function asanaMatch(samuNo, forcedId) {
     return { loc, existing };
 }
 
+/** Jalons : une seule tâche Asana donne leur date */
+export const ASANA_MILESTONES = ['reunion_lancement', 'visite_ob'];
+
 export const ASANA_KEYS = [
     'date_debut',
     'cadrage',
     'deploiement',
     'mise_en_service',
     'mise_en_production',
+    'reunion_lancement',
     'visite_metier',
+    'visite_ob',
     'test_prerequis',
     'vft',
     'formation_utilisateurs',
@@ -325,11 +413,19 @@ export const ASANA_KEYS = [
 
 export const asanaFr = d => (d ? d.split('-').reverse().join('/') : '');
 
-export const asanaFmt = v => (!v ? '' : v.date ? asanaFr(v.date) : `${asanaFr(v.start)} → ${asanaFr(v.end)}`);
+export const asanaFmt = v =>
+    !v
+        ? ''
+        : v.date
+          ? asanaFr(v.date)
+          : v.start === v.end
+            ? asanaFr(v.start)
+            : `${asanaFr(v.start)} → ${asanaFr(v.end)}`;
 
 export async function asanaPreviewPayload(c, forcedId) {
     const { loc, existing } = await asanaMatch(c.samuNo, forcedId);
     if (existing) asanaApplyOverrides(c, await asanaOverridesFor(existing.id));
+    const snap = existing ? await asanaSnapshotOf(existing.id) : {};
     const rows = ASANA_KEYS.map(key => {
         const label = key === 'date_debut' ? 'Début du projet' : AFF_STAGES.find(s => s.key === key).label;
         let cur = null,
@@ -345,7 +441,6 @@ export async function asanaPreviewPayload(c, forcedId) {
             cur = p ? { start: p.start, end: p.end } : null;
             neu = c.found[key] || null;
         }
-        const same = cur && neu && asanaFmt(cur) === asanaFmt(neu);
         const reason =
             key === 'date_debut'
                 ? neu
@@ -357,7 +452,9 @@ export async function asanaPreviewPayload(c, forcedId) {
             label,
             old: asanaFmt(cur),
             new: asanaFmt(neu),
-            status: !neu ? 'absent' : same ? 'identique' : cur ? 'modifié' : 'nouveau',
+            // Dernière valeur reprise d'Asana : sert à l'arbitrage des conflits
+            previous: snap[key] === undefined ? null : snap[key],
+            status: asanaStatus(asanaFmt(cur), asanaFmt(neu), snap[key]),
             reason
         };
     });
@@ -435,6 +532,11 @@ export async function asanaApplyCore(req, c, wantList, forcedId, source) {
             changes,
             note: c.projectName ? `Projet Asana « ${c.projectName.trim()} »` : ''
         });
+    // Valeurs d'Asana reprises : référence pour repérer ensuite une modification faite dans l'application
+    await asanaSaveSnapshot(
+        id,
+        Object.fromEntries([...want].filter(k => asanaValueOf(c, k)).map(k => [k, asanaValueOf(c, k)]))
+    );
     logUserAction(req, 'Import Asana dans un déploiement SAMU', { id, samu: v.samu_name, appliquees: [...want] });
     return {
         success: true,
@@ -717,9 +819,51 @@ export async function asanaRefreshDeployment(req, token, ctx, dep) {
     if (!c.samuNo) throw new HttpError(400, "Impossible d'identifier le SAMU dans le nom du projet Asana");
     const pv = await asanaPreviewPayload(c, dep.id);
     const keys = pv.rows.filter(r => r.status === 'nouveau' || r.status === 'modifié').map(r => r.key);
-    if (!keys.length) return { success: true, unchanged: true, samu_name: dep.samu_name, asana: projectName };
+    const conflicts = asanaConflictsOf(pv);
+    if (!keys.length)
+        return {
+            success: true,
+            unchanged: !conflicts.length,
+            samu_name: dep.samu_name,
+            asana: projectName,
+            id: dep.id,
+            conflicts
+        };
     const r = await asanaApplyCore(req, c, keys, dep.id, 'api');
-    return { ...r, updated: keys.length, asana: projectName };
+    return { ...r, updated: keys.length, asana: projectName, conflicts };
+}
+
+/** Rubriques en conflit d'un aperçu : modifiées dans l'application et dans Asana (à arbitrer par l'utilisateur) */
+export const asanaConflictsOf = pv =>
+    pv.rows
+        .filter(r => r.status === 'conflit')
+        .map(r => ({ key: r.key, label: r.label, app: r.old, asana: r.new, previous: r.previous }));
+
+/**
+ * Arbitrage des conflits d'un déploiement : « asana » reprend la valeur d'Asana, « app » conserve celle de l'application
+ * (la valeur d'Asana est alors mémorisée : elle ne sera plus proposée tant qu'Asana ne change pas)
+ * @param {Record<string, 'app' | 'asana'>} choices
+ */
+export async function asanaResolveConflicts(req, token, ctx, dep, choices) {
+    const match = asanaPickProject(ctx, dep).match;
+    if (!match) throw new HttpError(404, `Aucun projet Asana associé à « ${dep.samu_name} »`);
+    const { projectName, tasks } = await asanaFetchProject(token, match.gid);
+    const c = asanaComputeTasks(tasks, projectName);
+    const pv = await asanaPreviewPayload(c, dep.id);
+    const pending = new Set(asanaConflictsOf(pv).map(x => x.key));
+    const fromAsana = Object.keys(choices).filter(k => choices[k] === 'asana' && pending.has(k));
+    const kept = Object.keys(choices).filter(k => choices[k] === 'app' && pending.has(k));
+    let applied = null;
+    if (fromAsana.length) applied = await asanaApplyCore(req, c, fromAsana, dep.id, 'api');
+    await asanaSaveSnapshot(dep.id, Object.fromEntries(kept.map(k => [k, asanaValueOf(c, k)])));
+    return {
+        success: true,
+        id: dep.id,
+        samu_name: dep.samu_name,
+        applied: fromAsana.length,
+        kept: kept.length,
+        changes: applied ? applied.changes : []
+    };
 }
 
 // Tâches du projet Asana lié à un déploiement, rubriques reprises (règle / valeur actuelle) et remplacements manuels
@@ -729,10 +873,12 @@ export const ASANA_RULES = {
     deploiement: 'Début : fin du cadrage (2.9) + 1 jour · Fin : jalon « Mise en service du bandeau »',
     mise_en_service: 'Jalon contenant « Mise en service du bandeau »',
     mise_en_production: 'Jalon contenant « Mise en production du bandeau »',
+    reunion_lancement: 'Jalon : tâche « Réunion de lancement stratégique »',
     visite_metier: 'Tâche 5.1',
+    visite_ob: 'Jalon : tâche « Visite OB »',
     test_prerequis: 'Tâche « Vérification des prérequis » (à créer dans Asana)',
     vft: 'Tâche 5.9',
-    formation_utilisateurs: 'Tâche 6.3.4',
+    formation_utilisateurs: 'Tâche 6.3.4 (à défaut tâche 6.3)',
     accompagnement: 'Tâche 6.6'
 };
 

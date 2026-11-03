@@ -25,6 +25,7 @@ router.get('/affectation/projects/:id/history', requireAffectationAccess, h(ctrl
 
 // Ressources affectées et disponibilités
 router.put('/affectation/projects/:id/assignments/:stage', requireAffectationAccess, h(ctrl.setAssignments));
+router.put('/affectation/projects/:id/assignment-days/:stage', requireAffectationAccess, h(ctrl.setAssignmentDays));
 router.post('/affectation/projects/:id/assignments/:stage/release', requireAdmin, h(ctrl.release));
 router.get('/affectation/projects/:id/availability/:stage', requireAffectationAccess, h(ctrl.availability));
 
@@ -64,6 +65,7 @@ router.post('/affectation/asana/preview', requireAdmin, h(asana.preview));
 router.post('/affectation/asana/apply', requireAdmin, h(asana.apply));
 router.post('/affectation/asana/refresh-all', requireAdmin, h(asana.refreshAll));
 router.post('/affectation/projects/:id/asana-refresh', requireAdmin, h(asana.refreshOne));
+router.post('/affectation/projects/:id/asana-conflicts', requireAdmin, h(asana.resolveConflicts));
 router.get('/affectation/projects/:id/asana-tasks', requireAdmin, h(asana.tasks));
 router.put('/affectation/projects/:id/asana-overrides', requireAdmin, h(asana.saveOverrides));
 

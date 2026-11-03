@@ -85,6 +85,24 @@ export async function evtSeedTypes() {
             // séquentiel : identifiants dans l'ordre de la liste
             await prisma.eventType.upsert({ where: { code: t.code }, update: {}, create: typeData(t, (i + 1) * 10) });
         }
+        // Types « Visite OB » et « Réunion de lancement stratégique » (étapes de l'Aide à l'affectation) : ajoutés une fois
+        // aux bases créées avant eux
+        if (!(await prisma.setting.findUnique({ where: { key: 'evt_types_ob_lancement_seeded' } }))) {
+            for (const code of ['visiteOb', 'reunionLancement']) {
+                const t = EVT_TYPE_SEED.find(x => x.code === code);
+                if (t && !(await prisma.eventType.findUnique({ where: { code } }))) {
+                    const last = await prisma.eventType.aggregate({ _max: { sort_order: true } });
+                    await prisma.eventType.create({
+                        data: typeData({ ...t, other: false }, (last._max.sort_order || 0) + 10)
+                    });
+                }
+            }
+            await prisma.setting.upsert({
+                where: { key: 'evt_types_ob_lancement_seeded' },
+                update: { value: '1' },
+                create: { key: 'evt_types_ob_lancement_seeded', value: '1' }
+            });
+        }
         // Type « Mise en production » ajouté après la première version : une seule fois
         if (!(await prisma.setting.findUnique({ where: { key: 'evt_type_mep_seeded' } }))) {
             if (!(await prisma.eventType.findUnique({ where: { code: 'mep' } }))) {

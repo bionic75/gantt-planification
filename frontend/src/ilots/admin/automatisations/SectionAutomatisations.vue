@@ -1,5 +1,5 @@
 <!-- Administration › Automatisations et rappels (sous-îlot) : rappel de saisie des disponibilités (n°1), sauvegarde des
-     plannings (n°2), notifications Teams (n°3), workflow CRA (n°4), astreintes HO (n°5 et n°6), fenêtre partagée de
+     plannings (n°2), notifications Teams (n°3), workflow CRA (n°4), astreintes HO (n°5 et n°6), astreintes HO ANS (n°7 et n°8), fenêtre partagée de
      l'historique et des outils -->
 <script setup lang="ts">
 import AppConfirmation from '@/composants/AppConfirmation.vue';
@@ -23,6 +23,8 @@ const { demande, repondre } = fournirConfirmation();
         <WorkflowCra />
         <AstreinteHo :numero="5" />
         <AstreinteHo :numero="6" />
+        <AstreinteHo :numero="7" />
+        <AstreinteHo :numero="8" />
     </AppSectionAdmin>
     <FenetreHistorique />
     <AppConfirmation

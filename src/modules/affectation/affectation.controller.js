@@ -154,7 +154,30 @@ export async function availability(/** @type {Request} */ req, /** @type {Respon
     const row = await svc.getProject(req.params.id);
     if (!row) throw notFound('Projet introuvable');
     const r = await svc.affComputeAvailability(row, req.params.stage);
-    res.json({ total: r.total, availability: r.availability });
+    res.json({ total: r.total, availability: r.availability, dates: r.dates });
+}
+
+/** Journées d'intervention d'une étape : { days: { AAAA-MM-JJ: [ressources] } }, avec historique */
+export async function setAssignmentDays(/** @type {Request} */ req, /** @type {Response} */ res) {
+    const projectId = Number(req.params.id);
+    const stage = svc.AFF_STAGES.find(s => s.key === req.params.stage && s.resources);
+    if (!stage) throw badRequest('Étape sans ressources à affecter');
+    const { samuName, before, ids, days } = await svc.setAssignmentDays(projectId, stage, req.body && req.body.days);
+    logUserAction(req, 'Affectation de ressources par journée (déploiement SAMU)', {
+        projectId,
+        stage: stage.key,
+        resources: ids
+    });
+    const names = await svc.resourceNames([...new Set([...before, ...ids])]);
+    const list = (/** @type {number[]} */ a) => a.map(i => names[i] || `#${i}`).join(', ') || '—';
+    const perDay = Object.entries(days)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([d, rids]) => `${svc.affFd(d)} : ${list(rids)}`)
+        .join(' ; ');
+    await svc.affHist(req, projectId, samuName, 'affectation', {
+        changes: [{ label: `${stage.label} — ressources par journée`, from: list(before), to: perDay || '—' }]
+    });
+    res.json({ resource_ids: ids, assignment_days: days });
 }
 
 /**

@@ -1,6 +1,7 @@
 // @ts-check
 // Client Prisma partagé. L'adaptateur dépend de DB_PROVIDER ; le client doit avoir été généré
 // pour le même fournisseur (npm run db:generate, exécuté aussi à l'installation).
+import fs from 'node:fs';
 import { env } from '../config/env.js';
 import { PrismaClient } from '../generated/prisma/client.ts';
 
@@ -59,14 +60,29 @@ export async function checkEncoding() {
  * @returns {Promise<string | null>} message d'erreur, ou null si la base est à jour
  */
 export async function checkMigrations() {
+    /** @type {string[]} */
+    let applied;
     try {
-        const rows = /** @type {Array<{ n: number | bigint }>} */ (
+        const rows = /** @type {Array<{ migration_name: string }>} */ (
             await prisma.$queryRawUnsafe(
-                'SELECT COUNT(*) AS n FROM _prisma_migrations WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL'
+                'SELECT migration_name FROM _prisma_migrations WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL'
             )
         );
-        return Number(rows[0].n) > 0 ? null : 'aucune migration appliquée';
+        applied = rows.map(r => r.migration_name);
     } catch {
         return 'base non initialisée par les migrations';
     }
+    if (!applied.length) return 'aucune migration appliquée';
+    // Migrations du code absentes de la base : sans elles, des tables ou colonnes manqueraient (erreurs au fil des requêtes)
+    try {
+        const dir = new URL(`../../prisma/${env.DB_PROVIDER}/migrations/`, import.meta.url);
+        const pending = fs
+            .readdirSync(dir, { withFileTypes: true })
+            .filter(d => d.isDirectory() && !applied.includes(d.name))
+            .map(d => d.name);
+        if (pending.length) return `${pending.length} migration(s) en attente (${pending.join(', ')})`;
+    } catch {
+        /* dossier des migrations absent de l'installation : contrôle sans objet */
+    }
+    return null;
 }

@@ -193,7 +193,143 @@ describe('ressources affectées', () => {
     });
 });
 
+describe('journées d’intervention par étape', () => {
+    const periods = { vft: [{ start: '2027-03-08', end: '2027-03-12', needed: 2 }] };
+    const days =
+        (id, stage = 'vft') =>
+        async body =>
+            admin.put(`/api/affectation/projects/${id}/assignment-days/${stage}`, body);
+
+    it('une journée par ressource : intervenants de l’étape = réunion des journées ; contrôles', async () => {
+        const samu = await newSamu();
+        const p = await createProject(samu, periods);
+        const [a, b, c] = [await createResource(admin), await createResource(admin), await createResource(admin)];
+        const put = days(p.id);
+        const r = await put({
+            days: {
+                '2027-03-08': [a.id, b.id],
+                '2027-03-09': [a.id],
+                '2027-03-10': [b.id, c.id]
+            }
+        });
+        expect(r.status, JSON.stringify(r.data)).toBe(200);
+        expect(r.data.resource_ids.sort()).toEqual([a.id, b.id, c.id].sort());
+        const proj = await project(p.id);
+        expect(proj.assignments.vft.sort()).toEqual([a.id, b.id, c.id].sort());
+        expect(proj.assignment_days.vft).toEqual({
+            '2027-03-08': [a.id, b.id],
+            '2027-03-09': [a.id],
+            '2027-03-10': [b.id, c.id]
+        });
+        // Contrôles : au plus « ressources nécessaires » par jour ; jours ouvrés de la période seulement
+        expect((await put({ days: { '2027-03-08': [a.id, b.id, c.id] } })).status).toBe(400);
+        expect((await put({ days: { '2027-03-13': [a.id] } })).status).toBe(400); // samedi
+        expect((await put({ days: { '2027-03-15': [a.id] } })).status).toBe(400); // hors période
+        expect((await put({ days: { '2027-03-08': [999999] } })).status).toBe(400);
+        expect((await put({ days: [] })).status).toBe(400);
+        // Un jalon n'a pas de journées
+        expect((await days(p.id, 'cadrage')({ days: {} })).status).toBe(400);
+    });
+
+    it('sans journée enregistrée : toute l’étape ; l’affectation de l’étape entière efface les journées', async () => {
+        const samu = await newSamu();
+        const p = await createProject(samu, periods);
+        const a = await createResource(admin);
+        await admin.put(`/api/affectation/projects/${p.id}/assignments/vft`, { resource_ids: [a.id] });
+        expect((await project(p.id)).assignment_days.vft).toEqual({
+            '2027-03-08': [a.id],
+            '2027-03-09': [a.id],
+            '2027-03-10': [a.id],
+            '2027-03-11': [a.id],
+            '2027-03-12': [a.id]
+        });
+        await days(p.id)({ days: { '2027-03-09': [a.id] } });
+        expect(Object.keys((await project(p.id)).assignment_days.vft)).toEqual(['2027-03-09']);
+        await admin.put(`/api/affectation/projects/${p.id}/assignments/vft`, { resource_ids: [a.id] });
+        expect(Object.keys((await project(p.id)).assignment_days.vft)).toHaveLength(5);
+    });
+
+    it('la planification ne reçoit que les journées d’intervention ; disponibilités par jour', async () => {
+        const samu = await newSamu();
+        const p = await createProject(samu, periods);
+        const a = await createResource(admin);
+        await days(p.id)({ days: { '2027-03-09': [a.id], '2027-03-11': [a.id] } });
+        const sync = (await admin.get(`/api/affectation/projects/${p.id}/sync/vft`)).data;
+        // 2 journées × 2 demi-journées (et non les 5 jours de l'étape)
+        expect(sync.resources[0].toWrite).toBe(4);
+        const av = (await admin.get(`/api/affectation/projects/${p.id}/availability/vft`)).data;
+        expect(av.dates).toEqual(['2027-03-08', '2027-03-09', '2027-03-10', '2027-03-11', '2027-03-12']);
+        await admin.post('/api/schedule', {
+            [`${a.id}_available_2027-03-10_AM`]: '3',
+            [`${a.id}_activity_2027-03-12_AM`]: '3',
+            [`${a.id}_localisation_2027-03-12_AM`]: '🚨 SAMU 13'
+        });
+        const av2 = (await admin.get(`/api/affectation/projects/${p.id}/availability/vft`)).data.availability[a.id];
+        expect(av2.byDay).toMatchObject({ '2027-03-10': 'leave', '2027-03-12': 'other' });
+    });
+
+    it('journée déjà prise par un autre SAMU : refusée, sauf si elle l’était déjà ici ; adaptation à la période', async () => {
+        const samu = await newSamu();
+        const p = await createProject(samu, periods);
+        const a = await createResource(admin);
+        await admin.post('/api/schedule', {
+            [`${a.id}_activity_2027-03-11_AM`]: '3',
+            [`${a.id}_localisation_2027-03-11_AM`]: '🚨 SAMU 13'
+        });
+        const refused = await days(p.id)({ days: { '2027-03-11': [a.id] } });
+        expect(refused.status).toBe(409);
+        expect(refused.data.error).toMatch(/autre SAMU/);
+        expect((await days(p.id)({ days: { '2027-03-09': [a.id] } })).status).toBe(200);
+        // Période raccourcie : les journées hors période disparaissent, une ressource sans journée n'est plus affectée
+        await days(p.id)({ days: { '2027-03-09': [a.id], '2027-03-12': [a.id] } });
+        const upd = await admin.put(`/api/affectation/projects/${p.id}`, {
+            samu_name: samu.name,
+            date_debut: '2027-01-04',
+            periods: { vft: [{ start: '2027-03-08', end: '2027-03-10', needed: 2 }] }
+        });
+        expect(upd.status, JSON.stringify(upd.data)).toBe(200);
+        expect(Object.keys(upd.data.assignment_days.vft)).toEqual(['2027-03-09']);
+        const upd2 = await admin.put(`/api/affectation/projects/${p.id}`, {
+            samu_name: samu.name,
+            date_debut: '2027-01-04',
+            periods: { vft: [{ start: '2027-03-11', end: '2027-03-12', needed: 2 }] }
+        });
+        expect(upd2.data.assignments.vft ?? []).toEqual([]);
+        expect(upd2.data.assignment_days.vft).toBeUndefined();
+    });
+});
+
 describe('synchronisation vers la planification et les événements', () => {
+    it('« Réunion de lancement stratégique » et « Visite OB » : jalons sans ressources, reliés aux événements', async () => {
+        const types = (await admin.get('/api/event-types')).data.types;
+        expect(types.map(x => x.code)).toEqual(expect.arrayContaining(['reunionLancement', 'visiteOb']));
+        const stages = (await admin.get('/api/affectation/stage-event-types')).data;
+        expect(stages.stages.map(s => s.key)).toEqual(expect.arrayContaining(['reunion_lancement', 'visite_ob']));
+        expect(stages.mapping.visite_ob).toBe(types.find(x => x.code === 'visiteOb').id);
+        expect(stages.mapping.reunion_lancement).toBe(types.find(x => x.code === 'reunionLancement').id);
+        const config = (await admin.get('/api/affectation/config')).data;
+        for (const key of ['reunion_lancement', 'visite_ob'])
+            expect(config.stages.find(s => s.key === key)).toMatchObject({ kind: 'milestone', resources: false });
+
+        // Une date suffit (début = fin), aucun nombre de ressources ; une seule date par jalon
+        const samu = await newSamu();
+        const p = await createProject(samu, {
+            reunion_lancement: [{ start: '2027-02-01' }],
+            visite_ob: [{ start: '2027-03-10', end: '2027-03-12', needed: 3 }]
+        });
+        expect(p.periods.reunion_lancement).toEqual([{ start: '2027-02-01', end: '2027-02-01' }]);
+        expect(p.periods.visite_ob).toEqual([{ start: '2027-03-10', end: '2027-03-10' }]);
+        const two = await admin.post('/api/affectation/projects', {
+            samu_name: samu.name,
+            date_debut: '2027-01-04',
+            periods: { visite_ob: [{ start: '2027-03-10' }, { start: '2027-03-11' }] }
+        });
+        expect(two.status).toBe(400);
+        // Pas d'affectation de ressources expertes sur un jalon
+        const put = await admin.put(`/api/affectation/projects/${p.id}/assignments/visite_ob`, { resource_ids: [1] });
+        expect(put.status).toBe(400);
+    });
+
     it('aperçu, planification renseignée, événement créé puis repris ; désaffectation et suppression', async () => {
         const samu = await newSamu();
         const p = await createProject(samu);
