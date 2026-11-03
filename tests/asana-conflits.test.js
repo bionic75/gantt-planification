@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
     asanaApplyOverrides,
     asanaComputeTasks,
+    asanaTemplateChoices,
     asanaUseStageRules,
     asanaStatus,
     asanaValueOf
@@ -165,5 +166,18 @@ describe('activité Asana choisie dans l’administration', () => {
         } finally {
             asanaUseStageRules({});
         }
+    });
+});
+
+describe('projet Asana type', () => {
+    it('tâches converties en choix : code de tâche, sinon titre normalisé, sans doublon', () => {
+        const t = n => ({ name: n });
+        expect(
+            asanaTemplateChoices([t('5.1 Visite métier'), t('5.1. Autre'), t('Visite OB'), t('  '), t('2.9.1 Fin')])
+        ).toEqual([
+            { value: '5.1', label: '5.1 Visite métier' },
+            { value: 'title:visite ob', label: 'Visite OB' },
+            { value: '2.9.1', label: '2.9.1 Fin' }
+        ]);
     });
 });

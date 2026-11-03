@@ -927,16 +927,25 @@
         if (!d || !box) return;
         const chip = t => (typeof evtChip === 'function' && t ? evtChip(t, true) : '');
         const acts = d.asanaActivities || [];
+        const tpl = d.asanaTemplate;
+        const tplActs = tpl ? tpl.tasks : [];
         const rules = d.asanaRules || {};
-        box.innerHTML = `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;">
+        const optsAsana = rule =>
+            (tpl
+                ? `<optgroup label="Projet type : ${esc(tpl.name)}">${tplActs.map(x => `<option value="${esc(x.value)}" ${rule === x.value ? 'selected' : ''}>${esc(x.label)}</option>`).join('')}</optgroup>`
+                : '') +
+            `<optgroup label="Règles usuelles">${acts.map(x => `<option value="${esc(x.value)}" ${rule === x.value && !tplActs.some(y => y.value === rule) ? 'selected' : ''}>${esc(x.label)}</option>`).join('')}</optgroup>`;
+        box.innerHTML = `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;font-size:13px;"><b>Projet Asana type :</b> <span>${tpl ? `${esc(tpl.name)} · ${tplActs.length} tâche(s)` : '<span class="aff-muted">aucun (règles usuelles seulement)</span>'}</span>
+            <button type="button" class="aff-btn" onclick="AffectationApp.tplChoose()">${tpl ? 'Changer' : 'Choisir'} le projet type…</button>${tpl ? '<button type="button" class="aff-btn" onclick="AffectationApp.tplLoad(\'\')">Retirer</button>' : ''}<span id="affTplPick"></span></div>
+            <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;">
             <thead><tr style="text-align:left;color:#6b7a8d;font-size:11px;"><th style="padding:6px 8px;">Activité de l'outil de planification</th><th style="padding:6px 8px;min-width:260px;">Activité Asana</th><th style="padding:6px 8px;min-width:260px;">Type d'événement</th><th style="padding:6px 8px;">Aperçu (planning / carte)</th></tr></thead><tbody>
             ${d.stages
                 .map(st => {
                     const cur = d.types.find(t => t.id === d.mapping[st.key]);
                     const rule = rules[st.key] || '';
-                    const known = acts.some(x => x.value === rule);
+                    const known = acts.some(x => x.value === rule) || tplActs.some(x => x.value === rule);
                     return `<tr style="border-top:1px solid #eef1f6;"><td style="padding:8px;"><b>${esc(st.label)}</b></td>
-                    <td style="padding:8px;"><select data-stage="${st.key}" onchange="AffectationApp.asanaRuleSet(this)" style="width:100%;padding:6px;"><option value="">Par défaut : ${esc(st.rule)}</option>${acts.map(x => `<option value="${esc(x.value)}" ${rule === x.value ? 'selected' : ''}>${esc(x.label)}</option>`).join('')}<option value="__custom" ${rule && !known ? 'selected' : ''}>Autre (code ou titre de tâche)…</option></select>
+                    <td style="padding:8px;"><select data-stage="${st.key}" onchange="AffectationApp.asanaRuleSet(this)" style="width:100%;padding:6px;"><option value="">Par défaut : ${esc(st.rule)}</option>${optsAsana(rule)}<option value="__custom" ${rule && !known ? 'selected' : ''}>Autre (code ou titre de tâche)…</option></select>
                     <input type="text" data-stage-custom="${st.key}" value="${rule && !known ? esc(rule.replace(/^title:/, '')) : ''}" placeholder="ex. 5.4 ou titre de la tâche" onchange="AffectationApp.asanaRuleSet(this)" style="width:100%;padding:6px;margin-top:4px;${rule && !known ? '' : 'display:none;'}"></td>
                     <td style="padding:8px;"><select data-stage="${st.key}" onchange="AffectationApp.stageTypeSet(this)" style="width:100%;padding:6px;">${d.types.map(t => `<option value="${t.id}" ${cur && cur.id === t.id ? 'selected' : ''}>${esc(t.label_long)}${t.label_short ? ' (' + esc(t.label_short) + ')' : ''}</option>`).join('')}</select></td>
                     <td style="padding:8px;" id="affStChip_${st.key}">${chip(cur)}</td></tr>`;
@@ -4209,6 +4218,28 @@
             } finally {
                 btn.classList.remove('aff-busy');
                 btn.lastChild.textContent = old;
+            }
+        },
+        async tplChoose() {
+            const pick = document.getElementById('affTplPick');
+            pick.textContent = 'Chargement des projets Asana…';
+            try {
+                const r = await api('/affectation/asana/template-projects');
+                const cur = stageTypes.data.asanaTemplate && stageTypes.data.asanaTemplate.gid;
+                pick.innerHTML = `<select id="affTplSel" style="padding:6px;max-width:360px;">${r.projects.map(p => `<option value="${esc(p.gid)}" ${p.gid === cur ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select> <button type="button" class="aff-btn aff-btn-primary" onclick="AffectationApp.tplLoad(document.getElementById('affTplSel').value)">Charger les tâches</button>`;
+            } catch (e) {
+                pick.innerHTML = `<span class="aff-error">${esc(e.message)}</span>`;
+            }
+        },
+        async tplLoad(gid) {
+            const pick = document.getElementById('affTplPick');
+            if (pick) pick.textContent = 'Lecture des tâches du projet…';
+            try {
+                const r = await api('/affectation/asana/template', { method: 'PUT', body: JSON.stringify({ gid }) });
+                stageTypes.data.asanaTemplate = r.template;
+                renderStageTypes();
+            } catch (e) {
+                if (pick) pick.innerHTML = `<span class="aff-error">${esc(e.message)}</span>`;
             }
         },
         async asanaRuleSet(el) {

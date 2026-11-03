@@ -828,6 +828,34 @@ export async function asanaProjectList(token) {
     );
 }
 
+// Projet Asana type : ses tâches alimentent la liste des activités Asana de l'administration
+export const ASANA_TEMPLATE_KEY = 'asana_template';
+
+/** Tâches d'un projet Asana sous forme de choix : { value (code ou « title:… »), label } */
+export function asanaTemplateChoices(tasks) {
+    const seen = new Set();
+    const out = [];
+    for (const t of tasks) {
+        const name = String(t.name || '').trim();
+        if (!name) continue;
+        const m = /^\s*(\d+(?:\.\d+)*)\.?\s+(.*)$/.exec(name);
+        const value = m ? m[1] : 'title:' + asanaNorm(name);
+        if (seen.has(value)) continue;
+        seen.add(value);
+        out.push({ value, label: (m ? `${m[1]} ${m[2]}` : name).slice(0, 90) });
+    }
+    return out.slice(0, 600);
+}
+
+export async function asanaLoadTemplate() {
+    try {
+        const v = JSON.parse((await getSetting(ASANA_TEMPLATE_KEY)) || 'null');
+        return v && Array.isArray(v.tasks) ? v : null;
+    } catch {
+        return null;
+    }
+}
+
 export async function asanaForcedId(gid) {
     try {
         const l = JSON.parse((await asanaSetting('asana_links')) || '{}');
