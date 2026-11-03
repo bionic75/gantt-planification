@@ -108,10 +108,10 @@ export const apiAutomatisations = {
     /** N°4 : rappel CRA envoyé maintenant (à un expert, ou à tous) ; journal détaillé */
     declencherCra: (userId: string | null) =>
         api.post<{ success?: boolean; sent?: number; logs?: string[] }>('/automation/cra/trigger', { user_id: userId }),
-    /** N°5 et n°6 : experts HO, champs des modèles de mail et modèles par défaut */
+    /** N°5 à n°8 : experts HO, utilisateurs HO ANS, champs des modèles de mail et modèles par défaut */
     infosHo: () => api.get<InfosHo>('/astreintes-ho/info'),
-    /** N°5 et n°6 : envoi immédiat avec la configuration enregistrée */
-    envoyerHo: (n: 5 | 6) =>
+    /** N°5 à n°8 : envoi immédiat avec la configuration enregistrée */
+    envoyerHo: (n: 5 | 6 | 7 | 8) =>
         api.post<{ sent?: boolean; recipients?: number; week?: string; reason?: string }>(
             `/astreintes-ho/automation/${n}/send`,
             {}
@@ -130,5 +130,7 @@ export interface InfosHo {
     experts?: Array<{ user_id: number | null; nom: string | null; prenom: string | null; email: string | null }>;
     /** Champs des modèles : code, description */
     fields?: Array<[string, string]>;
-    templates: Record<'5' | '6', { subject: string; body: string }>;
+    /** Utilisateurs ayant la case « Astreinte HO ANS » cochée */
+    ansUsers?: Array<{ user_id: number | null; nom: string | null; prenom: string | null; email: string | null }>;
+    templates: Record<'5' | '6' | '7' | '8', { subject: string; body: string }>;
 }

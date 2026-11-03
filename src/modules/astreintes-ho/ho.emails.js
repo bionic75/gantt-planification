@@ -10,6 +10,15 @@ export const DEFAULT_TEMPLATES = {
     6: {
         subject: "Planning d'astreinte HO — semaine {semaine} ({debut} au {fin})",
         body: "Bonjour,\n\nVoici le planning d'astreinte HO de la semaine {semaine}, du {debut} au {fin}.\n\n{planning}\n\n{modifications}\nPlanning en ligne : {lien}\n\nCordialement"
+    },
+    // Astreintes HO ANS : mêmes champs, un utilisateur par jour
+    7: {
+        subject: 'Astreintes HO ANS — planning de la semaine {semaine} à compléter',
+        body: 'Bonjour,\n\nMerci de renseigner vos astreintes HO ANS pour la semaine {semaine}, du {debut} au {fin}.\n\n{planning}\n\nPlanning en ligne : {lien}\n\nCordialement'
+    },
+    8: {
+        subject: "Planning d'astreinte HO ANS — semaine {semaine} ({debut} au {fin})",
+        body: "Bonjour,\n\nVoici le planning d'astreinte HO ANS de la semaine {semaine}, du {debut} au {fin}.\n\n{planning}\n\n{modifications}\nPlanning en ligne : {lien}\n\nCordialement"
     }
 };
 
@@ -75,6 +84,53 @@ export function weekTableHtml(monday, slots, names) {
     const row = (/** @type {string} */ period) =>
         `<tr><th style="padding:6px 8px;border:1px solid #cfd8dc;background:#eceff1;text-align:left;white-space:nowrap;">${PERIOD_LABELS[period]}</th>${days.map(d => cell(d, period)).join('')}</tr>`;
     return `<table style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:13px;margin:8px 0;"><thead><tr><th style="border:1px solid #cfd8dc;background:#eceff1;"></th>${head}</tr></thead><tbody>${row('AM')}${row('PM')}</tbody></table>`;
+}
+
+/**
+ * Tableau de la semaine des astreintes HO ANS : une colonne par jour ouvré, un utilisateur par jour ; un jour sans personne est signalé
+ * @param {string} monday
+ * @param {Array<{ date: string, user_id: number }>} slots
+ * @param {Map<number, { prenom: string, nom: string }>} names
+ */
+export function ansWeekTableHtml(monday, slots, names) {
+    const days = weekDays(monday);
+    const cell = (/** @type {string} */ date) => {
+        const slot = slots.find(s => s.date === date);
+        const n = slot ? names.get(slot.user_id) : undefined;
+        return n
+            ? `<td style="padding:6px 8px;border:1px solid #c8e6c9;background:#e8f5e9;color:#1b5e20;vertical-align:top;">${esc(n.prenom)} ${esc((n.nom || '').toUpperCase())}</td>`
+            : `<td style="padding:6px 8px;border:1px solid #ffcdd2;background:#ffebee;color:#b71c1c;font-style:italic;vertical-align:top;">à pourvoir</td>`;
+    };
+    const head = days
+        .map(
+            (d, i) =>
+                `<th style="padding:6px 8px;border:1px solid #cfd8dc;background:#eceff1;text-align:center;">${DAY_NAMES[i]}<br><span style="font-weight:normal;font-size:12px;">${frShort(d)}</span></th>`
+        )
+        .join('');
+    return `<table style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:13px;margin:8px 0;"><thead><tr><th style="border:1px solid #cfd8dc;background:#eceff1;"></th>${head}</tr></thead><tbody><tr><th style="padding:6px 8px;border:1px solid #cfd8dc;background:#eceff1;text-align:left;white-space:nowrap;">HO ANS</th>${days.map(cell).join('')}</tr></tbody></table>`;
+}
+
+/** Liste des modifications du planning ANS (désignation ou libération d'un jour) */
+export function ansModificationsHtml(
+    /** @type {Array<{ date: string, name: string, action: string, previous?: string | null }>} */ changes,
+    /** @type {string} */ author = ''
+) {
+    if (!changes.length) return '';
+    const day = (/** @type {string} */ date) => {
+        const idx = weekDays(addDays(date, 1 - (new Date(`${date}T00:00:00Z`).getUTCDay() || 7))).indexOf(date);
+        return `${DAY_NAMES[idx] || ''} ${frDate(date)}`.trim();
+    };
+    const items = changes
+        .map(
+            c =>
+                `<li>${esc(day(c.date))} : ${
+                    c.action === 'set'
+                        ? `<b style="color:#1b5e20;">${esc(c.name)}</b> désigné${c.previous ? ` (à la place de ${esc(c.previous)})` : ''}`
+                        : `<b style="color:#b71c1c;">retrait</b> de ${esc(c.previous || c.name)}`
+                }</li>`
+        )
+        .join('');
+    return `<p><b>Modifications apportées</b>${author ? ` par ${esc(author)}` : ''} :</p><ul>${items}</ul>`;
 }
 
 /** Liste des modifications d'un enregistrement ou d'un envoi de mise à jour */

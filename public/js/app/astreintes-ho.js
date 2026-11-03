@@ -6,6 +6,7 @@ const HO = {
     month: null, // « AAAA-MM »
     data: null, // réponse de GET /api/astreintes-ho
     pending: new Map(), // « date|période|ressource » -> 'add' | 'remove' (modification non enregistrée)
+    pendingAns: new Map(), // astreinte HO ANS : date -> identifiant de l'utilisateur désigné, ou null (jour libéré)
     popover: null,
     saving: false
 };
@@ -99,11 +100,12 @@ async function hoLoad() {
 
 function hoNavigate(delta) {
     if (
-        HO.pending.size &&
+        hoPendingCount() &&
         !confirm('Des modifications ne sont pas enregistrées. Changer de mois les annule. Continuer ?')
     )
         return;
     HO.pending.clear();
+    HO.pendingAns.clear();
     const [y, m] = HO.month.split('-').map(Number);
     const d = new Date(y, m - 1 + delta, 1);
     HO.month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -113,13 +115,117 @@ function hoNavigate(delta) {
 function hoGoToday() {
     if (HO.month === hoCurrentMonth()) return;
     if (
-        HO.pending.size &&
+        hoPendingCount() &&
         !confirm('Des modifications ne sont pas enregistrées. Changer de mois les annule. Continuer ?')
     )
         return;
     HO.pending.clear();
+    HO.pendingAns.clear();
     HO.month = hoCurrentMonth();
     hoLoad();
+}
+
+const hoPendingCount = () => HO.pending.size + HO.pendingAns.size;
+
+// ---- Astreinte HO ANS : un utilisateur par jour ----
+function hoAnsUserName(uid) {
+    const ans = HO.data.ans;
+    const u = (ans.users || []).find(x => x.user_id === uid) || (ans.names || []).find(x => x.id === uid);
+    return u
+        ? { prenom: u.prenom, nom: u.nom, trigramme: u.trigramme }
+        : { prenom: '?', nom: `#${uid}`, trigramme: '?' };
+}
+
+function hoAnsServerHolder(date) {
+    const s = HO.data.ans.slots.find(x => x.date === date);
+    return s ? s.user_id : null;
+}
+
+/** Utilisateur désigné ce jour-là (modification non enregistrée comprise) */
+function hoAnsHolder(date) {
+    return HO.pendingAns.has(date) ? HO.pendingAns.get(date) : hoAnsServerHolder(date);
+}
+
+/** Jour modifiable par l'utilisateur connecté : administrateur (tout), ou utilisateur ANS (semaine en cours et suivantes) */
+function hoAnsEditable(date) {
+    const me = HO.data.ans.me;
+    return me.canEdit && (me.isAdmin || hoMondayOf(date) >= me.currentWeek);
+}
+
+function hoAnsSet(date, uid) {
+    if (uid === hoAnsServerHolder(date)) HO.pendingAns.delete(date);
+    else HO.pendingAns.set(date, uid);
+}
+
+function hoAnsCellHtml(date, inMonth, past) {
+    const holder = hoAnsHolder(date);
+    const cls = ['ho-half', 'ho-ans', holder === null ? 'ho-empty' : 'ho-one'];
+    if (past) cls.push('ho-past');
+    if (!inMonth) cls.push('ho-out');
+    if (HO.pendingAns.has(date)) cls.push('ho-pending');
+    const editable = hoAnsEditable(date);
+    if (editable) cls.push('ho-editable');
+    const n = holder === null ? null : hoAnsUserName(holder);
+    const chip =
+        n === null
+            ? 'vide'
+            : `<span class="ho-chip${holder === HO.data.ans.me.userId ? ' ho-me' : ''}" title="${hoEsc(`${n.prenom} ${n.nom}`)}">${hoEsc(n.trigramme || `${n.prenom} ${n.nom}`)}</span>`;
+    const title = `Astreinte HO ANS — ${hoFr(date)}${n === null ? ' : personne' : ` : ${n.prenom} ${n.nom}`}`;
+    return `<div class="${cls.join(' ')}" data-ans="${date}" ${editable ? `onclick="hoAnsCellClick(event, '${date}')"` : ''} title="${hoEsc(title)}"><span class="ho-pl">ANS</span>${chip}</div>`;
+}
+
+/** Menu des utilisateurs « Astreinte HO ANS » : l'administrateur choisit n'importe lequel, un utilisateur ne se choisit que lui-même */
+function hoAnsCellClick(event, date) {
+    event.stopPropagation();
+    if (!hoAnsEditable(date)) return;
+    hoOpenAnsPopover(event.currentTarget, date);
+}
+
+function hoOpenAnsPopover(anchor, date) {
+    hoClosePopover();
+    const ans = HO.data.ans;
+    const me = ans.me;
+    const holder = hoAnsHolder(date);
+    // Un utilisateur ne libère ni ne remplace l'astreinte d'un autre
+    const blocked = !me.isAdmin && holder !== null && holder !== me.userId;
+    const candidates = me.isAdmin ? ans.users : ans.users.filter(u => u.user_id === me.userId);
+    const known = new Set(candidates.map(u => u.user_id));
+    const options = [...candidates];
+    // Désigné mais n'ayant plus la case cochée : conservé dans la liste pour l'afficher
+    if (holder !== null && !known.has(holder)) options.unshift({ user_id: holder, ...hoAnsUserName(holder) });
+    const pop = document.createElement('div');
+    pop.className = 'ho-popover ho-ans-popover';
+    pop.addEventListener('click', e => e.stopPropagation());
+    const item = (uid, label, extra = '') =>
+        `<button type="button" class="ho-ans-item${uid === holder ? ' selected' : ''}" data-uid="${uid === null ? '' : uid}"${blocked ? ' disabled' : ''}>${label}${extra}</button>`;
+    pop.innerHTML =
+        `<div style="font-weight:700;margin-bottom:6px;">Astreinte HO ANS — ${HO_DAY_NAMES[(new Date(`${date}T00:00:00Z`).getUTCDay() + 6) % 7]} ${hoFr(date)}</div>` +
+        (blocked
+            ? `<p style="color:#b26a00;font-size:12px;margin:4px 0;">Cette astreinte est assignée à quelqu'un d'autre : vous ne pouvez modifier que la vôtre.</p>`
+            : '') +
+        item(null, '<em>— Personne —</em>') +
+        (options.length
+            ? options
+                  .map(u =>
+                      item(
+                          u.user_id,
+                          `${hoEsc(u.prenom)} ${hoEsc((u.nom || '').toUpperCase())}`,
+                          u.trigramme ? `<span class="ho-tri">${hoEsc(u.trigramme)}</span>` : ''
+                      )
+                  )
+                  .join('')
+            : '<p style="color:#b26a00;font-size:12px;margin:4px 0;">Aucun utilisateur n\'a la case « Astreinte HO ANS » cochée (Administration, gestion des utilisateurs).</p>');
+    pop.addEventListener('click', e => {
+        const btn = e.target instanceof Element ? e.target.closest('.ho-ans-item') : null;
+        if (!btn || btn.disabled) return;
+        hoAnsSet(date, btn.dataset.uid === '' ? null : Number(btn.dataset.uid));
+        hoClosePopover();
+        hoRender();
+    });
+    document.body.appendChild(pop);
+    hoPlacePopover(pop, anchor);
+    HO.popover = pop;
+    setTimeout(() => document.addEventListener('click', hoClosePopover, { once: true }), 0);
 }
 
 // ---- État effectif (serveur + modifications en attente) ----
@@ -172,9 +278,16 @@ function hoRender() {
           ? "✋ <strong>Expert HO</strong> : cliquez sur une demi-journée pour vous inscrire ou vous retirer. Vous ne pouvez modifier que vos propres inscriptions, jusqu'à la semaine en cours."
           : '👁️ <strong>Consultation seule</strong> : seuls les experts déclarés pour les astreintes HO et les administrateurs peuvent modifier ce planning.';
 
+    const ansRights = d.ans.me.isAdmin
+        ? ' Ligne « ANS » : cliquez sur un jour pour désigner l’utilisateur en astreinte HO ANS (menu des utilisateurs ayant la case « Astreinte HO ANS » cochée).'
+        : d.ans.me.canEdit
+          ? ' Ligne « ANS » : cliquez sur un jour pour vous désigner en astreinte HO ANS ou vous retirer.'
+          : '';
+    document.getElementById('hoRights').innerHTML += ansRights;
+
     document.getElementById('hoLegend').innerHTML = [
-        ['ho-empty', 'Demi-journée vide (à pourvoir)'],
-        ['ho-one', '1 expert'],
+        ['ho-empty', 'Demi-journée vide / astreinte ANS à pourvoir'],
+        ['ho-one', '1 expert / astreinte ANS pourvue'],
         ['ho-multi', '2 experts ou plus'],
         ['ho-pending', 'Modification non enregistrée'],
         ['ho-one ho-past', 'Semaine passée'],
@@ -231,6 +344,7 @@ function hoRender() {
                 }`;
                 html += `<div class="${cls.join(' ')}" ${editable ? `onclick="hoCellClick(event, '${date}', '${period}')"` : ''} title="${hoEsc(title)}"><span class="ho-pl">${period === 'AM' ? 'AM' : 'PM'}</span>${chips || 'vide'}</div>`;
             }
+            html += hoAnsCellHtml(date, inMonth, past);
             html += '</td>';
         }
         html += '</tr>';
@@ -238,7 +352,7 @@ function hoRender() {
     html += '</tbody></table>';
     document.getElementById('hoGrid').innerHTML = html;
 
-    const n = HO.pending.size;
+    const n = hoPendingCount();
     document.getElementById('hoSaveBtn').style.display = n ? 'inline-block' : 'none';
     document.getElementById('hoCancelBtn').style.display = n ? 'inline-block' : 'none';
     document.getElementById('hoPendingCount').textContent = n ? `(${n})` : '';
@@ -330,11 +444,16 @@ function hoClosePopover() {
 
 function hoCancelPending() {
     HO.pending.clear();
+    HO.pendingAns.clear();
     hoClosePopover();
     hoRender();
 }
 
 // ---- Enregistrement ----
+function hoAnsPendingChanges() {
+    return [...HO.pendingAns].map(([date, user_id]) => ({ date, user_id }));
+}
+
 function hoPendingChanges() {
     return [...HO.pending].map(([k, action]) => {
         const [date, period, rid] = k.split('|');
@@ -346,9 +465,12 @@ function hoOpenSaveDialog() {
     const changes = hoPendingChanges().sort(
         (a, b) => a.date.localeCompare(b.date) || a.period.localeCompare(b.period) || a.resource_id - b.resource_id
     );
-    if (!changes.length) return;
+    const ansChanges = hoAnsPendingChanges().sort((a, b) => a.date.localeCompare(b.date));
+    if (!changes.length && !ansChanges.length) return;
     const me = HO.data.me;
     const touchesCurrent = changes.some(c => hoMondayOf(c.date) === me.currentWeek);
+    const ansTouchesCurrent = ansChanges.some(c => hoMondayOf(c.date) === me.currentWeek);
+    const ansMail = HO.data.ans.updateMail || { enabled: false, recipients: 0 };
     const mail = HO.data.updateMail || { enabled: false, recipients: 0 };
     const dayName = date => HO_DAY_NAMES[(new Date(`${date}T00:00:00Z`).getUTCDay() + 6) % 7];
     const rows = changes
@@ -364,9 +486,25 @@ function hoOpenSaveDialog() {
             ? `<div style="background:#fff3e0;border-left:4px solid #ef6c00;padding:10px 12px;border-radius:4px;margin-bottom:12px;font-size:13px;">📧 <strong>La semaine en cours est modifiée</strong> : un e-mail de mise à jour (« MAJ ») sera envoyé ${mail.recipients ? `à <strong>${mail.recipients} destinataire${mail.recipients > 1 ? 's' : ''}</strong>` : 'aux destinataires de l’automatisation n°6 (aucun destinataire configuré pour l’instant)'}.</div>`
             : '<div style="background:#eceff1;border-left:4px solid #78909c;padding:10px 12px;border-radius:4px;margin-bottom:12px;font-size:13px;">La semaine en cours est modifiée. Aucun e-mail de mise à jour ne sera envoyé : l’automatisation n°6 (communication du planning) est désactivée.</div>';
     }
+    let ansBanner = '';
+    if (ansTouchesCurrent) {
+        ansBanner = ansMail.enabled
+            ? `<div style="background:#fff3e0;border-left:4px solid #ef6c00;padding:10px 12px;border-radius:4px;margin-bottom:12px;font-size:13px;">📧 <strong>L’astreinte HO ANS de la semaine en cours est modifiée</strong> : un e-mail de mise à jour (« MAJ ») sera envoyé ${ansMail.recipients ? `à <strong>${ansMail.recipients} destinataire${ansMail.recipients > 1 ? 's' : ''}</strong>` : 'aux destinataires de l’automatisation n°8 (aucun destinataire configuré pour l’instant)'}.</div>`
+            : '<div style="background:#eceff1;border-left:4px solid #78909c;padding:10px 12px;border-radius:4px;margin-bottom:12px;font-size:13px;">L’astreinte HO ANS de la semaine en cours est modifiée. Aucun e-mail de mise à jour ne sera envoyé : l’automatisation n°8 est désactivée.</div>';
+    }
+    const ansRows = ansChanges
+        .map(c => {
+            const set = c.user_id !== null;
+            const n = set ? hoAnsUserName(c.user_id) : null;
+            const before = hoAnsServerHolder(c.date);
+            const was = before !== null ? hoAnsUserName(before) : null;
+            return `<tr><td style="padding:4px 8px;">${dayName(c.date)} ${hoFr(c.date)}</td><td style="padding:4px 8px;">HO ANS</td><td style="padding:4px 8px;">${set ? `${hoEsc(n.prenom)} ${hoEsc(n.nom.toUpperCase())}` : was ? `${hoEsc(was.prenom)} ${hoEsc(was.nom.toUpperCase())}` : ''}</td><td style="padding:4px 8px;font-weight:700;color:${set ? '#1b5e20' : '#b71c1c'};">${set ? `➕ désignation${was ? ' (remplace ' + hoEsc(was.prenom) + ' ' + hoEsc(was.nom.toUpperCase()) + ')' : ''}` : '➖ retrait'}</td></tr>`;
+        })
+        .join('');
+    const total = changes.length + ansChanges.length;
     document.getElementById('hoSaveBody').innerHTML =
-        `${banner}<p style="margin:0 0 8px;font-size:13px;"><strong>${changes.length}</strong> modification${changes.length > 1 ? 's' : ''} à enregistrer :</p>
-        <table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="text-align:left;color:#607d8b;font-size:11px;"><th style="padding:4px 8px;">Jour</th><th style="padding:4px 8px;">Demi-journée</th><th style="padding:4px 8px;">Expert</th><th style="padding:4px 8px;">Modification</th></tr></thead><tbody>${rows}</tbody></table>
+        `${banner}${ansBanner}<p style="margin:0 0 8px;font-size:13px;"><strong>${total}</strong> modification${total > 1 ? 's' : ''} à enregistrer :</p>
+        <table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="text-align:left;color:#607d8b;font-size:11px;"><th style="padding:4px 8px;">Jour</th><th style="padding:4px 8px;">Demi-journée</th><th style="padding:4px 8px;">Expert</th><th style="padding:4px 8px;">Modification</th></tr></thead><tbody>${rows}${ansRows}</tbody></table>
         <div id="hoSaveError" style="color:#b71c1c;font-size:13px;margin-top:10px;"></div>`;
     document.getElementById('hoConfirmBtn').disabled = false;
     document.getElementById('hoSaveModal').classList.add('active');
@@ -386,15 +524,19 @@ async function hoConfirmSave() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify({ changes: hoPendingChanges() })
+            body: JSON.stringify({ changes: hoPendingChanges(), ansChanges: hoAnsPendingChanges() })
         });
         const data = await r.json();
         if (!r.ok) throw new Error(data.error || 'Erreur serveur');
         HO.pending.clear();
+        HO.pendingAns.clear();
         hoCloseSaveDialog();
-        let msg = `Planning HO enregistré (${data.applied.length} modification${data.applied.length > 1 ? 's' : ''}).`;
-        if (data.mail && data.mail.sent)
-            msg += ` E-mail de mise à jour envoyé à ${data.mail.recipients} destinataire${data.mail.recipients > 1 ? 's' : ''}.`;
+        const nb = data.applied.length + (data.ans ? data.ans.applied.length : 0);
+        let msg = `Planning HO enregistré (${nb} modification${nb > 1 ? 's' : ''}).`;
+        const envoyes = [data.mail, data.ans && data.ans.mail].filter(m => m && m.sent);
+        const destinataires = envoyes.reduce((s, m) => s + m.recipients, 0);
+        if (envoyes.length)
+            msg += ` E-mail${envoyes.length > 1 ? 's' : ''} de mise à jour envoyé${envoyes.length > 1 ? 's' : ''} (${destinataires} destinataire${destinataires > 1 ? 's' : ''}).`;
         hoToast(msg);
         await hoLoad();
     } catch (e) {
@@ -406,7 +548,7 @@ async function hoConfirmSave() {
 }
 
 window.addEventListener('beforeunload', e => {
-    if (HO.pending.size) {
+    if (hoPendingCount()) {
         e.preventDefault();
         e.returnValue = '';
     }

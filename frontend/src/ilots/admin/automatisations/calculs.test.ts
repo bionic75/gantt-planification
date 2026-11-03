@@ -248,6 +248,26 @@ describe('automatisations n°5 et n°6', () => {
         expect(formulaireHo(6, {}, MODELE, DEST)).toMatchObject({ heure: '8', jours: ['1'], semaine: 'current' });
     });
 
+    it('n°7 et n°8 (astreintes HO ANS) : mêmes formulaires que n°5 et n°6', () => {
+        expect(formulaireHo(7, {}, MODELE, DEST)).toMatchObject({ heure: '9', jour: '4', tousLesExperts: true });
+        expect(formulaireHo(8, {}, MODELE, DEST)).toMatchObject({ heure: '8', jours: ['1'], semaine: 'current' });
+        const f7 = formulaireHo(
+            7,
+            { enabled: true, hour: 10, weekDay: 3, allExperts: false, recipients: [2] },
+            MODELE,
+            DEST
+        );
+        expect(configHo(7, f7, DEST)).toMatchObject({
+            enabled: true,
+            hour: 10,
+            weekDay: 3,
+            allExperts: false,
+            recipients: [2]
+        });
+        const f8 = formulaireHo(8, { weekDays: [1, 3], week: 'next', groupAdmin: true }, MODELE, DEST);
+        expect(configHo(8, f8, DEST)).toMatchObject({ weekDays: [1, 3], week: 'next', groupAdmin: true });
+    });
+
     it('n°5 : configuration relue et enregistrée (destinataires dans l’ordre de la liste, sujet sans espaces)', () => {
         const f = formulaireHo(
             5,

@@ -208,6 +208,11 @@ export interface AstreintesHo {
     slots: Array<{ date: string; period: Periode; resource_id: number }>;
     names: Array<{ id: number; nom: string | null; prenom: string | null; trigramme?: string | null }>;
     me: { canEdit: boolean; isAdmin: boolean; resourceId: number | null };
+    /** Astreinte HO ANS : un utilisateur par jour ouvré */
+    ans?: {
+        slots: Array<{ date: string; user_id: number }>;
+        names: Array<{ id: number; nom: string | null; prenom: string | null; trigramme?: string | null }>;
+    };
 }
 
 /** Experts en astreinte HO un jour donné, par demi-journée (triés par nom) */
@@ -224,4 +229,14 @@ export function astreintesDuJour(planning: AstreintesHo | null, date: string): R
     }
     for (const p of ['AM', 'PM'] as const) noms[p].sort((a, b) => a.localeCompare(b, 'fr'));
     return noms;
+}
+
+/** Utilisateur en astreinte HO ANS un jour donné (« Prénom NOM »), null si personne */
+export function astreinteAnsDuJour(planning: AstreintesHo | null, date: string): string | null {
+    const slot = planning?.ans?.slots.find(s => s.date === date);
+    if (!slot) return null;
+    const u = planning?.ans?.names.find(n => n.id === slot.user_id);
+    return u
+        ? nomAffiche({ id: u.id, nom: u.nom, prenom: u.prenom, trigramme: u.trigramme })
+        : `Utilisateur ${slot.user_id}`;
 }

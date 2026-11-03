@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Evenement } from '@/api/evenements';
 import {
+    astreinteAnsDuJour,
     astreintesDuJour,
     evenementsEntre,
     joursOuvres,
@@ -176,5 +177,24 @@ describe('astreintes HO', () => {
     it('jour sans inscription ou planning absent', () => {
         expect(astreintesDuJour(planning, '2026-11-05')).toEqual({ AM: [], PM: [] });
         expect(astreintesDuJour(null, '2026-11-03')).toEqual({ AM: [], PM: [] });
+    });
+});
+
+describe('astreinte HO ANS du jour', () => {
+    const planning = {
+        slots: [],
+        names: [],
+        me: { canEdit: false, isAdmin: false, resourceId: null },
+        ans: {
+            slots: [{ date: '2026-11-03', user_id: 5 }],
+            names: [{ id: 5, nom: 'Dupont', prenom: 'Alice' }]
+        }
+    };
+
+    it('utilisateur désigné ou personne', () => {
+        expect(astreinteAnsDuJour(planning, '2026-11-03')).toBe('Alice DUPONT');
+        expect(astreinteAnsDuJour(planning, '2026-11-04')).toBeNull();
+        expect(astreinteAnsDuJour(null, '2026-11-03')).toBeNull();
+        expect(astreinteAnsDuJour({ ...planning, ans: undefined }, '2026-11-03')).toBeNull();
     });
 });

@@ -154,9 +154,9 @@ Then('le compte de test a le prénom {string} et les profils {string} et {string
         .toEqual([prenom, 1, 1]);
 });
 
-// Colonnes de la liste : 8 = accès Reporting, 9 = validation RH, 10 = actif
+// Colonnes de la liste : 8 = accès Reporting, 9 = validation RH, 10 = astreinte HO ANS, 11 = actif
 When('je désactive le compte de test depuis la liste', async ({ monde }) => {
-    await ligne(monde).locator('td:nth-child(10) .toggle-switch').click();
+    await ligne(monde).locator('td:nth-child(11) .toggle-switch').click();
 });
 
 When("je donne au compte de test l'accès Reporting depuis la liste", async ({ monde }) => {
@@ -165,6 +165,10 @@ When("je donne au compte de test l'accès Reporting depuis la liste", async ({ m
 
 When('je donne au compte de test la validation RH depuis la liste', async ({ monde }) => {
     await ligne(monde).locator('td:nth-child(9) input[type="checkbox"]').check();
+});
+
+When("je donne au compte de test l'astreinte HO ANS depuis la liste", async ({ monde }) => {
+    await ligne(monde).locator('td:nth-child(10) input[type="checkbox"]').check();
 });
 
 const drapeau = (/** @type {Monde} */ monde, /** @type {string} */ cle) =>
@@ -180,6 +184,10 @@ Then("le compte de test a l'accès Reporting", async ({ monde }) => {
 
 Then('le compte de test a la validation RH', async ({ monde }) => {
     await drapeau(monde, 'is_rh').toBe(1);
+});
+
+Then("le compte de test a l'astreinte HO ANS", async ({ monde }) => {
+    await drapeau(monde, 'astreinte_ho_ans').toBe(1);
 });
 
 // ---------- Mot de passe, déconnexion, TOTP ----------

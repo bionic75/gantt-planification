@@ -181,6 +181,8 @@ async function bootServer(workDir, previousPort, initialAdmin) {
             ...databaseEnv(databaseOf(workDir)),
             APP_URL: APP_URL,
             SESSION_SECRET: 'test-secret-'.padEnd(48, 'x'),
+            // API Asana simulée (tests d'import et de rafraîchissement)
+            ASANA_API_BASE: process.env.TEST_ASANA_API_BASE,
             INITIAL_ADMIN_USERNAME: initialAdmin?.username,
             INITIAL_ADMIN_PASSWORD: initialAdmin?.password
         }),

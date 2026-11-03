@@ -51,6 +51,8 @@ Fonctionnalité: Administration › Gestion des utilisateurs (écran)
     Alors le compte de test a l'accès Reporting
     Quand je donne au compte de test la validation RH depuis la liste
     Alors le compte de test a la validation RH
+    Quand je donne au compte de test l'astreinte HO ANS depuis la liste
+    Alors le compte de test a l'astreinte HO ANS
 
   Scénario: Nouveau mot de passe donné par l'administrateur
     Étant donné qu'un compte de test RH existe

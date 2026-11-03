@@ -34,6 +34,21 @@ model AffectationAssignment {
   @@map("affectation_assignments")
 }
 
+/// Journées d'intervention d'une ressource sur une étape (VFT, formation…) : sans ligne pour une ressource affectée,
+/// elle intervient sur tous les jours ouvrés de l'étape
+model AffectationAssignmentDay {
+  id          Int       @id @default(autoincrement())
+  project_id  Int
+  stage_key   String
+  resource_id Int
+  date        String
+  created_at  String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+
+  @@unique([project_id, stage_key, resource_id, date])
+  @@index([project_id, stage_key], map: "idx_aff_assign_days_stage")
+  @@map("affectation_assignment_days")
+}
+
 model AffectationHistory {
   id         Int       @id @default(autoincrement())
   project_id Int
@@ -157,6 +172,19 @@ model AstreinteHoSlot {
   @@unique([date, period, resource_id])
   @@index([date], map: "idx_astreinte_ho_slots_date")
   @@map("astreinte_ho_slots")
+}
+
+/// Astreinte HO ANS : un utilisateur (case « Astreinte HO ANS » cochée) par jour ouvré
+model AstreinteHoAnsSlot {
+  id         Int       @id @default(autoincrement())
+  date       String
+  user_id    Int
+  created_by Int?
+  created_at String? @default(dbgenerated("CURRENT_TIMESTAMP"))
+
+  @@unique([date])
+  @@index([user_id], map: "idx_astreinte_ho_ans_user")
+  @@map("astreinte_ho_ans_slots")
 }
 
 /// Historique des modifications du planning HO (ajout / retrait d'un expert sur une demi-journée)
@@ -704,6 +732,7 @@ model User {
   has_reporting_access Int?      @default(0)
   amoa_ced             Int?      @default(0)
   is_rh                Int?      @default(0)
+  astreinte_ho_ans     Int?      @default(0)
   /// 1 : mot de passe donné par un administrateur, à remplacer à la prochaine connexion
   must_change_password Int       @default(0)
 

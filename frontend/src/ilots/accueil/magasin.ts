@@ -8,6 +8,7 @@ import { useSessionStore } from '@/stores/session';
 import { debutMoisDecale, friseMois, lignesDeploiements, type Deploiement } from './deploiements';
 import {
     ajouterJours,
+    astreinteAnsDuJour,
     astreintesDuJour,
     cleDate,
     evenementsEntre,
@@ -42,6 +43,7 @@ export const useAccueilStore = defineStore('accueil', () => {
     );
     const estSemaineEnCours = computed(() => decalageSemaine.value === 0);
 
+    const astreinteAnsAujourdhui = computed(() => astreinteAnsDuJour(astreintesHo.value, aujourdhui.value));
     const astreintesHoAujourdhui = computed(() => astreintesDuJour(astreintesHo.value, aujourdhui.value));
     /** Expert déclaré pour les astreintes HO : peut s'y inscrire */
     const peutSInscrireHo = computed(() => astreintesHo.value?.me?.canEdit === true && !astreintesHo.value.me.isAdmin);
@@ -121,6 +123,7 @@ export const useAccueilStore = defineStore('accueil', () => {
         prenom,
         presentsAujourdhui,
         presentsSemaine,
+        astreinteAnsAujourdhui,
         astreintesHoAujourdhui,
         changerFrise,
         peutSInscrireHo,
