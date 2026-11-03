@@ -95,7 +95,7 @@
         #atelierRoot table.at-table td { padding: 7px 10px; border-top: 1px solid #e6ebf2; vertical-align: top; }
         #atelierRoot table.at-table tr.at-fixed td { background: #f0f4fa; }
         #atelierRoot table.at-table tr.at-mep td { background: #e8f5e9; font-weight: 700; }
-        #atelierRoot table.at-table select, #atelierRoot table.at-table input[type=date] { width: 100%; min-width: 150px; padding: 5px 7px; border: 1px solid #cfd8e6; border-radius: 6px; font-size: 12px; box-sizing: border-box; }
+        #atelierRoot table.at-table select, #atelierRoot table.at-table input[type=date], #atelierRoot table.at-table input[type=time] { width: 100%; min-width: 150px; padding: 5px 7px; border: 1px solid #cfd8e6; border-radius: 6px; font-size: 12px; box-sizing: border-box; }
         #atelierRoot .at-jalon { font-weight: 700; color: #1f2d3d; }
         #atelierRoot .at-badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; background: #e9edf3; color: #455a64; }
         #atelierRoot .at-badge.ok { background: #d7f2e3; color: #167a45; }
@@ -418,7 +418,7 @@
                     <td>${esc(frDate(r.cible))}</td>
                     <td style="font-weight:700;${decale ? 'color:#b26a00;' : ''}">${esc(frDate(r.proposee))}</td>
                     <td>${sondageCell(r)}</td>
-                    <td style="white-space:nowrap;"><input type="date" data-row="${r.key}" data-kind="planifiees" value="${esc(r.planifiee || '')}" ${isAdmin() ? '' : 'disabled'}> <input type="time" data-row="${r.key}" data-kind="heures" value="${esc((r.planifiee && AT.f.heures[r.key]) || '')}" title="Heure retenue (facultative)" ${isAdmin() && r.planifiee ? '' : 'disabled'} style="width:96px;"></td>
+                    <td><div style="display:flex;flex-direction:column;gap:4px;"><input type="date" data-row="${r.key}" data-kind="planifiees" value="${esc(r.planifiee || '')}" ${isAdmin() ? '' : 'disabled'}> <input type="time" data-row="${r.key}" data-kind="heures" value="${esc((r.planifiee && AT.f.heures[r.key]) || '')}" title="Heure retenue (facultative)" ${isAdmin() && r.planifiee ? '' : 'disabled'}></div></td>
                     <td><span class="at-badge ${r.niveau}">${esc(r.statut)}</span></td></tr>`;
             })
             .join('');
