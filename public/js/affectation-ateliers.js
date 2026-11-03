@@ -703,7 +703,7 @@
         const closed = d.statut === 'termine';
         const dis = ro || closed ? 'disabled' : '';
         bg.innerHTML = `<div class="at-modal large" role="dialog" aria-label="Sondage">
-            <h3>${ico('calendar')} Sondage — ${esc(row.jalon)} <span class="at-badge" style="margin-left:8px;">${esc(SD_LABEL[d.statut] || 'Nouveau')}</span></h3>
+            <h3>${ico('calendar')} Sondage — ${esc(row.jalon)} <span class="at-badge" id="sdBadge" style="margin-left:8px;">${esc(SD_LABEL[d.statut] || 'Nouveau')}</span></h3>
             <label>Nom du sondage</label>
             <input type="text" id="sdNom" value="${esc(d.nom)}" ${dis}>
             <label>Identité (organisateur)</label>
@@ -805,10 +805,16 @@
         }
     }
 
+    const SD_REFRESH_ICO =
+        '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px;margin-right:6px;"><path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"/><path d="M3 12A9 9 0 0 1 18.5 5.8L21 8"/><path d="M21 3v5h-5"/><path d="M3 21v-5h5"/></svg>';
+    // Réponses reçues, avec un bouton pour les actualiser sans perdre la saisie en cours
     function sdResults(d) {
-        if (!d.reponses || !d.reponses.length) return '';
+        if (!d.id) return '';
         const opts = d.options;
-        return `<label>Réponses (${d.reponses.length})</label><div style="overflow:auto;"><table class="at-res"><thead><tr><th class="nom">Nom</th>${opts.map(o => `<th>${esc(frShort(o.date))}${o.heure ? '<br>' + esc(o.heure) : ''}</th>`).join('')}</tr></thead><tbody>${d.reponses
+        const head = `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;"><span style="font-size:12px;font-weight:700;color:#455a64;">Réponses (${d.reponses.length})</span><button type="button" class="aff-btn" id="sdRefresh" style="border-color:#1d70b7;color:#1d70b7;font-weight:700;" onclick="AtelierPlanner.sondageRefresh()" title="Recharger les réponses reçues">${SD_REFRESH_ICO}Actualiser</button></div>`;
+        if (!d.reponses.length)
+            return `${head}<div class="aff-muted" style="padding:8px 0;font-size:12px;">Aucune réponse pour le moment.</div>`;
+        return `${head}<div style="overflow:auto;"><table class="at-res"><thead><tr><th class="nom">Nom</th>${opts.map(o => `<th>${esc(frShort(o.date))}${o.heure ? '<br>' + esc(o.heure) : ''}</th>`).join('')}</tr></thead><tbody>${d.reponses
             .map(
                 r =>
                     `<tr><td class="nom">${esc(r.nom)}</td>${opts.map(o => (r.options.includes(o.id) ? '<td class="oui">✓</td>' : '<td>–</td>')).join('')}</tr>`
@@ -816,6 +822,37 @@
             .join(
                 ''
             )}<tr><td class="nom"><b>Total</b></td>${opts.map(o => `<td><b>${d.reponses.filter(r => r.options.includes(o.id)).length}</b></td>`).join('')}</tr></tbody></table></div>`;
+    }
+
+    async function sondageRefresh() {
+        const btn = document.getElementById('sdRefresh');
+        if (btn) {
+            btn.disabled = true;
+            btn.style.opacity = '.6';
+        }
+        try {
+            const sd = (await atApi(`/affectation/ateliers/${AT.f.id}/sondages/${SD.key}`)).sondage;
+            if (!sd) throw new Error('Sondage introuvable');
+            const kept = document.querySelector('input[name="sdRet"]:checked');
+            SD.data = sd;
+            const locked = !isAdmin() || sd.statut === 'termine';
+            document.getElementById('sdChoix').innerHTML = sdChoix(
+                { ...sd, option_retenue_id: kept && !locked ? Number(kept.value) : sd.option_retenue_id },
+                locked
+            );
+            document.getElementById('sdResults').innerHTML = sdResults(sd);
+            const badge = document.getElementById('sdBadge');
+            if (badge) badge.textContent = SD_LABEL[sd.statut] || 'Nouveau';
+            toast(`Réponses actualisées (${sd.reponses.length}).`);
+            loadSondages();
+        } catch (e) {
+            const again = document.getElementById('sdRefresh');
+            if (again) {
+                again.disabled = false;
+                again.style.opacity = '';
+            }
+            toast(e.message, true);
+        }
     }
 
     function sondageForm() {
@@ -927,6 +964,7 @@
         sondageClose,
         sondageReopen,
         sondageCopy,
+        sondageRefresh,
         sondagePreview,
         sondageAddDate,
         resetZone() {
