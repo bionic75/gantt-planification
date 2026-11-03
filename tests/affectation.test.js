@@ -363,6 +363,9 @@ describe('correspondance activité / activité Asana / type d’événement', ()
             accompagnement: '6.6,6.7'
         });
         expect((await admin.get('/api/affectation/stage-event-types')).data.asanaRules).toEqual(put.data.asanaRules);
+        expect(before.asanaTemplate).toBeNull();
+        const noTemplate = await admin.put('/api/affectation/asana/template', { gid: '' });
+        expect(noTemplate.data).toEqual({ success: true, template: null });
         const reset = await admin.put('/api/affectation/stage-event-types', {
             mapping: before.mapping,
             asanaRules: {}

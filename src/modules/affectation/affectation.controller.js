@@ -4,7 +4,13 @@ import { samuNumber as affSamuNumber } from '../../lib/samu.js';
 import { logUserAction } from '../../services/action-log.js';
 import { evtResolveType } from '../events/events.service.js';
 import * as svc from './affectation.service.js';
-import { ASANA_ACTIVITIES, ASANA_RULES, asanaReloadStageRules, asanaSaveStageRules } from './asana.service.js';
+import {
+    ASANA_ACTIVITIES,
+    ASANA_RULES,
+    asanaLoadTemplate,
+    asanaReloadStageRules,
+    asanaSaveStageRules
+} from './asana.service.js';
 
 /** @typedef {import('express').Request} Request */
 /** @typedef {import('express').Response} Response */
@@ -238,6 +244,7 @@ export async function stageEventTypes(/** @type {Request} */ req, /** @type {Res
         mapping: await svc.affStageTypeMap(),
         types: await svc.sortedEventTypes(),
         asanaActivities: ASANA_ACTIVITIES,
+        asanaTemplate: await asanaLoadTemplate(),
         asanaRules: await asanaReloadStageRules()
     });
 }
