@@ -98,6 +98,21 @@ export async function get(/** @type {unknown} */ retroId, /** @type {string} */ 
     };
 }
 
+/** Destinataires, copie et organisateur du dernier sondage du rétroplanning : proposés pour les nouveaux sondages du SAMU */
+export async function modele(/** @type {unknown} */ retroId) {
+    const row = await prisma.atelierSondage.findFirst({
+        where: { retroplanning_id: idParam(retroId) },
+        orderBy: [{ updated_at: 'desc' }, { id: 'desc' }]
+    });
+    return row
+        ? {
+              destinataires: parseList(row.destinataires),
+              cc_user_ids: parseList(row.cc_user_ids),
+              organisateur_id: row.organisateur_id
+          }
+        : null;
+}
+
 /** Adresse publique du sondage */
 export const sondageUrl = (/** @type {string} */ token, /** @type {string} */ origin) =>
     `${env.APP_URL ? env.APP_URL.replace(/\/+$/, '') : origin}/sondage/${token}`;

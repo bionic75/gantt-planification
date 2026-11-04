@@ -437,6 +437,31 @@ describe('sondages de date des jalons', () => {
     });
 });
 
+describe('destinataires repris pour les nouveaux sondages d’un SAMU', () => {
+    it('le dernier sondage du SAMU sert de modèle', async () => {
+        await deployment('SAMU-SAS 80');
+        const created = await admin.put('/api/affectation/ateliers', {
+            samu_name: 'SAMU-SAS 80',
+            mep: '2027-06-10',
+            nb: 3,
+            zone: 'C'
+        });
+        const id = created.data.id;
+        const none = await admin.get(`/api/affectation/ateliers/${id}/sondages/a2`);
+        expect(none.data).toMatchObject({ sondage: null, modele: null });
+        await admin.put(`/api/affectation/ateliers/${id}/sondages/a1`, {
+            nom: 'Premier',
+            options: [{ date: '2027-04-12' }],
+            destinataires: ['un@example.test', 'deux@example.test']
+        });
+        const next = await admin.get(`/api/affectation/ateliers/${id}/sondages/a2`);
+        expect(next.data.sondage).toBeNull();
+        expect(next.data.modele.destinataires).toEqual(['un@example.test', 'deux@example.test']);
+        // Un sondage existant n'a pas besoin de modèle
+        expect((await admin.get(`/api/affectation/ateliers/${id}/sondages/a1`)).data.modele).toBeNull();
+    });
+});
+
 describe('clôture et réouverture d’un sondage', () => {
     it('créneau retenu → date et heure planifiées, sondage figé (lien actif), réouverture', async () => {
         await deployment('SAMU-SAS 78');
@@ -482,7 +507,9 @@ describe('clôture et réouverture d’un sondage', () => {
         expect((await admin.post(`${base}/send`, {})).status).toBe(400);
         expect((await admin.post(`${base}/close`, {})).status).toBe(400);
         expect(
-            (await admin.get('/api/affectation/ateliers-sondages')).data.sondages.find(x => x.ligne === 'a1').statut
+            (await admin.get('/api/affectation/ateliers-sondages')).data.sondages.find(
+                x => x.retroplanning_id === id && x.ligne === 'a1'
+            ).statut
         ).toBe('termine');
 
         const reopened = await admin.post(`${base}/reopen`, {});
