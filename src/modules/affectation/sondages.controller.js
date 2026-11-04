@@ -65,7 +65,7 @@ export async function remove(/** @type {Request} */ req, /** @type {Response} */
 
 // Accès public par l'adresse unique du sondage
 export async function publicGet(/** @type {Request} */ req, /** @type {Response} */ res) {
-    res.json(await svc.publicGet(req.params.token));
+    res.json(await svc.publicGet(req.params.token, String(req.get('x-reponse-jeton') || '')));
 }
 
 export async function publicRespond(/** @type {Request} */ req, /** @type {Response} */ res) {

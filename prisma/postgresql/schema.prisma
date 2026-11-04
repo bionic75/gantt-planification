@@ -273,6 +273,8 @@ model AtelierSondageReponse {
   sondage_id Int
   nom        String
   options    String
+  /// Jeton secret remis au répondant : lui seul peut relire et modifier sa réponse
+  jeton      String?
   created_at String? @default(dbgenerated("to_char(timezone('UTC'::text, now()), 'YYYY-MM-DD HH24:MI:SS'::text)"))
   updated_at String? @default(dbgenerated("to_char(timezone('UTC'::text, now()), 'YYYY-MM-DD HH24:MI:SS'::text)"))
 

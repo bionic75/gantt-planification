@@ -5,7 +5,7 @@ import { env } from '../../config/env.js';
 import { prisma } from '../../db/prisma.js';
 import { idParam, sqlTimestamp } from '../../db/values.js';
 import { isEmail } from '../../lib/email.js';
-import { badRequest, notFound } from '../../lib/http-error.js';
+import { badRequest, HttpError, notFound } from '../../lib/http-error.js';
 import { sendEmail } from '../../lib/mailer.js';
 import { isValidDate } from './ateliers.calc.js';
 
@@ -349,17 +349,20 @@ async function byToken(/** @type {string} */ token) {
     return row;
 }
 
-/** Sondage vu par un répondant : nom, dates et réponses (ni adresses e-mail ni identifiants d'utilisateurs) */
-export async function publicGet(/** @type {string} */ token) {
+/**
+ * Sondage vu par un répondant : nom, dates et SA propre réponse (retrouvée par son jeton) ; les réponses des autres
+ * participants, leurs noms comme leurs totaux, ne sont jamais transmis
+ */
+export async function publicGet(/** @type {string} */ token, /** @type {string | undefined} */ jeton) {
     const row = await byToken(token);
     const options = await prisma.atelierSondageOption.findMany({
         where: { sondage_id: row.id },
         orderBy: [{ ordre: 'asc' }, { id: 'asc' }]
     });
-    const reponses = await prisma.atelierSondageReponse.findMany({
-        where: { sondage_id: row.id },
-        orderBy: { id: 'asc' }
-    });
+    const mine =
+        jeton && /^[a-f0-9]{32}$/.test(jeton)
+            ? await prisma.atelierSondageReponse.findFirst({ where: { sondage_id: row.id, jeton } })
+            : null;
     const org = row.organisateur_id
         ? await prisma.user.findUnique({ where: { id: row.organisateur_id }, select: { nom: true, prenom: true } })
         : null;
@@ -369,11 +372,14 @@ export async function publicGet(/** @type {string} */ token) {
         retenue: row.option_retenue_id,
         organisateur: org ? `${org.prenom || ''} ${(org.nom || '').toUpperCase()}`.trim() : null,
         options: options.map(o => ({ id: o.id, date: o.date, heure: o.heure, heure_fin: o.heure_fin })),
-        reponses: reponses.map(r => ({ nom: r.nom, options: parseList(r.options) }))
+        mienne: mine ? { nom: mine.nom, options: parseList(mine.options) } : null
     };
 }
 
-/** Réponse d'une personne : remplace sa réponse précédente (même nom) ; la première réponse passe le sondage en « réponses » */
+/**
+ * Réponse d'une personne. Son jeton (remis à la première réponse) permet de la modifier ; sans jeton, un nom déjà utilisé
+ * est refusé (on ne peut pas écraser la réponse d'un autre participant). La première réponse passe le sondage en « réponses ».
+ */
 export async function publicRespond(/** @type {string} */ token, /** @type {any} */ body) {
     const row = await byToken(token);
     if (row.statut === 'termine') throw badRequest('Ce sondage est clôturé : les réponses ne sont plus modifiables');
@@ -393,18 +399,27 @@ export async function publicRespond(/** @type {string} */ token, /** @type {any}
     if (!picked.length) throw badRequest('Cochez au moins une date');
     const all = await prisma.atelierSondageReponse.findMany({
         where: { sondage_id: row.id },
-        select: { id: true, nom: true }
+        select: { id: true, nom: true, jeton: true }
     });
-    const same = all.find(r => r.nom.toLowerCase() === nom.toLowerCase());
-    if (same) {
+    const jeton = String((body || {}).jeton || '');
+    const own = jeton ? all.find(r => r.jeton === jeton) : null;
+    if (!own && all.some(r => r.nom.toLowerCase() === nom.toLowerCase()))
+        throw new HttpError(
+            409,
+            'Ce nom a déjà répondu. Choisissez un autre nom, ou modifiez votre réponse depuis le navigateur utilisé la première fois.'
+        );
+    if (own && all.some(r => r.id !== own.id && r.nom.toLowerCase() === nom.toLowerCase()))
+        throw new HttpError(409, 'Ce nom est déjà utilisé par un autre participant.');
+    const newJeton = own ? own.jeton : randomBytes(16).toString('hex');
+    if (own) {
         await prisma.atelierSondageReponse.update({
-            where: { id: same.id },
+            where: { id: own.id },
             data: { nom, options: JSON.stringify(picked), updated_at: sqlTimestamp() }
         });
     } else {
         if (all.length >= MAX_REPONSES) throw badRequest('Nombre maximal de réponses atteint');
         await prisma.atelierSondageReponse.create({
-            data: { sondage_id: row.id, nom, options: JSON.stringify(picked) }
+            data: { sondage_id: row.id, nom, options: JSON.stringify(picked), jeton: newJeton }
         });
     }
     if (row.statut !== 'reponses') {
@@ -413,5 +428,5 @@ export async function publicRespond(/** @type {string} */ token, /** @type {any}
             data: { statut: 'reponses', updated_at: sqlTimestamp() }
         });
     }
-    return { replaced: !!same };
+    return { replaced: !!own, jeton: newJeton };
 }
