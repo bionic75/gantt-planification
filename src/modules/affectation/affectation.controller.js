@@ -47,7 +47,7 @@ export async function users(/** @type {Request} */ req, /** @type {Response} */ 
 }
 
 export async function resources(/** @type {Request} */ req, /** @type {Response} */ res) {
-    res.json({ resources: await svc.listActiveResources() });
+    res.json({ resources: await svc.listActiveResources(), externals: await svc.listExternalUsers() });
 }
 
 // ---------- Déploiements ----------
@@ -228,7 +228,7 @@ export async function release(/** @type {Request} */ req, /** @type {Response} *
         ...new Set(
             ((req.body || {}).resource_ids || [])
                 .map(Number)
-                .filter((/** @type {number} */ n) => Number.isInteger(n) && n > 0)
+                .filter((/** @type {number} */ n) => Number.isInteger(n) && n !== 0)
         )
     ];
     if (!rids.length) return res.json({ success: true, planningReset: 0, removedFromEvents: 0 });

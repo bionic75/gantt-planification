@@ -508,14 +508,65 @@ export function listActiveResources() {
     });
 }
 
-/** Noms des ressources (« Prénom NOM ») par identifiant */
+/**
+ * Ressources externes : utilisateurs actifs de l'application qui ne sont pas des experts listés. Elles sont repérées par
+ * l'identifiant négatif -(identifiant de l'utilisateur) dans les affectations et les journées d'intervention.
+ */
+export async function listExternalUsers() {
+    const experts = new Set((await listActiveResources()).map(r => r.id));
+    const users = await prisma.user.findMany({
+        where: { actif: 1 },
+        select: { id: true, nom: true, prenom: true, trigramme: true, email: true, resource_id: true },
+        orderBy: [{ nom: 'asc' }, { prenom: 'asc' }, { id: 'asc' }]
+    });
+    return users
+        .filter(u => u.resource_id == null || !experts.has(u.resource_id))
+        .map(u => ({
+            id: -u.id,
+            nom: u.nom,
+            prenom: u.prenom,
+            email: u.email,
+            trigramme: u.trigramme || `${(u.prenom || '').charAt(0)}${(u.nom || '').slice(0, 2)}`.toUpperCase(),
+            external: true
+        }));
+}
+
+/** Identifiants d'affectation : experts (positifs) et ressources externes (négatifs, -identifiant d'utilisateur) */
+const affIdsOk = (/** @type {number[]} */ ids) => ids.every(n => Number.isInteger(n) && n !== 0);
+const affSplitIds = (/** @type {number[]} */ ids) => ({
+    experts: ids.filter(n => n > 0),
+    userIds: ids.filter(n => n < 0).map(n => -n)
+});
+
+/** Les ressources existent et sont actives (experts) ; les externes sont des utilisateurs actifs */
+async function affAssertResources(/** @type {number[]} */ ids) {
+    const { experts, userIds } = affSplitIds(ids);
+    if (
+        experts.length &&
+        (await prisma.resource.count({ where: { actif: 1, id: { in: experts } } })) !== experts.length
+    )
+        throw new HttpError(400, 'Ressource inconnue ou inactive');
+    if (userIds.length && (await prisma.user.count({ where: { actif: 1, id: { in: userIds } } })) !== userIds.length)
+        throw new HttpError(400, 'Utilisateur inconnu ou inactif');
+}
+
+/** Noms des ressources (« Prénom NOM ») par identifiant ; les ressources externes ont un identifiant négatif */
 export async function resourceNames(/** @type {number[]} */ ids) {
     if (!ids.length) return {};
-    const rows = await prisma.resource.findMany({
-        where: { id: { in: ids } },
-        select: { id: true, nom: true, prenom: true }
-    });
-    return Object.fromEntries(rows.map(r => [r.id, displayName(r)]));
+    const { experts, userIds } = affSplitIds(ids);
+    const rows = experts.length
+        ? await prisma.resource.findMany({
+              where: { id: { in: experts } },
+              select: { id: true, nom: true, prenom: true }
+          })
+        : [];
+    const users = userIds.length
+        ? await prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, nom: true, prenom: true } })
+        : [];
+    return Object.fromEntries([
+        ...rows.map(r => [r.id, displayName(r)]),
+        ...users.map(u => [-u.id, `${displayName(u)} (externe)`])
+    ]);
 }
 
 /** Cellules de planification d'une période (clés « AAAA-MM-JJ_AM|PM »), éventuellement de certaines ressources */
@@ -639,7 +690,7 @@ export async function setAssignments(
     /** @type {unknown} */ resourceIds
 ) {
     const ids = [...new Set((Array.isArray(resourceIds) ? resourceIds : []).map(Number))];
-    if (ids.some(n => !Number.isInteger(n) || n <= 0)) throw new HttpError(400, 'Ressources invalides');
+    if (!affIdsOk(ids)) throw new HttpError(400, 'Ressources invalides');
     const row = await prisma.affectationProject.findUnique({
         where: { id: projectId },
         select: { samu_name: true, periods: true }
@@ -648,10 +699,7 @@ export async function setAssignments(
     const needed = parsePeriods(row.periods)[stage.key]?.[0]?.needed || 0;
     if (!needed) throw new HttpError(400, "Cette étape n'a pas de nombre de ressources défini");
     if (ids.length > needed) throw new HttpError(400, `${stage.label} : ${needed} ressource(s) maximum`);
-    if (ids.length) {
-        const found = await prisma.resource.count({ where: { actif: 1, id: { in: ids } } });
-        if (found !== ids.length) throw new HttpError(400, 'Ressource inconnue ou inactive');
-    }
+    if (ids.length) await affAssertResources(ids);
     const before = (
         await prisma.affectationAssignment.findMany({
             where: { project_id: projectId, stage_key: stage.key },
@@ -718,16 +766,13 @@ export async function setAssignmentDays(
     for (const [date, ids] of Object.entries(/** @type {Record<string, unknown>} */ (rawDays))) {
         if (!allowed.has(date)) throw new HttpError(400, `${affFd(date)} : jour hors de la période de l'étape`);
         const list = [...new Set((Array.isArray(ids) ? ids : []).map(Number))];
-        if (list.some(n => !Number.isInteger(n) || n <= 0)) throw new HttpError(400, 'Ressources invalides');
+        if (!affIdsOk(list)) throw new HttpError(400, 'Ressources invalides');
         if (list.length > needed)
             throw new HttpError(400, `${stage.label} : ${needed} ressource(s) maximum par jour (${affFd(date)})`);
         for (const rid of list) byResource.set(rid, [...(byResource.get(rid) || []), date]);
     }
     const ids = [...byResource.keys()].sort((a, b) => a - b);
-    if (ids.length) {
-        const found = await prisma.resource.count({ where: { actif: 1, id: { in: ids } } });
-        if (found !== ids.length) throw new HttpError(400, 'Ressource inconnue ou inactive');
-    }
+    if (ids.length) await affAssertResources(ids);
     // Jours déjà affectés ici avant la modification
     const beforeRows = await prisma.affectationAssignment.findMany({
         where: { project_id: projectId, stage_key: stage.key },
@@ -1689,8 +1734,9 @@ export async function stageAssignedUsers(/** @type {number} */ projectId, /** @t
         where: { id: { in: assignments.map(a => a.resource_id) } },
         select: { id: true }
     });
+    const externalIds = assignments.filter(a => a.resource_id < 0).map(a => -a.resource_id);
     const users = await prisma.user.findMany({
-        where: { resource_id: { in: resources.map(r => r.id) }, actif: 1 },
+        where: { OR: [{ resource_id: { in: resources.map(r => r.id) } }, { id: { in: externalIds } }], actif: 1 },
         select: { id: true },
         orderBy: { id: 'asc' }
     });
@@ -1699,7 +1745,15 @@ export async function stageAssignedUsers(/** @type {number} */ projectId, /** @t
 
 /** Ressources retirées des participants d'événements ; renvoie le nombre de participations supprimées */
 export async function removeResourcesFromEvents(/** @type {number[]} */ eventIds, /** @type {number[]} */ resourceIds) {
-    const users = await prisma.user.findMany({ where: { resource_id: { in: resourceIds } }, select: { id: true } });
+    const users = await prisma.user.findMany({
+        where: {
+            OR: [
+                { resource_id: { in: resourceIds.filter(n => n > 0) } },
+                { id: { in: resourceIds.filter(n => n < 0).map(n => -n) } }
+            ]
+        },
+        select: { id: true }
+    });
     const { count } = await prisma.customEventParticipant.deleteMany({
         where: { event_id: { in: eventIds }, user_id: { in: users.map(u => u.id) } }
     });
