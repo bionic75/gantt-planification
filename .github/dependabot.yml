@@ -1,0 +1,19 @@
+# Mises à jour automatiques des GitHub Actions utilisées par les workflows
+# (.github/workflows/) : une PR par nouvelle version, à relire avant fusion.
+#
+# Concerne notamment aquasecurity/trivy-action : chaque nouvelle version de
+# l'action embarque une version plus récente de Trivy (le workflow n'en fixe
+# pas), ce qui tient le scanner de l'image à jour sans suivre "latest".
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    # Une seule PR regroupant les mises à jour mineures et correctives ; les
+    # versions majeures arrivent dans des PR séparées.
+    groups:
+      github-actions:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: ci
