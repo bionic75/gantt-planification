@@ -91,6 +91,7 @@ jobs:
               uses: aquasecurity/trivy-action@v0.36.0
               with:
                   image-ref: ${{ env.REGISTRY }}/${{ steps.extract-metadata.outputs.REPO_FULLNAME }}:${{ steps.extract-metadata.outputs.DOCKER_TAG }}
+                  version: v0.76.1
                   format: table
                   severity: HIGH,CRITICAL
                   ignore-unfixed: true
