@@ -68,7 +68,7 @@ jobs:
             # 7. Build prod image (loaded locally, not pushed yet)
             - name: Build production image
               id: build-docker-image
-              uses: docker/build-push-action@v6
+              uses: docker/build-push-action@v7
               with:
                   context: .
                   file: Dockerfile
