@@ -1,6 +1,6 @@
 {
   "name": "gantt-planification",
-  "version": "2.16.0",
+  "version": "2.17.0",
   "description": "Gestionnaire de ressources et planification GANTT",
   "main": "server.js",
   "type": "module",

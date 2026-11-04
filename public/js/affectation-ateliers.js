@@ -30,6 +30,7 @@
         heures: {},
         invites: {},
         teams: '',
+        destinataires: { userIds: [], emails: [] },
         savedAt: null
     });
     AT.f = blank();
@@ -309,6 +310,7 @@
             AT.f.heures = { ...(saved.lignes.heures || {}) };
             AT.f.invites = { ...(saved.lignes.invites || {}) };
             AT.f.teams = saved.lignes.teams || '';
+            AT.f.destinataires = { userIds: [], emails: [], ...(saved.lignes.destinataires || {}) };
             AT.f.savedAt = saved.updated_at;
         } else if (p) {
             AT.f.mep = p.mep || '';
@@ -371,7 +373,8 @@
             planifiees: AT.f.planifiees,
             heures: AT.f.heures,
             invites: AT.f.invites,
-            teams: AT.f.teams
+            teams: AT.f.teams,
+            destinataires: AT.f.destinataires
         }
     });
 
@@ -622,11 +625,11 @@
                 .filter(u => u.email)
                 .map(
                     u =>
-                        `<label data-n="${esc(`${u.prenom} ${u.nom}`.toLowerCase())}"><input type="checkbox" value="${u.id}"> ${esc(u.prenom)} ${esc((u.nom || '').toUpperCase())} <span class="aff-muted">${esc(u.email)}</span></label>`
+                        `<label data-n="${esc(`${u.prenom} ${u.nom}`.toLowerCase())}"><input type="checkbox" value="${u.id}" ${AT.f.destinataires.userIds.includes(u.id) ? 'checked' : ''}> ${esc(u.prenom)} ${esc((u.nom || '').toUpperCase())} <span class="aff-muted">${esc(u.email)}</span></label>`
                 )
                 .join('')}</div>
-            <label>Autres adresses e-mail (une par ligne)</label>
-            <textarea id="atMailExtra" rows="3" placeholder="prenom.nom@exemple.fr"></textarea>
+            <label>Autres adresses e-mail (une par ligne) <span class="aff-muted" style="font-weight:400;">${AT.f.destinataires.userIds.length || AT.f.destinataires.emails.length ? '(destinataires repris de la dernière invitation de ce SAMU, modifiables)' : ''}</span></label>
+            <textarea id="atMailExtra" rows="3" placeholder="prenom.nom@exemple.fr">${esc(AT.f.destinataires.emails.join('\n'))}</textarea>
             <div id="atMailExtraErr" style="color:#c62828;font-size:11px;margin-top:3px;"></div>
             <label>Lien de la réunion Teams <span class="aff-muted" style="font-weight:400;">${teams ? '(repris de ce SAMU, modifiable)' : '(à renseigner une fois : proposé pour les autres ateliers de ce SAMU)'}</span></label>
             <input type="text" id="atMailTeams" value="${esc(teams)}" placeholder="https://teams.microsoft.com/l/meetup-join/…">
@@ -690,6 +693,7 @@
             if (saved) {
                 AT.f.teams = saved.lignes.teams || '';
                 AT.f.invites = { ...(saved.lignes.invites || {}) };
+                AT.f.destinataires = { userIds: [], emails: [], ...(saved.lignes.destinataires || {}) };
             }
             renderList();
             renderTable();
