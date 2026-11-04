@@ -2,7 +2,7 @@
 // synchronisation vers la planification et les événements, suppression, import CSV Asana, configuration
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ADMIN, startServer } from './helpers/server.js';
-import { createExpert, createResource, loginAs } from './helpers/fixtures.js';
+import { createExpert, createResource, createUser, loginAs } from './helpers/fixtures.js';
 
 let server;
 let admin;
@@ -802,5 +802,61 @@ describe('import Asana (fichier CSV)', () => {
         expect(again.existing).toEqual({ id: applied.id, samu_name: 'SAMU-SAS 4X' });
         expect(again.rows.find(r => r.key === 'cadrage').status).toBe('identique');
         expect((await admin.get('/api/affectation/asana/config')).data).toMatchObject({ tokenSet: false });
+    });
+});
+
+describe('ressources externes (utilisateurs de l’application)', () => {
+    it('proposées hors experts, comptées dans les besoins par jour, placées sur des journées, participantes des événements', async () => {
+        const samu = await newSamu();
+        const p = await createProject(samu);
+        const { resource, user: expertUser } = await createExpert(admin);
+        const { resource: second } = await createExpert(admin);
+        const ext1 = await createUser(admin, { is_user: 1 });
+        const ext2 = await createUser(admin, { is_user: 1 });
+
+        // Utilisateurs proposés : ceux qui ne sont pas rattachés à un expert listé
+        const res = (await admin.get('/api/affectation/resources')).data;
+        const externalIds = res.externals.map(e => e.id);
+        expect(externalIds).toEqual(expect.arrayContaining([-ext1.id, -ext2.id]));
+        expect(externalIds).not.toContain(-expertUser.id);
+        expect(res.externals.find(e => e.id === -ext1.id)).toMatchObject({ external: true });
+        expect(res.externals.find(e => e.id === -ext2.id).trigramme).toHaveLength(3);
+
+        // visite_metier : 2 ressources au maximum par jour, externes comprises
+        const url = `/api/affectation/projects/${p.id}`;
+        const put = days => admin.put(`${url}/assignment-days/visite_metier`, { days });
+        const ok = await put({ '2027-03-01': [resource.id, -ext1.id], '2027-03-02': [-ext1.id] });
+        expect(ok.status, JSON.stringify(ok.data)).toBe(200);
+        expect(ok.data.resource_ids).toEqual(expect.arrayContaining([resource.id, -ext1.id]));
+        const full = await put({ '2027-03-01': [resource.id, -ext1.id, second.id] });
+        expect(full.status).toBe(400);
+        expect(full.data.error).toMatch(/2 ressource\(s\) maximum/);
+        // Utilisateur inconnu
+        expect((await put({ '2027-03-01': [-999999] })).status).toBe(400);
+        expect((await put({ '2027-03-01': [0] })).status).toBe(400);
+        expect((await put({ '2027-03-01': [resource.id, -ext1.id], '2027-03-02': [-ext1.id] })).status).toBe(200);
+
+        const proj = await project(p.id);
+        expect(proj.assignments.visite_metier).toEqual(expect.arrayContaining([resource.id, -ext1.id]));
+        expect(proj.assignment_days.visite_metier['2027-03-02']).toEqual([-ext1.id]);
+
+        // Les externes participent à l'événement créé pour l'étape
+        const ev = await admin.post(`${url}/event-create`, {
+            key: 'visite_metier',
+            start: '2027-03-01',
+            end: '2027-03-03'
+        });
+        expect(ev.status, JSON.stringify(ev.data)).toBe(200);
+        expect(ev.data.participants).toBe(2);
+
+        // Désaffectation d'une externe : retirée des participants, pas de planification à remettre
+        const clear = await put({ '2027-03-01': [resource.id] });
+        expect(clear.status).toBe(200);
+        const rel = await admin.post(`${url}/assignments/visite_metier/release`, { resource_ids: [-ext1.id] });
+        expect(rel.data).toMatchObject({ planningReset: 0, removedFromEvents: 1 });
+
+        // Historique : nom de l'externe
+        const hist = (await admin.get(`${url}/history`)).data.history;
+        expect(JSON.stringify(hist)).toContain('(externe)');
     });
 });

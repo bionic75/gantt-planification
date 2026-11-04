@@ -462,6 +462,8 @@
                 <div id="affAssignInfo" class="aff-muted"></div>
                  <p class="aff-muted" style="margin:8px 0 0;font-size:12px;">Cochez, pour chaque expert, les <b>journées</b> où il intervient, week-ends compris (le nombre de ressources nécessaires est le maximum <b>par jour</b>). Ces journées alimentent la planification ; l'événement associé réunit tous les intervenants de l'étape.</p>
                 <input id="affAssignFilter" type="text" placeholder="Filtrer les ressources…" oninput="AffectationApp.assignFilter()" style="margin-top:10px;padding:8px 10px;border:1px solid #cfd8e6;border-radius:8px;">
+                <input id="affAssignExt" list="affExtList" type="text" autocomplete="off" placeholder="Ajouter une ressource externe : premières lettres du nom, du prénom ou du trigramme…" oninput="AffectationApp.assignExtPick()" style="margin-top:8px;padding:8px 10px;border:1px solid #cfd8e6;border-radius:8px;">
+                <datalist id="affExtList"></datalist>
                 <div id="affAssignList" class="aff-assign-list"></div>
             </div>
             <div class="aff-modal-foot">
@@ -2590,8 +2592,10 @@
         triW = w || 44;
         triCache = new Map();
     }
+    // Expert (identifiant positif) ou ressource externe (utilisateur de l'application, identifiant négatif)
+    const resOf = id => (plan.resources || []).find(z => z.id === id) || (plan.externals || []).find(z => z.id === id);
     const triOfRid = rid => {
-        const r = (plan.resources || []).find(z => z.id === rid);
+        const r = resOf(rid);
         return r ? r.trigramme || `${(r.prenom || '').charAt(0)}${(r.nom || '').slice(0, 2)}`.toUpperCase() : '?';
     };
     /** Trigrammes (triés, sans doublon) des experts intervenant entre deux dates sur une période d'étape */
@@ -2634,7 +2638,7 @@
             const got = ((p.assignments || {})[k] || []).length;
             const needed = x.needed || 0;
             const names = ((p.assignments || {})[k] || []).map(id => {
-                const r = (plan.resources || []).find(z => z.id === id);
+                const r = resOf(id);
                 return r ? `${r.prenom || ''} ${(r.nom || '').toUpperCase()}`.trim() : `Ressource ${id}`;
             });
             const tip =
@@ -3109,7 +3113,10 @@
                 api('/affectation/projects'),
                 api('/affectation/resources').catch(() => null)
             ]);
-            if (res) plan.resources = res.resources;
+            if (res) {
+                plan.resources = res.resources;
+                plan.externals = res.externals || [];
+            }
             plan.projects = proj.projects;
             plan.colors = cfg.colors;
             plan.patterns = cfg.patterns || {};
@@ -3509,7 +3516,7 @@
         }
     }
 
-    const asg = { project: null, stage: null, days: {}, dates: [], needed: 0 };
+    const asg = { project: null, stage: null, days: {}, dates: [], needed: 0, extShown: new Set() };
     // Grille ressources × jours de l'étape : chaque case = l'expert intervient ce jour-là (au plus « nécessaires » par jour)
     const ASG_STATE = {
         free: ['Disponible', 'ok'],
@@ -3525,6 +3532,7 @@
         Object.values(asg.days).forEach(set => set.forEach(r => s.add(r)));
         return s;
     };
+    const extLabel = r => `${r.prenom || ''} ${(r.nom || '').toUpperCase()} (${r.trigramme || '?'})`.trim();
     function assignList() {
         const q = norm(document.getElementById('affAssignFilter').value);
         const av = asg.av || {};
@@ -3532,9 +3540,22 @@
         const mine = r => asg.dates.filter(d => (asg.days[d] || new Set()).has(r.id)).length;
         const score = r =>
             (union.has(r.id) ? 1e6 : 0) + ((av[r.id] || {}).free || 0) * 10 - ((av[r.id] || {}).other || 0);
-        const list = (plan.resources || [])
+        const experts = (plan.resources || [])
             .filter(r => !q || union.has(r.id) || norm(`${r.nom} ${r.prenom} ${r.trigramme || ''}`).includes(q))
             .sort((a, b) => score(b) - score(a) || (a.nom || '').localeCompare(b.nom || '', 'fr'));
+        // Ressources externes (utilisateurs de l'application) ajoutées à l'étape, en tête de liste
+        const shown = (plan.externals || [])
+            .filter(r => union.has(r.id) || asg.extShown.has(r.id))
+            .filter(r => !q || union.has(r.id) || norm(`${r.nom} ${r.prenom} ${r.trigramme || ''}`).includes(q))
+            .sort((a, b) => (a.nom || '').localeCompare(b.nom || '', 'fr'));
+        const list = [...shown, ...experts];
+        // Propositions de la zone de saisie : utilisateurs non encore affichés
+        const dl = document.getElementById('affExtList');
+        if (dl)
+            dl.innerHTML = (plan.externals || [])
+                .filter(r => !union.has(r.id) && !asg.extShown.has(r.id))
+                .map(r => `<option value="${esc(extLabel(r))}"></option>`)
+                .join('');
         const DOW = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'];
         const head = asg.dates
             .map(d => {
@@ -3559,7 +3580,7 @@
                     })
                     .join('');
                 const nb = mine(r);
-                return `<tr class="${nb ? 'sel' : ''}"><th class="who"><div class="n"><b>${esc((r.nom || '').toUpperCase())}</b> ${esc(r.prenom || '')} <span class="tri">${esc(r.trigramme || '')}</span></div><div class="aff-muted" style="font-size:11px;">${nb} / ${asg.dates.length} j · <a href="#" onclick="AffectationApp.assignRow(${r.id},true);return false;" title="Tous les jours ouvrés de l'étape">tout</a> · <a href="#" onclick="AffectationApp.assignRow(${r.id},false);return false;">aucun</a></div></th>${row}</tr>`;
+                return `<tr class="${nb ? 'sel' : ''}"><th class="who"><div class="n"><b>${esc((r.nom || '').toUpperCase())}</b> ${esc(r.prenom || '')} <span class="tri">${esc(r.trigramme || '')}</span>${r.external ? ' <span class="aff-muted" style="font-size:10px;">externe</span>' : ''}</div><div class="aff-muted" style="font-size:11px;">${nb} / ${asg.dates.length} j · <a href="#" onclick="AffectationApp.assignRow(${r.id},true);return false;" title="Tous les jours ouvrés de l'étape">tout</a> · <a href="#" onclick="AffectationApp.assignRow(${r.id},false);return false;">aucun</a></div></th>${row}</tr>`;
             })
             .join('');
         document.getElementById('affAssignList').innerHTML = list.length
@@ -4103,7 +4124,11 @@
             const x = p && ((p.periods || {})[stageKey] || [])[0];
             if (!x || !x.needed) return;
             try {
-                if (!plan.resources) plan.resources = (await api('/affectation/resources')).resources;
+                if (!plan.resources || !plan.externals) {
+                    const rs = await api('/affectation/resources');
+                    plan.resources = rs.resources;
+                    plan.externals = rs.externals || [];
+                }
             } catch (e) {
                 alert(e.message);
                 return;
@@ -4140,6 +4165,8 @@
             // Journées d'intervention actuelles (étape entière pour une ressource sans journées enregistrées)
             const current = (p.assignment_days || {})[stageKey] || {};
             asg.days = {};
+            asg.extShown = new Set();
+            document.getElementById('affAssignExt').value = '';
             asg.dates.forEach(d => (asg.days[d] = new Set(current[d] || [])));
             asg.initial = {};
             asg.dates.forEach(d => (asg.initial[d] = new Set(asg.days[d])));
@@ -4168,6 +4195,16 @@
             assignList();
         },
         assignFilter: assignList,
+        // Ressource externe choisie dans les propositions : ajoutée à la grille (journées à cocher ensuite)
+        assignExtPick() {
+            const input = document.getElementById('affAssignExt');
+            const v = norm(input.value);
+            const found = (plan.externals || []).find(r => norm(extLabel(r)) === v);
+            if (!found) return;
+            asg.extShown.add(found.id);
+            input.value = '';
+            assignList();
+        },
         closeAssign() {
             document.getElementById('affAssignModal').classList.remove('active');
         },
@@ -4194,7 +4231,7 @@
                 if (removed.length) {
                     const names = removed
                         .map(id => {
-                            const q = (plan.resources || []).find(z => z.id === id);
+                            const q = resOf(id);
                             return q ? `${q.prenom || ''} ${(q.nom || '').toUpperCase()}`.trim() : `#${id}`;
                         })
                         .join(', ');
@@ -4253,7 +4290,8 @@
                         alert(e2.message);
                     }
                 }
-                if (r.resource_ids.length) AffectationApp.openSync(asg.project.id, asg.stage, true);
+                // Les ressources externes n'ont pas de planification à synchroniser
+                if (r.resource_ids.some(x => x > 0)) AffectationApp.openSync(asg.project.id, asg.stage, true);
             } catch (e) {
                 document.getElementById('affAssignError').textContent = e.message;
             }
