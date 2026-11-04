@@ -30,6 +30,7 @@
         heures: {},
         invites: {},
         teams: '',
+        destinataires: { userIds: [], emails: [] },
         savedAt: null
     });
     AT.f = blank();
@@ -309,6 +310,7 @@
             AT.f.heures = { ...(saved.lignes.heures || {}) };
             AT.f.invites = { ...(saved.lignes.invites || {}) };
             AT.f.teams = saved.lignes.teams || '';
+            AT.f.destinataires = { userIds: [], emails: [], ...(saved.lignes.destinataires || {}) };
             AT.f.savedAt = saved.updated_at;
         } else if (p) {
             AT.f.mep = p.mep || '';
@@ -371,7 +373,8 @@
             planifiees: AT.f.planifiees,
             heures: AT.f.heures,
             invites: AT.f.invites,
-            teams: AT.f.teams
+            teams: AT.f.teams,
+            destinataires: AT.f.destinataires
         }
     });
 
@@ -607,6 +610,17 @@
         } catch (e) {
             return toast(e.message, true);
         }
+        // Sans destinataires déjà retenus pour les invitations, reprise de ceux du dernier sondage de ce SAMU
+        let dest = AT.f.destinataires;
+        if (!dest.userIds.length && !dest.emails.length) {
+            try {
+                const got = await atApi(`/affectation/ateliers/${AT.f.id}/sondages/${key}`);
+                const m = got.modele || got.sondage;
+                if (m) dest = { userIds: [], emails: m.destinataires || [] };
+            } catch (e) {
+                /* aucun destinataire proposé */
+            }
+        }
         const start = AT.f.heures[key] || '';
         const teams = AT.f.teams || ''; // lien déjà renseigné pour ce SAMU, proposé pour ses autres ateliers
         const bg = document.createElement('div');
@@ -622,11 +636,11 @@
                 .filter(u => u.email)
                 .map(
                     u =>
-                        `<label data-n="${esc(`${u.prenom} ${u.nom}`.toLowerCase())}"><input type="checkbox" value="${u.id}"> ${esc(u.prenom)} ${esc((u.nom || '').toUpperCase())} <span class="aff-muted">${esc(u.email)}</span></label>`
+                        `<label data-n="${esc(`${u.prenom} ${u.nom}`.toLowerCase())}"><input type="checkbox" value="${u.id}" ${dest.userIds.includes(u.id) ? 'checked' : ''}> ${esc(u.prenom)} ${esc((u.nom || '').toUpperCase())} <span class="aff-muted">${esc(u.email)}</span></label>`
                 )
                 .join('')}</div>
-            <label>Autres adresses e-mail (une par ligne)</label>
-            <textarea id="atMailExtra" rows="3" placeholder="prenom.nom@exemple.fr"></textarea>
+            <label>Autres adresses e-mail (une par ligne) <span class="aff-muted" style="font-weight:400;">${dest.userIds.length || dest.emails.length ? '(destinataires repris pour ce SAMU, modifiables)' : ''}</span></label>
+            <textarea id="atMailExtra" rows="3" placeholder="prenom.nom@exemple.fr">${esc(dest.emails.join('\n'))}</textarea>
             <div id="atMailExtraErr" style="color:#c62828;font-size:11px;margin-top:3px;"></div>
             <label>Lien de la réunion Teams <span class="aff-muted" style="font-weight:400;">${teams ? '(repris de ce SAMU, modifiable)' : '(à renseigner une fois : proposé pour les autres ateliers de ce SAMU)'}</span></label>
             <input type="text" id="atMailTeams" value="${esc(teams)}" placeholder="https://teams.microsoft.com/l/meetup-join/…">
@@ -690,6 +704,7 @@
             if (saved) {
                 AT.f.teams = saved.lignes.teams || '';
                 AT.f.invites = { ...(saved.lignes.invites || {}) };
+                AT.f.destinataires = { userIds: [], emails: [], ...(saved.lignes.destinataires || {}) };
             }
             renderList();
             renderTable();
@@ -741,8 +756,11 @@
             return toast(e.message, true);
         }
         let sd;
+        let modele; // destinataires du dernier sondage de ce SAMU, proposés pour un nouveau sondage
         try {
-            sd = (await atApi(`/affectation/ateliers/${AT.f.id}/sondages/${key}`)).sondage;
+            const got = await atApi(`/affectation/ateliers/${AT.f.id}/sondages/${key}`);
+            sd = got.sondage;
+            modele = got.modele;
         } catch (e) {
             return toast(e.message, true);
         }
@@ -753,9 +771,9 @@
         const me = typeof currentUser !== 'undefined' && currentUser ? currentUser.id : null;
         const d = sd || {
             nom: `[SI-SAMU] ${AT.f.samu} - Sondage - ${row.jalon}`,
-            organisateur_id: me,
-            destinataires: [],
-            cc_user_ids: [],
+            organisateur_id: (modele && modele.organisateur_id) || me,
+            destinataires: modele ? modele.destinataires : [],
+            cc_user_ids: modele ? modele.cc_user_ids : [],
             message: '',
             options: [{ date: row.proposee || row.cible || '' }],
             reponses: [],
@@ -777,7 +795,7 @@
             <label>Dates et heures proposées <span class="aff-muted" style="font-weight:400;">(le calendrier s’ouvre autour de la date proposée : ${esc(frShort(row.proposee))})</span></label>
             <div id="sdOpts">${d.options.map(sdOptRow).join('')}</div>
             ${ro || closed ? '' : '<button type="button" class="aff-btn" onclick="AtelierPlanner.sondageAddDate()">+ Ajouter une date</button>'}
-            <label>Destinataires du sondage (adresses e-mail, une par ligne)</label>
+            <label>Destinataires du sondage (adresses e-mail, une par ligne) ${!sd && modele ? '<span class="aff-muted" style="font-weight:400;">(repris du dernier sondage de ce SAMU, modifiables)</span>' : ''}</label>
             <textarea id="sdDest" rows="3" placeholder="prenom.nom@exemple.fr" ${dis}>${esc((d.destinataires || []).join('\n'))}</textarea>
             <div id="sdDestErr" style="color:#c62828;font-size:11px;margin-top:3px;"></div>
             <label>En copie (utilisateurs de l’application)</label>

@@ -273,6 +273,8 @@ model AtelierSondageReponse {
   sondage_id Int
   nom        String @db.LongText
   options    String @db.LongText
+  /// Jeton secret remis au répondant : lui seul peut relire et modifier sa réponse
+  jeton      String? @db.LongText
   created_at String? @db.VarChar(32) @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))"))
   updated_at String? @db.VarChar(32) @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))"))
 
