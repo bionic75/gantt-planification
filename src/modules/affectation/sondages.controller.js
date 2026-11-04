@@ -15,7 +15,8 @@ export async function list(/** @type {Request} */ _req, /** @type {Response} */ 
 }
 
 export async function get(/** @type {Request} */ req, /** @type {Response} */ res) {
-    res.json({ sondage: withUrl(req, await svc.get(req.params.id, req.params.ligne)) });
+    const sondage = await svc.get(req.params.id, req.params.ligne);
+    res.json({ sondage: withUrl(req, sondage), modele: sondage ? null : await svc.modele(req.params.id) });
 }
 
 export async function save(/** @type {Request} */ req, /** @type {Response} */ res) {
@@ -65,7 +66,7 @@ export async function remove(/** @type {Request} */ req, /** @type {Response} */
 
 // Accès public par l'adresse unique du sondage
 export async function publicGet(/** @type {Request} */ req, /** @type {Response} */ res) {
-    res.json(await svc.publicGet(req.params.token));
+    res.json(await svc.publicGet(req.params.token, String(req.get('x-reponse-jeton') || '')));
 }
 
 export async function publicRespond(/** @type {Request} */ req, /** @type {Response} */ res) {

@@ -116,7 +116,25 @@ function cleanLignes(/** @type {any} */ raw) {
         if (/^[a-z0-9]{1,10}$/.test(k) && typeof v === 'string') invites[k] = v.slice(0, 30);
     }
     const teams = cleanTeamsLink(src.teams);
-    return { jalons, contenus, planifiees, heures, invites, ...(teams ? { teams } : {}) };
+    // Destinataires des invitations (conservés pour les invitations suivantes de ce SAMU)
+    const dest = src.destinataires && typeof src.destinataires === 'object' ? src.destinataires : {};
+    const destinataires = {
+        userIds: [
+            ...new Set(
+                (Array.isArray(dest.userIds) ? dest.userIds : [])
+                    .map(Number)
+                    .filter((/** @type {number} */ n) => Number.isInteger(n) && n > 0)
+            )
+        ],
+        emails: [
+            ...new Set(
+                (Array.isArray(dest.emails) ? dest.emails : [])
+                    .map((/** @type {unknown} */ e) => String(e || '').trim())
+                    .filter((/** @type {string} */ e) => isEmail(e))
+            )
+        ]
+    };
+    return { jalons, contenus, planifiees, heures, invites, destinataires, ...(teams ? { teams } : {}) };
 }
 
 /**
@@ -189,6 +207,7 @@ export async function save(/** @type {any} */ body, /** @type {{ userId: number,
             planifiees: input.planifiees,
             heures: input.heures,
             invites: input.invites,
+            destinataires: input.destinataires,
             teams: input.teams,
             ecarts: { ecart12: input.ecart12, ecartAteliers: input.ecartAteliers }
         }),
@@ -508,6 +527,7 @@ export async function sendInvitation(id, ligne, body, sender) {
     const next = { ...lignes };
     if (teams) next.teams = teams;
     next.invites = { ...(lignes.invites || {}), [ligne]: sqlTimestamp() };
+    next.destinataires = { userIds, emails: extra };
     await prisma.atelierRetroplanning.update({
         where: { id: row.id },
         data: { lignes: JSON.stringify(next), updated_at: sqlTimestamp() }

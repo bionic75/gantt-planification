@@ -390,18 +390,34 @@ describe('sondages de date des jalons', () => {
         expect(
             (await anon.post(`/api/sondages-publics/${token}/reponses`, { nom: 'Alice', options: [999999] })).status
         ).toBe(400);
-        expect(
-            (await anon.post(`/api/sondages-publics/${token}/reponses`, { nom: 'Alice', options: [o1.id] })).status
-        ).toBe(200);
+        const first = await anon.post(`/api/sondages-publics/${token}/reponses`, { nom: 'Alice', options: [o1.id] });
+        expect(first.status).toBe(200);
+        expect(first.data.jeton).toMatch(/^[a-f0-9]{32}$/);
         expect((await statuts()).find(x => x.ligne === 'a1')).toMatchObject({ statut: 'reponses', reponses: 1 });
-        // Même nom : réponse remplacée
+
+        // Confidentialité : un participant ne voit jamais les choix des autres (ni noms, ni totaux)
+        const other = server.client();
+        const seen = await other.get(`/api/sondages-publics/${token}`);
+        expect(seen.data.mienne).toBeNull();
+        expect(seen.data.reponses).toBeUndefined();
+        expect(JSON.stringify(seen.data)).not.toContain('Alice');
+        // Son propre jeton lui rend sa réponse, pas celle d'un autre
+        const withJeton = await anon.request('GET', `/api/sondages-publics/${token}`, undefined, {
+            'X-Reponse-Jeton': first.data.jeton
+        });
+        expect(withJeton.data.mienne).toEqual({ nom: 'Alice', options: [o1.id] });
+        // Même nom sans jeton : refusé (pas d'écrasement de la réponse d'un autre)
+        const clash = await other.post(`/api/sondages-publics/${token}/reponses`, { nom: 'alice', options: [o2.id] });
+        expect(clash.status).toBe(409);
+        // Avec son jeton : réponse modifiée
         const again = await anon.post(`/api/sondages-publics/${token}/reponses`, {
-            nom: 'alice',
-            options: [o1.id, o2.id]
+            nom: 'Alice',
+            options: [o1.id, o2.id],
+            jeton: first.data.jeton
         });
         expect(again.data.replaced).toBe(true);
         expect((await admin.get(base)).data.sondage.reponses).toEqual([
-            { id: expect.any(Number), nom: 'alice', options: [o1.id, o2.id] }
+            { id: expect.any(Number), nom: 'Alice', options: [o1.id, o2.id] }
         ]);
 
         // Date supprimée : retirée aussi des réponses
@@ -418,6 +434,31 @@ describe('sondages de date des jalons', () => {
 
         expect((await admin.delete(base)).status).toBe(200);
         expect((await anon.get(`/api/sondages-publics/${token}`)).status).toBe(404);
+    });
+});
+
+describe('destinataires repris pour les nouveaux sondages d’un SAMU', () => {
+    it('le dernier sondage du SAMU sert de modèle', async () => {
+        await deployment('SAMU-SAS 80');
+        const created = await admin.put('/api/affectation/ateliers', {
+            samu_name: 'SAMU-SAS 80',
+            mep: '2027-06-10',
+            nb: 3,
+            zone: 'C'
+        });
+        const id = created.data.id;
+        const none = await admin.get(`/api/affectation/ateliers/${id}/sondages/a2`);
+        expect(none.data).toMatchObject({ sondage: null, modele: null });
+        await admin.put(`/api/affectation/ateliers/${id}/sondages/a1`, {
+            nom: 'Premier',
+            options: [{ date: '2027-04-12' }],
+            destinataires: ['un@example.test', 'deux@example.test']
+        });
+        const next = await admin.get(`/api/affectation/ateliers/${id}/sondages/a2`);
+        expect(next.data.sondage).toBeNull();
+        expect(next.data.modele.destinataires).toEqual(['un@example.test', 'deux@example.test']);
+        // Un sondage existant n'a pas besoin de modèle
+        expect((await admin.get(`/api/affectation/ateliers/${id}/sondages/a1`)).data.modele).toBeNull();
     });
 });
 
@@ -466,7 +507,9 @@ describe('clôture et réouverture d’un sondage', () => {
         expect((await admin.post(`${base}/send`, {})).status).toBe(400);
         expect((await admin.post(`${base}/close`, {})).status).toBe(400);
         expect(
-            (await admin.get('/api/affectation/ateliers-sondages')).data.sondages.find(x => x.ligne === 'a1').statut
+            (await admin.get('/api/affectation/ateliers-sondages')).data.sondages.find(
+                x => x.retroplanning_id === id && x.ligne === 'a1'
+            ).statut
         ).toBe('termine');
 
         const reopened = await admin.post(`${base}/reopen`, {});
@@ -525,14 +568,24 @@ describe('invitation à un atelier planifié (ics + lien Teams)', () => {
         const after = (await admin.get('/api/affectation/ateliers')).data.retroplannings.find(x => x.id === id);
         expect(after.lignes.teams).toBe(teams);
         expect(after.lignes.invites.a1).toBeTruthy();
+        // Les destinataires sont conservés pour les invitations suivantes de ce SAMU
+        expect(after.lignes.destinataires).toEqual({ userIds: [], emails: ['direct@example.test'] });
         // Enregistrer le rétroplanning conserve le lien Teams et l'inscription de l'envoi
         const again = await admin.put('/api/affectation/ateliers', {
             samu_name: 'SAMU-SAS 79',
             mep: '2027-06-10',
             nb: 3,
             zone: 'C',
-            lignes: { planifiees: { a1: a1.proposee }, heures: { a1: '10:00' }, teams, invites: after.lignes.invites }
+            lignes: {
+                planifiees: { a1: a1.proposee },
+                heures: { a1: '10:00' },
+                teams,
+                invites: after.lignes.invites,
+                destinataires: after.lignes.destinataires
+            }
         });
         expect(again.status).toBe(200);
+        const kept = (await admin.get('/api/affectation/ateliers')).data.retroplannings.find(x => x.id === id);
+        expect(kept.lignes.destinataires.emails).toEqual(['direct@example.test']);
     });
 });
