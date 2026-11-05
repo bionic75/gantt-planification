@@ -158,7 +158,8 @@ l'onglet, à la place de l'ancien code.
 applications** (`#adminApplications`), **Accès aux onglets** (`#adminOnglets`) et **Gestion des utilisateurs**
 (`#adminUtilisateurs`) : sections montées à l'ouverture de l'onglet (composant commun `AppSectionAdmin`). L'onglet
 **CRA** (`#cra`) est un îlot d'onglet (vues expert, administrateur et RH ; pastille de l'onglet dans
-`public/js/app/tabs.js`). Les bibliothèques de l'interface
+`public/js/app/tabs.js`). Dans l'onglet **Astreintes**, la rubrique HO est un sous-îlot (`#astreintesHo`) ; le
+choix des rubriques et la rubrique HNO restent dans l'ancien code (`public/js/app/astreintes.js`). Les bibliothèques de l'interface
 Vue (Leaflet…) sont intégrées au build, sans CDN.
 
 Selon `NODE_ENV` :

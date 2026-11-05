@@ -443,25 +443,8 @@
         <button type="button" id="astreinteSubTabHno" onclick="astreinteSwitchRubrique('hno')" class="astreinte-subtab" style="display:none;">🌙 Gestion des astreintes HNO</button>
     </div>
 
-    <!-- RUBRIQUE : GESTION DES ASTREINTES HO -->
-    <div id="astreintesHoPanel">
-        <p style="font-size:13px;color:#33691e;background:#f1f8e9;border-left:4px solid #7cb342;padding:10px 12px;border-radius:4px;margin:0 0 14px;">
-            Planning des astreintes <strong>HO</strong> (heures ouvrées) : du lundi au vendredi, <strong>demi-journée par demi-journée</strong>.
-            Plusieurs experts peuvent être inscrits sur une même demi-journée.
-        </p>
-        <div id="hoRights" style="font-size:12px;color:#555;margin-bottom:10px;"></div>
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
-            <button type="button" class="ho-btn" onclick="hoNavigate(-1)" title="Mois précédent">◀</button>
-            <strong id="hoMonthLabel" style="min-width:150px;text-align:center;font-size:15px;"></strong>
-            <button type="button" class="ho-btn" onclick="hoNavigate(1)" title="Mois suivant">▶</button>
-            <button type="button" class="ho-btn" onclick="hoGoToday()">Aujourd'hui</button>
-            <span style="flex:1;"></span>
-            <button type="button" id="hoCancelBtn" class="ho-btn" onclick="hoCancelPending()" style="display:none;">↺ Annuler les modifications</button>
-            <button type="button" id="hoSaveBtn" class="ho-btn ho-btn-primary" onclick="hoOpenSaveDialog()" style="display:none;">💾 Enregistrer <span id="hoPendingCount"></span></button>
-        </div>
-        <div id="hoLegend" style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;margin-bottom:10px;"></div>
-        <div id="hoGrid"><p style="color:#999;font-style:italic;">Chargement…</p></div>
-    </div>
+    <!-- RUBRIQUE : GESTION DES ASTREINTES HO : îlot Vue (frontend/src/ilots/astreintes) -->
+    <div id="astreintesHoPanel"><div id="astreintesHo"></div></div>
 
     <!-- RUBRIQUE : GESTION DES ASTREINTES HNO (réservée aux administrateurs) -->
     <div id="astreintesHnoPanel" style="display:none;">
@@ -621,21 +604,6 @@
         </div>
     </div>
     </div><!-- /astreintesHnoPanel -->
-</div>
-
-<!-- Fenêtre : confirmation de l'enregistrement du planning HO -->
-<div id="hoSaveModal" class="modal" style="z-index:10010;">
-    <div class="modal-content" style="max-width:640px;max-height:88vh;overflow-y:auto;">
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-            <h3 style="margin:0;border:none;padding:0;">💾 Enregistrer le planning HO</h3>
-            <button type="button" class="ho-btn" onclick="hoCloseSaveDialog()">✕</button>
-        </div>
-        <div id="hoSaveBody" style="margin-top:12px;"></div>
-        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
-            <button type="button" class="ho-btn" onclick="hoCloseSaveDialog()">Annuler</button>
-            <button type="button" id="hoConfirmBtn" class="ho-btn ho-btn-primary" onclick="hoConfirmSave()">Confirmer et enregistrer</button>
-        </div>
-    </div>
 </div>
 
 <!-- Saisie des astreintes/HNO depuis le menu contextuel du Gantt (planification) -->
@@ -1132,7 +1100,6 @@
     <script src="/js/app/profile.js?v=2.17.1"></script>
     <script src="/js/app/realtime.js?v=2.17.1"></script>
     <script src="/js/app/astreintes.js?v=2.17.1"></script>
-    <script src="/js/app/astreintes-ho.js?v=2.17.1"></script>
 
     <!-- MODALE VUE CALENDRIER MENSUEL -->
     <div id="monthlyCalendarModal" class="modal">
