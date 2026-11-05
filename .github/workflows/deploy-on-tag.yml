@@ -85,23 +85,18 @@ jobs:
                   cache-from: type=local,src=/tmp/.buildx-cache
 
             # 8. Scan image with Trivy: fails on fixable HIGH/CRITICAL vulnerabilities
-            # Trivy tourne dans son image Docker officielle, épinglée par empreinte (v0.76.1) : l'installation du binaire par
-            # trivy-action échouait sur l'exécuteur (téléchargement impossible, code 6). L'image locale est lue via le démon Docker.
+            # v0.36.0 is the only trivy-action tag not hijacked in the March 2026 supply chain attack (CVE-2026-33634)
             - name: Scan image with Trivy
               id: scan-docker-image
-              env:
-                  IMAGE_REF: ${{ env.REGISTRY }}/${{ steps.extract-metadata.outputs.REPO_FULLNAME }}:${{ steps.extract-metadata.outputs.DOCKER_TAG }}
-                  TRIVY_IMAGE: ghcr.io/aquasecurity/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c
-              run: |
-                  docker run --rm \
-                      -v /var/run/docker.sock:/var/run/docker.sock \
-                      "$TRIVY_IMAGE" image \
-                      --severity HIGH,CRITICAL \
-                      --ignore-unfixed \
-                      --pkg-types os,library \
-                      --exit-code 1 \
-                      --format table \
-                      "$IMAGE_REF"
+              uses: aquasecurity/trivy-action@v0.36.0
+              with:
+                  image-ref: ${{ env.REGISTRY }}/${{ steps.extract-metadata.outputs.REPO_FULLNAME }}:${{ steps.extract-metadata.outputs.DOCKER_TAG }}
+                  version: v0.76.1
+                  format: table
+                  severity: HIGH,CRITICAL
+                  ignore-unfixed: true
+                  vuln-type: os,library
+                  exit-code: '1'
 
             # 9. Push prod image (only reached if the scan passed)
             - name: Push production image
