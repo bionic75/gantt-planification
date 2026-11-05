@@ -939,3 +939,22 @@ async function loadAstreintePlanningActuel() {
 }
 
 // ========== FIN GESTION DES ASTREINTES ==========
+
+// ---- Ouverture de l'onglet et rubriques ----
+// Rubrique HO : îlot Vue (frontend/src/ilots/astreintes), relu à chaque ouverture de l'onglet
+function astreintesTabOpen() {
+    const isAdmin = currentUser && currentUser.activeProfile === 'admin';
+    // La rubrique HNO (génération du planning, volontaires) est réservée aux administrateurs
+    document.getElementById('astreinteSubTabHno').style.display = isAdmin ? 'inline-block' : 'none';
+    if (!isAdmin) astreinteSwitchRubrique('ho');
+    else if (document.getElementById('astreintesHnoPanel').style.display !== 'none') initAstreintesTab();
+}
+
+function astreinteSwitchRubrique(which) {
+    const ho = which === 'ho';
+    document.getElementById('astreintesHoPanel').style.display = ho ? 'block' : 'none';
+    document.getElementById('astreintesHnoPanel').style.display = ho ? 'none' : 'block';
+    document.getElementById('astreinteSubTabHo').classList.toggle('active', ho);
+    document.getElementById('astreinteSubTabHno').classList.toggle('active', !ho);
+    if (!ho) initAstreintesTab();
+}
