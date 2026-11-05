@@ -39,7 +39,11 @@ const ILOTS: RegistreIlots = {
         chargeur: () => import('@/ilots/admin/automatisations/SectionAutomatisations.vue'),
         onglet: 'admin'
     },
-    cra: () => import('@/ilots/cra/OngletCra.vue')
+    cra: () => import('@/ilots/cra/OngletCra.vue'),
+    astreintesHo: {
+        chargeur: () => import('@/ilots/astreintes/RubriqueHo.vue'),
+        onglet: 'astreintesGestion'
+    }
 };
 
 installerLiaisonAncienCode();
