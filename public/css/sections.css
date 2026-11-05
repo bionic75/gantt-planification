@@ -293,22 +293,6 @@
 .ho-popover label:hover {
     background: #eceff1;
 }
-.ho-toast {
-    position: fixed;
-    right: 20px;
-    bottom: 20px;
-    z-index: 10030;
-    max-width: 420px;
-    padding: 12px 16px;
-    border-radius: 8px;
-    background: #263238;
-    color: #fff;
-    font-size: 13px;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
-}
-.ho-toast.err {
-    background: #b71c1c;
-}
 @media (max-width: 800px) {
     .ho-grid th.ho-week {
         width: 34px;
@@ -318,9 +302,6 @@
     }
 }
 .ho-grid th::after {
-    content: none !important;
-}
-#hoSaveModal th::after {
     content: none !important;
 }
 
