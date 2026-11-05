@@ -220,12 +220,12 @@
         #affectationContainer table.aff-plan-table tbody tr:hover { background: transparent; }
         #affectationContainer table.aff-plan-table tbody tr th.sam, #affectationContainer table.aff-plan-table tbody tr:hover th.sam { background: #fff !important; }
         #affectationContainer table.aff-plan-table tbody tr:nth-child(even) th.sam, #affectationContainer table.aff-plan-table tbody tr:nth-child(even):hover th.sam { background: #e9eff7 !important; }
-        .aff-plan-table thead th { height: 36px; text-align: center; font-weight: 700; color: #fff; border-right: 1px solid rgba(255,255,255,.25); border-bottom: 1px solid rgba(255,255,255,.2); position: sticky; z-index: 3; white-space: nowrap; background: #34495e; }
-        .aff-plan-table thead tr:nth-child(1) th { background: #263238; top: 0; font-size: 20px; letter-spacing: .5px; }
-        .aff-plan-table thead tr:nth-child(2) th { background: #1D70B7; top: 28px; font-size: 17px; }
-        .aff-plan-table thead tr:nth-child(3) th { background: #3d6fa8; top: 56px; font-size: 15px; }
-        .aff-plan-table thead tr:nth-child(4) th { background: #4a78b0; top: 84px; font-weight: 700; font-size: 14px; }
-        .aff-plan-table thead tr:nth-child(5) th { background: #5a86ba; top: 112px; font-weight: 600; font-size: 12px; }
+        .aff-plan-table thead th { height: 24px; line-height: 1.1; padding-top: 0; padding-bottom: 0; text-align: center; font-weight: 700; color: #fff; border-right: 1px solid rgba(255,255,255,.25); border-bottom: 1px solid rgba(255,255,255,.2); position: sticky; z-index: 3; white-space: nowrap; background: #34495e; }
+        .aff-plan-table thead tr:nth-child(1) th { background: #263238; top: 0; font-size: 14px; letter-spacing: .5px; }
+        .aff-plan-table thead tr:nth-child(2) th { background: #1D70B7; top: 24px; font-size: 14px; }
+        .aff-plan-table thead tr:nth-child(3) th { background: #3d6fa8; top: 48px; font-size: 13px; }
+        .aff-plan-table thead tr:nth-child(4) th { background: #4a78b0; top: 72px; font-weight: 700; font-size: 13px; }
+        .aff-plan-table thead tr:nth-child(5) th { background: #5a86ba; top: 96px; font-weight: 600; font-size: 11px; }
         .aff-plan-table thead th.we { background: #f0b429 !important; color: #3a2d00; }
         .aff-plan-table thead th.today { background: #2e9d62 !important; color: #fff; }
         .aff-plan-table th.corner { left: 0; z-index: 6; width: var(--aff-samw, 280px); min-width: var(--aff-samw, 280px); max-width: var(--aff-samw, 280px); background: #1D70B7 !important; text-align: left; padding-left: 28px; font-size: 22px; }
@@ -2678,7 +2678,14 @@
                     hiddenKeys.has(k)
                         ? ''
                         : ((p.periods || {})[k] || [])
-                              .map((x, i) => bar(k, x, i, isStep) || '<div class="b" style="visibility:hidden"></div>')
+                              .map(
+                                  (x, i) =>
+                                      bar(k, x, i, isStep) ||
+                                      // Emplacement vide : même hauteur que la barre de cette voie dans les autres colonnes
+                                      (isStep && x.needed && !hiddenKeys.has('_tri')
+                                          ? `<div class="b tri" style="visibility:hidden;--tl:${triLaneLines(p, k, x, i)}"></div>`
+                                          : '<div class="b" style="visibility:hidden"></div>')
+                              )
                               .join('')
                 )
                 .join('');
@@ -2957,7 +2964,7 @@
         box.innerHTML = `<table class="aff-plan-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
         renderSamuDd();
         // Hauteurs de lignes d'en-tête : tops dynamiques si le nombre de lignes change
-        const topStep = 36;
+        const topStep = 24;
         box.querySelectorAll('thead tr').forEach((tr, i) =>
             tr.querySelectorAll('th:not(.corner)').forEach(c => {
                 c.style.top = i * topStep + 'px';
@@ -3532,6 +3539,13 @@
         Object.values(asg.days).forEach(set => set.forEach(r => s.add(r)));
         return s;
     };
+    // Jour impossible à sélectionner pour un expert sans disponibilité (indisponible 1-1, congés, planning non renseigné)
+    // ou déjà affecté à un autre SAMU ; sans données de disponibilité chargées, ou pour une ressource externe : autorisé
+    function asgBlocked(rid, d) {
+        if (rid < 0 || !asg.av) return false;
+        const st = ((asg.av[rid] || {}).byDay || {})[d];
+        return st === 'other' || st === 'off' || st === 'leave' || !st;
+    }
     const extLabel = r => `${r.prenom || ''} ${(r.nom || '').toUpperCase()} (${r.trigramme || '?'})`.trim();
     function assignList() {
         const q = norm(document.getElementById('affAssignFilter').value);
@@ -3573,7 +3587,9 @@
                         const on = (asg.days[d] || new Set()).has(r.id);
                         const st = state[d];
                         const full = !on && asgDayCount(d) >= asg.needed;
-                        const blocked = !on && st === 'other';
+                        // Expert sans disponibilité ce jour-là (indisponible 1-1, congés, planning non renseigné) ou déjà sur un autre
+                        // SAMU : curseur « interdit » au survol et sélection impossible (une journée cochée reste décochable)
+                        const blocked = !on && asgBlocked(r.id, d);
                         const [txt, cls] = ASG_STATE[st] || ['Planning non renseigné', 'na'];
                         const we = [0, 6].includes(new Date(Date.parse(d + 'T00:00:00Z')).getUTCDay());
                         return `<td class="${we ? 'we' : ''}"><button type="button" class="aff-dc ${cls} ${on ? 'on' : ''}" ${full || blocked ? 'disabled' : ''} title="${esc(txt)}${full ? ' — journée complète' : ''}" onclick="AffectationApp.assignDay(${r.id},'${d}')">${on ? '✓' : ''}</button></td>`;
@@ -4180,7 +4196,7 @@
         assignDay(rid, date) {
             const set = (asg.days[date] = asg.days[date] || new Set());
             if (set.has(rid)) set.delete(rid);
-            else if (set.size < asg.needed) set.add(rid);
+            else if (set.size < asg.needed && !asgBlocked(rid, date)) set.add(rid);
             assignList();
         },
         // Tous les jours ouvrés de l'étape (dans la limite du nombre de ressources par jour ; les week-ends se cochent à la main)
@@ -4190,7 +4206,7 @@
                 const set = (asg.days[d] = asg.days[d] || new Set());
                 if (!all) set.delete(rid);
                 else if ([0, 6].includes(new Date(Date.parse(d + 'T00:00:00Z')).getUTCDay())) return;
-                else if (set.size < asg.needed) set.add(rid);
+                else if (set.size < asg.needed && !asgBlocked(rid, d)) set.add(rid);
             });
             assignList();
         },
