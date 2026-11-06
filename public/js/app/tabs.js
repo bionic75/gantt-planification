@@ -126,10 +126,6 @@ function switchTab(tabName, event) {
         highlightToday(); // NOUVEAU
     }
 
-    if (tabName === 'astreintesGestion') {
-        astreintesTabOpen();
-    }
-
     if (tabName === 'cra') {
         // Contenu de l'onglet : îlot Vue (frontend/src/ilots/cra), relu à chaque ouverture de l'onglet
         loadCraPendingBadge();
