@@ -24,7 +24,7 @@ Protections :
 | `mfaPending` | Connexion en attente de double authentification |
 | `apiKey` | Clé d’API (en-tête X-Api-Key) |
 
-326 routes, par module (`src/modules/<module>`) :
+327 routes, par module (`src/modules/<module>`) :
 
 ## admin
 
@@ -341,6 +341,7 @@ Protections :
 | DELETE | `/api/pending-notifications/:sessionId` | auth |
 | POST | `/api/push-message` | auth |
 | POST | `/api/request-assignment` | auth |
+| GET | `/api/resource-calendar/:resourceId` | auth |
 | POST | `/api/send-assignment-emails` | auth |
 | POST | `/api/send-assignment-notifications` | auth |
 | POST | `/api/send-calendar-email` | auth |

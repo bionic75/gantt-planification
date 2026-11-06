@@ -13,6 +13,7 @@ import {
     TEAMS_TEST_HTML
 } from './notifications.emails.js';
 import * as service from './notifications.service.js';
+import { calendrierDeLaRessource } from './resource-calendar.js';
 
 /** @typedef {import('express').Request} Request */
 /** @typedef {import('express').Response} Response */
@@ -106,11 +107,39 @@ export async function pushMessage(/** @type {Request} */ req, /** @type {Respons
  * (l'adresse éventuellement transmise est ignorée) : la route ne permet pas d'écrire à une adresse quelconque
  * depuis le compte SMTP de l'application.
  */
+/** Ressource et mois (0 à 11) d'un calendrier ; null si incomplets ou invalides */
+function moisDuCalendrier(/** @type {Record<string, unknown>} */ p) {
+    const resourceId = Number(p.resourceId);
+    const annee = Number(p.year);
+    const mois = Number(p.month);
+    const valide =
+        Number.isSafeInteger(resourceId) &&
+        resourceId > 0 &&
+        Number.isInteger(annee) &&
+        annee >= 2000 &&
+        annee <= 2100 &&
+        Number.isInteger(mois) &&
+        mois >= 0 &&
+        mois <= 11;
+    return valide ? { resourceId, annee, mois } : null;
+}
+
+/** Calendrier d'une ressource pour un mois : aperçu avant impression */
+export async function resourceCalendar(/** @type {Request} */ req, /** @type {Response} */ res) {
+    const m = moisDuCalendrier({ ...req.query, resourceId: req.params.resourceId });
+    if (!m) return res.status(400).json({ error: 'Paramètres manquants' });
+    const calendrier = await calendrierDeLaRessource(m.resourceId, m.annee, m.mois);
+    if (!calendrier) return res.status(404).json({ error: 'Ressource introuvable' });
+    res.json({ titre: calendrier.titre, contenu: calendrier.contenu });
+}
+
+/** Calendrier d'une ressource envoyé à l'expert rattaché : contenu et objet construits par le serveur */
 export async function sendCalendarEmail(/** @type {Request} */ req, /** @type {Response} */ res) {
-    const { resourceId, html, subject } = req.body;
-    if (!resourceId || !html || !subject) {
+    const m = moisDuCalendrier(req.body || {});
+    if (!m) {
         return res.status(400).json({ success: false, error: 'Paramètres manquants' });
     }
+    const { resourceId } = m;
     if (!emailConfig.user) return res.status(400).json({ success: false, error: 'Configuration email non définie' });
     const email = (await getExpertByResource(resourceId))?.email;
     if (!email) {
@@ -118,8 +147,10 @@ export async function sendCalendarEmail(/** @type {Request} */ req, /** @type {R
             .status(400)
             .json({ success: false, error: 'Aucun utilisateur avec email associé à cette ressource' });
     }
+    const calendrier = await calendrierDeLaRessource(resourceId, m.annee, m.mois);
+    if (!calendrier) return res.status(404).json({ success: false, error: 'Ressource introuvable' });
     try {
-        await sendEmail(email, subject, html);
+        await sendEmail(email, calendrier.titre, calendrier.document);
     } catch (/** @type {any} */ error) {
         console.error('Erreur envoi calendrier par email:', error);
         return res.status(500).json({ success: false, error: error.message });

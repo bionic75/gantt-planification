@@ -1,8 +1,8 @@
 // Grille de la planification : planning, comptes, congés, dates particulières, astreintes du planning, historique des
 // mises à disposition (src/modules/schedule, users, calendar, astreintes, resources)
-import { api } from '@/api/client';
+import { api, ErreurApi } from '@/api/client';
 import type { Ressource } from '@/api/ressources';
-import type { DateParticuliere, PeriodeConges, ZoneConges } from '@/liaison';
+import { emettre, type DateParticuliere, type PeriodeConges, type ZoneConges } from '@/liaison';
 
 /** Planning : clé « {ressource}_{available|activity|localisation|author}_{AAAA-MM-JJ}_{AM|PM} » → valeur */
 export type Planning = Record<string, string>;
@@ -79,4 +79,40 @@ export const apiPlanification = {
     datesParticulieres: () => api.get<{ dates?: DateParticuliere[] }>('/ics-files/special-dates/all'),
     astreintes: () => api.get<AstreintePlanning[]>('/all-astreintes-planning'),
     journaliser: (modification: string) => api.post('/logs/add-modification', { modification })
+};
+
+/** Calendrier du mois d'une ressource, construit par le serveur : titre et contenu HTML (en-tête et tableau) */
+export interface CalendrierRessource {
+    titre: string;
+    contenu: string;
+}
+
+/** Exports et impressions de la planification (mois de 0 à 11) */
+export const apiExports = {
+    /** Planning du mois au format CSV, sous le nom de fichier proposé */
+    async planningCsv(annee: number, mois: number, nomFichier: string): Promise<Blob> {
+        const q = new URLSearchParams({
+            year: String(annee),
+            month: String(mois),
+            format: 'csv',
+            filename: nomFichier
+        });
+        const r = await fetch(`/api/export/gantt?${q}`, { credentials: 'include' });
+        if (!r.ok) {
+            const d = (await r.json().catch(() => ({}))) as { error?: string; message?: string };
+            if (r.status === 401) emettre('session-perdue', { message: d.message });
+            throw new ErreurApi(r.status, d.error || `Erreur ${r.status}`, d);
+        }
+        return r.blob();
+    },
+    calendrier: (ressourceId: number, annee: number, mois: number) =>
+        api.get<CalendrierRessource>(`/resource-calendar/${ressourceId}?year=${annee}&month=${mois}`),
+    /** Adresse de l'expert rattaché à la ressource ; null sans compte avec adresse */
+    emailExpert: (ressourceId: number) => api.get<{ email: string | null }>(`/user/email-by-resource/${ressourceId}`),
+    envoyerCalendrier: (ressourceId: number, annee: number, mois: number) =>
+        api.post<{ success: boolean; error?: string }>('/send-calendar-email', {
+            resourceId: ressourceId,
+            year: annee,
+            month: mois
+        })
 };
