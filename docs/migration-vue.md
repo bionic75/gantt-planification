@@ -31,7 +31,8 @@ index.html (existant)
 - Il lit ses données à l'API, jamais dans les variables globales de l'ancien code (`resources`, `scheduleData`…).
   Exception décidée au lot 4.3 : les fenêtres de consultation de la planification lisent à leur ouverture un
   instantané des données de la grille, encore tenue par l'ancien code (`etatPlanning`, liaison), remplacé par un
-  magasin Vue au lot 4.5.
+  magasin Vue au lot 4.5. De même au lot 4.4, la fenêtre des invitations Outlook lit les affectations en attente
+  relevées par la grille (`affectationsEnAttente`) et signale les envois (`gp:invitations-envoyees`).
 - Les échanges avec l'ancien code passent par le module de liaison (`frontend/src/liaison.ts`) : événements de
   session (session perdue, changement de profil) et de rafraîchissement (planning, référentiels). Il disparaît à
   la phase 6.
@@ -121,14 +122,14 @@ Lots de l'onglet CRA (phase 3) :
 
 Lots de la Planification (phase 4), numérotés 4.1 à 4.6 (4a à 4g désignent les sous-îlots de l'Administration) :
 
-| #   | Lot                                   | Contenu                                                                                                                                                                                                                                            | État                                                                                                                                                      |
-| --- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 4.1 | Astreintes HO                         | Rubrique « Gestion des astreintes HO » : droits, navigation, inscriptions sur les demi-journées, astreinte HO ANS (un ou plusieurs utilisateurs par jour), enregistrement et e-mail de mise à jour ; `astreintes-ho.js` supprimé                   | En production (`frontend/src/ilots/astreintes/`, sous-îlot `#astreintesHo`, scénarios `27-astreintes-ho`)                                                 |
-| 4.2 | Astreintes HNO                        | Volontaires, disponibilités (règles FPH), génération du planning (scénario `@destructif` : campagne destructive de la CI seulement), changement d'expert, export, planning actuel ; onglet Astreintes entièrement migré (`astreintes.js` supprimé) | En production (îlot d'onglet `#astreintesGestion` remplaçant le sous-îlot HO, scénarios `28-astreintes-hno` et `27-astreintes-ho`)                        |
-| 4.3 | Fenêtres de consultation              | Calendrier mensuel, calendrier des congés et événements, leurs impressions, recherche avancée (dates proposées corrigées) ; `search.js` supprimé, `calendar-views.js` réduit aux notifications (lot 4.4)                                           | Réalisé (`frontend/src/ilots/consultation/`, fenêtres montées à la demande, scénarios `29-planification-consultation`) ; en attente de mise en production |
-| 4.4 | Fenêtres de saisie et de notification | « Gérer mes astreintes/HNO », demande d'affectation, nouvelles affectations et notifications de l'expert, invitations Outlook                                                                                                                      | À faire                                                                                                                                                   |
-| 4.5 | Grille                                | Options d'affichage, légende, grille, navigation, zoom, lignes masquées, saisie des demi-journées, menu contextuel des astreintes / HNO (saisie de l'îlot CRA réutilisée), enregistrement                                                          | À faire                                                                                                                                                   |
-| 4.6 | Exports, impressions et clôture       | Téléchargement CSV / Excel, impression A4, calendrier d'une ressource ; derniers fichiers supprimés                                                                                                                                                | À faire                                                                                                                                                   |
+| #   | Lot                                   | Contenu                                                                                                                                                                                                                                                                                                   | État                                                                                                                               |
+| --- | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| 4.1 | Astreintes HO                         | Rubrique « Gestion des astreintes HO » : droits, navigation, inscriptions sur les demi-journées, astreinte HO ANS (un ou plusieurs utilisateurs par jour), enregistrement et e-mail de mise à jour ; `astreintes-ho.js` supprimé                                                                          | En production (`frontend/src/ilots/astreintes/`, sous-îlot `#astreintesHo`, scénarios `27-astreintes-ho`)                          |
+| 4.2 | Astreintes HNO                        | Volontaires, disponibilités (règles FPH), génération du planning (scénario `@destructif` : campagne destructive de la CI seulement), changement d'expert, export, planning actuel ; onglet Astreintes entièrement migré (`astreintes.js` supprimé)                                                        | En production (îlot d'onglet `#astreintesGestion` remplaçant le sous-îlot HO, scénarios `28-astreintes-hno` et `27-astreintes-ho`) |
+| 4.3 | Fenêtres de consultation              | Calendrier mensuel, calendrier des congés et événements, leurs impressions, recherche avancée (dates proposées corrigées) ; `search.js` supprimé, `calendar-views.js` réduit aux notifications (lot 4.4)                                                                                                  | En production (`frontend/src/ilots/consultation/`, fenêtres montées à la demande, scénarios `29-planification-consultation`)       |
+| 4.4 | Fenêtres de saisie et de notification | « Gérer mes astreintes/HNO », demande d'affectation, invitations Outlook (sans envoi dans les e2e), nouvelles affectations de l'expert ; `hno.js`, `assignment-request.js` et `calendar-views.js` supprimés, `assignment-notifications.js` réduit au suivi des affectations de la grille et à la pastille | Réalisé (`frontend/src/ilots/saisie/`, scénarios `30-planification-saisie`) ; en attente de mise en production                     |
+| 4.5 | Grille                                | Options d'affichage, légende, grille, navigation, zoom, lignes masquées, saisie des demi-journées, menu contextuel des astreintes / HNO (saisie de l'îlot CRA réutilisée), enregistrement                                                                                                                 | À faire                                                                                                                            |
+| 4.6 | Exports, impressions et clôture       | Téléchargement CSV / Excel, impression A4, calendrier d'une ressource ; derniers fichiers supprimés                                                                                                                                                                                                       | À faire                                                                                                                            |
 
 Duplication temporaire (lot 3c, jusqu'à la migration de la planification, phase 4) : la saisie des astreintes / HNO du
 menu contextuel du Gantt garde une copie réduite de l'ancienne saisie du CRA (`public/js/app/particularites.js`,
@@ -198,6 +199,12 @@ Anomalies relevées pendant la migration (comportement conservé, correction à 
   critères ; les en-têtes des tableaux gardent le gris des tableaux de l'application (le bleu et le vert prévus sont
   masqués) ; à chaque ouverture, experts et localisations sont désélectionnés, les autres critères et les derniers
   résultats sont conservés.
+- Invitations Outlook : un refus de l'envoi par le serveur n'est pas signalé (affectations conservées) ; après une
+  réponse 502 / 504 ou une erreur réseau, les experts sont retirés de l'attente sans message ; la case « Sélectionner /
+  Désélectionner tous » ne suit pas les cases des experts.
+- Nouvelles affectations : les notifications sont marquées lues deux fois (avant et après l'affichage) ; aucune partie
+  de l'application ne les crée (route `POST /api/notifications/create-batch` jamais appelée) : la pastille ne s'affiche
+  que pour des notifications créées par un autre outil.
 
 Changements de comportement décidés pendant la migration :
 
@@ -238,6 +245,15 @@ Changements de comportement décidés pendant la migration :
   fois (l'ancien écran la demandait au chargement de la page d'impression puis à nouveau après 500 ms).
 - Calendriers et recherche avancée : fenêtres communes de l'interface (fermeture par Échap, focus maintenu dans la
   fenêtre) ; libellés, infobulles et noms d'événements affichés tels quels, sans être interprétés comme du HTML.
+- Astreintes / HNO déclarées : modifier une ligne « Activité courante » (saisie depuis un CRA) conserve son type,
+  proposé dans la liste (l'ancien écran n'avait pas ce type : l'enregistrement était refusé, « Type, dates et objet
+  sont requis ») ; messages de résultat et refus de la saisie affichés dans la fenêtre, suppression confirmée par une
+  fenêtre de la page.
+- Demande d'affectation : la date proposée est celle du jour en France (l'ancien écran, par une conversion en UTC,
+  proposait la veille entre minuit et 1 h / 2 h) ; messages affichés dans la fenêtre.
+- Invitations Outlook et nouvelles affectations : messages dans une fenêtre de la page (alert du navigateur
+  auparavant), dont « Aucune modification d'affectation à envoyer » ; fin d'envoi annoncée par un message de la page
+  (comme l'ancien écran).
 
 ### Critères de sortie d'un îlot
 
