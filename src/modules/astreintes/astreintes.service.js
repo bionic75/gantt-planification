@@ -206,7 +206,9 @@ export async function replaceMonth(
                 date_fin: /** @type {string} */ (l.date_fin ?? null),
                 heure_debut: l.heure_debut || null,
                 heure_fin: l.heure_fin || null,
-                samu: l.samu || null,
+                // « Tous les SAMU » : la ligne vaut pour tous les SAMU, aucun SAMU particulier n'est enregistré
+                samu: l.tous_samu ? null : l.samu || null,
+                tous_samu: l.tous_samu ? 1 : 0,
                 objet: /** @type {string} */ (l.objet ?? null)
             }))
         })

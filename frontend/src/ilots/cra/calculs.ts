@@ -262,13 +262,16 @@ export const formulaireVide = (): FormulaireLigne => ({
     objet: ''
 });
 
+/** Valeur « Tous les SAMU » de la liste des SAMU (saisie depuis la grille) */
+export const TOUS_SAMU = '__tous_les_samu__';
+
 export const formulaireDe = (l: LigneCra): FormulaireLigne => ({
     type: l.type,
     date_debut: l.date_debut,
     date_fin: l.date_fin,
     heure_debut: l.heure_debut,
     heure_fin: l.heure_fin,
-    samu: l.samu,
+    samu: l.tous_samu ? TOUS_SAMU : l.samu,
     objet: l.objet
 });
 
@@ -281,8 +284,12 @@ export const ligneSaisie = (l: LigneEnregistree): LigneCra => ({
     heure_debut: l.heure_debut || '',
     heure_fin: l.heure_fin || '',
     samu: l.samu || '',
-    objet: l.objet || ''
+    objet: l.objet || '',
+    ...(l.tous_samu ? { tous_samu: 1 } : {})
 });
+
+/** SAMU affiché dans la liste de la saisie */
+export const samuLigne = (l: LigneCra) => (l.tous_samu ? 'Tous les SAMU' : l.samu);
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -333,7 +340,10 @@ export function controleLigne(f: FormulaireLigne, lignes: LigneCra[], ignorer: n
 
 /** Ligne ajoutée ou modifiée : l'origine d'une ligne collectée est conservée */
 export function ligneDuFormulaire(f: FormulaireLigne, remplacee: LigneCra | undefined): LigneCra {
-    const ligne: LigneCra = { ...f, objet: f.objet.trim() };
+    const ligne: LigneCra =
+        f.samu === TOUS_SAMU
+            ? { ...f, samu: '', tous_samu: 1, objet: f.objet.trim() }
+            : { ...f, objet: f.objet.trim() };
     if (remplacee) {
         ligne.id = remplacee.id;
         if (remplacee.origin) {

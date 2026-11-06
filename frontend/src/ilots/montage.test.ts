@@ -115,6 +115,18 @@ describe('montage des îlots', () => {
         expect(conteneur().querySelector('[data-testid="essai"]')).not.toBeNull();
     });
 
+    it("mire de connexion affichée : îlot de l'onglet actif monté seulement à la connexion", async () => {
+        document.body.innerHTML =
+            '<div id="loginPage" class="modal active"></div><div id="onglet" class="tab-content active"></div>';
+        arreter = surveillerIlots({ onglet: async () => ({ default: Essai }) });
+        await rendu();
+        expect(conteneur().querySelector('[data-testid="essai"]')).toBeNull();
+
+        document.getElementById('loginPage')?.classList.remove('active');
+        await rendu();
+        expect(conteneur().querySelector('[data-testid="essai"]')).not.toBeNull();
+    });
+
     it("fin de session, onglet resté affiché : pas de remontage avant la réouverture de l'onglet", async () => {
         conteneur().classList.add('active');
         let montages = 0;
