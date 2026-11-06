@@ -65,7 +65,6 @@ const API_URL = '/api';
 })();
 
 let resources = [];
-let scheduleData = {};
 let users = [];
 let sortDirection = {};
 let currentUser = null;
@@ -74,7 +73,7 @@ let loginStep = 'credentials';
 let pendingAssignments = {}; // {resourceId: {expertId, assignments: [{date, period, activity, activityCode, location, actionType, oldActivity, oldActivityCode, oldLocation}]}}
 let schoolHolidays = { zoneA: [], zoneB: [], zoneC: [] }; // Périodes de congés scolaires
 let specialDates = []; // Dates particulières (jours fériés, etc.)
-let allAstreintesHno = []; // Toutes les astreintes/HNO pour affichage sur le planning
+// Planning, astreintes / HNO de la grille, exports et impressions : îlot Vue (frontend/src/ilots/planification)
 
 const availabilityLabels = {
     1: 'Indisponible',
@@ -196,7 +195,6 @@ async function checkSession() {
             loadCraPendingBadge();
 
             await loadResources();
-            await loadSchedule();
             await loadUsers(); // Charger les users pour le Gantt
             await loadSchoolHolidays(); // Charger les congés scolaires
             await loadSpecialDates(); // Charger les dates particulières et événements personnalisés
@@ -678,7 +676,6 @@ async function completeFinalLogin(user, selectedApp) {
 
     // Sinon, continuer avec la plateforme de planification standard
     // Purger les anciennes données en mémoire pour éviter les problèmes de cache
-    scheduleData = {};
     resources = [];
     users = [];
     schoolHolidays = { zoneA: [], zoneB: [], zoneC: [] };
@@ -705,7 +702,6 @@ async function completeFinalLogin(user, selectedApp) {
     }
 
     await loadResources();
-    await loadSchedule();
     await loadSettings(); // Charger les paramètres d'inactivité
     await loadUsers(); // Charger les utilisateurs pour les notifications
     await loadSchoolHolidays(); // Charger les congés scolaires pour tous les profils
@@ -858,20 +854,12 @@ function showLoginError(message) {
 function ouvrirFenetreVue(fenetre) {
     window.dispatchEvent(new CustomEvent('gp:fenetre-demandee', { detail: { fenetre } }));
 }
-// Grille de la planification (îlot Vue) : demi-journées saisies reportées dans le planning lu par les exports et
-// impressions (lot 4.6), affectations en attente d'invitation (compteur de l'enveloppe, journal à la déconnexion)
-window.addEventListener('gp:grille-modifiee', e => {
-    for (const [cle, valeur] of Object.entries(e.detail.cellules)) {
-        if (valeur === null) delete scheduleData[cle];
-        else scheduleData[cle] = valeur;
-    }
-});
+// Grille de la planification (îlot Vue) : affectations en attente d'invitation (compteur de l'enveloppe, journal à la
+// déconnexion)
 window.addEventListener('gp:invitations-en-attente', e => {
     pendingAssignments = e.detail.experts;
     updatePendingEmailBadge();
 });
-// Astreintes / HNO déclarées modifiées par une fenêtre Vue : astreintes de la planification rechargées
-window.addEventListener('gp:astreintes-modifiees', () => loadAllAstreintesForPlanning());
 // Nouvelles affectations lues par l'expert : pastille relue
 window.addEventListener('gp:notifications-lues', () => loadNewAssignments());
 
@@ -879,7 +867,6 @@ window.addEventListener('gp:notifications-lues', () => loadNewAssignments());
 window.addEventListener('gp:evenements-modifies', async () => {
     await loadSpecialDates();
 });
-window.addEventListener('gp:planning-modifie', () => loadSchedule());
 window.addEventListener('gp:localisations-modifiees', () => loadLocations());
 // Accès aux applications de la session relus (l'administrateur a pu modifier les siens) : menu Applications
 window.addEventListener('gp:applications-modifiees', async () => {

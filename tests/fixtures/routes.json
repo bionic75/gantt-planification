@@ -1301,6 +1301,11 @@
     },
     {
         "method": "GET",
+        "path": "/api/resource-calendar/:resourceId",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
         "path": "/api/resource-samu-assignments",
         "guard": "auth"
     },

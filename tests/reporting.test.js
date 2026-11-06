@@ -134,6 +134,14 @@ describe('exports CSV', () => {
         expect((await admin.get('/api/export/gantt?year=2027')).status).toBe(400);
     });
 
+    it('planning du mois : nom de fichier proposé par la page filtré', async () => {
+        const nom = (await admin.get('/api/export/gantt?year=2027&month=1&filename=Expert_Planning_202702.csv'))
+            .headers;
+        expect(nom.get('content-disposition')).toBe('attachment; filename="Expert_Planning_202702.csv"');
+        const r = await admin.get(`/api/export/gantt?year=2027&month=1&filename=${encodeURIComponent('a"; x=1.csv')}`);
+        expect(r.headers.get('content-disposition')).toBe('attachment; filename="a___x_1.csv"');
+    });
+
     it('ressources', async () => {
         const res = await createResource(admin);
         const r = await admin.get('/api/export/resources');

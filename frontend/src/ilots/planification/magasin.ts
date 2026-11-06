@@ -182,7 +182,6 @@ export const usePlanificationStore = defineStore('planification', () => {
 
     /**
      * Saisie d'une demi-journée : planning mis à jour, affectation suivie pour les invitations, cellules enregistrées
-     * et signalées à l'ancien code (exports et impressions)
      */
     function saisir(
         ressource: Ressource,
@@ -198,7 +197,6 @@ export const usePlanificationStore = defineStore('planification', () => {
             enAttente.value = e;
             emettre('invitations-en-attente', { experts: JSON.parse(JSON.stringify(e)) });
         }
-        emettre('grille-modifiee', { cellules: changements });
         void enregistrer(changements);
     }
 

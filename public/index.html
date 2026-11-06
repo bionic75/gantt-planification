@@ -511,7 +511,6 @@
     <script src="/js/app/tab-access.js?v=2.17.1"></script>
     <script src="/js/app/deplacements.js?v=2.17.1"></script>
     <script src="/js/app/password-reset.js?v=2.17.1"></script>
-    <script src="/js/app/particularites.js?v=2.17.1"></script>
     <script src="/js/app/planning.js?v=2.17.1"></script>
     <script src="/js/app/conges-scolaires.js?v=2.17.1"></script>
     <script src="/js/app/dump.js?v=2.17.1"></script>
@@ -520,28 +519,11 @@
     <script src="/js/app/assignment-notifications.js?v=2.17.1"></script>
     <script src="/js/app/locations.js?v=2.17.1"></script>
     <script src="/js/app/maps.js?v=2.17.1"></script>
-    <script src="/js/app/planning-tools.js?v=2.17.1"></script>
     <script src="/js/app/planning-navigation.js?v=2.17.1"></script>
     <script src="/js/app/profile.js?v=2.17.1"></script>
     <script src="/js/app/realtime.js?v=2.17.1"></script>
 
-    <!-- MODALE IMPRESSION CALENDRIER -->
-    <div id="printCalendarModal" class="modal">
-        <div class="modal-content" style="max-width: 900px; width: 95%;">
-            <h3>Aperçu avant impression</h3>
-            <div id="printCalendarContent" style="max-height: 600px; overflow-y: auto; margin: 20px 0;">
-                <!-- Le contenu sera généré dynamiquement -->
-            </div>
-            <div class="modal-button-group">
-                <button onclick="actualPrintCalendar()" style="background-color: #3498db;">
-                    🖨️ Imprimer
-                </button>
-                <button onclick="closePrintModal()" style="background-color: #95a5a6;">
-                    Fermer
-                </button>
-            </div>
-        </div>
-    </div>
+    <!-- Exports et impressions de la planification : îlot Vue (frontend/src/ilots/planification) -->
 
     <!-- STYLE POUR L'IMPRESSION -->
     
@@ -656,32 +638,6 @@
             </div>
             
             <button onclick="closeProfilePhotoModal()" style="background-color: #95a5a6; width: 100%; padding: 12px; border: none; border-radius: 5px; color: white; cursor: pointer; margin-top: 20px;">Fermer</button>
-        </div>
-    </div>
-
-    <!-- Modal téléchargement planning -->
-    <div id="downloadPlanningModal" class="modal">
-        <div class="modal-content" style="max-width: 450px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h3 style="color: #2c3e50; margin: 0;">📥 Télécharger le planning</h3>
-                <span class="close" onclick="closeDownloadModal()">&times;</span>
-            </div>
-            
-            <div class="form-group">
-                <label>Sélectionner le mois à exporter</label>
-                <select id="downloadMonthSelect" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
-                    <!-- Options générées dynamiquement -->
-                </select>
-            </div>
-            
-            <div style="margin-top: 25px; display: flex; justify-content: flex-end; gap: 10px;">
-                <button type="button" onclick="closeDownloadModal()" style="padding: 10px 20px; background-color: #95a5a6; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                    Annuler
-                </button>
-                <button type="button" onclick="downloadPlanningCSV()" style="padding: 10px 20px; background-color: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                    📥 Télécharger au format CSV
-                </button>
-            </div>
         </div>
     </div>
 

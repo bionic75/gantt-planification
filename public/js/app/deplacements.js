@@ -378,7 +378,6 @@ async function goToPlanificationApp() {
 
     // Recharger les données pour s'assurer que tout est à jour
     await loadResources();
-    await loadSchedule();
     await loadSettings();
 
     // Mettre à jour le Gantt si on est sur l'onglet planification

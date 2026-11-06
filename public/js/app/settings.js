@@ -334,3 +334,6 @@ async function disconnectNow() {
     await saveAssignmentLogs();
     await performLogout();
 }
+
+// Version affichée dès le chargement de la page
+loadAppVersion();
