@@ -318,14 +318,6 @@ function updateUserDisplay() {
         document.getElementById('userDisplayRole').style.display = '';
     }
 
-    // Afficher le bouton "Faire une demande" pour admin et user
-    const requestBtn = document.getElementById('requestBtn');
-    if (currentUser.activeProfile === 'admin' || currentUser.activeProfile === 'user') {
-        requestBtn.style.display = 'inline-block';
-    } else {
-        requestBtn.style.display = 'none';
-    }
-
     // Afficher le bouton d'envoi d'email (masqué pour le profil RH)
     const sendEmailBtn = document.getElementById('sendEmailBtn');
     sendEmailBtn.style.display = currentUser.activeProfile === 'rh' ? 'none' : 'inline-block';

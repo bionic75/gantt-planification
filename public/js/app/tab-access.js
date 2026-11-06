@@ -103,7 +103,10 @@ function accueilAcces() {
         cra: TabAccess.showCra(currentUser),
         affectation: applications.includes('affectation'),
         deplacements: applications.includes('deplacements'),
-        ressource: !!currentUser.resourceId
+        ressource: !!currentUser.resourceId,
+        // Boutons de la planification (îlot Vue) : saisie des astreintes/HNO (CRA), demande d'affectation
+        gestionAstreintes: (profile === 'admin' || profile === 'expert') && TabAccess.can(profile, 'astreintesGestion'),
+        demandeAffectation: profile === 'admin' || profile === 'user'
     };
 }
 
@@ -122,14 +125,6 @@ function updateTabsVisibility() {
     setTab(document.getElementById('tripadvisorTabBtn'), 'tripadvisor');
     const craBtn = document.getElementById('craTabBtn');
     if (craBtn) craBtn.style.display = TabAccess.showCra(currentUser) ? 'block' : 'none';
-    const astreintesBtn = document.getElementById('astreintesBtn');
-    const astreintesBtnText = document.getElementById('astreintesBtnText');
-    // Saisie des astreintes/HNO (CRA) : administrateurs et experts ; les autres profils consultent seulement le planning HO
-    if (astreintesBtn)
-        astreintesBtn.style.display =
-            can('astreintesGestion') && (profile === 'admin' || profile === 'expert') ? 'inline-block' : 'none';
-    if (astreintesBtnText)
-        astreintesBtnText.textContent = profile === 'expert' ? 'Gérer mes astreintes/HNO' : 'Gérer les astreintes/HNO';
 
     if (profile === 'admin') {
         // Fichiers ICS, listes du reporting et des ressources : îlots Vue

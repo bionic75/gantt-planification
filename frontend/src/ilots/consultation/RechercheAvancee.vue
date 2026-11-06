@@ -6,7 +6,8 @@ import { computed, ref, shallowRef } from 'vue';
 import AppAlert from '@/composants/AppAlert.vue';
 import AppModal from '@/composants/AppModal.vue';
 import { surDemande } from '@/ilots/fenetres';
-import { etatPlanning, type EtatPlanning } from '@/liaison';
+import { usePlanificationStore } from '@/ilots/planification/magasin';
+import type { EtatPlanning } from '@/liaison';
 import { iconesCriteres, optionLocalisation, styleOption, type OptionLocalisation } from './icones-recherche';
 import {
     AFFECTATIONS,
@@ -47,9 +48,12 @@ function proposerIntervalle() {
 
 // À chaque ouverture : listes relues (experts et localisations désélectionnés), intervalle du mois courant ; les autres
 // critères et les derniers résultats sont conservés
-surDemande(() => {
-    const e = etatPlanning();
-    if (!e) return;
+const planification = usePlanificationStore();
+
+// Données de la grille (magasin de la planification), chargées à la première ouverture
+surDemande(async () => {
+    await planification.charger();
+    const e = planification.etatPlanning;
     etat.value = e;
     experts.value = [];
     localisations.value = [];

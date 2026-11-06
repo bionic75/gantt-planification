@@ -8,7 +8,8 @@ import { apiNotifications } from '@/api/notifications';
 import AppAlert from '@/composants/AppAlert.vue';
 import AppModal from '@/composants/AppModal.vue';
 import { surDemande } from '@/ilots/fenetres';
-import { affectationsEnAttente, emettre, type EtatInvitations } from '@/liaison';
+import { usePlanificationStore } from '@/ilots/planification/magasin';
+import type { EtatInvitations } from '@/liaison';
 import { useSessionStore } from '@/stores/session';
 import FenetreMessage from './FenetreMessage.vue';
 import {
@@ -23,6 +24,7 @@ import {
 } from './invitations';
 
 const session = useSessionStore();
+const planification = usePlanificationStore();
 
 const ouverte = ref(false);
 const etat = shallowRef<EtatInvitations>({ sessionId: null, experts: {} });
@@ -38,7 +40,7 @@ let releve: ReturnType<typeof setInterval> | null = null;
 let fermetureFin: ReturnType<typeof setTimeout> | null = null;
 
 surDemande(() => {
-    const e = affectationsEnAttente();
+    const e = planification.etatInvitations();
     if (Object.keys(e.experts).length === 0) {
         information.value = "Aucune modification d'affectation à envoyer.";
         return;
@@ -77,7 +79,7 @@ function basculerTous() {
 }
 
 /** Experts notifiés ou abandonnés : retirés des affectations en attente (ancien code) */
-const retirer = (ids: number[]) => emettre('invitations-envoyees', { resourceIds: ids });
+const retirer = (ids: number[]) => planification.retirerInvitations(ids);
 
 async function envoyer() {
     erreur.value = '';
