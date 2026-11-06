@@ -46,10 +46,23 @@ export interface EvenementsLiaison {
     'cra-demande': undefined;
     /** Bouton de l'ancien code (en-têtes) : ouverture d'une fenêtre Vue (ilots/fenetres.ts) */
     'fenetre-demandee': { fenetre: NomFenetre };
+    /** Astreintes / HNO déclarées créées, modifiées ou supprimées : l'ancien code recharge celles de la planification */
+    'astreintes-modifiees': undefined;
+    /** Invitations Outlook envoyées (ou abandonnées) : l'ancien code retire ces experts des affectations en attente */
+    'invitations-envoyees': { resourceIds: number[] };
+    /** Nouvelles affectations lues par l'expert : l'ancien code relit la pastille */
+    'notifications-lues': undefined;
 }
 
 /** Fenêtres Vue ouvertes par les boutons de l'ancien code */
-export type NomFenetre = 'calendrier-mensuel' | 'calendrier-evenements' | 'recherche-avancee';
+export type NomFenetre =
+    | 'calendrier-mensuel'
+    | 'calendrier-evenements'
+    | 'recherche-avancee'
+    | 'astreintes-hno'
+    | 'demande-affectation'
+    | 'invitations'
+    | 'nouvelles-affectations';
 
 export type NomEvenement = keyof EvenementsLiaison;
 
@@ -90,6 +103,8 @@ interface FenetreAncienCode {
     craDemande?: number;
     /** Instantané des données de la planification (public/js/app/core.js) */
     etatPlanning?: () => EtatPlanning;
+    /** Instantané des affectations en attente d'invitation Outlook (public/js/app/core.js) */
+    affectationsEnAttente?: () => EtatInvitations;
     /** Icônes en image (data URI) pour les listes déroulantes (public/js/ui-icons.js) */
     UIIconsApi?: IconesImages;
 }
@@ -153,6 +168,41 @@ export interface EtatPlanning {
     mois: number;
     /** Ressources du filtre de la planification (identifiants ; « » : toutes) */
     filtre: string[];
+}
+
+/** Affectation modifiée dans la grille, en attente d'invitation Outlook (trackAssignment de l'ancien code) */
+export interface AffectationEnAttente {
+    date: string;
+    period: 'AM' | 'PM';
+    /** Libellé avec émoji (ex. « 📞 SAMU (Déploiement) ») */
+    activity: string;
+    activityCode: string;
+    location: string;
+    actionType?: 'new' | 'modified' | 'deleted';
+    oldActivity?: string | null;
+    oldActivityCode?: string | null;
+    oldLocation?: string | null;
+}
+
+/** Affectations en attente d'un expert (ressource) */
+export interface ExpertEnAttente {
+    expertId: number;
+    expertEmail: string | null;
+    expertNom: string;
+    expertPrenom: string;
+    resourceNom: string;
+    resourcePrenom: string;
+    assignments: AffectationEnAttente[];
+}
+
+/**
+ * Affectations en attente d'invitation, tenues par l'ancien code (grille) : identifiant de la ressource → affectations ;
+ * remplacées par un magasin quand la grille sera migrée (lot 4.5)
+ */
+export interface EtatInvitations {
+    /** Session de modification (regroupement des notifications côté serveur) */
+    sessionId: string | null;
+    experts: Record<string, ExpertEnAttente>;
 }
 
 /** Icônes de l'ancien code converties en image d'arrière-plan CSS (url("data:…")) */
@@ -244,6 +294,10 @@ export function afficherSynchronisation(): void {
 
 /** Données de la planification de l'ancien code ; null hors de la page principale */
 export const etatPlanning = (): EtatPlanning | null => ancienCode().etatPlanning?.() ?? null;
+
+/** Affectations en attente d'invitation (ancien code) ; aucune hors de la page principale */
+export const affectationsEnAttente = (): EtatInvitations =>
+    ancienCode().affectationsEnAttente?.() ?? { sessionId: null, experts: {} };
 
 /** Icônes en image de l'ancien code ; undefined hors de la page principale */
 export const iconesImages = (): IconesImages | undefined => ancienCode().UIIconsApi;

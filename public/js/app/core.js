@@ -887,6 +887,22 @@ window.etatPlanning = () => ({
     filtre: Array.from(document.getElementById('resourceFilter').selectedOptions).map(o => o.value)
 });
 
+// Affectations modifiées dans la grille en attente d'invitation Outlook (EtatInvitations, frontend/src/liaison.ts),
+// lues par la fenêtre des invitations ; remplacées par un magasin Vue quand la grille sera migrée (lot 4.5)
+window.affectationsEnAttente = () => ({ sessionId, experts: pendingAssignments });
+// Invitations envoyées par la fenêtre Vue : experts retirés de l'attente, compteur de l'enveloppe mis à jour
+window.addEventListener('gp:invitations-envoyees', e => {
+    e.detail.resourceIds.forEach(id => delete pendingAssignments[id]);
+    updatePendingEmailBadge();
+});
+// Astreintes / HNO déclarées modifiées par la fenêtre Vue : astreintes de la planification rechargées
+window.addEventListener('gp:astreintes-modifiees', async () => {
+    await loadAllAstreintesForPlanning();
+    updateGantt();
+});
+// Nouvelles affectations lues par l'expert : pastille relue
+window.addEventListener('gp:notifications-lues', () => loadNewAssignments());
+
 // Interface Vue (îlots, frontend/src/liaison.ts) : données modifiées par un îlot, rechargées pour le reste de la page
 window.addEventListener('gp:evenements-modifies', async () => {
     await loadSpecialDates();

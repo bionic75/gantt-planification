@@ -126,3 +126,53 @@ export const apiAstreintesHno = {
         api.put<{ success: boolean }>(`/astreinte/slot/${creneauId}`, { resource_id: resourceId }),
     planning: (mois: string) => api.get<CreneauPlanningHno[]>(`/astreinte/planning/${mois}`)
 };
+
+// ---------- Lignes d'astreinte / HNO déclarées (« Gérer mes astreintes/HNO », src/modules/astreintes) ----------
+
+/** Type d'une ligne : astreinte, travail HNO, activité courante (lignes saisies depuis un CRA) */
+export type TypeLigneAstreinte = 'astreinte' | 'hno' | 'activite_courante';
+
+export interface LigneAstreinte {
+    id: number;
+    user_id: number;
+    type: TypeLigneAstreinte;
+    date_debut: string;
+    date_fin: string;
+    heure_debut: string | null;
+    heure_fin: string | null;
+    samu: string | null;
+    tous_samu: number;
+    objet: string;
+    /** Liste complète (administrateur) : nom de l'expert */
+    user_nom?: string | null;
+    user_prenom?: string | null;
+}
+
+/** Expert proposé à l'administrateur (compte expert actif) */
+export interface ExpertAstreinte {
+    id: number;
+    nom: string;
+    prenom: string;
+}
+
+export interface CorpsLigneAstreinte {
+    type: string;
+    date_debut: string;
+    date_fin: string;
+    heure_debut: string;
+    heure_fin: string;
+    samu: string | null;
+    tous_samu: boolean;
+    objet: string;
+    /** Administrateur : expert concerné */
+    user_id?: number;
+}
+
+export const apiLignesAstreinte = {
+    miennes: () => api.get<LigneAstreinte[]>('/mes-astreintes'),
+    toutes: () => api.get<LigneAstreinte[]>('/astreintes'),
+    experts: () => api.get<ExpertAstreinte[]>('/experts-list'),
+    creer: (corps: CorpsLigneAstreinte) => api.post<{ id: number }>('/astreintes', corps),
+    modifier: (id: number, corps: CorpsLigneAstreinte) => api.put(`/astreintes/${id}`, corps),
+    supprimer: (id: number) => api.delete(`/astreintes/${id}`)
+};

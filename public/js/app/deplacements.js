@@ -2176,14 +2176,9 @@ function closeAllModals() {
         'deplacementsModal',
         'logoutConfirmModal',
         'myEventsModal',
-        'astreintesModal',
-        'requestModal',
         'diagnosticModal',
         'localisationsManagementModal',
         // Modales sans classe .modal
-        'sendEmailModalContainer',
-        'confirmationModal',
-        'notificationsModal',
         'deplacementsLogoutModal',
         'mfaModal',
         'totpSetupModal',
@@ -2197,12 +2192,6 @@ function closeAllModals() {
             modal.classList.remove('active');
             modal.style.display = 'none';
         }
-    });
-
-    // Fermer tous les toasts flottants
-    ['batchDoneToast', 'emailProgressToast'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.remove();
     });
 
     console.log('🔒 Tous les modals fermés');
