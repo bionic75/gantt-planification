@@ -6,7 +6,8 @@ import { computed, ref, shallowRef } from 'vue';
 import AppIcone from '@/composants/AppIcone.vue';
 import AppModal from '@/composants/AppModal.vue';
 import { surDemande } from '@/ilots/fenetres';
-import { etatPlanning, type EtatPlanning } from '@/liaison';
+import { usePlanificationStore } from '@/ilots/planification/magasin';
+import type { EtatPlanning } from '@/liaison';
 import {
     JOURS_SEMAINE,
     NOM_ZONE,
@@ -33,9 +34,12 @@ const annee = ref(0);
 const mois = ref(0);
 const contenu = ref<HTMLElement | null>(null);
 
-surDemande(() => {
-    const e = etatPlanning();
-    if (!e) return;
+const planification = usePlanificationStore();
+
+// Données de la grille (magasin de la planification), chargées à la première ouverture
+surDemande(async () => {
+    await planification.charger();
+    const e = planification.etatPlanning;
     etat.value = e;
     annee.value = e.annee;
     mois.value = e.mois;

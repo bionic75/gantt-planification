@@ -716,32 +716,3 @@ document.addEventListener('click', function (e) {
 });
 
 // ========== FIN MODALE CARTE ==========
-
-function togglePlanningSection(sectionId) {
-    const section = document.getElementById(sectionId);
-    const icon = document.getElementById(sectionId + 'Icon');
-
-    if (!section || !icon) return;
-
-    if (section.style.display === 'none') {
-        section.style.display = 'block';
-        icon.textContent = '▼';
-        // Afficher les contrôles de l'en-tête Planification
-        if (sectionId === 'ganttDisplaySection') {
-            const ctrl = document.getElementById('ganttHeaderControls');
-            const btns = document.getElementById('ganttHeaderButtons');
-            if (ctrl) ctrl.style.display = 'flex';
-            if (btns) btns.style.display = 'flex';
-        }
-    } else {
-        section.style.display = 'none';
-        icon.textContent = '▶';
-        // Masquer les contrôles de l'en-tête Planification
-        if (sectionId === 'ganttDisplaySection') {
-            const ctrl = document.getElementById('ganttHeaderControls');
-            const btns = document.getElementById('ganttHeaderButtons');
-            if (ctrl) ctrl.style.display = 'none';
-            if (btns) btns.style.display = 'none';
-        }
-    }
-}

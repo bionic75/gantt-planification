@@ -66,17 +66,12 @@ const API_URL = '/api';
 
 let resources = [];
 let scheduleData = {};
-let oldScheduleData = {}; // Pour comparer les changements
 let users = [];
-let currentLocalisationCell = null;
 let sortDirection = {};
 let currentUser = null;
 let availableProfiles = [];
 let loginStep = 'credentials';
 let pendingAssignments = {}; // {resourceId: {expertId, assignments: [{date, period, activity, activityCode, location, actionType, oldActivity, oldActivityCode, oldLocation}]}}
-let initialScheduleState = {}; // État initial du planning au chargement (pour comparer les changements)
-let sessionId = null; // ID de session pour grouper les notifications
-let isFirstPlanningLoad = true; // Flag pour le scroll initial vers aujourd'hui
 let schoolHolidays = { zoneA: [], zoneB: [], zoneC: [] }; // Périodes de congés scolaires
 let specialDates = []; // Dates particulières (jours fériés, etc.)
 let allAstreintesHno = []; // Toutes les astreintes/HNO pour affichage sur le planning
@@ -213,7 +208,6 @@ async function checkSession() {
             // Restaurer les conversations de messagerie en cours
             setTimeout(_chatRestoreSessions, 400);
 
-            setCurrentMonth();
             openLandingTab();
         } else {
             document.getElementById('loginPage').classList.add('active');
@@ -688,9 +682,6 @@ async function completeFinalLogin(user, selectedApp) {
     resources = [];
     users = [];
     schoolHolidays = { zoneA: [], zoneB: [], zoneC: [] };
-    modifiedCellsInSession.clear(); // Réinitialiser les cellules modifiées
-
-    sessionId = generateSessionId(); // Générer un ID de session unique
 
     document.getElementById('loginPage').classList.remove('active');
     document.querySelector('.container').style.display = 'block';
@@ -742,13 +733,6 @@ async function completeFinalLogin(user, selectedApp) {
         if (sessionFermee()) return;
     } else {
         console.log('⏭️ Pas un expert, pas de notifications');
-    }
-
-    setCurrentMonth();
-
-    // Si expert, forcer l'affichage de sa ressource
-    if (currentUser.activeProfile === 'expert') {
-        updateGantt();
     }
 
     // Restaurer l'ordre des onglets + activer le drag & drop
@@ -874,44 +858,28 @@ function showLoginError(message) {
 function ouvrirFenetreVue(fenetre) {
     window.dispatchEvent(new CustomEvent('gp:fenetre-demandee', { detail: { fenetre } }));
 }
-// Instantané de la planification lu par ces fenêtres (EtatPlanning, frontend/src/liaison.ts) ; remplacé par un magasin
-// Vue quand la grille sera migrée (lot 4.5)
-window.etatPlanning = () => ({
-    ressources: resources,
-    planning: scheduleData,
-    datesParticulieres: specialDates,
-    conges: schoolHolidays,
-    historiqueMad: window.resourceMadHistoryCache || {},
-    annee: parseInt(document.getElementById('yearSelect').value),
-    mois: parseInt(document.getElementById('monthSelect').value),
-    filtre: Array.from(document.getElementById('resourceFilter').selectedOptions).map(o => o.value)
+// Grille de la planification (îlot Vue) : demi-journées saisies reportées dans le planning lu par les exports et
+// impressions (lot 4.6), affectations en attente d'invitation (compteur de l'enveloppe, journal à la déconnexion)
+window.addEventListener('gp:grille-modifiee', e => {
+    for (const [cle, valeur] of Object.entries(e.detail.cellules)) {
+        if (valeur === null) delete scheduleData[cle];
+        else scheduleData[cle] = valeur;
+    }
 });
-
-// Affectations modifiées dans la grille en attente d'invitation Outlook (EtatInvitations, frontend/src/liaison.ts),
-// lues par la fenêtre des invitations ; remplacées par un magasin Vue quand la grille sera migrée (lot 4.5)
-window.affectationsEnAttente = () => ({ sessionId, experts: pendingAssignments });
-// Invitations envoyées par la fenêtre Vue : experts retirés de l'attente, compteur de l'enveloppe mis à jour
-window.addEventListener('gp:invitations-envoyees', e => {
-    e.detail.resourceIds.forEach(id => delete pendingAssignments[id]);
+window.addEventListener('gp:invitations-en-attente', e => {
+    pendingAssignments = e.detail.experts;
     updatePendingEmailBadge();
 });
-// Astreintes / HNO déclarées modifiées par la fenêtre Vue : astreintes de la planification rechargées
-window.addEventListener('gp:astreintes-modifiees', async () => {
-    await loadAllAstreintesForPlanning();
-    updateGantt();
-});
+// Astreintes / HNO déclarées modifiées par une fenêtre Vue : astreintes de la planification rechargées
+window.addEventListener('gp:astreintes-modifiees', () => loadAllAstreintesForPlanning());
 // Nouvelles affectations lues par l'expert : pastille relue
 window.addEventListener('gp:notifications-lues', () => loadNewAssignments());
 
 // Interface Vue (îlots, frontend/src/liaison.ts) : données modifiées par un îlot, rechargées pour le reste de la page
 window.addEventListener('gp:evenements-modifies', async () => {
     await loadSpecialDates();
-    setTimeout(() => updateGantt(), 100);
 });
-window.addEventListener('gp:planning-modifie', async () => {
-    await loadSchedule();
-    setTimeout(() => updateGantt(), 100);
-});
+window.addEventListener('gp:planning-modifie', () => loadSchedule());
 window.addEventListener('gp:localisations-modifiees', () => loadLocations());
 // Accès aux applications de la session relus (l'administrateur a pu modifier les siens) : menu Applications
 window.addEventListener('gp:applications-modifiees', async () => {
@@ -944,17 +912,10 @@ window.addEventListener('gp:favicon-modifie', e => applyFavicon(e.detail.favicon
 // Fichiers .ics importés ou supprimés par l'îlot des jours spéciaux : congés et dates de la planification rechargés
 window.addEventListener('gp:conges-modifies', async () => {
     await reloadAllSchoolHolidays();
-    updateGantt();
 });
-window.addEventListener('gp:dates-particulieres-modifiees', async () => {
-    await loadSpecialDates();
-    updateGantt();
-});
-// Ressources modifiées dans l'onglet Ressources (îlot Vue) : ressources et planification rechargées
-window.addEventListener('gp:ressources-modifiees', async () => {
-    await loadResources();
-    updateGantt();
-});
+window.addEventListener('gp:dates-particulieres-modifiees', () => loadSpecialDates());
+// Ressources modifiées dans l'onglet Ressources (îlot Vue) : ressources rechargées (puis gp:ressources-rechargees)
+window.addEventListener('gp:ressources-modifiees', () => loadResources());
 // CRA traités par l'îlot de l'onglet CRA : pastille de l'onglet
 window.addEventListener('gp:cra-modifies', () => loadCraPendingBadge());
 // Accès aux onglets enregistrés : barre d'onglets mise à jour

@@ -117,15 +117,6 @@ function switchTab(tabName, event) {
         loadAppVersion(); // NOUVEAU
     }
 
-    if (tabName === 'planning') {
-        // Appliquer le filtre automatique pour les experts
-        if (currentUser && currentUser.activeProfile === 'expert' && currentUser.resourceId) {
-            updateResourceFilter();
-            updateGantt();
-        }
-        highlightToday(); // NOUVEAU
-    }
-
     if (tabName === 'cra') {
         // Contenu de l'onglet : îlot Vue (frontend/src/ilots/cra), relu à chaque ouverture de l'onglet
         loadCraPendingBadge();
@@ -155,11 +146,10 @@ async function loadCraPendingBadge() {
     }
 }
 
-// Fiche de la ressource (fermée par un clic sur le fond) : îlot Vue (frontend/src/ilots/ressources)
+// Fiche de la ressource (fermée par un clic sur le fond) : îlot Vue (frontend/src/ilots/ressources) ; localisation
+// d'une demi-journée : îlot Vue (frontend/src/ilots/planification)
 document.addEventListener('click', function (event) {
-    const locModal = document.getElementById('localisationModal');
     const forgotModal = document.getElementById('forgotPasswordModal');
-    if (event.target === locModal) closeLocalisationModal();
     if (event.target === forgotModal) closeForgotPasswordModal();
 });
 

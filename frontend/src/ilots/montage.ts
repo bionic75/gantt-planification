@@ -36,6 +36,10 @@ interface IlotSurveille {
 
 const estActif = (el: HTMLElement) => el.classList.contains('active');
 
+/** Magasin Pinia de la session en cours, partagé avec les fenêtres (ilots/fenetres.ts) */
+let piniaPartagee: Pinia | null = null;
+export const piniaDesIlots = (): Pinia => (piniaPartagee ??= createPinia());
+
 /**
  * Surveille les conteneurs des îlots présents dans la page ; renvoie la fonction d'arrêt (tests)
  * @param registre îlots à monter
@@ -43,7 +47,7 @@ const estActif = (el: HTMLElement) => el.classList.contains('active');
  */
 export function surveillerIlots(registre: RegistreIlots, creerMagasin: () => Pinia = createPinia): () => void {
     const ilots: IlotSurveille[] = [];
-    let pinia = creerMagasin();
+    let pinia = (piniaPartagee = creerMagasin());
 
     async function monter(ilot: IlotSurveille) {
         if (ilot.app) return;
@@ -97,7 +101,7 @@ export function surveillerIlots(registre: RegistreIlots, creerMagasin: () => Pin
     // Un onglet resté marqué « active » (la mire de connexion le masque sans changer sa classe) n'est pas remonté
     // aussitôt : sans session, l'îlot appellerait l'API ; il l'est à la réouverture de l'onglet par la connexion suivante
     const arreterEcoute = ecouter('session-terminee', () => {
-        pinia = creerMagasin();
+        pinia = piniaPartagee = creerMagasin();
         for (const ilot of ilots) {
             ilot.app?.unmount();
             ilot.app = null;

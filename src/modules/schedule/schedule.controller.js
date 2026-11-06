@@ -46,19 +46,24 @@ export async function save(/** @type {Request} */ req, /** @type {Response} */ r
     res.json({ success: true, saved: entries.length });
 }
 
-/** Enregistrement groupé (format { updates: [{ key, value }] } ou { clé: valeur }) */
+/**
+ * Enregistrement groupé (format { updates: [{ key, value }] } ou { clé: valeur }) ; une valeur null supprime la cellule
+ * (cellule vidée dans la grille)
+ */
 export async function saveBatch(/** @type {Request} */ req, /** @type {Response} */ res) {
     /** @type {Array<{ key: string, value: unknown }>} */
     let updates = req.body.updates || Object.entries(req.body).map(([key, value]) => ({ key, value }));
     if (!updates || updates.length === 0) return res.json({ success: true, saved: 0 });
 
     updates = updates.filter(({ key }) => !isOtherResource(req, service.parseKey(key).resourceId));
-    // Planning complet envoyé par le navigateur : seules les cellules modifiées sont écrites et journalisées
-    const changed = await service.changedCells(updates);
+    const deletions = updates.filter(({ value }) => value === null).map(({ key }) => key);
+    // Seules les cellules modifiées sont écrites et journalisées (l'ancien écran envoyait le planning complet)
+    const changed = await service.changedCells(updates.filter(({ value }) => value !== null));
     await service.saveCells(changed);
+    const deleted = await service.deleteCells(deletions);
 
     logUserAction(req, 'Sauvegarde planning rapide', {
-        modificationsCount: changed.length,
+        modificationsCount: changed.length + deleted,
         profile: req.session.activeProfile
     });
     // « saved » : cellules reçues (réponse inchangée)
