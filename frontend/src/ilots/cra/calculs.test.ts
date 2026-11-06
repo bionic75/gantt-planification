@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Cra, DetailCra, LigneCra } from '@/api/cra';
 import {
+    TOUS_SAMU,
     actions,
     bilanCollecte,
     bilanReport,
@@ -13,9 +14,11 @@ import {
     droits,
     enCoursAdmin,
     etapes,
+    formulaireDe,
     formulaireVide,
     libelleMois,
     ligneDuFormulaire,
+    ligneSaisie,
     messageModifAdmin,
     optionsSamu,
     pastille,
@@ -23,6 +26,7 @@ import {
     questionReport,
     remplacer,
     rienADeclarerPropose,
+    samuLigne,
     signatures,
     trierLignes,
     viseurs,
@@ -309,5 +313,28 @@ describe('collecte depuis la planification', () => {
         expect(bilanReport({ activity: 1, astreinte: 0, skipped: ['a', 'b'] })).toBe(
             'Planification mise à jour : 1 activité(s), 0 astreinte(s).\n\nNon reporté :\n- a\n- b'
         );
+    });
+});
+
+describe('« Tous les SAMU » (saisie depuis la grille)', () => {
+    it('ligne enregistrée, formulaire, ligne saisie et affichage', () => {
+        const enregistree = ligneSaisie({
+            id: 3,
+            type: 'hno',
+            date_debut: '2093-03-02',
+            date_fin: '2093-03-02',
+            heure_debut: '18:00',
+            heure_fin: '23:00',
+            samu: null,
+            objet: 'Nuit',
+            tous_samu: 1
+        });
+        expect(enregistree).toMatchObject({ samu: '', tous_samu: 1 });
+        expect(samuLigne(enregistree)).toBe('Tous les SAMU');
+        const f = formulaireDe(enregistree);
+        expect(f.samu).toBe(TOUS_SAMU);
+        expect(ligneDuFormulaire(f, enregistree)).toMatchObject({ id: 3, samu: '', tous_samu: 1 });
+        expect(ligneDuFormulaire({ ...f, samu: 'SAMU 75' }, enregistree)).not.toHaveProperty('tous_samu');
+        expect(controleLigne(f, [], null)).toBeNull();
     });
 });

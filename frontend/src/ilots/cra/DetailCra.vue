@@ -441,9 +441,7 @@ async function pdf() {
 
     <SaisieCra
         v-if="saisie && cra"
-        :id="cra.id"
-        :mois="Number(cra.mois)"
-        :annee="Number(cra.annee)"
+        :source="{ type: 'cra', id: cra.id, mois: Number(cra.mois), annee: Number(cra.annee) }"
         @fermer="saisie = false"
         @termine="saisieTerminee"
     />
