@@ -869,6 +869,24 @@ function showLoginError(message) {
     };
 })();
 
+// Fenêtres Vue (frontend/src/ilots/fenetres.ts) ouvertes par les boutons des en-têtes : calendrier mensuel,
+// calendrier des congés et événements, recherche avancée
+function ouvrirFenetreVue(fenetre) {
+    window.dispatchEvent(new CustomEvent('gp:fenetre-demandee', { detail: { fenetre } }));
+}
+// Instantané de la planification lu par ces fenêtres (EtatPlanning, frontend/src/liaison.ts) ; remplacé par un magasin
+// Vue quand la grille sera migrée (lot 4.5)
+window.etatPlanning = () => ({
+    ressources: resources,
+    planning: scheduleData,
+    datesParticulieres: specialDates,
+    conges: schoolHolidays,
+    historiqueMad: window.resourceMadHistoryCache || {},
+    annee: parseInt(document.getElementById('yearSelect').value),
+    mois: parseInt(document.getElementById('monthSelect').value),
+    filtre: Array.from(document.getElementById('resourceFilter').selectedOptions).map(o => o.value)
+});
+
 // Interface Vue (îlots, frontend/src/liaison.ts) : données modifiées par un îlot, rechargées pour le reste de la page
 window.addEventListener('gp:evenements-modifies', async () => {
     await loadSpecialDates();
