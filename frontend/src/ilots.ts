@@ -40,10 +40,7 @@ const ILOTS: RegistreIlots = {
         onglet: 'admin'
     },
     cra: () => import('@/ilots/cra/OngletCra.vue'),
-    astreintesHo: {
-        chargeur: () => import('@/ilots/astreintes/RubriqueHo.vue'),
-        onglet: 'astreintesGestion'
-    }
+    astreintesGestion: () => import('@/ilots/astreintes/OngletAstreintes.vue')
 };
 
 installerLiaisonAncienCode();
