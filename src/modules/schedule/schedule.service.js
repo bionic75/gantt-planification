@@ -125,6 +125,24 @@ export async function saveCells(updates) {
 }
 
 /**
+ * Supprime des cellules (clés invalides ignorées) : cellule vidée dans la grille (localisation effacée…)
+ * @param {string[]} keys
+ * @returns {Promise<number>} cellules supprimées
+ */
+export async function deleteCells(keys) {
+    const cells = keys
+        .map(key => toCell(key, ''))
+        .filter(c => c !== null)
+        .map(({ resource_id, type, date_key }) => ({ resource_id, type, date_key }));
+    if (cells.length === 0) return 0;
+    let deleted = 0;
+    await prisma.$transaction(async tx => {
+        for (const where of cells) deleted += (await tx.scheduleData.deleteMany({ where })).count;
+    });
+    return deleted;
+}
+
+/**
  * Journalise les affectations à une activité suivie (journal « planning_modification »).
  * Exécuté après la réponse : n'impacte pas le temps d'enregistrement.
  * @param {Array<{ key: string, value: unknown }>} updates

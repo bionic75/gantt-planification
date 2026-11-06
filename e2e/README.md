@@ -108,7 +108,7 @@ E2E_TAGS="@cra" npm test                                        # une fonctionna
     - **Expert de test** (un seul compte, une seule ressource) : un mois de planification et une période de visite
       métier par fonctionnalité (la remise en état efface le mois entier). Mars 2031 (03-05) : `06` ; mars 2031
       (17-19) : `05` ; mai 2031 : `16` ; juillet 2031 : `04` ; mois courant : `07` ; mois M+2 (grille, invitations
-      en attente) : `30`. Astreintes / HNO déclarées de l'expert de test : août 2031, `30`.
+      en attente) : `30` ; mois M+3 (grille) : `31`. Astreintes / HNO déclarées de l'expert de test : août 2031, `30`.
     - **Accès aux onglets** : `02` masque un onglet qu'aucune autre fonctionnalité n'ouvre avec ce profil (CRA du
       profil RH).
     - **Carte** : les lieux de test sont créés aux mêmes coordonnées ; un marqueur s'active au clavier (focus puis

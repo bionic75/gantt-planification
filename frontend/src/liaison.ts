@@ -48,10 +48,22 @@ export interface EvenementsLiaison {
     'fenetre-demandee': { fenetre: NomFenetre };
     /** Astreintes / HNO déclarées créées, modifiées ou supprimées : l'ancien code recharge celles de la planification */
     'astreintes-modifiees': undefined;
-    /** Invitations Outlook envoyées (ou abandonnées) : l'ancien code retire ces experts des affectations en attente */
-    'invitations-envoyees': { resourceIds: number[] };
     /** Nouvelles affectations lues par l'expert : l'ancien code relit la pastille */
     'notifications-lues': undefined;
+    /**
+     * Demi-journées saisies dans la grille (valeur null : cellule supprimée) : l'ancien code met à jour son planning
+     * (exports et impressions, lot 4.6)
+     */
+    'grille-modifiee': { cellules: Record<string, string | null> };
+    /**
+     * Affectations en attente d'invitation Outlook (copie) : l'ancien code met à jour le compteur de l'enveloppe et les
+     * journalise à la déconnexion
+     */
+    'invitations-en-attente': { experts: Record<string, ExpertEnAttente> };
+    /** Rafraîchissement demandé par l'ancien code (photo de profil, réveil, retour à la planification) */
+    'grille-a-rafraichir': undefined;
+    /** Zoom de la grille remis à 100 % (mise en page réinitialisée, public/js/layout-fix.js) */
+    'zoom-grille-reinitialise': undefined;
 }
 
 /** Fenêtres Vue ouvertes par les boutons de l'ancien code */
@@ -101,10 +113,14 @@ interface FenetreAncienCode {
     showSyncStatus?: () => void;
     /** CRA demandé par le lien d'une notification, en attente d'ouverture (public/js/app/core.js) */
     craDemande?: number;
-    /** Instantané des données de la planification (public/js/app/core.js) */
-    etatPlanning?: () => EtatPlanning;
-    /** Instantané des affectations en attente d'invitation Outlook (public/js/app/core.js) */
-    affectationsEnAttente?: () => EtatInvitations;
+    /** Calendrier d'une ressource à imprimer, sur le mois affiché (public/js/app/planning-tools.js, lot 4.6) */
+    printResourceCalendar?: (ressourceId: number) => void;
+    /** Calendrier d'une ressource envoyé par e-mail (public/js/app/planning-tools.js, lot 4.6) */
+    sendResourceCalendarByEmail?: (ressourceId: number) => void;
+    /** Fenêtre de téléchargement du planning (public/js/app/planning.js, lot 4.6) */
+    openDownloadModal?: () => void;
+    /** Impression A4 du planning (public/js/app/planning-tools.js, lot 4.6) */
+    printGanttPlanning?: () => void;
     /** Icônes en image (data URI) pour les listes déroulantes (public/js/ui-icons.js) */
     UIIconsApi?: IconesImages;
 }
@@ -227,6 +243,10 @@ export interface AccesAccueil {
     astreintes: boolean;
     /** Compte rattaché à une ressource : il renseigne son propre planning */
     ressource: boolean;
+    /** « Gérer mes / les astreintes/HNO » (planification) : administrateur ou expert ayant accès à l'onglet Astreintes */
+    gestionAstreintes?: boolean;
+    /** « Faire une demande » d'affectation (planification) : administrateur et utilisateur */
+    demandeAffectation?: boolean;
 }
 
 /** Thème affiché : identifiant et raison (« forcé », « dates ») */
@@ -292,12 +312,21 @@ export function afficherSynchronisation(): void {
     ancienCode().showSyncStatus?.();
 }
 
-/** Données de la planification de l'ancien code ; null hors de la page principale */
-export const etatPlanning = (): EtatPlanning | null => ancienCode().etatPlanning?.() ?? null;
+/** Calendrier d'une ressource, sur le mois affiché : impression ou envoi par e-mail (ancien code, lot 4.6) */
+export function imprimerCalendrierRessource(ressourceId: number): void {
+    ancienCode().printResourceCalendar?.(ressourceId);
+}
+export function envoyerCalendrierRessource(ressourceId: number): void {
+    ancienCode().sendResourceCalendarByEmail?.(ressourceId);
+}
 
-/** Affectations en attente d'invitation (ancien code) ; aucune hors de la page principale */
-export const affectationsEnAttente = (): EtatInvitations =>
-    ancienCode().affectationsEnAttente?.() ?? { sessionId: null, experts: {} };
+/** Téléchargement et impression A4 du planning (ancien code, lot 4.6) */
+export function telechargerPlanning(): void {
+    ancienCode().openDownloadModal?.();
+}
+export function imprimerPlanning(): void {
+    ancienCode().printGanttPlanning?.();
+}
 
 /** Icônes en image de l'ancien code ; undefined hors de la page principale */
 export const iconesImages = (): IconesImages | undefined => ancienCode().UIIconsApi;

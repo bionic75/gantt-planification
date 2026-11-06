@@ -84,6 +84,45 @@ describe('POST /api/schedule/save', () => {
         expect((await schedule())[key(res.id, 'activity', '2025-07-01', 'PM')]).toBe('6');
     });
 
+    it('une valeur null supprime la cellule (localisation vidée dans la grille)', async () => {
+        const res = await createResource(admin);
+        const loc = key(res.id, 'localisation', '2025-07-03');
+        const act = key(res.id, 'activity', '2025-07-03');
+        await admin.post('/api/schedule/save', { [loc]: '🏖️', [act]: '1' });
+        const r = await admin.post('/api/schedule/save', {
+            updates: [
+                { key: loc, value: null },
+                { key: act, value: '2' }
+            ]
+        });
+        expect(r.data).toEqual({ success: true, saved: 2 });
+        const data = await schedule();
+        expect(data).not.toHaveProperty(loc);
+        expect(data[act]).toBe('2');
+        // Cellule absente : sans effet
+        expect((await admin.post('/api/schedule/save', { updates: [{ key: loc, value: null }] })).data.success).toBe(
+            true
+        );
+    });
+
+    it("l'expert ne supprime que les cellules de sa ressource", async () => {
+        const { user, resource } = await createExpert(admin);
+        const other = await createResource(admin);
+        const mienne = key(resource.id, 'localisation', '2025-07-04');
+        const autre = key(other.id, 'localisation', '2025-07-04');
+        await admin.post('/api/schedule/save', { [mienne]: 'PSC', [autre]: 'PSC' });
+        const expert = await loginAs(server, user, 'expert');
+        await expert.post('/api/schedule/save', {
+            updates: [
+                { key: mienne, value: null },
+                { key: autre, value: null }
+            ]
+        });
+        const data = await schedule();
+        expect(data).not.toHaveProperty(mienne);
+        expect(data[autre]).toBe('PSC');
+    });
+
     it("filtre les ressources d'un autre expert", async () => {
         const { user, resource } = await createExpert(admin);
         const other = await createResource(admin);
