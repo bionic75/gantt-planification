@@ -19,11 +19,6 @@ async function loadSchoolHolidays() {
                 console.log('📅 Zone A:', schoolHolidays.zoneA?.length, 'périodes');
                 console.log('📅 Zone B:', schoolHolidays.zoneB?.length, 'périodes');
                 console.log('📅 Zone C:', schoolHolidays.zoneC?.length, 'périodes');
-
-                // Rafraîchir le Gantt si déjà affiché
-                if (document.getElementById('ganttBody')) {
-                    updateGantt();
-                }
             }
         }
     } catch (error) {
@@ -61,11 +56,6 @@ async function loadSpecialDates() {
             console.log('📅 Événements personnalisés dans specialDates:', customEventsLoaded.length);
             if (customEventsLoaded.length > 0) {
                 console.log('📅 Exemple événement:', JSON.stringify(customEventsLoaded[0]));
-            }
-
-            // Rafraîchir le Gantt si déjà affiché
-            if (document.getElementById('ganttBody')) {
-                updateGantt();
             }
         }
     } catch (error) {

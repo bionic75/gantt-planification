@@ -1,7 +1,7 @@
 // Fenêtres Vue ouvertes par des boutons de l'ancien code (en-têtes de la page, de la planification) : chaque fenêtre est
 // chargée et montée à sa première demande (événement « gp:fenetre-demandee »), dans son propre conteneur ajouté à la
 // page ; les demandes suivantes lui sont signalées. Démontage à la fin de la session.
-import { createPinia } from 'pinia';
+import { createPinia, type Pinia } from 'pinia';
 import { createApp, inject, ref, watch, type App, type InjectionKey, type Ref } from 'vue';
 import type { ChargeurIlot } from '@/ilots/montage';
 import { ecouter, type NomFenetre } from '@/liaison';
@@ -17,8 +17,11 @@ interface FenetreMontee {
     demandes: Ref<number>;
 }
 
-/** Surveille les demandes d'ouverture ; renvoie la fonction d'arrêt (tests) */
-export function surveillerFenetres(registre: RegistreFenetres): () => void {
+/**
+ * Surveille les demandes d'ouverture ; renvoie la fonction d'arrêt (tests)
+ * @param magasin magasin Pinia des fenêtres (celui des îlots d'onglet, pour partager leurs données)
+ */
+export function surveillerFenetres(registre: RegistreFenetres, magasin: () => Pinia = createPinia): () => void {
     const montees = new Map<NomFenetre, FenetreMontee>();
     const enChargement = new Set<NomFenetre>();
     // Session terminée pendant un chargement : la fenêtre n'est pas montée
@@ -42,7 +45,7 @@ export function surveillerFenetres(registre: RegistreFenetres): () => void {
             document.body.appendChild(conteneur);
             const demandes = ref(1);
             const app = createApp(composant);
-            app.use(createPinia());
+            app.use(magasin());
             app.provide(CLE_DEMANDES, demandes);
             app.mount(conteneur);
             montees.set(nom, { app, conteneur, demandes });

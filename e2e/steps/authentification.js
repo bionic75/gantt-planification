@@ -202,13 +202,21 @@ Then('les applications ouvertes sont fermées', async ({ monde }) => {
 
 /** Dernier chargement de l'ouverture de l'application (localisations) */
 const DERNIER_CHARGEMENT = '**/api/locations';
+/** Chargement qui le précède (dates particulières) */
+const AVANT_DERNIER_CHARGEMENT = '/api/ics-files/special-dates/all';
 
 Given("je me déconnecterai pendant le dernier chargement de l'ouverture de l'application", async ({ monde }) => {
     const page = monde.page;
     /** Événements après la déconnexion : appels à l'API, erreurs de la console */
     const apres = (monde.d.apresDeconnexion = /** @type {string[]} */ ([]));
+    // Les îlots lisent aussi les localisations (onglet Ressources, rechargé avec les ressources au début de l'ouverture) :
+    // la requête retenue est la première qui suit le chargement précédent de l'ouverture (dates particulières)
+    let avantDernierCharge = false;
+    page.on('response', r => {
+        if (r.url().includes(AVANT_DERNIER_CHARGEMENT)) avantDernierCharge = true;
+    });
     await page.route(DERNIER_CHARGEMENT, async route => {
-        if (!monde.d.deconnexion) {
+        if (avantDernierCharge && !monde.d.deconnexion) {
             // Chargement en attente : déconnexion par l'icône, réponse rendue une fois la mire affichée
             monde.d.deconnexion = (async () => {
                 await page.locator('.logout-icon').first().click();

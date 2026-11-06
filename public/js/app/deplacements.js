@@ -381,9 +381,6 @@ async function goToPlanificationApp() {
     await loadSchedule();
     await loadSettings();
 
-    // Réinitialiser l'affichage du mois courant
-    setCurrentMonth();
-
     // Mettre à jour le Gantt si on est sur l'onglet planification
     if (document.getElementById('planning').classList.contains('active')) {
         updateGantt();

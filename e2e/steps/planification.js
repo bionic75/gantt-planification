@@ -85,7 +85,8 @@ export async function ongletPlanification(/** @type {Page} */ page) {
             .locator('#mainTabsContainer button.tab-btn[data-tab="planning"]')
             .evaluate(b => /** @type {HTMLElement} */ (b).click());
     }
-    // Section « Planification » dépliée
+    // Section « Planification » dépliée (onglet affiché : îlot monté, titres présents)
+    await expect(page.locator('#planning h3').first()).toBeVisible();
     if (!(await page.locator('#ganttDisplaySection').isVisible())) {
         await page.locator('#planning h3', { hasText: 'Planification' }).first().click();
     }

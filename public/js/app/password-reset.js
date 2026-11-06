@@ -92,143 +92,15 @@ async function loadResources() {
         if (!response.ok) throw new Error('Erreur chargement ressources');
         resources = await response.json();
 
-        // Charger le cache MAD avant d'afficher les ressources
-        await loadAllMadHistoryCache();
-        console.log('✅ Cache MAD chargé');
-
-        // Charger les affectations SAMU (expert principal / secondaire)
-        await loadResourceSamuAssignments();
-
         // Onglet Ressources : îlot Vue (frontend/src/ilots/ressources), qui relit ses données
         window.dispatchEvent(new CustomEvent('gp:ressources-rechargees'));
-        updateResourceFilter();
     } catch (error) {
         console.error('Erreur:', error);
     }
 }
 
-// === AFFECTATIONS SAMU (expert principal / secondaire) ===
-
-// Lues par la planification (saisie : îlot Vue des ressources, frontend/src/ilots/ressources)
-let resourceSamuAssignments = {}; // { [resourceId]: { principal: [samu...], secondaire: [samu...] } }
-
-async function loadResourceSamuAssignments() {
-    try {
-        const response = await fetch(`${API_URL}/resource-samu-assignments`, { credentials: 'include' });
-        if (!response.ok) return;
-        const rows = await response.json();
-        const map = {};
-        rows.forEach(row => {
-            if (!map[row.resource_id]) map[row.resource_id] = { principal: [], secondaire: [] };
-            map[row.resource_id][row.role].push(row.samu);
-        });
-        resourceSamuAssignments = map;
-    } catch (e) {
-        console.error('Erreur chargement affectations SAMU:', e);
-    }
-}
-
-function updateResourceFilter() {
-    const filterSelect = document.getElementById('resourceFilter');
-    const currentValue = filterSelect.value;
-    filterSelect.innerHTML = '<option value="">Toutes les ressources</option>';
-
-    const activeResources = resources
-        .filter(r => r.actif)
-        .sort((a, b) => {
-            const nameA = `${a.nom} ${a.prenom}`.toLowerCase();
-            const nameB = `${b.nom} ${b.prenom}`.toLowerCase();
-            return nameA.localeCompare(nameB);
-        });
-
-    activeResources.forEach(r => {
-        const option = document.createElement('option');
-        option.value = r.id;
-        option.textContent = `${r.nom.toUpperCase()} ${r.prenom} (${r.trigramme})`;
-
-        // Si expert métier, présélectionner automatiquement sa ressource
-        if (
-            currentUser &&
-            currentUser.activeProfile === 'expert' &&
-            currentUser.resourceId &&
-            r.id === currentUser.resourceId
-        ) {
-            option.selected = true;
-        }
-
-        filterSelect.appendChild(option);
-    });
-
-    // Mettre à jour aussi le filtre par fonction
-    updateFonctionFilter();
-}
-
-function updateFonctionFilter() {
-    const filterSelect = document.getElementById('fonctionFilter');
-    if (!filterSelect) return;
-
-    // Sauvegarder les valeurs sélectionnées
-    const selectedValues = Array.from(filterSelect.selectedOptions).map(opt => opt.value);
-    filterSelect.innerHTML = '';
-
-    // Récupérer toutes les fonctions uniques des ressources actives
-    const fonctions = new Set();
-    resources
-        .filter(r => r.actif && r.fonction)
-        .forEach(r => {
-            fonctions.add(r.fonction);
-        });
-
-    // Trier et ajouter les options
-    [...fonctions].sort().forEach(f => {
-        const option = document.createElement('option');
-        option.value = f;
-        option.textContent = f;
-        if (selectedValues.includes(f)) option.selected = true;
-        filterSelect.appendChild(option);
-    });
-}
-
-function isDateAccessible(resource, date) {
-    const checkDate = new Date(date);
-    checkDate.setHours(0, 0, 0, 0);
-    const checkDateStr = checkDate.toISOString().split('T')[0];
-
-    // Utiliser l'historique MAD si disponible
-    const madHistory = window.resourceMadHistoryCache ? window.resourceMadHistoryCache[resource.id] : null;
-
-    let dateDebut = resource.date_debut;
-    let dateFin = resource.date_fin;
-
-    if (madHistory && madHistory.length > 0) {
-        const sorted = [...madHistory].sort((a, b) => a.date_debut.localeCompare(b.date_debut));
-        dateDebut = sorted[0].date_debut;
-        const lastPeriod = sorted[sorted.length - 1];
-        dateFin = lastPeriod.date_fin;
-    }
-
-    if (!dateDebut) {
-        return false;
-    }
-
-    const dateDebutObj = new Date(dateDebut);
-    dateDebutObj.setHours(0, 0, 0, 0);
-
-    if (checkDate < dateDebutObj) {
-        return false;
-    }
-
-    if (dateFin) {
-        const dateFinObj = new Date(dateFin);
-        dateFinObj.setHours(0, 0, 0, 0);
-
-        if (checkDate > dateFinObj) {
-            return false;
-        }
-    }
-
-    return true;
-}
+// Grille de la planification (filtres, période de MAD des ressources, affectations SAMU) : îlot Vue
+// (frontend/src/ilots/planification)
 
 // Calcule le numéro de semaine ISO 8601 pour une date donnée
 function getISOWeekNumber(date) {
