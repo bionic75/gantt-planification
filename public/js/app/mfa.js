@@ -318,16 +318,6 @@ function updateUserDisplay() {
         document.getElementById('userDisplayRole').style.display = '';
     }
 
-    // Stocker les infos utilisateur pour la modal de demande
-    currentUserInfo = {
-        prenom: currentUser.prenom,
-        nom: currentUser.nom.toUpperCase(),
-        email: currentUser.email,
-        profile: currentUser.activeProfile
-    };
-
-    console.log('✅ Current user info stocké:', currentUserInfo);
-
     // Afficher le bouton "Faire une demande" pour admin et user
     const requestBtn = document.getElementById('requestBtn');
     if (currentUser.activeProfile === 'admin' || currentUser.activeProfile === 'user') {

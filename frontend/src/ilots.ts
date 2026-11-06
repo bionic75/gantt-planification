@@ -48,7 +48,11 @@ const ILOTS: RegistreIlots = {
 const FENETRES: RegistreFenetres = {
     'calendrier-mensuel': () => import('@/ilots/consultation/CalendrierMensuel.vue'),
     'calendrier-evenements': () => import('@/ilots/consultation/CalendrierEvenements.vue'),
-    'recherche-avancee': () => import('@/ilots/consultation/RechercheAvancee.vue')
+    'recherche-avancee': () => import('@/ilots/consultation/RechercheAvancee.vue'),
+    'astreintes-hno': () => import('@/ilots/saisie/FenetreAstreintes.vue'),
+    'demande-affectation': () => import('@/ilots/saisie/FenetreDemande.vue'),
+    invitations: () => import('@/ilots/saisie/FenetreInvitations.vue'),
+    'nouvelles-affectations': () => import('@/ilots/saisie/FenetreNouvellesAffectations.vue')
 };
 
 installerLiaisonAncienCode();

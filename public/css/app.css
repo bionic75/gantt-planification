@@ -1401,25 +1401,6 @@ input:checked + .slider:before {
     }
 }
 
-/* Style de la scrollbar pour la liste des notifications */
-#notificationsList::-webkit-scrollbar {
-    width: 10px;
-}
-
-#notificationsList::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 5px;
-}
-
-#notificationsList::-webkit-scrollbar-thumb {
-    background: #1d70b7;
-    border-radius: 5px;
-}
-
-#notificationsList::-webkit-scrollbar-thumb:hover {
-    background: #2980b9;
-}
-
 /* Style de la scrollbar pour la liste de détails du nettoyage */
 #cleanupDetailsList::-webkit-scrollbar {
     width: 8px;
