@@ -51,11 +51,6 @@ export interface EvenementsLiaison {
     /** Nouvelles affectations lues par l'expert : l'ancien code relit la pastille */
     'notifications-lues': undefined;
     /**
-     * Demi-journées saisies dans la grille (valeur null : cellule supprimée) : l'ancien code met à jour son planning
-     * (exports et impressions, lot 4.6)
-     */
-    'grille-modifiee': { cellules: Record<string, string | null> };
-    /**
      * Affectations en attente d'invitation Outlook (copie) : l'ancien code met à jour le compteur de l'enveloppe et les
      * journalise à la déconnexion
      */
@@ -113,14 +108,6 @@ interface FenetreAncienCode {
     showSyncStatus?: () => void;
     /** CRA demandé par le lien d'une notification, en attente d'ouverture (public/js/app/core.js) */
     craDemande?: number;
-    /** Calendrier d'une ressource à imprimer, sur le mois affiché (public/js/app/planning-tools.js, lot 4.6) */
-    printResourceCalendar?: (ressourceId: number) => void;
-    /** Calendrier d'une ressource envoyé par e-mail (public/js/app/planning-tools.js, lot 4.6) */
-    sendResourceCalendarByEmail?: (ressourceId: number) => void;
-    /** Fenêtre de téléchargement du planning (public/js/app/planning.js, lot 4.6) */
-    openDownloadModal?: () => void;
-    /** Impression A4 du planning (public/js/app/planning-tools.js, lot 4.6) */
-    printGanttPlanning?: () => void;
     /** Icônes en image (data URI) pour les listes déroulantes (public/js/ui-icons.js) */
     UIIconsApi?: IconesImages;
 }
@@ -310,22 +297,6 @@ export function ouvrirApplication(application: 'affectation' | 'deplacements'): 
 /** Bandeau « Données synchronisées » (quelques secondes) */
 export function afficherSynchronisation(): void {
     ancienCode().showSyncStatus?.();
-}
-
-/** Calendrier d'une ressource, sur le mois affiché : impression ou envoi par e-mail (ancien code, lot 4.6) */
-export function imprimerCalendrierRessource(ressourceId: number): void {
-    ancienCode().printResourceCalendar?.(ressourceId);
-}
-export function envoyerCalendrierRessource(ressourceId: number): void {
-    ancienCode().sendResourceCalendarByEmail?.(ressourceId);
-}
-
-/** Téléchargement et impression A4 du planning (ancien code, lot 4.6) */
-export function telechargerPlanning(): void {
-    ancienCode().openDownloadModal?.();
-}
-export function imprimerPlanning(): void {
-    ancienCode().printGanttPlanning?.();
 }
 
 /** Icônes en image de l'ancien code ; undefined hors de la page principale */

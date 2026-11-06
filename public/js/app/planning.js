@@ -183,122 +183,6 @@ function makeColResizable(table) {
     addColContextMenu(table);
 }
 
-// Ouvrir la modal de téléchargement
-function openDownloadModal() {
-    const select = document.getElementById('downloadMonthSelect');
-    select.innerHTML = '';
-
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
-
-    // Générer les options : 12 mois dans le passé + mois courant + 3 mois dans le futur
-    const options = [];
-
-    // 12 mois dans le passé
-    for (let i = 12; i >= 1; i--) {
-        const date = new Date(currentYear, currentMonth - i, 1);
-        options.push({
-            year: date.getFullYear(),
-            month: date.getMonth(),
-            label: date.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
-        });
-    }
-
-    // Mois courant
-    options.push({
-        year: currentYear,
-        month: currentMonth,
-        label: now.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
-        current: true
-    });
-
-    // 3 mois dans le futur
-    for (let i = 1; i <= 3; i++) {
-        const date = new Date(currentYear, currentMonth + i, 1);
-        options.push({
-            year: date.getFullYear(),
-            month: date.getMonth(),
-            label: date.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
-        });
-    }
-
-    // Créer les options du select
-    options.forEach(opt => {
-        const option = document.createElement('option');
-        option.value = `${opt.year}-${String(opt.month + 1).padStart(2, '0')}`;
-        option.textContent = opt.label.charAt(0).toUpperCase() + opt.label.slice(1);
-        if (opt.current) {
-            option.selected = true;
-        }
-        select.appendChild(option);
-    });
-
-    document.getElementById('downloadPlanningModal').style.display = 'block';
-}
-
-// Fermer la modal de téléchargement
-function closeDownloadModal() {
-    document.getElementById('downloadPlanningModal').style.display = 'none';
-}
-
-// Télécharger le planning au format CSV
-function downloadPlanningCSV() {
-    const selectedValue = document.getElementById('downloadMonthSelect').value;
-    const [year, month] = selectedValue.split('-');
-
-    // Générer l'horodatage au format AAAA-MM-JJ_HH-MM
-    const now = new Date();
-    const horodatage =
-        now.getFullYear() +
-        '-' +
-        String(now.getMonth() + 1).padStart(2, '0') +
-        '-' +
-        String(now.getDate()).padStart(2, '0') +
-        '_' +
-        String(now.getHours()).padStart(2, '0') +
-        '-' +
-        String(now.getMinutes()).padStart(2, '0');
-
-    // Format du nom de fichier : Expert_Planning_AAAAMM_Sauvegarde_de_Horodatage
-    const filename = `Expert_Planning_${year}${month}_Sauvegarde_de_${horodatage}.csv`;
-
-    // Appeler l'API d'export avec le nom de fichier personnalisé
-    fetch(
-        `${API_URL}/export/gantt?year=${year}&month=${parseInt(month) - 1}&format=csv&filename=${encodeURIComponent(filename)}`,
-        {
-            credentials: 'include'
-        }
-    )
-        .then(response => {
-            if (!response.ok) throw new Error('Erreur lors du téléchargement');
-            return response.blob();
-        })
-        .then(blob => {
-            // Créer un lien de téléchargement
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
-
-            // Fermer la modal
-            closeDownloadModal();
-        })
-        .catch(error => {
-            console.error('Erreur téléchargement:', error);
-            alert('Erreur lors du téléchargement du fichier');
-        });
-}
-
-// Ancienne fonction conservée pour compatibilité
-function exportGanttToExcel() {
-    openDownloadModal();
-}
-
 async function loadUsers() {
     try {
         // Utiliser l'endpoint public pour les experts/users, admin endpoint pour les admins
@@ -340,7 +224,6 @@ function clearSiteCookies() {
 
 // Fonction pour réinitialiser toutes les données en mémoire
 function clearMemoryData() {
-    scheduleData = {};
     resources = [];
     users = [];
     schoolHolidays = { zoneA: [], zoneB: [], zoneC: [] };

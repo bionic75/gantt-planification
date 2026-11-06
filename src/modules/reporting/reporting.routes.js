@@ -55,10 +55,12 @@ router.get(
     h(async (req, res) => {
         const { year, month, filename } = req.query;
         const { csv, monthName, count } = await service.ganttCsv(year, month);
+        // Nom proposé par la page : lettres, chiffres, « _ », « - » et « . » seulement (en-tête non altérable)
+        const propose = typeof filename === 'string' ? filename.replace(/[^\w.-]/g, '_').slice(0, 120) : '';
         res.setHeader('Content-Type', 'text/csv; charset=utf-8');
         res.setHeader(
             'Content-Disposition',
-            `attachment; filename="${filename || `planning_${monthName}_${year}.csv`}"`
+            `attachment; filename="${propose || `planning_${monthName}_${year}.csv`}"`
         );
         logUserAction(req, 'Export planning CSV', { year, month: monthName, resources: count });
         res.send(csv);

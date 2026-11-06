@@ -12,6 +12,7 @@ router.get('/sse', requireAuth, h(ctrl.sse));
 router.post('/push-message', requireAuth, h(ctrl.pushMessage));
 
 // Emails
+router.get('/resource-calendar/:resourceId', requireAuth, h(ctrl.resourceCalendar));
 router.post('/send-calendar-email', requireAuth, h(ctrl.sendCalendarEmail));
 router.get('/email-queue/status/:batchId', requireAuth, h(ctrl.emailBatchStatus));
 router.post('/send-assignment-emails', requireAuth, h(ctrl.sendAssignmentEmails));

@@ -245,23 +245,53 @@ describe('Teams', () => {
 });
 
 describe('envoi du calendrier par email', () => {
-    it("envoyé à l'utilisateur rattaché à la ressource, jamais à l'adresse fournie par le client", async () => {
+    it("envoyé à l'utilisateur rattaché à la ressource, contenu et objet construits par le serveur", async () => {
         const { user, resource } = await createExpert(admin);
         const requester = await loginAs(server, await createUser(admin, { is_user: 1 }), 'user');
         const r = await requester.post('/api/send-calendar-email', {
             resourceId: resource.id,
+            year: 2027,
+            month: 2,
+            // Champs d'une ancienne page : ignorés
             email: 'victime@exterieur.example',
-            html: '<p>Calendrier</p>',
-            subject: 'Planning calendrier-test'
+            html: '<p>INJECTION-CALENDRIER</p>',
+            subject: 'Objet INJECTION-CALENDRIER'
         });
         expect(r.status, JSON.stringify(r.data)).toBe(200);
-        const mail = await smtp.waitFor(/Planning calendrier-test/);
-        expect(mail).toContain(`To: ${user.email}`);
+        const mail = await smtp.waitFor(new RegExp(`To: ${escape(user.email)}[\\s\\S]*Mars 2027`));
+        expect(mail).toContain(`Planning ${resource.nom}`);
         expect(smtp.messages.some(m => m.includes('victime@exterieur.example'))).toBe(false);
+        expect(smtp.messages.some(m => m.includes('INJECTION-CALENDRIER'))).toBe(false);
     });
 
-    it('refusé pour une ressource sans utilisateur avec email', async () => {
-        const r = await admin.post('/api/send-calendar-email', { resourceId: 999999, html: '<p>x</p>', subject: 'x' });
-        expect(r.status).toBe(400);
+    it('refusé sans mois valide, ou pour une ressource sans utilisateur avec email', async () => {
+        const { resource } = await createExpert(admin);
+        for (const corps of [
+            { resourceId: resource.id },
+            { resourceId: resource.id, year: 2027, month: 12 },
+            { resourceId: 'x', year: 2027, month: 1 },
+            { resourceId: 999999, year: 2027, month: 1 }
+        ]) {
+            expect((await admin.post('/api/send-calendar-email', corps)).status, JSON.stringify(corps)).toBe(400);
+        }
+    });
+});
+
+describe('calendrier d’une ressource (aperçu)', () => {
+    it('demi-journées et pastilles du mois, construites à partir du planning enregistré', async () => {
+        const { resource } = await createExpert(admin);
+        const k = (type, date, p) => `${resource.id}_${type}_${date}_${p}`;
+        await admin.post('/api/schedule', {
+            [k('available', '2027-03-03', 'AM')]: '2',
+            [k('activity', '2027-03-03', 'AM')]: '5',
+            [k('localisation', '2027-03-03', 'AM')]: 'T'
+        });
+        const r = await admin.get(`/api/resource-calendar/${resource.id}?year=2027&month=2`);
+        expect(r.status, JSON.stringify(r.data)).toBe(200);
+        expect(r.data.titre).toBe(`Planning ${resource.nom} ${resource.prenom} - Mars 2027`);
+        expect(r.data.contenu).toContain('ANS Dép. (🏠 T)');
+        expect(r.data.contenu).toContain('Trigramme:');
+        expect((await admin.get(`/api/resource-calendar/${resource.id}?year=2027`)).status).toBe(400);
+        expect((await admin.get('/api/resource-calendar/999999?year=2027&month=2')).status).toBe(404);
     });
 });

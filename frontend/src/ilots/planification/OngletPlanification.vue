@@ -1,11 +1,13 @@
 <!-- Onglet Planification : options d'affichage (année, mois, filtres), légende, grille des demi-journées (navigation,
-     zoom, lignes masquées), saisie (disponibilité, affectation, localisation, SAMU) et menu d'une demi-journée
-     (astreintes / HNO, saisie du mois de l'îlot CRA). Les exports et impressions restent dans l'ancien code (lot 4.6). -->
+     zoom, lignes masquées), saisie (disponibilité, affectation, localisation, SAMU), menu d'une demi-journée
+     (astreintes / HNO, saisie du mois de l'îlot CRA), exports et impressions (CSV, impression A4, calendrier d'une
+     ressource imprimé ou envoyé par e-mail). -->
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, watchEffect } from 'vue';
 import { apiAstreintesMois } from '@/api/astreintes';
+import { ErreurApi } from '@/api/client';
 import type { LigneEnregistree } from '@/api/cra';
-import type { AstreintePlanning } from '@/api/planification';
+import { apiExports, type AstreintePlanning } from '@/api/planification';
 import type { Ressource } from '@/api/ressources';
 import AppConfirmation from '@/composants/AppConfirmation.vue';
 import AppIcone from '@/composants/AppIcone.vue';
@@ -17,8 +19,11 @@ import MenuGrille from './MenuGrille.vue';
 import { menuAutorise, questionSuppression } from './menu';
 import FenetreMessage from '@/ilots/saisie/FenetreMessage.vue';
 import { SAMU_ASTREINTES } from '@/ilots/saisie/astreintes';
-import { accesAccueil, ecouter, emettre, imprimerPlanning, telechargerPlanning, type NomFenetre } from '@/liaison';
+import { accesAccueil, ecouter, emettre, type NomFenetre } from '@/liaison';
 import { useSessionStore } from '@/stores/session';
+import { MESSAGES_ENVOI } from './exports';
+import FenetreCalendrierRessource from './FenetreCalendrierRessource.vue';
+import FenetreTelechargement from './FenetreTelechargement.vue';
 import GrillePlanification, { type LigneCellule } from './GrillePlanification.vue';
 import {
     LIBELLES_AFFECTATION,
@@ -327,6 +332,34 @@ function saisieTerminee() {
     emettre('astreintes-modifiees');
 }
 
+// ---------- Exports et impressions ----------
+
+const telechargement = ref(false);
+/** Ressource dont le calendrier du mois affiché est en aperçu avant impression */
+const calendrierRessource = ref<number | null>(null);
+
+/** Impression A4 : la page, mise en forme par la feuille d'impression (titre du mois, grille réduite) */
+const imprimerPlanning = () => window.print();
+
+/** Calendrier du mois affiché envoyé à l'expert rattaché à la ressource, après confirmation */
+async function envoyerCalendrier(r: Ressource) {
+    const nom = `${r.nom} ${r.prenom}`;
+    try {
+        const { email } = await apiExports.emailExpert(r.id);
+        if (!email) {
+            message.value = MESSAGES_ENVOI.sansCompte(nom);
+            return;
+        }
+        if (!(await confirmer(MESSAGES_ENVOI.question(email, nom), 'Envoyer'))) return;
+        await apiExports.envoyerCalendrier(r.id, p.annee, p.mois);
+        message.value = MESSAGES_ENVOI.envoye;
+    } catch (e) {
+        console.error('Erreur envoi calendrier:', e);
+        message.value =
+            e instanceof ErreurApi && e.statut !== 401 ? MESSAGES_ENVOI.erreur(e.message) : MESSAGES_ENVOI.echec;
+    }
+}
+
 // ---------- Montage ----------
 
 const enveloppe = ref<HTMLElement | null>(null);
@@ -422,7 +455,7 @@ surReouverture(() => {
                 </div>
                 <div class="gp-planif__boutons-options">
                     <button type="button" @click="surbrillance = false">Afficher</button>
-                    <button type="button" class="export-btn" @click="telechargerPlanning">📥 Télécharger</button>
+                    <button type="button" class="export-btn" @click="telechargement = true">📥 Télécharger</button>
                     <button type="button" class="export-btn" @click="imprimerPlanning">Imprimer A4</button>
                 </div>
             </div>
@@ -691,6 +724,8 @@ surReouverture(() => {
                     @masquer="masquer"
                     @trier="trier"
                     @menu="ouvrirMenu"
+                    @imprimer="r => (calendrierRessource = r.id)"
+                    @envoyer="envoyerCalendrier"
                 />
                 <p v-else class="gp-planif__chargement">Chargement de la planification…</p>
             </div>
@@ -803,6 +838,16 @@ surReouverture(() => {
         :danger="demande?.danger"
         @confirm="repondre(true)"
         @cancel="repondre(false)"
+    />
+
+    <!-- Exports et impressions -->
+    <FenetreTelechargement :opened="telechargement" @fermer="telechargement = false" @message="m => (message = m)" />
+    <FenetreCalendrierRessource
+        :ressource-id="calendrierRessource"
+        :annee="p.annee"
+        :mois="p.mois"
+        @fermer="calendrierRessource = null"
+        @message="m => (message = m)"
     />
 
     <FenetreMessage :message="message" @fermer="message = ''" />

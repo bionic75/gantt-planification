@@ -873,7 +873,6 @@ async function handleWakeUp() {
         const planningTab = document.getElementById('planning');
         if (planningTab && planningTab.style.display !== 'none') {
             console.log('📅 Rechargement du planning...');
-            await loadSchedule();
             updateGantt();
         }
 
