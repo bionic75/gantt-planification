@@ -36,6 +36,12 @@ interface IlotSurveille {
 
 const estActif = (el: HTMLElement) => el.classList.contains('active');
 
+/**
+ * Mire de connexion affichée (aucune session) : elle masque l'application sans retirer la classe « active » de
+ * l'onglet courant (Ressources au chargement de la page). Un îlot monté alors appellerait l'API sans session
+ */
+const mire = () => document.getElementById('loginPage');
+
 /** Magasin Pinia de la session en cours, partagé avec les fenêtres (ilots/fenetres.ts) */
 let piniaPartagee: Pinia | null = null;
 export const piniaDesIlots = (): Pinia => (piniaPartagee ??= createPinia());
@@ -64,7 +70,9 @@ export function surveillerIlots(registre: RegistreIlots, creerMagasin: () => Pin
 
     /** Ouverture de l'onglet : montage la première fois, signal de réouverture ensuite */
     function surChangement(ilot: IlotSurveille) {
-        const actif = estActif(ilot.onglet);
+        const pageMire = mire();
+        // Mire affichée : onglet tenu pour fermé, l'îlot se monte quand la connexion masque la mire
+        const actif = estActif(ilot.onglet) && !(pageMire && estActif(pageMire));
         if (actif && !ilot.actif) {
             if (ilot.app) ilot.activations.value++;
             else void monter(ilot);
@@ -97,9 +105,13 @@ export function surveillerIlots(registre: RegistreIlots, creerMagasin: () => Pin
         armer(ilot);
     }
 
+    const pageMire = mire();
+    const observateurMire = pageMire ? new MutationObserver(() => ilots.forEach(surChangement)) : null;
+    if (pageMire) observateurMire?.observe(pageMire, { attributes: true, attributeFilter: ['class'] });
+
     // Fin de session : îlots démontés et nouveau magasin, aucune donnée d'un utilisateur visible par le suivant.
     // Un onglet resté marqué « active » (la mire de connexion le masque sans changer sa classe) n'est pas remonté
-    // aussitôt : sans session, l'îlot appellerait l'API ; il l'est à la réouverture de l'onglet par la connexion suivante
+    // aussitôt : sans session, l'îlot appellerait l'API ; il l'est à la connexion suivante (mire masquée, onglet rouvert)
     const arreterEcoute = ecouter('session-terminee', () => {
         pinia = piniaPartagee = creerMagasin();
         for (const ilot of ilots) {
@@ -111,6 +123,7 @@ export function surveillerIlots(registre: RegistreIlots, creerMagasin: () => Pin
 
     return () => {
         arreterEcoute();
+        observateurMire?.disconnect();
         for (const ilot of ilots) {
             ilot.app?.unmount();
             ilot.observateur?.disconnect();

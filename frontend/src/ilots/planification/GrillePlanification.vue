@@ -43,6 +43,8 @@ const emit = defineEmits<{
     clic: [ligne: LigneCellule, ressource: Ressource, jour: JourGrille, periode: Periode];
     masquer: [id: number];
     trier: [];
+    /** Clic droit sur une demi-journée : menu des astreintes / HNO */
+    menu: [evenement: MouseEvent, ressource: Ressource, jour: JourGrille, periode: Periode];
 }>();
 
 const p = usePlanificationStore();
@@ -424,6 +426,7 @@ const classeTotal = (j: JourGrille) => [
                     :data-date="c.jour.dateCourte"
                     :data-period="c.periode"
                     class="gp-grille__case"
+                    @contextmenu="emit('menu', $event, l.ressource, c.jour, c.periode)"
                 >
                     <span
                         v-if="c.pastille"

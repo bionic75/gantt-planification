@@ -1,15 +1,20 @@
-<!-- Saisie des lignes d'un CRA (astreintes, travail HNO, activités courantes) : ajout, modification, suppression,
-     contrôles (champs, dates, heures, chevauchement d'une ligne du même type), collecte depuis la planification (MAD
-     volante) ; « Terminer » enregistre les lignes et propose de reporter dans la planification les corrections des
-     lignes collectées. -->
+<!-- Saisie des lignes d'astreinte, de travail HNO et d'activité courante d'un mois : ajout, modification, suppression,
+     contrôles (champs, dates, heures, chevauchement d'une ligne du même type). Deux sources :
+     - CRA : lignes du CRA, collecte depuis la planification (MAD volante) ; « Terminer » enregistre les lignes et
+       propose de reporter dans la planification les corrections des lignes collectées ;
+     - grille de la planification (menu d'une demi-journée) : lignes commençant dans le mois, sans CRA ; saisie
+       préremplie par la demi-journée, « Tous les SAMU » proposé ; « Terminer » enregistre le mois (une ligne commencée
+       le mois précédent est modifiée à part). -->
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref } from 'vue';
-import { apiCra, type LigneCra, type OrigineLigne } from '@/api/cra';
+import { apiAstreintesMois, apiLignesAstreinte } from '@/api/astreintes';
+import { apiCra, type LigneCra, type LigneEnregistree, type OrigineLigne } from '@/api/cra';
 import { apiLocalisations, type Localisation } from '@/api/localisations';
 import AppAlert from '@/composants/AppAlert.vue';
 import AppModal from '@/composants/AppModal.vue';
 import { useConfirmation } from '@/composants/confirmation';
 import {
+    TOUS_SAMU,
     bilanCollecte,
     bilanReport,
     bornesMois,
@@ -27,17 +32,40 @@ import {
     questionRemplacement,
     questionReport,
     remplacer,
+    samuLigne,
     trierLignes,
     typeLigne,
     TYPES_SAISIE
 } from './calculs';
 import { useCraStore } from './magasin';
 
-const props = defineProps<{ id: number; mois: number; annee: number }>();
+/** Source de la saisie : un CRA, ou le mois d'un expert depuis une demi-journée de la grille */
+export type SourceSaisie =
+    | { type: 'cra'; id: number; mois: number; annee: number }
+    | {
+          type: 'grille';
+          userId: number;
+          /** « NOM Prénom » de la ressource */
+          nom: string;
+          mois: number;
+          annee: number;
+          /** Demi-journée cliquée */
+          date: string;
+          periode: 'AM' | 'PM';
+          /** Ligne à modifier (menu « Modifier ») */
+          aModifier?: LigneEnregistree;
+      };
+
+const props = defineProps<{ source: SourceSaisie }>();
 const emit = defineEmits<{ fermer: []; termine: [] }>();
 
 const magasin = useCraStore();
 const confirmer = useConfirmation();
+
+const grille = computed(() => props.source.type === 'grille');
+/** Préfixe des identifiants des champs (repris de l'ancien écran : saisie du CRA, saisie du menu de la grille) */
+const prefixe = computed(() => (grille.value ? 'ganttAstreinte' : 'craSaisie'));
+const id = (nom: string) => `${prefixe.value}${nom}`;
 
 const pret = ref(false);
 const lignes = ref<LigneCra[]>([]);
@@ -49,12 +77,58 @@ const collectees = ref<LigneCra[] | null>(null);
 const bilan = ref('');
 /** Lignes collectées supprimées pendant la saisie (suppression à reporter dans la planification) */
 const supprimees: OrigineLigne[] = [];
+/** Grille : lignes commencées le mois précédent (modifiées ou supprimées à part, hors enregistrement du mois) */
+const horsMois = new Set<number>();
+const horsMoisSupprimees: number[] = [];
 const erreur = ref('');
 const champType = ref<HTMLSelectElement | null>(null);
 
-const titre = computed(() => `📝 Compléter mon CRA — ${majuscule(libelleMois(props.mois, props.annee))}`);
-const bornes = computed(() => bornesMois(props.mois, props.annee));
+const moisLong = computed(() =>
+    new Date(props.source.annee, props.source.mois - 1, 1).toLocaleDateString('fr-FR', {
+        month: 'long',
+        year: 'numeric'
+    })
+);
+const titre = computed(() =>
+    props.source.type === 'grille'
+        ? `➕/🗑️ Astreinte/HNO — ${props.source.nom} — ${moisLong.value}`
+        : `📝 Compléter mon CRA — ${majuscule(libelleMois(props.source.mois, props.source.annee))}`
+);
+const bornes = computed(() => bornesMois(props.source.mois, props.source.annee));
 const samus = computed(() => optionsSamu(localisations.value));
+/** Grille : heures bornées à la demi-journée cliquée */
+const bornesHeures = computed(() =>
+    props.source.type !== 'grille'
+        ? { min: undefined, max: undefined }
+        : props.source.periode === 'AM'
+          ? { min: '00:00', max: '11:59' }
+          : { min: '12:00', max: '23:59' }
+);
+
+/** Formulaire prérempli par la demi-journée cliquée (grille) */
+function preremplir() {
+    if (props.source.type !== 'grille') return;
+    f.value.date_debut = f.value.date_fin = props.source.date;
+    f.value.heure_debut = bornesHeures.value.min ?? '';
+    f.value.heure_fin = bornesHeures.value.max ?? '';
+}
+
+async function chargerGrille(source: Extract<SourceSaisie, { type: 'grille' }>) {
+    lignes.value = (await apiAstreintesMois.lignes(source.userId, source.mois, source.annee)).map(ligneSaisie);
+    if (source.aModifier === undefined) {
+        preremplir();
+        return;
+    }
+    const aModifier = source.aModifier;
+    let i = lignes.value.findIndex(l => l.id === aModifier.id);
+    if (i < 0) {
+        // Ligne commencée le mois précédent : ajoutée à la liste, enregistrée à part
+        horsMois.add(aModifier.id);
+        lignes.value.push(ligneSaisie(aModifier));
+        i = lignes.value.length - 1;
+    }
+    await modifier(i);
+}
 
 onMounted(async () => {
     try {
@@ -62,14 +136,24 @@ onMounted(async () => {
     } catch {
         /* liste des SAMU vide */
     }
+    const source = props.source;
+    if (source.type === 'grille') {
+        try {
+            await chargerGrille(source);
+        } catch (e) {
+            erreur.value = `Erreur chargement astreintes : ${(e as Error).message}`;
+        }
+        pret.value = true;
+        return;
+    }
     try {
-        lignes.value = ((await apiCra.detail(props.id)).astreintes_hno ?? []).map(ligneSaisie);
+        lignes.value = ((await apiCra.detail(source.id)).astreintes_hno ?? []).map(ligneSaisie);
     } catch {
         lignes.value = [];
     }
     pret.value = true;
     try {
-        const d = await apiCra.collecte(props.id);
+        const d = await apiCra.collecte(source.id);
         if (d.allowed) collectees.value = d.lines ?? [];
     } catch {
         /* collecte indisponible : saisie manuelle uniquement */
@@ -111,8 +195,9 @@ function ajouter() {
 
 async function supprimer(i: number) {
     if (!(await confirmer('Supprimer cette ligne ?', 'Supprimer'))) return;
-    const origine = lignes.value[i]?.origin;
-    if (origine) supprimees.push(origine);
+    const ligne = lignes.value[i];
+    if (ligne?.origin) supprimees.push(ligne.origin);
+    if (ligne?.id && horsMois.has(ligne.id)) horsMoisSupprimees.push(ligne.id);
     lignes.value.splice(i, 1);
     if (enModification.value === i) reinitialiser();
 }
@@ -135,12 +220,12 @@ async function collecterPlanification() {
 }
 
 /** Corrections des lignes collectées : report proposé dans la planification */
-async function proposerReport() {
+async function proposerReport(craId: number) {
     const liste = corrections(lignes.value, supprimees);
     if (!liste.length) return;
     if (!(await confirmer(questionReport(liste.length, supprimees.length), 'Reporter', { danger: false }))) return;
     try {
-        magasin.message = { type: 'success', texte: bilanReport(await apiCra.reporter(props.id, liste)) };
+        magasin.message = { type: 'success', texte: bilanReport(await apiCra.reporter(craId, liste)) };
     } catch (e) {
         magasin.message = {
             type: 'error',
@@ -149,33 +234,60 @@ async function proposerReport() {
     }
 }
 
+/** Grille : mois enregistré ; lignes commencées le mois précédent modifiées ou supprimées à part */
+async function enregistrerGrille(source: Extract<SourceSaisie, { type: 'grille' }>) {
+    const duMois = lignes.value.filter(l => !(l.id && horsMois.has(l.id)));
+    await apiAstreintesMois.enregistrer({
+        user_id: source.userId,
+        mois: source.mois,
+        annee: source.annee,
+        lignes: duMois
+    });
+    for (const l of lignes.value.filter(x => x.id && horsMois.has(x.id)))
+        await apiLignesAstreinte.modifier(l.id!, {
+            type: l.type,
+            date_debut: l.date_debut,
+            date_fin: l.date_fin,
+            heure_debut: l.heure_debut,
+            heure_fin: l.heure_fin,
+            samu: l.tous_samu ? null : l.samu,
+            tous_samu: !!l.tous_samu,
+            objet: l.objet
+        });
+    for (const ligneId of horsMoisSupprimees) await apiAstreintesMois.supprimer(ligneId);
+}
+
 async function terminer() {
     erreur.value = '';
+    const source = props.source;
     try {
-        await apiCra.enregistrerLignes(props.id, lignes.value);
+        if (source.type === 'grille') await enregistrerGrille(source);
+        else await apiCra.enregistrerLignes(source.id, lignes.value);
     } catch (e) {
         erreur.value = `Erreur lors de l'enregistrement : ${(e as Error).message}`;
         return;
     }
-    await proposerReport();
+    if (source.type === 'cra') await proposerReport(source.id);
     emit('termine');
 }
 </script>
-
 <template>
-    <AppModal id="craSaisieModal" :opened="pret" :title="titre" class="cra-saisie" @close="emit('fermer')">
+    <AppModal :id="id('Modal')" :opened="pret" :title="titre" class="cra-saisie" @close="emit('fermer')">
+        <span v-if="source.type === 'grille'" :id="id('ModalTitle')" class="cra-saisie__titre-lu"
+            >{{ source.nom }} — {{ moisLong }}</span
+        >
         <div class="cra-saisie__formulaire">
             <div class="cra-saisie__grille">
                 <div>
-                    <label for="craSaisieType" class="cra-saisie__libelle">Type *</label>
-                    <select id="craSaisieType" ref="champType" v-model="f.type" class="cra-saisie__champ">
+                    <label :for="id('Type')" class="cra-saisie__libelle">Type *</label>
+                    <select :id="id('Type')" ref="champType" v-model="f.type" class="cra-saisie__champ">
                         <option v-for="t in TYPES_SAISIE" :key="t.valeur" :value="t.valeur">{{ t.libelle }}</option>
                     </select>
                 </div>
                 <div>
-                    <label for="craSaisieDateDebut" class="cra-saisie__libelle">Date de début *</label>
+                    <label :for="id('DateDebut')" class="cra-saisie__libelle">Date de début *</label>
                     <input
-                        id="craSaisieDateDebut"
+                        :id="id('DateDebut')"
                         v-model="f.date_debut"
                         type="date"
                         :min="bornes.min"
@@ -185,9 +297,9 @@ async function terminer() {
                     />
                 </div>
                 <div>
-                    <label for="craSaisieDateFin" class="cra-saisie__libelle">Date de fin *</label>
+                    <label :for="id('DateFin')" class="cra-saisie__libelle">Date de fin *</label>
                     <input
-                        id="craSaisieDateFin"
+                        :id="id('DateFin')"
                         v-model="f.date_fin"
                         type="date"
                         :min="bornes.min"
@@ -198,25 +310,40 @@ async function terminer() {
             </div>
             <div class="cra-saisie__heures">
                 <div>
-                    <label for="craSaisieHeureDebut" class="cra-saisie__libelle">Heure de début *</label>
-                    <input id="craSaisieHeureDebut" v-model="f.heure_debut" type="time" class="cra-saisie__champ" />
+                    <label :for="id('HeureDebut')" class="cra-saisie__libelle">Heure de début *</label>
+                    <input
+                        :id="id('HeureDebut')"
+                        v-model="f.heure_debut"
+                        type="time"
+                        :min="bornesHeures.min"
+                        :max="bornesHeures.max"
+                        class="cra-saisie__champ"
+                    />
                 </div>
                 <div>
-                    <label for="craSaisieHeureFin" class="cra-saisie__libelle">Heure de fin *</label>
-                    <input id="craSaisieHeureFin" v-model="f.heure_fin" type="time" class="cra-saisie__champ" />
+                    <label :for="id('HeureFin')" class="cra-saisie__libelle">Heure de fin *</label>
+                    <input
+                        :id="id('HeureFin')"
+                        v-model="f.heure_fin"
+                        type="time"
+                        :min="bornesHeures.min"
+                        :max="bornesHeures.max"
+                        class="cra-saisie__champ"
+                    />
                 </div>
             </div>
             <div class="cra-saisie__ligne">
-                <label for="craSaisieSamu" class="cra-saisie__libelle">SAMU *</label>
-                <select id="craSaisieSamu" v-model="f.samu" class="cra-saisie__champ">
+                <label :for="id('Samu')" class="cra-saisie__libelle">SAMU *</label>
+                <select :id="id('Samu')" v-model="f.samu" class="cra-saisie__champ">
                     <option value="">-- Sélectionner un SAMU --</option>
+                    <option v-if="grille" :value="TOUS_SAMU">Tous les SAMU</option>
                     <option v-for="(s, i) in samus" :key="i" :value="s.valeur">{{ s.libelle }}</option>
                 </select>
             </div>
             <div class="cra-saisie__ligne">
-                <label for="craSaisieObjet" class="cra-saisie__libelle">Objet *</label>
+                <label :for="id('Objet')" class="cra-saisie__libelle">Objet *</label>
                 <input
-                    id="craSaisieObjet"
+                    :id="id('Objet')"
                     v-model="f.objet"
                     type="text"
                     placeholder="Objet de l'astreinte/HNO"
@@ -226,7 +353,7 @@ async function terminer() {
             <AppAlert v-if="erreur" type="error" class="cra-saisie__erreur" :description="erreur" />
             <div class="cra-saisie__boutons">
                 <button
-                    id="craSaisieAddBtn"
+                    :id="id('AddBtn')"
                     type="button"
                     class="cra-saisie__ajouter"
                     :class="{ 'cra-saisie__ajouter--modification': enModification !== null }"
@@ -247,13 +374,13 @@ async function terminer() {
                 >
                     <span :key="collectees.length">📥 Collecter depuis la planification ({{ collectees.length }})</span>
                 </button>
-                <span id="craSaisieCollectMsg" role="status" class="cra-saisie__bilan">{{ bilan }}</span>
+                <span v-if="!grille" id="craSaisieCollectMsg" role="status" class="cra-saisie__bilan">{{ bilan }}</span>
             </div>
         </div>
 
         <div class="cra-saisie__liste">
             <h4 class="cra-saisie__sous-titre">Liste des astreintes/HNO</h4>
-            <div id="craSaisieList" class="cra-saisie__lignes">
+            <div :id="id('List')" class="cra-saisie__lignes">
                 <div
                     v-for="(l, i) in lignes"
                     :key="i"
@@ -265,7 +392,7 @@ async function terminer() {
                     >
                     <span class="cra-saisie__dates">{{ datesLigne(l) }}</span>
                     <span class="cra-saisie__heures-ligne">{{ l.heure_debut }} → {{ l.heure_fin }}</span>
-                    <span class="cra-saisie__samu">{{ l.samu }}</span>
+                    <span class="cra-saisie__samu">{{ samuLigne(l) }}</span>
                     <span class="cra-saisie__objet">{{ l.objet }}</span>
                     <button type="button" title="Modifier" class="cra-saisie__modifier" @click="modifier(i)">✏️</button>
                     <button type="button" title="Supprimer" class="cra-saisie__supprimer" @click="supprimer(i)">
@@ -284,6 +411,13 @@ async function terminer() {
 </template>
 
 <style scoped>
+.cra-saisie__titre-lu {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+}
 .cra-saisie__formulaire {
     margin: 12px -20px 0;
     padding: 20px;

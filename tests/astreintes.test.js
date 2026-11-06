@@ -151,6 +151,32 @@ describe('saisie mensuelle directe', () => {
         expect((await client.get('/api/mes-astreintes')).data.map(l => l.date_debut)).toContain('2026-01-03');
     });
 
+    it('conserve « Tous les SAMU » (aucun SAMU particulier enregistré) au remplacement du mois', async () => {
+        const { user, client } = await expertClient();
+        const r = await client.post('/api/astreintes-hno/direct', {
+            user_id: user.id,
+            mois: 11,
+            annee: 2025,
+            lignes: [
+                {
+                    type: 'hno',
+                    date_debut: '2025-11-03',
+                    date_fin: '2025-11-03',
+                    samu: 'SAMU 75',
+                    tous_samu: 1,
+                    objet: 'Tous'
+                },
+                { type: 'hno', date_debut: '2025-11-04', date_fin: '2025-11-04', samu: 'SAMU 75', objet: 'Un' }
+            ]
+        });
+        expect(r.data).toEqual({ success: true, inserted: 2 });
+        const month = (await client.get(`/api/astreintes-hno/direct?user_id=${user.id}&mois=11&annee=2025`)).data;
+        expect(month.map(l => [l.objet, l.samu, l.tous_samu])).toEqual([
+            ['Tous', null, 1],
+            ['Un', 'SAMU 75', 0]
+        ]);
+    });
+
     it('accès réservé à soi ou aux administrateurs', async () => {
         const a = await expertClient();
         const b = await expertClient();
