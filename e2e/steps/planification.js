@@ -77,7 +77,8 @@ Then('{string} voit la même saisie dans la planification', async ({ monde }, pr
 
 // ---------- Grille ----------
 
-async function ongletPlanification(/** @type {Page} */ page) {
+/** Onglet Planification ouvert, section « Planification » dépliée, grille affichée */
+export async function ongletPlanification(/** @type {Page} */ page) {
     const contenu = page.locator('#planning.tab-content');
     if (!(await contenu.evaluate(e => e.classList.contains('active')))) {
         await page
