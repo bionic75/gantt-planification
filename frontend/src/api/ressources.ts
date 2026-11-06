@@ -24,6 +24,8 @@ export interface Ressource {
     jours_max_mad: number | null;
     contacts_rh: string | null;
     user_id: number | null;
+    /** E-mail du compte expert rattaché, à défaut celui de la ressource */
+    email?: string | null;
 }
 
 /** Période de l'historique des taux de MAD */

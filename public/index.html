@@ -74,7 +74,7 @@
                         <img id="profilePhoto" style="width: 100%; height: 100%; object-fit: cover; display: none;" />
                     </div>
                     <!-- Badge de notifications nouvelles affectations -->
-                    <div id="notificationBadge" style="display: none; position: absolute; top: -8px; left: -8px; cursor: pointer;" onclick="openNewAssignmentsModal()" title="Nouvelles affectations">
+                    <div id="notificationBadge" style="display: none; position: absolute; top: -8px; left: -8px; cursor: pointer;" onclick="ouvrirFenetreVue('nouvelles-affectations')" title="Nouvelles affectations">
                         <span id="notificationCount" style="
                             background-color: #e74c3c;
                             color: white;
@@ -156,7 +156,7 @@
                 </button>
                 
                 <!-- Bouton d'envoi des notifications par email (visible uniquement pour admin/user) -->
-                <button id="sendEmailBtn" onclick="openSendEmailModal()" title="Envoyer les affectations par email" style="
+                <button id="sendEmailBtn" onclick="ouvrirFenetreVue('invitations')" title="Envoyer les affectations par email" style="
                     display: none;
                     padding: 8px 15px;
                     background-color: #27ae60;
@@ -369,12 +369,12 @@
                             Visualiser les événements
                         </button>
                         </button>
-                        <button id="astreintesBtn" onclick="event.stopPropagation(); openAstreintesModal();" 
+                        <button id="astreintesBtn" onclick="event.stopPropagation(); ouvrirFenetreVue('astreintes-hno');" 
                                 style="padding: 8px 15px; height: 38px; background-color: #9c27b0; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; display: none; align-items: center;" 
                                 title="Gérer les astreintes et HNO">
                             <span id="astreintesBtnText">Gérer mes astreintes/HNO</span>
                         </button>
-                        <button id="requestBtn" onclick="event.stopPropagation(); openRequestModal();" 
+                        <button id="requestBtn" onclick="event.stopPropagation(); ouvrirFenetreVue('demande-affectation');" 
                                 style="padding: 8px 15px; height: 38px; background-color: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; display: none; align-items: center;" 
                                 title="Faire une demande d'affectation">
                             <svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:16px;height:16px;stroke:currentColor;margin-right:7px;"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>Faire une demande
@@ -512,21 +512,7 @@
     <div id="ganttContextMenuItems"></div>
 </div>
 
-<!-- MODAL pour afficher les détails des logs -->
-<div id="logDetailsModal" class="modal">
-    <div class="modal-content" style="max-width: 600px;">
-        <h3>Détails de la connexion</h3>
-        <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 15px 0;">
-            <p style="margin-bottom: 10px;"><strong>Utilisateur:</strong> <span id="logDetailsUsername"></span></p>
-            <p style="margin-bottom: 10px;"><strong>Date et heure:</strong> <span id="logDetailsDate"></span></p>
-            <p style="margin-bottom: 10px;"><strong>Modifications:</strong></p>
-            <pre id="logDetailsContent" style="background-color: white; padding: 10px; border: 1px solid #ddd; border-radius: 3px; max-height: 300px; overflow-y: auto; font-size: 12px; white-space: pre-wrap;"></pre>
         </div>
-        <div class="modal-button-group">
-            <button onclick="closeLogDetailsModal()">Fermer</button>
-        </div>
-    </div>
-</div>        </div>
     </div>
 
     <div id="loginPage" class="modal active lp-page">
@@ -910,7 +896,6 @@
     <script src="/js/app/email-validation.js?v=2.17.1"></script>
     <script src="/js/app/mfa.js?v=2.17.1"></script>
     <script src="/js/app/tab-access.js?v=2.17.1"></script>
-    <script src="/js/app/hno.js?v=2.17.1"></script>
     <script src="/js/app/deplacements.js?v=2.17.1"></script>
     <script src="/js/app/password-reset.js?v=2.17.1"></script>
     <script src="/js/app/particularites.js?v=2.17.1"></script>
@@ -923,8 +908,6 @@
     <script src="/js/app/locations.js?v=2.17.1"></script>
     <script src="/js/app/maps.js?v=2.17.1"></script>
     <script src="/js/app/planning-tools.js?v=2.17.1"></script>
-    <script src="/js/app/calendar-views.js?v=2.17.1"></script>
-    <script src="/js/app/assignment-request.js?v=2.17.1"></script>
     <script src="/js/app/planning-navigation.js?v=2.17.1"></script>
     <script src="/js/app/profile.js?v=2.17.1"></script>
     <script src="/js/app/realtime.js?v=2.17.1"></script>
@@ -949,91 +932,6 @@
 
     <!-- STYLE POUR L'IMPRESSION -->
     
-
-    <!-- Modal Demande d'affectation -->
-    <div id="requestModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10000; overflow-y: auto;">
-        <div style="background-color: white; max-width: 700px; margin: 50px auto; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2 style="color: #2c3e50; margin: 0; flex: 1;">Faire une demande d'affectation</h2>
-                <span onclick="closeRequestModal()" style="cursor: pointer; font-size: 28px; color: #7f8c8d;">&times;</span>
-            </div>
-            <form id="requestForm" onsubmit="submitRequestForm(event)">
-                <div class="form-group">
-                    <label>De (Expéditeur)</label>
-                    <input type="text" id="requestFrom" readonly style="background-color: #ecf0f1;">
-                </div>
-                <div class="form-group" style="position: relative;">
-                    <label>Destinataires (Experts) *</label>
-                    <div id="requestExpertsTags" class="samu-tag-box" onclick="document.getElementById('requestExpertsInput').focus()">
-                        <input type="text" id="requestExpertsInput" placeholder="Taper le nom d'un expert..." class="samu-tag-input"
-                            oninput="filterRequestExperts(this.value)"
-                            onfocus="filterRequestExperts(this.value)"
-                            onkeydown="handleRequestExpertsKeydown(event)">
-                    </div>
-                    <div id="requestExpertsDropdown" class="samu-tag-dropdown"></div>
-                </div>
-                <div class="form-group">
-                    <label>Sujet *</label>
-                    <input type="text" id="requestSubject" required>
-                </div>
-                <div class="form-group">
-                    <label>Dates demandées *</label>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                        <div>
-                            <label style="font-size: 12px; color: #7f8c8d;">Début</label>
-                            <input type="date" id="requestStartDate" required onchange="prefillRequestEndDate(); validateDates()">
-                            <select id="requestStartPeriod" style="margin-top: 5px;" required>
-                                <option value="Matin">Matin</option>
-                                <option value="Après-midi">Après-midi</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label style="font-size: 12px; color: #7f8c8d;">Fin</label>
-                            <input type="date" id="requestEndDate" required onchange="validateDates()">
-                            <select id="requestEndPeriod" style="margin-top: 5px;" required>
-                                <option value="Matin">Matin</option>
-                                <option value="Après-midi">Après-midi</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div id="dateError" style="color: #e74c3c; font-size: 12px; margin-top: 5px; display: none;"></div>
-                </div>
-                <div class="form-group">
-                    <label>Message *</label>
-                    <textarea id="requestMessage" required style="min-height: 150px; resize: vertical; width: 100%;"></textarea>
-                </div>
-                <div class="button-group">
-                    <button type="submit" style="background-color: #27ae60;">✉️ Envoyer la demande</button>
-                    <button type="button" onclick="closeRequestModal()" style="background-color: #7f8c8d;">Annuler</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Modal de confirmation d'envoi -->
-    <div id="confirmationModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10001;">
-        <div style="background-color: white; max-width: 500px; margin: 150px auto; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
-            <h3 style="color: #27ae60; margin-bottom: 15px;">✓ Demande envoyée avec succès</h3>
-            <p style="margin-bottom: 10px;">Votre demande a été envoyée aux experts suivants :</p>
-            <ul id="confirmationEmailList" style="margin: 15px 0; padding-left: 20px; color: #2c3e50;">
-                <!-- La liste des emails sera ajoutée dynamiquement -->
-            </ul>
-            <button onclick="closeConfirmationModal()" style="background-color: #1D70B7; width: 100%; margin-top: 15px;">Fermer</button>
-        </div>
-    </div>
-
-    <!-- Modal des notifications expert -->
-    <div id="notificationsModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10001;">
-        <div style="background-color: white; max-width: 700px; margin: 50px auto; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); max-height: 80vh; overflow: hidden; display: flex; flex-direction: column;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
-                <h2 style="color: #2c3e50; margin: 0; border-bottom: 2px solid #1D70B7; padding-bottom: 10px; display: inline-block;">🔔 Notifications</h2>
-                <span onclick="closeNotificationsModal()" style="cursor: pointer; font-size: 28px; color: #7f8c8d;">&times;</span>
-            </div>
-            <div id="notificationsList" style="margin-top: 20px; max-height: calc(80vh - 150px); overflow-y: auto; padding-right: 10px;">
-                <!-- Le tableau des notifications sera ajouté ici -->
-            </div>
-        </div>
-    </div>
 
     <!-- Modal de photo de profil et mot de passe -->
     <div id="profilePhotoModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10002; overflow-y: auto;">
@@ -1173,65 +1071,6 @@
             </div>
         </div>
     </div>
-
-    <!-- Modal nouvelles affectations -->
-    <div id="newAssignmentsModal" class="modal">
-        <div class="modal-content" style="max-width: 800px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2 style="color: #2c3e50; margin: 0;">
-                    🔔 Nouvelles affectations depuis votre dernière connexion
-                </h2>
-                <span class="close" onclick="closeNewAssignmentsModal()" style="cursor: pointer; font-size: 28px; color: #7f8c8d;">&times;</span>
-            </div>
-            
-            <div id="newAssignmentsContent" style="margin-top: 20px;">
-                <!-- Le contenu sera chargé dynamiquement -->
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal Envoi Emails Affectations -->
-    <div id="sendEmailModalContainer" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); z-index: 10002;">
-        <div style="position: relative; background-color: white; margin: 3% auto; padding: 30px; width: 95%; max-width: 800px; border-radius: 12px; max-height: 90vh; overflow-y: auto;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <div>
-                    <h2 style="color: #27ae60; margin: 0;">📅 Invitations Outlook - Affectations</h2>
-                    <p id="sendEmailModalSummary" style="color: #7f8c8d; font-size: 12px; margin: 5px 0 0 0;">0 expert(s) - 0 affectation(s)</p>
-                </div>
-                <span onclick="closeSendEmailModal()" style="cursor: pointer; font-size: 28px; color: #7f8c8d;">&times;</span>
-            </div>
-            
-            <p style="color: #666; font-size: 13px; margin-bottom: 15px; padding: 10px; background: #f0f9f0; border-radius: 5px;">
-                📧 Cochez les experts à notifier. Chaque expert recevra des <strong>invitations Outlook</strong> (fichiers ICS) :<br>
-                <span style="font-size: 11px; color: #555;">
-                    📅 Nouvelles affectations &nbsp;|&nbsp; 🔄 Modifications &nbsp;|&nbsp; ❌ Suppressions (annulation calendrier)
-                </span>
-            </p>
-            
-            <!-- Liste des affectations par expert -->
-            <div id="sendEmailModalContent" style="max-height: 50vh; overflow-y: auto; margin-bottom: 20px;">
-                <!-- Rempli dynamiquement -->
-            </div>
-            
-            <div style="display: flex; flex-direction: column; gap: 15px; border-top: 1px solid #eee; padding-top: 15px;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                        <input type="checkbox" id="selectAllExperts" checked onchange="toggleAllExperts()" style="width: 18px; height: 18px;">
-                        <span style="font-size: 13px;">Sélectionner/Désélectionner tous</span>
-                    </label>
-                </div>
-                <div style="display: flex; justify-content: flex-end; gap: 10px;">
-                    <button onclick="confirmSendEmails()" style="background-color: #27ae60; color: white; padding: 12px 25px; font-size: 14px;">
-                        📅 Envoyer les invitations Outlook
-                    </button>
-                    <button onclick="closeSendEmailModal()" style="background-color: #95a5a6; color: white; padding: 12px 25px; font-size: 14px;">
-                        Annuler
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
 
     <!-- CONTAINER POUR L'APPLICATION DÉPLACEMENTS -->
     <div id="deplacementsContainer" class="container" style="display: none;">
@@ -1804,108 +1643,6 @@
 
     <!-- Modal de choix de déconnexion pour l'application Planification -->
 
-    <!-- Modal Gérer les Astreintes/HNO -->
-    <div id="astreintesModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); z-index: 10003; justify-content: center; align-items: center;">
-        <div style="background: white; padding: 25px; border-radius: 12px; max-width: 900px; width: 95%; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #9c27b0; padding-bottom: 10px;">
-                <h3 style="color: #9c27b0; margin: 0;" id="astreintesModalTitle">Gérer mes astreintes/HNO</h3>
-                <span onclick="closeAstreintesModal()" style="cursor: pointer; font-size: 28px; color: #7f8c8d;">&times;</span>
-            </div>
-            
-            <!-- Formulaire d'ajout -->
-            <div style="background: #f3e5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                <div style="display: flex; align-items: center; gap: 10px; cursor: pointer;" onclick="toggleAstreinteForm()">
-                    <span id="astreinteFormIcon" style="font-size: 13px; color: #7b1fa2; transition: transform 0.2s;">▶</span>
-                    <h4 style="margin: 0; color: #7b1fa2;" id="astreintesFormTitle">Ajouter une astreinte/HNO</h4>
-                </div>
-                <div id="astreinteFormBody" style="display: none; margin-top: 15px;">
-                <!-- Sélection expert (admin seulement) -->
-                <div id="astreintesExpertSelect" style="display: none; margin-bottom: 15px;">
-                    <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #333;">Expert *</label>
-                    <select id="astreintesExpert" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                        <option value="">-- Sélectionner un expert --</option>
-                    </select>
-                </div>
-                
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
-                    <!-- Type -->
-                    <div>
-                        <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #333;">Type *</label>
-                        <select id="astreintesType" onchange="toggleHnoFields()" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                            <option value="astreinte">Astreinte</option>
-                            <option value="hno">Travail HNO</option>
-                        </select>
-                    </div>
-                    
-                    <!-- Date début -->
-                    <div>
-                        <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #333;">Date de début *</label>
-                        <input type="date" id="astreintesDateDebut" onchange="syncAstreintesDateFin()" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                    </div>
-                    
-                    <!-- Date fin -->
-                    <div>
-                        <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #333;">Date de fin *</label>
-                        <input type="date" id="astreintesDateFin" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                    </div>
-                </div>
-                
-                <!-- Heures (pour astreintes et HNO) -->
-                <div id="hnoFieldsContainer" style="margin-top: 15px;">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                        <div>
-                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #333;">Heure de début *</label>
-                            <input type="time" id="astreintesHeureDebut" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                        </div>
-                        <div>
-                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #333;">Heure de fin *</label>
-                            <input type="time" id="astreintesHeureFin" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- SAMU -->
-                <div style="margin-top: 15px;">
-                    <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #333;">SAMU *</label>
-                    <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
-                        <select id="astreintesSamu" style="flex: 1; min-width: 200px; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                            <option value="">-- Sélectionner un SAMU --</option>
-                        </select>
-                        <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
-                            <input type="checkbox" id="astreintesTousSamu" onchange="toggleSamuSelect()">
-                            <span>Tous les SAMU</span>
-                        </label>
-                    </div>
-                </div>
-                
-                <!-- Objet -->
-                <div style="margin-top: 15px;">
-                    <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #333;">Objet *</label>
-                    <input type="text" id="astreintesObjet" placeholder="Objet de l'astreinte/HNO" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                </div>
-                
-                <!-- Boutons -->
-                <div style="margin-top: 20px; display: flex; gap: 10px;">
-                    <input type="hidden" id="astreintesEditId" value="">
-                    <button onclick="saveAstreinte()" style="background: #9c27b0; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
-                        💾 Enregistrer
-                    </button>
-                    <button onclick="resetAstreintesForm()" style="background: #95a5a6; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;">
-                        🔄 Réinitialiser
-                    </button>
-                </div>
-                </div><!-- /astreinteFormBody -->
-            </div>
-            
-            <!-- Liste des astreintes/HNO -->
-            <div style="background: #fafafa; padding: 20px; border-radius: 8px;">
-                <h4 style="margin: 0 0 15px 0; color: #7b1fa2;">Liste des astreintes/HNO</h4>
-                <div id="astreintesTreeView" style="max-height: 400px; overflow-y: auto;">
-                    <p style="color: #999; text-align: center;">Chargement...</p>
-                </div>
-            </div>
-        </div>
-    </div>
     <!-- Modal résolution conflits localisation -->
 
     <!-- Modal Carte des Événements / Déplacements (depuis Planification) -->
