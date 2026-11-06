@@ -29,6 +29,8 @@ export interface LigneCra {
     heure_fin: string;
     samu: string;
     objet: string;
+    /** « Tous les SAMU » : la ligne vaut pour tous les SAMU (champ samu vide) */
+    tous_samu?: number;
     origin?: OrigineLigne;
     orig?: InstantaneLigne;
 }
@@ -75,6 +77,7 @@ export interface LigneEnregistree {
     heure_fin: string | null;
     samu: string | null;
     objet: string | null;
+    tous_samu?: number;
 }
 
 /** GET /cra/:id */

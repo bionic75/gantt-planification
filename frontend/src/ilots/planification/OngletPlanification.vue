@@ -1,12 +1,20 @@
 <!-- Onglet Planification : options d'affichage (année, mois, filtres), légende, grille des demi-journées (navigation,
-     zoom, lignes masquées) et saisie (disponibilité, affectation, localisation, SAMU). Les exports, impressions et le
-     menu contextuel des astreintes restent dans l'ancien code (lots 4.5b et 4.6). -->
+     zoom, lignes masquées), saisie (disponibilité, affectation, localisation, SAMU) et menu d'une demi-journée
+     (astreintes / HNO, saisie du mois de l'îlot CRA). Les exports et impressions restent dans l'ancien code (lot 4.6). -->
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, watchEffect } from 'vue';
+import { apiAstreintesMois } from '@/api/astreintes';
+import type { LigneEnregistree } from '@/api/cra';
+import type { AstreintePlanning } from '@/api/planification';
 import type { Ressource } from '@/api/ressources';
+import AppConfirmation from '@/composants/AppConfirmation.vue';
 import AppIcone from '@/composants/AppIcone.vue';
 import AppModal from '@/composants/AppModal.vue';
+import { fournirConfirmation } from '@/composants/confirmation';
 import { surReouverture } from '@/ilots/activation';
+import SaisieCra, { type SourceSaisie } from '@/ilots/cra/SaisieCra.vue';
+import MenuGrille from './MenuGrille.vue';
+import { menuAutorise, questionSuppression } from './menu';
 import FenetreMessage from '@/ilots/saisie/FenetreMessage.vue';
 import { SAMU_ASTREINTES } from '@/ilots/saisie/astreintes';
 import { accesAccueil, ecouter, emettre, imprimerPlanning, telechargerPlanning, type NomFenetre } from '@/liaison';
@@ -264,6 +272,59 @@ async function poursuivre() {
     const c = confirmation.value;
     confirmation.value = null;
     if (c) await executerAffectation(c.cellule);
+}
+
+// ---------- Menu d'une demi-journée : astreintes / HNO ----------
+
+const { demande, repondre, confirmer } = fournirConfirmation();
+const menu = ref<{ x: number; y: number; ressource: Ressource; date: string; periode: Periode } | null>(null);
+const saisieAstreintes = ref<SourceSaisie | null>(null);
+
+/** Clic droit : menu de l'administrateur, ou de l'expert sur sa ligne (sinon menu du navigateur) */
+async function ouvrirMenu(e: MouseEvent, ressource: Ressource, jour: JourGrille, periode: Periode) {
+    const s = session.session;
+    if (!s || !menuAutorise(s.activeProfile, s.userId, ressource)) return;
+    e.preventDefault();
+    menu.value = { x: e.clientX, y: e.clientY, ressource, date: jour.date, periode };
+}
+
+/** Saisie du mois de l'expert de la ligne (ajout, ou modification d'une astreinte de la demi-journée) */
+function ouvrirSaisie(aModifier?: AstreintePlanning) {
+    const m = menu.value;
+    menu.value = null;
+    if (!m) return;
+    if (!m.ressource.user_id) {
+        message.value = "Cette ressource n'a pas de compte utilisateur associé.";
+        return;
+    }
+    const [annee, mois] = m.date.split('-').map(Number) as [number, number];
+    saisieAstreintes.value = {
+        type: 'grille',
+        userId: m.ressource.user_id,
+        nom: `${m.ressource.nom} ${m.ressource.prenom}`,
+        mois,
+        annee,
+        date: m.date,
+        periode: m.periode,
+        aModifier: aModifier as unknown as LigneEnregistree | undefined
+    };
+}
+
+async function supprimerAstreinte(a: AstreintePlanning) {
+    menu.value = null;
+    if (!(await confirmer(questionSuppression(a), 'Supprimer'))) return;
+    try {
+        await apiAstreintesMois.supprimer(a.id);
+    } catch (e) {
+        message.value = `Erreur suppression : ${(e as Error).message}`;
+        return;
+    }
+    emettre('astreintes-modifiees');
+}
+
+function saisieTerminee() {
+    saisieAstreintes.value = null;
+    emettre('astreintes-modifiees');
 }
 
 // ---------- Montage ----------
@@ -629,6 +690,7 @@ surReouverture(() => {
                     @clic="clic"
                     @masquer="masquer"
                     @trier="trier"
+                    @menu="ouvrirMenu"
                 />
                 <p v-else class="gp-planif__chargement">Chargement de la planification…</p>
             </div>
@@ -710,6 +772,38 @@ surReouverture(() => {
             </button>
         </template>
     </AppModal>
+
+    <!-- Menu d'une demi-journée et saisie des astreintes / HNO du mois -->
+    <Teleport to="body">
+        <MenuGrille
+            v-if="menu"
+            :key="`${menu.ressource.id}_${menu.date}_${menu.periode}_${menu.x}_${menu.y}`"
+            :x="menu.x"
+            :y="menu.y"
+            :ressource="menu.ressource"
+            :date="menu.date"
+            :periode="menu.periode"
+            @fermer="menu = null"
+            @ajouter="ouvrirSaisie()"
+            @modifier="ouvrirSaisie"
+            @supprimer="supprimerAstreinte"
+        />
+    </Teleport>
+    <SaisieCra
+        v-if="saisieAstreintes"
+        :source="saisieAstreintes"
+        @fermer="saisieAstreintes = null"
+        @termine="saisieTerminee"
+    />
+    <AppConfirmation
+        :opened="!!demande"
+        :message="demande?.message ?? ''"
+        :label-confirmer="demande?.labelConfirmer"
+        :label-annuler="demande?.labelAnnuler"
+        :danger="demande?.danger"
+        @confirm="repondre(true)"
+        @cancel="repondre(false)"
+    />
 
     <FenetreMessage :message="message" @fermer="message = ''" />
 </template>

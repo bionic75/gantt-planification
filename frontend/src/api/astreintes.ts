@@ -1,5 +1,6 @@
 // Astreintes HO (heures ouvrées) et astreinte HO ANS : appels et réponses (src/modules/astreintes-ho)
 import { api } from '@/api/client';
+import type { LigneCra, LigneEnregistree } from '@/api/cra';
 
 export type PeriodeHo = 'AM' | 'PM';
 
@@ -167,6 +168,20 @@ export interface CorpsLigneAstreinte {
     /** Administrateur : expert concerné */
     user_id?: number;
 }
+
+/** Saisie du mois sans CRA (menu de la grille) : lignes commençant dans le mois, verrou par un CRA soumis */
+export const apiAstreintesMois = {
+    verrou: (userId: number, mois: number, annee: number) =>
+        api.get<{ locked: boolean; statut?: string }>(
+            `/astreintes-hno/lock-check?user_id=${userId}&mois=${mois}&annee=${annee}`
+        ),
+    lignes: (userId: number, mois: number, annee: number) =>
+        api.get<LigneEnregistree[]>(`/astreintes-hno/direct?user_id=${userId}&mois=${mois}&annee=${annee}`),
+    /** Remplace les lignes commençant dans le mois */
+    enregistrer: (corps: { user_id: number; mois: number; annee: number; lignes: LigneCra[] }) =>
+        api.post<{ success: boolean; inserted: number }>('/astreintes-hno/direct', corps),
+    supprimer: (id: number) => api.delete(`/astreintes-hno/${id}`)
+};
 
 export const apiLignesAstreinte = {
     miennes: () => api.get<LigneAstreinte[]>('/mes-astreintes'),
