@@ -6,7 +6,6 @@ import { computed } from 'vue';
 import type { Ressource } from '@/api/ressources';
 import AppIcone from '@/composants/AppIcone.vue';
 import { avecConfig, datesDuJour, pastille, zonesEnConges } from '@/ilots/consultation/calendrier';
-import { envoyerCalendrierRessource, imprimerCalendrierRessource } from '@/liaison';
 import {
     LIBELLES_AFFECTATION,
     LIBELLES_DISPO,
@@ -45,6 +44,9 @@ const emit = defineEmits<{
     trier: [];
     /** Clic droit sur une demi-journée : menu des astreintes / HNO */
     menu: [evenement: MouseEvent, ressource: Ressource, jour: JourGrille, periode: Periode];
+    /** Calendrier du mois de la ressource : aperçu avant impression, envoi par e-mail */
+    imprimer: [ressource: Ressource];
+    envoyer: [ressource: Ressource];
 }>();
 
 const p = usePlanificationStore();
@@ -397,7 +399,7 @@ const classeTotal = (j: JourGrille) => [
                                 type="button"
                                 class="gp-grille__imprimer"
                                 title="Imprimer le calendrier"
-                                @click="imprimerCalendrierRessource(l.ressource.id)"
+                                @click="emit('imprimer', l.ressource)"
                             >
                                 <AppIcone name="print" :scale="15 / 16" class="gp-grille__action-icone" />
                             </button>
@@ -405,7 +407,7 @@ const classeTotal = (j: JourGrille) => [
                                 type="button"
                                 class="gp-grille__envoyer"
                                 title="Envoyer par email"
-                                @click="envoyerCalendrierRessource(l.ressource.id)"
+                                @click="emit('envoyer', l.ressource)"
                             >
                                 <AppIcone name="mail" :scale="15 / 16" class="gp-grille__action-icone" />
                             </button>
