@@ -73,6 +73,18 @@ async function loadSpecialDates() {
     }
 }
 
+// Vérifier si une date est dans une période de congés pour une zone (fin de période exclue)
+function isDateInHoliday(dateStr, zone) {
+    const holidays = schoolHolidays[zone] || [];
+
+    for (const holiday of holidays) {
+        if (dateStr >= holiday.start && dateStr < holiday.end) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // Vérifier si une date est une date particulière - retourne TOUS les événements pour cette date
 function getSpecialDateInfo(dateStr) {
     // dateStr au format "YYYY-MM-DD"

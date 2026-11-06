@@ -1,5 +1,6 @@
 // Point d'entrée des îlots Vue, chargé par index.html (balise injectée par le serveur, src/lib/frontend.js)
 import '@/styles/theme.css';
+import { surveillerFenetres, type RegistreFenetres } from '@/ilots/fenetres';
 import { surveillerIlots, type RegistreIlots } from '@/ilots/montage';
 import { installerLiaisonAncienCode } from '@/liaison';
 
@@ -43,5 +44,13 @@ const ILOTS: RegistreIlots = {
     astreintesGestion: () => import('@/ilots/astreintes/OngletAstreintes.vue')
 };
 
+/** Fenêtres migrées ouvertes par des boutons de l'ancien code (ilots/fenetres.ts) : nom → composant racine */
+const FENETRES: RegistreFenetres = {
+    'calendrier-mensuel': () => import('@/ilots/consultation/CalendrierMensuel.vue'),
+    'calendrier-evenements': () => import('@/ilots/consultation/CalendrierEvenements.vue'),
+    'recherche-avancee': () => import('@/ilots/consultation/RechercheAvancee.vue')
+};
+
 installerLiaisonAncienCode();
 surveillerIlots(ILOTS);
+surveillerFenetres(FENETRES);

@@ -1262,14 +1262,6 @@ input:checked + .slider:before {
     cursor: default !important;
 }
 
-/* Supprimer les flèches de tri dans le calendrier mensuel collectif */
-#monthlyCalendarContent table th::after {
-    content: none !important;
-}
-#monthlyCalendarContent table th {
-    cursor: default !important;
-}
-
 @media print {
     body {
         background: white;

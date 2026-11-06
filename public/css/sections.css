@@ -104,28 +104,6 @@
     .modal-button-group {
         display: none !important;
     }
-
-    /* Styles pour l'impression du calendrier mensuel */
-    #monthlyCalendarToPrint,
-    #monthlyCalendarToPrint * {
-        visibility: visible;
-    }
-    #monthlyCalendarToPrint {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
-    }
-    #monthlyCalendarToPrint h3 {
-        page-break-after: avoid;
-    }
-    #monthlyCalendarContent table {
-        page-break-inside: auto;
-    }
-    #monthlyCalendarContent tr {
-        page-break-inside: avoid;
-        page-break-after: auto;
-    }
 }
 
 /* ===== Astreintes HO : planning demi-journée par demi-journée ===== */

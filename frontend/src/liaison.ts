@@ -44,7 +44,12 @@ export interface EvenementsLiaison {
     'cra-modifies': undefined;
     /** Lien d'une notification (« ?tab=cra&cra_id= ») : l'îlot de l'onglet CRA ouvre le CRA demandé (prendreCraDemande) */
     'cra-demande': undefined;
+    /** Bouton de l'ancien code (en-têtes) : ouverture d'une fenêtre Vue (ilots/fenetres.ts) */
+    'fenetre-demandee': { fenetre: NomFenetre };
 }
+
+/** Fenêtres Vue ouvertes par les boutons de l'ancien code */
+export type NomFenetre = 'calendrier-mensuel' | 'calendrier-evenements' | 'recherche-avancee';
 
 export type NomEvenement = keyof EvenementsLiaison;
 
@@ -83,6 +88,78 @@ interface FenetreAncienCode {
     showSyncStatus?: () => void;
     /** CRA demandé par le lien d'une notification, en attente d'ouverture (public/js/app/core.js) */
     craDemande?: number;
+    /** Instantané des données de la planification (public/js/app/core.js) */
+    etatPlanning?: () => EtatPlanning;
+    /** Icônes en image (data URI) pour les listes déroulantes (public/js/ui-icons.js) */
+    UIIconsApi?: IconesImages;
+}
+
+/** Ressource telle que la planification de l'ancien code la connaît */
+export interface RessourcePlanning {
+    id: number;
+    nom: string;
+    prenom: string;
+    trigramme: string;
+    actif: number | boolean;
+    date_debut: string | null;
+    date_fin: string | null;
+}
+
+/** Période de congés scolaires : début inclus, fin exclue (AAAA-MM-JJ) */
+export interface PeriodeConges {
+    start: string;
+    end: string;
+}
+
+export type ZoneConges = 'zoneA' | 'zoneB' | 'zoneC';
+
+/** Apparence et description d'une date particulière (fichier .ics ou événement, src/modules/calendar) */
+export interface ConfigDateParticuliere {
+    label?: string;
+    shown?: string;
+    eventId?: number;
+    locationLibelleCourt?: string;
+    typeLong?: string;
+    typeIcon?: string;
+    bgColor?: string;
+    textColor?: string;
+    borderColor?: string;
+    participants?: string[];
+}
+
+/** Date particulière (jour férié, événement…) : du jour date au jour endDate inclus */
+export interface DateParticuliere {
+    date: string;
+    endDate?: string | null;
+    summary?: string;
+    period?: 'AM' | 'PM' | 'FULL';
+    config?: ConfigDateParticuliere;
+}
+
+/**
+ * Données de la planification tenues par l'ancien code (grille du Gantt), lues à l'ouverture d'une fenêtre ; remplacées
+ * par un magasin quand la grille sera migrée (lot 4.5)
+ */
+export interface EtatPlanning {
+    ressources: RessourcePlanning[];
+    /** Planification : clé « {ressource}_{available|activity|localisation}_{AAAA-MM-JJ}_{AM|PM} » → valeur */
+    planning: Record<string, string>;
+    datesParticulieres: DateParticuliere[];
+    conges: Partial<Record<ZoneConges, PeriodeConges[]>>;
+    /** Historique des taux de MAD par ressource (période d'accès à la planification) */
+    historiqueMad: Record<number, { date_debut: string; date_fin: string | null }[] | undefined>;
+    /** Mois affiché par la planification (0 à 11) */
+    annee: number;
+    mois: number;
+    /** Ressources du filtre de la planification (identifiants ; « » : toutes) */
+    filtre: string[];
+}
+
+/** Icônes de l'ancien code converties en image d'arrière-plan CSS (url("data:…")) */
+export interface IconesImages {
+    urlForEmoji: (emoji: string, couleur?: string) => string | null;
+    urlForSvg: (traces: string, couleur?: string) => string;
+    urlForName: (nom: string, couleur?: string) => string | null;
 }
 
 /** Fonctions de l'accueil accessibles à l'utilisateur connecté (profil, configuration des onglets, applications) */
@@ -164,6 +241,12 @@ export function ouvrirApplication(application: 'affectation' | 'deplacements'): 
 export function afficherSynchronisation(): void {
     ancienCode().showSyncStatus?.();
 }
+
+/** Données de la planification de l'ancien code ; null hors de la page principale */
+export const etatPlanning = (): EtatPlanning | null => ancienCode().etatPlanning?.() ?? null;
+
+/** Icônes en image de l'ancien code ; undefined hors de la page principale */
+export const iconesImages = (): IconesImages | undefined => ancienCode().UIIconsApi;
 
 /** CRA demandé par le lien d'une notification, retiré de l'attente ; null si aucun */
 export function prendreCraDemande(): number | null {
