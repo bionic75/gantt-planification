@@ -67,15 +67,15 @@ les cookies de session, les mots de passe et les codes OTP.
 
 ### Tags
 
-| Tag                                           | Exclu par défaut | Signification                                                                                   |
-| --------------------------------------------- | ---------------- | ----------------------------------------------------------------------------------------------- |
-| `@manuel`                                     | oui              | Vérification visuelle ou manipulation hors navigateur (scénario conservé pour la traçabilité)   |
-| `@destructif`                                 | oui              | Restaure un dump complet : à lancer seul, avec `E2E_WORKERS=1`                                  |
-| `@exploitation`                               | oui              | À exécuter sur le serveur de l'application (version de Node.js, parité des routes, PDF des CRA) |
-| `@asana`                                      | oui              | Nécessite le jeu de données Asana de test (`E2E_ASANA_ENABLED=true`)                            |
-| `@lent`                                       | oui              | Délai d'inactivité réduit à 1 minute : modifie un paramètre global, à lancer seul               |
-| `@smtp`, `@mfa`, `@totp`, `@internet`, `@mad` | non              | Ignorés à l'exécution si le préalable manque (message dans le rapport)                          |
-| `@anomalie-connue` + `@fail`                  | non              | Anomalie connue de l'application : réussit tant qu'elle existe, échoue dès qu'elle est corrigée |
+| Tag                                           | Exclu par défaut | Signification                                                                                                                                                                   |
+| --------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@manuel`                                     | oui              | Vérification visuelle ou manipulation hors navigateur (scénario conservé pour la traçabilité)                                                                                   |
+| `@destructif`                                 | oui              | Restaure un dump complet, ou remplace le planning HNO d'un mois réel (génération) : base jetable seulement (campagne destructive de la CI), à lancer seul, avec `E2E_WORKERS=1` |
+| `@exploitation`                               | oui              | À exécuter sur le serveur de l'application (version de Node.js, parité des routes, PDF des CRA)                                                                                 |
+| `@asana`                                      | oui              | Nécessite le jeu de données Asana de test (`E2E_ASANA_ENABLED=true`)                                                                                                            |
+| `@lent`                                       | oui              | Délai d'inactivité réduit à 1 minute : modifie un paramètre global, à lancer seul                                                                                               |
+| `@smtp`, `@mfa`, `@totp`, `@internet`, `@mad` | non              | Ignorés à l'exécution si le préalable manque (message dans le rapport)                                                                                                          |
+| `@anomalie-connue` + `@fail`                  | non              | Anomalie connue de l'application : réussit tant qu'elle existe, échoue dès qu'elle est corrigée                                                                                 |
 
 ### Anomalies connues
 
@@ -94,7 +94,7 @@ Exemples :
 
 ```bash
 E2E_TAGS="not @manuel and not @destructif" npm test             # tout sauf le destructif
-E2E_TAGS="@destructif" E2E_WORKERS=1 npm test                   # dump / restauration seul
+E2E_TAGS="@destructif" E2E_WORKERS=1 npm test                   # dump / restauration, génération HNO (base jetable)
 E2E_TAGS="@cra" npm test                                        # une fonctionnalité
 ```
 
