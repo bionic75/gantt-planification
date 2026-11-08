@@ -560,7 +560,7 @@ export function atelierMailSubject(
     const m = /(\d+[A-Za-z]?)\s*$/.exec(String(samuName || '').trim());
     const samu = m ? `SAMU ${m[1]}` : samuName;
     const title = /^a\d+$/.test(key) ? `Atelier Métier #${key.slice(1)}` : jalon;
-    return `[SI-SAMU] ${samu} - ${title} | ${/^a\d+$/.test(key) && contenu ? contenu : 'Configuration téléphonique du CRRA'}`;
+    return `[SI-SAMU] ${samu} - ${title} | ${contenu || 'Configuration téléphonique du CRRA'}`;
 }
 
 /** Nom complet d'un atelier : « Atelier Métier #7 | Configuration téléphonique du CRRA » (libellé du jalon pour la visite) */
@@ -570,7 +570,7 @@ export function atelierFullName(
     /** @type {string} */ contenu = ''
 ) {
     const aN = /^a\d+$/.test(key);
-    return `${aN ? `Atelier Métier #${key.slice(1)}` : jalon} | ${aN && contenu ? contenu : 'Configuration téléphonique du CRRA'}`;
+    return `${aN ? `Atelier Métier #${key.slice(1)}` : jalon} | ${contenu || 'Configuration téléphonique du CRRA'}`;
 }
 
 /** Bandeau « envoyé de la part de » : l'expéditeur réel est le chef de projet, les réponses lui sont adressées */
