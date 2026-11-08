@@ -117,6 +117,7 @@
         #atelierRoot .at-empty { padding: 22px; text-align: center; color: #8a97a8; border: 1px dashed #cfd8e6; border-radius: 10px; }
         .at-toast { position: fixed; right: 20px; bottom: 20px; z-index: 10040; max-width: 420px; padding: 12px 16px; border-radius: 8px; background: #263238; color: #fff; font-size: 13px; box-shadow: 0 6px 20px rgba(0,0,0,.3); }
         .at-toast.err { background: #b71c1c; }
+        .at-toast.hint { background: #2f7a6e; bottom: 70px; }
         .at-modal-bg { position: fixed; inset: 0; z-index: 10030; background: rgba(15,30,45,.5); display: flex; align-items: center; justify-content: center; padding: 16px; }
         .at-modal { width: 100%; max-width: 620px; max-height: 90vh; overflow: auto; background: #fff; border-radius: 14px; padding: 18px 20px; box-shadow: 0 12px 40px rgba(0,0,0,.35); }
         .at-modal h3 { margin: 0 0 12px; border: none; padding: 0; }
@@ -144,6 +145,7 @@
         #atelierRoot .at-sd.brouillon { background: #e3f0fb; }
         #atelierRoot .at-sd.envoye { background: #fff3e0; border-color: #e08a00; color: #a65f00; }
         #atelierRoot .at-sd.reponses { background: #e6f4ea; border-color: #1b7f3b; color: #1b7f3b; }
+        #atelierRoot .at-sd.cta { background: linear-gradient(135deg,#4aa89a,#2f7a6e); border-color: #2f7a6e; color: #fff; box-shadow: 0 0 0 3px rgba(74,168,154,.3); }
         #atelierRoot .at-sd.termine { background: #455a64; border-color: #455a64; color: #fff; }
         .at-modal.large { max-width: 760px; }
         .at-opt { display: flex; gap: 8px; align-items: center; margin-bottom: 0; padding: 7px 10px; border-radius: 8px; flex-wrap: nowrap; }
@@ -428,7 +430,7 @@
         if (!r.planifiee || r.key === 'mep' || r.key === 'livrables' || !/^Planifi/.test(r.statut) || !AT.f.id)
             return '';
         const sent = AT.f.invites[r.key];
-        return `<button type="button" class="at-sd ${sent ? 'reponses' : ''}" ${isAdmin() ? '' : 'disabled'} title="${sent ? 'Invitation déjà envoyée le ' + esc(sent.slice(0, 10).split('-').reverse().join('/')) + ' : renvoyer' : 'Envoyer l’invitation (ics avec lien Teams)'}" onclick="AtelierPlanner.openInvite('${r.key}')">${ico('calendar', 'at-ico-sm')} ${sent ? 'Invitation envoyée' : 'Inviter'}</button>`;
+        return `<button type="button" class="at-sd ${sent ? 'reponses' : AT.inviteHint === r.key ? 'cta' : ''}" ${isAdmin() ? '' : 'disabled'} title="${sent ? 'Invitation déjà envoyée le ' + esc(sent.slice(0, 10).split('-').reverse().join('/')) + ' : renvoyer' : 'Envoyer l’invitation (ics avec lien Teams)'}" onclick="AtelierPlanner.openInvite('${r.key}')">${ico('calendar', 'at-ico-sm')} ${sent ? 'Invitation envoyée' : 'Inviter'}</button>`;
     }
 
     function renderTable() {
@@ -995,7 +997,7 @@
             <div class="at-modal-actions">
                 ${sd && !ro ? '<button type="button" class="aff-btn" style="margin-right:auto;color:#b3261e;" onclick="AtelierPlanner.sondageDelete()">Supprimer</button>' : ''}
                 <button type="button" class="aff-btn" onclick="AtelierPlanner.closeSondage()">Fermer</button>
-                ${sd && !ro ? (closed ? '<button type="button" class="aff-btn aff-btn-primary" id="sdReopen" onclick="AtelierPlanner.sondageReopen()">Réouvrir</button>' : '<button type="button" class="aff-btn" id="sdClose" style="border-color:#455a64;color:#455a64;" onclick="AtelierPlanner.sondageClose()">Clôturer</button>') : ''}
+                ${sd && !ro ? (closed ? '<button type="button" class="aff-btn aff-btn-primary" id="sdReopen" onclick="AtelierPlanner.sondageReopen()">Réouvrir</button>' : `<button type="button" class="aff-btn${d.option_retenue_id ? ' aff-btn-primary' : ''}" id="sdClose" style="${d.option_retenue_id ? '' : 'border-color:#455a64;color:#455a64;'}" onclick="AtelierPlanner.sondageClose()">Clôturer</button>`) : ''}
                 ${ro || closed ? '' : `<button type="button" class="aff-btn" id="sdSave" onclick="AtelierPlanner.sondageSave()">Enregistrer</button><button type="button" class="aff-btn aff-btn-primary" id="sdSend" onclick="AtelierPlanner.sondageSend()">${ico('mail', 'at-ico-sm')}${sd && sd.statut !== 'brouillon' ? 'Renvoyer le sondage' : 'Envoyer le sondage'}</button>`}
             </div>
         </div>`;
@@ -1049,7 +1051,7 @@
         return `<label>Créneau retenu${locked && !d.option_retenue_id ? ' <span class="aff-muted" style="font-weight:400;">(aucun)</span>' : ''}</label>${locked ? `<div class="aff-muted" style="font-size:12px;margin-bottom:4px;">${d.statut === 'termine' ? '🔒 Sondage clôturé : cliquez sur « Réouvrir » pour changer le créneau retenu.' : 'Lecture seule : seuls les administrateurs choisissent le créneau retenu.'}</div>` : '<div class="aff-muted" style="font-size:12px;margin-bottom:4px;">Cochez le créneau à retenir, puis « Clôturer ».</div>'}${d.options
             .map(
                 o =>
-                    `<label style="display:flex;align-items:center;gap:8px;margin:0;padding:3px 0;font-weight:600;cursor:pointer;"><input type="radio" name="sdRet" value="${o.id || ''}" ${o.id && d.option_retenue_id === o.id ? 'checked' : ''} ${locked || !o.id ? 'disabled' : ''} style="width:16px;height:16px;margin:0;flex:0 0 16px;"> ${esc(sdLabel(o))} ${o.id ? `<span class="aff-muted" style="font-weight:400;">${d.reponses.filter(r => r.options.includes(o.id)).length} réponse(s)</span>` : '<span style="font-weight:400;color:#b26a00;">date non enregistrée : cliquez sur « Enregistrer » pour pouvoir la retenir</span>'}</label>`
+                    `<label style="display:flex;align-items:center;gap:8px;margin:0;padding:3px 0;font-weight:600;cursor:pointer;"><input type="radio" name="sdRet" value="${o.id || ''}" onchange="AtelierPlanner.sondagePick()" ${o.id && d.option_retenue_id === o.id ? 'checked' : ''} ${locked || !o.id ? 'disabled' : ''} style="width:16px;height:16px;margin:0;flex:0 0 16px;"> ${esc(sdLabel(o))} ${o.id ? `<span class="aff-muted" style="font-weight:400;">${d.reponses.filter(r => r.options.includes(o.id)).length} réponse(s)</span>` : '<span style="font-weight:400;color:#b26a00;">date non enregistrée : cliquez sur « Enregistrer » pour pouvoir la retenir</span>'}</label>`
             )
             .join('')}`;
     }
@@ -1091,6 +1093,15 @@
         recompute();
     }
 
+    // Un créneau est coché : « Clôturer » prend la couleur d'action principale
+    function sondagePick() {
+        const b = document.getElementById('sdClose');
+        if (!b) return;
+        b.classList.add('aff-btn-primary');
+        b.style.borderColor = '';
+        b.style.color = '';
+    }
+
     async function sondageClose() {
         const pick = document.querySelector('input[name="sdRet"]:checked');
         const opt = pick && SD.data && SD.data.options.find(o => o.id === Number(pick.value));
@@ -1103,8 +1114,15 @@
                 method: 'POST',
                 body: JSON.stringify({ option_id: opt ? opt.id : null })
             });
-            toast(opt ? `Sondage terminé : ${sdLabel(opt)}.` : 'Sondage clôturé.');
+            AT.inviteHint = opt ? SD.key : null;
             await refreshRetro();
+            if (opt) {
+                const el = document.createElement('div');
+                el.className = 'at-toast hint';
+                el.textContent = `Sondage terminé : ${sdLabel(opt)}. Continuez en cliquant sur « Inviter » pour envoyer l’invitation.`;
+                document.body.appendChild(el);
+                setTimeout(() => el.remove(), 8000);
+            } else toast('Sondage clôturé.');
         } catch (e) {
             toast(e.message, true);
         }
@@ -1291,6 +1309,7 @@
         sondageSend: () => sondageSave(true),
         sondageDelete,
         sondageClose,
+        sondagePick,
         sondageReopen,
         sondageCopy,
         sondageGenerate,
