@@ -20,7 +20,7 @@ export async function startSmtpSink() {
                 if (inData) {
                     if (line === '.') {
                         inData = false;
-                        messages.push(decodeQuotedPrintable(data));
+                        messages.push(decodeMessage(data));
                         data = '';
                         reply('250 OK');
                     } else {
@@ -75,6 +75,38 @@ export async function startSmtpSink() {
     };
 }
 
+/**
+ * Message décodé : en-têtes dépliés avec leurs mots encodés (=?UTF-8?Q|B?…?=) lisibles en UTF-8, corps décodé du
+ * quoted-printable (les en-têtes ne subissent pas le décodage du corps, qui abîmerait « ?= » en fin de ligne)
+ */
+function decodeMessage(raw) {
+    const cut = raw.indexOf('\r\n\r\n');
+    const head = cut >= 0 ? raw.slice(0, cut) : raw;
+    const body = cut >= 0 ? raw.slice(cut) : '';
+    const headers = head
+        .replace(/\r\n[ \t]+/g, ' ')
+        .replace(/(\?=) (=\?UTF-8\?)/gi, '$1$2')
+        .replace(/=\?UTF-8\?([QqBb])\?([^?]*)\?=/g, (_m, enc, txt) =>
+            enc.toUpperCase() === 'B'
+                ? Buffer.from(txt, 'base64').toString('utf8')
+                : Buffer.from(
+                      txt
+                          .replace(/_/g, ' ')
+                          .replace(/=([0-9A-F]{2})/gi, (_x, h) => String.fromCharCode(parseInt(h, 16))),
+                      'latin1'
+                  ).toString('utf8')
+        );
+    return headers + decodeQuotedPrintable(body);
+}
+
 function decodeQuotedPrintable(text) {
-    return text.replace(/=\r\n/g, '').replace(/=([0-9A-F]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+    // Suites « =XX » décodées en UTF-8 (une lettre accentuée = plusieurs octets)
+    return text.replace(/=\r\n/g, '').replace(/(?:=[0-9A-F]{2})+/g, run =>
+        Buffer.from(
+            run
+                .slice(1)
+                .split('=')
+                .map(h => parseInt(h, 16))
+        ).toString('utf8')
+    );
 }

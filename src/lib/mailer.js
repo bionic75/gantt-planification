@@ -87,7 +87,7 @@ export function createEmailTransporter() {
  * @param {string} subject
  * @param {string} html
  * @param {Array<{ filename?: string, content?: any, contentType?: string }>} [attachments]
- * @param {{ cc?: string, replyTo?: string, icalEvent?: { method: string, content: string, filename?: string } }} [extra]
+ * @param {{ cc?: string, replyTo?: string, fromName?: string, icalEvent?: { method: string, content: string, filename?: string } }} [extra]
  *   copie, adresse de réponse et invitation de calendrier (partie text/calendar : boutons Accepter / Refuser)
  */
 export async function sendEmail(to, subject, html, attachments = [], extra = {}) {
@@ -115,7 +115,8 @@ export async function sendEmail(to, subject, html, attachments = [], extra = {})
     try {
         /** @type {import('nodemailer').SendMailOptions} */
         const mailOptions = {
-            from: `"Domaine des Urgences - Planification des ressources" <${emailConfig.user}>`,
+            // Le nom de l'expéditeur réel (chef de projet) figure dans le nom affiché de l'expéditeur
+            from: `"${extra.fromName ? `${extra.fromName.replace(/["\\<>]/g, '').trim()} via ` : ''}Domaine des Urgences - Planification des ressources" <${emailConfig.user}>`,
             to,
             subject,
             html
