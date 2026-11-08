@@ -964,6 +964,9 @@
             reponses: [],
             statut: ''
         };
+        // Brouillon portant l'ancien nom par défaut (« … - Sondage - Atelier 2 ») : repris avec la nomenclature à jour
+        if (sd && (!sd.statut || sd.statut === 'brouillon') && / - Sondage - /.test(sd.nom || ''))
+            d.nom = mailSubject(row);
         const bg = document.createElement('div');
         bg.className = 'at-modal-bg';
         bg.id = 'atSondageModal';
