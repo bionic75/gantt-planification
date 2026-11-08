@@ -589,3 +589,70 @@ describe('invitation à un atelier planifié (ics + lien Teams)', () => {
         expect(kept.lignes.destinataires.emails).toEqual(['direct@example.test']);
     });
 });
+
+describe("objet, expéditeur et signature des e-mails d'atelier", () => {
+    it('nomenclature de l’objet, nom du chef de projet dans l’expéditeur, signature, objectif dans le sondage', async () => {
+        await deployment('SAMU-SAS 81');
+        const created = await admin.put('/api/affectation/ateliers', {
+            samu_name: 'SAMU-SAS 81',
+            mep: '2027-06-10',
+            nb: 3,
+            zone: 'C'
+        });
+        const id = created.data.id;
+        const row = (await admin.get('/api/affectation/ateliers')).data.retroplannings.find(r => r.id === id);
+        const a2 = row.jalons.find(j => j.key === 'a2');
+        const chef = await createUser(admin, { is_user: 1, prenom: 'Jean', nom: 'Dupont' });
+        await admin.put('/api/affectation/ateliers', {
+            samu_name: 'SAMU-SAS 81',
+            mep: '2027-06-10',
+            nb: 3,
+            zone: 'C',
+            lignes: {
+                planifiees: { a2: a2.proposee },
+                heures: { a2: '10:00' },
+                // Titre personnalisé de l'atelier (hors de la liste proposée)
+                contenus: { a2: '  Revue des   débordements CRRA ' }
+            }
+        });
+        const titre = 'Revue des débordements CRRA';
+        const perso = (await admin.get('/api/affectation/ateliers')).data.retroplannings.find(r => r.id === id);
+        expect(perso.lignes.contenus.a2).toBe(titre);
+        expect(perso.jalons.find(j => j.key === 'a2').contenu).toBe(titre);
+
+        // Invitation : objet par défaut, expéditeur = chef de projet choisi, signature
+        const inv = await admin.post(`/api/affectation/ateliers/${id}/invitation/a2`, {
+            emails: ['inv81@example.test'],
+            organisateur_id: chef.id
+        });
+        expect(inv.status, JSON.stringify(inv.data)).toBe(200);
+        const mail = await smtp.waitFor(/inv81@example\.test/, 15000);
+        expect(mail).toContain(`Subject: [SI-SAMU] SAMU 81 - Atelier Métier #2 | ${titre}`);
+        expect(mail).toMatch(/From: "?Jean DUPONT via Domaine des Urgences - Planification des ressources/);
+        expect(mail).toMatch(new RegExp(`Reply-To: [^\\n]*${chef.email}`));
+        expect(mail).toContain('envoyé de la part de');
+        expect(mail).toContain('Cordialement');
+        expect(mail).toContain('DUPONT');
+
+        // Sondage : l'objectif de l'atelier figure dans le message et sur la page publique
+        const base = `/api/affectation/ateliers/${id}/sondages/a2`;
+        const saved = await admin.put(base, {
+            nom: `[SI-SAMU] SAMU 81 - Atelier Métier #2 | ${titre}`,
+            organisateur_id: chef.id,
+            options: [{ date: '2027-04-12' }],
+            destinataires: ['sond81@example.test']
+        });
+        expect(saved.status).toBe(200);
+        expect((await admin.post(`${base}/send`, {})).status).toBe(200);
+        const mail2 = await smtp.waitFor(/sond81@example\.test/, 15000);
+        expect(mail2).toMatch(/From: "?Jean DUPONT via Domaine des Urgences/);
+        expect(mail2).toContain(titre.slice(0, 20));
+        expect(mail2).toContain('Cordialement');
+        expect(mail2).toMatch(new RegExp(`Atelier :</strong> Atelier Métier #2 \\| ${titre} — SAMU-SAS 81`));
+        expect(mail2).toMatch(new RegExp(`Reply-To: [^\\n]*${chef.email}`));
+        const token = saved.data.sondage.url.split('/').pop();
+        const pub = await server.client().get(`/api/sondages-publics/${token}`);
+        expect(pub.data.objectif).toBe(titre);
+        expect(pub.data.atelier).toBe(`Atelier Métier #2 | ${titre}`);
+    });
+});

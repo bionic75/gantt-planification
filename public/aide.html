@@ -773,11 +773,27 @@
   <h2>🆕 Notes de version</h2>
   <p>Historique des évolutions de la Plateforme de Planification ANS.</p>
 
+  <!-- v2.18.1 -->
+  <div class="card card-green" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v2.18.1</strong>
+      <span class="badge badge-current">Actuelle</span>
+      <span style="color:#888; font-size:13px;">Novembre 2026</span>
+    </div>
+    <ul>
+      <li>👥 <strong>Sondages et invitations d'ateliers › destinataires</strong> : le menu à cases est remplacé par un champ en <em>pastilles</em> (comme les participants d'un événement) : on tape les premières lettres d'un nom ou d'une adresse, on valide une proposition parmi les utilisateurs (avatar, nom), ou on saisit une adresse e-mail libre (Entrée, « ; » ou « , »). Chaque pastille se retire d'un clic (×) ou avec Retour arrière. Le champ « En copie » du sondage ne propose que des utilisateurs.</li>
+      <li>✏️ <strong>Planification des ateliers métier › contenu / objectifs</strong> : dans la liste de chaque atelier, l'entrée « ✎ Personnalisé… » ouvre un champ pour saisir librement le titre / l'objectif de l'atelier (le texte actuel sert de point de départ ; 200 signes au plus). Ce texte est enregistré avec le rétroplanning et repris après « | » dans l'objet des mails du sondage et de l'invitation (« [SI-SAMU] SAMU 44 - Atelier Métier #1 | Callflows : cadrage… ») et dans le corps du message. Choisir de nouveau une proposition de la liste ferme le champ.</li>
+      <li>🗳️ <strong>Fenêtre du sondage</strong> : la liste « Créneau retenu » suit les dates du formulaire dès qu'on les modifie ou clique sur « Actualiser » ; une date pas encore enregistrée y apparaît grisée (« cliquez sur Enregistrer pour pouvoir la retenir »). Le bouton d'envoi devient « Envoyer le sondage » (« Renvoyer le sondage » ensuite). Le mail et la page du sondage indiquent le <em>nom complet de l'atelier</em> (« Atelier Métier #7 | Configuration téléphonique du CRRA » — SAMU) en plus de son objectif.</li>
+      <li>⚙️ <strong>Automatisation n°2 (sauvegarde des plannings) › destinataires individuels</strong> : la liste à sélection multiple (Ctrl+clic) est remplacée par le même champ en pastilles : tapez un nom ou une adresse, choisissez un compte avec e-mail dans les propositions (avatar, nom, e-mail, badge Expert), retirez-le d'un clic sur ×. Chaque ajout ou retrait est enregistré aussitôt.</li>
+      <li>✉️ <strong>Objet des e-mails</strong> : nomenclature unique pour le sondage et l'invitation : « [SI-SAMU] SAMU 44 - Atelier Métier #1 | Configuration téléphonique du CRRA » (seul le numéro change d'un atelier à l'autre). L'objectif de l'atelier est désormais rappelé dans le mail du sondage et sur la page du sondage.</li>
+      <li>✍️ <strong>Expéditeur et signature</strong> : le nom du chef de projet (champ « Identité », ajouté aussi à l'invitation) figure dans le nom affiché de l'expéditeur (« Prénom NOM via Domaine des Urgences - Planification des ressources »), un bandeau « Message envoyé de la part de Prénom NOM » en tête du mail, et l'adresse de réponse : répondre au message écrit à l'adresse du chef de projet, comme organisateur de l'invitation et en signature (« Cordialement, Prénom NOM »). Le nom vient de la fiche de l'utilisateur choisi : pour remplacer « Système ADMINISTRATEUR », choisissez le chef de projet dans « Identité » ou corrigez nom et prénom du compte dans l'Administration.</li>
+    </ul>
+  </div>
+
   <!-- v2.17.1 -->
   <div class="card card-green" style="margin-bottom:16px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
       <strong style="font-size:16px;">v2.17.1</strong>
-      <span class="badge badge-current">Actuelle</span>
       <span style="color:#888; font-size:13px;">Novembre 2026</span>
     </div>
     <ul>
