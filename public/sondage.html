@@ -90,6 +90,7 @@
         app.innerHTML = `
             <div class="carte">
                 <h1>${esc(data.nom)}</h1>
+                ${data.atelier ? `<p class="sous" style="margin-bottom:4px;"><b>Atelier :</b> ${esc(data.atelier)}</p>` : ''}
                 ${data.objectif ? `<p class="sous" style="margin-bottom:6px;"><b>Objectif de l’atelier :</b> ${esc(data.objectif)}</p>` : ''}
                 <p class="sous">${data.organisateur ? 'Organisé par ' + esc(data.organisateur) + ' · ' : ''}${data.termine ? 'Les réponses ne sont plus modifiables.' : 'Indiquez votre nom et cochez la ou les dates qui vous conviennent. Les réponses des autres participants ne sont pas affichées.'}</p>
                 ${bandeau}

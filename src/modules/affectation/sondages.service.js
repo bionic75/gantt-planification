@@ -267,7 +267,9 @@ export async function send(retroId, ligne, origin) {
     const ateliers = await import('./ateliers.service.js');
     const info = await ateliers.jalonInfo(retroId, ligne);
     const html = `<div style="font-family:Arial,sans-serif;font-size:14px;color:#222;max-width:640px;">
-        <h2 style="color:#1d70b7;margin:0 0 10px;">${esc(s.nom)}</h2>
+        ${ateliers.mailOnBehalfHtml(orgName)}
+        <h2 style="color:#1d70b7;margin:0 0 6px;">${esc(s.nom)}</h2>
+        ${info ? `<p style="margin:0 0 4px;"><strong>Atelier :</strong> ${esc(info.atelier)} — ${esc(info.samu_name)}</p>` : ''}
         <p style="margin:0 0 10px;">${orgName ? `<strong>${esc(orgName)}</strong> vous invite` : 'Vous êtes invité(e)'} à indiquer vos disponibilités parmi les dates suivantes :</p>
         ${info && info.contenu ? `<p style="margin:0 0 10px;"><strong>Objectif de l'atelier :</strong> ${esc(info.contenu)}</p>` : ''}
         ${s.message ? `<p>${esc(s.message).replace(/\n/g, '<br>')}</p>` : ''}
@@ -391,6 +393,7 @@ export async function publicGet(/** @type {string} */ token, /** @type {string |
     return {
         nom: row.nom,
         objectif: info ? info.contenu : null,
+        atelier: info ? info.atelier : null,
         termine: row.statut === 'termine',
         retenue: row.option_retenue_id,
         organisateur: org ? `${org.prenom || ''} ${(org.nom || '').toUpperCase()}`.trim() : null,

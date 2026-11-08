@@ -504,7 +504,8 @@ export async function sendInvitation(id, ligne, body, sender) {
         .filter(Boolean)
         .join('\n\n');
     const html = `<div style="font-family:Arial,sans-serif;font-size:14px;color:#222;max-width:640px;">
-        <h2 style="color:#1d70b7;margin:0 0 8px;">${esc(j.jalon)} — ${esc(row.samu_name)}</h2>
+        ${mailOnBehalfHtml(organizer.name)}
+        <h2 style="color:#1d70b7;margin:0 0 8px;">${esc(atelierFullName(ligne, j.jalon))} — ${esc(row.samu_name)}</h2>
         <p style="margin:0 0 6px;"><strong>${esc(frDate(j.planifiee))}${esc(horaire)}</strong></p>
         <p style="margin:0 0 12px;">${esc(j.contenu)}</p>
         ${message ? `<p>${esc(message).replace(/\n/g, '<br>')}</p>` : ''}
@@ -559,6 +560,17 @@ export function atelierMailSubject(
     return `[SI-SAMU] ${samu} - ${title} | Configuration téléphonique du CRRA`;
 }
 
+/** Nom complet d'un atelier : « Atelier Métier #7 | Configuration téléphonique du CRRA » (libellé du jalon pour la visite) */
+export function atelierFullName(/** @type {string} */ key, /** @type {string} */ jalon) {
+    return `${/^a\d+$/.test(key) ? `Atelier Métier #${key.slice(1)}` : jalon} | Configuration téléphonique du CRRA`;
+}
+
+/** Bandeau « envoyé de la part de » : l'expéditeur réel est le chef de projet, les réponses lui sont adressées */
+export const mailOnBehalfHtml = (/** @type {string} */ name) =>
+    name
+        ? `<p style="margin:0 0 14px;padding:8px 10px;background:#f3f6fa;border-left:3px solid #1d70b7;font-size:12px;color:#455a64;">Message envoyé de la part de <strong>${esc(name)}</strong> : en répondant à ce message, votre réponse lui sera adressée.</p>`
+        : '';
+
 /** Signature de l'expéditeur (chef de projet) en fin d'e-mail */
 export const mailSignatureHtml = (/** @type {string} */ name) =>
     name ? `<p style="margin:20px 0 0;font-size:14px;">Cordialement,<br><strong>${esc(name)}</strong></p>` : '';
@@ -570,7 +582,9 @@ export async function jalonInfo(/** @type {unknown} */ retroId, /** @type {strin
     try {
         const { rows } = computeRetroplanning(await toInput({ ...row, lignes: parseJson(row.lignes) }));
         const j = rows.find(r => r.key === key);
-        return j ? { samu_name: row.samu_name, jalon: j.jalon, contenu: j.contenu } : null;
+        return j
+            ? { samu_name: row.samu_name, jalon: j.jalon, contenu: j.contenu, atelier: atelierFullName(key, j.jalon) }
+            : null;
     } catch {
         return null;
     }

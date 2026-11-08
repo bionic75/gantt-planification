@@ -100,5 +100,13 @@ function decodeMessage(raw) {
 }
 
 function decodeQuotedPrintable(text) {
-    return text.replace(/=\r\n/g, '').replace(/=([0-9A-F]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+    // Suites « =XX » décodées en UTF-8 (une lettre accentuée = plusieurs octets)
+    return text.replace(/=\r\n/g, '').replace(/(?:=[0-9A-F]{2})+/g, run =>
+        Buffer.from(
+            run
+                .slice(1)
+                .split('=')
+                .map(h => parseInt(h, 16))
+        ).toString('utf8')
+    );
 }
