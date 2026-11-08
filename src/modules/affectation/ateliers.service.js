@@ -106,7 +106,9 @@ function cleanLignes(/** @type {any} */ raw) {
     for (let k = 1; k <= MAX_ATELIERS; k++) {
         const key = `a${k}`;
         if (JALONS_ATELIER.includes(src.jalons?.[key])) jalons[key] = src.jalons[key];
-        if (CONTENUS.includes(src.contenus?.[key])) contenus[key] = src.contenus[key];
+        // Contenu / objectif d'un atelier : une proposition de la liste ou un texte personnalisé (une ligne, 200 signes)
+        const c = typeof src.contenus?.[key] === 'string' ? src.contenus[key].replace(/\s+/g, ' ').trim() : '';
+        if (c) contenus[key] = c.slice(0, 200);
     }
     for (const key of ['visite', ...Array.from({ length: MAX_ATELIERS }, (_, i) => `a${i + 1}`), 'livrables', 'mep']) {
         if (isValidDate(src.planifiees?.[key])) planifiees[key] = src.planifiees[key];
@@ -492,7 +494,7 @@ export async function sendInvitation(id, ligne, body, sender) {
         ? { name: `${orgUser.prenom || ''} ${(orgUser.nom || '').toUpperCase()}`.trim(), email: orgUser.email }
         : sender;
     const organizerEmail = organizer.email && isEmail(organizer.email) ? organizer.email : emailConfig.user || '';
-    const subject = String(body.subject || '').trim() || atelierMailSubject(row.samu_name, ligne, j.jalon);
+    const subject = String(body.subject || '').trim() || atelierMailSubject(row.samu_name, ligne, j.jalon, j.contenu);
     const message = String(body.message || '').trim();
     const horaire = start ? ` de ${start} à ${end}` : '';
     const description = [
@@ -505,7 +507,7 @@ export async function sendInvitation(id, ligne, body, sender) {
         .join('\n\n');
     const html = `<div style="font-family:Arial,sans-serif;font-size:14px;color:#222;max-width:640px;">
         ${mailOnBehalfHtml(organizer.name)}
-        <h2 style="color:#1d70b7;margin:0 0 8px;">${esc(atelierFullName(ligne, j.jalon))} — ${esc(row.samu_name)}</h2>
+        <h2 style="color:#1d70b7;margin:0 0 8px;">${esc(atelierFullName(ligne, j.jalon, j.contenu))} — ${esc(row.samu_name)}</h2>
         <p style="margin:0 0 6px;"><strong>${esc(frDate(j.planifiee))}${esc(horaire)}</strong></p>
         <p style="margin:0 0 12px;">${esc(j.contenu)}</p>
         ${message ? `<p>${esc(message).replace(/\n/g, '<br>')}</p>` : ''}
@@ -552,17 +554,23 @@ export async function sendInvitation(id, ligne, body, sender) {
 export function atelierMailSubject(
     /** @type {string} */ samuName,
     /** @type {string} */ key,
-    /** @type {string} */ jalon
+    /** @type {string} */ jalon,
+    /** @type {string} */ contenu = ''
 ) {
     const m = /(\d+[A-Za-z]?)\s*$/.exec(String(samuName || '').trim());
     const samu = m ? `SAMU ${m[1]}` : samuName;
     const title = /^a\d+$/.test(key) ? `Atelier Métier #${key.slice(1)}` : jalon;
-    return `[SI-SAMU] ${samu} - ${title} | Configuration téléphonique du CRRA`;
+    return `[SI-SAMU] ${samu} - ${title} | ${/^a\d+$/.test(key) && contenu ? contenu : 'Configuration téléphonique du CRRA'}`;
 }
 
 /** Nom complet d'un atelier : « Atelier Métier #7 | Configuration téléphonique du CRRA » (libellé du jalon pour la visite) */
-export function atelierFullName(/** @type {string} */ key, /** @type {string} */ jalon) {
-    return `${/^a\d+$/.test(key) ? `Atelier Métier #${key.slice(1)}` : jalon} | Configuration téléphonique du CRRA`;
+export function atelierFullName(
+    /** @type {string} */ key,
+    /** @type {string} */ jalon,
+    /** @type {string} */ contenu = ''
+) {
+    const aN = /^a\d+$/.test(key);
+    return `${aN ? `Atelier Métier #${key.slice(1)}` : jalon} | ${aN && contenu ? contenu : 'Configuration téléphonique du CRRA'}`;
 }
 
 /** Bandeau « envoyé de la part de » : l'expéditeur réel est le chef de projet, les réponses lui sont adressées */
@@ -583,7 +591,12 @@ export async function jalonInfo(/** @type {unknown} */ retroId, /** @type {strin
         const { rows } = computeRetroplanning(await toInput({ ...row, lignes: parseJson(row.lignes) }));
         const j = rows.find(r => r.key === key);
         return j
-            ? { samu_name: row.samu_name, jalon: j.jalon, contenu: j.contenu, atelier: atelierFullName(key, j.jalon) }
+            ? {
+                  samu_name: row.samu_name,
+                  jalon: j.jalon,
+                  contenu: j.contenu,
+                  atelier: atelierFullName(key, j.jalon, j.contenu)
+              }
             : null;
     } catch {
         return null;
