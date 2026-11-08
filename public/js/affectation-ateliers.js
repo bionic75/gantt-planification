@@ -28,6 +28,7 @@
         contenus: {},
         planifiees: {},
         heures: {},
+        custom: {}, // ateliers dont le contenu / objectif est saisi à la main (liste « Personnalisé… » choisie)
         invites: {},
         teams: '',
         destinataires: { userIds: [], emails: [] },
@@ -441,12 +442,22 @@
             .join('');
         const sel = (key, list, current, kind) =>
             `<select data-row="${key}" data-kind="${kind}">${list.map(x => `<option ${x === current ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>`;
+        // Contenu / objectifs d'un atelier : une proposition de la liste, ou un texte personnalisé (titre de l'atelier)
+        const contenuCell = r => {
+            const inList = AT.meta.contenus.includes(r.contenu);
+            const perso = !inList || AT.f.custom[r.key];
+            return `<select data-row="${r.key}" data-kind="contenus">${AT.meta.contenus
+                .map(x => `<option ${!perso && x === r.contenu ? 'selected' : ''}>${esc(x)}</option>`)
+                .join(
+                    ''
+                )}<option value="__perso__" ${perso ? 'selected' : ''}>✎ Personnalisé…</option></select>${perso ? `<input type="text" class="at-perso" data-row="${r.key}" data-kind="contenus-perso" maxlength="200" value="${esc(r.contenu)}" placeholder="Titre / objectif de l’atelier (repris dans les e-mails)" style="margin-top:4px;width:100%;box-sizing:border-box;padding:5px 7px;border:1px solid #cfd8e6;border-radius:6px;font-size:12px;">` : ''}`;
+        };
         const body = rows
             .map(r => {
                 const atelier = /^a\d$/.test(r.key);
                 const cls = r.key === 'mep' ? 'at-mep' : r.key === 'livrables' ? 'at-fixed' : '';
                 const jalon = `<span class="at-jalon">${esc(r.jalon)}</span>`;
-                const contenu = atelier ? sel(r.key, AT.meta.contenus, r.contenu, 'contenus') : esc(r.contenu);
+                const contenu = atelier ? contenuCell(r) : esc(r.contenu);
                 const decale = r.proposee && r.cible && r.proposee !== r.cible;
                 return `<tr class="${cls}">
                     <td>${jalon}</td>
@@ -473,6 +484,23 @@
                 } else if (kind === 'heures') {
                     if (el.value) AT.f.heures[key] = el.value;
                     else delete AT.f.heures[key];
+                } else if (kind === 'contenus') {
+                    if (el.value === '__perso__') {
+                        // Personnalisation : le texte actuel sert de point de départ
+                        AT.f.custom[key] = true;
+                        const cur = (AT.sim.rows.find(x => x.key === key) || {}).contenu;
+                        if (cur) AT.f.contenus[key] = cur;
+                        renderTable();
+                        const field = document.querySelector(`#atTableBox input.at-perso[data-row="${key}"]`);
+                        if (field) field.focus();
+                        return;
+                    }
+                    delete AT.f.custom[key];
+                    AT.f.contenus[key] = el.value;
+                } else if (kind === 'contenus-perso') {
+                    const t = el.value.trim();
+                    if (t) AT.f.contenus[key] = t;
+                    else delete AT.f.contenus[key];
                 } else AT.f[kind][key] = el.value;
                 schedule();
             });
@@ -754,7 +782,10 @@
         const m = /(\d+[A-Za-z]?)\s*$/.exec(AT.f.samu || '');
         return m ? `SAMU ${m[1]}` : AT.f.samu;
     };
-    const mailSubject = row => `[SI-SAMU] ${samuShort()} - ${atelierTitle(row)} | Configuration téléphonique du CRRA`;
+    // Après « | » : le contenu / objectif de l'atelier (modifiable) ; titre habituel pour la visite métier
+    const mailTail = row =>
+        /^a\d+$/.test(row.key) && row.contenu ? row.contenu : 'Configuration téléphonique du CRRA';
+    const mailSubject = row => `[SI-SAMU] ${samuShort()} - ${atelierTitle(row)} | ${mailTail(row)}`;
 
     // ---- Invitation à un atelier planifié (e-mail + .ics avec lien Teams) ----
     const timeAdd1h = t => {
