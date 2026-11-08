@@ -1212,7 +1212,7 @@
         try {
             const body = sondageForm();
             btns.forEach(b => (b.disabled = true));
-            const r = await atApi(`/affectation/ateliers/${AT.f.id}/sondages/${SD.key}`, {
+            await atApi(`/affectation/ateliers/${AT.f.id}/sondages/${SD.key}`, {
                 method: 'PUT',
                 body: JSON.stringify(body)
             });
@@ -1225,10 +1225,13 @@
                     `Sondage envoyé (${sent.sent} destinataire${sent.sent > 1 ? 's' : ''}${sent.cc ? `, ${sent.cc} en copie` : ''}).`
                 );
             } else {
-                toast(`Sondage enregistré. Adresse : ${r.sondage.url}`);
+                toast('Données enregistrées.');
             }
+            const key = SD.key;
             closeSondage();
             await loadSondages();
+            // Enregistrer seul : la fenêtre reste ouverte (rechargée avec les données enregistrées)
+            if (!thenSend) await openSondage(key);
         } catch (e) {
             btns.forEach(b => (b.disabled = false));
             toast(e.message, true);
