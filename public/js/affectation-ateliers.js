@@ -782,9 +782,8 @@
         const m = /(\d+[A-Za-z]?)\s*$/.exec(AT.f.samu || '');
         return m ? `SAMU ${m[1]}` : AT.f.samu;
     };
-    // Après « | » : le contenu / objectif de l'atelier (modifiable) ; titre habituel pour la visite métier
-    const mailTail = row =>
-        /^a\d+$/.test(row.key) && row.contenu ? row.contenu : 'Configuration téléphonique du CRRA';
+    // Après « | » : le contenu / objectif de l'atelier (modifiable)
+    const mailTail = row => row.contenu || 'Configuration téléphonique du CRRA';
     const mailSubject = row => `[SI-SAMU] ${samuShort()} - ${atelierTitle(row)} | ${mailTail(row)}`;
 
     // ---- Invitation à un atelier planifié (e-mail + .ics avec lien Teams) ----
