@@ -5,6 +5,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { apiAutomatisations, type ParametresSauvegarde, type RecapitulatifSauvegarde } from '@/api/automatisations';
 import AppModal from '@/composants/AppModal.vue';
+import AppSaisieParticipants, { type Participant } from '@/composants/AppSaisieParticipants.vue';
 import BlocAutomatisation from './BlocAutomatisation.vue';
 import {
     configSauvegarde,
@@ -30,6 +31,21 @@ const listes = computed<ListesSauvegarde>(() => ({
     mois: magasin.mois
 }));
 const f = ref<FormulaireSauvegarde>(formulaireSauvegarde({}, { comptes: [], ressources: [], mois: [] }));
+
+/** Comptes avec e-mail proposés comme destinataires individuels (saisie en étiquettes, comme les participants d'un événement) */
+const comptesProposes = computed(() => magasin.utilisateurs.filter(u => u.email));
+/** Destinataires individuels choisis, en étiquettes ; la sélection enregistrée reste la liste des identifiants */
+const destinatairesChoisis = computed<Participant[]>({
+    get: () =>
+        f.value.destinataires
+            .map(id => comptesProposes.value.find(u => u.id === id))
+            .filter((u): u is NonNullable<typeof u> => !!u)
+            .map(u => ({ id: u.id, nom: u.nom, prenom: u.prenom, email: u.email })),
+    set: v => {
+        f.value.destinataires = v.filter(p => !p.external && p.id != null).map(p => p.id as number);
+        enregistrer();
+    }
+});
 
 onMounted(async () => {
     await magasin.preparer();
@@ -172,17 +188,17 @@ const RECAPITULATIF = (a: Apercu) => [
                     </div>
                 </div>
                 <div class="sauv__colonne">
-                    <label for="automation2Recipients" class="sauv__petit">Destinataires individuels (optionnel)</label>
-                    <select
-                        id="automation2Recipients"
-                        v-model="f.destinataires"
-                        multiple
-                        class="sauv__multiple sauv__multiple--destinataires"
-                        @change="enregistrer"
-                    >
-                        <option v-for="o in magasin.comptes" :key="o.valeur" :value="o.valeur">{{ o.libelle }}</option>
-                    </select>
-                    <small class="sauv__note">Ctrl+clic pour sélection multiple</small>
+                    <AppSaisieParticipants
+                        v-model="destinatairesChoisis"
+                        class="sauv__destinataires"
+                        label="Destinataires individuels (optionnel)"
+                        id-saisie="automation2RecipientsSaisie"
+                        id-cadre="automation2Recipients"
+                        id-liste="automation2RecipientsListe"
+                        :comptes="comptesProposes"
+                        detaille
+                    />
+                    <small class="sauv__note">Tapez un nom ou un e-mail, puis choisissez dans la liste</small>
                 </div>
             </div>
         </div>
@@ -438,8 +454,11 @@ const RECAPITULATIF = (a: Apercu) => [
     height: 100px;
     font-size: 12px;
 }
-.sauv__multiple--destinataires {
-    height: 80px;
+.sauv__destinataires :deep(.gp-participants__cadre) {
+    max-width: none;
+    min-height: 60px;
+    align-items: flex-start;
+    align-content: flex-start;
 }
 .sauv__note {
     color: #999;
