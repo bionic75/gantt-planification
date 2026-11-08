@@ -116,7 +116,7 @@ export async function sendEmail(to, subject, html, attachments = [], extra = {})
         /** @type {import('nodemailer').SendMailOptions} */
         const mailOptions = {
             // Le nom de l'expéditeur réel (chef de projet) figure dans le nom affiché de l'expéditeur
-            from: `"${extra.fromName ? `${extra.fromName.replace(/["\\<>]/g, '').trim()} – ` : ''}Domaine des Urgences - Planification des ressources" <${emailConfig.user}>`,
+            from: `"${extra.fromName ? `${extra.fromName.replace(/["\\<>]/g, '').trim()} via ` : ''}Domaine des Urgences - Planification des ressources" <${emailConfig.user}>`,
             to,
             subject,
             html

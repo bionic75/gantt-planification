@@ -897,7 +897,7 @@
         return h ? `${h}:${el.querySelector(`.${cls}m`).value || '00'}` : null;
     };
     const sdOptRow = o =>
-        `<div class="at-opt" data-id="${o.id || ''}"><input type="date" class="d" value="${esc(o.date || '')}">${sdHourSel('s', o.heure, 'Heure de début')} – ${sdHourSel('e', o.heure_fin, 'Heure de fin (facultative)')}<button type="button" class="aff-btn" style="padding:3px 8px;" onclick="this.parentNode.remove()" title="Retirer cette date">×</button></div>`;
+        `<div class="at-opt" data-id="${o.id || ''}"><input type="date" class="d" value="${esc(o.date || '')}">${sdHourSel('s', o.heure, 'Heure de début')} – ${sdHourSel('e', o.heure_fin, 'Heure de fin (facultative)')}<button type="button" class="aff-btn" style="padding:3px 8px;" onclick="const b=this.closest('#sdOpts'); this.parentNode.remove(); b.dispatchEvent(new Event('change'))" title="Retirer cette date">×</button></div>`;
     const sdOrgName = u => `${u.prenom || ''} ${(u.nom || '').toUpperCase()}`.trim();
 
     async function openSondage(key) {
@@ -963,12 +963,15 @@
                 ${sd && !ro ? '<button type="button" class="aff-btn" style="margin-right:auto;color:#b3261e;" onclick="AtelierPlanner.sondageDelete()">Supprimer</button>' : ''}
                 <button type="button" class="aff-btn" onclick="AtelierPlanner.closeSondage()">Fermer</button>
                 ${sd && !ro ? (closed ? '<button type="button" class="aff-btn aff-btn-primary" id="sdReopen" onclick="AtelierPlanner.sondageReopen()">Réouvrir</button>' : '<button type="button" class="aff-btn" id="sdClose" style="border-color:#455a64;color:#455a64;" onclick="AtelierPlanner.sondageClose()">Clôturer</button>') : ''}
-                ${ro || closed ? '' : `<button type="button" class="aff-btn" id="sdSave" onclick="AtelierPlanner.sondageSave()">Enregistrer</button><button type="button" class="aff-btn aff-btn-primary" id="sdSend" onclick="AtelierPlanner.sondageSend()">${ico('mail', 'at-ico-sm')}${sd && sd.statut !== 'brouillon' ? 'Renvoyer le mail' : 'Envoyer le mail'}</button>`}
+                ${ro || closed ? '' : `<button type="button" class="aff-btn" id="sdSave" onclick="AtelierPlanner.sondageSave()">Enregistrer</button><button type="button" class="aff-btn aff-btn-primary" id="sdSend" onclick="AtelierPlanner.sondageSend()">${ico('mail', 'at-ico-sm')}${sd && sd.statut !== 'brouillon' ? 'Renvoyer le sondage' : 'Envoyer le sondage'}</button>`}
             </div>
         </div>`;
         document.body.appendChild(bg);
         if (ro || closed)
             bg.querySelectorAll('#sdOpts input, #sdOpts select, #sdOpts button').forEach(el => (el.disabled = true));
+        // Les dates du formulaire alimentent aussitôt la liste « Créneau retenu »
+        document.getElementById('sdOpts').addEventListener('input', sdRenderChoix);
+        document.getElementById('sdOpts').addEventListener('change', sdRenderChoix);
         // Heure de fin proposée : début + 1 h, tant que l'heure de fin n'a pas été choisie à la main
         document.getElementById('sdOpts').addEventListener('change', e => {
             const row = e.target.closest('.at-opt');
@@ -1013,9 +1016,34 @@
         return `<label>Créneau retenu${locked && !d.option_retenue_id ? ' <span class="aff-muted" style="font-weight:400;">(aucun)</span>' : ''}</label>${locked ? `<div class="aff-muted" style="font-size:12px;margin-bottom:4px;">${d.statut === 'termine' ? '🔒 Sondage clôturé : cliquez sur « Réouvrir » pour changer le créneau retenu.' : 'Lecture seule : seuls les administrateurs choisissent le créneau retenu.'}</div>` : '<div class="aff-muted" style="font-size:12px;margin-bottom:4px;">Cochez le créneau à retenir, puis « Clôturer ».</div>'}${d.options
             .map(
                 o =>
-                    `<label style="display:flex;align-items:center;gap:8px;margin:0;padding:3px 0;font-weight:600;cursor:pointer;"><input type="radio" name="sdRet" value="${o.id}" ${d.option_retenue_id === o.id ? 'checked' : ''} ${locked ? 'disabled' : ''} style="width:16px;height:16px;margin:0;flex:0 0 16px;"> ${esc(sdLabel(o))} <span class="aff-muted" style="font-weight:400;">${d.reponses.filter(r => r.options.includes(o.id)).length} réponse(s)</span></label>`
+                    `<label style="display:flex;align-items:center;gap:8px;margin:0;padding:3px 0;font-weight:600;cursor:pointer;"><input type="radio" name="sdRet" value="${o.id || ''}" ${o.id && d.option_retenue_id === o.id ? 'checked' : ''} ${locked || !o.id ? 'disabled' : ''} style="width:16px;height:16px;margin:0;flex:0 0 16px;"> ${esc(sdLabel(o))} ${o.id ? `<span class="aff-muted" style="font-weight:400;">${d.reponses.filter(r => r.options.includes(o.id)).length} réponse(s)</span>` : '<span style="font-weight:400;color:#b26a00;">date non enregistrée : cliquez sur « Enregistrer » pour pouvoir la retenir</span>'}</label>`
             )
             .join('')}`;
+    }
+
+    // « Créneau retenu » : dates du formulaire (enregistrées ou non), réponses issues du serveur
+    function sdRenderChoix() {
+        const box = document.getElementById('sdChoix');
+        const d = SD.data;
+        if (!box || !d) return;
+        const locked = !isAdmin() || d.statut === 'termine';
+        const kept = document.querySelector('input[name="sdRet"]:checked');
+        const rows = [...document.querySelectorAll('#sdOpts .at-opt')]
+            .map(el => ({
+                id: el.dataset.id ? Number(el.dataset.id) : null,
+                date: el.querySelector('.d').value,
+                heure: sdTime(el, 's'),
+                heure_fin: sdTime(el, 'e')
+            }))
+            .filter(o => o.date);
+        box.innerHTML = sdChoix(
+            {
+                ...d,
+                options: locked || !rows.length ? d.options : rows,
+                option_retenue_id: kept && !locked ? Number(kept.value) : d.option_retenue_id
+            },
+            locked
+        );
     }
 
     async function refreshRetro() {
@@ -1088,13 +1116,8 @@
         try {
             const sd = (await atApi(`/affectation/ateliers/${AT.f.id}/sondages/${SD.key}`)).sondage;
             if (!sd) throw new Error('Sondage introuvable');
-            const kept = document.querySelector('input[name="sdRet"]:checked');
             SD.data = sd;
-            const locked = !isAdmin() || sd.statut === 'termine';
-            document.getElementById('sdChoix').innerHTML = sdChoix(
-                { ...sd, option_retenue_id: kept && !locked ? Number(kept.value) : sd.option_retenue_id },
-                locked
-            );
+            sdRenderChoix();
             document.getElementById('sdResults').innerHTML = sdResults(sd);
             const badge = document.getElementById('sdBadge');
             if (badge) badge.textContent = SD_LABEL[sd.statut] || 'Nouveau';
@@ -1214,6 +1237,7 @@
         const tpl = document.createElement('div');
         tpl.innerHTML = sdOptRow({ date: (last && last.value) || (SD.row && (SD.row.proposee || SD.row.cible)) || '' });
         document.getElementById('sdOpts').appendChild(tpl.firstChild);
+        sdRenderChoix();
     }
 
     window.AtelierPlanner = {
