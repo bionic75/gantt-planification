@@ -483,7 +483,16 @@ export async function sendInvitation(id, ligne, body, sender) {
 
     const start = validTime(lignes.heures?.[ligne]) ? lignes.heures[ligne] : null;
     const end = start ? (validTime(body.heure_fin) && body.heure_fin > start ? body.heure_fin : plusHour(start)) : null;
-    const subject = String(body.subject || '').trim() || `[SI-SAMU] ${row.samu_name} - ${j.jalon}`;
+    // Organisateur : l'identité choisie dans la fenêtre, à défaut la personne connectée
+    const orgId = Number(body.organisateur_id) > 0 ? Number(body.organisateur_id) : null;
+    const orgUser = orgId
+        ? await prisma.user.findUnique({ where: { id: orgId }, select: { nom: true, prenom: true, email: true } })
+        : null;
+    const organizer = orgUser
+        ? { name: `${orgUser.prenom || ''} ${(orgUser.nom || '').toUpperCase()}`.trim(), email: orgUser.email }
+        : sender;
+    const organizerEmail = organizer.email && isEmail(organizer.email) ? organizer.email : emailConfig.user || '';
+    const subject = String(body.subject || '').trim() || atelierMailSubject(row.samu_name, ligne, j.jalon);
     const message = String(body.message || '').trim();
     const horaire = start ? ` de ${start} à ${end}` : '';
     const description = [
@@ -501,8 +510,8 @@ export async function sendInvitation(id, ligne, body, sender) {
         ${message ? `<p>${esc(message).replace(/\n/g, '<br>')}</p>` : ''}
         ${teams ? `<p style="margin:16px 0;"><a href="${esc(teams)}" style="background:#464eb8;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700;">Rejoindre la réunion Teams</a></p><p style="font-size:12px;color:#666;">Lien : ${esc(teams)}</p>` : ''}
         <p style="font-size:12px;color:#666;margin-top:14px;">L'invitation (.ics) jointe ajoute cet atelier à votre agenda.</p>
+        ${mailSignatureHtml(organizer.name)}
     </div>`;
-    const organizerEmail = sender.email && isEmail(sender.email) ? sender.email : emailConfig.user || '';
     const ics = inviteIcs({
         uid: `atelier-${row.id}-${ligne}@planning-ans`,
         summary: subject,
@@ -511,13 +520,14 @@ export async function sendInvitation(id, ligne, body, sender) {
         start,
         end,
         teams,
-        organizer: { name: sender.name, email: organizerEmail },
+        organizer: { name: organizer.name, email: organizerEmail },
         attendees: to
     });
     // Invitation de calendrier : partie text/calendar (méthode REQUEST) que Outlook et Gmail reconnaissent
     // (Accepter, Refuser, Provisoire), avec le fichier .ics en pièce jointe
     await sendEmail(to.join(', '), subject, html, [], {
-        replyTo: sender.email && isEmail(sender.email) ? sender.email : undefined,
+        replyTo: organizer.email && isEmail(organizer.email) ? organizer.email : undefined,
+        fromName: organizer.name,
         icalEvent: {
             method: 'REQUEST',
             content: ics,
@@ -533,4 +543,35 @@ export async function sendInvitation(id, ligne, body, sender) {
         data: { lignes: JSON.stringify(next), updated_at: sqlTimestamp() }
     });
     return { sent: to.length, samu_name: row.samu_name, jalon: j.jalon };
+}
+
+// ---------- Objet, signature et objectif des e-mails d'un atelier ----------
+
+/** Objet des e-mails d'un atelier : [SI-SAMU] SAMU 44 - Atelier Métier #1 | Configuration téléphonique du CRRA */
+export function atelierMailSubject(
+    /** @type {string} */ samuName,
+    /** @type {string} */ key,
+    /** @type {string} */ jalon
+) {
+    const m = /(\d+[A-Za-z]?)\s*$/.exec(String(samuName || '').trim());
+    const samu = m ? `SAMU ${m[1]}` : samuName;
+    const title = /^a\d+$/.test(key) ? `Atelier Métier #${key.slice(1)}` : jalon;
+    return `[SI-SAMU] ${samu} - ${title} | Configuration téléphonique du CRRA`;
+}
+
+/** Signature de l'expéditeur (chef de projet) en fin d'e-mail */
+export const mailSignatureHtml = (/** @type {string} */ name) =>
+    name ? `<p style="margin:20px 0 0;font-size:14px;">Cordialement,<br><strong>${esc(name)}</strong></p>` : '';
+
+/** Jalon d'un rétroplanning (SAMU, libellé, objectif) pour les e-mails et la page du sondage */
+export async function jalonInfo(/** @type {unknown} */ retroId, /** @type {string} */ key) {
+    const row = await prisma.atelierRetroplanning.findUnique({ where: { id: idParam(retroId) } });
+    if (!row) return null;
+    try {
+        const { rows } = computeRetroplanning(await toInput({ ...row, lignes: parseJson(row.lignes) }));
+        const j = rows.find(r => r.key === key);
+        return j ? { samu_name: row.samu_name, jalon: j.jalon, contenu: j.contenu } : null;
+    } catch {
+        return null;
+    }
 }

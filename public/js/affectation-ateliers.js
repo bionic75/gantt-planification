@@ -125,6 +125,18 @@
         .at-users label { display: flex; align-items: center; gap: 8px; margin: 0; padding: 4px 6px; font-weight: 600; cursor: pointer; border-radius: 4px; }
         .at-users label:hover { background: #eceff1; }
         .at-users input { width: 16px; height: 16px; margin: 0; flex: 0 0 16px; }
+        .at-chips-box { position: relative; }
+        .at-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 8px; border: 1px solid #cfd8e6; border-radius: 10px; background: #f3f4f6; min-height: 44px; box-sizing: border-box; }
+        .at-chips.ro { background: #eef0f3; }
+        .at-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px 3px 4px; border: 1px solid #d6dbe3; border-radius: 999px; background: #eceff3; font-size: 13px; color: #1a2b3c; max-width: 100%; }
+        .at-chip-l { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .at-av { width: 24px; height: 24px; flex: 0 0 24px; border-radius: 50%; color: #fff; font-style: normal; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+        .at-chip button { border: 0; background: none; cursor: pointer; color: #8a97a8; font-size: 16px; padding: 0 2px; line-height: 1; }
+        .at-chip button:hover { color: #b3261e; }
+        .at-modal .at-chips-in { flex: 1 1 140px; min-width: 120px; width: auto !important; border: 0 !important; background: transparent !important; outline: none; padding: 4px !important; font-size: 13px; box-shadow: none !important; }
+        .at-chips-dd { border: 1px solid #cfd8e6; border-radius: 8px; background: #fff; margin-top: 4px; max-height: 220px; overflow: auto; box-shadow: 0 4px 14px rgba(0,0,0,.12); }
+        .at-chips-opt { display: flex; gap: 8px; align-items: center; padding: 6px 10px; cursor: pointer; font-size: 13px; }
+        .at-chips-opt.on, .at-chips-opt:hover { background: #e8f0fb; }
         .at-modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
         #atelierRoot .at-sd { border: 1px solid #1d70b7; background: #fff; color: #1d70b7; border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
         #atelierRoot .at-sd:disabled { opacity: .5; cursor: not-allowed; }
@@ -593,6 +605,157 @@
     }
 
     let users = null;
+    // ---- Champ de destinataires en « pastilles » : nom ou e-mail, propositions parmi les utilisateurs ----
+    const CHIPS = {};
+    const AV_COLORS = ['#4caf50', '#ff9800', '#3f51b5', '#e91e63', '#009688', '#795548', '#607d8b', '#9c27b0'];
+    const nrm = v =>
+        String(v || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase();
+    const isMail = v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+    const personName = u => `${u.prenom || ''} ${(u.nom || '').toUpperCase()}`.trim();
+    const chipUser = u => ({
+        id: 'u' + u.id,
+        uid: u.id,
+        email: u.email || '',
+        label: personName(u),
+        initials: ((u.prenom || '').charAt(0) + (u.nom || '').charAt(0)).toUpperCase() || '?',
+        color: AV_COLORS[u.id % AV_COLORS.length]
+    });
+    const chipFree = email => ({
+        id: 'e' + email.toLowerCase(),
+        email,
+        label: email,
+        initials: '@',
+        color: '#90a4ae',
+        free: true
+    });
+    const chipCands = () => (users || []).filter(u => u.email).map(chipUser);
+    /** Pastille d'une adresse : l'utilisateur correspondant s'il existe, sinon l'adresse libre */
+    const chipOfEmail = email => {
+        const u = (users || []).find(x => x.email && x.email.toLowerCase() === String(email).toLowerCase());
+        return u ? chipUser(u) : chipFree(email);
+    };
+    function chipsInit(id, { items = [], free = false, ro = false, placeholder = '' }) {
+        CHIPS[id] = { items, free, ro, placeholder, opts: [], sel: 0 };
+        chipsRender(id);
+    }
+    function chipsRender(id) {
+        const st = CHIPS[id];
+        const box = document.getElementById(id);
+        if (!box) return;
+        box.className = 'at-chips-box';
+        box.innerHTML = `<div class="at-chips${st.ro ? ' ro' : ''}">${st.items
+            .map(
+                (it, i) =>
+                    `<span class="at-chip"><i class="at-av" style="background:${it.color}">${esc(it.initials)}</i><span class="at-chip-l" title="${esc(it.email || it.label)}">${esc(it.label)}</span>${st.ro ? '' : `<button type="button" data-rm="${i}" aria-label="Retirer">×</button>`}</span>`
+            )
+            .join(
+                ''
+            )}${st.ro ? '' : `<input type="text" class="at-chips-in" placeholder="${esc(st.items.length ? '' : st.placeholder)}" autocomplete="off">`}</div><div class="at-chips-dd" hidden></div>`;
+        if (st.ro) return;
+        const input = box.querySelector('.at-chips-in');
+        const dd = box.querySelector('.at-chips-dd');
+        const add = it => {
+            if (
+                !it ||
+                st.items.some(
+                    x => x.id === it.id || (x.email && it.email && x.email.toLowerCase() === it.email.toLowerCase())
+                )
+            )
+                return;
+            st.items.push(it);
+            chipsRender(id);
+            box.querySelector('.at-chips-in').focus();
+        };
+        const refresh = () => {
+            const text = input.value.trim();
+            const q = nrm(text);
+            const taken = x =>
+                st.items.some(it => it.id === x.id || (it.email && it.email.toLowerCase() === x.email.toLowerCase()));
+            st.opts = q
+                ? chipCands()
+                      .filter(c => !taken(c) && nrm(`${c.label} ${c.email}`).includes(q))
+                      .slice(0, 8)
+                : [];
+            if (
+                st.free &&
+                isMail(text) &&
+                !st.opts.some(c => c.email.toLowerCase() === text.toLowerCase()) &&
+                !taken(chipFree(text))
+            )
+                st.opts.push(chipFree(text));
+            st.sel = Math.min(st.sel, Math.max(0, st.opts.length - 1));
+            dd.hidden = !st.opts.length;
+            dd.innerHTML = st.opts
+                .map(
+                    (c, i) =>
+                        `<div class="at-chips-opt${i === st.sel ? ' on' : ''}" data-i="${i}"><i class="at-av" style="background:${c.color}">${esc(c.initials)}</i><b>${c.free ? 'Ajouter ' : ''}${esc(c.label)}</b>${c.free ? '' : `<span class="aff-muted">${esc(c.email)}</span>`}</div>`
+                )
+                .join('');
+        };
+        box.querySelectorAll('[data-rm]').forEach(b =>
+            b.addEventListener('click', () => {
+                st.items.splice(Number(b.dataset.rm), 1);
+                chipsRender(id);
+                box.querySelector('.at-chips-in').focus();
+            })
+        );
+        dd.addEventListener('mousedown', e => {
+            const o = e.target.closest('.at-chips-opt');
+            if (o) {
+                e.preventDefault();
+                add(st.opts[Number(o.dataset.i)]);
+            }
+        });
+        input.addEventListener('input', () => {
+            st.sel = 0;
+            refresh();
+        });
+        input.addEventListener('keydown', e => {
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                if (!st.opts.length) return;
+                e.preventDefault();
+                st.sel = (st.sel + (e.key === 'ArrowDown' ? 1 : -1) + st.opts.length) % st.opts.length;
+                refresh();
+            } else if (['Enter', 'Tab', ',', ';'].includes(e.key) && input.value.trim()) {
+                const pick = st.opts[st.sel];
+                if (pick) {
+                    e.preventDefault();
+                    add(pick);
+                } else if (e.key === 'Enter') e.preventDefault();
+            } else if (e.key === 'Backspace' && !input.value && st.items.length) {
+                st.items.pop();
+                chipsRender(id);
+                box.querySelector('.at-chips-in').focus();
+            }
+        });
+        // Adresse saisie en entier puis champ quitté : ajoutée comme destinataire libre
+        input.addEventListener('blur', () => {
+            const text = input.value.trim();
+            setTimeout(() => {
+                if (!document.getElementById(id)) return;
+                if (st.free && isMail(text)) add(chipFree(text));
+                else {
+                    const el = document.getElementById(id).querySelector('.at-chips-in');
+                    if (el) el.value = '';
+                    const d2 = document.getElementById(id).querySelector('.at-chips-dd');
+                    if (d2) d2.hidden = true;
+                }
+            }, 150);
+        });
+    }
+    const chipsItems = id => (CHIPS[id] ? CHIPS[id].items : []);
+
+    // Objet des e-mails : [SI-SAMU] SAMU 44 - Atelier Métier #1 | Configuration téléphonique du CRRA
+    const atelierTitle = row => (/^a\d+$/.test(row.key) ? `Atelier Métier #${row.key.slice(1)}` : row.jalon);
+    const samuShort = () => {
+        const m = /(\d+[A-Za-z]?)\s*$/.exec(AT.f.samu || '');
+        return m ? `SAMU ${m[1]}` : AT.f.samu;
+    };
+    const mailSubject = row => `[SI-SAMU] ${samuShort()} - ${atelierTitle(row)} | Configuration téléphonique du CRRA`;
+
     // ---- Invitation à un atelier planifié (e-mail + .ics avec lien Teams) ----
     const timeAdd1h = t => {
         const [h, m] = t.split(':').map(Number);
@@ -621,6 +784,7 @@
                 /* aucun destinataire proposé */
             }
         }
+        const me = typeof currentUser !== 'undefined' && currentUser ? currentUser.id : null;
         const start = AT.f.heures[key] || '';
         const teams = AT.f.teams || ''; // lien déjà renseigné pour ce SAMU, proposé pour ses autres ateliers
         const bg = document.createElement('div');
@@ -630,40 +794,31 @@
         bg.innerHTML = `<div class="at-modal" role="dialog" aria-label="Invitation à l’atelier">
             <h3>${ico('calendar')} Invitation — ${esc(row.jalon)} · ${esc(AT.f.samu)}</h3>
             <p class="aff-muted" style="margin:0 0 4px;font-size:12px;">${esc(row.contenu)}<br><b>${esc(frDate(row.planifiee))}${start ? ' à ' + esc(start) : ' (journée entière : aucune heure retenue)'}</b></p>
-            <label>Destinataires (utilisateurs de l’application)</label>
-            <input type="text" id="atMailFilter" placeholder="Filtrer par nom…" style="margin-bottom:6px;">
-            <div class="at-users" id="atMailUsers">${users
-                .filter(u => u.email)
-                .map(
-                    u =>
-                        `<label data-n="${esc(`${u.prenom} ${u.nom}`.toLowerCase())}"><input type="checkbox" value="${u.id}" ${dest.userIds.includes(u.id) ? 'checked' : ''}> ${esc(u.prenom)} ${esc((u.nom || '').toUpperCase())} <span class="aff-muted">${esc(u.email)}</span></label>`
-                )
-                .join('')}</div>
-            <label>Autres adresses e-mail (une par ligne) <span class="aff-muted" style="font-weight:400;">${dest.userIds.length || dest.emails.length ? '(destinataires repris pour ce SAMU, modifiables)' : ''}</span></label>
-            <textarea id="atMailExtra" rows="3" placeholder="prenom.nom@exemple.fr">${esc(dest.emails.join('\n'))}</textarea>
-            <div id="atMailExtraErr" style="color:#c62828;font-size:11px;margin-top:3px;"></div>
+            <label>Identité (organisateur)</label>
+            <select id="atMailOrg" style="width:100%;padding:8px;border:1px solid #cfd8e6;border-radius:8px;">
+                <option value="">— Choisir —</option>${users.map(u => `<option value="${u.id}" ${u.id === me ? 'selected' : ''}>${esc(personName(u))}</option>`).join('')}
+            </select>
+            <label>Destinataires <span class="aff-muted" style="font-weight:400;">${dest.userIds.length || dest.emails.length ? '(repris pour ce SAMU, modifiables)' : '(nom ou adresse e-mail)'}</span></label>
+            <div id="atMailTo"></div>
             <label>Lien de la réunion Teams <span class="aff-muted" style="font-weight:400;">${teams ? '(repris de ce SAMU, modifiable)' : '(à renseigner une fois : proposé pour les autres ateliers de ce SAMU)'}</span></label>
             <input type="text" id="atMailTeams" value="${esc(teams)}" placeholder="https://teams.microsoft.com/l/meetup-join/…">
             ${start ? `<label>Fin de l’atelier</label><input type="time" id="atMailEnd" value="${timeAdd1h(start)}" style="padding:6px 8px;border:1px solid #cfd8e6;border-radius:8px;">` : ''}
             <label>Objet</label>
-            <input type="text" id="atMailSubject" value="${esc(`[SI-SAMU] ${AT.f.samu} - ${row.jalon}`)}">
+            <input type="text" id="atMailSubject" value="${esc(mailSubject(row))}">
             <label>Message (facultatif)</label>
             <textarea id="atMailMessage" rows="3"></textarea>
             <div class="at-modal-actions"><button type="button" class="aff-btn" onclick="AtelierPlanner.closeMail()">Annuler</button><button type="button" class="aff-btn aff-btn-primary" id="atMailSend" onclick="AtelierPlanner.sendInvite()">${ico('mail', 'at-ico-sm')}Envoyer l’invitation</button></div>
         </div>`;
         document.body.appendChild(bg);
-        document.getElementById('atMailFilter').addEventListener('input', e => {
-            const q = e.target.value.toLowerCase().trim();
-            document
-                .querySelectorAll('#atMailUsers label')
-                .forEach(l => (l.style.display = !q || l.dataset.n.includes(q) ? 'flex' : 'none'));
-        });
-        const extra = document.getElementById('atMailExtra');
-        extra.addEventListener('input', () => {
-            const { invalid } = window.parseEmailLines ? parseEmailLines(extra.value) : { invalid: [] };
-            document.getElementById('atMailExtraErr').textContent = invalid.length
-                ? `Adresse(s) invalide(s) : ${invalid.join(' · ')}`
-                : '';
+        chipsInit('atMailTo', {
+            free: true,
+            placeholder: 'Nom ou adresse e-mail…',
+            items: [
+                ...dest.userIds
+                    .map(id => (users.find(u => u.id === id) ? chipUser(users.find(u => u.id === id)) : null))
+                    .filter(Boolean),
+                ...dest.emails.map(chipOfEmail)
+            ].filter((it, i, all) => all.findIndex(x => x.id === it.id) === i)
         });
     }
 
@@ -674,12 +829,10 @@
 
     async function sendInvite() {
         const key = document.getElementById('atMailModal').dataset.key;
-        const userIds = [...document.querySelectorAll('#atMailUsers input:checked')].map(i => Number(i.value));
-        const parsed = window.parseEmailLines
-            ? parseEmailLines(document.getElementById('atMailExtra').value)
-            : { valid: [], invalid: [] };
-        if (parsed.invalid.length) return toast(`Adresse(s) e-mail invalide(s) : ${parsed.invalid.join(', ')}`, true);
-        if (!userIds.length && !parsed.valid.length) return toast('Choisissez au moins un destinataire.', true);
+        const items = chipsItems('atMailTo');
+        const userIds = items.filter(it => it.uid).map(it => it.uid);
+        const emails = items.filter(it => !it.uid).map(it => it.email);
+        if (!items.length) return toast('Choisissez au moins un destinataire.', true);
         const btn = document.getElementById('atMailSend');
         btn.disabled = true;
         sendStatus('Envoi en cours…');
@@ -689,7 +842,8 @@
                 method: 'POST',
                 body: JSON.stringify({
                     userIds,
-                    emails: parsed.valid,
+                    emails,
+                    organisateur_id: Number(document.getElementById('atMailOrg').value) || null,
                     teams: document.getElementById('atMailTeams').value,
                     heure_fin: end ? end.value : null,
                     subject: document.getElementById('atMailSubject').value,
@@ -770,7 +924,7 @@
         const ro = !isAdmin();
         const me = typeof currentUser !== 'undefined' && currentUser ? currentUser.id : null;
         const d = sd || {
-            nom: `[SI-SAMU] ${AT.f.samu} - Sondage - ${row.jalon}`,
+            nom: mailSubject(row),
             organisateur_id: (modele && modele.organisateur_id) || me,
             destinataires: modele ? modele.destinataires : [],
             cc_user_ids: modele ? modele.cc_user_ids : [],
@@ -795,18 +949,10 @@
             <label>Dates et heures proposées <span class="aff-muted" style="font-weight:400;">(le calendrier s’ouvre autour de la date proposée : ${esc(frShort(row.proposee))})</span></label>
             <div id="sdOpts">${d.options.map(sdOptRow).join('')}</div>
             ${ro || closed ? '' : '<button type="button" class="aff-btn" onclick="AtelierPlanner.sondageAddDate()">+ Ajouter une date</button>'}
-            <label>Destinataires du sondage (adresses e-mail, une par ligne) ${!sd && modele ? '<span class="aff-muted" style="font-weight:400;">(repris du dernier sondage de ce SAMU, modifiables)</span>' : ''}</label>
-            <textarea id="sdDest" rows="3" placeholder="prenom.nom@exemple.fr" ${dis}>${esc((d.destinataires || []).join('\n'))}</textarea>
-            <div id="sdDestErr" style="color:#c62828;font-size:11px;margin-top:3px;"></div>
-            <label>En copie (utilisateurs de l’application)</label>
-            <input type="text" id="sdCcFilter" placeholder="Filtrer par nom…" style="margin-bottom:6px;">
-            <div class="at-users" id="sdCc">${all
-                .filter(u => u.email)
-                .map(
-                    u =>
-                        `<label data-n="${esc(sdOrgName(u).toLowerCase())}"><input type="checkbox" value="${u.id}" ${(d.cc_user_ids || []).includes(u.id) ? 'checked' : ''} ${dis}> ${esc(sdOrgName(u))} <span class="aff-muted">${esc(u.email)}</span></label>`
-                )
-                .join('')}</div>
+            <label>Destinataires du sondage ${!sd && modele ? '<span class="aff-muted" style="font-weight:400;">(repris du dernier sondage de ce SAMU, modifiables)</span>' : '<span class="aff-muted" style="font-weight:400;">(nom ou adresse e-mail)</span>'}</label>
+            <div id="sdDest"></div>
+            <label>En copie <span class="aff-muted" style="font-weight:400;">(utilisateurs de l’application)</span></label>
+            <div id="sdCc"></div>
             <label>Message (facultatif)</label>
             <textarea id="sdMsg" rows="2" ${dis}>${esc(d.message || '')}</textarea>
             <label>Adresse d’accès unique</label>
@@ -844,11 +990,19 @@
             row.querySelector('.em').value = row.querySelector('.sm').value;
             row.dataset.auto = '1';
         });
-        document.getElementById('sdCcFilter').addEventListener('input', e => {
-            const q = e.target.value.toLowerCase().trim();
-            document
-                .querySelectorAll('#sdCc label')
-                .forEach(l => (l.style.display = !q || l.dataset.n.includes(q) ? 'flex' : 'none'));
+        chipsInit('sdDest', {
+            free: true,
+            ro: !!(ro || closed),
+            placeholder: 'Nom ou adresse e-mail…',
+            items: (d.destinataires || []).map(chipOfEmail)
+        });
+        chipsInit('sdCc', {
+            ro: !!(ro || closed),
+            placeholder: 'Nom d’un utilisateur…',
+            items: (d.cc_user_ids || [])
+                .map(id => users.find(u => u.id === id))
+                .filter(Boolean)
+                .map(chipUser)
         });
     }
 
@@ -965,19 +1119,12 @@
                 heure_fin: sdTime(el, 'e')
             }))
             .filter(o => o.date);
-        const parsed = window.parseEmailLines
-            ? parseEmailLines(document.getElementById('sdDest').value)
-            : { valid: [], invalid: [] };
-        document.getElementById('sdDestErr').textContent = parsed.invalid.length
-            ? `Adresse(s) invalide(s) : ${parsed.invalid.join(' · ')}`
-            : '';
-        if (parsed.invalid.length) throw new Error(`Adresse(s) e-mail invalide(s) : ${parsed.invalid.join(', ')}`);
         return {
             nom: document.getElementById('sdNom').value,
             organisateur_id: Number(document.getElementById('sdOrg').value) || null,
             options,
-            destinataires: parsed.valid,
-            cc_user_ids: [...document.querySelectorAll('#sdCc input:checked')].map(i => Number(i.value)),
+            destinataires: chipsItems('sdDest').map(it => it.email),
+            cc_user_ids: chipsItems('sdCc').map(it => it.uid),
             message: document.getElementById('sdMsg').value
         };
     }
