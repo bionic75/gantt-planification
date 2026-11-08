@@ -523,7 +523,8 @@ export async function sendInvitation(id, ligne, body, sender) {
         start,
         end,
         teams,
-        organizer: { name: organizer.name, email: organizerEmail },
+        // Organisateur = adresse d'envoi (comme l'expéditeur du mail) : le client de messagerie affiche alors les boutons Accepter / Refuser
+        organizer: { name: organizer.name, email: emailConfig.user || organizerEmail },
         attendees: to
     });
     // Invitation de calendrier : partie text/calendar (méthode REQUEST) que Outlook et Gmail reconnaissent
