@@ -19,6 +19,7 @@ const GUARDS = {
     requireAdminOrRh: 'adminOrRh',
     requireReportingAccess: 'reporting',
     requireAffectationAccess: 'affectation',
+    requireDeplacementsAccess: 'deplacements',
     requireMfaPending: 'mfaPending',
     requireApiKey: 'apiKey'
 };
@@ -30,6 +31,7 @@ export const GUARD_LABELS = {
     adminOrRh: 'Administrateur ou RH',
     reporting: 'Administrateur ou droit « reporting »',
     affectation: 'Administrateur ou accès à « Aide à l’affectation »',
+    deplacements: 'Accès à « Suivi des déplacements »',
     mfaPending: 'Connexion en attente de double authentification',
     apiKey: 'Clé d’API (en-tête X-Api-Key)'
 };

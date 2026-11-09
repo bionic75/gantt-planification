@@ -42,7 +42,13 @@ const ILOTS: RegistreIlots = {
     },
     cra: () => import('@/ilots/cra/OngletCra.vue'),
     astreintesGestion: () => import('@/ilots/astreintes/OngletAstreintes.vue'),
-    planning: () => import('@/ilots/planification/OngletPlanification.vue')
+    planning: () => import('@/ilots/planification/OngletPlanification.vue'),
+    // Application « Suivi des déplacements » : onglet monté seulement quand l'application est affichée
+    deplacementsPlanificationTab: {
+        chargeur: () => import('@/ilots/deplacements/OngletMesDeplacements.vue'),
+        onglet: 'deplacementsPlanificationTab',
+        application: 'deplacementsContainer'
+    }
 };
 
 /** Fenêtres migrées ouvertes par des boutons de l'ancien code (ilots/fenetres.ts) : nom → composant racine */

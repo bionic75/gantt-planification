@@ -1,7 +1,8 @@
 // Montage des îlots Vue dans les onglets de la page existante : à la première ouverture de l'onglet (classe « active »
 // posée par l'ancien code), démontage à la fin de la session, nouveau montage à la prochaine ouverture.
 // Un îlot peut aussi n'occuper qu'une section d'un onglet (sous-îlot) : il se monte dans son propre conteneur, placé
-// dans l'onglet, à l'ouverture de cet onglet.
+// dans l'onglet, à l'ouverture de cet onglet. L'onglet d'une application (Déplacements…) garde sa classe « active » quand
+// l'application est masquée : son îlot ne se monte que si le conteneur de l'application est affiché.
 import { createPinia, type Pinia } from 'pinia';
 import { createApp, ref, type App, type Component, type Ref } from 'vue';
 import { CLE_ACTIVATIONS } from '@/ilots/activation';
@@ -10,10 +11,14 @@ import { ecouter } from '@/liaison';
 /** Composant racine d'un îlot, chargé à la demande (fichier séparé dans le build) */
 export type ChargeurIlot = () => Promise<{ default: Component }>;
 
-/** Sous-îlot : section d'un onglet (identifiant du conteneur de l'onglet, ex. « admin ») */
+/**
+ * Sous-îlot : section d'un onglet (identifiant du conteneur de l'onglet, ex. « admin »), ou onglet d'une application
+ * (identifiant du conteneur de l'application, affiché ou masqué par l'ancien code, ex. « deplacementsContainer »)
+ */
 export interface SousIlot {
     chargeur: ChargeurIlot;
     onglet: string;
+    application?: string;
 }
 
 /**
@@ -26,6 +31,8 @@ interface IlotSurveille {
     conteneur: HTMLElement;
     /** Élément dont la classe « active » déclenche le montage : l'onglet */
     onglet: HTMLElement;
+    /** Conteneur de l'application (onglet d'une application) : l'îlot ne se monte que s'il est affiché */
+    application: HTMLElement | null;
     chargeur: ChargeurIlot;
     app: App | null;
     /** Nombre de réouvertures de l'onglet depuis le montage */
@@ -72,7 +79,10 @@ export function surveillerIlots(registre: RegistreIlots, creerMagasin: () => Pin
     function surChangement(ilot: IlotSurveille) {
         const pageMire = mire();
         // Mire affichée : onglet tenu pour fermé, l'îlot se monte quand la connexion masque la mire
-        const actif = estActif(ilot.onglet) && !(pageMire && estActif(pageMire));
+        const actif =
+            estActif(ilot.onglet) &&
+            !(pageMire && estActif(pageMire)) &&
+            (!ilot.application || ilot.application.style.display !== 'none');
         if (actif && !ilot.actif) {
             if (ilot.app) ilot.activations.value++;
             else void monter(ilot);
@@ -84,17 +94,25 @@ export function surveillerIlots(registre: RegistreIlots, creerMagasin: () => Pin
         ilot.actif = false;
         ilot.observateur ??= new MutationObserver(() => surChangement(ilot));
         ilot.observateur.observe(ilot.onglet, { attributes: true, attributeFilter: ['class'] });
+        if (ilot.application)
+            ilot.observateur.observe(ilot.application, { attributes: true, attributeFilter: ['style'] });
         surChangement(ilot);
     }
 
     for (const [id, entree] of Object.entries(registre)) {
         const conteneur = document.getElementById(id);
-        const { chargeur, onglet: idOnglet } = typeof entree === 'function' ? { chargeur: entree, onglet: id } : entree;
+        const {
+            chargeur,
+            onglet: idOnglet,
+            application: idApplication
+        }: SousIlot = typeof entree === 'function' ? { chargeur: entree, onglet: id } : entree;
         const onglet = document.getElementById(idOnglet);
-        if (!conteneur || !onglet) continue;
+        const application = idApplication ? document.getElementById(idApplication) : null;
+        if (!conteneur || !onglet || (idApplication && !application)) continue;
         const ilot: IlotSurveille = {
             conteneur,
             onglet,
+            application,
             chargeur,
             app: null,
             activations: ref(0),
