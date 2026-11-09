@@ -341,9 +341,13 @@ export async function eventsMap({ startDate, endDate }) {
         },
         orderBy: [{ start_date: 'asc' }, { id: 'asc' }]
     });
-    const [types, participations] = await Promise.all([
+    const [types, participations, externes] = await Promise.all([
         prisma.eventType.findMany({ where: { id: { in: events.map(e => e.type_id).filter(id => id != null) } } }),
         prisma.customEventParticipant.findMany({
+            where: { event_id: { in: events.map(e => e.id) } },
+            orderBy: { id: 'asc' }
+        }),
+        prisma.customEventExternalParticipant.findMany({
             where: { event_id: { in: events.map(e => e.id) } },
             orderBy: { id: 'asc' }
         })
@@ -365,6 +369,9 @@ export async function eventsMap({ startDate, endDate }) {
         );
         const creator = e.created_by != null ? userById.get(e.created_by) : undefined;
         const type = e.type_id != null ? typeById.get(e.type_id) : undefined;
+        const participants = participations
+            .filter(p => p.event_id === e.id && userById.has(p.user_id))
+            .map(p => /** @type {NonNullable<ReturnType<typeof userById.get>>} */ (userById.get(p.user_id)));
         return {
             id: e.id,
             label: e.label,
@@ -385,12 +392,12 @@ export async function eventsMap({ startDate, endDate }) {
             type_short: type ? type.label_short : null,
             type_icon: type ? type.icon : null,
             type_other: type ? type.is_other : null,
-            participants: participations
-                .filter(p => p.event_id === e.id && userById.has(p.user_id))
-                .map(p => {
-                    const u = /** @type {NonNullable<ReturnType<typeof userById.get>>} */ (userById.get(p.user_id));
-                    return `${u.prenom} ${(u.nom || '').toUpperCase()}`.trim();
-                })
+            // Participants affichés (« Prénom NOM ») et leurs identifiants, dans le même ordre (filtre de la carte)
+            participants: participants.map(u => `${u.prenom} ${(u.nom || '').toUpperCase()}`.trim()),
+            participant_ids: participants.map(u => u.id),
+            external_participants: externes
+                .filter(x => x.event_id === e.id)
+                .map(x => ({ nom: x.nom, prenom: x.prenom, email: x.email }))
         };
     });
 }
