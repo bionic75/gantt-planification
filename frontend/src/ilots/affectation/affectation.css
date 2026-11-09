@@ -1,0 +1,267 @@
+/* Aide à l'affectation : règles communes de l'application (anciennement injectées par public/js/affectation-app.js ;
+   les pastilles et l'en-tête sont ceux des applications, ilots/applications) */
+#affectationContainer .aff-panel {
+    padding: 24px 28px;
+}
+#affectationContainer .aff-empty {
+    max-width: 720px;
+    margin: 40px auto;
+    padding: 44px 32px;
+    text-align: center;
+    background: #fff;
+    border: 1px dashed #b8c4d6;
+    border-radius: 16px;
+}
+#affectationContainer .aff-empty .aff-badge {
+    width: 76px;
+    height: 76px;
+    margin: 0 auto 18px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, #14b8a6, #0f766e);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 10px 24px rgba(15, 118, 110, 0.35);
+}
+#affectationContainer .aff-empty .aff-badge svg {
+    width: 40px;
+    height: 40px;
+    fill: none;
+    stroke: #fff;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+#affectationContainer .aff-empty h2 {
+    margin: 0 0 8px;
+    border: none;
+    padding: 0;
+    color: #0f766e;
+    font-size: 22px;
+}
+#affectationContainer .aff-empty p {
+    margin: 0;
+    color: #5d6f84;
+    font-size: 14px;
+    line-height: 1.6;
+}
+#affectationContainer .aff-card {
+    background: #fff;
+    border: 1px solid #dfe5ef;
+    border-radius: 14px;
+    margin: 18px 0;
+    padding: 16px 20px 18px;
+    box-shadow: 0 2px 8px rgba(30, 60, 110, 0.06);
+}
+#affectationContainer .aff-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+}
+.aff-toast {
+    position: fixed;
+    left: 50%;
+    bottom: 28px;
+    transform: translateX(-50%);
+    z-index: 20000;
+    background: #263238;
+    color: #fff;
+    padding: 10px 18px;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    font-size: 13px;
+    max-width: 80vw;
+}
+.aff-toast.err {
+    background: #b3261e;
+}
+.aff-card-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 16px;
+    font-weight: 700;
+    color: #0f4c5c;
+}
+.aff-ico {
+    width: 22px;
+    height: 22px;
+    fill: none;
+    stroke: #0f766e;
+    stroke-width: 1.9;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.aff-ico-sm {
+    width: 15px;
+    height: 15px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.aff-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 14px;
+    border: 1px solid #cfd8e6;
+    border-radius: 9px;
+    background: #fff;
+    color: #33475b;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.aff-btn:hover {
+    background: #f1f5fa;
+}
+.aff-btn-primary {
+    background: linear-gradient(135deg, #14b8a6, #0f766e);
+    border-color: transparent;
+    color: #fff;
+}
+.aff-btn-primary:hover {
+    filter: brightness(1.08);
+    background: linear-gradient(135deg, #14b8a6, #0f766e);
+}
+.aff-muted {
+    color: #7a8799;
+    font-size: 13px;
+}
+.aff-error {
+    color: #c62828;
+    font-size: 13px;
+    font-weight: 600;
+    margin-right: auto;
+}
+.aff-icon-btn {
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+}
+.aff-icon-btn:hover {
+    filter: brightness(1.12);
+}
+.aff-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+}
+.aff-x {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    color: #7a8799;
+    padding: 6px;
+    border-radius: 8px;
+    display: inline-flex;
+}
+.aff-x:hover {
+    background: #eef1f6;
+}
+.aff-field label.lbl {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    color: #4a5b70;
+    margin-bottom: 5px;
+}
+.aff-field input,
+.aff-field select {
+    width: 100%;
+    padding: 9px 10px;
+    border: 1px solid #cfd8e6;
+    border-radius: 8px;
+    font-size: 14px;
+    background: #fff;
+}
+.aff-field input:focus,
+.aff-field select:focus {
+    outline: none;
+    border-color: #0f766e;
+    box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.15);
+}
+#affectationContainer input[type='date']::-webkit-calendar-picker-indicator {
+    opacity: 0;
+    position: absolute;
+    right: 0;
+    width: 34px;
+    height: 100%;
+    cursor: pointer;
+}
+.aff-sync-sec {
+    border: 1px solid #dfe5ef;
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+}
+.aff-sync-sec h4 {
+    margin: 0 0 8px;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #0f766e;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.aff-sync-sec h4 input,
+.aff-sync-row input[type='checkbox'] {
+    width: auto;
+    display: inline-block;
+    margin: 0;
+}
+.aff-sync-sec .aff-field {
+    margin-top: 8px;
+}
+.aff-sync-sec .aff-field input[type='text'],
+.aff-sync-sec .aff-field input[type='date'] {
+    padding: 7px 9px;
+    border: 1px solid #cfd8e6;
+    border-radius: 8px;
+    font-size: 13px;
+}
+.aff-av {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 3px;
+}
+.aff-av-b {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: #e9edf3;
+    color: #4a5b70;
+}
+.aff-av-b.ok {
+    background: #d7f2e3;
+    color: #167a45;
+}
+.aff-av-b.mid {
+    background: #ffeccc;
+    color: #9a5b00;
+}
+.aff-av-b.ko {
+    background: #fbd9d9;
+    color: #b3261e;
+}
+.aff-av-b.here {
+    background: #d9e8fb;
+    color: #1d5fa8;
+}

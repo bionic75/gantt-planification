@@ -58,16 +58,6 @@ Fonctionnalité: Aide à l'affectation : onglet « Planning des déploiements »
     Et la ressource de test intervient le "2031-03-03" sur la visite métier du déploiement
     Et la visite métier du SAMU de test indique "1/2 ressource(s) par jour"
 
-  Scénario: Affectation par un utilisateur : ni synchronisation ni désaffectation proposées
-    Étant donné que "Utilisateur" a accès à l'application « Aide à l'affectation opérationnelle »
-    Et que j'ouvre le planning des déploiements en tant que "Utilisateur"
-    Et que j'affiche la période du "2031-03-01" au "2031-03-14"
-    Quand j'ouvre l'affectation de la visite métier du SAMU de test
-    Alors la fenêtre d'affectation ne propose pas « Synchroniser »
-    Quand je coche le "2031-03-03" pour la ressource de test et j'enregistre
-    Alors la fenêtre d'affectation est fermée sans report proposé
-    Et la ressource de test intervient le "2031-03-03" sur la visite métier du déploiement
-
   Scénario: Impression : aperçu des pages et export PDF
     Étant donné que j'ouvre le planning des déploiements en tant que "Administrateur"
     Quand j'ouvre l'impression du planning

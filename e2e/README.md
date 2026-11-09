@@ -121,6 +121,12 @@ E2E_TAGS="@cra" npm test                                        # une fonctionna
       un bon d'une autre fonctionnalité couvrant la même année serait choisi à la place du bon de test.
     - **Administration de l'aide à l'affectation** (`40`) : déploiements du SAMU de test créés par le formulaire en
       2034 (calendrier ouvert sur le début du projet) ; ils sont supprimés en fin de scénario, avec leurs événements.
+    - **Profil « Utilisateur » de l'aide à l'affectation** (`43`) : tous les scénarios qui donnent à « Utilisateur »
+      l'accès à l'application (retiré en fin de scénario) sont réunis dans cette fonctionnalité, jouée par un seul
+      processus : un retrait fait par une fonctionnalité parallèle couperait l'accès d'une autre en cours.
+    - **Ateliers métier et sondages** (`42`) : déploiement de test avec mise en production en 2032 ; rétroplanning
+      et sondages supprimés en fin de scénario. Invitation et sondage jamais envoyés (fenêtres ouvertes, adresse du
+      sondage « Générée » en brouillon) ; réponses saisies sur la page publique dans un navigateur sans session.
     - **Asana** (`41`) : sans données Asana (poste local, CI), les réponses des routes Asana sont simulées dans le
       navigateur (`page.route`, réponses fixes, appels mémorisés pour les vérifications) : rien n'est lu dans Asana ni
       écrit en base. Seul l'import d'un export CSV passe par le serveur (déploiement supprimé en fin de scénario). Les

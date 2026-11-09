@@ -150,8 +150,8 @@ async function logout() {
 
 // Retour vers Planification depuis l'app Déplacements ou Analyse
 function backToPlanification() {
-    const wasAffectation = !!(window.AffectationApp && AffectationApp.isVisible()) || analyseIsVisible();
-    if (window.hideAffectationApp) hideAffectationApp();
+    const wasAffectation = affectationIsVisible() || analyseIsVisible();
+    hideAffectationApp();
     sessionStorage.setItem('selectedApp', 'planification');
     document.getElementById('deplacementsContainer').style.display = 'none';
     document.getElementById('backToPlanificationBtn').style.display = 'none';
@@ -191,7 +191,7 @@ function switchToApp(appKey) {
         document.getElementById('analyseContainer').style.display = 'none';
         showDeplacementsApp();
     } else if (appKey === 'analyse') {
-        if (window.hideAffectationApp) hideAffectationApp();
+        hideAffectationApp();
         document.querySelector('.container').style.display = 'none';
         document.getElementById('deplacementsContainer').style.display = 'none';
         sessionStorage.setItem('selectedApp', 'analyse');
@@ -337,7 +337,7 @@ function updateAppSwitcher() {
         ? 'analyse'
         : shown('deplacementsContainer')
           ? 'deplacements'
-          : window.AffectationApp && AffectationApp.isVisible()
+          : affectationIsVisible()
             ? 'affectation'
             : 'planification';
     // Depuis une autre application, le menu propose aussi le retour à la Planification (plus de bouton retour dédié)
@@ -371,7 +371,7 @@ function updateAppSwitcher() {
 // deplacements.js (lot 5.2b), sans ce que l'îlot affiche désormais.
 
 function showDeplacementsApp() {
-    if (window.hideAffectationApp) hideAffectationApp();
+    hideAffectationApp();
     console.log("🚗 Affichage de l'application Déplacements");
 
     // Sauvegarder l'application sélectionnée
@@ -462,6 +462,56 @@ async function confirmLogoutFromDeplacements() {
     document.getElementById('deplacementsContainer').style.display = 'none';
 }
 
+// ============== Application « Aide à l'affectation opérationnelle » ==============
+// Contenu (en-tête, pastilles, onglets, fenêtres) : îlot Vue frontend/src/ilots/affectation/ApplicationAffectation.vue,
+// monté quand #affectationContainer est affiché. Ouverture, fermeture et déconnexion : déplacées de affectation-app.js
+// (lot 5.4g), sans ce que l'îlot affiche désormais.
+
+function affectationIsVisible() {
+    const c = document.getElementById('affectationContainer');
+    return !!c && c.style.display !== 'none' && c.style.display !== '';
+}
+
+function showAffectationApp() {
+    // Les autres applications laissent la place
+    document.querySelector('.container').style.display = 'none';
+    ['deplacementsContainer', 'analyseContainer'].forEach(id => {
+        const e = document.getElementById(id);
+        if (e) e.style.display = 'none';
+    });
+    document.getElementById('loginPage').classList.remove('active');
+    stopInactivityTimer();
+    if (typeof onlineUsersInterval !== 'undefined' && onlineUsersInterval) {
+        clearInterval(onlineUsersInterval);
+        onlineUsersInterval = null;
+    }
+    sessionStorage.setItem('selectedApp', 'affectation');
+    if (typeof currentUser !== 'undefined' && currentUser) currentUser.selectedApp = 'affectation';
+    document.getElementById('affectationContainer').style.display = 'block';
+    updateAppSwitcher();
+    const startTimer = () => {
+        try {
+            startInactivityTimer(inactivityTimeout);
+        } catch (e) {
+            /* minuteur indisponible */
+        }
+    };
+    loadSettingsForDeplacements().then(startTimer);
+    if (window.GPTools) window.GPTools.position();
+}
+
+function hideAffectationApp() {
+    if (!affectationIsVisible()) return;
+    stopInactivityTimer();
+    document.getElementById('affectationContainer').style.display = 'none';
+}
+
+// Déconnexion confirmée dans l'îlot (« Voulez-vous vraiment vous déconnecter ? »)
+async function confirmLogoutFromAffectation() {
+    hideAffectationApp();
+    await performLogout();
+}
+
 // ============== Application « Analyse de fichiers » ==============
 // Contenu (en-tête, pastilles, chargement, filtres, tableau) : îlot Vue frontend/src/ilots/analyse/ApplicationAnalyse.vue,
 // monté quand #analyseContainer est affiché. Ouverture et déconnexion : déplacées de file-analysis.js (lot 5.3), sans
@@ -473,7 +523,7 @@ function analyseIsVisible() {
 }
 
 function showAnalyseApp() {
-    if (window.hideAffectationApp) hideAffectationApp();
+    hideAffectationApp();
     document.querySelector('.container').style.display = 'none';
     document.getElementById('deplacementsContainer').style.display = 'none';
     document.getElementById('loginPage').classList.remove('active');

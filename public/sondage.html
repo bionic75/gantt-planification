@@ -39,6 +39,8 @@
     .retenu.aucun { background: #f1f4f8; border-color: var(--bord); color: var(--doux); }
     th.choisi, td.choisi { box-shadow: inset 0 0 0 2px var(--ok); }
     .erreur { text-align: center; padding: 40px 10px; color: var(--doux); }
+    .sous--atelier { margin-bottom: 4px; }
+    .sous--objectif { margin-bottom: 6px; }
 </style>
 </head>
 <body>
@@ -46,90 +48,6 @@
     <img src="/img/logo-telephonie-si-samu.png" alt="Téléphonie SI-SAMU — La e-santé française">
 </header>
 <main id="app"><div class="erreur">Chargement…</div></main>
-<script>
-(function () {
-    const token = location.pathname.split('/').filter(Boolean).pop();
-    const app = document.getElementById('app');
-    const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-    const JOURS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
-    const dateFr = d => { const [y, m, j] = d.split('-').map(Number); return { jour: JOURS[new Date(Date.UTC(y, m - 1, j)).getUTCDay()], date: `${String(j).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}` }; };
-    // Seule la réponse de la personne est transmise par le serveur (jeton secret gardé dans ce navigateur) : les choix
-    // des autres participants ne sont jamais visibles
-    const memoKey = `sondage-jeton-${token}`;
-    let jeton = '';
-    try { jeton = localStorage.getItem(memoKey) || ''; } catch (e) { /* stockage indisponible */ }
-    const memoriser = j => { jeton = j || ''; try { if (j) localStorage.setItem(memoKey, j); else localStorage.removeItem(memoKey); } catch (e) { /* stockage indisponible */ } };
-    let data = null;
-    let retenueId = null;
-
-    function entete(o) {
-        const f = dateFr(o.date);
-        const h = o.heure ? `${o.heure}${o.heure_fin ? ' – ' + o.heure_fin : ''}` : '';
-        return `<th class="${retenueId === o.id ? 'choisi' : ''}"><div class="j">${f.jour}</div><div class="h">${f.date}</div>${h ? `<div class="j">${h}</div>` : ''}</th>`;
-    }
-    async function charger() {
-        const r = await fetch(`/api/sondages-publics/${token}`, { headers: { 'X-Reponse-Jeton': jeton } });
-        const j = await r.json().catch(() => ({}));
-        if (!r.ok) throw new Error(r.status === 404 ? 'Ce sondage n’existe pas ou n’est plus disponible.' : j.error || `Erreur ${r.status}`);
-        data = j;
-        // Jeton refusé (réponse supprimée) : on repart d'une réponse vierge
-        if (jeton && !j.mienne) memoriser('');
-    }
-    function render(msg, err) {
-        const opts = data.options;
-        const mine = data.mienne;
-        const ret = data.termine ? opts.find(o => o.id === data.retenue) : null;
-        retenueId = ret ? ret.id : null;
-        const f = ret && dateFr(ret.date);
-        const bandeau = data.termine
-            ? (ret ? `<div class="retenu">✔ Sondage clôturé — créneau retenu : ${f.jour} ${f.date}${ret.heure ? ' · ' + ret.heure + (ret.heure_fin ? ' – ' + ret.heure_fin : '') : ''}</div>` : '<div class="retenu aucun">Sondage clôturé — aucun créneau n’a été retenu.</div>')
-            : '';
-        const ligne = data.termine
-            ? (mine ? `<tr class="moi"><td class="nom">${esc(mine.nom)}</td>${opts.map(o => mine.options.includes(o.id) ? '<td class="oui">✓</td>' : '<td class="non">–</td>').join('')}</tr>` : '')
-            : `<tr class="moi"><td class="nom"><input type="text" id="nom" maxlength="100" placeholder="Votre nom" autocomplete="name" value="${mine ? esc(mine.nom) : ''}"></td>${opts.map(o => `<td><input type="checkbox" data-o="${o.id}" aria-label="Disponible" ${mine && mine.options.includes(o.id) ? 'checked' : ''}></td>`).join('')}</tr>`;
-        app.innerHTML = `
-            <div class="carte">
-                <h1>${esc(data.nom)}</h1>
-                ${data.atelier ? `<p class="sous" style="margin-bottom:4px;"><b>Atelier :</b> ${esc(data.atelier)}</p>` : ''}
-                ${data.objectif ? `<p class="sous" style="margin-bottom:6px;"><b>Objectif de l’atelier :</b> ${esc(data.objectif)}</p>` : ''}
-                <p class="sous">${data.organisateur ? 'Organisé par ' + esc(data.organisateur) + ' · ' : ''}${data.termine ? 'Les réponses ne sont plus modifiables.' : 'Indiquez votre nom et cochez la ou les dates qui vous conviennent. Les réponses des autres participants ne sont pas affichées.'}</p>
-                ${bandeau}
-            </div>
-            <div class="carte">
-                <div class="scroll"><table>
-                    <thead><tr><th class="nom">${mine || !data.termine ? 'Votre réponse' : 'Dates'}</th>${opts.map(entete).join('')}</tr></thead>
-                    <tbody>${ligne}</tbody>
-                </table></div>
-                ${data.termine ? '' : `<div class="actions"><button type="button" id="envoi">${mine ? 'Modifier ma réponse' : 'Enregistrer ma réponse'}</button>${mine ? '<button type="button" id="autre" class="lien">Ce n’est pas moi</button>' : ''}<span class="msg ${err ? 'err' : 'ok'}" id="msg">${esc(msg || '')}</span></div>`}
-            </div>`;
-        if (data.termine) return;
-        document.getElementById('envoi').addEventListener('click', envoyer);
-        const autre = document.getElementById('autre');
-        if (autre) autre.addEventListener('click', () => { memoriser(''); data.mienne = null; render(); });
-    }
-    async function envoyer() {
-        const nom = document.getElementById('nom').value.trim();
-        const options = [...document.querySelectorAll('input[data-o]:checked')].map(c => Number(c.dataset.o));
-        const msg = document.getElementById('msg');
-        if (!nom) { msg.className = 'msg err'; msg.textContent = 'Indiquez votre nom.'; return; }
-        if (!options.length) { msg.className = 'msg err'; msg.textContent = 'Cochez au moins une date.'; return; }
-        const btn = document.getElementById('envoi');
-        btn.disabled = true;
-        try {
-            const r = await fetch(`/api/sondages-publics/${token}/reponses`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nom, options, jeton }) });
-            const j = await r.json().catch(() => ({}));
-            if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
-            memoriser(j.jeton);
-            await charger();
-            render(j.replaced ? 'Votre réponse a été mise à jour. Merci !' : 'Réponse enregistrée. Merci !');
-        } catch (e) {
-            btn.disabled = false;
-            msg.className = 'msg err';
-            msg.textContent = e.message;
-        }
-    }
-    charger().then(() => { document.title = `${data.nom} — SI-SAMU`; render(); }).catch(e => { app.innerHTML = `<div class="erreur">${esc(e.message)}</div>`; });
-})();
-</script>
+<!-- Page : îlot Vue (frontend/src/sondage/PageSondage.vue), balises du point d'entrée injectées par le serveur -->
 </body>
 </html>

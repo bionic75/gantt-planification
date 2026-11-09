@@ -1,5 +1,6 @@
 // @ts-check
-// Interface Vue (frontend/, docs/migration-vue.md) : îlots chargés par index.html.
+// Interface Vue (frontend/, docs/migration-vue.md) : îlots chargés par index.html, page publique d'un sondage
+// (sondage.html).
 //   production   : build (dist/frontend) servi sous /vue/, obligatoire (« npm run build:front ») ;
 //   développement : serveur Vite intégré (compilation à la volée, rechargement à chaud) ;
 //   test          : build s'il existe, sinon page sans îlots.
@@ -11,7 +12,8 @@ import { PROJECT_ROOT, PUBLIC_DIR } from './paths.js';
 
 const DIST_DIR = path.join(PROJECT_ROOT, 'dist', 'frontend');
 const MANIFEST = path.join(DIST_DIR, '.vite', 'manifest.json');
-const ENTREE = 'src/ilots.ts';
+/** Points d'entrée : page servie → script d'entrée */
+const ENTREES = { 'index.html': 'src/ilots.ts', 'sondage.html': 'src/sondage.ts' };
 const BASE = '/vue/';
 /** Port du rechargement à chaud de Vite (développement), autorisé par la CSP */
 export const PORT_HMR = 24678;
@@ -27,21 +29,30 @@ export function modeFrontend() {
 
 /** @type {ModeFrontend} */
 let mode = 'aucun';
-/** Balises du point d'entrée (build) */
-let balises = '';
-/** index.html mis en cache (production) */
-let indexEnCache = '';
+/** @typedef {keyof typeof ENTREES} PageVue */
 
-/** Balises <script> et <link> du point d'entrée des îlots, d'après le manifeste du build */
+/** Balises des points d'entrée par page (build) */
+/** @type {Partial<Record<PageVue, string>>} */
+let balises = {};
+/** Pages mises en cache (production) */
+/** @type {Partial<Record<PageVue, string>>} */
+const pagesEnCache = {};
+
+/** Balises <script> et <link> de chaque point d'entrée, d'après le manifeste du build */
 function balisesDuBuild() {
     if (!fs.existsSync(MANIFEST)) {
         throw new Error(`Interface Vue non construite (${MANIFEST} absent) : lancer « npm run build:front »`);
     }
     const manifeste = JSON.parse(fs.readFileSync(MANIFEST, 'utf8'));
-    const entree = manifeste[ENTREE];
-    if (!entree) throw new Error(`Point d'entrée ${ENTREE} absent du manifeste de l'interface Vue`);
-    const css = (entree.css || []).map((/** @type {string} */ f) => `<link rel="stylesheet" href="${BASE}${f}">`);
-    return [...css, `<script type="module" src="${BASE}${entree.file}"></script>`].join('');
+    /** @type {Partial<Record<PageVue, string>>} */
+    const out = {};
+    for (const [page, source] of /** @type {[PageVue, string][]} */ (Object.entries(ENTREES))) {
+        const entree = manifeste[source];
+        if (!entree) throw new Error(`Point d'entrée ${source} absent du manifeste de l'interface Vue`);
+        const css = (entree.css || []).map((/** @type {string} */ f) => `<link rel="stylesheet" href="${BASE}${f}">`);
+        out[page] = [...css, `<script type="module" src="${BASE}${entree.file}"></script>`].join('');
+    }
+    return out;
 }
 
 /**
@@ -71,18 +82,19 @@ export async function installerFrontend(app) {
     }
 }
 
-/** index.html avec le point d'entrée des îlots */
-function indexHtml() {
-    if (indexEnCache) return indexEnCache;
-    const html = fs.readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8');
+/** Page avec son point d'entrée */
+function pageHtml(/** @type {PageVue} */ nom) {
+    const enCache = pagesEnCache[nom];
+    if (enCache) return enCache;
+    const html = fs.readFileSync(path.join(PUBLIC_DIR, nom), 'utf8');
     if (mode === 'vite') {
         // Intégration à un serveur existant (documentation Vite « Backend Integration ») : client du rechargement à
         // chaud et point d'entrée seulement ; le reste de la page (adresses de l'ancien code) n'est pas transformé
-        const entree = `<script type="module" src="${BASE}@vite/client"></script><script type="module" src="${BASE}${ENTREE}"></script>`;
+        const entree = `<script type="module" src="${BASE}@vite/client"></script><script type="module" src="${BASE}${ENTREES[nom]}"></script>`;
         return html.replace('</body>', `${entree}</body>`);
     }
-    const page = mode === 'build' ? html.replace('</body>', `${balises}</body>`) : html;
-    if (env.isProduction) indexEnCache = page;
+    const page = mode === 'build' ? html.replace('</body>', `${balises[nom] ?? ''}</body>`) : html;
+    if (env.isProduction) pagesEnCache[nom] = page;
     return page;
 }
 
@@ -91,5 +103,13 @@ export function envoyerIndex(
     /** @type {import('express').Request} */ req,
     /** @type {import('express').Response} */ res
 ) {
-    res.type('html').send(indexHtml());
+    res.type('html').send(pageHtml('index.html'));
+}
+
+/** Page publique d'un sondage de date (/sondage/:jeton) */
+export function envoyerSondage(
+    /** @type {import('express').Request} */ req,
+    /** @type {import('express').Response} */ res
+) {
+    res.type('html').send(pageHtml('sondage.html'));
 }
