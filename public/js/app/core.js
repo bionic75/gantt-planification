@@ -515,7 +515,7 @@ function resetUiForLogin() {
         /* ignoré */
     }
     try {
-        if (window.hideAffectationApp) hideAffectationApp();
+        hideAffectationApp();
     } catch (e) {
         /* ignoré */
     }

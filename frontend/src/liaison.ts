@@ -126,6 +126,8 @@ interface FenetreAncienCode {
     goToPlanificationApp?: () => void;
     /** Déconnexion depuis l'application Déplacements (public/js/app/tab-access.js) */
     confirmLogoutFromDeplacements?: () => void;
+    /** Déconnexion depuis l'application Aide à l'affectation (public/js/app/tab-access.js) */
+    confirmLogoutFromAffectation?: () => void;
     /** Déconnexion depuis l'application Analyse de fichiers (public/js/app/tab-access.js) */
     confirmLogoutFromAnalyse?: () => void;
 }
@@ -341,6 +343,11 @@ export function quitterDeplacementsVersPlanification(): void {
 /** Déconnexion depuis l'application Déplacements */
 export function deconnecterDepuisDeplacements(): void {
     ancienCode().confirmLogoutFromDeplacements?.();
+}
+
+/** Déconnexion depuis l'application Aide à l'affectation (confirmée dans l'îlot) */
+export function deconnecterDepuisAffectation(): void {
+    ancienCode().confirmLogoutFromAffectation?.();
 }
 
 /** Déconnexion depuis l'application Analyse de fichiers */
