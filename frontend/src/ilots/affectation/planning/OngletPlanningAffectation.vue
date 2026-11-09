@@ -6,8 +6,9 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { surReouverture } from '@/ilots/activation';
 import FenetreMessage from '@/ilots/saisie/FenetreMessage.vue';
-import { ecouter, rafraichirDepuisAsana } from '@/liaison';
+import { ecouter } from '@/liaison';
 import { useSessionStore } from '@/stores/session';
+import { useAsanaStore } from '../asana/magasin';
 import FenetreAffectation from './FenetreAffectation.vue';
 import FenetreImpression from './FenetreImpression.vue';
 import FenetreReport from './FenetreReport.vue';
@@ -34,6 +35,7 @@ import './planning.css';
 import './impression.css';
 
 const magasin = usePlanningAffectationStore();
+const asana = useAsanaStore();
 const sessionStore = useSessionStore();
 const admin = computed(() => sessionStore.estAdmin);
 const message = ref('');
@@ -218,8 +220,8 @@ function actionGrille(e: Event) {
         magasin.retirer(Number(retrait.dataset.retirer));
         return;
     }
-    const asana = cible.closest<HTMLButtonElement>('[data-asana]');
-    if (asana) rafraichirDepuisAsana(Number(asana.dataset.asana), asana);
+    const boutonAsana = cible.closest<HTMLButtonElement>('[data-asana]');
+    if (boutonAsana) void asana.rafraichir(Number(boutonAsana.dataset.asana), boutonAsana);
 }
 
 function toucheGrille(e: KeyboardEvent) {

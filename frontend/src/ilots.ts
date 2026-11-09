@@ -76,7 +76,9 @@ const FENETRES: RegistreFenetres = {
     'astreintes-hno': () => import('@/ilots/saisie/FenetreAstreintes.vue'),
     'demande-affectation': () => import('@/ilots/saisie/FenetreDemande.vue'),
     invitations: () => import('@/ilots/saisie/FenetreInvitations.vue'),
-    'nouvelles-affectations': () => import('@/ilots/saisie/FenetreNouvellesAffectations.vue')
+    'nouvelles-affectations': () => import('@/ilots/saisie/FenetreNouvellesAffectations.vue'),
+    // Fenêtres Asana de l'aide à l'affectation (planning et administration)
+    asana: () => import('@/ilots/affectation/asana/FenetresAsana.vue')
 };
 
 installerLiaisonAncienCode();

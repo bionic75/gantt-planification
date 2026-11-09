@@ -121,6 +121,10 @@ E2E_TAGS="@cra" npm test                                        # une fonctionna
       un bon d'une autre fonctionnalité couvrant la même année serait choisi à la place du bon de test.
     - **Administration de l'aide à l'affectation** (`40`) : déploiements du SAMU de test créés par le formulaire en
       2034 (calendrier ouvert sur le début du projet) ; ils sont supprimés en fin de scénario, avec leurs événements.
+    - **Asana** (`41`) : sans données Asana (poste local, CI), les réponses des routes Asana sont simulées dans le
+      navigateur (`page.route`, réponses fixes, appels mémorisés pour les vérifications) : rien n'est lu dans Asana ni
+      écrit en base. Seul l'import d'un export CSV passe par le serveur (déploiement supprimé en fin de scénario). Les
+      scénarios `@asana` de `06` restent ceux d'un environnement Asana réel.
 - Préalables de l'environnement : au moins une localisation (SAMU), le compte Expert rattaché à une ressource,
   un SMTP **de test** (jamais de production) pour les codes OTP et la diffusion des CRA.
 
