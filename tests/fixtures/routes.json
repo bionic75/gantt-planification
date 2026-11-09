@@ -557,22 +557,22 @@
     {
         "method": "GET",
         "path": "/api/bons-commande",
-        "guard": "auth"
+        "guard": "deplacements"
     },
     {
         "method": "POST",
         "path": "/api/bons-commande",
-        "guard": "auth"
+        "guard": "deplacements"
     },
     {
         "method": "PUT",
         "path": "/api/bons-commande/:id",
-        "guard": "auth"
+        "guard": "deplacements"
     },
     {
         "method": "DELETE",
         "path": "/api/bons-commande/:id",
-        "guard": "auth"
+        "guard": "deplacements"
     },
     {
         "method": "GET",
@@ -787,37 +787,37 @@
     {
         "method": "GET",
         "path": "/api/deplacements",
-        "guard": "auth"
+        "guard": "deplacements"
     },
     {
         "method": "POST",
         "path": "/api/deplacements",
-        "guard": "auth"
+        "guard": "deplacements"
     },
     {
         "method": "GET",
         "path": "/api/deplacements/:id",
-        "guard": "auth"
+        "guard": "deplacements"
     },
     {
         "method": "PUT",
         "path": "/api/deplacements/:id",
-        "guard": "auth"
+        "guard": "deplacements"
     },
     {
         "method": "DELETE",
         "path": "/api/deplacements/:id",
-        "guard": "auth"
+        "guard": "deplacements"
     },
     {
         "method": "POST",
         "path": "/api/deplacements/:id/reaffecter",
-        "guard": "auth"
+        "guard": "deplacements"
     },
     {
         "method": "POST",
         "path": "/api/deplacements/:id/regularisation",
-        "guard": "auth"
+        "guard": "deplacements"
     },
     {
         "method": "POST",
@@ -957,7 +957,7 @@
     {
         "method": "GET",
         "path": "/api/liste-samu",
-        "guard": "auth"
+        "guard": "deplacements"
     },
     {
         "method": "GET",
@@ -1042,7 +1042,7 @@
     {
         "method": "GET",
         "path": "/api/mes-deplacements",
-        "guard": "auth"
+        "guard": "deplacements"
     },
     {
         "method": "GET",
@@ -1257,7 +1257,7 @@
     {
         "method": "GET",
         "path": "/api/reporting-deplacements",
-        "guard": "auth"
+        "guard": "deplacements"
     },
     {
         "method": "POST",
@@ -1602,7 +1602,7 @@
     {
         "method": "GET",
         "path": "/api/users/amoa-ced",
-        "guard": "auth"
+        "guard": "deplacements"
     },
     {
         "method": "POST",

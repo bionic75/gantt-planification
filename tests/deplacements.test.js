@@ -6,9 +6,13 @@ import { createUser, loginAs } from './helpers/fixtures.js';
 let server;
 let admin;
 
+/** Accès à l'application « Suivi des déplacements » (Administration › accès aux applications) */
+const autoriser = userId => admin.post('/api/app-access/deplacements/users', { userId });
+
 beforeAll(async () => {
     server = await startServer();
     admin = await loginAs(server, ADMIN, 'admin');
+    await autoriser((await admin.get('/api/check-session')).data.userId);
 });
 afterAll(() => server?.stop());
 
@@ -37,10 +41,27 @@ const trip = (overrides = {}) => ({
     ...overrides
 });
 
-async function userClient() {
+async function userClient({ acces = true } = {}) {
     const user = await createUser(admin, { is_user: 1 });
+    if (acces) await autoriser(user.id);
     return { user, client: await loginAs(server, user, 'user') };
 }
+
+describe("accès à l'application", () => {
+    it('réservé aux comptes autorisés sur « Suivi des déplacements », administrateur compris', async () => {
+        const { client } = await userClient({ acces: false });
+        for (const chemin of ['/api/mes-deplacements', '/api/bons-commande', '/api/users/amoa-ced']) {
+            expect((await client.get(chemin)).status, chemin).toBe(403);
+        }
+        expect((await client.post('/api/deplacements', trip())).status).toBe(403);
+
+        const sansAcces = await createUser(admin, { is_admin: 1 });
+        const autreAdmin = await loginAs(server, sansAcces, 'admin');
+        expect((await autreAdmin.get('/api/mes-deplacements')).status).toBe(403);
+        await autoriser(sansAcces.id);
+        expect((await autreAdmin.get('/api/mes-deplacements')).status).toBe(200);
+    });
+});
 
 describe('bons de commande', () => {
     it('création, unicité du numéro, modification, suivi des UO et suppression', async () => {

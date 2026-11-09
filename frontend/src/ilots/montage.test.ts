@@ -127,6 +127,34 @@ describe('montage des îlots', () => {
         expect(conteneur().querySelector('[data-testid="essai"]')).not.toBeNull();
     });
 
+    it("onglet d'une application : monté quand l'application est affichée, réouverture à chaque affichage", async () => {
+        document.body.innerHTML =
+            '<div id="appli" style="display: none;"><div id="onglet" class="tab-content active"></div></div>';
+        let reouvertures = 0;
+        const Compteur = defineComponent({
+            setup() {
+                surReouverture(() => reouvertures++);
+                return () => h('p', { 'data-testid': 'essai' }, 'îlot');
+            }
+        });
+        arreter = surveillerIlots({
+            onglet: { chargeur: async () => ({ default: Compteur }), onglet: 'onglet', application: 'appli' }
+        });
+        await rendu();
+        expect(conteneur().querySelector('[data-testid="essai"]')).toBeNull();
+
+        const appli = document.getElementById('appli') as HTMLElement;
+        appli.style.display = 'block';
+        await rendu();
+        expect(conteneur().querySelector('[data-testid="essai"]')).not.toBeNull();
+
+        appli.style.display = 'none';
+        await rendu();
+        appli.style.display = 'block';
+        await rendu();
+        expect(reouvertures).toBe(1);
+    });
+
     it("fin de session, onglet resté affiché : pas de remontage avant la réouverture de l'onglet", async () => {
         conteneur().classList.add('active');
         let montages = 0;

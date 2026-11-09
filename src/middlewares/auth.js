@@ -114,6 +114,24 @@ export function requireAffectationAccess(req, res, next) {
 }
 
 /**
+ * Utilisateur autorisé sur l'application « Suivi des déplacements » (accès attribué dans l'Administration), comme le
+ * menu Applications qui ne la propose qu'à ces comptes, profil administrateur compris
+ * @type {RequestHandler}
+ */
+export function requireDeplacementsAccess(req, res, next) {
+    if (rejectUnauthenticated(req, res)) return;
+    const userId = /** @type {number} */ (req.session.userId);
+    prisma.appUserAccess
+        .findFirst({ where: { app_key: 'deplacements', user_id: userId }, select: { id: true } })
+        .then(access => {
+            if (!access) return res.status(403).json({ error: 'Accès au suivi des déplacements non autorisé' });
+            touchSession(userId);
+            next();
+        })
+        .catch(() => res.status(403).json({ error: 'Accès refusé' }));
+}
+
+/**
  * Clé d'API (en-tête X-Api-Key) pour l'API publique. Plus acceptée dans l'URL (paramètre api_key) : elle
  * apparaîtrait dans les journaux, l'historique du navigateur et des proxys.
  * @type {RequestHandler}
