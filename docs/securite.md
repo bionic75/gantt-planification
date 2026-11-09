@@ -23,7 +23,7 @@ cookie) répond `Access-Control-Allow-Origin: *`.
 
 Code : `securityHeaders()` dans `src/app.js` (helmet).
 
-- `Content-Security-Policy` : scripts et styles de l'application et des CDN utilisés (cdnjs, jsdelivr), images
+- `Content-Security-Policy` : scripts et styles de l'application et des CDN utilisés (cdnjs), images
   `data:` / `blob:` et tuiles OpenStreetMap, appels réseau vers l'application et Nominatim, aucun objet
   (`object-src 'none'`), affichage dans un cadre limité à l'application (`frame-ancestors 'self'`).
   Les scripts en ligne (`onclick=`…) restent autorisés tant que le frontend en contient.

@@ -120,6 +120,8 @@ interface FenetreAncienCode {
     goToPlanificationApp?: () => void;
     /** Déconnexion depuis l'application Déplacements (public/js/app/tab-access.js) */
     confirmLogoutFromDeplacements?: () => void;
+    /** Déconnexion depuis l'application Analyse de fichiers (public/js/app/tab-access.js) */
+    confirmLogoutFromAnalyse?: () => void;
 }
 
 /** Ressource telle que la planification de l'ancien code la connaît */
@@ -333,6 +335,11 @@ export function quitterDeplacementsVersPlanification(): void {
 /** Déconnexion depuis l'application Déplacements */
 export function deconnecterDepuisDeplacements(): void {
     ancienCode().confirmLogoutFromDeplacements?.();
+}
+
+/** Déconnexion depuis l'application Analyse de fichiers */
+export function deconnecterDepuisAnalyse(): void {
+    ancienCode().confirmLogoutFromAnalyse?.();
 }
 
 /** CRA demandé par le lien d'une notification, retiré de l'attente ; null si aucun */

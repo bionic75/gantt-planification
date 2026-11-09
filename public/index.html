@@ -7,7 +7,6 @@
     <title>Gestionnaire de Ressources et Planification des Experts Métier</title>
     <link rel="icon" type="image/svg+xml" href="/img/favicon-calendrier.svg" id="favicon">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="/css/app.css?v=2.18.1">
     <link rel="stylesheet" href="/css/themes.css?v=2.18.1">
     <link rel="stylesheet" href="/css/darkmode.css?v=2.18.1">
@@ -738,151 +737,10 @@
     </div>
 
     <!-- ══ Application : Analyse de fichiers ══ -->
-<div id="analyseContainer" style="display:none; min-height:100vh; background:#f5f7fa; font-family:Arial,sans-serif;">
+<!-- Application « Analyse de fichiers » : îlot Vue (frontend/src/ilots/analyse/ApplicationAnalyse.vue), monté quand
+     l'ancien code affiche le conteneur (menu Applications) : en-tête, pastilles, chargement, filtres, tableau -->
+<div id="analyseContainer" style="display:none; min-height:100vh; background:#f5f7fa; font-family:Arial,sans-serif;"></div>
 
-    <!-- Bandeau identique aux autres applications -->
-    <div class="fixed-header">
-        <div class="user-info" id="analyseUserInfo">
-                <span class="app-title-center">Analyse de fichiers</span>
-            <div style="position: relative; display: flex; align-items: center;">
-                <div id="analyseProfileCircle" onclick="openProfilePhotoModal()" style="width:50px;height:50px;border-radius:50%;border:3px solid #1D70B7;background-color:#7f8c8d;display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;" title="Modifier ma photo de profil">
-                    <span id="analyseProfileTrigramme" style="color:white;font-weight:bold;font-size:16px;">?</span>
-                    <img id="analyseProfilePhoto" style="width:100%;height:100%;object-fit:cover;display:none;" alt="">
-                </div>
-            </div>
-            <span class="user-info-name" id="analyseUserDisplayName" style="margin-left:15px;"></span>
-            <span class="user-info-role" id="analyseUserDisplayRole"></span>
-        </div>
-        <div class="tabs" id="analyseTabs">
-            <button class="tab-btn active" type="button">📊 Analyse de fichiers</button>
-            <button type="button" onclick="goHome()" title="Accueil" aria-label="Accueil" style="padding:8px 15px;background-color:#16a085;color:white;border:none;cursor:pointer;font-size:18px;border-radius:4px;margin-right:5px;"><svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:22px;height:22px;stroke:white;vertical-align:middle;"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9v12h14V9"/><path d="M10 21v-6h4v6"/></svg></button>
-            <button class="logout-icon" onclick="analyseLogout()" title="Déconnexion"></button>
-        </div>
-    </div>
-    <div class="header-spacer"></div>
-    <div id="analyseOnlineUsersContainer" onclick="toggleOnlineUsersTooltipFrom(this, event)" title="Utilisateurs connectés : cliquer pour discuter" style="cursor:pointer;display:none;position:fixed;top:10px;right:120px;height:32px;box-sizing:border-box;background:#fff;padding:0 12px;border-radius:20px;box-shadow:0 2px 8px rgba(0,0,0,.2);z-index:1001;align-items:center;gap:6px;font-size:11px;color:#666;">
-        <span style="font-size:12px;color:#27ae60;">●</span>
-        <div id="analyseOnlineUsersAvatars" style="display:flex;align-items:center;"></div>
-        <span id="analyseOnlineUsersCount" style="font-size:11px;color:#666;margin-left:4px;"></span>
-    </div>
-    <div id="analyseTimerDisplay" style="display:none;position:fixed;top:10px;right:10px;height:32px;box-sizing:border-box;background:#fff;padding:0 12px;border-radius:20px;box-shadow:0 2px 8px rgba(0,0,0,.2);z-index:1001;align-items:center;font-size:13px;font-weight:bold;color:#2c3e50;">
-        <svg viewBox="0 0 24 24" aria-hidden="true" style="width:15px;height:15px;margin-right:6px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/></svg>
-        <span id="analyseTimerText">--:--</span>
-    </div>
-    <div style="display:flex;align-items:center;gap:16px;padding:10px 24px;background:#fff;border-bottom:1px solid #e0e6ef;">
-        <span id="analyseFileName" style="font-size:13px;color:#1a237e;font-weight:600;"></span>
-        <span id="analyseStatsHeader" style="font-size:12px;color:#5c6b8a;margin-left:auto;"></span>
-        <button onclick="analyseReset()" id="analyseResetBtn" style="display:none;background:#1a237e;border:none;color:white;padding:6px 14px;border-radius:20px;cursor:pointer;font-size:12px;">🔄 Nouveau fichier</button>
-    </div>
-
-    <!-- Zone de chargement -->
-    <div id="analyseDropZone" style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:calc(100vh - 180px); padding:40px;">
-        <div style="background:white; border-radius:16px; padding:60px 80px; box-shadow:0 4px 24px rgba(0,0,0,0.1); text-align:center; max-width:600px; width:100%;">
-            <div style="font-size:64px; margin-bottom:20px;">📂</div>
-            <h2 style="color:#1a237e; margin-bottom:10px;">Charger un fichier</h2>
-            <p style="color:#666; margin-bottom:24px; font-size:14px;">Formats acceptés : .xlsx, .xls, .csv, .txt<br>Le fichier reste sur votre poste — aucune donnée n'est envoyée.</p>
-            <div id="analyseDropTarget"
-                 ondragover="event.preventDefault(); this.style.borderColor='#3f51b5'; this.style.background='#e8eaf6';"
-                 ondragleave="this.style.borderColor='#90caf9'; this.style.background='#f3f8ff';"
-                 ondrop="analyseHandleDrop(event)"
-                 style="border:3px dashed #90caf9; border-radius:12px; padding:40px; background:#f3f8ff; margin-bottom:20px; cursor:pointer; transition:all 0.2s;"
-                 onclick="document.getElementById('analyseFileInput').click()">
-                <p style="color:#3f51b5; font-size:15px; margin:0;">Glissez votre fichier ici<br><span style="font-size:13px; color:#90a4ae;">ou cliquez pour parcourir</span></p>
-            </div>
-            <input type="file" id="analyseFileInput" accept=".xlsx,.xls,.csv,.txt,.tsv" style="display:none" onchange="analyseHandleFile(this.files[0])">
-            <div id="analyseLoadProgress" style="display:none;">
-                <div style="background:#e3f2fd; border-radius:8px; padding:16px; text-align:center; color:#1565c0; font-size:13px;">
-                    ⏳ Chargement en cours…
-                </div>
-            </div>
-            <!-- Fichier sauvegardé localement -->
-            <div id="analyseSavedFileBar" style="display:none; margin-top:16px; background:#e8f5e9; border:1px solid #a5d6a7; border-radius:8px; padding:10px 14px; font-size:13px; color:#2e7d32; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-                <span>💾 Fichier sauvegardé :</span>
-                <span id="analyseSavedFileName" style="font-weight:bold;"></span>
-                <button onclick="analyseLoadSaved()" style="background:#388e3c; color:white; border:none; padding:4px 12px; border-radius:10px; cursor:pointer; font-size:12px; margin-left:auto;">Charger</button>
-                <button onclick="analyseDeleteSaved()" style="background:none; border:1px solid #e57373; color:#c62828; padding:4px 10px; border-radius:10px; cursor:pointer; font-size:12px;">Supprimer</button>
-            </div>
-            <!-- Case à cocher "conserver localement" -->
-            <label style="display:flex; align-items:center; gap:8px; margin-top:14px; font-size:12px; color:#666; cursor:pointer; justify-content:center;">
-                <input type="checkbox" id="analyseSaveLocalChk" style="cursor:pointer; width:auto; display:inline-block; flex:none; margin:0;" onchange="analyseToggleSaveLocal(this.checked)">
-                Conserver ce fichier localement (rechargement sans importation)
-            </label>
-        </div>
-    </div>
-
-    <!-- Interface d'analyse (masquée jusqu'au chargement) -->
-    <div id="analyseWorkspace" style="display:none; padding:16px 20px;">
-
-        <!-- Bannière encodage CSV -->
-        <div id="analyseEncodingBanner" style="display:none; align-items:center; gap:10px; padding:8px 14px; border-radius:8px; border:1px solid; margin-bottom:12px; flex-wrap:wrap;"></div>
-
-        <!-- Barre de filtres compacte + actions -->
-        <div style="background:white; border-radius:10px; padding:16px; margin-bottom:14px; box-shadow:0 1px 6px rgba(0,0,0,0.08);">
-            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
-                <span style="font-weight:bold; color:#1a237e; font-size:14px;">🔍 Filtres actifs :</span>
-                <span id="analyseActiveFiltersCount" style="background:#e8eaf6; color:#3f51b5; padding:2px 10px; border-radius:12px; font-size:12px; font-weight:bold;">Aucun</span>
-                <button onclick="analyseClearAllFilters()" style="margin-left:auto; background:#ef5350; color:white; border:none; padding:5px 14px; border-radius:6px; cursor:pointer; font-size:12px;">✕ Tout effacer</button>
-                <button onclick="analyseExportCSV()" style="background:#2e7d32; color:white; border:none; padding:5px 14px; border-radius:6px; cursor:pointer; font-size:12px;">⬇ Export CSV</button>
-                <button onclick="toggleAnalyseColumns()" style="background:#5c6bc0; color:white; border:none; padding:5px 14px; border-radius:6px; cursor:pointer; font-size:12px;">⚙ Colonnes</button>
-                <button onclick="toggleAnalyseStruct()" id="analyseStructBtn" style="background:#00897b; color:white; border:none; padding:5px 14px; border-radius:6px; cursor:pointer; font-size:12px;">🧬 Structure</button>
-                <button onclick="toggleAnalyseDups()" id="analyseDupBtn" style="background:#ec407a; color:white; border:none; padding:5px 14px; border-radius:6px; cursor:pointer; font-size:12px;">🔁 Doublons</button>
-                <button onclick="toggleAnalyseFiltersPanel()" id="analyseFilterToggleBtn" title="Afficher / masquer les filtres" style="background:#7986cb; color:white; border:none; padding:5px 12px; border-radius:6px; cursor:pointer; font-size:14px;" aria-label="Afficher/masquer les filtres">▲</button>
-            </div>
-
-            <!-- Panel structure du fichier (masqué par défaut) -->
-            <div id="analyseStructPanel" style="display:none; background:#e0f2f1; border:1px solid #80cbc4; border-radius:8px; padding:12px; margin-bottom:12px;"></div>
-
-            <!-- Panel colonnes visibles (masqué par défaut) -->
-            <div id="analyseColumnsPanel" style="display:none; background:#f5f5f5; border-radius:8px; padding:12px; margin-bottom:12px;">
-                <div style="font-size:12px; color:#555; margin-bottom:8px; font-weight:bold;">Colonnes affichées :</div>
-                <div id="analyseColumnCheckboxes" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
-            </div>
-
-            <!-- Panel détection des doublons -->
-            <div id="analyseDupPanel" style="display:none; background:#fce4ec; border-radius:8px; padding:12px; margin-bottom:12px; border:1px solid #f48fb1;">
-                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px;">
-                    <span style="font-size:12px; font-weight:bold; color:#880e4f;">🔁 Détection des doublons — colonnes de comparaison :</span>
-                    <button onclick="analyseDupSelectAll(true)" style="background:none; border:1px solid #e91e63; color:#e91e63; padding:2px 10px; border-radius:10px; cursor:pointer; font-size:11px;">Tout cocher</button>
-                    <button onclick="analyseDupSelectAll(false)" style="background:none; border:1px solid #999; color:#666; padding:2px 10px; border-radius:10px; cursor:pointer; font-size:11px;">Tout décocher</button>
-                    <span id="analyseDupCount" style="margin-left:auto; font-size:12px; font-weight:bold; color:#c62828;"></span>
-                </div>
-                <div id="analyseDupCheckboxes" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
-            </div>
-
-            <!-- Filtres par colonne -->
-            <div id="analyseFiltersPanel" style="display:grid; gap:10px; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr));"></div>
-        </div>
-
-        <!-- Résultats -->
-        <div style="background:white; border-radius:10px; box-shadow:0 1px 6px rgba(0,0,0,0.08); overflow:hidden;">
-            <div style="padding:10px 16px; background:#e8eaf6; display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
-                <span id="analyseResultCount" style="font-size:13px; font-weight:bold; color:#1a237e;"></span>
-                <span style="font-size:12px; color:#666; margin-left:auto; display:flex; align-items:center; gap:6px;">
-                    Page <strong id="analysePage">1</strong> / <strong id="analysePageTotal">1</strong>
-                    <input id="analysePageJump" type="number" min="1" placeholder="n°" title="Aller à la page"
-                        style="width:54px; padding:2px 5px; border:1px solid #9fa8da; border-radius:4px; font-size:12px; text-align:center;"
-                        onkeydown="if(event.key==='Enter') analyseJumpPage(this.value)">
-                </span>
-                <button onclick="analyseGoPage(-1)" style="background:#5c6bc0; color:white; border:none; padding:3px 12px; border-radius:4px; cursor:pointer; font-size:12px;">◀</button>
-                <button onclick="analyseGoPage(1)" style="background:#5c6bc0; color:white; border:none; padding:3px 12px; border-radius:4px; cursor:pointer; font-size:12px;">▶</button>
-                <select id="analysePageSizeSelect" onchange="analyseSetPageSize(this.value)" style="padding:3px 6px; border:1px solid #ccc; border-radius:4px; font-size:12px;">
-                    <option value="50">50 / page</option>
-                    <option value="100" selected>100 / page</option>
-                    <option value="200">200 / page</option>
-                    <option value="500">500 / page</option>
-                </select>
-            </div>
-            <div style="overflow-x:auto;">
-                <table id="analyseTable" style="width:100%; border-collapse:collapse; font-size:12px;">
-                    <thead id="analyseTableHead" style="background:#3f51b5; color:white; position:sticky; top:0;"></thead>
-                    <tbody id="analyseTableBody"></tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script src="/js/app/file-analysis.js?v=2.18.1"></script>
 
 <!-- ══ Modale vérification carte (pin draggable) ══ -->
     <div id="verifyMapModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:21000;align-items:center;justify-content:center;">
