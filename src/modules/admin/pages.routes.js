@@ -2,6 +2,7 @@
 // Pages servies hors /api (aide personnalisable)
 import { Router } from 'express';
 import path from 'path';
+import { envoyerSondage } from '../../lib/frontend.js';
 import { PUBLIC_DIR } from '../../lib/paths.js';
 import { asyncHandler as h } from '../../middlewares/error-handler.js';
 import { getSetting } from '../../services/settings.js';
@@ -26,16 +27,16 @@ router.get(
 );
 
 // Page publique d'un sondage de date (adresse unique : le jeton figure dans l'adresse)
-router.get('/sondage/:token', (_req, res) => {
+router.get('/sondage/:token', (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Robots-Tag', 'noindex');
-    res.sendFile(path.join(PUBLIC_DIR, 'sondage.html'));
+    envoyerSondage(req, res);
 });
 
 // Anciennes adresses des scripts, feuilles de style et images, rangés dans public/js, public/css et public/img :
 // pages en cache dans les navigateurs et aides personnalisées qui y font encore référence
 const MOVED_ASSETS = {
-    js: ['darkmode.js', 'themes.js', 'layout-fix.js', 'ui-icons.js', 'affectation-app.js', 'event-types.js'],
+    js: ['darkmode.js', 'themes.js', 'layout-fix.js', 'ui-icons.js', 'event-types.js'],
     css: ['themes.css', 'darkmode.css', 'login.css', 'ui-polish.css'],
     img: [
         'asana-logo.png',

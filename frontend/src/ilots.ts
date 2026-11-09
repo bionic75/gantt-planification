@@ -53,18 +53,10 @@ const ILOTS: RegistreIlots = {
         chargeur: () => import('@/ilots/analyse/ApplicationAnalyse.vue'),
         application: true
     },
-    // Aide à l'affectation : onglets de l'application, encore construite par l'ancien code
-    affectationPlanningTab: {
-        chargeur: () => import('@/ilots/affectation/planning/OngletPlanningAffectation.vue'),
-        application: 'affectationContainer'
-    },
-    affectationEventsTab: {
-        chargeur: () => import('@/ilots/affectation/OngletEvenementsAffectation.vue'),
-        application: 'affectationContainer'
-    },
-    affectationAdminTab: {
-        chargeur: () => import('@/ilots/affectation/administration/OngletAdministrationAffectation.vue'),
-        application: 'affectationContainer'
+    // Application « Aide à l'affectation opérationnelle » : montée quand l'ancien code l'affiche (menu Applications)
+    affectationContainer: {
+        chargeur: () => import('@/ilots/affectation/ApplicationAffectation.vue'),
+        application: true
     }
 };
 

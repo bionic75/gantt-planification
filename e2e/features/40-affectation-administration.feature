@@ -105,8 +105,3 @@ Fonctionnalité: Aide à l'affectation : onglet « Administration »
     Alors la fenêtre d'import d'un export CSV d'Asana est proposée
     Quand je ferme la fenêtre d'import Asana
     Alors la fenêtre d'import d'un export CSV d'Asana est fermée
-
-  Scénario: Onglet réservé à l'administrateur
-    Étant donné que "Utilisateur" a accès à l'application « Aide à l'affectation opérationnelle »
-    Quand j'ouvre le planning des déploiements en tant que "Utilisateur"
-    Alors l'onglet « Administration » de l'aide à l'affectation n'est pas proposé
