@@ -465,7 +465,10 @@ Then("l'enregistrement est réservé aux administrateurs", async ({ monde }) => 
 
 // ---------- Cadre ----------
 
-Then("l'en-tête de l'aide à l'affectation présente {string} et {string}", async ({ monde }, nom, profil) => {
+Then("l'en-tête de l'aide à l'affectation présente le nom du compte et {string}", async ({ monde }, profil) => {
+    // Nom du compte de test connecté (propre à chaque environnement) : prénom et nom, à défaut l'identifiant
+    const s = await monde.api.ok('GET', '/api/check-session');
+    const nom = `${s.prenom || ''} ${s.nom || ''}`.trim() || s.username;
     await expect(monde.page.locator('#affectationUserDisplayName')).toHaveText(nom);
     await expect(monde.page.locator('#affectationUserDisplayRole')).toHaveText(profil);
 });
