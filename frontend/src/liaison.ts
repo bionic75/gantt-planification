@@ -59,6 +59,11 @@ export interface EvenementsLiaison {
     'grille-a-rafraichir': undefined;
     /** Zoom de la grille remis à 100 % (mise en page réinitialisée, public/js/layout-fix.js) */
     'zoom-grille-reinitialise': undefined;
+    /**
+     * Déploiements de l'aide à l'affectation modifiés par l'ancien code (administration, Asana) : la grille des
+     * déploiements les relit
+     */
+    'deploiements-modifies': undefined;
 }
 
 /** Fenêtres Vue ouvertes par les boutons de l'ancien code */
@@ -122,6 +127,8 @@ interface FenetreAncienCode {
     confirmLogoutFromDeplacements?: () => void;
     /** Déconnexion depuis l'application Analyse de fichiers (public/js/app/tab-access.js) */
     confirmLogoutFromAnalyse?: () => void;
+    /** Aide à l'affectation, encore tenue par l'ancien code pour l'administration et Asana (public/js/affectation-app.js) */
+    AffectationApp?: { asanaRefresh?: (id: number, bouton: HTMLElement) => Promise<void> };
 }
 
 /** Ressource telle que la planification de l'ancien code la connaît */
@@ -335,6 +342,14 @@ export function quitterDeplacementsVersPlanification(): void {
 /** Déconnexion depuis l'application Déplacements */
 export function deconnecterDepuisDeplacements(): void {
     ancienCode().confirmLogoutFromDeplacements?.();
+}
+
+/**
+ * Rafraîchissement d'un déploiement depuis Asana (administrateur) : fenêtres des changements et des conflits de l'ancien
+ * code ; la grille est prévenue par « deploiements-modifies »
+ */
+export function rafraichirDepuisAsana(id: number, bouton: HTMLElement): void {
+    void ancienCode().AffectationApp?.asanaRefresh?.(id, bouton);
 }
 
 /** Déconnexion depuis l'application Analyse de fichiers */
