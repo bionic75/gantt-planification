@@ -18,6 +18,10 @@ const props = defineProps<{
     candidats: CandidatsActivite | null | undefined;
     /** Dates de l'activité saisies dans le formulaire */
     dates: { start: string; end: string } | null;
+    /** Sans le titre « Événement » (cellule de la fenêtre des tâches Asana) */
+    compact?: boolean;
+    /** Message quand l'activité n'a pas de date */
+    messageSansDate?: string;
 }>();
 const emit = defineEmits<{
     liaison: [maj: Partial<CandidatsActivite>];
@@ -87,7 +91,11 @@ async function creer() {
     emit('erreur', '');
     const d = props.dates;
     if (!d) {
-        emit('erreur', `${props.libelle} : renseignez d'abord la date (ou la période) avant de créer l'événement.`);
+        emit(
+            'erreur',
+            props.messageSansDate ??
+                `${props.libelle} : renseignez d'abord la date (ou la période) avant de créer l'événement.`
+        );
         return;
     }
     const quand = d.start === d.end ? `le ${jourFr(d.start)}` : `du ${jourFr(d.start)} au ${jourFr(d.end)}`;
@@ -108,12 +116,14 @@ async function creer() {
 </script>
 
 <template>
-    <div class="pr aff-evl" :data-ek="cle">
+    <div class="pr aff-evl" :class="{ 'aff-evl--compact': compact }" :data-ek="cle">
         <span v-if="!projetId" class="aff-muted">Enregistrez le déploiement pour relier des événements.</span>
         <span v-else-if="candidats === undefined" class="aff-muted">Recherche des événements…</span>
         <span v-else-if="!c" class="aff-muted">Événements indisponibles.</span>
         <template v-else-if="c.multi">
-            <span class="aff-muted aff-evl-titre"><IconeAff nom="vide" classe="aff-ico-sm" />Événement</span>
+            <span v-if="!compact" class="aff-muted aff-evl-titre"
+                ><IconeAff nom="vide" classe="aff-ico-sm" />Événement</span
+            >
             <div :data-evbox="cle">
                 <details class="aff-multi">
                     <summary>{{ resumeParties(c) }}<span class="aff-multi-fleche">▼</span></summary>
@@ -174,7 +184,9 @@ async function creer() {
             </div>
         </template>
         <template v-else>
-            <span class="aff-muted aff-evl-titre"><IconeAff nom="vide" classe="aff-ico-sm" />Événement</span>
+            <span v-if="!compact" class="aff-muted aff-evl-titre"
+                ><IconeAff nom="vide" classe="aff-ico-sm" />Événement</span
+            >
             <select
                 :data-ek="cle"
                 :value="c.linked ?? ''"

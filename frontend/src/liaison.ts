@@ -60,8 +60,8 @@ export interface EvenementsLiaison {
     /** Zoom de la grille remis à 100 % (mise en page réinitialisée, public/js/layout-fix.js) */
     'zoom-grille-reinitialise': undefined;
     /**
-     * Déploiements de l'aide à l'affectation modifiés (administration, Asana de l'ancien code) : la grille et
-     * l'administration des déploiements les relisent
+     * Déploiements de l'aide à l'affectation modifiés (administration, Asana) : la grille et l'administration des
+     * déploiements les relisent
      */
     'deploiements-modifies': undefined;
 }
@@ -74,7 +74,8 @@ export type NomFenetre =
     | 'astreintes-hno'
     | 'demande-affectation'
     | 'invitations'
-    | 'nouvelles-affectations';
+    | 'nouvelles-affectations'
+    | 'asana';
 
 export type NomEvenement = keyof EvenementsLiaison;
 
@@ -127,14 +128,6 @@ interface FenetreAncienCode {
     confirmLogoutFromDeplacements?: () => void;
     /** Déconnexion depuis l'application Analyse de fichiers (public/js/app/tab-access.js) */
     confirmLogoutFromAnalyse?: () => void;
-    /** Aide à l'affectation : Asana, encore tenu par l'ancien code (public/js/affectation-app.js) */
-    AffectationApp?: {
-        asanaRefresh?: (id: number, bouton: HTMLElement) => Promise<void>;
-        asanaRefreshAll?: (bouton: HTMLElement) => Promise<void>;
-        asanaOpen?: () => void;
-        asanaTasks?: (id: number) => Promise<void>;
-        asanaLoadCfg?: () => Promise<void>;
-    };
 }
 
 /** Ressource telle que la planification de l'ancien code la connaît */
@@ -348,37 +341,6 @@ export function quitterDeplacementsVersPlanification(): void {
 /** Déconnexion depuis l'application Déplacements */
 export function deconnecterDepuisDeplacements(): void {
     ancienCode().confirmLogoutFromDeplacements?.();
-}
-
-/**
- * Rafraîchissement d'un déploiement depuis Asana (administrateur) : fenêtres des changements et des conflits de l'ancien
- * code ; la grille est prévenue par « deploiements-modifies »
- */
-export function rafraichirDepuisAsana(id: number, bouton: HTMLElement): void {
-    void ancienCode().AffectationApp?.asanaRefresh?.(id, bouton);
-}
-
-/** Rafraîchissement de tous les déploiements depuis Asana (bouton : libellé « en cours » le temps du traitement) */
-export function rafraichirToutDepuisAsana(bouton: HTMLElement): void {
-    void ancienCode().AffectationApp?.asanaRefreshAll?.(bouton);
-}
-
-/** Fenêtre « Importer depuis Asana » (export CSV) */
-export function importerDepuisAsana(): void {
-    ancienCode().AffectationApp?.asanaOpen?.();
-}
-
-/** Fenêtre des tâches du projet Asana d'un déploiement */
-export function ouvrirTachesAsana(id: number): void {
-    void ancienCode().AffectationApp?.asanaTasks?.(id);
-}
-
-/**
- * Rubrique « Connexion Asana » : l'ancien code remplit les zones #affAsanaCfg et #affAsanaProjects (connexion, projets
- * Asana, import en masse)
- */
-export function chargerConnexionAsana(): void {
-    void ancienCode().AffectationApp?.asanaLoadCfg?.();
 }
 
 /** Déconnexion depuis l'application Analyse de fichiers */

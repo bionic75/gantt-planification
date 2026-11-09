@@ -1,0 +1,420 @@
+/* Aide à l'affectation › Asana : règles reprises de l'ancien écran (public/js/affectation-app.js) et classes remplaçant
+   ses styles en ligne. Les règles communes (.aff-btn, .aff-av-b, .aff-sync-sec, .aff-toast…) restent servies par
+   l'ancien code jusqu'au lot du cadre. */
+
+#affAsanaChgBody th,
+#affAsanaConfBody th {
+    background: transparent !important;
+    color: #6b7a8d !important;
+    font-weight: 700;
+}
+#affAsanaChgBody th::after,
+#affAsanaConfBody th::after {
+    content: none !important;
+}
+#affAsanaChgBody table,
+#affAsanaConfBody table {
+    background: #fff;
+}
+#affAsanaTable th,
+#affAsanaResult th {
+    background: #e6f4f1 !important;
+    color: #0f4c5c !important;
+    cursor: default !important;
+}
+#affAsanaTable th::after,
+#affAsanaResult th::after {
+    content: none !important;
+}
+#affAsanaResult tr:nth-child(even) td {
+    background: #f8fafc;
+}
+
+/* Fenêtres */
+.gp-modale.aff-asana-chg .gp-modale__boite,
+.gp-modale.aff-asana-import .gp-modale__boite {
+    width: min(820px, 96vw);
+}
+.gp-modale.aff-asana-taches .gp-modale__boite {
+    width: min(1500px, 98vw);
+}
+.gp-modale.aff-asana-conf .gp-modale__boite {
+    width: min(900px, 96vw);
+}
+/* Conflits au-dessus des changements (ouverts ensemble) */
+div.gp-modale.aff-asana-conf {
+    z-index: 3050;
+}
+.gp-modale.aff-asana-conf .gp-modale__actions,
+.gp-modale.aff-asana-taches .gp-modale__actions,
+.gp-modale.aff-asana-import .gp-modale__actions {
+    align-items: center;
+}
+.gp-modale.aff-asana-conf .gp-modale__actions .aff-error,
+.gp-modale.aff-asana-taches .gp-modale__actions .aff-error,
+.gp-modale.aff-asana-import .gp-modale__actions .aff-error {
+    flex: 1;
+    text-align: left;
+}
+
+.aff-asana-intro {
+    margin: 0 0 12px;
+    font-size: 13px;
+    color: #4a5b70;
+}
+.aff-asana-petit {
+    font-size: 12px;
+}
+.aff-asana-nowrap {
+    white-space: nowrap;
+}
+.aff-asana-vide {
+    margin: 8px 12px;
+}
+.aff-asana-bloc {
+    border: 1px solid #dfe5ef;
+    border-radius: 10px;
+    margin-bottom: 12px;
+    overflow: hidden;
+}
+.aff-asana-bloc__tete {
+    background: #f0f4fa;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.aff-asana-bloc__tete b {
+    font-size: 14px;
+}
+.aff-asana-bloc__tete--conflit {
+    background: #fff3e0;
+}
+.aff-asana-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+.aff-asana-table thead tr {
+    text-align: left;
+    color: #6b7a8d;
+    font-size: 11px;
+}
+.aff-asana-table th,
+.aff-asana-table td {
+    padding: 6px 8px;
+    vertical-align: top;
+}
+.aff-asana-table tbody tr {
+    border-top: 1px solid #eef1f6;
+}
+.aff-asana-liste {
+    margin: 6px 0;
+    font-size: 13px;
+}
+.aff-asana-liste--ok {
+    color: #2e7d32;
+}
+.aff-asana-liste--sans {
+    color: #8a6d00;
+}
+.aff-asana-liste--erreur {
+    color: #b3261e;
+}
+
+/* Changements */
+.aff-asana-chg__rubrique {
+    width: 32%;
+}
+.aff-asana-chg__fleche {
+    width: 24px;
+    color: #8a97a8;
+}
+.aff-asana-chg__libelle {
+    font-weight: 600;
+}
+.aff-asana-chg__avant {
+    color: #8a97a8;
+}
+.aff-asana-chg__avant.barre {
+    text-decoration: line-through;
+}
+.aff-asana-chg__apres {
+    color: #1b7f3b;
+    font-weight: 700;
+}
+
+/* Conflits */
+.aff-asana-conf__tout {
+    margin-left: auto;
+    font-size: 12px;
+}
+.aff-asana-conf__rubrique {
+    width: 24%;
+}
+.aff-asana-conf__libelle {
+    font-weight: 600;
+}
+.aff-asana-conf__precedente {
+    font-size: 11px;
+    font-weight: 400;
+}
+.aff-asana-conf__app {
+    color: #b26a00;
+}
+.aff-asana-conf__asana {
+    color: #1b7f3b;
+}
+.aff-asana-conf__choix {
+    white-space: nowrap;
+}
+.aff-asana-conf__choix label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0 0 4px;
+    font-weight: 400;
+}
+.aff-asana-conf__choix input {
+    width: auto;
+    margin: 0;
+}
+
+/* Import */
+.aff-asana-import__aide {
+    margin: 0 0 12px;
+}
+.aff-asana-import__fichier {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    margin-bottom: 12px;
+}
+.aff-asana-import__resume {
+    margin-bottom: 12px;
+}
+.aff-asana-import__case {
+    width: 30px;
+}
+.aff-asana-import__table input[type='checkbox'] {
+    width: auto;
+    display: inline-block;
+    margin: 0;
+}
+.aff-asana-import__libelle {
+    font-weight: 600;
+}
+.aff-asana-import__conflit {
+    font-size: 11px;
+    color: #b3261e;
+}
+
+/* Tâches du projet */
+.aff-asana-taches__intro {
+    margin: 0 0 10px;
+    font-size: 13px;
+    color: #4a5b70;
+}
+.aff-asana-taches__projet {
+    padding: 4px 6px;
+    border: 2px solid #ff9800;
+    border-radius: 8px;
+    max-width: 340px;
+}
+.aff-asana-defile {
+    overflow-x: auto;
+}
+.aff-asana-taches__choix {
+    min-width: 330px;
+}
+.aff-asana-taches__evenement {
+    min-width: 340px;
+}
+.aff-asana-taches__remplacee {
+    background: #fff8e1;
+}
+.aff-asana-taches__table select {
+    width: 100%;
+    padding: 5px;
+}
+.aff-asana-taches__periode {
+    display: grid;
+    grid-template-columns: 48px 1fr;
+    gap: 4px;
+    align-items: center;
+}
+.aff-asana-taches__sources {
+    font-size: 11px;
+    white-space: normal;
+    max-width: 230px;
+}
+.aff-asana-taches__apres {
+    font-weight: 700;
+    color: #1b7f3b;
+    white-space: nowrap;
+}
+.aff-asana-origine {
+    margin-top: 4px;
+    font-size: 11px;
+    white-space: normal;
+}
+.aff-asana-origine--asana {
+    color: #1b7f3b;
+}
+.aff-asana-origine--outil {
+    color: #b26a00;
+}
+.aff-asana-logo {
+    width: 13px;
+    height: 13px;
+    vertical-align: -2px;
+    margin-left: 5px;
+    object-fit: contain;
+}
+.aff-asana-taches__toutes {
+    margin-top: 14px;
+}
+.aff-asana-taches__toutes summary {
+    cursor: pointer;
+    font-weight: 700;
+    color: #4a5b70;
+}
+.aff-asana-taches__liste {
+    overflow: auto;
+    max-height: 340px;
+    margin-top: 8px;
+    border: 1px solid #eef1f6;
+    border-radius: 8px;
+}
+.aff-asana-taches__liste table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+.aff-asana-taches__liste thead {
+    position: sticky;
+    top: 0;
+    background: #f0f4fa;
+}
+.aff-asana-taches__liste th,
+.aff-asana-taches__liste td {
+    padding: 4px 8px;
+    text-align: left;
+}
+.aff-asana-taches__liste tbody tr {
+    border-top: 1px solid #f0f3f8;
+}
+.aff-asana-taches__parent {
+    color: #6b7a8d;
+}
+.aff-asana-taches__echeance {
+    font-weight: 600;
+}
+/* Événement associé dans une cellule : liste sur toute la largeur, indications dessous */
+.aff-evl.aff-evl--compact {
+    display: block;
+    font-size: 12px;
+}
+.aff-evl.aff-evl--compact select {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    padding: 5px;
+}
+.aff-evl.aff-evl--compact > button,
+.aff-evl.aff-evl--compact > span {
+    display: inline-block;
+    margin-top: 4px;
+}
+.aff-asana-msg--erreur {
+    color: #b3261e;
+}
+.aff-asana-msg--neutre {
+    color: #4a5b70;
+}
+.aff-asana-msg--ok {
+    color: #1b7f3b;
+}
+.aff-toast--asana.aff-toast--cliquable {
+    max-width: 560px;
+    text-align: left;
+    cursor: pointer;
+}
+
+/* Rubrique « Connexion Asana » (administration) */
+.aff-asana-cnx {
+    font-size: 13px;
+}
+.aff-asana-cnx__tete {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 14px 0 8px;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.aff-asana-cnx__boutons {
+    display: inline-flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.aff-asana-cnx__filtre {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 8px;
+}
+#affAsanaKw {
+    padding: 7px 10px;
+    border: 1px solid #cfd8e6;
+    border-radius: 8px;
+    min-width: 240px;
+    flex: 1;
+    max-width: 380px;
+}
+#affAsanaTable {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+#affAsanaTable th,
+#affAsanaTable td {
+    padding: 6px 8px;
+}
+#affAsanaTable th {
+    text-align: left;
+}
+#affAsanaTable tbody tr {
+    border-top: 1px solid #eef1f6;
+}
+#affAsanaTable input[type='checkbox'] {
+    width: auto;
+    display: inline-block;
+    margin: 0;
+}
+#affAsanaTable select {
+    padding: 4px 6px;
+    border: 1px solid #cfd8e6;
+    border-radius: 8px;
+    max-width: 230px;
+}
+.aff-asana-cnx__case {
+    width: 30px;
+}
+.aff-asana-cnx__action {
+    text-align: right;
+}
+#affAsanaBulkMsg {
+    margin-top: 8px;
+    font-size: 13px;
+}
+.aff-asana-cnx__note {
+    font-size: 12px;
+    margin-top: 8px;
+}
+.aff-asana-cnx__projets {
+    margin-top: 12px;
+}
