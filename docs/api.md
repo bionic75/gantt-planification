@@ -21,6 +21,7 @@ Protections :
 | `adminOrRh` | Administrateur ou RH |
 | `reporting` | Administrateur ou droit « reporting » |
 | `affectation` | Administrateur ou accès à « Aide à l’affectation » |
+| `deplacements` | Accès à « Suivi des déplacements » |
 | `mfaPending` | Connexion en attente de double authentification |
 | `apiKey` | Clé d’API (en-tête X-Api-Key) |
 
@@ -253,21 +254,21 @@ Protections :
 
 | Méthode | Chemin | Protection |
 | --- | --- | --- |
-| GET | `/api/bons-commande` | auth |
-| POST | `/api/bons-commande` | auth |
-| PUT | `/api/bons-commande/:id` | auth |
-| DELETE | `/api/bons-commande/:id` | auth |
-| GET | `/api/deplacements` | auth |
-| POST | `/api/deplacements` | auth |
-| GET | `/api/deplacements/:id` | auth |
-| PUT | `/api/deplacements/:id` | auth |
-| DELETE | `/api/deplacements/:id` | auth |
-| POST | `/api/deplacements/:id/reaffecter` | auth |
-| POST | `/api/deplacements/:id/regularisation` | auth |
+| GET | `/api/bons-commande` | deplacements |
+| POST | `/api/bons-commande` | deplacements |
+| PUT | `/api/bons-commande/:id` | deplacements |
+| DELETE | `/api/bons-commande/:id` | deplacements |
+| GET | `/api/deplacements` | deplacements |
+| POST | `/api/deplacements` | deplacements |
+| GET | `/api/deplacements/:id` | deplacements |
+| PUT | `/api/deplacements/:id` | deplacements |
+| DELETE | `/api/deplacements/:id` | deplacements |
+| POST | `/api/deplacements/:id/reaffecter` | deplacements |
+| POST | `/api/deplacements/:id/regularisation` | deplacements |
 | POST | `/api/deplacements/regularisation-technique` | admin |
-| GET | `/api/liste-samu` | auth |
-| GET | `/api/mes-deplacements` | auth |
-| GET | `/api/reporting-deplacements` | auth |
+| GET | `/api/liste-samu` | deplacements |
+| GET | `/api/mes-deplacements` | deplacements |
+| GET | `/api/reporting-deplacements` | deplacements |
 
 ## dump
 
@@ -448,7 +449,7 @@ Protections :
 | POST | `/api/users/:id/reset-password` | admin |
 | POST | `/api/users/:id/rh-access` | admin |
 | POST | `/api/users/:id/toggle` | admin |
-| GET | `/api/users/amoa-ced` | auth |
+| GET | `/api/users/amoa-ced` | deplacements |
 | POST | `/api/users/change-password` | auth |
 | GET | `/api/users/public` | auth |
 | GET | `/api/users/search` | admin |

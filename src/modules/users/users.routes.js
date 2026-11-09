@@ -1,7 +1,7 @@
 // @ts-check
 // Utilisateurs : /api/users, /api/user, /api/profile, /api/app-access
 import { Router } from 'express';
-import { requireAdmin, requireAuth } from '../../middlewares/auth.js';
+import { requireAdmin, requireAuth, requireDeplacementsAccess } from '../../middlewares/auth.js';
 import { asyncHandler as h } from '../../middlewares/error-handler.js';
 import * as ctrl from './users.controller.js';
 
@@ -10,7 +10,8 @@ const router = Router();
 router.get('/users', requireAdmin, h(ctrl.list));
 router.post('/users', requireAdmin, h(ctrl.create));
 router.get('/users/public', requireAuth, h(ctrl.listPublic));
-router.get('/users/amoa-ced', requireAuth, h(ctrl.listAmoaCed));
+// AMOA CED (comptes autorisés sur le suivi des déplacements) : liste de l'application « Suivi des déplacements »
+router.get('/users/amoa-ced', requireDeplacementsAccess, h(ctrl.listAmoaCed));
 router.get('/users/search', requireAdmin, h(ctrl.search));
 router.post('/users/change-password', requireAuth, h(ctrl.changePassword));
 router.put('/users/:id', requireAdmin, h(ctrl.update));

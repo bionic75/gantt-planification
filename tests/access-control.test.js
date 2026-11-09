@@ -63,7 +63,9 @@ describe('utilisateur anonyme', () => {
 });
 
 describe('profil utilisateur sans droit particulier', () => {
-    const restricted = routes.filter(r => ['admin', 'adminOrRh', 'reporting', 'affectation'].includes(r.guard));
+    const restricted = routes.filter(r =>
+        ['admin', 'adminOrRh', 'reporting', 'affectation', 'deplacements'].includes(r.guard)
+    );
 
     it.each(restricted.map(r => [label(r), r]))('%s → 403', async (_name, r) => {
         const res = await userClient.request(r.method, concrete(r.path), r.method === 'GET' ? undefined : {});
