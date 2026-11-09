@@ -90,8 +90,6 @@ export function ecouter<N extends NomEvenement>(nom: N, fn: (detail: EvenementsL
 interface FenetreAncienCode {
     /** Retour sur la mire de connexion (public/js/app/core.js) */
     forceSessionEnd?: (message?: string) => void;
-    /** Carte des événements et déplacements, fenêtre plein écran (public/js/app/maps.js) */
-    openEventMapModal?: () => void;
     /** Colonnes d'un tableau redimensionnables et masquables (clic droit), état mémorisé (public/js/app/planning.js) */
     makeColResizable?: (tableau: HTMLTableElement) => void;
     /** Son de notification (réglage du navigateur), lu pour l'essai (public/js/app/realtime.js) */
@@ -261,11 +259,6 @@ export function installerLiaisonAncienCode(): void {
     ecouter('session-perdue', detail => {
         ancienCode().forceSessionEnd?.(detail?.message);
     });
-}
-
-/** Carte des événements de l'ancien code (non migrée) */
-export function ouvrirCarteEvenements(): void {
-    ancienCode().openEventMapModal?.();
 }
 
 /** Colonnes redimensionnables et masquables, comme les autres tableaux de l'application (utilitaire de l'ancien code) */
