@@ -95,7 +95,7 @@ Fonctionnalité: Aide à l'affectation : ateliers métier, sondages de date et c
     Alors la page publique indique "Ce sondage n’existe pas ou n’est plus disponible."
   Scénario: Cadre de l'application : en-tête, onglets, déconnexion annulée
     Étant donné que j'ouvre les ateliers métier en tant que "Administrateur"
-    Alors l'en-tête de l'aide à l'affectation présente "Test Admin" et "Administrateur"
+    Alors l'en-tête de l'aide à l'affectation présente le nom du compte et "Administrateur"
     Quand je passe sur l'onglet « Événements » de l'aide à l'affectation
     Alors l'onglet « Événements » de l'aide à l'affectation est affiché
     Quand je renonce à me déconnecter de l'aide à l'affectation
