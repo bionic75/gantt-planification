@@ -1,0 +1,153 @@
+/* Aide à l'affectation › pages imprimées et exportées : rendu statique, compact, sans éléments collants */
+.aff-print-root {
+    font-family: Arial, sans-serif;
+    color: #1f2d3d;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+.aff-print-root .pg {
+    box-sizing: border-box;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    break-after: page;
+    page-break-after: always;
+}
+.aff-print-root .pg:last-child {
+    break-after: auto;
+    page-break-after: auto;
+}
+.aff-print-root .pg-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    border-bottom: 2px solid #1d70b7;
+    padding-bottom: 3px;
+    margin-bottom: 5px;
+}
+.aff-print-root .pg-head b {
+    font-size: 15px;
+}
+.aff-print-root .pg-head span {
+    font-size: 9px;
+    color: #667;
+    text-align: right;
+}
+.aff-print-root .pg-leg {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px 12px;
+    font-size: 8px;
+    margin-bottom: 5px;
+}
+.aff-print-root .pg-leg i {
+    display: inline-block;
+    width: 11px;
+    height: 11px;
+    border-radius: 2px;
+    vertical-align: -2px;
+    margin-right: 3px;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+}
+.aff-print-root .pg-leg i.dot {
+    border-radius: 50%;
+}
+.aff-print-root .tplpg .pg-leg {
+    justify-content: flex-start;
+    font-size: 9px;
+    margin-bottom: 8px;
+}
+.aff-print-root .pg-foot {
+    margin-top: auto;
+    font-size: 8px;
+    color: #778;
+    display: flex;
+    justify-content: space-between;
+    padding-top: 3px;
+}
+.aff-print-root table.pt {
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+    table-layout: fixed !important;
+    font-size: var(--pfs, 9px);
+}
+.aff-print-root table.pt th,
+.aff-print-root table.pt td {
+    padding: 0 !important;
+    overflow: hidden;
+}
+.aff-print-root table.pt thead th {
+    position: static !important;
+    top: auto !important;
+    height: auto !important;
+    line-height: 1.2;
+    padding: 2px 1px !important;
+    font-size: var(--pfs, 9px) !important;
+    font-weight: 700;
+}
+.aff-print-root table.pt thead tr:nth-child(-n + 2) th {
+    font-size: 10.5px !important;
+}
+.aff-print-root table.pt th.corner {
+    width: var(--samw, 140px);
+    min-width: 0 !important;
+    max-width: none !important;
+    font-size: 11px !important;
+    padding-left: 6px !important;
+    text-align: left;
+}
+.aff-print-root table.pt tbody th.sam {
+    position: static !important;
+    width: var(--samw, 140px);
+    min-width: 0 !important;
+    max-width: none !important;
+    padding: 3px 6px !important;
+    z-index: auto;
+    border-right: 1px solid #cfd8e6;
+}
+.aff-print-root table.pt tbody th.sam .n {
+    font-size: 11px !important;
+    line-height: 1.15;
+}
+.aff-print-root table.pt tbody th.sam .c {
+    font-size: 8.5px !important;
+    margin-top: 1px;
+}
+.aff-print-root table.pt tbody td {
+    height: auto !important;
+    vertical-align: top;
+    overflow: visible;
+    position: relative;
+}
+.aff-print-root table.pt .aff-pc {
+    min-height: 0;
+    gap: 2px;
+    padding: 3px 0;
+}
+.aff-print-root table.pt .aff-pc .ph {
+    margin-bottom: 2px;
+}
+.aff-print-root table.pt .aff-pc .b.tri {
+    --bh: 12px;
+    --lh: 7px;
+    font-size: 6.5px;
+}
+.aff-print-root table.pt .aff-pc .b {
+    flex: 0 0 12px;
+    height: 12px;
+    min-height: 12px;
+    max-height: 12px;
+    font-size: 7.5px;
+    line-height: 12px;
+    cursor: default;
+}
+.aff-print-root table.pt .aff-mk i {
+    width: 11px;
+    height: 11px;
+}
+.aff-print-root table.pt .aff-mk.start i {
+    width: 8px;
+    height: 8px;
+}
