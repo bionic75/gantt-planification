@@ -145,7 +145,8 @@ Then(
     }
 );
 
-Then("l'info-bulle présente le type de test", async ({ monde }) => {    // Événement typé : libellé court du type, puis libellé de l'événement
+Then("l'info-bulle présente le type de test", async ({ monde }) => {
+    // Événement typé : libellé court du type, puis libellé de l'événement
     const texte = (await bulle(monde).textContent()) ?? '';
     expect(texte).toContain(`${monde.d.typeCarte.label_short}`);
     expect(texte.indexOf(monde.d.typeCarte.label_short)).toBeLessThan(texte.indexOf(monde.d.evtExpert));

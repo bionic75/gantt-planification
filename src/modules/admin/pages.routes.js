@@ -35,14 +35,7 @@ router.get('/sondage/:token', (_req, res) => {
 // Anciennes adresses des scripts, feuilles de style et images, rangés dans public/js, public/css et public/img :
 // pages en cache dans les navigateurs et aides personnalisées qui y font encore référence
 const MOVED_ASSETS = {
-    js: [
-        'darkmode.js',
-        'themes.js',
-        'layout-fix.js',
-        'ui-icons.js',
-        'affectation-app.js',
-        'event-types.js'
-    ],
+    js: ['darkmode.js', 'themes.js', 'layout-fix.js', 'ui-icons.js', 'affectation-app.js', 'event-types.js'],
     css: ['themes.css', 'darkmode.css', 'login.css', 'ui-polish.css'],
     img: [
         'asana-logo.png',
