@@ -1,10 +1,4 @@
 /* Extrait de index.html, ligne 1786 */
-#eventsMapContainer {
-    height: 520px;
-    border-radius: 8px;
-    border: 1px solid #90caf9;
-    z-index: 0;
-}
 #eventMapModalContainer {
     height: calc(97vh - 180px);
     min-height: 500px;

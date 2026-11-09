@@ -167,7 +167,8 @@ describe('carte des événements', () => {
             startDate: '2027-09-01',
             label: 'Carte',
             location_id: loc.data.id,
-            participants: [user.id]
+            participants: [user.id],
+            external_participants: [{ nom: 'Externe', prenom: 'Invité', email: 'invite.carte@example.invalid' }]
         });
         await admin.post('/api/custom-events', {
             startDate: '2027-09-02',
@@ -184,7 +185,10 @@ describe('carte des événements', () => {
                 libelle_court: 'LC',
                 creator_prenom: 'Système',
                 type_short: '',
-                participants: [`${user.prenom} ${user.nom.toUpperCase()}`]
+                participants: [`${user.prenom} ${user.nom.toUpperCase()}`],
+                // Filtre « Participants » de la carte : identifiants des participants et invités externes
+                participant_ids: [user.id],
+                external_participants: [{ nom: 'Externe', prenom: 'Invité', email: 'invite.carte@example.invalid' }]
             })
         ]);
     });

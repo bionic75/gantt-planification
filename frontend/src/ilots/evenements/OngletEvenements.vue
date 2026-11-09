@@ -1,4 +1,4 @@
-<!-- Onglet Événements : formulaire d'ajout / de modification, carte (ancien code), liste des événements -->
+<!-- Onglet Événements : formulaire d'ajout / de modification, carte des événements, liste des événements -->
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import type { Evenement } from '@/api/evenements';
@@ -6,7 +6,8 @@ import AppAlert from '@/composants/AppAlert.vue';
 import AppConfirmation from '@/composants/AppConfirmation.vue';
 import { fournirConfirmation } from '@/composants/confirmation';
 import { surReouverture } from '@/ilots/activation';
-import { ecouter, ouvrirCarteEvenements } from '@/liaison';
+import { ecouter } from '@/liaison';
+import FenetreCarte from './FenetreCarte.vue';
 import FenetreDoublons from './FenetreDoublons.vue';
 import FormulaireEvenement from './FormulaireEvenement.vue';
 import ListeEvenements from './ListeEvenements.vue';
@@ -17,6 +18,8 @@ const { demande, repondre, confirmer } = fournirConfirmation();
 const erreur = ref('');
 /** Fenêtre des doublons ouverte (administrateur) */
 const doublons = ref(false);
+/** Carte des événements ouverte */
+const carte = ref(false);
 
 async function supprimer(e: Evenement) {
     if (!(await confirmer('Êtes-vous sûr de vouloir supprimer cet événement ?', 'Supprimer'))) return;
@@ -46,7 +49,7 @@ onBeforeUnmount(arreter);
     <AppAlert v-if="erreur" type="error" :description="erreur" />
     <FormulaireEvenement />
     <div class="ev-onglet__carte">
-        <button type="button" class="ev-onglet__bouton-carte" @click="ouvrirCarteEvenements">
+        <button type="button" class="ev-onglet__bouton-carte" @click="carte = true">
             🗺️ Carte des Événements / Déplacements
         </button>
         <button
@@ -61,6 +64,7 @@ onBeforeUnmount(arreter);
     </div>
     <ListeEvenements @supprimer="supprimer" />
     <FenetreDoublons v-if="doublons" @close="doublons = false" />
+    <FenetreCarte :opened="carte" @close="carte = false" />
     <AppConfirmation
         :opened="!!demande"
         :message="demande?.message ?? ''"

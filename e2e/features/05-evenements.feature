@@ -77,18 +77,7 @@ Fonctionnalité: Événements et types d'événements
     Quand "Utilisateur" tente de supprimer cet événement
     Alors la réponse a le statut 403
 
-  # Carte Leaflet : filtrage et animation contrôlés visuellement
-  @manuel
-  Scénario: Carte des événements : filtre « Type »
-    Étant donné que des événements de plusieurs types existent
-    Quand j'utilise le filtre « Type » de la carte
-    Alors seuls les événements du type choisi sont affichés
-
-  @manuel
-  Scénario: Lecture chronologique sur la carte
-    Quand je lance la lecture chronologique à différentes vitesses
-    Alors les événements apparaissent chronologiquement
-
+  # Filtres de la carte et lecture chronologique : scénarios d'écran 34-carte-evenements
   Scénario: Carte des événements : seuls les lieux géolocalisés
     Étant donné qu'un type d'événement de test existe
     Et qu'une localisation SAMU de test géolocalisée existe

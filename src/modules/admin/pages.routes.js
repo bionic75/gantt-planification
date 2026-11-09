@@ -41,8 +41,7 @@ const MOVED_ASSETS = {
         'layout-fix.js',
         'ui-icons.js',
         'affectation-app.js',
-        'event-types.js',
-        'map-timelapse.js'
+        'event-types.js'
     ],
     css: ['themes.css', 'darkmode.css', 'login.css', 'ui-polish.css'],
     img: [
