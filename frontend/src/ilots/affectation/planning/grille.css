@@ -1,0 +1,298 @@
+/* Aide à l'affectation › grille des déploiements (écran, aperçu et exports) : tableau, barres des étapes, jalons.
+   Repris de public/js/affectation-app.js ; inséré aussi dans le HTML des exports PDF / PowerPoint. */
+.aff-plan {
+    overflow: auto;
+    max-height: calc(100vh - 230px);
+    border: 1px solid #dfe5ef;
+    border-radius: 12px;
+    background: #fff;
+}
+#affectationContainer table.aff-plan-table {
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+    min-width: max-content;
+    font-size: 12px;
+    border-radius: 0;
+    overflow: visible;
+}
+#affectationContainer table.aff-plan-table th,
+#affectationContainer table.aff-plan-table td {
+    cursor: default;
+    padding: 0;
+}
+#affectationContainer table.aff-plan-table th::after {
+    content: none;
+}
+#affectationContainer table.aff-plan-table thead th:hover {
+    background: inherit;
+}
+#affectationContainer table.aff-plan-table tbody th.sam,
+#affectationContainer table.aff-plan-table thead th.corner {
+    padding-left: 32px;
+}
+#affectationContainer table.aff-plan-table tbody tr:hover {
+    background: transparent;
+}
+#affectationContainer table.aff-plan-table tbody tr th.sam,
+#affectationContainer table.aff-plan-table tbody tr:hover th.sam {
+    background: #fff !important;
+}
+#affectationContainer table.aff-plan-table tbody tr:nth-child(even) th.sam,
+#affectationContainer table.aff-plan-table tbody tr:nth-child(even):hover th.sam {
+    background: #e9eff7 !important;
+}
+.aff-plan-table thead th {
+    height: 24px;
+    line-height: 1.1;
+    padding-top: 0;
+    padding-bottom: 0;
+    text-align: center;
+    font-weight: 700;
+    color: #fff;
+    border-right: 1px solid rgba(255, 255, 255, 0.25);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    position: sticky;
+    z-index: 3;
+    white-space: nowrap;
+    background: #34495e;
+}
+.aff-plan-table thead tr:nth-child(1) th {
+    background: #263238;
+    top: 0;
+    font-size: 14px;
+    letter-spacing: 0.5px;
+}
+.aff-plan-table thead tr:nth-child(2) th {
+    background: #1d70b7;
+    top: 24px;
+    font-size: 14px;
+}
+.aff-plan-table thead tr:nth-child(3) th {
+    background: #3d6fa8;
+    top: 48px;
+    font-size: 13px;
+}
+.aff-plan-table thead tr:nth-child(4) th {
+    background: #4a78b0;
+    top: 72px;
+    font-weight: 700;
+    font-size: 13px;
+}
+.aff-plan-table thead tr:nth-child(5) th {
+    background: #5a86ba;
+    top: 96px;
+    font-weight: 600;
+    font-size: 11px;
+}
+.aff-plan-table thead th.we {
+    background: #f0b429 !important;
+    color: #3a2d00;
+}
+.aff-plan-table thead th.today {
+    background: #2e9d62 !important;
+    color: #fff;
+}
+.aff-plan-table th.corner {
+    left: 0;
+    z-index: 6;
+    width: var(--aff-samw, 280px);
+    min-width: var(--aff-samw, 280px);
+    max-width: var(--aff-samw, 280px);
+    background: #1d70b7 !important;
+    text-align: left;
+    padding-left: 28px;
+    font-size: 22px;
+}
+.aff-plan-table tbody th.sam {
+    position: sticky;
+    left: 0;
+    z-index: 5;
+    background: #fff;
+    text-align: left;
+    padding: 6px 12px 6px 28px;
+    width: var(--aff-samw, 280px);
+    min-width: var(--aff-samw, 280px);
+    max-width: var(--aff-samw, 280px);
+    border-right: 2px solid #cfd8e6;
+    border-bottom: 1px solid #eef1f6;
+    color: #1f2d3d;
+}
+.aff-plan-table tbody th.sam .n {
+    font-weight: 800;
+    font-size: 19px;
+    line-height: 1.2;
+}
+.aff-plan-table tbody th.sam .c {
+    font-weight: 500;
+    font-size: 14px;
+    color: #6b7a8d;
+    margin-top: 2px;
+}
+.aff-plan-table tbody tr:nth-child(even) th.sam {
+    background: #e9eff7;
+}
+.aff-plan-table tbody td {
+    height: auto;
+    vertical-align: top;
+    padding: 0;
+    position: relative;
+    border-right: 1px solid #eef1f6;
+    border-bottom: 1px solid #eef1f6;
+}
+.aff-pc {
+    display: flex;
+    flex-direction: column;
+    min-height: 96px;
+    gap: 3px;
+    padding: 6px 0;
+    box-sizing: border-box;
+}
+.aff-pc .ph,
+.aff-pc .st {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+.aff-pc .ph {
+    flex: 0 0 auto;
+    gap: 3px;
+    margin-bottom: 4px;
+}
+.aff-pc .st {
+    flex: 0 0 auto;
+    gap: 3px;
+}
+.aff-pc .b {
+    flex: 0 0 18px;
+    height: 18px;
+    min-height: 18px;
+    max-height: 18px;
+    box-sizing: border-box;
+    font-size: 11px;
+    line-height: 18px;
+    color: #fff;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: visible;
+    text-shadow: 0 0 2px rgba(0, 0, 0, 0.45);
+    padding-left: 3px;
+}
+/* Trigrammes des experts dans les barres des étapes : hauteur commune à toute la voie (lignes empilées) */
+.aff-pc .b.tri {
+    --bh: 18px;
+    --lh: 9px;
+    height: calc(var(--bh) + (var(--tl) - 1) * var(--lh));
+    min-height: calc(var(--bh) + (var(--tl) - 1) * var(--lh));
+    max-height: calc(var(--bh) + (var(--tl) - 1) * var(--lh));
+    flex: 0 0 calc(var(--bh) + (var(--tl) - 1) * var(--lh));
+    line-height: var(--lh);
+    font-size: 8.5px;
+    white-space: normal;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0 1px;
+    text-align: center;
+    letter-spacing: 0.2px;
+}
+.aff-pc .b.tri > span {
+    display: block;
+}
+.chip.tri-sw .sw {
+    display: inline-block;
+    width: 26px;
+    height: 14px;
+    border-radius: 999px;
+    background: #0f766e;
+    position: relative;
+    margin-right: 6px;
+    vertical-align: -3px;
+    transition: background 0.15s;
+}
+.chip.tri-sw .sw i {
+    position: absolute;
+    top: 2px;
+    left: 14px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #fff;
+    transition: left 0.15s;
+}
+.chip.tri-sw.off .sw {
+    background: #b6c0cc;
+}
+.chip.tri-sw.off .sw i {
+    left: 2px;
+}
+.aff-pc .b.hd {
+    border-top-left-radius: 5px;
+    border-bottom-left-radius: 5px;
+}
+.aff-pc .b.tl {
+    border-top-right-radius: 5px;
+    border-bottom-right-radius: 5px;
+}
+.aff-pc .b.go {
+    cursor: pointer;
+}
+.aff-pc .b.go:hover {
+    filter: brightness(1.15);
+    outline: 2px solid rgba(15, 118, 110, 0.7);
+    outline-offset: -1px;
+}
+.aff-pc .b.ok {
+    box-shadow: inset 0 -2px 0 rgba(255, 255, 255, 0.85);
+}
+.aff-mk {
+    position: absolute;
+    top: 2px;
+    width: 0;
+    height: 0;
+    z-index: 1;
+}
+.aff-mk.start {
+    top: 0;
+    bottom: 0;
+    height: auto;
+    width: 2px;
+    margin-left: -1px;
+    background: #263238;
+    opacity: 0.85;
+}
+.aff-mk.start i {
+    left: -4px;
+    top: -1px;
+    width: 10px;
+    height: 10px;
+    border-width: 1px;
+}
+.aff-mk i {
+    position: absolute;
+    top: 0;
+    left: -8px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+.aff-plan-table tbody td.we {
+    background: #fff8e6;
+}
+.aff-plan-table tbody td.today {
+    background: rgba(46, 157, 98, 0.12);
+    box-shadow: inset 2px 0 0 #2e9d62;
+}
+/* Alternance très légère d'une ligne SAMU à l'autre ; week-end et jour courant restent reconnaissables */
+.aff-plan-table tbody tr:nth-child(even) td:not(.we):not(.today) {
+    background: #eef3f9;
+}
+.aff-plan-table tbody tr:nth-child(even) td.we {
+    background: #f6eedb;
+}
+.aff-plan-table tbody tr:nth-child(even) td.today {
+    background: rgba(46, 157, 98, 0.18);
+}

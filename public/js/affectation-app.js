@@ -59,52 +59,11 @@
     const css2 = `
         #affectationContainer .aff-card { background: #fff; border: 1px solid #dfe5ef; border-radius: 14px; margin: 18px 0; padding: 16px 20px 18px; box-shadow: 0 2px 8px rgba(30,60,110,.06); }
         #affectationContainer .aff-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
-        .aff-rs { position: absolute; top: 0; right: -4px; bottom: 0; width: 9px; cursor: col-resize; z-index: 8; touch-action: none; }
-        .aff-rs::after { content: ''; position: absolute; top: 0; bottom: 0; left: 3px; width: 3px; border-radius: 2px; background: transparent; transition: background .15s; }
-        .aff-rs:hover::after, body.aff-resizing .aff-rs::after { background: rgba(15,118,110,.55); }
-        body.aff-resizing, body.aff-resizing * { cursor: col-resize !important; user-select: none !important; }
-        .aff-dd { position: relative; display: inline-block; }
-        .aff-dd-pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 60; min-width: 250px; max-height: 360px; overflow-y: auto; background: #fff; border: 1px solid #cfd8e6; border-radius: 12px; box-shadow: 0 10px 28px rgba(0,0,0,.2); padding: 8px 12px; }
-        .aff-dd-pop .hd { display: flex; gap: 8px; padding: 2px 0 6px; position: sticky; top: -8px; background: #fff; }
-        .aff-dd-pop label { display: flex; align-items: center; gap: 8px; padding: 4px 2px; border-top: 1px solid #eef1f6; font-size: 13px; cursor: pointer; }
-        .aff-dd-pop label input { width: auto; margin: 0; flex: none; }
-        .aff-rowsync { position: absolute; top: 6px; right: 36px; width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 1px solid #f3b5b5; background: #fff; color: #e0524f; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; opacity: .55; transition: opacity .15s, background .15s; }
-        .aff-rowsync svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-        #affectationContainer table.aff-plan-table tbody th.sam:hover .aff-rowsync, .aff-rowsync:focus { opacity: 1; }
-        .aff-rowsync:hover { background: #fdecea; border-color: #e57373; opacity: 1; }
-        .aff-busy svg { animation: affspin .9s linear infinite; } .aff-busy { pointer-events: none; opacity: 1 !important; }
-        @keyframes affspin { to { transform: rotate(360deg); } }
         .aff-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 20000; background: #263238; color: #fff; padding: 10px 18px; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.3); font-size: 13px; max-width: 80vw; }
         .aff-toast.err { background: #b3261e; }
         #affAsanaChgBody th, #affAsanaConfBody th { background: transparent !important; color: #6b7a8d !important; font-weight: 700; } #affAsanaChgBody th::after, #affAsanaConfBody th::after { content: none !important; } #affAsanaChgBody table, #affAsanaConfBody table { background: #fff; }
-        .aff-rowhide { position: absolute; top: 6px; right: 8px; width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 1px solid #cfd8e6; background: #fff; color: #6b7a8d; font-size: 16px; font-weight: 700; line-height: 18px; cursor: pointer; opacity: .4; }
-        #affectationContainer table.aff-plan-table tbody th.sam:hover .aff-rowhide, .aff-rowhide:focus { opacity: 1; }
-        .aff-rowhide:hover { background: #fdecea; color: #b3261e; border-color: #e57373; opacity: 1; }
-        .aff-hid-pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 50; min-width: 300px; max-height: 340px; overflow-y: auto; background: #fff; border: 1px solid #cfd8e6; border-radius: 12px; box-shadow: 0 10px 28px rgba(0,0,0,.22); padding: 8px 10px; }
-        .aff-hid-pop .hd, .aff-hid-pop .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 5px 2px; }
-        .aff-hid-pop .row { border-top: 1px solid #eef1f6; font-size: 13px; }
-        .aff-range { display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; margin: 0 0 12px; font-size: 13px; color: #4a5b70; }
-        .aff-range .lbl { font-weight: 700; }
-        .aff-range input { padding: 6px 8px; border: 1px solid #cfd8e6; border-radius: 8px; font-size: 13px; width: auto; display: inline-block; }
-        .aff-range input.bad { border-color: #e03b3b; background: #fff1f1; }
         .aff-tpl { margin-bottom: 4px; } .aff-tpl-n { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
         .aff-tpl-l { margin: 4px 0 6px 18px; padding: 0; font-size: 13px; color: #4a5b70; } .aff-tpl-l li { margin: 2px 0; }
-        .aff-print-ctl { width: 300px; flex-shrink: 0; overflow-y: auto; padding: 14px 16px; border-right: 1px solid #e6ebf3; background: #fff; font-size: 13px; }
-        .aff-print-ctl .g { margin-bottom: 12px; }
-        .aff-print-ctl .g > label.lbl { display: block; font-size: 12px; font-weight: 700; color: #4a5b70; margin-bottom: 4px; }
-        .aff-print-ctl input[type=text], .aff-print-ctl input[type=date], .aff-print-ctl select { width: 100%; padding: 6px 8px; border: 1px solid #cfd8e6; border-radius: 8px; font-size: 13px; }
-        .aff-print-ctl .chk { display: flex; align-items: center; gap: 7px; padding: 2px 0; cursor: pointer; }
-        .aff-print-ctl .chk input { width: auto; display: inline-block; margin: 0; }
-        .aff-print-ctl .box { max-height: 150px; overflow-y: auto; border: 1px solid #e6ebf3; border-radius: 8px; padding: 4px 8px; }
-        .aff-print-ctl .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .aff-fmt { display: flex; align-items: stretch; gap: 6px; }
-        .aff-fmt button { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 7px 4px; border: 1px solid #cfd8e6; border-radius: 10px; background: #fff; color: #4a5b70; font-size: 11px; font-weight: 600; cursor: pointer; }
-        .aff-fmt button[data-p] { flex: 0 0 46px; font-size: 14px; }
-        .aff-fmt button:hover { border-color: #0f766e; }
-        .aff-fmt button.on { background: #0f766e; border-color: #0f766e; color: #fff; box-shadow: 0 2px 6px rgba(15,118,110,.35); }
-        .aff-fmt .sep { width: 1px; background: #dfe5ef; margin: 2px 2px; }
-        .aff-print-preview { flex: 1; overflow: auto; padding: 14px; }
-        .aff-print-preview .pw { margin: 0 auto 14px; box-shadow: 0 2px 10px rgba(0,0,0,.25); background: #fff; }
         .aff-hist-item { border: 1px solid #e6ebf3; border-left: 4px solid #6b7a8d; border-radius: 10px; padding: 10px 14px; margin-bottom: 10px; background: #fff; }
         .aff-hist-item .top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 6px; }
         .aff-hist-item .who { font-weight: 700; color: #1f2d3d; }
@@ -196,95 +155,9 @@
         .aff-bad { border-color: #e03b3b !important; background: #fff1f1 !important; box-shadow: 0 0 0 2px rgba(224,59,59,.2); }
         .aff-modal-foot .aff-error { flex: 1; text-align: left; font-size: 12px; line-height: 1.5; max-height: 90px; overflow: auto; }
         .aff-section-title { margin: 20px 0 4px; font-size: 13px; font-weight: 800; color: #0f766e; text-transform: uppercase; letter-spacing: .5px; }
-        .aff-legendbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; padding: 10px 12px; border: 1px solid #dfe5ef; border-radius: 12px; background: #fff; }
-        .aff-legendbar .t { font-size: 12px; font-weight: 800; color: #0f766e; text-transform: uppercase; letter-spacing: .5px; margin-right: 4px; }
-        .aff-legendbar button.chip { display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px; border: 1px solid #cfd8e6; border-radius: 999px; background: #fff; color: #2c3e50; font-size: 12px; font-weight: 600; cursor: pointer; }
-        .aff-legendbar button.chip i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
-        .aff-legendbar button.chip i.dot { border-radius: 50%; }
-        .aff-legendbar button.chip.off { opacity: .45; text-decoration: line-through; background: #f3f5f9; }
-        .aff-legendbar button.chip.off i { filter: grayscale(1); }
-        .aff-legendbar .sep { width: 1px; height: 20px; background: #dfe5ef; margin: 0 4px; }
-        .aff-plan-bar { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
-        .aff-plan-ctrl { display: flex; align-items: center; gap: 12px; }
-        .aff-seg { display: inline-flex; border: 1px solid #cfd8e6; border-radius: 9px; overflow: hidden; background: #fff; }
-        .aff-seg button { border: none; background: transparent; padding: 8px 16px; font-size: 13px; font-weight: 600; color: #4a5b70; cursor: pointer; }
-        .aff-seg button + button { border-left: 1px solid #cfd8e6; }
-        .aff-seg button.on { background: #0f766e; color: #fff; }
-        .aff-plan { overflow: auto; max-height: calc(100vh - 230px); border: 1px solid #dfe5ef; border-radius: 12px; background: #fff; }
-        #affectationContainer table.aff-plan-table { border-collapse: separate; border-spacing: 0; width: 100%; min-width: max-content; font-size: 12px; border-radius: 0; overflow: visible; }
-        #affectationContainer table.aff-plan-table th, #affectationContainer table.aff-plan-table td { cursor: default; padding: 0; }
-        #affectationContainer table.aff-plan-table th::after { content: none; }
-        #affectationContainer table.aff-plan-table thead th:hover { background: inherit; }
-        #affectationContainer table.aff-plan-table tbody th.sam, #affectationContainer table.aff-plan-table thead th.corner { padding-left: 32px; }
-        #affectationContainer table.aff-plan-table tbody tr:hover { background: transparent; }
-        #affectationContainer table.aff-plan-table tbody tr th.sam, #affectationContainer table.aff-plan-table tbody tr:hover th.sam { background: #fff !important; }
-        #affectationContainer table.aff-plan-table tbody tr:nth-child(even) th.sam, #affectationContainer table.aff-plan-table tbody tr:nth-child(even):hover th.sam { background: #e9eff7 !important; }
-        .aff-plan-table thead th { height: 24px; line-height: 1.1; padding-top: 0; padding-bottom: 0; text-align: center; font-weight: 700; color: #fff; border-right: 1px solid rgba(255,255,255,.25); border-bottom: 1px solid rgba(255,255,255,.2); position: sticky; z-index: 3; white-space: nowrap; background: #34495e; }
-        .aff-plan-table thead tr:nth-child(1) th { background: #263238; top: 0; font-size: 14px; letter-spacing: .5px; }
-        .aff-plan-table thead tr:nth-child(2) th { background: #1D70B7; top: 24px; font-size: 14px; }
-        .aff-plan-table thead tr:nth-child(3) th { background: #3d6fa8; top: 48px; font-size: 13px; }
-        .aff-plan-table thead tr:nth-child(4) th { background: #4a78b0; top: 72px; font-weight: 700; font-size: 13px; }
-        .aff-plan-table thead tr:nth-child(5) th { background: #5a86ba; top: 96px; font-weight: 600; font-size: 11px; }
-        .aff-plan-table thead th.we { background: #f0b429 !important; color: #3a2d00; }
-        .aff-plan-table thead th.today { background: #2e9d62 !important; color: #fff; }
-        .aff-plan-table th.corner { left: 0; z-index: 6; width: var(--aff-samw, 280px); min-width: var(--aff-samw, 280px); max-width: var(--aff-samw, 280px); background: #1D70B7 !important; text-align: left; padding-left: 28px; font-size: 22px; }
-        .aff-plan-table tbody th.sam { position: sticky; left: 0; z-index: 5; background: #fff; text-align: left; padding: 6px 12px 6px 28px; width: var(--aff-samw, 280px); min-width: var(--aff-samw, 280px); max-width: var(--aff-samw, 280px); border-right: 2px solid #cfd8e6; border-bottom: 1px solid #eef1f6; color: #1f2d3d; }
-        .aff-plan-table tbody th.sam .n { font-weight: 800; font-size: 19px; line-height: 1.2; }
-        .aff-plan-table tbody th.sam .c { font-weight: 500; font-size: 14px; color: #6b7a8d; margin-top: 2px; }
-        .aff-plan-table tbody tr:nth-child(even) th.sam { background: #e9eff7; }
-        .aff-plan-table tbody td { height: auto; vertical-align: top; padding: 0; position: relative; border-right: 1px solid #eef1f6; border-bottom: 1px solid #eef1f6; }
-        .aff-pc { display: flex; flex-direction: column; min-height: 96px; gap: 3px; padding: 6px 0; box-sizing: border-box; }
-        .aff-pc .ph, .aff-pc .st { display: flex; flex-direction: column; gap: 1px; }
-        .aff-pc .ph { flex: 0 0 auto; gap: 3px; margin-bottom: 4px; } .aff-pc .st { flex: 0 0 auto; gap: 3px; }
-          .aff-pc .b { flex: 0 0 18px; height: 18px; min-height: 18px; max-height: 18px; box-sizing: border-box; font-size: 11px; line-height: 18px; color: #fff; font-weight: 700; white-space: nowrap; overflow: visible; text-shadow: 0 0 2px rgba(0,0,0,.45); padding-left: 3px; }
-        /* Trigrammes des experts dans les barres des étapes : hauteur commune à toute la voie (lignes empilées) */
-        .aff-pc .b.tri { --bh: 18px; --lh: 9px; height: calc(var(--bh) + (var(--tl) - 1) * var(--lh)); min-height: calc(var(--bh) + (var(--tl) - 1) * var(--lh)); max-height: calc(var(--bh) + (var(--tl) - 1) * var(--lh)); flex: 0 0 calc(var(--bh) + (var(--tl) - 1) * var(--lh)); line-height: var(--lh); font-size: 8.5px; white-space: normal; overflow: hidden; display: flex; flex-direction: column; justify-content: center; padding: 0 1px; text-align: center; letter-spacing: .2px; }
-        .aff-pc .b.tri > span { display: block; }
-        .chip.tri-sw .sw { display: inline-block; width: 26px; height: 14px; border-radius: 999px; background: #0f766e; position: relative; margin-right: 6px; vertical-align: -3px; transition: background .15s; }
-        .chip.tri-sw .sw i { position: absolute; top: 2px; left: 14px; width: 10px; height: 10px; border-radius: 50%; background: #fff; transition: left .15s; }
-        .chip.tri-sw.off .sw { background: #b6c0cc; } .chip.tri-sw.off .sw i { left: 2px; }
-        .aff-pc .b.hd { border-top-left-radius: 5px; border-bottom-left-radius: 5px; }
-        .aff-pc .b.tl { border-top-right-radius: 5px; border-bottom-right-radius: 5px; }
-        .aff-pc .b.go { cursor: pointer; } .aff-pc .b.go:hover { filter: brightness(1.15); outline: 2px solid rgba(15,118,110,.7); outline-offset: -1px; }
-        .aff-pc .b.ok { box-shadow: inset 0 -2px 0 rgba(255,255,255,.85); }
-        .aff-mk { position: absolute; top: 2px; width: 0; height: 0; z-index: 1; }
-        .aff-mk.start { top: 0; bottom: 0; height: auto; width: 2px; margin-left: -1px; background: #263238; opacity: .85; }
-        .aff-mk.start i { left: -4px; top: -1px; width: 10px; height: 10px; border-width: 1px; }
-        .aff-mk i { position: absolute; top: 0; left: -8px; width: 16px; height: 16px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.4); }
-        .aff-asg { border-collapse: separate; border-spacing: 0; font-size: 12px; }
-        .aff-asg th, .aff-asg td { padding: 0; text-align: center; border: 0; background: #fff; }
-        .aff-asg th::after { content: none !important; }
-        .aff-asg thead th { position: sticky; top: 0; z-index: 3; background: #eef3f9 !important; color: #4a5b70 !important; font-size: 10px; font-weight: 700; padding: 3px 2px; min-width: 38px; }
-        .aff-asg thead th .c { font-weight: 600; color: #6b7a8d; } .aff-asg thead th.full .c { color: #b3261e; }
-        .aff-asg th.who { position: sticky; left: 0; z-index: 4; text-align: left; min-width: 230px; max-width: 230px; padding: 4px 10px; background: #fff !important; color: #2c3e50 !important; font-weight: 400; border-bottom: 1px solid #eef1f6; }
-        .aff-asg thead th.who { background: #eef3f9 !important; z-index: 5; }
-        .aff-asg tr.sel th.who { background: #eaf6f2 !important; } .aff-asg .tri { font-size: 10px; color: #6b7a8d; margin-left: 4px; }
-        .aff-asg td { padding: 2px; border-bottom: 1px solid #eef1f6; }
-        .aff-asg thead th.we { background: #fbe9bd !important; } .aff-asg td.we { background: #fff6dc; }
-        .aff-dc { width: 32px; height: 24px; border-radius: 6px; border: 1px solid transparent; font-weight: 800; font-size: 13px; line-height: 1; padding: 0; cursor: pointer; display: inline-block; vertical-align: middle; color: #fff; }
-        .aff-dc.ok { background: #e3f5ea; border-color: #bfe5cd; } .aff-dc.here { background: #e0ecfb; border-color: #bcd4f3; } .aff-dc.mid { background: #fff0d6; border-color: #f2d9a6; }
-        .aff-dc.na { background: #eceff3; border-color: #d9dee6; } .aff-dc.ko { background: #fbd9d9; border-color: #f0b4b4; }
-        .aff-dc.on { background: #0f766e !important; border-color: #0b5a54 !important; }
-        .aff-dc:disabled { opacity: .45; cursor: not-allowed; } .aff-dc:not(:disabled):hover { outline: 2px solid rgba(15,118,110,.6); }
-        .aff-asg-leg { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 11px; color: #6b7a8d; margin-top: 8px; } .aff-asg-leg .aff-dc { width: 14px; height: 12px; margin-right: 4px; cursor: default; }
-        .aff-assign-list { max-height: 62vh; overflow: auto; border: 1px solid #dfe5ef; border-radius: 10px; margin-top: 8px; }
-        .aff-assign-list label { display: flex; align-items: center; gap: 10px; padding: 7px 12px; cursor: pointer; border-bottom: 1px solid #eef1f6; font-size: 13px; }
-        .aff-assign-list label:nth-child(even) { background: #f6f9fc; }
-        .aff-assign-list label input { width: auto; display: inline-block; margin: 0; }
         .aff-sync-sec { border: 1px solid #dfe5ef; border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; }
         .aff-sync-sec h4 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .4px; color: #0f766e; display: flex; align-items: center; gap: 8px; }
         .aff-sync-sec h4 input, .aff-sync-row input[type=checkbox] { width: auto; display: inline-block; margin: 0; }
-        .aff-sg { display: flex; gap: 3px; flex-wrap: wrap; margin: 6px 0; }
-        .aff-sg-d { text-align: center; font-size: 10px; line-height: 1.2; color: #667; width: 30px; }
-        .aff-sg-d.we { opacity: .6; }
-        .aff-sg-c { height: 12px; border-radius: 3px; margin-top: 2px; background: #eef1f6; }
-        .aff-sg-c.ok { background: #43a047; } .aff-sg-c.write { background: #1e88e5; }
-        .aff-sg-c.conflict { background: #e53935; } .aff-sg-c.extra { background: #fb8c00; }
-        .aff-sg-lg { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; margin: 8px 0; }
-        .aff-sg-lg i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 4px; vertical-align: -2px; }
-        .aff-sg-fix { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12px; margin: 2px 0 4px; }
-        .aff-sync-row { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; border-top: 1px solid #f0f3f8; font-size: 13px; }
-        .aff-sync-row:first-of-type { border-top: none; }
         .aff-sync-sec .aff-field { margin-top: 8px; }
         .aff-sync-sec .aff-field input[type=text], .aff-sync-sec .aff-field input[type=date] { padding: 7px 9px; border: 1px solid #cfd8e6; border-radius: 8px; font-size: 13px; }
         #affAsanaTable th { background: #e6f4f1 !important; color: #0f4c5c !important; cursor: default !important; } #affAsanaTable th::after { content: none !important; }
@@ -294,13 +167,6 @@
         .aff-av-b { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: #e9edf3; color: #4a5b70; }
         .aff-av-b.ok { background: #d7f2e3; color: #167a45; } .aff-av-b.mid { background: #ffeccc; color: #9a5b00; }
         .aff-av-b.ko { background: #fbd9d9; color: #b3261e; } .aff-av-b.here { background: #d9e8fb; color: #1d5fa8; }
-        .aff-assign-list label.off { opacity: .45; cursor: not-allowed; }
-        .aff-plan-table tbody td.we { background: #fff8e6; }
-        .aff-plan-table tbody td.today { background: rgba(46,157,98,.12); box-shadow: inset 2px 0 0 #2e9d62; }
-        /* Alternance très légère d'une ligne SAMU à l'autre ; week-end et jour courant restent reconnaissables */
-        .aff-plan-table tbody tr:nth-child(even) td:not(.we):not(.today) { background: #eef3f9; }
-        .aff-plan-table tbody tr:nth-child(even) td.we { background: #f6eedb; }
-        .aff-plan-table tbody tr:nth-child(even) td.today { background: rgba(46,157,98,.18); }
         @media (max-width: 760px) { .aff-proj { grid-template-columns: 1fr; } .aff-stage { grid-template-columns: 1fr; } }
     `;
 
@@ -328,31 +194,8 @@
     </div>
     <div class="header-spacer"></div>
 
-    <div id="affectationPlanningTab" class="tab-content active aff-panel">
-        <div id="affLegendBar" class="aff-legendbar"></div>
-        <div class="aff-plan-bar">
-            <h2 style="margin:0;">Planning des déploiements</h2>
-            <div class="aff-plan-ctrl">
-                <span class="aff-muted" style="font-weight:700;">Trier par</span>
-                <div class="aff-seg aff-sort" role="group" aria-label="Tri">
-                    <button type="button" data-s="samu" onclick="AffectationApp.planSort('samu')">SAMU</button>
-                    <button type="button" data-s="chef" onclick="AffectationApp.planSort('chef')">Chef de projet</button>
-                    <button type="button" data-s="mes" onclick="AffectationApp.planSort('mes')">Mise en service</button>
-                    <button type="button" data-s="mep" onclick="AffectationApp.planSort('mep')">Mise en production</button>
-                </div>
-                <span class="aff-dd" id="affSamuDd"></span>
-                <div class="aff-seg" role="group" aria-label="Échelle de temps">
-                    <button type="button" data-z="day" class="on" onclick="AffectationApp.planZoom('day')" title="Afficher à la maille jour">Jour</button>
-                    <button type="button" data-z="week" onclick="AffectationApp.planZoom('week')" title="Afficher à la maille semaine">Semaine</button>
-                    <button type="button" data-z="month" onclick="AffectationApp.planZoom('month')" title="Afficher à la maille mois">Mois</button>
-                </div>
-                <button type="button" class="aff-btn" onclick="AffectationApp.openPrint()" title="Mettre en page, imprimer ou exporter en PDF / PowerPoint">${svg('print', 'aff-ico-sm')}Imprimer / Exporter</button>
-                <button type="button" class="aff-btn" onclick="AffectationApp.planToday()" title="Se placer sur la date du jour">${svg('planning', 'aff-ico-sm')}Aujourd'hui</button>
-            </div>
-        </div>
-        <div id="affRangeCtl" class="aff-range"></div>
-        <div id="affPlan" class="aff-plan"><p class="aff-muted" style="padding:18px;">Chargement…</p></div>
-    </div>
+    <!-- Onglet « Planning des déploiements » : îlot Vue (frontend/src/ilots/affectation/planning/OngletPlanningAffectation.vue) -->
+    <div id="affectationPlanningTab" class="tab-content active aff-panel"></div>
 
     <!-- Onglet « Événements » : îlot Vue (frontend/src/ilots/affectation/OngletEvenementsAffectation.vue) -->
     <div id="affectationEventsTab" class="tab-content aff-panel"></div>
@@ -448,29 +291,6 @@
         </div>
     </div>
 
-    <div class="modal" id="affAssignModal">
-        <div class="modal-content" style="max-width:1180px; width:96%; max-height:92vh; overflow-y:auto; padding:0;">
-            <div class="aff-modal-head">
-                <span id="affAssignTitle" class="aff-card-title"></span>
-                <button type="button" class="aff-x" onclick="AffectationApp.closeAssign()" aria-label="Fermer">${svg('x', 'aff-ico-sm')}</button>
-            </div>
-            <div class="aff-modal-body">
-                <div id="affAssignInfo" class="aff-muted"></div>
-                 <p class="aff-muted" style="margin:8px 0 0;font-size:12px;">Cochez, pour chaque expert, les <b>journées</b> où il intervient, week-ends compris (le nombre de ressources nécessaires est le maximum <b>par jour</b>). Ces journées alimentent la planification ; l'événement associé réunit tous les intervenants de l'étape.</p>
-                <input id="affAssignFilter" type="text" placeholder="Filtrer les ressources…" oninput="AffectationApp.assignFilter()" style="margin-top:10px;padding:8px 10px;border:1px solid #cfd8e6;border-radius:8px;">
-                <input id="affAssignExt" list="affExtList" type="text" autocomplete="off" placeholder="Ajouter une ressource externe : premières lettres du nom, du prénom ou du trigramme…" oninput="AffectationApp.assignExtPick()" style="margin-top:8px;padding:8px 10px;border:1px solid #cfd8e6;border-radius:8px;">
-                <datalist id="affExtList"></datalist>
-                <div id="affAssignList" class="aff-assign-list"></div>
-            </div>
-            <div class="aff-modal-foot">
-                <span id="affAssignError" class="aff-error"></span>
-                <button type="button" class="aff-btn" onclick="AffectationApp.openSync()" title="Reporter les ressources affectées dans la planification et les événements">Synchroniser</button>
-                <button type="button" class="aff-btn" onclick="AffectationApp.closeAssign()">Annuler</button>
-                <button type="button" class="aff-btn aff-btn-primary" onclick="AffectationApp.saveAssign()">${svg('save', 'aff-ico-sm')}Enregistrer</button>
-            </div>
-        </div>
-    </div>
-
     <div class="modal" id="affAsanaTasksModal">
         <div class="modal-content" style="max-width:1500px; width:98%; max-height:94vh; overflow-y:auto; padding:0;">
             <div class="aff-modal-head">
@@ -539,29 +359,6 @@
         </div>
     </div>
 
-    <div class="modal" id="affPrintModal">
-        <div class="modal-content" style="max-width:1320px; width:98%; height:94vh; display:flex; flex-direction:column; padding:0; overflow:hidden;">
-            <div class="aff-modal-head">
-                <span class="aff-card-title">${svg('print', 'aff-ico')}Imprimer / Exporter le planning</span>
-                <button type="button" class="aff-x" onclick="AffectationApp.printClose()" aria-label="Fermer">${svg('x', 'aff-ico-sm')}</button>
-            </div>
-            <div style="display:flex; flex:1; min-height:0;">
-                <div id="affPrintCtl" class="aff-print-ctl"></div>
-                <div style="flex:1; display:flex; flex-direction:column; min-width:0; background:#e9edf3;">
-                    <div id="affPrintInfo" class="aff-muted" style="padding:8px 14px; font-size:12px;"></div>
-                    <div id="affPrintPreview" class="aff-print-root aff-print-preview"></div>
-                </div>
-            </div>
-            <div class="aff-modal-foot">
-                <span id="affPrintErr" class="aff-error"></span>
-                <button type="button" class="aff-btn" onclick="AffectationApp.printClose()">Fermer</button>
-                <button type="button" class="aff-btn" onclick="AffectationApp.printDo('print')">${svg('print', 'aff-ico-sm')}Imprimer</button>
-                <button type="button" class="aff-btn" onclick="AffectationApp.printDo('pdf')">Exporter en PDF</button>
-                <button type="button" class="aff-btn aff-btn-primary" onclick="AffectationApp.printDo('pptx')">Exporter en PowerPoint</button>
-            </div>
-        </div>
-    </div>
-
     <div class="modal" id="affAsanaModal">
         <div class="modal-content" style="max-width:820px; width:96%; max-height:92vh; overflow-y:auto; padding:0;">
             <div class="aff-modal-head">
@@ -580,21 +377,6 @@
                 <span id="affAsanaError" class="aff-error"></span>
                 <button type="button" class="aff-btn" onclick="AffectationApp.asanaClose()">Fermer</button>
                 <button type="button" class="aff-btn aff-btn-primary" id="affAsanaOk" onclick="AffectationApp.asanaApply()" style="display:none;">${svg('save', 'aff-ico-sm')}Appliquer la sélection</button>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal" id="affSyncModal">
-        <div class="modal-content" style="max-width:640px; width:94%; max-height:92vh; overflow-y:auto; padding:0;">
-            <div class="aff-modal-head">
-                <span id="affSyncTitle" class="aff-card-title">Reporter l'affectation</span>
-                <button type="button" class="aff-x" onclick="AffectationApp.closeSync()" aria-label="Fermer">${svg('x', 'aff-ico-sm')}</button>
-            </div>
-            <div id="affSyncBody" class="aff-modal-body"></div>
-            <div class="aff-modal-foot">
-                <span id="affSyncError" class="aff-error"></span>
-                <button type="button" class="aff-btn" id="affSyncLater" onclick="AffectationApp.closeSync()">Plus tard</button>
-                <button type="button" class="aff-btn aff-btn-primary" id="affSyncOk" onclick="AffectationApp.applySync()">${svg('save', 'aff-ico-sm')}Valider les modifications</button>
             </div>
         </div>
     </div>
@@ -653,7 +435,7 @@
     function mount() {
         if (document.getElementById('affectationContainer')) return;
         const style = document.createElement('style');
-        style.textContent = css + css2 + PRINT_CSS;
+        style.textContent = css + css2;
         document.head.appendChild(style);
         const box = document.createElement('div');
         box.id = 'affectationContainer';
@@ -1805,8 +1587,7 @@
             };
             state.projects = (await api('/affectation/projects')).projects;
             renderProjects();
-            plan.projects = state.projects;
-            renderPlanning();
+            notifierPlanning();
             adminApi.asanaLoadProjects();
         },
         async asanaLink(gid, value) {
@@ -1942,8 +1723,7 @@
                           });
                 adminApi.asanaClose();
                 await loadAdmin();
-                plan.projects = state.projects;
-                renderPlanning();
+                notifierPlanning();
                 alert(
                     `${r.created ? 'Déploiement créé' : 'Déploiement mis à jour'} : ${r.samu_name}.` +
                         (r.debutAjuste
@@ -2236,8 +2016,7 @@
                 });
                 adminApi.closeProject();
                 await loadAdmin();
-                plan.projects = state.projects;
-                renderPlanning();
+                notifierPlanning();
             } catch (e) {
                 errEl.textContent = e.message;
             }
@@ -2252,8 +2031,7 @@
                 });
                 AffectationApp.delEvCancel();
                 await loadAdmin();
-                plan.projects = state.projects;
-                renderPlanning();
+                notifierPlanning();
                 if (r.eventsRemoved) {
                     const t = document.createElement('div');
                     t.className = 'aff-toast';
@@ -2333,8 +2111,8 @@
         loadAdmin
     };
 
-    // ================= Planning des déploiements (grille calendaire) =================
-    const plan = { sort: { key: 'samu', dir: 1 }, zoom: 'day', projects: [], loaded: false };
+    // ================= Planning des déploiements : îlot Vue (frontend/src/ilots/affectation/planning) =================
+    // Dates utilisées par l'administration (calendrier des périodes, semaines)
     const MONTHS = [
         'janvier',
         'février',
@@ -2349,7 +2127,6 @@
         'novembre',
         'décembre'
     ];
-    const WDAY = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
     const utcMs = iso => Date.parse(iso + 'T00:00:00Z');
     const isoMs = ms => new Date(ms).toISOString().slice(0, 10);
     const addD = (iso, n) => isoMs(utcMs(iso) + n * 86400000);
@@ -2358,7 +2135,6 @@
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     };
     const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
-
     function isoWeek(iso) {
         const d = new Date(utcMs(iso));
         const dayNum = (d.getUTCDay() + 6) % 7;
@@ -2368,1105 +2144,12 @@
         return { week, year: d.getUTCFullYear() };
     }
     const mondayOf = iso => addD(iso, -((new Date(utcMs(iso)).getUTCDay() + 6) % 7));
-
-    function group(list, keyFn, labelFn) {
-        const out = [];
-        list.forEach(item => {
-            const k = keyFn(item);
-            if (out.length && out[out.length - 1].key === k) out[out.length - 1].n++;
-            else out.push({ key: k, label: labelFn ? labelFn(item) : k, n: 1, first: item });
-        });
-        return out;
-    }
-
-    // Lignes SAMU retirées de l'affichage (mémorisées dans le navigateur) ; rétablissables une à une
-    try {
-        plan.hiddenRows = new Set(JSON.parse(localStorage.getItem('affHiddenRows') || '[]'));
-    } catch (e) {
-        plan.hiddenRows = new Set();
-    }
-    const saveHiddenRows = () => {
-        try {
-            localStorage.setItem('affHiddenRows', JSON.stringify([...plan.hiddenRows]));
-        } catch (e) {
-            /* stockage indisponible */
-        }
-    };
-
-    // Bornes d'affichage choisies par l'utilisateur (mémorisées) ; une borne absente reste automatique
-    try {
-        plan.range = JSON.parse(localStorage.getItem('affPlanRange') || 'null');
-    } catch (e) {
-        plan.range = null;
-    }
-    // Bornes mémorisées aberrantes (ex. année 0002) : on revient à l'affichage automatique
-    if (
-        plan.range &&
-        ((plan.range.from && spanError(plan.range.from, plan.range.to || plan.range.from, 'month')) ||
-            (plan.range.to && spanError(plan.range.from || plan.range.to, plan.range.to, 'month')))
-    )
-        plan.range = null;
-    function autoRange() {
-        let min = null,
-            max = null;
-        plan.projects.forEach(p => {
-            const dates = [p.date_debut, p.date_mise_en_service, p.date_mise_en_production];
-            Object.values(p.periods || {}).forEach(l => l.forEach(x => dates.push(x.start, x.end)));
-            dates.filter(Boolean).forEach(d => {
-                if (!min || d < min) min = d;
-                if (!max || d > max) max = d;
-            });
-        });
-        const t = todayIso();
-        if (!min) {
-            min = t.slice(0, 8) + '01';
-            max = addD(min, 90);
-        }
-        return { min: addD(min, -3), max: addD(max, 7) };
-    }
-    function planRange() {
-        const a = autoRange(),
-            r = plan.range || {};
-        return { min: r.from || a.min, max: r.to || a.max };
-    }
-    const rgType = () => (plan.zoom === 'week' ? 'week' : plan.zoom === 'month' ? 'month' : 'date');
-    const rgVal = (type, iso) => (type === 'date' ? iso : type === 'week' ? weekValue(iso) : iso.slice(0, 7));
-    const rgStart = (type, v) => {
-        if (!v) return null;
-        if (type === 'date') return v;
-        if (type === 'month') return v + '-01';
-        const m = /^(\d{4})-W(\d{2})$/.exec(v);
-        return m ? addD(mondayOf(`${m[1]}-01-04`), (+m[2] - 1) * 7) : null;
-    };
-    const rgEnd = (type, v) => {
-        if (!v) return null;
-        if (type === 'date') return v;
-        if (type === 'month') {
-            const [y, mo] = v.split('-').map(Number);
-            return addD(mo === 12 ? `${y + 1}-01-01` : `${y}-${String(mo + 1).padStart(2, '0')}-01`, -1);
-        }
-        const st = rgStart('week', v);
-        return st ? addD(st, 6) : null;
-    };
-    // Sélecteurs de bornes adaptés à l'échelle : calendrier (jour), semaine / année (semaine), mois / année (mois)
-    function renderRangeCtl() {
-        const box = document.getElementById('affRangeCtl');
-        if (!box) return;
-        const a = autoRange(),
-            r = plan.range || {},
-            type = rgType();
-        const hint = { date: 'calendrier', week: 'semaine et année', month: 'mois et année' }[type];
-        const custom = !!(r.from || r.to);
-        box.innerHTML = `<span class="lbl">Période affichée</span> du <input type="${type}" id="affRgFrom" value="${rgVal(type, r.from || a.min)}" title="Borne inférieure (${hint})" onchange="AffectationApp.planRangeSet()"> au <input type="${type}" id="affRgTo" value="${rgVal(type, r.to || a.max)}" title="Borne supérieure (${hint})" onchange="AffectationApp.planRangeSet()">
-            <span class="aff-muted" style="font-size:12px;">(${hint})</span>${custom ? '<button type="button" class="aff-btn" onclick="AffectationApp.planRangeReset()" title="Revenir à l\'affichage automatique de toute la période">Tout afficher</button>' : ''}<span class="aff-error" id="affRgErr"></span>${hiddenRowsCtl()}`;
-    }
-    // Largeur de la colonne SAMU (ajustable à la souris, mémorisée)
-    const SAMW_MIN = 140,
-        SAMW_MAX = 700;
-    function samWidth() {
-        let w = 280;
-        try {
-            w = parseInt(localStorage.getItem('affSamW'), 10) || 280;
-        } catch (e) {
-            /* stockage indisponible */
-        }
-        return Math.max(SAMW_MIN, Math.min(SAMW_MAX, w));
-    }
-    document.addEventListener('pointerdown', ev => {
-        const h = ev.target.closest && ev.target.closest('.aff-rs');
-        const box = document.getElementById('affPlan');
-        if (!h || !box || !box.contains(h)) return;
-        ev.preventDefault();
-        const x0 = ev.clientX,
-            w0 = samWidth();
-        let w = w0;
-        document.body.classList.add('aff-resizing');
-        const mv = e => {
-            w = Math.max(SAMW_MIN, Math.min(SAMW_MAX, Math.round(w0 + e.clientX - x0)));
-            box.style.setProperty('--aff-samw', w + 'px');
-        };
-        const up = () => {
-            document.removeEventListener('pointermove', mv);
-            document.removeEventListener('pointerup', up);
-            document.removeEventListener('pointercancel', up);
-            document.body.classList.remove('aff-resizing');
-            try {
-                localStorage.setItem('affSamW', String(w));
-            } catch (e) {
-                /* stockage indisponible */
-            }
-        };
-        document.addEventListener('pointermove', mv);
-        document.addEventListener('pointerup', up);
-        document.addEventListener('pointercancel', up);
-    });
-
-    // Menu déroulant : choix des SAMU affichés (partage l'état des lignes retirées)
-    plan.ddOpen = false;
-    function renderSamuDd() {
-        const dd = document.getElementById('affSamuDd');
-        if (!dd) return;
-        const all = [...plan.projects].sort((a, b) =>
-            String(a.samu_name || '').localeCompare(String(b.samu_name || ''), 'fr', { numeric: true })
-        );
-        const shown = all.filter(p => !plan.hiddenRows.has(p.id)).length;
-        const old = dd.querySelector('.aff-dd-pop'),
-            top = old ? old.scrollTop : 0;
-        dd.innerHTML =
-            `<button type="button" class="aff-btn" onclick="AffectationApp.toggleSamuDd(event)" title="Choisir les SAMU affichés dans le planning">${svg('planning', 'aff-ico-sm')}SAMU affichés (${shown}/${all.length}) ▾</button>` +
-            (plan.ddOpen
-                ? `<div class="aff-dd-pop"><div class="hd"><button type="button" class="aff-btn" onclick="AffectationApp.samuDdAll(true)">Tous</button><button type="button" class="aff-btn" onclick="AffectationApp.samuDdAll(false)">Aucun</button></div>
-                ${all.map(p => `<label><input type="checkbox" ${plan.hiddenRows.has(p.id) ? '' : 'checked'} onchange="AffectationApp.samuDdSet(${p.id}, this.checked)">${esc(p.samu_name)}</label>`).join('')}</div>`
-                : '');
-        const np = dd.querySelector('.aff-dd-pop');
-        if (np) np.scrollTop = top;
-    }
-    document.addEventListener('click', ev => {
-        if (!plan.ddOpen) return;
-        const dd = document.getElementById('affSamuDd');
-        if (dd && !dd.contains(ev.target)) {
-            plan.ddOpen = false;
-            renderSamuDd();
-        }
-    });
-
-    function hiddenRowsCtl() {
-        const list = plan.projects.filter(p => plan.hiddenRows.has(p.id));
-        if (!list.length) return '';
-        return `<span class="aff-hid-wrap" style="position:relative;margin-left:auto;"><button type="button" class="aff-btn" onclick="AffectationApp.toggleHiddenPop(event)" title="Rétablir les lignes retirées">${svg('planning', 'aff-ico-sm')}Lignes retirées (${list.length}) ▾</button>
-            <div class="aff-hid-pop" id="affHidPop" style="display:none;">
-                <div class="hd"><b>Lignes retirées de l'affichage</b><button type="button" class="aff-btn" onclick="AffectationApp.showAllRows()">Tout rétablir</button></div>
-                ${list.map(p => `<div class="row"><span>${esc(p.samu_name)}</span><button type="button" class="aff-btn" onclick="AffectationApp.showRow(${p.id})">Rétablir</button></div>`).join('')}
-            </div></span>`;
-    }
-
-    let hiddenKeys = new Set();
-    try {
-        hiddenKeys = new Set(JSON.parse(localStorage.getItem('affHiddenStages') || '[]'));
-    } catch (e) {
-        /* stockage indisponible */
-    }
-    function renderLegend2() {
-        const bar = document.getElementById('affLegendBar');
-        if (!bar || !plan.config) return;
-        const chip = (k, dot) =>
-            `<button type="button" class="chip ${hiddenKeys.has(k) ? 'off' : ''}" onclick="AffectationApp.toggleStage('${k}')" title="${hiddenKeys.has(k) ? 'Afficher' : 'Masquer'} : ${esc(planDef(k).label)}"><i class="${dot ? 'dot' : ''}" style="${bgStyle(planColor(k), planPattern(k))}"></i>${esc(planDef(k).label)}</button>`;
-        const pastChip = `<button type="button" class="chip ${hiddenKeys.has('_past') ? 'off' : ''}" onclick="AffectationApp.toggleStage('_past')" title="${hiddenKeys.has('_past') ? 'Afficher' : 'Masquer'} les SAMU dont la date de mise en service est passée"><i class="dot" style="background:#7a8799"></i>SAMU déjà en service</button>`;
-        // Commutateur : trigrammes des experts dans les étapes (VFT, formation, accompagnement, prérequis, visite métier)
-        const triOff = hiddenKeys.has('_tri');
-        const triSwitch = `<button type="button" class="chip tri-sw ${triOff ? 'off' : ''}" role="switch" aria-checked="${triOff ? 'false' : 'true'}" onclick="AffectationApp.toggleStage('_tri')" title="${triOff ? 'Afficher' : 'Masquer'} les trigrammes des experts dans les étapes (VFT, formation, accompagnement, prérequis, visite métier)"><span class="sw"><i></i></span>Trigrammes des experts</button>`;
-        bar.innerHTML =
-            `<span class="t">Légende</span>${PHASES.map(k => chip(k)).join('')}<span class="sep"></span>${['mise_en_service', 'mise_en_production', ...MILESTONES].map(k => chip(k, true)).join('')}<span class="sep"></span>${STEPS.map(k => chip(k)).join('')}<span class="sep"></span>${triSwitch}<span class="sep"></span>${pastChip}` +
-            `<span class="aff-muted" style="margin-left:auto;font-size:11px;">Cliquer sur une rubrique pour l'afficher / la masquer</span>`;
-    }
-    const PHASES = ['cadrage', 'deploiement', 'gel'];
-    const STEPS = ['visite_metier', 'test_prerequis', 'vft', 'formation_utilisateurs', 'accompagnement'];
-    const planColor = k => (plan.colors && plan.colors[k]) || '#888888';
-    const planPattern = k => (plan.patterns && plan.patterns[k]) || 'none';
-    const planDef = k => (plan.config && plan.config.stages.find(x => x.key === k)) || { label: k };
     const frd = iso => iso.split('-').reverse().join('/');
+    // Grille des déploiements prévenue des modifications de l'administration (îlot Vue)
+    const notifierPlanning = () => window.dispatchEvent(new CustomEvent('gp:deploiements-modifies'));
 
-    // Trigrammes des experts intervenant sur les étapes : contexte des colonnes affichées (aperçu ou impression)
-    let triCols = [],
-        triZoom = 'week',
-        triW = 44,
-        triCache = new Map();
-    function triContext(cols, zoom, w) {
-        triCols = cols || [];
-        triZoom = zoom;
-        triW = w || 44;
-        triCache = new Map();
-    }
-    // Expert (identifiant positif) ou ressource externe (utilisateur de l'application, identifiant négatif)
-    const resOf = id => (plan.resources || []).find(z => z.id === id) || (plan.externals || []).find(z => z.id === id);
-    const triOfRid = rid => {
-        const r = resOf(rid);
-        return r ? r.trigramme || `${(r.prenom || '').charAt(0)}${(r.nom || '').slice(0, 2)}`.toUpperCase() : '?';
-    };
-    /** Trigrammes (triés, sans doublon) des experts intervenant entre deux dates sur une période d'étape */
-    function triList(p, k, x, from, to) {
-        const set = new Set();
-        for (const [d, rids] of Object.entries((p.assignment_days || {})[k] || {}))
-            if (d >= from && d <= to && d >= x.start && d <= x.end) rids.forEach(r => set.add(triOfRid(r)));
-        return [...set].sort();
-    }
-    // Nombre de lignes d'une barre : une par trigramme en vue jour, sinon trigrammes à la suite (retour à la ligne)
-    const triLines = (n, w) => (!n ? 1 : triZoom === 'day' ? n : Math.max(1, Math.ceil((n * 21) / Math.max(24, w))));
-    /** Nombre de lignes commun à toutes les barres d'une voie d'un déploiement (hauteur constante d'une colonne à l'autre) */
-    function triLaneLines(p, k, x, i) {
-        const key = `${p.id}|${k}|${i}`;
-        if (triCache.has(key)) return triCache.get(key);
-        let max = 1;
-        for (const c of triCols) {
-            if (!(x.start <= c.to && x.end >= c.from)) continue;
-            const list = triList(p, k, x, c.from, c.to);
-            if (!list.length) continue;
-            const span = (utcMs(c.to) - utcMs(c.from)) / 86400000 + 1;
-            const o1 = (utcMs(x.start < c.from ? c.from : x.start) - utcMs(c.from)) / 86400000;
-            const o2 = (utcMs(x.end > c.to ? c.to : x.end) - utcMs(c.from)) / 86400000 + 1;
-            const w = ((c.w || triW) * (o2 - o1)) / span;
-            max = Math.max(max, triLines(list.length, w));
-        }
-        triCache.set(key, max);
-        return max;
-    }
-
-    // Contenu d'une cellule : phases (bandeau haut), étapes (bandes du bas, cliquables en vue jour/semaine), jalons
-    let printMode = false; // vrai pendant la mise en page d'impression : pas d'interaction, rendu statique
-    function cellContent(p, c) {
-        const clickable = !printMode;
-        const bar = (k, x, i, isStep) => {
-            if (hiddenKeys.has(k) || !(x.start <= c.to && x.end >= c.from)) return '';
-            const head = x.start >= c.from && x.start <= c.to,
-                tail = x.end >= c.from && x.end <= c.to;
-            const def = planDef(k);
-            const got = ((p.assignments || {})[k] || []).length;
-            const needed = x.needed || 0;
-            const names = ((p.assignments || {})[k] || []).map(id => {
-                const r = resOf(id);
-                return r ? `${r.prenom || ''} ${(r.nom || '').toUpperCase()}`.trim() : `Ressource ${id}`;
-            });
-            const tip =
-                `${def.label} : ${frd(x.start)} → ${frd(x.end)}` +
-                (isStep && needed
-                    ? ` — ${got}/${needed} ressource(s) par jour` + (names.length ? ` :\n• ${names.join('\n• ')}` : '')
-                    : '') +
-                (isStep && needed ? ' (cliquer pour voir / affecter)' : '');
-            const go = isStep && clickable && needed;
-            // Position proportionnelle dans la colonne (vue semaine / mois) : une journée reste une petite barre
-            const span = (utcMs(c.to) - utcMs(c.from)) / 86400000 + 1;
-            const o1 = (utcMs(x.start < c.from ? c.from : x.start) - utcMs(c.from)) / 86400000;
-            const o2 = (utcMs(x.end > c.to ? c.to : x.end) - utcMs(c.from)) / 86400000 + 1;
-            const pos =
-                span > 1
-                    ? `margin-left:${((o1 / span) * 100).toFixed(2)}%;width:max(${(((o2 - o1) / span) * 100).toFixed(2)}%,24px);flex:0 0 auto;`
-                    : '';
-            // Trigrammes des experts du jour (ou des jours de la colonne), sauf si masqués par le commutateur de la légende
-            const showTri = isStep && needed && !hiddenKeys.has('_tri');
-            const tri = showTri ? triList(p, k, x, c.from, c.to) : [];
-            const lanes = showTri ? triLaneLines(p, k, x, i) : 1;
-            const label = tri.length
-                ? triZoom === 'day'
-                    ? tri.map(t => `<span>${esc(t)}</span>`).join('')
-                    : esc(tri.join(' '))
-                : head && isStep && needed
-                  ? `${got}/${needed}`
-                  : '';
-            const triCls = showTri ? ' tri' : '';
-            const triStyle = showTri ? `--tl:${lanes};` : '';
-            return `<div class="b${triCls} ${head ? 'hd' : ''} ${tail ? 'tl' : ''} ${go ? 'go' : ''} ${isStep && needed && got >= needed ? 'ok' : ''} ${k === 'gel' ? 'gel' : ''}" style="${triStyle}${bgStyle(planColor(k), planPattern(k))}${pos}" title="${esc(tip)}" ${go ? `onclick="AffectationApp.openAssign(${p.id},'${k}')"` : ''}>${label}</div>`;
-        };
-        // Une voie fixe par période du projet : une barre garde la même hauteur d'une colonne à l'autre
-        const lanes = (keys, isStep) =>
-            keys
-                .map(k =>
-                    hiddenKeys.has(k)
-                        ? ''
-                        : ((p.periods || {})[k] || [])
-                              .map(
-                                  (x, i) =>
-                                      bar(k, x, i, isStep) ||
-                                      // Emplacement vide : même hauteur que la barre de cette voie dans les autres colonnes
-                                      (isStep && x.needed && !hiddenKeys.has('_tri')
-                                          ? `<div class="b tri" style="visibility:hidden;--tl:${triLaneLines(p, k, x, i)}"></div>`
-                                          : '<div class="b" style="visibility:hidden"></div>')
-                              )
-                              .join('')
-                )
-                .join('');
-        let ph = lanes(PHASES, false),
-            st = lanes(STEPS, true);
-        // Un groupe de voies n'est retiré que si la ligne n'a aucune période de ce groupe : sinon une barre changerait de hauteur d'une colonne à l'autre
-        const rowHas = keys => keys.some(k => !hiddenKeys.has(k) && ((p.periods || {})[k] || []).length);
-        if (!rowHas(PHASES)) ph = '';
-        if (!rowHas(STEPS)) st = '';
-        let mk = '';
-        const span = (utcMs(c.to) - utcMs(c.from)) / 86400000 + 1;
-        const posOf = d => ((utcMs(d) - utcMs(c.from)) / 86400000 / span) * 100;
-        [
-            ['mise_en_service', p.date_mise_en_service],
-            ['mise_en_production', p.date_mise_en_production],
-            ...MILESTONES.map(k => [k, p.periods && p.periods[k] && p.periods[k][0] ? p.periods[k][0].start : null])
-        ].forEach(([k, d]) => {
-            if (d && !hiddenKeys.has(k) && d >= c.from && d <= c.to)
-                mk += `<span class="aff-mk" style="left:${(posOf(d) + 50 / span).toFixed(2)}%" title="${esc(planDef(k).label)} : ${frd(d)}"><i style="${bgStyle(planColor(k), planPattern(k))}"></i></span>`;
-        });
-        // Début du projet : trait vertical au bord gauche du jour, aligné sur le début des barres
-        if (p.date_debut >= c.from && p.date_debut <= c.to)
-            mk += `<span class="aff-mk start" style="left:${posOf(p.date_debut).toFixed(2)}%" title="Début du projet : ${frd(p.date_debut)}"><i style="background:#263238"></i></span>`;
-        return ph || st || mk
-            ? `${mk}<div class="aff-pc"><div class="ph">${ph}</div><div class="st">${st}</div></div>`
-            : '';
-    }
-
-    // Sélection triée des déploiements affichés (tri courant, filtre « déjà en service »)
-    function sortedProjects(includeHidden) {
-        const cmp = (a, b) => String(a || '').localeCompare(String(b || ''), 'fr', { numeric: true });
-        const keyOf = {
-            samu: p => p.samu_name,
-            chef: p => p.chef_projet_nom,
-            mes: p => p.date_mise_en_service,
-            mep: p => p.date_mise_en_production
-        };
-        const k = keyOf[plan.sort.key];
-        const today = todayIso();
-        let shown = hiddenKeys.has('_past')
-            ? plan.projects.filter(p => !(p.date_mise_en_service && p.date_mise_en_service < today))
-            : plan.projects;
-        if (!includeHidden) shown = shown.filter(p => !plan.hiddenRows.has(p.id));
-        return [...shown].sort((a, b) => {
-            const va = k(a),
-                vb = k(b);
-            if (!va && vb) return 1; // valeurs vides toujours en bas
-            if (va && !vb) return -1;
-            return cmp(va, vb) * plan.sort.dir || cmp(a.samu_name, b.samu_name);
-        });
-    }
-
-    // Colonnes et lignes d'en-tête d'une échelle de temps (jour, semaine, mois, trimestre, année) entre deux dates
-    function buildColumns(zoom, min, max, o) {
-        o = o || {};
-        const t = o.noToday ? '9999-12-31' : todayIso();
-        const mw = w => (o.print ? '' : `style="min-width:${w}px;"`);
-        const th = (cls, n, txt, extra) => `<th class="${cls || ''}" colspan="${n}" ${extra || ''}>${txt}</th>`;
-        const rows = [];
-        let cols;
-        const days = [];
-        if (zoom === 'day') for (let ms = utcMs(min); ms <= utcMs(max); ms += 86400000) days.push(isoMs(ms));
-        if (zoom === 'day') {
-            cols = days.map(d => ({
-                key: d,
-                from: d,
-                to: d,
-                we: [0, 6].includes(new Date(utcMs(d)).getUTCDay()),
-                today: d === t,
-                w: 30
-            }));
-            rows.push(
-                group(days, d => d.slice(0, 4))
-                    .map(g => th('', g.n, g.label))
-                    .join('')
-            );
-            rows.push(
-                group(
-                    days,
-                    d => d.slice(0, 7),
-                    d => cap(MONTHS[+d.slice(5, 7) - 1])
-                )
-                    .map(g => th('', g.n, g.label))
-                    .join('')
-            );
-            rows.push(
-                group(
-                    days,
-                    d => {
-                        const w = isoWeek(d);
-                        return `${w.year}-${w.week}`;
-                    },
-                    d => 'S' + isoWeek(d).week
-                )
-                    .map(g => th('', g.n, g.label))
-                    .join('')
-            );
-            rows.push(
-                days
-                    .map(
-                        d =>
-                            `<th class="${[0, 6].includes(new Date(utcMs(d)).getUTCDay()) ? 'we' : ''} ${d === t ? 'today' : ''}" ${d === t ? 'data-today="1"' : ''} ${mw(30)}>${+d.slice(8)}</th>`
-                    )
-                    .join('')
-            );
-            rows.push(
-                days
-                    .map(
-                        d =>
-                            `<th class="${[0, 6].includes(new Date(utcMs(d)).getUTCDay()) ? 'we' : ''} ${d === t ? 'today' : ''}">${WDAY[new Date(utcMs(d)).getUTCDay()]}</th>`
-                    )
-                    .join('')
-            );
-        } else if (zoom === 'week') {
-            const mondays = [];
-            for (let m = mondayOf(min); m <= max; m = addD(m, 7)) mondays.push(m);
-            const thisMon = mondayOf(t);
-            cols = mondays.map(m => ({ key: m, from: m, to: addD(m, 6), we: false, today: m === thisMon, w: 64 }));
-            rows.push(
-                group(mondays, m => m.slice(0, 4))
-                    .map(g => th('', g.n, g.label))
-                    .join('')
-            );
-            rows.push(
-                group(
-                    mondays,
-                    m => m.slice(0, 7),
-                    m => cap(MONTHS[+m.slice(5, 7) - 1])
-                )
-                    .map(g => th('', g.n, g.label))
-                    .join('')
-            );
-            rows.push(
-                mondays
-                    .map(
-                        m =>
-                            `<th class="${m === thisMon ? 'today' : ''}" ${m === thisMon ? 'data-today="1"' : ''} ${mw(64)}>S${isoWeek(m).week}</th>`
-                    )
-                    .join('')
-            );
-            rows.push(
-                mondays
-                    .map(
-                        m =>
-                            `<th class="${m === thisMon ? 'today' : ''}" style="font-size:11px;font-weight:500;">${m.slice(8)}/${m.slice(5, 7)}</th>`
-                    )
-                    .join('')
-            );
-        } else if (zoom === 'month') {
-            const months = [];
-            for (let m = min.slice(0, 7); m <= max.slice(0, 7);) {
-                months.push(m);
-                const y = +m.slice(0, 4),
-                    mo = +m.slice(5, 7);
-                m = mo === 12 ? `${y + 1}-01` : `${y}-${String(mo + 1).padStart(2, '0')}`;
-            }
-            cols = months.map(m => {
-                const y = +m.slice(0, 4),
-                    mo = +m.slice(5, 7);
-                return {
-                    key: m,
-                    from: m + '-01',
-                    to: addD(mo === 12 ? `${y + 1}-01-01` : `${y}-${String(mo + 1).padStart(2, '0')}-01`, -1),
-                    we: false,
-                    today: m === t.slice(0, 7),
-                    w: 100
-                };
-            });
-            rows.push(
-                group(months, m => m.slice(0, 4))
-                    .map(g => th('', g.n, g.label))
-                    .join('')
-            );
-            rows.push(
-                months
-                    .map(
-                        m =>
-                            `<th class="${m === t.slice(0, 7) ? 'today' : ''}" ${m === t.slice(0, 7) ? 'data-today="1"' : ''} ${mw(100)}>${cap(MONTHS[+m.slice(5, 7) - 1])}</th>`
-                    )
-                    .join('')
-            );
-        } else if (zoom === 'quarter') {
-            const qs = [];
-            let qy = +min.slice(0, 4),
-                qq = Math.floor((+min.slice(5, 7) - 1) / 3);
-            const ey = +max.slice(0, 4),
-                eq = Math.floor((+max.slice(5, 7) - 1) / 3);
-            while (qy < ey || (qy === ey && qq <= eq)) {
-                qs.push({ y: qy, q: qq });
-                qq++;
-                if (qq > 3) {
-                    qq = 0;
-                    qy++;
-                }
-            }
-            const tq = { y: +t.slice(0, 4), q: Math.floor((+t.slice(5, 7) - 1) / 3) };
-            cols = qs.map(x => ({
-                key: `${x.y}-T${x.q + 1}`,
-                from: `${x.y}-${String(x.q * 3 + 1).padStart(2, '0')}-01`,
-                to: addD(x.q === 3 ? `${x.y + 1}-01-01` : `${x.y}-${String(x.q * 3 + 4).padStart(2, '0')}-01`, -1),
-                we: false,
-                today: x.y === tq.y && x.q === tq.q,
-                w: 110
-            }));
-            rows.push(
-                group(
-                    qs,
-                    x => x.y,
-                    x => x.y
-                )
-                    .map(g => th('', g.n, g.label))
-                    .join('')
-            );
-            rows.push(
-                qs
-                    .map(
-                        x =>
-                            `<th class="${x.y === tq.y && x.q === tq.q ? 'today' : ''}" ${x.y === tq.y && x.q === tq.q ? 'data-today="1"' : ''} ${mw(110)}>T${x.q + 1}</th>`
-                    )
-                    .join('')
-            );
-        } else {
-            // année
-            const ys = [];
-            for (let y = +min.slice(0, 4); y <= +max.slice(0, 4); y++) ys.push(y);
-            cols = ys.map(y => ({
-                key: String(y),
-                from: `${y}-01-01`,
-                to: `${y}-12-31`,
-                we: false,
-                today: String(y) === t.slice(0, 4),
-                w: 140
-            }));
-            rows.push(
-                ys
-                    .map(
-                        y =>
-                            `<th class="${String(y) === t.slice(0, 4) ? 'today' : ''}" ${String(y) === t.slice(0, 4) ? 'data-today="1"' : ''} ${mw(140)}>${y}</th>`
-                    )
-                    .join('')
-            );
-        }
-        return { cols, rows };
-    }
-
-    function renderPlanning() {
-        const box = document.getElementById('affPlan');
-        if (!box) return;
-        renderLegend2();
-        renderRangeCtl();
-        const { min, max } = planRange();
-        const corner = rows =>
-            `<th class="corner" rowspan="${rows}">SAMU<span class="aff-rs" title="Glisser pour ajuster la largeur de la colonne"></span></th>`;
-        const { cols, rows: headRows } = buildColumns(plan.zoom, min, max);
-        triContext(cols, plan.zoom, 44);
-        const head = headRows.map((r, i) => `<tr>${i === 0 ? corner(headRows.length) : ''}${r}</tr>`).join('');
-
-        // En-têtes à plusieurs niveaux : top collant propre à chaque ligne de l'en-tête
-        let body;
-        if (!plan.projects.length) {
-            body = `<tr><td colspan="${cols.length + 1}" style="height:70px;text-align:center;color:#7a8799;">Aucun déploiement : créez-en dans l'onglet Administration.</td></tr>`;
-        } else if (!sortedProjects().length) {
-            body = `<tr><td colspan="${cols.length + 1}" style="height:70px;text-align:center;color:#7a8799;">Toutes les lignes sont retirées de l'affichage : utilisez « Lignes retirées » pour les rétablir.</td></tr>`;
-        } else {
-            const ordered = sortedProjects();
-            body = ordered
-                .map(
-                    p => `<tr data-id="${p.id}">
-                <th class="sam">${currentUser && currentUser.activeProfile === 'admin' ? `<button type="button" class="aff-rowsync" title="Rafraîchir depuis Asana : reprend les dates nouvelles ou modifiées du projet Asana de ce SAMU" onclick="AffectationApp.asanaRefresh(${p.id}, this)">${svg('asanasync', 'aff-ico-sm')}</button>` : ''}<button type="button" class="aff-rowhide" title="Retirer cette ligne de l'affichage (rétablissable en haut du planning)" onclick="AffectationApp.hideRow(${p.id})">−</button><div class="n">${esc(p.samu_name)}${asanaMark(p)}</div><div class="c">${esc(p.chef_projet_nom || 'Chef de projet non défini')}</div><span class="aff-rs" title="Glisser pour ajuster la largeur de la colonne"></span></th>
-                ${cols.map(c => `<td class="${c.we ? 'we' : ''} ${c.today ? 'today' : ''}" data-k="${c.key}">${cellContent(p, c)}</td>`).join('')}
-            </tr>`
-                )
-                .join('');
-        }
-        box.style.setProperty('--aff-samw', samWidth() + 'px');
-        box.innerHTML = `<table class="aff-plan-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
-        renderSamuDd();
-        // Hauteurs de lignes d'en-tête : tops dynamiques si le nombre de lignes change
-        const topStep = 24;
-        box.querySelectorAll('thead tr').forEach((tr, i) =>
-            tr.querySelectorAll('th:not(.corner)').forEach(c => {
-                c.style.top = i * topStep + 'px';
-            })
-        );
-        const corner_ = box.querySelector('th.corner');
-        if (corner_) corner_.style.top = '0px';
-        document
-            .querySelectorAll('.aff-seg button[data-z]')
-            .forEach(b => b.classList.toggle('on', b.dataset.z === plan.zoom));
-        document.querySelectorAll('.aff-sort button').forEach(b => {
-            const on = b.dataset.s === plan.sort.key;
-            b.classList.toggle('on', on);
-            b.dataset.arrow = on ? (plan.sort.dir > 0 ? ' ▲' : ' ▼') : '';
-            b.textContent =
-                { samu: 'SAMU', chef: 'Chef de projet', mes: 'Mise en service', mep: 'Mise en production' }[
-                    b.dataset.s
-                ] + b.dataset.arrow;
-        });
-    }
-
-    async function loadPlanning() {
-        const box = document.getElementById('affPlan');
-        try {
-            const [cfg, proj, res] = await Promise.all([
-                api('/affectation/config'),
-                api('/affectation/projects'),
-                api('/affectation/resources').catch(() => null)
-            ]);
-            if (res) {
-                plan.resources = res.resources;
-                plan.externals = res.externals || [];
-            }
-            plan.projects = proj.projects;
-            plan.colors = cfg.colors;
-            plan.patterns = cfg.patterns || {};
-            plan.config = cfg;
-            plan.loaded = true;
-            renderPlanning();
-            AffectationApp.planToday();
-            // Participants des événements → ressources affectées : si quelque chose a changé, le planning est rechargé
-            api('/affectation/sync-from-events', { method: 'POST', body: '{}' })
-                .then(async sy => {
-                    if (!(sy.changes || []).length) return;
-                    plan.projects = (await api('/affectation/projects')).projects;
-                    const b = document.getElementById('affPlan'),
-                        l = b ? b.scrollLeft : 0;
-                    renderPlanning();
-                    if (b) b.scrollLeft = l;
-                })
-                .catch(() => {
-                    /* ignoré */
-                });
-        } catch (e) {
-            if (box)
-                box.innerHTML = `<p class="aff-error" style="padding:18px;">Chargement impossible : ${esc(e.message)}</p>`;
-        }
-    }
-
-    // ================= Impression / export PDF et PowerPoint (mise en page WYSIWYG) =================
-    const PAPER_MM = { A4: [297, 210], A3: [420, 297] };
+    // Impression / export du planning : îlot Vue (frontend/src/ilots/affectation/planning/impression.ts)
     const SCALE_LABEL = { day: 'jour', week: 'semaine', month: 'mois', quarter: 'trimestre', year: 'année' };
-    const mmPx = mm => (mm * 96) / 25.4;
-    const prt = { layout: null, timer: null, token: 0 };
-    // Feuille de style propre à la page imprimée : rendu statique, compact, sans éléments collants
-    const PRINT_CSS = `
-        .aff-print-root { font-family: Arial, sans-serif; color: #1f2d3d; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        .aff-print-root .pg { box-sizing: border-box; background: #fff; display: flex; flex-direction: column; overflow: hidden; break-after: page; page-break-after: always; }
-        .aff-print-root .pg:last-child { break-after: auto; page-break-after: auto; }
-        .aff-print-root .pg-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; border-bottom: 2px solid #1d70b7; padding-bottom: 3px; margin-bottom: 5px; }
-        .aff-print-root .pg-head b { font-size: 15px; }
-        .aff-print-root .pg-head span { font-size: 9px; color: #667; text-align: right; }
-        .aff-print-root .pg-leg { display: flex; flex-wrap: wrap; gap: 3px 12px; font-size: 8px; margin-bottom: 5px; }
-        .aff-print-root .pg-leg i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; vertical-align: -2px; margin-right: 3px; border: 1px solid rgba(0,0,0,.15); }
-        .aff-print-root .pg-leg i.dot { border-radius: 50%; }
-        .aff-print-root .tplpg .pg-leg { justify-content: flex-start; font-size: 9px; margin-bottom: 8px; }
-        .aff-print-root .pg-foot { margin-top: auto; font-size: 8px; color: #778; display: flex; justify-content: space-between; padding-top: 3px; }
-        .aff-print-root table.pt { border-collapse: separate !important; border-spacing: 0 !important; table-layout: fixed !important; font-size: var(--pfs, 9px); }
-        .aff-print-root table.pt th, .aff-print-root table.pt td { padding: 0 !important; overflow: hidden; }
-        .aff-print-root table.pt thead th { position: static !important; top: auto !important; height: auto !important; line-height: 1.2; padding: 2px 1px !important; font-size: var(--pfs, 9px) !important; font-weight: 700; }
-        .aff-print-root table.pt thead tr:nth-child(-n+2) th { font-size: 10.5px !important; }
-        .aff-print-root table.pt th.corner { width: var(--samw, 140px); min-width: 0 !important; max-width: none !important; font-size: 11px !important; padding-left: 6px !important; text-align: left; }
-        .aff-print-root table.pt tbody th.sam { position: static !important; width: var(--samw, 140px); min-width: 0 !important; max-width: none !important; padding: 3px 6px !important; z-index: auto; border-right: 1px solid #cfd8e6; }
-        .aff-print-root table.pt tbody th.sam .n { font-size: 11px !important; line-height: 1.15; }
-        .aff-print-root table.pt tbody th.sam .c { font-size: 8.5px !important; margin-top: 1px; }
-        .aff-print-root table.pt tbody td { height: auto !important; vertical-align: top; overflow: visible; position: relative; }
-        .aff-print-root table.pt .aff-pc { min-height: 0; gap: 2px; padding: 3px 0; }
-        .aff-print-root table.pt .aff-pc .ph { margin-bottom: 2px; }
-        .aff-print-root table.pt .aff-pc .b.tri { --bh: 12px; --lh: 7px; font-size: 6.5px; }
-        .aff-print-root table.pt .aff-pc .b { flex: 0 0 12px; height: 12px; min-height: 12px; max-height: 12px; font-size: 7.5px; line-height: 12px; cursor: default; }
-        .aff-print-root table.pt .aff-mk i { width: 11px; height: 11px; }
-        .aff-print-root table.pt .aff-mk.start i { width: 8px; height: 8px; }`;
-
-    function printReadOpts() {
-        const g = id => document.getElementById(id);
-        return {
-            title: g('prTitle').value.trim(),
-            from: g('prFrom').value,
-            to: g('prTo').value,
-            zoom: g('prZoom').value,
-            paper: g('prPaper').value,
-            orient: g('prOrient').value,
-            fit: g('prFit').value,
-            keepMonths: !!(g('prMonths') && g('prMonths').checked),
-            legend: g('prLegend').checked,
-            tpl: !!(g('prTpl') && g('prTpl').checked),
-            cover: !!(g('prCover') && g('prCover').checked),
-            end: !!(g('prEnd') && g('prEnd').checked),
-            samu: new Set([...document.querySelectorAll('#prSamu input:checked')].map(i => Number(i.value))),
-            hidden: new Set([...document.querySelectorAll('#prStages input:not(:checked)')].map(i => i.value))
-        };
-    }
-
-    // Construit toutes les pages (HTML statique) : colonnes réparties selon l'option choisie, lignes remplies page après page d'après leur hauteur réelle
-    async function layoutPrint(o) {
-        const [pw, ph] = PAPER_MM[o.paper] || PAPER_MM.A4;
-        // Modèle PowerPoint : la page est la zone libre de la diapositive (titre, logo et pied de page viennent du modèle)
-        const T = o.tpl && tpl.meta.exists && tpl.meta.info ? tpl.meta.info.zone : null;
-        const mmW = T ? T.wMm : o.orient === 'portrait' ? ph : pw,
-            mmH = T ? T.hMm : o.orient === 'portrait' ? pw : ph;
-        const pxW = mmPx(mmW),
-            pxH = mmPx(mmH),
-            padX = mmPx(T ? 1 : 8),
-            padY = mmPx(T ? 1 : 7);
-        const contentW = pxW - 2 * padX,
-            contentH = pxH - 2 * padY;
-        const samW = o.zoom === 'day' || o.zoom === 'week' ? 110 : 140;
-        const colWBase = { day: 20, week: 44, month: 68, quarter: 90, year: 120 }[o.zoom] || 60;
-        const saved = { hidden: hiddenKeys, mode: printMode };
-        hiddenKeys = new Set(o.hidden);
-        printMode = true;
-        try {
-            const base = buildColumns(o.zoom, o.from, o.to, { print: true, noToday: true });
-            const n = base.cols.length;
-            // « Ne pas couper un mois » (échelle jour ou semaine, mode réparti) : les pages se terminent en fin de mois ;
-            // si un mois est plus large qu'une page, les colonnes sont resserrées pour qu'il y tienne
-            let groups = null,
-                colWUse = colWBase;
-            if (o.keepMonths && o.fit !== 'fit' && (o.zoom === 'day' || o.zoom === 'week')) {
-                groups = [];
-                base.cols.forEach((c, i) => {
-                    const mk = String(c.from).slice(0, 7);
-                    if (!groups.length || groups[groups.length - 1].mk !== mk) groups.push({ mk, start: i, len: 0 });
-                    groups[groups.length - 1].len++;
-                });
-                const widest = Math.max(...groups.map(g => g.len));
-                if (widest > Math.floor((contentW - samW) / colWBase))
-                    colWUse = Math.max(6, (contentW - samW) / widest);
-            }
-            const perPage = o.fit === 'fit' ? n : Math.max(1, Math.floor((contentW - samW) / colWUse));
-            // « Tout sur une page » comprime ; en mode réparti, un planning plus étroit que la page est étalé sur toute la largeur
-            const colW = o.fit === 'fit' || n <= perPage ? Math.max(1, (contentW - samW) / n) : colWUse;
-            const fs = Math.max(5.5, Math.min(10, colW * 0.4));
-            // Trigrammes des experts : lignes communes à toute la voie, calculées sur l'ensemble des colonnes imprimées
-            triContext(base.cols, o.zoom, colW);
-            const slices = [];
-            if (groups) {
-                let from = 0,
-                    count = 0;
-                groups.forEach(g => {
-                    if (count && count + g.len > perPage) {
-                        slices.push([from, from + count]);
-                        from += count;
-                        count = 0;
-                    }
-                    count += g.len;
-                });
-                if (count) slices.push([from, from + count]);
-            } else for (let a = 0; a < n; a += perPage) slices.push([a, Math.min(n, a + perPage)]);
-            const colPages = slices.map(([a, b]) => {
-                const slice = base.cols.slice(a, b);
-                return buildColumns(o.zoom, slice[0].from, slice[slice.length - 1].to, {
-                    print: true,
-                    noToday: true
-                });
-            });
-            const projects = sortedProjects(true).filter(p => o.samu.has(p.id));
-            const tableHtml = (sub, list) => {
-                const w = samW + sub.cols.length * colW;
-                const head = sub.rows
-                    .map(
-                        (r, i) =>
-                            `<tr>${i === 0 ? `<th class="corner" rowspan="${sub.rows.length}">SAMU</th>` : ''}${r}</tr>`
-                    )
-                    .join('');
-                const body = list
-                    .map(
-                        pr =>
-                            `<tr><th class="sam"><div class="n">${esc(pr.samu_name)}</div><div class="c">${esc(pr.chef_projet_nom || 'Chef de projet non défini')}</div></th>${sub.cols.map(c => `<td class="${c.we ? 'we' : ''}">${cellContent(pr, c)}</td>`).join('')}</tr>`
-                    )
-                    .join('');
-                return `<table class="aff-plan-table pt" style="--pfs:${fs.toFixed(1)}px;--samw:${samW}px;width:${w.toFixed(1)}px;"><colgroup><col style="width:${samW}px">${sub.cols.map(() => `<col style="width:${colW.toFixed(2)}px">`).join('')}</colgroup><thead>${head}</thead><tbody>${body}</tbody></table>`;
-            };
-            const keys = [
-                'cadrage',
-                'deploiement',
-                'gel',
-                'mise_en_service',
-                'mise_en_production',
-                'reunion_lancement',
-                'visite_metier',
-                'visite_ob',
-                'test_prerequis',
-                'vft',
-                'formation_utilisateurs',
-                'accompagnement'
-            ].filter(k => !o.hidden.has(k));
-            const legend = o.legend
-                ? `<div class="pg-leg">${keys.map(k => `<span><i class="${k === 'mise_en_service' || k === 'mise_en_production' || MILESTONES.includes(k) ? 'dot' : ''}" style="${bgStyle(planColor(k), planPattern(k))}"></i>${esc(planDef(k).label)}</span>`).join('')}</div>`
-                : '';
-            // Mesure : hauteur de chaque ligne, de l'en-tête de tableau et des blocs fixes de la page
-            const meas = document.createElement('div');
-            meas.className = 'aff-print-root';
-            meas.style.cssText = `position:absolute;left:-20000px;top:0;width:${contentW}px;`;
-            meas.innerHTML = T
-                ? `${legend}${projects.length ? tableHtml(colPages[0], projects) : ''}`
-                : `<div class="pg-head"><b>${esc(o.title)}</b><span>x</span></div>${legend}${projects.length ? tableHtml(colPages[0], projects) : ''}<div class="pg-foot"><span>x</span></div>`;
-            document.getElementById('affectationContainer').appendChild(meas);
-            const rowH = [...meas.querySelectorAll('tbody tr')].map(tr => tr.getBoundingClientRect().height);
-            const headH = meas.querySelector('thead') ? meas.querySelector('thead').getBoundingClientRect().height : 0;
-            const legH = meas.querySelector('.pg-leg')
-                ? meas.querySelector('.pg-leg').getBoundingClientRect().height + 5
-                : 0;
-            const fixedH = T
-                ? legH
-                : meas.querySelector('.pg-head').getBoundingClientRect().height +
-                  5 +
-                  legH +
-                  meas.querySelector('.pg-foot').getBoundingClientRect().height +
-                  6;
-            meas.remove();
-            const avail = contentH - fixedH - headH - 4;
-            const rowPages = [];
-            if (!projects.length) rowPages.push([]);
-            else {
-                let cur = [],
-                    used = 0;
-                projects.forEach((pr, i) => {
-                    if (cur.length && used + rowH[i] > avail) {
-                        rowPages.push(cur);
-                        cur = [];
-                        used = 0;
-                    }
-                    cur.push(pr);
-                    used += rowH[i];
-                });
-                if (cur.length) rowPages.push(cur);
-            }
-            const total = colPages.length * rowPages.length;
-            const sub = `${frd(o.from)} → ${frd(o.to)} · échelle : ${SCALE_LABEL[o.zoom]} · édité le ${frd(todayIso())}`;
-            const pages = [],
-                subtitles = [];
-            colPages.forEach((cp, ci) =>
-                rowPages.forEach((rp, ri) => {
-                    const k = pages.length + 1;
-                    const part =
-                        (colPages.length > 1 ? ` · colonnes ${ci + 1}/${colPages.length}` : '') +
-                        (rowPages.length > 1 ? ` · SAMU ${ri + 1}/${rowPages.length}` : '');
-                    if (T) {
-                        subtitles.push(`${frd(o.from)} → ${frd(o.to)}`);
-                        pages.push(
-                            `<div class="pg tplpg" style="width:${pxW.toFixed(2)}px;height:${pxH.toFixed(2)}px;padding:${padY.toFixed(1)}px ${padX.toFixed(1)}px;background:transparent;justify-content:flex-start;align-items:flex-start;">${legend}${rp.length ? tableHtml(cp, rp) : '<p style="color:#778;font-size:11px;">Aucun SAMU sélectionné.</p>'}</div>`
-                        );
-                        return;
-                    }
-                    pages.push(
-                        `<div class="pg" style="width:${pxW.toFixed(2)}px;height:${pxH.toFixed(2)}px;padding:${padY.toFixed(1)}px ${padX.toFixed(1)}px;"><div class="pg-head"><b>${esc(o.title)}</b><span>${esc(sub)}</span></div>${legend}${rp.length ? tableHtml(cp, rp) : '<p style="color:#778;font-size:11px;">Aucun SAMU sélectionné.</p>'}<div class="pg-foot"><span>${esc(part.replace(/^ · /, ''))}</span><span>Page ${k} / ${total}</span></div></div>`
-                    );
-                })
-            );
-            return { pages, subtitles, tpl: !!T, pxW, pxH, mmW, mmH, total, tooTight: o.fit === 'fit' && colW < 5 };
-        } finally {
-            hiddenKeys = saved.hidden;
-            printMode = saved.mode;
-        }
-    }
-
-    // Aperçu fidèle au modèle : diapositives du modèle (page de garde, planning, page de fin) avec leurs textes, logos et pied de page
-    function tplSlideHtml(sl, o, lay, n, planIdx) {
-        const P = tpl.preview,
-            W = P.W / 9525,
-            H = P.H / 9525,
-            px = v => (v / 9525).toFixed(1) + 'px';
-        const date = frd(todayIso()).replace(/\//g, '-');
-        const al = { l: 'left', ctr: 'center', r: 'right', just: 'left' };
-        const parts = sl.items
-            .map(it => {
-                if (it.t === 'img')
-                    return `<img src="${it.src}" alt="" style="position:absolute;left:${px(it.x)};top:${px(it.y)};width:${px(it.w)};height:${px(it.h)};">`;
-                if (it.t === 'rect')
-                    return `<div style="position:absolute;left:${px(it.x)};top:${px(it.y)};width:${px(it.w)};height:${px(it.h)};background:${it.color};"></div>`;
-                let text = String(it.text || '')
-                    .replace(/JJ-MM-AAAA/g, date)
-                    .replace(/\{n\}/g, n);
-                if (it.role === 'title' || it.role === 'ctrTitle') text = o.title;
-                if (it.role === 'subtitle13') text = (lay.subtitles && lay.subtitles[planIdx]) || '';
-                return `<div style="position:absolute;left:${px(it.x)};top:${px(it.y)};width:${px(it.w)};height:${px(it.h)};display:flex;align-items:${it.anchor === 'ctr' ? 'center' : it.anchor === 'b' ? 'flex-end' : 'flex-start'};box-sizing:border-box;padding:4px 8px;overflow:visible;"><div style="width:100%;font-size:${(((it.sz / 100) * 96) / 72).toFixed(1)}px;line-height:1.15;font-weight:${it.b ? 700 : 400};color:${it.color};font-family:${it.font ? `'${esc(it.font)}',` : ''}Arial,sans-serif;text-align:${al[it.algn] || 'left'};white-space:pre-wrap;">${esc(text)}</div></div>`;
-            })
-            .join('');
-        const z = P.zone,
-            page =
-                planIdx != null
-                    ? `<div style="position:absolute;left:${px(z.x)};top:${px(z.y)};width:${px(z.w)};height:${px(z.h)};">${lay.pages[planIdx]}</div>`
-                    : '';
-        return `<div style="position:relative;width:${W.toFixed(1)}px;height:${H.toFixed(1)}px;background:#fff;overflow:hidden;">${parts}${page}</div>`;
-    }
-    function renderTplPreview(box, lay, o) {
-        const P = tpl.preview,
-            W = P.W / 9525,
-            H = P.H / 9525;
-        const frames = [];
-        const cover = P.slides.find(x => x.kind === 'cover'),
-            plan = P.slides.find(x => x.kind === 'plan'),
-            end = P.slides.find(x => x.kind === 'end');
-        if (cover && o.cover) frames.push(tplSlideHtml(cover, o, lay, 1, null));
-        lay.pages.forEach((pg, i) => frames.push(tplSlideHtml(plan, o, lay, frames.length + 1, i)));
-        if (end && o.end) frames.push(tplSlideHtml(end, o, lay, frames.length + 1, null));
-        const k = Math.min(1, (box.clientWidth - 30) / W);
-        box.innerHTML = frames
-            .map(
-                f =>
-                    `<div class="pw" style="background:#fff;width:${(W * k).toFixed(1)}px;height:${(H * k).toFixed(1)}px;"><div style="transform:scale(${k.toFixed(4)});transform-origin:0 0;width:${W.toFixed(1)}px;height:${H.toFixed(1)}px;">${f}</div></div>`
-            )
-            .join('');
-        document.getElementById('affPrintInfo').textContent =
-            `[Modèle PowerPoint] ${frames.length} diapositive(s) dont ${lay.total} de planning · aperçu simplifié : les images au format EMF du modèle ne s'affichent pas ici mais figurent dans le fichier`;
-    }
-
-    function printExportHtml(lay) {
-        return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Planning des déploiements</title><style>${css}${css2}${PRINT_CSS}@page{size:${lay.mmW}mm ${lay.mmH}mm;margin:0}html,body{margin:0;padding:0;background:#fff}.aff-print-root .pg{height:${(lay.pxH - 1.5).toFixed(2)}px !important}</style></head><body><div id="affectationContainer" class="aff-print-root" style="display:block;padding:0;background:#fff;">${lay.pages.join('')}</div></body></html>`;
-    }
-
-    // Garde-fou : une saisie intermédiaire (ex. année « 0002 ») ne doit jamais déclencher la construction d'une frise gigantesque
-    function spanError(from, to, zoom) {
-        const y = v => parseInt(String(v).slice(0, 4), 10);
-        if (!(y(from) >= 2000 && y(from) <= 2100 && y(to) >= 2000 && y(to) <= 2100))
-            return 'Dates hors limites : choisissez des années entre 2000 et 2100.';
-        const days = (Date.parse(to) - Date.parse(from)) / 86400000 + 1;
-        const n = days / ({ day: 1, week: 7, month: 30, quarter: 91, year: 365 }[zoom] || 1);
-        if (n > 1500)
-            return `Période trop large pour cette échelle (${Math.round(n)} colonnes) : réduisez la période ou choisissez une échelle plus large.`;
-        return '';
-    }
-    async function printRefresh() {
-        const err = document.getElementById('affPrintErr');
-        err.textContent = '';
-        const o = printReadOpts();
-        if (!o.from || !o.to || o.to < o.from) {
-            err.textContent = 'Période invalide : la date de fin doit suivre la date de début.';
-            return;
-        }
-        const se = spanError(o.from, o.to, o.zoom);
-        if (se) {
-            err.textContent = se;
-            return;
-        }
-        const token = ++prt.token;
-        document.getElementById('affPrintInfo').textContent = 'Mise en page…';
-        await new Promise(r => setTimeout(r, 30));
-        let lay;
-        try {
-            lay = await layoutPrint(o);
-        } catch (e) {
-            err.textContent = e.message;
-            return;
-        }
-        if (token !== prt.token) return; // une option a changé entre-temps
-        prt.layout = lay;
-        prt.opts = o;
-        const box = document.getElementById('affPrintPreview');
-        if (lay.tpl && tpl.preview && tpl.preview.slides) {
-            renderTplPreview(box, lay, o);
-            return;
-        }
-        const k = Math.min(1, (box.clientWidth - 30) / lay.pxW);
-        box.innerHTML = lay.pages
-            .map(
-                pg =>
-                    `<div class="pw" style="background:#fff;width:${(lay.pxW * k).toFixed(1)}px;height:${(lay.pxH * k).toFixed(1)}px;"><div style="transform:scale(${k.toFixed(4)});transform-origin:0 0;width:${lay.pxW.toFixed(1)}px;height:${lay.pxH.toFixed(1)}px;">${pg}</div></div>`
-            )
-            .join('');
-        document.getElementById('affPrintInfo').textContent =
-            (lay.tpl ? '[Modèle PowerPoint] zone du planning · ' : '') +
-            `${lay.total} page(s) · ${lay.mmW} × ${lay.mmH} mm` +
-            (lay.tooTight
-                ? ' — ⚠ échelle trop fine pour tenir sur une page : choisissez « Répartir sur plusieurs pages » ou une échelle plus large'
-                : '');
-    }
-
-    async function printDownload(kind) {
-        const err = document.getElementById('affPrintErr');
-        err.textContent = '';
-        const lay = prt.layout;
-        if (!lay) return;
-        try {
-            const r = await fetch(`${API_URL}/affectation/export/${kind}`, {
-                method: 'POST',
-                credentials: 'include',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    html: printExportHtml(lay),
-                    wMm: lay.mmW,
-                    hMm: lay.mmH,
-                    name: 'planning-deploiements',
-                    tpl: lay.tpl
-                        ? {
-                              use: true,
-                              title: (prt.opts && prt.opts.title) || 'Planning des déploiements des SAMU',
-                              subtitles: lay.subtitles,
-                              cover: !!(prt.opts && prt.opts.cover),
-                              end: !!(prt.opts && prt.opts.end)
-                          }
-                        : undefined
-                })
-            });
-            if (!r.ok) {
-                const d = await r.json().catch(() => ({}));
-                throw new Error(d.error || `Erreur ${r.status}`);
-            }
-            const blob = await r.blob();
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = `${exportFileName(exportName.pattern, prt.opts)}.${kind}`;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            setTimeout(() => URL.revokeObjectURL(a.href), 30000);
-        } catch (e) {
-            err.textContent = e.message;
-        }
-    }
-
-    const asg = { project: null, stage: null, days: {}, dates: [], needed: 0, extShown: new Set() };
-    // Grille ressources × jours de l'étape : chaque case = l'expert intervient ce jour-là (au plus « nécessaires » par jour)
-    const ASG_STATE = {
-        free: ['Disponible', 'ok'],
-        here: ['Déjà sur ce SAMU dans la planification', 'here'],
-        ans: ['Activité ANS ce jour-là', 'mid'],
-        off: ['Indisponible', 'na'],
-        leave: ['Congés', 'na'],
-        other: ['Affecté(e) à un autre SAMU ce jour-là', 'ko']
-    };
-    const asgDayCount = d => (asg.days[d] || new Set()).size;
-    const asgUnion = () => {
-        const s = new Set();
-        Object.values(asg.days).forEach(set => set.forEach(r => s.add(r)));
-        return s;
-    };
-    // Jour impossible à sélectionner pour un expert sans disponibilité (indisponible 1-1, congés, planning non renseigné)
-    // ou déjà affecté à un autre SAMU ; sans données de disponibilité chargées, ou pour une ressource externe : autorisé
-    function asgBlocked(rid, d) {
-        if (rid < 0 || !asg.av) return false;
-        const st = ((asg.av[rid] || {}).byDay || {})[d];
-        return st === 'other' || st === 'off' || st === 'leave' || !st;
-    }
-    const extLabel = r => `${r.prenom || ''} ${(r.nom || '').toUpperCase()} (${r.trigramme || '?'})`.trim();
-    function assignList() {
-        const q = norm(document.getElementById('affAssignFilter').value);
-        const av = asg.av || {};
-        const union = asgUnion();
-        const mine = r => asg.dates.filter(d => (asg.days[d] || new Set()).has(r.id)).length;
-        const score = r =>
-            (union.has(r.id) ? 1e6 : 0) + ((av[r.id] || {}).free || 0) * 10 - ((av[r.id] || {}).other || 0);
-        const experts = (plan.resources || [])
-            .filter(r => !q || union.has(r.id) || norm(`${r.nom} ${r.prenom} ${r.trigramme || ''}`).includes(q))
-            .sort((a, b) => score(b) - score(a) || (a.nom || '').localeCompare(b.nom || '', 'fr'));
-        // Ressources externes (utilisateurs de l'application) ajoutées à l'étape, en tête de liste
-        const shown = (plan.externals || [])
-            .filter(r => union.has(r.id) || asg.extShown.has(r.id))
-            .filter(r => !q || union.has(r.id) || norm(`${r.nom} ${r.prenom} ${r.trigramme || ''}`).includes(q))
-            .sort((a, b) => (a.nom || '').localeCompare(b.nom || '', 'fr'));
-        const list = [...shown, ...experts];
-        // Propositions de la zone de saisie : utilisateurs non encore affichés
-        const dl = document.getElementById('affExtList');
-        if (dl)
-            dl.innerHTML = (plan.externals || [])
-                .filter(r => !union.has(r.id) && !asg.extShown.has(r.id))
-                .map(r => `<option value="${esc(extLabel(r))}"></option>`)
-                .join('');
-        const DOW = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'];
-        const head = asg.dates
-            .map(d => {
-                const n = asgDayCount(d);
-                const dt = new Date(Date.parse(d + 'T00:00:00Z'));
-                const we = [0, 6].includes(dt.getUTCDay());
-                return `<th class="d ${we ? 'we' : ''} ${n >= asg.needed ? 'full' : ''}" title="${esc(frd(d))} : ${n} / ${asg.needed} ressource(s)"><div>${DOW[dt.getUTCDay()]}</div><div>${d.slice(8)}/${d.slice(5, 7)}</div><div class="c">${n}/${asg.needed}</div></th>`;
-            })
-            .join('');
-        const body = list
-            .map(r => {
-                const state = (av[r.id] || {}).byDay || {};
-                const row = asg.dates
-                    .map(d => {
-                        const on = (asg.days[d] || new Set()).has(r.id);
-                        const st = state[d];
-                        const full = !on && asgDayCount(d) >= asg.needed;
-                        // Expert sans disponibilité ce jour-là (indisponible 1-1, congés, planning non renseigné) ou déjà sur un autre
-                        // SAMU : curseur « interdit » au survol et sélection impossible (une journée cochée reste décochable)
-                        const blocked = !on && asgBlocked(r.id, d);
-                        const [txt, cls] = ASG_STATE[st] || ['Planning non renseigné', 'na'];
-                        const we = [0, 6].includes(new Date(Date.parse(d + 'T00:00:00Z')).getUTCDay());
-                        return `<td class="${we ? 'we' : ''}"><button type="button" class="aff-dc ${cls} ${on ? 'on' : ''}" ${full || blocked ? 'disabled' : ''} title="${esc(txt)}${full ? ' — journée complète' : ''}" onclick="AffectationApp.assignDay(${r.id},'${d}')">${on ? '✓' : ''}</button></td>`;
-                    })
-                    .join('');
-                const nb = mine(r);
-                return `<tr class="${nb ? 'sel' : ''}"><th class="who"><div class="n"><b>${esc((r.nom || '').toUpperCase())}</b> ${esc(r.prenom || '')} <span class="tri">${esc(r.trigramme || '')}</span>${r.external ? ' <span class="aff-muted" style="font-size:10px;">externe</span>' : ''}</div><div class="aff-muted" style="font-size:11px;">${nb} / ${asg.dates.length} j · <a href="#" onclick="AffectationApp.assignRow(${r.id},true);return false;" title="Tous les jours ouvrés de l'étape">tout</a> · <a href="#" onclick="AffectationApp.assignRow(${r.id},false);return false;">aucun</a></div></th>${row}</tr>`;
-            })
-            .join('');
-        document.getElementById('affAssignList').innerHTML = list.length
-            ? `<table class="aff-asg"><thead><tr><th class="who">Ressource</th>${head}</tr></thead><tbody>${body}</tbody></table>
-               <div class="aff-asg-leg">${Object.values(ASG_STATE)
-                   .map(([txt, cls]) => `<span><i class="aff-dc ${cls}"></i>${esc(txt)}</span>`)
-                   .join('')}</div>`
-            : '<div style="padding:14px;" class="aff-muted">Aucune ressource</div>';
-        document.getElementById('affAssignInfo').innerHTML =
-            `${esc(asg.info)}<br><b>${union.size}</b> intervenant(s) sur l'étape · ${asg.needed} ressource(s) au maximum par jour`;
-    }
 
     // ---- Calendrier de saisie des dates avec numéros de semaine ----
     const DP = { el: null, input: null, y: 0, m: 0 };
@@ -3575,7 +2258,6 @@
         }
     });
 
-    const sync = { projectId: null, stage: null, data: null };
     const HIST_ACTIONS = {
         creation: ['Création du déploiement', '#2e7d32'],
         modification: ['Modification', '#1976d2'],
@@ -3588,9 +2270,7 @@
     const planApi = {
         async showHistory(projectId) {
             const body = document.getElementById('affHistBody');
-            const p =
-                (state.projects || []).find(x => x.id === projectId) ||
-                (plan.projects || []).find(x => x.id === projectId);
+            const p = (state.projects || []).find(x => x.id === projectId);
             document.getElementById('affHistTitle').innerHTML =
                 `${svg('search', 'aff-ico')}Historique${p ? ' — ' + esc(p.samu_name) : ''}`;
             body.innerHTML = '<p class="aff-muted">Chargement…</p>';
@@ -3623,66 +2303,6 @@
         historyClose() {
             document.getElementById('affHistModal').classList.remove('active');
         },
-        async openPrint() {
-            await loadTpl(true);
-            const { min, max } = planRange();
-            const list = sortedProjects(true);
-            const stages = [
-                ['cadrage', 'Cadrage'],
-                ['deploiement', 'Déploiement opérationnel'],
-                ['gel', 'Période(s) de gel'],
-                ['mise_en_service', 'Mise en service'],
-                ['mise_en_production', 'Mise en production'],
-                ['reunion_lancement', 'Réunion de lancement stratégique'],
-                ['visite_metier', 'Visite métier'],
-                ['visite_ob', 'Visite OB'],
-                ['test_prerequis', 'Test des prérequis'],
-                ['vft', 'VFT'],
-                ['formation_utilisateurs', 'Formation « Utilisateurs »'],
-                ['accompagnement', 'Accompagnement'],
-                ['_tri', 'Trigrammes des experts (dans les étapes)']
-            ];
-            document.getElementById('affPrintCtl').innerHTML = `
-                <div class="g"><label class="lbl">Format de page</label>
-                    <input type="hidden" id="prOrient" value="landscape"><input type="hidden" id="prPaper" value="A4">
-                    <div class="aff-fmt" id="prFormat">
-                        <button type="button" data-o="portrait" title="Portrait (vertical)" onclick="AffectationApp.printFormat('o','portrait')"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="6" y="2.5" width="12" height="19" rx="1.5"/><path d="M9 8h6M9 12h6M9 16h4" stroke-linecap="round"/></svg><span>Portrait</span></button>
-                        <button type="button" data-o="landscape" class="on" title="Paysage (horizontal)" onclick="AffectationApp.printFormat('o','landscape')"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="1.5"/><path d="M6 10h12M6 13h8" stroke-linecap="round"/></svg><span>Paysage</span></button>
-                        <span class="sep"></span>
-                        <button type="button" data-p="A4" class="on" title="Papier A4" onclick="AffectationApp.printFormat('p','A4')"><b>A4</b></button>
-                        <button type="button" data-p="A3" title="Papier A3" onclick="AffectationApp.printFormat('p','A3')"><b>A3</b></button>
-                    </div></div>
-                <div class="g"><label class="lbl" for="prTitle">Titre</label><input id="prTitle" type="text" value="Planning des déploiements des SAMU"></div>
-                ${tpl.meta.exists ? `<div class="g" style="background:#eef6ff;border:1px solid #cfe0f5;border-radius:10px;padding:8px 10px;"><label class="chk"><input type="checkbox" id="prTpl" checked onchange="AffectationApp.printTpl()"> <b>Utiliser le modèle PowerPoint</b></label><div class="aff-muted" style="font-size:11px;margin-top:3px;">${esc(tpl.meta.name)} — titre, logo et pied de page du modèle ; planning et légende centrés. Format de page imposé par le modèle.</div>${tpl.meta.info && tpl.meta.info.cover ? `<label class="chk" style="margin-top:6px;"><input type="checkbox" id="prCover" checked onchange="AffectationApp.printUpdate()"> Page de garde du modèle</label>` : ''}${tpl.meta.info && tpl.meta.info.end ? `<label class="chk"><input type="checkbox" id="prEnd" checked onchange="AffectationApp.printUpdate()"> Page de fin du modèle</label>` : ''}</div>` : ''}
-                <div class="g two"><div><label class="lbl" for="prFrom">Début</label><input id="prFrom" type="date" min="2000-01-01" max="2100-12-31" value="${min}"></div><div><label class="lbl" for="prTo">Fin</label><input id="prTo" type="date" min="2000-01-01" max="2100-12-31" value="${max}"></div></div>
-                <div class="g"><label class="lbl" for="prZoom">Échelle de temps</label><select id="prZoom">${[
-                    ['day', 'Jours'],
-                    ['week', 'Semaines'],
-                    ['month', 'Mois'],
-                    ['quarter', 'Trimestres'],
-                    ['year', 'Années']
-                ]
-                    .map(z => `<option value="${z[0]}" ${z[0] === plan.zoom ? 'selected' : ''}>${z[1]}</option>`)
-                    .join('')}</select></div>
-                <div class="g"><label class="lbl" for="prFit">Largeur</label><select id="prFit"><option value="split">Répartir sur plusieurs pages (colonnes lisibles)</option><option value="fit">Tout sur une page en largeur</option></select></div>
-                <div class="g"><label class="chk" title="Échelle jour ou semaine : chaque page se termine en fin de mois (les colonnes sont resserrées si un mois est plus large qu'une page)"><input type="checkbox" id="prMonths"> Ne pas couper un mois sur deux pages</label></div>
-                <div class="g"><label class="chk"><input type="checkbox" id="prLegend" checked> Afficher la légende</label></div>
-                <div class="g"><label class="lbl">Rubriques affichées</label><div class="box" id="prStages">${stages.map(s => `<label class="chk"><input type="checkbox" value="${s[0]}" ${hiddenKeys.has(s[0]) ? '' : 'checked'}> ${s[1]}</label>`).join('')}</div></div>
-                <div class="g"><label class="lbl">SAMU à inclure <a href="#" onclick="document.querySelectorAll('#prSamu input').forEach(i=>i.checked=true);AffectationApp.printUpdate();return false;" style="font-weight:400;">tous</a> · <a href="#" onclick="document.querySelectorAll('#prSamu input').forEach(i=>i.checked=false);AffectationApp.printUpdate();return false;" style="font-weight:400;">aucun</a></label>
-                    <div class="box" id="prSamu" style="max-height:220px;">${list.map(p => `<label class="chk"><input type="checkbox" value="${p.id}" ${plan.hiddenRows.has(p.id) ? '' : 'checked'}> ${esc(p.samu_name)}${plan.hiddenRows.has(p.id) ? ' <span class="aff-muted">(retiré de l\'affichage)</span>' : ''}</label>`).join('')}</div></div>`;
-            document.getElementById('affPrintCtl').oninput = document.getElementById('affPrintCtl').onchange = () =>
-                AffectationApp.printUpdate();
-            document.getElementById('affPrintModal').classList.add('active');
-            AffectationApp.printTpl();
-            setTimeout(printRefresh, 50);
-        },
-        printFormat(kind, value) {
-            document.getElementById(kind === 'o' ? 'prOrient' : 'prPaper').value = value;
-            document
-                .querySelectorAll(`#prFormat button[data-${kind}]`)
-                .forEach(b => b.classList.toggle('on', b.dataset[kind] === value));
-            AffectationApp.printUpdate();
-        },
         fnPreview() {
             const i = document.getElementById('affFnPattern'),
                 e = document.getElementById('affFnExample');
@@ -3691,7 +2311,7 @@
                     exportFileName(i.value.trim() || exportName.defaultPattern, {
                         from: todayIso(),
                         to: todayIso(),
-                        zoom: plan.zoom,
+                        zoom: 'day',
                         title: 'Planning des déploiements des SAMU'
                     }) + '.pptx';
         },
@@ -3716,22 +2336,6 @@
         async fnReset() {
             document.getElementById('affFnPattern').value = '';
             await AffectationApp.fnSave();
-        },
-        printTpl() {
-            const on = !!(document.getElementById('prTpl') && document.getElementById('prTpl').checked);
-            const fm = document.getElementById('prFormat');
-            if (fm) {
-                fm.style.opacity = on ? 0.4 : 1;
-                fm.style.pointerEvents = on ? 'none' : '';
-            }
-            const pb = [...document.querySelectorAll('#affPrintModal .aff-modal-foot button')].find(b =>
-                /AffectationApp\.printDo\('print'\)/.test(b.getAttribute('onclick') || '')
-            );
-            if (pb) {
-                pb.disabled = on;
-                pb.title = on ? "Avec le modèle PowerPoint, utilisez l'export PDF ou PowerPoint" : '';
-            }
-            AffectationApp.printUpdate();
         },
         async tplUpload(input) {
             const f = input.files && input.files[0];
@@ -3775,402 +2379,6 @@
                 document.getElementById('affTplMsg').textContent = e.message;
             }
         },
-        printUpdate() {
-            clearTimeout(prt.timer);
-            prt.timer = setTimeout(printRefresh, 300);
-        },
-        printClose() {
-            document.getElementById('affPrintModal').classList.remove('active');
-            document.getElementById('affPrintPreview').innerHTML = '';
-            prt.layout = null;
-        },
-        async printDo(kind) {
-            if (!prt.layout) return;
-            if (kind === 'print') {
-                const f = document.createElement('iframe');
-                f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
-                document.body.appendChild(f);
-                f.contentDocument.open();
-                f.contentDocument.write(printExportHtml(prt.layout));
-                f.contentDocument.close();
-                setTimeout(() => {
-                    f.contentWindow.focus();
-                    f.contentWindow.print();
-                    setTimeout(() => f.remove(), 60000);
-                }, 500);
-            } else {
-                const btns = [...document.querySelectorAll('#affPrintModal .aff-modal-foot button')];
-                btns.forEach(b => {
-                    b.disabled = true;
-                });
-                document.getElementById('affPrintErr').style.color = '#4a5b70';
-                document.getElementById('affPrintErr').textContent = 'Génération du fichier…';
-                await printDownload(kind);
-                btns.forEach(b => {
-                    b.disabled = false;
-                });
-                const e = document.getElementById('affPrintErr');
-                e.style.color = '';
-                if (e.textContent === 'Génération du fichier…') e.textContent = '';
-            }
-        },
-        async openSync(projectId, stageKey, auto) {
-            sync.projectId = projectId || asg.project.id;
-            sync.stage = stageKey || asg.stage;
-            const err = document.getElementById('affSyncError');
-            err.textContent = '';
-            try {
-                const d = (sync.data = await api(`/affectation/projects/${sync.projectId}/sync/${sync.stage}`));
-                if (!d.resources.length) {
-                    AffectationApp.closeSync();
-                    alert('Aucune ressource affectée à cette étape.');
-                    return;
-                }
-                const j = n => `${String(n / 2).replace('.', ',')} j`;
-                const rowsPlan = d.resources
-                    .map(r => {
-                        const state = r.toWrite
-                            ? `<b>${j(r.toWrite)}</b> à renseigner`
-                            : r.done
-                              ? r.conflictCount || r.extraCount
-                                  ? `${j(r.done)} à jour dans la planification`
-                                  : 'Déjà à jour dans la planification'
-                              : 'Rien à écrire';
-                        const dayList = [];
-                        for (
-                            let t = Date.parse(d.spanStart + 'T00:00:00Z');
-                            t <= Date.parse(d.spanEnd + 'T00:00:00Z');
-                            t += 864e5
-                        ) {
-                            const iso = new Date(t).toISOString().slice(0, 10);
-                            if ((iso >= d.start && iso <= d.end) || r.states[iso + '_AM'] || r.states[iso + '_PM'])
-                                dayList.push(iso);
-                        }
-                        const cell = k => {
-                            const st = r.states[k];
-                            return `<div class="aff-sg-c ${st ? st.s : ''}" title="${esc(st ? { ok: 'Planifié (à jour)', write: 'À renseigner', conflict: st.reason || 'Conflit', extra: "Planifié sans journée d'affectation" }[st.s] : 'Rien')}"></div>`;
-                        };
-                        const strip = `<div class="aff-sg">${dayList
-                            .map(iso => {
-                                const dt = new Date(iso + 'T00:00:00Z');
-                                const we = [0, 6].includes(dt.getUTCDay());
-                                return `<div class="aff-sg-d${we ? ' we' : ''}">${['d', 'l', 'm', 'm', 'j', 'v', 's'][dt.getUTCDay()]}<br>${iso.slice(8)}/${iso.slice(5, 7)}${cell(iso + '_AM')}${cell(iso + '_PM')}</div>`;
-                            })
-                            .join('')}</div>`;
-                        const conf = r.conflictCount
-                            ? `<div class="aff-sg-fix"><b style="color:#e53935;">${j(r.conflictCount)} en conflit (rouge)</b> → <select data-sc="${r.id}" style="width:auto;" onclick="event.preventDefault()"><option value="">Laisser tel quel</option>${r.forceableCount ? `<option value="force">Écraser la planification (${j(r.forceableCount)})</option>` : ''}<option value="drop">Retirer ces journées de la grille</option></select></div>`
-                            : '';
-                        const extra = r.extraCount
-                            ? `<div class="aff-sg-fix"><b style="color:#fb8c00;">${j(r.extraCount)} planifiée(s) hors grille (orange)</b> → <select data-sx="${r.id}" style="width:auto;" onclick="event.preventDefault()"><option value="">Laisser tel quel</option><option value="clear">Remettre en « Disponible »</option>${r.addableCount ? '<option value="add">Ajouter à la grille</option>' : ''}</select></div>`
-                            : '';
-                        return `<label class="aff-sync-row"><input type="checkbox" data-sp="${r.id}" ${r.toWrite ? 'checked' : 'disabled'}><span><b>${esc((r.nom || '').toUpperCase())}</b> ${esc(r.prenom || '')}<br>${state}${r.done && r.toWrite ? ` · ${j(r.done)} déjà faits` : ''}${strip}${conf}${extra}</span></label>`;
-                    })
-                    .join('');
-                const needPlan = d.resources.some(r => r.toWrite);
-                const needExtra = d.resources.some(r => r.extraCount || r.conflictCount);
-                const ev = d.event,
-                    ex = ev.existing;
-                const partRows = d.resources
-                    .map(r => {
-                        if (!r.user_id)
-                            return `<label class="aff-sync-row"><input type="checkbox" disabled><span><b>${esc((r.nom || '').toUpperCase())}</b> ${esc(r.prenom || '')}<br><span class="aff-muted">Pas de compte utilisateur : ne peut pas être ajouté(e) à l'événement</span></span></label>`;
-                        const already = ex && ex.participants.includes(r.user_id);
-                        return `<label class="aff-sync-row"><input type="checkbox" data-su="${r.user_id}" ${already ? 'checked disabled' : 'checked'}><span><b>${esc((r.nom || '').toUpperCase())}</b> ${esc(r.prenom || '')}${already ? ' <span class="aff-muted">— déjà participant(e)</span>' : ''}</span></label>`;
-                    })
-                    .join('');
-                const needEvent = !ex || d.resources.some(r => r.user_id && !ex.participants.includes(r.user_id));
-                if (auto && !needPlan && !needEvent && !needExtra) return; // rien à reporter : on n'interrompt pas l'utilisateur
-                document.getElementById('affSyncTitle').textContent = `Reporter l'affectation — ${d.samu}`;
-                document.getElementById('affSyncBody').innerHTML = `
-                    <p class="aff-muted" style="margin:0 0 12px;">Les ressources ont été affectées dans l'aide à l'affectation. Autorisez-vous le report dans la planification et les événements ?</p>
-                    <div class="aff-sync-sec"><h4><input type="checkbox" id="affSyncPlan" ${needPlan ? 'checked' : 'disabled'}>1. Planification des experts</h4>
-                        <div class="aff-muted">Du ${frd(d.start)} au ${frd(d.end)}, sur les journées d'intervention de chaque expert : activité ${esc(d.activity)} « SAMU (Déploiement) », localisation « ${esc(d.samuLoc)} », disponibilité ANS.</div>
-                        <div class="aff-sg-lg"><span><i style="background:#43a047"></i>À jour</span><span><i style="background:#1e88e5"></i>À renseigner</span><span><i style="background:#e53935"></i>Conflit grille / planification</span><span><i style="background:#fb8c00"></i>Planifié hors grille</span><span><i style="background:#eef1f6"></i>Rien</span><span class="aff-muted">(haut = matin, bas = après-midi)</span></div>${rowsPlan}</div>
-                    <div class="aff-sync-sec"><h4><input type="checkbox" id="affSyncEvt" ${needEvent ? 'checked' : 'disabled'}>2. Événement</h4>
-                        ${
-                            ex
-                                ? `<div class="aff-muted">Événement existant : <b>${esc(ex.label)}</b> (${frd(ex.start_date)} → ${frd(ex.end_date)}). Seuls les participants manquants seront ajoutés.</div>`
-                                : `<div class="aff-field"><label class="lbl" for="affEvtLabel">Titre</label><input id="affEvtLabel" type="text" value="${esc(ev.label)}" style="width:100%;"></div>
-                               <div style="display:flex;gap:10px;flex-wrap:wrap;"><div class="aff-field"><label class="lbl">Début</label><input id="affEvtStart" type="date" value="${esc(d.start)}"></div>
-                               <div class="aff-field"><label class="lbl">Fin</label><input id="affEvtEnd" type="date" value="${esc(d.end)}"></div></div>
-                               <div class="aff-field"><span class="lbl">SAMU concerné</span> <b>${esc(d.samu)}</b>${d.locationId ? '' : ' <span class="aff-error">(entité introuvable : événement sans lieu)</span>'}</div>`
-                        }
-                        <div style="margin-top:8px;"><span class="lbl">Participants</span>${partRows}</div></div>`;
-                const nothing = !needPlan && !needEvent && !needExtra;
-                document.getElementById('affSyncOk').style.display = nothing ? 'none' : '';
-                document.getElementById('affSyncLater').textContent = nothing ? 'Fermer' : 'Plus tard';
-                if (nothing)
-                    document.querySelector('#affSyncBody > p').innerHTML =
-                        '<b>Tout est à jour :</b> la planification et les événements correspondent déjà à cette affectation.';
-                else if (!needPlan && !needEvent)
-                    document.querySelector('#affSyncBody > p').innerHTML =
-                        "<b>Rien à écrire,</b> mais la planification et la grille d'affectation ne concordent pas (voir ci-dessous). Choisissez, pour chaque écart, la façon de les aligner.";
-                document.getElementById('affSyncModal').classList.add('active');
-            } catch (e) {
-                alert(e.message);
-            }
-        },
-        closeSync() {
-            document.getElementById('affSyncModal').classList.remove('active');
-        },
-        async applySync() {
-            const err = document.getElementById('affSyncError');
-            err.textContent = '';
-            const q = sel => document.querySelector(sel);
-            const body = {};
-            const picked = (attr, value) =>
-                [...document.querySelectorAll(`select[${attr}]`)]
-                    .filter(i => i.value === value)
-                    .map(i => Number(i.getAttribute(attr)));
-            const fix = {
-                force_ids: picked('data-sc', 'force'),
-                drop_ids: picked('data-sc', 'drop'),
-                clear_ids: picked('data-sx', 'clear'),
-                add_ids: picked('data-sx', 'add')
-            };
-            if ((q('#affSyncPlan') && q('#affSyncPlan').checked) || Object.values(fix).some(l => l.length))
-                body.planning = {
-                    resource_ids:
-                        q('#affSyncPlan') && q('#affSyncPlan').checked
-                            ? [...document.querySelectorAll('input[data-sp]:checked')].map(i => Number(i.dataset.sp))
-                            : [],
-                    ...fix
-                };
-            if (q('#affSyncEvt') && q('#affSyncEvt').checked) {
-                body.event = {
-                    apply: true,
-                    participants: [...document.querySelectorAll('input[data-su]:checked:not(:disabled)')].map(i =>
-                        Number(i.dataset.su)
-                    )
-                };
-                if (q('#affEvtLabel'))
-                    Object.assign(body.event, {
-                        label: q('#affEvtLabel').value,
-                        startDate: q('#affEvtStart').value,
-                        endDate: q('#affEvtEnd').value
-                    });
-            }
-            if (!body.planning && !body.event) {
-                AffectationApp.closeSync();
-                return;
-            }
-            try {
-                const r = await api(`/affectation/projects/${sync.projectId}/sync/${sync.stage}`, {
-                    method: 'POST',
-                    body: JSON.stringify(body)
-                });
-                AffectationApp.closeSync();
-                alert(
-                    `Report effectué : ${r.planning} demi-journée(s) planifiée(s)` +
-                        (r.cleared ? `, ${r.cleared} remise(s) en « Disponible »` : '') +
-                        (r.forced ? `, ${r.forced} remplacée(s) dans la planification` : '') +
-                        (r.dropped ? `, ${r.dropped} journée(s) retirée(s) de la grille` : '') +
-                        (r.added ? `, ${r.added} journée(s) ajoutée(s) à la grille` : '') +
-                        (r.event
-                            ? `, événement ${r.event.created ? 'créé' : 'mis à jour'} (${r.event.participants} participant(s)).`
-                            : '.')
-                );
-            } catch (e) {
-                err.textContent = e.message;
-            }
-        },
-        planSort(key) {
-            plan.sort = plan.sort.key === key ? { key, dir: -plan.sort.dir } : { key, dir: 1 };
-            const box = document.getElementById('affPlan'),
-                left = box.scrollLeft;
-            renderPlanning();
-            box.scrollLeft = left;
-        },
-        toggleStage(k) {
-            if (hiddenKeys.has(k)) hiddenKeys.delete(k);
-            else hiddenKeys.add(k);
-            try {
-                localStorage.setItem('affHiddenStages', JSON.stringify([...hiddenKeys]));
-            } catch (e) {
-                /* stockage indisponible */
-            }
-            const box = document.getElementById('affPlan'),
-                left = box.scrollLeft;
-            renderPlanning();
-            box.scrollLeft = left;
-        },
-        async openAssign(projectId, stageKey) {
-            let p = plan.projects.find(x => x.id === projectId);
-            const x = p && ((p.periods || {})[stageKey] || [])[0];
-            if (!x || !x.needed) return;
-            try {
-                if (!plan.resources || !plan.externals) {
-                    const rs = await api('/affectation/resources');
-                    plan.resources = rs.resources;
-                    plan.externals = rs.externals || [];
-                }
-            } catch (e) {
-                alert(e.message);
-                return;
-            }
-            // Les participants des événements reliés à cette activité sont repris comme ressources affectées
-            try {
-                const sy = await api('/affectation/sync-from-events', {
-                    method: 'POST',
-                    body: JSON.stringify({ projectId: p.id })
-                });
-                if ((sy.changes || []).length) {
-                    // Intervenants ajoutés depuis des événements : déploiements rechargés (journées d'intervention comprises)
-                    plan.projects = (await api('/affectation/projects')).projects;
-                    p = plan.projects.find(z => z.id === projectId) || p;
-                    renderPlanning();
-                }
-            } catch (e) {
-                /* synchronisation indisponible : l'affectation reste manuelle */
-            }
-            asg.project = p;
-            asg.stage = stageKey;
-            asg.needed = x.needed;
-            asg.av = null;
-            asg.dates = [];
-            // Tous les jours de l'étape, week-ends compris (certaines activités se tiennent le samedi ou le dimanche)
-            for (let d = x.start; d <= x.end; d = addDaysIso(d, 1)) asg.dates.push(d);
-            try {
-                const r = await api(`/affectation/projects/${p.id}/availability/${stageKey}`);
-                asg.av = r.availability;
-                if (r.dates) asg.dates = r.dates;
-            } catch (e) {
-                /* disponibilités indisponibles : grille sans indicateurs */
-            }
-            // Journées d'intervention actuelles (étape entière pour une ressource sans journées enregistrées)
-            const current = (p.assignment_days || {})[stageKey] || {};
-            asg.days = {};
-            asg.extShown = new Set();
-            document.getElementById('affAssignExt').value = '';
-            asg.dates.forEach(d => (asg.days[d] = new Set(current[d] || [])));
-            asg.initial = {};
-            asg.dates.forEach(d => (asg.initial[d] = new Set(asg.days[d])));
-            asg.info = `${p.samu_name} — ${planDef(stageKey).label} (${frd(x.start)} → ${frd(x.end)})`;
-            document.getElementById('affAssignTitle').textContent = 'Affecter des ressources';
-            document.getElementById('affAssignError').textContent = '';
-            document.getElementById('affAssignFilter').value = '';
-            assignList();
-            document.getElementById('affAssignModal').classList.add('active');
-        },
-        assignDay(rid, date) {
-            const set = (asg.days[date] = asg.days[date] || new Set());
-            if (set.has(rid)) set.delete(rid);
-            else if (set.size < asg.needed && !asgBlocked(rid, date)) set.add(rid);
-            assignList();
-        },
-        // Tous les jours ouvrés de l'étape (dans la limite du nombre de ressources par jour ; les week-ends se cochent à la main)
-        // ou aucune journée pour une ressource
-        assignRow(rid, all) {
-            asg.dates.forEach(d => {
-                const set = (asg.days[d] = asg.days[d] || new Set());
-                if (!all) set.delete(rid);
-                else if ([0, 6].includes(new Date(Date.parse(d + 'T00:00:00Z')).getUTCDay())) return;
-                else if (set.size < asg.needed && !asgBlocked(rid, d)) set.add(rid);
-            });
-            assignList();
-        },
-        assignFilter: assignList,
-        // Ressource externe choisie dans les propositions : ajoutée à la grille (journées à cocher ensuite)
-        assignExtPick() {
-            const input = document.getElementById('affAssignExt');
-            const v = norm(input.value);
-            const found = (plan.externals || []).find(r => norm(extLabel(r)) === v);
-            if (!found) return;
-            asg.extShown.add(found.id);
-            input.value = '';
-            assignList();
-        },
-        closeAssign() {
-            document.getElementById('affAssignModal').classList.remove('active');
-        },
-        async saveAssign() {
-            try {
-                const prev = (asg.project.assignments || {})[asg.stage] || [];
-                const days = {};
-                asg.dates.forEach(d => {
-                    if (asg.days[d] && asg.days[d].size) days[d] = [...asg.days[d]];
-                });
-                const r = await api(`/affectation/projects/${asg.project.id}/assignment-days/${asg.stage}`, {
-                    method: 'PUT',
-                    body: JSON.stringify({ days })
-                });
-                asg.project.assignments = asg.project.assignments || {};
-                asg.project.assignments[asg.stage] = r.resource_ids;
-                asg.project.assignment_days = asg.project.assignment_days || {};
-                if (r.resource_ids.length) asg.project.assignment_days[asg.stage] = r.assignment_days;
-                else delete asg.project.assignment_days[asg.stage];
-                AffectationApp.closeAssign();
-                renderPlanning();
-                // Désaffectation : proposition de remettre les experts retirés en « 2 - Disponible » / « 2 - En attente d'affectation »
-                const removed = prev.filter(x => !r.resource_ids.includes(x));
-                if (removed.length) {
-                    const names = removed
-                        .map(id => {
-                            const q = resOf(id);
-                            return q ? `${q.prenom || ''} ${(q.nom || '').toUpperCase()}`.trim() : `#${id}`;
-                        })
-                        .join(', ');
-                    if (
-                        confirm(
-                            `Désaffectation : ${names}.\n\nLes remettre dans leur planification en « 2 - Disponible » / « 2 - En attente d'affectation » (localisation effacée) sur la période de l'activité, et les retirer de l'événement lié ?\n\nIls redeviendront affectables sur un autre SAMU.`
-                        )
-                    ) {
-                        try {
-                            const rl = await api(
-                                `/affectation/projects/${asg.project.id}/assignments/${asg.stage}/release`,
-                                { method: 'POST', body: JSON.stringify({ resource_ids: removed }) }
-                            );
-                            const t = document.createElement('div');
-                            t.className = 'aff-toast';
-                            t.textContent = `${rl.planningReset} demi-journée(s) remise(s) en « Disponible / En attente d'affectation » ; ${rl.removedFromEvents} participation(s) retirée(s) des événements.`;
-                            document.body.appendChild(t);
-                            setTimeout(() => t.remove(), 6000);
-                        } catch (e2) {
-                            alert(e2.message);
-                        }
-                    }
-                }
-                // Journées décochées pour des experts qui restent affectés : proposition de remettre ces journées en situation
-                const dropped = {};
-                let nDropped = 0;
-                // (cochées à l'ouverture, ou déjà posées pour ce SAMU dans la planification : cellules bleues de la grille)
-                asg.dates.forEach(d => {
-                    for (const rid of r.resource_ids) {
-                        if (asg.days[d] && asg.days[d].has(rid)) continue;
-                        const was = asg.initial && asg.initial[d] && asg.initial[d].has(rid);
-                        const here = ((asg.av || {})[rid] || {}).byDay && asg.av[rid].byDay[d] === 'here';
-                        if (was || here) {
-                            (dropped[rid] = dropped[rid] || []).push(d);
-                            nDropped++;
-                        }
-                    }
-                });
-                if (
-                    nDropped &&
-                    confirm(
-                        `${nDropped} journée(s) sans affectation dans la grille mais posées pour ce SAMU dans la planification (retirées ou jamais cochées).\n\nLes remettre dans leur planification en « 2 - Disponible » / « 2 - En attente d'affectation » (localisation effacée) ? Seules les demi-journées posées par l'affectation pour ce SAMU sont modifiées.`
-                    )
-                ) {
-                    try {
-                        const rl = await api(
-                            `/affectation/projects/${asg.project.id}/assignments/${asg.stage}/release`,
-                            { method: 'POST', body: JSON.stringify({ days: dropped }) }
-                        );
-                        const t = document.createElement('div');
-                        t.className = 'aff-toast';
-                        t.textContent = `${rl.planningReset} demi-journée(s) remise(s) en « Disponible / En attente d'affectation ».`;
-                        document.body.appendChild(t);
-                        setTimeout(() => t.remove(), 6000);
-                    } catch (e2) {
-                        alert(e2.message);
-                    }
-                }
-                // Les ressources externes n'ont pas de planification à synchroniser
-                if (r.resource_ids.some(x => x > 0)) AffectationApp.openSync(asg.project.id, asg.stage, true);
-            } catch (e) {
-                document.getElementById('affAssignError').textContent = e.message;
-            }
-        },
         async asanaRefresh(id, btn) {
             if (btn.classList.contains('aff-busy')) return;
             btn.classList.add('aff-busy');
@@ -4194,14 +2402,8 @@
                 if (r.conflicts && r.conflicts.length)
                     showAsanaConflicts([{ id, samu: r.samu_name, asana: r.asana, rows: r.conflicts }]);
                 if (!r.unchanged && (r.updated || r.created)) {
-                    const b = document.getElementById('affPlan'),
-                        l = b ? b.scrollLeft : 0,
-                        t = b ? b.scrollTop : 0;
-                    await Promise.all([loadPlanning(), state.loaded ? loadAdmin() : null]);
-                    if (b) {
-                        b.scrollLeft = l;
-                        b.scrollTop = t;
-                    }
+                    notifierPlanning();
+                    if (state.loaded) await loadAdmin();
                 }
             } catch (e) {
                 toast(e.message, true);
@@ -4235,7 +2437,8 @@
                     errors: r.errors
                 });
                 if (r.updated.length) {
-                    await Promise.all([loadAdmin(), state.loaded ? loadPlanning() : null]);
+                    notifierPlanning();
+                    await loadAdmin();
                 }
                 showAsanaConflicts(r.conflicts);
             } catch (e) {
@@ -4465,7 +2668,8 @@
                         title: `Remplacements appliqués — ${r.samu_name}`,
                         items: [{ samu: r.samu_name, created: false, asana: r.asana, changes: r.changes || [] }]
                     });
-                    await Promise.all([loadAdmin(), state.loaded ? loadPlanning() : null]);
+                    notifierPlanning();
+                    await loadAdmin();
                 }
             } catch (e) {
                 msg.style.color = '#b3261e';
@@ -4506,7 +2710,8 @@
                     gardees += r.kept;
                 }
                 AffectationApp.asanaConflictsClose();
-                await Promise.all([loadPlanning(), state.loaded ? loadAdmin() : null]);
+                notifierPlanning();
+                if (state.loaded) await loadAdmin();
                 const t = document.createElement('div');
                 t.className = 'aff-toast';
                 t.textContent = `Conflits tranchés : ${reprises} reprise(s) depuis Asana, ${gardees} valeur(s) conservée(s) dans l'application.`;
@@ -4516,120 +2721,7 @@
                 msg.textContent = e.message;
                 ok.disabled = false;
             }
-        },
-        toggleSamuDd(ev) {
-            ev.stopPropagation();
-            plan.ddOpen = !plan.ddOpen;
-            renderSamuDd();
-        },
-        samuDdSet(id, on) {
-            if (on) plan.hiddenRows.delete(id);
-            else plan.hiddenRows.add(id);
-            saveHiddenRows();
-            AffectationApp.keepScroll();
-        },
-        samuDdAll(on) {
-            if (on) plan.hiddenRows.clear();
-            else plan.projects.forEach(p => plan.hiddenRows.add(p.id));
-            saveHiddenRows();
-            AffectationApp.keepScroll();
-        },
-        hideRow(id) {
-            plan.hiddenRows.add(id);
-            saveHiddenRows();
-            AffectationApp.keepScroll();
-        },
-        showRow(id) {
-            plan.hiddenRows.delete(id);
-            saveHiddenRows();
-            AffectationApp.keepScroll();
-            const b = document.querySelector('.aff-hid-wrap > button'); // la liste reste ouverte tant qu'il reste des lignes à rétablir
-            if (b) b.click();
-        },
-        showAllRows() {
-            plan.hiddenRows.clear();
-            saveHiddenRows();
-            AffectationApp.keepScroll();
-        },
-        keepScroll() {
-            const b = document.getElementById('affPlan'),
-                l = b.scrollLeft,
-                t = b.scrollTop;
-            renderPlanning();
-            b.scrollLeft = l;
-            b.scrollTop = t;
-        },
-        toggleHiddenPop(ev) {
-            ev.stopPropagation();
-            const pop = document.getElementById('affHidPop');
-            if (!pop) return;
-            const open = pop.style.display === 'none';
-            pop.style.display = open ? 'block' : 'none';
-            if (open)
-                setTimeout(
-                    () =>
-                        document.addEventListener('click', function f(e) {
-                            if (!pop.contains(e.target)) {
-                                pop.style.display = 'none';
-                                document.removeEventListener('click', f);
-                            }
-                        }),
-                    0
-                );
-        },
-        planRangeSet() {
-            const type = rgType(),
-                a = autoRange();
-            const f = document.getElementById('affRgFrom'),
-                t = document.getElementById('affRgTo'),
-                err = document.getElementById('affRgErr');
-            const from = f.value === rgVal(type, a.min) ? null : rgStart(type, f.value);
-            const to = t.value === rgVal(type, a.max) ? null : rgEnd(type, t.value);
-            const lo = from || a.min,
-                hi = to || a.max;
-            if (lo > hi) {
-                f.classList.add('bad');
-                t.classList.add('bad');
-                err.textContent = 'La borne de fin précède la borne de début.';
-                return;
-            }
-            const se = spanError(lo, hi, plan.zoom);
-            if (se) {
-                f.classList.add('bad');
-                t.classList.add('bad');
-                err.textContent = se;
-                return;
-            }
-            plan.range = from || to ? { from, to } : null;
-            try {
-                localStorage.setItem('affPlanRange', JSON.stringify(plan.range));
-            } catch (e) {
-                /* stockage indisponible */
-            }
-            renderPlanning();
-            document.getElementById('affPlan').scrollLeft = 0;
-        },
-        planRangeReset() {
-            plan.range = null;
-            try {
-                localStorage.removeItem('affPlanRange');
-            } catch (e) {
-                /* stockage indisponible */
-            }
-            renderPlanning();
-        },
-        planZoom(z) {
-            plan.zoom = z;
-            renderPlanning();
-            AffectationApp.planToday();
-        },
-        planToday() {
-            const box = document.getElementById('affPlan');
-            const cell = box && box.querySelector('thead th[data-today]');
-            if (!cell) return;
-            box.scrollLeft = Math.max(0, cell.offsetLeft - box.clientWidth / 2 + cell.offsetWidth / 2);
-        },
-        loadPlanning
+        }
     };
 
     const AffectationApp = {
@@ -4705,7 +2797,7 @@
                 document.getElementById('affectation' + n + 'Tab').classList.toggle('active', on[k]);
             });
             if (on.admin && !state.loaded) loadAdmin();
-            if (on.planning) loadPlanning();
+            // Onglet « Planning des déploiements » : îlot Vue, monté (ou relu) à l'ouverture de l'onglet
             // Onglet « Événements » : îlot Vue (frontend/src/ilots/affectation), monté à l'ouverture de l'onglet
             if (on.ateliers && window.AtelierPlanner) window.AtelierPlanner.show();
         },
