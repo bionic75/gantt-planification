@@ -24,7 +24,11 @@ export default defineConfig({
         emptyOutDir: true,
         manifest: true,
         rollupOptions: {
-            input: { ilots: fileURLToPath(new URL('./src/ilots.ts', import.meta.url)) }
+            input: {
+                ilots: fileURLToPath(new URL('./src/ilots.ts', import.meta.url)),
+                // Page publique d'un sondage de date (public/sondage.html)
+                sondage: fileURLToPath(new URL('./src/sondage.ts', import.meta.url))
+            }
         }
     },
     test: {

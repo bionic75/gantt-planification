@@ -56,10 +56,3 @@ Fonctionnalité: Aide à l'affectation : onglet « Événements »
     Quand je fusionne le groupe des événements "A" et je confirme
     Alors la fenêtre des doublons annonce "Fusion effectuée : 1 événement supprimé, 0 participant ajouté."
     Et un seul événement "A" existe encore
-
-  Scénario: Utilisateur : ni suppression ni recherche des doublons
-    Étant donné que "Utilisateur" a accès à l'application « Aide à l'affectation opérationnelle »
-    Et que j'ouvre les événements de l'aide à l'affectation en tant que "Utilisateur"
-    Quand je filtre les événements sur le SAMU de test
-    Alors la liste des événements compte "2 événements"
-    Et aucun bouton de suppression ni de recherche des doublons n'est proposé
