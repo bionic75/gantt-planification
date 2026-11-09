@@ -63,7 +63,7 @@ onBeforeUnmount(arreter);
         </button>
     </div>
     <ListeEvenements @supprimer="supprimer" />
-    <FenetreDoublons v-if="doublons" @close="doublons = false" />
+    <FenetreDoublons v-if="doublons" @close="doublons = false" @modifies="ev.chargerListe()" />
     <FenetreCarte :opened="carte" @close="carte = false" />
     <AppConfirmation
         :opened="!!demande"
