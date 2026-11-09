@@ -113,6 +113,9 @@ E2E_TAGS="@cra" npm test                                        # une fonctionna
       profil RH).
     - **Carte** : les lieux de test sont créés aux mêmes coordonnées ; un marqueur s'active au clavier (focus puis
       Entrée), un clic pouvant être intercepté par un autre marqueur.
+    - **Bons de commande des déplacements** : une année par fonctionnalité (`35` : 2031, et 2032 pour un déplacement
+      hors période ; `36` : 2033). Le formulaire présélectionne le premier bon non soldé couvrant les dates saisies :
+      un bon d'une autre fonctionnalité couvrant la même année serait choisi à la place du bon de test.
 - Préalables de l'environnement : au moins une localisation (SAMU), le compte Expert rattaché à une ressource,
   un SMTP **de test** (jamais de production) pour les codes OTP et la diffusion des CRA.
 

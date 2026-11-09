@@ -1,8 +1,8 @@
 // Montage des îlots Vue dans les onglets de la page existante : à la première ouverture de l'onglet (classe « active »
 // posée par l'ancien code), démontage à la fin de la session, nouveau montage à la prochaine ouverture.
 // Un îlot peut aussi n'occuper qu'une section d'un onglet (sous-îlot) : il se monte dans son propre conteneur, placé
-// dans l'onglet, à l'ouverture de cet onglet. L'onglet d'une application (Déplacements…) garde sa classe « active » quand
-// l'application est masquée : son îlot ne se monte que si le conteneur de l'application est affiché.
+// dans l'onglet, à l'ouverture de cet onglet. Une application entière (Suivi des déplacements…) se monte dans son
+// conteneur quand l'ancien code l'affiche (style display) ; chaque nouvel affichage est une réouverture.
 import { createPinia, type Pinia } from 'pinia';
 import { createApp, ref, type App, type Component, type Ref } from 'vue';
 import { CLE_ACTIVATIONS } from '@/ilots/activation';
@@ -11,27 +11,33 @@ import { ecouter } from '@/liaison';
 /** Composant racine d'un îlot, chargé à la demande (fichier séparé dans le build) */
 export type ChargeurIlot = () => Promise<{ default: Component }>;
 
-/**
- * Sous-îlot : section d'un onglet (identifiant du conteneur de l'onglet, ex. « admin »), ou onglet d'une application
- * (identifiant du conteneur de l'application, affiché ou masqué par l'ancien code, ex. « deplacementsContainer »)
- */
+/** Sous-îlot : section d'un onglet (identifiant du conteneur de l'onglet, ex. « admin ») */
 export interface SousIlot {
     chargeur: ChargeurIlot;
     onglet: string;
-    application?: string;
 }
 
 /**
- * Îlots : identifiant du conteneur → composant racine. Conteneur de l'onglet (ex. « tripadvisor »), ou conteneur
- * d'une section placé dans l'onglet (sous-îlot, ex. « adminLocalisations »)
+ * Application entière (Suivi des déplacements…) : montée dans son conteneur quand l'ancien code l'affiche
+ * (style display), sans onglet
  */
-export type RegistreIlots = Record<string, ChargeurIlot | SousIlot>;
+export interface IlotApplication {
+    chargeur: ChargeurIlot;
+    application: true;
+}
+
+/**
+ * Îlots : identifiant du conteneur → composant racine. Conteneur de l'onglet (ex. « tripadvisor »), conteneur
+ * d'une section placé dans l'onglet (sous-îlot, ex. « adminLocalisations »), ou conteneur d'une application
+ * (ex. « deplacementsContainer »)
+ */
+export type RegistreIlots = Record<string, ChargeurIlot | SousIlot | IlotApplication>;
 
 interface IlotSurveille {
     conteneur: HTMLElement;
-    /** Élément dont la classe « active » déclenche le montage : l'onglet */
-    onglet: HTMLElement;
-    /** Conteneur de l'application (onglet d'une application) : l'îlot ne se monte que s'il est affiché */
+    /** Élément dont la classe « active » déclenche le montage : l'onglet ; null pour une application entière */
+    onglet: HTMLElement | null;
+    /** Conteneur d'une application entière : l'îlot ne se monte que s'il est affiché */
     application: HTMLElement | null;
     chargeur: ChargeurIlot;
     app: App | null;
@@ -80,7 +86,7 @@ export function surveillerIlots(registre: RegistreIlots, creerMagasin: () => Pin
         const pageMire = mire();
         // Mire affichée : onglet tenu pour fermé, l'îlot se monte quand la connexion masque la mire
         const actif =
-            estActif(ilot.onglet) &&
+            (!ilot.onglet || estActif(ilot.onglet)) &&
             !(pageMire && estActif(pageMire)) &&
             (!ilot.application || ilot.application.style.display !== 'none');
         if (actif && !ilot.actif) {
@@ -93,7 +99,7 @@ export function surveillerIlots(registre: RegistreIlots, creerMagasin: () => Pin
     function armer(ilot: IlotSurveille) {
         ilot.actif = false;
         ilot.observateur ??= new MutationObserver(() => surChangement(ilot));
-        ilot.observateur.observe(ilot.onglet, { attributes: true, attributeFilter: ['class'] });
+        if (ilot.onglet) ilot.observateur.observe(ilot.onglet, { attributes: true, attributeFilter: ['class'] });
         if (ilot.application)
             ilot.observateur.observe(ilot.application, { attributes: true, attributeFilter: ['style'] });
         surChangement(ilot);
@@ -101,14 +107,22 @@ export function surveillerIlots(registre: RegistreIlots, creerMagasin: () => Pin
 
     for (const [id, entree] of Object.entries(registre)) {
         const conteneur = document.getElementById(id);
-        const {
-            chargeur,
-            onglet: idOnglet,
-            application: idApplication
-        }: SousIlot = typeof entree === 'function' ? { chargeur: entree, onglet: id } : entree;
-        const onglet = document.getElementById(idOnglet);
-        const application = idApplication ? document.getElementById(idApplication) : null;
-        if (!conteneur || !onglet || (idApplication && !application)) continue;
+        if (!conteneur) continue;
+        let chargeur: ChargeurIlot;
+        let onglet: HTMLElement | null = null;
+        let application: HTMLElement | null = null;
+        if (typeof entree === 'function') {
+            chargeur = entree;
+            onglet = conteneur;
+        } else if ('application' in entree) {
+            // Application entière : son conteneur, affiché ou masqué par l'ancien code
+            chargeur = entree.chargeur;
+            application = conteneur;
+        } else {
+            chargeur = entree.chargeur;
+            onglet = document.getElementById(entree.onglet);
+            if (!onglet) continue;
+        }
         const ilot: IlotSurveille = {
             conteneur,
             onglet,

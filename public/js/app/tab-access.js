@@ -156,8 +156,6 @@ function backToPlanification() {
     if (window.hideAffectationApp) hideAffectationApp();
     sessionStorage.setItem('selectedApp', 'planification');
     document.getElementById('deplacementsContainer').style.display = 'none';
-    document.getElementById('deplacementsTimerDisplay').style.display = 'none';
-    document.getElementById('deplacementsOnlineUsersContainer').style.display = 'none';
     document.getElementById('backToPlanificationBtn').style.display = 'none';
     document.getElementById('analyseContainer').style.display = 'none';
     document.querySelector('.container').style.display = 'block';
@@ -367,4 +365,101 @@ function updateAppSwitcher() {
                 </div>`;
         })
         .join('');
+}
+
+// ============== Application « Suivi des déplacements » ==============
+// Contenu (en-tête, pastilles, onglets, fenêtres) : îlot Vue frontend/src/ilots/deplacements/ApplicationDeplacements.vue,
+// monté quand #deplacementsContainer est affiché. Ouverture, retour à la Planification et déconnexion : déplacés de
+// deplacements.js (lot 5.2b), sans ce que l'îlot affiche désormais.
+
+function showDeplacementsApp() {
+    if (window.hideAffectationApp) hideAffectationApp();
+    console.log("🚗 Affichage de l'application Déplacements");
+
+    // Sauvegarder l'application sélectionnée
+    sessionStorage.setItem('selectedApp', 'deplacements');
+
+    // Masquer le container principal de planification ; afficher celui des déplacements (montage de l'îlot)
+    document.querySelector('.container').style.display = 'none';
+    document.getElementById('deplacementsContainer').style.display = 'block';
+    document.getElementById('backToPlanificationBtn').style.display = 'none'; // retour par le menu Applications
+
+    // Charger les paramètres puis démarrer le timer
+    loadSettingsForDeplacements().then(() => {
+        startInactivityTimer(inactivityTimeout);
+    });
+}
+
+async function loadSettingsForDeplacements() {
+    try {
+        const response = await fetch(`${API_URL}/settings`, { credentials: 'include' });
+        if (response.ok) {
+            const settings = await response.json();
+            // Le timeout est en MINUTES dans les paramètres
+            inactivityTimeout = settings.inactivity_timeout || 5;
+            console.log('⚙️ Timeout inactivité déplacements:', inactivityTimeout, 'minutes');
+        }
+    } catch (error) {
+        console.error('Erreur chargement settings:', error);
+        inactivityTimeout = 5; // 5 minutes par défaut
+    }
+}
+
+// Fenêtre de déconnexion de l'application (îlot) : « Aller sur la Plateforme de planification »
+async function goToPlanificationApp() {
+    // Sauvegarder l'application sélectionnée
+    sessionStorage.setItem('selectedApp', 'planification');
+
+    // Arrêter le timer de déplacements
+    stopInactivityTimer();
+
+    // Masquer l'application déplacements, afficher l'application planification
+    document.getElementById('deplacementsContainer').style.display = 'none';
+    document.querySelector('.container').style.display = 'block';
+
+    // Mettre à jour l'application sélectionnée
+    if (currentUser) {
+        currentUser.selectedApp = 'planification';
+    }
+
+    // Réinitialiser l'affichage de l'IHM principale
+    updateTabsVisibility();
+    updateUserDisplay();
+
+    // Afficher le timer et les utilisateurs connectés de l'app principale
+    document.getElementById('inactivityTimerDisplay').style.display = 'block';
+    document.getElementById('onlineUsersContainer').style.display = 'flex';
+
+    // Recharger les données pour s'assurer que tout est à jour
+    await loadResources();
+    await loadSettings();
+
+    // Mettre à jour le Gantt si on est sur l'onglet planification
+    if (document.getElementById('planning').classList.contains('active')) {
+        updateGantt();
+    }
+
+    // Démarrer le polling des utilisateurs connectés
+    startOnlineUsersPolling();
+
+    // Charger les notifications pour les experts
+    if (currentUser.activeProfile === 'expert') {
+        await loadNewAssignments();
+    }
+
+    console.log('📅 Retour à la Plateforme de planification effectué');
+}
+
+// Fenêtre de déconnexion de l'application (îlot) : « Se déconnecter »
+async function confirmLogoutFromDeplacements() {
+    // Nettoyer le sessionStorage
+    sessionStorage.removeItem('selectedApp');
+
+    // Arrêter le timer
+    stopInactivityTimer();
+
+    await performLogout();
+
+    // Masquer l'application déplacements
+    document.getElementById('deplacementsContainer').style.display = 'none';
 }

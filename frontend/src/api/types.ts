@@ -14,6 +14,8 @@ export interface Session {
     trigramme: string | null;
     profilePhoto: string | null;
     availableApps: string[];
+    /** Accès à l'application « Suivi des déplacements » (onglet Reporting de l'application) */
+    is_amoa_ced?: boolean;
     is_admin: boolean;
     is_expert: boolean;
     is_user: boolean;
