@@ -234,6 +234,11 @@ function startInactivityTimer(timeoutMinutes) {
     document.addEventListener('keypress', resetTimer, true);
 }
 
+/** Secondes restantes avant la déconnexion pour inactivité (minuteur des applications en îlot, frontend/src/liaison.ts) */
+function inactiviteRestante() {
+    return inactivityTimeRemaining;
+}
+
 function updateTimerDisplay() {
     const minutes = Math.floor(inactivityTimeRemaining / 60);
     const seconds = inactivityTimeRemaining % 60;

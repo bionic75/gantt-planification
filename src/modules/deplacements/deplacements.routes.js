@@ -9,11 +9,11 @@ import * as ctrl from './deplacements.controller.js';
 const router = Router();
 const acces = requireDeplacementsAccess;
 
-// Bons de commande
+// Bons de commande : écriture réservée à l'administrateur, comme l'onglet Administration de l'application
 router.get('/bons-commande', acces, h(ctrl.listBons));
-router.post('/bons-commande', acces, h(ctrl.createBon));
-router.put('/bons-commande/:id', acces, h(ctrl.updateBon));
-router.delete('/bons-commande/:id', acces, h(ctrl.deleteBon));
+router.post('/bons-commande', acces, requireAdmin, h(ctrl.createBon));
+router.put('/bons-commande/:id', acces, requireAdmin, h(ctrl.updateBon));
+router.delete('/bons-commande/:id', acces, requireAdmin, h(ctrl.deleteBon));
 router.get('/reporting-deplacements', acces, h(ctrl.bonsReport));
 
 // Déplacements

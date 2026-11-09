@@ -255,9 +255,9 @@ Protections :
 | Méthode | Chemin | Protection |
 | --- | --- | --- |
 | GET | `/api/bons-commande` | deplacements |
-| POST | `/api/bons-commande` | deplacements |
-| PUT | `/api/bons-commande/:id` | deplacements |
-| DELETE | `/api/bons-commande/:id` | deplacements |
+| POST | `/api/bons-commande` | admin |
+| PUT | `/api/bons-commande/:id` | admin |
+| DELETE | `/api/bons-commande/:id` | admin |
 | GET | `/api/deplacements` | deplacements |
 | POST | `/api/deplacements` | deplacements |
 | GET | `/api/deplacements/:id` | deplacements |

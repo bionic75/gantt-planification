@@ -545,21 +545,11 @@ function resetUiForLogin() {
     } catch (e) {
         /* ignoré */
     }
-    try {
-        if (deplacementsOnlineUsersInterval) {
-            clearInterval(deplacementsOnlineUsersInterval);
-            deplacementsOnlineUsersInterval = null;
-        }
-    } catch (e) {
-        /* ignoré */
-    }
+    // Application Déplacements : pastilles et relecture des connectés dans l'îlot, démonté en fin de session
     [
         'analyseContainer',
         'deplacementsContainer',
         'affectationContainer',
-        'deplacementsTimerDisplay',
-        'deplacementsOnlineUsersContainer',
-        'deplacementsOnlineUsersTooltip',
         'analyseTimerDisplay',
         'analyseOnlineUsersContainer',
         'inactivityTimerDisplay',
@@ -910,3 +900,154 @@ window.addEventListener('gp:onglets-modifies', e => {
     TabAccess.cfg = e.detail.config;
     updateTabsVisibility();
 });
+
+// Déplacé de deplacements.js (lot 5.2b), tel quel
+// Fermer tous les modals/popups ouverts
+function closeAllModals() {
+    // Fermer tous les éléments avec la classe 'modal' qui sont actifs
+    document.querySelectorAll('.modal.active').forEach(modal => {
+        modal.classList.remove('active');
+    });
+
+    // Fermer tous les éléments qui utilisent display:block/flex (modales sans classe .modal)
+    document.querySelectorAll('.modal').forEach(modal => {
+        if (modal.style.display === 'block' || modal.style.display === 'flex') {
+            modal.style.display = 'none';
+        }
+    });
+
+    // Fermer toutes les modales connues par ID (y compris celles sans classe .modal)
+    const modalIds = [
+        'localisationModal',
+        'samuModal',
+        'localisationConfirmModal',
+        'deplacementsModal',
+        'logoutConfirmModal',
+        'myEventsModal',
+        'diagnosticModal',
+        'localisationsManagementModal',
+        // Modales sans classe .modal
+        'deplacementsLogoutModal',
+        'mfaModal',
+        'totpSetupModal',
+        'totpVerifyModal',
+        'debugLogsModal'
+    ];
+
+    modalIds.forEach(id => {
+        const modal = document.getElementById(id);
+        if (modal) {
+            modal.classList.remove('active');
+            modal.style.display = 'none';
+        }
+    });
+
+    console.log('🔒 Tous les modals fermés');
+}
+
+// Fonction séparée pour effectuer la déconnexion
+async function performLogout() {
+    // Fermer tous les panneaux de chat et effacer leur historique
+    _chatCloseAll();
+    // Fermer tous les modals/popups ouverts
+    closeAllModals();
+
+    // Afficher un indicateur de déconnexion en cours
+    const loadingIndicator = document.createElement('div');
+    loadingIndicator.id = 'logout-loading';
+    loadingIndicator.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.7);
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                z-index: 10000;
+                color: white;
+                font-size: 18px;
+                font-weight: bold;
+            `;
+
+    const spinnerDiv = document.createElement('div');
+    spinnerDiv.style.cssText = `
+                border: 8px solid #f3f3f3;
+                border-top: 8px solid #3498db;
+                border-radius: 50%;
+                width: 60px;
+                height: 60px;
+                animation: spin 1s linear infinite;
+                margin-bottom: 20px;
+            `;
+
+    const messageDiv = document.createElement('div');
+    messageDiv.textContent = 'Déconnexion en cours...';
+
+    loadingIndicator.appendChild(spinnerDiv);
+    loadingIndicator.appendChild(messageDiv);
+    document.body.appendChild(loadingIndicator);
+
+    try {
+        const response = await fetch(`${API_URL}/logout`, {
+            method: 'POST',
+            credentials: 'include'
+        });
+
+        if (!response.ok) {
+            throw new Error('Erreur serveur lors de la déconnexion');
+        }
+
+        // Stopper tous les timers et pollings
+        stopInactivityTimer();
+        if (notificationCheckInterval) {
+            clearInterval(notificationCheckInterval);
+            notificationCheckInterval = null;
+        }
+        if (onlineUsersInterval) {
+            clearInterval(onlineUsersInterval);
+            onlineUsersInterval = null;
+        }
+
+        currentUser = null;
+        pendingAssignments = {};
+        availableProfiles = [];
+        loginStep = 'credentials';
+
+        console.log('✅ Déconnexion réussie');
+
+        // Rediriger vers la page de login (toutes les applications et bandeaux flottants sont fermés)
+        resetUiForLogin();
+
+        // Réinitialiser complètement le formulaire de login
+        _credFilled = false;
+        const unField = document.getElementById('loginUsername');
+        unField.value = '';
+        // Déclencher la popup d'identifiants une fois la mire affichée
+
+        document.getElementById('loginPassword').value = '';
+        document.getElementById('loginProfile').value = '';
+        document.getElementById('profileSelectGroup').style.display = 'none';
+        setLoginButtonLabel('Continuer');
+        document.getElementById('loginError').style.display = 'none';
+        document.getElementById('loginError').textContent = '';
+
+        // Masquer le timer d'inactivité sur la mire de login
+        const timerDisplay = document.getElementById('inactivityTimerDisplay');
+        if (timerDisplay) timerDisplay.style.display = 'none';
+
+        // Rafraîchir le numéro de version affiché sur la mire de login
+        loadVersion();
+    } catch (error) {
+        console.error('Erreur logout:', error);
+        alert('Erreur lors de la déconnexion. Veuillez réessayer.');
+    } finally {
+        // Retirer l'indicateur de chargement
+        const indicator = document.getElementById('logout-loading');
+        if (indicator) {
+            indicator.remove();
+        }
+    }
+}
