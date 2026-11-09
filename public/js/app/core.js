@@ -519,11 +519,7 @@ function resetUiForLogin() {
     } catch (e) {
         /* ignoré */
     }
-    try {
-        if (typeof analyseStopLoops === 'function') analyseStopLoops();
-    } catch (e) {
-        /* ignoré */
-    }
+    // Application Analyse : pastilles et relecture des connectés dans l'îlot, démonté en fin de session
     try {
         stopInactivityTimer();
     } catch (e) {
@@ -550,8 +546,6 @@ function resetUiForLogin() {
         'analyseContainer',
         'deplacementsContainer',
         'affectationContainer',
-        'analyseTimerDisplay',
-        'analyseOnlineUsersContainer',
         'inactivityTimerDisplay',
         'backToPlanificationBtn',
         'appSwitcher',

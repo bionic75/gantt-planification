@@ -150,9 +150,7 @@ async function logout() {
 
 // Retour vers Planification depuis l'app Déplacements ou Analyse
 function backToPlanification() {
-    const wasAffectation =
-        !!(window.AffectationApp && AffectationApp.isVisible()) ||
-        (typeof analyseIsVisible === 'function' && analyseIsVisible());
+    const wasAffectation = !!(window.AffectationApp && AffectationApp.isVisible()) || analyseIsVisible();
     if (window.hideAffectationApp) hideAffectationApp();
     sessionStorage.setItem('selectedApp', 'planification');
     document.getElementById('deplacementsContainer').style.display = 'none';
@@ -462,4 +460,44 @@ async function confirmLogoutFromDeplacements() {
 
     // Masquer l'application déplacements
     document.getElementById('deplacementsContainer').style.display = 'none';
+}
+
+// ============== Application « Analyse de fichiers » ==============
+// Contenu (en-tête, pastilles, chargement, filtres, tableau) : îlot Vue frontend/src/ilots/analyse/ApplicationAnalyse.vue,
+// monté quand #analyseContainer est affiché. Ouverture et déconnexion : déplacées de file-analysis.js (lot 5.3), sans
+// ce que l'îlot affiche désormais.
+
+function analyseIsVisible() {
+    const c = document.getElementById('analyseContainer');
+    return !!c && c.style.display !== 'none';
+}
+
+function showAnalyseApp() {
+    if (window.hideAffectationApp) hideAffectationApp();
+    document.querySelector('.container').style.display = 'none';
+    document.getElementById('deplacementsContainer').style.display = 'none';
+    document.getElementById('loginPage').classList.remove('active');
+    document.getElementById('analyseContainer').style.display = 'block';
+    document.getElementById('backToPlanificationBtn').style.display = 'none'; // le menu Applications suffit pour changer d'application
+    stopInactivityTimer();
+    if (typeof onlineUsersInterval !== 'undefined' && onlineUsersInterval) {
+        clearInterval(onlineUsersInterval);
+        onlineUsersInterval = null;
+    }
+    const startTimer = () => {
+        try {
+            startInactivityTimer(inactivityTimeout);
+        } catch (e) {
+            /* minuteur indisponible */
+        }
+    };
+    loadSettingsForDeplacements().then(startTimer);
+    updateAppSwitcher();
+    if (window.GPTools) window.GPTools.position();
+}
+
+// Déconnexion confirmée dans l'îlot (« Voulez-vous vraiment vous déconnecter ? »)
+async function confirmLogoutFromAnalyse() {
+    document.getElementById('analyseContainer').style.display = 'none';
+    await performLogout();
 }
