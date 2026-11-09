@@ -119,6 +119,8 @@ E2E_TAGS="@cra" npm test                                        # une fonctionna
     - **Bons de commande des déplacements** : une année par fonctionnalité (`35` : 2031, et 2032 pour un déplacement
       hors période ; `36` : 2033). Le formulaire présélectionne le premier bon non soldé couvrant les dates saisies :
       un bon d'une autre fonctionnalité couvrant la même année serait choisi à la place du bon de test.
+    - **Administration de l'aide à l'affectation** (`40`) : déploiements du SAMU de test créés par le formulaire en
+      2034 (calendrier ouvert sur le début du projet) ; ils sont supprimés en fin de scénario, avec leurs événements.
 - Préalables de l'environnement : au moins une localisation (SAMU), le compte Expert rattaché à une ressource,
   un SMTP **de test** (jamais de production) pour les codes OTP et la diffusion des CRA.
 

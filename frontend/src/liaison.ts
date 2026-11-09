@@ -60,8 +60,8 @@ export interface EvenementsLiaison {
     /** Zoom de la grille remis à 100 % (mise en page réinitialisée, public/js/layout-fix.js) */
     'zoom-grille-reinitialise': undefined;
     /**
-     * Déploiements de l'aide à l'affectation modifiés par l'ancien code (administration, Asana) : la grille des
-     * déploiements les relit
+     * Déploiements de l'aide à l'affectation modifiés (administration, Asana de l'ancien code) : la grille et
+     * l'administration des déploiements les relisent
      */
     'deploiements-modifies': undefined;
 }
@@ -127,8 +127,14 @@ interface FenetreAncienCode {
     confirmLogoutFromDeplacements?: () => void;
     /** Déconnexion depuis l'application Analyse de fichiers (public/js/app/tab-access.js) */
     confirmLogoutFromAnalyse?: () => void;
-    /** Aide à l'affectation, encore tenue par l'ancien code pour l'administration et Asana (public/js/affectation-app.js) */
-    AffectationApp?: { asanaRefresh?: (id: number, bouton: HTMLElement) => Promise<void> };
+    /** Aide à l'affectation : Asana, encore tenu par l'ancien code (public/js/affectation-app.js) */
+    AffectationApp?: {
+        asanaRefresh?: (id: number, bouton: HTMLElement) => Promise<void>;
+        asanaRefreshAll?: (bouton: HTMLElement) => Promise<void>;
+        asanaOpen?: () => void;
+        asanaTasks?: (id: number) => Promise<void>;
+        asanaLoadCfg?: () => Promise<void>;
+    };
 }
 
 /** Ressource telle que la planification de l'ancien code la connaît */
@@ -350,6 +356,29 @@ export function deconnecterDepuisDeplacements(): void {
  */
 export function rafraichirDepuisAsana(id: number, bouton: HTMLElement): void {
     void ancienCode().AffectationApp?.asanaRefresh?.(id, bouton);
+}
+
+/** Rafraîchissement de tous les déploiements depuis Asana (bouton : libellé « en cours » le temps du traitement) */
+export function rafraichirToutDepuisAsana(bouton: HTMLElement): void {
+    void ancienCode().AffectationApp?.asanaRefreshAll?.(bouton);
+}
+
+/** Fenêtre « Importer depuis Asana » (export CSV) */
+export function importerDepuisAsana(): void {
+    ancienCode().AffectationApp?.asanaOpen?.();
+}
+
+/** Fenêtre des tâches du projet Asana d'un déploiement */
+export function ouvrirTachesAsana(id: number): void {
+    void ancienCode().AffectationApp?.asanaTasks?.(id);
+}
+
+/**
+ * Rubrique « Connexion Asana » : l'ancien code remplit les zones #affAsanaCfg et #affAsanaProjects (connexion, projets
+ * Asana, import en masse)
+ */
+export function chargerConnexionAsana(): void {
+    void ancienCode().AffectationApp?.asanaLoadCfg?.();
 }
 
 /** Déconnexion depuis l'application Analyse de fichiers */

@@ -297,7 +297,7 @@
     {
         "method": "GET",
         "path": "/api/affectation/projects/:id/history",
-        "guard": "affectation"
+        "guard": "admin"
     },
     {
         "method": "GET",
@@ -317,7 +317,7 @@
     {
         "method": "GET",
         "path": "/api/affectation/stage-event-types",
-        "guard": "affectation"
+        "guard": "admin"
     },
     {
         "method": "PUT",

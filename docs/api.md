@@ -104,11 +104,11 @@ Protections :
 | POST | `/api/affectation/projects/:id/event-create` | admin |
 | PUT | `/api/affectation/projects/:id/event-link` | admin |
 | GET | `/api/affectation/projects/:id/events-candidates` | admin |
-| GET | `/api/affectation/projects/:id/history` | affectation |
+| GET | `/api/affectation/projects/:id/history` | admin |
 | GET | `/api/affectation/projects/:id/sync/:stage` | affectation |
 | POST | `/api/affectation/projects/:id/sync/:stage` | admin |
 | GET | `/api/affectation/resources` | affectation |
-| GET | `/api/affectation/stage-event-types` | affectation |
+| GET | `/api/affectation/stage-event-types` | admin |
 | PUT | `/api/affectation/stage-event-types` | admin |
 | POST | `/api/affectation/sync-from-events` | affectation |
 | GET | `/api/affectation/template` | affectation |
