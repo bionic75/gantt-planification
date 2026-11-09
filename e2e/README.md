@@ -113,6 +113,9 @@ E2E_TAGS="@cra" npm test                                        # une fonctionna
       profil RH).
     - **Carte** : les lieux de test sont créés aux mêmes coordonnées ; un marqueur s'active au clavier (focus puis
       Entrée), un clic pouvant être intercepté par un autre marqueur.
+    - **Analyse de fichiers** : fichiers produits par les étapes (`steps/analyse.js`) et classeur
+      `fixtures/analyse/classeur.xlsx` (feuille « Lisez-moi » sans données, puis feuille « Données » : titre, ligne vide,
+      intitulés Code / Libellé / Date / Montant, 5 lignes de mars à juin 2031, la dernière avec une heure) ; rien n'est envoyé au serveur.
     - **Bons de commande des déplacements** : une année par fonctionnalité (`35` : 2031, et 2032 pour un déplacement
       hors période ; `36` : 2033). Le formulaire présélectionne le premier bon non soldé couvrant les dates saisies :
       un bon d'une autre fonctionnalité couvrant la même année serait choisi à la place du bon de test.

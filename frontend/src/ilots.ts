@@ -47,6 +47,11 @@ const ILOTS: RegistreIlots = {
     deplacementsContainer: {
         chargeur: () => import('@/ilots/deplacements/ApplicationDeplacements.vue'),
         application: true
+    },
+    // Application « Analyse de fichiers » : montée quand l'ancien code l'affiche (menu Applications)
+    analyseContainer: {
+        chargeur: () => import('@/ilots/analyse/ApplicationAnalyse.vue'),
+        application: true
     }
 };
 
