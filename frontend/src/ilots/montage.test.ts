@@ -127,9 +127,8 @@ describe('montage des îlots', () => {
         expect(conteneur().querySelector('[data-testid="essai"]')).not.toBeNull();
     });
 
-    it("onglet d'une application : monté quand l'application est affichée, réouverture à chaque affichage", async () => {
-        document.body.innerHTML =
-            '<div id="appli" style="display: none;"><div id="onglet" class="tab-content active"></div></div>';
+    it('application entière : montée quand son conteneur est affiché, réouverture à chaque affichage', async () => {
+        document.body.innerHTML = '<div id="appli" class="container" style="display: none;"><p>ancien</p></div>';
         let reouvertures = 0;
         const Compteur = defineComponent({
             setup() {
@@ -137,16 +136,21 @@ describe('montage des îlots', () => {
                 return () => h('p', { 'data-testid': 'essai' }, 'îlot');
             }
         });
-        arreter = surveillerIlots({
-            onglet: { chargeur: async () => ({ default: Compteur }), onglet: 'onglet', application: 'appli' }
-        });
-        await rendu();
-        expect(conteneur().querySelector('[data-testid="essai"]')).toBeNull();
-
+        arreter = surveillerIlots({ appli: { chargeur: async () => ({ default: Compteur }), application: true } });
         const appli = document.getElementById('appli') as HTMLElement;
+        await rendu();
+        expect(appli.querySelector('[data-testid="essai"]')).toBeNull();
+
         appli.style.display = 'block';
         await rendu();
-        expect(conteneur().querySelector('[data-testid="essai"]')).not.toBeNull();
+        expect(appli.querySelector('[data-testid="essai"]')).not.toBeNull();
+        expect(appli.textContent).not.toContain('ancien');
+        expect(appli.classList.contains('container')).toBe(true);
+
+        // Autre changement de style, application toujours affichée : pas de réouverture
+        appli.style.color = 'red';
+        await rendu();
+        expect(reouvertures).toBe(0);
 
         appli.style.display = 'none';
         await rendu();

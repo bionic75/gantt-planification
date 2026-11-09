@@ -1,6 +1,8 @@
 // @ts-check
 // Suivi des déplacements › mes déplacements : formulaire d'ajout, contrôles, liste, modification, suppression, tri.
-// Bon de commande de test (10 UO, année 2031) et déplacements de 2031 à ville unique, supprimés en fin de scénario.
+// Bon de commande de test (10 UO, une année entière) et déplacements de cette année à ville unique, supprimés en fin de
+// scénario. Année propre à chaque fonctionnalité (35 : 2031, 36 : 2033), exécutées en parallèle : aucun bon de commande
+// de l'une ne couvre les dates de l'autre (présélection du bon de commande).
 import { expect } from '@playwright/test';
 import { adminApi } from '../support/donnees.js';
 import { Given, Then, When } from '../support/fixtures.js';
@@ -14,7 +16,7 @@ const APPLICATION = 'Suivi des déplacements';
 const ROUGE_ATTENTION = 'rgb(255, 235, 238)';
 
 /** Ville unique des déplacements de test (en majuscules, comme enregistrée) */
-function villeDeTest(/** @type {Monde} */ monde, suffixe = '') {
+export function villeDeTest(/** @type {Monde} */ monde, suffixe = '') {
     monde.d.villeBase ??= monde
         .unique('E2EVILLE')
         .replace(/[^A-Z0-9]/gi, '')
@@ -45,8 +47,9 @@ Given("{string} a accès à l'application « Suivi des déplacements »", async 
     }
 });
 
-Given("un bon de commande de test de 10 UO couvre l'année 2031", async ({ monde }) => {
+Given("un bon de commande de test de 10 UO couvre l'année {int}", async ({ monde }, annee) => {
     const api = await adminApi(monde);
+    monde.d.annee = Number(annee);
     const intitule = monde.unique('BDC-E2E').replace(/\s+/g, '-');
     monde.aNettoyer('bon de commande de test', async () => {
         for (const d of await deplacementsDeTest(monde)) await api.delete(`/api/deplacements/${d.id}`);
@@ -55,8 +58,8 @@ Given("un bon de commande de test de 10 UO couvre l'année 2031", async ({ monde
     const r = await api.post('/api/bons-commande', {
         intitule,
         titulaire: 'E2E',
-        date_debut: '2031-01-01',
-        date_fin: '2031-12-31',
+        date_debut: `${annee}-01-01`,
+        date_fin: `${annee}-12-31`,
         nb_uo: 10
     });
     // Accès à l'application refusé au compte administrateur de test : scénario ignoré à l'étape suivante
@@ -65,14 +68,15 @@ Given("un bon de commande de test de 10 UO couvre l'année 2031", async ({ monde
     monde.d.bdc = { id: r.data.id, intitule };
 });
 
-/** Déplacement créé par l'API (administrateur de test, AMOA CED : lui-même) */
-async function creerDeplacement(
+/** Déplacement créé par l'API (administrateur de test, AMOA CED : lui-même), le jour et mois « MM-JJ » de l'année de test */
+export async function creerDeplacement(
     /** @type {Monde} */ monde,
     /** @type {string} */ ville,
     /** @type {number} */ jours,
     /** @type {boolean} */ avecBon,
-    debut = '2031-04-01'
+    jourMois = '04-01'
 ) {
+    const debut = `${monde.d.annee}-${jourMois}`;
     const { userId } = await monde.sessionDe('Administrateur');
     const fin = new Date(Date.parse(`${debut}T00:00:00Z`) + (jours - 1) * 86400000).toISOString().slice(0, 10);
     await (
@@ -89,17 +93,17 @@ async function creerDeplacement(
 }
 
 Given('un déplacement de test de {int} UO existe sur le bon de commande de test', async ({ monde }, jours) => {
-    await creerDeplacement(monde, villeDeTest(monde), Number(jours), true, '2031-04-01');
+    await creerDeplacement(monde, villeDeTest(monde), Number(jours), true, '04-01');
 });
 
 Given('un second déplacement de test de {int} UO existe sur le bon de commande de test', async ({ monde }, jours) => {
     // Date de création postérieure au premier (à la seconde près) : c'est lui qui fait dépasser le plafond
     await new Promise(r => setTimeout(r, 1100));
-    await creerDeplacement(monde, villeDeTest(monde, 'B'), Number(jours), true, '2031-05-01');
+    await creerDeplacement(monde, villeDeTest(monde, 'B'), Number(jours), true, '05-01');
 });
 
 Given('un déplacement de test sans bon de commande existe', async ({ monde }) => {
-    await creerDeplacement(monde, villeDeTest(monde, 'C'), 1, false, '2031-06-01');
+    await creerDeplacement(monde, villeDeTest(monde, 'C'), 1, false, '06-01');
 });
 
 const onglet = (/** @type {Monde} */ monde) => monde.page.locator('#deplacementsPlanificationTab');

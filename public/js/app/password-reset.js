@@ -110,3 +110,123 @@ function getISOWeekNumber(date) {
     const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
     return Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
 }
+
+// ----- Mot de passe oublié (mire de connexion) : déplacé de deplacements.js (lot 5.2b), tel quel -----
+// Variables pour gérer la temporisation du mot de passe oublié
+let resetPasswordTimer = null;
+let resetPasswordRemainingSeconds = 0;
+
+function showForgotPassword() {
+    document.getElementById('forgotPasswordModal').classList.add('active');
+    document.getElementById('forgotUsername').value = document.getElementById('loginUsername').value;
+    document.getElementById('forgotPasswordMessage').style.display = 'none';
+}
+
+function closeForgotPasswordModal() {
+    document.getElementById('forgotPasswordModal').classList.remove('active');
+    document.getElementById('forgotUsername').value = '';
+    document.getElementById('forgotPasswordMessage').style.display = 'none';
+    if (resetPasswordTimer) {
+        clearInterval(resetPasswordTimer);
+        resetPasswordTimer = null;
+    }
+    document.getElementById('forgotPasswordButton').disabled = false;
+    document.getElementById('forgotPasswordButton').textContent = 'Envoyer';
+}
+
+async function requestPasswordReset() {
+    const username = document.getElementById('forgotUsername').value;
+    const messageDiv = document.getElementById('forgotPasswordMessage');
+    const button = document.getElementById('forgotPasswordButton');
+
+    if (!username) {
+        messageDiv.style.display = 'block';
+        messageDiv.style.backgroundColor = '#f8d7da';
+        messageDiv.style.color = '#721c24';
+        messageDiv.textContent = 'Veuillez entrer votre identifiant';
+        return;
+    }
+
+    button.disabled = true;
+    button.textContent = 'Envoi en cours...';
+
+    try {
+        const response = await fetch(`${API_URL}/forgot-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ username })
+        });
+
+        // Vérifier si la réponse est en JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            throw new Error("La réponse du serveur n'est pas au format JSON");
+        }
+
+        const data = await response.json();
+
+        if (response.status === 429) {
+            // Temporisation active
+            messageDiv.style.display = 'block';
+            messageDiv.style.backgroundColor = '#fff3cd';
+            messageDiv.style.color = '#856404';
+            messageDiv.textContent = data.error;
+
+            // Démarrer le compte à rebours
+            startResetPasswordTimer(data.remainingSeconds);
+        } else if (data.success) {
+            // Réponse identique que le compte existe ou non : le lien arrive par email
+            messageDiv.style.display = 'block';
+            messageDiv.style.backgroundColor = '#d4edda';
+            messageDiv.style.color = '#155724';
+            messageDiv.textContent = '✅ ' + data.message;
+
+            // Une nouvelle demande pour le même compte n'est prise en compte qu'après 60 secondes
+            startResetPasswordTimer(60);
+        } else {
+            messageDiv.style.display = 'block';
+            messageDiv.style.backgroundColor = '#f8d7da';
+            messageDiv.style.color = '#721c24';
+            messageDiv.textContent = '❌ ' + (data.error || 'Erreur lors de la réinitialisation');
+            button.disabled = false;
+            button.textContent = 'Envoyer';
+        }
+    } catch (error) {
+        console.error('Erreur:', error);
+        messageDiv.style.display = 'block';
+        messageDiv.style.backgroundColor = '#f8d7da';
+        messageDiv.style.color = '#721c24';
+        messageDiv.textContent = '❌ Erreur de connexion au serveur';
+        button.disabled = false;
+        button.textContent = 'Envoyer';
+    }
+}
+
+function startResetPasswordTimer(seconds) {
+    resetPasswordRemainingSeconds = seconds;
+    const button = document.getElementById('forgotPasswordButton');
+
+    // Nettoyer le timer précédent si existant
+    if (resetPasswordTimer) {
+        clearInterval(resetPasswordTimer);
+    }
+
+    // Mettre à jour l'affichage immédiatement
+    button.textContent = `Réessayer dans ${resetPasswordRemainingSeconds}s`;
+    button.disabled = true;
+
+    // Démarrer le compte à rebours
+    resetPasswordTimer = setInterval(() => {
+        resetPasswordRemainingSeconds--;
+
+        if (resetPasswordRemainingSeconds <= 0) {
+            clearInterval(resetPasswordTimer);
+            resetPasswordTimer = null;
+            button.disabled = false;
+            button.textContent = 'Envoyer';
+        } else {
+            button.textContent = `Réessayer dans ${resetPasswordRemainingSeconds}s`;
+        }
+    }, 1000);
+}

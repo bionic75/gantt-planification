@@ -562,17 +562,17 @@
     {
         "method": "POST",
         "path": "/api/bons-commande",
-        "guard": "deplacements"
+        "guard": "admin"
     },
     {
         "method": "PUT",
         "path": "/api/bons-commande/:id",
-        "guard": "deplacements"
+        "guard": "admin"
     },
     {
         "method": "DELETE",
         "path": "/api/bons-commande/:id",
-        "guard": "deplacements"
+        "guard": "admin"
     },
     {
         "method": "GET",
