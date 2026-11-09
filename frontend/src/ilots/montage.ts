@@ -2,7 +2,8 @@
 // posée par l'ancien code), démontage à la fin de la session, nouveau montage à la prochaine ouverture.
 // Un îlot peut aussi n'occuper qu'une section d'un onglet (sous-îlot) : il se monte dans son propre conteneur, placé
 // dans l'onglet, à l'ouverture de cet onglet. Une application entière (Suivi des déplacements…) se monte dans son
-// conteneur quand l'ancien code l'affiche (style display) ; chaque nouvel affichage est une réouverture.
+// conteneur quand l'ancien code l'affiche (style display) ; chaque nouvel affichage est une réouverture. L'onglet d'une
+// application encore tenue par l'ancien code (Aide à l'affectation) se monte à son ouverture, application affichée.
 import { createPinia, type Pinia } from 'pinia';
 import { createApp, ref, type App, type Component, type Ref } from 'vue';
 import { CLE_ACTIVATIONS } from '@/ilots/activation';
@@ -27,17 +28,27 @@ export interface IlotApplication {
 }
 
 /**
- * Îlots : identifiant du conteneur → composant racine. Conteneur de l'onglet (ex. « tripadvisor »), conteneur
- * d'une section placé dans l'onglet (sous-îlot, ex. « adminLocalisations »), ou conteneur d'une application
- * (ex. « deplacementsContainer »)
+ * Onglet d'une application encore tenue par l'ancien code (Aide à l'affectation…) : monté à l'ouverture de l'onglet
+ * (classe « active »), seulement si le conteneur de l'application (identifiant) est affiché ; l'onglet garde sa classe
+ * « active » quand l'application est masquée
  */
-export type RegistreIlots = Record<string, ChargeurIlot | SousIlot | IlotApplication>;
+export interface OngletApplication {
+    chargeur: ChargeurIlot;
+    application: string;
+}
+
+/**
+ * Îlots : identifiant du conteneur → composant racine. Conteneur de l'onglet (ex. « tripadvisor »), conteneur
+ * d'une section placé dans l'onglet (sous-îlot, ex. « adminLocalisations »), conteneur d'une application
+ * (ex. « deplacementsContainer ») ou onglet d'une application (ex. « affectationEventsTab »)
+ */
+export type RegistreIlots = Record<string, ChargeurIlot | SousIlot | IlotApplication | OngletApplication>;
 
 interface IlotSurveille {
     conteneur: HTMLElement;
     /** Élément dont la classe « active » déclenche le montage : l'onglet ; null pour une application entière */
     onglet: HTMLElement | null;
-    /** Conteneur d'une application entière : l'îlot ne se monte que s'il est affiché */
+    /** Conteneur de l'application (entière, ou dont l'îlot est un onglet) : l'îlot ne se monte que s'il est affiché */
     application: HTMLElement | null;
     chargeur: ChargeurIlot;
     app: App | null;
@@ -114,10 +125,16 @@ export function surveillerIlots(registre: RegistreIlots, creerMagasin: () => Pin
         if (typeof entree === 'function') {
             chargeur = entree;
             onglet = conteneur;
-        } else if ('application' in entree) {
+        } else if ('application' in entree && entree.application === true) {
             // Application entière : son conteneur, affiché ou masqué par l'ancien code
             chargeur = entree.chargeur;
             application = conteneur;
+        } else if ('application' in entree) {
+            // Onglet d'une application : ouverture de l'onglet, application affichée
+            chargeur = entree.chargeur;
+            onglet = conteneur;
+            application = document.getElementById(entree.application);
+            if (!application) continue;
         } else {
             chargeur = entree.chargeur;
             onglet = document.getElementById(entree.onglet);

@@ -860,3 +860,16 @@ describe('ressources externes (utilisateurs de l’application)', () => {
         expect(JSON.stringify(hist)).toContain('(externe)');
     });
 });
+
+describe("accès à l'application", () => {
+    it("réservé aux comptes autorisés sur « Aide à l'affectation opérationnelle », administrateur compris", async () => {
+        const sansAcces = await createUser(admin, { is_admin: 1 });
+        const autreAdmin = await loginAs(server, sansAcces, 'admin');
+        for (const chemin of ['/api/affectation/config', '/api/affectation/projects', '/api/affectation/events']) {
+            expect((await autreAdmin.get(chemin)).status, chemin).toBe(403);
+        }
+        // Les routes de l'administration de l'application restent réservées à l'administrateur
+        expect((await admin.post(`/api/app-access/affectation/users`, { userId: sansAcces.id })).status).toBe(200);
+        expect((await autreAdmin.get('/api/affectation/events')).status).toBe(200);
+    });
+});

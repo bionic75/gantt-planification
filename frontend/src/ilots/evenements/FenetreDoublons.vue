@@ -1,4 +1,5 @@
-<!-- Doublons d'événements : groupes certains et probables, choix de l'événement à conserver, fusion -->
+<!-- Doublons d'événements : groupes certains et probables, choix de l'événement à conserver, fusion. Onglet Événements de la
+     planification, et onglet Événements de l'aide à l'affectation (examen limité aux événements de l'onglet). -->
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { apiEvenements, type GroupeDoublons } from '@/api/evenements';
@@ -8,10 +9,10 @@ import AppModal from '@/composants/AppModal.vue';
 import { useConfirmation } from '@/composants/confirmation';
 import { emettre } from '@/liaison';
 import { dateFr } from './calculs';
-import { useEvenementsStore } from './magasin';
 
-const emit = defineEmits<{ close: [] }>();
-const ev = useEvenementsStore();
+/** evenements : seuls les groupes dont tous les événements figurent dans cette liste sont proposés */
+const props = defineProps<{ evenements?: number[] }>();
+const emit = defineEmits<{ close: []; modifies: [] }>();
 const confirmer = useConfirmation();
 
 const groupes = ref<GroupeDoublons[]>([]);
@@ -33,7 +34,9 @@ async function charger() {
     chargement.value = true;
     erreur.value = '';
     try {
-        groupes.value = (await apiEvenements.doublons()).groups;
+        const tous = (await apiEvenements.doublons()).groups;
+        const retenus = props.evenements ? new Set(props.evenements) : null;
+        groupes.value = retenus ? tous.filter(g => g.events.every(e => retenus.has(e.id))) : tous;
         choix.value = Object.fromEntries(groupes.value.map(g => [g.id, conserveParDefaut(g)]));
     } catch (e) {
         erreur.value = `Erreur : ${(e as Error).message}`;
@@ -47,7 +50,7 @@ const periode = (e: GroupeDoublons['events'][number]) =>
     e.start_date === e.end_date ? dateFr(e.start_date) : `${dateFr(e.start_date)} → ${dateFr(e.end_date)}`;
 
 async function apresFusion() {
-    await ev.chargerListe();
+    emit('modifies');
     emettre('evenements-modifies');
     await charger();
 }
@@ -112,7 +115,7 @@ async function fusionnerCertains() {
             doublon <strong>probable</strong> s'en approche (mêmes dates et même type, ou libellés très proches sur des
             dates qui se recoupent, ou même libellé sur des périodes distantes de 14 jours au plus). Choisissez
             l'occurrence à conserver : les autres sont supprimées, leurs participants sont reportés sur l'événement
-            conservé.
+            conservé.<template v-if="evenements"> Seuls les événements de cet onglet sont examinés.</template>
         </p>
         <AppAlert v-if="erreur" type="error" small :description="erreur" />
         <AppAlert v-if="message" type="success" small :description="message" data-testid="doublons-message" />
