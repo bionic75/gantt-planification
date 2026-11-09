@@ -872,4 +872,17 @@ describe("accès à l'application", () => {
         expect((await admin.post(`/api/app-access/affectation/users`, { userId: sansAcces.id })).status).toBe(200);
         expect((await autreAdmin.get('/api/affectation/events')).status).toBe(200);
     });
+
+    it("historique et correspondance des activités réservés à l'administrateur, comme l'onglet Administration", async () => {
+        const samu = await newSamu();
+        const p = await createProject(samu);
+        const compte = await createUser(admin, { is_user: 1 });
+        expect((await admin.post(`/api/app-access/affectation/users`, { userId: compte.id })).status).toBe(200);
+        const utilisateur = await loginAs(server, compte, 'user');
+        expect((await utilisateur.get('/api/affectation/projects')).status).toBe(200);
+        for (const chemin of [`/api/affectation/projects/${p.id}/history`, '/api/affectation/stage-event-types']) {
+            expect((await utilisateur.get(chemin)).status, chemin).toBe(403);
+            expect((await admin.get(chemin)).status, chemin).toBe(200);
+        }
+    });
 });

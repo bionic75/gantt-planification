@@ -59,11 +59,107 @@ export interface Deploiement {
     from_asana?: boolean | number | null;
 }
 
+/** Étape d'un déploiement : période(s), date (mise en service / production) ou jalon (une date) */
+export interface EtapeAffectation {
+    key: string;
+    label: string;
+    kind?: 'period' | 'periods' | 'date' | 'milestone';
+    /** Étape à ressources expertes (nombre de ressources par jour) */
+    resources?: boolean;
+    defaultColor?: string;
+    defaultPattern?: string;
+}
+
 /** Étapes, couleurs et motifs (GET /affectation/config) */
 export interface ConfigAffectation {
-    stages: { key: string; label: string }[];
+    stages: EtapeAffectation[];
     colors: Record<string, string>;
     patterns?: Record<string, string>;
+}
+
+/** Déploiement complet (administration) : entité, chef de projet */
+export interface DeploiementAdmin extends Deploiement {
+    location_id: number | null;
+    chef_projet_id: number | null;
+}
+
+/** Corps d'un déploiement créé ou modifié */
+export interface CorpsDeploiement {
+    samu_name: string;
+    location_id: number | null;
+    chef_projet_id: number | null;
+    date_debut: string;
+    date_mise_en_service: string | null;
+    date_mise_en_production: string | null;
+    periods: Record<string, PeriodeEtape[]>;
+}
+
+/** Chef de projet possible : utilisateur actif */
+export interface UtilisateurAffectation {
+    id: number;
+    nom: string | null;
+    prenom: string | null;
+}
+
+/** Entrée de l'historique d'un déploiement ; at : « AAAA-MM-JJ HH:MM:SS » (UTC) */
+export interface EntreeHistorique {
+    id: number;
+    user: string | null;
+    action: string;
+    at: string;
+    changes: { label: string; from: string; to: string }[];
+    note: string;
+}
+
+/** Événement lié à un déploiement, signalé avant sa suppression */
+export interface EvenementLie {
+    id: number;
+    label: string;
+    start: string;
+    end: string;
+    participants: string[];
+}
+
+/** Événement du SAMU proposé pour une activité */
+export interface EvenementCandidat {
+    id: number;
+    label: string;
+    start: string;
+    end: string;
+    participants: number;
+    type: string | null;
+}
+
+/** Événements du SAMU pour une activité : du type de l'activité, autres ; activité découpable en parties (multi) */
+export interface CandidatsActivite {
+    multi: boolean;
+    linkedIds: number[];
+    typeId: number | null;
+    typeLong: string | null;
+    matching: EvenementCandidat[];
+    others: EvenementCandidat[];
+    linked: number | null;
+}
+
+/** Type d'événement (correspondance des activités) */
+export interface TypeEvenementAffectation {
+    id: number;
+    label_long: string;
+    label_short: string | null;
+    icon: string;
+    bg_color: string;
+    text_color: string;
+    border_color: string;
+}
+
+/** Correspondance activités Asana ↔ types d'événements (GET /affectation/stage-event-types) */
+export interface CorrespondanceActivites {
+    stages: { key: string; label: string; rule: string }[];
+    mapping: Record<string, number>;
+    types: TypeEvenementAffectation[];
+    asanaActivities: { value: string; label: string }[];
+    asanaTemplate: { gid: string; name: string; tasks: { value: string; label: string }[] } | null;
+    asanaRules: Record<string, string>;
 }
 
 /** Expert (identifiant positif) ou ressource externe, utilisateur de l'application (identifiant négatif) */
@@ -145,8 +241,17 @@ export interface ResultatReport {
 export interface ModeleExport {
     exists: boolean;
     name?: string;
+    size?: number;
     uploadedAt?: string;
-    info?: { zone: { wMm: number; hMm: number }; cover?: boolean; end?: boolean } | null;
+    uploadedBy?: string | null;
+    info?: {
+        zone: { wMm: number; hMm: number };
+        cover?: boolean;
+        end?: boolean;
+        baseSlide?: number;
+        slides?: number;
+        layout?: string;
+    } | null;
 }
 
 /** Élément d'une diapositive du modèle (aperçu) : image, rectangle ou texte ; dimensions en EMU */
@@ -206,5 +311,44 @@ export const apiAffectation = {
         api.post<ResultatReport>(`/affectation/projects/${id}/sync/${etape}`, corps),
     modele: () => api.get<ModeleExport>('/affectation/template'),
     apercuModele: () => api.get<ApercuModele>('/affectation/template/preview'),
-    nomExport: () => api.get<{ pattern?: string; defaultPattern?: string }>('/affectation/export-config')
+    nomExport: () => api.get<{ pattern?: string; defaultPattern?: string }>('/affectation/export-config'),
+
+    // ── Administration (administrateur) ──
+    deploiementsAdmin: () => api.get<{ projects: DeploiementAdmin[] }>('/affectation/projects'),
+    utilisateurs: () => api.get<{ users: UtilisateurAffectation[] }>('/affectation/users'),
+    creerDeploiement: (corps: CorpsDeploiement) => api.post<DeploiementAdmin>('/affectation/projects', corps),
+    modifierDeploiement: (id: number, corps: CorpsDeploiement) =>
+        api.put<DeploiementAdmin>(`/affectation/projects/${id}`, corps),
+    /** Suppression ; refusée (409, code EVENTS_LINKED, événements) si des événements sont liés et le sort non précisé */
+    supprimerDeploiement: (id: number, evenements?: 'keep' | 'delete') =>
+        api.delete<{ eventsRemoved: number; planningReset: number }>(
+            `/affectation/projects/${id}${evenements ? `?events=${evenements}` : ''}`
+        ),
+    historique: (id: number) => api.get<{ history: EntreeHistorique[] }>(`/affectation/projects/${id}/history`),
+    candidatsEvenements: (id: number) =>
+        api.get<{ candidates: Record<string, CandidatsActivite> }>(`/affectation/projects/${id}/events-candidates`),
+    lierEvenements: (id: number, corps: { key: string; eventId?: number | null; eventIds?: number[] }) =>
+        api.put(`/affectation/projects/${id}/event-link`, corps),
+    creerEvenement: (id: number, corps: { key: string; start: string; end: string }) =>
+        api.post(`/affectation/projects/${id}/event-create`, corps),
+    enregistrerCouleurs: (colors: Record<string, string>, patterns: Record<string, string>) =>
+        api.put<{ colors: Record<string, string>; patterns: Record<string, string> }>('/affectation/colors', {
+            colors,
+            patterns
+        }),
+    enregistrerNomExport: (pattern: string) =>
+        api.put<{ pattern?: string; defaultPattern?: string }>('/affectation/export-config', { pattern }),
+    /** Modèle PowerPoint : fichier lu en data URI */
+    importerModele: (name: string, data: string) => api.put<ModeleExport>('/affectation/template', { name, data }),
+    supprimerModele: () => api.delete<ModeleExport>('/affectation/template'),
+    correspondance: () => api.get<CorrespondanceActivites>('/affectation/stage-event-types'),
+    enregistrerCorrespondance: (mapping: Record<string, number>, asanaRules: Record<string, string>) =>
+        api.put<{ mapping: Record<string, number>; asanaRules: Record<string, string> }>(
+            '/affectation/stage-event-types',
+            { mapping, asanaRules }
+        ),
+    projetsTypesAsana: () =>
+        api.get<{ projects: { gid: string; name: string }[] }>('/affectation/asana/template-projects'),
+    choisirProjetTypeAsana: (gid: string) =>
+        api.put<{ template: CorrespondanceActivites['asanaTemplate'] }>('/affectation/asana/template', { gid })
 };

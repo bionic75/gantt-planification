@@ -61,6 +61,10 @@ const ILOTS: RegistreIlots = {
     affectationEventsTab: {
         chargeur: () => import('@/ilots/affectation/OngletEvenementsAffectation.vue'),
         application: 'affectationContainer'
+    },
+    affectationAdminTab: {
+        chargeur: () => import('@/ilots/affectation/administration/OngletAdministrationAffectation.vue'),
+        application: 'affectationContainer'
     }
 };
 

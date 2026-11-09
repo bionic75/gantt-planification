@@ -23,7 +23,8 @@ router.get('/affectation/projects', requireAffectationAccess, h(ctrl.listProject
 router.post('/affectation/projects', requireAdmin, h(ctrl.createProject));
 router.put('/affectation/projects/:id', requireAdmin, h(ctrl.updateProject));
 router.delete('/affectation/projects/:id', requireAdmin, h(ctrl.deleteProject));
-router.get('/affectation/projects/:id/history', requireAffectationAccess, h(ctrl.history));
+// Historique et correspondance : onglet Administration de l'application (administrateur)
+router.get('/affectation/projects/:id/history', requireAffectationAccess, requireAdmin, h(ctrl.history));
 
 // Ressources affectées et disponibilités
 router.put('/affectation/projects/:id/assignments/:stage', requireAffectationAccess, h(ctrl.setAssignments));
@@ -32,7 +33,7 @@ router.post('/affectation/projects/:id/assignments/:stage/release', requireAdmin
 router.get('/affectation/projects/:id/availability/:stage', requireAffectationAccess, h(ctrl.availability));
 
 // Activités et événements
-router.get('/affectation/stage-event-types', requireAffectationAccess, h(ctrl.stageEventTypes));
+router.get('/affectation/stage-event-types', requireAffectationAccess, requireAdmin, h(ctrl.stageEventTypes));
 router.put('/affectation/stage-event-types', requireAdmin, h(ctrl.saveStageEventTypes));
 router.get('/affectation/events', requireAffectationAccess, h(ctrl.events));
 router.get('/affectation/projects/:id/events-candidates', requireAdmin, h(ctrl.eventCandidates));
