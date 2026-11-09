@@ -108,6 +108,18 @@ interface FenetreAncienCode {
     craDemande?: number;
     /** Icônes en image (data URI) pour les listes déroulantes (public/js/ui-icons.js) */
     UIIconsApi?: IconesImages;
+    /** Fenêtre de la photo de profil (public/js/app/profile.js) */
+    openProfilePhotoModal?: () => void;
+    /** Retour à l'accueil de la Planification (public/js/app/tabs.js) */
+    goHome?: () => void;
+    /** Bulle des utilisateurs connectés et de la discussion, sous la pastille cliquée (public/js/app/realtime.js) */
+    toggleOnlineUsersTooltipFrom?: (pastille: HTMLElement, evenement: MouseEvent) => void;
+    /** Secondes restantes avant la déconnexion pour inactivité (public/js/app/settings.js) */
+    inactiviteRestante?: () => number;
+    /** Application Déplacements quittée pour la Plateforme de planification (public/js/app/tab-access.js) */
+    goToPlanificationApp?: () => void;
+    /** Déconnexion depuis l'application Déplacements (public/js/app/tab-access.js) */
+    confirmLogoutFromDeplacements?: () => void;
 }
 
 /** Ressource telle que la planification de l'ancien code la connaît */
@@ -294,6 +306,34 @@ export function afficherSynchronisation(): void {
 
 /** Icônes en image de l'ancien code ; undefined hors de la page principale */
 export const iconesImages = (): IconesImages | undefined => ancienCode().UIIconsApi;
+
+/** Fenêtre de la photo de profil */
+export function ouvrirPhotoProfil(): void {
+    ancienCode().openProfilePhotoModal?.();
+}
+
+/** Accueil de la Planification */
+export function allerAccueil(): void {
+    ancienCode().goHome?.();
+}
+
+/** Bulle des utilisateurs connectés (discussion), placée sous la pastille */
+export function basculerBulleConnectes(pastille: HTMLElement, evenement: MouseEvent): void {
+    ancienCode().toggleOnlineUsersTooltipFrom?.(pastille, evenement);
+}
+
+/** Secondes restantes avant la déconnexion pour inactivité ; null hors de la page principale */
+export const inactiviteRestante = (): number | null => ancienCode().inactiviteRestante?.() ?? null;
+
+/** Application Déplacements quittée pour la Plateforme de planification */
+export function quitterDeplacementsVersPlanification(): void {
+    ancienCode().goToPlanificationApp?.();
+}
+
+/** Déconnexion depuis l'application Déplacements */
+export function deconnecterDepuisDeplacements(): void {
+    ancienCode().confirmLogoutFromDeplacements?.();
+}
 
 /** CRA demandé par le lien d'une notification, retiré de l'attente ; null si aucun */
 export function prendreCraDemande(): number | null {

@@ -61,6 +61,18 @@ describe("accès à l'application", () => {
         await autoriser(sansAcces.id);
         expect((await autreAdmin.get('/api/mes-deplacements')).status).toBe(200);
     });
+
+    it("écriture des bons de commande réservée à l'administrateur, comme l'onglet Administration", async () => {
+        const { client } = await userClient();
+        const bon = await createBon();
+        expect((await client.get('/api/bons-commande')).status).toBe(200);
+        expect((await client.get('/api/reporting-deplacements')).status).toBe(200);
+        expect((await client.get('/api/deplacements')).status).toBe(200);
+        expect((await client.post('/api/bons-commande', { ...bon, intitule: `${bon.intitule}-U` })).status).toBe(403);
+        expect((await client.put(`/api/bons-commande/${bon.id}`, { ...bon, nb_uo: 99 })).status).toBe(403);
+        expect((await client.delete(`/api/bons-commande/${bon.id}`)).status).toBe(403);
+        expect((await admin.get('/api/bons-commande')).data.find(b => b.id === bon.id)).toMatchObject({ nb_uo: 10 });
+    });
 });
 
 describe('bons de commande', () => {

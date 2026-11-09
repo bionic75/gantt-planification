@@ -114,7 +114,7 @@ Pages servies par Express depuis `public/` :
 | `aide.html`   | aide en ligne et historique des versions (personnalisable dans l'administration) | `css/aide.css`                        |
 
 `public/js/app/` contient le code de l'application principale découpé par domaine (`core.js` : connexion et
-session ; `planning.js`, `deplacements.js`…). Ce sont des **scripts classiques** qui
+session ; `planning.js`, `tab-access.js`…). Ce sont des **scripts classiques** qui
 partagent leur portée globale :
 
 - ils sont chargés dans un ordre fixe, celui des balises `<script>` de `index.html` ; une variable ou une fonction

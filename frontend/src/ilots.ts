@@ -43,11 +43,10 @@ const ILOTS: RegistreIlots = {
     cra: () => import('@/ilots/cra/OngletCra.vue'),
     astreintesGestion: () => import('@/ilots/astreintes/OngletAstreintes.vue'),
     planning: () => import('@/ilots/planification/OngletPlanification.vue'),
-    // Application « Suivi des déplacements » : onglet monté seulement quand l'application est affichée
-    deplacementsPlanificationTab: {
-        chargeur: () => import('@/ilots/deplacements/OngletMesDeplacements.vue'),
-        onglet: 'deplacementsPlanificationTab',
-        application: 'deplacementsContainer'
+    // Application « Suivi des déplacements » : montée quand l'ancien code l'affiche (menu Applications)
+    deplacementsContainer: {
+        chargeur: () => import('@/ilots/deplacements/ApplicationDeplacements.vue'),
+        application: true
     }
 };
 

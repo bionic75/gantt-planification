@@ -72,3 +72,54 @@ async function loadNewAssignments() {
         console.error('Erreur chargement notifications:', error);
     }
 }
+
+// Déplacé de deplacements.js (lot 5.2b), tel quel
+// Fonction pour sauvegarder les logs des affectations sans envoyer d'email
+async function saveAssignmentLogs() {
+    const expertCount = Object.keys(pendingAssignments).length;
+
+    if (expertCount === 0) {
+        console.log('⏭️ Aucune affectation en attente');
+        return;
+    }
+
+    console.log(`📝 Enregistrement des logs pour ${expertCount} expert(s)`);
+
+    // Créer les logs pour toutes les modifications
+    const allModifications = [];
+
+    for (const [resourceId, data] of Object.entries(pendingAssignments)) {
+        data.assignments.forEach(assignment => {
+            allModifications.push({
+                resourceId: parseInt(resourceId),
+                resourceName: `${data.expertPrenom} ${data.expertNom}`,
+                date: assignment.date,
+                period: assignment.period === 'AM' ? 'Matin' : 'Après-midi',
+                activity: assignment.activity,
+                location: assignment.location || '-',
+                emailSent: false
+            });
+        });
+    }
+
+    if (allModifications.length > 0) {
+        try {
+            const logResponse = await fetch(`${API_URL}/logs/save-planning-modifications`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ modifications: allModifications })
+            });
+
+            if (logResponse.ok) {
+                console.log('✅ Logs enregistrés');
+            } else {
+                console.error('❌ Erreur enregistrement logs:', logResponse.status);
+            }
+        } catch (error) {
+            console.error('❌ Erreur appel API logs:', error);
+        }
+    }
+
+    // Ne PAS réinitialiser pendingAssignments ici car l'utilisateur peut vouloir envoyer les emails avant
+}
