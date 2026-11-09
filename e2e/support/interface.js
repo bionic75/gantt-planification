@@ -18,7 +18,7 @@ export async function confirmer(/** @type {Monde} */ monde, /** @type {() => Pro
         .toBe(true);
     if (monde.dialogues.length > avant) return /** @type {string} */ (monde.dialogues.at(-1));
     const texte = (await boite.textContent()) ?? '';
-    await boite.getByRole('button', { name: /^(Supprimer|Confirmer)$/ }).click();
+    await boite.getByRole('button', { name: /^(Supprimer|Confirmer|Fusionner)$/ }).click();
     return texte;
 }
 

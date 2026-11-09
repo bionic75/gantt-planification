@@ -102,14 +102,22 @@ export function requireReportingAccess(req, res, next) {
         .catch(() => res.status(403).json({ error: 'Accès refusé' }));
 }
 
-/** Administrateur, ou utilisateur autorisé sur l'application « Aide à l'affectation » */
-/** @type {RequestHandler} */
+/**
+ * Utilisateur autorisé sur l'application « Aide à l'affectation opérationnelle » (accès attribué dans
+ * l'Administration), comme le menu Applications et la frise de l'Accueil qui ne la proposent qu'à ces comptes, profil
+ * administrateur compris
+ * @type {RequestHandler}
+ */
 export function requireAffectationAccess(req, res, next) {
     if (rejectUnauthenticated(req, res)) return;
-    if (req.session.activeProfile === 'admin') return next();
+    const userId = /** @type {number} */ (req.session.userId);
     prisma.appUserAccess
-        .findFirst({ where: { app_key: 'affectation', user_id: req.session.userId }, select: { id: true } })
-        .then(access => (access ? next() : res.status(403).json({ error: 'Accès refusé' })))
+        .findFirst({ where: { app_key: 'affectation', user_id: userId }, select: { id: true } })
+        .then(access => {
+            if (!access) return res.status(403).json({ error: "Accès à l'aide à l'affectation non autorisé" });
+            touchSession(userId);
+            next();
+        })
         .catch(() => res.status(403).json({ error: 'Accès refusé' }));
 }
 

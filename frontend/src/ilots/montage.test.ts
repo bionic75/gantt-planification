@@ -127,6 +127,33 @@ describe('montage des îlots', () => {
         expect(conteneur().querySelector('[data-testid="essai"]')).not.toBeNull();
     });
 
+    it("onglet d'une application : monté à l'ouverture de l'onglet, application affichée", async () => {
+        document.body.innerHTML =
+            '<div id="appli" style="display: none;"><div id="onglet" class="tab-content active"><p>ancien</p></div></div>';
+        let reouvertures = 0;
+        const Compteur = defineComponent({
+            setup() {
+                surReouverture(() => reouvertures++);
+                return () => h('p', { 'data-testid': 'essai' }, 'îlot');
+            }
+        });
+        arreter = surveillerIlots({ onglet: { chargeur: async () => ({ default: Compteur }), application: 'appli' } });
+        await rendu();
+        // Onglet marqué « active » mais application masquée : pas de montage
+        expect(conteneur().querySelector('[data-testid="essai"]')).toBeNull();
+
+        const appli = document.getElementById('appli') as HTMLElement;
+        appli.style.display = 'block';
+        await rendu();
+        expect(conteneur().querySelector('[data-testid="essai"]')).not.toBeNull();
+
+        conteneur().classList.remove('active');
+        await rendu();
+        conteneur().classList.add('active');
+        await rendu();
+        expect(reouvertures).toBe(1);
+    });
+
     it('application entière : montée quand son conteneur est affiché, réouverture à chaque affichage', async () => {
         document.body.innerHTML = '<div id="appli" class="container" style="display: none;"><p>ancien</p></div>';
         let reouvertures = 0;

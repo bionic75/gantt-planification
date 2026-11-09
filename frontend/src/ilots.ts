@@ -52,6 +52,11 @@ const ILOTS: RegistreIlots = {
     analyseContainer: {
         chargeur: () => import('@/ilots/analyse/ApplicationAnalyse.vue'),
         application: true
+    },
+    // Aide à l'affectation : onglet « Événements » de l'application, encore construite par l'ancien code
+    affectationEventsTab: {
+        chargeur: () => import('@/ilots/affectation/OngletEvenementsAffectation.vue'),
+        application: 'affectationContainer'
     }
 };
 
