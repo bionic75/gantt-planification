@@ -1,5 +1,5 @@
 <!-- Aide à l'affectation › onglet « Administration » (administrateur) : déploiements de SAMU (légende, frises,
-     historique, modification, suppression ; boutons Asana servis par l'ancien code), connexion Asana (ancien code),
+     historique, modification, suppression ; rafraîchissements et import Asana), connexion Asana (projets, import en masse),
      correspondance des activités, modèle PowerPoint et nom des fichiers d'export, couleurs des étapes. Sous-îlot dans
      le conteneur de l'application, encore construit par l'ancien code. -->
 <script setup lang="ts">
@@ -10,16 +10,11 @@ import { apiAffectation } from '@/api/affectation';
 import AppConfirmation from '@/composants/AppConfirmation.vue';
 import { fournirConfirmation } from '@/composants/confirmation';
 import { surReouverture } from '@/ilots/activation';
-import {
-    ecouter,
-    emettre,
-    importerDepuisAsana,
-    ouvrirTachesAsana,
-    rafraichirDepuisAsana,
-    rafraichirToutDepuisAsana
-} from '@/liaison';
+import { ecouter, emettre } from '@/liaison';
+import { useAsanaStore } from '../asana/magasin';
 import { fondEtape, frise } from './administration';
 import CarteAdministration from './CarteAdministration.vue';
+import CarteConnexionAsana from './CarteConnexionAsana.vue';
 import CarteCorrespondance from './CarteCorrespondance.vue';
 import CarteCouleurs from './CarteCouleurs.vue';
 import CarteModele from './CarteModele.vue';
@@ -28,13 +23,13 @@ import FenetreHistorique from './FenetreHistorique.vue';
 import FenetreSuppression from './FenetreSuppression.vue';
 import IconeAff from './IconeAff.vue';
 import { useAdministrationAffectationStore } from './magasin';
-import ZoneAsana from './ZoneAsana.vue';
 import { jourFr } from '../planning/outils';
 import './administration.css';
 
 /** Logo servi par l'application (public/img), hors de la construction */
 const LOGO_ASANA = '/img/asana-logo.png';
 const magasin = useAdministrationAffectationStore();
+const asana = useAsanaStore();
 const { demande, repondre, confirmer } = fournirConfirmation();
 const annonce = ref<{ texte: string; erreur: boolean } | null>(null);
 
@@ -94,10 +89,6 @@ async function supprimer(p: DeploiementAdmin, mode?: 'keep' | 'delete') {
     }
 }
 
-// ── Asana (ancien code) ──────────────────────────────────────────────────────
-
-const boutonToutAsana = ref<HTMLButtonElement | null>(null);
-
 // ── Ouverture ────────────────────────────────────────────────────────────────
 
 let arreterEcoute: (() => void) | null = null;
@@ -118,19 +109,21 @@ surReouverture(() => void magasin.charger());
             <span class="aff-entete-actions">
                 <button
                     id="affRefreshAll"
-                    ref="boutonToutAsana"
                     type="button"
                     class="aff-btn"
+                    :class="{ 'aff-busy': asana.toutEnCours }"
                     title="Relire dans Asana tous les déploiements qui ont un projet correspondant (rubriques nouvelles ou modifiées uniquement)"
-                    @click="rafraichirToutDepuisAsana(boutonToutAsana!)"
+                    @click="asana.toutRafraichir()"
                 >
-                    <IconeAff nom="asanasync" classe="aff-ico-sm" />Tout rafraîchir depuis Asana
+                    <IconeAff nom="asanasync" classe="aff-ico-sm" />{{
+                        asana.toutEnCours ? 'Rafraîchissement en cours…' : 'Tout rafraîchir depuis Asana'
+                    }}
                 </button>
                 <button
                     type="button"
                     class="aff-btn"
                     title="Récupérer les dates d'un projet de déploiement depuis un export CSV d'Asana"
-                    @click="importerDepuisAsana()"
+                    @click="asana.ouvrirImport()"
                 >
                     <IconeAff nom="save" classe="aff-ico-sm" />Importer depuis Asana
                 </button>
@@ -193,7 +186,7 @@ surReouverture(() => void magasin.charger());
                             type="button"
                             class="aff-icon-btn aff-icon-btn--asana-taches"
                             title="Tâches du projet Asana : consulter les échéances et remplacer une donnée reprise"
-                            @click="ouvrirTachesAsana(p.id)"
+                            @click="asana.ouvrirTaches(p.id)"
                         >
                             <IconeAff nom="asanatasks" classe="aff-ico-sm" />
                         </button>
@@ -201,7 +194,8 @@ surReouverture(() => void magasin.charger());
                             type="button"
                             class="aff-icon-btn aff-asyn aff-icon-btn--asana"
                             title="Rafraîchir depuis Asana : reprend les dates nouvelles ou modifiées du projet Asana de ce SAMU"
-                            @click="rafraichirDepuisAsana(p.id, $event.currentTarget as HTMLElement)"
+                            :class="{ 'aff-busy': asana.enCours.has(p.id) }"
+                            @click="asana.rafraichir(p.id)"
                         >
                             <IconeAff nom="asanasync" classe="aff-ico-sm" />
                         </button>
@@ -241,7 +235,7 @@ surReouverture(() => void magasin.charger());
         icone="save"
         sous-titre="Récupération des dates des projets de déploiement (lecture seule)"
     >
-        <ZoneAsana />
+        <CarteConnexionAsana />
     </CarteAdministration>
 
     <CarteCorrespondance />

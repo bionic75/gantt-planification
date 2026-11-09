@@ -413,7 +413,10 @@ Then("la fenêtre d'import d'un export CSV d'Asana est proposée", async ({ mond
 });
 
 When("je ferme la fenêtre d'import Asana", async ({ monde }) => {
-    await fenetreImportAsana(monde).locator('.aff-modal-foot').getByRole('button', { name: 'Fermer' }).click();
+    await fenetreImportAsana(monde)
+        .locator('.aff-modal-foot, .gp-modale__actions')
+        .getByRole('button', { name: 'Fermer' })
+        .click();
 });
 
 Then("la fenêtre d'import d'un export CSV d'Asana est fermée", async ({ monde }) => {
