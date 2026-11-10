@@ -22,5 +22,7 @@ export interface Session {
     is_rh: boolean;
     astreinte_volontaire: boolean;
     astreinte_date_activation: string | null;
+    /** Onglet ouvert à la connexion (choisi dans « Mon profil ») */
+    defaultTab?: string;
     mustChangePassword: boolean;
 }

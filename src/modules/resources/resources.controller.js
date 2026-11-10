@@ -70,7 +70,9 @@ export async function replaceSamuAssignments(/** @type {Request} */ req, /** @ty
 
 /** L'expert modifie les affectations SAMU de sa propre ressource */
 export async function replaceMySamuAssignments(/** @type {Request} */ req, /** @type {Response} */ res) {
-    const { resourceId } = req.session;
+    const { resourceId, activeProfile } = req.session;
+    // Comme l'écran (fenêtre « Mon profil ») : réservé au profil Expert
+    if (activeProfile !== 'expert') throw forbidden('Réservé au profil Expert');
     if (!resourceId) throw forbidden('Aucune ressource associée à ce compte');
     const { principal, secondaire } = req.body;
     await service.replaceSamuAssignments(resourceId, principal, secondaire);

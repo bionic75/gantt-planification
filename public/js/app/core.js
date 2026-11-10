@@ -324,8 +324,7 @@ async function completeFinalLogin(user, selectedApp) {
     await loadLocations(); // Charger les localisations
     if (sessionFermee()) return;
 
-    // Vérifier popup nouveautés version
-    checkHelpVersionPopup();
+    // Nouveautés de la version : îlot Vue (frontend/src/ilots/entete/CadreSession.vue)
 
     // Badge CRA en attente (admin)
     loadCraPendingBadge();
@@ -419,14 +418,13 @@ window.addEventListener('gp:utilisateurs-modifies', async () => {
     await loadResources();
     showSyncStatus();
 });
-// Paramétrages divers enregistrés par l'îlot de l'Administration : affichage de la version, compteur
-// d'inactivité de la session, favicon
+// Paramétrages divers enregistrés par l'îlot de l'Administration : compteur d'inactivité de la session (favicon : îlot Vue
+// frontend/src/ilots/entete/CadreSession.vue)
 window.addEventListener('gp:version-modifiee', () => loadSettings());
 window.addEventListener('gp:inactivite-modifiee', e => {
     if (e.detail.active) startInactivityTimer(e.detail.minutes);
     else stopInactivityTimer();
 });
-window.addEventListener('gp:favicon-modifie', e => applyFavicon(e.detail.favicon));
 // Fichiers .ics importés ou supprimés par l'îlot des jours spéciaux : congés et dates de la planification rechargés
 window.addEventListener('gp:conges-modifies', async () => {
     await reloadAllSchoolHolidays();

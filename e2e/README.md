@@ -132,6 +132,9 @@ E2E_TAGS="@cra" npm test                                        # une fonctionna
       configuration de la double authentification jamais modifiée ; compte de test à deux profils créé puis supprimé.
     - **En-tête** (`46`) : comptes de test jetables aux profils RH (jamais soumis à la double authentification) et
       Utilisateur, mot de passe initial remplacé à la première connexion ; déconnexion sur la session du scénario.
+      « Mon profil » : SAMU de l'expert de test rétablis en fin de scénario ; nouveautés de l'aide et favicon lus dans
+      une réponse simulée de `/api/settings` (aucun paramètre global modifié) ; bandeau de mise en production avec
+      `/api/version` simulé et l'horloge du navigateur avancée (`page.clock`).
     - **Ateliers métier et sondages** (`42`) : déploiement de test avec mise en production en 2032 ; rétroplanning
       et sondages supprimés en fin de scénario. Invitation et sondage jamais envoyés (fenêtres ouvertes, adresse du
       sondage « Générée » en brouillon) ; réponses saisies sur la page publique dans un navigateur sans session.
