@@ -1,53 +1,10 @@
 // Application principale : settings
 // Extrait de index.html : script classique, portée globale partagée avec les autres scripts de la page
 // Écran « Paramétrages divers » de l'Administration : îlot Vue (frontend/src/ilots/admin/parametrages). Restent ici
-// l'affichage de la version, le compteur d'inactivité, le favicon et la fenêtre des nouveautés, communs à toute
+// le compteur d'inactivité, le favicon et la fenêtre des nouveautés, communs à toute
 // l'application (déclenchés par l'îlot : gp:version-modifiee, gp:inactivite-modifiee, gp:favicon-modifie).
 
-// ========== GESTION DE LA VERSION ==========
-
-async function loadAppVersion() {
-    try {
-        const response = await fetch(`${API_URL}/system/version`);
-        if (response.ok) {
-            const data = await response.json();
-            const versionElement = document.getElementById('appVersion');
-            if (versionElement) {
-                versionElement.textContent = data.version || '1.0.0';
-            }
-        }
-    } catch (error) {
-        console.error('Erreur chargement version:', error);
-    }
-}
-
-// ========== CHARGEMENT VERSION (PUBLIC) ==========
-
-async function loadVersion() {
-    try {
-        const response = await fetch(`${API_URL}/version`);
-        if (response.ok) {
-            const data = await response.json();
-            // Mettre à jour tous les éléments avec id="appVersion" (il peut y en avoir plusieurs)
-            const appVersionDisplays = document.querySelectorAll('#appVersion, .app-version');
-            appVersionDisplays.forEach(el => {
-                if (data.version) {
-                    el.textContent = data.version;
-                }
-            });
-            console.log('✅ Version chargée (public):', data.version);
-            return data.version;
-        }
-    } catch (error) {
-        console.error('Erreur chargement version:', error);
-    }
-    return null;
-}
-
-// Charger la version immédiatement (pour la mire de login)
-(async function () {
-    await loadVersion();
-})();
+// Version affichée sur la mire de connexion : îlot Vue (frontend/src/connexion/MireConnexion.vue)
 
 // ========== CHARGEMENT PARAMÈTRES (AUTHENTIFIÉ) ==========
 
@@ -59,12 +16,6 @@ async function loadSettings() {
 
         if (response.ok) {
             const settings = await response.json();
-
-            // Mettre à jour le span d'affichage de la version (visible par tous)
-            const appVersionDisplay = document.getElementById('appVersion');
-            if (appVersionDisplay && settings.app_version) {
-                appVersionDisplay.textContent = settings.app_version;
-            }
 
             // Appliquer le favicon actuel
             if (settings.favicon) {
@@ -339,6 +290,3 @@ async function disconnectNow() {
     await saveAssignmentLogs();
     await performLogout();
 }
-
-// Version affichée dès le chargement de la page
-loadAppVersion();

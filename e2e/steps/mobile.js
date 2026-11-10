@@ -75,9 +75,12 @@ Then('le planning personnel mobile est affiché', async ({ monde }) => {
 });
 
 Then('la mire mobile reprend celle du bureau', async ({ monde }) => {
-    // Mêmes composants et feuille de style que la mire du bureau (login.css, classes lp-*)
-    await expect(monde.page.locator('link[href*="login.css"]')).toHaveCount(1);
+    // Même composant que la mire du bureau (frontend/src/connexion/MireConnexion.vue), masqué après la connexion :
+    // carte et champs identiques
     await expect(monde.page.locator('#loginPage .lp-card')).toHaveCount(1);
+    for (const id of ['#loginUsername', '#loginPassword', '#loginButton']) {
+        await expect(monde.page.locator(`#loginPage ${id}`)).toHaveCount(1);
+    }
 });
 
 Then("l'écran mobile « Accès réservé » est affiché", async ({ monde }) => {

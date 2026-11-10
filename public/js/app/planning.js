@@ -237,9 +237,6 @@ document.addEventListener('DOMContentLoaded', function () {
     clearSiteCookies();
     clearMemoryData();
 
-    // Charger la version dès le chargement (endpoint public, pas besoin d'auth)
-    loadVersion();
-
     // Charger tous les paramètres si connecté (pour admin)
     loadSettings();
 

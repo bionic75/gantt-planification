@@ -9,9 +9,9 @@ Fonctionnalité: Application mobile : planning d'un expert, tiroir d'une demi-jo
   Scénario: Identifiants requis, puis refusés
     Quand j'ouvre la page mobile sans être connecté
     Et je valide la connexion mobile sans identifiants
-    Alors la mire mobile signale "Identifiants requis."
+    Alors la mire mobile signale "Veuillez remplir les identifiants"
     Quand je me connecte sur la page mobile avec un identifiant inconnu
-    Alors la mire mobile signale "Identifiants invalides."
+    Alors la mire mobile signale "Identifiants incorrects"
 
   Scénario: Planning d'une ressource choisie, tiroir d'une demi-journée
     Étant donné qu'une ressource de test est en « ANS Déploiement » lundi matin et en congé mardi de la semaine courante

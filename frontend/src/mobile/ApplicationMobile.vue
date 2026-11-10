@@ -1,9 +1,10 @@
-<!-- Application mobile « Mon planning » : mire et double authentification, planning d'une ressource (vues Jour,
-     Semaine, Mois ; choix de l'expert ; tiroir d'une demi-journée), mode sombre, déconnexion, carte « Autour de moi » -->
+<!-- Application mobile « Mon planning » : mire et double authentification (communes avec le bureau,
+     connexion/MireConnexion.vue), planning d'une ressource (vues Jour, Semaine, Mois ; choix de l'expert ; tiroir d'une
+     demi-journée), mode sombre, déconnexion, carte « Autour de moi » -->
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import MireConnexion from '@/connexion/MireConnexion.vue';
 import CarteAutourDeMoi from './CarteAutourDeMoi.vue';
-import MireMobile from './MireMobile.vue';
 import PlanningMobile from './PlanningMobile.vue';
 import {
     ACTIVITES,
@@ -240,7 +241,9 @@ onMounted(async () => {
                 <div id="loadingText">{{ texteChargement }}</div>
             </div>
             <div id="loginScreen" :class="{ hidden: ecran !== 'mire' }">
-                <MireMobile @connecte="connecte" />
+                <div id="loginPage" class="lp-page">
+                    <MireConnexion mode="mobile" @connecte="connecte" />
+                </div>
             </div>
             <!-- Jamais affiché (anomalie consignée : accès mobile réservé aux experts non appliqué) -->
             <div id="accessDeniedScreen" :class="{ hidden: ecran !== 'acces' }">

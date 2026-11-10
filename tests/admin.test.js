@@ -255,7 +255,7 @@ describe('paramètres et configuration', () => {
         for (const [from, to] of [
             ['/ui-icons.js', '/js/ui-icons.js'],
             ['/themes.js?v=1.0.0', '/js/themes.js?v=1.0.0'],
-            ['/login.css', '/css/login.css'],
+            ['/darkmode.css', '/css/darkmode.css'],
             ['/favicon-grille.svg?t=1', '/img/favicon-grille.svg?t=1'],
             ['/asana-logo.png', '/img/asana-logo.png']
         ]) {
