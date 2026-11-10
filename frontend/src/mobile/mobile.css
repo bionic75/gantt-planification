@@ -205,100 +205,6 @@ input {
     padding: 12px;
 }
 
-/* ===== LOGIN ===== */
-#loginScreen {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 100%;
-    padding: 20px 16px;
-    background: linear-gradient(135deg, #1d70b7 0%, #2980b9 100%);
-}
-.login-card {
-    background: #fff;
-    border-radius: 12px;
-    width: 100%;
-    max-width: 380px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-    overflow: hidden;
-}
-.login-card-header {
-    background: #fff;
-    border-bottom: 4px solid #1d70b7;
-    padding: 20px 24px 16px;
-    text-align: center;
-}
-.login-card-header img {
-    max-width: 200px;
-    height: auto;
-    margin-bottom: 8px;
-}
-.login-card-title {
-    font-size: 18px;
-    font-weight: 600;
-    color: #1d70b7;
-    margin-bottom: 2px;
-}
-.login-card-sub {
-    font-size: 13px;
-    color: #6f6f6e;
-}
-.login-card-body {
-    padding: 20px 24px 24px;
-}
-.login-field {
-    margin-bottom: 14px;
-}
-.login-field label {
-    display: block;
-    font-size: 13px;
-    font-weight: bold;
-    color: #2c3e50;
-    margin-bottom: 5px;
-}
-.login-field input {
-    width: 100%;
-    min-height: 44px;
-    border: 2px solid #e0e0e0;
-    border-radius: 8px;
-    padding: 0 12px;
-    font-size: 14px;
-    transition:
-        border-color 200ms,
-        box-shadow 200ms;
-}
-.login-field input:focus {
-    outline: none;
-    border-color: #1d70b7;
-    box-shadow: 0 0 8px rgba(0, 0, 145, 0.3);
-}
-.login-btn {
-    width: 100%;
-    min-height: 48px;
-    background: linear-gradient(135deg, #1d70b7 0%, #2980b9 100%);
-    color: #fff;
-    border-radius: 8px;
-    font-size: 15px;
-    font-weight: bold;
-    box-shadow: 0 4px 12px rgba(0, 0, 145, 0.3);
-    transition: opacity 200ms;
-}
-.login-btn:active {
-    opacity: 0.8;
-}
-.login-btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-#loginError {
-    margin-top: 10px;
-    color: #d60b51;
-    font-size: 13px;
-    text-align: center;
-    font-weight: bold;
-}
-
 /* ===== ACCESS DENIED ===== */
 #accessDeniedScreen {
     display: flex;
@@ -725,86 +631,21 @@ input {
     color: #1d70b7;
 }
 
-/* ===== MIRE DE CONNEXION (mêmes styles que le bureau, via login.css) ===== */
+/* ===== MIRE DE CONNEXION (composant et styles communs avec le bureau : connexion/) ===== */
 #loginScreen {
     padding: 0;
     background: #0b3a66;
     display: block;
     min-height: 100dvh;
 }
-#loginPage.lp-mobile {
+/* Mire commune avec le bureau (connexion/mire.css) : carte centrée sur toute la hauteur de l'écran */
+#loginScreen #loginPage {
     position: relative;
     min-height: 100dvh;
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 16px;
-}
-#loginPage.lp-mobile .lp-head {
-    padding: 22px 24px 18px;
-}
-#loginPage.lp-mobile .lp-body {
-    padding: 22px 24px 20px;
-}
-#loginPage.lp-mobile .lp-logo {
-    max-width: 210px;
-    margin-bottom: 14px;
-}
-#loginPage.lp-mobile .lp-app-txt h2 {
-    font-size: 17px;
-}
-#loginPage .lp-btn.lp-secondary {
-    background: #fff;
-    color: #1d70b7;
-    border: 2px solid #1d70b7;
-    box-shadow: none;
-    margin-bottom: 10px;
-}
-#loginPage .lp-btn.lp-secondary svg {
-    stroke: #1d70b7;
-}
-#loginPage .lp-link {
-    display: block;
-    margin: 14px auto 0;
-    background: none;
-    color: #6b7a8d;
-    font-size: 13px;
-    text-decoration: underline;
-}
-#loginPage .lp-mfa-ico {
-    width: 54px;
-    height: 54px;
-    border-radius: 16px;
-    background: #e8f1fb;
-    color: #1d70b7;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0 auto 10px;
-}
-#loginPage .lp-mfa-ico svg {
-    width: 30px;
-    height: 30px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.9;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-}
-#loginPage .lp-code {
-    padding-left: 14px;
-    text-align: center;
-    font-size: 24px;
-    font-family: monospace;
-    letter-spacing: 8px;
-}
-#loginError,
-#mfaError {
-    margin-top: 10px;
-    color: #d60b51;
-    font-size: 13px;
-    text-align: center;
-    font-weight: bold;
 }
 
 /* ===== MODE SOMBRE (inversion, comme sur le bureau) ===== */
@@ -1035,32 +876,6 @@ html.dark-mode #nearScreen {
     display: flex;
     align-items: center;
     gap: 8px;
-}
-.mob-mfa__tete {
-    text-align: center;
-    margin-bottom: 16px;
-}
-.mob-mfa__titre {
-    font-size: 16px;
-    font-weight: 700;
-    color: #1f2d3d;
-    margin-bottom: 6px;
-}
-.mob-mfa__instructions {
-    font-size: 13px;
-    color: #6b7a8d;
-    line-height: 1.5;
-}
-.mob-mfa__choix {
-    flex-direction: column;
-    margin-bottom: 6px;
-}
-.mob-mfa__envoi {
-    margin-bottom: 10px;
-}
-.lp-btn svg.mob-mfa__ico,
-.lp-btn:hover svg.mob-mfa__ico {
-    transform: none;
 }
 .mob-evt-detail {
     font-weight: normal;

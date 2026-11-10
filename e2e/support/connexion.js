@@ -1,7 +1,7 @@
 // @ts-check
-// Connexion par la mire (bureau et mobile), double authentification comprise.
-// Toute connexion pouvant demander un code OTP est faite sous verrou : une seule à la fois sur l'ensemble des
-// workers, le code lu étant le plus récent arrivé dans la boîte partagée après la demande.
+// Connexion par la mire (bureau et mobile : même composant, frontend/src/connexion/MireConnexion.vue), double
+// authentification comprise. Toute connexion pouvant demander un code OTP est faite sous verrou : une seule à la fois sur
+// l'ensemble des workers, le code lu étant le plus récent arrivé dans la boîte partagée après la demande.
 import { expect } from '@playwright/test';
 import { boiteMail } from './boite-mail.js';
 import { config } from './config.js';
@@ -11,37 +11,53 @@ import { sousVerrou } from './verrou.js';
 /** @typedef {import('@playwright/test').Page} Page */
 /** @typedef {import('./config.js').Profil} Profil */
 /**
- * @typedef {'application' | 'profil' | 'choix-mfa' | 'code-mfa' | 'totp-setup' | 'mot-de-passe-a-changer' | 'erreur' | 'erreur-mfa'} EtatMire
+ * @typedef {'application' | 'acces-reserve' | 'profil' | 'choix-mfa' | 'code-mfa' | 'totp-setup' | 'mot-de-passe-a-changer' | 'erreur' | 'erreur-mfa'} EtatMire
  * @typedef {{ etat: EtatMire, message?: string, codeUtilise?: string, messageCodeErrone?: string, mfaDemandee?: boolean }} ResultatConnexion
  * @typedef {{ password?: string, login?: string, methode?: 'email' | 'totp', codeMfa?: string, codeErroneAvant?: boolean, url?: string }} OptionsConnexion
  */
 
-/** État courant de la mire de connexion du bureau, attendu hors des états listés */
-async function attendreEtat(/** @type {Page} */ page, /** @type {EtatMire[]} */ exclus = [], timeout = 30000) {
+/**
+ * État courant de la mire, attendu hors des états listés. Bureau : application ouverte quand la mire (#loginPage) n'est
+ * plus « active » ; mobile : écran du planning ou « Accès réservé » affiché.
+ */
+async function attendreEtat(
+    /** @type {Page} */ page,
+    /** @type {EtatMire[]} */ exclus = [],
+    mobile = false,
+    timeout = 30000
+) {
     const handle = await page.waitForFunction(
-        exclus => {
+        ({ exclus, mobile }) => {
             const $ = (/** @type {string} */ id) => document.getElementById(id);
-            const actif = (/** @type {string} */ id) => !!$(id)?.classList.contains('active');
             const visible = (/** @type {HTMLElement | null} */ el) =>
-                !!el &&
-                el.style.display !== 'none' &&
-                getComputedStyle(el).display !== 'none' &&
-                !!el.textContent?.trim();
+                !!el && getComputedStyle(el).display !== 'none' && !!el.textContent?.trim();
+            const cache = (/** @type {string} */ id) => !!$(id)?.classList.contains('hidden');
+            /** Étape de la mire (identifiants, choix-mfa, code-mfa, totp-setup ; attente : envoi du code en cours) */
+            const etape = document.querySelector('#loginPage [data-etape]')?.getAttribute('data-etape');
             /** @type {string | null} */
             let etat = null;
-            if (actif('forcedPasswordModal')) etat = 'mot-de-passe-a-changer';
-            else if (actif('mfaCodeModal')) etat = visible($('mfaCodeError')) ? 'erreur-mfa' : 'code-mfa';
-            else if (actif('mfaTotpSetupModal')) etat = 'totp-setup';
-            else if (actif('mfaMethodChoiceModal')) etat = 'choix-mfa';
-            else if (!actif('loginPage')) etat = 'application';
-            else if (visible($('loginError'))) etat = 'erreur';
-            else if ($('profileSelectGroup')?.style.display === 'block') etat = 'profil';
+            if (mobile) {
+                if (!cache('accessDeniedScreen')) etat = 'acces-reserve';
+                else if (!cache('planningScreen')) etat = 'planning';
+                // Connexion validée, écran suivant en cours d'affichage
+                else if (cache('loginScreen')) return null;
+            } else if ($('forcedPasswordModal')) etat = 'mot-de-passe-a-changer';
+            else if (!$('loginPage')?.classList.contains('active')) etat = 'application';
+            if (!etat) {
+                if (etape === 'attente') return null;
+                if (etape === 'code-mfa') etat = visible($('mfaCodeError')) ? 'erreur-mfa' : 'code-mfa';
+                else if (etape === 'totp-setup') etat = 'totp-setup';
+                else if (etape === 'choix-mfa') etat = 'choix-mfa';
+                else if (visible($('loginError'))) etat = 'erreur';
+                else if ($('loginProfile')) etat = 'profil';
+            }
+            if (etat === 'planning') etat = 'application';
             if (!etat || exclus.includes(etat)) return null;
             // Bouton occupé : réponse du serveur en attente
-            if ($('loginButton')?.classList.contains('lp-busy')) return null;
+            if (document.querySelector('#loginPage .lp-busy')) return null;
             return etat;
         },
-        exclus,
+        { exclus, mobile },
         { timeout, polling: 200 }
     );
     return /** @type {EtatMire} */ (await handle.jsonValue());
@@ -51,6 +67,123 @@ const texte = async (/** @type {Page} */ page, /** @type {string} */ sel) =>
     (await page.locator(sel).textContent())?.trim() || '';
 
 /**
+ * Identifiants saisis et validés, puis étapes de la mire parcourues (profil, double authentification) jusqu'à un état
+ * final : application ouverte, erreur, mot de passe à changer…
+ * @param {Page} page
+ * @param {Profil} profil
+ * @param {OptionsConnexion} options
+ * @param {boolean} mobile
+ * @returns {Promise<ResultatConnexion>}
+ */
+async function parcourirMire(page, profil, options, mobile) {
+    const password = options.password ?? profil.password;
+    if (!password) throw new Error(`Mot de passe du profil ${profil.label} absent : renseigner e2e/.env`);
+    await page.locator('#loginUsername').fill(options.login ?? profil.login);
+    await page.locator('#loginPassword').fill(password);
+
+    const methode = options.methode || (profil.totpSecret && !mobile ? 'totp' : 'email');
+    // Méthode « email » configurée : le code part dès la réponse de connexion, le repère est pris avant.
+    // Boîte non configurée : l'erreur n'est levée que si un code est effectivement demandé.
+    /** @type {import('./boite-mail.js').BoiteMail | null} */
+    let boite = null;
+    /** @type {unknown} */
+    let repere = null;
+    /** @type {Error | null} */
+    let erreurBoite = null;
+    if (profil.mfa && methode === 'email' && !options.codeMfa) {
+        try {
+            boite = boiteMail();
+            repere = await boite.repere();
+        } catch (/** @type {any} */ e) {
+            erreurBoite = e;
+        }
+    }
+    await page.locator('#loginButton').click();
+
+    let mfaDemandee = false;
+    /** @type {EtatMire[]} */
+    let exclus = [];
+    for (let tour = 0; tour < 6; tour++) {
+        const etat = await attendreEtat(page, exclus, mobile);
+        if (etat === 'choix-mfa' || etat === 'code-mfa') mfaDemandee = true;
+        switch (etat) {
+            case 'profil':
+                await page.locator('#loginProfile').selectOption(profil.key);
+                await page.locator('#loginButton').click();
+                exclus = ['profil'];
+                break;
+            case 'choix-mfa':
+                if (methode === 'totp') {
+                    await page.locator('#mfaMethodTotpButton').click();
+                } else {
+                    // Code envoyé dès le choix de la méthode : repère pris avant
+                    boite = boite || boiteMail();
+                    repere = await boite.repere();
+                    await page
+                        .locator('#loginPage')
+                        .getByRole('button', { name: /Code par email/ })
+                        .click();
+                }
+                exclus = ['choix-mfa', 'profil'];
+                break;
+            case 'code-mfa': {
+                const parTotp = (await page.locator('#loginPage [data-etape]').getAttribute('data-methode')) === 'totp';
+                let code = options.codeMfa;
+                if (!code && parTotp) {
+                    if (!profil.totpSecret)
+                        throw new Error(`Code TOTP demandé pour ${profil.label} : secret TOTP absent de e2e/.env`);
+                    code = codeTotp(profil.totpSecret);
+                }
+                if (!code) {
+                    if (!boite)
+                        throw (
+                            erreurBoite || new Error('Code par e-mail demandé sans repère pris dans la boîte partagée')
+                        );
+                    code = await boite.attendreCode(repere);
+                }
+                /** @type {string | undefined} */
+                let messageCodeErrone;
+                if (options.codeErroneAvant) {
+                    await page.locator('#mfaCodeInput').fill(code === '000000' ? '111111' : '000000');
+                    await page.locator('#mfaVerifyButton').click();
+                    expect(await attendreEtat(page, ['code-mfa'], mobile)).toBe('erreur-mfa');
+                    messageCodeErrone = await texte(page, '#mfaCodeError');
+                }
+                // fill() ne déclenche pas la vérification automatique (keyup) : un seul envoi du code
+                await page.locator('#mfaCodeInput').fill(code);
+                await page.locator('#mfaVerifyButton').click();
+                let suite;
+                try {
+                    suite = await attendreEtat(page, ['code-mfa', 'erreur-mfa'], mobile);
+                } catch {
+                    return {
+                        etat: 'erreur-mfa',
+                        message: await texte(page, '#mfaCodeError'),
+                        codeUtilise: code,
+                        messageCodeErrone,
+                        mfaDemandee
+                    };
+                }
+                if (suite === 'mot-de-passe-a-changer' || suite === 'application' || suite === 'acces-reserve') {
+                    return { etat: suite, codeUtilise: code, messageCodeErrone, mfaDemandee };
+                }
+                exclus = ['code-mfa', 'erreur-mfa'];
+                break;
+            }
+            case 'totp-setup':
+                throw new Error(`Application TOTP non configurée pour ${profil.label} : utiliser la méthode « email »`);
+            case 'erreur':
+                return { etat, message: await texte(page, '#loginError'), mfaDemandee };
+            case 'erreur-mfa':
+                return { etat, message: await texte(page, '#mfaCodeError'), mfaDemandee };
+            default:
+                return { etat, mfaDemandee };
+        }
+    }
+    throw new Error('Connexion : enchaînement des écrans de la mire inattendu');
+}
+
+/**
  * Connexion par la mire du bureau. Renvoie l'état atteint (application ouverte, erreur, changement de mot de passe…).
  * @param {Page} page
  * @param {Profil} profil
@@ -58,117 +191,12 @@ const texte = async (/** @type {Page} */ page, /** @type {string} */ sel) =>
  * @returns {Promise<ResultatConnexion>}
  */
 export async function connexionBureau(page, profil, options = {}) {
-    const password = options.password ?? profil.password;
-    if (!password) throw new Error(`Mot de passe du profil ${profil.label} absent : renseigner e2e/.env`);
     const run = async () => {
         // Adresse de la page : lien d'une notification (« /?tab=cra&cra_id=… »), traité à la connexion
         await page.goto(options.url ?? '/');
         await expect(page.locator('#loginPage')).toHaveClass(/active/);
-        await page.locator('#loginUsername').fill(options.login ?? profil.login);
-        await page.locator('#loginPassword').fill(password);
-
-        const methode = options.methode || (profil.totpSecret ? 'totp' : 'email');
-        // Méthode « email » configurée : le code part dès la réponse de connexion, le repère est pris avant.
-        // Boîte non configurée : l'erreur n'est levée que si un code est effectivement demandé.
-        /** @type {import('./boite-mail.js').BoiteMail | null} */
-        let boite = null;
-        /** @type {unknown} */
-        let repere = null;
-        /** @type {Error | null} */
-        let erreurBoite = null;
-        if (profil.mfa && methode === 'email' && !options.codeMfa) {
-            try {
-                boite = boiteMail();
-                repere = await boite.repere();
-            } catch (/** @type {any} */ e) {
-                erreurBoite = e;
-            }
-        }
-        await page.locator('#loginButton').click();
-
-        let mfaDemandee = false;
-        /** @type {EtatMire[]} */
-        let exclus = [];
-        for (let tour = 0; tour < 6; tour++) {
-            const etat = await attendreEtat(page, exclus);
-            if (etat === 'choix-mfa' || etat === 'code-mfa') mfaDemandee = true;
-            switch (etat) {
-                case 'profil':
-                    await page.locator('#loginProfile').selectOption(profil.key);
-                    await page.locator('#loginButton').click();
-                    exclus = ['profil'];
-                    break;
-                case 'choix-mfa':
-                    if (methode === 'totp') {
-                        await page.locator('#mfaMethodTotpButton').click();
-                    } else {
-                        boite = boite || boiteMail();
-                        repere = await boite.repere();
-                        await page
-                            .locator('#mfaMethodChoiceModal')
-                            .getByRole('button', { name: /Code par email/ })
-                            .click();
-                    }
-                    exclus = ['choix-mfa', 'profil'];
-                    break;
-                case 'code-mfa': {
-                    const parTotp = (await texte(page, '#mfaCodeIcon')) === '📱';
-                    let code = options.codeMfa;
-                    if (!code && parTotp) {
-                        if (!profil.totpSecret)
-                            throw new Error(`Code TOTP demandé pour ${profil.label} : secret TOTP absent de e2e/.env`);
-                        code = codeTotp(profil.totpSecret);
-                    }
-                    if (!code) {
-                        if (!boite)
-                            throw (
-                                erreurBoite ||
-                                new Error('Code par e-mail demandé sans repère pris dans la boîte partagée')
-                            );
-                        code = await boite.attendreCode(repere);
-                    }
-                    /** @type {string | undefined} */
-                    let messageCodeErrone;
-                    if (options.codeErroneAvant) {
-                        await page.locator('#mfaCodeInput').fill(code === '000000' ? '111111' : '000000');
-                        await page.locator('#mfaVerifyButton').click();
-                        expect(await attendreEtat(page, ['code-mfa'])).toBe('erreur-mfa');
-                        messageCodeErrone = await texte(page, '#mfaCodeError');
-                    }
-                    // fill() ne déclenche pas la vérification automatique (keyup) : un seul envoi du code
-                    await page.locator('#mfaCodeInput').fill(code);
-                    await page.locator('#mfaVerifyButton').click();
-                    let suite;
-                    try {
-                        suite = await attendreEtat(page, ['code-mfa', 'erreur-mfa']);
-                    } catch {
-                        return {
-                            etat: 'erreur-mfa',
-                            message: await texte(page, '#mfaCodeError'),
-                            codeUtilise: code,
-                            messageCodeErrone,
-                            mfaDemandee
-                        };
-                    }
-                    if (suite === 'mot-de-passe-a-changer' || suite === 'application') {
-                        return { etat: suite, codeUtilise: code, messageCodeErrone, mfaDemandee };
-                    }
-                    exclus = ['code-mfa', 'erreur-mfa'];
-                    break;
-                }
-                case 'totp-setup':
-                    throw new Error(
-                        `Application TOTP non configurée pour ${profil.label} : utiliser la méthode « email »`
-                    );
-                case 'erreur':
-                    return { etat, message: await texte(page, '#loginError'), mfaDemandee };
-                case 'erreur-mfa':
-                    return { etat, message: await texte(page, '#mfaCodeError'), mfaDemandee };
-                default:
-                    return { etat, mfaDemandee };
-            }
-        }
-        throw new Error('Connexion : enchaînement des écrans de la mire inattendu');
+        await expect(page.locator('#loginUsername')).toBeVisible();
+        return parcourirMire(page, profil, options, false);
     };
     return profil.mfa ? sousVerrou(config.lockDir, run) : run();
 }
@@ -201,69 +229,10 @@ export async function connexionMobile(page, profil) {
         // Vérification de session au chargement terminée (elle réaffiche la mire et effacerait une saisie en cours)
         await expect(page.locator('#loginScreen')).not.toHaveClass(/\bhidden\b/, { timeout: 30000 });
         await page.waitForLoadState('networkidle').catch(() => {});
-        await page.locator('#loginUser').fill(profil.login);
-        await page.locator('#loginPass').fill(profil.password);
-        await page.locator('#loginBtn').click();
-
-        const etatMobile = async () =>
-            (
-                await page.waitForFunction(
-                    () => {
-                        const $ = (/** @type {string} */ id) => document.getElementById(id);
-                        const cache = (/** @type {string} */ id) => !!$(id)?.classList.contains('hidden');
-                        if (!cache('accessDeniedScreen')) return 'acces-reserve';
-                        if (!cache('planningScreen')) return 'planning';
-                        // Connexion validée, écran suivant en cours d'affichage
-                        if (cache('loginScreen')) return null;
-                        if (!cache('mfaForm')) {
-                            if ($('mfaError')?.textContent?.trim()) return 'erreur-mfa';
-                            if ($('mfaMethodChoice')?.style.display === 'flex') return 'choix';
-                            if ($('mfaSendEmailBlock')?.style.display === 'block') return 'envoi';
-                            if ($('mfaCodeBlock')?.style.display === 'block') return 'code';
-                        }
-                        if ($('loginError')?.textContent?.trim()) return 'erreur';
-                        return null;
-                    },
-                    undefined,
-                    { timeout: 30000, polling: 200 }
-                )
-            ).jsonValue();
-
-        /** @type {import('./boite-mail.js').BoiteMail | null} */
-        let boite = null;
-        /** @type {unknown} */
-        let repere = null;
-        for (let tour = 0; tour < 5; tour++) {
-            const etat = await etatMobile();
-            if (etat === 'planning' || etat === 'acces-reserve') return { etat };
-            if (etat === 'erreur' || etat === 'erreur-mfa') {
-                return {
-                    etat: 'erreur',
-                    message: (await page.locator(etat === 'erreur' ? '#loginError' : '#mfaError').textContent())?.trim()
-                };
-            }
-            if (etat === 'choix') {
-                await page.locator('#mfaMethodChoice button', { hasText: 'email' }).click();
-            } else if (etat === 'envoi') {
-                boite = boite || boiteMail();
-                repere = await boite.repere();
-                await page.locator('#mfaSendBtn').click();
-                await expect(page.locator('#mfaCodeBlock')).toBeVisible({ timeout: 30000 });
-            } else if (etat === 'code') {
-                const code = boite && repere !== null ? await boite.attendreCode(repere) : codeTotp(profil.totpSecret);
-                await page.locator('#mfaCodeInput').fill(code);
-                await page.locator('#mfaVerifyBtn').click();
-                await page.waitForFunction(
-                    () =>
-                        !!document.getElementById('loginScreen')?.classList.contains('hidden') ||
-                        !document.getElementById('accessDeniedScreen')?.classList.contains('hidden') ||
-                        !!document.getElementById('mfaError')?.textContent?.trim(),
-                    undefined,
-                    { timeout: 30000 }
-                );
-            }
-        }
-        throw new Error('Connexion mobile : enchaînement des écrans inattendu');
+        const r = await parcourirMire(page, profil, {}, true);
+        if (r.etat === 'application') return { etat: /** @type {const} */ ('planning') };
+        if (r.etat === 'acces-reserve') return { etat: r.etat };
+        return { etat: /** @type {const} */ ('erreur'), message: r.message || r.etat };
     };
     return /** @type {Promise<{ etat: 'planning' | 'acces-reserve' | 'erreur', message?: string }>} */ (
         profil.mfa ? sousVerrou(config.lockDir, run) : run()

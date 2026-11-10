@@ -1,5 +1,7 @@
 // Point d'entrée des îlots Vue, chargé par index.html (balise injectée par le serveur, src/lib/frontend.js)
 import '@/styles/theme.css';
+import { createApp } from 'vue';
+import MireBureau from '@/connexion/MireBureau.vue';
 import { surveillerFenetres, type RegistreFenetres } from '@/ilots/fenetres';
 import { piniaDesIlots, surveillerIlots, type RegistreIlots } from '@/ilots/montage';
 import { installerLiaisonAncienCode } from '@/liaison';
@@ -74,6 +76,9 @@ const FENETRES: RegistreFenetres = {
 };
 
 installerLiaisonAncienCode();
+// Mire de connexion et session (lot 6.1) : montée dès le chargement dans #loginPage, affiché par l'ancien code
+const mire = document.getElementById('loginPage');
+if (mire) createApp(MireBureau).use(piniaDesIlots()).mount(mire);
 surveillerIlots(ILOTS);
 // Fenêtres et onglets partagent le magasin de la session (planification : données de la grille)
 surveillerFenetres(FENETRES, piniaDesIlots);

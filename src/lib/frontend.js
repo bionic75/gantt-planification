@@ -38,6 +38,24 @@ let balises = {};
 /** @type {Partial<Record<PageVue, string>>} */
 const pagesEnCache = {};
 
+/**
+ * Feuilles de style d'un point d'entrée : les siennes et celles des modules qu'il importe statiquement (module partagé
+ * entre points d'entrée, ex. la mire commune au bureau et au mobile), sans doublon (documentation Vite « Backend
+ * Integration »)
+ * @param {Record<string, { css?: string[], imports?: string[] }>} manifeste
+ * @param {string} cle
+ * @param {Set<string>} [vus]
+ * @returns {string[]}
+ */
+export function feuillesDeStyle(manifeste, cle, vus = new Set()) {
+    if (vus.has(cle)) return [];
+    vus.add(cle);
+    const morceau = manifeste[cle];
+    if (!morceau) return [];
+    const importees = (morceau.imports || []).flatMap(i => feuillesDeStyle(manifeste, i, vus));
+    return [...new Set([...importees, ...(morceau.css || [])])];
+}
+
 /** Balises <script> et <link> de chaque point d'entrée, d'après le manifeste du build */
 function balisesDuBuild() {
     if (!fs.existsSync(MANIFEST)) {
@@ -49,7 +67,7 @@ function balisesDuBuild() {
     for (const [page, source] of /** @type {[PageVue, string][]} */ (Object.entries(ENTREES))) {
         const entree = manifeste[source];
         if (!entree) throw new Error(`Point d'entrée ${source} absent du manifeste de l'interface Vue`);
-        const css = (entree.css || []).map((/** @type {string} */ f) => `<link rel="stylesheet" href="${BASE}${f}">`);
+        const css = feuillesDeStyle(manifeste, source).map(f => `<link rel="stylesheet" href="${BASE}${f}">`);
         out[page] = [...css, `<script type="module" src="${BASE}${entree.file}"></script>`].join('');
     }
     return out;

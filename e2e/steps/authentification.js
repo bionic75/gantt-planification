@@ -247,7 +247,8 @@ Then("l'ouverture interrompue de l'application ne produit ni erreur ni appel à 
     // Le temps que la suite de l'ouverture s'exécute (avant correction : erreur, puis relance du suivi des connectés)
     await page.waitForTimeout(5000);
     expect(monde.d.apresDeconnexion).toEqual([]);
-    await expect(page.locator('#loginError')).not.toContainText('Erreur');
+    // Message d'erreur de la mire absent, ou sans erreur
+    await expect(page.locator('#loginError', { hasText: 'Erreur' })).toHaveCount(0);
     await expect(page.locator('#loginPage')).toHaveClass(/active/);
 });
 

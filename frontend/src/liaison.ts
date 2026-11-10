@@ -2,12 +2,26 @@
 // « gp: », émis et écoutés des deux côtés. Disparaît avec l'ancien code (phase 6 de docs/migration-vue.md).
 // Côté ancien code : resetUiForLogin, evtRefreshAfterTypeChange et les écouteurs de public/js/app/core.js.
 
+import type { UtilisateurConnecte } from '@/api/connexion';
+
 /** Événements échangés et leur contenu */
 export interface EvenementsLiaison {
     /** Déconnexion ou session perdue (émis par resetUiForLogin de l'ancien code) */
     'session-terminee': undefined;
     /** Session refusée par le serveur lors d'un appel d'un îlot (401) : l'ancien code renvoie vers la mire */
     'session-perdue': { message?: string };
+    /**
+     * Session ouverte par la mire (connexion) ou reprise au chargement de la page (reprise) : l'ancien code ouvre
+     * l'application (frontend/src/connexion/MireBureau.vue)
+     */
+    'session-ouverte': { utilisateur: UtilisateurConnecte; reprise: boolean };
+    /** Aucune session au chargement de la page : l'ancien code masque l'application derrière la mire */
+    'session-absente': undefined;
+    /**
+     * Mire réaffichée par l'ancien code (déconnexion, session perdue, réveil du poste) : formulaire vidé, message
+     * éventuel affiché
+     */
+    'mire-affichee': { message?: string } | undefined;
     /** Événements créés, modifiés ou supprimés par un îlot : l'ancien code recharge ceux du planning */
     'evenements-modifies': undefined;
     /** Planification modifiée par un îlot (inscription d'un expert à un événement) : l'ancien code la recharge */

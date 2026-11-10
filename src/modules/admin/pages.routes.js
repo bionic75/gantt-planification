@@ -37,7 +37,8 @@ router.get('/sondage/:token', (req, res) => {
 // pages en cache dans les navigateurs et aides personnalisées qui y font encore référence
 const MOVED_ASSETS = {
     js: ['darkmode.js', 'themes.js', 'layout-fix.js', 'ui-icons.js', 'event-types.js'],
-    css: ['themes.css', 'darkmode.css', 'login.css', 'ui-polish.css'],
+    // login.css : feuille de la mire, servie avec l'interface Vue (frontend/src/connexion/mire.css) depuis le lot 6.1
+    css: ['themes.css', 'darkmode.css', 'ui-polish.css'],
     img: [
         'asana-logo.png',
         'logo-ans.webp',

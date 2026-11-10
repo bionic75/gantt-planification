@@ -114,7 +114,6 @@ function switchTab(tabName, event) {
 
     if (tabName === 'admin') {
         loadUsers();
-        loadAppVersion(); // NOUVEAU
     }
 
     if (tabName === 'cra') {
@@ -147,11 +146,7 @@ async function loadCraPendingBadge() {
 }
 
 // Fiche de la ressource (fermée par un clic sur le fond) : îlot Vue (frontend/src/ilots/ressources) ; localisation
-// d'une demi-journée : îlot Vue (frontend/src/ilots/planification)
-document.addEventListener('click', function (event) {
-    const forgotModal = document.getElementById('forgotPasswordModal');
-    if (event.target === forgotModal) closeForgotPasswordModal();
-});
+// d'une demi-journée : îlot Vue (frontend/src/ilots/planification) ; mot de passe oublié : îlot Vue (frontend/src/connexion)
 
 // Fonction pour mettre automatiquement les noms en majuscules
 function autoUppercaseNom(event) {
