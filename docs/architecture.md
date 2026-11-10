@@ -107,11 +107,11 @@ d'un envoi groupé est consultable (`/api/email-queue/status/:batchId`).
 
 Pages servies par Express depuis `public/` :
 
-| Page          | Rôle                                                                             | Scripts et styles                     |
-| ------------- | -------------------------------------------------------------------------------- | ------------------------------------- |
-| `index.html`  | application principale                                                           | `js/app/*.js`, `js/*.js`, `css/*.css` |
-| `mobile.html` | version mobile (`/mobile` sur un téléphone)                                      | `js/mobile/*.js`, `css/mobile.css`    |
-| `aide.html`   | aide en ligne et historique des versions (personnalisable dans l'administration) | `css/aide.css`                        |
+| Page          | Rôle                                                                             | Scripts et styles                         |
+| ------------- | -------------------------------------------------------------------------------- | ----------------------------------------- |
+| `index.html`  | application principale                                                           | `js/app/*.js`, `js/*.js`, `css/*.css`     |
+| `mobile.html` | version mobile (`/mobile` sur un téléphone) : îlot Vue `frontend/src/mobile/`    | `js/mobile/dark-mode.js`, `css/login.css` |
+| `aide.html`   | aide en ligne et historique des versions (personnalisable dans l'administration) | `css/aide.css`                            |
 
 `public/js/app/` contient le code de l'application principale découpé par domaine (`core.js` : connexion et
 session ; `planning.js`, `tab-access.js`…). Ce sont des **scripts classiques** qui
