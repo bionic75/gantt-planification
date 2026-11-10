@@ -24,6 +24,9 @@ Fonctionnalité: Planification (grille des experts)
 
   Scénario: Lignes experts et congés masquables
     Étant donné que je suis connecté en tant que "Administrateur"
+    # Événement du jour : ligne des congés et événements présente dans le mois affiché, quels que soient les événements
+    # des autres fonctionnalités (créés et supprimés en parallèle)
+    Et qu'un événement de test a lieu aujourd'hui
     Quand j'ouvre l'onglet "Planification"
     Et je masque la première ligne d'expert avec le bouton (−)
     Alors cette ligne d'expert n'est plus affichée

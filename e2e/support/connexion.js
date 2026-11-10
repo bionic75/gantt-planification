@@ -42,7 +42,10 @@ async function attendreEtat(
                 // Connexion validée, écran suivant en cours d'affichage
                 else if (cache('loginScreen')) return null;
             } else if ($('forcedPasswordModal')) etat = 'mot-de-passe-a-changer';
-            else if (!$('loginPage')?.classList.contains('active')) etat = 'application';
+            // Application ouverte : mire masquée, ou session ouverte par la mire (gp:session-ouverte) même si une déconnexion
+            // l'a aussitôt réaffichée (scénario de déconnexion pendant l'ouverture de l'application)
+            else if (!$('loginPage')?.classList.contains('active') || /** @type {any} */ (window).__e2eSessionOuverte)
+                etat = 'application';
             if (!etat) {
                 if (etape === 'attente') return null;
                 if (etape === 'code-mfa') etat = visible($('mfaCodeError')) ? 'erreur-mfa' : 'code-mfa';
@@ -63,8 +66,14 @@ async function attendreEtat(
     return /** @type {EtatMire} */ (await handle.jsonValue());
 }
 
+/** Texte d'un message de la mire ; vide si le message n'est pas affiché (élément créé seulement en cas d'erreur) */
 const texte = async (/** @type {Page} */ page, /** @type {string} */ sel) =>
-    (await page.locator(sel).textContent())?.trim() || '';
+    (
+        (await page
+            .locator(sel)
+            .textContent({ timeout: 2000 })
+            .catch(() => '')) ?? ''
+    ).trim();
 
 /**
  * Identifiants saisis et validés, puis étapes de la mire parcourues (profil, double authentification) jusqu'à un état
@@ -98,6 +107,12 @@ async function parcourirMire(page, profil, options, mobile) {
             erreurBoite = e;
         }
     }
+    // Session ouverte par la mire du bureau : repère posé avant la connexion
+    await page.evaluate(() => {
+        const w = /** @type {any} */ (window);
+        w.__e2eSessionOuverte = false;
+        window.addEventListener('gp:session-ouverte', () => (w.__e2eSessionOuverte = true), { once: true });
+    });
     await page.locator('#loginButton').click();
 
     let mfaDemandee = false;

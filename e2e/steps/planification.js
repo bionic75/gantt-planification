@@ -5,6 +5,7 @@ import {
     adminApi,
     cle,
     creerDeploiement,
+    creerEvenement,
     creerRessource,
     lireDeploiement,
     moisCourantParis,
@@ -136,9 +137,18 @@ When("je masque la première ligne d'expert avec le bouton \\(−\\)", async ({ 
     await premiere.locator('.gantt-hide-btn').click();
 });
 
+Given("un événement de test a lieu aujourd'hui", async ({ monde }) => {
+    // Jour courant à Paris (mois affiché par la planification)
+    const jour = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Paris' });
+    await creerEvenement(monde, { startDate: jour, label: monde.unique('Évt E2E masquage') });
+    monde.d.evenementDuJour = true;
+});
+
 When('je masque la ligne des congés scolaires et événements', async ({ monde, $test }) => {
     const page = monde.page;
     const conges = ligneExpert(page, '-1');
+    // Événement du jour créé par le scénario : ligne affichée une fois les dates particulières chargées
+    if (monde.d.evenementDuJour) await expect(conges).toBeAttached({ timeout: 20000 });
     // Ligne présente seulement s'il existe des congés ou dates particulières sur le mois : à défaut, second expert
     const id = (await conges.count()) ? '-1' : monde.d.secondeLigne;
     $test.skip(!id, 'Ni ligne des congés ni second expert dans la planification du mois');
