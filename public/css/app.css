@@ -158,7 +158,8 @@ tr.gantt-row-hidden {
 }
 #ganttHiddenWrap {
     position: relative;
-    display: none;
+    /* Masqué tant qu'aucune ligne ne l'est (v-show de l'îlot de la Planification) */
+    display: block;
     margin-left: 8px;
 }
 #ganttHiddenBtn {
@@ -188,7 +189,8 @@ tr.gantt-row-hidden {
     stroke-linejoin: round;
 }
 #ganttHiddenPop {
-    display: none;
+    /* Liste ouverte ou fermée par l'îlot de la Planification (v-show) */
+    display: block;
     position: absolute;
     right: 0;
     top: calc(100% + 6px);
