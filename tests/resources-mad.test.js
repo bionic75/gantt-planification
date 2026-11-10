@@ -45,6 +45,15 @@ describe('affectations SAMU', () => {
         expect(list.map(a => [a.samu, a.role])).toEqual([['SAMU 69', 'secondaire']]);
     });
 
+    it('refusé hors du profil Expert, comme la fenêtre « Mon profil »', async () => {
+        const resource = await createResource(admin);
+        const user = await createUser(admin, { is_expert: 1, is_user: 1, resource_id: resource.id });
+        const utilisateur = await loginAs(server, user, 'user');
+        const r = await utilisateur.put('/api/me/samu-assignments', { principal: ['SAMU 75'] });
+        expect(r.status).toBe(403);
+        expect((await admin.get(`/api/resources/${resource.id}/samu-assignments`)).data).toEqual([]);
+    });
+
     it('refusé à un compte sans ressource', async () => {
         const r = await admin.put('/api/me/samu-assignments', { principal: ['SAMU 75'] });
         expect(r.status).toBe(403);

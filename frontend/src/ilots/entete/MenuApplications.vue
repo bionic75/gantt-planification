@@ -117,13 +117,9 @@ onBeforeUnmount(() => {
                 <span
                     class="gp-menu-applications__tuile"
                     :class="`gp-menu-applications__tuile--${description(cle).teinte}`"
-                    ><!-- eslint-disable-next-line vue/no-v-html -- tracés fixes de l'application -->
-                    <svg
-                        class="app-ico"
-                        viewBox="0 0 24 24"
-                        aria-hidden="true"
-                        v-html="description(cle).traces"
-                    ></svg></span
+                    ><!-- eslint-disable vue/no-v-html -- tracés fixes de l'application -->
+                    <svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" v-html="description(cle).traces"></svg
+                    ><!-- eslint-enable vue/no-v-html --></span
                 ><span>{{ description(cle).libelle }}</span>
             </div>
         </div>

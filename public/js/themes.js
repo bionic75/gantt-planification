@@ -242,6 +242,10 @@
     // Écran d'administration : îlot Vue (frontend/src/ilots/admin/parametrages), qui pilote le décor par catalogue,
     // appliquerConfig, apercu et compute
     const Themes = {
+        /** Thème saisonnier affiché pour l'utilisateur (préférence du navigateur) */
+        userEnabled() {
+            return !userOff();
+        },
         setUserEnabled(enabled) {
             try {
                 enabled ? localStorage.removeItem(OFF_KEY) : localStorage.setItem(OFF_KEY, '1');

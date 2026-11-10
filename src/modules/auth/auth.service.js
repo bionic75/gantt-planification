@@ -111,6 +111,7 @@ export async function getSessionUserData(/** @type {number} */ userId) {
             is_expert: true,
             is_user: true,
             is_rh: true,
+            default_tab: true,
             resource_id: true
         }
     });
