@@ -64,6 +64,8 @@ export interface StatutEnvoi {
 
 export const apiNotifications = {
     nouvellesAffectations: () => api.get<{ notifications: NotificationExpert[] }>('/notifications/list'),
+    /** Nombre de nouvelles affectations non lues (pastille de l'en-tête) */
+    nombreNouvellesAffectations: () => api.get<{ count: number }>('/notifications/count'),
     marquerLues: () => api.post<{ success: boolean }>('/notifications/mark-read'),
     demanderAffectation: (corps: CorpsDemandeAffectation) =>
         api.post<{ success: boolean; emails: string[]; error?: string }>('/request-assignment', corps),

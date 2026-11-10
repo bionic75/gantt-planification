@@ -74,11 +74,11 @@ function restoreTabOrder() {
     } catch {
         return;
     }
-    // Récupérer le bouton help (non-draggable, reste en dernière position)
-    const helpBtn = document.getElementById('homeBtn') || document.getElementById('helpBtn');
+    // Boutons de l'en-tête (îlot Vue, non déplaçables) : restent après les onglets
+    const boutons = document.getElementById('enteteBoutons');
     order.forEach(tabName => {
         const btn = container.querySelector(`button.tab-btn[data-tab="${tabName}"]`);
-        if (btn) container.insertBefore(btn, helpBtn || null);
+        if (btn) container.insertBefore(btn, boutons);
     });
 }
 // ========== /DRAG & DROP DES ONGLETS ==========

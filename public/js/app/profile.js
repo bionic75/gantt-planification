@@ -459,13 +459,8 @@ function uploadPhoto() {
         .then(data => {
             console.log('📥 Réponse upload:', data);
             if (data.success) {
-                // Mettre à jour la photo dans le header
-                const profilePhoto = document.getElementById('profilePhoto');
-                const profileTrigramme = document.getElementById('profileTrigramme');
-
-                profilePhoto.src = selectedPhotoData;
-                profilePhoto.style.display = 'block';
-                profileTrigramme.style.display = 'none';
+                // Photo de l'en-tête : îlots Vue (frontend/src/ilots/entete), qui relisent la session
+                window.dispatchEvent(new CustomEvent('gp:photo-modifiee'));
 
                 // Mettre à jour currentUser
                 currentUser.profilePhoto = selectedPhotoData;
@@ -604,45 +599,4 @@ async function changePassword() {
     }
 }
 
-function updateProfileDisplay() {
-    console.log('🔄 updateProfileDisplay appelé');
-
-    if (!currentUser) {
-        console.log('❌ Pas de currentUser');
-        return;
-    }
-
-    console.log('👤 currentUser:', currentUser);
-    console.log('📛 Trigramme:', currentUser.trigramme);
-    console.log('📷 Photo:', currentUser.profilePhoto);
-
-    const profileCircle = document.getElementById('profileCircle');
-    const profileTrigramme = document.getElementById('profileTrigramme');
-    const profilePhoto = document.getElementById('profilePhoto');
-
-    if (!profileCircle || !profileTrigramme || !profilePhoto) {
-        console.error('❌ Éléments DOM non trouvés');
-        return;
-    }
-
-    if (currentUser.profilePhoto) {
-        // Afficher la photo
-        console.log('✅ Affichage de la photo');
-        profilePhoto.src = currentUser.profilePhoto;
-        profilePhoto.style.display = 'block';
-        profileTrigramme.style.display = 'none';
-    } else if (currentUser.trigramme) {
-        // Afficher le trigramme
-        console.log('✅ Affichage du trigramme:', currentUser.trigramme);
-        profileTrigramme.textContent = currentUser.trigramme;
-        profileTrigramme.style.display = 'inline-block';
-        profilePhoto.style.display = 'none';
-    } else {
-        // Fallback : afficher les initiales Prénom + Nom
-        const initiales = (currentUser.prenom?.charAt(0) || '') + (currentUser.nom?.charAt(0) || '');
-        console.log('⚠️ Pas de trigramme, utilisation des initiales:', initiales);
-        profileTrigramme.textContent = initiales || '??';
-        profileTrigramme.style.display = 'inline-block';
-        profilePhoto.style.display = 'none';
-    }
-}
+// Rond de l'utilisateur dans l'en-tête (photo, trigramme ou initiales) : îlot Vue (frontend/src/ilots/applications/ZoneUtilisateur.vue)
