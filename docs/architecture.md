@@ -107,14 +107,14 @@ d'un envoi groupé est consultable (`/api/email-queue/status/:batchId`).
 
 Pages servies par Express depuis `public/` :
 
-| Page          | Rôle                                                                             | Scripts et styles                         |
-| ------------- | -------------------------------------------------------------------------------- | ----------------------------------------- |
-| `index.html`  | application principale                                                           | `js/app/*.js`, `js/*.js`, `css/*.css`     |
-| `mobile.html` | version mobile (`/mobile` sur un téléphone) : îlot Vue `frontend/src/mobile/`    | `js/mobile/dark-mode.js`, `css/login.css` |
-| `aide.html`   | aide en ligne et historique des versions (personnalisable dans l'administration) | `css/aide.css`                            |
+| Page          | Rôle                                                                             | Scripts et styles                     |
+| ------------- | -------------------------------------------------------------------------------- | ------------------------------------- |
+| `index.html`  | application principale                                                           | `js/app/*.js`, `js/*.js`, `css/*.css` |
+| `mobile.html` | version mobile (`/mobile` sur un téléphone) : îlot Vue `frontend/src/mobile/`    | `js/mobile/dark-mode.js`              |
+| `aide.html`   | aide en ligne et historique des versions (personnalisable dans l'administration) | `css/aide.css`                        |
 
-`public/js/app/` contient le code de l'application principale découpé par domaine (`core.js` : connexion et
-session ; `planning.js`, `tab-access.js`…). Ce sont des **scripts classiques** qui
+`public/js/app/` contient le code de l'application principale découpé par domaine (`core.js` : ouverture de
+la session, la mire étant un îlot Vue `frontend/src/connexion/` ; `planning.js`, `tab-access.js`…). Ce sont des **scripts classiques** qui
 partagent leur portée globale :
 
 - ils sont chargés dans un ordre fixe, celui des balises `<script>` de `index.html` ; une variable ou une fonction
@@ -126,7 +126,7 @@ partagent leur portée globale :
 `public/js/` contient les scripts autonomes (thèmes, mode sombre, icônes, application d'aide à l'affectation,
 types d'événements, frise cartographique), `public/css/` les feuilles de style, `public/img/` les images
 (icônes d'onglet au choix dans l'administration, logos ; le logo ANS est aussi joint aux emails). Les anciennes
-adresses à la racine (`/ui-icons.js`, `/login.css`, `/favicon-….svg`…) redirigent vers ces répertoires. Les
+adresses à la racine (`/ui-icons.js`, `/darkmode.css`, `/favicon-….svg`…) redirigent vers ces répertoires. Les
 bibliothèques externes (Leaflet, SheetJS) sont chargées depuis leur CDN, autorisé par la politique de contenu.
 
 Version et cache : le commentaire `<!-- vX.Y.Z -->` en tête de `index.html` est la version affichée, et le paramètre

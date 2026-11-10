@@ -30,13 +30,13 @@ When("j'ouvre la page mobile sans être connecté", async ({ monde }) => {
 });
 
 When('je valide la connexion mobile sans identifiants', async ({ monde }) => {
-    await monde.page.locator('#loginBtn').click();
+    await monde.page.locator('#loginButton').click();
 });
 
 When('je me connecte sur la page mobile avec un identifiant inconnu', async ({ monde }) => {
-    await monde.page.locator('#loginUser').fill(`e2e-inconnu-${Date.now()}`);
-    await monde.page.locator('#loginPass').fill('Mot-de-passe-inconnu-1!');
-    await monde.page.locator('#loginBtn').click();
+    await monde.page.locator('#loginUsername').fill(`e2e-inconnu-${Date.now()}`);
+    await monde.page.locator('#loginPassword').fill('Mot-de-passe-inconnu-1!');
+    await monde.page.locator('#loginButton').click();
 });
 
 Then('la mire mobile signale {string}', async ({ monde }, texte) => {
