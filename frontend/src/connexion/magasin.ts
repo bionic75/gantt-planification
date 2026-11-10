@@ -1,4 +1,5 @@
-// Session de la page principale : vérifiée au chargement (GET /check-session), ouverte par la mire, fermée quand la
+// Session vue par la mire de la page principale (identifiant « connexion » : distinct du magasin « session » des îlots,
+// stores/session.ts) : vérifiée au chargement (GET /check-session), ouverte par la mire, fermée quand la
 // mire est réaffichée (déconnexion, session perdue). Repris par l'en-tête et le cadre de l'application (phase 6).
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
@@ -7,7 +8,7 @@ import { connexionApi, type UtilisateurConnecte } from '@/api/connexion';
 /** Résultat de la vérification au chargement */
 export type EtatSession = 'absente' | 'mot-de-passe-a-changer' | 'ouverte';
 
-export const useSessionStore = defineStore('session', () => {
+export const useSessionStore = defineStore('connexion', () => {
     const utilisateur = ref<UtilisateurConnecte | null>(null);
 
     /** Session en cours au chargement de la page (page rechargée, nouvel onglet) */

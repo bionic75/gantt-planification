@@ -287,6 +287,7 @@ async function disconnectNow() {
     stopInactivityTimer();
     console.log('👋 Déconnexion automatique par inactivité');
 
-    await saveAssignmentLogs();
+    // Affectations en attente d'invitation journalisées par l'en-tête (îlot Vue frontend/src/ilots/entete)
+    await new Promise(fin => window.dispatchEvent(new CustomEvent('gp:journal-invitations', { detail: { fin } })));
     await performLogout();
 }

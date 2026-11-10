@@ -6,6 +6,4 @@ function resetZoomPlanning() {
     window.dispatchEvent(new CustomEvent('gp:zoom-grille-reinitialise'));
 }
 
-// ========== NOTIFICATIONS EXPERTS ==========
-
-let notificationCheckInterval = null;
+// Nouvelles affectations de l'expert (pastille de l'en-tête) : îlot Vue (frontend/src/ilots/entete)

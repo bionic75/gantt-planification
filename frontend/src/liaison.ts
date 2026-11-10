@@ -65,10 +65,12 @@ export interface EvenementsLiaison {
     /** Nouvelles affectations lues par l'expert : l'ancien code relit la pastille */
     'notifications-lues': undefined;
     /**
-     * Affectations en attente d'invitation Outlook (copie) : l'ancien code met à jour le compteur de l'enveloppe et les
-     * journalise à la déconnexion
+     * Déconnexion pour inactivité (ancien code) : affectations en attente d'invitation journalisées par l'en-tête,
+     * puis fin() appelée
      */
-    'invitations-en-attente': { experts: Record<string, ExpertEnAttente> };
+    'journal-invitations': { fin: () => void };
+    /** Photo de profil enregistrée (ancien code) : l'en-tête relit la session */
+    'photo-modifiee': undefined;
     /** Rafraîchissement demandé par l'ancien code (photo de profil, réveil, retour à la planification) */
     'grille-a-rafraichir': undefined;
     /** Zoom de la grille remis à 100 % (mise en page réinitialisée, public/js/layout-fix.js) */
@@ -122,6 +124,8 @@ interface FenetreAncienCode {
     switchTab?: (onglet: string, evenement: null) => void;
     /** Ouverture d'une application (public/js/app/tab-access.js) */
     switchToApp?: (application: string) => void;
+    /** Déconnexion : session fermée, applications fermées, mire affichée (public/js/app/core.js) */
+    performLogout?: () => Promise<void>;
     /** Bandeau « Données synchronisées » de l'onglet Ressources (public/js/app/dump.js) */
     showSyncStatus?: () => void;
     /** CRA demandé par le lien d'une notification, en attente d'ouverture (public/js/app/core.js) */
@@ -318,8 +322,8 @@ export function ouvrirOnglet(onglet: string): void {
     ancienCode().switchTab?.(onglet, null);
 }
 
-/** Ouvre une application (Aide à l'affectation, Suivi des déplacements) */
-export function ouvrirApplication(application: 'affectation' | 'deplacements'): void {
+/** Ouvre une application (menu Applications, accueil) : Planification, Aide à l'affectation, Déplacements, Analyse */
+export function ouvrirApplication(application: 'planification' | 'affectation' | 'deplacements' | 'analyse'): void {
     ancienCode().switchToApp?.(application);
 }
 
@@ -367,6 +371,11 @@ export function deconnecterDepuisAffectation(): void {
 /** Déconnexion depuis l'application Analyse de fichiers */
 export function deconnecterDepuisAnalyse(): void {
     ancienCode().confirmLogoutFromAnalyse?.();
+}
+
+/** Déconnexion (fermeture de la session et de l'interface par l'ancien code) */
+export async function deconnecter(): Promise<void> {
+    await ancienCode().performLogout?.();
 }
 
 /** CRA demandé par le lien d'une notification, retiré de l'attente ; null si aucun */

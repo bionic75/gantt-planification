@@ -63,3 +63,9 @@
 html.dark-mode .gp-couleurs-fixes {
     filter: invert(1) hue-rotate(180deg);
 }
+
+/* Conteneurs des îlots du cadre placés dans l'en-tête (zone de l'utilisateur, boutons) : sans boîte propre, leurs
+   éléments sont disposés par l'en-tête comme ceux de l'ancien code */
+.gp-entete-conteneur {
+    display: contents;
+}
