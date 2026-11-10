@@ -5,6 +5,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import type { UtilisateurConnecte } from '@/api/connexion';
+import { CLE_CONNEXION_RECENTE } from '@/ilots/entete/cadre';
 import { ecouter, emettre } from '@/liaison';
 import FenetreMotDePasseImpose from './FenetreMotDePasseImpose.vue';
 import FenetreNouveauMotDePasse from './FenetreNouveauMotDePasse.vue';
@@ -38,6 +39,12 @@ async function reprendre() {
 
 function connecte(utilisateur: UtilisateurConnecte) {
     session.ouvrir(utilisateur);
+    // Nouveautés de l'aide proposées une fois la session ouverte (ilots/entete/CadreSession.vue)
+    try {
+        sessionStorage.setItem(CLE_CONNEXION_RECENTE, '1');
+    } catch {
+        /* stockage indisponible */
+    }
     emettre('session-ouverte', { utilisateur: session.utilisateur!, reprise: false });
 }
 

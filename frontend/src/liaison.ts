@@ -91,7 +91,8 @@ export type NomFenetre =
     | 'demande-affectation'
     | 'invitations'
     | 'nouvelles-affectations'
-    | 'asana';
+    | 'asana'
+    | 'profil';
 
 export type NomEvenement = keyof EvenementsLiaison;
 
@@ -132,8 +133,10 @@ interface FenetreAncienCode {
     craDemande?: number;
     /** Icônes en image (data URI) pour les listes déroulantes (public/js/ui-icons.js) */
     UIIconsApi?: IconesImages;
-    /** Fenêtre de la photo de profil (public/js/app/profile.js) */
-    openProfilePhotoModal?: () => void;
+    /** Onglets accessibles à un profil (public/js/app/core.js, configuration de l'accès aux onglets) */
+    getAvailableTabsForProfile?: (profil: string) => string[];
+    /** Mode d'affichage clair, sombre ou automatique (public/js/darkmode.js) */
+    ColorMode?: { get: () => ModeAffichage; set: (mode: ModeAffichage) => void };
     /** Retour à l'accueil de la Planification (public/js/app/tabs.js) */
     goHome?: () => void;
     /** Bulle des utilisateurs connectés et de la discussion, sous la pastille cliquée (public/js/app/realtime.js) */
@@ -290,6 +293,9 @@ export interface ThemesAncienCode {
     apercu: (id: string, intensite: string) => void;
     /** Thème affiché selon la configuration appliquée */
     compute: () => ThemeAffiche | null;
+    /** Thème saisonnier affiché pour l'utilisateur (préférence du navigateur) */
+    userEnabled: () => boolean;
+    setUserEnabled: (actif: boolean) => void;
 }
 
 const ancienCode = () => window as unknown as FenetreAncienCode;
@@ -335,10 +341,22 @@ export function afficherSynchronisation(): void {
 /** Icônes en image de l'ancien code ; undefined hors de la page principale */
 export const iconesImages = (): IconesImages | undefined => ancienCode().UIIconsApi;
 
-/** Fenêtre de la photo de profil */
+/** Fenêtre « Mon profil » (photo, mode d'affichage, mot de passe, SAMU, onglet par défaut) */
 export function ouvrirPhotoProfil(): void {
-    ancienCode().openProfilePhotoModal?.();
+    emettre('fenetre-demandee', { fenetre: 'profil' });
 }
+
+/** Mode d'affichage de l'application */
+export type ModeAffichage = 'light' | 'dark' | 'auto';
+
+export const modeAffichage = (): ModeAffichage => ancienCode().ColorMode?.get() ?? 'light';
+
+export function choisirModeAffichage(mode: ModeAffichage): void {
+    ancienCode().ColorMode?.set(mode);
+}
+
+/** Onglets de la Planification accessibles au profil (hors Accueil, accessible à tous) */
+export const ongletsAccessibles = (profil: string): string[] => ancienCode().getAvailableTabsForProfile?.(profil) ?? [];
 
 /** Accueil de la Planification */
 export function allerAccueil(): void {

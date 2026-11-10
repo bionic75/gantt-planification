@@ -191,6 +191,8 @@ export async function checkSession(/** @type {Request} */ req, /** @type {Respon
         is_rh: userData?.is_rh === 1,
         astreinte_volontaire: userData?.astreinte_volontaire === 1,
         astreinte_date_activation: userData?.astreinte_date_activation || null,
+        // Onglet ouvert à la connexion (fenêtre « Mon profil »)
+        defaultTab: userData?.default_tab || 'accueil',
         mustChangePassword: !!req.session.mustChangePassword
     });
 }

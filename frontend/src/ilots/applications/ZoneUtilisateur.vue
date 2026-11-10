@@ -7,6 +7,7 @@
 import { computed, onBeforeUnmount, ref } from 'vue';
 import { api, ErreurApi } from '@/api/client';
 import type { Profil, Session } from '@/api/types';
+import { initiales as initialesDe } from '@/ilots/profil/profil';
 import { ouvrirPhotoProfil } from '@/liaison';
 
 const props = withDefaults(
@@ -45,11 +46,7 @@ const nom = computed(() => {
 });
 
 /** Rond sans photo : trigramme, à défaut les initiales du prénom et du nom */
-const initiales = computed(() => {
-    const s = props.session;
-    if (!s) return '?';
-    return s.trigramme || `${s.prenom?.charAt(0) || ''}${s.nom?.charAt(0) || ''}` || '??';
-});
+const initiales = computed(() => (props.session ? initialesDe(props.session) : '?'));
 
 const libelleProfil = computed(() => (props.session ? LIBELLES[props.session.activeProfile] : ''));
 

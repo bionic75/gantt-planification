@@ -144,7 +144,6 @@
     <script src="/js/app/settings.js?v=2.18.1"></script>
     <script src="/js/app/locations.js?v=2.18.1"></script>
     <script src="/js/app/planning-navigation.js?v=2.18.1"></script>
-    <script src="/js/app/profile.js?v=2.18.1"></script>
     <script src="/js/app/realtime.js?v=2.18.1"></script>
 
     <!-- Exports et impressions de la planification : îlot Vue (frontend/src/ilots/planification) -->
@@ -152,118 +151,7 @@
     <!-- STYLE POUR L'IMPRESSION -->
     
 
-    <!-- Modal de photo de profil et mot de passe -->
-    <div id="profilePhotoModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10002; overflow-y: auto;">
-        <div style="background-color: white; max-width: 550px; margin: 50px auto; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2 style="color: #2c3e50; margin: 0; border-bottom: 2px solid #1D70B7; padding-bottom: 10px; display: inline-block;">👤 Mon profil</h2>
-                <span onclick="closeProfilePhotoModal()" style="cursor: pointer; font-size: 28px; color: #7f8c8d;">&times;</span>
-            </div>
-            
-            <!-- Section Photo de profil -->
-            <h3 style="color: #2c3e50; font-size: 16px; margin: 20px 0 10px 0; border-left: 3px solid #1D70B7; padding-left: 10px;">📷 Photo de profil</h3>
-            <div style="text-align: center; margin: 20px 0;">
-                <div id="previewCircle" style="width: 150px; height: 150px; border-radius: 50%; border: 4px solid #1D70B7; background-color: #7f8c8d; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px auto; overflow: hidden;">
-                    <span id="previewTrigramme" style="color: white; font-weight: bold; font-size: 48px;">?</span>
-                    <img id="previewPhoto" style="width: 100%; height: 100%; object-fit: cover; display: none;" />
-                </div>
-                
-                <input type="file" id="photoInput" accept="image/*" style="display: none;" onchange="handlePhotoSelect(event)">
-                
-                <button onclick="document.getElementById('photoInput').click()" style="background-color: #1D70B7; padding: 10px 20px; margin: 10px; border: none; border-radius: 5px; color: white; cursor: pointer;">
-                    📁 Choisir une photo
-                </button>
-                
-                <button id="uploadPhotoBtn" onclick="uploadPhoto()" style="background-color: #27ae60; padding: 10px 20px; margin: 10px; display: none; border: none; border-radius: 5px; color: white; cursor: pointer;">
-                    ✓ Valider la photo
-                </button>
-            </div>
-            
-            <!-- Section Mode d'affichage clair / sombre -->
-            <h3 style="color: #2c3e50; font-size: 16px; margin: 30px 0 10px 0; border-left: 3px solid #3949ab; padding-left: 10px;"><svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:18px;height:18px;stroke:#3949ab;vertical-align:-3px;margin-right:6px;"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>Mode d'affichage</h3>
-            <div style="display:flex;gap:18px;flex-wrap:wrap;font-size:14px;color:#2c3e50;">
-                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="radio" name="colorMode" value="light" onchange="ColorMode.set('light')" style="width:16px;height:16px;"> Clair</label>
-                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="radio" name="colorMode" value="dark" onchange="ColorMode.set('dark')" style="width:16px;height:16px;"> Sombre</label>
-                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="radio" name="colorMode" value="auto" onchange="ColorMode.set('auto')" style="width:16px;height:16px;"> Automatique (selon le système)</label>
-            </div>
-
-            <!-- Section Thème d'affichage -->
-            <div id="themeUserSection" style="display:none;">
-                <h3 style="color: #2c3e50; font-size: 16px; margin: 30px 0 10px 0; border-left: 3px solid #f39c12; padding-left: 10px;"><svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:18px;height:18px;stroke:currentColor;vertical-align:-3px;margin-right:6px;stroke:#f39c12;"><circle cx="13.5" cy="6.5" r=".6"/><circle cx="17.5" cy="10.5" r=".6"/><circle cx="8.5" cy="7.5" r=".6"/><circle cx="6.5" cy="12.5" r=".6"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.9 0 1.7-.7 1.7-1.7 0-.4-.2-.8-.5-1.1-.3-.3-.5-.7-.5-1.1 0-.9.7-1.7 1.7-1.7H16c3.1 0 5.6-2.5 5.6-5.6C22 6 17.5 2 12 2z"/></svg>Thème d'affichage</h3>
-                <label style="display:flex;align-items:center;gap:8px;font-size:14px;color:#2c3e50;cursor:pointer;">
-                    <input type="checkbox" id="themeUserToggle" onchange="Themes.setUserEnabled(this.checked)" style="width:16px;height:16px;">
-                    Afficher le thème saisonnier en cours (<span id="themeUserLabel"></span>)
-                </label>
-            </div>
-
-            <!-- Section Changement de mot de passe -->
-            <h3 style="color: #2c3e50; font-size: 16px; margin: 30px 0 10px 0; border-left: 3px solid #e74c3c; padding-left: 10px;">🔒 Changer mon mot de passe</h3>
-            <div style="margin: 20px 0;">
-                <div style="margin-bottom: 15px;">
-                    <label style="display: block; margin-bottom: 5px; color: #2c3e50; font-weight: bold;">Nouveau mot de passe</label>
-                    <input type="password" id="newPassword" name="new-password" autocomplete="new-password" oninput="validatePasswordStrength()" placeholder="Minimum 8 caractères avec 1 caractère spécial" style="width: 100%; padding: 10px; border: 1px solid #bdc3c7; border-radius: 5px; font-size: 14px;">
-                    <small id="passwordStrength" style="display: block; margin-top: 5px; color: #7f8c8d;"></small>
-                </div>
-                
-                <div style="margin-bottom: 15px;">
-                    <label style="display: block; margin-bottom: 5px; color: #2c3e50; font-weight: bold;">Confirmer le mot de passe</label>
-                    <input type="password" id="confirmPassword" name="confirm-password" autocomplete="new-password" oninput="checkPasswordMatch()" placeholder="Resaisir le mot de passe" style="width: 100%; padding: 10px; border: 1px solid #bdc3c7; border-radius: 5px; font-size: 14px;">
-                    <small id="passwordMatch" style="display: block; margin-top: 5px;"></small>
-                </div>
-                
-                <button type="button" onclick="changePassword()" style="background-color: #e74c3c; width: 100%; padding: 12px; border: none; border-radius: 5px; color: white; font-weight: bold; cursor: pointer; font-size: 14px;">
-                    🔐 Changer le mot de passe
-                </button>
-            </div>
-            
-            <!-- Section Affectations SAMU — visible pour les experts uniquement -->
-            <div id="profileSamuSection" style="display:none;">
-                <h3 style="color: #2c3e50; font-size: 16px; margin: 30px 0 10px 0; border-left: 3px solid #e67e22; padding-left: 10px;">🏥 Mes affectations SAMU</h3>
-                <div style="margin: 10px 0 6px 0;">
-                    <label style="display:block; margin-bottom:5px; color:#2c3e50; font-weight:bold; font-size:13px;">🅿️ Expert principal sur le(s) SAMU</label>
-                    <div style="position:relative;">
-                        <div id="profileSamuTags_principal" class="samu-tag-box" onclick="document.getElementById('profileSamuInput_principal').focus()">
-                            <input type="text" id="profileSamuInput_principal" placeholder="Taper le nom d'un SAMU..." class="samu-tag-input"
-                                oninput="filterProfileSamuDropdown('principal')"
-                                onfocus="filterProfileSamuDropdown('principal')"
-                                onkeydown="handleProfileSamuKeydown(event,'principal')">
-                        </div>
-                        <div id="profileSamuDropdown_principal" class="samu-tag-dropdown"></div>
-                    </div>
-                </div>
-                <div style="margin: 10px 0 6px 0;">
-                    <label style="display:block; margin-bottom:5px; color:#2c3e50; font-weight:bold; font-size:13px;">🅢 Expert secondaire sur le(s) SAMU</label>
-                    <div style="position:relative;">
-                        <div id="profileSamuTags_secondaire" class="samu-tag-box" onclick="document.getElementById('profileSamuInput_secondaire').focus()">
-                            <input type="text" id="profileSamuInput_secondaire" placeholder="Taper le nom d'un SAMU..." class="samu-tag-input"
-                                oninput="filterProfileSamuDropdown('secondaire')"
-                                onfocus="filterProfileSamuDropdown('secondaire')"
-                                onkeydown="handleProfileSamuKeydown(event,'secondaire')">
-                        </div>
-                        <div id="profileSamuDropdown_secondaire" class="samu-tag-dropdown"></div>
-                    </div>
-                </div>
-                <div id="profileSamuSaveMsg" style="font-size:12px;color:#27ae60;margin-top:4px;display:none;">✅ Affectations sauvegardées</div>
-                <button onclick="saveProfileSamuAssignments()" style="margin-top:10px;background:#e67e22;color:white;border:none;border-radius:5px;padding:10px 20px;font-size:14px;font-weight:bold;cursor:pointer;width:100%;">
-                    💾 Enregistrer mes affectations SAMU
-                </button>
-            </div>
-
-            <!-- Section Paramétrage de l'affichage à l'ouverture -->
-            <h3 style="color: #2c3e50; font-size: 16px; margin: 30px 0 10px 0; border-left: 3px solid #9b59b6; padding-left: 10px;">⚙️ Paramétrer l'affichage à l'ouverture</h3>
-            <div style="margin: 20px 0;">
-                <div style="margin-bottom: 15px;">
-                    <label style="display: block; margin-bottom: 5px; color: #2c3e50; font-weight: bold;">Onglet affiché par défaut à la connexion</label>
-                    <select id="defaultTabSelect" onchange="saveDefaultTab()" style="width: 100%; padding: 10px; border: 1px solid #bdc3c7; border-radius: 5px; font-size: 14px;">
-                        <!-- Options générées dynamiquement selon le profil -->
-                    </select>
-                    <small style="display: block; margin-top: 5px; color: #7f8c8d;">Choisissez l'onglet qui s'affichera automatiquement lors de votre prochaine connexion.</small>
-                </div>
-            </div>
-            
-            <button onclick="closeProfilePhotoModal()" style="background-color: #95a5a6; width: 100%; padding: 12px; border: none; border-radius: 5px; color: white; cursor: pointer; margin-top: 20px;">Fermer</button>
-        </div>
-    </div>
+    <!-- Fenêtre « Mon profil » : îlot Vue (frontend/src/ilots/profil/FenetreProfil.vue), ouverte par le rond de l'utilisateur -->
 
     <!-- CONTAINER POUR L'APPLICATION DÉPLACEMENTS -->
     <!-- Retour vers Planification (vignette fixe, masquée : retour par le menu Applications)
@@ -277,21 +165,6 @@
     <div id="deplacementsContainer" class="container" style="display: none;"></div>
     <!-- Application « Aide à l'affectation opérationnelle » : îlot Vue (frontend/src/ilots/affectation/ApplicationAffectation.vue) -->
     <div id="affectationContainer" class="container" style="display: none;"></div>
-
-    <!-- Modal nouveautés version -->
-    <div id="helpVersionModal" class="modal" style="z-index: 10000;">
-        <div class="modal-content" style="max-width: 900px; max-height: 85vh; overflow-y: auto; padding: 0;">
-            <div style="position: sticky; top: 0; background: #2c3e50; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 1;">
-                <h3 style="margin: 0; color: white;">🆕 Nouveautés de la version <span id="helpVersionModalTitle"></span></h3>
-                <button onclick="closeHelpVersionModal()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; line-height: 1;">✕</button>
-            </div>
-            <div id="helpVersionModalContent" style="padding: 20px; overflow-y: auto;"></div>
-            <div style="padding: 15px 20px; border-top: 1px solid #eee; text-align: right; background: #f9f9f9;">
-                <button onclick="closeHelpVersionModal()" style="background-color: #1D70B7; color: white;">✅ J'ai pris connaissance des nouveautés</button>
-                <button onclick="openHelp('section-notes-version')" style="background-color: #5c6bc0; color: white; margin-left: 10px;">📖 Voir l'aide complète</button>
-            </div>
-        </div>
-    </div>
 
     <!-- Modal inactivité -->
     <div id="inactivityModal" class="modal">
@@ -392,14 +265,10 @@
 <!-- Menu « Applications », visible dans toutes les applications : îlot Vue (frontend/src/ilots/entete/MenuApplications.vue) -->
 <div id="menuApplications"></div>
 
-<!-- ══ Bannière de mise en production ══════════════════════════════════════ -->
-<div id="deployBanner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:99999; padding:14px 24px; text-align:center; font-size:14px; font-weight:600; box-shadow:0 2px 12px rgba(0,0,0,0.3); transition:background 0.3s;">
-    <span id="deployBannerText"></span>
-    <button id="deployBannerReload" onclick="location.reload()" style="display:none; margin-left:18px; background:white; color:#1a237e; border:none; padding:5px 16px; border-radius:20px; cursor:pointer; font-weight:700; font-size:13px;">🔄 Recharger</button>
-    <button id="deployBannerClose" onclick="deployBannerDismiss()" title="Masquer ce message" aria-label="Masquer" style="position:absolute; right:14px; top:50%; transform:translateY(-50%); background:rgba(255,255,255,.18); color:white; border:none; width:28px; height:28px; border-radius:50%; cursor:pointer; font-size:16px; line-height:1; padding:0;">×</button>
-</div>
-
-<script src="/js/app/version-watch.js?v=2.18.1"></script>
+<!-- Bandeau de mise en production (visible aussi sur la mire) : îlot Vue (frontend/src/ilots/entete/BandeauMiseEnProduction.vue) -->
+<div id="bandeauMiseEnProduction"></div>
+<!-- Favicon et nouveautés de l'aide après la connexion : îlot Vue (frontend/src/ilots/entete/CadreSession.vue) -->
+<div id="cadreSession"></div>
 
 
 <script src="/js/app/warning-icons.js?v=2.18.1"></script>

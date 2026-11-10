@@ -2,6 +2,7 @@
 import '@/styles/theme.css';
 import { createApp } from 'vue';
 import MireBureau from '@/connexion/MireBureau.vue';
+import BandeauMiseEnProduction from '@/ilots/entete/BandeauMiseEnProduction.vue';
 import { surveillerFenetres, type RegistreFenetres } from '@/ilots/fenetres';
 import { piniaDesIlots, surveillerIlots, type RegistreIlots } from '@/ilots/montage';
 import { installerLiaisonAncienCode } from '@/liaison';
@@ -16,6 +17,8 @@ const ILOTS: RegistreIlots = {
     enteteUtilisateur: { chargeur: () => import('@/ilots/entete/EnTetePlanification.vue'), cadre: true },
     enteteBoutons: { chargeur: () => import('@/ilots/entete/BoutonsEnTete.vue'), cadre: true },
     menuApplications: { chargeur: () => import('@/ilots/entete/MenuApplications.vue'), cadre: true },
+    // Favicon et nouveautés de l'aide (lot 6.2b)
+    cadreSession: { chargeur: () => import('@/ilots/entete/CadreSession.vue'), cadre: true },
     accueil: () => import('@/ilots/accueil/OngletAccueil.vue'),
     resources: () => import('@/ilots/ressources/OngletRessources.vue'),
     tripadvisor: () => import('@/ilots/tripadvisor/TripAdvisor.vue'),
@@ -76,13 +79,18 @@ const FENETRES: RegistreFenetres = {
     invitations: () => import('@/ilots/saisie/FenetreInvitations.vue'),
     'nouvelles-affectations': () => import('@/ilots/saisie/FenetreNouvellesAffectations.vue'),
     // Fenêtres Asana de l'aide à l'affectation (planning et administration)
-    asana: () => import('@/ilots/affectation/asana/FenetresAsana.vue')
+    asana: () => import('@/ilots/affectation/asana/FenetresAsana.vue'),
+    // Fenêtre « Mon profil », ouverte par le rond de l'utilisateur (lot 6.2b)
+    profil: () => import('@/ilots/profil/FenetreProfil.vue')
 };
 
 installerLiaisonAncienCode();
 // Mire de connexion et session (lot 6.1) : montée dès le chargement dans #loginPage, affiché par l'ancien code
 const mire = document.getElementById('loginPage');
 if (mire) createApp(MireBureau).use(piniaDesIlots()).mount(mire);
+// Bandeau de mise en production (lot 6.2b) : dès le chargement, mire comprise
+const bandeau = document.getElementById('bandeauMiseEnProduction');
+if (bandeau) createApp(BandeauMiseEnProduction).mount(bandeau);
 surveillerIlots(ILOTS);
 // Fenêtres et onglets partagent le magasin de la session (planification : données de la grille)
 surveillerFenetres(FENETRES, piniaDesIlots);
