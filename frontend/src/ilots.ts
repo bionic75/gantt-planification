@@ -12,6 +12,10 @@ import { installerLiaisonAncienCode } from '@/liaison';
  * Un îlot s'ajoute ici quand son onglet est migré (docs/migration-vue.md).
  */
 const ILOTS: RegistreIlots = {
+    // Cadre de l'application (lot 6.2a) : monté pendant toute la session
+    enteteUtilisateur: { chargeur: () => import('@/ilots/entete/EnTetePlanification.vue'), cadre: true },
+    enteteBoutons: { chargeur: () => import('@/ilots/entete/BoutonsEnTete.vue'), cadre: true },
+    menuApplications: { chargeur: () => import('@/ilots/entete/MenuApplications.vue'), cadre: true },
     accueil: () => import('@/ilots/accueil/OngletAccueil.vue'),
     resources: () => import('@/ilots/ressources/OngletRessources.vue'),
     tripadvisor: () => import('@/ilots/tripadvisor/TripAdvisor.vue'),

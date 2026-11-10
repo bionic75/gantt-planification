@@ -68,7 +68,6 @@ let resources = [];
 let users = [];
 let sortDirection = {};
 let currentUser = null;
-let pendingAssignments = {}; // {resourceId: {expertId, assignments: [{date, period, activity, activityCode, location, actionType, oldActivity, oldActivityCode, oldLocation}]}}
 let schoolHolidays = { zoneA: [], zoneB: [], zoneC: [] }; // Périodes de congés scolaires
 let specialDates = []; // Dates particulières (jours fériés, etc.)
 // Planning, astreintes / HNO de la grille, exports et impressions : îlot Vue (frontend/src/ilots/planification)
@@ -176,9 +175,7 @@ async function reprendreSession(data) {
         await TabAccess.load();
         if (sessionFermee()) return;
         updateTabsVisibility();
-        updateUserDisplay();
-        updateAppSwitcher();
-        updateProfileDisplay(); // Mettre à jour la photo de profil
+        // En-tête (utilisateur, profil, boutons) et menu Applications : îlots Vue du cadre (frontend/src/ilots/entete)
 
         // Onglet CRA
         const craBtn = document.getElementById('craTabBtn');
@@ -239,14 +236,6 @@ function resetUiForLogin(message) {
         /* ignoré */
     }
     try {
-        if (notificationCheckInterval) {
-            clearInterval(notificationCheckInterval);
-            notificationCheckInterval = null;
-        }
-    } catch (e) {
-        /* ignoré */
-    }
-    try {
         if (onlineUsersInterval) {
             clearInterval(onlineUsersInterval);
             onlineUsersInterval = null;
@@ -261,12 +250,9 @@ function resetUiForLogin(message) {
         'affectationContainer',
         'inactivityTimerDisplay',
         'backToPlanificationBtn',
-        'appSwitcher',
-        'appSwitcherDropdown',
         'onlineUsersContainer',
         'onlineUsersTooltip',
-        'adminTab',
-        'userInfo'
+        'adminTab'
     ].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';
@@ -279,7 +265,6 @@ function resetUiForLogin(message) {
         /* ignoré */
     }
     currentUser = null;
-    pendingAssignments = {};
     document.getElementById('loginPage').classList.add('active');
     window.dispatchEvent(new CustomEvent('gp:mire-affichee', { detail: { message } }));
     window.scrollTo(0, 0);
@@ -320,8 +305,7 @@ async function completeFinalLogin(user, selectedApp) {
     await TabAccess.load();
     if (sessionFermee()) return;
     updateTabsVisibility();
-    updateUserDisplay();
-    updateAppSwitcher();
+    // En-tête (utilisateur, profil, nouvelles affectations, boutons) et menu Applications : îlots Vue du cadre
 
     // Afficher l'onglet CRA selon le profil
     const craBtn = document.getElementById('craTabBtn');
@@ -348,19 +332,6 @@ async function completeFinalLogin(user, selectedApp) {
 
     // Démarrer le suivi des utilisateurs connectés en temps réel
     startOnlineUsersPolling();
-
-    // Charger les nouvelles affectations uniquement pour les experts
-    console.log('🔍 CurrentUser:', currentUser);
-    console.log('🔍 ActiveProfile:', currentUser.activeProfile);
-    console.log('🔍 Est expert?', currentUser.activeProfile === 'expert');
-
-    if (currentUser.activeProfile === 'expert') {
-        console.log('✅ Profil expert détecté, chargement des notifications...');
-        await loadNewAssignments();
-        if (sessionFermee()) return;
-    } else {
-        console.log('⏭️ Pas un expert, pas de notifications');
-    }
 
     // Restaurer l'ordre des onglets + activer le drag & drop
     restoreTabOrder();
@@ -421,21 +392,15 @@ function getAvailableTabsForProfile(profile) {
 function ouvrirFenetreVue(fenetre) {
     window.dispatchEvent(new CustomEvent('gp:fenetre-demandee', { detail: { fenetre } }));
 }
-// Grille de la planification (îlot Vue) : affectations en attente d'invitation (compteur de l'enveloppe, journal à la
-// déconnexion)
-window.addEventListener('gp:invitations-en-attente', e => {
-    pendingAssignments = e.detail.experts;
-    updatePendingEmailBadge();
-});
-// Nouvelles affectations lues par l'expert : pastille relue
-window.addEventListener('gp:notifications-lues', () => loadNewAssignments());
+// Affectations en attente d'invitation (enveloppe, journal à la déconnexion) et nouvelles affectations de l'expert :
+// îlots Vue de l'en-tête (frontend/src/ilots/entete)
 
 // Interface Vue (îlots, frontend/src/liaison.ts) : données modifiées par un îlot, rechargées pour le reste de la page
 window.addEventListener('gp:evenements-modifies', async () => {
     await loadSpecialDates();
 });
 window.addEventListener('gp:localisations-modifiees', () => loadLocations());
-// Accès aux applications de la session relus (l'administrateur a pu modifier les siens) : menu Applications
+// Accès aux applications de la session relus (l'administrateur a pu modifier les siens) ; menu Applications : îlot Vue
 window.addEventListener('gp:applications-modifiees', async () => {
     try {
         const r = await fetch(`${API_URL}/check-session`, { credentials: 'include' });
@@ -443,7 +408,6 @@ window.addEventListener('gp:applications-modifiees', async () => {
         const data = await r.json();
         if (data && data.availableApps) {
             currentUser.availableApps = data.availableApps;
-            updateAppSwitcher();
         }
     } catch {
         /* menu inchangé */
@@ -579,17 +543,12 @@ async function performLogout() {
 
         // Stopper tous les timers et pollings
         stopInactivityTimer();
-        if (notificationCheckInterval) {
-            clearInterval(notificationCheckInterval);
-            notificationCheckInterval = null;
-        }
         if (onlineUsersInterval) {
             clearInterval(onlineUsersInterval);
             onlineUsersInterval = null;
         }
 
         currentUser = null;
-        pendingAssignments = {};
 
         console.log('✅ Déconnexion réussie');
 

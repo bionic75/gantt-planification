@@ -1,5 +1,6 @@
 // Montage des îlots Vue dans les onglets de la page existante : à la première ouverture de l'onglet (classe « active »
 // posée par l'ancien code), démontage à la fin de la session, nouveau montage à la prochaine ouverture.
+// Le cadre de l'application (en-tête, menu Applications) se monte pendant toute la session (mire masquée).
 // Un îlot peut aussi n'occuper qu'une section d'un onglet (sous-îlot) : il se monte dans son propre conteneur, placé
 // dans l'onglet, à l'ouverture de cet onglet. Une application entière (Suivi des déplacements…) se monte dans son
 // conteneur quand l'ancien code l'affiche (style display) ; chaque nouvel affichage est une réouverture. L'onglet d'une
@@ -38,11 +39,20 @@ export interface OngletApplication {
 }
 
 /**
+ * Cadre de l'application (en-tête, menu Applications) : monté pendant toute la session, dès que la mire est masquée,
+ * quelle que soit l'application affichée ; démonté à la fin de la session
+ */
+export interface IlotCadre {
+    chargeur: ChargeurIlot;
+    cadre: true;
+}
+
+/**
  * Îlots : identifiant du conteneur → composant racine. Conteneur de l'onglet (ex. « tripadvisor »), conteneur
  * d'une section placé dans l'onglet (sous-îlot, ex. « adminLocalisations »), conteneur d'une application
  * (ex. « deplacementsContainer ») ou onglet d'une application (ex. « affectationEventsTab »)
  */
-export type RegistreIlots = Record<string, ChargeurIlot | SousIlot | IlotApplication | OngletApplication>;
+export type RegistreIlots = Record<string, ChargeurIlot | SousIlot | IlotApplication | OngletApplication | IlotCadre>;
 
 interface IlotSurveille {
     conteneur: HTMLElement;
@@ -125,6 +135,9 @@ export function surveillerIlots(registre: RegistreIlots, creerMagasin: () => Pin
         if (typeof entree === 'function') {
             chargeur = entree;
             onglet = conteneur;
+        } else if ('cadre' in entree) {
+            // Cadre : ni onglet ni application, monté tant que la mire est masquée
+            chargeur = entree.chargeur;
         } else if ('application' in entree && entree.application === true) {
             // Application entière : son conteneur, affiché ou masqué par l'ancien code
             chargeur = entree.chargeur;
