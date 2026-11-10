@@ -17,7 +17,14 @@ describe.skipIf(!BROWSER_PATH)('interface (navigateur)', { timeout: 120000 }, ()
     beforeAll(async () => {
         server = await startServer();
         admin = await loginAs(server, ADMIN, 'admin');
-        browser = await puppeteer.launch({ executablePath: BROWSER_PATH, headless: true, args: ['--no-sandbox'] });
+        // CI : démarrage de Chromium parfois lent (machine chargée par les autres suites) ; mémoire partagée (/dev/shm)
+        // limitée sur les machines Linux de la CI
+        browser = await puppeteer.launch({
+            executablePath: BROWSER_PATH,
+            headless: true,
+            args: ['--no-sandbox', '--disable-dev-shm-usage'],
+            timeout: 90000
+        });
     }, 120000);
     afterAll(async () => {
         await browser?.close();
