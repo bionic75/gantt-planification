@@ -1,7 +1,9 @@
-/* Mire de connexion */
+/* Mire de connexion, commune au bureau (index.html) et au mobile (mobile.html) : présentation adaptée à la largeur de
+   l'écran par requêtes média (MireConnexion.vue) */
 #loginPage.lp-page {
     background: #0b3a66;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
     padding: 20px;
 }
 
@@ -77,6 +79,9 @@
 
 #loginPage .lp-card {
     position: relative;
+    /* Centrée ; plus haute que l'écran (mise en place de l'application d'authentification) : page défilante */
+    margin: auto;
+    flex-shrink: 0;
     width: min(440px, 100%);
     background: rgba(255, 255, 255, 0.97);
     border-radius: 22px;
@@ -337,12 +342,20 @@
         animation: none;
     }
 }
-@media (max-width: 480px) {
+/* Petit écran (téléphone) : en-tête et formulaire resserrés, logo et titre réduits */
+@media (max-width: 600px) {
     #loginPage .lp-head {
-        padding: 22px 22px 18px;
+        padding: 22px 24px 18px;
     }
     #loginPage .lp-body {
-        padding: 24px 22px 20px;
+        padding: 22px 24px 20px;
+    }
+    #loginPage .lp-logo {
+        max-width: 210px;
+        margin-bottom: 14px;
+    }
+    #loginPage .lp-app-txt h2 {
+        font-size: 17px;
     }
 }
 
@@ -434,4 +447,267 @@ html.dark-mode #loginPage .lp-logo {
     #loginPage .lp-dots b {
         animation-duration: 3s;
     }
+}
+
+/* Champ « Identifiant » : identifiants déjà utilisés sur ce poste */
+#loginPage .lp-identifiant {
+    position: relative;
+}
+#loginPage .lp-suggest {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% - 6px);
+    z-index: 30;
+    background: #fff;
+    border: 1px solid #cfd8e6;
+    border-radius: 10px;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.18);
+    padding: 4px;
+    max-height: 240px;
+    overflow-y: auto;
+}
+#loginPage .lp-suggest-t {
+    font-size: 11px;
+    color: #7a8799;
+    padding: 4px 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+#loginPage .lp-suggest-i {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 8px;
+    border-radius: 7px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #1f2d3d;
+}
+#loginPage .lp-suggest-i:hover {
+    background: #eaf2fb;
+}
+#loginPage .lp-suggest-i svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: #1d70b7;
+    stroke-width: 1.9;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    flex: none;
+}
+#loginPage .lp-suggest-i span {
+    flex: 1;
+}
+#loginPage .lp-suggest-i button {
+    border: none;
+    background: transparent;
+    color: #9aa7b8;
+    font-size: 17px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 4px;
+    border-radius: 50%;
+}
+#loginPage .lp-suggest-i button:hover {
+    color: #b3261e;
+    background: #fdecea;
+}
+#loginPage .lp-input:focus {
+    border-color: #1d70b7;
+}
+
+/* Message d'erreur de la mire et des étapes de la double authentification */
+#loginPage .lp-erreur {
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+    padding: 10px;
+    border-radius: 4px;
+    margin-top: 10px;
+    font-size: 13px;
+}
+
+/* Double authentification : étapes dans la carte de connexion */
+#loginPage .lp-mfa__tete {
+    text-align: center;
+    margin-bottom: 16px;
+}
+#loginPage .lp-mfa__titre {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1f2d3d;
+    margin-bottom: 6px;
+}
+#loginPage .lp-mfa__texte {
+    margin: 0;
+    font-size: 13px;
+    color: #6b7a8d;
+    line-height: 1.5;
+}
+#loginPage .lp-mfa__note {
+    font-size: 11px;
+    color: #999;
+}
+#loginPage .lp-mfa-ico {
+    width: 54px;
+    height: 54px;
+    border-radius: 16px;
+    background: #e8f1fb;
+    color: #1d70b7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 10px;
+}
+#loginPage .lp-mfa-ico svg {
+    width: 30px;
+    height: 30px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.9;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+#loginPage .lp-code {
+    padding-left: 14px;
+    text-align: center;
+    font-size: 24px;
+    font-family: monospace;
+    letter-spacing: 8px;
+}
+/* Choix de la méthode : un bouton par méthode, titre et explication */
+#loginPage .lp-choix {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 6px;
+}
+#loginPage .lp-choix__methode {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    padding: 14px 16px;
+    margin: 0;
+    text-align: left;
+    background: #fff;
+    color: #1f2d3d;
+    border: 2px solid #1d70b7;
+    border-radius: 12px;
+    cursor: pointer;
+    font: inherit;
+    transition: background 0.2s;
+}
+#loginPage .lp-choix__methode:hover {
+    background: #eaf2fb;
+}
+#loginPage .lp-choix__methode svg {
+    width: 28px;
+    height: 28px;
+    flex: none;
+    fill: none;
+    stroke: #1d70b7;
+    stroke-width: 1.9;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+#loginPage .lp-choix__titre {
+    display: block;
+    font-weight: 700;
+    font-size: 14px;
+    color: #1565c0;
+}
+#loginPage .lp-choix__detail {
+    display: block;
+    font-size: 12px;
+    color: #6b7a8d;
+}
+/* Bouton secondaire (renvoi du code) et lien d'annulation */
+#loginPage .lp-btn.lp-secondary {
+    background: #fff;
+    color: #1d70b7;
+    border: 2px solid #1d70b7;
+    box-shadow: none;
+    margin-top: 10px;
+}
+#loginPage .lp-btn.lp-secondary svg {
+    stroke: #1d70b7;
+}
+#loginPage .lp-link {
+    display: block;
+    margin: 14px auto 0;
+    padding: 4px 8px;
+    background: none;
+    border: none;
+    box-shadow: none;
+    color: #6b7a8d;
+    font-size: 13px;
+    text-decoration: underline;
+    cursor: pointer;
+}
+#loginPage .lp-link:hover {
+    background: none;
+    color: #1d70b7;
+}
+/* Mise en place de l'application d'authentification : QR code et clé */
+#loginPage .lp-qr {
+    display: flex;
+    justify-content: center;
+    margin: 14px 0;
+}
+#loginPage .lp-qr__cadre {
+    display: inline-block;
+    padding: 12px;
+    background: #fff;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+}
+#loginPage .lp-qr__image {
+    display: block;
+    width: 200px;
+    height: 200px;
+}
+#loginPage .lp-cle {
+    text-align: center;
+    margin-bottom: 16px;
+}
+#loginPage .lp-cle code {
+    display: inline-block;
+    padding: 8px 15px;
+    background: #f5f5f5;
+    border-radius: 4px;
+    font-size: 14px;
+    letter-spacing: 2px;
+    user-select: all;
+    word-break: break-all;
+}
+
+/* Fenêtres de la mire du bureau (mot de passe oublié, imposé, nouveau) : affichées hors de la carte (AppModal) */
+.lp-fenetre__texte {
+    font-size: 13px;
+    color: #7f8c8d;
+    margin: 10px 0 15px;
+}
+.lp-fenetre__message {
+    padding: 10px;
+    border-radius: 4px;
+    margin-top: 10px;
+    font-size: 13px;
+}
+.lp-fenetre__message--erreur {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+.lp-fenetre__message--succes {
+    background-color: #d4edda;
+    color: #155724;
+}
+.lp-fenetre__message--attente {
+    background-color: #fff3cd;
+    color: #856404;
+}
+.gp-modale .lp-fenetre__annuler {
+    background-color: #95a5a6;
 }

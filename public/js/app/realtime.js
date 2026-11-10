@@ -838,14 +838,8 @@ async function handleWakeUp() {
             document.getElementById('loginPage').classList.add('active');
             document.querySelector('.container').style.display = 'none';
             document.getElementById('userInfo').style.display = 'none';
-            loginStep = 'credentials';
-            availableProfiles = [];
-            document.getElementById('loginUsername').value = '';
-            document.getElementById('loginPassword').value = '';
-            document.getElementById('loginProfile').value = '';
-            document.getElementById('profileSelectGroup').style.display = 'none';
-            setLoginButtonLabel('Continuer');
-            document.getElementById('loginError').style.display = 'none';
+            // Mire (îlot Vue frontend/src/connexion) vidée
+            window.dispatchEvent(new CustomEvent('gp:mire-affichee'));
             return;
         }
 

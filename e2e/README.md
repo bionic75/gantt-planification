@@ -127,6 +127,9 @@ E2E_TAGS="@cra" npm test                                        # une fonctionna
     - **Mobile** (`44`) : ressource de test et événement de test dans la semaine courante (vue Semaine par défaut sur
       le Pixel 7 émulé) ; la déconnexion est faite sur une session ouverte pour le scénario, jamais sur la session
       enregistrée d'un profil (partagée par les autres fonctionnalités).
+    - **Mire de connexion** (`45`) : réponses de l'API simulées dans le navigateur (`page.route`) pour le mot de passe
+      oublié, le lien de réinitialisation accepté et les étapes de la double authentification : aucun message envoyé,
+      configuration de la double authentification jamais modifiée ; compte de test à deux profils créé puis supprimé.
     - **Ateliers métier et sondages** (`42`) : déploiement de test avec mise en production en 2032 ; rétroplanning
       et sondages supprimés en fin de scénario. Invitation et sondage jamais envoyés (fenêtres ouvertes, adresse du
       sondage « Générée » en brouillon) ; réponses saisies sur la page publique dans un navigateur sans session.

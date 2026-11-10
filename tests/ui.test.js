@@ -42,12 +42,12 @@ describe.skipIf(!BROWSER_PATH)('interface (navigateur)', { timeout: 120000 }, ()
     }
 
     const pause = ms => new Promise(r => setTimeout(r, ms));
-    const visible = (page, selector) =>
-        page.$eval(selector, el => !!el && getComputedStyle(el).display !== 'none' && el.offsetParent !== null);
 
     /** Connexion par le formulaire de l'écran de connexion */
     async function uiLogin(page, { username, password }) {
         await page.goto(server.baseUrl + '/', { waitUntil: 'networkidle2' });
+        // Mire : îlot Vue (frontend/src/connexion), montée par le point d'entrée
+        await page.waitForSelector('#loginUsername', { visible: true });
         await page.type('#loginUsername', username);
         await page.type('#loginPassword', password);
         await page.click('#loginButton');
@@ -104,7 +104,7 @@ describe.skipIf(!BROWSER_PATH)('interface (navigateur)', { timeout: 120000 }, ()
         const { page, problems, close } = await openPage();
         try {
             await uiLogin(page, user);
-            await page.waitForFunction(() => document.getElementById('profileSelectGroup').style.display !== 'none');
+            await page.waitForSelector('#loginProfile', { visible: true });
             const options = await page.$$eval('#loginProfile option', o => o.map(x => x.value).filter(Boolean));
             expect(options.sort()).toEqual(['rh', 'user']);
             await page.select('#loginProfile', 'user');
@@ -132,8 +132,15 @@ describe.skipIf(!BROWSER_PATH)('interface (navigateur)', { timeout: 120000 }, ()
         const { page, problems, close } = await openPage();
         try {
             await uiLogin(page, user);
-            await page.waitForSelector('#mfaMethodChoiceModal.active', { timeout: 20000 });
-            expect(await page.$eval('#mfaMethodPendingProfile', i => i.value)).toBe('user');
+            await page.waitForSelector('#loginPage [data-etape="choix-mfa"]', { timeout: 20000 });
+            // Mise en place de l'application d'authentification : le profil choisi par le serveur est transmis
+            const confirmation = page.waitForRequest(r => r.url().endsWith('/api/mfa/totp-confirm'));
+            await page.click('#mfaMethodTotpButton');
+            await page.waitForSelector('#mfaTotpConfirmCode', { visible: true });
+            await page.type('#mfaTotpConfirmCode', '000000');
+            await page.keyboard.press('Enter');
+            expect(JSON.parse((await confirmation).postData() ?? '{}').profile).toBe('user');
+            await page.waitForSelector('#mfaTotpSetupError', { visible: true });
             expect(problems).toEqual([]);
         } finally {
             await close();
@@ -146,12 +153,12 @@ describe.skipIf(!BROWSER_PATH)('interface (navigateur)', { timeout: 120000 }, ()
         const { page, problems, close } = await openPage();
         try {
             await uiLogin(page, user);
-            await page.waitForSelector('#forcedPasswordModal.active', { timeout: 20000 });
+            await page.waitForSelector('#forcedPasswordModal', { visible: true, timeout: 20000 });
             expect(await page.$eval('#loginPage', p => p.classList.contains('active'))).toBe(true);
 
             // Rechargement : la session est ouverte mais l'application reste bloquée
             await page.reload({ waitUntil: 'networkidle2' });
-            await page.waitForSelector('#forcedPasswordModal.active', { timeout: 20000 });
+            await page.waitForSelector('#forcedPasswordModal', { visible: true, timeout: 20000 });
 
             await page.type('#forcedNewPassword', 'Choisi-par-moi-1');
             await page.type('#forcedConfirmPassword', 'Autre-chose-1');
@@ -164,7 +171,7 @@ describe.skipIf(!BROWSER_PATH)('interface (navigateur)', { timeout: 120000 }, ()
             await page.type('#forcedConfirmPassword', 'Choisi-par-moi-1');
             await page.click('#forcedPasswordButton');
             await waitForApp(page);
-            expect(await page.$eval('#forcedPasswordModal', m => m.classList.contains('active'))).toBe(false);
+            expect(await page.$('#forcedPasswordModal')).toBeNull();
             expect(problems.filter(p => !p.includes('PASSWORD_CHANGE_REQUIRED'))).toEqual([]);
         } finally {
             await close();
@@ -179,8 +186,8 @@ describe.skipIf(!BROWSER_PATH)('interface (navigateur)', { timeout: 120000 }, ()
         const { page, problems, close } = await openPage();
         try {
             await uiLogin(page, { username: user.username, password: 'mauvais' });
-            await page.waitForFunction(() => document.getElementById('loginError').textContent.trim() !== '');
-            expect(await visible(page, '#profileSelectGroup')).toBe(false);
+            await page.waitForSelector('#loginError', { visible: true });
+            expect(await page.$('#profileSelectGroup')).toBeNull();
             expect(await page.$eval('#loginError', e => e.textContent)).toMatch(/Identifiants incorrects/);
             expect(problems).toEqual([]);
         } finally {
@@ -193,10 +200,10 @@ describe.skipIf(!BROWSER_PATH)('interface (navigateur)', { timeout: 120000 }, ()
         const { page, problems, close } = await openPage({ userAgent: MOBILE_UA });
         try {
             await page.goto(server.baseUrl + '/mobile', { waitUntil: 'networkidle2' });
-            await page.waitForSelector('#loginUser', { visible: true });
-            await page.type('#loginUser', user.username);
-            await page.type('#loginPass', user.password);
-            await page.click('#loginBtn');
+            await page.waitForSelector('#loginUsername', { visible: true });
+            await page.type('#loginUsername', user.username);
+            await page.type('#loginPassword', user.password);
+            await page.click('#loginButton');
             await page.waitForFunction(() => document.getElementById('loginScreen').classList.contains('hidden'), {
                 timeout: 20000
             });
