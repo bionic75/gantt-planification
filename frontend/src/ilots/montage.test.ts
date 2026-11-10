@@ -30,6 +30,28 @@ afterEach(() => arreter());
 const conteneur = () => document.getElementById('onglet') as HTMLElement;
 
 describe('montage des îlots', () => {
+    it('cadre : monté pendant la session (mire masquée), démonté à la fin de la session, remonté à la suivante', async () => {
+        document.body.innerHTML =
+            '<div id="loginPage" class="modal active"></div><div id="cadre"></div><div id="onglet" class="tab-content"></div>';
+        const cadre = () => document.getElementById('cadre') as HTMLElement;
+        const mire = () => document.getElementById('loginPage') as HTMLElement;
+        arreter = surveillerIlots({ cadre: { chargeur: async () => ({ default: Essai }), cadre: true } });
+        await rendu();
+        expect(cadre().querySelector('[data-testid="essai"]')).toBeNull();
+
+        mire().classList.remove('active');
+        await rendu();
+        expect(cadre().querySelector('[data-testid="essai"]')).not.toBeNull();
+
+        mire().classList.add('active');
+        emettre('session-terminee');
+        await rendu();
+        expect(cadre().querySelector('[data-testid="essai"]')).toBeNull();
+
+        mire().classList.remove('active');
+        await rendu();
+        expect(cadre().querySelector('[data-testid="essai"]')).not.toBeNull();
+    });
     it("monte l'îlot à la première ouverture de l'onglet, en conservant le conteneur", async () => {
         arreter = surveillerIlots({ onglet: async () => ({ default: Essai }) });
         await rendu();

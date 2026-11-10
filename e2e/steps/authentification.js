@@ -5,6 +5,7 @@ import { config, PROFILS, profil as profilDe } from '../support/config.js';
 import { connecterBureau, connexionBureau } from '../support/connexion.js';
 import { adminApi } from '../support/donnees.js';
 import { Given, Then, When } from '../support/fixtures.js';
+import { confirmer } from '../support/interface.js';
 
 /** Contexte HTTP sans session (cookies propres) */
 async function clientSansSession() {
@@ -219,7 +220,7 @@ Given("je me déconnecterai pendant le dernier chargement de l'ouverture de l'ap
         if (avantDernierCharge && !monde.d.deconnexion) {
             // Chargement en attente : déconnexion par l'icône, réponse rendue une fois la mire affichée
             monde.d.deconnexion = (async () => {
-                await page.locator('.logout-icon').first().click();
+                await confirmer(monde, () => page.locator('.logout-icon').first().click());
                 await mireAffichee(page);
                 page.on('request', r => {
                     if (r.url().includes('/api/') && !r.url().includes('/api/version'))
@@ -253,8 +254,8 @@ Then("l'ouverture interrompue de l'application ne produit ni erreur ni appel à 
 });
 
 When("je clique sur l'icône de déconnexion et confirme", async ({ monde }) => {
-    // La fenêtre de confirmation est acceptée automatiquement (monde.dialogues)
-    await monde.page.locator('.logout-icon').first().click();
+    // Confirmation du navigateur (acceptée automatiquement, monde.dialogues) ou de la page
+    await confirmer(monde, () => monde.page.locator('.logout-icon').first().click());
 });
 
 Then('la mire de connexion est affichée', async ({ monde }) => {

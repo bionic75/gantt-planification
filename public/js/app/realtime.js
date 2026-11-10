@@ -825,20 +825,15 @@ async function handleWakeUp() {
             console.log('❌ Session expirée après réveil - déconnexion propre');
             _chatCloseAll();
             stopInactivityTimer();
-            if (notificationCheckInterval) {
-                clearInterval(notificationCheckInterval);
-                notificationCheckInterval = null;
-            }
             if (onlineUsersInterval) {
                 clearInterval(onlineUsersInterval);
                 onlineUsersInterval = null;
             }
             currentUser = null;
-            pendingAssignments = {};
             document.getElementById('loginPage').classList.add('active');
             document.querySelector('.container').style.display = 'none';
-            document.getElementById('userInfo').style.display = 'none';
-            // Mire (îlot Vue frontend/src/connexion) vidée
+            // Îlots Vue démontés (en-tête, menu Applications…) et mire (frontend/src/connexion) vidée
+            window.dispatchEvent(new CustomEvent('gp:session-terminee'));
             window.dispatchEvent(new CustomEvent('gp:mire-affichee'));
             return;
         }

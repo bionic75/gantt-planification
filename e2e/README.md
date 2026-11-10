@@ -130,6 +130,8 @@ E2E_TAGS="@cra" npm test                                        # une fonctionna
     - **Mire de connexion** (`45`) : réponses de l'API simulées dans le navigateur (`page.route`) pour le mot de passe
       oublié, le lien de réinitialisation accepté et les étapes de la double authentification : aucun message envoyé,
       configuration de la double authentification jamais modifiée ; compte de test à deux profils créé puis supprimé.
+    - **En-tête** (`46`) : comptes de test jetables aux profils RH (jamais soumis à la double authentification) et
+      Utilisateur, mot de passe initial remplacé à la première connexion ; déconnexion sur la session du scénario.
     - **Ateliers métier et sondages** (`42`) : déploiement de test avec mise en production en 2032 ; rétroplanning
       et sondages supprimés en fin de scénario. Invitation et sondage jamais envoyés (fenêtres ouvertes, adresse du
       sondage « Générée » en brouillon) ; réponses saisies sur la page publique dans un navigateur sans session.

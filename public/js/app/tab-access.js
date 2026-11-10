@@ -129,24 +129,15 @@ function updateTabsVisibility() {
     if (profile === 'admin') {
         // Fichiers ICS, listes du reporting et des ressources : îlots Vue
     } else if (profile === 'rh') {
-        // Formulaire d'ajout de ressource masqué pour le profil RH : îlot Vue (frontend/src/ilots/ressources)
-        // Masquer loupe et enveloppe
-        const searchBtn = document.getElementById('searchBtn');
-        if (searchBtn) searchBtn.style.display = 'none';
-        const sendEmailBtn = document.getElementById('sendEmailBtn');
-        if (sendEmailBtn) sendEmailBtn.style.display = 'none';
+        // Formulaire d'ajout de ressource masqué pour le profil RH : îlot Vue (frontend/src/ilots/ressources) ; loupe et
+        // enveloppe absentes : îlot Vue de l'en-tête (frontend/src/ilots/entete/BoutonsEnTete.vue)
     }
     if (profile !== 'admin') {
         openLandingTab();
     }
 }
 
-async function logout() {
-    console.log('🚪 Début de la déconnexion');
-    if (!confirm('Voulez-vous vraiment vous déconnecter ?')) return;
-    await saveAssignmentLogs();
-    await performLogout();
-}
+// Déconnexion depuis l'en-tête de la Planification : îlot Vue (frontend/src/ilots/entete/BoutonsEnTete.vue)
 
 // Retour vers Planification depuis l'app Déplacements ou Analyse
 function backToPlanification() {
@@ -158,8 +149,6 @@ function backToPlanification() {
     document.getElementById('analyseContainer').style.display = 'none';
     document.querySelector('.container').style.display = 'block';
     updateTabsVisibility();
-    updateUserDisplay();
-    updateAppSwitcher();
     // Forcer le re-rendu de l'onglet actif (sinon contenu vide au retour)
     const activeTab = document.querySelector('.tab-content.active');
     if (activeTab) switchTab(activeTab.id, null);
@@ -175,8 +164,8 @@ function backToPlanification() {
 }
 
 // Basculer vers une application depuis le sélecteur
+// Menu « Applications » : îlot Vue (frontend/src/ilots/entete/MenuApplications.vue)
 function switchToApp(appKey) {
-    document.getElementById('appSwitcherDropdown').style.display = 'none';
     if (appKey === 'planification') {
         backToPlanification();
         return;
@@ -198,26 +187,6 @@ function switchToApp(appKey) {
         showAnalyseApp();
     } else if (appKey === 'affectation') {
         showAffectationApp();
-    }
-}
-
-function toggleAppSwitcherDropdown() {
-    const dd = document.getElementById('appSwitcherDropdown');
-    updateAppSwitcher(); // la liste dépend de l'application affichée
-    const isOpen = dd.style.display !== 'none';
-    dd.style.display = isOpen ? 'none' : 'block';
-    if (!isOpen) {
-        setTimeout(
-            () =>
-                document.addEventListener(
-                    'click',
-                    () => {
-                        dd.style.display = 'none';
-                    },
-                    { once: true }
-                ),
-            0
-        );
     }
 }
 
@@ -292,79 +261,6 @@ function uiIcon(name, size, style) {
     return `<svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:${size || 18}px;height:${size || 18}px;stroke:currentColor;vertical-align:-${Math.round((size || 18) * 0.2)}px;margin-right:8px;${style || ''}">${UI_ICONS[name] || ''}</svg>`;
 }
 
-const APP_ICON_DEFS = {
-    planification: {
-        bg: '#e3f2fd',
-        fg: '#1d70b7',
-        body: '<path d="M3 3v18h18"/><rect x="7" y="7" width="8" height="3" rx="1"/><rect x="11" y="12" width="9" height="3" rx="1"/><rect x="7" y="17" width="5" height="2" rx="1"/>'
-    },
-    affectation: {
-        bg: '#e0f2f1',
-        fg: '#00796b',
-        body: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m16 11 2 2 4-4"/>'
-    },
-    analyse: {
-        bg: '#e8eaf6',
-        fg: '#3949ab',
-        body: '<path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6" rx=".6"/><rect x="12" y="8" width="3" height="10" rx=".6"/><rect x="17" y="5" width="3" height="13" rx=".6"/>'
-    },
-    deplacements: {
-        bg: '#fff3e0',
-        fg: '#e65100',
-        body: '<path d="M5 11l1.6-4.2A2 2 0 0 1 8.5 5.5h7a2 2 0 0 1 1.9 1.3L19 11"/><rect x="3" y="11" width="18" height="6" rx="2"/><circle cx="7.5" cy="14" r=".7"/><circle cx="16.5" cy="14" r=".7"/><path d="M6 17v2M18 17v2"/>'
-    }
-};
-function appIconTile(key, size) {
-    const d = APP_ICON_DEFS[key] || {
-        bg: '#eceff1',
-        fg: '#546e7a',
-        body: '<rect x="4" y="4" width="16" height="16" rx="3"/>'
-    };
-    const ic = Math.round(size * 0.58);
-    return `<span style="display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;width:${size}px;height:${size}px;border-radius:${Math.round(size * 0.28)}px;background:${d.bg};"><svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:${ic}px;height:${ic}px;stroke:${d.fg};">${d.body}</svg></span>`;
-}
-
-function updateAppSwitcher() {
-    const available = (currentUser && currentUser.availableApps) || [];
-    const switcher = document.getElementById('appSwitcher');
-    // Le menu est commun à toutes les applications : on le sort du conteneur principal pour qu'il reste visible partout
-    if (switcher.parentElement !== document.body) document.body.appendChild(switcher);
-    const shown = id => {
-        const e = document.getElementById(id);
-        return !!e && e.style.display !== 'none' && e.style.display !== '';
-    };
-    const current = shown('analyseContainer')
-        ? 'analyse'
-        : shown('deplacementsContainer')
-          ? 'deplacements'
-          : affectationIsVisible()
-            ? 'affectation'
-            : 'planification';
-    // Depuis une autre application, le menu propose aussi le retour à la Planification (plus de bouton retour dédié)
-    const apps = available.filter(k => k !== current);
-    if (current !== 'planification') apps.unshift('planification');
-    const dd = document.getElementById('appSwitcherDropdown');
-    if (available.length === 0) {
-        switcher.style.display = 'none';
-        return;
-    }
-    switcher.style.display = 'block';
-    const APP_LABELS = {
-        planification: { label: 'Planification' },
-        deplacements: { label: 'Suivi des déplacements' },
-        analyse: { label: 'Analyse de fichiers' },
-        affectation: { label: "Aide à l'affectation opérationnelle" }
-    };
-    dd.innerHTML = apps
-        .map(key => {
-            const def = APP_LABELS[key] || { label: key };
-            return `<div onclick="switchToApp('${key}')" style="padding:10px 16px;cursor:pointer;display:flex;align-items:center;gap:12px;font-size:13px;color:#222;" onmouseenter="this.style.background='#f0f4ff'" onmouseleave="this.style.background=''">
-                    ${appIconTile(key, 34)}<span>${def.label}</span>
-                </div>`;
-        })
-        .join('');
-}
-
 // ============== Application « Suivi des déplacements » ==============
 // Contenu (en-tête, pastilles, onglets, fenêtres) : îlot Vue frontend/src/ilots/deplacements/ApplicationDeplacements.vue,
 // monté quand #deplacementsContainer est affiché. Ouverture, retour à la Planification et déconnexion : déplacés de
@@ -422,7 +318,6 @@ async function goToPlanificationApp() {
 
     // Réinitialiser l'affichage de l'IHM principale
     updateTabsVisibility();
-    updateUserDisplay();
 
     // Afficher le timer et les utilisateurs connectés de l'app principale
     document.getElementById('inactivityTimerDisplay').style.display = 'block';
@@ -439,11 +334,6 @@ async function goToPlanificationApp() {
 
     // Démarrer le polling des utilisateurs connectés
     startOnlineUsersPolling();
-
-    // Charger les notifications pour les experts
-    if (currentUser.activeProfile === 'expert') {
-        await loadNewAssignments();
-    }
 
     console.log('📅 Retour à la Plateforme de planification effectué');
 }
@@ -488,7 +378,6 @@ function showAffectationApp() {
     sessionStorage.setItem('selectedApp', 'affectation');
     if (typeof currentUser !== 'undefined' && currentUser) currentUser.selectedApp = 'affectation';
     document.getElementById('affectationContainer').style.display = 'block';
-    updateAppSwitcher();
     const startTimer = () => {
         try {
             startInactivityTimer(inactivityTimeout);
@@ -542,7 +431,6 @@ function showAnalyseApp() {
         }
     };
     loadSettingsForDeplacements().then(startTimer);
-    updateAppSwitcher();
     if (window.GPTools) window.GPTools.position();
 }
 

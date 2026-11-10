@@ -22,14 +22,6 @@
 <body>
     <div class="container">
         <!-- Conteneur des utilisateurs connectés en temps réel -->
-        <!-- Sélecteur d'applications (planification → autre) -->
-        <div id="appSwitcher" style="display:none;position:fixed;top:10px;right:340px;z-index:1001;height:32px;">
-            <button id="appSwitcherBtn" onclick="toggleAppSwitcherDropdown()" title="Changer d'application" style="height:32px;box-sizing:border-box;background:#fff;border:none;color:#2c3e50;padding:0 14px;border-radius:20px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(0,0,0,0.2);white-space:nowrap;">
-                <svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:16px;height:16px;stroke:#3949ab;"><rect x="3" y="3" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="2"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2"/></svg><span style="font-weight:600;">Applications</span><span style="font-size:9px;color:#888;">▼</span>
-            </button>
-            <div id="appSwitcherDropdown" style="display:none;position:absolute;top:calc(100% + 4px);right:0;background:white;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.2);min-width:240px;z-index:9999;overflow:hidden;"></div>
-        </div>
-
         <div id="onlineUsersContainer" style="display: none; position: fixed; top: 10px; right: 120px; height: 32px; box-sizing: border-box; background: #fff; padding: 0 12px; border-radius: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 1001; cursor: pointer; display: flex; align-items: center;" onclick="toggleOnlineUsersTooltip(event)">
             <div style="display: flex; align-items: center; gap: 4px;">
                 <span style="font-size: 12px; color: #27ae60; margin-right: 4px;">●</span>
@@ -51,50 +43,8 @@
 
         <!-- Header fixe -->
         <div class="fixed-header">
-            <div class="user-info" id="userInfo" style="display: none;">
-                <span class="app-title-center">Planification</span>
-                <!-- Logo application -->
-                <svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 80 80" style="flex-shrink:0;border-radius:10px;" title="Plateforme de Planification">
-                  <rect width="80" height="80" rx="13" fill="#1D70B7"/>
-                  <circle cx="40" cy="22" r="10" fill="white"/>
-                  <path d="M22 46 Q40 34 58 46" fill="white" stroke="none"/>
-                  <rect x="18" y="52" width="44" height="6" rx="3" fill="white" opacity="0.95"/>
-                  <rect x="25" y="62" width="32" height="5" rx="2.5" fill="white" opacity="0.65"/>
-                  <polygon points="65,51 71,57 65,63 59,57" fill="white" opacity="0.85"/>
-                </svg>
-                <!-- Conteneur pour cercle utilisateur et badge -->
-                <div style="position: relative; display: flex; align-items: center;">
-                    <div id="profileCircle" onclick="openProfilePhotoModal()" style="width: 50px; height: 50px; border-radius: 50%; border: 3px solid #1D70B7; background-color: #7f8c8d; display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden;" title="Cliquer pour changer la photo">
-                        <span id="profileTrigramme" style="color: white; font-weight: bold; font-size: 16px;">?</span>
-                        <img id="profilePhoto" style="width: 100%; height: 100%; object-fit: cover; display: none;" />
-                    </div>
-                    <!-- Badge de notifications nouvelles affectations -->
-                    <div id="notificationBadge" style="display: none; position: absolute; top: -8px; left: -8px; cursor: pointer;" onclick="ouvrirFenetreVue('nouvelles-affectations')" title="Nouvelles affectations">
-                        <span id="notificationCount" style="
-                            background-color: #e74c3c;
-                            color: white;
-                            border-radius: 50%;
-                            width: 24px;
-                            height: 24px;
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                            font-size: 12px;
-                            font-weight: bold;
-                            border: 2px solid #34495e;
-                            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-                        ">0</span>
-                    </div>
-                </div>
-                <span class="user-info-name" id="userDisplayName" style="margin-left: 15px;"></span>
-                <span class="user-info-role" id="userDisplayRole" style="cursor:default;"></span>
-                <div id="profileSwitcher" style="display:none;position:relative;margin-left:4px;">
-                    <button id="profileSwitcherBtn" onclick="toggleProfileDropdown()" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);color:white;padding:2px 7px;border-radius:10px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px;">
-                        <span id="profileSwitcherLabel"></span><span style="font-size:9px;">▼</span>
-                    </button>
-                    <div id="profileDropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;background:white;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.2);min-width:160px;z-index:9999;overflow:hidden;" id="profileDropdown"></div>
-                </div>
-            </div>
+            <!-- Utilisateur, profil, nouvelles affectations : îlot Vue (frontend/src/ilots/entete/EnTetePlanification.vue) -->
+            <div id="enteteUtilisateur" class="gp-entete-conteneur"></div>
             <div class="tabs" id="mainTabsContainer">
                 <button class="tab-btn active" draggable="true" data-tab="resources" onclick="switchTab('resources', event)"><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Ressources</button>
                 <button class="tab-btn" draggable="true" data-tab="evenements" id="evenementsTabBtn" onclick="switchTab('evenements', event)"><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="m9 16 2 2 4-4"/></svg>Événements</button>
@@ -108,81 +58,9 @@
                 <button class="tab-btn" draggable="true" data-tab="admin" id="adminTab" onclick="switchTab('admin', event)" style="display:none;"><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>Administration</button>
                 <button class="tab-btn" draggable="true" data-tab="astreintesGestion" id="astreintesGestionTab" onclick="switchTab('astreintesGestion', event)" style="display:none;"><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>Astreintes</button>
                 
-                <!-- Bouton Accueil : synthèse de la journée et de la semaine (îlot Vue frontend/src/ilots/accueil) -->
-                <button id="homeBtn" onclick="openHome()" title="Accueil" aria-label="Accueil" style="
-                    padding: 8px 15px;
-                    background-color: #16a085;
-                    color: white;
-                    border: none;
-                    cursor: pointer;
-                    font-size: 18px;
-                    transition: all 0.3s;
-                    border-radius: 4px;
-                    margin-right: 5px;
-                "><svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:22px;height:22px;stroke:white;vertical-align:middle;"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9v12h14V9"/><path d="M10 21v-6h4v6"/></svg></button>
-
-                <!-- Bouton d'aide en ligne -->
-                <button id="helpBtn" onclick="openHelp()" title="Aide en ligne" style="
-                    padding: 8px 15px;
-                    background-color: #5c6bc0;
-                    color: white;
-                    border: none;
-                    cursor: pointer;
-                    font-size: 18px;
-                    font-weight: bold;
-                    transition: all 0.3s;
-                    border-radius: 4px;
-                    margin-right: 5px;
-                "><svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:22px;height:22px;stroke:white;vertical-align:middle;"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg></button>
-                
-                <!-- Bouton de recherche avancée (visible pour tous les profils) -->
-                <button id="searchBtn" onclick="ouvrirFenetreVue('recherche-avancee')" title="Recherche avancée" style="
-                    padding: 8px 15px;
-                    background-color: #3498db;
-                    color: white;
-                    border: none;
-                    cursor: pointer;
-                    font-size: 18px;
-                    transition: all 0.3s;
-                    border-radius: 4px;
-                    margin-right: 5px;
-                ">
-                    <span style="display:inline-flex;"><svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:22px;height:22px;stroke:white;"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span>
-                </button>
-                
-                <!-- Bouton d'envoi des notifications par email (visible uniquement pour admin/user) -->
-                <button id="sendEmailBtn" onclick="ouvrirFenetreVue('invitations')" title="Envoyer les affectations par email" style="
-                    display: none;
-                    padding: 8px 15px;
-                    background-color: #27ae60;
-                    color: white;
-                    border: none;
-                    cursor: pointer;
-                    font-size: 18px;
-                    transition: all 0.3s;
-                    border-radius: 4px;
-                    margin-right: 10px;
-                    position: relative;
-                ">
-                    <span style="display:inline-flex;"><svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:22px;height:22px;stroke:white;"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg></span>
-                    <span id="pendingEmailBadge" style="
-                        display: none;
-                        position: absolute;
-                        top: -8px;
-                        right: -8px;
-                        background-color: #e74c3c;
-                        color: white;
-                        border-radius: 50%;
-                        width: 20px;
-                        height: 20px;
-                        font-size: 11px;
-                        font-weight: bold;
-                        align-items: center;
-                        justify-content: center;
-                    ">0</span>
-                </button>
-                
-                <button class="logout-icon" onclick="logout()" title="Déconnexion"></button>
+                <!-- Accueil, aide, recherche, enveloppe des invitations, déconnexion : îlot Vue
+                     (frontend/src/ilots/entete/BoutonsEnTete.vue) -->
+                <div id="enteteBoutons" class="gp-entete-conteneur"></div>
             </div>
         </div>
         
@@ -258,14 +136,12 @@
 
     <script src="/js/app/core.js?v=2.18.1"></script>
     <script src="/js/app/email-validation.js?v=2.18.1"></script>
-    <script src="/js/app/mfa.js?v=2.18.1"></script>
     <script src="/js/app/tab-access.js?v=2.18.1"></script>
     <script src="/js/app/planning.js?v=2.18.1"></script>
     <script src="/js/app/conges-scolaires.js?v=2.18.1"></script>
     <script src="/js/app/dump.js?v=2.18.1"></script>
     <script src="/js/app/tabs.js?v=2.18.1"></script>
     <script src="/js/app/settings.js?v=2.18.1"></script>
-    <script src="/js/app/assignment-notifications.js?v=2.18.1"></script>
     <script src="/js/app/locations.js?v=2.18.1"></script>
     <script src="/js/app/planning-navigation.js?v=2.18.1"></script>
     <script src="/js/app/profile.js?v=2.18.1"></script>
@@ -512,6 +388,9 @@
             </div>
         </div>
     </div>
+
+<!-- Menu « Applications », visible dans toutes les applications : îlot Vue (frontend/src/ilots/entete/MenuApplications.vue) -->
+<div id="menuApplications"></div>
 
 <!-- ══ Bannière de mise en production ══════════════════════════════════════ -->
 <div id="deployBanner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:99999; padding:14px 24px; text-align:center; font-size:14px; font-weight:600; box-shadow:0 2px 12px rgba(0,0,0,0.3); transition:background 0.3s;">

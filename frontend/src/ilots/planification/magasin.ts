@@ -3,6 +3,7 @@
 // depuis ses en-têtes (calendriers, recherche, invitations).
 import { defineStore } from 'pinia';
 import { computed, ref, shallowRef } from 'vue';
+import { api } from '@/api/client';
 import {
     apiPlanification,
     type AstreintePlanning,
@@ -16,7 +17,6 @@ import type { Ressource } from '@/api/ressources';
 import {
     afficherSynchronisation,
     ecouter,
-    emettre,
     type DateParticuliere,
     type EtatInvitations,
     type EtatPlanning,
@@ -142,20 +142,48 @@ export const usePlanificationStore = defineStore('planification', () => {
         return chargement;
     }
 
-    // Données modifiées ailleurs (autres îlots, ancien code) : rechargées
+    // Données modifiées ailleurs (autres îlots, ancien code) : rechargées, si elles ont déjà été chargées (magasin créé
+    // aussi par l'en-tête, pour l'enveloppe des invitations, avant toute ouverture de la Planification)
+    const siCharge = (fn: () => void) => () => {
+        if (chargement) fn();
+    };
     const arrets = [
-        ecouter('evenements-modifies', () => void chargerDates()),
-        ecouter('dates-particulieres-modifiees', () => void chargerDates()),
-        ecouter('conges-modifies', () => void chargerConges(true)),
-        ecouter('ressources-rechargees', () => void chargerRessources()),
-        ecouter('utilisateurs-modifies', () => void chargerComptes()),
-        ecouter('planning-modifie', () => void chargerPlanning()),
-        ecouter('astreintes-modifiees', () => void chargerAstreintes()),
-        ecouter('grille-a-rafraichir', () => {
-            void chargerPlanning();
-            void chargerComptes();
-            void chargerAstreintes();
-        })
+        ecouter(
+            'evenements-modifies',
+            siCharge(() => void chargerDates())
+        ),
+        ecouter(
+            'dates-particulieres-modifiees',
+            siCharge(() => void chargerDates())
+        ),
+        ecouter(
+            'conges-modifies',
+            siCharge(() => void chargerConges(true))
+        ),
+        ecouter(
+            'ressources-rechargees',
+            siCharge(() => void chargerRessources())
+        ),
+        ecouter(
+            'utilisateurs-modifies',
+            siCharge(() => void chargerComptes())
+        ),
+        ecouter(
+            'planning-modifie',
+            siCharge(() => void chargerPlanning())
+        ),
+        ecouter(
+            'astreintes-modifiees',
+            siCharge(() => void chargerAstreintes())
+        ),
+        ecouter(
+            'grille-a-rafraichir',
+            siCharge(() => {
+                void chargerPlanning();
+                void chargerComptes();
+                void chargerAstreintes();
+            })
+        )
     ];
     const arretSession = ecouter('session-terminee', () => {
         arrets.forEach(a => a());
@@ -195,7 +223,6 @@ export const usePlanificationStore = defineStore('planification', () => {
             const e = { ...enAttente.value };
             suivreAffectation(e, initial, planning.value, ressource, comptes.value, date, periode, suivi);
             enAttente.value = e;
-            emettre('invitations-en-attente', { experts: JSON.parse(JSON.stringify(e)) });
         }
         void enregistrer(changements);
     }
@@ -205,7 +232,26 @@ export const usePlanificationStore = defineStore('planification', () => {
         const e = { ...enAttente.value };
         for (const id of ressourceIds) delete e[String(id)];
         enAttente.value = e;
-        emettre('invitations-en-attente', { experts: JSON.parse(JSON.stringify(e)) });
+    }
+
+    /**
+     * Déconnexion : affectations en attente jamais envoyées par invitation journalisées, sans courriel (elles restent
+     * en attente jusqu'à la fin de la session)
+     */
+    async function journaliserInvitations() {
+        const modifications = Object.entries(enAttente.value).flatMap(([id, d]) =>
+            d.assignments.map(a => ({
+                resourceId: Number(id),
+                resourceName: `${d.expertPrenom} ${d.expertNom}`,
+                date: a.date,
+                period: a.period === 'AM' ? 'Matin' : 'Après-midi',
+                activity: a.activity,
+                location: a.location || '-',
+                emailSent: false
+            }))
+        );
+        if (!modifications.length) return;
+        await api.post('/logs/save-planning-modifications', { modifications }).catch(() => {});
     }
 
     const etatInvitations = (): EtatInvitations => ({ sessionId, experts: enAttente.value });
@@ -242,6 +288,7 @@ export const usePlanificationStore = defineStore('planification', () => {
         charger,
         saisir,
         retirerInvitations,
+        journaliserInvitations,
         etatInvitations,
         etatPlanning
     };
