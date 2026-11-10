@@ -124,6 +124,9 @@ E2E_TAGS="@cra" npm test                                        # une fonctionna
     - **Profil « Utilisateur » de l'aide à l'affectation** (`43`) : tous les scénarios qui donnent à « Utilisateur »
       l'accès à l'application (retiré en fin de scénario) sont réunis dans cette fonctionnalité, jouée par un seul
       processus : un retrait fait par une fonctionnalité parallèle couperait l'accès d'une autre en cours.
+    - **Mobile** (`44`) : ressource de test et événement de test dans la semaine courante (vue Semaine par défaut sur
+      le Pixel 7 émulé) ; la déconnexion est faite sur une session ouverte pour le scénario, jamais sur la session
+      enregistrée d'un profil (partagée par les autres fonctionnalités).
     - **Ateliers métier et sondages** (`42`) : déploiement de test avec mise en production en 2032 ; rétroplanning
       et sondages supprimés en fin de scénario. Invitation et sondage jamais envoyés (fenêtres ouvertes, adresse du
       sondage « Générée » en brouillon) ; réponses saisies sur la page publique dans un navigateur sans session.

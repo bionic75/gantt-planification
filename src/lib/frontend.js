@@ -1,6 +1,6 @@
 // @ts-check
 // Interface Vue (frontend/, docs/migration-vue.md) : îlots chargés par index.html, page publique d'un sondage
-// (sondage.html).
+// (sondage.html), application mobile (mobile.html).
 //   production   : build (dist/frontend) servi sous /vue/, obligatoire (« npm run build:front ») ;
 //   développement : serveur Vite intégré (compilation à la volée, rechargement à chaud) ;
 //   test          : build s'il existe, sinon page sans îlots.
@@ -13,7 +13,7 @@ import { PROJECT_ROOT, PUBLIC_DIR } from './paths.js';
 const DIST_DIR = path.join(PROJECT_ROOT, 'dist', 'frontend');
 const MANIFEST = path.join(DIST_DIR, '.vite', 'manifest.json');
 /** Points d'entrée : page servie → script d'entrée */
-const ENTREES = { 'index.html': 'src/ilots.ts', 'sondage.html': 'src/sondage.ts' };
+const ENTREES = { 'index.html': 'src/ilots.ts', 'sondage.html': 'src/sondage.ts', 'mobile.html': 'src/mobile.ts' };
 const BASE = '/vue/';
 /** Port du rechargement à chaud de Vite (développement), autorisé par la CSP */
 export const PORT_HMR = 24678;
@@ -112,4 +112,12 @@ export function envoyerSondage(
     /** @type {import('express').Response} */ res
 ) {
     res.type('html').send(pageHtml('sondage.html'));
+}
+
+/** Application mobile (/mobile depuis un téléphone, /mobile.html) */
+export function envoyerMobile(
+    /** @type {import('express').Request} */ req,
+    /** @type {import('express').Response} */ res
+) {
+    res.type('html').send(pageHtml('mobile.html'));
 }

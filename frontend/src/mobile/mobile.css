@@ -1029,3 +1029,73 @@ html.dark-mode #drawerOverlay {
 html.dark-mode #nearScreen {
     filter: none;
 }
+
+/* ===== Classes remplaçant les styles en ligne de l'ancienne page (public/js/mobile/app.js, mobile.html) ===== */
+.mob-onglets {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.mob-mfa__tete {
+    text-align: center;
+    margin-bottom: 16px;
+}
+.mob-mfa__titre {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1f2d3d;
+    margin-bottom: 6px;
+}
+.mob-mfa__instructions {
+    font-size: 13px;
+    color: #6b7a8d;
+    line-height: 1.5;
+}
+.mob-mfa__choix {
+    flex-direction: column;
+    margin-bottom: 6px;
+}
+.mob-mfa__envoi {
+    margin-bottom: 10px;
+}
+.lp-btn svg.mob-mfa__ico,
+.lp-btn:hover svg.mob-mfa__ico {
+    transform: none;
+}
+.mob-evt-detail {
+    font-weight: normal;
+    font-size: 12px;
+    color: #7f8c8d;
+}
+.mob-avatar-plus {
+    background: #6f6f6e;
+}
+.act-badge.empty.mob-badge-conge {
+    background: #bdc3c7;
+    color: #fff;
+}
+.week-dot.mob-dot-conge,
+.mdot.mob-dot-conge {
+    background: #bdc3c7;
+}
+.act-badge.mob-tiroir-badge {
+    margin-bottom: 12px;
+}
+.mob-tiroir-evt {
+    border-left: 3px solid #1d70b7;
+    padding: 8px 10px;
+    border-radius: 0 6px 6px 0;
+    background: #f5f5f5;
+    margin-bottom: 6px;
+}
+.mob-tiroir-evt__libelle {
+    font-weight: bold;
+    font-size: 13px;
+    color: #2c3e50;
+}
+.mob-tiroir-evt__lieu {
+    font-size: 11px;
+    color: #1d70b7;
+    font-weight: bold;
+    margin-top: 2px;
+}
