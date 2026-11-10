@@ -27,7 +27,9 @@ export default defineConfig({
             input: {
                 ilots: fileURLToPath(new URL('./src/ilots.ts', import.meta.url)),
                 // Page publique d'un sondage de date (public/sondage.html)
-                sondage: fileURLToPath(new URL('./src/sondage.ts', import.meta.url))
+                sondage: fileURLToPath(new URL('./src/sondage.ts', import.meta.url)),
+                // Application mobile (public/mobile.html)
+                mobile: fileURLToPath(new URL('./src/mobile.ts', import.meta.url))
             }
         }
     },
