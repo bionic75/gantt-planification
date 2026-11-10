@@ -1,8 +1,8 @@
 // Application principale : settings
 // Extrait de index.html : script classique, portée globale partagée avec les autres scripts de la page
 // Écran « Paramétrages divers » de l'Administration : îlot Vue (frontend/src/ilots/admin/parametrages). Restent ici
-// le compteur d'inactivité, le favicon et la fenêtre des nouveautés, communs à toute
-// l'application (déclenchés par l'îlot : gp:version-modifiee, gp:inactivite-modifiee, gp:favicon-modifie).
+// le compteur d'inactivité (gp:version-modifiee, gp:inactivite-modifiee). Favicon, nouveautés de l'aide, bandeau de
+// mise en production : îlots Vue (frontend/src/ilots/entete).
 
 // Version affichée sur la mire de connexion : îlot Vue (frontend/src/connexion/MireConnexion.vue)
 
@@ -17,11 +17,6 @@ async function loadSettings() {
         if (response.ok) {
             const settings = await response.json();
 
-            // Appliquer le favicon actuel
-            if (settings.favicon) {
-                applyFavicon(settings.favicon);
-            }
-
             // Démarrer le compteur d'inactivité si activé (pour tous les utilisateurs)
             if (settings.inactivity_enabled === 'true') {
                 const timeout = parseInt(settings.inactivity_timeout) || 15;
@@ -34,87 +29,6 @@ async function loadSettings() {
     } catch (error) {
         console.error('Erreur chargement settings:', error);
     }
-}
-
-function openHelp(anchor) {
-    const url = anchor ? `/aide.html#${anchor}` : '/aide.html';
-    window.open(url, '_blank', 'width=1200,height=800');
-}
-
-async function checkHelpVersionPopup() {
-    try {
-        const res = await fetch(`${API_URL}/settings`, { credentials: 'include' });
-        const settings = await res.json();
-        const pubEnabled = settings.help_publication_enabled === 'true';
-        const pubVersion = settings.help_publication_version || '';
-        const pubTimestamp = settings.help_publication_timestamp || pubVersion;
-
-        if (!pubEnabled || !pubVersion) return;
-
-        // La clé inclut le timestamp → chaque nouvelle publication force le réaffichage
-        const seenKey = `help_seen_${currentUser.id}_${pubTimestamp}`;
-        if (localStorage.getItem(seenKey)) return;
-        localStorage.setItem(seenKey, 'true');
-
-        document.getElementById('helpVersionModalTitle').textContent = pubVersion;
-
-        // Charger aide.html et extraire UNIQUEMENT le bloc de la version publiée
-        try {
-            const helpRes = await fetch('/aide.html');
-            const html = await helpRes.text();
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
-
-            // Chercher le bloc de version par son texte (strong dans .card)
-            let versionBlock = null;
-            const cards = doc.querySelectorAll('#section-notes-version .card, #section-notes-version [class*="card"]');
-            for (const card of cards) {
-                const strong = card.querySelector('strong');
-                if (strong && strong.textContent.trim() === pubVersion) {
-                    versionBlock = card;
-                    break;
-                }
-            }
-
-            if (versionBlock) {
-                document.getElementById('helpVersionModalContent').innerHTML = versionBlock.outerHTML;
-            } else {
-                // Fallback : toute la section notes de version
-                const section = doc.getElementById('section-notes-version');
-                document.getElementById('helpVersionModalContent').innerHTML = section
-                    ? section.outerHTML
-                    : `<p>Consultez la page d'aide pour les détails de la version ${pubVersion}.</p>`;
-            }
-        } catch (e) {
-            document.getElementById('helpVersionModalContent').innerHTML =
-                `<p>Consultez la page d'aide pour les détails de la version ${pubVersion}.</p>`;
-        }
-
-        document.getElementById('helpVersionModal').classList.add('active');
-    } catch (e) {
-        console.warn('Impossible de vérifier la popup aide:', e);
-    }
-}
-
-function closeHelpVersionModal() {
-    document.getElementById('helpVersionModal').classList.remove('active');
-}
-
-function applyFavicon(faviconName) {
-    // Récupérer ou créer le lien favicon
-    let faviconLink = document.querySelector('link[rel="icon"]');
-
-    if (!faviconLink) {
-        faviconLink = document.createElement('link');
-        faviconLink.rel = 'icon';
-        faviconLink.type = 'image/svg+xml';
-        document.head.appendChild(faviconLink);
-    }
-
-    // Mettre à jour le href avec le bon chemin
-    faviconLink.href = `/img/favicon-${faviconName}.svg?t=${Date.now()}`;
-
-    console.log(`✅ Favicon appliqué: ${faviconName}, href: ${faviconLink.href}`);
 }
 
 // Variables globales pour le timer d'inactivité
