@@ -70,16 +70,16 @@ index.html (existant)
 
 ## Phases
 
-| Phase | Contenu                                                                                                                                                                                              | Taille | Scénarios e2e concernés                                                     |
-| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | --------------------------------------------------------------------------- |
-| 0     | Préparation : e2e indépendants de l'implémentation, Vite + Vue + TypeScript, intégration serveur, CI, Docker, briques communes                                                                       | M      | tous (non-régression)                                                       |
-| 1     | Pilote : onglet SAMU-SAS TripAdVisor                                                                                                                                                                 | S      | `09-tripadvisor`                                                            |
-| 2     | Onglets Reporting, Événements (et types d'événements), Administration                                                                                                                                | M      | `08-reporting`, `05-evenements`, `11-administration`, `02-profils-et-acces` |
-| 3     | Ressources, CRA (découpé en sous-lots)                                                                                                                                                               | L      | `03-ressources`, `07-cra`                                                   |
-| 4     | Planification : grille, vues calendrier, impression, astreintes / HNO                                                                                                                                | L      | `04-planification`                                                          |
-| 5     | Applications : Aide à l'affectation, Déplacements, Analyse, **mobile**                                                                                                                               | L      | `06-aide-affectation`, `10-mobile`, `14-non-regression`                     |
-| 6     | Cadre de l'application : mire, double authentification, en-tête, connectés et messagerie, inactivité, thèmes, menu Applications ; Vue Router ; retrait de l'ancien code ; CSP sans `'unsafe-inline'` | M      | `01-authentification`, tous                                                 |
-| 7     | DSFR (phase distincte, après la migration)                                                                                                                                                           | M      | tous                                                                        |
+| Phase | Contenu                                                                                                                                                                                                                                                           | Taille | Scénarios e2e concernés                                                     |
+| ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | --------------------------------------------------------------------------- |
+| 0     | Préparation : e2e indépendants de l'implémentation, Vite + Vue + TypeScript, intégration serveur, CI, Docker, briques communes                                                                                                                                    | M      | tous (non-régression)                                                       |
+| 1     | Pilote : onglet SAMU-SAS TripAdVisor                                                                                                                                                                                                                              | S      | `09-tripadvisor`                                                            |
+| 2     | Onglets Reporting, Événements (et types d'événements), Administration                                                                                                                                                                                             | M      | `08-reporting`, `05-evenements`, `11-administration`, `02-profils-et-acces` |
+| 3     | Ressources, CRA (découpé en sous-lots)                                                                                                                                                                                                                            | L      | `03-ressources`, `07-cra`                                                   |
+| 4     | Planification : grille, vues calendrier, impression, astreintes / HNO                                                                                                                                                                                             | L      | `04-planification`                                                          |
+| 5     | Applications : Aide à l'affectation, Déplacements, Analyse, **mobile**                                                                                                                                                                                            | L      | `06-aide-affectation`, `10-mobile`, `14-non-regression`                     |
+| 6     | Cadre de l'application : mire et double authentification (composant commun au bureau et au mobile, voir ci-dessous), en-tête, connectés et messagerie, inactivité, thèmes, menu Applications ; Vue Router ; retrait de l'ancien code ; CSP sans `'unsafe-inline'` | M      | `01-authentification`, tous                                                 |
+| 7     | DSFR (phase distincte, après la migration)                                                                                                                                                                                                                        | M      | tous                                                                        |
 
 ### Avancement
 
@@ -164,6 +164,23 @@ rétroplannings) ; SheetJS et Leaflet installés par npm.
 Saisie des astreintes / HNO commune (lot 4.5b) : le CRA et le menu d'une demi-journée de la grille utilisent la même
 saisie (`cra/SaisieCra.vue`, source CRA ou mois de la grille ; identifiants des champs `craSaisie…` ou
 `ganttAstreinte…`) ; la copie réduite de l'ancien code (lot 3c) est supprimée.
+
+Phase 6, composants communs au bureau et au mobile (décision du 10/11/2026) : la mire du mobile
+(`frontend/src/mobile/MireMobile.vue`, reprise à l'identique au lot 5.5, comme la page mobile de l'ancien code avait
+sa propre mire) est une copie à supprimer. La migration de la mire du bureau en fait un seul composant de connexion :
+
+- mode « mobile » : pas de choix du profil (profil choisi par `POST /api/mobile-login`), pas d'écran de changement de
+  mot de passe ; mode « bureau » : choix du profil, changement de mot de passe obligatoire, mot de passe oublié ;
+- étape de double authentification commune (choix de la méthode, envoi du code, vérification : même API) ;
+- présentation adaptée à la taille de l'écran (requêtes média) plutôt que par une classe propre au mobile (`lp-mobile`).
+
+La page mobile utilise alors ce composant et `MireMobile.vue` est supprimée ; les scénarios `01-authentification` et
+`10-mobile` couvrent les deux modes. Les vues du planning restent distinctes (grille du bureau ; vues Jour, Semaine et
+Mois du mobile : deux interfaces différentes), mais leurs règles sont regroupées dans des modules TypeScript partagés
+au lieu des copies actuelles : semaine ISO et lundi d'une date (`mobile/planning.ts`,
+`ilots/affectation/planning/outils.ts`, `ilots/consultation/calendrier.ts`, `ilots/astreintes/ho.ts`,
+`ilots/accueil/calculs.ts`), icônes des modèles d'événements (`mobile/planning.ts`,
+`ilots/admin/jours-speciaux/types-evenements.ts`).
 
 Points à traiter après la migration (relevés pendant la phase 5, comportement conservé) :
 
