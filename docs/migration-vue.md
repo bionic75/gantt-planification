@@ -417,7 +417,12 @@ Changements de comportement décidés pendant la migration :
   code à la déconnexion pour inactivité (`gp:journal-invitations`). Photo enregistrée : `gp:photo-modifiee`. Le
   magasin de la Planification ne recharge plus ses données sur un événement tant qu'il ne les a pas chargées (il est
   créé dès la connexion par l'en-tête). Le réveil du poste sans session démonte aussi les îlots (`gp:session-terminee`).
-  `mfa.js` et `assignment-notifications.js` supprimés ; identifiants de l'ancien en-tête conservés.- Aide à l'affectation, ateliers, sondages et cadre (lot 5.4g) : confirmations (suppression d'un rétroplanning, clôture,
+  `mfa.js` et `assignment-notifications.js` supprimés ; identifiants de l'ancien en-tête conservés.
+- Planification, lignes masquées (correction relevée pendant le lot 6.2a, régression du lot 4.5a) : le bouton « N masqués »
+  et sa liste ne s'affichaient jamais (`app.css` les masquait par défaut, l'îlot les affiche par `v-show`) ; ils sont
+  de nouveau proposés. Le scénario « Lignes experts et congés masquables » de `04-planification`, ignoré faute de ligne
+  des congés hors CI, crée désormais son propre événement du jour.
+- Aide à l'affectation, ateliers, sondages et cadre (lot 5.4g) : confirmations (suppression d'un rétroplanning, clôture,
   réouverture et suppression d'un sondage, déconnexion) dans des fenêtres de la page (confirm auparavant) ; fenêtres
   d'invitation et de sondage dans la présentation commune (Échap ferme). Après le premier enregistrement d'un
   rétroplanning, les boutons « Sondage » sont aussitôt utilisables (l'ancien écran les laissait grisés jusqu'au
