@@ -23,10 +23,12 @@ cookie) répond `Access-Control-Allow-Origin: *`.
 
 Code : `securityHeaders()` dans `src/app.js` (helmet).
 
-- `Content-Security-Policy` : scripts et styles de l'application et des CDN utilisés (cdnjs), images
-  `data:` / `blob:` et tuiles OpenStreetMap, appels réseau vers l'application et Nominatim, aucun objet
-  (`object-src 'none'`), affichage dans un cadre limité à l'application (`frame-ancestors 'self'`).
-  Les scripts en ligne (`onclick=`…) restent autorisés tant que le frontend en contient.
+- `Content-Security-Policy` : scripts servis par l'application seulement (`script-src 'self'`, aucun script en ligne
+  ni attribut `onclick=`… : `script-src-attr 'none'`, depuis le lot 6.5 de la [migration](migration-vue.md)),
+  styles de l'application (styles en ligne encore admis, lot 6.6), images `data:` / `blob:` et tuiles OpenStreetMap,
+  appels réseau vers l'application et Nominatim, aucun objet (`object-src 'none'`), affichage dans un cadre limité à
+  l'application (`frame-ancestors 'self'`). Une aide en ligne personnalisée ne peut donc pas contenir de script : le
+  bouton « Retour à l'application » (classe `back-btn`) est géré par le point d'entrée de l'aide.
   **Nouveau domaine externe** (CDN, service cartographique) : l'ajouter à la directive concernée, sinon le
   navigateur le bloque (message « violates the following Content Security Policy directive » dans la console).
 - HTTPS (`APP_URL` en `https://`) : `Strict-Transport-Security` (180 jours) et `upgrade-insecure-requests`.

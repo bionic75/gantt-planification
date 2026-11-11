@@ -1,5 +1,6 @@
 // Calculs des calendriers de consultation (vue calendrier mensuel, calendrier des congés et événements) : grille du
 // mois en semaines ISO, congés scolaires, dates particulières, experts disponibles par demi-journée
+import { semaineIsoDate } from '@/outils/semaine';
 import type {
     ConfigDateParticuliere,
     DateParticuliere,
@@ -37,13 +38,8 @@ export const cleDateLocale = (d: Date) => cleDate(d.getFullYear(), d.getMonth(),
 
 export const titreMois = (annee: number, mois: number) => `${NOMS_MOIS[mois]} ${annee}`;
 
-/** Numéro de semaine ISO 8601 d'une date (calendrier local) */
-export function semaineIso(date: Date): number {
-    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-    const debutAnnee = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    return Math.ceil(((d.getTime() - debutAnnee.getTime()) / 86400000 + 1) / 7);
-}
+/** Numéro de semaine ISO 8601 d'une date du calendrier local (règle partagée, outils/semaine.ts) */
+export const semaineIso = (date: Date): number => semaineIsoDate(date).semaine;
 
 /** Mois précédent (-1) ou suivant (+1) */
 export function moisVoisin(annee: number, mois: number, sens: number): { annee: number; mois: number } {

@@ -121,7 +121,7 @@ async function supprimer() {
         <div id="helpCurrentFile" class="aide__actuel">
             <template v-if="lectureImpossible">Impossible de vérifier le fichier</template>
             <template v-else-if="actuel === undefined">Chargement...</template>
-            <!-- Recréé à chaque date : émojis convertis en icônes (public/js/ui-icons.js) -->
+            <!-- Recréé à chaque date : émojis convertis en icônes (decor/icones-emojis.ts) -->
             <span v-else-if="actuel" :key="actuel">
                 📄 Page d'aide active — {{ miseAJourAide(actuel) }} —
                 <button type="button" class="aide__supprimer" @click="supprimer">

@@ -1,6 +1,6 @@
 /* Aide à l'affectation › Administration : règles reprises de l'ancien écran (public/js/affectation-app.js), puis
    classes remplaçant ses styles en ligne. Les règles communes à l'application (.aff-card, .aff-btn, .aff-field…)
-   restent servies par l'ancien code jusqu'au lot du cadre (docs/migration-vue.md). */
+   sont dans affectation.css. */
 
 /* ── Rubriques repliables ── */
 .aff-card-head.aff-fold {

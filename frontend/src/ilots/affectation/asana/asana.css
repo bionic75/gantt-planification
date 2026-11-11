@@ -1,6 +1,6 @@
 /* Aide à l'affectation › Asana : règles reprises de l'ancien écran (public/js/affectation-app.js) et classes remplaçant
-   ses styles en ligne. Les règles communes (.aff-btn, .aff-av-b, .aff-sync-sec, .aff-toast…) restent servies par
-   l'ancien code jusqu'au lot du cadre. */
+   ses styles en ligne. Les règles communes (.aff-btn, .aff-av-b, .aff-sync-sec, .aff-toast…) sont dans
+   affectation.css. */
 
 #affAsanaChgBody th,
 #affAsanaConfBody th {

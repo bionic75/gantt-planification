@@ -82,7 +82,7 @@ async function revoquer(k: CleApi) {
         <div class="cles__nouvelle-valeur">
             <code id="apiKeyValue" class="cles__valeur">{{ nouvelleCle }}</code>
             <button type="button" class="cles__copier" @click="copier">
-                <!-- Recréé à chaque changement : émojis convertis en icônes (public/js/ui-icons.js) -->
+                <!-- Recréé à chaque changement : émojis convertis en icônes (decor/icones-emojis.ts) -->
                 <span :key="String(copiee)">{{ copiee ? '✅ Copié' : '📋 Copier' }}</span>
             </button>
         </div>

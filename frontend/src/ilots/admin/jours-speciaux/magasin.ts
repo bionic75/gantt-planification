@@ -1,5 +1,5 @@
 // Types d'événements partagés par le paramétrage et la reprise des données ; une modification est signalée aux deux
-// sous-sections (version) et à l'ancien code (planning) comme à l'onglet Événements (îlot Vue)
+// sous-sections (version) et à la planification comme à l'onglet Événements
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { apiTypesEvenements, type TypeAdmin } from '@/api/typesEvenements';

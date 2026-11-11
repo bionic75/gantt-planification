@@ -1,6 +1,6 @@
 // Bus d'événements de l'interface : événements du navigateur préfixés « gp: », émis et écoutés par les composants qui
-// ne partagent pas de magasin (cadre, onglets, applications, fenêtres) et par les derniers scripts de public/js
-// (décor : thèmes, mode sombre, mise en page). Remplace la liaison avec l'ancien code (lot 6.4b).
+// ne partagent pas de magasin (cadre, onglets, applications, fenêtres, décor de la page).
+// Remplace la liaison avec l'ancien code (lot 6.4b).
 
 import type { UtilisateurConnecte } from '@/api/connexion';
 
@@ -63,7 +63,7 @@ export interface EvenementsLiaison {
     'photo-modifiee': undefined;
     /** Rafraîchissement de la grille (photo de profil, réveil, retour à la planification) */
     'grille-a-rafraichir': undefined;
-    /** Zoom de la grille remis à 100 % (mise en page réinitialisée, public/js/layout-fix.js) */
+    /** Zoom de la grille remis à 100 % (mise en page réinitialisée, decor/mise-en-page.ts) */
     'zoom-grille-reinitialise': undefined;
     /**
      * Déploiements de l'aide à l'affectation modifiés (administration, Asana) : la grille et l'administration des

@@ -1,6 +1,6 @@
 <!-- Aide à l'affectation › onglet « Événements » : événements des activités suivies (visite métier, mise en service…)
      pour les SAMU du planning des déploiements ; filtres, recherche, tri, comparaison avec le planning ; suppression et
-     doublons (administrateur). Sous-îlot dans le conteneur de l'application, encore construit par l'ancien code. -->
+     doublons (administrateur). Onglet de l'application (ApplicationAffectation.vue). -->
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { apiAffectation, type ActiviteSuivie, type EvenementAffectation } from '@/api/affectation';

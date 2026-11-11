@@ -13,7 +13,16 @@ import { PROJECT_ROOT, PUBLIC_DIR } from './paths.js';
 const DIST_DIR = path.join(PROJECT_ROOT, 'dist', 'frontend');
 const MANIFEST = path.join(DIST_DIR, '.vite', 'manifest.json');
 /** Points d'entrée : page servie → script d'entrée */
-const ENTREES = { 'index.html': 'src/principal.ts', 'sondage.html': 'src/sondage.ts', 'mobile.html': 'src/mobile.ts' };
+const ENTREES = {
+    'index.html': 'src/principal.ts',
+    'sondage.html': 'src/sondage.ts',
+    'mobile.html': 'src/mobile.ts',
+    'aide.html': 'src/aide.ts'
+};
+/** Feuilles de style globales d'une page, point d'entrée CSS injecté avant les feuilles des composants */
+const STYLES_GLOBAUX = /** @type {Partial<Record<keyof typeof ENTREES, string>>} */ ({
+    'index.html': 'src/styles/globales.css'
+});
 const BASE = '/vue/';
 /** Port du rechargement à chaud de Vite (développement), autorisé par la CSP */
 export const PORT_HMR = 24678;
@@ -31,8 +40,10 @@ export function modeFrontend() {
 let mode = 'aucun';
 /** @typedef {keyof typeof ENTREES} PageVue */
 
+/** @typedef {{ tete: string, corps: string }} Balises feuilles de style (fin de <head>) et script (fin de <body>) */
+
 /** Balises des points d'entrée par page (build) */
-/** @type {Partial<Record<PageVue, string>>} */
+/** @type {Partial<Record<PageVue, Balises>>} */
 let balises = {};
 /** Pages mises en cache (production) */
 /** @type {Partial<Record<PageVue, string>>} */
@@ -62,13 +73,17 @@ function balisesDuBuild() {
         throw new Error(`Interface Vue non construite (${MANIFEST} absent) : lancer « npm run build:front »`);
     }
     const manifeste = JSON.parse(fs.readFileSync(MANIFEST, 'utf8'));
-    /** @type {Partial<Record<PageVue, string>>} */
+    /** @type {Partial<Record<PageVue, Balises>>} */
     const out = {};
     for (const [page, source] of /** @type {[PageVue, string][]} */ (Object.entries(ENTREES))) {
         const entree = manifeste[source];
         if (!entree) throw new Error(`Point d'entrée ${source} absent du manifeste de l'interface Vue`);
-        const css = feuillesDeStyle(manifeste, source).map(f => `<link rel="stylesheet" href="${BASE}${f}">`);
-        out[page] = [...css, `<script type="module" src="${BASE}${entree.file}"></script>`].join('');
+        const globales = STYLES_GLOBAUX[page];
+        if (globales && !manifeste[globales]) throw new Error(`Feuilles globales ${globales} absentes du manifeste`);
+        const css = [...(globales ? [manifeste[globales].file] : []), ...feuillesDeStyle(manifeste, source)].map(
+            f => `<link rel="stylesheet" href="${BASE}${f}">`
+        );
+        out[page] = { tete: css.join(''), corps: `<script type="module" src="${BASE}${entree.file}"></script>` };
     }
     return out;
 }
@@ -100,22 +115,36 @@ export async function installerFrontend(app) {
     }
 }
 
+/**
+ * Balises du point d'entrée d'une page insérées dans son HTML : feuilles de style à la fin de <head> (page affichée
+ * déjà mise en forme), script à la fin de <body> ; HTML sans ces balises (aide personnalisée) : au début et à la fin
+ * @param {string} html
+ * @param {PageVue} nom
+ */
+export function avecPointEntree(html, nom) {
+    /** @type {Balises} */
+    let b = { tete: '', corps: '' };
+    if (mode === 'vite') {
+        // Intégration à un serveur existant (documentation Vite « Backend Integration ») : client du rechargement à
+        // chaud et point d'entrée seulement (styles injectés par le script)
+        const globales = STYLES_GLOBAUX[nom];
+        b = {
+            tete: globales ? `<link rel="stylesheet" href="${BASE}${globales}">` : '',
+            corps: `<script type="module" src="${BASE}@vite/client"></script><script type="module" src="${BASE}${ENTREES[nom]}"></script>`
+        };
+    } else if (mode === 'build') b = balises[nom] ?? b;
+    const tete = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, `${b.tete}</head>`) : b.tete + html;
+    return /<\/body>/i.test(tete) ? tete.replace(/<\/body>/i, `${b.corps}</body>`) : tete + b.corps;
+}
+
 /** Page avec son point d'entrée */
 function pageHtml(/** @type {PageVue} */ nom) {
     const enCache = pagesEnCache[nom];
     if (enCache) return enCache;
-    const html = fs.readFileSync(path.join(PUBLIC_DIR, nom), 'utf8');
-    if (mode === 'vite') {
-        // Intégration à un serveur existant (documentation Vite « Backend Integration ») : client du rechargement à
-        // chaud et point d'entrée seulement ; le reste de la page (adresses de l'ancien code) n'est pas transformé
-        const entree = `<script type="module" src="${BASE}@vite/client"></script><script type="module" src="${BASE}${ENTREES[nom]}"></script>`;
-        return html.replace('</body>', `${entree}</body>`);
-    }
-    const page = mode === 'build' ? html.replace('</body>', `${balises[nom] ?? ''}</body>`) : html;
+    const page = avecPointEntree(fs.readFileSync(path.join(PUBLIC_DIR, nom), 'utf8'), nom);
     if (env.isProduction) pagesEnCache[nom] = page;
     return page;
 }
-
 /** Page principale (/, /index.html et toute adresse de l'application) */
 export function envoyerIndex(
     /** @type {import('express').Request} */ req,
@@ -138,4 +167,9 @@ export function envoyerMobile(
     /** @type {import('express').Response} */ res
 ) {
     res.type('html').send(pageHtml('mobile.html'));
+}
+
+/** Aide en ligne (/aide.html) : fichier livré, ou HTML personnalisé enregistré dans l'administration */
+export function envoyerAide(/** @type {import('express').Response} */ res, /** @type {string | null} */ personnalise) {
+    res.type('html').send(personnalise ? avecPointEntree(personnalise, 'aide.html') : pageHtml('aide.html'));
 }

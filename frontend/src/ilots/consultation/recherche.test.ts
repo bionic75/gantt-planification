@@ -98,7 +98,7 @@ describe('listes proposées', () => {
             icone: 'url(home)'
         });
         expect(optionLocalisation('🦄 Lieu', api).icone).toBeNull();
-        expect(optionLocalisation('🚨 SAMU 75', undefined).libelle).toBe('🚨 SAMU 75');
+        expect(optionLocalisation('🚨 SAMU 75', null).libelle).toBe('🚨 SAMU 75');
     });
 });
 

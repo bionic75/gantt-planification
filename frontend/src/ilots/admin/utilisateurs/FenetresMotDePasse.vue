@@ -104,7 +104,7 @@ async function copier() {
             <div class="mdp-donne__valeur">
                 <code id="passwordConfirmValue" class="mdp-donne__code">{{ donne?.motDePasse }}</code>
                 <button id="copyConfirmBtn" type="button" class="mdp-donne__copier" @click="copier">
-                    <!-- Recréé à chaque changement : émojis convertis en icônes (public/js/ui-icons.js) -->
+                    <!-- Recréé à chaque changement : émojis convertis en icônes (decor/icones-emojis.ts) -->
                     <span :key="String(copie)">{{ copie ? '✅ Copié !' : '📋 Copier' }}</span>
                 </button>
             </div>

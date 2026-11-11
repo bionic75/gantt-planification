@@ -1,5 +1,6 @@
 // Événements : modèles, filtres, regroupement par année et par mois, mises en forme et exports (sans affichage)
 import type { Evenement, Localisation, TypeEvenement } from '@/api/evenements';
+import { iconeDuLibelle, MODELES } from '@/outils/modeles-evenements';
 
 export const MOIS = [
     'Janvier',
@@ -16,23 +17,8 @@ export const MOIS = [
     'Décembre'
 ];
 
-/**
- * Modèles d'événements de l'ancien code (eventTemplates et EVENT_TPL_ICONS de l'ancien ics-events.js, supprimé) :
- * filtre « Libellé » de la liste et icône d'un événement sans type
- */
-export const MODELES: Array<{ code: string; label: string; icone: string }> = [
-    { code: 'formation', label: 'FORMATION', icone: 'graduation' },
-    { code: 'mes', label: 'MISE EN SERVICE', icone: 'power' },
-    { code: 'apd', label: 'ACCOMP. POST DÉM.', icone: 'lifebuoy' },
-    { code: 'visite', label: 'VISITE TERRAIN', icone: 'pin' },
-    { code: 'congres', label: 'CONGRÈS', icone: 'presentation' },
-    { code: 'visiteMetier', label: 'VISITE METIER', icone: 'briefcase' },
-    { code: 'vftSite', label: 'VFT SUR SITE', icone: 'clipboardCheck' },
-    { code: 'verifPrereq', label: 'VERIF PREREQUIS', icone: 'listChecks' },
-    { code: 'visiteOb', label: 'VISITE OB', icone: 'building' },
-    { code: 'visitePostMes', label: 'VISITE POST MES', icone: 'eye' },
-    { code: 'reunionLancement', label: 'RÉUNION DE LANCEMENT STRATÉGIQUE', icone: 'rocket' }
-];
+/** Modèles d'événements (filtre « Libellé » de la liste), règle partagée avec le mobile */
+export { MODELES };
 
 /** Filtre « Libellé » : événements ne correspondant à aucun modèle */
 export const AUTRES = '__AUTRES__';
@@ -280,14 +266,8 @@ export const libelleCourt = (ev: Evenement) => (aUnType(ev) ? ev.type_short || e
 /** Icône : celle du type, ou celle du modèle reconnu dans le libellé (événement sans type) */
 export function iconeEvenement(ev: Evenement) {
     if (aUnType(ev)) return ev.type_icon || '';
-    const l = normaliser(ev.label);
-    const modele = [...MODELES]
-        .sort((a, b) => b.label.length - a.label.length)
-        .find(m => {
-            const t = normaliser(m.label);
-            return l === t || l.startsWith(`${t} `);
-        });
-    return modele?.icone ?? '';
+    // Sans type : d'après le début du libellé (règle partagée avec le mobile, outils/modeles-evenements.ts)
+    return iconeDuLibelle(ev.label) ?? '';
 }
 
 /** Localisation en préfixe (« SAMU 75 | Formation ») */
