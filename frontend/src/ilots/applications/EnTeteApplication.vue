@@ -4,7 +4,7 @@
      « {prefixe}UserDisplayRole »… de l'ancien en-tête conservés. -->
 <script setup lang="ts">
 import type { Session } from '@/api/types';
-import { allerAccueil } from '@/liaison';
+import { allerAccueil } from '@/ilots/navigation/navigation';
 import ZoneUtilisateur from './ZoneUtilisateur.vue';
 
 defineProps<{ titre: string; prefixe: string; session: Session | null }>();

@@ -12,14 +12,8 @@ import { LISTE_SAMU } from '@/composants/samu';
 import { surDemande } from '@/ilots/fenetres';
 import { libelleOnglet, ONGLETS } from '@/ilots/onglets';
 import SaisieSamu from '@/ilots/ressources/SaisieSamu.vue';
-import {
-    choisirModeAffichage,
-    emettre,
-    modeAffichage,
-    ongletsAccessibles,
-    themesAncienCode,
-    type ModeAffichage
-} from '@/liaison';
+import { choisirModeAffichage, emettre, modeAffichage, themesAncienCode, type ModeAffichage } from '@/liaison';
+import { ongletsAccessibles } from '@/ilots/navigation/navigation';
 import { useSessionStore } from '@/stores/session';
 import { estImage, initiales, regleMotDePasse, TAILLE_MAX_PHOTO } from './profil';
 
