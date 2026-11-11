@@ -9,7 +9,7 @@ import {
     type Localisation,
     type TypeEvenement
 } from '@/api/evenements';
-import { emettre } from '@/liaison';
+import { emettre } from '@/evenements';
 import { useSessionStore } from '@/stores/session';
 
 /** Message affiché au-dessus de la liste (inscription, erreur) */

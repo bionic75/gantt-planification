@@ -6,7 +6,7 @@ import AppAlert from '@/composants/AppAlert.vue';
 import AppConfirmation from '@/composants/AppConfirmation.vue';
 import { fournirConfirmation } from '@/composants/confirmation';
 import { surReouverture } from '@/ilots/activation';
-import { ecouter } from '@/liaison';
+import { ecouter } from '@/evenements';
 import FenetreCarte from './FenetreCarte.vue';
 import FenetreDoublons from './FenetreDoublons.vue';
 import FormulaireEvenement from './FormulaireEvenement.vue';

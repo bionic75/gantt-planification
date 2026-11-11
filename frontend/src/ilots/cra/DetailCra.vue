@@ -10,7 +10,7 @@ import { apiParametres } from '@/api/parametrages';
 import AppAlert from '@/composants/AppAlert.vue';
 import { useConfirmation } from '@/composants/confirmation';
 import { prendreCraDemande } from '@/ilots/navigation/navigation';
-import { ecouter, emettre } from '@/liaison';
+import { ecouter, emettre } from '@/evenements';
 import { useSessionStore } from '@/stores/session';
 import {
     actions as actionsDe,

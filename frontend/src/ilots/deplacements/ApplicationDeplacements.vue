@@ -1,5 +1,5 @@
-<!-- Application « Suivi des déplacements » (menu Applications), montée dans #deplacementsContainer quand l'ancien code
-     l'affiche : en-tête commun, pastilles (connectés, minuteur), onglets (Planification des déplacements ; Reporting pour
+<!-- Application « Suivi des déplacements » (menu Applications), à l'adresse /deplacements (#deplacementsContainer) :
+     en-tête commun, pastilles (connectés, minuteur), onglets (Planification des déplacements ; Reporting pour
      les comptes autorisés sur l'application ; Administration pour l'administrateur), recherche, fenêtre de
      déconnexion. À chaque réouverture de l'application : session relue, onglet « Planification des déplacements ». -->
 <script setup lang="ts">
@@ -51,7 +51,7 @@ function allerPlanification() {
 
 function seDeconnecter() {
     deconnexion.value = false;
-    void deconnecterDepuisApplication('deplacements');
+    void deconnecterDepuisApplication();
 }
 
 /** Session relue (photo de profil, profil actif) */

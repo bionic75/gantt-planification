@@ -5,9 +5,9 @@
 import { computed, ref, shallowRef } from 'vue';
 import AppIcone from '@/composants/AppIcone.vue';
 import AppModal from '@/composants/AppModal.vue';
-import { surDemande } from '@/ilots/fenetres';
+import { surDemande } from '@/cadre/fenetres';
 import { usePlanificationStore } from '@/ilots/planification/magasin';
-import type { EtatPlanning } from '@/liaison';
+import type { EtatPlanning } from '@/evenements';
 import {
     JOURS_SEMAINE,
     NOM_ZONE,

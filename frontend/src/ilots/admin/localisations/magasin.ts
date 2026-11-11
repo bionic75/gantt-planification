@@ -2,7 +2,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { apiLocalisations, type DonneesLocalisation, type Localisation } from '@/api/localisations';
-import { emettre } from '@/liaison';
+import { emettre } from '@/evenements';
 import {
     analyserCsv,
     donneesConflit,

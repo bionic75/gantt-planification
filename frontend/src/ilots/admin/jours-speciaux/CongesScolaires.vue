@@ -5,7 +5,7 @@ import { apiConges, type FichierConges } from '@/api/joursSpeciaux';
 import AppAlert from '@/composants/AppAlert.vue';
 import AppSousSectionAdmin from '@/composants/AppSousSectionAdmin.vue';
 import { useConfirmation } from '@/composants/confirmation';
-import { emettre } from '@/liaison';
+import { emettre } from '@/evenements';
 import { lireIcs, zones } from './ics';
 
 const confirmer = useConfirmation();

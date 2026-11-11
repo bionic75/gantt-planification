@@ -3,7 +3,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { apiTypesEvenements, type TypeAdmin } from '@/api/typesEvenements';
-import { emettre } from '@/liaison';
+import { emettre } from '@/evenements';
 
 export const useTypesEvenementsStore = defineStore('admin-types-evenements', () => {
     const types = ref<TypeAdmin[]>([]);

@@ -1,0 +1,51 @@
+/* Colonnes redimensionnables et masquables (outils/colonnes.ts) */
+.col-resizable {
+    position: relative;
+}
+.col-resize-handle {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 6px;
+    height: 100%;
+    cursor: col-resize;
+    z-index: 2;
+    background: transparent;
+}
+.col-ctx-menu {
+    position: fixed;
+    z-index: 10000;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    padding: 4px 0;
+    min-width: 220px;
+    font-size: 13px;
+}
+.col-ctx-menu__entree {
+    padding: 8px 14px;
+    cursor: pointer;
+    color: #222;
+}
+.col-ctx-menu__entree:hover {
+    background: #f0f4ff;
+}
+.col-ctx-menu__entree--masquer {
+    color: #c62828;
+}
+.col-ctx-menu__entree--afficher {
+    color: #1d70b7;
+}
+.col-ctx-menu__separateur {
+    border-top: 1px solid #eee;
+    margin: 3px 0;
+}
+.col-ctx-menu__titre {
+    padding: 3px 14px;
+    font-size: 11px;
+    color: #888;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}

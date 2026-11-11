@@ -1,27 +1,14 @@
 <!-- Barre d'onglets de la Planification (cadre de l'application, monté pendant la session dans #barreOnglets, devant
      les boutons de l'en-tête) : onglets accessibles au profil, ordre choisi par glisser-déposer (mémorisé dans le
-     navigateur pour l'utilisateur), pastille des CRA en cours. À l'arrivée : application gardée pour l'onglet du
-     navigateur (page rechargée), sinon l'onglet par défaut ; lien d'une notification vers un CRA. Identifiants de
-     l'ancienne barre conservés (data-tab, #craTabBtn, #craPendingBadge…). -->
+     navigateur pour l'utilisateur), pastille des CRA en cours ; chaque onglet ouvre son adresse (onglet d'arrivée et
+     adresse demandée : ilots/navigation). Identifiants de l'ancienne barre conservés (data-tab, #craTabBtn,
+     #craPendingBadge…). -->
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { ONGLETS } from '@/ilots/onglets';
-import { emettre } from '@/liaison';
 import { useSessionStore } from '@/stores/session';
 import { ordreMemorise, memoriserOrdre, reordonner } from './ordre';
-import {
-    applicationMemorisee,
-    chargerAcces,
-    chargerPastilleCra,
-    craDuLien,
-    craVisible,
-    navigation,
-    ONGLETS_CONFIGURABLES,
-    ongletArrivee,
-    ouvrirApplication,
-    ouvrirOnglet,
-    peut
-} from './navigation';
+import { craVisible, navigation, ONGLETS_CONFIGURABLES, ouvrirOnglet, peut } from './navigation';
 
 /** Identifiants de l'ancienne barre (repères des tests et de l'aide) */
 const IDENTIFIANTS: Record<string, string> = {
@@ -89,7 +76,7 @@ function fin() {
     survole.value = null;
 }
 
-// ── Arrivée dans l'application ───────────────────────────────────────────────
+// ── Session relue (photo, profil) ────────────────────────────────────────────
 
 watch(
     () => magasin.session,
@@ -100,27 +87,7 @@ watch(
 
 onMounted(async () => {
     const s = await magasin.charger().catch(() => null);
-    if (!s) return;
-    navigation.session = s;
-    await chargerAcces();
-    ordre.value = ordreMemorise(s.userId, ORDRE_ORIGINE);
-    void chargerPastilleCra();
-    const lien = craDuLien(window.location.search);
-    if (lien.cra && craVisible(navigation.config, s)) {
-        ouvrirOnglet('cra');
-        if (lien.id !== null) {
-            const id = lien.id;
-            // CRA ouvert par l'îlot du circuit, à son montage ou aussitôt
-            setTimeout(() => {
-                navigation.craDemande = id;
-                emettre('cra-demande');
-            }, 500);
-        }
-        return;
-    }
-    ouvrirOnglet(ongletArrivee(navigation.config, s));
-    const application = applicationMemorisee(s);
-    if (application) ouvrirApplication(application);
+    if (s) ordre.value = ordreMemorise(s.userId, ORDRE_ORIGINE);
 });
 </script>
 

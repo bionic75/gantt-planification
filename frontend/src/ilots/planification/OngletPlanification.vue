@@ -20,7 +20,7 @@ import { menuAutorise, questionSuppression } from './menu';
 import FenetreMessage from '@/ilots/saisie/FenetreMessage.vue';
 import { SAMU_ASTREINTES } from '@/ilots/saisie/astreintes';
 import { accesAccueil } from '@/ilots/navigation/navigation';
-import { ecouter, emettre, type NomFenetre } from '@/liaison';
+import { ecouter, emettre, type NomFenetre } from '@/evenements';
 import { useSessionStore } from '@/stores/session';
 import { MESSAGES_ENVOI } from './exports';
 import FenetreCalendrierRessource from './FenetreCalendrierRessource.vue';

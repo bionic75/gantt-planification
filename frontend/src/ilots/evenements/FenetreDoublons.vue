@@ -7,7 +7,7 @@ import AppAlert from '@/composants/AppAlert.vue';
 import AppButton from '@/composants/AppButton.vue';
 import AppModal from '@/composants/AppModal.vue';
 import { useConfirmation } from '@/composants/confirmation';
-import { emettre } from '@/liaison';
+import { emettre } from '@/evenements';
 import { dateFr } from './calculs';
 
 /** evenements : seuls les groupes dont tous les événements figurent dans cette liste sont proposés */

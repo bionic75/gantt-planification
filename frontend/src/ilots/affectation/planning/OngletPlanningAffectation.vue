@@ -6,7 +6,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { surReouverture } from '@/ilots/activation';
 import FenetreMessage from '@/ilots/saisie/FenetreMessage.vue';
-import { ecouter } from '@/liaison';
+import { ecouter } from '@/evenements';
 import { useSessionStore } from '@/stores/session';
 import { useAsanaStore } from '../asana/magasin';
 import FenetreAffectation from './FenetreAffectation.vue';

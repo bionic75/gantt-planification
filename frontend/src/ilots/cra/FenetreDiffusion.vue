@@ -13,7 +13,7 @@ import {
 import { apiUtilisateurs, type Utilisateur } from '@/api/utilisateurs';
 import AppAlert from '@/composants/AppAlert.vue';
 import AppModal from '@/composants/AppModal.vue';
-import { emettre } from '@/liaison';
+import { emettre } from '@/evenements';
 import { adresseValide, ajouterDestinataire, libelleDestinataire, suggestions } from './administration';
 import { libelleMois, majuscule } from './calculs';
 import { useCraStore } from './magasin';

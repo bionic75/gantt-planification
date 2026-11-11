@@ -4,7 +4,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue';
 import type { CraListe } from '@/api/cra';
-import { rendreColonnesRedimensionnables } from '@/liaison';
+import { rendreColonnesRedimensionnables } from '@/outils/colonnes';
 import { COLONNES_TABLEAU, dateCourte, statutTableau, trier } from './administration';
 import { libelleMois } from './calculs';
 

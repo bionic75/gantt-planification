@@ -4,7 +4,7 @@
 import { computed, ref } from 'vue';
 import { apiThemes } from '@/api/parametrages';
 import AppSousSectionAdmin from '@/composants/AppSousSectionAdmin.vue';
-import { themesAncienCode } from '@/liaison';
+import { themesAncienCode } from '@/outils/page';
 import { champsThemes, configThemes, etatTheme, THEMES, type ChampsThemes } from './calculs';
 
 const champs = ref<ChampsThemes | null>(null);

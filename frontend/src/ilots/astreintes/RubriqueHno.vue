@@ -6,7 +6,7 @@ import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { apiRessources, type Ressource } from '@/api/ressources';
 import AppConfirmation from '@/composants/AppConfirmation.vue';
 import { fournirConfirmation } from '@/composants/confirmation';
-import { ecouter, emettre } from '@/liaison';
+import { ecouter, emettre } from '@/evenements';
 import DisponibilitesHno from './DisponibilitesHno.vue';
 import GenerationHno from './GenerationHno.vue';
 import PlanningActuelHno from './PlanningActuelHno.vue';

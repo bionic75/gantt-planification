@@ -5,7 +5,7 @@ import { computed, nextTick, ref, watch } from 'vue';
 import { apiUtilisateurs, type Utilisateur } from '@/api/utilisateurs';
 import AppIcone from '@/composants/AppIcone.vue';
 import { useConfirmation } from '@/composants/confirmation';
-import { rendreColonnesRedimensionnables } from '@/liaison';
+import { rendreColonnesRedimensionnables } from '@/outils/colonnes';
 import { badges, derniereConnexion, parNom, peutValidationRh, trier, trigramme, type ColonneTri } from './calculs';
 import { useUtilisateursStore } from './magasin';
 

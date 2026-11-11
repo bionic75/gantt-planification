@@ -8,7 +8,7 @@ import { computed, onBeforeUnmount, ref } from 'vue';
 import { api, ErreurApi } from '@/api/client';
 import type { Profil, Session } from '@/api/types';
 import { initiales as initialesDe } from '@/ilots/profil/profil';
-import { ouvrirPhotoProfil } from '@/liaison';
+import { ouvrirPhotoProfil } from '@/evenements';
 
 const props = withDefaults(
     defineProps<{

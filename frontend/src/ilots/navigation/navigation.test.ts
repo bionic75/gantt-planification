@@ -1,12 +1,17 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createMemoryHistory, type Router } from 'vue-router';
 import type { Session } from '@/api/types';
+import { creerRouteur } from '@/cadre/routes';
+import { emettre } from '@/evenements';
 import {
     accesDe,
     ACCES_PAR_DEFAUT,
-    applicationMemorisee,
     craDuLien,
     craVisible,
     crasEnCours,
+    demarrerNavigation,
+    destination,
+    installerNavigation,
     navigation,
     ongletArrivee,
     ongletsDisponibles,
@@ -41,10 +46,12 @@ const SESSION: Session = {
 beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();
-    document.body.innerHTML = `
-        <div class="container"><div id="resources" class="tab-content active"></div><div id="accueil" class="tab-content"></div></div>
-        <div id="analyseContainer" style="display: none"></div><div id="deplacementsContainer" style="display: none"></div>
-        <div id="affectationContainer" style="display: none"></div>`;
+    // Serveur injoignable : accès par défaut, pas de pastille
+    vi.stubGlobal(
+        'fetch',
+        vi.fn(() => Promise.reject(new Error('hors ligne')))
+    );
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
 });
 
 describe('accès aux onglets', () => {
@@ -78,10 +85,10 @@ describe('accès aux onglets', () => {
     });
 
     it('lien d’une notification : cra_id, ou craId des anciens courriels', () => {
-        expect(craDuLien('?tab=cra&cra_id=12')).toEqual({ cra: true, id: 12 });
-        expect(craDuLien('?tab=cra&craId=7')).toEqual({ cra: true, id: 7 });
-        expect(craDuLien('?tab=cra')).toEqual({ cra: true, id: null });
-        expect(craDuLien('?tab=planning')).toEqual({ cra: false, id: null });
+        expect(craDuLien({ tab: 'cra', cra_id: '12' })).toEqual({ cra: true, id: 12 });
+        expect(craDuLien({ tab: 'cra', craId: '7' })).toEqual({ cra: true, id: 7 });
+        expect(craDuLien({ tab: 'cra' })).toEqual({ cra: true, id: null });
+        expect(craDuLien({ tab: 'planning' })).toEqual({ cra: false, id: null });
     });
 });
 
@@ -103,23 +110,93 @@ describe('ordre des onglets', () => {
     });
 });
 
-describe('changement d’onglet et d’application', () => {
-    it('onglet ouvert : conteneur « active »', () => {
-        ouvrirOnglet('accueil');
-        expect(document.getElementById('accueil')!.classList.contains('active')).toBe(true);
-        expect(document.getElementById('resources')!.classList.contains('active')).toBe(false);
-        expect(navigation.onglet).toBe('accueil');
+describe('adresses', () => {
+    const route = (chemin: string) => creerRouteur(createMemoryHistory()).resolve(chemin);
+
+    it('racine et adresse inconnue : onglet d’arrivée ; ancien lien d’un CRA : le CRA', () => {
+        const s = { ...SESSION, defaultTab: 'planning' };
+        expect(destination(route('/'), null, s)).toBe('/planification');
+        expect(destination(route('/nulle-part'), null, s)).toBe('/planification');
+        expect(destination(route('/?tab=cra&cra_id=12'), null, { ...s, astreinte_volontaire: true })).toBe('/cra/12');
+        expect(destination(route('/?tab=cra'), null, { ...s, astreinte_volontaire: true })).toBe('/cra');
+        // CRA refusé au profil : onglet d’arrivée
+        expect(destination(route('/?tab=cra&cra_id=12'), null, s)).toBe('/planification');
     });
 
-    it('application affichée et gardée pour l’onglet du navigateur ; retour à la Planification', () => {
+    it('onglet ou application refusés au profil : onglet d’arrivée ; permis : gardés', () => {
+        expect(destination(route('/reporting'), null, SESSION)).toBe('/accueil');
+        expect(destination(route('/planification'), null, SESSION)).toBeNull();
+        expect(destination(route('/accueil'), null, SESSION)).toBeNull();
+        expect(destination(route('/analyse'), null, SESSION)).toBeNull();
+        expect(destination(route('/deplacements'), null, SESSION)).toBe('/accueil');
+        expect(destination(route('/cra/3'), null, SESSION)).toBe('/accueil');
+    });
+});
+
+describe('navigation pendant la session', () => {
+    let routeur: Router;
+    const chemin = () => routeur.currentRoute.value.fullPath;
+    const attente = () => new Promise(r => setTimeout(r, 0));
+
+    async function ouvrir(adresse: string, s: Session = SESSION) {
+        routeur = creerRouteur(createMemoryHistory());
+        installerNavigation(routeur);
+        await routeur.push(adresse);
+        await demarrerNavigation(s);
+    }
+
+    beforeEach(() => emettre('session-terminee'));
+
+    it('adresse demandée avant la connexion gardée si elle est permise, sinon onglet d’arrivée', async () => {
+        await ouvrir('/planification');
+        expect(chemin()).toBe('/planification');
+        expect(navigation.onglet).toBe('planning');
+        emettre('session-terminee');
+        await ouvrir('/reporting');
+        expect(chemin()).toBe('/accueil');
+    });
+
+    it('onglets et applications : leur adresse ; retour à la Planification sur le dernier onglet', async () => {
+        await ouvrir('/');
+        ouvrirOnglet('planning');
+        await attente();
+        expect(chemin()).toBe('/planification');
         ouvrirApplication('analyse');
-        expect(document.getElementById('analyseContainer')!.style.display).toBe('block');
-        expect(document.querySelector<HTMLElement>('.container')!.style.display).toBe('none');
-        expect(applicationMemorisee(SESSION)).toBe('analyse');
-        expect(applicationMemorisee({ availableApps: [] })).toBeNull();
+        await attente();
+        expect(chemin()).toBe('/analyse');
+        expect(navigation.application).toBe('analyse');
         revenirPlanification();
-        expect(document.getElementById('analyseContainer')!.style.display).toBe('none');
+        await attente();
+        expect(chemin()).toBe('/planification');
         expect(navigation.application).toBe('planification');
-        expect(applicationMemorisee(SESSION)).toBeNull();
+        // Retour arrière du navigateur
+        routeur.back();
+        await attente();
+        expect(chemin()).toBe('/analyse');
+    });
+
+    it('adresse d’un CRA : CRA demandé à l’onglet CRA', async () => {
+        await ouvrir('/cra/12', { ...SESSION, astreinte_volontaire: true });
+        expect(chemin()).toBe('/cra/12');
+        expect(navigation.craDemande).toBe(12);
+    });
+
+    it('fin de la session : état oublié, racine', async () => {
+        await ouvrir('/planification');
+        emettre('session-terminee');
+        await attente();
+        expect(navigation.session).toBeNull();
+        expect(navigation.pret).toBe(false);
+        expect(chemin()).toBe('/');
+    });
+});
+describe('ancien lien d’une notification', () => {
+    it('« /?tab=cra&cra_id=12 » à l’ouverture de la session : /cra/12', async () => {
+        const routeur = creerRouteur(createMemoryHistory());
+        installerNavigation(routeur);
+        await routeur.push('/?tab=cra&cra_id=12');
+        await demarrerNavigation({ ...SESSION, astreinte_volontaire: true });
+        expect(routeur.currentRoute.value.fullPath).toBe('/cra/12');
+        emettre('session-terminee');
     });
 });

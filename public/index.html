@@ -1,6 +1,6 @@
 <!-- v2.18.1 -->
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" data-ui-icons-keep-alert>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,143 +13,16 @@
     <script src="/js/darkmode.js?v=2.18.1"></script>
     <script src="/js/themes.js?v=2.18.1" defer></script>
     <script src="/js/layout-fix.js?v=2.18.1" defer></script>
-    <script src="/js/app/boot.js?v=2.18.1"></script>
     <script src="/js/ui-icons.js?v=2.18.1" defer></script>
     <script src="/js/event-types.js?v=2.18.1" defer></script>
     <link rel="stylesheet" href="/css/sections.css?v=2.18.1">
 </head>
 <body>
-    <div class="container">
-        <!-- Utilisateurs connectés et minuteur d'inactivité : îlot Vue commun aux applications
-             (frontend/src/ilots/applications/PastillesApplication.vue) -->
-        <div id="pastillesPlanification" class="gp-entete-conteneur"></div>
+    <!-- Application Vue (frontend/src/principal.ts, cadre/ApplicationPrincipale.vue) : mire de connexion (#loginPage),
+         Planification et ses onglets, autres applications, chacun à son adresse (/planification, /cra/12,
+         /deplacements…) -->
+    <div id="app"></div>
 
-        <!-- Header fixe -->
-        <div class="fixed-header">
-            <!-- Utilisateur, profil, nouvelles affectations : îlot Vue (frontend/src/ilots/entete/EnTetePlanification.vue) -->
-            <div id="enteteUtilisateur" class="gp-entete-conteneur"></div>
-            <div class="tabs" id="mainTabsContainer">
-                <!-- Onglets accessibles au profil, ordre choisi par glisser-déposer, pastille des CRA : îlot Vue
-                     (frontend/src/ilots/navigation/BarreOnglets.vue) -->
-                <div id="barreOnglets" class="gp-entete-conteneur"></div>
-                
-                <!-- Accueil, aide, recherche, enveloppe des invitations, déconnexion : îlot Vue
-                     (frontend/src/ilots/entete/BoutonsEnTete.vue) -->
-                <div id="enteteBoutons" class="gp-entete-conteneur"></div>
-            </div>
-        </div>
-        
-        <!-- Espaceur pour compenser le header fixe -->
-        <div class="header-spacer"></div>
-        
-        <!-- Îlot Vue (frontend/src/ilots/ressources) -->
-        <div id="resources" class="tab-content active"></div>
-        
-        <!-- Îlot Vue (frontend/src/ilots/tripadvisor) -->
-        <div id="accueil" class="tab-content"></div>
-        <div id="tripadvisor" class="tab-content"></div>
-
-        <!-- Îlot Vue (frontend/src/ilots/evenements) -->
-        <div id="evenements" class="tab-content"></div>
-
-        <!-- Planification : îlot Vue (frontend/src/ilots/planification) -->
-        <div id="planning" class="tab-content"></div>
-        
-        <!-- ONGLET REPORTING -->
-        <!-- Îlot Vue (frontend/src/ilots/cra) -->
-        <div id="cra" class="tab-content"></div>
-
-        <!-- Îlot Vue (frontend/src/ilots/reporting) -->
-        <div id="reporting" class="tab-content"></div>
-
-    <!-- SECTION CARTE ÉVÉNEMENTS/DÉPLACEMENTS -->
-    
-
-<div id="admin" class="tab-content">
-    <h2>Administration</h2>
-    
-    
-    <!-- SECTION Paramétrages divers : îlot Vue (frontend/src/ilots/admin/parametrages) -->
-    <div id="adminParametrages"></div>
-    
-    <!-- SECTION Administration des jours ou événements spéciaux : îlot Vue (frontend/src/ilots/admin/jours-speciaux) -->
-    <div id="adminJoursSpeciaux"></div>
-    
-    <!-- SECTION LOCALISATION : îlot Vue (frontend/src/ilots/admin/localisations) -->
-    <div id="adminLocalisations"></div>
-
-    <!-- SECTIONS Configuration Email (SMTP) et double authentification : îlots Vue (frontend/src/ilots/admin/securite) -->
-    <div id="adminSmtp"></div>
-    <div id="adminMfa"></div>
-    
-    <!-- SECTION Automatisations et rappels : îlot Vue (frontend/src/ilots/admin/automatisations) -->
-    <div id="adminAutomatisations"></div>
-    
-    <!-- SECTION: Gestion des API : îlot Vue (frontend/src/ilots/admin/securite) -->
-    <div id="adminApi"></div>
-
-    <!-- SECTIONS Accès aux applications et accès aux onglets : îlots Vue (frontend/src/ilots/admin/acces) -->
-    <div id="adminApplications"></div>
-    <div id="adminOnglets"></div>
-
-    <!-- SECTION Gestion des utilisateurs : îlot Vue (frontend/src/ilots/admin/utilisateurs) -->
-    <div id="adminUtilisateurs"></div>
-</div>
-
-<!-- Onglet Astreintes : îlot Vue (frontend/src/ilots/astreintes) -->
-<div id="astreintesGestion" class="tab-content"></div>
-
-
-        </div>
-    </div>
-
-    <!-- Mire de connexion, double authentification et fenêtres des mots de passe : îlot Vue
-         (frontend/src/connexion/MireBureau.vue), affiché par la classe « active » posée par l'ancien code -->
-    <div id="loginPage" class="modal active lp-page"></div>
-    
-    <!-- Fiche de la ressource, historique des taux de MAD et particularités : îlot Vue (frontend/src/ilots/ressources) -->
-
-    <script src="/js/app/core.js?v=2.18.1"></script>
-    <script src="/js/app/email-validation.js?v=2.18.1"></script>
-    <script src="/js/app/planning.js?v=2.18.1"></script>
-    <script src="/js/app/conges-scolaires.js?v=2.18.1"></script>
-    <script src="/js/app/dump.js?v=2.18.1"></script>
-    <script src="/js/app/locations.js?v=2.18.1"></script>
-    <script src="/js/app/planning-navigation.js?v=2.18.1"></script>
-
-    <!-- Exports et impressions de la planification : îlot Vue (frontend/src/ilots/planification) -->
-
-    <!-- STYLE POUR L'IMPRESSION -->
-    
-
-    <!-- Fenêtre « Mon profil » : îlot Vue (frontend/src/ilots/profil/FenetreProfil.vue), ouverte par le rond de l'utilisateur -->
-
-    <!-- CONTAINER POUR L'APPLICATION DÉPLACEMENTS -->
-
-    <!-- Application « Suivi des déplacements » : îlot Vue (frontend/src/ilots/deplacements/ApplicationDeplacements.vue),
-         monté quand l'ancien code affiche le conteneur (menu Applications) : en-tête, pastilles, onglets et fenêtres -->
-    <div id="deplacementsContainer" class="container" style="display: none;"></div>
-    <!-- Application « Aide à l'affectation opérationnelle » : îlot Vue (frontend/src/ilots/affectation/ApplicationAffectation.vue) -->
-    <div id="affectationContainer" class="container" style="display: none;"></div>
-
-
-    <!-- Carte des événements : îlot Vue (frontend/src/ilots/evenements/FenetreCarte.vue) -->
-
-<!-- Application « Analyse de fichiers » : îlot Vue (frontend/src/ilots/analyse/ApplicationAnalyse.vue), monté quand
-     l'ancien code affiche le conteneur (menu Applications) : en-tête, pastilles, chargement, filtres, tableau -->
-<div id="analyseContainer" style="display:none; min-height:100vh; background:#f5f7fa; font-family:Arial,sans-serif;"></div>
-
-<!-- Menu « Applications », visible dans toutes les applications : îlot Vue (frontend/src/ilots/entete/MenuApplications.vue) -->
-<div id="menuApplications"></div>
-
-<!-- Bandeau de mise en production (visible aussi sur la mire) : îlot Vue (frontend/src/ilots/entete/BandeauMiseEnProduction.vue) -->
-<div id="bandeauMiseEnProduction"></div>
-<!-- Favicon et nouveautés de l'aide après la connexion : îlot Vue (frontend/src/ilots/entete/CadreSession.vue) -->
-<div id="cadreSession"></div>
-<!-- Connectés, conversations, inactivité (toutes les applications) : îlot Vue (frontend/src/ilots/connectes/CadreConnectes.vue) -->
-<div id="cadreConnectes"></div>
-
-
-<script src="/js/app/warning-icons.js?v=2.18.1"></script>
+    <script src="/js/app/warning-icons.js?v=2.18.1"></script>
 </body>
 </html>

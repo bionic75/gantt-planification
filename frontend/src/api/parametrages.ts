@@ -1,6 +1,6 @@
 // Paramétrages divers (administration) : paramètres, aide en ligne, dump et restauration, thèmes
 import { api, ErreurApi } from '@/api/client';
-import { emettre } from '@/liaison';
+import { emettre } from '@/evenements';
 
 /** GET /settings : paramètres (texte) par clé */
 export type Parametres = Record<string, string | undefined>;

@@ -9,7 +9,8 @@ import AppConfirmation from '@/composants/AppConfirmation.vue';
 import { fournirConfirmation } from '@/composants/confirmation';
 import { usePlanificationStore } from '@/ilots/planification/magasin';
 import { ouvrirOnglet } from '@/ilots/navigation/navigation';
-import { deconnecter, emettre, type NomFenetre } from '@/liaison';
+import { emettre, type NomFenetre } from '@/evenements';
+import { deconnecter } from '@/session/session';
 import { useSessionStore } from '@/stores/session';
 
 const session = useSessionStore();

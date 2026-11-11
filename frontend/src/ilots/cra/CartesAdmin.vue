@@ -5,7 +5,7 @@ import { computed, ref } from 'vue';
 import { apiCra, type Cra } from '@/api/cra';
 import AppAlert from '@/composants/AppAlert.vue';
 import { useConfirmation } from '@/composants/confirmation';
-import { emettre } from '@/liaison';
+import { emettre } from '@/evenements';
 import CarteCra from './CarteCra.vue';
 import { enCoursAdmin } from './calculs';
 import { useCraStore } from './magasin';
