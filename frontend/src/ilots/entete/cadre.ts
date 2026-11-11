@@ -1,4 +1,5 @@
 // Cadre de la session : favicon de l'application, nouveautés de l'aide en ligne, vérification de la version
+import { sansStyleEnLigne } from '@/outils/styles-en-ligne';
 
 /** Repère posé par la mire à la connexion (sessionStorage) : nouveautés de l'aide proposées une fois la session ouverte */
 export const CLE_CONNEXION_RECENTE = 'gp_connexion_recente';
@@ -20,7 +21,8 @@ export function appliquerFavicon(nom: string, doc: Document = document) {
  * à défaut toute la section des notes de version ; null sans cette section
  */
 export function extraireNouveautes(html: string, version: string): string | null {
-    const doc = new DOMParser().parseFromString(html, 'text/html');
+    // Document analysé soumis à la politique de contenu de la page : attributs style mis de côté (data-style)
+    const doc = new DOMParser().parseFromString(sansStyleEnLigne(html), 'text/html');
     const cartes = doc.querySelectorAll('#section-notes-version .card, #section-notes-version [class*="card"]');
     for (const carte of cartes) {
         if (carte.querySelector('strong')?.textContent?.trim() === version) return carte.outerHTML;

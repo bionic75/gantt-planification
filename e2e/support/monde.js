@@ -166,7 +166,9 @@ export class Monde {
         // Violations de la politique de contenu : page de l'acteur et fenêtres qu'elle ouvre (impressions)
         const surveillerCsp = (/** @type {Page} */ p) =>
             p.on('console', m => {
-                if (/Content Security Policy/i.test(m.text())) this.problemes.push(`CSP : ${m.text()}`);
+                if (!/Content Security Policy/i.test(m.text())) return;
+                const { url, lineNumber } = m.location();
+                this.problemes.push(`CSP : ${m.text()} (${url || p.url()}:${lineNumber})`);
             });
         surveillerCsp(page);
         context.on('page', p => {

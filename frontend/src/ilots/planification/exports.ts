@@ -64,7 +64,9 @@ export const MESSAGES_ENVOI = {
 export function imprimerCalendrierRessource(contenu: string): void {
     const fenetre = window.open('', '_blank');
     if (!fenetre) return;
-    ecrireDocument(fenetre.document, `
+    ecrireDocument(
+        fenetre.document,
+        `
                 <!DOCTYPE html>
                 <html>
                 <head>
@@ -105,7 +107,8 @@ export function imprimerCalendrierRessource(contenu: string): void {
                     ${contenu}
                 </body>
                 </html>
-            `);
+            `
+    );
     let imprime = false;
     const imprimer = () => {
         if (imprime) return;
