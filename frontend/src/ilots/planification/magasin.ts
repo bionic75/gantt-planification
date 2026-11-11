@@ -21,7 +21,7 @@ import {
     type EtatPlanning,
     type ExpertEnAttente
 } from '@/evenements';
-import { afficherSynchronisation } from '@/outils/page';
+import { afficherSynchronisation } from '@/outils/synchronisation';
 import { useSessionStore } from '@/stores/session';
 import type { Periode } from './grille';
 import { appliquer, suivreAffectation, type Changements, type Suivi } from './saisie';
@@ -142,7 +142,7 @@ export const usePlanificationStore = defineStore('planification', () => {
         return chargement;
     }
 
-    // Données modifiées ailleurs (autres îlots, ancien code) : rechargées, si elles ont déjà été chargées (magasin créé
+    // Données modifiées ailleurs (autres écrans) : rechargées, si elles ont déjà été chargées (magasin créé
     // aussi par l'en-tête, pour l'enveloppe des invitations, avant toute ouverture de la Planification)
     const siCharge = (fn: () => void) => () => {
         if (chargement) fn();

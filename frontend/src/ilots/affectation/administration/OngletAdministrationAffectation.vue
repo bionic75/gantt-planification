@@ -1,7 +1,7 @@
 <!-- Aide à l'affectation › onglet « Administration » (administrateur) : déploiements de SAMU (légende, frises,
      historique, modification, suppression ; rafraîchissements et import Asana), connexion Asana (projets, import en masse),
-     correspondance des activités, modèle PowerPoint et nom des fichiers d'export, couleurs des étapes. Sous-îlot dans
-     le conteneur de l'application, encore construit par l'ancien code. -->
+     correspondance des activités, modèle PowerPoint et nom des fichiers d'export, couleurs des étapes. Onglet de
+     l'application (ApplicationAffectation.vue). -->
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import type { DeploiementAdmin, EvenementLie } from '@/api/affectation';
@@ -94,7 +94,7 @@ async function supprimer(p: DeploiementAdmin, mode?: 'keep' | 'delete') {
 let arreterEcoute: (() => void) | null = null;
 onMounted(() => {
     void magasin.charger();
-    // Déploiements modifiés (ici, ou par Asana dans l'ancien code) : liste relue
+    // Déploiements modifiés (ici, ou par les fenêtres Asana) : liste relue
     arreterEcoute = ecouter('deploiements-modifies', () => void magasin.relireDeploiements());
 });
 onBeforeUnmount(() => arreterEcoute?.());

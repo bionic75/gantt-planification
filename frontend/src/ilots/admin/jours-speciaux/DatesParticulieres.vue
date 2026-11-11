@@ -31,7 +31,7 @@ async function charger() {
 }
 onMounted(charger);
 
-/** Fichiers modifiés : liste relue, dates de la planification rechargées par l'ancien code */
+/** Fichiers modifiés : liste relue, dates relues par la planification */
 async function apresModification() {
     await charger();
     emettre('dates-particulieres-modifiees');

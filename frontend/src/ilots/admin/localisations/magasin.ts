@@ -39,7 +39,7 @@ export const useLocalisationsStore = defineStore('admin-localisations', () => {
         charge.value = true;
     }
 
-    /** Après une modification : liste rechargée ici et dans l'ancien code (planning, CRA, événements…) */
+    /** Après une modification : liste rechargée ici et par les autres écrans (gp:localisations-modifiees) */
     async function apresModification() {
         await charger();
         emettre('localisations-modifiees');

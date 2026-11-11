@@ -6,7 +6,7 @@ import { apiRessources, URL_EXPORT_RESSOURCES } from '@/api/ressources';
 import { ErreurApi } from '@/api/client';
 import AppAlert from '@/composants/AppAlert.vue';
 import { emettre } from '@/evenements';
-import { afficherSynchronisation } from '@/outils/page';
+import { afficherSynchronisation } from '@/outils/synchronisation';
 import {
     ajoutIncomplet,
     apresAjout,

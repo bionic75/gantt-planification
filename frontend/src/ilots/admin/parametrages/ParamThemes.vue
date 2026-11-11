@@ -1,21 +1,21 @@
 <!-- Thèmes d'affichage : mode (aucun, automatique, forcé), périodes par thème, aperçu, intensité du décor ; décor
-     appliqué par l'ancien code (public/js/themes.js) -->
+     appliqué par decor/themes.ts -->
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { apiThemes } from '@/api/parametrages';
 import AppSousSectionAdmin from '@/composants/AppSousSectionAdmin.vue';
-import { themesAncienCode } from '@/outils/page';
+import { themes as decorThemes } from '@/decor/themes';
 import { champsThemes, configThemes, etatTheme, THEMES, type ChampsThemes } from './calculs';
 
 const champs = ref<ChampsThemes | null>(null);
 const etat = ref('');
 const message = ref<{ ok: boolean; texte: string } | null>(null);
 
-const catalogue = computed(() => themesAncienCode()?.catalogue() ?? {});
+const catalogue = computed(() => decorThemes.catalogue());
 const libelle = (id: string) => catalogue.value[id]?.label ?? id;
 
 function majEtat() {
-    etat.value = etatTheme(themesAncienCode()?.compute() ?? null, libelle);
+    etat.value = etatTheme(decorThemes.compute(), libelle);
 }
 
 /** Configuration relue à chaque ouverture de la sous-section, et appliquée au décor (comme l'ancien écran) */
@@ -23,7 +23,7 @@ async function charger() {
     message.value = null;
     try {
         const c = await apiThemes.lire();
-        themesAncienCode()?.appliquerConfig(c);
+        decorThemes.appliquerConfig(c);
         champs.value = champsThemes(c);
         majEtat();
     } catch {
@@ -32,14 +32,14 @@ async function charger() {
 }
 
 function apercu(id: string) {
-    if (champs.value) themesAncienCode()?.apercu(id, champs.value.intensite);
+    if (champs.value) decorThemes.apercu(id, champs.value.intensite);
 }
 
 async function enregistrer() {
     if (!champs.value) return;
     try {
         const c = await apiThemes.enregistrer(configThemes(champs.value));
-        themesAncienCode()?.appliquerConfig(c);
+        decorThemes.appliquerConfig(c);
         majEtat();
         message.value = { ok: true, texte: 'Enregistré.' };
     } catch (e) {
@@ -97,7 +97,7 @@ async function enregistrer() {
                     <tbody id="themeAdminRows">
                         <tr v-for="id in THEMES" :key="id" class="themes__ligne">
                             <td class="themes__nom">
-                                <!-- Vignette du thème : tracés constants de l'ancien code (themes.js) -->
+                                <!-- Vignette du thème : tracés constants (decor/themes.ts) -->
                                 <!-- eslint-disable vue/no-v-html -->
                                 <svg
                                     viewBox="0 0 32 32"

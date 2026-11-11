@@ -95,7 +95,7 @@ export const useEvenementsStore = defineStore('evenements', () => {
         edition.value = null;
     }
 
-    /** Enregistrement : liste rechargée, planning de l'ancien code mis à jour */
+    /** Enregistrement : liste rechargée, planification prévenue (gp:evenements-modifies) */
     async function enregistrer(corps: CorpsEvenement) {
         if (edition.value) await apiEvenements.modifier(edition.value.id, corps);
         else await apiEvenements.creer(corps);
@@ -141,7 +141,7 @@ export const useEvenementsStore = defineStore('evenements', () => {
         }
     }
 
-    /** Localisation créée depuis le formulaire : listes rechargées ici et dans l'ancien code */
+    /** Localisation créée depuis le formulaire : listes rechargées ici et par les autres écrans */
     async function localisationCreee() {
         await chargerLocalisations();
         emettre('localisations-modifiees');

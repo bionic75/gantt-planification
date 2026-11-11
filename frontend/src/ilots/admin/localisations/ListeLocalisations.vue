@@ -91,7 +91,7 @@ const valeur = (l: Localisation, c: ColonneTri) => l[c] ?? '-';
                             class="loc-liste__supprimer-tout"
                             @click="supprimer(loc.localisations.map(l => l.id))"
                         >
-                            <!-- Nombre isolé de l'émoji, converti en icône (public/js/ui-icons.js) -->
+                            <!-- Nombre isolé de l'émoji, converti en icône (decor/icones-emojis.ts) -->
                             🗑️ Tout supprimer (<span>{{ loc.localisations.length }}</span
                             >)
                         </button>

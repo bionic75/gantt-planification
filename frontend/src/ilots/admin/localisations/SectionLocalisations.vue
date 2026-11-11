@@ -16,8 +16,8 @@ const loc = useLocalisationsStore();
 const { demande, repondre } = fournirConfirmation();
 const ouverte = ref(false);
 
-// Comme l'ancien code : liste rechargée à chaque ouverture de la section, y compris celle des listes déroulantes de
-// l'ancien code (non chargée à la reprise d'une session, anomalie connue : l'ouverture de la section y remédie)
+// Comme l'ancien code : liste rechargée à chaque ouverture de la section ; les autres écrans relisent les leurs
+// (gp:localisations-modifiees)
 function ouverture() {
     void loc.charger();
     emettre('localisations-modifiees');

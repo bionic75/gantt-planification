@@ -1,6 +1,6 @@
 // Recherche avancée : icônes des options (image d'arrière-plan), les mêmes que la légende de la planification et que
-// ses cellules. La légende est lue dans la grille de l'ancien code (migrée au lot 4.5).
-import { iconesImages, type IconesImages } from '@/outils/page';
+// ses cellules. La légende est lue dans la grille de la planification.
+import { iconesImages, type IconesImages } from '@/decor/icones-emojis';
 
 const GRIS = '#455a64';
 
@@ -26,10 +26,9 @@ function depuisLegende(
     return icones;
 }
 
-/** Icônes des disponibilités (1 à 3) et des affectations (1 à 8) ; vides hors de la page principale */
+/** Icônes des disponibilités (1 à 3) et des affectations (1 à 8), d'après la légende affichée */
 export function iconesCriteres(): { disponibilites: Record<string, string>; affectations: Record<string, string> } {
-    const api = iconesImages();
-    if (!api) return { disponibilites: {}, affectations: {} };
+    const api = iconesImages;
     const sections = document.querySelectorAll('.legend-section');
     return {
         disponibilites: depuisLegende(api, sections[0], ['1', '2', '3'], v => (v === '1' ? 'ban' : 'check-circle')),
@@ -50,7 +49,7 @@ export interface OptionLocalisation {
  * Option d'une localisation : l'émoji de tête est remplacé par l'icône correspondante (« Congés » pour la plage
  * seule) ; sans émoji (ex. « Télétravail ») : icône maison
  */
-export function optionLocalisation(valeur: string, api = iconesImages()): OptionLocalisation {
+export function optionLocalisation(valeur: string, api: IconesImages | null = iconesImages): OptionLocalisation {
     if (!api) return { valeur, libelle: valeur, icone: null };
     const m = /^(\p{Extended_Pictographic})️?\s*/u.exec(valeur);
     if (!m) return { valeur, libelle: valeur, icone: api.urlForName('home', GRIS) };

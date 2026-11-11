@@ -1,6 +1,6 @@
 // Colonnes d'un tableau redimensionnables (poignée à droite de chaque en-tête) et masquables (clic droit sur un
 // en-tête), colonnes masquées mémorisées dans le navigateur par tableau (« col-hide:coltbl-N »). Repris de l'ancien
-// code (public/js/app/planning.js, lot 6.4b) ; public/js/layout-fix.js remet les largeurs à zéro (« Ajuster
+// code (public/js/app/planning.js, lot 6.4b) ; decor/mise-en-page.ts remet les largeurs à zéro (« Ajuster
 // l'affichage ») puis rappelle window.makeColResizable.
 import './colonnes.css';
 

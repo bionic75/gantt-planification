@@ -1,5 +1,5 @@
 <!-- Nouvelles affectations de l'expert (pastille de la photo de profil) : affectations notifiées depuis la dernière
-     connexion, marquées lues à l'ouverture ; à la fermeture, l'ancien code relit la pastille. -->
+     connexion, marquées lues à l'ouverture ; à la fermeture, la pastille de l'en-tête est relue. -->
 <script setup lang="ts">
 import { ref } from 'vue';
 import { apiNotifications, type NotificationExpert } from '@/api/notifications';

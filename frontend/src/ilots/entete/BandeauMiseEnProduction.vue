@@ -75,7 +75,7 @@ onBeforeUnmount(() => {
         :class="etat.type === 'coupure' ? 'gp-bandeau-mep--coupure' : 'gp-bandeau-mep--version'"
         role="status"
     >
-        <!-- Texte recréé à chaque changement : pictogrammes remplacés par ui-icons.js -->
+        <!-- Texte recréé à chaque changement : pictogrammes remplacés par des icônes (decor/icones-emojis.ts) -->
         <span id="deployBannerText" :key="etat.type === 'version' ? etat.version : etat.type">{{
             etat.type === 'coupure'
                 ? "⚙️  Mise en production en cours — l'application sera de nouveau disponible dans 1 à 2 minutes. Une reconnexion sera nécessaire."
