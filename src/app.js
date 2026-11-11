@@ -21,9 +21,9 @@ export function maskSecrets(/** @type {string} */ url) {
 }
 
 /**
- * En-têtes de sécurité. La politique de contenu (CSP) n'admet que les scripts servis par l'application (ni script en
- * ligne ni gestionnaire onclick, lot 6.5) ; elle admet encore les styles en ligne (lot 6.6), limite les ressources
- * externes à OpenStreetMap et interdit l'affichage de l'application dans un cadre d'un autre site.
+ * En-têtes de sécurité. La politique de contenu (CSP) n'admet que les scripts et feuilles de style servis par
+ * l'application (ni script ni style en ligne, lots 6.5 et 6.6 ; aide en ligne : styles en ligne admis), limite les
+ * ressources externes à OpenStreetMap et interdit l'affichage de l'application dans un cadre d'un autre site.
  */
 function securityHeaders() {
     const https = !!env.APP_URL?.startsWith('https:');
@@ -35,8 +35,10 @@ function securityHeaders() {
                 // Scripts de l'application seulement (lot 6.5) : ni script en ligne ni attribut onclick
                 scriptSrc: ["'self'"],
                 scriptSrcAttr: ["'none'"],
-                // Styles en ligne encore utilisés (attributs style, fenêtres d'impression) : lot 6.6
-                styleSrc: ["'self'", "'unsafe-inline'"],
+                // Feuilles de l'application seulement (lot 6.6) : ni attribut style ni bloc <style> dans le HTML (styles
+                // posés en JavaScript admis) ; développement : <style> injectés par le serveur Vite ; aide en ligne :
+                // styles en ligne admis par sa route (pages.routes.js)
+                styleSrc: ["'self'", ...(modeFrontend() === 'vite' ? ["'unsafe-inline'"] : [])],
                 imgSrc: [
                     "'self'",
                     'data:',

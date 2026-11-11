@@ -358,17 +358,28 @@ Then('la recherche avancée est fermée', async ({ monde }) => {
  */
 Given('les impressions sont interceptées', async ({ monde }) => {
     await monde.page.evaluate(() => {
-        /** @type {{ html: string, impressions: number }[]} */
+        /** @type {{ html: string, css: string, impressions: number }[]} */
         const documents = [];
         Object.assign(window, { __impressions: documents });
         window.open = () => {
-            const doc = { html: '', impressions: 0 };
+            const doc = { html: '', css: '', impressions: 0 };
             documents.push(doc);
             /** @type {any} */
             const fenetre = {
                 document: {
+                    // Document écrit par ecrireDocument (frontend/src/outils/styles-en-ligne.ts)
+                    open() {},
                     write: (/** @type {string} */ h) => (doc.html += h),
-                    close: () => setTimeout(() => fenetre.onload?.(), 0)
+                    close: () => setTimeout(() => fenetre.onload?.(), 0),
+                    querySelectorAll: () => [],
+                    // Feuille construite à partir des blocs <style> du document (règles conservées pour les vérifications)
+                    defaultView: window,
+                    get adoptedStyleSheets() {
+                        return [];
+                    },
+                    set adoptedStyleSheets(/** @type {CSSStyleSheet[]} */ feuilles) {
+                        doc.css += feuilles.map(f => [...f.cssRules].map(r => r.cssText).join('\n')).join('\n');
+                    }
                 },
                 focus() {},
                 print() {

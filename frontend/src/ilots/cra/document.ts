@@ -1,6 +1,7 @@
 // Document d'un CRA en cours (avant le visa N2), produit par le navigateur : page à imprimer ou enregistrer en PDF,
 // ouverte dans une nouvelle fenêtre. Les CRA visés N2 ou diffusés ont un PDF signé enregistré sur le serveur.
 import type { DetailCra } from '@/api/cra';
+import { ecrireDocument } from '@/outils/styles-en-ligne';
 import { libelleMois, majuscule, typeLigne } from './calculs';
 import { LOGO_ANS } from './logo';
 
@@ -160,8 +161,7 @@ ${cra.commentaire_expert ? `<div class="commentaire"><strong>Commentaire :</stro
 export function ouvrirDocument(cra: DetailCra): boolean {
     const fenetre = window.open('', '_blank');
     if (!fenetre) return false;
-    fenetre.document.write(pageDocument(cra));
-    fenetre.document.close();
+    ecrireDocument(fenetre.document, pageDocument(cra));
     // Bouton branché depuis l'application : un attribut onclick serait bloqué par la politique de sécurité du contenu
     fenetre.document.querySelector('.print-btn')?.addEventListener('click', () => fenetre.print());
     return true;

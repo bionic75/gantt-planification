@@ -21,11 +21,28 @@ export function sansAnciennesBalises(/** @type {string} */ html) {
     return ANCIENNES_BALISES.reduce((h, re) => h.replace(re, ''), html);
 }
 
+/**
+ * Aide en ligne : styles en ligne admis par la politique de contenu (attributs style de l'aide livrée et des aides
+ * personnalisées, contenu statique) ; les scripts en ligne restent interdits
+ * @param {import('express').Response} res
+ */
+export function admettreStylesEnLigne(res) {
+    const csp = res.getHeader('Content-Security-Policy');
+    if (typeof csp !== 'string') return;
+    res.setHeader(
+        'Content-Security-Policy',
+        csp.replace(/style-src ([^;]*)/, (regle, sources) =>
+            sources.includes("'unsafe-inline'") ? regle : `style-src ${sources} 'unsafe-inline'`
+        )
+    );
+}
+
 // /aide.html : HTML personnalisé enregistré dans les paramètres, sinon le fichier livré, avec le point d'entrée de
 // l'aide (icônes, bouton « Retour à l'application », feuille de style) ; déclarée avant les fichiers statiques
 router.get(
     '/aide.html',
     h(async (req, res) => {
+        admettreStylesEnLigne(res);
         const html = await getSetting('help_html_content');
         envoyerAide(res, html ? sansAnciennesBalises(html) : null);
     })

@@ -5,6 +5,7 @@ du navigateur, exports PDF et PowerPoint produits par le serveur -->
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { apiAffectation, type ApercuModele, type ModeleExport } from '@/api/affectation';
 import AppModal from '@/composants/AppModal.vue';
+import { ecrireDocument, sansStyleEnLigne, vStylesEnLigne } from '@/outils/styles-en-ligne';
 import { deploiementsTries, periodeAffichee } from './grille';
 import cssGrille from './grille.css?raw';
 import {
@@ -150,13 +151,11 @@ const css = `${cssGrille}${cssImpression}`;
 function imprimer() {
     if (!miseEnPage) return;
     const cadre = document.createElement('iframe');
-    cadre.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+    cadre.className = 'aff-cadre-impression';
     document.body.appendChild(cadre);
     const doc = cadre.contentDocument;
     if (!doc) return;
-    doc.open();
-    doc.write(htmlExport(miseEnPage, css));
-    doc.close();
+    ecrireDocument(doc, htmlExport(miseEnPage, css));
     setTimeout(() => {
         cadre.contentWindow?.focus();
         cadre.contentWindow?.print();
@@ -432,8 +431,9 @@ onMounted(() => void ouvrir());
                 <div
                     id="affPrintPreview"
                     ref="apercu"
+                    v-styles-en-ligne
                     class="aff-print-root aff-print-preview"
-                    v-html="pagesHtml"
+                    v-html="sansStyleEnLigne(pagesHtml)"
                 ></div>
                 <!-- eslint-enable vue/no-v-html -->
             </div>
@@ -463,6 +463,15 @@ onMounted(() => void ouvrir());
 </template>
 
 <style>
+/* Cadre invisible de l'impression */
+.aff-cadre-impression {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    width: 0;
+    height: 0;
+    border: 0;
+}
 .gp-modale.aff-impression .gp-modale__boite {
     width: min(1320px, 98vw);
     height: 94vh;
