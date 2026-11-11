@@ -24,6 +24,8 @@ Fonctionnalité: Suivi des déplacements : cadre, reporting et administration
 
   Scénario: Le minuteur d'inactivité décompte
     Étant donné que "Administrateur" a accès à l'application « Suivi des déplacements »
+    # Inactivité activée par une réponse simulée (paramétrage global inchangé)
+    Et que l'inactivité de "Administrateur" est paramétrée à 15 minutes (réponse simulée)
     Et que j'ouvre le suivi des déplacements en tant que "Administrateur"
     Alors le minuteur des déplacements décompte
 

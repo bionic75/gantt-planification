@@ -194,10 +194,7 @@ async function reprendreSession(data) {
         await loadSpecialDates(); // Charger les dates particulières et événements personnalisés
         if (sessionFermee()) return;
 
-        // Démarrer le suivi des utilisateurs connectés en temps réel
-        startOnlineUsersPolling();
-        // Restaurer les conversations de messagerie en cours
-        setTimeout(_chatRestoreSessions, 400);
+        // Connectés, conversations restaurées, inactivité : îlot Vue du cadre (frontend/src/ilots/connectes)
 
         openLandingTab();
     } catch (error) {
@@ -215,11 +212,6 @@ function resetUiForLogin(message) {
     // Interface Vue (îlots, frontend/src/liaison.ts) : démontage des îlots et oubli de la session
     window.dispatchEvent(new CustomEvent('gp:session-terminee'));
     try {
-        if (typeof _chatCloseAll === 'function') _chatCloseAll();
-    } catch (e) {
-        /* ignoré */
-    }
-    try {
         closeAllModals();
     } catch (e) {
         /* ignoré */
@@ -229,34 +221,13 @@ function resetUiForLogin(message) {
     } catch (e) {
         /* ignoré */
     }
-    // Application Analyse : pastilles et relecture des connectés dans l'îlot, démonté en fin de session
-    try {
-        stopInactivityTimer();
-    } catch (e) {
-        /* ignoré */
-    }
-    try {
-        if (onlineUsersInterval) {
-            clearInterval(onlineUsersInterval);
-            onlineUsersInterval = null;
+    // Connectés, conversations, minuteur d'inactivité : îlots Vue, démontés en fin de session
+    ['analyseContainer', 'deplacementsContainer', 'affectationContainer', 'backToPlanificationBtn', 'adminTab'].forEach(
+        id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'none';
         }
-    } catch (e) {
-        /* ignoré */
-    }
-    // Application Déplacements : pastilles et relecture des connectés dans l'îlot, démonté en fin de session
-    [
-        'analyseContainer',
-        'deplacementsContainer',
-        'affectationContainer',
-        'inactivityTimerDisplay',
-        'backToPlanificationBtn',
-        'onlineUsersContainer',
-        'onlineUsersTooltip',
-        'adminTab'
-    ].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = 'none';
-    });
+    );
     const main = document.querySelector('.container');
     if (main) main.style.display = 'none';
     try {
@@ -317,7 +288,6 @@ async function completeFinalLogin(user, selectedApp) {
     }
 
     await loadResources();
-    await loadSettings(); // Charger les paramètres d'inactivité
     await loadUsers(); // Charger les utilisateurs pour les notifications
     await loadSchoolHolidays(); // Charger les congés scolaires pour tous les profils
     await loadSpecialDates(); // Charger les dates particulières pour tous les profils
@@ -328,9 +298,6 @@ async function completeFinalLogin(user, selectedApp) {
 
     // Badge CRA en attente (admin)
     loadCraPendingBadge();
-
-    // Démarrer le suivi des utilisateurs connectés en temps réel
-    startOnlineUsersPolling();
 
     // Restaurer l'ordre des onglets + activer le drag & drop
     restoreTabOrder();
@@ -418,13 +385,7 @@ window.addEventListener('gp:utilisateurs-modifies', async () => {
     await loadResources();
     showSyncStatus();
 });
-// Paramétrages divers enregistrés par l'îlot de l'Administration : compteur d'inactivité de la session (favicon : îlot Vue
-// frontend/src/ilots/entete/CadreSession.vue)
-window.addEventListener('gp:version-modifiee', () => loadSettings());
-window.addEventListener('gp:inactivite-modifiee', e => {
-    if (e.detail.active) startInactivityTimer(e.detail.minutes);
-    else stopInactivityTimer();
-});
+// Paramétrages divers enregistrés par l'îlot de l'Administration (inactivité, favicon) : îlots Vue du cadre
 // Fichiers .ics importés ou supprimés par l'îlot des jours spéciaux : congés et dates de la planification rechargés
 window.addEventListener('gp:conges-modifies', async () => {
     await reloadAllSchoolHolidays();
@@ -486,8 +447,7 @@ function closeAllModals() {
 
 // Fonction séparée pour effectuer la déconnexion
 async function performLogout() {
-    // Fermer tous les panneaux de chat et effacer leur historique
-    _chatCloseAll();
+    // Conversations fermées et effacées : îlot Vue, démonté en fin de session
     // Fermer tous les modals/popups ouverts
     closeAllModals();
 
@@ -539,13 +499,6 @@ async function performLogout() {
             throw new Error('Erreur serveur lors de la déconnexion');
         }
 
-        // Stopper tous les timers et pollings
-        stopInactivityTimer();
-        if (onlineUsersInterval) {
-            clearInterval(onlineUsersInterval);
-            onlineUsersInterval = null;
-        }
-
         currentUser = null;
 
         console.log('✅ Déconnexion réussie');
@@ -553,10 +506,6 @@ async function performLogout() {
         // Rediriger vers la page de login (toutes les applications et bandeaux flottants sont fermés, mire vidée et version
         // relue)
         resetUiForLogin();
-
-        // Masquer le timer d'inactivité sur la mire de login
-        const timerDisplay = document.getElementById('inactivityTimerDisplay');
-        if (timerDisplay) timerDisplay.style.display = 'none';
     } catch (error) {
         console.error('Erreur logout:', error);
         alert('Erreur lors de la déconnexion. Veuillez réessayer.');

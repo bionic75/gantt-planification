@@ -91,7 +91,7 @@ index.html (existant)
 | 3     | Ressources puis CRA, chacun découpé en deux lots (voir ci-dessous). Ressources entièrement migrées (lot 3b en production). CRA : circuit (lot 3c) et administration et vue RH (lot 3d) en production : phase terminée                                                                                                                                                                                                                                               |
 | 4     | Découpée en six lots mis en production l'un après l'autre (voir ci-dessous) : onglet Astreintes (4.1 HO, 4.2 HNO), fenêtres de consultation (4.3), fenêtres de saisie et de notification (4.4), grille (4.5), exports, impressions et clôture (4.6) : phase terminée                                                                                                                                                                                                |
 | 5     | Découpée en lots mis en production l'un après l'autre (voir ci-dessous) : carte des événements (5.1), Déplacements (5.2), Analyse de fichiers (5.3), Aide à l'affectation (5.4), mobile (5.5)                                                                                                                                                                                                                                                                       |
-| 6     | Plan validé (voir ci-dessous) : mire et double authentification (6.1, en production), en-tête et profil (6.2a en production, 6.2b réalisé), connectés, messagerie et inactivité (6.3), racine Vue, onglets et Vue Router (6.4), clôture (6.5), styles en ligne (6.6)                                                                                                                                                                                                |
+| 6     | Plan validé (voir ci-dessous) : mire et double authentification (6.1, en production), en-tête et profil (6.2a et 6.2b en production), connectés, messagerie et inactivité (6.3, réalisé), racine Vue, onglets et Vue Router (6.4), clôture (6.5), styles en ligne (6.6)                                                                                                                                                                                             |
 
 Sous-îlots de l'Administration, mis en production l'un après l'autre :
 
@@ -438,7 +438,24 @@ Changements de comportement décidés pendant la migration :
   monté dès le chargement (mire comprise). `profile.js` et `version-watch.js` supprimés ; `settings.js` réduit à
   l'inactivité (lot 6.3).
 - Anomalie relevée (lot 6.2b, comportement conservé) : la fenêtre « Mon profil » propose l'onglet « SAMU-SAS
-  TripAdVisor » comme onglet par défaut, mais le serveur le refuse (« Onglet invalide », liste `DEFAULT_TABS`).- Aide à l'affectation, ateliers, sondages et cadre (lot 5.4g) : confirmations (suppression d'un rétroplanning, clôture,
+  TripAdVisor » comme onglet par défaut, mais le serveur le refuse (« Onglet invalide », liste `DEFAULT_TABS`).
+- Connectés, messagerie et inactivité (lot 6.3) : pastilles (connectés, minuteur) communes à la Planification et aux
+  applications (`PastillesApplication.vue`, identifiants de l'ancien en-tête sans préfixe), une seule liste des
+  connectés ouverte sous la pastille cliquée (`ilots/connectes/BulleConnectes.vue`), conversations, réception des
+  messages et décompte dans l'îlot du cadre `CadreConnectes.vue`, magasins de la session `connectes`, `discussions`,
+  `inactivite` (relecture des connectés une seule fois pour toutes les applications) ; historiques des conversations
+  dans `sessionStorage` (mêmes clés). Décisions du lot : un seul décompte d'inactivité pour toute la session (changer
+  d'application ne le relance plus) ; mêmes couleurs du minuteur partout (orange sous 2 min, rouge sous 1 min).
+  Conséquence : le minuteur et la déconnexion pour inactivité suivent partout le paramétrage de l'administration ; les
+  applications (Déplacements, Analyse, Affectation) démarraient auparavant un décompte même inactivité désactivée
+  (durée paramétrée, à défaut 5 minutes). Pastille des connectés : avatars colorés selon le profil et nombre de
+  connectés partout. Erreur d'envoi d'un message dans la conversation (`alert` auparavant). Déconnexion pour inactivité
+  par l'îlot (journal des invitations compris ; `gp:journal-invitations` supprimé). Réveil du poste : session vérifiée
+  (sinon retour à la mire, `afficherMire`), décompte recalé, connectés et grille relus. Son de notification :
+  `ilots/connectes/son.ts`, aussi utilisé par l'essai de l'administration. Code mort supprimé : fenêtre « Nouvelle
+  localisation » de l'ancien code, géocodage, carte de vérification, `autoCheckGristByLabel`, feuille Leaflet du CDN.
+  `realtime.js` et `settings.js` supprimés.
+- Aide à l'affectation, ateliers, sondages et cadre (lot 5.4g) : confirmations (suppression d'un rétroplanning, clôture,
   réouverture et suppression d'un sondage, déconnexion) dans des fenêtres de la page (confirm auparavant) ; fenêtres
   d'invitation et de sondage dans la présentation commune (Échap ferme). Après le premier enregistrement d'un
   rétroplanning, les boutons « Sondage » sont aussitôt utilisables (l'ancien écran les laissait grisés jusqu'au

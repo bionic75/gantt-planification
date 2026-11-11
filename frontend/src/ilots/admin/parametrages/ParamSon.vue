@@ -4,7 +4,7 @@
 import { ref } from 'vue';
 import AppAlert from '@/composants/AppAlert.vue';
 import AppSousSectionAdmin from '@/composants/AppSousSectionAdmin.vue';
-import { jouerSonNotification } from '@/liaison';
+import { jouerSonNotification } from '@/ilots/connectes/son';
 import { TAILLE_MAX_SON } from './calculs';
 
 const CLE_ACTIF = 'notifSoundEnabled';

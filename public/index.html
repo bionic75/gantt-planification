@@ -6,7 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestionnaire de Ressources et Planification des Experts Métier</title>
     <link rel="icon" type="image/svg+xml" href="/img/favicon-calendrier.svg" id="favicon">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
     <link rel="stylesheet" href="/css/app.css?v=2.18.1">
     <link rel="stylesheet" href="/css/themes.css?v=2.18.1">
     <link rel="stylesheet" href="/css/darkmode.css?v=2.18.1">
@@ -21,25 +20,9 @@
 </head>
 <body>
     <div class="container">
-        <!-- Conteneur des utilisateurs connectés en temps réel -->
-        <div id="onlineUsersContainer" style="display: none; position: fixed; top: 10px; right: 120px; height: 32px; box-sizing: border-box; background: #fff; padding: 0 12px; border-radius: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 1001; cursor: pointer; display: flex; align-items: center;" onclick="toggleOnlineUsersTooltip(event)">
-            <div style="display: flex; align-items: center; gap: 4px;">
-                <span style="font-size: 12px; color: #27ae60; margin-right: 4px;">●</span>
-                <div id="onlineUsersAvatars" style="display: flex; align-items: center;"></div>
-                <span id="onlineUsersCount" style="font-size: 11px; color: #666; margin-left: 4px;"></span>
-            </div>
-        </div>
-        <!-- Tooltip pour la liste des utilisateurs connectés -->
-        <div id="onlineUsersTooltip" style="display: none; position: fixed; top: 45px; right: 120px; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1002; padding: 10px; min-width: 200px; max-width: 300px;">
-            <div style="font-weight: bold; color: #2c3e50; margin-bottom: 8px; font-size: 12px; border-bottom: 1px solid #eee; padding-bottom: 5px;">
-                <svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true" style="width:15px;height:15px;stroke:currentColor;vertical-align:-3px;margin-right:6px;"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Utilisateurs connectés
-            </div>
-            <div id="onlineUsersTooltipList" style="max-height: 200px; overflow-y: auto;"></div>
-        </div>
-        
-        <div class="inactivity-timer" id="inactivityTimerDisplay" style="display: none; position: fixed; top: 10px; right: 10px; background: #fff; height: 32px; box-sizing: border-box; padding: 0 12px; border-radius: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 1001; font-size: 13px; font-weight: bold; color: #2c3e50; white-space: nowrap; align-items: center;">
-            ⏱ <span id="timerMinutes">00</span>:<span id="timerSeconds">00</span>
-        </div>
+        <!-- Utilisateurs connectés et minuteur d'inactivité : îlot Vue commun aux applications
+             (frontend/src/ilots/applications/PastillesApplication.vue) -->
+        <div id="pastillesPlanification" class="gp-entete-conteneur"></div>
 
         <!-- Header fixe -->
         <div class="fixed-header">
@@ -141,10 +124,8 @@
     <script src="/js/app/conges-scolaires.js?v=2.18.1"></script>
     <script src="/js/app/dump.js?v=2.18.1"></script>
     <script src="/js/app/tabs.js?v=2.18.1"></script>
-    <script src="/js/app/settings.js?v=2.18.1"></script>
     <script src="/js/app/locations.js?v=2.18.1"></script>
     <script src="/js/app/planning-navigation.js?v=2.18.1"></script>
-    <script src="/js/app/realtime.js?v=2.18.1"></script>
 
     <!-- Exports et impressions de la planification : îlot Vue (frontend/src/ilots/planification) -->
 
@@ -166,101 +147,12 @@
     <!-- Application « Aide à l'affectation opérationnelle » : îlot Vue (frontend/src/ilots/affectation/ApplicationAffectation.vue) -->
     <div id="affectationContainer" class="container" style="display: none;"></div>
 
-    <!-- Modal inactivité -->
-    <div id="inactivityModal" class="modal">
-        <div class="modal-content" style="max-width: 420px; text-align: center;">
-            <div style="font-size: 48px; margin-bottom: 15px;">⏳</div>
-            <h3 style="color: #e74c3c; margin-bottom: 10px;">Session inactive</h3>
-            <p style="color: #555; margin-bottom: 20px;" id="inactivityModalMessage">
-                Vous êtes inactif depuis <strong id="inactivityModalMinutes">?</strong> minutes.<br>
-                Vous allez être déconnecté automatiquement.
-            </p>
-            <div style="background: #fdf2f2; border: 2px solid #e74c3c; border-radius: 50px; padding: 12px 20px; display: inline-block; margin-bottom: 25px;">
-                <span style="font-size: 18px; font-weight: bold; color: #e74c3c;">
-                    Déconnexion dans <span id="inactivityCountdown" style="font-size: 24px; font-weight: 900;">15</span> s
-                </span>
-            </div>
-            <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
-                <button onclick="stayConnected()" style="background: linear-gradient(135deg, #27ae60 0%, #229954 100%); color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: bold; cursor: pointer;">
-                    ✅ Rester connecté
-                </button>
-                <button onclick="disconnectNow()" style="background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 14px; cursor: pointer;">
-                    🚪 Se déconnecter
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal de choix de déconnexion pour l'application Planification -->
-
-    <!-- Modal résolution conflits localisation -->
 
     <!-- Carte des événements : îlot Vue (frontend/src/ilots/evenements/FenetreCarte.vue) -->
-    <!-- ══ Modale création localisation depuis formulaire événement ══ -->
-    <div id="newLocationModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:20000;align-items:center;justify-content:center;">
-        <div style="background:white;border-radius:12px;padding:24px;width:480px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.25);">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-                <h3 style="margin:0;color:#283593;font-size:15px;">📍 Nouvelle localisation</h3>
-                <span onclick="closeNewLocationModal()" style="cursor:pointer;font-size:22px;color:#aaa;line-height:1;">&times;</span>
-            </div>
-            <input type="hidden" id="newLocTargetSelect">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
-                <div>
-                    <label style="font-size:12px;color:#283593;display:block;margin-bottom:3px;">Libellé long *</label>
-                    <input type="text" id="newLocLong" placeholder="Ex: CENTRE HOSPITALIER DE BORDEAUX" style="width:100%;padding:6px;border:1px solid #9fa8da;border-radius:4px;text-transform:uppercase;box-sizing:border-box;" oninput="this.value=this.value.toUpperCase()">
-                </div>
-                <div>
-                    <label style="font-size:12px;color:#283593;display:block;margin-bottom:3px;">Libellé court *</label>
-                    <input type="text" id="newLocCourt" placeholder="Ex: CHB" style="width:100%;padding:6px;border:1px solid #9fa8da;border-radius:4px;text-transform:uppercase;box-sizing:border-box;" oninput="this.value=this.value.toUpperCase()">
-                </div>
-            </div>
-            <div style="margin-bottom:10px;position:relative;">
-                <label style="font-size:12px;color:#283593;display:block;margin-bottom:3px;">Adresse</label>
-                <input type="text" id="newLocAdresse" placeholder="Ex: 1 RUE DE LA PAIX, 75001 PARIS" style="width:100%;padding:6px;border:1px solid #9fa8da;border-radius:4px;text-transform:uppercase;box-sizing:border-box;" oninput="this.value=this.value.toUpperCase(); scheduleGeocode('newLocAdresse','newLocLat','newLocLng','newLocGeoSuggest')" autocomplete="off">
-                <div id="newLocGeoSuggest" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #9fa8da;border-radius:0 0 6px 6px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:5000;max-height:160px;overflow-y:auto;"></div>
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px;">
-                <div>
-                    <label style="font-size:12px;color:#283593;display:block;margin-bottom:3px;">Latitude</label>
-                    <input type="number" id="newLocLat" placeholder="Ex: 44.8378" step="any" style="width:100%;padding:6px;border:1px solid #9fa8da;border-radius:4px;box-sizing:border-box;">
-                </div>
-                <div>
-                    <label style="font-size:12px;color:#283593;display:block;margin-bottom:3px;">Longitude</label>
-                    <input type="number" id="newLocLng" placeholder="Ex: -0.5792" step="any" style="width:100%;padding:6px;border:1px solid #9fa8da;border-radius:4px;box-sizing:border-box;">
-                </div>
-            </div>
-            <div style="margin-bottom:16px;">
-                <button type="button" onclick="openVerifyMapModal('newLocLat','newLocLng')" style="background:#1565c0;color:white;padding:6px 14px;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🗺️ Vérifier sur la carte</button>
-            </div>
-            <div style="display:flex;gap:10px;justify-content:flex-end;">
-                <button onclick="closeNewLocationModal()" style="background:#95a5a6;color:white;padding:8px 18px;border:none;border-radius:4px;cursor:pointer;">Annuler</button>
-                <button onclick="saveNewLocation()" style="background:#3f51b5;color:white;padding:8px 18px;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">💾 Créer</button>
-            </div>
-        </div>
-    </div>
 
-    <!-- ══ Application : Analyse de fichiers ══ -->
 <!-- Application « Analyse de fichiers » : îlot Vue (frontend/src/ilots/analyse/ApplicationAnalyse.vue), monté quand
      l'ancien code affiche le conteneur (menu Applications) : en-tête, pastilles, chargement, filtres, tableau -->
 <div id="analyseContainer" style="display:none; min-height:100vh; background:#f5f7fa; font-family:Arial,sans-serif;"></div>
-
-
-<!-- ══ Modale vérification carte (pin draggable) ══ -->
-    <div id="verifyMapModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:21000;align-items:center;justify-content:center;">
-        <div style="background:white;border-radius:12px;overflow:hidden;width:640px;max-width:95vw;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
-            <div style="padding:14px 18px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e0e0e0;">
-                <span style="font-weight:bold;color:#283593;font-size:14px;">🗺️ Vérification / ajustement des coordonnées</span>
-                <span onclick="closeVerifyMapModal()" style="cursor:pointer;font-size:22px;color:#aaa;line-height:1;">&times;</span>
-            </div>
-            <div id="verifyMapContainer" style="height:380px;width:100%;"></div>
-            <div style="padding:12px 18px;display:flex;align-items:center;gap:16px;border-top:1px solid #e0e0e0;background:#f5f5f5;">
-                <span style="font-size:12px;color:#555;">Faites glisser le repère pour affiner la position</span>
-                <span id="verifyMapCoords" style="font-size:12px;font-family:monospace;color:#1565c0;flex:1;"></span>
-                <button onclick="confirmVerifyMap()" style="background:#3f51b5;color:white;padding:7px 20px;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">✅ Confirmer</button>
-                <button onclick="closeVerifyMapModal()" style="background:#95a5a6;color:white;padding:7px 14px;border:none;border-radius:4px;cursor:pointer;">Annuler</button>
-            </div>
-        </div>
-    </div>
 
 <!-- Menu « Applications », visible dans toutes les applications : îlot Vue (frontend/src/ilots/entete/MenuApplications.vue) -->
 <div id="menuApplications"></div>
@@ -269,6 +161,8 @@
 <div id="bandeauMiseEnProduction"></div>
 <!-- Favicon et nouveautés de l'aide après la connexion : îlot Vue (frontend/src/ilots/entete/CadreSession.vue) -->
 <div id="cadreSession"></div>
+<!-- Connectés, conversations, inactivité (toutes les applications) : îlot Vue (frontend/src/ilots/connectes/CadreConnectes.vue) -->
+<div id="cadreConnectes"></div>
 
 
 <script src="/js/app/warning-icons.js?v=2.18.1"></script>
