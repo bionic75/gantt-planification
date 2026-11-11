@@ -1,14 +1,14 @@
 <!-- Boutons de l'en-tête de la Planification, à droite des onglets (cadre de l'application, monté pendant la session
      dans #enteteBoutons) : Accueil, aide en ligne, recherche avancée, enveloppe des invitations Outlook (pastille des
      affectations en attente, lues dans le magasin de la Planification), déconnexion confirmée. Profil RH : ni recherche
-     ni enveloppe. À la déconnexion (ou pour l'ancien code, à la déconnexion pour inactivité : gp:journal-invitations),
-     les affectations en attente jamais envoyées sont journalisées. -->
+     ni enveloppe. À la déconnexion (comme à la déconnexion pour inactivité, ilots/connectes/inactivite.ts), les
+     affectations en attente jamais envoyées sont journalisées. -->
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted } from 'vue';
+import { computed, onMounted } from 'vue';
 import AppConfirmation from '@/composants/AppConfirmation.vue';
 import { fournirConfirmation } from '@/composants/confirmation';
 import { usePlanificationStore } from '@/ilots/planification/magasin';
-import { deconnecter, ecouter, emettre, ouvrirOnglet, type NomFenetre } from '@/liaison';
+import { deconnecter, emettre, ouvrirOnglet, type NomFenetre } from '@/liaison';
 import { useSessionStore } from '@/stores/session';
 
 const session = useSessionStore();
@@ -52,13 +52,7 @@ async function deconnexion() {
     await deconnecter();
 }
 
-// Déconnexion pour inactivité (ancien code) : affectations en attente journalisées avant la fermeture de la session
-const arreter = ecouter('journal-invitations', detail => {
-    void planification.journaliserInvitations().finally(() => detail.fin());
-});
-
 onMounted(() => void session.charger().catch(() => {}));
-onBeforeUnmount(arreter);
 </script>
 
 <template>

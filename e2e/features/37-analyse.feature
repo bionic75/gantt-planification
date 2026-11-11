@@ -10,6 +10,8 @@ Fonctionnalité: Analyse de fichiers
 
   Contexte:
     Étant donné que "Utilisateur" a accès à l'application « Analyse de fichiers »
+    # Inactivité activée par une réponse simulée (paramétrage global inchangé) : minuteur de l'en-tête
+    Et que l'inactivité de "Utilisateur" est paramétrée à 15 minutes (réponse simulée)
     Et que j'ouvre l'Analyse de fichiers en tant que "Utilisateur"
 
   Scénario: En-tête de l'application et déconnexion annulée
