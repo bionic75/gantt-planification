@@ -1,9 +1,12 @@
 // @ts-check
-// Onglets de la Planification (ordre par glisser-déposer, pastille des CRA, onglet ouvert à l'arrivée) et application
-// rouverte après un rechargement de la page.
+// Onglets de la Planification (ordre par glisser-déposer, pastille des CRA, onglet ouvert à l'arrivée), adresses des
+// onglets et des applications (retour arrière, ancien lien d'une notification, adresse inconnue, adresse demandée avant
+// la connexion) et application rouverte après un rechargement de la page.
 import { expect } from '@playwright/test';
-import { Then, When } from '../support/fixtures.js';
-import { ongletCle } from './commun.js';
+import { profil as profilDe } from '../support/config.js';
+import { connecterBureau } from '../support/connexion.js';
+import { Given, Then, When } from '../support/fixtures.js';
+import { attendreFinDemarrage, ongletCle } from './commun.js';
 
 /** @typedef {import('@playwright/test').Page} Page */
 
@@ -65,4 +68,33 @@ Then('la Planification est affichée', async ({ monde }) => {
     await expect(monde.page.locator('.container').first()).toBeVisible({ timeout: 30000 });
     await expect(monde.page.locator('#userInfo')).toBeVisible();
     for (const sel of Object.values(CONTENEURS)) await expect(monde.page.locator(sel)).toBeHidden();
+});
+
+// ---------- Adresses ----------
+
+Given("{string} ouvre l'application à l'adresse {string}", async ({ monde }, profil, adresse) => {
+    const { page } = await monde.acteur(profil);
+    await page.goto(adresse);
+    await expect(page.locator('#userInfo')).toBeVisible({ timeout: 30000 });
+    await attendreFinDemarrage(page);
+});
+
+When("{string} se connecte par la mire à l'adresse {string}", async ({ monde }, profil, adresse) => {
+    const { page } = await monde.anonyme();
+    await connecterBureau(page, profilDe(profil), { url: adresse });
+    await attendreFinDemarrage(page);
+});
+
+When("j'ouvre l'adresse {string}", async ({ monde }, adresse) => {
+    await monde.page.goto(adresse);
+    await expect(monde.page.locator('#userInfo')).toBeVisible({ timeout: 30000 });
+    await attendreFinDemarrage(monde.page);
+});
+
+When('je reviens à la page précédente du navigateur', async ({ monde }) => {
+    await monde.page.goBack();
+});
+
+Then("l'adresse de la page est {string}", async ({ monde }, adresse) => {
+    await expect.poll(() => new URL(monde.page.url()).pathname, { timeout: 20000 }).toBe(adresse);
 });

@@ -7,7 +7,9 @@ import { apiRessources, type Ressource, type TypeAstreinte } from '@/api/ressour
 import AppAlert from '@/composants/AppAlert.vue';
 import AppIcone from '@/composants/AppIcone.vue';
 import { useConfirmation } from '@/composants/confirmation';
-import { afficherSynchronisation, emettre, rendreColonnesRedimensionnables } from '@/liaison';
+import { emettre } from '@/evenements';
+import { rendreColonnesRedimensionnables } from '@/outils/colonnes';
+import { afficherSynchronisation } from '@/outils/page';
 import { dateFr, datesMad, ordreAlphabetique, statutMad, trierParTexte } from './calculs';
 import { useRessourcesStore } from './magasin';
 

@@ -121,11 +121,12 @@ When("j'ajoute l'événement", async ({ monde }) => {
     await monde.page.locator('#myEventActionBtn').click();
 });
 
-When("j'ajoute l'événement et le planning est rechargé", async ({ monde }) => {
-    // Événements du planning rechargés après l'enregistrement (ancien code, ou îlot via la liaison)
-    const rechargement = monde.page.waitForRequest(r => r.url().includes('/api/ics-files/special-dates/all'));
+When("j'ajoute l'événement et il est enregistré", async ({ monde }) => {
+    const enregistrement = monde.page.waitForResponse(
+        r => r.request().method() === 'POST' && new URL(r.url()).pathname === '/api/my-custom-events'
+    );
     await monde.page.locator('#myEventActionBtn').click();
-    await rechargement;
+    expect((await enregistrement).ok()).toBe(true);
 });
 
 Then("le formulaire de l'événement est replié", async ({ monde }) => {

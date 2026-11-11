@@ -1,5 +1,5 @@
-<!-- Application « Aide à l'affectation opérationnelle » (menu Applications), montée dans #affectationContainer quand
-     l'ancien code l'affiche : en-tête commun, pastilles (connectés, minuteur), onglets (Planning des déploiements,
+<!-- Application « Aide à l'affectation opérationnelle » (menu Applications), à l'adresse /affectation
+     (#affectationContainer) : en-tête commun, pastilles (connectés, minuteur), onglets (Planning des déploiements,
      Événements, Planification des ateliers métier ; Administration pour l'administrateur), déconnexion. À chaque
      réouverture de l'application : session relue, onglet « Planning des déploiements ». -->
 <script setup lang="ts">
@@ -41,7 +41,7 @@ const pastilles = ref<InstanceType<typeof PastillesApplication> | null>(null);
 
 async function deconnexion() {
     if (!(await confirmer('Voulez-vous vraiment vous déconnecter ?', 'Confirmer', { danger: false }))) return;
-    void deconnecterDepuisApplication('affectation');
+    void deconnecterDepuisApplication();
 }
 
 /** Session relue (photo de profil, profil actif) */

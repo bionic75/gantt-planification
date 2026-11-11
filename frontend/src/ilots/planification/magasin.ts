@@ -15,13 +15,13 @@ import {
 } from '@/api/planification';
 import type { Ressource } from '@/api/ressources';
 import {
-    afficherSynchronisation,
     ecouter,
     type DateParticuliere,
     type EtatInvitations,
     type EtatPlanning,
     type ExpertEnAttente
-} from '@/liaison';
+} from '@/evenements';
+import { afficherSynchronisation } from '@/outils/page';
 import { useSessionStore } from '@/stores/session';
 import type { Periode } from './grille';
 import { appliquer, suivreAffectation, type Changements, type Suivi } from './saisie';

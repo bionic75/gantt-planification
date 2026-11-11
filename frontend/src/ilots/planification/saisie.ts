@@ -3,7 +3,7 @@
 import type { CompteGrille, PeriodeMadGrille, Planning } from '@/api/planification';
 import type { Ressource } from '@/api/ressources';
 import type { Profil } from '@/api/types';
-import type { AffectationEnAttente, ExpertEnAttente } from '@/liaison';
+import type { AffectationEnAttente, ExpertEnAttente } from '@/evenements';
 import { cleCellule, dateAccessible, joursMadVolanteConsommes, type Periode } from './grille';
 
 /** Contexte de la saisie : profil et personne connectée */

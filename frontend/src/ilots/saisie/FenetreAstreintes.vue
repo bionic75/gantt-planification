@@ -9,8 +9,8 @@ import AppAlert from '@/composants/AppAlert.vue';
 import AppConfirmation from '@/composants/AppConfirmation.vue';
 import AppModal from '@/composants/AppModal.vue';
 import { fournirConfirmation } from '@/composants/confirmation';
-import { surDemande } from '@/ilots/fenetres';
-import { emettre } from '@/liaison';
+import { surDemande } from '@/cadre/fenetres';
+import { emettre } from '@/evenements';
 import { useSessionStore } from '@/stores/session';
 import {
     SAMU_ASTREINTES,

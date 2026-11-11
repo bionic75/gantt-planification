@@ -1,13 +1,13 @@
 import { createPinia, setActivePinia } from 'pinia';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiUtilisateurs, type Utilisateur } from '@/api/utilisateurs';
-import { emettre } from '@/liaison';
+import { emettre } from '@/evenements';
 import { useUtilisateursStore } from './magasin';
 
 vi.mock('@/api/utilisateurs', () => ({
     apiUtilisateurs: { liste: vi.fn(), ressources: vi.fn(), journaliser: vi.fn() }
 }));
-vi.mock('@/liaison', () => ({ emettre: vi.fn() }));
+vi.mock('@/evenements', () => ({ emettre: vi.fn() }));
 const api = vi.mocked(apiUtilisateurs);
 
 beforeEach(() => {

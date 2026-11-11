@@ -7,7 +7,8 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { api } from '@/api/client';
 import { usePlanificationStore } from '@/ilots/planification/magasin';
-import { afficherMire, deconnecter as deconnecterSession, emettre } from '@/liaison';
+import { emettre } from '@/evenements';
+import { afficherMire, deconnecter as deconnecterSession } from '@/session/session';
 import { useConnectesStore } from './magasin';
 
 /** Secondes laissées pour rester connecté à l'échéance */

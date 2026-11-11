@@ -4,7 +4,7 @@
 import { onMounted, ref, watch } from 'vue';
 import { apiCra, type CraListe, type ExpertCra } from '@/api/cra';
 import { useConfirmation } from '@/composants/confirmation';
-import { emettre } from '@/liaison';
+import { emettre } from '@/evenements';
 import FiltresCra from './FiltresCra.vue';
 import { useCraStore } from './magasin';
 import SectionCra from './SectionCra.vue';

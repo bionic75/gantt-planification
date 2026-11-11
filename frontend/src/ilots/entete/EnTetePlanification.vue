@@ -6,7 +6,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { apiNotifications } from '@/api/notifications';
 import ZoneUtilisateur from '@/ilots/applications/ZoneUtilisateur.vue';
-import { ecouter, emettre } from '@/liaison';
+import { ecouter, emettre } from '@/evenements';
 import { useSessionStore } from '@/stores/session';
 
 /** Relecture de la pastille des nouvelles affectations (ms) */

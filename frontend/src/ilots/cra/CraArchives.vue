@@ -4,7 +4,7 @@
 import { ref, watch } from 'vue';
 import { apiCra, type CraListe, type ExpertCra } from '@/api/cra';
 import { useConfirmation } from '@/composants/confirmation';
-import { emettre } from '@/liaison';
+import { emettre } from '@/evenements';
 import { libelleMois } from './calculs';
 import FiltresCra from './FiltresCra.vue';
 import { useCraStore } from './magasin';

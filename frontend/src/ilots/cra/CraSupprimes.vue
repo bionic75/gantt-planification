@@ -4,7 +4,8 @@
 import { nextTick, ref, watch } from 'vue';
 import { apiCra, type CraSupprime } from '@/api/cra';
 import { useConfirmation } from '@/composants/confirmation';
-import { emettre, rendreColonnesRedimensionnables } from '@/liaison';
+import { emettre } from '@/evenements';
+import { rendreColonnesRedimensionnables } from '@/outils/colonnes';
 import { restaurerVers, statutTableau } from './administration';
 import { libelleMois } from './calculs';
 import { useCraStore } from './magasin';

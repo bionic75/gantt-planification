@@ -3,7 +3,7 @@
 import { ref, watch } from 'vue';
 import AppAlert from '@/composants/AppAlert.vue';
 import AppSousSectionAdmin from '@/composants/AppSousSectionAdmin.vue';
-import { emettre } from '@/liaison';
+import { emettre } from '@/evenements';
 import { FAVICONS, imageFavicon } from './calculs';
 import { useParametragesStore } from './magasin';
 

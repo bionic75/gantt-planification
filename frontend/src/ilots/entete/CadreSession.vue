@@ -5,7 +5,7 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { api } from '@/api/client';
 import AppModal from '@/composants/AppModal.vue';
-import { ecouter } from '@/liaison';
+import { ecouter } from '@/evenements';
 import { useSessionStore } from '@/stores/session';
 import { appliquerFavicon, CLE_CONNEXION_RECENTE, extraireNouveautes } from './cadre';
 

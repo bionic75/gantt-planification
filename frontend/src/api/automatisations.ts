@@ -1,7 +1,7 @@
 // Automatisations (administration) : configurations, historiques, tests et envois, diagnostic et nettoyage des données
 // du planning (src/modules/automations)
 import { api, ErreurApi } from '@/api/client';
-import { emettre } from '@/liaison';
+import { emettre } from '@/evenements';
 
 /** Configuration enregistrée d'une automatisation (champs propres à chacune) */
 export type ConfigAutomatisation = Record<string, unknown>;

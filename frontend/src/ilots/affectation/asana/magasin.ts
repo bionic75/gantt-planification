@@ -4,7 +4,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { apiAsana, type ChangementAsana, type ConflitsDeploiement } from '@/api/asana';
-import { emettre } from '@/liaison';
+import { emettre } from '@/evenements';
 
 export interface DeploiementChange {
     samu: string;

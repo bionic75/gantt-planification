@@ -1,35 +1,43 @@
+import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { afterEach, describe, expect, it } from 'vitest';
 import { defineComponent, h, nextTick, ref } from 'vue';
-import { emettre } from '@/liaison';
-import { surDemande, surveillerFenetres } from './fenetres';
+import { emettre, type NomFenetre } from '@/evenements';
+import { surDemande } from './fenetres';
+import FenetresDemandees from './FenetresDemandees.vue';
+import type { ChargeurVue } from './vues';
 
 /** Attente du montage (chargement du composant puis rendu) */
 const rendu = async () => {
-    await new Promise(r => setTimeout(r, 0));
-    await nextTick();
+    for (let i = 0; i < 5; i++) {
+        await flushPromises();
+        await nextTick();
+    }
 };
 
-let arreter: () => void = () => {};
+let monte: VueWrapper | null = null;
 afterEach(() => {
-    arreter();
-    document.body.innerHTML = '';
+    monte?.unmount();
+    monte = null;
 });
+
+const monter = (registre: Partial<Record<NomFenetre, ChargeurVue>>) =>
+    (monte = mount(FenetresDemandees, { props: { registre }, attachTo: document.body }));
 
 /** Fenêtre d'essai : compte les demandes d'ouverture reçues */
 const Essai = defineComponent({
     setup() {
         const ouvertures = ref(0);
         surDemande(() => ouvertures.value++);
-        return () => h('p', { 'data-testid': 'essai' }, `ouvertures:${ouvertures.value}`);
+        return () => h('p', `ouvertures:${ouvertures.value}`);
     }
 });
 
 const fenetre = () => document.querySelector('[data-fenetre="recherche-avancee"]');
 
-describe('fenêtres ouvertes par l’ancien code', () => {
+describe('fenêtres des en-têtes', () => {
     it('monte la fenêtre à sa première demande seulement', async () => {
         let chargements = 0;
-        arreter = surveillerFenetres({
+        monter({
             'recherche-avancee': async () => {
                 chargements++;
                 return { default: Essai };
@@ -50,34 +58,24 @@ describe('fenêtres ouvertes par l’ancien code', () => {
     });
 
     it('ignore une fenêtre non enregistrée', async () => {
-        arreter = surveillerFenetres({});
+        monter({});
         emettre('fenetre-demandee', { fenetre: 'calendrier-mensuel' });
         await rendu();
         expect(document.querySelector('[data-fenetre]')).toBeNull();
     });
 
-    it('démonte les fenêtres à la fin de la session, remontées à la demande suivante', async () => {
-        arreter = surveillerFenetres({ 'recherche-avancee': async () => ({ default: Essai }) });
-        emettre('fenetre-demandee', { fenetre: 'recherche-avancee' });
-        emettre('fenetre-demandee', { fenetre: 'recherche-avancee' });
-        await rendu();
-        emettre('session-terminee');
-        expect(fenetre()).toBeNull();
-
-        emettre('fenetre-demandee', { fenetre: 'recherche-avancee' });
-        await rendu();
-        expect(fenetre()?.textContent).toBe('ouvertures:1');
-    });
-
-    it('ne monte pas une fenêtre chargée après la fin de la session', async () => {
-        let charger: (v: { default: typeof Essai }) => void = () => {};
-        arreter = surveillerFenetres({
-            'recherche-avancee': () => new Promise(r => (charger = r))
+    it('n’écoute plus les demandes une fois démonté (fin de la session)', async () => {
+        let chargements = 0;
+        const w = monter({
+            'recherche-avancee': async () => {
+                chargements++;
+                return { default: Essai };
+            }
         });
+        w.unmount();
+        monte = null;
         emettre('fenetre-demandee', { fenetre: 'recherche-avancee' });
-        emettre('session-terminee');
-        charger({ default: Essai });
         await rendu();
-        expect(fenetre()).toBeNull();
+        expect(chargements).toBe(0);
     });
 });

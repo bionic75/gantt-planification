@@ -9,7 +9,7 @@ import { apiRessources } from '@/api/ressources';
 import AppAlert from '@/composants/AppAlert.vue';
 import AppModal from '@/composants/AppModal.vue';
 import { cleDateLocale } from '@/ilots/consultation/calendrier';
-import { surDemande } from '@/ilots/fenetres';
+import { surDemande } from '@/cadre/fenetres';
 import { useSessionStore } from '@/stores/session';
 import {
     destinatairesPossibles,
