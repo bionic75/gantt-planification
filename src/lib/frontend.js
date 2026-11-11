@@ -13,7 +13,7 @@ import { PROJECT_ROOT, PUBLIC_DIR } from './paths.js';
 const DIST_DIR = path.join(PROJECT_ROOT, 'dist', 'frontend');
 const MANIFEST = path.join(DIST_DIR, '.vite', 'manifest.json');
 /** Points d'entrée : page servie → script d'entrée */
-const ENTREES = { 'index.html': 'src/ilots.ts', 'sondage.html': 'src/sondage.ts', 'mobile.html': 'src/mobile.ts' };
+const ENTREES = { 'index.html': 'src/principal.ts', 'sondage.html': 'src/sondage.ts', 'mobile.html': 'src/mobile.ts' };
 const BASE = '/vue/';
 /** Port du rechargement à chaud de Vite (développement), autorisé par la CSP */
 export const PORT_HMR = 24678;

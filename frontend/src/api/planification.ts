@@ -2,7 +2,7 @@
 // mises à disposition (src/modules/schedule, users, calendar, astreintes, resources)
 import { api, ErreurApi } from '@/api/client';
 import type { Ressource } from '@/api/ressources';
-import { emettre, type DateParticuliere, type PeriodeConges, type ZoneConges } from '@/liaison';
+import { emettre, type DateParticuliere, type PeriodeConges, type ZoneConges } from '@/evenements';
 
 /** Planning : clé « {ressource}_{available|activity|localisation|author}_{AAAA-MM-JJ}_{AM|PM} » → valeur */
 export type Planning = Record<string, string>;

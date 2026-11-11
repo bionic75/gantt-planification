@@ -1,6 +1,6 @@
 // Invitations Outlook des affectations en attente : regroupement par expert, résumé, corps de l'envoi
 import type { InvitationsExpert } from '@/api/notifications';
-import type { AffectationEnAttente, ExpertEnAttente } from '@/liaison';
+import type { AffectationEnAttente, ExpertEnAttente } from '@/evenements';
 
 export type TypeChangement = 'new' | 'modified' | 'deleted';
 

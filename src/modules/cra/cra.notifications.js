@@ -13,7 +13,7 @@ import { getCraConfig, monthName } from './cra.service.js';
 /** Adresse de l'application pour les tâches sans requête (automatisation) */
 export const backgroundAppUrl = () => env.APP_URL || global._detectedAppUrl || 'http://localhost:3000';
 
-const craLink = (/** @type {string} */ appUrl, /** @type {CraRef} */ cra) => `${appUrl}/?tab=cra&cra_id=${cra.id}`;
+const craLink = (/** @type {string} */ appUrl, /** @type {CraRef} */ cra) => `${appUrl}/cra/${cra.id}`;
 
 /** CRA soumis : demande de visa N1 */
 export async function notifySubmitted(
@@ -183,7 +183,7 @@ export async function notifyExpertDiffused(
             title: 'CRA diffusé',
             expertNom: cra.expert_nom,
             moisNom,
-            craUrl: `${appUrl}/?tab=cra`,
+            craUrl: `${appUrl}/cra`,
             action
         }),
         actionType: 'cra_diffusion_expert'

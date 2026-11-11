@@ -5,7 +5,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { navigation, ouvrirApplication } from '@/ilots/navigation/navigation';
-import { ecouter } from '@/liaison';
+import { ecouter } from '@/evenements';
 import { useSessionStore } from '@/stores/session';
 
 type CleApplication = 'planification' | 'deplacements' | 'analyse' | 'affectation';

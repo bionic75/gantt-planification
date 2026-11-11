@@ -2,6 +2,10 @@
 (function () {
     'use strict';
 
+    // Page principale (attribut data-ui-icons-keep-alert de <html>) : les ⚠️ sont laissés à warning-icons.js
+    const keepAlert = () =>
+        !!window.UI_ICONS_KEEP_ALERT || document.documentElement.hasAttribute('data-ui-icons-keep-alert');
+
     const I = {
         'check-circle': '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
         'x-circle': '<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/>',
@@ -208,7 +212,7 @@
 
     function iconFor(token) {
         const cp = token.codePointAt(0);
-        if (cp === 0x26a0 && window.UI_ICONS_KEEP_ALERT) return null;
+        if (cp === 0x26a0 && keepAlert()) return null;
         const entry = MAP[cp];
         if (!entry) return null;
         const span = document.createElement('span');
@@ -290,7 +294,7 @@
         RE.lastIndex = 0;
         while ((m = RE.exec(text)) !== null) {
             const entry = MAP[m[0].codePointAt(0)];
-            if (!entry || (m[0].codePointAt(0) === 0x26a0 && window.UI_ICONS_KEEP_ALERT)) continue;
+            if (!entry || (m[0].codePointAt(0) === 0x26a0 && keepAlert())) continue;
             out += escHtml(text.slice(last, m.index));
             out +=
                 '<svg class="ui-emo" viewBox="0 0 24 24" aria-hidden="true" style="color:' +
@@ -309,7 +313,7 @@
         RE.lastIndex = 0;
         while ((m = RE.exec(text)) !== null) {
             const cp = m[0].codePointAt(0);
-            if (MAP[cp] && !(cp === 0x26a0 && window.UI_ICONS_KEEP_ALERT)) {
+            if (MAP[cp] && !(cp === 0x26a0 && keepAlert())) {
                 found = true;
                 break;
             }

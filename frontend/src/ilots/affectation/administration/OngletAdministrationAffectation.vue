@@ -10,7 +10,7 @@ import { apiAffectation } from '@/api/affectation';
 import AppConfirmation from '@/composants/AppConfirmation.vue';
 import { fournirConfirmation } from '@/composants/confirmation';
 import { surReouverture } from '@/ilots/activation';
-import { ecouter, emettre } from '@/liaison';
+import { ecouter, emettre } from '@/evenements';
 import { useAsanaStore } from '../asana/magasin';
 import { fondEtape, frise } from './administration';
 import CarteAdministration from './CarteAdministration.vue';

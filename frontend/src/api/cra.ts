@@ -1,6 +1,6 @@
 // Comptes rendus d'activité (CRA) : appels et réponses (src/modules/cra)
 import { api } from '@/api/client';
-import { emettre } from '@/liaison';
+import { emettre } from '@/evenements';
 
 export type StatutCra = 'a_completer' | 'soumis' | 'vise_n1' | 'vise_n2' | 'diffuse';
 export type TypeLigne = 'activite_courante' | 'astreinte' | 'hno';

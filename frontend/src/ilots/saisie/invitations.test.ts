@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { AffectationEnAttente, ExpertEnAttente } from '@/liaison';
+import type { AffectationEnAttente, ExpertEnAttente } from '@/evenements';
 import { compter, invitationsDe, jourCourt, messageFinEnvoi, parDate, resume } from './invitations';
 
 const affectation = (champs: Partial<AffectationEnAttente>): AffectationEnAttente => ({

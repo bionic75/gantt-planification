@@ -5,7 +5,7 @@ import { ref } from 'vue';
 import { apiOnglets, type ConfigOnglets } from '@/api/acces';
 import AppSectionAdmin from '@/composants/AppSectionAdmin.vue';
 import { surReouverture } from '@/ilots/activation';
-import { emettre } from '@/liaison';
+import { emettre } from '@/evenements';
 import { grille, ONGLETS, PROFILS, verrouillee } from './calculs';
 
 const ouverte = ref(false);

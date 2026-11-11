@@ -4,8 +4,8 @@
 import { ref } from 'vue';
 import { apiNotifications, type NotificationExpert } from '@/api/notifications';
 import AppModal from '@/composants/AppModal.vue';
-import { surDemande } from '@/ilots/fenetres';
-import { emettre } from '@/liaison';
+import { surDemande } from '@/cadre/fenetres';
+import { emettre } from '@/evenements';
 
 const ouverte = ref(false);
 const notifications = ref<NotificationExpert[]>([]);

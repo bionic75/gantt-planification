@@ -1,4 +1,4 @@
-// Interface Vue (îlots montés dans la page existante, voir docs/migration-vue.md)
+// Interface Vue : page principale, page d'un sondage, application mobile (voir docs/migration-vue.md)
 // Build : dist/frontend (manifeste lu par le serveur, src/lib/frontend.js) ; tests de composants : Vitest
 import { fileURLToPath } from 'node:url';
 import vue from '@vitejs/plugin-vue';
@@ -25,7 +25,7 @@ export default defineConfig({
         manifest: true,
         rollupOptions: {
             input: {
-                ilots: fileURLToPath(new URL('./src/ilots.ts', import.meta.url)),
+                principal: fileURLToPath(new URL('./src/principal.ts', import.meta.url)),
                 // Page publique d'un sondage de date (public/sondage.html)
                 sondage: fileURLToPath(new URL('./src/sondage.ts', import.meta.url)),
                 // Application mobile (public/mobile.html)

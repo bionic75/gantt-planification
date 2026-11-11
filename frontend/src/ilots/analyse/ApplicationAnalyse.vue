@@ -1,5 +1,5 @@
-<!-- Application « Analyse de fichiers » (menu Applications), montée dans #analyseContainer quand l'ancien code
-     l'affiche : en-tête et pastilles communs, chargement d'un fichier (lu dans le navigateur, rien n'est envoyé ; fichier
+<!-- Application « Analyse de fichiers » (menu Applications), à l'adresse /analyse (#analyseContainer) :
+     en-tête et pastilles communs, chargement d'un fichier (lu dans le navigateur, rien n'est envoyé ; fichier
      conservable dans le navigateur), structure, filtres, colonnes affichées, doublons, tableau paginé, export CSV.
      Identifiants de l'ancien écran conservés. -->
 <script setup lang="ts">
@@ -142,7 +142,7 @@ function exporter() {
 
 async function deconnexion() {
     if (!(await confirmer('Voulez-vous vraiment vous déconnecter ?', 'Confirmer'))) return;
-    void deconnecterDepuisApplication('analyse');
+    void deconnecterDepuisApplication();
 }
 
 /** Session relue (photo de profil, profil actif) ; fichier conservé proposé */

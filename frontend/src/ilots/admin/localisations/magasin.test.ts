@@ -1,7 +1,7 @@
 import { createPinia, setActivePinia } from 'pinia';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiLocalisations, type Localisation } from '@/api/localisations';
-import { emettre } from '@/liaison';
+import { emettre } from '@/evenements';
 import { useLocalisationsStore } from './magasin';
 
 vi.mock('@/api/localisations', () => ({
@@ -14,7 +14,7 @@ vi.mock('@/api/localisations', () => ({
         importer: vi.fn()
     }
 }));
-vi.mock('@/liaison', () => ({ emettre: vi.fn() }));
+vi.mock('@/evenements', () => ({ emettre: vi.fn() }));
 const api = vi.mocked(apiLocalisations);
 
 const chu: Localisation = { id: 7, libelle_long: 'CHU', libelle_court: 'C', adresse: null, latitude: 1, longitude: 2 };

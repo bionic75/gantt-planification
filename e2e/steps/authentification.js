@@ -199,25 +199,18 @@ Then('les applications ouvertes sont fermées', async ({ monde }) => {
     }
 });
 
-// Ouverture de l'application interrompue par une déconnexion : chargements enchaînés (core.js, completeFinalLogin)
+// Ouverture de l'application interrompue par une déconnexion : l'ouverture attend les accès aux onglets avant
+// d'afficher l'onglet de l'adresse (ilots/navigation, demarrerNavigation)
 
-/** Dernier chargement de l'ouverture de l'application (localisations) */
-const DERNIER_CHARGEMENT = '**/api/locations';
-/** Chargement qui le précède (dates particulières) */
-const AVANT_DERNIER_CHARGEMENT = '/api/ics-files/special-dates/all';
+/** Dernier chargement de l'ouverture de l'application (accès aux onglets) */
+const DERNIER_CHARGEMENT = '**/api/tab-access';
 
 Given("je me déconnecterai pendant le dernier chargement de l'ouverture de l'application", async ({ monde }) => {
     const page = monde.page;
     /** Événements après la déconnexion : appels à l'API, erreurs de la console */
     const apres = (monde.d.apresDeconnexion = /** @type {string[]} */ ([]));
-    // Les îlots lisent aussi les localisations (onglet Ressources, rechargé avec les ressources au début de l'ouverture) :
-    // la requête retenue est la première qui suit le chargement précédent de l'ouverture (dates particulières)
-    let avantDernierCharge = false;
-    page.on('response', r => {
-        if (r.url().includes(AVANT_DERNIER_CHARGEMENT)) avantDernierCharge = true;
-    });
     await page.route(DERNIER_CHARGEMENT, async route => {
-        if (avantDernierCharge && !monde.d.deconnexion) {
+        if (route.request().method() === 'GET' && !monde.d.deconnexion) {
             // Chargement en attente : déconnexion par l'icône, réponse rendue une fois la mire affichée
             monde.d.deconnexion = (async () => {
                 await confirmer(monde, () => page.locator('.logout-icon').first().click());
@@ -241,7 +234,7 @@ Then("l'ouverture interrompue de l'application ne produit ni erreur ni appel à 
     // Booléen : une promesse renvoyée serait attendue par expect.poll
     await expect
         .poll(() => !!monde.d.deconnexion, {
-            message: `chargement des localisations non demandé (connexion : ${JSON.stringify(monde.d.connexion)})`
+            message: `chargement des accès aux onglets non demandé (connexion : ${JSON.stringify(monde.d.connexion)})`
         })
         .toBe(true);
     await monde.d.deconnexion;

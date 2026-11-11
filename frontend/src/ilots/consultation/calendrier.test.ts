@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { EtatPlanning, RessourcePlanning } from '@/liaison';
+import type { EtatPlanning, RessourcePlanning } from '@/evenements';
 import {
     couleurExpert,
     dateAccessible,

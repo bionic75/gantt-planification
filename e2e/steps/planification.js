@@ -80,8 +80,8 @@ Then('{string} voit la même saisie dans la planification', async ({ monde }, pr
 
 /** Onglet Planification ouvert, section « Planification » dépliée, grille affichée */
 export async function ongletPlanification(/** @type {Page} */ page) {
-    const contenu = page.locator('#planning.tab-content');
-    if (!(await contenu.evaluate(e => e.classList.contains('active')))) {
+    // Onglet fermé : son conteneur n'est pas dans la page (onglet de l'adresse seulement)
+    if (!(await page.locator('#planning.tab-content.active').count())) {
         await page
             .locator('#mainTabsContainer button.tab-btn[data-tab="planning"]')
             .evaluate(b => /** @type {HTMLElement} */ (b).click());

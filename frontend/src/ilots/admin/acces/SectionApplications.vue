@@ -8,7 +8,7 @@ import AppConfirmation from '@/composants/AppConfirmation.vue';
 import AppSectionAdmin from '@/composants/AppSectionAdmin.vue';
 import { fournirConfirmation } from '@/composants/confirmation';
 import { surReouverture } from '@/ilots/activation';
-import { emettre } from '@/liaison';
+import { emettre } from '@/evenements';
 import {
     LIBELLES_APPLICATIONS,
     nomCompte,

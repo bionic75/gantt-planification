@@ -1,6 +1,6 @@
 // Recherche avancée : demi-journées des experts actifs répondant aux critères (disponibilité, affectation,
 // localisation) sur un intervalle de dates, et classement des créneaux par nombre d'experts
-import type { EtatPlanning, RessourcePlanning } from '@/liaison';
+import type { EtatPlanning, RessourcePlanning } from '@/evenements';
 import { cleDateLocale } from './calendrier';
 
 /** Intervalle proposé : du premier au dernier jour du mois courant (dates du calendrier local) */

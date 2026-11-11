@@ -10,7 +10,7 @@ import { fournirConfirmation } from '@/composants/confirmation';
 import { surReouverture } from '@/ilots/activation';
 import FenetreDoublons from '@/ilots/evenements/FenetreDoublons.vue';
 import FenetreMessage from '@/ilots/saisie/FenetreMessage.vue';
-import { emettre } from '@/liaison';
+import { emettre } from '@/evenements';
 import { useSessionStore } from '@/stores/session';
 import {
     aujourdhui,

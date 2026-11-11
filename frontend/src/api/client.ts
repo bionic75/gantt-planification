@@ -1,5 +1,5 @@
 // Client de l'API de l'application (/api) : session par cookie, corps JSON, erreurs typées
-import { emettre } from '@/liaison';
+import { emettre } from '@/evenements';
 
 /** Erreur renvoyée par l'API : statut HTTP et message du serveur ({ error }) */
 export class ErreurApi extends Error {

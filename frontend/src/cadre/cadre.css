@@ -1,0 +1,8 @@
+/* Page principale (cadre/ApplicationPrincipale.vue) */
+
+/* Application « Analyse de fichiers » : conteneur d'origine (#analyseContainer) */
+.gp-application-analyse {
+    min-height: 100vh;
+    background: #f5f7fa;
+    font-family: Arial, sans-serif;
+}
