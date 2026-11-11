@@ -3,7 +3,7 @@
      connectés, conversations et fenêtre de l'échéance. Fin de la session : conversations effacées. -->
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted } from 'vue';
-import { ecouter } from '@/liaison';
+import { ecouter } from '@/evenements';
 import BulleConnectes from './BulleConnectes.vue';
 import { useDiscussionsStore } from './discussions';
 import FenetreInactivite from './FenetreInactivite.vue';

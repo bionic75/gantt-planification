@@ -5,7 +5,7 @@ import { onMounted, ref } from 'vue';
 import { ErreurApi } from '@/api/client';
 import { apiCra, type ExpertCra } from '@/api/cra';
 import { surReouverture } from '@/ilots/activation';
-import { emettre } from '@/liaison';
+import { emettre } from '@/evenements';
 import { periodesLancement } from './administration';
 import { useCraStore } from './magasin';
 

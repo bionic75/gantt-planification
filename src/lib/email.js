@@ -1,4 +1,4 @@
-// Validation de la syntaxe des adresses e-mail (utilisée côté serveur ; la même règle est dans public/js/app/email-validation.js)
+// Validation de la syntaxe des adresses e-mail (utilisée côté serveur ; la même règle est dans frontend/src/ilots/ressources/fiche.ts)
 
 const LOCAL = /^[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+)*$/;
 const LABEL = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/;

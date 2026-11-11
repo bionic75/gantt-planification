@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ecouter } from '@/liaison';
+import { ecouter } from '@/evenements';
 import { api, ErreurApi } from './client';
 
 /** Réponse du serveur simulée pour le prochain appel */
@@ -30,7 +30,7 @@ describe("client de l'API", () => {
         expect(erreur).toMatchObject({ statut: 403, message: 'Accès refusé' });
     });
 
-    it('session fermée (401) : signalée à la liaison', async () => {
+    it('session fermée (401) : signalée (gp:session-perdue)', async () => {
         const recus: unknown[] = [];
         const arreter = ecouter('session-perdue', d => recus.push(d));
         repondre(401, { error: 'SESSION_TERMINATED', message: 'Session fermée' });

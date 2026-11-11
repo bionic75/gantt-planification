@@ -1,12 +1,12 @@
 <!-- Onglet Ressources : formulaire d'ajout (sauf profil RH, en consultation seule), liste des ressources et fiche d'une
      ressource. Rechargé
-     quand l'ancien code recharge ses ressources (fiche enregistrée, connexion…), SAMU proposés relus quand les
-     localisations changent. -->
+     quand les ressources sont relues (gp:ressources-rechargees : fiche enregistrée, comptes modifiés…), SAMU proposés
+     relus quand les localisations changent. -->
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted } from 'vue';
 import AppConfirmation from '@/composants/AppConfirmation.vue';
 import { fournirConfirmation } from '@/composants/confirmation';
-import { ecouter } from '@/liaison';
+import { ecouter } from '@/evenements';
 import { useSessionStore } from '@/stores/session';
 import FicheRessource from './FicheRessource.vue';
 import FormulaireAjout from './FormulaireAjout.vue';
@@ -38,7 +38,7 @@ onMounted(() => {
 
 <template>
     <h2>Gestion des Ressources</h2>
-    <!-- Bandeau affiché quelques secondes par l'ancien code (showSyncStatus) -->
+    <!-- Bandeau affiché quelques secondes (outils/page.ts, afficherSynchronisation) -->
     <div id="syncStatus" class="sync-status" hidden>Données synchronisées</div>
     <FormulaireAjout v-if="session.session && !rh" />
     <!-- Profil connu avant l'affichage : liste en consultation seule pour le profil RH -->

@@ -1,14 +1,15 @@
-<!-- Mire de la page principale (index.html, monté dans #loginPage) : session vérifiée au chargement, lien de
-     réinitialisation du mot de passe (?reset_token=…), mot de passe imposé à changer après un rechargement.
-     L'ancien code ouvre l'application (gp:session-ouverte), masque l'application sans session (gp:session-absente) et
-     affiche ou masque la mire (classe « active » de #loginPage) ; il demande sa remise à zéro (gp:mire-affichee). -->
+<!-- Mire de la page principale (dans #loginPage, cadre/ApplicationPrincipale.vue) : session vérifiée au chargement,
+     lien de réinitialisation du mot de passe (?reset_token=…), mot de passe imposé à changer après un rechargement.
+     Session ouverte (gp:session-ouverte) ou absente (gp:session-absente) : l'application s'affiche ou reste masquée
+     (session/session.ts) ; remise à zéro à chaque nouvel affichage de la mire (gp:mire-affichee). -->
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import type { UtilisateurConnecte } from '@/api/connexion';
 import { CLE_CONNEXION_RECENTE } from '@/ilots/entete/cadre';
-import { ecouter, emettre } from '@/liaison';
+import { ecouter, emettre } from '@/evenements';
 import FenetreMotDePasseImpose from './FenetreMotDePasseImpose.vue';
 import FenetreNouveauMotDePasse from './FenetreNouveauMotDePasse.vue';
+import { prendreJeton } from './jeton';
 import { useSessionStore } from './magasin';
 import MireConnexion from './MireConnexion.vue';
 
@@ -16,16 +17,7 @@ const session = useSessionStore();
 const mire = ref<InstanceType<typeof MireConnexion> | null>(null);
 const motDePasseImpose = ref(false);
 
-/** Jeton du lien reçu par e-mail, retiré de l'adresse (historique, en-tête Referer) */
-function prendreJeton(): string | null {
-    const params = new URLSearchParams(window.location.search);
-    const jeton = params.get('reset_token');
-    if (!jeton) return null;
-    params.delete('reset_token');
-    const query = params.toString();
-    history.replaceState(null, '', window.location.pathname + (query ? `?${query}` : '') + window.location.hash);
-    return jeton;
-}
+/** Jeton du lien reçu par e-mail, retiré de l'adresse (connexion/jeton.ts) */
 const jeton = ref(prendreJeton());
 
 async function reprendre() {

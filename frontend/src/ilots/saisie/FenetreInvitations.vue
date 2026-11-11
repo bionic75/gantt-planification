@@ -7,9 +7,9 @@ import { ErreurApi } from '@/api/client';
 import { apiNotifications } from '@/api/notifications';
 import AppAlert from '@/composants/AppAlert.vue';
 import AppModal from '@/composants/AppModal.vue';
-import { surDemande } from '@/ilots/fenetres';
+import { surDemande } from '@/cadre/fenetres';
 import { usePlanificationStore } from '@/ilots/planification/magasin';
-import type { EtatInvitations } from '@/liaison';
+import type { EtatInvitations } from '@/evenements';
 import { useSessionStore } from '@/stores/session';
 import FenetreMessage from './FenetreMessage.vue';
 import {

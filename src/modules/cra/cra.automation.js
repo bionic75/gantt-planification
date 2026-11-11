@@ -41,7 +41,7 @@ function enqueueReminder(expert, craId, moisNom, { subject, title, action }) {
             title,
             expertNom,
             moisNom,
-            craUrl: `${backgroundAppUrl()}/?tab=cra&cra_id=${craId}`,
+            craUrl: `${backgroundAppUrl()}/cra/${craId}`,
             action
         }),
         actionType: 'cra_rappel'
@@ -66,7 +66,7 @@ function enqueueVisaReminder(
             title: `${count} CRA en attente de visa ${niveau}`,
             expertNom: '',
             moisNom: new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
-            craUrl: `${backgroundAppUrl()}/?tab=cra`,
+            craUrl: `${backgroundAppUrl()}/cra`,
             action:
                 niveau === 'N1'
                     ? `${count} compte(s)-rendu(s) d'activité ont été soumis par les experts et attendent votre visa de niveau 1.`

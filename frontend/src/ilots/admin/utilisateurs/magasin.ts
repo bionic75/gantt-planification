@@ -2,7 +2,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { apiUtilisateurs, type RessourceCompte, type Utilisateur } from '@/api/utilisateurs';
-import { emettre } from '@/liaison';
+import { emettre } from '@/evenements';
 
 /** Message de la section (remplace les alert() de l'ancien écran) */
 export interface Message {

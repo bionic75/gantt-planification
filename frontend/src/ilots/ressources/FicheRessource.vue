@@ -6,7 +6,8 @@ import { computed, nextTick, ref } from 'vue';
 import { apiRessources, type PeriodeMad, type Ressource } from '@/api/ressources';
 import { ErreurApi } from '@/api/client';
 import AppModal from '@/composants/AppModal.vue';
-import { afficherSynchronisation, emettre } from '@/liaison';
+import { emettre } from '@/evenements';
+import { afficherSynchronisation } from '@/outils/page';
 import { dateFr, esDuSamu } from './calculs';
 import {
     corpsFiche,

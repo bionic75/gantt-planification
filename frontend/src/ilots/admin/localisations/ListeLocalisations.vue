@@ -3,7 +3,7 @@
 import { computed, nextTick, ref, watch } from 'vue';
 import type { Localisation } from '@/api/localisations';
 import { useConfirmation } from '@/composants/confirmation';
-import { rendreColonnesRedimensionnables } from '@/liaison';
+import { rendreColonnesRedimensionnables } from '@/outils/colonnes';
 import { basculerTri, messageSuppression, trier, type ColonneTri, type Sens } from './calculs';
 import { useLocalisationsStore } from './magasin';
 

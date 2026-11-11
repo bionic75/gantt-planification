@@ -7,7 +7,7 @@ import type {
     PeriodeConges,
     RessourcePlanning,
     ZoneConges
-} from '@/liaison';
+} from '@/evenements';
 
 export const NOMS_MOIS = [
     'Janvier',

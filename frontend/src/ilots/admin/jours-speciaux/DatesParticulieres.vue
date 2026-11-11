@@ -6,7 +6,7 @@ import { apiDatesParticulieres, type ApparenceDates, type FichierDates } from '@
 import AppAlert from '@/composants/AppAlert.vue';
 import AppSousSectionAdmin from '@/composants/AppSousSectionAdmin.vue';
 import { useConfirmation } from '@/composants/confirmation';
-import { emettre } from '@/liaison';
+import { emettre } from '@/evenements';
 import FenetreApparence from './FenetreApparence.vue';
 import { apparence, APPARENCE_PAR_DEFAUT, lireIcs } from './ics';
 

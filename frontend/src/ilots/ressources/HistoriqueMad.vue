@@ -7,7 +7,7 @@ import { apiRessources, type PeriodeMad, type Ressource } from '@/api/ressources
 import { ErreurApi } from '@/api/client';
 import AppModal from '@/composants/AppModal.vue';
 import { useConfirmation } from '@/composants/confirmation';
-import { emettre } from '@/liaison';
+import { emettre } from '@/evenements';
 import { dateFr } from './calculs';
 import FenetreParticularites from './FenetreParticularites.vue';
 import { useRessourcesStore } from './magasin';

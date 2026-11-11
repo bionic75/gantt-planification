@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CompteGrille, Planning } from '@/api/planification';
 import type { Ressource } from '@/api/ressources';
-import type { ExpertEnAttente } from '@/liaison';
+import type { ExpertEnAttente } from '@/evenements';
 import {
     MESSAGES,
     appliquer,

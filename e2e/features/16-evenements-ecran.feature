@@ -13,7 +13,7 @@ Fonctionnalité: Onglet Événements : formulaire, liste, exports
     Et je saisis un événement du type de test du "2031-05-12" au "2031-05-13" sur la localisation de test
     Et j'ajoute le participant interne "Expert" et l'invité externe "invite.e2e@exemple.fr"
     Alors la prévisualisation reprend les dates, le type, le libellé, la localisation et le participant "Expert"
-    Quand j'ajoute l'événement et le planning est rechargé
+    Quand j'ajoute l'événement et il est enregistré
     Alors le formulaire de l'événement est replié
     Et l'événement saisi est affiché en mai 2031 avec la localisation de test et le participant "Expert"
     Et l'événement saisi est enregistré avec le type, la localisation, la période "FULL" et les participants
@@ -27,7 +27,7 @@ Fonctionnalité: Onglet Événements : formulaire, liste, exports
     Alors le choix de la demi-journée n'est pas proposé
     Quand je saisis un événement du type de test du "2031-05-14" au "2031-05-14"
     Et je choisis la demi-journée "Matin"
-    Et j'ajoute l'événement et le planning est rechargé
+    Et j'ajoute l'événement et il est enregistré
     Alors l'événement saisi est enregistré avec la période "AM"
 
   Scénario: Champs obligatoires du formulaire

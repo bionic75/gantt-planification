@@ -1,6 +1,6 @@
 // Recherche avancée : icônes des options (image d'arrière-plan), les mêmes que la légende de la planification et que
 // ses cellules. La légende est lue dans la grille de l'ancien code (migrée au lot 4.5).
-import { iconesImages, type IconesImages } from '@/liaison';
+import { iconesImages, type IconesImages } from '@/outils/page';
 
 const GRIS = '#455a64';
 

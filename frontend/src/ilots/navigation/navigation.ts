@@ -1,12 +1,14 @@
-// Navigation de la page principale (lot 6.4a) : onglets de la Planification accessibles au profil (configuration de
-// l'administration, /api/tab-access), onglet ouvert (classe « active » des conteneurs, montage des îlots), onglet
-// d'arrivée, pastille des CRA en cours, changement d'application (Planification, Déplacements, Analyse, Affectation ;
-// application gardée pour l'onglet du navigateur, sessionStorage « selectedApp »), lien vers un CRA (?tab=cra&cra_id=).
-// État de la session en cours, remis à zéro à la fin de la session ; Vue Router le remplacera (lot 6.4b).
-import { reactive } from 'vue';
+// Navigation de la page principale : onglets de la Planification accessibles au profil (configuration de
+// l'administration, /api/tab-access), onglet d'arrivée, pastille des CRA en cours, adresses des onglets et des
+// applications (Vue Router, lot 6.4b : /planification, /cra/12, /deplacements…), adresse refusée ou inconnue renvoyée
+// vers l'onglet d'arrivée, anciens liens des notifications (« /?tab=cra&cra_id=12 ») redirigés vers /cra/12.
+// État de la session en cours, remis à zéro à la fin de la session.
+import { reactive, toRaw } from 'vue';
+import type { RouteLocationRaw, RouteMeta, RouteRecordNameGeneric, Router } from 'vue-router';
 import { api } from '@/api/client';
 import type { Session } from '@/api/types';
-import { deconnecter, ecouter, emettre } from '@/liaison';
+import { ecouter, emettre } from '@/evenements';
+import { deconnecter } from '@/session/session';
 
 /** Onglets soumis à la configuration de l'accès (ordre de l'écran d'administration) */
 export const ONGLETS_CONFIGURABLES = [
@@ -124,45 +126,120 @@ export function ongletArrivee(config: ConfigOnglets | null, s: Pick<Session, 'ac
 export const crasEnCours = (liste: { archived?: boolean | number; statut?: string }[]) =>
     liste.filter(c => !c.archived && c.statut !== 'diffuse').length;
 
-// ── État de la session ───────────────────────────────────────────────────────
+// ── Adresses ─────────────────────────────────────────────────────────────────
 
 export type CleApplication = 'planification' | 'deplacements' | 'analyse' | 'affectation';
+export type CleAutreApplication = Exclude<CleApplication, 'planification'>;
 
-const CONTENEURS: Record<Exclude<CleApplication, 'planification'>, string> = {
-    deplacements: 'deplacementsContainer',
-    analyse: 'analyseContainer',
-    affectation: 'affectationContainer'
+/** Adresse de chaque onglet de la Planification */
+export const CHEMINS_ONGLETS: Record<CleOnglet, string> = {
+    accueil: '/accueil',
+    resources: '/ressources',
+    evenements: '/evenements',
+    planning: '/planification',
+    tripadvisor: '/samu-sas',
+    cra: '/cra',
+    reporting: '/reporting',
+    admin: '/administration',
+    astreintesGestion: '/astreintes'
 };
+
+/** Adresse de chaque autre application */
+export const CHEMINS_APPLICATIONS: Record<CleAutreApplication, string> = {
+    deplacements: '/deplacements',
+    analyse: '/analyse',
+    affectation: '/affectation'
+};
+
+/** Repères d'une adresse : onglet de la Planification ou autre application */
+export interface RepereRoute {
+    onglet?: CleOnglet;
+    application?: CleAutreApplication;
+}
+
+declare module 'vue-router' {
+    // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- extension des métadonnées des routes
+    interface RouteMeta extends RepereRoute {}
+}
+
+/** Anciens liens des notifications (« ?tab=cra&cra_id=12 », ou « craId » des anciens courriels) : CRA à ouvrir */
+export function craDuLien(query: Record<string, unknown>): { cra: boolean; id: number | null } {
+    if (query.tab !== 'cra') return { cra: false, id: null };
+    const id = Number(query.cra_id ?? query.craId);
+    return { cra: true, id: Number.isInteger(id) && id > 0 ? id : null };
+}
+
+const cheminArrivee = (config: ConfigOnglets | null, s: Session) =>
+    CHEMINS_ONGLETS[ongletArrivee(config, s) as CleOnglet] ?? CHEMINS_ONGLETS.accueil;
+
+/**
+ * Adresse à ouvrir à la place de celle demandée ; null si elle est permise. Racine : onglet d'arrivée (ancien lien
+ * d'une notification : le CRA) ; adresse inconnue, onglet ou application refusés au profil : onglet d'arrivée
+ */
+export function destination(
+    cible: { name?: RouteRecordNameGeneric | null; meta: RouteMeta; query: Record<string, unknown> },
+    config: ConfigOnglets | null,
+    s: Session
+): string | null {
+    if (cible.name === 'racine') {
+        const lien = craDuLien(cible.query);
+        if (lien.cra && craVisible(config, s)) return lien.id ? `/cra/${lien.id}` : CHEMINS_ONGLETS.cra;
+        return cheminArrivee(config, s);
+    }
+    const { onglet, application } = cible.meta;
+    if (onglet) {
+        const permis =
+            onglet === 'accueil' || (onglet === 'cra' ? craVisible(config, s) : peut(config, s.activeProfile, onglet));
+        return permis ? null : cheminArrivee(config, s);
+    }
+    if (application) return (s.availableApps ?? []).includes(application) ? null : cheminArrivee(config, s);
+    return cheminArrivee(config, s);
+}
+
+// ── État de la session ───────────────────────────────────────────────────────
 
 export const navigation = reactive({
     config: null as ConfigOnglets | null,
     session: null as Session | null,
-    onglet: 'resources',
+    /** Accès chargés et adresse vérifiée : le contenu de l'onglet ou de l'application peut s'afficher */
+    pret: false,
+    /** Dernier onglet ouvert de la Planification (« » : aucun encore) */
+    onglet: '' as string,
     application: 'planification' as CleApplication,
     pastilleCra: 0,
-    /** CRA demandé par le lien d'une notification, en attente d'ouverture par l'îlot du CRA */
+    /** CRA demandé par l'adresse (/cra/12), en attente d'ouverture par l'onglet CRA */
     craDemande: null as number | null
 });
+
+let routeur: Router | null = null;
+
+function aller(chemin: RouteLocationRaw) {
+    void routeur?.push(chemin);
+}
 
 ecouter('session-terminee', () => {
     navigation.config = null;
     navigation.session = null;
+    navigation.pret = false;
+    navigation.onglet = '';
     navigation.pastilleCra = 0;
     navigation.craDemande = null;
     navigation.application = 'planification';
+    // Connexion suivante : onglet d'arrivée du nouvel utilisateur
+    void routeur?.replace('/');
 });
-// Accès aux onglets enregistrés dans l'administration
+// Accès aux onglets enregistrés dans l'administration : onglet ouvert devenu interdit → onglet d'arrivée
 ecouter('onglets-modifies', d => {
     navigation.config = d.config;
-    if (navigation.onglet !== 'accueil' && navigation.session) {
-        const visible =
-            navigation.onglet === 'cra'
-                ? craVisible(d.config, navigation.session)
-                : peut(d.config, navigation.session.activeProfile, navigation.onglet);
-        if (!visible) ouvrirOnglet(ongletArrivee(d.config, navigation.session));
-    }
+    const s = navigation.session;
+    if (!s || !navigation.onglet || navigation.onglet === 'accueil') return;
+    const visible =
+        navigation.onglet === 'cra' ? craVisible(d.config, s) : peut(d.config, s.activeProfile, navigation.onglet);
+    if (visible) return;
+    if (navigation.application === 'planification') aller(cheminArrivee(d.config, s));
+    else navigation.onglet = '';
 });
-// CRA traités par l'îlot de l'onglet CRA : pastille relue
+// CRA traités par l'onglet CRA : pastille relue
 ecouter('cra-modifies', () => void chargerPastilleCra());
 
 export async function chargerAcces() {
@@ -180,13 +257,6 @@ export const accesAccueil = (): AccesAccueil | null =>
 /** Onglets de la Planification accessibles au profil (hors Accueil, accessible à tous) */
 export const ongletsAccessibles = (profil: string): string[] => ongletsDisponibles(navigation.config, profil);
 
-/** Onglet de la Planification ouvert : son conteneur (classe « active ») monte l'îlot */
-export function ouvrirOnglet(cle: string) {
-    document.querySelectorAll('.tab-content').forEach(t => t.classList.toggle('active', t.id === cle));
-    navigation.onglet = cle;
-    if (cle === 'cra') void chargerPastilleCra();
-}
-
 export async function chargerPastilleCra() {
     const s = navigation.session;
     const admin = !!s && (s.is_admin || s.activeProfile === 'admin');
@@ -199,60 +269,76 @@ export async function chargerPastilleCra() {
     }
 }
 
-function memoriserApplication(cle: CleApplication | null) {
-    try {
-        if (cle) sessionStorage.setItem('selectedApp', cle);
-        else sessionStorage.removeItem('selectedApp');
-    } catch {
-        /* stockage indisponible */
-    }
+/**
+ * Routeur de la page : adresse vérifiée avant chaque changement (session ouverte), onglet ou application affichés
+ * retenus, CRA demandé par l'adresse transmis à l'onglet CRA
+ */
+export function installerNavigation(r: Router): void {
+    routeur = r;
+    r.beforeEach(to => {
+        // Sans session, la mire masque l'application : adresse gardée, vérifiée à l'ouverture de la session
+        const s = navigation.session;
+        if (!s || !navigation.pret) return true;
+        const autre = destination(to, navigation.config, s);
+        return autre === null ? true : { path: autre, replace: true };
+    });
+    r.afterEach((to, _from, echec) => {
+        if (echec || !navigation.session) return;
+        const { onglet, application } = to.meta;
+        if (onglet) {
+            navigation.onglet = onglet;
+            navigation.application = 'planification';
+            if (onglet === 'cra') void chargerPastilleCra();
+            const id = Number(to.params.id);
+            if (onglet === 'cra' && Number.isInteger(id) && id > 0) {
+                navigation.craDemande = id;
+                emettre('cra-demande');
+            }
+        } else if (application) {
+            navigation.application = application;
+            (window as unknown as { GPTools?: { position: () => void } }).GPTools?.position();
+        }
+    });
 }
 
-/** Application gardée pour l'onglet du navigateur (page rechargée) ; null si aucune ou non accessible */
-export function applicationMemorisee(s: Pick<Session, 'availableApps'>): CleApplication | null {
-    let cle: string | null = null;
-    try {
-        cle = sessionStorage.getItem('selectedApp');
-    } catch {
-        /* stockage indisponible */
-    }
-    return cle && cle in CONTENEURS && (s.availableApps ?? []).includes(cle) ? (cle as CleApplication) : null;
+/**
+ * Session ouverte : accès chargés, puis adresse de la page vérifiée (adresse demandée avant la connexion gardée si
+ * elle est permise, sinon onglet d'arrivée)
+ */
+export async function demarrerNavigation(s: Session): Promise<void> {
+    navigation.session = s;
+    await chargerAcces();
+    // Session terminée pendant le chargement des accès
+    if (toRaw(navigation.session) !== toRaw(s)) return;
+    navigation.pret = true;
+    void chargerPastilleCra();
+    if (!routeur) return;
+    const { path, query, hash } = routeur.currentRoute.value;
+    await routeur.replace({ path, query, hash, force: true });
 }
 
-const conteneur = (id: string) => document.getElementById(id);
-const planification = () => document.querySelector<HTMLElement>('.container');
+/** Onglet de la Planification ouvert (son adresse) */
+export function ouvrirOnglet(cle: string) {
+    const chemin = CHEMINS_ONGLETS[cle as CleOnglet];
+    if (chemin) aller(chemin);
+}
 
-/** Application affichée (menu Applications) : son conteneur, montré, monte l'îlot de l'application */
+/** Application affichée (menu Applications, Accueil) */
 export function ouvrirApplication(cle: CleApplication) {
     if (cle === 'planification') return revenirPlanification();
-    document.getElementById('loginPage')?.classList.remove('active');
-    const p = planification();
-    if (p) p.style.display = 'none';
-    for (const [app, id] of Object.entries(CONTENEURS)) {
-        const c = conteneur(id);
-        if (c) c.style.display = app === cle ? 'block' : 'none';
-    }
-    navigation.application = cle;
-    memoriserApplication(cle);
-    (window as unknown as { GPTools?: { position: () => void } }).GPTools?.position();
+    aller(CHEMINS_APPLICATIONS[cle]);
 }
 
-/** Retour à la Planification (menu Applications, Accueil d'une application) */
+/** Retour à la Planification (menu Applications, Accueil d'une application) : dernier onglet ouvert */
 export function revenirPlanification() {
-    for (const id of Object.values(CONTENEURS)) {
-        const c = conteneur(id);
-        if (c) c.style.display = 'none';
-    }
-    const p = planification();
-    if (p) p.style.display = 'block';
-    navigation.application = 'planification';
-    memoriserApplication('planification');
+    const s = navigation.session;
+    const onglet = navigation.onglet as CleOnglet;
+    aller(onglet ? CHEMINS_ONGLETS[onglet] : s ? cheminArrivee(navigation.config, s) : '/');
 }
 
 /** Bouton « Accueil » des applications : retour à la Planification, sur l'Accueil */
 export function allerAccueil() {
-    revenirPlanification();
-    ouvrirOnglet('accueil');
+    aller(CHEMINS_ONGLETS.accueil);
 }
 
 /** Fenêtre de déconnexion des Déplacements : « Aller sur la Plateforme de planification », données relues */
@@ -263,22 +349,11 @@ export function quitterDeplacementsVersPlanification() {
 }
 
 /** Déconnexion confirmée dans une application */
-export async function deconnecterDepuisApplication(cle: Exclude<CleApplication, 'planification'>) {
-    memoriserApplication(null);
+export async function deconnecterDepuisApplication() {
     await deconnecter();
-    const c = conteneur(CONTENEURS[cle]);
-    if (c) c.style.display = 'none';
 }
 
-/** Lien d'une notification (« ?tab=cra&cra_id=12 », ou « craId » des anciens courriels) : CRA à ouvrir */
-export function craDuLien(recherche: string): { cra: boolean; id: number | null } {
-    const p = new URLSearchParams(recherche);
-    if (p.get('tab') !== 'cra') return { cra: false, id: null };
-    const id = Number(p.get('cra_id') ?? p.get('craId'));
-    return { cra: true, id: Number.isInteger(id) && id > 0 ? id : null };
-}
-
-/** CRA demandé par le lien d'une notification, retiré de l'attente ; null si aucun */
+/** CRA demandé par l'adresse, retiré de l'attente ; null si aucun */
 export function prendreCraDemande(): number | null {
     const id = navigation.craDemande;
     navigation.craDemande = null;
