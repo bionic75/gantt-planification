@@ -1,95 +1,78 @@
-<!-- Pastilles fixes en haut à droite d'une application : utilisateurs connectés (relus toutes les 30 s ; un clic ouvre
-     la bulle de discussion commune) et minuteur d'inactivité (décompte de la session, orange sous 2 min, rouge sous
-     1 min). Identifiants « {prefixe}OnlineUsersContainer » et « {prefixe}TimerDisplay » (barre d'outils flottante). -->
+<!-- Pastilles fixes en haut à droite, communes à la Planification et aux applications : utilisateurs connectés (un clic
+     ouvre la liste commune, ilots/connectes/BulleConnectes.vue) et minuteur d'inactivité (décompte de la session, orange
+     sous 2 min, rouge sous 1 min ; absent si l'inactivité n'est pas paramétrée). Données des magasins de la session
+     (ilots/connectes). Identifiants « {prefixe}OnlineUsersContainer », « {prefixe}TimerDisplay »… ; sans préfixe
+     (Planification) ceux de l'ancien en-tête : « onlineUsersContainer », « inactivityTimerDisplay », « timerMinutes ». -->
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue';
-import { apiConnectes, type UtilisateurConnecte } from '@/api/connectes';
-import { basculerBulleConnectes, inactiviteRestante } from '@/liaison';
+import { computed } from 'vue';
+import { COULEURS_PROFILS, initialesConnecte, nomConnecte, useConnectesStore } from '@/ilots/connectes/magasin';
+import { useInactiviteStore } from '@/ilots/connectes/inactivite';
 
-const props = defineProps<{ prefixe: string }>();
+const props = withDefaults(defineProps<{ prefixe?: string }>(), { prefixe: '' });
 
 const MAX_AVATARS = 5;
-const connectes = ref<UtilisateurConnecte[]>([]);
-const secondes = ref<number | null>(null);
+const connectes = useConnectesStore();
+const inactivite = useInactiviteStore();
 
-const nom = (u: UtilisateurConnecte) => `${u.prenom || ''} ${u.nom || ''}`.trim() || u.username;
-const initiale = (u: UtilisateurConnecte) => u.trigramme || u.prenom?.charAt(0) || '?';
+/** Identifiants de l'ancien en-tête de la Planification (sans préfixe) */
+const SANS_PREFIXE: Record<string, string> = {
+    OnlineUsersContainer: 'onlineUsersContainer',
+    OnlineUsersAvatars: 'onlineUsersAvatars',
+    OnlineUsersCount: 'onlineUsersCount',
+    TimerDisplay: 'inactivityTimerDisplay',
+    TimerMinutes: 'timerMinutes',
+    TimerSeconds: 'timerSeconds'
+};
+const id = (nom: string) => (props.prefixe ? `${props.prefixe}${nom}` : SANS_PREFIXE[nom]);
+
 const deux = (n: number) => String(n).padStart(2, '0');
+const secondes = computed(() => Math.max(0, inactivite.restant));
+const ton = computed(() =>
+    secondes.value <= 60
+        ? 'gp-pastilles__minuteur--rouge'
+        : secondes.value <= 120
+          ? 'gp-pastilles__minuteur--orange'
+          : undefined
+);
 
-async function lireConnectes() {
-    try {
-        connectes.value = await apiConnectes.liste();
-    } catch (e) {
-        console.error('Erreur chargement utilisateurs connectés:', e);
-    }
-}
-
-function lireMinuteur() {
-    const restant = inactiviteRestante();
-    secondes.value = restant === null ? null : Math.max(0, restant);
-}
-
-let boucleConnectes: ReturnType<typeof setInterval> | undefined;
-let boucleMinuteur: ReturnType<typeof setInterval> | undefined;
-
-onMounted(() => {
-    void lireConnectes();
-    lireMinuteur();
-    boucleConnectes = setInterval(() => void lireConnectes(), 30000);
-    boucleMinuteur = setInterval(lireMinuteur, 1000);
-});
-onBeforeUnmount(() => {
-    clearInterval(boucleConnectes);
-    clearInterval(boucleMinuteur);
-});
-
-/** Relecture immédiate (réouverture de l'application) */
-defineExpose({ relire: lireConnectes });
-
-const ton = () =>
-    secondes.value === null
-        ? undefined
-        : secondes.value <= 60
-          ? 'gp-pastilles__minuteur--rouge'
-          : secondes.value <= 120
-            ? 'gp-pastilles__minuteur--orange'
-            : undefined;
+/** Relecture immédiate (réouverture d'une application) */
+defineExpose({ relire: () => connectes.charger() });
 </script>
 
 <template>
     <button
-        :id="`${props.prefixe}OnlineUsersContainer`"
+        v-if="connectes.liste.length"
+        :id="id('OnlineUsersContainer')"
         type="button"
         class="gp-pastilles__connectes"
         title="Utilisateurs connectés"
-        @click="basculerBulleConnectes($event.currentTarget as HTMLElement, $event)"
+        @click.stop="connectes.basculerBulle($event.currentTarget as HTMLElement)"
     >
         <span class="gp-pastilles__point" aria-hidden="true">●</span>
-        <span :id="`${props.prefixe}OnlineUsersAvatars`" class="gp-pastilles__avatars">
+        <span :id="id('OnlineUsersAvatars')" class="gp-pastilles__avatars">
             <span
-                v-for="(u, i) in connectes.slice(0, MAX_AVATARS)"
+                v-for="(u, i) in connectes.liste.slice(0, MAX_AVATARS)"
                 :key="u.userId"
                 class="gp-pastilles__avatar"
-                :style="{ marginLeft: i > 0 ? '-8px' : '0', zIndex: MAX_AVATARS - i }"
-                :title="nom(u)"
+                :style="{
+                    marginLeft: i > 0 ? '-8px' : '0',
+                    zIndex: MAX_AVATARS - i,
+                    backgroundColor: COULEURS_PROFILS[u.profile ?? ''] ?? '#7f8c8d'
+                }"
+                :title="nomConnecte(u)"
             >
                 <img v-if="u.profilePhoto" :src="u.profilePhoto" alt="" class="gp-pastilles__photo" />
-                <template v-else>{{ initiale(u) }}</template>
+                <template v-else>{{ initialesConnecte(u) }}</template>
             </span>
-            <span v-if="connectes.length > MAX_AVATARS" class="gp-pastilles__avatar gp-pastilles__avatar--plus"
-                >+{{ connectes.length - MAX_AVATARS }}</span
+            <span v-if="connectes.liste.length > MAX_AVATARS" class="gp-pastilles__avatar gp-pastilles__avatar--plus"
+                >+{{ connectes.liste.length - MAX_AVATARS }}</span
             >
         </span>
-        <span :id="`${props.prefixe}OnlineUsersCount`" class="gp-pastilles__compte"
-            >{{ connectes.length }} connecté(s)</span
-        >
+        <span :id="id('OnlineUsersCount')" class="gp-pastilles__compte">{{ connectes.liste.length }} connecté(s)</span>
     </button>
-    <div :id="`${props.prefixe}TimerDisplay`" class="inactivity-timer gp-pastilles__minuteur" :class="ton()">
-        ⏱
-        <span :id="`${props.prefixe}TimerMinutes`">{{
-            secondes === null ? '--' : deux(Math.floor(secondes / 60))
-        }}</span
-        >:<span :id="`${props.prefixe}TimerSeconds`">{{ secondes === null ? '--' : deux(secondes % 60) }}</span>
+    <div v-if="inactivite.actif" :id="id('TimerDisplay')" class="inactivity-timer gp-pastilles__minuteur" :class="ton">
+        ⏱ <span :id="id('TimerMinutes')">{{ deux(Math.floor(secondes / 60)) }}</span
+        >:<span :id="id('TimerSeconds')">{{ deux(secondes % 60) }}</span>
     </div>
 </template>
 
@@ -157,8 +140,13 @@ const ton = () =>
     position: fixed;
     top: 10px;
     right: 10px;
+    height: 32px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: 4px;
     background: #fff;
-    padding: 6px 12px;
+    padding: 0 12px;
     border-radius: 20px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     z-index: 1001;

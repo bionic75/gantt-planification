@@ -19,6 +19,9 @@ const ILOTS: RegistreIlots = {
     menuApplications: { chargeur: () => import('@/ilots/entete/MenuApplications.vue'), cadre: true },
     // Favicon et nouveautés de l'aide (lot 6.2b)
     cadreSession: { chargeur: () => import('@/ilots/entete/CadreSession.vue'), cadre: true },
+    // Connectés, messagerie, inactivité (lot 6.3) : pastilles de la Planification, cadre commun aux applications
+    pastillesPlanification: { chargeur: () => import('@/ilots/applications/PastillesApplication.vue'), cadre: true },
+    cadreConnectes: { chargeur: () => import('@/ilots/connectes/CadreConnectes.vue'), cadre: true },
     accueil: () => import('@/ilots/accueil/OngletAccueil.vue'),
     resources: () => import('@/ilots/ressources/OngletRessources.vue'),
     tripadvisor: () => import('@/ilots/tripadvisor/TripAdvisor.vue'),
