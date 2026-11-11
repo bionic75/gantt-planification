@@ -17,7 +17,7 @@ jobs:
 
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Node.js
         uses: actions/setup-node@v7
@@ -77,7 +77,7 @@ jobs:
       DB_PASSWORD: ${{ secrets.CI_DB_PASSWORD }}
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Node.js
         uses: actions/setup-node@v7
@@ -126,7 +126,7 @@ jobs:
       DB_PASSWORD: ${{ secrets.CI_DB_PASSWORD }}
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Node.js
         uses: actions/setup-node@v7
@@ -194,7 +194,7 @@ jobs:
       E2E_SEED_SMTP_PORT: 1025
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Node.js
         uses: actions/setup-node@v7
@@ -283,7 +283,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # Client Prisma généré pour la base utilisée (variable du dépôt DB_PROVIDER, sqlite par défaut)
       - name: Build image
