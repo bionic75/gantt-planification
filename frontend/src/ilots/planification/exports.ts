@@ -1,6 +1,7 @@
 // Exports et impressions de la planification : mois proposés au téléchargement, nom du fichier CSV, impression du
 // calendrier d'une ressource, messages de l'envoi par e-mail
 
+import { ecrireDocument } from '@/outils/styles-en-ligne';
 /** Mois proposé au téléchargement : valeur « AAAA-MM » (mois de 01 à 12) */
 export interface MoisTelechargeable {
     valeur: string;
@@ -63,7 +64,7 @@ export const MESSAGES_ENVOI = {
 export function imprimerCalendrierRessource(contenu: string): void {
     const fenetre = window.open('', '_blank');
     if (!fenetre) return;
-    fenetre.document.write(`
+    ecrireDocument(fenetre.document, `
                 <!DOCTYPE html>
                 <html>
                 <head>
@@ -105,7 +106,6 @@ export function imprimerCalendrierRessource(contenu: string): void {
                 </body>
                 </html>
             `);
-    fenetre.document.close();
     let imprime = false;
     const imprimer = () => {
         if (imprime) return;

@@ -1,5 +1,6 @@
 // Reporting : export CSV d'un tableau affiché et impression dans une nouvelle fenêtre (comme l'ancien écran)
 
+import { ecrireDocument } from '@/outils/styles-en-ligne';
 /** Texte affiché d'une cellule (sauts de ligne compris) ; textContent hors navigateur (tests) */
 const texteAffiche = (el: HTMLElement) => (typeof el.innerText === 'string' ? el.innerText : (el.textContent ?? ''));
 
@@ -38,7 +39,7 @@ export const nomFichierDuJour = (prefixe: string) => `${prefixe}_${new Date().to
 export function imprimer(titre: string, styles: string, contenuHtml: string) {
     const fenetre = window.open('', '_blank');
     if (!fenetre) return;
-    fenetre.document.write(`
+    ecrireDocument(fenetre.document, `
                 <html>
                 <head>
                     <title>${titre}</title>
@@ -58,6 +59,5 @@ export function imprimer(titre: string, styles: string, contenuHtml: string) {
                 </body>
                 </html>
             `);
-    fenetre.document.close();
     fenetre.print();
 }

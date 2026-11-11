@@ -198,3 +198,8 @@ steps/           définitions des étapes (une par domaine) + étapes communes
 support/         configuration, boîte e-mail (IMAP / Mailpit), connexion, verrou OTP, données de test, « monde »
 auth.setup.js    connexions séquentielles des 4 profils
 ```
+
+Contrôles communs à tous les scénarios (`support/monde.js`, `support/fixtures.js`) : erreurs JavaScript, réponses 5xx
+et violations de la politique de sécurité du contenu sont jointes au rapport (« problemes ») ; une violation de la
+politique, dans la page ou dans une fenêtre qu'elle ouvre (impression), fait échouer le scénario (lots 6.5 et 6.6 de
+la migration : ni script ni style en ligne).

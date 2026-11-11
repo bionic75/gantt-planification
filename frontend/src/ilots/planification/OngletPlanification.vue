@@ -22,6 +22,7 @@ import { SAMU_ASTREINTES } from '@/ilots/saisie/astreintes';
 import { accesAccueil } from '@/ilots/navigation/navigation';
 import { ecouter, emettre, type NomFenetre } from '@/evenements';
 import { useSessionStore } from '@/stores/session';
+import { feuilleConstruite } from '@/outils/styles-en-ligne';
 import { MESSAGES_ENVOI } from './exports';
 import FenetreCalendrierRessource from './FenetreCalendrierRessource.vue';
 import FenetreTelechargement from './FenetreTelechargement.vue';
@@ -166,12 +167,9 @@ function zoomer(sens: number) {
     const n = zoom.value + sens * ZOOM.pas;
     if (n >= ZOOM.min && n <= ZOOM.max) zoom.value = n;
 }
-let feuilleZoom: HTMLStyleElement | null = null;
-watchEffect(() => {
-    feuilleZoom ??= Object.assign(document.createElement('style'), { id: 'ganttZoomStyle' });
-    if (!feuilleZoom.isConnected) document.head.appendChild(feuilleZoom);
-    feuilleZoom.textContent = styleZoom(zoom.value);
-});
+// Feuille construite (un élément <style> serait bloqué par la politique de sécurité du contenu)
+const feuilleZoom = feuilleConstruite();
+watchEffect(() => feuilleZoom.remplacer(styleZoom(zoom.value)));
 
 // ---------- Boutons de l'en-tête ----------
 
@@ -395,7 +393,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
     document.removeEventListener('click', clicDocument);
     arretZoom();
-    feuilleZoom?.remove();
+    feuilleZoom.remplacer('');
 });
 surReouverture(() => {
     acces.value = accesAccueil();
@@ -486,19 +484,19 @@ surReouverture(() => {
                             class="legend-item gp-planif__legende-item"
                             title="L'expert métier n'est pas disponible pour l'ANS mais vous pouvez néanmoins le solliciter en cliquant sur '✉️ Faire une demande'"
                         >
-                            <span class="color-code" style="background-color: #95a5a6"></span> 1 - Indisponible
+                            <span class="color-code color-code--95a5a6"></span> 1 - Indisponible
                         </div>
                         <div
                             class="legend-item gp-planif__legende-item"
                             title="L'expert métier est disponible pour l'ANS, vous pouvez lui affecter une activité sur le planning"
                         >
-                            <span class="color-code" style="background-color: #27ae60"></span> 2 - Disponible pour l'ANS
+                            <span class="color-code color-code--27ae60"></span> 2 - Disponible pour l'ANS
                         </div>
                         <div
                             class="legend-item gp-planif__legende-item"
                             title="L'expert métier n'est absolument pas disponible pour l'ANS"
                         >
-                            <span class="color-code" style="background-color: #00bcd4"></span> 3 -
+                            <span class="color-code color-code--00bcd4"></span> 3 -
                             <svg class="app-ico gp-planif__legende-icone" viewBox="0 0 24 24" aria-hidden="true">
                                 <path d="M3 12a9 9 0 0 1 18 0z" />
                                 <path d="M12 12v7a2 2 0 0 0 4 0" /></svg
@@ -510,7 +508,7 @@ surReouverture(() => {
                     <div class="legend-section-title">AFFECTATION (1-4)</div>
                     <div class="legend-items gp-planif__legende-items">
                         <div class="legend-item gp-planif__legende-item" title="Pas d'affectation possible">
-                            <span class="color-code" style="background-color: #95a5a6"></span> 1 -
+                            <span class="color-code color-code--95a5a6"></span> 1 -
                             <svg class="app-ico gp-planif__legende-icone" viewBox="0 0 24 24" aria-hidden="true">
                                 <circle cx="12" cy="12" r="9" />
                                 <path d="m5.6 5.6 12.8 12.8" /></svg
@@ -520,7 +518,7 @@ surReouverture(() => {
                             class="legend-item gp-planif__legende-item"
                             title="L'expert attend que vous lui affectiez une activité"
                         >
-                            <span class="color-code" style="background-color: #9b59b6"></span> 2 -
+                            <span class="color-code color-code--9b59b6"></span> 2 -
                             <svg class="app-ico gp-planif__legende-icone" viewBox="0 0 24 24" aria-hidden="true">
                                 <path d="M6 2h12v4l-6 6 6 6v4H6v-4l6-6-6-6z" /></svg
                             >En attente d'affectation
@@ -529,7 +527,7 @@ surReouverture(() => {
                             class="legend-item gp-planif__legende-item"
                             title="L'expert travaille aux activités opérationnelles de déploiement du bandeau de communication"
                         >
-                            <span class="color-code" style="background-color: #e67e22"></span> 3 -
+                            <span class="color-code color-code--e67e22"></span> 3 -
                             <svg class="app-ico gp-planif__legende-icone" viewBox="0 0 24 24" aria-hidden="true">
                                 <path
                                     d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"
@@ -540,7 +538,7 @@ surReouverture(() => {
                             class="legend-item gp-planif__legende-item"
                             title="L'expert travaille aux activités liées à l'utilisation du bandeau de communication (démonstration, formation, accompagnement post démarrage, visite de site, ...)"
                         >
-                            <span class="color-code" style="background-color: #d35400"></span> 4 -
+                            <span class="color-code color-code--d35400"></span> 4 -
                             <svg class="app-ico gp-planif__legende-icone" viewBox="0 0 24 24" aria-hidden="true">
                                 <path
                                     d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"
@@ -556,7 +554,7 @@ surReouverture(() => {
                             class="legend-item gp-planif__legende-item"
                             title="L'expert travaille à la réalisation de documents pour le déploiement du SI-SAMU"
                         >
-                            <span class="color-code" style="background-color: #3498db"></span> 5 -
+                            <span class="color-code color-code--3498db"></span> 5 -
                             <svg class="app-ico gp-planif__legende-icone" viewBox="0 0 24 24" aria-hidden="true">
                                 <path
                                     d="M4.5 16.5c-1.5 1.3-2 5-2 5s3.7-.5 5-2c.7-.8.7-2.1-.1-2.9a2.2 2.2 0 0 0-2.9-.1z"
@@ -571,7 +569,7 @@ surReouverture(() => {
                             class="legend-item gp-planif__legende-item"
                             title="L'expert travaille à des opérations de développement des usages (communication, animation de webinaires, formation EHESP, congrès, ...)"
                         >
-                            <span class="color-code" style="background-color: #2980b9"></span> 6 -
+                            <span class="color-code color-code--2980b9"></span> 6 -
                             <svg class="app-ico gp-planif__legende-icone" viewBox="0 0 24 24" aria-hidden="true">
                                 <path d="M2 3h20M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3M12 16v5M8 21h8" />
                                 <path d="m7 12 3-3 2 2 4-4" /></svg
@@ -581,7 +579,7 @@ surReouverture(() => {
                             class="legend-item gp-planif__legende-item"
                             title="L'expert travaille à la réalisation de VFT métier"
                         >
-                            <span class="color-code" style="background-color: #e74c3c"></span> 7 -
+                            <span class="color-code color-code--e74c3c"></span> 7 -
                             <svg class="app-ico gp-planif__legende-icone" viewBox="0 0 24 24" aria-hidden="true">
                                 <path d="m9 11 3 3L22 4" />
                                 <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg
@@ -591,7 +589,7 @@ surReouverture(() => {
                             class="legend-item gp-planif__legende-item"
                             title="L'expert est affecté à des activités relatives aux autres produits du domaine des urgences (SAS, SI-VIC, SICAP, Hub Santé, ...)"
                         >
-                            <span class="color-code" style="background-color: #16a085"></span> 8 -
+                            <span class="color-code color-code--16a085"></span> 8 -
                             <svg class="app-ico gp-planif__legende-icone" viewBox="0 0 24 24" aria-hidden="true">
                                 <path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z" />
                                 <path d="M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z" /></svg
@@ -855,6 +853,37 @@ surReouverture(() => {
 </template>
 
 <style>
+/* Pastilles de la légende (couleurs des disponibilités et des affectations) */
+.color-code--00bcd4 {
+    background-color: #00bcd4;
+}
+.color-code--16a085 {
+    background-color: #16a085;
+}
+.color-code--27ae60 {
+    background-color: #27ae60;
+}
+.color-code--2980b9 {
+    background-color: #2980b9;
+}
+.color-code--3498db {
+    background-color: #3498db;
+}
+.color-code--95a5a6 {
+    background-color: #95a5a6;
+}
+.color-code--9b59b6 {
+    background-color: #9b59b6;
+}
+.color-code--d35400 {
+    background-color: #d35400;
+}
+.color-code--e67e22 {
+    background-color: #e67e22;
+}
+.color-code--e74c3c {
+    background-color: #e74c3c;
+}
 /* Onglet monté dans le conteneur #planning ; classes de l'ancien écran (form-section, planif-controls, legend-*) */
 .gp-planif__section--options {
     background-color: #e8f5e9;

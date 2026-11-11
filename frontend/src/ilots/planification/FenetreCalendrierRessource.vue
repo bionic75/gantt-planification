@@ -4,6 +4,7 @@
 import { ref, watch } from 'vue';
 import { apiExports } from '@/api/planification';
 import AppModal from '@/composants/AppModal.vue';
+import { sansStyleEnLigne, vStylesEnLigne } from '@/outils/styles-en-ligne';
 import { imprimerCalendrierRessource } from './exports';
 
 const props = defineProps<{ ressourceId: number | null; annee: number; mois: number }>();
@@ -39,7 +40,7 @@ watch(
         <div id="printCalendarContent" class="gp-calendrier-ressource__apercu">
             <!-- Calendrier construit par le serveur, textes échappés (src/modules/notifications/resource-calendar.js) -->
             <!-- eslint-disable-next-line vue/no-v-html -->
-            <div id="calendarToPrint" v-html="contenu"></div>
+            <div id="calendarToPrint" v-styles-en-ligne v-html="sansStyleEnLigne(contenu)"></div>
         </div>
         <template #footer>
             <button

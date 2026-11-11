@@ -1,5 +1,6 @@
 // Page principale : les ⚠️ affichés sont remplacés par une icône SVG colorée selon la gravité suggérée par la couleur du
 // texte : jaune (info), orange (anomalie), rouge (bloquant). Repris de public/js/app/warning-icons.js (lot 6.5).
+import { appliquerStyles } from '@/outils/styles-en-ligne';
 
 const CORPS =
     '<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>';
@@ -27,7 +28,8 @@ export function couleurGravite(rgb: string): string {
 function icone(couleur: string): ChildNode | null {
     const span = document.createElement('span');
     span.className = 'alert-ico-wrap';
-    span.innerHTML = `<svg class="alert-ico" viewBox="0 0 24 24" aria-hidden="true" style="stroke:${couleur};fill:${couleur}33;">${CORPS}</svg>`;
+    span.innerHTML = `<svg class="alert-ico" viewBox="0 0 24 24" aria-hidden="true" data-style="stroke:${couleur};fill:${couleur}33;">${CORPS}</svg>`;
+    appliquerStyles(span);
     return span.firstChild;
 }
 

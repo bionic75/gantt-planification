@@ -257,6 +257,18 @@ describe('paramètres et configuration', () => {
         expect((await admin.get('/api/help/info')).data).toEqual({ exists: false, updatedAt: null });
     });
 
+    it('politique de contenu : ni script ni style en ligne, sauf les styles de l’aide en ligne', async () => {
+        const csp = async (/** @type {string} */ adresse) =>
+            (await server.client().get(adresse)).headers.get('content-security-policy') || '';
+        const page = await csp('/');
+        expect(page).toMatch(/script-src 'self';/);
+        expect(page).toMatch(/script-src-attr 'none'/);
+        expect(page).toMatch(/style-src 'self';/);
+        const aide = await csp('/aide.html');
+        expect(aide).toMatch(/style-src 'self' 'unsafe-inline'/);
+        expect(aide).toMatch(/script-src 'self';/);
+    });
+
     it('anciennes adresses des images : redirection vers public/img', async () => {
         for (const [from, to] of [
             ['/favicon-grille.svg?t=1', '/img/favicon-grille.svg?t=1'],

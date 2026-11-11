@@ -18,7 +18,8 @@ function depuisLegende(
         const element = elements[i];
         const svg = element?.querySelector('svg');
         const pastille = element?.querySelector<HTMLElement>('.color-code');
-        const couleur = pastille ? pastille.style.backgroundColor : GRIS;
+        // Couleur posée par la feuille de style de la légende (classe color-code--…)
+        const couleur = pastille ? getComputedStyle(pastille).backgroundColor || GRIS : GRIS;
         // Pas d'icône dans la légende : icône générique
         const url = svg ? api.urlForSvg(svg.innerHTML, couleur) : api.urlForName(generique(valeur), couleur);
         if (url) icones[valeur] = url;

@@ -4,6 +4,7 @@
      l'application (ApplicationAffectation.vue). -->
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { sansStyleEnLigne, vStylesEnLigne } from '@/outils/styles-en-ligne';
 import { surReouverture } from '@/ilots/activation';
 import FenetreMessage from '@/ilots/saisie/FenetreMessage.vue';
 import { ecouter } from '@/evenements';
@@ -510,7 +511,7 @@ surReouverture(() => void ouvrir());
         <p v-else-if="!magasin.charge" class="aff-muted aff-plan__chargement">Chargement…</p>
         <!-- Tableau produit par grille.ts (textes échappés), commun avec les pages imprimées -->
         <!-- eslint-disable-next-line vue/no-v-html -->
-        <div v-else class="aff-plan__contenu" v-html="tableau"></div>
+        <div v-else v-styles-en-ligne class="aff-plan__contenu" v-html="sansStyleEnLigne(tableau)"></div>
     </div>
 
     <div v-if="annonce" class="aff-toast" :class="{ err: annonce.erreur }" role="status">{{ annonce.texte }}</div>

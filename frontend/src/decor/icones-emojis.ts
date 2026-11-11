@@ -2,6 +2,7 @@
 // infobulles avec icônes, icônes en image pour les arrière-plans CSS. Repris à l'identique de public/js/ui-icons.js
 // (lot 6.5) ; composant d'icône lors de la phase DSFR.
 import './icones-emojis.css';
+import { appliquerStyles } from '@/outils/styles-en-ligne';
 
 const I: Record<string, string> = {
     'check-circle': '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
@@ -211,7 +212,7 @@ const SKIP = new Set(['SCRIPT', 'STYLE', 'TEXTAREA', 'OPTION', 'TITLE', 'INPUT',
 let garderAlerte = false;
 
 const svgIcone = (entree: [string, string?]) =>
-    `<svg class="ui-emo" viewBox="0 0 24 24" aria-hidden="true" style="color:${entree[1] || 'inherit'};stroke:currentColor;">${I[entree[0]]}</svg>`;
+    `<svg class="ui-emo" viewBox="0 0 24 24" aria-hidden="true" data-style="color:${entree[1] || 'inherit'};stroke:currentColor;">${I[entree[0]]}</svg>`;
 
 function iconeDe(jeton: string): ChildNode | null {
     const cp = jeton.codePointAt(0)!;
@@ -220,6 +221,7 @@ function iconeDe(jeton: string): ChildNode | null {
     if (!entree) return null;
     const span = document.createElement('span');
     span.innerHTML = svgIcone(entree);
+    appliquerStyles(span);
     return span.firstChild;
 }
 
@@ -369,6 +371,7 @@ function installerBulles() {
                     document.body.appendChild(bulle);
                 }
                 bulle.innerHTML = titreEnHtml(texte);
+                appliquerStyles(bulle);
                 bulle.style.display = 'block';
                 placerBulle(x, y);
             }, 350);
