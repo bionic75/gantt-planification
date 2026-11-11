@@ -11,7 +11,7 @@ import PastillesApplication from '@/ilots/applications/PastillesApplication.vue'
 import ZoneOnglet from '@/ilots/applications/ZoneOnglet.vue';
 import { surReouverture } from '@/ilots/activation';
 import FenetreMessage from '@/ilots/saisie/FenetreMessage.vue';
-import { deconnecterDepuisDeplacements, quitterDeplacementsVersPlanification } from '@/liaison';
+import { deconnecterDepuisApplication, quitterDeplacementsVersPlanification } from '@/ilots/navigation/navigation';
 import { useSessionStore } from '@/stores/session';
 import OngletAdministrationBons from './OngletAdministrationBons.vue';
 import OngletMesDeplacements from './OngletMesDeplacements.vue';
@@ -51,7 +51,7 @@ function allerPlanification() {
 
 function seDeconnecter() {
     deconnexion.value = false;
-    deconnecterDepuisDeplacements();
+    void deconnecterDepuisApplication('deplacements');
 }
 
 /** Session relue (photo de profil, profil actif) */

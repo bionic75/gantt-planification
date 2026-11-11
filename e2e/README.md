@@ -139,6 +139,8 @@ E2E_TAGS="@cra" npm test                                        # une fonctionna
       des messages (`/api/sse` simulé, reconnexion repoussée), paramétrage de l'inactivité simulés ; temps avancé par
       `page.clock` ; jamais de déconnexion par inactivité de la session enregistrée. `36` et `37` simulent aussi
       l'inactivité activée pour vérifier le minuteur.
+    - **Onglets et applications** (`48`) : ordre des onglets dans le stockage du navigateur du scénario ; onglet par
+      défaut d'un compte de test jetable (RH) ; accès à l'Analyse donné à « Utilisateur » le temps du scénario.
     - **Ateliers métier et sondages** (`42`) : déploiement de test avec mise en production en 2032 ; rétroplanning
       et sondages supprimés en fin de scénario. Invitation et sondage jamais envoyés (fenêtres ouvertes, adresse du
       sondage « Générée » en brouillon) ; réponses saisies sur la page publique dans un navigateur sans session.

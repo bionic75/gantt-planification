@@ -6,7 +6,7 @@ import AppIcone from '@/composants/AppIcone.vue';
 import type { NomIcone } from '@/composants/icones';
 import { surReouverture } from '@/ilots/activation';
 import { demandeAjoutLieu, demandeNouvelEvenement } from '@/ilots/demandes';
-import { ouvrirApplication, ouvrirOnglet } from '@/liaison';
+import { ouvrirApplication, ouvrirOnglet } from '@/ilots/navigation/navigation';
 import { dateFr, dateLongue, memeMission, type JourPersonne, type Mission } from './calculs';
 import FriseDeploiements from './FriseDeploiements.vue';
 import LigneEvenement from './LigneEvenement.vue';

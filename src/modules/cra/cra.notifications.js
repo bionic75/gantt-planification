@@ -151,7 +151,7 @@ export async function notifyAdminModified(
             title: 'CRA à vérifier et soumettre',
             expertNom,
             moisNom,
-            craUrl: `${appUrl}/?tab=cra&craId=${cra.id}`,
+            craUrl: craLink(appUrl, cra),
             action: `${e(admin.name)} a préparé ou modifié votre CRA. Merci de le vérifier, de le corriger si besoin, puis de le soumettre pour validation.`
         }),
         actionType: 'cra_modifie_admin'

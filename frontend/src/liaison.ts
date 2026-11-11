@@ -56,7 +56,7 @@ export interface EvenementsLiaison {
     /** CRA modifiés par l'îlot de l'onglet CRA (lancement, circuit, diffusion, archivage…) : l'ancien code relit la
      * pastille de l'onglet */
     'cra-modifies': undefined;
-    /** Lien d'une notification (« ?tab=cra&cra_id= ») : l'îlot de l'onglet CRA ouvre le CRA demandé (prendreCraDemande) */
+    /** Lien d'une notification (« ?tab=cra&cra_id= ») : l'îlot de l'onglet CRA ouvre le CRA demandé (ilots/navigation) */
     'cra-demande': undefined;
     /** Bouton de l'ancien code (en-têtes) : ouverture d'une fenêtre Vue (ilots/fenetres.ts) */
     'fenetre-demandee': { fenetre: NomFenetre };
@@ -114,34 +114,14 @@ interface FenetreAncienCode {
     makeColResizable?: (tableau: HTMLTableElement) => void;
     /** Thèmes saisonniers : décor de la page (public/js/themes.js) */
     Themes?: ThemesAncienCode;
-    /** Accès de l'utilisateur aux fonctions proposées par l'accueil (public/js/app/tab-access.js) */
-    accueilAcces?: () => AccesAccueil | null;
-    /** Ouverture d'un onglet de la Planification (public/js/app/tabs.js) */
-    switchTab?: (onglet: string, evenement: null) => void;
-    /** Ouverture d'une application (public/js/app/tab-access.js) */
-    switchToApp?: (application: string) => void;
     /** Déconnexion : session fermée, applications fermées, mire affichée (public/js/app/core.js) */
     performLogout?: () => Promise<void>;
     /** Bandeau « Données synchronisées » de l'onglet Ressources (public/js/app/dump.js) */
     showSyncStatus?: () => void;
-    /** CRA demandé par le lien d'une notification, en attente d'ouverture (public/js/app/core.js) */
-    craDemande?: number;
     /** Icônes en image (data URI) pour les listes déroulantes (public/js/ui-icons.js) */
     UIIconsApi?: IconesImages;
-    /** Onglets accessibles à un profil (public/js/app/core.js, configuration de l'accès aux onglets) */
-    getAvailableTabsForProfile?: (profil: string) => string[];
     /** Mode d'affichage clair, sombre ou automatique (public/js/darkmode.js) */
     ColorMode?: { get: () => ModeAffichage; set: (mode: ModeAffichage) => void };
-    /** Retour à l'accueil de la Planification (public/js/app/tabs.js) */
-    goHome?: () => void;
-    /** Application Déplacements quittée pour la Plateforme de planification (public/js/app/tab-access.js) */
-    goToPlanificationApp?: () => void;
-    /** Déconnexion depuis l'application Déplacements (public/js/app/tab-access.js) */
-    confirmLogoutFromDeplacements?: () => void;
-    /** Déconnexion depuis l'application Aide à l'affectation (public/js/app/tab-access.js) */
-    confirmLogoutFromAffectation?: () => void;
-    /** Déconnexion depuis l'application Analyse de fichiers (public/js/app/tab-access.js) */
-    confirmLogoutFromAnalyse?: () => void;
 }
 
 /** Ressource telle que la planification de l'ancien code la connaît */
@@ -247,27 +227,6 @@ export interface IconesImages {
     urlForName: (nom: string, couleur?: string) => string | null;
 }
 
-/** Fonctions de l'accueil accessibles à l'utilisateur connecté (profil, configuration des onglets, applications) */
-export interface AccesAccueil {
-    planning: boolean;
-    /** Affecter des experts à une mission : tous les profils sauf l'expert */
-    affecter: boolean;
-    evenements: boolean;
-    cra: boolean;
-    affectation: boolean;
-    deplacements: boolean;
-    /** Ajout d'un lieu (SAMU-SAS TripAdVisor) */
-    lieux: boolean;
-    /** Planning des astreintes HO, proposé aux experts */
-    astreintes: boolean;
-    /** Compte rattaché à une ressource : il renseigne son propre planning */
-    ressource: boolean;
-    /** « Gérer mes / les astreintes/HNO » (planification) : administrateur ou expert ayant accès à l'onglet Astreintes */
-    gestionAstreintes?: boolean;
-    /** « Faire une demande » d'affectation (planification) : administrateur et utilisateur */
-    demandeAffectation?: boolean;
-}
-
 /** Thème affiché : identifiant et raison (« forcé », « dates ») */
 export interface ThemeAffiche {
     id: string;
@@ -306,19 +265,6 @@ export function rendreColonnesRedimensionnables(tableau: HTMLTableElement): void
 /** Décor des thèmes de l'ancien code (absent hors de la page principale) */
 export const themesAncienCode = (): ThemesAncienCode | undefined => ancienCode().Themes;
 
-/** Accès de l'utilisateur aux fonctions de l'accueil ; null hors de la page principale */
-export const accesAccueil = (): AccesAccueil | null => ancienCode().accueilAcces?.() ?? null;
-
-/** Ouvre un onglet de la Planification */
-export function ouvrirOnglet(onglet: string): void {
-    ancienCode().switchTab?.(onglet, null);
-}
-
-/** Ouvre une application (menu Applications, accueil) : Planification, Aide à l'affectation, Déplacements, Analyse */
-export function ouvrirApplication(application: 'planification' | 'affectation' | 'deplacements' | 'analyse'): void {
-    ancienCode().switchToApp?.(application);
-}
-
 /** Bandeau « Données synchronisées » (quelques secondes) */
 export function afficherSynchronisation(): void {
     ancienCode().showSyncStatus?.();
@@ -341,47 +287,12 @@ export function choisirModeAffichage(mode: ModeAffichage): void {
     ancienCode().ColorMode?.set(mode);
 }
 
-/** Onglets de la Planification accessibles au profil (hors Accueil, accessible à tous) */
-export const ongletsAccessibles = (profil: string): string[] => ancienCode().getAvailableTabsForProfile?.(profil) ?? [];
-
-/** Accueil de la Planification */
-export function allerAccueil(): void {
-    ancienCode().goHome?.();
-}
-
 /** Session expirée (réveil du poste) : retour sur la mire sans message */
 export function afficherMire(): void {
     ancienCode().resetUiForLogin?.();
 }
 
-/** Application Déplacements quittée pour la Plateforme de planification */
-export function quitterDeplacementsVersPlanification(): void {
-    ancienCode().goToPlanificationApp?.();
-}
-
-/** Déconnexion depuis l'application Déplacements */
-export function deconnecterDepuisDeplacements(): void {
-    ancienCode().confirmLogoutFromDeplacements?.();
-}
-
-/** Déconnexion depuis l'application Aide à l'affectation (confirmée dans l'îlot) */
-export function deconnecterDepuisAffectation(): void {
-    ancienCode().confirmLogoutFromAffectation?.();
-}
-
-/** Déconnexion depuis l'application Analyse de fichiers */
-export function deconnecterDepuisAnalyse(): void {
-    ancienCode().confirmLogoutFromAnalyse?.();
-}
-
 /** Déconnexion (fermeture de la session et de l'interface par l'ancien code) */
 export async function deconnecter(): Promise<void> {
     await ancienCode().performLogout?.();
-}
-
-/** CRA demandé par le lien d'une notification, retiré de l'attente ; null si aucun */
-export function prendreCraDemande(): number | null {
-    const id = ancienCode().craDemande;
-    delete ancienCode().craDemande;
-    return id ?? null;
 }

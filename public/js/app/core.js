@@ -138,33 +138,8 @@ async function reprendreSession(data) {
         console.log('✅ Session restaurée:', currentUser);
         console.log('📷 Photo dans session:', currentUser.profilePhoto ? 'OUI' : 'NON');
 
-        // Récupérer l'application sélectionnée depuis sessionStorage
-        const savedApp = sessionStorage.getItem('selectedApp');
-        console.log('📱 Application sauvegardée:', savedApp);
-
-        // Si l'utilisateur était sur l'application déplacements et qu'il a le droit AMOA_CED
-        if (savedApp === 'deplacements' && (currentUser.availableApps || []).includes('deplacements')) {
-            console.log('🚗 Restauration vers la Plateforme de suivi des déplacements');
-            document.getElementById('loginPage').classList.remove('active');
-            currentUser.selectedApp = 'deplacements';
-            showDeplacementsApp();
-            return;
-        }
-        if (savedApp === 'affectation' && (currentUser.availableApps || []).includes('affectation')) {
-            currentUser.selectedApp = 'affectation';
-            showAffectationApp();
-            return;
-        }
-        if (savedApp === 'analyse' && (currentUser.availableApps || []).includes('analyse')) {
-            console.log('📊 Restauration vers Analyse de fichiers');
-            document.getElementById('loginPage').classList.remove('active');
-            currentUser.selectedApp = 'analyse';
-            showAnalyseApp();
-            return;
-        }
-
-        // Sinon, afficher l'application de planification
-        currentUser.selectedApp = 'planification';
+        // Planification affichée ; application gardée pour l'onglet du navigateur, onglets, onglet d'arrivée : îlot Vue
+        // (frontend/src/ilots/navigation)
         document.getElementById('loginPage').classList.remove('active');
         document.querySelector('.container').style.display = 'block';
 
@@ -172,22 +147,7 @@ async function reprendreSession(data) {
         const utilisateur = currentUser;
         const sessionFermee = () => currentUser !== utilisateur;
 
-        await TabAccess.load();
-        if (sessionFermee()) return;
-        updateTabsVisibility();
-        // En-tête (utilisateur, profil, boutons) et menu Applications : îlots Vue du cadre (frontend/src/ilots/entete)
-
-        // Onglet CRA
-        const craBtn = document.getElementById('craTabBtn');
-        if (craBtn) {
-            const showCra = TabAccess.showCra(currentUser);
-            craBtn.style.display = showCra ? 'block' : 'none';
-            document.getElementById('craTabLabel').textContent = 'CRA';
-        }
-
-        // Badge CRA en attente
-        loadCraPendingBadge();
-
+        // En-tête, menu Applications, onglets et pastille des CRA : îlots Vue du cadre (frontend/src/ilots)
         await loadResources();
         await loadUsers(); // Charger les users pour le Gantt
         await loadSchoolHolidays(); // Charger les congés scolaires
@@ -195,8 +155,6 @@ async function reprendreSession(data) {
         if (sessionFermee()) return;
 
         // Connectés, conversations restaurées, inactivité : îlot Vue du cadre (frontend/src/ilots/connectes)
-
-        openLandingTab();
     } catch (error) {
         // En cas d'erreur, retour silencieux sur la mire
         console.error('Reprise de la session :', error);
@@ -216,18 +174,11 @@ function resetUiForLogin(message) {
     } catch (e) {
         /* ignoré */
     }
-    try {
-        hideAffectationApp();
-    } catch (e) {
-        /* ignoré */
-    }
     // Connectés, conversations, minuteur d'inactivité : îlots Vue, démontés en fin de session
-    ['analyseContainer', 'deplacementsContainer', 'affectationContainer', 'backToPlanificationBtn', 'adminTab'].forEach(
-        id => {
-            const el = document.getElementById(id);
-            if (el) el.style.display = 'none';
-        }
-    );
+    ['analyseContainer', 'deplacementsContainer', 'affectationContainer'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
     const main = document.querySelector('.container');
     if (main) main.style.display = 'none';
     try {
@@ -273,19 +224,8 @@ async function completeFinalLogin(user, selectedApp) {
     // Déconnexion pendant les chargements ci-dessous : la suite de l'ouverture est abandonnée
     const sessionFermee = () => currentUser !== user;
 
-    await TabAccess.load();
-    if (sessionFermee()) return;
-    updateTabsVisibility();
-    // En-tête (utilisateur, profil, nouvelles affectations, boutons) et menu Applications : îlots Vue du cadre
-
-    // Afficher l'onglet CRA selon le profil
-    const craBtn = document.getElementById('craTabBtn');
-    if (craBtn) {
-        const showCra = TabAccess.showCra(currentUser);
-        craBtn.style.display = showCra ? 'block' : 'none';
-        const lbl = document.getElementById('craTabLabel');
-        if (lbl) lbl.textContent = 'CRA';
-    }
+    // En-tête, menu Applications, onglets (ordre, pastille des CRA), onglet d'arrivée et lien vers un CRA : îlots Vue du
+    // cadre (frontend/src/ilots)
 
     await loadResources();
     await loadUsers(); // Charger les utilisateurs pour les notifications
@@ -293,43 +233,6 @@ async function completeFinalLogin(user, selectedApp) {
     await loadSpecialDates(); // Charger les dates particulières pour tous les profils
     await loadLocations(); // Charger les localisations
     if (sessionFermee()) return;
-
-    // Nouveautés de la version : îlot Vue (frontend/src/ilots/entete/CadreSession.vue)
-
-    // Badge CRA en attente (admin)
-    loadCraPendingBadge();
-
-    // Restaurer l'ordre des onglets + activer le drag & drop
-    restoreTabOrder();
-    initTabDragDrop();
-
-    // Afficher l'onglet par défaut selon la préférence de l'utilisateur
-    openLandingTab();
-
-    // Deep link CRA depuis email : CRA ouvert par l'îlot du circuit (frontend/src/ilots/cra), à son montage ou aussitôt
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('tab') === 'cra') {
-        switchTab('cra', null);
-        const craId = urlParams.get('cra_id');
-        if (craId)
-            setTimeout(() => {
-                window.craDemande = parseInt(craId);
-                window.dispatchEvent(new CustomEvent('gp:cra-demande'));
-            }, 500);
-    }
-}
-
-// Obtenir la liste des onglets accessibles selon le profil
-// Onglet d'ouverture : celui choisi dans le profil s'il est accessible, sinon l'Accueil (accessible à tous les profils)
-function openLandingTab() {
-    const preferred = currentUser.defaultTab || 'accueil';
-    const accessible =
-        preferred === 'accueil' || getAvailableTabsForProfile(currentUser.activeProfile).includes(preferred);
-    switchTab(accessible ? preferred : 'accueil', null);
-}
-
-function getAvailableTabsForProfile(profile) {
-    return TabAccess.available(profile);
 }
 
 // Fenêtres d'impression (planning, CRA, reporting…) : sans la feuille de style de l'application, les icônes SVG
@@ -393,13 +296,7 @@ window.addEventListener('gp:conges-modifies', async () => {
 window.addEventListener('gp:dates-particulieres-modifiees', () => loadSpecialDates());
 // Ressources modifiées dans l'onglet Ressources (îlot Vue) : ressources rechargées (puis gp:ressources-rechargees)
 window.addEventListener('gp:ressources-modifiees', () => loadResources());
-// CRA traités par l'îlot de l'onglet CRA : pastille de l'onglet
-window.addEventListener('gp:cra-modifies', () => loadCraPendingBadge());
-// Accès aux onglets enregistrés : barre d'onglets mise à jour
-window.addEventListener('gp:onglets-modifies', e => {
-    TabAccess.cfg = e.detail.config;
-    updateTabsVisibility();
-});
+// CRA traités (pastille de l'onglet CRA) et accès aux onglets enregistrés : îlot Vue (frontend/src/ilots/navigation)
 
 // Déplacé de deplacements.js (lot 5.2b), tel quel
 // Fermer tous les modals/popups ouverts
