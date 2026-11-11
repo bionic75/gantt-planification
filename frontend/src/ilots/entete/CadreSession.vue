@@ -6,6 +6,7 @@ import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { api } from '@/api/client';
 import AppModal from '@/composants/AppModal.vue';
 import { ecouter } from '@/evenements';
+import { sansStyleEnLigne, vStylesEnLigne } from '@/outils/styles-en-ligne';
 import { useSessionStore } from '@/stores/session';
 import { appliquerFavicon, CLE_CONNEXION_RECENTE, extraireNouveautes } from './cadre';
 
@@ -79,8 +80,14 @@ onBeforeUnmount(arreter);
         @close="nouveautes = null"
     >
         <!-- Contenu de l'aide en ligne (aide.html, personnalisable par l'administration), repris tel quel -->
-        <!-- eslint-disable-next-line vue/no-v-html -- bloc de l'aide de l'application (décision du lot 6.2b) -->
-        <div id="helpVersionModalContent" class="gp-nouveautes__contenu" v-html="nouveautes?.contenu"></div>
+        <!-- eslint-disable vue/no-v-html -- bloc de l'aide de l'application (décision du lot 6.2b) -->
+        <div
+            id="helpVersionModalContent"
+            v-styles-en-ligne
+            class="gp-nouveautes__contenu"
+            v-html="sansStyleEnLigne(nouveautes?.contenu ?? '')"
+        ></div>
+        <!-- eslint-enable vue/no-v-html -->
         <template #footer>
             <button type="button" class="gp-nouveautes__bouton" @click="nouveautes = null">
                 ✅ J'ai pris connaissance des nouveautés

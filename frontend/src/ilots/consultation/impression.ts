@@ -1,5 +1,6 @@
 // Impression des calendriers de consultation : fenêtre dédiée (paysage) reprenant le contenu affiché, avec la feuille
 // de style des calendriers
+import { ecrireDocument } from '@/outils/styles-en-ligne';
 import styleCalendriers from './calendriers.css?raw';
 
 const echapper = (texte: string) =>
@@ -13,7 +14,9 @@ const echapper = (texte: string) =>
 export function imprimerCalendrierMensuel(titre: string, sousTitre: string, contenu: HTMLElement): void {
     const fenetre = window.open('', '_blank');
     if (!fenetre) return;
-    fenetre.document.write(`
+    ecrireDocument(
+        fenetre.document,
+        `
                 <!DOCTYPE html>
                 <html>
                 <head>
@@ -64,8 +67,8 @@ export function imprimerCalendrierMensuel(titre: string, sousTitre: string, cont
                     ${contenu.innerHTML}
                 </body>
                 </html>
-            `);
-    fenetre.document.close();
+            `
+    );
     let imprime = false;
     const imprimer = () => {
         if (imprime) return;
@@ -80,7 +83,9 @@ export function imprimerCalendrierMensuel(titre: string, sousTitre: string, cont
 export function imprimerCalendrierEvenements(mois: string, contenu: HTMLElement): void {
     const fenetre = window.open('', '_blank');
     if (!fenetre) return;
-    fenetre.document.write(`
+    ecrireDocument(
+        fenetre.document,
+        `
                 <!DOCTYPE html>
                 <html>
                 <head>
@@ -102,8 +107,8 @@ export function imprimerCalendrierEvenements(mois: string, contenu: HTMLElement)
                     ${contenu.innerHTML}
                 </body>
                 </html>
-            `);
-    fenetre.document.close();
+            `
+    );
     fenetre.focus();
     setTimeout(() => {
         fenetre.print();

@@ -24,7 +24,7 @@ describe('impression du calendrier d’une ressource', () => {
     it('impression demandée une seule fois (chargement de la page, ou 500 ms à défaut)', () => {
         vi.useFakeTimers();
         const fenetre = {
-            document: { write: vi.fn(), close: vi.fn() },
+            document: { write: vi.fn(), close: vi.fn(), open: vi.fn(), querySelectorAll: () => [] },
             print: vi.fn(),
             onload: null as null | (() => void)
         };

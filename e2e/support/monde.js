@@ -163,8 +163,16 @@ export class Monde {
         page.on('pageerror', e => {
             if (!/Credential Management/i.test(e.message)) this.problemes.push(`JS : ${e.message}`);
         });
-        page.on('console', m => {
-            if (/Content Security Policy/i.test(m.text())) this.problemes.push(`CSP : ${m.text()}`);
+        // Violations de la politique de contenu : page de l'acteur et fenêtres qu'elle ouvre (impressions)
+        const surveillerCsp = (/** @type {Page} */ p) =>
+            p.on('console', m => {
+                if (!/Content Security Policy/i.test(m.text())) return;
+                const { url, lineNumber } = m.location();
+                this.problemes.push(`CSP : ${m.text()} (${url || p.url()}:${lineNumber})`);
+            });
+        surveillerCsp(page);
+        context.on('page', p => {
+            if (p !== page) surveillerCsp(p);
         });
         page.on('response', r => {
             if (r.status() >= 500 && r.url().startsWith(config.baseUrl))
