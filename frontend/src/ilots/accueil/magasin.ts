@@ -3,7 +3,7 @@ import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 import { apiAccueil } from '@/api/accueil';
 import type { Evenement } from '@/api/evenements';
-import { accesAccueil, type AccesAccueil } from '@/liaison';
+import { accesAccueil, type AccesAccueil } from '@/ilots/navigation/navigation';
 import { useSessionStore } from '@/stores/session';
 import { debutMoisDecale, friseMois, lignesDeploiements, type Deploiement } from './deploiements';
 import {

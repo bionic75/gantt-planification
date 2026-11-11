@@ -11,7 +11,7 @@ import EnTeteApplication from '@/ilots/applications/EnTeteApplication.vue';
 import PastillesApplication from '@/ilots/applications/PastillesApplication.vue';
 import { surReouverture } from '@/ilots/activation';
 import FenetreMessage from '@/ilots/saisie/FenetreMessage.vue';
-import { deconnecterDepuisAnalyse } from '@/liaison';
+import { deconnecterDepuisApplication } from '@/ilots/navigation/navigation';
 import { useSessionStore } from '@/stores/session';
 import { csvAnalyse, nombreFr, nomExport } from './filtres';
 import { FORMAT_NON_SUPPORTE, lignesDuFichier, lireFichier, natureFichier } from './lecture';
@@ -142,7 +142,7 @@ function exporter() {
 
 async function deconnexion() {
     if (!(await confirmer('Voulez-vous vraiment vous déconnecter ?', 'Confirmer'))) return;
-    deconnecterDepuisAnalyse();
+    void deconnecterDepuisApplication('analyse');
 }
 
 /** Session relue (photo de profil, profil actif) ; fichier conservé proposé */

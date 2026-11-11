@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Session } from '@/api/types';
 import ZoneUtilisateur from '@/ilots/applications/ZoneUtilisateur.vue';
 import { usePlanificationStore } from '@/ilots/planification/magasin';
+import { navigation } from '@/ilots/navigation/navigation';
 import { useSessionStore } from '@/stores/session';
 import BoutonsEnTete from './BoutonsEnTete.vue';
 import MenuApplications from './MenuApplications.vue';
@@ -124,7 +125,7 @@ describe('MenuApplications', () => {
             'Suivi des déplacements'
         ]);
         await w.find('#appSwitcherBtn').trigger('click');
-        (document.getElementById('analyseContainer') as HTMLElement).style.display = 'block';
+        navigation.application = 'analyse';
         await w.find('#appSwitcherBtn').trigger('click');
         expect(w.findAll('#appSwitcherDropdown > div').map(d => d.text())).toEqual([
             'Planification',
