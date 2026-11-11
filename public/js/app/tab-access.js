@@ -141,7 +141,6 @@ function updateTabsVisibility() {
 
 // Retour vers Planification depuis l'app Déplacements ou Analyse
 function backToPlanification() {
-    const wasAffectation = affectationIsVisible() || analyseIsVisible();
     hideAffectationApp();
     sessionStorage.setItem('selectedApp', 'planification');
     document.getElementById('deplacementsContainer').style.display = 'none';
@@ -152,15 +151,7 @@ function backToPlanification() {
     // Forcer le re-rendu de l'onglet actif (sinon contenu vide au retour)
     const activeTab = document.querySelector('.tab-content.active');
     if (activeTab) switchTab(activeTab.id, null);
-    // Retour depuis l'aide à l'affectation : on relance le minuteur et les connectés de l'application principale
-    if (wasAffectation) {
-        try {
-            startInactivityTimer(inactivityTimeout);
-        } catch (e) {
-            /* minuteur indisponible */
-        }
-        if (!onlineUsersInterval) startOnlineUsersPolling();
-    }
+    // Minuteur d'inactivité et connectés : communs à la session (îlot Vue frontend/src/ilots/connectes)
 }
 
 // Basculer vers une application depuis le sélecteur
@@ -171,11 +162,6 @@ function switchToApp(appKey) {
         return;
     }
     if (appKey === 'deplacements') {
-        stopInactivityTimer();
-        if (onlineUsersInterval) {
-            clearInterval(onlineUsersInterval);
-            onlineUsersInterval = null;
-        }
         document.querySelector('.container').style.display = 'none';
         document.getElementById('analyseContainer').style.display = 'none';
         showDeplacementsApp();
@@ -277,35 +263,12 @@ function showDeplacementsApp() {
     document.querySelector('.container').style.display = 'none';
     document.getElementById('deplacementsContainer').style.display = 'block';
     document.getElementById('backToPlanificationBtn').style.display = 'none'; // retour par le menu Applications
-
-    // Charger les paramètres puis démarrer le timer
-    loadSettingsForDeplacements().then(() => {
-        startInactivityTimer(inactivityTimeout);
-    });
-}
-
-async function loadSettingsForDeplacements() {
-    try {
-        const response = await fetch(`${API_URL}/settings`, { credentials: 'include' });
-        if (response.ok) {
-            const settings = await response.json();
-            // Le timeout est en MINUTES dans les paramètres
-            inactivityTimeout = settings.inactivity_timeout || 5;
-            console.log('⚙️ Timeout inactivité déplacements:', inactivityTimeout, 'minutes');
-        }
-    } catch (error) {
-        console.error('Erreur chargement settings:', error);
-        inactivityTimeout = 5; // 5 minutes par défaut
-    }
 }
 
 // Fenêtre de déconnexion de l'application (îlot) : « Aller sur la Plateforme de planification »
 async function goToPlanificationApp() {
     // Sauvegarder l'application sélectionnée
     sessionStorage.setItem('selectedApp', 'planification');
-
-    // Arrêter le timer de déplacements
-    stopInactivityTimer();
 
     // Masquer l'application déplacements, afficher l'application planification
     document.getElementById('deplacementsContainer').style.display = 'none';
@@ -319,21 +282,13 @@ async function goToPlanificationApp() {
     // Réinitialiser l'affichage de l'IHM principale
     updateTabsVisibility();
 
-    // Afficher le timer et les utilisateurs connectés de l'app principale
-    document.getElementById('inactivityTimerDisplay').style.display = 'block';
-    document.getElementById('onlineUsersContainer').style.display = 'flex';
-
     // Recharger les données pour s'assurer que tout est à jour
     await loadResources();
-    await loadSettings();
 
     // Mettre à jour le Gantt si on est sur l'onglet planification
     if (document.getElementById('planning').classList.contains('active')) {
         updateGantt();
     }
-
-    // Démarrer le polling des utilisateurs connectés
-    startOnlineUsersPolling();
 
     console.log('📅 Retour à la Plateforme de planification effectué');
 }
@@ -342,9 +297,6 @@ async function goToPlanificationApp() {
 async function confirmLogoutFromDeplacements() {
     // Nettoyer le sessionStorage
     sessionStorage.removeItem('selectedApp');
-
-    // Arrêter le timer
-    stopInactivityTimer();
 
     await performLogout();
 
@@ -370,28 +322,14 @@ function showAffectationApp() {
         if (e) e.style.display = 'none';
     });
     document.getElementById('loginPage').classList.remove('active');
-    stopInactivityTimer();
-    if (typeof onlineUsersInterval !== 'undefined' && onlineUsersInterval) {
-        clearInterval(onlineUsersInterval);
-        onlineUsersInterval = null;
-    }
     sessionStorage.setItem('selectedApp', 'affectation');
     if (typeof currentUser !== 'undefined' && currentUser) currentUser.selectedApp = 'affectation';
     document.getElementById('affectationContainer').style.display = 'block';
-    const startTimer = () => {
-        try {
-            startInactivityTimer(inactivityTimeout);
-        } catch (e) {
-            /* minuteur indisponible */
-        }
-    };
-    loadSettingsForDeplacements().then(startTimer);
     if (window.GPTools) window.GPTools.position();
 }
 
 function hideAffectationApp() {
     if (!affectationIsVisible()) return;
-    stopInactivityTimer();
     document.getElementById('affectationContainer').style.display = 'none';
 }
 
@@ -418,19 +356,6 @@ function showAnalyseApp() {
     document.getElementById('loginPage').classList.remove('active');
     document.getElementById('analyseContainer').style.display = 'block';
     document.getElementById('backToPlanificationBtn').style.display = 'none'; // le menu Applications suffit pour changer d'application
-    stopInactivityTimer();
-    if (typeof onlineUsersInterval !== 'undefined' && onlineUsersInterval) {
-        clearInterval(onlineUsersInterval);
-        onlineUsersInterval = null;
-    }
-    const startTimer = () => {
-        try {
-            startInactivityTimer(inactivityTimeout);
-        } catch (e) {
-            /* minuteur indisponible */
-        }
-    };
-    loadSettingsForDeplacements().then(startTimer);
     if (window.GPTools) window.GPTools.position();
 }
 

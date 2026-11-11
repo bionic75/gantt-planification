@@ -64,11 +64,6 @@ export interface EvenementsLiaison {
     'astreintes-modifiees': undefined;
     /** Nouvelles affectations lues par l'expert : l'ancien code relit la pastille */
     'notifications-lues': undefined;
-    /**
-     * Déconnexion pour inactivité (ancien code) : affectations en attente d'invitation journalisées par l'en-tête,
-     * puis fin() appelée
-     */
-    'journal-invitations': { fin: () => void };
     /** Photo de profil enregistrée (ancien code) : l'en-tête relit la session */
     'photo-modifiee': undefined;
     /** Rafraîchissement demandé par l'ancien code (photo de profil, réveil, retour à la planification) */
@@ -113,10 +108,10 @@ export function ecouter<N extends NomEvenement>(nom: N, fn: (detail: EvenementsL
 interface FenetreAncienCode {
     /** Retour sur la mire de connexion (public/js/app/core.js) */
     forceSessionEnd?: (message?: string) => void;
+    /** Retour sur la mire sans message : applications fermées, îlots démontés (public/js/app/core.js) */
+    resetUiForLogin?: (message?: string) => void;
     /** Colonnes d'un tableau redimensionnables et masquables (clic droit), état mémorisé (public/js/app/planning.js) */
     makeColResizable?: (tableau: HTMLTableElement) => void;
-    /** Son de notification (réglage du navigateur), lu pour l'essai (public/js/app/realtime.js) */
-    playNotifSound?: () => void;
     /** Thèmes saisonniers : décor de la page (public/js/themes.js) */
     Themes?: ThemesAncienCode;
     /** Accès de l'utilisateur aux fonctions proposées par l'accueil (public/js/app/tab-access.js) */
@@ -139,10 +134,6 @@ interface FenetreAncienCode {
     ColorMode?: { get: () => ModeAffichage; set: (mode: ModeAffichage) => void };
     /** Retour à l'accueil de la Planification (public/js/app/tabs.js) */
     goHome?: () => void;
-    /** Bulle des utilisateurs connectés et de la discussion, sous la pastille cliquée (public/js/app/realtime.js) */
-    toggleOnlineUsersTooltipFrom?: (pastille: HTMLElement, evenement: MouseEvent) => void;
-    /** Secondes restantes avant la déconnexion pour inactivité (public/js/app/settings.js) */
-    inactiviteRestante?: () => number;
     /** Application Déplacements quittée pour la Plateforme de planification (public/js/app/tab-access.js) */
     goToPlanificationApp?: () => void;
     /** Déconnexion depuis l'application Déplacements (public/js/app/tab-access.js) */
@@ -312,11 +303,6 @@ export function rendreColonnesRedimensionnables(tableau: HTMLTableElement): void
     ancienCode().makeColResizable?.(tableau);
 }
 
-/** Son de notification du navigateur (essai) */
-export function jouerSonNotification(): void {
-    ancienCode().playNotifSound?.();
-}
-
 /** Décor des thèmes de l'ancien code (absent hors de la page principale) */
 export const themesAncienCode = (): ThemesAncienCode | undefined => ancienCode().Themes;
 
@@ -363,13 +349,10 @@ export function allerAccueil(): void {
     ancienCode().goHome?.();
 }
 
-/** Bulle des utilisateurs connectés (discussion), placée sous la pastille */
-export function basculerBulleConnectes(pastille: HTMLElement, evenement: MouseEvent): void {
-    ancienCode().toggleOnlineUsersTooltipFrom?.(pastille, evenement);
+/** Session expirée (réveil du poste) : retour sur la mire sans message */
+export function afficherMire(): void {
+    ancienCode().resetUiForLogin?.();
 }
-
-/** Secondes restantes avant la déconnexion pour inactivité ; null hors de la page principale */
-export const inactiviteRestante = (): number | null => ancienCode().inactiviteRestante?.() ?? null;
 
 /** Application Déplacements quittée pour la Plateforme de planification */
 export function quitterDeplacementsVersPlanification(): void {

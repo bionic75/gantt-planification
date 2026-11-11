@@ -135,6 +135,10 @@ E2E_TAGS="@cra" npm test                                        # une fonctionna
       « Mon profil » : SAMU de l'expert de test rétablis en fin de scénario ; nouveautés de l'aide et favicon lus dans
       une réponse simulée de `/api/settings` (aucun paramètre global modifié) ; bandeau de mise en production avec
       `/api/version` simulé et l'horloge du navigateur avancée (`page.clock`).
+    - **Connectés, messagerie, inactivité** (`47`) : connectés (compte courant et comptes fictifs), envoi et réception
+      des messages (`/api/sse` simulé, reconnexion repoussée), paramétrage de l'inactivité simulés ; temps avancé par
+      `page.clock` ; jamais de déconnexion par inactivité de la session enregistrée. `36` et `37` simulent aussi
+      l'inactivité activée pour vérifier le minuteur.
     - **Ateliers métier et sondages** (`42`) : déploiement de test avec mise en production en 2032 ; rétroplanning
       et sondages supprimés en fin de scénario. Invitation et sondage jamais envoyés (fenêtres ouvertes, adresse du
       sondage « Générée » en brouillon) ; réponses saisies sur la page publique dans un navigateur sans session.

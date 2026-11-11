@@ -237,9 +237,6 @@ document.addEventListener('DOMContentLoaded', function () {
     clearSiteCookies();
     clearMemoryData();
 
-    // Charger tous les paramètres si connecté (pour admin)
-    loadSettings();
-
     // Charger les congés scolaires
     loadSchoolHolidays();
 });

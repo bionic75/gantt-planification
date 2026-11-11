@@ -349,7 +349,7 @@ Then("le minuteur d'inactivité est remis à zéro", async ({ monde }) => {
 });
 
 When("je reste inactif jusqu'à l'échéance", async ({ monde }) => {
-    await expect(monde.page.locator('#inactivityModal')).toHaveClass(/active/, { timeout: 120000 });
+    await expect(monde.page.locator('#inactivityModal')).toBeVisible({ timeout: 120000 });
 });
 
 Then("un avertissement d'inactivité est affiché", async ({ monde }) => {
