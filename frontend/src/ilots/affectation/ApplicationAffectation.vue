@@ -11,7 +11,7 @@ import EnTeteApplication from '@/ilots/applications/EnTeteApplication.vue';
 import PastillesApplication from '@/ilots/applications/PastillesApplication.vue';
 import ZoneOnglet from '@/ilots/applications/ZoneOnglet.vue';
 import { surReouverture } from '@/ilots/activation';
-import { deconnecterDepuisAffectation } from '@/liaison';
+import { deconnecterDepuisApplication } from '@/ilots/navigation/navigation';
 import { useSessionStore } from '@/stores/session';
 import OngletAdministrationAffectation from './administration/OngletAdministrationAffectation.vue';
 import OngletAteliers from './ateliers/OngletAteliers.vue';
@@ -41,7 +41,7 @@ const pastilles = ref<InstanceType<typeof PastillesApplication> | null>(null);
 
 async function deconnexion() {
     if (!(await confirmer('Voulez-vous vraiment vous déconnecter ?', 'Confirmer', { danger: false }))) return;
-    deconnecterDepuisAffectation();
+    void deconnecterDepuisApplication('affectation');
 }
 
 /** Session relue (photo de profil, profil actif) */

@@ -67,6 +67,14 @@ describe.skipIf(!BROWSER_PATH)('interface (navigateur)', { timeout: 120000 }, ()
 
     /** Ouvre chaque onglet visible de l'application ; renvoie les onglets ouverts */
     async function visitTabs(page) {
+        // Barre d'onglets : îlot Vue, affiché une fois la session ouverte
+        await page.waitForFunction(
+            () =>
+                [...document.querySelectorAll('#mainTabsContainer button.tab-btn[data-tab]')].some(
+                    b => b.offsetParent !== null
+                ),
+            { timeout: 20000 }
+        );
         const tabs = await page.$$eval('#mainTabsContainer button.tab-btn', buttons =>
             buttons.filter(b => b.offsetParent !== null).map(b => b.dataset.tab)
         );

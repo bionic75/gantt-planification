@@ -9,7 +9,8 @@ import { apiCra, type DetailCra, type NiveauVisa } from '@/api/cra';
 import { apiParametres } from '@/api/parametrages';
 import AppAlert from '@/composants/AppAlert.vue';
 import { useConfirmation } from '@/composants/confirmation';
-import { ecouter, emettre, prendreCraDemande } from '@/liaison';
+import { prendreCraDemande } from '@/ilots/navigation/navigation';
+import { ecouter, emettre } from '@/liaison';
 import { useSessionStore } from '@/stores/session';
 import {
     actions as actionsDe,

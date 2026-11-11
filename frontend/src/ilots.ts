@@ -14,6 +14,8 @@ import { installerLiaisonAncienCode } from '@/liaison';
  */
 const ILOTS: RegistreIlots = {
     // Cadre de l'application (lot 6.2a) : monté pendant toute la session
+    // Barre d'onglets et navigation (lot 6.4a)
+    barreOnglets: { chargeur: () => import('@/ilots/navigation/BarreOnglets.vue'), cadre: true },
     enteteUtilisateur: { chargeur: () => import('@/ilots/entete/EnTetePlanification.vue'), cadre: true },
     enteteBoutons: { chargeur: () => import('@/ilots/entete/BoutonsEnTete.vue'), cadre: true },
     menuApplications: { chargeur: () => import('@/ilots/entete/MenuApplications.vue'), cadre: true },

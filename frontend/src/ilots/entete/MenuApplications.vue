@@ -1,10 +1,11 @@
 <!-- Menu « Applications », commun à toutes les applications (cadre de l'application, monté pendant la session dans
      #menuApplications, hors du conteneur de la Planification) : applications accessibles au compte, sauf celle qui est
-     affichée ; depuis une autre application, retour à la Planification en premier. Le changement d'application reste
-     confié à l'ancien code (switchToApp) jusqu'au lot 6.4. Identifiants de l'ancien menu conservés. -->
+     affichée ; depuis une autre application, retour à la Planification en premier (ilots/navigation). Identifiants de
+     l'ancien menu conservés. -->
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-import { ecouter, ouvrirApplication } from '@/liaison';
+import { navigation, ouvrirApplication } from '@/ilots/navigation/navigation';
+import { ecouter } from '@/liaison';
 import { useSessionStore } from '@/stores/session';
 
 type CleApplication = 'planification' | 'deplacements' | 'analyse' | 'affectation';
@@ -40,18 +41,6 @@ const ouvert = ref(false);
 /** Applications proposées à l'ouverture du menu (dépendent de l'application affichée) */
 const proposees = ref<string[]>([]);
 
-/** Application affichée, d'après les conteneurs montrés par l'ancien code */
-function applicationAffichee(): CleApplication {
-    const montre = (id: string) => {
-        const e = document.getElementById(id);
-        return !!e && e.style.display !== 'none' && e.style.display !== '';
-    };
-    if (montre('analyseContainer')) return 'analyse';
-    if (montre('deplacementsContainer')) return 'deplacements';
-    if (montre('affectationContainer')) return 'affectation';
-    return 'planification';
-}
-
 function fermer() {
     ouvert.value = false;
     document.removeEventListener('click', fermer);
@@ -59,7 +48,7 @@ function fermer() {
 
 function basculer() {
     if (ouvert.value) return fermer();
-    const courante = applicationAffichee();
+    const courante = navigation.application;
     const liste = disponibles.value.filter(k => k !== courante);
     // Depuis une autre application, le menu propose aussi le retour à la Planification
     if (courante !== 'planification') liste.unshift('planification');

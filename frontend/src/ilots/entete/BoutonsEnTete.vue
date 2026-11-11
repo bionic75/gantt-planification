@@ -8,7 +8,8 @@ import { computed, onMounted } from 'vue';
 import AppConfirmation from '@/composants/AppConfirmation.vue';
 import { fournirConfirmation } from '@/composants/confirmation';
 import { usePlanificationStore } from '@/ilots/planification/magasin';
-import { deconnecter, emettre, ouvrirOnglet, type NomFenetre } from '@/liaison';
+import { ouvrirOnglet } from '@/ilots/navigation/navigation';
+import { deconnecter, emettre, type NomFenetre } from '@/liaison';
 import { useSessionStore } from '@/stores/session';
 
 const session = useSessionStore();
