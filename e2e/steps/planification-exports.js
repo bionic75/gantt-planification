@@ -199,10 +199,11 @@ Then("le calendrier de l'expert de test est imprimé une seule fois, en paysage"
         );
     await expect.poll(async () => (await dernier())?.impressions ?? 0).toBeGreaterThan(0);
     await monde.page.waitForTimeout(1000);
-    const { html, impressions } = await dernier();
+    const { html, css, impressions } = await dernier();
     expect(impressions).toBe(1);
     expect(html).toContain('<title>Planning individuel</title>');
-    expect(html).toContain('size: landscape');
+    // Mise en page de l'impression : feuille construite à partir du bloc <style> du document
+    expect(css).toContain('size: landscape');
     expect(html).toContain(`Planning - ${monde.d.ressourceCalendrier.nom.toUpperCase()}`);
 });
 

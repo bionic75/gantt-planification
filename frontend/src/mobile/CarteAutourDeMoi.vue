@@ -72,8 +72,8 @@ async function ouvrir() {
     await nextTick();
     if (!carte && zone.value) {
         carte = L.map(zone.value, { zoomControl: false }).fitBounds(FRANCE);
-    // Couleur des repères (data-style) posée en JavaScript : la CSP bloque les attributs style du HTML des icônes
-    carte.on('layeradd', e => appliquerStyles((e.layer as L.Marker).getElement?.()));
+        // Couleur des repères (data-style) posée en JavaScript : la CSP bloque les attributs style du HTML des icônes
+        carte.on('layeradd', e => appliquerStyles((e.layer as L.Marker).getElement?.()));
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '© OpenStreetMap'

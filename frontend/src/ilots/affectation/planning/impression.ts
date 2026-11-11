@@ -12,6 +12,7 @@ import {
     type TriGrille
 } from './grille';
 import { aujourdhui, esc, JALONS, jourFr, LIBELLE_ECHELLE, type Echelle } from './outils';
+import { appliquerStyles, sansStyleEnLigne } from '@/outils/styles-en-ligne';
 
 export const FORMATS_MM: Record<string, [number, number]> = { A4: [297, 210], A3: [420, 297] };
 const mmPx = (mm: number) => (mm * 96) / 25.4;
@@ -155,10 +156,14 @@ export function mettreEnPage(
     const mesure = document.createElement('div');
     mesure.className = 'aff-print-root';
     mesure.style.cssText = `position:absolute;left:-20000px;top:0;width:${contentW}px;`;
-    mesure.innerHTML = T
-        ? `${legende}${deploiements.length ? tableau(pagesColonnes[0]!, deploiements) : ''}`
-        : `<div class="pg-head"><b>${esc(o.title)}</b><span>x</span></div>${legende}${deploiements.length ? tableau(pagesColonnes[0]!, deploiements) : ''}<div class="pg-foot"><span>x</span></div>`;
+    // Styles réappliqués avant la mesure (attributs style refusés par la politique de contenu)
+    mesure.innerHTML = sansStyleEnLigne(
+        T
+            ? `${legende}${deploiements.length ? tableau(pagesColonnes[0]!, deploiements) : ''}`
+            : `<div class="pg-head"><b>${esc(o.title)}</b><span>x</span></div>${legende}${deploiements.length ? tableau(pagesColonnes[0]!, deploiements) : ''}<div class="pg-foot"><span>x</span></div>`
+    );
     hote.appendChild(mesure);
+    appliquerStyles(mesure);
     const hauteurs = [...mesure.querySelectorAll('tbody tr')].map(tr => tr.getBoundingClientRect().height);
     const hauteur = (sel: string) => mesure.querySelector(sel)?.getBoundingClientRect().height ?? 0;
     const headH = hauteur('thead');

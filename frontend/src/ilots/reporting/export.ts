@@ -39,7 +39,9 @@ export const nomFichierDuJour = (prefixe: string) => `${prefixe}_${new Date().to
 export function imprimer(titre: string, styles: string, contenuHtml: string) {
     const fenetre = window.open('', '_blank');
     if (!fenetre) return;
-    ecrireDocument(fenetre.document, `
+    ecrireDocument(
+        fenetre.document,
+        `
                 <html>
                 <head>
                     <title>${titre}</title>
@@ -58,6 +60,7 @@ export function imprimer(titre: string, styles: string, contenuHtml: string) {
                     ${contenuHtml}
                 </body>
                 </html>
-            `);
+            `
+    );
     fenetre.print();
 }

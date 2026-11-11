@@ -14,7 +14,9 @@ const echapper = (texte: string) =>
 export function imprimerCalendrierMensuel(titre: string, sousTitre: string, contenu: HTMLElement): void {
     const fenetre = window.open('', '_blank');
     if (!fenetre) return;
-    ecrireDocument(fenetre.document, `
+    ecrireDocument(
+        fenetre.document,
+        `
                 <!DOCTYPE html>
                 <html>
                 <head>
@@ -65,7 +67,8 @@ export function imprimerCalendrierMensuel(titre: string, sousTitre: string, cont
                     ${contenu.innerHTML}
                 </body>
                 </html>
-            `);
+            `
+    );
     let imprime = false;
     const imprimer = () => {
         if (imprime) return;
@@ -80,7 +83,9 @@ export function imprimerCalendrierMensuel(titre: string, sousTitre: string, cont
 export function imprimerCalendrierEvenements(mois: string, contenu: HTMLElement): void {
     const fenetre = window.open('', '_blank');
     if (!fenetre) return;
-    ecrireDocument(fenetre.document, `
+    ecrireDocument(
+        fenetre.document,
+        `
                 <!DOCTYPE html>
                 <html>
                 <head>
@@ -102,7 +107,8 @@ export function imprimerCalendrierEvenements(mois: string, contenu: HTMLElement)
                     ${contenu.innerHTML}
                 </body>
                 </html>
-            `);
+            `
+    );
     fenetre.focus();
     setTimeout(() => {
         fenetre.print();
