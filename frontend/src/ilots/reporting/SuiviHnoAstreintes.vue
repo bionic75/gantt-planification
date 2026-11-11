@@ -129,7 +129,7 @@ function imprimerRapport() {
         <table v-else-if="rapport && tableau" class="rp-tableau rp-hno">
             <thead>
                 <tr class="rp-hno__mois">
-                    <th rowspan="2" class="rp-hno__expert" style="position: sticky">Expert</th>
+                    <th rowspan="2" class="rp-hno__expert" :style="{ position: 'sticky' }">Expert</th>
                     <th v-for="m in mois" :key="m.cle" :colspan="colonnesParMois">{{ m.libelle }}</th>
                     <th :colspan="colonnesParMois" class="rp-hno__total">Total</th>
                 </tr>
@@ -142,7 +142,7 @@ function imprimerRapport() {
             </thead>
             <tbody>
                 <tr v-for="l in tableau.lignes" :key="l.id">
-                    <td class="rp-hno__nom" style="position: sticky">{{ l.nom }}</td>
+                    <td class="rp-hno__nom" :style="{ position: 'sticky' }">{{ l.nom }}</td>
                     <template v-for="(v, i) in l.valeurs" :key="i">
                         <td v-if="rapport.hno" :class="{ 'rp-hno__hno': v.hno > 0 }">{{ ouTiret(v.hno) }}</td>
                         <td v-if="rapport.astreintes" :class="{ 'rp-hno__astr': v.astreintes > 0 }">
@@ -155,7 +155,7 @@ function imprimerRapport() {
                     </td>
                 </tr>
                 <tr class="rp-hno__ligne-total">
-                    <td class="rp-hno__nom" style="position: sticky">TOTAL</td>
+                    <td class="rp-hno__nom" :style="{ position: 'sticky' }">TOTAL</td>
                     <template v-for="(m, i) in tableau.parMois" :key="i">
                         <td v-if="rapport.hno">{{ ouTiret(m.hno) }}</td>
                         <td v-if="rapport.astreintes">{{ ouTiret(m.astreintes) }}</td>

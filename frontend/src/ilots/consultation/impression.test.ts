@@ -11,7 +11,9 @@ function fenetreSimulee() {
             write: (h: string) => {
                 fenetre.html += h;
             },
-            close: () => {}
+            close: () => {},
+            open: () => {},
+            querySelectorAll: () => []
         },
         focus: () => {},
         print: () => {

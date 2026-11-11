@@ -4,6 +4,7 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { nextTick, ref, watch } from 'vue';
+import { appliquerStyles } from '@/outils/styles-en-ligne';
 import { decompte, distanceKm } from './planning';
 
 const props = defineProps<{ ouverte: boolean }>();
@@ -71,6 +72,8 @@ async function ouvrir() {
     await nextTick();
     if (!carte && zone.value) {
         carte = L.map(zone.value, { zoomControl: false }).fitBounds(FRANCE);
+    // Couleur des repères (data-style) posée en JavaScript : la CSP bloque les attributs style du HTML des icônes
+    carte.on('layeradd', e => appliquerStyles((e.layer as L.Marker).getElement?.()));
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '© OpenStreetMap'
@@ -157,7 +160,7 @@ function dessiner() {
         L.marker([p.latitude!, p.longitude!], {
             icon: L.divIcon({
                 className: '',
-                html: `<div class="near-pin" style="background:${c.color}"><svg viewBox="0 0 24 24">${c.svg}</svg></div><div class="near-lbl">${esc(p.name)}</div>`,
+                html: `<div class="near-pin" data-style="background:${c.color}"><svg viewBox="0 0 24 24">${c.svg}</svg></div><div class="near-lbl">${esc(p.name)}</div>`,
                 iconSize: [46, 46],
                 iconAnchor: [23, 23],
                 popupAnchor: [0, -26]

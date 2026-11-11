@@ -1,8 +1,9 @@
 # language: fr
 Fonctionnalité: Clôture de la migration : politique de sécurité du contenu, décor de la page, aide en ligne
-  Scripts servis par l'application seulement (aucun script en ligne ni attribut onclick), décor de la page repris en
-  modules (mode d'affichage, thèmes, mise en page, icônes), aide en ligne servie avec son point d'entrée. Le mode
-  d'affichage choisi n'est mémorisé que dans le navigateur du scénario.
+  Scripts et feuilles de style servis par l'application seulement (aucun script ni style en ligne ; toute violation
+  fait aussi échouer les autres scénarios, e2e/support/fixtures.js), décor de la page repris en modules (mode
+  d'affichage, thèmes, mise en page, icônes), aide en ligne servie avec son point d'entrée. Le mode d'affichage choisi
+  n'est mémorisé que dans le navigateur du scénario.
 
   Plan du scénario: Page ouverte sans violation de la politique de sécurité du contenu
     Étant donné que la page "<adresse>" est ouverte par "<profil>" en relevant les violations de la politique de sécurité
@@ -14,6 +15,14 @@ Fonctionnalité: Clôture de la migration : politique de sécurité du contenu, 
       | /planification  | Administrateur |
       | /administration | Administrateur |
       | /cra            | Administrateur |
+      | /ressources     | Administrateur |
+      | /evenements     | Administrateur |
+      | /reporting      | Administrateur |
+      | /astreintes     | Administrateur |
+      | /samu-sas       | Administrateur |
+      | /affectation    | Administrateur |
+      | /deplacements   | Administrateur |
+      | /analyse        | Administrateur |
       | /aide.html      | personne       |
       | /mobile.html    | personne       |
 

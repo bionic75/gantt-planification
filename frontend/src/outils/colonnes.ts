@@ -3,21 +3,14 @@
 // code (public/js/app/planning.js, lot 6.4b) ; decor/mise-en-page.ts remet les largeurs à zéro (« Ajuster
 // l'affichage ») puis rappelle window.makeColResizable.
 import './colonnes.css';
+import { feuilleConstruite } from './styles-en-ligne';
 
 type TableauColonnes = HTMLTableElement & { _colResizable?: boolean; _colCtxMenu?: boolean };
 
 let numero = 0;
 
-/** Feuille de style des colonnes masquées, partagée par les tableaux */
-function feuille(): CSSStyleSheet | null {
-    let style = document.getElementById('col-hide-styles') as HTMLStyleElement | null;
-    if (!style) {
-        style = document.createElement('style');
-        style.id = 'col-hide-styles';
-        document.head.appendChild(style);
-    }
-    return style.sheet;
-}
+/** Feuille des colonnes masquées, partagée par les tableaux (feuille construite, autorisée par la CSP) */
+const feuille = feuilleConstruite();
 
 const lire = (cle: string): number[] => {
     try {
@@ -56,15 +49,14 @@ function menuColonnes(tableau: TableauColonnes) {
     };
 
     const appliquer = () => {
-        const s = feuille();
-        if (!s) return;
-        for (let i = s.cssRules.length - 1; i >= 0; i--) {
-            if ((s.cssRules[i] as CSSStyleRule).selectorText?.includes(id)) s.deleteRule(i);
+        const regles = feuille.regles;
+        if (!regles) return;
+        for (let i = regles.length - 1; i >= 0; i--) {
+            if ((regles[i] as CSSStyleRule).selectorText?.includes(id)) feuille.supprimer(i);
         }
         masquees.forEach(n => {
-            s.insertRule(
-                `[data-coltbl-id="${id}"] td:nth-child(${n}),[data-coltbl-id="${id}"] th:nth-child(${n}) { display:none !important; }`,
-                s.cssRules.length
+            feuille.ajouter(
+                `[data-coltbl-id="${id}"] td:nth-child(${n}),[data-coltbl-id="${id}"] th:nth-child(${n}) { display:none !important; }`
             );
         });
     };

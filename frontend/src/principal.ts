@@ -12,12 +12,10 @@ import { retirerJetonDeLAdresse } from '@/connexion/jeton';
 import { installerDecor } from '@/decor/decor';
 import { ecouter, emettre } from '@/evenements';
 import { installerNavigation } from '@/ilots/navigation/navigation';
-import { installerStyleImpression } from '@/outils/impression';
 import { afficherSynchronisation } from '@/outils/synchronisation';
 import { installerSurveillanceSession } from '@/session/session';
 
 installerSurveillanceSession();
-installerStyleImpression();
 // Lien de réinitialisation du mot de passe : jeton retiré de l'adresse avant sa lecture par le routeur
 retirerJetonDeLAdresse();
 
