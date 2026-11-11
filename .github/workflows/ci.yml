@@ -210,8 +210,17 @@ jobs:
           npm ci
           npm ci --prefix e2e
 
+      # Dépendances système installées par apt : miroirs Ubuntu parfois injoignables depuis le runner (résolution DNS),
+      # d'où trois essais ; à défaut, navigateur seul (bibliothèques déjà présentes sur l'image, polices facultatives)
       - name: Install Chromium (Playwright)
-        run: npx --prefix e2e playwright install --with-deps chromium
+        run: |
+          for essai in 1 2 3; do
+            npx --prefix e2e playwright install --with-deps chromium && exit 0
+            echo "::warning::Installation des dépendances de Chromium échouée (essai $essai/3)"
+            sleep 30
+          done
+          echo "::warning::Dépendances système non installées : Chromium installé seul"
+          npx --prefix e2e playwright install chromium
 
       # Interface Vue construite comme en production (pas de serveur Vite)
       - name: Build frontend
