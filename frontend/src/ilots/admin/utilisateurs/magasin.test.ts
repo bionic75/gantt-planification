@@ -28,7 +28,7 @@ describe('gestion des utilisateurs', () => {
         expect(s.utilisateurs).toHaveLength(1);
     });
 
-    it('après une modification : liste relue, ancien code prévenu, journal si demandé', async () => {
+    it('après une modification : liste relue, autres écrans prévenus, journal si demandé', async () => {
         const s = useUtilisateursStore();
         await s.apresModification();
         expect(api.liste).toHaveBeenCalledTimes(1);

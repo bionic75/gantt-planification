@@ -1,5 +1,7 @@
 // Application mobile : dates (heure locale), activité et congés d'une demi-journée, libellés de période, grilles de
 // la semaine et du mois, événements, icônes des événements, carte « Autour de moi » (distances, décompte)
+import { iconeDuLibelle as iconeModele } from '@/outils/modeles-evenements';
+import { semaineIsoDate } from '@/outils/semaine';
 
 export type Vue = 'day' | 'week' | 'month';
 export type Periode = 'AM' | 'PM';
@@ -72,14 +74,8 @@ export function dateCourte(s: string | null | undefined) {
     const d = depuisIso(s);
     return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
-/** Numéro de semaine ISO 8601 */
-export function numeroSemaine(d: Date) {
-    const dt = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-    const jour = dt.getUTCDay() || 7;
-    dt.setUTCDate(dt.getUTCDate() + 4 - jour);
-    const an = new Date(Date.UTC(dt.getUTCFullYear(), 0, 1));
-    return Math.ceil(((dt.getTime() - an.getTime()) / 86400000 + 1) / 7);
-}
+/** Numéro de semaine ISO 8601 (règle partagée, outils/semaine.ts) */
+export const numeroSemaine = (d: Date) => semaineIsoDate(d).semaine;
 
 /** Libellé de la période affichée */
 export function libellePeriode(vue: Vue, c: Date) {
@@ -187,25 +183,10 @@ export const ICONES_EVENEMENTS: Record<string, string> = {
     presentation:
         '<path d="M2 3h20M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3M12 16v5M8 21h8"/><path d="m7 12 3-3 2 2 4-4"/>'
 };
-/** Icône de chaque modèle d'événement (identique à celle du bureau), choisie d'après le début du libellé */
-const MODELES: [string, string][] = [
-    ['reunion de lancement strategique', 'rocket'],
-    ['visite post mes', 'eye'],
-    ['verif prerequis', 'listChecks'],
-    ['visite metier', 'briefcase'],
-    ['visite terrain', 'pin'],
-    ['mise en service', 'power'],
-    ['accomp', 'lifebuoy'],
-    ['visite ob', 'building'],
-    ['vft sur site', 'clipboardCheck'],
-    ['formation', 'graduation'],
-    ['congres', 'presentation']
-];
-/** Tracé de l'icône d'après le libellé (épingle par défaut) */
+/** Tracé de l'icône d'après le libellé (règle partagée avec le bureau, outils/modeles-evenements.ts ; épingle par défaut) */
 export function iconeDuLibelle(label: string) {
-    const l = (label || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[.]/g, '').trim();
-    const modele = MODELES.find(([k]) => l === k || l.startsWith(`${k} `) || l.startsWith(k));
-    return (modele && ICONES_EVENEMENTS[modele[1]]) || ICONES_EVENEMENTS.pin!;
+    const nom = iconeModele(label);
+    return (nom && ICONES_EVENEMENTS[nom]) || ICONES_EVENEMENTS.pin!;
 }
 /** Tracé de l'icône d'un événement : celle de son type, sinon d'après le libellé */
 export function iconeEvenement(e: EvenementMobile) {

@@ -1,0 +1,9 @@
+/*
+ * Feuilles de style globales de la page principale (anciennes balises de index.html, lot 6.5) : point d'entrée CSS
+ * à part, injecté par le serveur avant les feuilles des composants (src/lib/frontend.js), dans l'ordre d'origine
+ */
+@import './app.css';
+@import './themes.css';
+@import './darkmode.css';
+@import './ui-polish.css';
+@import './sections.css';

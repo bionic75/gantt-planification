@@ -21,9 +21,9 @@ export function maskSecrets(/** @type {string} */ url) {
 }
 
 /**
- * En-têtes de sécurité. La politique de contenu (CSP) admet les scripts et styles en ligne du frontend actuel
- * (gestionnaires onclick…) ; elle limite les ressources externes aux CDN et à OpenStreetMap utilisés, et interdit
- * l'affichage de l'application dans un cadre d'un autre site.
+ * En-têtes de sécurité. La politique de contenu (CSP) n'admet que les scripts servis par l'application (ni script en
+ * ligne ni gestionnaire onclick, lot 6.5) ; elle admet encore les styles en ligne (lot 6.6), limite les ressources
+ * externes à OpenStreetMap et interdit l'affichage de l'application dans un cadre d'un autre site.
  */
 function securityHeaders() {
     const https = !!env.APP_URL?.startsWith('https:');
@@ -32,9 +32,11 @@ function securityHeaders() {
             useDefaults: false,
             directives: {
                 defaultSrc: ["'self'"],
-                scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdnjs.cloudflare.com'],
-                scriptSrcAttr: ["'unsafe-inline'"],
-                styleSrc: ["'self'", "'unsafe-inline'", 'https://cdnjs.cloudflare.com'],
+                // Scripts de l'application seulement (lot 6.5) : ni script en ligne ni attribut onclick
+                scriptSrc: ["'self'"],
+                scriptSrcAttr: ["'none'"],
+                // Styles en ligne encore utilisés (attributs style, fenêtres d'impression) : lot 6.6
+                styleSrc: ["'self'", "'unsafe-inline'"],
                 imgSrc: [
                     "'self'",
                     'data:',

@@ -1,5 +1,5 @@
-<!-- Compteur d'inactivité : activation et délai, enregistrés pour tous ; compteur de la session relancé par
-     l'ancien code -->
+<!-- Compteur d'inactivité : activation et délai, enregistrés pour tous ; compteur de la session relancé
+     (gp:inactivite-modifiee) -->
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import AppAlert from '@/composants/AppAlert.vue';

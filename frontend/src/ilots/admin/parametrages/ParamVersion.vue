@@ -1,4 +1,4 @@
-<!-- Version de l'application : saisie et enregistrement, affichage de l'en-tête mis à jour par l'ancien code -->
+<!-- Version de l'application : saisie et enregistrement, affichage de l'en-tête mis à jour (gp:version-modifiee) -->
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import AppAlert from '@/composants/AppAlert.vue';

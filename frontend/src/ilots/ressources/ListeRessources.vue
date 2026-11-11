@@ -9,7 +9,7 @@ import AppIcone from '@/composants/AppIcone.vue';
 import { useConfirmation } from '@/composants/confirmation';
 import { emettre } from '@/evenements';
 import { rendreColonnesRedimensionnables } from '@/outils/colonnes';
-import { afficherSynchronisation } from '@/outils/page';
+import { afficherSynchronisation } from '@/outils/synchronisation';
 import { dateFr, datesMad, ordreAlphabetique, statutMad, trierParTexte } from './calculs';
 import { useRessourcesStore } from './magasin';
 
@@ -105,7 +105,7 @@ watch(
     { immediate: true }
 );
 
-/** Modification enregistrée : bandeau, journal, ressources rechargées par l'ancien code puis par l'îlot */
+/** Modification enregistrée : bandeau, journal, ressources relues ici et par les autres écrans (gp:ressources-rechargees) */
 async function modifiees(journal: boolean) {
     if (journal) {
         afficherSynchronisation();

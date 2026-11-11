@@ -29,7 +29,7 @@ async function importer() {
             <button type="button" class="loc-import__bouton" @click="importer">📤 Importer</button>
         </div>
         <div id="locImportStatus" class="loc-import__statut" role="status">
-            <!-- Recréé à chaque message : les émojis du texte sont remplacés par des icônes (public/js/ui-icons.js),
+            <!-- Recréé à chaque message : les émojis du texte sont remplacés par des icônes (decor/icones-emojis.ts),
                  un nœud texte converti n'est plus mis à jour par Vue -->
             <span v-if="loc.statut" :key="loc.statut.texte">
                 {{ loc.statut.texte }}

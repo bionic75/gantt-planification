@@ -241,21 +241,24 @@ describe('paramètres et configuration', () => {
 
     it('aide personnalisée', async () => {
         expect((await admin.post('/api/help/upload', { content: 'pas du html' })).status).toBe(400);
-        await admin.post('/api/help/upload', { content: '<!DOCTYPE html><html><body>Aide maison</body></html>' });
+        // Aide faite à partir d'une ancienne aide livrée : balises de public/js et public/css retirées (lot 6.5)
+        await admin.post('/api/help/upload', {
+            content:
+                '<!DOCTYPE html><html><head><link rel="stylesheet" href="/css/aide.css"></head>' +
+                '<body>Aide maison<script src="/js/ui-icons.js?v=1.16.27" defer></script></body></html>'
+        });
         const info = (await admin.get('/api/help/info')).data;
         expect(info.exists).toBe(true);
         const page = await server.client().get('/aide.html');
         expect(page.data).toContain('Aide maison');
-        expect(page.data).toContain('<script src="/js/ui-icons.js" defer></script></body>');
+        expect(page.data).not.toContain('/js/ui-icons.js');
+        expect(page.data).not.toContain('/css/aide.css');
         await admin.delete('/api/help/upload');
         expect((await admin.get('/api/help/info')).data).toEqual({ exists: false, updatedAt: null });
     });
 
-    it('anciennes adresses des scripts, styles et images : redirection vers public/js, public/css et public/img', async () => {
+    it('anciennes adresses des images : redirection vers public/img', async () => {
         for (const [from, to] of [
-            ['/ui-icons.js', '/js/ui-icons.js'],
-            ['/themes.js?v=1.0.0', '/js/themes.js?v=1.0.0'],
-            ['/darkmode.css', '/css/darkmode.css'],
             ['/favicon-grille.svg?t=1', '/img/favicon-grille.svg?t=1'],
             ['/asana-logo.png', '/img/asana-logo.png']
         ]) {

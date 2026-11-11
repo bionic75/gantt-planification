@@ -99,7 +99,7 @@ Then("l'aide en ligne s'ouvre dans une nouvelle fenêtre", async ({ monde }) => 
     const aide = monde.d.fenetreAide;
     await aide.waitForLoadState();
     expect(new URL(aide.url()).pathname).toBe('/aide.html');
-    await aide.close();
+    monde.aNettoyer("fenêtre de l'aide en ligne", () => aide.close().catch(() => {}));
 });
 
 When("je clique sur le bouton Accueil de l'en-tête", async ({ monde }) => {

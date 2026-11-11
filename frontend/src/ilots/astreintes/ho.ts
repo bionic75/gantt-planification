@@ -1,5 +1,6 @@
 // Astreintes HO : mois affiché, semaines, inscriptions effectives (enregistrées et modifications en attente), droits,
 // astreinte HO ANS (un ou plusieurs utilisateurs par jour), modifications à enregistrer et messages de l'enregistrement
+import { semaineIsoTexte } from '@/outils/semaine';
 import type {
     ModificationAns,
     ModificationHo,
@@ -65,12 +66,8 @@ export function lundiDe(date: string) {
     return d.toISOString().slice(0, 10);
 }
 
-/** Numéro de semaine ISO */
-export function semaineIso(date: string) {
-    const d = new Date(`${date}T00:00:00Z`);
-    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-    return Math.ceil(((d.getTime() - Date.UTC(d.getUTCFullYear(), 0, 1)) / 86400000 + 1) / 7);
-}
+/** Numéro de semaine ISO (règle partagée, outils/semaine.ts) */
+export const semaineIso = (date: string) => semaineIsoTexte(date).semaine;
 
 /** « mardi » */
 export const nomJour = (date: string) => NOMS_JOURS[(new Date(`${date}T00:00:00Z`).getUTCDay() + 6) % 7]!;

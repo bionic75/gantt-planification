@@ -108,7 +108,7 @@ export function pageDocument(cra: DetailCra, maintenant = new Date()): string {
 <style>${STYLE}
 </style>
 </head><body>
-<button class="print-btn" onclick="window.print()">🖨️ Imprimer / Enregistrer PDF</button>
+<button type="button" class="print-btn">🖨️ Imprimer / Enregistrer PDF</button>
 
 <div class="header">
   <div class="header-logo"><img src="${LOGO_ANS}" alt="ANS"></div>
@@ -162,5 +162,7 @@ export function ouvrirDocument(cra: DetailCra): boolean {
     if (!fenetre) return false;
     fenetre.document.write(pageDocument(cra));
     fenetre.document.close();
+    // Bouton branché depuis l'application : un attribut onclick serait bloqué par la politique de sécurité du contenu
+    fenetre.document.querySelector('.print-btn')?.addEventListener('click', () => fenetre.print());
     return true;
 }

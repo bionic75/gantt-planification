@@ -34,8 +34,8 @@ export const useUtilisateursStore = defineStore('admin-utilisateurs', () => {
     }
 
     /**
-     * Comptes modifiés : liste relue ; l'ancien code recharge ses utilisateurs et ses ressources (automatisations,
-     * notifications, planning…). Modification journalisée comme dans l'ancien écran si demandé.
+     * Comptes modifiés : liste relue ; ressources relues par les autres écrans
+     * (gp:utilisateurs-modifies). Modification journalisée comme dans l'ancien écran si demandé.
      */
     async function apresModification(journaliser = false) {
         await charger();

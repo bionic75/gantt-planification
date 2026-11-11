@@ -1,6 +1,6 @@
 <!-- Application mobile : planning d'une ressource (vue Jour, Semaine ou Mois) et événements de la période. Recréé à
      chaque changement de vue, de période ou de ressource (clé du parent) : les pictogrammes remplacés par
-     ui-icons.js ne sont jamais mis à jour en place. -->
+     decor/icones-emojis.ts ne sont jamais mis à jour en place. -->
 <script setup lang="ts">
 import { computed } from 'vue';
 import CarteEvenementMobile from './CarteEvenementMobile.vue';

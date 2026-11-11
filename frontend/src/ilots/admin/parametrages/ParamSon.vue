@@ -1,5 +1,5 @@
 <!-- Son de notification : activation, essai, son personnalisé ; réglage propre au navigateur (stockage local, lu par
-     l'ancien code pour jouer les notifications) -->
+     ilots/connectes/son.ts pour jouer les notifications) -->
 <script setup lang="ts">
 import { ref } from 'vue';
 import AppAlert from '@/composants/AppAlert.vue';

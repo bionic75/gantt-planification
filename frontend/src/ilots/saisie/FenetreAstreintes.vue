@@ -350,7 +350,7 @@ async function supprimer(l: LigneAstreinte) {
                                             {{ mois.libelle }}
                                         </button>
                                         <div v-show="estDeplie(mois.cle)" class="gp-astreintes__contenu">
-                                            <!-- Recréée à chaque changement : textes avec émojis (ui-icons.js) -->
+                                            <!-- Recréée à chaque changement : textes avec émojis (decor/icones-emojis.ts) -->
                                             <div
                                                 v-for="l in mois.lignes"
                                                 :key="cleLigne(l)"

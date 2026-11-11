@@ -55,7 +55,7 @@ function rechercher(app: string) {
     }, 250);
 }
 
-/** Accès modifiés : liste relue, menu Applications de la session mis à jour par l'ancien code */
+/** Accès modifiés : liste relue, session relue par le menu Applications */
 async function apresModification() {
     await charger();
     emettre('applications-modifiees');
