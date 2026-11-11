@@ -1,6 +1,6 @@
 <!-- « Invitations Outlook - Affectations » (enveloppe de l'en-tête) : affectations modifiées dans la grille, en attente
      d'invitation, par expert (nouvelles, modifiées, supprimées) ; experts à notifier, envoi des invitations (fichiers
-     ICS) puis message de fin d'envoi. Les affectations en attente sont tenues par l'ancien code (liaison). -->
+     ICS) puis message de fin d'envoi. Les affectations en attente sont tenues par le magasin de la planification. -->
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, shallowRef } from 'vue';
 import { ErreurApi } from '@/api/client';
@@ -78,7 +78,7 @@ function basculerTous() {
     coches.value = Object.fromEntries(Object.keys(coches.value).map(id => [id, tousCoches.value]));
 }
 
-/** Experts notifiés ou abandonnés : retirés des affectations en attente (ancien code) */
+/** Experts notifiés ou abandonnés : retirés des affectations en attente */
 const retirer = (ids: number[]) => planification.retirerInvitations(ids);
 
 async function envoyer() {

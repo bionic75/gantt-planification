@@ -1,28 +1,33 @@
 // @ts-check
 // Pages servies hors /api (aide personnalisable)
 import { Router } from 'express';
-import path from 'path';
-import { envoyerSondage } from '../../lib/frontend.js';
-import { PUBLIC_DIR } from '../../lib/paths.js';
+import { envoyerAide, envoyerSondage } from '../../lib/frontend.js';
 import { asyncHandler as h } from '../../middlewares/error-handler.js';
 import { getSetting } from '../../services/settings.js';
 
 const router = Router();
 
-// /aide.html : HTML personnalisé enregistré dans les paramètres, sinon le fichier statique
-// (déclarée avant les fichiers statiques, servis par finalizeApp)
+/**
+ * Balises d'une aide personnalisée faite à partir d'une ancienne aide livrée : scripts de public/js et feuille
+ * public/css/aide.css (supprimés au lot 6.5, servis par le point d'entrée de l'aide)
+ */
+const ANCIENNES_BALISES = [
+    /<script\b[^>]*\bsrc="\/js\/[^"]*"[^>]*>\s*<\/script>/gi,
+    /<link\b[^>]*\bhref="\/css\/aide\.css[^"]*"[^>]*>/gi
+];
+
+/** HTML d'une aide personnalisée sans les balises de l'ancienne aide livrée */
+export function sansAnciennesBalises(/** @type {string} */ html) {
+    return ANCIENNES_BALISES.reduce((h, re) => h.replace(re, ''), html);
+}
+
+// /aide.html : HTML personnalisé enregistré dans les paramètres, sinon le fichier livré, avec le point d'entrée de
+// l'aide (icônes, bouton « Retour à l'application », feuille de style) ; déclarée avant les fichiers statiques
 router.get(
     '/aide.html',
     h(async (req, res) => {
-        let html = await getSetting('help_html_content');
-        if (!html) return res.sendFile(path.join(PUBLIC_DIR, 'aide.html'));
-        // Le HTML d'aide peut être personnalisé : on y injecte le script d'icônes de l'application
-        if (!html.includes('ui-icons.js')) {
-            const tag = '<script src="/js/ui-icons.js" defer></script>';
-            html = /<\/body>/i.test(html) ? html.replace(/<\/body>/i, tag + '</body>') : html + tag;
-        }
-        res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        res.send(html);
+        const html = await getSetting('help_html_content');
+        envoyerAide(res, html ? sansAnciennesBalises(html) : null);
     })
 );
 
@@ -33,12 +38,9 @@ router.get('/sondage/:token', (req, res) => {
     envoyerSondage(req, res);
 });
 
-// Anciennes adresses des scripts, feuilles de style et images, rangés dans public/js, public/css et public/img :
-// pages en cache dans les navigateurs et aides personnalisées qui y font encore référence
+// Anciennes adresses des images, rangées dans public/img : pages en cache dans les navigateurs et aides personnalisées
+// qui y font encore référence (scripts et feuilles de style : servis par l'interface Vue depuis le lot 6.5)
 const MOVED_ASSETS = {
-    js: ['darkmode.js', 'themes.js', 'layout-fix.js', 'ui-icons.js', 'event-types.js'],
-    // login.css : feuille de la mire, servie avec l'interface Vue (frontend/src/connexion/mire.css) depuis le lot 6.1
-    css: ['themes.css', 'darkmode.css', 'ui-polish.css'],
     img: [
         'asana-logo.png',
         'logo-ans.webp',

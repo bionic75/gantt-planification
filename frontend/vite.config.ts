@@ -26,10 +26,14 @@ export default defineConfig({
         rollupOptions: {
             input: {
                 principal: fileURLToPath(new URL('./src/principal.ts', import.meta.url)),
+                // Feuilles de style globales de la page principale, injectées avant celles des composants
+                globales: fileURLToPath(new URL('./src/styles/globales.css', import.meta.url)),
                 // Page publique d'un sondage de date (public/sondage.html)
                 sondage: fileURLToPath(new URL('./src/sondage.ts', import.meta.url)),
                 // Application mobile (public/mobile.html)
-                mobile: fileURLToPath(new URL('./src/mobile.ts', import.meta.url))
+                mobile: fileURLToPath(new URL('./src/mobile.ts', import.meta.url)),
+                // Aide en ligne (public/aide.html, aide personnalisée)
+                aide: fileURLToPath(new URL('./src/aide.ts', import.meta.url))
             }
         }
     },

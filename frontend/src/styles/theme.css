@@ -59,7 +59,7 @@
     --gp-trajet-transit: #6a1b9a;
 }
 
-/* Mode sombre de l'ancien code (inversion de la page, public/css/darkmode.css) : éléments qui gardent leurs couleurs */
+/* Mode sombre (inversion de la page, styles/darkmode.css) : éléments qui gardent leurs couleurs */
 html.dark-mode .gp-couleurs-fixes {
     filter: invert(1) hue-rotate(180deg);
 }

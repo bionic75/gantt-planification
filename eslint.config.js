@@ -67,28 +67,9 @@ export default [
         }
     },
     {
-        // Frontend : scripts classiques d'une même page, qui partagent leur portée globale (fonctions appelées
-        // depuis un autre fichier ou depuis les attributs onclick= du HTML) : variables non définies ou non
-        // utilisées ne sont pas détectables fichier par fichier.
-        files: ['public/js/**/*.js'],
-        languageOptions: {
-            sourceType: 'script',
-            globals: { ...globals.browser, L: 'readonly', XLSX: 'readonly' }
-        },
-        rules: {
-            'no-undef': 'off',
-            'no-unused-vars': 'off',
-            'no-redeclare': 'off',
-            'no-var': 'off',
-            'prefer-const': 'off',
-            eqeqeq: 'off',
-            'no-restricted-globals': 'off',
-            // Code historique : règles de style signalées sans bloquer
-            'no-empty': 'warn',
-            'no-useless-escape': 'warn',
-            'no-useless-assignment': 'warn',
-            'no-irregular-whitespace': 'warn'
-        }
+        // Script classique servi tel quel (mode sombre appliqué avant l'affichage de la page)
+        files: ['frontend/public/**/*.js'],
+        languageOptions: { sourceType: 'script', globals: globals.browser }
     },
     {
         // Tests d'interface : fonctions exécutées dans la page (Puppeteer, Playwright)

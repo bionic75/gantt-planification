@@ -1,6 +1,6 @@
 <!-- Onglet Astreintes, rubrique « Gestion des astreintes HNO » (administrateurs) : volontaires, disponibilités,
-     génération du planning, planning actuel. Ressources relues à l'affichage de la rubrique et quand l'ancien code
-     recharge les siennes. -->
+     génération du planning, planning actuel. Ressources relues à l'affichage de la rubrique et quand elles sont
+     modifiées ailleurs (gp:ressources-rechargees). -->
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { apiRessources, type Ressource } from '@/api/ressources';
@@ -24,7 +24,7 @@ async function charger() {
     }
 }
 
-/** Volontaires modifiés : ressources relues, l'ancien code recharge les siennes et la planification */
+/** Volontaires modifiés : ressources relues ici et par les autres écrans (gp:ressources-modifiees) */
 async function volontairesModifies() {
     await charger();
     emettre('ressources-modifiees');

@@ -1,7 +1,7 @@
 <!-- Aide à l'affectation › onglet « Planning des déploiements » : légende (étapes masquables, trigrammes, SAMU déjà en
      service), tri, SAMU affichés, échelle, période affichée, lignes retirées, grille (colonne SAMU redimensionnable,
-     affectation au clic sur une étape, rafraîchissement Asana d'une ligne), impression / export. Sous-îlot dans le
-     conteneur de l'application, encore construit par l'ancien code. -->
+     affectation au clic sur une étape, rafraîchissement Asana d'une ligne), impression / export. Onglet de
+     l'application (ApplicationAffectation.vue). -->
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { surReouverture } from '@/ilots/activation';
@@ -281,7 +281,7 @@ let arreterEcoute: (() => void) | null = null;
 onMounted(() => {
     void ouvrir();
     document.addEventListener('click', clicAilleurs);
-    // Déploiements modifiés par l'administration (ancien code) : grille relue
+    // Déploiements modifiés par l'administration : grille relue
     arreterEcoute = ecouter('deploiements-modifies', () => void magasin.relireDeploiements());
 });
 onBeforeUnmount(() => {

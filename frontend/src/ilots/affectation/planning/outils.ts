@@ -1,4 +1,5 @@
 // Aide à l'affectation › planning des déploiements : dates (UTC), semaines ISO, échappement, couleurs et motifs des étapes
+import { semaineIsoTexte } from '@/outils/semaine';
 
 export const MOIS = [
     'janvier',
@@ -27,16 +28,10 @@ export const majuscule = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 export const jourFr = (iso: string) => iso.split('-').reverse().join('/');
 export const estWeekEnd = (iso: string) => [0, 6].includes(new Date(utcMs(iso)).getUTCDay());
 
-/** Semaine ISO 8601 d'une date */
+/** Semaine ISO 8601 d'une date (règle partagée, outils/semaine.ts) */
 export function semaineIso(iso: string) {
-    const d = new Date(utcMs(iso));
-    const jour = (d.getUTCDay() + 6) % 7;
-    d.setUTCDate(d.getUTCDate() - jour + 3);
-    const premierJeudi = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
-    const semaine =
-        1 +
-        Math.round(((d.getTime() - premierJeudi.getTime()) / 86400000 - 3 + ((premierJeudi.getUTCDay() + 6) % 7)) / 7);
-    return { week: semaine, year: d.getUTCFullYear() };
+    const s = semaineIsoTexte(iso);
+    return { week: s.semaine, year: s.annee };
 }
 export const lundiDe = (iso: string) => ajouterJours(iso, -((new Date(utcMs(iso)).getUTCDay() + 6) % 7));
 /** Valeur d'un champ « semaine » : « AAAA-Wss » */

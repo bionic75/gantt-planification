@@ -1,28 +1,18 @@
 <!-- v2.18.1 -->
 <!DOCTYPE html>
-<html lang="fr" data-ui-icons-keep-alert>
+<html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestionnaire de Ressources et Planification des Experts Métier</title>
     <link rel="icon" type="image/svg+xml" href="/img/favicon-calendrier.svg" id="favicon">
-    <link rel="stylesheet" href="/css/app.css?v=2.18.1">
-    <link rel="stylesheet" href="/css/themes.css?v=2.18.1">
-    <link rel="stylesheet" href="/css/darkmode.css?v=2.18.1">
-    <link rel="stylesheet" href="/css/ui-polish.css?v=2.18.1">
-    <script src="/js/darkmode.js?v=2.18.1"></script>
-    <script src="/js/themes.js?v=2.18.1" defer></script>
-    <script src="/js/layout-fix.js?v=2.18.1" defer></script>
-    <script src="/js/ui-icons.js?v=2.18.1" defer></script>
-    <script src="/js/event-types.js?v=2.18.1" defer></script>
-    <link rel="stylesheet" href="/css/sections.css?v=2.18.1">
+    <!-- Mode sombre appliqué avant l'affichage (aucun flash au chargement) : frontend/public/mode-affichage.js -->
+    <script src="/vue/mode-affichage.js"></script>
 </head>
 <body>
     <!-- Application Vue (frontend/src/principal.ts, cadre/ApplicationPrincipale.vue) : mire de connexion (#loginPage),
          Planification et ses onglets, autres applications, chacun à son adresse (/planification, /cra/12,
-         /deplacements…) -->
+         /deplacements…) ; feuilles de style et script injectés par le serveur (src/lib/frontend.js) -->
     <div id="app"></div>
-
-    <script src="/js/app/warning-icons.js?v=2.18.1"></script>
 </body>
 </html>

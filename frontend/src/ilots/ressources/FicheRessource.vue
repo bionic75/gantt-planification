@@ -7,7 +7,7 @@ import { apiRessources, type PeriodeMad, type Ressource } from '@/api/ressources
 import { ErreurApi } from '@/api/client';
 import AppModal from '@/composants/AppModal.vue';
 import { emettre } from '@/evenements';
-import { afficherSynchronisation } from '@/outils/page';
+import { afficherSynchronisation } from '@/outils/synchronisation';
 import { dateFr, esDuSamu } from './calculs';
 import {
     corpsFiche,

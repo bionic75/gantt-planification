@@ -108,7 +108,7 @@ onMounted(async () => {
     ouvrirDemande();
 });
 
-/** Après un traitement : cartes et listes relues, ancien code prévenu (pastille de l'onglet), détail relu ou fermé */
+/** Après un traitement : cartes et listes relues, pastille de l'onglet relue (gp:cra-modifies), détail relu ou fermé */
 async function apresTraitement(id: number, rouvrir: boolean) {
     await magasin.rafraichir();
     emettre('cra-modifies');

@@ -34,7 +34,7 @@ async function supprimer(e: Evenement) {
 onMounted(() => void ev.charger());
 // Comme à chaque ouverture de l'onglet dans l'ancien code : liste et référentiels rechargés
 surReouverture(() => void ev.charger());
-// Types modifiés dans l'administration (ancien code)
+// Types modifiés dans l'administration
 const arreter = ecouter('types-evenements-modifies', () => {
     void ev.chargerTypes();
     void ev.chargerListe();

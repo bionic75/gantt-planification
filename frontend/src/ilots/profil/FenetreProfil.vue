@@ -13,7 +13,8 @@ import { surDemande } from '@/cadre/fenetres';
 import { libelleOnglet, ONGLETS } from '@/ilots/onglets';
 import SaisieSamu from '@/ilots/ressources/SaisieSamu.vue';
 import { emettre } from '@/evenements';
-import { choisirModeAffichage, modeAffichage, themesAncienCode, type ModeAffichage } from '@/outils/page';
+import { choisirModeAffichage, modeAffichage, type ModeAffichage } from '@/decor/mode-affichage';
+import { themes as decorThemes } from '@/decor/themes';
 import { ongletsAccessibles } from '@/ilots/navigation/navigation';
 import { useSessionStore } from '@/stores/session';
 import { estImage, initiales, regleMotDePasse, TAILLE_MAX_PHOTO } from './profil';
@@ -84,19 +85,17 @@ const theme = ref<{ libelle: string; actif: boolean } | null>(null);
 
 function lireAffichage() {
     mode.value = modeAffichage();
-    const themes = themesAncienCode();
-    const affiche = themes?.compute();
-    theme.value =
-        themes && affiche
-            ? { libelle: themes.catalogue()[affiche.id]?.label ?? affiche.id, actif: themes.userEnabled() }
-            : null;
+    const affiche = decorThemes.compute();
+    theme.value = affiche
+        ? { libelle: decorThemes.catalogue()[affiche.id]?.label ?? affiche.id, actif: decorThemes.userEnabled() }
+        : null;
 }
 function changerMode(m: ModeAffichage) {
     mode.value = m;
     choisirModeAffichage(m);
 }
 function basculerTheme(actif: boolean) {
-    themesAncienCode()?.setUserEnabled(actif);
+    decorThemes.setUserEnabled(actif);
     if (theme.value) theme.value.actif = actif;
 }
 

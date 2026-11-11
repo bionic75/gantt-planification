@@ -1,6 +1,6 @@
 <!-- Vue calendrier mensuel (bouton de l'en-tête de la planification) : experts disponibles pour l'ANS par
      demi-journée, congés scolaires et dates particulières, sur le mois affiché par la planification ; navigation entre
-     les mois, impression. Données : instantané de la planification lu à l'ouverture (liaison). -->
+     les mois, impression. Données : magasin de la planification, lu à l'ouverture. -->
 <script setup lang="ts">
 import { computed, ref, shallowRef } from 'vue';
 import AppIcone from '@/composants/AppIcone.vue';

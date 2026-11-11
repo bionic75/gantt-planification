@@ -1,18 +1,19 @@
 // Point d'entrée de la page principale (index.html, balise injectée par le serveur, src/lib/frontend.js) : application
-// Vue racine (mire, cadre, onglets et applications par adresse), routeur, session (lot 6.4b, docs/migration-vue.md).
+// Vue racine (mire, cadre, onglets et applications par adresse), routeur, session (lot 6.4b), décor de la page (lot 6.5).
+// Feuilles de style globales : point d'entrée CSS à part (styles/globales.css), injecté avant celles des composants
 import '@/styles/theme.css';
 import '@/cadre/cadre.css';
 import { createPinia } from 'pinia';
 import { createApp } from 'vue';
 import ApplicationPrincipale from '@/cadre/ApplicationPrincipale.vue';
 import { viderMagasins } from '@/cadre/magasins';
-import { retirerJetonDeLAdresse } from '@/connexion/jeton';
 import { creerRouteur } from '@/cadre/routes';
+import { retirerJetonDeLAdresse } from '@/connexion/jeton';
+import { installerDecor } from '@/decor/decor';
 import { ecouter, emettre } from '@/evenements';
 import { installerNavigation } from '@/ilots/navigation/navigation';
-import { rendreColonnesRedimensionnables } from '@/outils/colonnes';
 import { installerStyleImpression } from '@/outils/impression';
-import { afficherSynchronisation } from '@/outils/page';
+import { afficherSynchronisation } from '@/outils/synchronisation';
 import { installerSurveillanceSession } from '@/session/session';
 
 installerSurveillanceSession();
@@ -33,10 +34,6 @@ ecouter('utilisateurs-modifies', () => {
     afficherSynchronisation();
 });
 
-// Mise en page (public/js/layout-fix.js, « Ajuster l'affichage ») : zoom de la grille et largeurs des colonnes
-Object.assign(window, {
-    resetZoomPlanning: () => emettre('zoom-grille-reinitialise'),
-    makeColResizable: rendreColonnesRedimensionnables
-});
-
 createApp(ApplicationPrincipale).use(pinia).use(routeur).mount('#app');
+// Mode d'affichage, thèmes, mise en page, icônes des émojis et des alertes, barre d'outils flottante
+installerDecor();

@@ -1,0 +1,32 @@
+/* Icônes remplaçant les émojis (decor/icones-emojis.ts) */
+.ui-emo {
+    width: 1.15em;
+    height: 1.15em;
+    vertical-align: middle;
+    margin: 0 0.15em;
+    fill: none;
+    stroke-width: 1.9;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    flex-shrink: 0;
+}
+
+/* Infobulle d'un titre contenant des icônes */
+.gp-bulle-icones {
+    position: fixed;
+    z-index: 100001;
+    pointer-events: none;
+    background: #fff;
+    color: #222;
+    border: 1px solid #d5dae3;
+    border-radius: 10px;
+    padding: 7px 12px;
+    font:
+        13px/1.45 -apple-system,
+        Segoe UI,
+        Arial,
+        sans-serif;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+    max-width: 380px;
+    white-space: pre-line;
+}

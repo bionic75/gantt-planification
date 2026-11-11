@@ -105,25 +105,29 @@ d'un envoi groupé est consultable (`/api/email-queue/status/:batchId`).
 
 ## Frontend
 
-Pages servies par Express depuis `public/` :
+Pages servies par Express depuis `public/`, chacune avec son point d'entrée Vue (feuilles de style insérées à la fin
+de `<head>`, script à la fin de `<body>`, `src/lib/frontend.js`) :
 
-| Page          | Rôle                                                                             | Scripts et styles                                                          |
-| ------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| `index.html`  | application principale : application Vue `frontend/src/principal.ts`             | `js/*.js` (décor : thèmes, mode sombre, mise en page, icônes), `css/*.css` |
-| `mobile.html` | version mobile (`/mobile` sur un téléphone) : îlot Vue `frontend/src/mobile/`    | `js/mobile/dark-mode.js`                                                   |
-| `aide.html`   | aide en ligne et historique des versions (personnalisable dans l'administration) | `css/aide.css`                                                             |
+| Page           | Rôle                                                                             | Point d'entrée (`frontend/src/`)                                    |
+| -------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `index.html`   | application principale                                                           | `principal.ts`, précédé des feuilles globales `styles/globales.css` |
+| `mobile.html`  | version mobile (`/mobile` sur un téléphone)                                      | `mobile.ts`                                                         |
+| `aide.html`    | aide en ligne et historique des versions (personnalisable dans l'administration) | `aide.ts` (feuille de style, icônes, bouton « Retour »)             |
+| `sondage.html` | page publique d'un sondage de date (`/sondage/:jeton`)                           | `sondage.ts`                                                        |
 
-`index.html` ne contient plus que le conteneur de l'application (`<div id="app">`) et les scripts du décor restés
-dans `public/js/` jusqu'au lot 6.5 de la [migration](migration-vue.md) : thèmes, mode sombre, mise en page
-(`layout-fix.js`), icônes (`ui-icons.js`, `event-types.js`, `app/warning-icons.js`). Ce sont des scripts classiques,
-autonomes. `public/css/` contient les feuilles de style, `public/img/` les images (icônes d'onglet au choix dans
-l'administration, logos ; le logo ANS est aussi joint aux emails). Les anciennes adresses à la racine
-(`/ui-icons.js`, `/darkmode.css`, `/favicon-….svg`…) redirigent vers ces répertoires. Toute autre adresse hors `/api`
-sert `index.html` : l'application lit l'adresse (Vue Router).
+Depuis le lot 6.5 de la [migration](migration-vue.md), `public/` ne contient plus que ces pages et les images
+(`public/img/` : icônes d'onglet au choix dans l'administration, logos ; le logo ANS est aussi joint aux emails).
+Scripts et feuilles de style sont dans `frontend/` : décor de la page (`frontend/src/decor/` : mode d'affichage,
+thèmes saisonniers, mise en page, icônes des émojis et des alertes), feuilles globales (`frontend/src/styles/`). Seul
+script classique : `frontend/public/mode-affichage.js` (servi sous `/vue/`), chargé dans `<head>` de `index.html` et
+de `mobile.html` pour appliquer le mode sombre avant l'affichage. Les anciennes adresses des images à la racine
+(`/favicon-….svg`…) redirigent vers `public/img/`. Toute autre adresse hors `/api` sert `index.html` : l'application
+lit l'adresse (Vue Router). Une aide personnalisée enregistrée dans l'administration est servie avec le point d'entrée
+de l'aide (balises de l'ancienne aide livrée retirées) ; elle ne peut pas contenir de script (CSP, [sécurité](securite.md)).
 
-Version et cache : le commentaire `<!-- vX.Y.Z -->` en tête de `index.html` est la version affichée, et le paramètre
-`?v=X.Y.Z` des scripts force les navigateurs à recharger les fichiers modifiés. Les deux sont mis à jour par
-`npm run app:version -- X.Y.Z` ([déploiement](deploiement.md#publier-une-version)).
+Version et cache : le commentaire `<!-- vX.Y.Z -->` en tête de `index.html` est la version affichée, mise à jour par
+`npm run app:version -- X.Y.Z` ([déploiement](deploiement.md#publier-une-version)). Les fichiers de l'interface Vue
+portent une empreinte dans leur nom : les navigateurs rechargent ceux qui changent.
 
 ### Interface Vue
 
@@ -133,7 +137,7 @@ ses onglets ou une autre application, chacun à son adresse.
 
 | Élément                           | Rôle                                                                                                                                                                                                                                                                                                                                                                                                   |
 | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `frontend/src/principal.ts`       | point d'entrée : application racine, routeur, surveillance de la session, magasins vidés à la fin de la session, relais entre événements, utilitaires appelés par `layout-fix.js`, variables CSS (`styles/theme.css`)                                                                                                                                                                                  |
+| `frontend/src/principal.ts`       | point d'entrée : application racine, routeur, surveillance de la session, magasins vidés à la fin de la session, relais entre événements, décor de la page (`decor/`), variables CSS (`styles/theme.css`)                                                                                                                                                                                              |
 | `frontend/src/cadre/`             | racine (`ApplicationPrincipale.vue` : mire, cadre de la session, bandeau de mise en production, écran de déconnexion), cadre de la session (`CadreApplication.vue` : en-tête, barre d'onglets, onglet ou application de l'adresse gardés en vie, menu Applications, connectés, fenêtres), adresses (`routes.ts`, enveloppes `vues.ts`), fenêtres des en-têtes (`fenetres.ts`, `FenetresDemandees.vue`) |
 | `frontend/src/ilots/navigation/`  | accès aux onglets par profil, onglet d'arrivée, vérification de l'adresse (adresse refusée ou inconnue, ancien lien `/?tab=cra`), pastille des CRA, barre d'onglets                                                                                                                                                                                                                                    |
 | `frontend/src/session/session.ts` | session ouverte ou non, réponses 401 / 403 surveillées (session perdue : mire avec un message), fin de session, déconnexion                                                                                                                                                                                                                                                                            |
@@ -141,7 +145,7 @@ ses onglets ou une autre application, chacun à son adresse.
 | `frontend/src/ilots/<îlot>/`      | écran : composants, magasin Pinia, mises en forme (ex. `tripadvisor/`) ; réouverture signalée par `surReouverture` (`ilots/activation.ts`)                                                                                                                                                                                                                                                             |
 | `frontend/src/composants/`        | composants communs `App*` (bouton, champs, étiquette, fenêtre, confirmation, alerte, notes)                                                                                                                                                                                                                                                                                                            |
 | `frontend/src/evenements.ts`      | bus d'événements `gp:*` entre composants qui ne partagent pas de magasin (session terminée ou perdue, données modifiées, fenêtre demandée, CRA demandé…) et types partagés de la planification                                                                                                                                                                                                         |
-| `frontend/src/outils/`            | colonnes redimensionnables et masquables, style des fenêtres d'impression, accès au décor de `public/js/` (thèmes, mode d'affichage, icônes en image) et bandeau « Données synchronisées »                                                                                                                                                                                                             |
+| `frontend/src/outils/`            | colonnes redimensionnables et masquables, style des fenêtres d'impression, bandeau « Données synchronisées », semaine ISO 8601 (règle partagée)                                                                                                                                                                                                                                                        |
 | `frontend/src/api/`               | appels `/api` typés (`client.ts`, un fichier par module : `poi.ts`…) ; une réponse 401 de session fermée signale la session perdue                                                                                                                                                                                                                                                                     |
 | `frontend/src/stores/`            | magasins Pinia partagés (session…)                                                                                                                                                                                                                                                                                                                                                                     |
 | `src/lib/frontend.js` (serveur)   | service de l'interface selon l'environnement et insertion du point d'entrée dans la page                                                                                                                                                                                                                                                                                                               |

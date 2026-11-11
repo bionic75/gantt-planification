@@ -38,7 +38,7 @@ onMounted(() => {
 
 <template>
     <h2>Gestion des Ressources</h2>
-    <!-- Bandeau affiché quelques secondes (outils/page.ts, afficherSynchronisation) -->
+    <!-- Bandeau affiché quelques secondes (outils/synchronisation.ts, afficherSynchronisation) -->
     <div id="syncStatus" class="sync-status" hidden>Données synchronisées</div>
     <FormulaireAjout v-if="session.session && !rh" />
     <!-- Profil connu avant l'affichage : liste en consultation seule pour le profil RH -->

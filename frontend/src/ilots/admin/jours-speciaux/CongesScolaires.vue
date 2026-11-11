@@ -23,7 +23,7 @@ async function charger() {
 }
 onMounted(charger);
 
-/** Fichiers modifiés : liste relue, congés de la planification rechargés par l'ancien code */
+/** Fichiers modifiés : liste relue, congés relus par la planification */
 async function apresModification() {
     await charger();
     emettre('conges-modifies');

@@ -37,7 +37,7 @@ describe('localisations (administration)', () => {
         expect(s.localisations).toEqual([]);
     });
 
-    it('enregistrement : création, ou modification de la localisation en cours ; ancien code prévenu', async () => {
+    it('enregistrement : création, ou modification de la localisation en cours ; autres écrans prévenus', async () => {
         const s = useLocalisationsStore();
         await s.enregistrer(donnees);
         expect(api.creer).toHaveBeenCalledWith(donnees);
