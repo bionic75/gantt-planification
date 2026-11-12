@@ -1,4 +1,4 @@
-// Notifications et e-mails des affectations (src/modules/notifications) : demande d'affectation, invitations
+// Notifications et e-mails des affectations (backend/src/modules/notifications) : demande d'affectation, invitations
 // Outlook, nouvelles affectations de l'expert
 import { api } from '@/api/client';
 

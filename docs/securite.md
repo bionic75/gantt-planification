@@ -4,7 +4,7 @@ Protections de l'application et réglages associés. Les variables d'environneme
 
 ## Requêtes d'autres sites (CSRF) et CORS
 
-Code : `src/middlewares/csrf.js`.
+Code : `backend/src/middlewares/csrf.js`.
 
 Une requête de modification (POST, PUT, PATCH, DELETE) envoyée par un navigateur depuis un autre site est refusée
 (403), y compris la connexion :
@@ -21,7 +21,7 @@ cookie) répond `Access-Control-Allow-Origin: *`.
 
 ## En-têtes HTTP
 
-Code : `securityHeaders()` dans `src/app.js` (helmet).
+Code : `securityHeaders()` dans `backend/src/app.js` (helmet).
 
 - `Content-Security-Policy` : scripts servis par l'application seulement (`script-src 'self'`, aucun script en ligne
   ni attribut `onclick=`… : `script-src-attr 'none'`, depuis le lot 6.5 de la [migration](migration-vue.md)),
@@ -42,7 +42,7 @@ Code : `securityHeaders()` dans `src/app.js` (helmet).
 
 ## Sessions
 
-- Stockées en base (table `sessions`, `src/db/session-store.js`) : elles survivent aux redémarrages ; les sessions
+- Stockées en base (table `sessions`, `backend/src/db/session-store.js`) : elles survivent aux redémarrages ; les sessions
   expirées sont supprimées toutes les 15 minutes.
 - Fermeture forcée (administration) et réinitialisation du mot de passe : les sessions du compte sont marquées
   fermées en base ; leur requête suivante reçoit `401 SESSION_TERMINATED`, même après un redémarrage.
@@ -58,7 +58,7 @@ protocole (`X-Forwarded-Proto`, cookie `Secure`). L'application exposée directe
 
 ## Limitation des tentatives
 
-Code : `src/middlewares/rate-limit.js`. Compteurs en mémoire, par processus ; réponse `429`.
+Code : `backend/src/middlewares/rate-limit.js`. Compteurs en mémoire, par processus ; réponse `429`.
 
 | Route                                                                       | Limite                                                          |
 | --------------------------------------------------------------------------- | --------------------------------------------------------------- |
@@ -74,7 +74,7 @@ Code : `src/middlewares/rate-limit.js`. Compteurs en mémoire, par processus ; r
 - Mot de passe donné par un administrateur (compte administrateur initial, compte créé ou mot de passe réinitialisé
   par un administrateur) : à remplacer à la connexion suivante. Tant que ce n'est pas fait, l'application reste
   bloquée sur l'écran de changement et l'API répond `403 PASSWORD_CHANGE_REQUIRED` à toute autre requête
-  (`src/middlewares/password-change.js`) ; le nouveau mot de passe doit respecter les règles de complexité et
+  (`backend/src/middlewares/password-change.js`) ; le nouveau mot de passe doit respecter les règles de complexité et
   différer de l'ancien. L'application mobile refuse la connexion de ces comptes. Un mot de passe choisi par
   l'utilisateur (écran « Mon profil », lien « mot de passe oublié ») lève l'obligation.
 - Profil « utilisateur » : planning en lecture seule (modifications refusées, `403`).
@@ -82,9 +82,9 @@ Code : `src/middlewares/rate-limit.js`. Compteurs en mémoire, par processus ; r
 ## Données saisies dans les emails et les PDF
 
 - Les données insérées dans les emails et les documents CRA (noms, commentaires, motifs…) sont échappées
-  (`src/lib/html.js`) : elles ne peuvent pas injecter de HTML ni de liens.
+  (`backend/src/lib/html.js`) : elles ne peuvent pas injecter de HTML ni de liens.
 - Rendu PDF (Chromium) : page sans JavaScript ni accès réseau, seules les ressources intégrées (`data:`) se chargent
-  (`isolatePage`, `src/lib/puppeteer.js`). Le HTML envoyé par le navigateur pour l'export du planning ne peut donc
+  (`isolatePage`, `backend/src/lib/puppeteer.js`). Le HTML envoyé par le navigateur pour l'export du planning ne peut donc
   pas faire lire au serveur des adresses internes ou des fichiers.
 - Envoi du calendrier par email : destinataire lu en base (utilisateur rattaché à la ressource). Invitations
   d'affectation : adresses limitées aux utilisateurs rattachés aux ressources concernées.

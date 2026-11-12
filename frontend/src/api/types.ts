@@ -2,7 +2,7 @@
 
 export type Profil = 'admin' | 'expert' | 'user' | 'rh';
 
-/** GET /api/check-session (src/modules/auth/auth.controller.js, checkSession) */
+/** GET /api/check-session (backend/src/modules/auth/auth.controller.js, checkSession) */
 export interface Session {
     userId: number;
     username: string;

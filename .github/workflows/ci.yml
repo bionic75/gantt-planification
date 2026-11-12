@@ -89,10 +89,10 @@ jobs:
         run: npm ci
 
       - name: Apply migrations
-        run: npx prisma migrate deploy
+        run: npx prisma migrate deploy --config backend/prisma.config.js
 
       - name: No drift between migrations and schema
-        run: npx prisma migrate diff --from-config-datasource --to-schema prisma/postgresql/schema.prisma --exit-code
+        run: npx prisma migrate diff --from-config-datasource --to-schema backend/prisma/postgresql/schema.prisma --exit-code --config backend/prisma.config.js
 
       - name: Tests
         run: |
@@ -138,10 +138,10 @@ jobs:
         run: npm ci
 
       - name: Apply migrations
-        run: npx prisma migrate deploy
+        run: npx prisma migrate deploy --config backend/prisma.config.js
 
       - name: No drift between migrations and schema
-        run: npx prisma migrate diff --from-config-datasource --to-schema prisma/mysql/schema.prisma --exit-code
+        run: npx prisma migrate diff --from-config-datasource --to-schema backend/prisma/mysql/schema.prisma --exit-code --config backend/prisma.config.js
 
       # Connexion root (création des bases de test), même mot de passe que CI_DB_USER
       - name: Tests
@@ -224,8 +224,8 @@ jobs:
           export DB_PATH="$RUNNER_TEMP/e2e-data"
           export SESSION_SECRET="$(openssl rand -hex 32)"
           mkdir -p "$DB_PATH"
-          node scripts/db-migrate.mjs
-          nohup node server.js > "$RUNNER_TEMP/app.log" 2>&1 &
+          node backend/scripts/db-migrate.mjs
+          nohup node backend/server.js > "$RUNNER_TEMP/app.log" 2>&1 &
           for i in $(seq 1 60); do
             if curl -fs http://localhost:3000/api/version; then exit 0; fi
             sleep 1

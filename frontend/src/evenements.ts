@@ -118,7 +118,7 @@ export interface PeriodeConges {
 
 export type ZoneConges = 'zoneA' | 'zoneB' | 'zoneC';
 
-/** Apparence et description d'une date particulière (fichier .ics ou événement, src/modules/calendar) */
+/** Apparence et description d'une date particulière (fichier .ics ou événement, backend/src/modules/calendar) */
 export interface ConfigDateParticuliere {
     label?: string;
     shown?: string;

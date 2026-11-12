@@ -1,5 +1,5 @@
 // Types d'événements (administration) et reprise des données des événements : appels et réponses
-// (src/modules/events)
+// (backend/src/modules/events)
 import { api } from '@/api/client';
 import type { TypeEvenement } from '@/api/evenements';
 

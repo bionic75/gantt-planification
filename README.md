@@ -29,6 +29,10 @@ cp .env.example .env   # configuration (facultative en développement)
 npm run dev            # migrations de la base, puis serveur sur http://localhost:3000
 ```
 
+Organisation : serveur dans `backend/` (Express, Prisma, scripts d'exploitation, tests), interface dans `frontend/`
+(Vue 3), tests de bout en bout dans `e2e/` ([architecture](docs/architecture.md#arborescence)). Les commandes se
+lancent depuis la racine du projet, qui garde `.env`, `config/` et `data/`.
+
 En développement, l'interface Vue (`frontend/`) est compilée à la volée par le serveur. Pour lancer le serveur avec
 `NODE_ENV=production` hors Docker, construire d'abord l'interface : `npm run build:front`.
 
@@ -38,7 +42,7 @@ Première connexion : compte administrateur `admin` / `admin` (ou `INITIAL_ADMIN
 ## Configuration
 
 Variables d'environnement décrites dans [.env.example](.env.example) et validées au démarrage
-(`src/config/env.js`) : le serveur refuse de démarrer si une variable obligatoire manque. En production :
+(`backend/src/config/env.js`) : le serveur refuse de démarrer si une variable obligatoire manque. En production :
 `NODE_ENV=production`, `SESSION_SECRET` (32 caractères minimum) et `APP_URL` sont obligatoires.
 
 La configuration SMTP (envoi des emails), la double authentification et les paramètres de l'application se règlent

@@ -49,7 +49,7 @@ export const PROFILS = {
         totpSecret: str('E2E_UTILISATEUR_TOTP_SECRET'),
         mfa: true
     },
-    // Le profil RH n'est jamais soumis à la double authentification (src/modules/auth/mfa.service.js)
+    // Le profil RH n'est jamais soumis à la double authentification (backend/src/modules/auth/mfa.service.js)
     rh: {
         key: 'rh',
         label: 'RH',

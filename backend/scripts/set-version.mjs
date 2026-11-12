@@ -7,7 +7,8 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+// Racine du projet (backend/scripts → ../..)
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const version = (process.argv[2] || '').replace(/^v/, '');
 if (!/^\d+\.\d+\.\d+$/.test(version)) {
     console.error('Usage : npm run app:version -- X.Y.Z');

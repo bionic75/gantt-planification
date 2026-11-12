@@ -1,5 +1,5 @@
 // Grille de la planification : planning, comptes, congés, dates particulières, astreintes du planning, historique des
-// mises à disposition (src/modules/schedule, users, calendar, astreintes, resources)
+// mises à disposition (backend/src/modules/schedule, users, calendar, astreintes, resources)
 import { api, ErreurApi } from '@/api/client';
 import type { Ressource } from '@/api/ressources';
 import { emettre, type DateParticuliere, type PeriodeConges, type ZoneConges } from '@/evenements';

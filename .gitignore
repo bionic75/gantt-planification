@@ -1,7 +1,7 @@
 # Mac
 .DS_store
 
-# Logs (dossier à la racine uniquement : src/modules/logs est du code)
+# Logs (dossier à la racine uniquement : backend/src/modules/logs est du code)
 /logs/
 *.log
 npm-debug.log*
@@ -152,4 +152,4 @@ data/data.db-wal
 data/pdfs/*
 
 # Client Prisma généré (npm install / npm run db:generate)
-src/generated/
+backend/src/generated/
