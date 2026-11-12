@@ -199,3 +199,15 @@ describe('phases : jamais début = fin', () => {
         tasks.set('2.9 Fin du cadrage', { gid: '778', name: '2.9 Fin du cadrage', start_on: '', due_on: '2027-02-05' });
     });
 });
+
+describe('fenêtre des tâches : ouverture sans interroger Asana', () => {
+    it('?asana=0 : contenu de l’application seulement', async () => {
+        const p = await byName();
+        const r = await admin.get(`/api/affectation/projects/${p.id}/asana-tasks?asana=0`);
+        expect(r.status, JSON.stringify(r.data)).toBe(200);
+        expect(r.data).toMatchObject({ interroge: false, tasks: [], samu: 'SAMU 91' });
+        const vft = r.data.rubriques.find(x => x.key === 'vft');
+        expect(vft.current).toMatchObject({ start: expect.any(String), end: expect.any(String) });
+        expect(vft.auto).toBeNull();
+    });
+});

@@ -311,6 +311,46 @@ export async function tasks(/** @type {Request} */ req, /** @type {Response} */ 
     const id = Number(req.params.id);
     const dep = await svc.getProject(id);
     if (!dep) throw notFound('Déploiement introuvable');
+    // Sans interrogation d'Asana (?asana=0) : ce que contient l'application, sans écart ni liste de tâches
+    if (String(req.query.asana) === '0') {
+        await asanaReloadStageRules();
+        const modeleLocal = await asanaLoadTemplate();
+        const ovLocal = (await asanaOverridesFor(id)) || {};
+        const periodsLocal = svc.parsePeriods(dep.periods);
+        const dateKeys = ['date_debut', 'mise_en_service', 'mise_en_production', ...ASANA_MILESTONES];
+        const courante = (/** @type {string} */ key) =>
+            key === 'date_debut'
+                ? dep.date_debut
+                    ? { date: dep.date_debut }
+                    : null
+                : key === 'mise_en_service' || key === 'mise_en_production'
+                  ? /** @type {any} */ (dep)['date_' + key]
+                      ? { date: /** @type {any} */ (dep)['date_' + key] }
+                      : null
+                  : periodsLocal[key]?.[0]
+                    ? { start: periodsLocal[key][0].start, end: periodsLocal[key][0].end }
+                    : null;
+        return res.json({
+            samu: dep.samu_name,
+            asana: '',
+            gid: '',
+            url: '',
+            interroge: false,
+            candidates: [],
+            tasks: [],
+            rubriques: ASANA_KEYS.map(key => ({
+                key,
+                label: key === 'date_debut' ? 'Début du projet' : svc.stageLabel(key),
+                kind: dateKeys.includes(key) ? 'date' : 'period',
+                rule: asanaRuleText(key, modeleLocal),
+                current: courante(key),
+                auto: null,
+                sources: [],
+                override: ovLocal[key] || null
+            })),
+            overridden: Object.keys(ovLocal)
+        });
+    }
     const token = await asanaToken();
     const { match, candidates } = await asanaFindProjectFor(token, dep);
     const { projectName, tasks: list } = await asanaFetchProject(token, match.gid);
@@ -368,6 +408,7 @@ export async function tasks(/** @type {Request} */ req, /** @type {Response} */ 
         gid: match.gid,
         url: match.permalink_url,
         candidates: candidates.map((/** @type {any} */ x) => ({ gid: x.gid, name: x.name })),
+        interroge: true,
         tasks: taskList,
         rubriques,
         overridden: c1.overridden || []
