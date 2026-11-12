@@ -3,14 +3,14 @@ public/*.html
 .github/workflows/deploy-*.yml
 # Générés (npm run routes)
 docs/api.md
-tests/fixtures/routes.json
+backend/tests/fixtures/routes.json
 
 data/
 node_modules/
 coverage/
 package.json
 package-lock.json
-src/generated/
+backend/src/generated/
 # Tests de bout en bout : sessions, tests générés et rapports
 e2e/.auth/
 e2e/.features-gen/

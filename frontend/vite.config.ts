@@ -1,5 +1,5 @@
 // Interface Vue : page principale, page d'un sondage, application mobile (voir docs/migration-vue.md)
-// Build : dist/frontend (manifeste lu par le serveur, src/lib/frontend.js) ; tests de composants : Vitest
+// Build : dist/frontend (manifeste lu par le serveur, backend/src/lib/frontend.js) ; tests de composants : Vitest
 import { fileURLToPath } from 'node:url';
 import vue from '@vitejs/plugin-vue';
 import { defineConfig } from 'vitest/config';

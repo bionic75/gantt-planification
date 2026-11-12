@@ -1,4 +1,4 @@
-// Accueil : appels et réponses (src/modules/schedule, resources, events)
+// Accueil : appels et réponses (backend/src/modules/schedule, resources, events)
 import { api } from '@/api/client';
 import type { ListeEvenements } from '@/api/evenements';
 import type { Planning, RessourceAccueil } from '@/ilots/accueil/calculs';

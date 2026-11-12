@@ -1,4 +1,4 @@
-// Point d'entrée de la page principale (index.html, balise injectée par le serveur, src/lib/frontend.js) : application
+// Point d'entrée de la page principale (index.html, balise injectée par le serveur, backend/src/lib/frontend.js) : application
 // Vue racine (mire, cadre, onglets et applications par adresse), routeur, session (lot 6.4b), décor de la page (lot 6.5).
 // Feuilles de style globales : point d'entrée CSS à part (styles/globales.css), injecté avant celles des composants
 import '@/styles/theme.css';

@@ -106,10 +106,10 @@ Procédure (Docker ; l'image ne contient pas npm : les scripts se lancent avec `
 
 ```bash
 # 1. Vérification sans modification : rapport et script de conversion
-docker compose run --rm <service> node scripts/db-adopt.mjs --dry-run
+docker compose run --rm <service> node backend/scripts/db-adopt.mjs --dry-run
 
 # 2. Adoption
-docker compose run --rm <service> node scripts/db-adopt.mjs
+docker compose run --rm <service> node backend/scripts/db-adopt.mjs
 
 # 3. Démarrage normal (les migrations suivantes sont appliquées automatiquement)
 docker compose up -d
@@ -129,7 +129,7 @@ manipulation.
 ## Sauvegarde et restauration
 
 **SQLite** : l'administration de l'application propose une sauvegarde complète (`/api/admin/dump`, code dans
-`scripts/db-dump.js`). Le fichier `.gpdump` contient une copie cohérente de la base et les PDF des CRA.
+`backend/scripts/db-dump.js`). Le fichier `.gpdump` contient une copie cohérente de la base et les PDF des CRA.
 
 - La restauration remplace toutes les données, après une sauvegarde de sécurité dans
   `<DB_PATH>/restore-backups/`. L'historique des migrations (`_prisma_migrations`) du serveur est conservé : la
@@ -150,9 +150,9 @@ Les PDF des CRA (`data/pdfs/`) sont à sauvegarder à part.
 
 ## Modifier le schéma
 
-1. Modifier **`prisma/schema.base.prisma`**, le schéma source commun aux trois fournisseurs. Les fichiers
-   `prisma/<fournisseur>/schema.prisma` sont générés : ne pas les modifier.
-2. `npm run db:migration -- <nom_en_snake_case>` génère `prisma/<fournisseur>/migrations/<date>_<nom>/migration.sql`
+1. Modifier **`backend/prisma/schema.base.prisma`**, le schéma source commun aux trois fournisseurs. Les fichiers
+   `backend/prisma/<fournisseur>/schema.prisma` sont générés : ne pas les modifier.
+2. `npm run db:migration -- <nom_en_snake_case>` génère `backend/prisma/<fournisseur>/migrations/<date>_<nom>/migration.sql`
    pour chaque fournisseur, sans base de données.
 3. Relire les trois scripts SQL, et les compléter si besoin (reprise de données, valeurs par défaut).
 4. `npm test`. La CI applique aussi les migrations sur le fournisseur utilisé en production (variable `DB_PROVIDER`).

@@ -9,7 +9,11 @@ import { resolveDatabaseUrl } from '../src/config/database-url.js';
 
 dotenv.config({ quiet: true });
 
+/** Dossier backend (prisma/, scripts/, src/) */
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+/** Racine du projet : répertoire courant des commandes (.env, ./data, config/) */
+export const PROJECT = path.resolve(ROOT, '..');
+const CONFIG_PRISMA = path.join(ROOT, 'prisma.config.js');
 export const PROVIDER = process.env.DB_PROVIDER || 'sqlite';
 export const DATABASE_URL = resolveDatabaseUrl({ ...process.env, DB_PROVIDER: PROVIDER });
 export const MIGRATIONS_DIR = path.join(ROOT, 'prisma', PROVIDER, 'migrations');
@@ -20,8 +24,8 @@ const PRISMA_CLI = require.resolve('prisma/build/index.js');
 
 /** Exécute la CLI Prisma ; renvoie la sortie standard */
 export function prismaCli(args, { capture = false, env = {} } = {}) {
-    return execFileSync(process.execPath, [PRISMA_CLI, ...args], {
-        cwd: ROOT,
+    return execFileSync(process.execPath, [PRISMA_CLI, ...args, '--config', CONFIG_PRISMA], {
+        cwd: PROJECT,
         env: { ...process.env, DB_PROVIDER: PROVIDER, ...env },
         encoding: 'utf8',
         stdio: capture ? ['ignore', 'pipe', 'pipe'] : 'inherit',

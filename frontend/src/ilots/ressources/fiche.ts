@@ -2,7 +2,7 @@
 // la fiche, contrôles des périodes de MAD et des particularités, comme l'ancien écran
 import type { CorpsFiche, PeriodeMad, Ressource } from '@/api/ressources';
 
-// ---------- Adresses e-mail (même règle que src/lib/email.js côté serveur) ----------
+// ---------- Adresses e-mail (même règle que backend/src/lib/email.js côté serveur) ----------
 
 const LOCAL = /^[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+)*$/;
 const LABEL = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/;

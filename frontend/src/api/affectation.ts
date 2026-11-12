@@ -1,4 +1,4 @@
-// Aide à l'affectation opérationnelle (src/modules/affectation) : événements des activités suivies
+// Aide à l'affectation opérationnelle (backend/src/modules/affectation) : événements des activités suivies
 import { api } from '@/api/client';
 
 /** Activité d'un déploiement (visite métier, mise en service…) : clé et libellé du type d'événement associé */

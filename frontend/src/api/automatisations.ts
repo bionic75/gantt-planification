@@ -1,5 +1,5 @@
 // Automatisations (administration) : configurations, historiques, tests et envois, diagnostic et nettoyage des données
-// du planning (src/modules/automations)
+// du planning (backend/src/modules/automations)
 import { api, ErreurApi } from '@/api/client';
 import { emettre } from '@/evenements';
 

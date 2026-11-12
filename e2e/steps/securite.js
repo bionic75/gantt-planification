@@ -231,7 +231,7 @@ Then('la version est {int}.{int}.{int} ou supérieure', async ({ monde }, maj, m
 });
 
 When("je lance la vérification de parité des routes de l'application", async ({ monde, $test }) => {
-    // Entrée du serveur de l'ancienne version (ex. server.legacy.js), comparée à server.js
+    // Entrée du serveur de l'ancienne version (ex. server.legacy.js), comparée à backend/server.js
     const reference = process.env.E2E_PARITY_REFERENCE?.trim();
     $test.skip(!reference, "E2E_PARITY_REFERENCE non renseignée (entrée du serveur de l'ancienne version)");
     const r = spawnSync('npm', ['run', 'test:parity', '--', String(reference)], {

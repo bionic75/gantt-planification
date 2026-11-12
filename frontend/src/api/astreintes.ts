@@ -1,4 +1,4 @@
-// Astreintes HO (heures ouvrées) et astreinte HO ANS : appels et réponses (src/modules/astreintes-ho)
+// Astreintes HO (heures ouvrées) et astreinte HO ANS : appels et réponses (backend/src/modules/astreintes-ho)
 import { api } from '@/api/client';
 import type { LigneCra, LigneEnregistree } from '@/api/cra';
 
@@ -87,7 +87,7 @@ export const apiAstreintesHo = {
         api.post<ResultatHo>('/astreintes-ho/save', { changes, ansChanges })
 };
 
-// ---------- Astreintes HNO (src/modules/astreintes) ----------
+// ---------- Astreintes HNO (backend/src/modules/astreintes) ----------
 
 export type CreneauHno = 'soir' | 'journee';
 
@@ -128,7 +128,7 @@ export const apiAstreintesHno = {
     planning: (mois: string) => api.get<CreneauPlanningHno[]>(`/astreinte/planning/${mois}`)
 };
 
-// ---------- Lignes d'astreinte / HNO déclarées (« Gérer mes astreintes/HNO », src/modules/astreintes) ----------
+// ---------- Lignes d'astreinte / HNO déclarées (« Gérer mes astreintes/HNO », backend/src/modules/astreintes) ----------
 
 /** Type d'une ligne : astreinte, travail HNO, activité courante (lignes saisies depuis un CRA) */
 export type TypeLigneAstreinte = 'astreinte' | 'hno' | 'activite_courante';

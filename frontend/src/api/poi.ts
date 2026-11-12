@@ -1,4 +1,4 @@
-// SAMU-SAS TripAdVisor : appels et réponses de /api/poi (src/modules/poi)
+// SAMU-SAS TripAdVisor : appels et réponses de /api/poi (backend/src/modules/poi)
 import { api } from '@/api/client';
 
 export type Categorie = 'hebergement' | 'restaurant' | 'bar';

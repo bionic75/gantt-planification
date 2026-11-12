@@ -1,4 +1,4 @@
-// Reporting : appels et réponses (src/modules/reporting, logs, events, users, resources)
+// Reporting : appels et réponses (backend/src/modules/reporting, logs, events, users, resources)
 import { api } from '@/api/client';
 import type { Profil } from '@/api/types';
 
