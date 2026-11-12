@@ -151,5 +151,8 @@ describe('projet type', () => {
         expect(r.status, JSON.stringify(r.data)).toBe(200);
         const valeurs = r.data.template.tasks.map(t => t.value);
         expect(valeurs).toEqual(expect.arrayContaining(['7.1', '7.1.1', '7.1.2', '7.1.2.1']));
+        // Ordre d'Asana : chaque tâche suivie de ses sous-tâches
+        const i = valeurs.indexOf('7.1');
+        expect(valeurs.slice(i, i + 4)).toEqual(['7.1', '7.1.1', '7.1.2', '7.1.2.1']);
     });
 });
