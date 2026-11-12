@@ -7,6 +7,7 @@ import { surReouverture } from '@/ilots/activation';
 import CartoucheType from '@/ilots/admin/jours-speciaux/CartoucheType.vue';
 import { choixRegle } from './administration';
 import CarteAdministration from './CarteAdministration.vue';
+import AppSablier from '@/composants/AppSablier.vue';
 
 const donnees = ref<CorrespondanceActivites | null>(null);
 const erreur = ref('');
@@ -168,7 +169,7 @@ surReouverture(() => void charger());
                                 Charger les tâches
                             </button>
                         </template>
-                        <template v-else-if="choixProjet">{{ choixProjet.texte }}</template>
+                        <AppSablier v-else-if="choixProjet" :texte="choixProjet.texte" />
                     </span>
                 </div>
                 <div class="aff-corr-defile">

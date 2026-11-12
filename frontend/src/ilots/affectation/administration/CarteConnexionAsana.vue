@@ -14,6 +14,7 @@ import { useConfirmation } from '@/composants/confirmation';
 import { filtreActif, projetRetenu, resumeAnalyse } from '../asana/asana';
 import { useAsanaStore, type DeploiementChange } from '../asana/magasin';
 import '../asana/asana.css';
+import AppSablier from '@/composants/AppSablier.vue';
 
 /** Contenu de la colonne « Écarts / résultat » : textes successifs */
 type Resultat = { texte: string; classe: string; titre?: string }[];
@@ -209,7 +210,9 @@ onMounted(() => void chargerConfig());
     </div>
     <div v-if="configuree" id="affAsanaProjects">
         <p v-if="erreurProjets" class="aff-error aff-asana-cnx__projets">{{ erreurProjets }}</p>
-        <p v-else-if="!projets" class="aff-muted aff-asana-cnx__projets">Lecture des projets Asana…</p>
+        <p v-else-if="!projets" class="aff-muted aff-asana-cnx__projets">
+            <AppSablier texte="Lecture des projets Asana…" />
+        </p>
         <template v-else>
             <div class="aff-asana-cnx__tete">
                 <b

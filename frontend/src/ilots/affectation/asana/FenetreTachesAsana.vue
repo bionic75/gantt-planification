@@ -20,6 +20,7 @@ import {
     valeurTexte
 } from './asana';
 import { useAsanaStore } from './magasin';
+import AppSablier from '@/composants/AppSablier.vue';
 
 const props = defineProps<{ id: number }>();
 const emit = defineEmits<{ fermer: [] }>();
@@ -129,7 +130,7 @@ onMounted(() => void charger());
     >
         <div id="affAsanaTasksBody">
             <p v-if="erreurChargement" class="aff-error">{{ erreurChargement }}</p>
-            <p v-else-if="!donnees" class="aff-muted">Chargement des tâches depuis Asana…</p>
+            <p v-else-if="!donnees" class="aff-muted"><AppSablier texte="Chargement des tâches depuis Asana…" /></p>
             <template v-else>
                 <p class="aff-asana-taches__intro">
                     <b>{{ donnees.samu }}</b> · projet Asana :
