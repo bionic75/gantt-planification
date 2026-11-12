@@ -2,7 +2,7 @@
      la règle, remplacement par une autre tâche du projet (mémorisé pour les prochains rafraîchissements), événement
      associé ; liste de toutes les tâches ; projet à choisir quand plusieurs portent le numéro du SAMU -->
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { apiAffectation, type CandidatsActivite } from '@/api/affectation';
 import { apiAsana, type Remplacement, type RubriqueAsana, type TachesProjet } from '@/api/asana';
 import AppModal from '@/composants/AppModal.vue';
@@ -64,6 +64,8 @@ async function charger(avecAsana = false) {
 
 const ov = (k: string) => remplacements.value[k];
 const taches = () => donnees.value?.tasks ?? [];
+/** Données d'Asana disponibles : lecture en direct ou dernière lecture mémorisée */
+const avecDonnees = computed(() => donnees.value?.interroge !== false || !!donnees.value?.cache);
 
 function choisir(r: RubriqueAsana, champ: keyof Remplacement, valeur: string) {
     const o = { ...(remplacements.value[r.key] ?? {}) };
@@ -157,13 +159,17 @@ onMounted(() => void charger());
                         <IconeAff nom="asanasync" classe="aff-ico-sm" />
                     </button>
                     <AppSablier v-if="interrogation" texte="Interrogation d'Asana…" />
-                    <template v-else-if="donnees.interroge !== false">
+                    <template v-else-if="avecDonnees">
                         · projet Asana :
                         <a v-if="donnees.url" :href="donnees.url" target="_blank" rel="noopener">{{ donnees.asana }}</a
                         ><template v-else>{{ donnees.asana }}</template> · {{ donnees.tasks.length }} tâche(s). Pour
                         chaque rubrique, la <b>règle automatique</b> choisit la tâche ; vous pouvez la
                         <b>remplacer</b> par n'importe quelle autre tâche du projet (liste avec échéances). Le
                         remplacement est mémorisé : il s'applique aussi aux prochains rafraîchissements.
+                        <i v-if="donnees.interroge === false && donnees.cache" class="aff-muted"
+                            >Dernière lecture d'Asana : {{ new Date(donnees.cache).toLocaleString('fr-FR') }} — cliquez
+                            sur l'icône pour actualiser.</i
+                        >
                     </template>
                     <template v-else>
                         · Données de l'application. Cliquez sur l'icône pour interroger Asana et afficher les écarts.
@@ -196,9 +202,7 @@ onMounted(() => void charger());
                                 <td>
                                     <span class="aff-asana-nowrap">{{ valeurTexte(r.current) }}</span>
                                     <div
-                                        v-if="
-                                            donnees.interroge !== false && origine(r, ov(r.key), taches()) === 'asana'
-                                        "
+                                        v-if="avecDonnees && origine(r, ov(r.key), taches()) === 'asana'"
                                         class="aff-asana-origine aff-asana-origine--asana"
                                     >
                                         <img
@@ -210,9 +214,7 @@ onMounted(() => void charger());
                                         Asana (origine)
                                     </div>
                                     <div
-                                        v-else-if="
-                                            donnees.interroge !== false && origine(r, ov(r.key), taches()) === 'tool'
-                                        "
+                                        v-else-if="avecDonnees && origine(r, ov(r.key), taches()) === 'tool'"
                                         class="aff-asana-origine aff-asana-origine--outil"
                                         title="Cette valeur diffère de celle d'Asana : elle a été modifiée dans l'outil de planification"
                                     >
@@ -234,16 +236,13 @@ onMounted(() => void charger());
                                 <td>
                                     <select
                                         v-if="r.kind === 'date'"
-                                        :disabled="donnees.interroge === false"
+                                        :disabled="!avecDonnees"
                                         :value="ov(r.key)?.task ?? ''"
                                         :aria-label="`Tâche remplaçante : ${r.label}`"
                                         @change="choisir(r, 'task', ($event.target as HTMLSelectElement).value)"
                                     >
                                         <option value="">— règle automatique —</option>
-                                        <option
-                                            v-if="donnees.interroge === false && ov(r.key)?.task"
-                                            :value="ov(r.key)!.task"
-                                        >
+                                        <option v-if="!avecDonnees && ov(r.key)?.task" :value="ov(r.key)!.task">
                                             Tâche mémorisée (interrogez Asana pour la voir)
                                         </option>
                                         <option
@@ -261,14 +260,14 @@ onMounted(() => void charger());
                                                 champ === 'start' ? 'Début' : 'Fin'
                                             }}</span>
                                             <select
-                                                :disabled="donnees.interroge === false"
+                                                :disabled="!avecDonnees"
                                                 :value="ov(r.key)?.[champ] ?? ''"
                                                 :aria-label="`Tâche de ${champ === 'start' ? 'début' : 'fin'} : ${r.label}`"
                                                 @change="choisir(r, champ, ($event.target as HTMLSelectElement).value)"
                                             >
                                                 <option value="">— règle automatique —</option>
                                                 <option
-                                                    v-if="donnees.interroge === false && ov(r.key)?.[champ]"
+                                                    v-if="!avecDonnees && ov(r.key)?.[champ]"
                                                     :value="ov(r.key)![champ]"
                                                 >
                                                     Tâche mémorisée (interrogez Asana pour la voir)

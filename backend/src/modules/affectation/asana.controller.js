@@ -330,22 +330,25 @@ export async function tasks(/** @type {Request} */ req, /** @type {Response} */ 
                   : periodsLocal[key]?.[0]
                     ? { start: periodsLocal[key][0].start, end: periodsLocal[key][0].end }
                     : null;
+        const cache = await lireCache(id);
+        const duCache = new Map((cache?.rubriques || []).map((/** @type {any} */ r) => [r.key, r]));
         return res.json({
             samu: dep.samu_name,
-            asana: '',
-            gid: '',
-            url: '',
+            asana: cache?.asana || '',
+            gid: cache?.gid || '',
+            url: cache?.url || '',
             interroge: false,
-            candidates: [],
-            tasks: [],
+            cache: cache?.at || null,
+            candidates: cache?.candidates || [],
+            tasks: cache?.tasks || [],
             rubriques: ASANA_KEYS.map(key => ({
                 key,
                 label: key === 'date_debut' ? 'Début du projet' : svc.stageLabel(key),
                 kind: dateKeys.includes(key) ? 'date' : 'period',
                 rule: asanaRuleText(key, modeleLocal),
                 current: courante(key),
-                auto: null,
-                sources: [],
+                auto: duCache.get(key)?.auto ?? null,
+                sources: duCache.get(key)?.sources ?? [],
                 override: ovLocal[key] || null
             })),
             overridden: Object.keys(ovLocal)
@@ -402,6 +405,15 @@ export async function tasks(/** @type {Request} */ req, /** @type {Response} */ 
         due: t.due,
         eff: asanaEff(complet, t)
     }));
+    await ecrireCache(id, {
+        at: new Date().toISOString(),
+        asana: projectName,
+        gid: match.gid,
+        url: match.permalink_url,
+        candidates: candidates.map((/** @type {any} */ x) => ({ gid: x.gid, name: x.name })),
+        tasks: taskList,
+        rubriques: rubriques.map((/** @type {any} */ r) => ({ key: r.key, auto: r.auto, sources: r.sources }))
+    });
     res.json({
         samu: dep.samu_name,
         asana: projectName,
@@ -413,6 +425,27 @@ export async function tasks(/** @type {Request} */ req, /** @type {Response} */ 
         rubriques,
         overridden: c1.overridden || []
     });
+}
+
+/** Dernière lecture d'Asana par déploiement : de quoi réafficher la fenêtre des tâches sans interroger Asana */
+const CACHE_TACHES_KEY = 'asana_tasks_cache';
+async function lireCache(/** @type {number} */ id) {
+    try {
+        return (JSON.parse((await asanaSetting(CACHE_TACHES_KEY)) || '{}') || {})[String(id)] || null;
+    } catch {
+        return null;
+    }
+}
+async function ecrireCache(/** @type {number} */ id, /** @type {any} */ entree) {
+    /** @type {Record<string, any>} */
+    let tout;
+    try {
+        tout = JSON.parse((await asanaSetting(CACHE_TACHES_KEY)) || '{}') || {};
+    } catch {
+        tout = {};
+    }
+    tout[String(id)] = entree;
+    await asanaPut(CACHE_TACHES_KEY, JSON.stringify(tout));
 }
 
 /** Remplacements manuels des tâches Asana d'un déploiement, puis réimport des rubriques modifiées */
