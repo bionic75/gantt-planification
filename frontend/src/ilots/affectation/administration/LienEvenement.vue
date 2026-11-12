@@ -182,6 +182,14 @@ async function creer() {
                     </div>
                 </details>
             </div>
+            <button
+                type="button"
+                class="aff-btn aff-evl-bouton"
+                title="Crée un événement aux dates de l'activité (SAMU, type, ressources affectées en participants) ; d'autres parties se saisissent dans la liste"
+                @click="creer"
+            >
+                <IconeAff nom="plus" classe="aff-ico-sm" />Nouveau
+            </button>
         </template>
         <template v-else>
             <span v-if="!compact" class="aff-muted aff-evl-titre"
