@@ -47,5 +47,6 @@ USER node
 # Port d'écoute : PORT (défaut 3000)
 EXPOSE 3000
 
-# Migrations en attente appliquées à chaque démarrage, puis lancement du serveur
-CMD ["sh", "-c", "node scripts/db-migrate.mjs && exec node server.js"]
+# Migrations en attente appliquées à chaque démarrage, puis lancement du serveur (code du serveur : backend/ ;
+# répertoire courant /app : .env, config/ et data/ restent à la racine)
+CMD ["sh", "-c", "node backend/scripts/db-migrate.mjs && exec node backend/server.js"]

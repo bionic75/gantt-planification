@@ -31,7 +31,7 @@ describe('inventaire des routes', () => {
         async () => {
             const actual = await listRoutes();
             expect(inventory(actual)).toEqual(routes);
-            expect(fs.readFileSync(new URL('../docs/api.md', import.meta.url), 'utf8')).toBe(apiDoc(actual));
+            expect(fs.readFileSync(new URL('../../docs/api.md', import.meta.url), 'utf8')).toBe(apiDoc(actual));
         }
     );
 

@@ -1,4 +1,4 @@
-// Localisations : appels et réponses (src/modules/locations)
+// Localisations : appels et réponses (backend/src/modules/locations)
 import { api } from '@/api/client';
 
 export interface Localisation {

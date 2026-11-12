@@ -1,4 +1,4 @@
-// Aide à l'affectation › Asana (src/modules/affectation/asana.controller.js) : connexion, projets du périmètre,
+// Aide à l'affectation › Asana (backend/src/modules/affectation/asana.controller.js) : connexion, projets du périmètre,
 // import (export CSV ou projet), rafraîchissements, conflits, tâches d'un projet et remplacements ; administrateur
 import { api } from '@/api/client';
 

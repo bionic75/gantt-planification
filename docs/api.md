@@ -25,7 +25,7 @@ Protections :
 | `mfaPending` | Connexion en attente de double authentification |
 | `apiKey` | Clé d’API (en-tête X-Api-Key) |
 
-327 routes, par module (`src/modules/<module>`) :
+327 routes, par module (`backend/src/modules/<module>`) :
 
 ## admin
 

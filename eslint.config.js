@@ -7,11 +7,11 @@ import tseslint from 'typescript-eslint';
 // Code historique repris tel quel (calculs, formats de fichiers, services externes) : les erreurs réelles
 // (variables non définies…) restent bloquantes, les règles de style sont assouplies.
 const LEGACY_CODE = [
-    'src/modules/affectation/asana.service.js',
-    'src/modules/affectation/export.service.js',
-    'src/modules/poi/poi.external.js',
-    'src/lib/ics.js',
-    'src/jobs/**'
+    'backend/src/modules/affectation/asana.service.js',
+    'backend/src/modules/affectation/export.service.js',
+    'backend/src/modules/poi/poi.external.js',
+    'backend/src/lib/ics.js',
+    'backend/src/jobs/**'
 ];
 
 export default [
@@ -20,7 +20,7 @@ export default [
             'node_modules/**',
             'data/**',
             'coverage/**',
-            'src/generated/**',
+            'backend/src/generated/**',
             'e2e/node_modules/**',
             'e2e/.features-gen/**',
             'e2e/playwright-report*/**',
@@ -73,7 +73,7 @@ export default [
     },
     {
         // Tests d'interface : fonctions exécutées dans la page (Puppeteer, Playwright)
-        files: ['tests/ui.test.js', 'e2e/**/*.js'],
+        files: ['backend/tests/ui.test.js', 'e2e/**/*.js'],
         languageOptions: { globals: globals.browser }
     },
     // Interface Vue (frontend/, docs/migration-vue.md) : TypeScript et composants monofichiers

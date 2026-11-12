@@ -1,5 +1,5 @@
 // Fenêtre « Mon profil » : photo, mot de passe, SAMU de l'expert (sa ressource), onglet ouvert à la connexion
-// (src/modules/users, src/modules/resources)
+// (backend/src/modules/users, backend/src/modules/resources)
 import { api } from './client';
 
 export interface AffectationsSamu {

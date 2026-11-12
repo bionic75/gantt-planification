@@ -1,4 +1,4 @@
-// Utilisateurs connectés (pastille des en-têtes d'application) : src/modules/logs
+// Utilisateurs connectés (pastille des en-têtes d'application) : backend/src/modules/logs
 import { api } from '@/api/client';
 
 export interface UtilisateurConnecte {

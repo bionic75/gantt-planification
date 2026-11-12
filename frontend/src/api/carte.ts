@@ -1,5 +1,5 @@
 // Carte des événements : événements des lieux géolocalisés, experts et leur établissement, localisations
-// (src/modules/reporting, resources, locations)
+// (backend/src/modules/reporting, resources, locations)
 import { api } from '@/api/client';
 
 /** Événement placé sur la carte (GET /reporting/events-map) : lieu géolocalisé, type, participants */

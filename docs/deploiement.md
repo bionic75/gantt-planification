@@ -16,7 +16,7 @@ Au démarrage, le conteneur applique les migrations de base en attente puis lanc
 pour la base choisie (argument `DB_PROVIDER`, `sqlite` par défaut). L'application tourne avec l'utilisateur `node`
 (uid 1000) et écoute sur le port `PORT` (3000 par défaut). L'image ne contient pas npm (ni yarn, corepack), inutile à
 l'exécution et source d'alertes de vulnérabilités : les commandes se lancent avec `node`, par exemple
-`docker compose run --rm planif-ressources node scripts/db-adopt.mjs`.
+`docker compose run --rm planif-ressources node backend/scripts/db-adopt.mjs`.
 
 | Répertoire du conteneur | Contenu                                                                |
 | ----------------------- | ---------------------------------------------------------------------- |
