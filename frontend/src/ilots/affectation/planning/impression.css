@@ -129,11 +129,6 @@
 .aff-print-root table.pt .aff-pc .ph {
     margin-bottom: 2px;
 }
-.aff-print-root table.pt .aff-pc .b.tri {
-    --bh: 12px;
-    --lh: 7px;
-    font-size: 6.5px;
-}
 .aff-print-root table.pt .aff-pc .b {
     flex: 0 0 12px;
     height: 12px;
@@ -142,6 +137,21 @@
     font-size: 7.5px;
     line-height: 12px;
     cursor: default;
+}
+/* Barres avec trigrammes : la hauteur suit le nombre de lignes de trigrammes (une cellule à plusieurs experts s'agrandit) */
+.aff-print-root table.pt .aff-pc .b.tri {
+    --bh: 12px;
+    --lh: 7px;
+    height: calc(var(--bh) + (var(--tl, 1) - 1) * var(--lh));
+    min-height: calc(var(--bh) + (var(--tl, 1) - 1) * var(--lh));
+    max-height: calc(var(--bh) + (var(--tl, 1) - 1) * var(--lh));
+    flex: 0 0 calc(var(--bh) + (var(--tl, 1) - 1) * var(--lh));
+    font-size: 6.5px;
+    line-height: var(--lh);
+}
+/* Pas de flèches de tri dans les cellules SAMU / chef de projet ni dans l'en-tête */
+.aff-print-root table.pt th::after {
+    content: none !important;
 }
 .aff-print-root table.pt .aff-mk i {
     width: 11px;

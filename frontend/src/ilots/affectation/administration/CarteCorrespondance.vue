@@ -125,7 +125,7 @@ surReouverture(() => void charger());
 <template>
     <CarteAdministration
         id="affCardStageTypes"
-        titre="Correspondance activités Asana ↔ types d'événements"
+        titre="Correspondance activités ASANA - événements - jalons"
         icone="asanasync"
         sous-titre="Type des événements créés par la synchronisation vers la planification"
     >
