@@ -202,22 +202,13 @@ async function creer() {
                     <option v-for="e in c.others" :key="e.id" :value="e.id">{{ libelleCandidat(e) }}</option>
                 </optgroup>
             </select>
-            <template v-if="!c.matching.length">
-                <span class="none">Aucun événement « {{ c.typeLong || '' }} » trouvé pour ce SAMU.</span>
-                <button
-                    type="button"
-                    class="aff-btn aff-btn-primary aff-evl-bouton"
-                    title="Crée l'événement dans l'outil (SAMU, type, dates de l'activité, ressources affectées en participants)"
-                    @click="creer"
-                >
-                    <IconeAff nom="plus" classe="aff-ico-sm" />Créer l'événement
-                </button>
-            </template>
+            <span v-if="!c.matching.length" class="none"
+                >Aucun événement « {{ c.typeLong || '' }} » trouvé pour ce SAMU.</span
+            >
             <button
-                v-else
                 type="button"
                 class="aff-btn aff-evl-bouton"
-                title="Créer un nouvel événement pour cette activité"
+                title="Crée l'événement dans l'outil (SAMU, type, dates de l'activité, ressources affectées en participants)"
                 @click="creer"
             >
                 <IconeAff nom="plus" classe="aff-ico-sm" />Nouveau

@@ -96,7 +96,7 @@ Fonctionnalité: Aide à l'affectation : Asana
     Alors la rubrique "Début du projet" est indiquée « Asana (origine) »
     Et la rubrique "Visite métier" est indiquée « ✎ modifiée dans l'outil »
     Et la tâche "Tâche sans date" ne peut pas être choisie
-    Et l'événement associé à "Visite métier" propose « Créer l'événement »
+    Et l'événement associé à "Visite métier" propose « Nouveau »
     Et la liste de toutes les tâches compte 4 tâches
     Quand je remplace le début et la fin de "Visite métier" par la tâche "5.2"
     Alors la rubrique "Visite métier" est marquée « remplacé », avec "10/03/2031 → 12/03/2031" après remplacement

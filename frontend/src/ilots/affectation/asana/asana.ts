@@ -72,7 +72,8 @@ export function datesRubrique(
     const o = ov ?? {};
     if (r.kind === 'date') {
         const e = effDe(taches, o.task);
-        const v = e ? e.end : r.current?.date || r.auto?.date;
+        // Jalons : date unique, portée par « date » (mise en service / production) ou par une période d'un jour
+        const v = e ? e.end : r.current?.date || r.current?.start || r.auto?.date || r.auto?.start;
         return v ? { start: v, end: v } : null;
     }
     const es = effDe(taches, o.start);
