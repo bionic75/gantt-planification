@@ -830,25 +830,27 @@ export async function asanaFetchProject(token, gid, { allSubtasks = false } = {}
         );
         subs.forEach(st => tasks.push(asanaNormTask(st, proj.name, String(t.name || '').trim())));
     }
-    // Projet type : toutes les tâches, à tous les niveaux (les tâches sans date ne sont pas explorées ci-dessus)
+    // Projet type : toutes les tâches, à tous les niveaux, dans l'ordre d'Asana (chaque tâche suivie de ses sous-tâches)
     if (allSubtasks) {
-        const seen = new Set(tasks.map(t => String(t.gid)));
-        const walk = async (parents, depth) => {
-            for (const t of parents) {
-                if (!(t.num_subtasks > 0)) continue;
+        const byGid = new Map(tasks.map(t => [t.gid, t]));
+        const ordered = [];
+        const seen = new Set();
+        const visit = async (list, parentName, depth) => {
+            for (const t of list) {
+                const gid = String(t.gid);
+                if (seen.has(gid)) continue;
+                seen.add(gid);
+                ordered.push(byGid.get(gid) || asanaNormTask(t, proj.name, parentName));
+                if (!(t.num_subtasks > 0) || depth >= 4) continue;
                 const subs = await asanaPaged(
                     token,
-                    `/tasks/${encodeURIComponent(t.gid)}/subtasks?opt_fields=name,num_subtasks,start_on,due_on,custom_fields.name,custom_fields.display_value`
+                    `/tasks/${encodeURIComponent(gid)}/subtasks?opt_fields=name,num_subtasks,start_on,due_on,custom_fields.name,custom_fields.display_value`
                 );
-                const fresh = subs.filter(x => !seen.has(String(x.gid)));
-                for (const x of fresh) {
-                    seen.add(String(x.gid));
-                    tasks.push(asanaNormTask(x, proj.name, String(t.name || '').trim()));
-                }
-                if (depth < 4) await walk(subs, depth + 1);
+                await visit(subs, String(t.name || '').trim(), depth + 1);
             }
         };
-        await walk(raw, 1);
+        await visit(raw, '', 1);
+        return { projectName: proj.name, tasks: ordered };
     }
     return { projectName: proj.name, tasks };
 }
