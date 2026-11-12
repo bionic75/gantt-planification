@@ -4,6 +4,7 @@ import { expect } from '@playwright/test';
 import { config } from '../support/config.js';
 import { adminApi, cle, lireRessource, nettoyerMoisExpert, ressourceExpert } from '../support/donnees.js';
 import { Given, Then, When } from '../support/fixtures.js';
+import { DELAI_PDF } from '../support/monde.js';
 
 /** @typedef {import('../support/monde.js').Monde} Monde */
 
@@ -288,11 +289,17 @@ async function diffuser(
     $test.skip(!config.smtpTest, 'Diffusion des CRA : SMTP de test non confirmé (E2E_SMTP_TEST)');
     const api = await adminApi(monde);
     const id = await idCra(monde);
-    const pdf = await api.post(`/api/cra/${id}/prepare-pdf`, {});
+    // PDF produit par Chromium côté serveur : délai étendu (runner de CI chargé)
+    const pdf = await api.post(`/api/cra/${id}/prepare-pdf`, {}, {}, DELAI_PDF);
     $test.skip(pdf.status === 503, 'Chromium indisponible sur le serveur : PDF du CRA non généré');
     expect(pdf.status, JSON.stringify(pdf.data)).toBe(200);
     const recipients = await api.ok('GET', `/api/cra/${id}/diffusion-recipients`);
-    monde.reponse = await api.post(`/api/cra/${id}/diffuser`, { recipients, pdfFilename: pdf.data.pdfFilename });
+    monde.reponse = await api.post(
+        `/api/cra/${id}/diffuser`,
+        { recipients, pdfFilename: pdf.data.pdfFilename },
+        {},
+        DELAI_PDF
+    );
     reussi(monde);
 }
 
@@ -549,7 +556,7 @@ Given('un CRA diffusé existe', async ({ monde, $test }) => {
 });
 
 When('{string} ouvre le PDF de ce CRA', async ({ monde }, profil) => {
-    monde.reponse = await (await monde.apiDe(profil)).get(`/api/cra/${monde.d.craDiffuse}/pdf`);
+    monde.reponse = await (await monde.apiDe(profil)).get(`/api/cra/${monde.d.craDiffuse}/pdf`, {}, DELAI_PDF);
 });
 
 Then('un document PDF est renvoyé', async ({ monde }) => {

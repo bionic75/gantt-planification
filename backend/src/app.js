@@ -8,7 +8,7 @@ import { isRestoreInProgress } from '../scripts/db-dump.js';
 import { env } from './config/env.js';
 import { PrismaSessionStore } from './db/session-store.js';
 import { envoyerIndex, envoyerMobile, modeFrontend, PORT_HMR } from './lib/frontend.js';
-import { PUBLIC_DIR } from './lib/paths.js';
+import { IMG_DIR } from './lib/paths.js';
 import { rejectCrossOrigin } from './middlewares/csrf.js';
 import { errorHandler } from './middlewares/error-handler.js';
 import { requirePasswordChanged } from './middlewares/password-change.js';
@@ -150,7 +150,8 @@ export function finalizeApp(app) {
     app.get(['/', '/index.html'], envoyerIndex);
     // Application mobile avec son point d'entrée (avant les fichiers statiques, qui serviraient la page seule)
     app.get('/mobile.html', envoyerMobile);
-    app.use(express.static(PUBLIC_DIR, { index: false }));
+    // Images (frontend/img) ; les pages sont servies avec leur point d'entrée (src/lib/frontend.js)
+    app.use('/img', express.static(IMG_DIR, { index: false }));
 
     app.get('/mobile', (req, res) => {
         const isMobile = /android|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile/i.test(

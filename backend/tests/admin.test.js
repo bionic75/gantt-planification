@@ -269,7 +269,7 @@ describe('paramètres et configuration', () => {
         expect(aide).toMatch(/script-src 'self';/);
     });
 
-    it('anciennes adresses des images : redirection vers public/img', async () => {
+    it('anciennes adresses des images : redirection vers /img', async () => {
         for (const [from, to] of [
             ['/favicon-grille.svg?t=1', '/img/favicon-grille.svg?t=1'],
             ['/asana-logo.png', '/img/asana-logo.png']

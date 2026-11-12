@@ -1,5 +1,5 @@
 # Pages HTML du frontend : le reformatage peut modifier les espaces entre éléments, donc le rendu
-public/*.html
+frontend/pages/*.html
 .github/workflows/deploy-*.yml
 # Générés (npm run routes)
 docs/api.md

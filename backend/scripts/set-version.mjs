@@ -1,4 +1,4 @@
-// Version de l'application : commentaire <!-- vX.Y.Z --> de public/index.html (affichée dans l'application,
+// Version de l'application : commentaire <!-- vX.Y.Z --> de frontend/pages/index.html (affichée dans l'application,
 // synchronisée en base au démarrage). Scripts et feuilles de style : fichiers à empreinte de l'interface Vue, rechargés
 // par les navigateurs dès qu'ils changent (plus de paramètre ?v=, lot 6.5).
 //
@@ -15,9 +15,9 @@ if (!/^\d+\.\d+\.\d+$/.test(version)) {
     process.exit(2);
 }
 
-const file = path.join(ROOT, 'public/index.html');
+const file = path.join(ROOT, 'frontend/pages/index.html');
 const html = fs.readFileSync(file, 'utf8');
 const current = /<!--\s*v(\d+\.\d+\.\d+)\s*-->/.exec(html)?.[1];
 fs.writeFileSync(file, html.replace(/<!--\s*v\d+\.\d+\.\d+\s*-->/, `<!-- v${version} -->`));
 console.log(`Version ${current} → ${version}`);
-console.log(`Ajouter l'entrée de la version dans public/aide.html (historique), puis : git tag v${version}`);
+console.log(`Ajouter l'entrée de la version dans frontend/pages/aide.html (historique), puis : git tag v${version}`);
