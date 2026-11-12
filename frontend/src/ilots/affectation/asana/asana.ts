@@ -63,6 +63,23 @@ export function apresRemplacement(r: RubriqueAsana, ov: Remplacement | undefined
     return (a ?? '') > (b ?? '') ? `${fr(b)} → ${fr(a)}` : `${fr(a)} → ${fr(b)}`;
 }
 
+/**
+ * Colonne « Selon la règle » : nom(s) de la tâche reprise et date(s), soit celles trouvées par la règle de
+ * l'administration, soit celles de la tâche forcée dans « Remplacer par la tâche… »
+ */
+export function selonRegle(r: RubriqueAsana, ov: Remplacement | undefined, taches: TacheAsana[]) {
+    const nom = (gid: string | undefined) => taches.find(x => x.gid === gid)?.name ?? '';
+    const forcees = (r.kind === 'date' ? [ov?.task] : [ov?.start, ov?.end]).map(nom).filter(Boolean);
+    if (estRemplacee(r, ov) && forcees.length) {
+        const d = datesRubrique(r, ov, taches);
+        return {
+            noms: [...new Set(forcees)],
+            dates: d ? (d.start === d.end ? fr(d.start) : `${fr(d.start)} → ${fr(d.end)}`) : valeurTexte(r.auto)
+        };
+    }
+    return { noms: [...new Set(r.sources)], dates: valeurTexte(r.auto) };
+}
+
 /** Dates de l'activité d'une rubrique (remplacements compris), pour l'événement associé ; null si non datée */
 export function datesRubrique(
     r: RubriqueAsana,
