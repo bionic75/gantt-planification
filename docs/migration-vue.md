@@ -401,7 +401,7 @@ Changements de comportement décidés pendant la migration :
   (plus de base64 dans `index.html`). Liaison : `gp:session-ouverte` (connexion ou reprise : l'ancien code ouvre
   l'application), `gp:session-absente`, `gp:mire-affichee` (déconnexion, session perdue, réveil : mire vidée, message
   éventuel). Le serveur injecte aussi les feuilles de style des modules partagés entre points d'entrée
-  (`feuillesDeStyle`, `src/lib/frontend.js`). Code mort supprimé : `tryFillCredentials`, `getISOWeekNumber`, branche
+  (`feuillesDeStyle`, `backend/src/lib/frontend.js`). Code mort supprimé : `tryFillCredentials`, `getISOWeekNumber`, branche
   « déplacements » de `completeFinalLogin`, styles de l'ancienne mire mobile (`.login-card`…).
 - En-tête de la Planification (lot 6.2a) : îlots du « cadre » de l'application (forme `{ chargeur, cadre: true }` de
   `ilots/montage.ts` : montés pendant toute la session, mire masquée, démontés à sa fin) : zone de l'utilisateur
@@ -548,7 +548,7 @@ Changements de comportement décidés pendant la migration :
   `index.html`) ; ouverture, fermeture et déconnexion : `tab-access.js` (`showAffectationApp`,
   `hideAffectationApp`, `confirmLogoutFromAffectation`), comme les Déplacements et l'Analyse ; règles CSS communes
   de l'application dans `ilots/affectation/affectation.css`. Page publique d'un sondage : même présentation, script
-  en ligne remplacé par le point d'entrée `src/sondage.ts` (`src/lib/frontend.js` sert `index.html` et
+  en ligne remplacé par le point d'entrée `src/sondage.ts` (`backend/src/lib/frontend.js` sert `index.html` et
   `sondage.html` avec leurs balises).
 - Aide à l'affectation, Asana (lot 5.4f) : message de fin d'import et erreur d'appariement dans une fenêtre de la page
   (alert auparavant) ; confirmations de l'import en masse et de la création d'un événement (fenêtre des tâches) dans

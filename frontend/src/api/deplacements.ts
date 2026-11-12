@@ -1,4 +1,4 @@
-// Suivi des déplacements : déplacements, bons de commande, AMOA CED (src/modules/deplacements, users)
+// Suivi des déplacements : déplacements, bons de commande, AMOA CED (backend/src/modules/deplacements, users)
 import { api } from '@/api/client';
 
 /** Bon de commande (GET /bons-commande) ; dates « AAAA-MM-JJ » */

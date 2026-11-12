@@ -1,5 +1,5 @@
 // Ressources (experts mis à disposition) : liste, création, activation, astreintes, suppression, affectations SAMU,
-// historique des taux de MAD (src/modules/resources)
+// historique des taux de MAD (backend/src/modules/resources)
 import { api } from '@/api/client';
 
 /** Ressource (GET /resources) ; drapeaux 0 / 1 */

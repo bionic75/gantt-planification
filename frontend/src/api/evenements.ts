@@ -1,4 +1,4 @@
-// Événements : appels et réponses (src/modules/events, locations, users)
+// Événements : appels et réponses (backend/src/modules/events, locations, users)
 import { api } from '@/api/client';
 import type { CompteParticipant } from '@/composants/AppSaisieParticipants.vue';
 

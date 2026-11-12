@@ -4,7 +4,8 @@
 import crypto from 'crypto';
 import dotenv from 'dotenv';
 import { z } from 'zod';
-import legacyConfig from '../../config/config.json' with { type: 'json' };
+// Répertoire config/ à la racine du projet (monté par Docker : /app/config)
+import legacyConfig from '../../../config/config.json' with { type: 'json' };
 import { DB_PROVIDERS, resolveDatabaseUrl } from './database-url.js';
 
 dotenv.config({ quiet: true });

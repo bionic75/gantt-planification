@@ -1,4 +1,4 @@
-// Aide à l'affectation › ateliers métier (src/modules/affectation/ateliers.* et sondages.*) : rétroplannings,
+// Aide à l'affectation › ateliers métier (backend/src/modules/affectation/ateliers.* et sondages.*) : rétroplannings,
 // simulation, invitations, sondages de date ; page publique d'un sondage
 import { api } from '@/api/client';
 

@@ -132,7 +132,7 @@ export function apiDoc(allRoutes) {
         '| --- | --- |',
         ...Object.entries(GUARD_LABELS).map(([k, v]) => `| \`${k}\` | ${v} |`),
         '',
-        `${routes.length} routes, par module (\`src/modules/<module>\`) :`,
+        `${routes.length} routes, par module (\`backend/src/modules/<module>\`) :`,
         ''
     ];
     for (const module of [...byModule.keys()].sort()) {
@@ -148,7 +148,7 @@ export function apiDoc(allRoutes) {
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
     const routes = await listRoutes();
     fs.writeFileSync(path.join(ROOT, 'tests/fixtures/routes.json'), JSON.stringify(inventory(routes), null, 4) + '\n');
-    fs.writeFileSync(path.join(ROOT, 'docs/api.md'), apiDoc(routes));
+    fs.writeFileSync(path.join(ROOT, '..', 'docs/api.md'), apiDoc(routes));
     console.log(`${routes.length} routes : tests/fixtures/routes.json et docs/api.md mis à jour`);
     process.exit(0);
 }

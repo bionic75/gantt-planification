@@ -1,4 +1,4 @@
-// Comptes rendus d'activité (CRA) : appels et réponses (src/modules/cra)
+// Comptes rendus d'activité (CRA) : appels et réponses (backend/src/modules/cra)
 import { api } from '@/api/client';
 import { emettre } from '@/evenements';
 

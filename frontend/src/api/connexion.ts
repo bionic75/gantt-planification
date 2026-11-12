@@ -1,5 +1,5 @@
 // Connexion : identifiants (bureau et mobile), double authentification, mots de passe oublié, imposé ou réinitialisé,
-// session en cours (src/modules/auth)
+// session en cours (backend/src/modules/auth)
 import { api } from './client';
 
 export type ProfilConnexion = 'admin' | 'expert' | 'user' | 'rh';

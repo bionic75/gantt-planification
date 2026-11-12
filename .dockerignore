@@ -9,8 +9,8 @@ node_modules/
 .git/
 .github/
 .claude/
-tests/
+backend/tests/
 coverage/
-src/generated/
+backend/src/generated/
 e2e/
 dist/

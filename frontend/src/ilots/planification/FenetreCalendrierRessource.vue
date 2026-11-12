@@ -38,7 +38,7 @@ watch(
         @close="emit('fermer')"
     >
         <div id="printCalendarContent" class="gp-calendrier-ressource__apercu">
-            <!-- Calendrier construit par le serveur, textes échappés (src/modules/notifications/resource-calendar.js) -->
+            <!-- Calendrier construit par le serveur, textes échappés (backend/src/modules/notifications/resource-calendar.js) -->
             <!-- eslint-disable-next-line vue/no-v-html -->
             <div id="calendarToPrint" v-styles-en-ligne v-html="sansStyleEnLigne(contenu)"></div>
         </div>
