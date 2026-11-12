@@ -9,24 +9,28 @@ import { jourFr } from '../planning/outils';
 import { datesEvenement, libelleCandidat, resumeParties } from './administration';
 import IconeAff from './IconeAff.vue';
 
-const props = defineProps<{
-    projetId: number | null;
-    cle: string;
-    libelle: string;
-    samu: string;
-    /** undefined : recherche en cours ; null : indisponibles */
-    candidats: CandidatsActivite | null | undefined;
-    /** Dates de l'activité saisies dans le formulaire */
-    dates: { start: string; end: string } | null;
-    /** Sans le titre « Événement » (cellule de la fenêtre des tâches Asana) */
-    compact?: boolean;
-    /** Création d'événements autorisée (par défaut oui) */
-    creation?: boolean;
-    /** Événements déjà reliés non modifiables (projet repris d'Asana) */
-    verrouille?: boolean;
-    /** Message quand l'activité n'a pas de date */
-    messageSansDate?: string;
-}>();
+const props = withDefaults(
+    defineProps<{
+        projetId: number | null;
+        cle: string;
+        libelle: string;
+        samu: string;
+        /** undefined : recherche en cours ; null : indisponibles */
+        candidats: CandidatsActivite | null | undefined;
+        /** Dates de l'activité saisies dans le formulaire */
+        dates: { start: string; end: string } | null;
+        /** Sans le titre « Événement » (cellule de la fenêtre des tâches Asana) */
+        compact?: boolean;
+        /** Création d'événements autorisée (par défaut oui) */
+        creation?: boolean;
+        /** Événements déjà reliés non modifiables (projet repris d'Asana) */
+        verrouille?: boolean;
+        /** Message quand l'activité n'a pas de date */
+        messageSansDate?: string;
+    }>(),
+    // Un booléen absent vaut faux par défaut : la création est autorisée sauf mention contraire
+    { creation: true, verrouille: false }
+);
 const emit = defineEmits<{
     liaison: [maj: Partial<CandidatsActivite>];
     recharger: [];
@@ -34,7 +38,7 @@ const emit = defineEmits<{
     annonce: [message: string];
 }>();
 
-const peutCreer = computed(() => props.creation !== false);
+const peutCreer = computed(() => props.creation);
 const figes = computed(() => !!props.verrouille && (c.value?.linked != null || (c.value?.linkedIds?.length ?? 0) > 0));
 const confirmer = useConfirmation();
 const c = computed(() => props.candidats);

@@ -107,11 +107,9 @@ async function rechargerCandidats() {
 
 async function appliquer() {
     envoi.value = true;
-    dire('Application…', 'aff-asana-msg--neutre');
+    message.value = { texte: '', classe: '' };
     try {
         const r = await apiAsana.remplacer(props.id, remplacements.value);
-        message.value = { texte: '', classe: '' };
-        emit('fermer');
         if (r.unchanged) magasin.annoncer(`${r.samu_name} : remplacements enregistrés, aucune date à modifier.`);
         else {
             magasin.montrerChangements({
@@ -120,6 +118,9 @@ async function appliquer() {
             });
             magasin.deploiementsModifies();
         }
+        // La fenêtre reste ouverte et reprend les valeurs mises à jour (Asana relu)
+        await interroger();
+        await rechargerCandidats();
     } catch (e) {
         dire((e as Error).message);
     } finally {
@@ -240,6 +241,12 @@ onMounted(() => void charger());
                                     >
                                         <option value="">— règle automatique —</option>
                                         <option
+                                            v-if="donnees.interroge === false && ov(r.key)?.task"
+                                            :value="ov(r.key)!.task"
+                                        >
+                                            Tâche mémorisée (interrogez Asana pour la voir)
+                                        </option>
+                                        <option
                                             v-for="t in donnees.tasks"
                                             :key="t.gid"
                                             :value="t.gid"
@@ -260,6 +267,12 @@ onMounted(() => void charger());
                                                 @change="choisir(r, champ, ($event.target as HTMLSelectElement).value)"
                                             >
                                                 <option value="">— règle automatique —</option>
+                                                <option
+                                                    v-if="donnees.interroge === false && ov(r.key)?.[champ]"
+                                                    :value="ov(r.key)![champ]"
+                                                >
+                                                    Tâche mémorisée (interrogez Asana pour la voir)
+                                                </option>
                                                 <option
                                                     v-for="t in donnees.tasks"
                                                     :key="t.gid"
@@ -331,6 +344,7 @@ onMounted(() => void charger());
         </div>
         <template #footer>
             <span id="affAsanaTasksMsg" class="aff-error" :class="message.classe">{{ message.texte }}</span>
+            <AppSablier v-if="envoi" texte="Prise en compte des remplacements…" />
             <button
                 type="button"
                 class="aff-btn"
