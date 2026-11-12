@@ -144,6 +144,8 @@ export interface RubriqueAsana {
 export interface TachesProjet {
     /** Faux : données de l'application seulement, Asana n'a pas été interrogé */
     interroge?: boolean;
+    /** Date de la dernière lecture d'Asana dont les tâches et valeurs « selon la règle » sont issues */
+    cache?: string | null;
     samu: string;
     asana: string;
     gid: string;

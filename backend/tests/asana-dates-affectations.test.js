@@ -205,9 +205,21 @@ describe('fenêtre des tâches : ouverture sans interroger Asana', () => {
         const p = await byName();
         const r = await admin.get(`/api/affectation/projects/${p.id}/asana-tasks?asana=0`);
         expect(r.status, JSON.stringify(r.data)).toBe(200);
-        expect(r.data).toMatchObject({ interroge: false, tasks: [], samu: 'SAMU 91' });
+        expect(r.data).toMatchObject({ interroge: false, samu: 'SAMU 91' });
         const vft = r.data.rubriques.find(x => x.key === 'vft');
         expect(vft.current).toMatchObject({ start: expect.any(String), end: expect.any(String) });
-        expect(vft.auto).toBeNull();
+    });
+
+    it('après une lecture d’Asana, la réouverture reprend les tâches et valeurs de la dernière lecture', async () => {
+        const p = await byName();
+        const live = await admin.get(`/api/affectation/projects/${p.id}/asana-tasks`);
+        expect(live.data.interroge).toBe(true);
+        const local = (await admin.get(`/api/affectation/projects/${p.id}/asana-tasks?asana=0`)).data;
+        expect(local.interroge).toBe(false);
+        expect(local.cache).toBeTruthy();
+        expect(local.tasks.length).toBe(live.data.tasks.length);
+        const vft = (r, k) => r.rubriques.find(x => x.key === k);
+        expect(vft(local, 'vft').auto).toEqual(vft(live.data, 'vft').auto);
+        expect(vft(local, 'vft').sources).toEqual(vft(live.data, 'vft').sources);
     });
 });
