@@ -635,7 +635,11 @@ Then("la rubrique {string} n'est plus marquée « remplacé »", async ({ monde 
 
 When("j'applique les remplacements", async ({ monde }) => {
     await fenetreTaches(monde).getByRole('button', { name: 'Appliquer les remplacements' }).click();
-    await expect(fenetreTaches(monde)).toBeHidden();
+    // La fenêtre reste ouverte (valeurs relues après application)
+    await expect
+        .poll(() => appels(monde, `PUT ${RACINE}/projects/${monde.d.deploiement.id}/asana-overrides`).length)
+        .toBe(1);
+    await expect(fenetreTaches(monde)).toBeVisible();
 });
 
 Then(
