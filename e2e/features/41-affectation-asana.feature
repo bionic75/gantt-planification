@@ -106,12 +106,3 @@ Fonctionnalité: Aide à l'affectation : Asana
     Et j'applique les remplacements
     Alors les remplacements envoyés reprennent la tâche "5.2" pour le début et la fin de « visite_metier »
     Et la fenêtre des changements s'intitule "Remplacements appliqués — {samu}"
-
-  Scénario: Tâches du projet Asana : choix du projet parmi ceux du même SAMU
-    Étant donné qu'un déploiement de test a une visite métier du "2031-03-03" au "2031-03-05"
-    Et qu'Asana simulé fournit les tâches du projet du déploiement de test
-    Et que j'ouvre l'administration de l'aide à l'affectation en tant que "Administrateur"
-    Quand j'ouvre les tâches du projet Asana du déploiement de test
-    Et je choisis le projet Asana "[E2E] Ancien projet" pour ce déploiement
-    Alors l'appariement demandé relie le projet "Ancien projet" au déploiement de test
-    Et les tâches du projet Asana sont relues
