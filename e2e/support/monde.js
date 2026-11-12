@@ -12,6 +12,12 @@ import { config, profil as profilDe, storageStatePath } from './config.js';
 /** @typedef {import('./config.js').Profil} Profil */
 /** @typedef {{ status: number, data: any, headers: Record<string, string> }} Reponse */
 
+/**
+ * Délai des appels qui produisent un PDF (Chromium lancé par le serveur à chaque document) : celui que le serveur
+ * s'accorde (backend/src/modules/cra/cra.documents.js) ; un runner de CI chargé dépasse les 20 s par défaut
+ */
+export const DELAI_PDF = 120_000;
+
 /** Appels à l'API de l'application avec la session (cookies) d'un contexte navigateur */
 export class Api {
     constructor(/** @type {APIRequestContext} */ request) {
@@ -23,11 +29,13 @@ export class Api {
      * @param {string} url
      * @param {unknown} [data]
      * @param {Record<string, string>} [headers]
+     * @param {number} [timeout] délai de la réponse (défaut : actionTimeout de playwright.config.js)
      * @returns {Promise<Reponse>}
      */
-    async appel(method, url, data, headers) {
+    async appel(method, url, data, headers, timeout) {
         const r = await this.request.fetch(url, {
             method,
+            ...(timeout ? { timeout } : {}),
             data: /** @type {any} */ (data),
             headers,
             failOnStatusCode: false,
@@ -47,13 +55,17 @@ export class Api {
         }
         return { status: r.status(), data: parsed, headers: r.headers() };
     }
-    get = (/** @type {string} */ url, /** @type {Record<string, string>} */ headers = {}) =>
-        this.appel('GET', url, undefined, headers);
+    get = (
+        /** @type {string} */ url,
+        /** @type {Record<string, string>} */ headers = {},
+        /** @type {number | undefined} */ timeout = undefined
+    ) => this.appel('GET', url, undefined, headers, timeout);
     post = (
         /** @type {string} */ url,
         /** @type {unknown} */ data = {},
-        /** @type {Record<string, string>} */ headers = {}
-    ) => this.appel('POST', url, data, headers);
+        /** @type {Record<string, string>} */ headers = {},
+        /** @type {number | undefined} */ timeout = undefined
+    ) => this.appel('POST', url, data, headers, timeout);
     put = (/** @type {string} */ url, /** @type {unknown} */ data = {}, headers = {}) =>
         this.appel('PUT', url, data, headers);
     delete = (/** @type {string} */ url, /** @type {unknown} */ data, headers = {}) =>
