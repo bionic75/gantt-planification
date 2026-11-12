@@ -150,6 +150,31 @@ let asanaStageRules = {};
 export function asanaUseStageRules(/** @type {Record<string, string>} */ rules) {
     asanaStageRules = rules;
 }
+/**
+ * Libellé de la règle en vigueur d'une rubrique (paramétrage de l'administration, à défaut règle usuelle) ; une règle
+ * enregistrée est présentée par le libellé de la tâche du projet type ou de la liste usuelle qui lui correspond
+ */
+export function asanaRuleText(
+    /** @type {string} */ key,
+    /** @type {{ tasks?: Array<{ value: string, label: string }> } | null} */ template
+) {
+    const one = (/** @type {string} */ k) => {
+        const r = asanaStageRules[k];
+        if (!r) return /** @type {Record<string, string>} */ (ASANA_RULES)[k] || '';
+        const known =
+            (template?.tasks || []).find(t => t.value === r) || ASANA_ACTIVITIES.find(t => t.value === r) || null;
+        return known
+            ? known.label
+            : r.startsWith('title:')
+              ? `Tâche « ${r.slice(6)} »`
+              : `Tâche ${r.replace(/,/g, ', à défaut ')}`;
+    };
+    if (key === 'date_debut') return one('cadrage_debut');
+    if (key === 'cadrage') return `Début : ${one('cadrage_debut')} · Fin : ${one('cadrage_fin')}`;
+    if (key === 'deploiement') return `Début : ${one('deploiement_debut')} · Fin : ${one('deploiement_fin')}`;
+    return one(key);
+}
+
 export async function asanaReloadStageRules() {
     try {
         const v = JSON.parse((await getSetting(ASANA_STAGE_RULES_KEY)) || '{}');

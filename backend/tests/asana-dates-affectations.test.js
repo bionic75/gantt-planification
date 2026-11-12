@@ -156,3 +156,23 @@ describe('projet type', () => {
         expect(valeurs.slice(i, i + 4)).toEqual(['7.1', '7.1.1', '7.1.2', '7.1.2.1']);
     });
 });
+
+describe('fenêtre des tâches du projet Asana', () => {
+    it('toutes les tâches dans l’ordre d’Asana, règle issue de la correspondance', async () => {
+        await admin.put('/api/affectation/stage-event-types', { mapping: {}, asanaRules: { cadrage_fin: '2.10' } });
+        const p = await byName();
+        const r = await admin.get(`/api/affectation/projects/${p.id}/asana-tasks`);
+        expect(r.status, JSON.stringify(r.data)).toBe(200);
+        const noms = r.data.tasks.map(t => t.name);
+        const i = noms.indexOf('7.1 Parent type');
+        expect(noms.slice(i, i + 4)).toEqual([
+            '7.1 Parent type',
+            '7.1.1. Tests des positions de travail',
+            '7.1.2. VFT en distanciel',
+            '7.1.2.1. Détail distanciel'
+        ]);
+        const cadrage = r.data.rubriques.find(x => x.key === 'cadrage');
+        expect(cadrage.rule).toContain('Fin : 2.10 Autre fin de cadrage');
+        await admin.put('/api/affectation/stage-event-types', { mapping: {}, asanaRules: {} });
+    });
+});

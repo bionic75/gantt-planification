@@ -8,8 +8,9 @@ import * as svc from './affectation.service.js';
 import {
     ASANA_KEYS,
     ASANA_MILESTONES,
-    ASANA_RULES,
+    asanaLoadTemplate,
     asanaReloadStageRules,
+    asanaRuleText,
     asanaTemplateChoices,
     ASANA_TEMPLATE_KEY,
     asanaApi,
@@ -314,6 +315,13 @@ export async function tasks(/** @type {Request} */ req, /** @type {Response} */ 
     const { match, candidates } = await asanaFindProjectFor(token, dep);
     const { projectName, tasks: list } = await asanaFetchProject(token, match.gid);
     const c0 = asanaComputeTasks(list, projectName);
+    // Liste affichée : toutes les tâches du projet (sous-tâches comprises), dans l'ordre d'Asana
+    const complet = (await asanaFetchProject(token, match.gid, { allSubtasks: true })).tasks;
+    for (const t of complet) {
+        t.code = (/^\s*(\d+(?:\.\d+)*)\.?\s/.exec(t.name) || [])[1] || '';
+    }
+    await asanaReloadStageRules();
+    const modele = await asanaLoadTemplate();
     const ov = (await asanaOverridesFor(id)) || {};
     const auto = JSON.parse(JSON.stringify({ found: c0.found, demarDate: c0.demarDate }));
     const c1 = asanaApplyOverrides(JSON.parse(JSON.stringify({ ...c0 })), ov);
@@ -339,27 +347,21 @@ export async function tasks(/** @type {Request} */ req, /** @type {Response} */ 
         key,
         label: key === 'date_debut' ? 'Début du projet' : svc.stageLabel(key),
         kind: isDate(key) ? 'date' : 'period',
-        rule: /** @type {Record<string, string>} */ (ASANA_RULES)[key],
+        rule: asanaRuleText(key, modele),
         current: cur(key),
         auto: key === 'date_debut' ? (auto.demarDate ? { date: auto.demarDate } : null) : auto.found[key] || null,
         sources: c0.sources[key] || [],
         override: ov[key] || null
     }));
-    const taskList = c0.tasks
-        .map((/** @type {any} */ t) => ({
-            gid: t.gid,
-            name: t.name,
-            code: t.code,
-            parent: t.parent,
-            start: t.start,
-            due: t.due,
-            eff: asanaEff(c0.tasks, t)
-        }))
-        .sort(
-            (/** @type {any} */ a, /** @type {any} */ b) =>
-                String(a.code || '~').localeCompare(String(b.code || '~'), 'fr', { numeric: true }) ||
-                a.name.localeCompare(b.name, 'fr', { numeric: true })
-        );
+    const taskList = complet.map((/** @type {any} */ t) => ({
+        gid: t.gid,
+        name: t.name,
+        code: t.code,
+        parent: t.parent,
+        start: t.start,
+        due: t.due,
+        eff: asanaEff(complet, t)
+    }));
     res.json({
         samu: dep.samu_name,
         asana: projectName,
