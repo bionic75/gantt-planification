@@ -148,7 +148,7 @@ onMounted(() => void charger());
                     <table class="aff-asana-table aff-asana-taches__table">
                         <thead>
                             <tr>
-                                <th>Rubrique (règle)</th>
+                                <th>Rubrique</th>
                                 <th>Valeur actuelle</th>
                                 <th>Selon la règle</th>
                                 <th class="aff-asana-taches__choix">Remplacer par la tâche…</th>
@@ -167,7 +167,6 @@ onMounted(() => void charger());
                                     ><template v-if="estRemplacee(r, ov(r.key))">
                                         <span class="aff-av-b mid">remplacé</span></template
                                     >
-                                    <div class="aff-muted aff-asana-petit">{{ r.rule }}</div>
                                 </td>
                                 <td>
                                     <span class="aff-asana-nowrap">{{ valeurTexte(r.current) }}</span>
@@ -192,6 +191,7 @@ onMounted(() => void charger());
                                     </div>
                                 </td>
                                 <td class="aff-asana-nowrap">
+                                    <div class="aff-muted aff-asana-petit aff-asana-taches__regle">{{ r.rule }}</div>
                                     {{ valeurTexte(r.auto) }}
                                     <div v-if="r.sources.length" class="aff-muted aff-asana-taches__sources">
                                         {{ r.sources.map(x => String(x).slice(0, 60)).join(' · ') }}

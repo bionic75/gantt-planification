@@ -418,3 +418,8 @@ div.gp-modale.aff-asana-conf {
 .aff-asana-cnx__projets {
     margin-top: 12px;
 }
+
+.aff-asana-taches__regle {
+    white-space: normal;
+    margin-bottom: 2px;
+}
