@@ -4,7 +4,7 @@ import { sansStyleEnLigne } from '@/outils/styles-en-ligne';
 /** Repère posé par la mire à la connexion (sessionStorage) : nouveautés de l'aide proposées une fois la session ouverte */
 export const CLE_CONNEXION_RECENTE = 'gp_connexion_recente';
 
-/** Favicon choisi dans l'administration (public/img/favicon-{nom}.svg) */
+/** Favicon choisi dans l'administration (frontend/img/favicon-{nom}.svg, servi sous /img) */
 export function appliquerFavicon(nom: string, doc: Document = document) {
     let lien = doc.querySelector<HTMLLinkElement>('link[rel="icon"]');
     if (!lien) {

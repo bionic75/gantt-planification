@@ -8,7 +8,7 @@ import fs from 'fs';
 import path from 'path';
 import express from 'express';
 import { env } from '../config/env.js';
-import { PROJECT_ROOT, PUBLIC_DIR } from './paths.js';
+import { PAGES_DIR, PROJECT_ROOT } from './paths.js';
 
 const DIST_DIR = path.join(PROJECT_ROOT, 'dist', 'frontend');
 const MANIFEST = path.join(DIST_DIR, '.vite', 'manifest.json');
@@ -141,7 +141,7 @@ export function avecPointEntree(html, nom) {
 function pageHtml(/** @type {PageVue} */ nom) {
     const enCache = pagesEnCache[nom];
     if (enCache) return enCache;
-    const page = avecPointEntree(fs.readFileSync(path.join(PUBLIC_DIR, nom), 'utf8'), nom);
+    const page = avecPointEntree(fs.readFileSync(path.join(PAGES_DIR, nom), 'utf8'), nom);
     if (env.isProduction) pagesEnCache[nom] = page;
     return page;
 }
