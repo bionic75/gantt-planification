@@ -26,7 +26,7 @@ import { useAdministrationAffectationStore } from './magasin';
 import { jourFr } from '../planning/outils';
 import './administration.css';
 
-/** Logo servi par l'application (public/img), hors de la construction */
+/** Logo servi par l'application (frontend/img, sous /img), hors de la construction */
 const LOGO_ASANA = '/img/asana-logo.png';
 const magasin = useAdministrationAffectationStore();
 const asana = useAsanaStore();

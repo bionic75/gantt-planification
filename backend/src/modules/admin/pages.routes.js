@@ -55,7 +55,7 @@ router.get('/sondage/:token', (req, res) => {
     envoyerSondage(req, res);
 });
 
-// Anciennes adresses des images, rangées dans public/img : pages en cache dans les navigateurs et aides personnalisées
+// Anciennes adresses des images, servies sous /img (frontend/img) : pages en cache dans les navigateurs et aides personnalisées
 // qui y font encore référence (scripts et feuilles de style : servis par l'interface Vue depuis le lot 6.5)
 const MOVED_ASSETS = {
     img: [
