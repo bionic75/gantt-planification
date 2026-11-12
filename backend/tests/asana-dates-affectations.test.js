@@ -176,3 +176,26 @@ describe('fenêtre des tâches du projet Asana', () => {
         await admin.put('/api/affectation/stage-event-types', { mapping: {}, asanaRules: {} });
     });
 });
+
+describe('phases : jamais début = fin', () => {
+    it('fin de cadrage non postérieure au début : la période n’est pas reprise', async () => {
+        const noms = [...tasks.keys()];
+        expect(noms).toContain('2.9 Fin du cadrage');
+        // 2.9 daté avant le démarrage : aucune période de cadrage (début = fin refusé)
+        tasks.set('2.9 Fin du cadrage', { gid: '777', name: '2.9 Fin du cadrage', start_on: '', due_on: '2027-01-04' });
+        const p = await byName();
+        const r = await admin.get(`/api/affectation/projects/${p.id}/asana-tasks`);
+        expect(r.status, JSON.stringify(r.data)).toBe(200);
+        const cadrage = r.data.rubriques.find(x => x.key === 'cadrage');
+        expect(cadrage.auto).toBeNull();
+        // Fin choisie dans « Remplacer par la tâche… » : la période est reprise avec un début différent de la fin
+        const fin = r.data.tasks.find(t => t.name === '2.10 Autre fin de cadrage');
+        const ap = await admin.put(`/api/affectation/projects/${p.id}/asana-overrides`, {
+            overrides: { cadrage: { end: fin.gid } }
+        });
+        expect(ap.status, JSON.stringify(ap.data)).toBe(200);
+        const c = (await byName()).periods.cadrage[0];
+        expect(c.start < c.end).toBe(true);
+        tasks.set('2.9 Fin du cadrage', { gid: '778', name: '2.9 Fin du cadrage', start_on: '', due_on: '2027-02-05' });
+    });
+});

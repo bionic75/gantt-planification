@@ -262,12 +262,16 @@ export function asanaComputeTasks(tasks, projectName, formationTarget) {
     // Cadrage : du jalon de démarrage à la fin de la tâche 2.9
     const t29 = ruleTasks('cadrage_fin') || byCode('2.9'),
         cadEnd = span(t29);
-    if (demarDate && cadEnd) {
-        found.cadrage = { start: demarDate, end: cadEnd.end >= demarDate ? cadEnd.end : demarDate };
+    // Le cadrage dure toujours plus d'un jour : sans fin postérieure au début, la période n'est pas reprise (la fin se
+    // choisit dans l'administration ou se saisit dans le déploiement)
+    if (demarDate && cadEnd && cadEnd.end > demarDate) {
+        found.cadrage = { start: demarDate, end: cadEnd.end };
         sources.cadrage = [...(sources.date_debut || [demar ? demar.name : '']), ...t29.map(t => t.name)];
     } else
         reasons.cadrage = demarDate
-            ? 'fin de cadrage (tâche 2.9) non datée dans Asana'
+            ? cadEnd
+                ? 'fin de cadrage (tâche 2.9) non postérieure au début : à choisir ou à saisir'
+                : 'fin de cadrage (tâche 2.9) non datée dans Asana'
             : "jalon « Démarrage projet auprès de l'ES » non daté ou absent";
 
     const firstDated = l => (l && (l.find(t => eff(t)) || l[0])) || undefined;
@@ -295,7 +299,7 @@ export function asanaComputeTasks(tasks, projectName, formationTarget) {
     const depStart =
         (rDebutDep && span(rDebutDep)?.start) || (found.cadrage ? asanaAddDays(found.cadrage.end, 1) : null);
     const depEnd = (rFinDep && span(rFinDep)?.end) || mesD;
-    if (depStart && depEnd && depStart <= depEnd) {
+    if (depStart && depEnd && depStart < depEnd) {
         found.deploiement = { start: depStart, end: depEnd };
         sources.deploiement = [
             ...(rDebutDep && span(rDebutDep) ? rDebutDep.map(t => t.name) : (sources.cadrage || []).slice(1)),
@@ -306,7 +310,7 @@ export function asanaComputeTasks(tasks, projectName, formationTarget) {
             ? 'dépend de la fin du cadrage, non datée'
             : !depEnd
               ? 'dépend de la mise en service, non datée'
-              : 'la fin du déploiement précède son début';
+              : 'la fin du déploiement ne suit pas son début';
 
     // Jalons : une date, celle d'échéance (la plus tardive des tâches reconnues)
     const setMilestone = (key, list, why) => {
@@ -387,7 +391,14 @@ export function asanaApplyOverrides(c, ov) {
             const es = E(spec.start),
                 ee = E(spec.end);
             if (es || ee) {
-                const cur = c.found[key] || {};
+                // Début par défaut quand la période n'a pas été reprise (fin non postérieure au début)
+                const cur =
+                    c.found[key] ||
+                    (key === 'cadrage' && c.demarDate
+                        ? { start: c.demarDate }
+                        : key === 'deploiement' && c.found.cadrage
+                          ? { start: asanaAddDays(c.found.cadrage.end, 1) }
+                          : {});
                 let start = es ? es.start : cur.start,
                     end = ee ? ee.end : cur.end;
                 // Une seule tâche choisie : si elle couvre un intervalle, c'est tout son intervalle qui est repris
@@ -397,8 +408,14 @@ export function asanaApplyOverrides(c, ov) {
                 if (!start) start = end;
                 if (!end) end = start;
                 if (end < start) [start, end] = [end, start];
-                c.found[key] = { start, end };
-                delete c.reasons[key];
+                if (['cadrage', 'deploiement'].includes(key) && start >= end) {
+                    // Une phase ne tient jamais en un seul jour : fin à choisir
+                    delete c.found[key];
+                    c.reasons[key] = 'la fin doit être postérieure au début : choisissez la tâche de fin';
+                } else {
+                    c.found[key] = { start, end };
+                    delete c.reasons[key];
+                }
             }
         }
     }

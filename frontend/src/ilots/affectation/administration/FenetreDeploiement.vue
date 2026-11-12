@@ -49,7 +49,8 @@ if (verrou) {
         if (definition(config, k).kind === 'periods') continue;
         liste.forEach((l, i) => {
             if (l.start) reprises.add(`${k}:${i}:start`);
-            if (l.end) reprises.add(`${k}:${i}:end`);
+            // Phase réduite à un jour (début = fin) : la fin n'est pas reprise d'Asana, elle reste à saisir
+            if (l.end && !(['cadrage', 'deploiement'].includes(k) && l.end === l.start)) reprises.add(`${k}:${i}:end`);
         });
     }
 }
