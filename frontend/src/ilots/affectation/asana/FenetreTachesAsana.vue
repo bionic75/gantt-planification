@@ -146,7 +146,8 @@ onMounted(() => void charger());
                     <b>{{ donnees.samu }}</b>
                     <button
                         type="button"
-                        class="aff-asana-taches__sync"
+                        class="aff-icon-btn aff-asyn aff-icon-btn--asana aff-asana-taches__sync"
+                        :class="{ 'aff-busy': interrogation }"
                         title="Interroger Asana et afficher les écarts avec l'application"
                         aria-label="Interroger Asana"
                         :disabled="interrogation"
