@@ -20,7 +20,7 @@ const PORT = env.PORT;
 // Version de l'application (commentaire <!-- vX.Y.Z --> de index.html), affichée dans l'administration
 async function syncAppVersion() {
     try {
-        const html = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
+        const html = fs.readFileSync(new URL('../frontend/pages/index.html', import.meta.url), 'utf8');
         const match = html.match(/<!--\s*(v[\d]+\.[\d]+\.[\d]+)\s*-->/);
         if (!match) return;
         await prisma.setting.upsert({

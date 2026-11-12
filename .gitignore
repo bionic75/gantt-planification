@@ -142,7 +142,7 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
-public/index.old
+frontend/pages/index.old
 data.db
 data.db-shm
 data.db-wal

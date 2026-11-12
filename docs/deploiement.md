@@ -74,8 +74,8 @@ Le déploiement vérifie la présence des secrets indispensables avant de touche
 
 ## Publier une version
 
-1. `npm run app:version -- X.Y.Z` : version affichée et paramètre de cache des scripts dans `public/index.html` ;
-2. ajouter l'entrée de la version dans l'historique de `public/aide.html` ;
+1. `npm run app:version -- X.Y.Z` : version affichée dans `frontend/pages/index.html` ;
+2. ajouter l'entrée de la version dans l'historique de `frontend/pages/aide.html` ;
 3. commit, puis `git tag vX.Y.Z` et `git push --tags` : le workflow construit, analyse et déploie l'image.
 
 Les migrations de base sont appliquées au démarrage du nouveau conteneur. Avant une version qui modifie le schéma,

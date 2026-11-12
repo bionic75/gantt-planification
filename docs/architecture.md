@@ -4,14 +4,14 @@ Application web de planification des ressources : serveur Node.js (Express) et b
 interface en HTML / JavaScript servie par le même serveur, en cours de migration vers Vue 3
 ([migration-vue.md](migration-vue.md)).
 
-| Élément         | Technologie                                                                         |
-| --------------- | ----------------------------------------------------------------------------------- |
-| Serveur         | Node.js 22, Express 4, modules ES                                                   |
-| Base de données | Prisma 7 : SQLite (défaut), PostgreSQL ou MariaDB ([détails](base-de-donnees.md))   |
-| Interface       | HTML, CSS et JavaScript « classique » dans `public/` ; îlots Vue 3 dans `frontend/` |
-| PDF             | Chromium piloté par Puppeteer (CRA, export du planning) ; LibreOffice (PPTX → PDF)  |
-| Emails          | Nodemailer, file d'attente en base                                                  |
-| Tests           | Vitest (API par HTTP, interface dans Chromium)                                      |
+| Élément         | Technologie                                                                        |
+| --------------- | ---------------------------------------------------------------------------------- |
+| Serveur         | Node.js 22, Express 4, modules ES                                                  |
+| Base de données | Prisma 7 : SQLite (défaut), PostgreSQL ou MariaDB ([détails](base-de-donnees.md))  |
+| Interface       | Vue 3 / TypeScript dans `frontend/` (pages, images, sources, build Vite)           |
+| PDF             | Chromium piloté par Puppeteer (CRA, export du planning) ; LibreOffice (PPTX → PDF) |
+| Emails          | Nodemailer, file d'attente en base                                                 |
+| Tests           | Vitest (API par HTTP, interface dans Chromium)                                     |
 
 ## Arborescence
 
@@ -35,7 +35,10 @@ backend/                 serveur (Node.js, Express)
   scripts/               commandes d'exploitation (migrations, adoption, transfert, sauvegarde, inventaire des routes)
   tests/                 tests automatisés du serveur (vitest.config.js)
 frontend/                interface Vue 3 / TypeScript (voir « Interface Vue ») ; build dans dist/frontend (non versionné)
-public/                  pages HTML servies par le serveur et images (voir « Frontend »)
+  pages/                 pages HTML servies par le serveur avec leur point d'entrée (voir « Frontend »)
+  img/                   images servies sous /img (favicons, icônes, logos)
+  src/                   sources Vue / TypeScript (points d'entrée, composants, styles)
+  public/                fichiers servis tels quels sous /vue/ (mode-affichage.js)
 e2e/                     tests de bout en bout (Playwright BDD, voir e2e/README.md)
 docs/                    documentation
 config/, data/           exploitation : configuration (config.json), base SQLite et fichiers (PDF des CRA) ;
@@ -66,7 +69,7 @@ Ordre des middlewares (`backend/src/app.js`) :
 5. lecture du corps JSON (100 Ko sans session, 50 Mo connecté) ;
 6. routes `/api` des modules, pages (`/aide.html`, redirections des anciennes adresses) ;
 7. interface Vue sous `/vue/` (build ou serveur Vite), `index.html` avec le point d'entrée des îlots, fichiers
-   statiques de `public/`, page mobile, `index.html` pour toute autre adresse ;
+   images de `frontend/img/` (sous `/img`), page mobile, `index.html` pour toute autre adresse ;
 8. gestionnaire d'erreurs.
 
 Détails des protections : [securite.md](securite.md). Liste des routes : [api.md](api.md).
@@ -113,7 +116,7 @@ d'un envoi groupé est consultable (`/api/email-queue/status/:batchId`).
 
 ## Frontend
 
-Pages servies par Express depuis `public/`, chacune avec son point d'entrée Vue (feuilles de style insérées à la fin
+Pages de `frontend/pages/` servies par Express, chacune avec son point d'entrée Vue (feuilles de style insérées à la fin
 de `<head>`, script à la fin de `<body>`, `backend/src/lib/frontend.js`) :
 
 | Page           | Rôle                                                                             | Point d'entrée (`frontend/src/`)                                    |
@@ -123,13 +126,13 @@ de `<head>`, script à la fin de `<body>`, `backend/src/lib/frontend.js`) :
 | `aide.html`    | aide en ligne et historique des versions (personnalisable dans l'administration) | `aide.ts` (feuille de style, icônes, bouton « Retour »)             |
 | `sondage.html` | page publique d'un sondage de date (`/sondage/:jeton`)                           | `sondage.ts`                                                        |
 
-Depuis le lot 6.5 de la [migration](migration-vue.md), `public/` ne contient plus que ces pages et les images
-(`public/img/` : icônes d'onglet au choix dans l'administration, logos ; le logo ANS est aussi joint aux emails).
+Pages et images, autrefois dans `public/`, sont dans `frontend/` : `frontend/pages/` et `frontend/img/` (servies sous
+`/img` : icônes d'onglet au choix dans l'administration, logos ; le logo ANS est aussi joint aux emails).
 Scripts et feuilles de style sont dans `frontend/` : décor de la page (`frontend/src/decor/` : mode d'affichage,
 thèmes saisonniers, mise en page, icônes des émojis et des alertes), feuilles globales (`frontend/src/styles/`). Seul
 script classique : `frontend/public/mode-affichage.js` (servi sous `/vue/`), chargé dans `<head>` de `index.html` et
 de `mobile.html` pour appliquer le mode sombre avant l'affichage. Les anciennes adresses des images à la racine
-(`/favicon-….svg`…) redirigent vers `public/img/`. Toute autre adresse hors `/api` sert `index.html` : l'application
+(`/favicon-….svg`…) redirigent vers `/img/…`. Toute autre adresse hors `/api` sert `index.html` : l'application
 lit l'adresse (Vue Router). Une aide personnalisée enregistrée dans l'administration est servie avec le point d'entrée
 de l'aide (balises de l'ancienne aide livrée retirées) ; elle ne peut pas contenir de script (CSP, [sécurité](securite.md)).
 
