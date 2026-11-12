@@ -10,7 +10,15 @@ import { ACTIVITES_EVENEMENTS } from '../administration/administration';
 import IconeAff from '../administration/IconeAff.vue';
 import LienEvenement from '../administration/LienEvenement.vue';
 import { jourFr } from '../planning/outils';
-import { apresRemplacement, datesRubrique, estRemplacee, libelleTache, origine, valeurTexte } from './asana';
+import {
+    apresRemplacement,
+    datesRubrique,
+    estRemplacee,
+    libelleTache,
+    origine,
+    selonRegle,
+    valeurTexte
+} from './asana';
 import { useAsanaStore } from './magasin';
 
 const props = defineProps<{ id: number }>();
@@ -190,11 +198,16 @@ onMounted(() => void charger());
                                         ✎ modifiée dans l'outil
                                     </div>
                                 </td>
-                                <td class="aff-asana-nowrap">
-                                    <div class="aff-muted aff-asana-petit aff-asana-taches__regle">{{ r.rule }}</div>
-                                    {{ valeurTexte(r.auto) }}
-                                    <div v-if="r.sources.length" class="aff-muted aff-asana-taches__sources">
-                                        {{ r.sources.map(x => String(x).slice(0, 60)).join(' · ') }}
+                                <td>
+                                    <div
+                                        v-for="n in selonRegle(r, ov(r.key), taches()).noms"
+                                        :key="n"
+                                        class="aff-muted aff-asana-taches__sources"
+                                    >
+                                        {{ String(n).slice(0, 90) }}
+                                    </div>
+                                    <div class="aff-asana-nowrap">
+                                        {{ selonRegle(r, ov(r.key), taches()).dates }}
                                     </div>
                                 </td>
                                 <td>
