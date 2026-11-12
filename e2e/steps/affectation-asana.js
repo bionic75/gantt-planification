@@ -597,9 +597,9 @@ Then('la tâche {string} ne peut pas être choisie', async ({ monde }, nom) => {
     await expect(option).toBeDisabled();
 });
 
-Then("l'événement associé à {string} propose « Créer l'événement »", async ({ monde }, libelle) => {
+Then("l'événement associé à {string} propose « Nouveau »", async ({ monde }, libelle) => {
     const cellule = rubriqueTaches(monde, libelle).locator('td').nth(5);
-    await expect(cellule.getByRole('button', { name: "Créer l'événement" })).toBeVisible({ timeout: 20000 });
+    await expect(cellule.getByRole('button', { name: 'Nouveau' })).toBeVisible({ timeout: 20000 });
 });
 
 Then('la liste de toutes les tâches compte {int} tâches', async ({ monde }, n) => {

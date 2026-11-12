@@ -102,6 +102,14 @@ describe('origine et remplacements', () => {
         expect(datesRubrique(VISITE, { start: 't2' }, TACHES)).toEqual({ start: '2031-03-10', end: '2031-03-12' });
         expect(datesRubrique(DEBUT, { task: 't1' }, TACHES)).toEqual({ start: '2031-01-06', end: '2031-01-06' });
         expect(datesRubrique({ ...VISITE, current: null, auto: null }, undefined, TACHES)).toBeNull();
+        // Jalon (réunion de lancement, visite OB) : date portée par une période d'un jour
+        const JALON = {
+            ...VISITE,
+            kind: 'date' as const,
+            current: { start: '2031-02-02', end: '2031-02-02' },
+            auto: null
+        };
+        expect(datesRubrique(JALON, undefined, TACHES)).toEqual({ start: '2031-02-02', end: '2031-02-02' });
     });
 });
 
