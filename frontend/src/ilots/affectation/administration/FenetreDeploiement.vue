@@ -39,7 +39,21 @@ const corps = ref<HTMLElement | null>(null);
 /** Projet repris d'Asana : nom et dates ne se modifient pas ici (seuls chef de projet, gel et ressources) */
 const LOGO_ASANA = '/img/asana-logo.png';
 const verrou = !!props.deploiement?.from_asana;
-const figee = (k: string) => verrou && def(k).kind !== 'periods';
+/** Champs renseignés à l'ouverture et repris d'Asana : seuls ceux-là sont verrouillés (un champ vide reste saisissable) */
+const reprises = new Set<string>();
+if (verrou) {
+    for (const [k, v] of Object.entries(f.dates))
+        if (v && definition(config, k).kind !== 'periods') reprises.add(`date:${k}`);
+    for (const [k, v] of Object.entries(f.jalons)) if (v) reprises.add(`jalon:${k}`);
+    for (const [k, liste] of Object.entries(f.periodes)) {
+        if (definition(config, k).kind === 'periods') continue;
+        liste.forEach((l, i) => {
+            if (l.start) reprises.add(`${k}:${i}:start`);
+            if (l.end) reprises.add(`${k}:${i}:end`);
+        });
+    }
+}
+const figee = (champ: string) => reprises.has(champ);
 const titre = props.deploiement ? `Modifier : ${props.deploiement.samu_name}` : 'Nouveau déploiement de SAMU';
 
 /** Messages sous le formulaire (oublis, ou erreur) ; champs à corriger */
@@ -264,7 +278,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', appuiAilleurs));
                             <input
                                 type="date"
                                 :data-df="k"
-                                :disabled="figee(k)"
+                                :disabled="figee(`date:${k}`)"
                                 :data-champ="`date:${k}`"
                                 :class="mauvais(`date:${k}`)"
                                 :value="f.dates[k]"
@@ -277,7 +291,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', appuiAilleurs));
                             <input
                                 type="date"
                                 :data-mk="k"
-                                :disabled="figee(k)"
+                                :disabled="figee(`jalon:${k}`)"
                                 :data-champ="`jalon:${k}`"
                                 :class="mauvais(`jalon:${k}`)"
                                 :value="f.jalons[k]"
@@ -294,7 +308,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', appuiAilleurs));
                                     class="aff-wk"
                                     :data-wk="k"
                                     :data-wi="i"
-                                    :disabled="figee(k)"
+                                    :disabled="figee(`${k}:${i}:start`)"
                                     :value="valeurSemaine(l.start)"
                                     title="Choisir une semaine (SXX année) : la période commence le lundi de cette semaine"
                                     :aria-label="`Semaine de début ${def(k).label}`"
@@ -305,7 +319,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', appuiAilleurs));
                                     :data-pk="k"
                                     :data-pi="i"
                                     data-pf="start"
-                                    :disabled="figee(k)"
+                                    :disabled="figee(`${k}:${i}:start`)"
                                     :data-champ="`${k}:${i}:start`"
                                     :class="mauvais(`${k}:${i}:start`)"
                                     :value="l.start"
@@ -320,7 +334,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', appuiAilleurs));
                                     :data-pk="k"
                                     :data-pi="i"
                                     data-pf="end"
-                                    :disabled="figee(k)"
+                                    :disabled="figee(`${k}:${i}:end`)"
                                     :data-champ="`${k}:${i}:end`"
                                     :class="mauvais(`${k}:${i}:end`)"
                                     :value="l.end"
@@ -336,7 +350,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', appuiAilleurs));
                                     class="aff-days"
                                     :data-dk="k"
                                     :data-di="i"
-                                    :disabled="figee(k)"
+                                    :disabled="figee(`${k}:${i}:end`)"
                                     :value="l.jours"
                                     placeholder="jours"
                                     title="Nombre de jours (calendaires, début et fin inclus) : la date de fin se calcule automatiquement"
@@ -363,7 +377,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', appuiAilleurs));
                                     </option>
                                 </select>
                                 <button
-                                    v-if="!figee(k)"
+                                    v-if="!figee(`${k}:${i}:start`) && !figee(`${k}:${i}:end`)"
                                     type="button"
                                     class="aff-x"
                                     title="Effacer cette période"
@@ -386,6 +400,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', appuiAilleurs));
                             :projet-id="f.id"
                             :cle="k"
                             :libelle="def(k).label"
+                            :creation="!verrou"
                             :samu="f.samu_name"
                             :candidats="candidatsDe(k)"
                             :dates="datesActivite(f, k)"

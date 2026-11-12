@@ -20,6 +20,8 @@ const props = defineProps<{
     dates: { start: string; end: string } | null;
     /** Sans le titre « Événement » (cellule de la fenêtre des tâches Asana) */
     compact?: boolean;
+    /** Création d'événements autorisée (par défaut oui) */
+    creation?: boolean;
     /** Message quand l'activité n'a pas de date */
     messageSansDate?: string;
 }>();
@@ -30,6 +32,7 @@ const emit = defineEmits<{
     annonce: [message: string];
 }>();
 
+const peutCreer = computed(() => props.creation !== false);
 const confirmer = useConfirmation();
 const c = computed(() => props.candidats);
 const tous = computed(() => (c.value ? [...c.value.matching, ...c.value.others] : []));
@@ -155,7 +158,7 @@ async function creer() {
                             ></label
                         >
                         <span v-if="!tous.length" class="aff-muted aff-multi-vide">Aucun événement pour ce SAMU.</span>
-                        <div class="aff-multi-ajout">
+                        <div v-if="peutCreer" class="aff-multi-ajout">
                             <input
                                 :id="`evPS_${cle}`"
                                 v-model="partieDebut"
@@ -183,6 +186,7 @@ async function creer() {
                 </details>
             </div>
             <button
+                v-if="peutCreer"
                 type="button"
                 class="aff-btn aff-evl-bouton"
                 title="Crée un événement aux dates de l'activité (SAMU, type, ressources affectées en participants) ; d'autres parties se saisissent dans la liste"
@@ -214,6 +218,7 @@ async function creer() {
                 >Aucun événement « {{ c.typeLong || '' }} » trouvé pour ce SAMU.</span
             >
             <button
+                v-if="peutCreer"
                 type="button"
                 class="aff-btn aff-evl-bouton"
                 title="Crée l'événement dans l'outil (SAMU, type, dates de l'activité, ressources affectées en participants)"
