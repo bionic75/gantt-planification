@@ -401,6 +401,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', appuiAilleurs));
                             :cle="k"
                             :libelle="def(k).label"
                             :creation="!verrou"
+                            :verrouille="verrou"
                             :samu="f.samu_name"
                             :candidats="candidatsDe(k)"
                             :dates="datesActivite(f, k)"

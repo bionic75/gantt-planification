@@ -22,6 +22,8 @@ const props = defineProps<{
     compact?: boolean;
     /** Création d'événements autorisée (par défaut oui) */
     creation?: boolean;
+    /** Événements déjà reliés non modifiables (projet repris d'Asana) */
+    verrouille?: boolean;
     /** Message quand l'activité n'a pas de date */
     messageSansDate?: string;
 }>();
@@ -33,6 +35,7 @@ const emit = defineEmits<{
 }>();
 
 const peutCreer = computed(() => props.creation !== false);
+const figes = computed(() => !!props.verrouille && (c.value?.linked != null || (c.value?.linkedIds?.length ?? 0) > 0));
 const confirmer = useConfirmation();
 const c = computed(() => props.candidats);
 const tous = computed(() => (c.value ? [...c.value.matching, ...c.value.others] : []));
@@ -140,6 +143,7 @@ async function creer() {
                                 type="checkbox"
                                 :data-eid="e.id"
                                 :checked="c.linkedIds.includes(e.id)"
+                                :disabled="figes"
                                 @change="cocher(e.id, ($event.target as HTMLInputElement).checked)"
                             /><span
                                 >{{ datesEvenement(e) }} · {{ e.label
@@ -151,6 +155,7 @@ async function creer() {
                                 type="checkbox"
                                 :data-eid="e.id"
                                 :checked="c.linkedIds.includes(e.id)"
+                                :disabled="figes"
                                 @change="cocher(e.id, ($event.target as HTMLInputElement).checked)"
                             /><span
                                 >{{ datesEvenement(e) }} · {{ e.label
@@ -201,6 +206,7 @@ async function creer() {
             >
             <select
                 :data-ek="cle"
+                :disabled="figes"
                 :value="c.linked ?? ''"
                 :title="titreListe"
                 :aria-label="`Événement relié : ${libelle}`"
