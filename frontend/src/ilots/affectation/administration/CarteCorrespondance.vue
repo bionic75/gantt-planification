@@ -225,6 +225,7 @@ surReouverture(() => void charger());
                                 </td>
                                 <td>
                                     <select
+                                        v-if="st.typed"
                                         :data-stage="st.key"
                                         :value="donnees.mapping[st.key] ?? donnees.types[0]?.id"
                                         :aria-label="`Type d'événement : ${st.label}`"
@@ -237,7 +238,7 @@ surReouverture(() => void charger());
                                 </td>
                                 <td :id="`affStChip_${st.key}`">
                                     <CartoucheType
-                                        v-if="typeDe(st.key)"
+                                        v-if="st.typed && typeDe(st.key)"
                                         :couleurs="couleursDe(typeDe(st.key)!)"
                                         :icone="typeDe(st.key)!.icon"
                                         :libelle="typeDe(st.key)!.label_short || typeDe(st.key)!.label_long"

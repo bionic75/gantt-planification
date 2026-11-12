@@ -436,7 +436,7 @@ export async function saveTemplate(/** @type {Request} */ req, /** @type {Respon
         res.json({ success: true, template: null });
         return;
     }
-    const { projectName, tasks } = await asanaFetchProject(await asanaToken(), gid);
+    const { projectName, tasks } = await asanaFetchProject(await asanaToken(), gid, { allSubtasks: true });
     const tpl = { gid, name: projectName, tasks: asanaTemplateChoices(tasks) };
     await asanaPut(ASANA_TEMPLATE_KEY, JSON.stringify(tpl));
     logUserAction(req, 'Projet Asana type choisi', { gid, name: projectName, taches: tpl.tasks.length });

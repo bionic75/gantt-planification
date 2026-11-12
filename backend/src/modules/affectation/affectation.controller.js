@@ -262,12 +262,30 @@ export async function release(/** @type {Request} */ req, /** @type {Response} *
 
 // ---------- Activités et événements ----------
 
+/** Activités de la correspondance Asana, dans l'ordre d'affichage ; seules celles avec « type » créent des événements */
+const CORRESPONDANCE_ORDRE = [
+    ['cadrage_debut', 'Cadrage (début)'],
+    ['cadrage_fin', 'Cadrage (fin)'],
+    ['deploiement_debut', 'Déploiement (début)'],
+    ['deploiement_fin', 'Déploiement (fin)'],
+    ['mise_en_service', ''],
+    ['mise_en_production', ''],
+    ['reunion_lancement', ''],
+    ['visite_metier', ''],
+    ['visite_ob', ''],
+    ['test_prerequis', ''],
+    ['vft', ''],
+    ['formation_utilisateurs', ''],
+    ['accompagnement', '']
+];
+
 export async function stageEventTypes(/** @type {Request} */ req, /** @type {Response} */ res) {
     res.json({
-        stages: svc.AFF_STAGES.filter(x => svc.AFF_EVENT_KEYS.includes(x.key)).map(x => ({
-            key: x.key,
-            label: x.label,
-            rule: /** @type {Record<string, string>} */ (ASANA_RULES)[x.key] || ''
+        stages: CORRESPONDANCE_ORDRE.map(([key, libelle]) => ({
+            key,
+            label: libelle || svc.AFF_STAGES.find(x => x.key === key)?.label || key,
+            rule: /** @type {Record<string, string>} */ (ASANA_RULES)[key] || '',
+            typed: svc.AFF_EVENT_KEYS.includes(key)
         })),
         mapping: await svc.affStageTypeMap(),
         types: await svc.sortedEventTypes(),
