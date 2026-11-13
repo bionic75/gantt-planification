@@ -154,7 +154,7 @@ export interface TypeEvenementAffectation {
 
 /** Correspondance activités Asana ↔ types d'événements (GET /affectation/stage-event-types) */
 export interface CorrespondanceActivites {
-    stages: { key: string; label: string; rule: string }[];
+    stages: { key: string; label: string; rule: string; typed: boolean }[];
     mapping: Record<string, number>;
     types: TypeEvenementAffectation[];
     asanaActivities: { value: string; label: string }[];

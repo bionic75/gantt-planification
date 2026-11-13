@@ -597,9 +597,9 @@ Then('la tâche {string} ne peut pas être choisie', async ({ monde }, nom) => {
     await expect(option).toBeDisabled();
 });
 
-Then("l'événement associé à {string} propose « Créer l'événement »", async ({ monde }, libelle) => {
+Then("l'événement associé à {string} propose « Nouveau »", async ({ monde }, libelle) => {
     const cellule = rubriqueTaches(monde, libelle).locator('td').nth(5);
-    await expect(cellule.getByRole('button', { name: "Créer l'événement" })).toBeVisible({ timeout: 20000 });
+    await expect(cellule.getByRole('button', { name: 'Nouveau' })).toBeVisible({ timeout: 20000 });
 });
 
 Then('la liste de toutes les tâches compte {int} tâches', async ({ monde }, n) => {
@@ -635,7 +635,11 @@ Then("la rubrique {string} n'est plus marquée « remplacé »", async ({ monde 
 
 When("j'applique les remplacements", async ({ monde }) => {
     await fenetreTaches(monde).getByRole('button', { name: 'Appliquer les remplacements' }).click();
-    await expect(fenetreTaches(monde)).toBeHidden();
+    // La fenêtre reste ouverte (valeurs relues après application)
+    await expect
+        .poll(() => appels(monde, `PUT ${RACINE}/projects/${monde.d.deploiement.id}/asana-overrides`).length)
+        .toBe(1);
+    await expect(fenetreTaches(monde)).toBeVisible();
 });
 
 Then(
@@ -646,23 +650,3 @@ Then(
         expect(envoyes[0]?.corps).toEqual({ overrides: { [cle]: { start: tache(code).gid, end: tache(code).gid } } });
     }
 );
-
-When('je choisis le projet Asana {string} pour ce déploiement', async ({ monde }, nom) => {
-    monde.d.lecturesTaches = appels(monde, `GET ${RACINE}/projects/${monde.d.deploiement.id}/asana-tasks`).length;
-    await fenetreTaches(monde).locator('#affAsanaTasksBody p select').selectOption({ label: nom });
-});
-
-Then("l'appariement demandé relie le projet {string} au déploiement de test", async ({ monde }, nom) => {
-    await expect.poll(() => appels(monde, `PUT ${RACINE}/asana/links`).length).toBe(1);
-    expect(appels(monde, `PUT ${RACINE}/asana/links`)[0]?.corps).toEqual({
-        gid: nom === 'Ancien projet' ? '2000000000000002' : '2000000000000001',
-        deploymentId: monde.d.deploiement.id
-    });
-});
-
-Then('les tâches du projet Asana sont relues', async ({ monde }) => {
-    await expect
-        .poll(() => appels(monde, `GET ${RACINE}/projects/${monde.d.deploiement.id}/asana-tasks`).length)
-        .toBeGreaterThan(monde.d.lecturesTaches);
-    await expect(rubriqueTaches(monde, 'Visite métier')).toHaveCount(1);
-});

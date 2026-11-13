@@ -8,8 +8,9 @@ import * as svc from './affectation.service.js';
 import {
     ASANA_KEYS,
     ASANA_MILESTONES,
-    ASANA_RULES,
+    asanaLoadTemplate,
     asanaReloadStageRules,
+    asanaRuleText,
     asanaTemplateChoices,
     ASANA_TEMPLATE_KEY,
     asanaApi,
@@ -310,10 +311,60 @@ export async function tasks(/** @type {Request} */ req, /** @type {Response} */ 
     const id = Number(req.params.id);
     const dep = await svc.getProject(id);
     if (!dep) throw notFound('Déploiement introuvable');
+    // Sans interrogation d'Asana (?asana=0) : ce que contient l'application, sans écart ni liste de tâches
+    if (String(req.query.asana) === '0') {
+        await asanaReloadStageRules();
+        const modeleLocal = await asanaLoadTemplate();
+        const ovLocal = (await asanaOverridesFor(id)) || {};
+        const periodsLocal = svc.parsePeriods(dep.periods);
+        const dateKeys = ['date_debut', 'mise_en_service', 'mise_en_production', ...ASANA_MILESTONES];
+        const courante = (/** @type {string} */ key) =>
+            key === 'date_debut'
+                ? dep.date_debut
+                    ? { date: dep.date_debut }
+                    : null
+                : key === 'mise_en_service' || key === 'mise_en_production'
+                  ? /** @type {any} */ (dep)['date_' + key]
+                      ? { date: /** @type {any} */ (dep)['date_' + key] }
+                      : null
+                  : periodsLocal[key]?.[0]
+                    ? { start: periodsLocal[key][0].start, end: periodsLocal[key][0].end }
+                    : null;
+        const cache = await lireCache(id);
+        const duCache = new Map((cache?.rubriques || []).map((/** @type {any} */ r) => [r.key, r]));
+        return res.json({
+            samu: dep.samu_name,
+            asana: cache?.asana || '',
+            gid: cache?.gid || '',
+            url: cache?.url || '',
+            interroge: false,
+            cache: cache?.at || null,
+            candidates: cache?.candidates || [],
+            tasks: cache?.tasks || [],
+            rubriques: ASANA_KEYS.map(key => ({
+                key,
+                label: key === 'date_debut' ? 'Début du projet' : svc.stageLabel(key),
+                kind: dateKeys.includes(key) ? 'date' : 'period',
+                rule: asanaRuleText(key, modeleLocal),
+                current: courante(key),
+                auto: duCache.get(key)?.auto ?? null,
+                sources: duCache.get(key)?.sources ?? [],
+                override: ovLocal[key] || null
+            })),
+            overridden: Object.keys(ovLocal)
+        });
+    }
     const token = await asanaToken();
     const { match, candidates } = await asanaFindProjectFor(token, dep);
     const { projectName, tasks: list } = await asanaFetchProject(token, match.gid);
     const c0 = asanaComputeTasks(list, projectName);
+    // Liste affichée : toutes les tâches du projet (sous-tâches comprises), dans l'ordre d'Asana
+    const complet = (await asanaFetchProject(token, match.gid, { allSubtasks: true })).tasks;
+    for (const t of complet) {
+        t.code = (/^\s*(\d+(?:\.\d+)*)\.?\s/.exec(t.name) || [])[1] || '';
+    }
+    await asanaReloadStageRules();
+    const modele = await asanaLoadTemplate();
     const ov = (await asanaOverridesFor(id)) || {};
     const auto = JSON.parse(JSON.stringify({ found: c0.found, demarDate: c0.demarDate }));
     const c1 = asanaApplyOverrides(JSON.parse(JSON.stringify({ ...c0 })), ov);
@@ -339,37 +390,62 @@ export async function tasks(/** @type {Request} */ req, /** @type {Response} */ 
         key,
         label: key === 'date_debut' ? 'Début du projet' : svc.stageLabel(key),
         kind: isDate(key) ? 'date' : 'period',
-        rule: /** @type {Record<string, string>} */ (ASANA_RULES)[key],
+        rule: asanaRuleText(key, modele),
         current: cur(key),
         auto: key === 'date_debut' ? (auto.demarDate ? { date: auto.demarDate } : null) : auto.found[key] || null,
         sources: c0.sources[key] || [],
         override: ov[key] || null
     }));
-    const taskList = c0.tasks
-        .map((/** @type {any} */ t) => ({
-            gid: t.gid,
-            name: t.name,
-            code: t.code,
-            parent: t.parent,
-            start: t.start,
-            due: t.due,
-            eff: asanaEff(c0.tasks, t)
-        }))
-        .sort(
-            (/** @type {any} */ a, /** @type {any} */ b) =>
-                String(a.code || '~').localeCompare(String(b.code || '~'), 'fr', { numeric: true }) ||
-                a.name.localeCompare(b.name, 'fr', { numeric: true })
-        );
+    const taskList = complet.map((/** @type {any} */ t) => ({
+        gid: t.gid,
+        name: t.name,
+        code: t.code,
+        parent: t.parent,
+        start: t.start,
+        due: t.due,
+        eff: asanaEff(complet, t)
+    }));
+    await ecrireCache(id, {
+        at: new Date().toISOString(),
+        asana: projectName,
+        gid: match.gid,
+        url: match.permalink_url,
+        candidates: candidates.map((/** @type {any} */ x) => ({ gid: x.gid, name: x.name })),
+        tasks: taskList,
+        rubriques: rubriques.map((/** @type {any} */ r) => ({ key: r.key, auto: r.auto, sources: r.sources }))
+    });
     res.json({
         samu: dep.samu_name,
         asana: projectName,
         gid: match.gid,
         url: match.permalink_url,
         candidates: candidates.map((/** @type {any} */ x) => ({ gid: x.gid, name: x.name })),
+        interroge: true,
         tasks: taskList,
         rubriques,
         overridden: c1.overridden || []
     });
+}
+
+/** Dernière lecture d'Asana par déploiement : de quoi réafficher la fenêtre des tâches sans interroger Asana */
+const CACHE_TACHES_KEY = 'asana_tasks_cache';
+async function lireCache(/** @type {number} */ id) {
+    try {
+        return (JSON.parse((await asanaSetting(CACHE_TACHES_KEY)) || '{}') || {})[String(id)] || null;
+    } catch {
+        return null;
+    }
+}
+async function ecrireCache(/** @type {number} */ id, /** @type {any} */ entree) {
+    /** @type {Record<string, any>} */
+    let tout;
+    try {
+        tout = JSON.parse((await asanaSetting(CACHE_TACHES_KEY)) || '{}') || {};
+    } catch {
+        tout = {};
+    }
+    tout[String(id)] = entree;
+    await asanaPut(CACHE_TACHES_KEY, JSON.stringify(tout));
 }
 
 /** Remplacements manuels des tâches Asana d'un déploiement, puis réimport des rubriques modifiées */
@@ -436,7 +512,7 @@ export async function saveTemplate(/** @type {Request} */ req, /** @type {Respon
         res.json({ success: true, template: null });
         return;
     }
-    const { projectName, tasks } = await asanaFetchProject(await asanaToken(), gid);
+    const { projectName, tasks } = await asanaFetchProject(await asanaToken(), gid, { allSubtasks: true });
     const tpl = { gid, name: projectName, tasks: asanaTemplateChoices(tasks) };
     await asanaPut(ASANA_TEMPLATE_KEY, JSON.stringify(tpl));
     logUserAction(req, 'Projet Asana type choisi', { gid, name: projectName, taches: tpl.tasks.length });

@@ -9,20 +9,28 @@ import { jourFr } from '../planning/outils';
 import { datesEvenement, libelleCandidat, resumeParties } from './administration';
 import IconeAff from './IconeAff.vue';
 
-const props = defineProps<{
-    projetId: number | null;
-    cle: string;
-    libelle: string;
-    samu: string;
-    /** undefined : recherche en cours ; null : indisponibles */
-    candidats: CandidatsActivite | null | undefined;
-    /** Dates de l'activité saisies dans le formulaire */
-    dates: { start: string; end: string } | null;
-    /** Sans le titre « Événement » (cellule de la fenêtre des tâches Asana) */
-    compact?: boolean;
-    /** Message quand l'activité n'a pas de date */
-    messageSansDate?: string;
-}>();
+const props = withDefaults(
+    defineProps<{
+        projetId: number | null;
+        cle: string;
+        libelle: string;
+        samu: string;
+        /** undefined : recherche en cours ; null : indisponibles */
+        candidats: CandidatsActivite | null | undefined;
+        /** Dates de l'activité saisies dans le formulaire */
+        dates: { start: string; end: string } | null;
+        /** Sans le titre « Événement » (cellule de la fenêtre des tâches Asana) */
+        compact?: boolean;
+        /** Création d'événements autorisée (par défaut oui) */
+        creation?: boolean;
+        /** Événements déjà reliés non modifiables (projet repris d'Asana) */
+        verrouille?: boolean;
+        /** Message quand l'activité n'a pas de date */
+        messageSansDate?: string;
+    }>(),
+    // Un booléen absent vaut faux par défaut : la création est autorisée sauf mention contraire
+    { creation: true, verrouille: false }
+);
 const emit = defineEmits<{
     liaison: [maj: Partial<CandidatsActivite>];
     recharger: [];
@@ -30,6 +38,8 @@ const emit = defineEmits<{
     annonce: [message: string];
 }>();
 
+const peutCreer = computed(() => props.creation);
+const figes = computed(() => !!props.verrouille && (c.value?.linked != null || (c.value?.linkedIds?.length ?? 0) > 0));
 const confirmer = useConfirmation();
 const c = computed(() => props.candidats);
 const tous = computed(() => (c.value ? [...c.value.matching, ...c.value.others] : []));
@@ -137,6 +147,7 @@ async function creer() {
                                 type="checkbox"
                                 :data-eid="e.id"
                                 :checked="c.linkedIds.includes(e.id)"
+                                :disabled="figes"
                                 @change="cocher(e.id, ($event.target as HTMLInputElement).checked)"
                             /><span
                                 >{{ datesEvenement(e) }} · {{ e.label
@@ -148,6 +159,7 @@ async function creer() {
                                 type="checkbox"
                                 :data-eid="e.id"
                                 :checked="c.linkedIds.includes(e.id)"
+                                :disabled="figes"
                                 @change="cocher(e.id, ($event.target as HTMLInputElement).checked)"
                             /><span
                                 >{{ datesEvenement(e) }} · {{ e.label
@@ -155,7 +167,7 @@ async function creer() {
                             ></label
                         >
                         <span v-if="!tous.length" class="aff-muted aff-multi-vide">Aucun événement pour ce SAMU.</span>
-                        <div class="aff-multi-ajout">
+                        <div v-if="peutCreer" class="aff-multi-ajout">
                             <input
                                 :id="`evPS_${cle}`"
                                 v-model="partieDebut"
@@ -182,6 +194,15 @@ async function creer() {
                     </div>
                 </details>
             </div>
+            <button
+                v-if="peutCreer"
+                type="button"
+                class="aff-btn aff-evl-bouton"
+                title="Crée un événement aux dates de l'activité (SAMU, type, ressources affectées en participants) ; d'autres parties se saisissent dans la liste"
+                @click="creer"
+            >
+                <IconeAff nom="plus" classe="aff-ico-sm" />Nouveau
+            </button>
         </template>
         <template v-else>
             <span v-if="!compact" class="aff-muted aff-evl-titre"
@@ -189,6 +210,7 @@ async function creer() {
             >
             <select
                 :data-ek="cle"
+                :disabled="figes"
                 :value="c.linked ?? ''"
                 :title="titreListe"
                 :aria-label="`Événement relié : ${libelle}`"
@@ -202,22 +224,14 @@ async function creer() {
                     <option v-for="e in c.others" :key="e.id" :value="e.id">{{ libelleCandidat(e) }}</option>
                 </optgroup>
             </select>
-            <template v-if="!c.matching.length">
-                <span class="none">Aucun événement « {{ c.typeLong || '' }} » trouvé pour ce SAMU.</span>
-                <button
-                    type="button"
-                    class="aff-btn aff-btn-primary aff-evl-bouton"
-                    title="Crée l'événement dans l'outil (SAMU, type, dates de l'activité, ressources affectées en participants)"
-                    @click="creer"
-                >
-                    <IconeAff nom="plus" classe="aff-ico-sm" />Créer l'événement
-                </button>
-            </template>
+            <span v-if="!c.matching.length" class="none"
+                >Aucun événement « {{ c.typeLong || '' }} » trouvé pour ce SAMU.</span
+            >
             <button
-                v-else
+                v-if="peutCreer"
                 type="button"
                 class="aff-btn aff-evl-bouton"
-                title="Créer un nouvel événement pour cette activité"
+                title="Crée l'événement dans l'outil (SAMU, type, dates de l'activité, ressources affectées en participants)"
                 @click="creer"
             >
                 <IconeAff nom="plus" classe="aff-ico-sm" />Nouveau

@@ -7,6 +7,7 @@ import { surReouverture } from '@/ilots/activation';
 import CartoucheType from '@/ilots/admin/jours-speciaux/CartoucheType.vue';
 import { choixRegle } from './administration';
 import CarteAdministration from './CarteAdministration.vue';
+import AppSablier from '@/composants/AppSablier.vue';
 
 const donnees = ref<CorrespondanceActivites | null>(null);
 const erreur = ref('');
@@ -125,7 +126,7 @@ surReouverture(() => void charger());
 <template>
     <CarteAdministration
         id="affCardStageTypes"
-        titre="Correspondance activités Asana ↔ types d'événements"
+        titre="Correspondance activités ASANA - événements - jalons"
         icone="asanasync"
         sous-titre="Type des événements créés par la synchronisation vers la planification"
     >
@@ -168,7 +169,7 @@ surReouverture(() => void charger());
                                 Charger les tâches
                             </button>
                         </template>
-                        <template v-else-if="choixProjet">{{ choixProjet.texte }}</template>
+                        <AppSablier v-else-if="choixProjet" :texte="choixProjet.texte" />
                     </span>
                 </div>
                 <div class="aff-corr-defile">
@@ -225,6 +226,7 @@ surReouverture(() => void charger());
                                 </td>
                                 <td>
                                     <select
+                                        v-if="st.typed"
                                         :data-stage="st.key"
                                         :value="donnees.mapping[st.key] ?? donnees.types[0]?.id"
                                         :aria-label="`Type d'événement : ${st.label}`"
@@ -237,7 +239,7 @@ surReouverture(() => void charger());
                                 </td>
                                 <td :id="`affStChip_${st.key}`">
                                     <CartoucheType
-                                        v-if="typeDe(st.key)"
+                                        v-if="st.typed && typeDe(st.key)"
                                         :couleurs="couleursDe(typeDe(st.key)!)"
                                         :icone="typeDe(st.key)!.icon"
                                         :libelle="typeDe(st.key)!.label_short || typeDe(st.key)!.label_long"

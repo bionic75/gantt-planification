@@ -329,6 +329,112 @@ export async function affReconcileAssignments(
 }
 
 /**
+ * Avant une modification de dates par Asana : activités à ressources dont la période change, avec les experts
+ * affectés et les événements correspondants (recherchés sur l'ancienne période)
+ * @param {{ id: number, samu_name: string, location_id: number | null }} proj
+ * @param {Record<string, any[]>} oldPeriods
+ * @param {Record<string, any[]>} newPeriods
+ */
+export async function affSnapshotPeriodChanges(proj, oldPeriods, newPeriods) {
+    const locId = await affProjectLocationId(proj);
+    const [map, types, links] = await Promise.all([affStageTypeMap(), allEventTypes(), affEventLinks(proj.id)]);
+    const out = [];
+    for (const def of AFF_STAGES.filter(x => x.resources)) {
+        const old = oldPeriods[def.key]?.[0];
+        const nw = newPeriods[def.key]?.[0];
+        if (!old || !nw || (old.start === nw.start && old.end === nw.end)) continue;
+        const [rows, days] = await Promise.all([
+            prisma.affectationAssignment.findMany({
+                where: { project_id: proj.id, stage_key: def.key },
+                select: { resource_id: true }
+            }),
+            prisma.affectationAssignmentDay.findMany({
+                where: { project_id: proj.id, stage_key: def.key },
+                select: { resource_id: true }
+            })
+        ]);
+        const resourceIds = [...new Set([...rows, ...days].map(r => r.resource_id))];
+        const events = await affStageEvents(
+            proj,
+            def.key,
+            { start: old.start, end: old.end },
+            links,
+            map,
+            types,
+            locId
+        );
+        out.push({
+            key: def.key,
+            old: { start: String(old.start), end: String(old.end) },
+            nw: { start: String(nw.start), end: String(nw.end) },
+            resourceIds,
+            events
+        });
+    }
+    return out;
+}
+
+/**
+ * Répercute le changement de dates d'activités (import Asana) : bornes totalement différentes = experts désaffectés
+ * (planification remise en « 2 - Disponible / 2 - En attente d'affectation », retirés de l'événement) ; bornes en
+ * recouvrement = désaffectation sur les seules journées hors recouvrement. Les bornes de l'événement suivent.
+ * @param {Request | null} req
+ * @param {{ id: number, samu_name: string }} proj
+ * @param {Awaited<ReturnType<typeof affSnapshotPeriodChanges>>} changes
+ */
+export async function affApplyPeriodChanges(req, proj, changes) {
+    const samuNo = affSamuNumber(proj.samu_name);
+    /** @type {Array<{ key: string, total: boolean, experts: number, planningReset: number, evenements: number }>} */
+    const out = [];
+    for (const ch of changes) {
+        const os = ch.old.start > ch.nw.start ? ch.old.start : ch.nw.start;
+        const oe = ch.old.end < ch.nw.end ? ch.old.end : ch.nw.end;
+        const total = os > oe;
+        let planningReset = 0;
+        if (ch.resourceIds.length) {
+            const outside = new Set(calendarDays(ch.old.start, ch.old.end).filter(d => total || d < os || d > oe));
+            planningReset = await affResetPlanning({
+                resourceIds: ch.resourceIds,
+                start: ch.old.start,
+                end: ch.old.end,
+                period: 'FULL',
+                samuNo,
+                days: outside
+            });
+            if (total) {
+                if (ch.events.length) await removeResourcesFromEvents(ch.events, ch.resourceIds);
+                await prisma.affectationAssignmentDay.deleteMany({
+                    where: { project_id: proj.id, stage_key: ch.key }
+                });
+                await prisma.affectationAssignment.deleteMany({ where: { project_id: proj.id, stage_key: ch.key } });
+            }
+        }
+        // Bornes de l'événement : un seul événement prend les nouvelles bornes, des parties sont recadrées sur celles-ci
+        let evenements = 0;
+        const evs = ch.events.length
+            ? await prisma.customEvent.findMany({
+                  where: { id: { in: ch.events.map(idParam) } },
+                  select: { id: true, start_date: true, end_date: true }
+              })
+            : [];
+        for (const e of evs) {
+            const start = evs.length === 1 ? ch.nw.start : e.start_date < ch.nw.start ? ch.nw.start : e.start_date;
+            const end = evs.length === 1 ? ch.nw.end : e.end_date > ch.nw.end ? ch.nw.end : e.end_date;
+            if (start > end || (start === e.start_date && end === e.end_date)) continue;
+            await prisma.customEvent.update({ where: { id: e.id }, data: { start_date: start, end_date: end } });
+            evenements++;
+        }
+        out.push({ key: ch.key, total, experts: ch.resourceIds.length, planningReset, evenements });
+    }
+    if (req && out.some(o => o.experts || o.evenements))
+        logUserAction(req, 'Dates modifiées par Asana : affectations et événements ajustés', {
+            projectId: proj.id,
+            activites: out
+        });
+    return out;
+}
+
+/**
  * Déploiements avec le nom du chef de projet et leur origine (import Asana)
  * @param {{ id?: number }} [where]
  */

@@ -418,3 +418,15 @@ div.gp-modale.aff-asana-conf {
 .aff-asana-cnx__projets {
     margin-top: 12px;
 }
+
+.aff-asana-taches__regle {
+    white-space: normal;
+    margin-bottom: 2px;
+}
+
+/* Même bouton que « Rafraîchir depuis Asana » de la liste des déploiements (classes .aff-icon-btn) */
+.aff-asana-taches__sync {
+    margin: 0 4px;
+    vertical-align: middle;
+    background: #f06a6a;
+}
