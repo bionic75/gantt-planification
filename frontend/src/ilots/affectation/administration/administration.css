@@ -618,6 +618,9 @@
     color: #6b7a8d;
     font-size: 11px;
 }
+.aff-corr th::after {
+    content: none;
+}
 .aff-corr th {
     padding: 6px 8px;
 }

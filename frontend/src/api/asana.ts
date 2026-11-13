@@ -142,6 +142,10 @@ export interface RubriqueAsana {
 }
 
 export interface TachesProjet {
+    /** Faux : données de l'application seulement, Asana n'a pas été interrogé */
+    interroge?: boolean;
+    /** Date de la dernière lecture d'Asana dont les tâches et valeurs « selon la règle » sont issues */
+    cache?: string | null;
     samu: string;
     asana: string;
     gid: string;
@@ -178,7 +182,9 @@ export const apiAsana = {
     toutRafraichir: () => api.post<ResultatToutRafraichir>('/affectation/asana/refresh-all', {}),
     trancher: (id: number, choices: Record<string, 'app' | 'asana'>) =>
         api.post<{ applied: number; kept: number }>(`/affectation/projects/${id}/asana-conflicts`, { choices }),
-    taches: (id: number) => api.get<TachesProjet>(`/affectation/projects/${id}/asana-tasks`),
+    /** Sans interrogation d'Asana (avecAsana faux) : contenu de l'application seulement */
+    taches: (id: number, avecAsana = true) =>
+        api.get<TachesProjet>(`/affectation/projects/${id}/asana-tasks${avecAsana ? '' : '?asana=0'}`),
     remplacer: (id: number, overrides: Record<string, Remplacement>) =>
         api.put<ResultatRafraichissement>(`/affectation/projects/${id}/asana-overrides`, { overrides })
 };

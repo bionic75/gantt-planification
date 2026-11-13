@@ -13,7 +13,9 @@ import {
     AFF_STAGES,
     affDiff,
     affHist,
+    affApplyPeriodChanges,
     affReconcileAssignments,
+    affSnapshotPeriodChanges,
     affValuesOfRow,
     sanitizeAffProject,
     writeProject
@@ -148,6 +150,31 @@ let asanaStageRules = {};
 export function asanaUseStageRules(/** @type {Record<string, string>} */ rules) {
     asanaStageRules = rules;
 }
+/**
+ * Libellé de la règle en vigueur d'une rubrique (paramétrage de l'administration, à défaut règle usuelle) ; une règle
+ * enregistrée est présentée par le libellé de la tâche du projet type ou de la liste usuelle qui lui correspond
+ */
+export function asanaRuleText(
+    /** @type {string} */ key,
+    /** @type {{ tasks?: Array<{ value: string, label: string }> } | null} */ template
+) {
+    const one = (/** @type {string} */ k) => {
+        const r = asanaStageRules[k];
+        if (!r) return /** @type {Record<string, string>} */ (ASANA_RULES)[k] || '';
+        const known =
+            (template?.tasks || []).find(t => t.value === r) || ASANA_ACTIVITIES.find(t => t.value === r) || null;
+        return known
+            ? known.label
+            : r.startsWith('title:')
+              ? `Tâche « ${r.slice(6)} »`
+              : `Tâche ${r.replace(/,/g, ', à défaut ')}`;
+    };
+    if (key === 'date_debut') return one('cadrage_debut');
+    if (key === 'cadrage') return `Début : ${one('cadrage_debut')} · Fin : ${one('cadrage_fin')}`;
+    if (key === 'deploiement') return `Début : ${one('deploiement_debut')} · Fin : ${one('deploiement_fin')}`;
+    return one(key);
+}
+
 export async function asanaReloadStageRules() {
     try {
         const v = JSON.parse((await getSetting(ASANA_STAGE_RULES_KEY)) || '{}');
@@ -226,18 +253,25 @@ export function asanaComputeTasks(tasks, projectName, formationTarget) {
     const demar =
         tasks.find(t => t.n.includes("demarrage projet aupres de l'es")) ||
         tasks.find(t => t.n.includes('demarrage projet'));
-    const demarDate = demar && eff(demar) ? eff(demar).end : null;
-    if (demarDate) sources.date_debut = [demar.name];
+    // Règle choisie dans l'administration (« Cadrage (début) ») : tâche(s) dont le début de période est repris
+    const rDebutCad = ruleTasks('cadrage_debut');
+    const spanDebutCad = rDebutCad ? span(rDebutCad) : null;
+    const demarDate = spanDebutCad ? spanDebutCad.start : demar && eff(demar) ? eff(demar).end : null;
+    if (demarDate) sources.date_debut = spanDebutCad ? rDebutCad.map(t => t.name) : [demar.name];
 
     // Cadrage : du jalon de démarrage à la fin de la tâche 2.9
-    const t29 = byCode('2.9'),
+    const t29 = ruleTasks('cadrage_fin') || byCode('2.9'),
         cadEnd = span(t29);
-    if (demarDate && cadEnd) {
-        found.cadrage = { start: demarDate, end: cadEnd.end >= demarDate ? cadEnd.end : demarDate };
-        sources.cadrage = [demar.name, ...t29.map(t => t.name)];
+    // Le cadrage dure toujours plus d'un jour : sans fin postérieure au début, la période n'est pas reprise (la fin se
+    // choisit dans l'administration ou se saisit dans le déploiement)
+    if (demarDate && cadEnd && cadEnd.end > demarDate) {
+        found.cadrage = { start: demarDate, end: cadEnd.end };
+        sources.cadrage = [...(sources.date_debut || [demar ? demar.name : '']), ...t29.map(t => t.name)];
     } else
         reasons.cadrage = demarDate
-            ? 'fin de cadrage (tâche 2.9) non datée dans Asana'
+            ? cadEnd
+                ? 'fin de cadrage (tâche 2.9) non postérieure au début : à choisir ou à saisir'
+                : 'fin de cadrage (tâche 2.9) non datée dans Asana'
             : "jalon « Démarrage projet auprès de l'ES » non daté ou absent";
 
     const firstDated = l => (l && (l.find(t => eff(t)) || l[0])) || undefined;
@@ -259,15 +293,24 @@ export function asanaComputeTasks(tasks, projectName, formationTarget) {
     } else reasons.mise_en_production = 'jalon « Mise en production du bandeau » non daté ou absent';
 
     // Déploiement opérationnel : fin du cadrage (2.9) + 1 jour → jalon « Mise en service du bandeau »
-    if (found.cadrage && mesD && asanaAddDays(found.cadrage.end, 1) <= mesD) {
-        found.deploiement = { start: asanaAddDays(found.cadrage.end, 1), end: mesD };
-        sources.deploiement = [...(sources.cadrage || []).slice(1), mes.name];
+    // (ou tâches choisies dans l'administration : « Déploiement (début) » et « Déploiement (fin) »)
+    const rDebutDep = ruleTasks('deploiement_debut');
+    const rFinDep = ruleTasks('deploiement_fin');
+    const depStart =
+        (rDebutDep && span(rDebutDep)?.start) || (found.cadrage ? asanaAddDays(found.cadrage.end, 1) : null);
+    const depEnd = (rFinDep && span(rFinDep)?.end) || mesD;
+    if (depStart && depEnd && depStart < depEnd) {
+        found.deploiement = { start: depStart, end: depEnd };
+        sources.deploiement = [
+            ...(rDebutDep && span(rDebutDep) ? rDebutDep.map(t => t.name) : (sources.cadrage || []).slice(1)),
+            ...(rFinDep && span(rFinDep) ? rFinDep.map(t => t.name) : mes ? [mes.name] : [])
+        ];
     } else
-        reasons.deploiement = !found.cadrage
+        reasons.deploiement = !depStart
             ? 'dépend de la fin du cadrage, non datée'
-            : !mesD
+            : !depEnd
               ? 'dépend de la mise en service, non datée'
-              : 'la mise en service précède la fin du cadrage';
+              : 'la fin du déploiement ne suit pas son début';
 
     // Jalons : une date, celle d'échéance (la plus tardive des tâches reconnues)
     const setMilestone = (key, list, why) => {
@@ -348,7 +391,14 @@ export function asanaApplyOverrides(c, ov) {
             const es = E(spec.start),
                 ee = E(spec.end);
             if (es || ee) {
-                const cur = c.found[key] || {};
+                // Début par défaut quand la période n'a pas été reprise (fin non postérieure au début)
+                const cur =
+                    c.found[key] ||
+                    (key === 'cadrage' && c.demarDate
+                        ? { start: c.demarDate }
+                        : key === 'deploiement' && c.found.cadrage
+                          ? { start: asanaAddDays(c.found.cadrage.end, 1) }
+                          : {});
                 let start = es ? es.start : cur.start,
                     end = ee ? ee.end : cur.end;
                 // Une seule tâche choisie : si elle couvre un intervalle, c'est tout son intervalle qui est repris
@@ -358,8 +408,14 @@ export function asanaApplyOverrides(c, ov) {
                 if (!start) start = end;
                 if (!end) end = start;
                 if (end < start) [start, end] = [end, start];
-                c.found[key] = { start, end };
-                delete c.reasons[key];
+                if (['cadrage', 'deploiement'].includes(key) && start >= end) {
+                    // Une phase ne tient jamais en un seul jour : fin à choisir
+                    delete c.found[key];
+                    c.reasons[key] = 'la fin doit être postérieure au début : choisissez la tâche de fin';
+                } else {
+                    c.found[key] = { start, end };
+                    delete c.reasons[key];
+                }
             }
         }
     }
@@ -594,7 +650,13 @@ export async function asanaApplyCore(req, c, wantList, forcedId, source) {
     const id = existing
         ? (await writeProject(existing.id, v, null), existing.id)
         : /** @type {number} */ (await writeProject(null, v, req.session.userId));
+    // Dates d'activités modifiées : désaffectation (totale ou partielle) des experts et bornes des événements (avant le
+    // nettoyage des affectations, qui supprimerait les informations nécessaires)
+    const periodChanges = existing
+        ? await affSnapshotPeriodChanges(existing, existing.periodsObj || {}, v.periods)
+        : [];
     await affReconcileAssignments(id, v.periods);
+    const desaffectations = existing ? await affApplyPeriodChanges(req, existing, periodChanges) : [];
     const changes = await affDiff(existing ? affValuesOfRow(existing) : null, v);
     if (changes.length)
         await affHist(req, id, v.samu_name, source === 'api' ? 'import_asana_api' : 'import_asana_csv', {
@@ -614,6 +676,7 @@ export async function asanaApplyCore(req, c, wantList, forcedId, source) {
         samu_name: v.samu_name,
         date_debut: v.date_debut,
         debutAjuste: !!debutAvant && debutAvant !== v.date_debut,
+        desaffectations,
         changes
     };
 }
@@ -796,7 +859,7 @@ export const asanaNormTask = (t, projectName, parentName) => {
 export const ASANA_TASK_FIELDS =
     'name,start_on,due_on,num_subtasks,parent.name,memberships.section.name,custom_fields.name,custom_fields.display_value';
 
-export async function asanaFetchProject(token, gid) {
+export async function asanaFetchProject(token, gid, { allSubtasks = false } = {}) {
     await asanaReloadStageRules();
     const proj = (await asanaApi(token, `/projects/${encodeURIComponent(gid)}?opt_fields=name`)).data;
     const raw = await asanaPaged(token, `/projects/${encodeURIComponent(gid)}/tasks?opt_fields=${ASANA_TASK_FIELDS}`);
@@ -808,6 +871,28 @@ export async function asanaFetchProject(token, gid) {
             `/tasks/${encodeURIComponent(t.gid)}/subtasks?opt_fields=name,start_on,due_on,custom_fields.name,custom_fields.display_value`
         );
         subs.forEach(st => tasks.push(asanaNormTask(st, proj.name, String(t.name || '').trim())));
+    }
+    // Projet type : toutes les tâches, à tous les niveaux, dans l'ordre d'Asana (chaque tâche suivie de ses sous-tâches)
+    if (allSubtasks) {
+        const byGid = new Map(tasks.map(t => [t.gid, t]));
+        const ordered = [];
+        const seen = new Set();
+        const visit = async (list, parentName, depth) => {
+            for (const t of list) {
+                const gid = String(t.gid);
+                if (seen.has(gid)) continue;
+                seen.add(gid);
+                ordered.push(byGid.get(gid) || asanaNormTask(t, proj.name, parentName));
+                if (!(t.num_subtasks > 0) || depth >= 4) continue;
+                const subs = await asanaPaged(
+                    token,
+                    `/tasks/${encodeURIComponent(gid)}/subtasks?opt_fields=name,num_subtasks,start_on,due_on,custom_fields.name,custom_fields.display_value`
+                );
+                await visit(subs, String(t.name || '').trim(), depth + 1);
+            }
+        };
+        await visit(raw, '', 1);
+        return { projectName: proj.name, tasks: ordered };
     }
     return { projectName: proj.name, tasks };
 }
@@ -844,7 +929,7 @@ export function asanaTemplateChoices(tasks) {
         seen.add(value);
         out.push({ value, label: (m ? `${m[1]} ${m[2]}` : name).slice(0, 90) });
     }
-    return out.slice(0, 600);
+    return out.slice(0, 1500);
 }
 
 export async function asanaLoadTemplate() {
@@ -968,7 +1053,11 @@ export async function asanaResolveConflicts(req, token, ctx, dep, choices) {
 export const ASANA_RULES = {
     date_debut: "Jalon « Démarrage projet auprès de l'ES »",
     cadrage: "Début : jalon « Démarrage projet auprès de l'ES » · Fin : tâche 2.9",
+    cadrage_debut: "Jalon « Démarrage projet auprès de l'ES »",
+    cadrage_fin: 'Tâche 2.9',
     deploiement: 'Début : fin du cadrage (2.9) + 1 jour · Fin : jalon « Mise en service du bandeau »',
+    deploiement_debut: 'Fin du cadrage (2.9) + 1 jour',
+    deploiement_fin: 'Jalon « Mise en service du bandeau »',
     mise_en_service: 'Jalon contenant « Mise en service du bandeau »',
     mise_en_production: 'Jalon contenant « Mise en production du bandeau »',
     reunion_lancement: 'Jalon : tâche « Réunion de lancement stratégique »',

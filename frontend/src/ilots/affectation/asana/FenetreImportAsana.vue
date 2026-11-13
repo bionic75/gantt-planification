@@ -8,6 +8,7 @@ import IconeAff from '../administration/IconeAff.vue';
 import { jourFr } from '../planning/outils';
 import { aAppliquer, rubriqueBloquee, rubriqueCochee } from './asana';
 import { useAsanaStore, type SourceImport } from './magasin';
+import AppSablier from '@/composants/AppSablier.vue';
 
 const props = defineProps<{ source: SourceImport }>();
 const emit = defineEmits<{ fermer: [] }>();
@@ -111,7 +112,7 @@ onMounted(() => {
             </div>
         </div>
         <div id="affAsanaResult">
-            <p v-if="lecture" class="aff-muted">Lecture du projet Asana…</p>
+            <p v-if="lecture" class="aff-muted"><AppSablier texte="Lecture du projet Asana…" /></p>
             <template v-else-if="apercu">
                 <div class="aff-sync-sec aff-asana-import__resume">
                     <b>{{ apercu.samuName }}</b> — projet Asana « {{ apercu.projectName }} » ({{

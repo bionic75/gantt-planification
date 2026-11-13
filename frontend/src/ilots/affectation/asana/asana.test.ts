@@ -11,6 +11,7 @@ import {
     origine,
     projetRetenu,
     resumeAnalyse,
+    selonRegle,
     rubriqueBloquee,
     rubriqueCochee,
     valeurTexte
@@ -102,6 +103,14 @@ describe('origine et remplacements', () => {
         expect(datesRubrique(VISITE, { start: 't2' }, TACHES)).toEqual({ start: '2031-03-10', end: '2031-03-12' });
         expect(datesRubrique(DEBUT, { task: 't1' }, TACHES)).toEqual({ start: '2031-01-06', end: '2031-01-06' });
         expect(datesRubrique({ ...VISITE, current: null, auto: null }, undefined, TACHES)).toBeNull();
+        // Jalon (réunion de lancement, visite OB) : date portée par une période d'un jour
+        const JALON = {
+            ...VISITE,
+            kind: 'date' as const,
+            current: { start: '2031-02-02', end: '2031-02-02' },
+            auto: null
+        };
+        expect(datesRubrique(JALON, undefined, TACHES)).toEqual({ start: '2031-02-02', end: '2031-02-02' });
     });
 });
 
@@ -129,5 +138,18 @@ describe('aperçu, analyse, filtre', () => {
         expect(projetRetenu('[SAMU 06] Déploiement Nice', '')).toBe(true);
         expect(filtreActif('  ')).toBe(false);
         expect(filtreActif('sf4')).toBe(true);
+    });
+});
+
+describe('colonne « Selon la règle »', () => {
+    it('règle : tâche(s) trouvée(s) et dates ; remplacement : tâche reprise et dates', () => {
+        const regle = { ...VISITE, sources: ['5.1 Visite de site'], auto: { start: '2031-03-03', end: '2031-03-05' } };
+        expect(selonRegle(regle, undefined, TACHES)).toEqual({
+            noms: ['5.1 Visite de site'],
+            dates: '03/03/2031 → 05/03/2031'
+        });
+        const forcee = selonRegle(regle, { start: 't2' }, TACHES);
+        expect(forcee.noms).toEqual([TACHES.find(t => t.gid === 't2')!.name]);
+        expect(forcee.dates).toBe('10/03/2031 → 12/03/2031');
     });
 });

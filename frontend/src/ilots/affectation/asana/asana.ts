@@ -63,6 +63,23 @@ export function apresRemplacement(r: RubriqueAsana, ov: Remplacement | undefined
     return (a ?? '') > (b ?? '') ? `${fr(b)} → ${fr(a)}` : `${fr(a)} → ${fr(b)}`;
 }
 
+/**
+ * Colonne « Selon la règle » : nom(s) de la tâche reprise et date(s), soit celles trouvées par la règle de
+ * l'administration, soit celles de la tâche forcée dans « Remplacer par la tâche… »
+ */
+export function selonRegle(r: RubriqueAsana, ov: Remplacement | undefined, taches: TacheAsana[]) {
+    const nom = (gid: string | undefined) => taches.find(x => x.gid === gid)?.name ?? '';
+    const forcees = (r.kind === 'date' ? [ov?.task] : [ov?.start, ov?.end]).map(nom).filter(Boolean);
+    if (estRemplacee(r, ov) && forcees.length) {
+        const d = datesRubrique(r, ov, taches);
+        return {
+            noms: [...new Set(forcees)],
+            dates: d ? (d.start === d.end ? fr(d.start) : `${fr(d.start)} → ${fr(d.end)}`) : valeurTexte(r.auto)
+        };
+    }
+    return { noms: [...new Set(r.sources)], dates: valeurTexte(r.auto) };
+}
+
 /** Dates de l'activité d'une rubrique (remplacements compris), pour l'événement associé ; null si non datée */
 export function datesRubrique(
     r: RubriqueAsana,
@@ -72,7 +89,8 @@ export function datesRubrique(
     const o = ov ?? {};
     if (r.kind === 'date') {
         const e = effDe(taches, o.task);
-        const v = e ? e.end : r.current?.date || r.auto?.date;
+        // Jalons : date unique, portée par « date » (mise en service / production) ou par une période d'un jour
+        const v = e ? e.end : r.current?.date || r.current?.start || r.auto?.date || r.auto?.start;
         return v ? { start: v, end: v } : null;
     }
     const es = effDe(taches, o.start);

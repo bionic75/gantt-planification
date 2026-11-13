@@ -2,7 +2,7 @@
      la règle, remplacement par une autre tâche du projet (mémorisé pour les prochains rafraîchissements), événement
      associé ; liste de toutes les tâches ; projet à choisir quand plusieurs portent le numéro du SAMU -->
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { apiAffectation, type CandidatsActivite } from '@/api/affectation';
 import { apiAsana, type Remplacement, type RubriqueAsana, type TachesProjet } from '@/api/asana';
 import AppModal from '@/composants/AppModal.vue';
@@ -10,8 +10,17 @@ import { ACTIVITES_EVENEMENTS } from '../administration/administration';
 import IconeAff from '../administration/IconeAff.vue';
 import LienEvenement from '../administration/LienEvenement.vue';
 import { jourFr } from '../planning/outils';
-import { apresRemplacement, datesRubrique, estRemplacee, libelleTache, origine, valeurTexte } from './asana';
+import {
+    apresRemplacement,
+    datesRubrique,
+    estRemplacee,
+    libelleTache,
+    origine,
+    selonRegle,
+    valeurTexte
+} from './asana';
 import { useAsanaStore } from './magasin';
+import AppSablier from '@/composants/AppSablier.vue';
 
 const props = defineProps<{ id: number }>();
 const emit = defineEmits<{ fermer: [] }>();
@@ -27,15 +36,17 @@ const candidats = ref<Record<string, CandidatsActivite> | null | undefined>(unde
 const message = ref<{ texte: string; classe: string }>({ texte: '', classe: '' });
 const envoi = ref(false);
 
+/** Interrogation d'Asana en cours */
+const interrogation = ref(false);
 const dire = (texte: string, classe = 'aff-asana-msg--erreur') => (message.value = { texte, classe });
 
-async function charger() {
+async function charger(avecAsana = false) {
     donnees.value = null;
     erreurChargement.value = '';
     remplacements.value = {};
     message.value = { texte: '', classe: '' };
     try {
-        const d = await apiAsana.taches(props.id);
+        const d = await apiAsana.taches(props.id, avecAsana);
         remplacements.value = Object.fromEntries(
             d.rubriques.filter(r => r.override).map(r => [r.key, { ...r.override! }])
         );
@@ -53,6 +64,8 @@ async function charger() {
 
 const ov = (k: string) => remplacements.value[k];
 const taches = () => donnees.value?.tasks ?? [];
+/** Données d'Asana disponibles : lecture en direct ou dernière lecture mémorisée */
+const avecDonnees = computed(() => donnees.value?.interroge !== false || !!donnees.value?.cache);
 
 function choisir(r: RubriqueAsana, champ: keyof Remplacement, valeur: string) {
     const o = { ...(remplacements.value[r.key] ?? {}) };
@@ -64,12 +77,20 @@ function choisir(r: RubriqueAsana, champ: keyof Remplacement, valeur: string) {
     remplacements.value = tous;
 }
 
-async function changerProjet(gid: string) {
+/** Interroge Asana : tâches du projet, valeurs selon la règle et écarts avec l'application */
+async function interroger() {
+    interrogation.value = true;
+    message.value = { texte: '', classe: '' };
     try {
-        await apiAsana.apparier(gid, props.id);
-        await charger();
+        const d = await apiAsana.taches(props.id, true);
+        donnees.value = d;
+        remplacements.value = Object.fromEntries(
+            d.rubriques.filter(r => r.override).map(r => [r.key, { ...r.override! }])
+        );
     } catch (e) {
         dire((e as Error).message);
+    } finally {
+        interrogation.value = false;
     }
 }
 
@@ -88,11 +109,9 @@ async function rechargerCandidats() {
 
 async function appliquer() {
     envoi.value = true;
-    dire('Application…', 'aff-asana-msg--neutre');
+    message.value = { texte: '', classe: '' };
     try {
         const r = await apiAsana.remplacer(props.id, remplacements.value);
-        message.value = { texte: '', classe: '' };
-        emit('fermer');
         if (r.unchanged) magasin.annoncer(`${r.samu_name} : remplacements enregistrés, aucune date à modifier.`);
         else {
             magasin.montrerChangements({
@@ -101,6 +120,9 @@ async function appliquer() {
             });
             magasin.deploiementsModifies();
         }
+        // La fenêtre reste ouverte et reprend les valeurs mises à jour (Asana relu)
+        await interroger();
+        await rechargerCandidats();
     } catch (e) {
         dire((e as Error).message);
     } finally {
@@ -121,34 +143,43 @@ onMounted(() => void charger());
     >
         <div id="affAsanaTasksBody">
             <p v-if="erreurChargement" class="aff-error">{{ erreurChargement }}</p>
-            <p v-else-if="!donnees" class="aff-muted">Chargement des tâches depuis Asana…</p>
+            <p v-else-if="!donnees" class="aff-muted"><AppSablier texte="Chargement des tâches depuis Asana…" /></p>
             <template v-else>
                 <p class="aff-asana-taches__intro">
-                    <b>{{ donnees.samu }}</b> · projet Asana :
-                    <template v-if="(donnees.candidates || []).length > 1"
-                        ><select
-                            class="aff-asana-taches__projet"
-                            title="Plusieurs projets Asana portent ce numéro de SAMU : choisissez le bon"
-                            aria-label="Projet Asana du déploiement"
-                            :value="donnees.gid"
-                            @change="changerProjet(($event.target as HTMLSelectElement).value)"
+                    <b>{{ donnees.samu }}</b>
+                    <button
+                        type="button"
+                        class="aff-icon-btn aff-asyn aff-icon-btn--asana aff-asana-taches__sync"
+                        :class="{ 'aff-busy': interrogation }"
+                        title="Interroger Asana et afficher les écarts avec l'application"
+                        aria-label="Interroger Asana"
+                        :disabled="interrogation"
+                        @click="interroger"
+                    >
+                        <IconeAff nom="asanasync" classe="aff-ico-sm" />
+                    </button>
+                    <AppSablier v-if="interrogation" texte="Interrogation d'Asana…" />
+                    <template v-else-if="avecDonnees">
+                        · projet Asana :
+                        <a v-if="donnees.url" :href="donnees.url" target="_blank" rel="noopener">{{ donnees.asana }}</a
+                        ><template v-else>{{ donnees.asana }}</template> · {{ donnees.tasks.length }} tâche(s). Pour
+                        chaque rubrique, la <b>règle automatique</b> choisit la tâche ; vous pouvez la
+                        <b>remplacer</b> par n'importe quelle autre tâche du projet (liste avec échéances). Le
+                        remplacement est mémorisé : il s'applique aussi aux prochains rafraîchissements.
+                        <i v-if="donnees.interroge === false && donnees.cache" class="aff-muted"
+                            >Dernière lecture d'Asana : {{ new Date(donnees.cache).toLocaleString('fr-FR') }} — cliquez
+                            sur l'icône pour actualiser.</i
                         >
-                            <option v-for="x in donnees.candidates" :key="x.gid" :value="x.gid">{{ x.name }}</option>
-                        </select>
-                        <a v-if="donnees.url" :href="donnees.url" target="_blank" rel="noopener">ouvrir</a></template
-                    ><a v-else-if="donnees.url" :href="donnees.url" target="_blank" rel="noopener">{{
-                        donnees.asana
-                    }}</a
-                    ><template v-else>{{ donnees.asana }}</template> · {{ donnees.tasks.length }} tâche(s). Pour chaque
-                    rubrique, la <b>règle automatique</b> choisit la tâche ; vous pouvez la <b>remplacer</b> par
-                    n'importe quelle autre tâche du projet (liste avec échéances). Le remplacement est mémorisé : il
-                    s'applique aussi aux prochains rafraîchissements.
+                    </template>
+                    <template v-else>
+                        · Données de l'application. Cliquez sur l'icône pour interroger Asana et afficher les écarts.
+                    </template>
                 </p>
                 <div class="aff-asana-defile">
                     <table class="aff-asana-table aff-asana-taches__table">
                         <thead>
                             <tr>
-                                <th>Rubrique (règle)</th>
+                                <th>Rubrique</th>
                                 <th>Valeur actuelle</th>
                                 <th>Selon la règle</th>
                                 <th class="aff-asana-taches__choix">Remplacer par la tâche…</th>
@@ -167,12 +198,11 @@ onMounted(() => void charger());
                                     ><template v-if="estRemplacee(r, ov(r.key))">
                                         <span class="aff-av-b mid">remplacé</span></template
                                     >
-                                    <div class="aff-muted aff-asana-petit">{{ r.rule }}</div>
                                 </td>
                                 <td>
                                     <span class="aff-asana-nowrap">{{ valeurTexte(r.current) }}</span>
                                     <div
-                                        v-if="origine(r, ov(r.key), taches()) === 'asana'"
+                                        v-if="avecDonnees && origine(r, ov(r.key), taches()) === 'asana'"
                                         class="aff-asana-origine aff-asana-origine--asana"
                                     >
                                         <img
@@ -184,27 +214,37 @@ onMounted(() => void charger());
                                         Asana (origine)
                                     </div>
                                     <div
-                                        v-else-if="origine(r, ov(r.key), taches()) === 'tool'"
+                                        v-else-if="avecDonnees && origine(r, ov(r.key), taches()) === 'tool'"
                                         class="aff-asana-origine aff-asana-origine--outil"
                                         title="Cette valeur diffère de celle d'Asana : elle a été modifiée dans l'outil de planification"
                                     >
                                         ✎ modifiée dans l'outil
                                     </div>
                                 </td>
-                                <td class="aff-asana-nowrap">
-                                    {{ valeurTexte(r.auto) }}
-                                    <div v-if="r.sources.length" class="aff-muted aff-asana-taches__sources">
-                                        {{ r.sources.map(x => String(x).slice(0, 60)).join(' · ') }}
+                                <td>
+                                    <div
+                                        v-for="n in selonRegle(r, ov(r.key), taches()).noms"
+                                        :key="n"
+                                        class="aff-muted aff-asana-taches__sources"
+                                    >
+                                        {{ String(n).slice(0, 90) }}
+                                    </div>
+                                    <div class="aff-asana-nowrap">
+                                        {{ selonRegle(r, ov(r.key), taches()).dates }}
                                     </div>
                                 </td>
                                 <td>
                                     <select
                                         v-if="r.kind === 'date'"
+                                        :disabled="!avecDonnees"
                                         :value="ov(r.key)?.task ?? ''"
                                         :aria-label="`Tâche remplaçante : ${r.label}`"
                                         @change="choisir(r, 'task', ($event.target as HTMLSelectElement).value)"
                                     >
                                         <option value="">— règle automatique —</option>
+                                        <option v-if="!avecDonnees && ov(r.key)?.task" :value="ov(r.key)!.task">
+                                            Tâche mémorisée (interrogez Asana pour la voir)
+                                        </option>
                                         <option
                                             v-for="t in donnees.tasks"
                                             :key="t.gid"
@@ -220,11 +260,18 @@ onMounted(() => void charger());
                                                 champ === 'start' ? 'Début' : 'Fin'
                                             }}</span>
                                             <select
+                                                :disabled="!avecDonnees"
                                                 :value="ov(r.key)?.[champ] ?? ''"
                                                 :aria-label="`Tâche de ${champ === 'start' ? 'début' : 'fin'} : ${r.label}`"
                                                 @change="choisir(r, champ, ($event.target as HTMLSelectElement).value)"
                                             >
                                                 <option value="">— règle automatique —</option>
+                                                <option
+                                                    v-if="!avecDonnees && ov(r.key)?.[champ]"
+                                                    :value="ov(r.key)![champ]"
+                                                >
+                                                    Tâche mémorisée (interrogez Asana pour la voir)
+                                                </option>
                                                 <option
                                                     v-for="t in donnees.tasks"
                                                     :key="t.gid"
@@ -296,6 +343,7 @@ onMounted(() => void charger());
         </div>
         <template #footer>
             <span id="affAsanaTasksMsg" class="aff-error" :class="message.classe">{{ message.texte }}</span>
+            <AppSablier v-if="envoi" texte="Prise en compte des remplacements…" />
             <button
                 type="button"
                 class="aff-btn"
