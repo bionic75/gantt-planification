@@ -1,7 +1,7 @@
 // @ts-check
 // Aide à l'affectation opérationnelle (déploiements des SAMU) : /api/affectation
 import { Router } from 'express';
-import { requireAdmin, requireAffectationAccess } from '../../middlewares/auth.js';
+import { requireAdmin, requireAffectationAccess, requireDeploiementsLecture } from '../../middlewares/auth.js';
 import { sondagePublicLimiters } from '../../middlewares/rate-limit.js';
 import { asyncHandler as h } from '../../middlewares/error-handler.js';
 import * as ctrl from './affectation.controller.js';
@@ -13,13 +13,13 @@ import * as exp from './export.controller.js';
 const router = Router();
 
 // Configuration, référentiels
-router.get('/affectation/config', requireAffectationAccess, h(ctrl.config));
+router.get('/affectation/config', requireDeploiementsLecture, h(ctrl.config));
 router.put('/affectation/colors', requireAdmin, h(ctrl.saveColors));
 router.get('/affectation/users', requireAdmin, h(ctrl.users));
 router.get('/affectation/resources', requireAffectationAccess, h(ctrl.resources));
 
 // Déploiements
-router.get('/affectation/projects', requireAffectationAccess, h(ctrl.listProjects));
+router.get('/affectation/projects', requireDeploiementsLecture, h(ctrl.listProjects));
 router.post('/affectation/projects', requireAdmin, h(ctrl.createProject));
 router.put('/affectation/projects/:id', requireAdmin, h(ctrl.updateProject));
 router.delete('/affectation/projects/:id', requireAdmin, h(ctrl.deleteProject));

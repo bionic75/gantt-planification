@@ -85,6 +85,8 @@ export interface AccesAccueil {
     evenements: boolean;
     cra: boolean;
     affectation: boolean;
+    /** Frise des déploiements en cours de l'Accueil : accès à l'Aide à l'affectation, Expert métier et Utilisateur */
+    deploiements: boolean;
     deplacements: boolean;
     /** Ajout d'un lieu (SAMU-SAS TripAdVisor) */
     lieux: boolean;
@@ -109,6 +111,7 @@ export function accesDe(config: ConfigOnglets | null, s: Session): AccesAccueil 
         astreintes: p === 'expert' && peut(config, p, 'astreintesGestion'),
         cra: craVisible(config, s),
         affectation: applications.includes('affectation'),
+        deploiements: applications.includes('affectation') || p === 'expert' || p === 'user',
         deplacements: applications.includes('deplacements'),
         ressource: !!s.resourceId,
         gestionAstreintes: (p === 'admin' || p === 'expert') && peut(config, p, 'astreintesGestion'),

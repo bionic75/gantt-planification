@@ -120,10 +120,13 @@ describe('administration des comptes', () => {
             availableApps: expect.arrayContaining(['affectation'])
         });
         const client = await loginAs(server, user, 'user');
-        expect((await client.get('/api/affectation/config')).status).toBe(200);
+        expect((await client.get('/api/affectation/resources')).status).toBe(200);
 
         expect((await admin.delete(`/api/app-access/affectation/users/${user.id}`)).status).toBe(200);
-        expect((await client.get('/api/affectation/config')).status).toBe(403);
+        expect((await client.get('/api/affectation/resources')).status).toBe(403);
+        // Frise de l'Accueil : lecture des déploiements ouverte aux profils Utilisateur et Expert, sans l'application
+        expect((await client.get('/api/affectation/projects')).status).toBe(200);
+        expect((await client.get('/api/affectation/config')).status).toBe(200);
     });
 });
 
