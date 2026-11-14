@@ -7,6 +7,7 @@ import { idParam, sqlTimestamp } from '../../db/values.js';
 import { createEmailTransporter, emailConfig } from '../../lib/mailer.js';
 import { getJsonSetting } from '../../services/settings.js';
 import { teamsCardHtml, teamsMessage } from './notifications.emails.js';
+import { isLoggedActivity, LOGGED_ACTIVITIES } from '../schedule/schedule.service.js';
 
 /** Connexions SSE ouvertes : userId → réponse */
 /** @type {Map<number, import('express').Response>} */
@@ -196,8 +197,9 @@ export async function markAllRead(/** @type {number} */ userId) {
  * Notifications « Nouvelle affectation » des experts ; une notification non lue de la même demi-journée est remplacée
  * @param {any[]} notifications [{ resourceId, date, period, activity, location }]
  * @param {string} requesterName
+ * @param {number | null} [exceptUserId] expert à ne pas notifier (auteur de la modification)
  */
-export async function createBatch(notifications, requesterName) {
+export async function createBatch(notifications, requesterName, exceptUserId = null) {
     let created = 0;
     let errors = 0;
     for (const { resourceId, date, period, activity, location } of notifications) {
@@ -211,6 +213,7 @@ export async function createBatch(notifications, requesterName) {
                 console.log(`⚠️ Pas d'utilisateur expert trouvé pour resource_id ${resourceId}`);
                 continue;
             }
+            if (exceptUserId !== null && user.id === exceptUserId) continue;
             const activityName = location && location !== '-' ? `${activity} (${location})` : activity;
             const data = {
                 activity_name: activityName,
@@ -239,6 +242,34 @@ export async function createBatch(notifications, requesterName) {
         }
     }
     return { created, errors };
+}
+
+/**
+ * Notifie les experts de leurs nouvelles affectations posées par un tiers (grille de planification, aide à
+ * l'affectation) : une notification « Nouvelle affectation » par demi-journée dont l'activité est une affectation
+ * (activités 3 à 8). Sans effet sur ses propres modifications. Les erreurs sont journalisées sans interrompre
+ * l'enregistrement.
+ * @param {Array<{ resourceId: number, dateKey: string, activity: unknown, location?: string | null }>} cells
+ * @param {{ userId: number, name: string }} auteur
+ */
+export async function notifierAffectations(cells, auteur) {
+    try {
+        const items = cells
+            .filter(c => isLoggedActivity(c.activity) && /^\d{4}-\d{2}-\d{2}_(AM|PM)$/.test(c.dateKey))
+            .map(c => {
+                const [date, periode] = c.dateKey.split('_');
+                return {
+                    resourceId: c.resourceId,
+                    date,
+                    period: periode === 'AM' ? 'Matin' : 'Après-midi',
+                    activity: LOGGED_ACTIVITIES[/** @type {keyof typeof LOGGED_ACTIVITIES} */ (Number(c.activity))],
+                    location: c.location || '-'
+                };
+            });
+        if (items.length) await createBatch(items, auteur.name, auteur.userId);
+    } catch (err) {
+        console.error('❌ Erreur notification des affectations:', err);
+    }
 }
 
 /** Suppression de toutes les notifications, avec le nombre supprimé par expert */
