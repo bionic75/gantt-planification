@@ -16,6 +16,9 @@ import {
     DISPONIBILITES,
     classerCreneaux,
     detailExpert,
+    trierLignesExperts,
+    type ColonneExperts,
+    type LigneExpert,
     expertsProposes,
     intervalleParDefaut,
     jourCreneau,
@@ -92,14 +95,28 @@ function reinitialiser() {
     erreur.value = '';
 }
 
-const lignesExperts = computed(() =>
-    (resultats.value ?? []).map(r => ({
+/** Tri du tableau « Résultats par expert » : colonne et sens (premier clic : croissant) */
+const triExperts = ref<{ colonne: ColonneExperts; croissant: boolean } | null>(null);
+function trierExperts(colonne: ColonneExperts) {
+    const t = triExperts.value;
+    triExperts.value = { colonne, croissant: t?.colonne === colonne ? !t.croissant : true };
+}
+const sensTri = (colonne: ColonneExperts) => {
+    const t = triExperts.value;
+    return t?.colonne === colonne ? (t.croissant ? 'ascending' : 'descending') : undefined;
+};
+
+const lignesExperts = computed(() => {
+    const lignes: LigneExpert[] = (resultats.value ?? []).map(r => ({
         id: r.ressource.id,
-        nom: `${r.ressource.nom} ${r.ressource.prenom}`,
+        nom: `${r.ressource.prenom} ${r.ressource.nom}`.trim(),
         nombre: r.correspondances.length,
-        detail: detailExpert(r.correspondances)
-    }))
-);
+        detail: detailExpert(r.correspondances),
+        premiere: r.correspondances.map(c => c.date).sort()[0] ?? ''
+    }));
+    const t = triExperts.value;
+    return t ? trierLignesExperts(lignes, t.colonne, t.croissant) : lignes;
+});
 
 const creneaux = computed(() => classerCreneaux(resultats.value ?? []));
 const lignesCreneaux = computed(() =>
@@ -233,9 +250,33 @@ const lignesCreneaux = computed(() =>
                     <table class="gp-recherche__table">
                         <thead>
                             <tr class="gp-recherche__entete">
-                                <th class="gp-recherche__gauche">Expert</th>
-                                <th>Nb demi-journées</th>
-                                <th class="gp-recherche__gauche">Détails</th>
+                                <th
+                                    class="gp-recherche__gauche gp-recherche__tri"
+                                    tabindex="0"
+                                    :aria-sort="sensTri('nom')"
+                                    @click="trierExperts('nom')"
+                                    @keydown.enter.prevent="trierExperts('nom')"
+                                >
+                                    Expert
+                                </th>
+                                <th
+                                    class="gp-recherche__tri"
+                                    tabindex="0"
+                                    :aria-sort="sensTri('nombre')"
+                                    @click="trierExperts('nombre')"
+                                    @keydown.enter.prevent="trierExperts('nombre')"
+                                >
+                                    Nb demi-journées
+                                </th>
+                                <th
+                                    class="gp-recherche__gauche gp-recherche__tri"
+                                    tabindex="0"
+                                    :aria-sort="sensTri('detail')"
+                                    @click="trierExperts('detail')"
+                                    @keydown.enter.prevent="trierExperts('detail')"
+                                >
+                                    Détails
+                                </th>
                             </tr>
                         </thead>
                         <tbody>
