@@ -14,17 +14,17 @@ const store = useUtilisateursStore();
 const confirmer = useConfirmation();
 const tableau = ref<HTMLTableElement | null>(null);
 
-/** Tri courant ; sens mémorisé par colonne, comme l'ancien écran (premier clic : croissant) */
-const tri = ref<ColonneTri | null>(null);
-const croissant = ref<Partial<Record<ColonneTri, boolean>>>({});
+/** Tri courant (conservé dans le magasin) ; sens mémorisé par colonne (premier clic : croissant) */
+const tri = computed(() => store.tri);
+const croissant = computed(() => store.croissant);
 const lignes = computed(() => {
     const base = parNom(store.utilisateurs);
     return tri.value ? trier(base, tri.value, !!croissant.value[tri.value]) : base;
 });
 
 function trierPar(c: ColonneTri) {
-    croissant.value[c] = !croissant.value[c];
-    tri.value = c;
+    store.croissant[c] = !store.croissant[c];
+    store.tri = c;
 }
 
 const COLONNES: Array<{ libelle: string; tri?: ColonneTri; titre?: string; classe?: string }> = [
@@ -41,9 +41,8 @@ const COLONNES: Array<{ libelle: string; tri?: ColonneTri; titre?: string; class
         classe: 'no-sort',
         titre: 'Peut être désigné sur le planning des astreintes HO ANS'
     },
-    // Tri sans effet dans l'ancien écran (colonne mal référencée) : anomalie conservée
-    { libelle: 'Actif' },
-    { libelle: 'Dernière connexion' },
+    { libelle: 'Actif', tri: 'actif' },
+    { libelle: 'Dernière connexion', tri: 'last_login' },
     { libelle: 'Actions', classe: 'no-sort liste__actions-entete' }
 ];
 
