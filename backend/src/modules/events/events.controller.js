@@ -134,7 +134,7 @@ export async function join(/** @type {Request} */ req, /** @type {Response} */ r
             console.error('Synchro événements → affectations :', /** @type {Error} */ (e).message);
         }
         // Événement tagué : planification toujours en « 2 - 3 » avec le SAMU-SAS, même avec un déploiement
-        if (!deploiements.length || (await service.estEvenementTague(joined.event)))
+        if (!deploiements.length || (await service.ecritSamu(joined.event)))
             planningUpdates = await service.applyJoinPlanning(joined.event, resourceId);
     }
     res.json({
@@ -163,7 +163,7 @@ export async function leave(/** @type {Request} */ req, /** @type {Response} */ 
         try {
             const stages = await affectation.affStagesOfEvent(eventId);
             const affectes = await affectation.affAssignedAmong(resourceId, stages);
-            if (!affectes.length && (await service.estEvenementTague(event))) {
+            if (!affectes.length && (await service.ecritSamu(event))) {
                 const no = samuNumber(await service.localisationSamu(event));
                 planningReset += await affectation.affResetPlanning({
                     resourceIds: [resourceId],
