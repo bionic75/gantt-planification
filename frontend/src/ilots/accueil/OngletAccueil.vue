@@ -319,6 +319,6 @@ function missions(jour: JourPersonne): Array<{ moment: string | null; mission: M
             </section>
         </div>
 
-        <FriseDeploiements v-if="accueil.acces?.affectation" />
+        <FriseDeploiements v-if="accueil.acces?.deploiements" />
     </div>
 </template>

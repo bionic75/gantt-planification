@@ -69,8 +69,10 @@ describe('accès aux onglets', () => {
             affecter: false,
             astreintes: true,
             ressource: true,
-            affectation: false
+            affectation: false,
+            deploiements: true
         });
+        expect(accesDe(null, { ...SESSION, activeProfile: 'rh' }).deploiements).toBe(false);
     });
 
     it('onglet d’arrivée : celui du profil s’il est accessible, sinon l’Accueil', () => {

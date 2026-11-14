@@ -113,6 +113,21 @@ export function requireAffectationAccess(req, res, next) {
 }
 
 /**
+ * Lecture des déploiements (frise de l'Accueil) : comptes autorisés sur l'Aide à l'affectation, et profils Expert
+ * métier et Utilisateur (lecture seule)
+ * @type {RequestHandler}
+ */
+export function requireDeploiementsLecture(req, res, next) {
+    if (rejectUnauthenticated(req, res)) return;
+    const profil = req.session.activeProfile;
+    if (profil === 'expert' || profil === 'user') {
+        touchSession(/** @type {number} */ (req.session.userId));
+        return next();
+    }
+    return requireAffectationAccess(req, res, next);
+}
+
+/**
  * Utilisateur autorisé sur l'application « Suivi des déplacements » (accès attribué dans l'Administration), comme le
  * menu Applications qui ne la propose qu'à ces comptes, profil administrateur compris
  * @type {RequestHandler}
