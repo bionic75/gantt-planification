@@ -78,6 +78,10 @@ describe('accès aux onglets', () => {
     it('onglet d’arrivée : celui du profil s’il est accessible, sinon l’Accueil', () => {
         expect(ongletArrivee(null, SESSION)).toBe('accueil');
         expect(ongletArrivee(null, { ...SESSION, defaultTab: 'planning' })).toBe('planning');
+        // RH : jamais l'Accueil, le CRA à défaut
+        const rh = { ...SESSION, activeProfile: 'rh' as const };
+        expect(ongletArrivee(null, rh)).toBe('cra');
+        expect(ongletArrivee(null, { ...rh, defaultTab: 'resources' })).toBe('resources');
     });
 
     it('pastille : CRA non archivés et non diffusés', () => {
@@ -132,6 +136,8 @@ describe('adresses', () => {
         expect(destination(route('/analyse'), null, SESSION)).toBeNull();
         expect(destination(route('/deplacements'), null, SESSION)).toBe('/accueil');
         expect(destination(route('/cra/3'), null, SESSION)).toBe('/accueil');
+        // RH : pas d'Accueil, renvoyé sur le CRA
+        expect(destination(route('/accueil'), null, { ...SESSION, activeProfile: 'rh' })).toBe('/cra');
     });
 });
 
