@@ -19,8 +19,9 @@ Protections :
 | `auth` | Utilisateur connecté |
 | `admin` | Administrateur |
 | `adminOrRh` | Administrateur ou RH |
-| `reporting` | Administrateur ou droit « reporting » |
+| `reporting` | Administrateur, ou profil autorisé à l’onglet Reporting (configuration de l’accès aux onglets) |
 | `affectation` | Administrateur ou accès à « Aide à l’affectation » |
+| `deploiements` | Accès à « Aide à l’affectation », ou profil Expert métier / Utilisateur (lecture des déploiements) |
 | `deplacements` | Accès à « Suivi des déplacements » |
 | `mfaPending` | Connexion en attente de double authentification |
 | `apiKey` | Clé d’API (en-tête X-Api-Key) |
@@ -81,7 +82,7 @@ Protections :
 | GET | `/api/affectation/ateliers/meta` | affectation |
 | POST | `/api/affectation/ateliers/simulate` | affectation |
 | PUT | `/api/affectation/colors` | admin |
-| GET | `/api/affectation/config` | affectation |
+| GET | `/api/affectation/config` | deploiements |
 | GET | `/api/affectation/events` | affectation |
 | GET | `/api/affectation/export-config` | affectation |
 | PUT | `/api/affectation/export-config` | admin |
@@ -89,7 +90,7 @@ Protections :
 | POST | `/api/affectation/export/pptx` | affectation |
 | POST | `/api/affectation/import/asana-csv` | admin |
 | POST | `/api/affectation/import/asana-csv/apply` | admin |
-| GET | `/api/affectation/projects` | affectation |
+| GET | `/api/affectation/projects` | deploiements |
 | POST | `/api/affectation/projects` | admin |
 | PUT | `/api/affectation/projects/:id` | admin |
 | DELETE | `/api/affectation/projects/:id` | admin |

@@ -182,7 +182,7 @@
     {
         "method": "GET",
         "path": "/api/affectation/config",
-        "guard": "affectation"
+        "guard": "deploiements"
     },
     {
         "method": "GET",
@@ -222,7 +222,7 @@
     {
         "method": "GET",
         "path": "/api/affectation/projects",
-        "guard": "affectation"
+        "guard": "deploiements"
     },
     {
         "method": "POST",

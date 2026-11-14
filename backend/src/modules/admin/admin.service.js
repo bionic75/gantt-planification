@@ -67,8 +67,6 @@ export function tabAccessMerge(stored) {
             out[p][k] = v;
         });
     });
-    // Le reporting n'est accessible qu'au profil administrateur
-    TAB_PROFILES.forEach(p => (out[p].reporting = p === 'admin'));
     out.admin.admin = true; // l'administrateur ne peut pas perdre l'accès à l'Administration (verrouillage impossible)
     return out;
 }

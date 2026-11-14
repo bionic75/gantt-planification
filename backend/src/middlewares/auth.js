@@ -3,6 +3,8 @@
 import crypto from 'crypto';
 import { prisma } from '../db/prisma.js';
 import { sqlTimestamp } from '../db/values.js';
+import { tabAccessMerge } from '../modules/admin/admin.service.js';
+import { getJsonSetting } from '../services/settings.js';
 import { activeSessions, touchSession } from '../state/sessions.js';
 
 /** @typedef {import('express').RequestHandler} RequestHandler */
@@ -80,17 +82,20 @@ export function requireAdminOrRh(req, res, next) {
     next();
 }
 
-/** Administrateur, ou utilisateur disposant du droit « reporting » */
+/** Onglet Reporting : administrateur par défaut, autres profils selon la configuration de l'accès aux onglets */
 /** @type {RequestHandler} */
-export function requireReportingAccess(req, res, next) {
+export async function requireReportingAccess(req, res, next) {
     if (rejectUnauthenticated(req, res)) return;
     const userId = /** @type {number} */ (req.session.userId);
-    if (req.session.activeProfile === 'admin') {
-        touchSession(userId);
-        return next();
+    const profil = req.session.activeProfile;
+    let permis = profil === 'admin';
+    if (!permis && profil) {
+        const config = tabAccessMerge(await getJsonSetting('tab_access_config').catch(() => null));
+        permis = config[profil]?.reporting === true;
     }
-    // Le reporting est réservé au profil administrateur (plus d'accès individuel par compte)
-    return res.status(403).json({ error: 'Accès au reporting non autorisé' });
+    if (!permis) return res.status(403).json({ error: 'Accès au reporting non autorisé' });
+    touchSession(userId);
+    next();
 }
 
 /**
