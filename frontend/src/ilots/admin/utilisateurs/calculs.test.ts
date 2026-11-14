@@ -118,6 +118,22 @@ describe('liste', () => {
         expect(trier(liste, 'username', true).map(u => u.id)).toEqual([3, 1, 2]);
         expect(trier(liste, 'username', false).map(u => u.id)).toEqual([2, 1, 3]);
     });
+
+    it('tri par « Actif » et par « Dernière connexion »', () => {
+        const l = [
+            compte({ id: 1, actif: 1, last_login: '2031-05-02T10:00:00Z' }),
+            compte({ id: 2, actif: 0, last_login: null }),
+            compte({ id: 3, actif: 1, last_login: '2031-05-10T08:00:00Z' })
+        ];
+        expect(trier(l, 'actif', true).map(u => u.id)[0]).toBe(2);
+        expect(
+            trier(l, 'actif', false)
+                .map(u => u.id)
+                .slice(-1)
+        ).toEqual([2]);
+        expect(trier(l, 'last_login', true).map(u => u.id)).toEqual([2, 1, 3]);
+        expect(trier(l, 'last_login', false).map(u => u.id)).toEqual([3, 1, 2]);
+    });
 });
 
 describe('détails', () => {
@@ -129,9 +145,10 @@ describe('détails', () => {
         created_at
     });
 
-    it('anomalies conservées : rôles sans RH, connexion RH affichée « Utilisateur »', () => {
-        expect(roles(compte({ is_admin: 1, is_rh: 1 }))).toBe('Administrateur, Utilisateur');
-        expect(profilConnexion('rh')).toBe('Utilisateur');
+    it('rôles avec le profil RH, connexion RH affichée « RH »', () => {
+        expect(roles(compte({ is_admin: 1, is_rh: 1 }))).toBe('Administrateur, Utilisateur, RH');
+        expect(profilConnexion('rh')).toBe('RH');
+        expect(profilConnexion('user')).toBe('Utilisateur');
         expect(activite('3')).toBe('📞 SAMU (Déploiement)');
     });
 

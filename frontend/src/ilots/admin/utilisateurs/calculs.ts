@@ -136,8 +136,8 @@ export const compteur = (liste: Utilisateur[]) => {
 export const parNom = (liste: Utilisateur[]) =>
     [...liste].sort((a, b) => `${a.nom} ${a.prenom}`.toLowerCase().localeCompare(`${b.nom} ${b.prenom}`.toLowerCase()));
 
-/** Colonnes triables (comme l'ancien écran : « Actif » et « Dernière connexion » sont sans effet) */
-export type ColonneTri = 'nom' | 'prenom' | 'trigramme' | 'username' | 'email' | 'profils';
+/** Colonnes triables */
+export type ColonneTri = 'nom' | 'prenom' | 'trigramme' | 'username' | 'email' | 'profils' | 'actif' | 'last_login';
 
 const texteColonne = (u: Utilisateur, c: ColonneTri) => {
     if (c === 'trigramme') return trigramme(u);
@@ -147,6 +147,9 @@ const texteColonne = (u: Utilisateur, c: ColonneTri) => {
                 .map(b => b.libelle)
                 .join(' ') || '—'
         );
+    if (c === 'actif') return u.actif ? '1' : '0';
+    // Dernière connexion : horodatage (comparé comme un nombre) ; « 0 » sans connexion
+    if (c === 'last_login') return u.last_login ? String(Date.parse(u.last_login) || 0) : '0';
     return u[c] ?? '';
 };
 
@@ -164,15 +167,20 @@ export function trier(liste: Utilisateur[], c: ColonneTri, croissant: boolean): 
 
 // ---------- Détails ----------
 
-/** Rôles affichés dans les détails (le profil RH n'y figure pas : anomalie conservée) */
+/** Rôles affichés dans les détails */
 export const roles = (u: Utilisateur) =>
-    [u.is_admin === 1 && 'Administrateur', u.is_expert === 1 && 'Expert', u.is_user === 1 && 'Utilisateur']
+    [
+        u.is_admin === 1 && 'Administrateur',
+        u.is_expert === 1 && 'Expert',
+        u.is_user === 1 && 'Utilisateur',
+        u.is_rh === 1 && 'RH'
+    ]
         .filter(Boolean)
         .join(', ');
 
-/** Profil d'une connexion (RH affiché « Utilisateur » : anomalie conservée) */
+/** Profil d'une connexion */
 export const profilConnexion = (p: string) =>
-    p === 'admin' ? 'Administrateur' : p === 'expert' ? 'Expert Métier' : 'Utilisateur';
+    p === 'admin' ? 'Administrateur' : p === 'expert' ? 'Expert Métier' : p === 'rh' ? 'RH' : 'Utilisateur';
 
 /** Horodatage UTC sans fuseau (SQLite) : lu comme UTC */
 const enUtc = (s: string) => (s.endsWith('Z') || s.includes('+') ? s : `${s}Z`);
