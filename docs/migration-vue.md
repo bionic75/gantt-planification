@@ -290,9 +290,8 @@ Anomalies relevées pendant la migration (comportement conservé, correction à 
 - Invitations Outlook : un refus de l'envoi par le serveur n'est pas signalé (affectations conservées) ; après une
   réponse 502 / 504 ou une erreur réseau, les experts sont retirés de l'attente sans message ; la case « Sélectionner /
   Désélectionner tous » ne suit pas les cases des experts.
-- Nouvelles affectations : les notifications sont marquées lues deux fois (avant et après l'affichage) ; aucune partie
-  de l'application ne les crée (route `POST /api/notifications/create-batch` jamais appelée) : la pastille ne s'affiche
-  que pour des notifications créées par un autre outil.
+- Nouvelles affectations : notifications créées par le serveur à l'enregistrement d'une affectation posée par un tiers
+  (grille de planification, aide à l'affectation) ; marquées lues une seule fois, à l'ouverture de la fenêtre.
 - Grille : à l'ouverture de l'onglet, le mois courant est réaffiché (et, pour un expert, sa ressource seule dans le
   filtre) ; un clic sur une demi-journée n'est pas signalé en cas d'échec d'enregistrement (trois nouvelles tentatives,
   sans message ni retour en arrière) ; les congés scolaires viennent des congés enregistrés au chargement, puis des
