@@ -71,7 +71,15 @@ export async function mobileList(/** @type {Request} */ req, /** @type {Response
 /** Tous les profils voient tous les événements ; is_creator sert au contrôle d'accès côté client */
 export async function myList(/** @type {Request} */ req, /** @type {Response} */ res) {
     const isAdmin = req.session.activeProfile === 'admin';
-    res.json({ events: await service.listForUser(userId(req), isAdmin), isAdmin, userId: userId(req) });
+    res.json({
+        events: await service.listForUser(
+            userId(req),
+            isAdmin,
+            req.session.activeProfile === 'expert' ? (req.session.resourceId ?? null) : null
+        ),
+        isAdmin,
+        userId: userId(req)
+    });
 }
 
 /** Création depuis l'administration */
@@ -125,7 +133,9 @@ export async function join(/** @type {Request} */ req, /** @type {Response} */ r
         } catch (e) {
             console.error('Synchro événements → affectations :', /** @type {Error} */ (e).message);
         }
-        if (!deploiements.length) planningUpdates = await service.applyJoinPlanning(joined.event, resourceId);
+        // Événement tagué : planification toujours en « 2 - 3 » avec le SAMU-SAS, même avec un déploiement
+        if (!deploiements.length || (await service.estEvenementTague(joined.event)))
+            planningUpdates = await service.applyJoinPlanning(joined.event, resourceId);
     }
     res.json({
         success: true,
@@ -152,7 +162,18 @@ export async function leave(/** @type {Request} */ req, /** @type {Response} */ 
     if (removed && isExpert && resourceId && Number.isInteger(eventId)) {
         try {
             const stages = await affectation.affStagesOfEvent(eventId);
-            for (const s of await affectation.affAssignedAmong(resourceId, stages)) {
+            const affectes = await affectation.affAssignedAmong(resourceId, stages);
+            if (!affectes.length && (await service.estEvenementTague(event))) {
+                const no = samuNumber(await service.localisationSamu(event));
+                planningReset += await affectation.affResetPlanning({
+                    resourceIds: [resourceId],
+                    start: event.start_date,
+                    end: event.end_date,
+                    period: event.period,
+                    samuNo: no
+                });
+            }
+            for (const s of affectes) {
                 const samuNo = samuNumber(s.samu);
                 await affectation.affUnassignResourceFromStage(s.project, s.stage, resourceId);
                 planningReset += await affectation.affResetPlanning({

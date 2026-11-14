@@ -723,18 +723,32 @@ describe("inscription à un événement d'un déploiement", () => {
         return r.data.eventId;
     }
     const key = (rid, type, date, period) => `${rid}_${type}_${date}_${period}`;
+    /** Planification en « 2 - 2 » sur la période de l'événement : condition pour pouvoir participer */
+    const enAttente = rid =>
+        admin.post(
+            '/api/schedule',
+            Object.fromEntries(
+                ['2027-03-01', '2027-03-02'].flatMap(d =>
+                    ['AM', 'PM'].flatMap(h => [
+                        [key(rid, 'available', d, h), '2'],
+                        [key(rid, 'activity', d, h), '2']
+                    ])
+                )
+            )
+        );
 
-    it("l'expert devient intervenant et la planification n'est pas écrite en « Divers »", async () => {
+    it("l'expert devient intervenant et sa planification passe en « 2 - 3 » (pas « Divers »)", async () => {
         const samu = await newSamu();
         const p = await createProject(samu, { visite_metier: [{ start: '2027-03-01', end: '2027-03-05', needed: 1 }] });
         const eventId = await visiteEvent(samu);
         const { user, resource } = await createExpert(admin);
         const expert = await loginAs(server, user, 'expert');
+        await enAttente(resource.id);
         const r = await expert.post(`/api/my-custom-events/${eventId}/join`);
-        expect(r.data).toMatchObject({ success: true, planningUpdated: false });
+        expect(r.data).toMatchObject({ success: true, planningUpdated: true });
         expect(r.data.deploiements).toMatchObject([{ project: p.id, stage: 'visite_metier' }]);
         expect((await project(p.id)).assignments.visite_metier).toEqual([resource.id]);
-        expect((await schedule())[key(resource.id, 'activity', '2027-03-01', 'AM')]).toBeUndefined();
+        expect((await schedule())[key(resource.id, 'activity', '2027-03-01', 'AM')]).toBe('3');
     });
 
     it('étape complète : planification mise à jour comme pour un événement ordinaire', async () => {
@@ -745,11 +759,13 @@ describe("inscription à un événement d'un déploiement", () => {
         const second = await createExpert(admin);
         const e1 = await loginAs(server, first.user, 'expert');
         const e2 = await loginAs(server, second.user, 'expert');
+        await enAttente(first.resource.id);
+        await enAttente(second.resource.id);
         await e1.post(`/api/my-custom-events/${eventId}/join`);
         const r = await e2.post(`/api/my-custom-events/${eventId}/join`);
         expect(r.data).toMatchObject({ planningUpdated: true, deploiements: [] });
         expect((await project(p.id)).assignments.visite_metier).toEqual([first.resource.id]);
-        expect((await schedule())[key(second.resource.id, 'activity', '2027-03-01', 'AM')]).toBe('8');
+        expect((await schedule())[key(second.resource.id, 'activity', '2027-03-01', 'AM')]).toBe('3');
     });
 });
 

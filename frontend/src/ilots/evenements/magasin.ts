@@ -121,7 +121,7 @@ export const useEvenementsStore = defineStore('evenements', () => {
                     type: 'success',
                     texte:
                         `✅ Vous avez été inscrit(e) comme participant à "${r.eventLabel}".\n\n` +
-                        `Vous êtes désormais intervenant(e) de : ${etapes}. Votre planning sera renseigné par la synchronisation du déploiement.`
+                        `Vous êtes désormais intervenant(e) de : ${etapes}. Votre planning est passé en « 2 - 3 » sur le SAMU-SAS concerné.`
                 };
             } else if (r.planningUpdated) {
                 message.value = {

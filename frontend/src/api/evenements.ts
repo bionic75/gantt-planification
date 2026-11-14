@@ -41,6 +41,8 @@ export interface Evenement {
     /** Horodatage UTC « AAAA-MM-JJ HH:MM:SS » */
     created_at: string | null;
     needs_resources: number | null;
+    /** 0 : « Participer » masqué (événement tagué et planification de l’expert pas en 2-2) */
+    peut_participer?: number;
     resources_count: number | null;
     type_id: number | null;
     grist: number | null;
