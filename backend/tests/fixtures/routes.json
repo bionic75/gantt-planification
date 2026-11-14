@@ -1125,6 +1125,11 @@
         "guard": "auth"
     },
     {
+        "method": "DELETE",
+        "path": "/api/my-custom-events/:id/join",
+        "guard": "auth"
+    },
+    {
         "method": "POST",
         "path": "/api/notifications/clear-all",
         "guard": "admin"

@@ -68,7 +68,7 @@ async function completeLogin(req, res, user, profile) {
             profilePhoto: user.profile_photo || null,
             activeProfile: profile,
             resourceId: user.resource_id,
-            hasReportingAccess: user.has_reporting_access === 1 || user.is_admin === 1,
+            hasReportingAccess: profile === 'admin',
             is_admin: user.is_admin === 1,
             is_expert: user.is_expert === 1,
             is_user: user.is_user === 1,

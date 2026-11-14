@@ -92,7 +92,9 @@ describe('administration des comptes', () => {
         expect(row).toMatchObject({ has_reporting_access: 1, is_rh: 1, amoa_ced: 1 });
 
         const client = await loginAs(server, user, 'user');
-        expect((await client.get('/api/reporting/diagnose/1/2025/1')).status).not.toBe(403);
+        // Reporting réservé au profil administrateur : le drapeau individuel ne donne plus accès
+        expect((await client.get('/api/reporting/diagnose/1/2025/1')).status).toBe(403);
+        expect((await admin.get('/api/reporting/diagnose/1/2025/1')).status).not.toBe(403);
     });
 
     it('volontariat astreinte : refusé sans ressource rattachée', async () => {

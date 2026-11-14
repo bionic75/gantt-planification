@@ -31,6 +31,7 @@ router.get('/mobile-events', requireAuth, h(ctrl.mobileList));
 router.get('/my-custom-events', requireAuth, h(ctrl.myList));
 router.post('/my-custom-events', requireAuth, h(ctrl.create));
 router.post('/my-custom-events/:id/join', requireAuth, h(ctrl.join));
+router.delete('/my-custom-events/:id/join', requireAuth, h(ctrl.leave));
 router.put('/my-custom-events/:id', requireAuth, h(ctrl.update));
 // Suppression réservée aux administrateurs
 router.delete('/my-custom-events/:id', requireAdmin, h(ctrl.remove));
