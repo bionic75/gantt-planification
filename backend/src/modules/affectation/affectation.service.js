@@ -1336,6 +1336,20 @@ export async function affStagesOfEvent(/** @type {number} */ eventId) {
     return out;
 }
 
+/** Retire une ressource de l'affectation d'une activité de déploiement (affectation et journées enregistrées) */
+export async function affUnassignResourceFromStage(
+    /** @type {number} */ projectId,
+    /** @type {string} */ stageKey,
+    /** @type {number} */ resourceId
+) {
+    await prisma.affectationAssignmentDay.deleteMany({
+        where: { project_id: projectId, stage_key: stageKey, resource_id: resourceId }
+    });
+    await prisma.affectationAssignment.deleteMany({
+        where: { project_id: projectId, stage_key: stageKey, resource_id: resourceId }
+    });
+}
+
 /** Parmi des étapes de déploiements, celles où la ressource est affectée */
 export async function affAssignedAmong(
     /** @type {number} */ resourceId,

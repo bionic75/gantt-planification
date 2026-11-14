@@ -1,4 +1,4 @@
-<!-- Liste des comptes : tri par colonne, profils, accès Reporting, validation RH, activation, dernière connexion,
+<!-- Liste des comptes : tri par colonne, profils, validation RH, activation, dernière connexion,
      actions (modifier, mot de passe, TOTP, déconnexion, suppression) ; détails au clic sur le nom -->
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue';
@@ -35,7 +35,6 @@ const COLONNES: Array<{ libelle: string; tri?: ColonneTri; titre?: string; class
     { libelle: 'Email', tri: 'email' },
     { libelle: 'Téléphone', classe: 'no-sort' },
     { libelle: 'Profil(s)', tri: 'profils' },
-    { libelle: 'Reporting', classe: 'no-sort', titre: "Accès à l'onglet Reporting" },
     { libelle: 'Validation RH', classe: 'no-sort', titre: 'Validation RH' },
     {
         libelle: 'Astreinte HO ANS',
@@ -62,15 +61,6 @@ async function basculerActif(u: Utilisateur) {
     } catch {
         /* comme l'ancien écran : sans message */
     }
-}
-
-async function accesReporting(u: Utilisateur, oui: boolean) {
-    try {
-        await apiUtilisateurs.accesReporting(u.id, oui);
-    } catch {
-        store.signaler('error', "Erreur lors de la modification de l'accès au reporting");
-    }
-    await store.apresModification();
 }
 
 async function validationRh(u: Utilisateur, oui: boolean) {
@@ -178,17 +168,6 @@ async function supprimer(u: Utilisateur) {
                             </span>
                             <span v-if="!badges(u).length" class="liste__sans-profil">—</span>
                         </div>
-                    </td>
-                    <td class="liste__centre">
-                        <input
-                            type="checkbox"
-                            class="liste__case"
-                            :checked="u.has_reporting_access === 1 || u.is_admin === 1"
-                            :disabled="u.is_admin === 1"
-                            :title="u.is_admin === 1 ? 'Les admins ont toujours accès' : undefined"
-                            :aria-label="`Accès Reporting de ${nomComplet(u)}`"
-                            @change="accesReporting(u, ($event.target as HTMLInputElement).checked)"
-                        />
                     </td>
                     <td class="liste__centre">
                         <input

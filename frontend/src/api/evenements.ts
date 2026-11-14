@@ -136,6 +136,11 @@ export const apiEvenements = {
     modifier: (id: number, corps: CorpsEvenement) =>
         api.put(corps.createdBy ? `/custom-events/${id}` : `/my-custom-events/${id}`, corps),
     supprimer: (id: number) => api.delete(`/my-custom-events/${id}`),
+    /** « Me retirer » : l'utilisateur quitte les participants (et l'affectation de l'activité de déploiement) */
+    quitter: (id: number) =>
+        api.delete<{ removed: boolean; desaffectations: number; planningReset: number; eventLabel: string }>(
+            `/my-custom-events/${id}/join`
+        ),
     participer: (id: number) => api.post<Inscription>(`/my-custom-events/${id}/join`),
     creerLocalisation: (corps: {
         libelle_long: string;

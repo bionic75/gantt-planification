@@ -734,6 +734,20 @@ export async function joinEvent(id, { userId, resourceId, isExpert, skipPlanning
     return { event, planningUpdates };
 }
 
+/**
+ * Retrait de la liste des participants (l'inverse de joinEvent) ; la planification n'est pas modifiée ici
+ * @param {unknown} id
+ * @param {number} userId
+ */
+export async function leaveEvent(id, userId) {
+    const event = await prisma.customEvent.findUnique({ where: { id: idParam(id) } });
+    if (!event) throw notFound('Événement introuvable');
+    const { count } = await prisma.customEventParticipant.deleteMany({
+        where: { event_id: event.id, user_id: userId }
+    });
+    return { event, removed: count };
+}
+
 // ---------- Notifications ----------
 
 /** Libellé de lieu et coordonnées du créateur d'un événement */

@@ -1,6 +1,7 @@
 // @ts-check
 import { formatDateFR } from '../../lib/utils.js';
 import { logUserAction } from '../../services/action-log.js';
+import { samuNumber } from '../../lib/samu.js';
 import * as affectation from '../affectation/affectation.service.js';
 import { sendTeamsNotificationFromServer } from '../notifications/notifications.service.js';
 import { notifyEventCreated } from './events.notifications.js';
@@ -134,6 +135,40 @@ export async function join(/** @type {Request} */ req, /** @type {Response} */ r
         isExpert,
         eventLabel: joined.event.label
     });
+}
+
+/**
+ * « Me retirer » : l'utilisateur quitte les participants. Pour un expert dont l'événement relève d'une activité de
+ * déploiement, il est aussi retiré de l'affectation de cette activité et sa planification est remise en
+ * « 2 - Disponible / 2 - En attente d'affectation » sur les jours de l'événement.
+ */
+export async function leave(/** @type {Request} */ req, /** @type {Response} */ res) {
+    const isExpert = req.session.activeProfile === 'expert';
+    const resourceId = req.session.resourceId;
+    const eventId = Number(req.params.id);
+    const { event, removed } = await service.leaveEvent(req.params.id, userId(req));
+    let desaffectations = 0;
+    let planningReset = 0;
+    if (removed && isExpert && resourceId && Number.isInteger(eventId)) {
+        try {
+            const stages = await affectation.affStagesOfEvent(eventId);
+            for (const s of await affectation.affAssignedAmong(resourceId, stages)) {
+                const samuNo = samuNumber(s.samu);
+                await affectation.affUnassignResourceFromStage(s.project, s.stage, resourceId);
+                planningReset += await affectation.affResetPlanning({
+                    resourceIds: [resourceId],
+                    start: event.start_date,
+                    end: event.end_date,
+                    period: event.period,
+                    samuNo
+                });
+                desaffectations++;
+            }
+        } catch (e) {
+            console.error('Retrait de participant → affectations :', /** @type {Error} */ (e).message);
+        }
+    }
+    res.json({ success: true, removed: removed > 0, desaffectations, planningReset, eventLabel: event.label });
 }
 
 /** Modification depuis l'administration (le créateur peut être changé) */

@@ -216,6 +216,20 @@ describe('événements', () => {
         expect((await expert.post('/api/my-custom-events/999999/join')).status).toBe(404);
     });
 
+    it('« Me retirer » : l’utilisateur quitte les participants', async () => {
+        const { user } = await createExpert(admin);
+        const expert = await loginAs(server, user, 'expert');
+        const eventId = await adminCreate({ startDate: '2025-09-01', endDate: '2025-09-01' });
+        await expert.post(`/api/my-custom-events/${eventId}/join`);
+        expect((await findEvent(eventId)).participants.map(p => p.user_id)).toEqual([user.id]);
+        const r = await expert.delete(`/api/my-custom-events/${eventId}/join`);
+        expect(r.data).toMatchObject({ success: true, removed: true, desaffectations: 0 });
+        expect((await findEvent(eventId)).participants).toEqual([]);
+        // Déjà retiré : sans effet
+        expect((await expert.delete(`/api/my-custom-events/${eventId}/join`)).data.removed).toBe(false);
+        expect((await expert.delete('/api/my-custom-events/999999/join')).status).toBe(404);
+    });
+
     it('modification : participants remplacés, type conservé sans type fourni', async () => {
         const a = await createUser(admin);
         const b = await createUser(admin);

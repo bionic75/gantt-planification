@@ -89,17 +89,8 @@ export function requireReportingAccess(req, res, next) {
         touchSession(userId);
         return next();
     }
-    prisma.user
-        .findUnique({ where: { id: userId }, select: { has_reporting_access: true, is_admin: true } })
-        .then(user => {
-            if (!user) return res.status(403).json({ error: 'Accès refusé' });
-            if (user.is_admin === 1 || user.has_reporting_access === 1) {
-                touchSession(userId);
-                return next();
-            }
-            return res.status(403).json({ error: 'Accès au reporting non autorisé' });
-        })
-        .catch(() => res.status(403).json({ error: 'Accès refusé' }));
+    // Le reporting est réservé au profil administrateur (plus d'accès individuel par compte)
+    return res.status(403).json({ error: 'Accès au reporting non autorisé' });
 }
 
 /**

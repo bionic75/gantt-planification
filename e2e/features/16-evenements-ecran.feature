@@ -78,6 +78,10 @@ Fonctionnalité: Onglet Événements : formulaire, liste, exports
     Et je me déclare participant à l'événement de test
     Alors une alerte affiche "Vous avez été inscrit(e) comme participant"
     Et l'événement créé a "Expert" pour participant
+    Et l'événement de test propose « Me retirer »
+    Quand je me retire de l'événement de test
+    Alors une alerte affiche "Vous ne participez plus"
+    Et l'événement de test propose « Participer »
 
   Scénario: Tri des années et filtres de la liste
     Étant donné que l'administrateur a créé un événement de test le "2030-05-06"

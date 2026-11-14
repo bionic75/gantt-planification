@@ -39,7 +39,6 @@ export const ONGLETS: Array<[string, string]> = [
     ['evenements', 'Événements'],
     ['planning', 'Planification'],
     ['cra', 'CRA'],
-    ['reporting', 'Reporting'],
     ['admin', 'Administration'],
     ['astreintesGestion', 'Astreintes'],
     ['tripadvisor', 'SAMU-SAS TripAdVisor']

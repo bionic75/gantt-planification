@@ -141,6 +141,26 @@ export const useEvenementsStore = defineStore('evenements', () => {
         }
     }
 
+    /** « Me retirer » : l'expert quitte les participants de l'événement */
+    async function quitter(id: number) {
+        message.value = null;
+        try {
+            const r = await apiEvenements.quitter(id);
+            message.value = {
+                type: 'success',
+                texte:
+                    `✅ Vous ne participez plus à "${r.eventLabel}".` +
+                    (r.desaffectations
+                        ? "\n\nVous avez aussi été retiré(e) de l'activité de déploiement correspondante ; votre planification est remise en « 2 - Disponible / 2 - En attente d'affectation » sur les jours de l'événement."
+                        : '')
+            };
+            if (r.planningReset) emettre('planning-modifie');
+            await chargerListe();
+        } catch (e) {
+            message.value = { type: 'error', texte: `Erreur lors du retrait : ${(e as Error).message}` };
+        }
+    }
+
     /** Localisation créée depuis le formulaire : listes rechargées ici et par les autres écrans */
     async function localisationCreee() {
         await chargerLocalisations();
@@ -171,6 +191,7 @@ export const useEvenementsStore = defineStore('evenements', () => {
         enregistrer,
         supprimer,
         participer,
+        quitter,
         localisationCreee
     };
 });

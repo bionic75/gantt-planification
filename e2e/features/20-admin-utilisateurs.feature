@@ -41,14 +41,12 @@ Fonctionnalité: Administration › Gestion des utilisateurs (écran)
     Alors une alerte affiche "Utilisateur modifié avec succès"
     Et le compte de test a le prénom "Modifie" et les profils "Utilisateur" et "RH"
 
-  Scénario: Activation, accès Reporting et validation RH depuis la liste
+  Scénario: Activation, validation RH et astreinte HO ANS depuis la liste
     Étant donné qu'un compte de test existe
     Quand j'ouvre l'onglet "Administration"
     Et j'ouvre la section "Gestion des utilisateurs"
     Et je désactive le compte de test depuis la liste
     Alors le compte de test est inactif
-    Quand je donne au compte de test l'accès Reporting depuis la liste
-    Alors le compte de test a l'accès Reporting
     Quand je donne au compte de test la validation RH depuis la liste
     Alors le compte de test a la validation RH
     Quand je donne au compte de test l'astreinte HO ANS depuis la liste
