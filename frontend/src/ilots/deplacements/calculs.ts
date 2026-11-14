@@ -77,9 +77,9 @@ export function ligneDeplacement(d: Deplacement, amoaCed: AmoaCed[], depasse: bo
         debut: dateFr(d.date_debut),
         fin: dateFr(d.date_fin),
         amoa: amoa
-            ? `${amoa.nom.toUpperCase()} ${amoa.prenom}`
+            ? `${amoa.prenom} ${amoa.nom.toUpperCase()}`
             : d.amoa_ced_nom
-              ? `${d.amoa_ced_nom.toUpperCase()} ${d.amoa_ced_prenom || ''}`
+              ? `${d.amoa_ced_prenom || ''} ${d.amoa_ced_nom.toUpperCase()}`.trim()
               : '-',
         bon: sansBon
             ? ''
@@ -88,7 +88,7 @@ export function ligneDeplacement(d: Deplacement, amoaCed: AmoaCed[], depasse: bo
         aRegulariser,
         depasse,
         attention: aRegulariser || sansBon || depasse,
-        createur: d.creator_nom ? `${d.creator_nom.toUpperCase()} ${d.creator_prenom || ''}` : '-',
+        createur: d.creator_nom ? `${d.creator_prenom || ''} ${d.creator_nom.toUpperCase()}`.trim() : '-',
         creeLe: dateCreation(d),
         commentaire,
         commentaireCourt: commentaire.length > 30 ? `${commentaire.substring(0, 30)}...` : commentaire,

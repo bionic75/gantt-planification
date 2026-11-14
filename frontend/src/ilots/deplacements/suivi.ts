@@ -150,13 +150,13 @@ export function premierDuMoisSuivant(aujourdhui = new Date()) {
 
 // ── Liste des déplacements ───────────────────────────────────────────────────
 
-const nomComplet = (nom: string, prenom: string | null | undefined) => `${nom.toUpperCase()} ${prenom || ''}`.trim();
+const nomComplet = (nom: string, prenom: string | null | undefined) => `${prenom || ''} ${nom.toUpperCase()}`.trim();
 
 /** AMOA CED d'un déplacement : liste des AMOA CED (administrateur), sinon nom porté par le déplacement */
 export function nomAmoa(d: DeplacementReporting, amoaCed: AmoaCed[], defaut: (id: number) => string) {
     if (!d.amoa_ced_id) return null;
     const u = amoaCed.find(a => a.id === d.amoa_ced_id);
-    if (u) return `${u.nom.toUpperCase()} ${u.prenom}`;
+    if (u) return `${u.prenom} ${u.nom.toUpperCase()}`;
     if (d.amoa_ced_nom) return nomComplet(d.amoa_ced_nom, d.amoa_ced_prenom);
     return defaut(d.amoa_ced_id);
 }
@@ -244,7 +244,7 @@ export function amoaPresents(liste: DeplacementReporting[], amoaCed: AmoaCed[]):
         return amoaCed
             .filter(u => ids.has(u.id))
             .sort((a, b) => `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`))
-            .map(u => ({ id: u.id, libelle: `${u.nom.toUpperCase()} ${u.prenom}` }));
+            .map(u => ({ id: u.id, libelle: `${u.prenom} ${u.nom.toUpperCase()}` }));
     }
     const noms = new Map<number, string>();
     for (const d of liste) {

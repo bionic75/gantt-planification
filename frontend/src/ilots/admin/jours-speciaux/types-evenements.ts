@@ -177,7 +177,11 @@ export const COLONNES: ReadonlyArray<{ k: CleColonne; t: string; v: (e: Evenemen
         { k: 'label', t: 'Libellé', v: (e, s) => libelleDe(e, s.modifications) },
         { k: 'loc', t: 'Localisation', v: e => e.location_court || e.location_long || '' },
         { k: 'parts', t: 'Participants', v: e => (e.participants || []).join(', ') },
-        { k: 'creator', t: 'Créé par', v: e => `${e.creator_nom || ''} ${e.creator_prenom || ''}`.trim() }
+        {
+            k: 'creator',
+            t: 'Créé par',
+            v: e => `${e.creator_prenom || ''} ${(e.creator_nom || '').toUpperCase()}`.trim()
+        }
     ];
 
 /** Événements de l'onglet correspondant à la recherche (tous les champs), triés (puis par identifiant) */
