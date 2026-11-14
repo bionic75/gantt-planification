@@ -4,6 +4,7 @@ import { optionLocalisation } from './icones-recherche';
 import {
     classerCreneaux,
     detailExpert,
+    trierClassement,
     trierLignesExperts,
     expertsProposes,
     intervalleParDefaut,
@@ -187,5 +188,25 @@ describe('tri des résultats par expert', () => {
     it('par détails : première date trouvée', () => {
         expect(ids(trierLignesExperts(L, 'detail', true))).toEqual([2, 1, 3]);
         expect(ids(trierLignesExperts(L, 'detail', false))).toEqual([3, 1, 2]);
+    });
+});
+
+describe('tri du classement des créneaux', () => {
+    const C = [
+        { rang: 1, date: '2031-09-02', periode: 'PM' as const, nombre: 5, noms: 'AAA, BBB' },
+        { rang: 2, date: '2031-09-01', periode: 'PM' as const, nombre: 4, noms: 'CCC' },
+        { rang: 3, date: '2031-09-01', periode: 'AM' as const, nombre: 4, noms: 'AAB' }
+    ];
+    const rangs = (l: typeof C) => l.map(x => x.rang);
+    it('par date : chronologique, matin avant après-midi', () => {
+        expect(rangs(trierClassement(C, 'date', true))).toEqual([3, 2, 1]);
+        expect(rangs(trierClassement(C, 'date', false))).toEqual([1, 2, 3]);
+    });
+    it('par période, nombre, experts, rang', () => {
+        expect(rangs(trierClassement(C, 'periode', true))).toEqual([3, 2, 1]);
+        expect(rangs(trierClassement(C, 'nombre', true))).toEqual([2, 3, 1]);
+        expect(rangs(trierClassement(C, 'nombre', false))).toEqual([1, 2, 3]);
+        expect(rangs(trierClassement(C, 'noms', true))).toEqual([1, 3, 2]);
+        expect(rangs(trierClassement(C, 'rang', false))).toEqual([3, 2, 1]);
     });
 });
