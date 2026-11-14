@@ -4,6 +4,7 @@ import { optionLocalisation } from './icones-recherche';
 import {
     classerCreneaux,
     detailExpert,
+    trierLignesExperts,
     expertsProposes,
     intervalleParDefaut,
     joursEntre,
@@ -165,5 +166,26 @@ describe('recherche', () => {
 
     it('jour d’un créneau', () => {
         expect(jourCreneau('2031-09-01')).toEqual({ jour: 'lun.', date: '01/09/2031' });
+    });
+});
+
+describe('tri des résultats par expert', () => {
+    const L = [
+        { id: 1, nom: 'Zoé DURAND', nombre: 3, detail: 'x', premiere: '2031-09-02' },
+        { id: 2, nom: 'Paul BERNARD', nombre: 10, detail: 'y', premiere: '2031-09-01' },
+        { id: 3, nom: 'Léa MARTIN', nombre: 3, detail: 'z', premiere: '2031-10-01' }
+    ];
+    const ids = (l: typeof L) => l.map(x => x.id);
+    it('par nom, croissant puis décroissant', () => {
+        expect(ids(trierLignesExperts(L, 'nom', true))).toEqual([3, 2, 1]);
+        expect(ids(trierLignesExperts(L, 'nom', false))).toEqual([1, 2, 3]);
+    });
+    it('par nombre (numérique, égalité : par nom)', () => {
+        expect(ids(trierLignesExperts(L, 'nombre', true))).toEqual([3, 1, 2]);
+        expect(ids(trierLignesExperts(L, 'nombre', false))).toEqual([2, 3, 1]);
+    });
+    it('par détails : première date trouvée', () => {
+        expect(ids(trierLignesExperts(L, 'detail', true))).toEqual([2, 1, 3]);
+        expect(ids(trierLignesExperts(L, 'detail', false))).toEqual([3, 1, 2]);
     });
 });

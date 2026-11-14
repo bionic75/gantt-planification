@@ -153,3 +153,30 @@ export function jourCreneau(date: string): { jour: string; date: string } {
 
 /** Rang des trois premiers créneaux : or, argent, bronze */
 export const COULEURS_RANG = ['#f1c40f', '#95a5a6', '#cd7f32'];
+
+/** Ligne du tableau « Résultats par expert » */
+export interface LigneExpert {
+    id: number;
+    /** « Prénom NOM » */
+    nom: string;
+    nombre: number;
+    detail: string;
+    /** Première date trouvée (AAAA-MM-JJ) : tri de la colonne Détails */
+    premiere: string;
+}
+
+export type ColonneExperts = 'nom' | 'nombre' | 'detail';
+
+const comparer = (a: string, b: string) => a.localeCompare(b, 'fr', { sensitivity: 'base', numeric: true });
+
+/** Lignes triées sur une colonne ; à égalité, par nom (stable) */
+export function trierLignesExperts(lignes: LigneExpert[], colonne: ColonneExperts, croissant: boolean): LigneExpert[] {
+    const sens = croissant ? 1 : -1;
+    const valeur = (a: LigneExpert, b: LigneExpert) =>
+        colonne === 'nombre'
+            ? a.nombre - b.nombre
+            : colonne === 'detail'
+              ? comparer(a.premiere, b.premiere) || a.nombre - b.nombre
+              : comparer(a.nom, b.nom);
+    return [...lignes].sort((a, b) => sens * valeur(a, b) || comparer(a.nom, b.nom));
+}
