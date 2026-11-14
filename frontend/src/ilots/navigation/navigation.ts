@@ -119,8 +119,16 @@ export function accesDe(config: ConfigOnglets | null, s: Session): AccesAccueil 
     };
 }
 
-/** Onglet d'arrivée : celui choisi dans le profil s'il est accessible, sinon l'Accueil */
+/** Le profil RH n'a pas d'Accueil : il arrive sur son onglet choisi, à défaut le CRA, à défaut le premier accessible */
+function ongletArriveeRh(config: ConfigOnglets | null, defaut: string | undefined): string {
+    const dispo = ongletsDisponibles(config, 'rh');
+    if (defaut && defaut !== 'accueil' && dispo.includes(defaut)) return defaut;
+    return dispo.includes('cra') ? 'cra' : (dispo[0] ?? 'cra');
+}
+
+/** Onglet d'arrivée : celui choisi dans le profil s'il est accessible, sinon l'Accueil (sauf profil RH : sans Accueil) */
 export function ongletArrivee(config: ConfigOnglets | null, s: Pick<Session, 'activeProfile' | 'defaultTab'>): string {
+    if (s.activeProfile === 'rh') return ongletArriveeRh(config, s.defaultTab);
     const prefere = s.defaultTab || 'accueil';
     return prefere === 'accueil' || ongletsDisponibles(config, s.activeProfile).includes(prefere) ? prefere : 'accueil';
 }
@@ -192,7 +200,8 @@ export function destination(
     const { onglet, application } = cible.meta;
     if (onglet) {
         const permis =
-            onglet === 'accueil' || (onglet === 'cra' ? craVisible(config, s) : peut(config, s.activeProfile, onglet));
+            (onglet === 'accueil' && s.activeProfile !== 'rh') ||
+            (onglet === 'cra' ? craVisible(config, s) : peut(config, s.activeProfile, onglet));
         return permis ? null : cheminArrivee(config, s);
     }
     if (application) return (s.availableApps ?? []).includes(application) ? null : cheminArrivee(config, s);
@@ -341,7 +350,8 @@ export function revenirPlanification() {
 
 /** Bouton « Accueil » des applications : retour à la Planification, sur l'Accueil */
 export function allerAccueil() {
-    aller(CHEMINS_ONGLETS.accueil);
+    const s = navigation.session;
+    aller(s?.activeProfile === 'rh' ? cheminArrivee(navigation.config, s) : CHEMINS_ONGLETS.accueil);
 }
 
 /** Fenêtre de déconnexion des Déplacements : « Aller sur la Plateforme de planification », données relues */

@@ -75,9 +75,9 @@ describe('BoutonsEnTete', () => {
         return mount(BoutonsEnTete, { global: { plugins: [pinia] }, attachTo: document.body });
     };
 
-    it('profil RH : ni recherche ni enveloppe', () => {
+    it('profil RH : ni Accueil, ni recherche, ni enveloppe', () => {
         const w = monter(SESSION);
-        expect(w.find('#homeBtn').exists()).toBe(true);
+        expect(w.find('#homeBtn').exists()).toBe(false);
         expect(w.find('#searchBtn').exists()).toBe(false);
         expect(w.find('#sendEmailBtn').exists()).toBe(false);
         w.unmount();
