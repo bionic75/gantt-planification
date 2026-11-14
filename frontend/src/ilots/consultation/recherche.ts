@@ -180,3 +180,40 @@ export function trierLignesExperts(lignes: LigneExpert[], colonne: ColonneExpert
               : comparer(a.nom, b.nom);
     return [...lignes].sort((a, b) => sens * valeur(a, b) || comparer(a.nom, b.nom));
 }
+
+/** Créneau du classement affiché (rang d'origine conservé quand le tableau est trié) */
+export interface LigneClassement {
+    rang: number;
+    /** AAAA-MM-JJ */
+    date: string;
+    periode: 'AM' | 'PM';
+    nombre: number;
+    noms: string;
+}
+
+export type ColonneClassement = 'rang' | 'date' | 'periode' | 'nombre' | 'noms';
+
+/** Créneaux triés sur une colonne ; à égalité, dans l'ordre du classement (rang) */
+export function trierClassement<T extends LigneClassement>(
+    lignes: T[],
+    colonne: ColonneClassement,
+    croissant: boolean
+): T[] {
+    const sens = croissant ? 1 : -1;
+    const chrono = (a: T, b: T) => comparer(a.date, b.date) || comparer(a.periode, b.periode);
+    const valeur = (a: T, b: T) => {
+        switch (colonne) {
+            case 'date':
+                return chrono(a, b);
+            case 'periode':
+                return comparer(a.periode, b.periode) || comparer(a.date, b.date);
+            case 'nombre':
+                return a.nombre - b.nombre;
+            case 'noms':
+                return comparer(a.noms, b.noms);
+            default:
+                return a.rang - b.rang;
+        }
+    };
+    return [...lignes].sort((a, b) => sens * valeur(a, b) || a.rang - b.rang);
+}

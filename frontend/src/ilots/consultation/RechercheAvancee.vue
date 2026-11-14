@@ -16,7 +16,9 @@ import {
     DISPONIBILITES,
     classerCreneaux,
     detailExpert,
+    trierClassement,
     trierLignesExperts,
+    type ColonneClassement,
     type ColonneExperts,
     type LigneExpert,
     expertsProposes,
@@ -119,18 +121,35 @@ const lignesExperts = computed(() => {
 });
 
 const creneaux = computed(() => classerCreneaux(resultats.value ?? []));
-const lignesCreneaux = computed(() =>
-    creneaux.value.slice(0, CRENEAUX_AFFICHES).map((c, i) => ({
+/** Tri du classement des créneaux : colonne et sens (premier clic : croissant) */
+const triCreneaux = ref<{ colonne: ColonneClassement; croissant: boolean } | null>(null);
+function trierCreneaux(colonne: ColonneClassement) {
+    const t = triCreneaux.value;
+    triCreneaux.value = { colonne, croissant: t?.colonne === colonne ? !t.croissant : true };
+}
+const sensTriCreneaux = (colonne: ColonneClassement) => {
+    const t = triCreneaux.value;
+    return t?.colonne === colonne ? (t.croissant ? 'ascending' : 'descending') : undefined;
+};
+
+const lignesCreneaux = computed(() => {
+    const base = creneaux.value.slice(0, CRENEAUX_AFFICHES).map((c, i) => ({
         cle: `${c.date}_${c.periode}`,
         rang: i + 1,
         couleurRang: COULEURS_RANG[i] ?? '#666',
-        paire: i % 2 === 0,
-        ...jourCreneau(c.date),
-        matin: c.periode === 'AM',
+        date: c.date,
+        periode: c.periode,
         nombre: c.experts.length,
         noms: c.experts.map(trigrammeExpert).join(', ')
-    }))
-);
+    }));
+    const t = triCreneaux.value;
+    return (t ? trierClassement(base, t.colonne, t.croissant) : base).map((l, i) => ({
+        ...l,
+        paire: i % 2 === 0,
+        ...jourCreneau(l.date),
+        matin: l.periode === 'AM'
+    }));
+});
 </script>
 
 <template>
@@ -300,11 +319,51 @@ const lignesCreneaux = computed(() =>
                 <table class="gp-recherche__table">
                     <thead>
                         <tr class="gp-recherche__entete gp-recherche__entete--classement">
-                            <th class="gp-recherche__rang">Rang</th>
-                            <th class="gp-recherche__gauche">Date</th>
-                            <th>Période</th>
-                            <th>Nb experts</th>
-                            <th class="gp-recherche__gauche">Experts disponibles</th>
+                            <th
+                                class="gp-recherche__rang gp-recherche__tri"
+                                tabindex="0"
+                                :aria-sort="sensTriCreneaux('rang')"
+                                @click="trierCreneaux('rang')"
+                                @keydown.enter.prevent="trierCreneaux('rang')"
+                            >
+                                Rang
+                            </th>
+                            <th
+                                class="gp-recherche__gauche gp-recherche__tri"
+                                tabindex="0"
+                                :aria-sort="sensTriCreneaux('date')"
+                                @click="trierCreneaux('date')"
+                                @keydown.enter.prevent="trierCreneaux('date')"
+                            >
+                                Date
+                            </th>
+                            <th
+                                class="gp-recherche__tri"
+                                tabindex="0"
+                                :aria-sort="sensTriCreneaux('periode')"
+                                @click="trierCreneaux('periode')"
+                                @keydown.enter.prevent="trierCreneaux('periode')"
+                            >
+                                Période
+                            </th>
+                            <th
+                                class="gp-recherche__tri"
+                                tabindex="0"
+                                :aria-sort="sensTriCreneaux('nombre')"
+                                @click="trierCreneaux('nombre')"
+                                @keydown.enter.prevent="trierCreneaux('nombre')"
+                            >
+                                Nb experts
+                            </th>
+                            <th
+                                class="gp-recherche__gauche gp-recherche__tri"
+                                tabindex="0"
+                                :aria-sort="sensTriCreneaux('noms')"
+                                @click="trierCreneaux('noms')"
+                                @keydown.enter.prevent="trierCreneaux('noms')"
+                            >
+                                Experts disponibles
+                            </th>
                         </tr>
                     </thead>
                     <tbody>
