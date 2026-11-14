@@ -731,6 +731,11 @@ export async function planningEnAttente(
     });
 }
 
+/** Participation écrite en « 2 - 3 » + SAMU-SAS : événements tagués, et tout événement localisé sur un SAMU-SAS (mise en service, etc.) */
+export async function ecritSamu(/** @type {{ type_id: number | null, location_id: number | null }} */ event) {
+    return (await estEvenementTague(event)) || !!(await localisationSamu(event));
+}
+
 /** Libellé de planification du SAMU-SAS de l'événement (« 🚨 SAMU 56 »), ou vide */
 export async function localisationSamu(/** @type {{ location_id: number | null }} */ event) {
     if (!event.location_id) return '';
@@ -766,7 +771,7 @@ async function affecterPlanningTague(
 }
 
 export async function applyJoinPlanning(event, resourceId) {
-    if (await estEvenementTague(event)) return affecterPlanningTague(event, resourceId);
+    if (await ecritSamu(event)) return affecterPlanningTague(event, resourceId);
     /** @type {Array<{ dateStr: string, period: string, newAvail: string, newAct: string }>} */
     const planningUpdates = [];
     const start = new Date(event.start_date);
