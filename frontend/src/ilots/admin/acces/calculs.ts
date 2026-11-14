@@ -34,15 +34,19 @@ export const suggestions = (trouves: CompteAcces[], autorises: CompteAcces[]) =>
 
 // ---------- Onglets ----------
 
-export const ONGLETS: Array<[string, string]> = [
-    ['resources', 'Ressources'],
-    ['evenements', 'Événements'],
-    ['planning', 'Planification'],
-    ['cra', 'CRA'],
-    ['admin', 'Administration'],
-    ['astreintesGestion', 'Astreintes'],
-    ['tripadvisor', 'SAMU-SAS TripAdVisor']
-];
+/** Onglets configurables, par ordre alphabétique */
+export const ONGLETS: Array<[string, string]> = (
+    [
+        ['admin', 'Administration'],
+        ['astreintesGestion', 'Astreintes'],
+        ['cra', 'CRA'],
+        ['evenements', 'Événements'],
+        ['planning', 'Planification'],
+        ['reporting', 'Reporting'],
+        ['resources', 'Ressources'],
+        ['tripadvisor', 'SAMU-SAS TripAdVisor']
+    ] as Array<[string, string]>
+).sort((x, y) => x[1].localeCompare(y[1], 'fr'));
 
 export const PROFILS: Array<[string, string]> = [
     ['admin', 'Administrateur'],

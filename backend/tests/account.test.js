@@ -95,6 +95,17 @@ describe('administration des comptes', () => {
         // Reporting réservé au profil administrateur : le drapeau individuel ne donne plus accès
         expect((await client.get('/api/reporting/diagnose/1/2025/1')).status).toBe(403);
         expect((await admin.get('/api/reporting/diagnose/1/2025/1')).status).not.toBe(403);
+
+        // Onglet Reporting administrable : ouvert au profil Utilisateur par la configuration de l'accès aux onglets
+        const conf = (await admin.get('/api/tab-access')).data.config;
+        expect(conf.admin.reporting).toBe(true);
+        expect(conf.user.reporting).toBe(false);
+        conf.user.reporting = true;
+        expect((await admin.put('/api/tab-access', { config: conf })).status).toBe(200);
+        expect((await client.get('/api/reporting/diagnose/1/2025/1')).status).not.toBe(403);
+        conf.user.reporting = false;
+        expect((await admin.put('/api/tab-access', { config: conf })).status).toBe(200);
+        expect((await client.get('/api/reporting/diagnose/1/2025/1')).status).toBe(403);
     });
 
     it('volontariat astreinte : refusé sans ressource rattachée', async () => {
