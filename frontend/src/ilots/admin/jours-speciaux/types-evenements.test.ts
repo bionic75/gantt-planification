@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { EvenementReprise, TypeAdmin } from '@/api/typesEvenements';
 import {
+    modificationsConservees,
     BANQUE_ICONES,
     COULEURS_PAR_DEFAUT,
     dateFr,
@@ -123,5 +124,24 @@ describe('reprise des données', () => {
         expect(ongletApresChargement(EVTS, 'done')).toBe('done');
         expect(ongletApresChargement([EVTS[2]!], 'todo')).toBe('done');
         expect(ongletApresChargement([], null)).toBe('done');
+    });
+});
+
+describe('modifications de la reprise conservées à la relecture des événements', () => {
+    const E = [evt(1, { label: 'A', type_id: 2 }), evt(2, { label: 'B' })];
+    it('garde la saisie en cours, écarte événement disparu, type supprimé et valeur identique', () => {
+        const m = modificationsConservees(
+            {
+                1: { label: 'A2' },
+                2: { type_id: 9, label: 'B' },
+                7: { label: 'disparu' }
+            },
+            E,
+            new Set([1, 2])
+        );
+        expect(m).toEqual({ 1: { label: 'A2' } });
+    });
+    it('type choisi encore existant : conservé', () => {
+        expect(modificationsConservees({ 2: { type_id: 1 } }, E, new Set([1, 2]))).toEqual({ 2: { type_id: 1 } });
     });
 });
