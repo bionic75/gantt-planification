@@ -27,6 +27,7 @@ const etat = shallowRef<EtatPlanning | null>(null);
 const annee = ref(0);
 const mois = ref(0);
 const contenu = ref<HTMLElement | null>(null);
+const legende = ref<HTMLElement | null>(null);
 
 // Ouverture sur le mois courant
 const planification = usePlanificationStore();
@@ -94,7 +95,7 @@ const TYPES_LEGENDE = [
 ];
 
 function imprimer() {
-    if (contenu.value) imprimerCalendrierEvenements(titre.value, contenu.value);
+    if (contenu.value) imprimerCalendrierEvenements(titre.value, contenu.value, legende.value);
 }
 </script>
 
@@ -114,7 +115,7 @@ function imprimer() {
             <button type="button" class="gp-calendrier-evenements__fleche" @click="naviguer(1)">Mois suivant ▶</button>
         </div>
 
-        <div class="gp-calendrier-evenements__legende">
+        <div ref="legende" class="gp-calendrier-evenements__legende">
             <span
                 v-for="z in ZONES_LEGENDE"
                 :key="z.zone"
