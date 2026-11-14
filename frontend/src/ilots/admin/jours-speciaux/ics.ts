@@ -67,7 +67,7 @@ export function zonesDuResume(resume: string): Array<'a' | 'b' | 'c'> {
         .replace(/[\u0300-\u036f]/g, '');
     const trouvees = new Set<'a' | 'b' | 'c'>();
     // « zone(s) » suivi d'une ou plusieurs lettres a / b / c séparées par « / , ; & + - et ou » (ou répétant « zone »)
-    const motif = /\bzones?\s*:?\s*((?:[abc]\b(?:\s*(?:[\/,;&+-]|\bet\b|\bou\b|\bzones?\b)\s*)*)+)/g;
+    const motif = /\bzones?\s*:?\s*((?:[abc]\b(?:\s*(?:[/,;&+-]|\bet\b|\bou\b|\bzones?\b)\s*)*)+)/g;
     for (const m of t.matchAll(motif))
         for (const l of (m[1] ?? '').matchAll(/[abc]/g)) trouvees.add(l[0] as 'a' | 'b' | 'c');
     if (/\btoutes?\s+(?:les\s+)?zones\b/.test(t)) ['a', 'b', 'c'].forEach(l => trouvees.add(l as 'a' | 'b' | 'c'));
