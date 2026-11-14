@@ -59,9 +59,26 @@ export function lireIcs(contenu: string): EvenementIcs[] {
     return evenements;
 }
 
-/** Congés par zone : résumé contenant « zone a », « zone b » ou « zone c » (sans tenir compte de la casse) */
+/** Zones (a, b, c) citées par le résumé d'un congé : « Zone A », « Zones A/B/C », « zones A, B et C », « toutes zones »… */
+export function zonesDuResume(resume: string): Array<'a' | 'b' | 'c'> {
+    const t = resume
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+    const trouvees = new Set<'a' | 'b' | 'c'>();
+    // « zone(s) » suivi d'une ou plusieurs lettres a / b / c séparées par « / , ; & + - et ou » (ou répétant « zone »)
+    const motif = /\bzones?\s*:?\s*((?:[abc]\b(?:\s*(?:[\/,;&+-]|\bet\b|\bou\b|\bzones?\b)\s*)*)+)/g;
+    for (const m of t.matchAll(motif))
+        for (const l of (m[1] ?? '').matchAll(/[abc]/g)) trouvees.add(l[0] as 'a' | 'b' | 'c');
+    if (/\btoutes?\s+(?:les\s+)?zones\b/.test(t)) ['a', 'b', 'c'].forEach(l => trouvees.add(l as 'a' | 'b' | 'c'));
+    return [...trouvees];
+}
+
+/**
+ * Congés par zone d'après le résumé ; un congé commun à plusieurs zones (« Zones A/B/C ») est rattaché à chacune d'elles
+ */
 export function zones(evenements: EvenementIcs[]) {
-    const de = (z: string) => evenements.filter(e => e.summary.toLowerCase().includes(`zone ${z}`));
+    const de = (z: 'a' | 'b' | 'c') => evenements.filter(e => zonesDuResume(e.summary).includes(z));
     const zoneA = de('a');
     const zoneB = de('b');
     const zoneC = de('c');
