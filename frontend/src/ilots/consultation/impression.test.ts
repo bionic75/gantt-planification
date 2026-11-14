@@ -49,6 +49,18 @@ describe('impression du calendrier mensuel', () => {
         expect(fenetre.html).toMatch(/<h2[^>]*>Septembre 2031<\/h2>/);
     });
 
+    it('ni entête « Vue Calendrier Mensuel » ni ligne du mois avec flèches', () => {
+        const c = document.createElement('div');
+        c.innerHTML =
+            '<div class="gp-cm-entete"><div class="gp-cm-nav"><button>◀</button><h2>Septembre 2031</h2><button>▶</button></div><p>Sous-titre</p></div><table></table>';
+        imprimerCalendrierMensuel('Vue Calendrier Mensuel', 'Septembre 2031', c);
+        expect(fenetre.html).not.toContain('<h3');
+        expect(fenetre.html).not.toContain('◀');
+        expect(fenetre.html).not.toContain('▶');
+        expect(fenetre.html).toContain('Sous-titre');
+        expect(c.querySelector('.gp-cm-nav')).not.toBeNull();
+    });
+
     it('impression demandée une seule fois, au chargement de la page', () => {
         imprimerCalendrierMensuel('Vue Calendrier Mensuel', 'Septembre 2031', contenu());
         fenetre.onload?.();
