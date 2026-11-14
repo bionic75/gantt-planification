@@ -693,7 +693,17 @@ export async function deleteEvent(/** @type {unknown} */ id) {
  * @param {number} resourceId
  */
 /** Types d'événements (visite métier, VFT sur site, test des prérequis, formation utilisateurs, accompagnement) pour lesquels « Participer » dépend de la planification de l'expert */
-export const TYPES_PARTICIPATION = ['visiteMetier', 'vftSite', 'verifPrereq', 'formation', 'apd'];
+export const TYPES_PARTICIPATION = [
+    'visiteMetier',
+    'vftSite',
+    'verifPrereq',
+    'formation',
+    'apd',
+    'mes',
+    'mep',
+    'reunionLancement',
+    'visiteOb'
+];
 
 /** @param {{ start_date: string, end_date: string | null, period: string | null }} event */
 function clesDemiJournees(event) {
