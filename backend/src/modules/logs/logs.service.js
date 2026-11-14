@@ -86,6 +86,99 @@ export function listUserActions(/** @type {unknown} */ userId) {
     });
 }
 
+const sansAccent = (/** @type {string} */ t) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+/** Catégorie d'une action journalisée (d'après son libellé ou son type) */
+export function categorieAction(/** @type {string} */ libelle) {
+    const t = sansAccent(libelle);
+    /** @type {Array<[string, RegExp]>} */
+    const regles = [
+        ['Asana', /asana/],
+        ['Déploiements et affectation', /deploiement|affectation|activite|synchronis/],
+        ['Événements', /evenement/],
+        ['Planification', /planning|planification|disponibilit/],
+        ['Ressources', /ressource/],
+        ['CRA', /\bcra\b/],
+        ['Astreintes', /astreinte/],
+        ['Automatisations et e-mails', /automatisation|e-?mail|mail|sondage|invitation|atelier/],
+        ['Utilisateurs et profils', /utilisateur|compte|mot de passe|totp|profil|deconnexion|connexion/],
+        ['Administration', /administration|parametr|theme|acces|onglet|localisation|conges|jours speciaux|type d/],
+        ['Journaux', /journal|purge|historique|logs?\b/]
+    ];
+    return regles.find(([, re]) => re.test(t))?.[0] ?? 'Autre';
+}
+
+/**
+ * Journal complet d'un utilisateur pour l'export : connexions (une ligne par connexion) et toutes ses actions
+ * (journal des sessions et journal des actions), catégorisées, de la plus ancienne à la plus récente
+ */
+export async function exportUserLogs(/** @type {unknown} */ userId) {
+    if (!userId) throw badRequest('userId requis');
+    const id = idParam(userId);
+    const [sessions, actionLogs] = await Promise.all([
+        prisma.connectionLog.findMany({ where: { user_id: id }, orderBy: [{ login_time: 'asc' }, { id: 'asc' }] }),
+        prisma.actionLog.findMany({ where: { user_id: id }, orderBy: [{ created_at: 'asc' }, { id: 'asc' }] })
+    ]);
+    /** @type {Array<{ date: string, categorie: string, profil: string, action: string, details: string }>} */
+    const actions = [];
+    for (const s of sessions) {
+        const brut = (s.modifications || '').trim();
+        if (!brut) continue;
+        /** @type {any} */
+        let liste;
+        try {
+            liste = JSON.parse(brut);
+        } catch {
+            liste = null;
+        }
+        if (Array.isArray(liste)) {
+            for (const e of liste) {
+                const libelle = String(e?.action ?? '');
+                actions.push({
+                    date: String(e?.timestamp ?? s.login_time ?? ''),
+                    categorie: categorieAction(libelle),
+                    profil: String(e?.profile ?? s.profile ?? ''),
+                    action: libelle,
+                    details: e?.details && Object.keys(e.details).length ? JSON.stringify(e.details) : ''
+                });
+            }
+        } else {
+            // Ancien format : lignes « date - modification »
+            for (const ligne of brut.split('\n')) {
+                const m = /^(.*?) - (.*)$/.exec(ligne);
+                const libelle = m ? m[2] : ligne;
+                actions.push({
+                    date: m ? m[1] : String(s.login_time ?? ''),
+                    categorie: categorieAction(libelle),
+                    profil: s.profile,
+                    action: libelle,
+                    details: ''
+                });
+            }
+        }
+    }
+    for (const a of actionLogs) {
+        const libelle =
+            a.action_type === 'planning_modification'
+                ? 'Modification du planning'
+                : a.action_type === 'email_request'
+                  ? "Demande d'affectation envoyée"
+                  : a.action_type;
+        actions.push({
+            date: String(a.created_at ?? ''),
+            categorie: a.action_type === 'planning_modification' ? 'Planification' : categorieAction(libelle),
+            profil: '',
+            action: libelle,
+            details: a.details ?? ''
+        });
+    }
+    actions.sort((x, y) => x.date.localeCompare(y.date));
+    return {
+        connexions: sessions.map(s => ({ login_time: s.login_time ?? '', profile: s.profile })),
+        actions
+    };
+}
+
 /** Ajoute une modification (horodatée) au journal de la connexion en cours */
 export async function addModification(/** @type {number} */ logId, /** @type {unknown} */ modification) {
     const row = await prisma.connectionLog.findUnique({ where: { id: logId }, select: { modifications: true } });
