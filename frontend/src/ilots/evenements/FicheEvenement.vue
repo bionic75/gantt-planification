@@ -47,7 +47,7 @@ const participants = computed(() => [
 /** L'expert est-il déjà dans les participants de l'événement ? (champ « user_id » des participants) */
 const participe = computed(() => e.value.participants.some(p => p.user_id === ev.userId));
 /** « Participer » proposé à un expert non participant ; « Me retirer » à un expert déjà participant */
-const peutParticiper = computed(() => ev.profil === 'expert' && !participe.value);
+const peutParticiper = computed(() => ev.profil === 'expert' && !participe.value && e.value.peut_participer !== 0);
 const peutSeRetirer = computed(() => ev.profil === 'expert' && participe.value);
 const styleEtiquette = computed(() => ({
     background: c.value.fond,
