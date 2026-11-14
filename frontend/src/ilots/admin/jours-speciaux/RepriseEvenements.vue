@@ -11,6 +11,7 @@ import {
     dateFr,
     evenementsAffiches,
     libelleDe,
+    modificationsConservees,
     ongletApresChargement,
     suggestion,
     traite,
@@ -52,8 +53,11 @@ const lignes = computed(() =>
 const aTraiter = computed(() => evenements.value.filter(e => !traite(e)).length);
 const nbModifications = computed(() => Object.keys(modifications.value).length);
 
-/** Événements relus : modifications non enregistrées abandonnées */
-async function recharger() {
+/**
+ * Événements relus. Ouverture et enregistrement : modifications non enregistrées abandonnées. Types modifiés dans le
+ * paramétrage (conserver) : la saisie en cours, la page et le message sont gardés
+ */
+async function recharger(conserver = false) {
     try {
         evenements.value = (await apiTypesEvenements.reprise()).events ?? [];
     } catch (e) {
@@ -62,6 +66,15 @@ async function recharger() {
     }
     erreurChargement.value = '';
     charge.value = true;
+    if (conserver) {
+        modifications.value = modificationsConservees(
+            modifications.value,
+            evenements.value,
+            new Set(magasin.types.map(t => t.id))
+        );
+        suggeres.value = new Set([...suggeres.value].filter(id => modifications.value[id]?.type_id != null));
+        return;
+    }
     modifications.value = {};
     suggeres.value = new Set();
     page.value = 0;
@@ -74,12 +87,11 @@ async function ouverture() {
     await recharger();
 }
 
-// Types modifiés dans le paramétrage : événements relus s'ils sont affichés (modifications en cours abandonnées,
-// comme l'ancien écran)
+// Types modifiés dans le paramétrage : événements relus s'ils sont affichés, sans perdre les modifications en cours
 watch(
     () => magasin.version,
     () => {
-        if (magasin.origine === 'types' && evenements.value.length) recharger();
+        if (magasin.origine === 'types' && evenements.value.length) recharger(true);
     }
 );
 
@@ -238,7 +250,7 @@ const createur = (e: EvenementReprise) => `${e.creator_prenom || ''} ${(e.creato
                         type="button"
                         class="reprise__recharger"
                         title="Abandonner les modifications non enregistrées et recharger"
-                        @click="recharger"
+                        @click="recharger()"
                     >
                         ↺ Recharger
                     </button>

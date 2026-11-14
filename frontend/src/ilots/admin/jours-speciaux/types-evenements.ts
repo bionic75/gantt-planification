@@ -207,3 +207,26 @@ export function ongletApresChargement(evenements: EvenementReprise[], onglet: On
     if (onglet && evenements.some(e => (onglet === 'done') === traite(e))) return onglet;
     return evenements.some(e => !traite(e)) ? 'todo' : 'done';
 }
+
+/**
+ * Modifications non enregistrées de la reprise, conservées quand les événements sont relus (type modifié ou supprimé
+ * dans le paramétrage) : celles qui visent un événement disparu, un type supprimé ou une valeur désormais identique à
+ * celle de la base sont écartées.
+ */
+export function modificationsConservees(
+    modifications: Record<number, ModificationReprise>,
+    evenements: EvenementReprise[],
+    idsTypes: Set<number>
+): Record<number, ModificationReprise> {
+    const resultat: Record<number, ModificationReprise> = {};
+    for (const e of evenements) {
+        const m = modifications[e.id];
+        if (!m) continue;
+        const c: ModificationReprise = { ...m };
+        if ('type_id' in c && ((c.type_id != null && !idsTypes.has(c.type_id)) || c.type_id === (e.type_id ?? null)))
+            delete c.type_id;
+        if ('label' in c && c.label === e.label) delete c.label;
+        if (Object.keys(c).length) resultat[e.id] = c;
+    }
+    return resultat;
+}
