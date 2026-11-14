@@ -67,8 +67,6 @@ export interface ConnexionsCompte {
     profile: string;
     nb_connexions: number;
     derniere_connexion: string | null;
-    /** Absent des réponses : lu par l'export CSV de l'ancien écran (anomalie conservée) */
-    login_time?: string;
 }
 
 /** Action journalisée (GET /logs/actions) ; détails en JSON */
@@ -77,6 +75,12 @@ export interface ActionCompte {
     action_type: string;
     details: string | null;
     created_at: string;
+}
+
+/** Journal complet d'un compte pour l'export CSV (GET /logs/user-export) */
+export interface JournalComplet {
+    connexions: Array<{ login_time: string; profile: string }>;
+    actions: Array<{ date: string; categorie: string; profil: string; action: string; details: string }>;
 }
 
 export type TypeJournal = 'connexions' | 'planning' | 'emails';
@@ -101,6 +105,8 @@ export const apiUtilisateurs = {
             `/reporting/connections?dateStart=2000-01-01&dateEnd=2099-12-31&userIds=${id}`
         ),
     actions: (id: number) => api.get<{ logs?: ActionCompte[] }>(`/logs/actions?userId=${id}`),
+    /** Toutes les connexions et actions du compte, catégorisées (export CSV) */
+    journalComplet: (id: number) => api.get<JournalComplet>(`/logs/user-export?userId=${id}`),
     remiseAZero: (type: TypeJournal, userId: number) => api.delete<{ deleted: number }>('/logs/raz', { type, userId }),
     /** Journal des modifications (comme l'ancien code) */
     journaliser: (modification: string) => api.post('/logs/add-modification', { modification })

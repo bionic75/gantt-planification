@@ -18,6 +18,11 @@ export async function userActions(/** @type {Request} */ req, /** @type {Respons
     res.json({ logs: await service.listUserActions(req.query.userId) });
 }
 
+/** Journal complet d'un utilisateur (connexions et toutes ses actions, catégorisées) pour l'export CSV */
+export async function userExport(/** @type {Request} */ req, /** @type {Response} */ res) {
+    res.json(await service.exportUserLogs(req.query.userId));
+}
+
 export async function addModification(/** @type {Request} */ req, /** @type {Response} */ res) {
     if (!req.session.logId) return res.json({ success: false, error: 'Aucun log actif' });
     await service.addModification(req.session.logId, req.body.modification);

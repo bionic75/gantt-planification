@@ -132,6 +132,15 @@ describe('journaux', () => {
         }
         expect(planningAction(actions)).toMatchObject({ user_id: 1, action_type: 'planning_modification' });
         expect((await admin.get('/api/logs/actions')).status).toBe(400);
+        // Export complet : connexions et actions catégorisées (journal des sessions et journal des actions)
+        const exportComplet = (await admin.get('/api/logs/user-export?userId=1')).data;
+        expect(Array.isArray(exportComplet.connexions)).toBe(true);
+        expect(exportComplet.connexions[0]).toHaveProperty('login_time');
+        expect(exportComplet.actions.find(a => a.action === 'Modification du planning')).toMatchObject({
+            categorie: 'Planification'
+        });
+        expect((await admin.get('/api/logs/user-export')).status).toBe(400);
+        expect((await client.get('/api/logs/user-export?userId=1')).status).toBe(403);
         expect((await admin.get('/api/logs/planning-debug')).data).toHaveProperty('stats');
 
         const raz = await admin.delete('/api/logs/raz', { type: 'connexions', userId: user.id });

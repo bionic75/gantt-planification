@@ -1030,6 +1030,11 @@
         "guard": "admin"
     },
     {
+        "method": "GET",
+        "path": "/api/logs/user-export",
+        "guard": "admin"
+    },
+    {
         "method": "PUT",
         "path": "/api/me/samu-assignments",
         "guard": "auth"
