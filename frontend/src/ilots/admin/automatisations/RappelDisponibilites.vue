@@ -52,8 +52,6 @@ interface FenetreTest {
     message: string;
 }
 const test = ref<FenetreTest | null>(null);
-/** Case « Sélectionner » de l'en-tête : sans effet sur les lignes (anomalie de l'ancien écran, conservée) */
-const caseEntete = ref(true);
 
 async function tester() {
     resultat.value = { texte: '🔍 Recherche en cours...', etat: 'encours' };
@@ -61,7 +59,6 @@ async function tester() {
         const d = await apiAutomatisations.testRappel();
         const experts = d.expertsWithoutAvailability ?? [];
         if (experts.length) {
-            caseEntete.value = true;
             test.value = {
                 experts,
                 mois: d.targetMonth,
@@ -181,11 +178,7 @@ async function envoyerRappels() {
                     <table class="auto-test__tableau">
                         <thead>
                             <tr>
-                                <th>
-                                    <label class="auto-test__tous">
-                                        <input v-model="caseEntete" type="checkbox" /> Sélectionner
-                                    </label>
-                                </th>
+                                <th></th>
                                 <th>Expert</th>
                                 <th>Email</th>
                             </tr>
@@ -312,9 +305,6 @@ async function envoyerRappels() {
 }
 .auto-test__tableau tbody tr {
     border-bottom: 1px solid #ddd;
-}
-.auto-test__tous {
-    cursor: pointer;
 }
 .auto-test__centre {
     text-align: center;
