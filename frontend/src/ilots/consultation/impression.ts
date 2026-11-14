@@ -14,6 +14,9 @@ const echapper = (texte: string) =>
 export function imprimerCalendrierMensuel(titre: string, sousTitre: string, contenu: HTMLElement): void {
     const fenetre = window.open('', '_blank');
     if (!fenetre) return;
+    // Ni la ligne de navigation (mois et flèches) : le mois est déjà en sous-titre
+    const copie = contenu.cloneNode(true) as HTMLElement;
+    copie.querySelectorAll('.gp-cm-nav').forEach(n => n.remove());
     ecrireDocument(
         fenetre.document,
         `
@@ -62,9 +65,8 @@ export function imprimerCalendrierMensuel(titre: string, sousTitre: string, cont
                     </style>
                 </head>
                 <body>
-                    <h3>| ${echapper(titre)}</h3>
                     <h2 class="gp-impression-mois">${echapper(sousTitre)}</h2>
-                    ${contenu.innerHTML}
+                    ${copie.innerHTML}
                 </body>
                 </html>
             `
