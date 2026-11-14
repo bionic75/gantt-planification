@@ -48,7 +48,7 @@ const avertissement = ref<{ intitule: string; solde: number; demandees: number }
 const nomFixe = computed(() => {
     const s = session.value;
     if (!s) return '';
-    const nom = `${s.nom ? s.nom.toUpperCase() : ''} ${s.prenom || ''}${s.trigramme ? ` (${s.trigramme})` : ''}`.trim();
+    const nom = `${s.prenom || ''} ${s.nom ? s.nom.toUpperCase() : ''}${s.trigramme ? ` (${s.trigramme})` : ''}`.trim();
     return nom || s.username;
 });
 
@@ -239,7 +239,7 @@ surReouverture(() => void ouvrir());
                         {{ amoaCed.length ? '-- Sélectionner un AMOA CED --' : '-- Aucun AMOA CED disponible --' }}
                     </option>
                     <option v-for="u in amoaCed" :key="u.id" :value="String(u.id)">
-                        {{ u.nom.toUpperCase() }} {{ u.prenom }}{{ u.trigramme ? ` (${u.trigramme})` : '' }}
+                        {{ u.prenom }} {{ u.nom.toUpperCase() }}{{ u.trigramme ? ` (${u.trigramme})` : '' }}
                     </option>
                 </select>
                 <div v-else id="deplacementAmoaCedFixed" class="dep-mes__amoa-fixe">
