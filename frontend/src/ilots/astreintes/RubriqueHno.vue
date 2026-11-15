@@ -15,6 +15,7 @@ import VolontairesHno from './VolontairesHno.vue';
 
 const { demande, repondre } = fournirConfirmation();
 const ressources = ref<Ressource[]>([]);
+const actuel = ref<InstanceType<typeof PlanningActuelHno> | null>(null);
 
 async function charger() {
     try {
@@ -48,10 +49,10 @@ defineExpose({ charger });
         <DisponibilitesHno :ressources="ressources" />
     </SectionHno>
     <SectionHno titre="⚙️ Génération du planning d'astreinte">
-        <GenerationHno :ressources="ressources" />
+        <GenerationHno :ressources="ressources" @genere="m => actuel?.apresGeneration(m)" />
     </SectionHno>
     <SectionHno titre="📅 Planning d'astreinte actuel">
-        <PlanningActuelHno :ressources="ressources" />
+        <PlanningActuelHno ref="actuel" :ressources="ressources" />
     </SectionHno>
     <AppConfirmation
         :opened="!!demande"

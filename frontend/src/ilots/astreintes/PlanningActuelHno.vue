@@ -1,7 +1,7 @@
-<!-- Rubrique HNO : planning d'astreinte enregistré d'un mois, affiché au changement de mois (comme l'ancien écran, le
-     mois courant présélectionné n'est pas chargé) -->
+<!-- Rubrique HNO : planning d'astreinte enregistré d'un mois, affiché à l'ouverture (mois courant) et au changement de
+     mois, actualisé après une génération du mois affiché -->
 <script setup lang="ts">
-import { ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import { apiAstreintesHno, type CreneauPlanningHno } from '@/api/astreintes';
 import type { Ressource } from '@/api/ressources';
 import { creneau, moisProposes, nomExpert } from './hno';
@@ -29,6 +29,14 @@ async function charger() {
         erreur.value = (e as Error).message;
     }
 }
+
+onMounted(charger);
+
+/** Planning généré : actualisé si c'est le mois affiché */
+function apresGeneration(moisGenere: string) {
+    if (moisGenere === moisChoisi.value) void charger();
+}
+defineExpose({ apresGeneration });
 </script>
 
 <template>

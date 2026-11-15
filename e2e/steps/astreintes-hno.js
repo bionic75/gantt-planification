@@ -214,6 +214,15 @@ When('je génère le planning du dernier mois proposé', async ({ monde }) => {
         .locator('#astreintesGestion')
         .getByRole('button', { name: /Générer le planning/ })
         .click();
+    // Un planning existe peut-être déjà pour ce mois : confirmation du remplacement
+    const boite = monde.page.getByRole('alertdialog');
+    if (
+        await boite.waitFor({ state: 'visible', timeout: 3000 }).then(
+            () => true,
+            () => false
+        )
+    )
+        await boite.getByRole('button', { name: 'Remplacer' }).click();
 });
 
 Then('le planning généré présente un créneau par jour du mois', async ({ monde }) => {
