@@ -1,7 +1,12 @@
 // @ts-check
 // Aide à l'affectation opérationnelle (déploiements des SAMU) : /api/affectation
 import { Router } from 'express';
-import { requireAdmin, requireAffectationAccess, requireAuth, requireDeploiementsLecture } from '../../middlewares/auth.js';
+import {
+    requireAdmin,
+    requireAffectationAccess,
+    requireAuth,
+    requireDeploiementsLecture
+} from '../../middlewares/auth.js';
 import { sondagePublicLimiters } from '../../middlewares/rate-limit.js';
 import { asyncHandler as h } from '../../middlewares/error-handler.js';
 import * as ctrl from './affectation.controller.js';

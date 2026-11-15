@@ -81,14 +81,6 @@ Given('le SAMU de test est « En service » depuis le {string}', async ({ monde 
     expect(r.status, JSON.stringify(r.data)).toBe(200);
 });
 
-When("j'ouvre la carte des événements", async ({ monde }) => {
-    await monde.page
-        .locator('#evenements')
-        .getByRole('button', { name: /Carte des Événements/ })
-        .click();
-    await expect(monde.page.locator('#modalMapEventCount')).not.toHaveText('');
-});
-
 Then('la carte colore {int} département', async ({ monde }, nombre) => {
     await expect(monde.page.locator('#eventMapModalContainer path.leaflet-interactive')).toHaveCount(nombre);
 });
