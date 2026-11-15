@@ -15,8 +15,8 @@ export interface Contours {
 function dansAnneau(x: number, y: number, anneau: Anneau) {
     let dedans = false;
     for (let i = 0, j = anneau.length - 1; i < anneau.length; j = i++) {
-        const [xi, yi] = anneau[i];
-        const [xj, yj] = anneau[j];
+        const [xi = 0, yi = 0] = anneau[i] ?? [];
+        const [xj = 0, yj = 0] = anneau[j] ?? [];
         if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) dedans = !dedans;
     }
     return dedans;
