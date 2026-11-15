@@ -353,3 +353,11 @@ export function telecharger(nomFichier: string, contenu: string, type: string) {
 
 export const nomFichierDuJour = (extension: string) =>
     `evenements_${new Date().toISOString().slice(0, 10)}.${extension}`;
+
+/** Types proposés dans le formulaire : ordre alphabétique du libellé, le type « Autre(s) » en dernier */
+export const typesAlphabetiques = (types: TypeEvenement[]) =>
+    [...types].sort(
+        (a, b) =>
+            Number(!!a.is_other) - Number(!!b.is_other) ||
+            a.label_long.localeCompare(b.label_long, 'fr', { sensitivity: 'base' })
+    );
