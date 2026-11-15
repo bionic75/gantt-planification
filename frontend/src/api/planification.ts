@@ -73,8 +73,7 @@ export const apiPlanification = {
     particularites: (ressourceId: number, periodeId: number) =>
         api.get<ParticulariteMad[]>(`/resources/${ressourceId}/mad-history/${periodeId}/particularites`),
     /** Congés scolaires enregistrés (chargement de la page) */
-    conges: () => api.get<{ holidays?: Conges }>('/school-holidays'),
-    /** Congés scolaires des fichiers importés (après un import ou une suppression) */
+    /** Congés scolaires des fichiers importés */
     congesDesFichiers: () => api.get<{ periods?: Conges }>('/ics-files/school-holidays/all-periods'),
     datesParticulieres: () => api.get<{ dates?: DateParticuliere[] }>('/ics-files/special-dates/all'),
     astreintes: () => api.get<AstreintePlanning[]>('/all-astreintes-planning'),

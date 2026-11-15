@@ -280,10 +280,6 @@ Anomalies relevées pendant la migration (comportement conservé, correction à 
   Désélectionner tous » ne suit pas les cases des experts.
 - Nouvelles affectations : notifications créées par le serveur à l'enregistrement d'une affectation posée par un tiers
   (grille de planification, aide à l'affectation) ; marquées lues une seule fois, à l'ouverture de la fenêtre.
-- Grille : à l'ouverture de l'onglet, le mois courant est réaffiché (et, pour un expert, sa ressource seule dans le
-  filtre) ; un clic sur une demi-journée n'est pas signalé en cas d'échec d'enregistrement (trois nouvelles tentatives,
-  sans message ni retour en arrière) ; les congés scolaires viennent des congés enregistrés au chargement, puis des
-  fichiers importés après un import ; une astreinte se terminant à midi pile couvre l'après-midi.
 
 Changements de comportement décidés pendant la migration :
 
