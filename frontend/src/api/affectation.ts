@@ -57,6 +57,8 @@ export interface Deploiement {
     /** Journées d'intervention par étape : date → ressources */
     assignment_days?: Record<string, Record<string, number[]>>;
     from_asana?: boolean | number | null;
+    /** Rubriques reprises d'Asana (null : suivi absent, toutes les valeurs renseignées sont considérées reprises) */
+    asana_keys?: string[] | null;
 }
 
 /** Étape d'un déploiement : période(s), date (mise en service / production) ou jalon (une date) */
