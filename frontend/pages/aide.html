@@ -264,6 +264,7 @@
 
   <h3>Carte des événements : lecture chronologique</h3>
   <p>Dans la fenêtre de cartographie des événements (onglet Événements / Cartographie), choisissez une <strong>date de début</strong> et une <strong>date de fin</strong>, une <strong>vitesse de défilement</strong> (durée totale de la lecture) puis cliquez sur <strong>Lecture</strong>. Les pastilles apparaissent progressivement sur la carte, de façon cumulative, au fil du temps. Vous pouvez mettre en <strong>pause</strong>, reprendre, ou déplacer le curseur de progression pour revenir à une date donnée. Les experts <strong>principaux</strong> et <strong>secondaires</strong> d'un SAMU sont distingués par deux icônes simplifiées (P et S).</p>
+  <p>Sur la carte, trois boutons affichent ou masquent des <strong>calques</strong> : les <strong>événements / déplacements</strong>, les <strong>experts</strong> et les <strong>départements</strong>. Le calque des départements colore chaque département dont le SAMU a un statut de déploiement (couleur du statut) ; un curseur règle sa <strong>transparence</strong>. Si plusieurs SAMU d'un même département ont des statuts différents, c'est le statut placé le plus haut dans la liste qui s'applique. Les statuts se paramètrent dans la rubrique <strong>Paramétrage des déploiements</strong> (administrateur) de l'onglet Événements / Cartographie.</p>
 
   <h3>Modèles d'événements</h3>
   <p>Chaque modèle d'événement (Formation, Mise en service, Accompagnement post-démarrage, Visite métier, VFT sur site, Vérification des prérequis, Visite terrain, Congrès, Réunion de lancement…) dispose d'une <strong>icône propre</strong>, visible dans la vignette de choix du modèle puis reprise dans le cartouche de l'événement dans la liste (accordéon) et sur la carte.</p>
@@ -772,11 +773,24 @@
   <h2>🆕 Notes de version</h2>
   <p>Historique des évolutions de la Plateforme de Planification ANS.</p>
 
+  <!-- v3.3.0 -->
+  <div class="card card-green" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v3.3.0</strong>
+      <span class="badge badge-current">Actuelle</span>
+      <span style="color:#888; font-size:13px;">Novembre 2026</span>
+    </div>
+    <ul>
+      <li>🗺️ <strong>Événements / Cartographie</strong> : l'onglet « Événements » est renommé « Événements / Cartographie ».</li>
+      <li>🚦 <strong>Paramétrage des déploiements</strong> : nouvelle rubrique (administrateur) pour créer des statuts de déploiement, choisir leur couleur et leur ordre, puis attribuer un statut à chaque déploiement. Pour le statut « En service », la date de mise en service se saisit dans la même rubrique.</li>
+      <li>🎨 <strong>Carte des événements</strong> : un calque « Départements » colore le département de chaque SAMU selon son statut (transparence réglable) ; les événements / déplacements et les experts métier ont leur propre calque, à afficher ou masquer.</li>
+    </ul>
+  </div>
+
   <!-- v3.2.3 -->
   <div class="card card-green" style="margin-bottom:16px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
       <strong style="font-size:16px;">v3.2.3</strong>
-      <span class="badge badge-current">Actuelle</span>
       <span style="color:#888; font-size:13px;">Novembre 2026</span>
     </div>
     <ul>
