@@ -117,8 +117,7 @@ const texte = (e: Event) => (e.target as HTMLInputElement).value;
                         <th>Date début</th>
                         <th>Date fin</th>
                         <th class="historique__centre">Taux</th>
-                        <!-- Consultation : en-tête conservé, cellules d'actions masquées (comme l'ancien écran) -->
-                        <th class="historique__centre">Actions</th>
+                        <th v-if="!consultation" class="historique__centre">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
