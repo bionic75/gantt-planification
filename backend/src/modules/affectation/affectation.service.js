@@ -458,13 +458,16 @@ export async function loadProjectRows(where = {}) {
     ]);
     const chefById = new Map(chefs.map(u => [u.id, u]));
     const fromAsana = new Set(imported.map(h => h.project_id));
+    // Rubriques dont la valeur vient d'Asana (dernière lecture mémorisée) ; null : projet repris avant ce suivi
+    const instantanes = (await getJsonSetting('asana_snapshots')) || {};
     return projects.map(p => {
         const chef = p.chef_projet_id != null ? chefById.get(p.chef_projet_id) : undefined;
         return {
             ...p,
             chef_nom: chef?.nom ?? null,
             chef_prenom: chef?.prenom ?? null,
-            from_asana: fromAsana.has(p.id)
+            from_asana: fromAsana.has(p.id),
+            asana_keys: fromAsana.has(p.id) && instantanes[String(p.id)] ? Object.keys(instantanes[String(p.id)]) : null
         };
     });
 }
@@ -491,7 +494,8 @@ export function affRowToJson(
         // Qui intervient chaque jour, étape par étape : { étape: { AAAA-MM-JJ: [ressources] } }
         assignment_days: affAssignmentDaysJson(periods, assignments && assignments[r.id], assignmentDays[r.id]),
         updated_at: r.updated_at,
-        from_asana: !!r.from_asana
+        from_asana: !!r.from_asana,
+        asana_keys: r.asana_keys ?? null
     };
 }
 

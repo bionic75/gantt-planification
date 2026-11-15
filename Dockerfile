@@ -10,8 +10,10 @@ RUN npm run build:front
 
 FROM node:22-alpine
 
-# Chromium + libs requises par Puppeteer
-RUN apk add --no-cache chromium nss freetype freetype-dev harfbuzz ca-certificates ttf-freefont
+# Chromium + libs requises par Puppeteer ; LibreOffice (conversion PowerPoint → PDF de l'export du planning avec modèle)
+# et polices pour la mise en page des documents convertis
+RUN apk add --no-cache chromium nss freetype freetype-dev harfbuzz ca-certificates ttf-freefont \
+        libreoffice font-liberation ttf-dejavu
 
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 # Nom de la variable depuis Puppeteer 20 (l'ancien est ignoré)
