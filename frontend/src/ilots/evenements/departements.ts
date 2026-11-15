@@ -23,8 +23,8 @@ function dansAnneau(x: number, y: number, anneau: Anneau) {
 }
 
 /** Polygone = anneau extérieur, puis trous éventuels */
-const dansPolygone = (x: number, y: number, p: Anneau[]) =>
-    dansAnneau(x, y, p[0]) && !p.slice(1).some(trou => dansAnneau(x, y, trou));
+const dansPolygone = (x: number, y: number, [exterieur, ...trous]: Anneau[]) =>
+    !!exterieur && dansAnneau(x, y, exterieur) && !trous.some(trou => dansAnneau(x, y, trou));
 
 /** Département contenant le point, ou null (mer, hors métropole) */
 export function departementDe(lat: number, lng: number, contours: Contours) {
