@@ -200,6 +200,8 @@ async function supprimer(i: number) {
     if (ligne?.id && horsMois.has(ligne.id)) horsMoisSupprimees.push(ligne.id);
     lignes.value.splice(i, 1);
     if (enModification.value === i) reinitialiser();
+    // Ligne supprimée avant celle en cours de modification : son rang recule d'un cran
+    else if (enModification.value !== null && i < enModification.value) enModification.value--;
 }
 
 async function collecterPlanification() {
