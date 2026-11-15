@@ -136,6 +136,12 @@ de `mobile.html` pour appliquer le mode sombre avant l'affichage. Les anciennes 
 lit l'adresse (Vue Router). Une aide personnalisée enregistrée dans l'administration est servie avec le point d'entrée
 de l'aide (balises de l'ancienne aide livrée retirées) ; elle ne peut pas contenir de script (CSP, [sécurité](securite.md)).
 
+Contours des départements de la carte des événements : `frontend/public/departements.geojson` (servi sous
+`/vue/departements.geojson`), tracés IGN Admin Express (édition 2018, licence ouverte) issus de
+`gregoiredavid/france-geojson` (`departements-version-simplifiee.geojson`), métropole seule (96 départements),
+coordonnées arrondies à 3 décimales. Le département d'un déploiement est calculé dans le navigateur à partir des
+coordonnées de sa localisation (`frontend/src/ilots/evenements/departements.ts`) : aucun appel externe.
+
 Version et cache : le commentaire `<!-- vX.Y.Z -->` en tête de `index.html` est la version affichée, mise à jour par
 `npm run app:version -- X.Y.Z` ([déploiement](deploiement.md#publier-une-version)). Les fichiers de l'interface Vue
 portent une empreinte dans leur nom : les navigateurs rechargent ceux qui changent.
