@@ -19,6 +19,19 @@ Fonctionnalité: Événements / Cartographie : paramétrage des statuts de dépl
     Et je passe le déploiement de test « En service » le "2031-06-15"
     Alors le déploiement de test est « En service » depuis le "2031-06-15" sur la carte
 
+  Scénario: La carte colore le département d'un SAMU en service et masque ses calques
+    Étant donné qu'une localisation SAMU de test géolocalisée existe
+    Et qu'un déploiement de test a une visite métier du "2031-05-12" au "2031-05-13"
+    Et que le déploiement de test est « En service » depuis le "2031-06-15"
+    Quand "Administrateur" ouvre l'application
+    Et j'ouvre l'onglet "Événements"
+    Et j'ouvre la carte des événements
+    Alors la carte colore 1 département
+    Quand je masque le calque « Départements » de la carte
+    Alors la carte colore 0 département
+    Quand j'affiche le calque « Départements » de la carte
+    Alors la carte colore 1 département
+
   Scénario: Un expert ne voit pas le paramétrage des déploiements
     Quand "Expert" ouvre l'application
     Et j'ouvre l'onglet "Événements"
