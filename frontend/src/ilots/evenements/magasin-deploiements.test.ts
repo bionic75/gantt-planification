@@ -12,7 +12,9 @@ vi.mock('@/api/deploiements', () => ({
         modifier: vi.fn(),
         supprimer: vi.fn(),
         reordonner: vi.fn(),
-        affecter: vi.fn()
+        affecter: vi.fn(),
+        retirer: vi.fn(),
+        importerMes: vi.fn()
     }
 }));
 vi.mock('@/evenements', () => ({ emettre: vi.fn() }));
@@ -33,16 +35,18 @@ const samu: DeploiementCarte = {
 beforeEach(() => {
     setActivePinia(createPinia());
     vi.resetAllMocks();
-    api.carte.mockResolvedValue({ statuses: [service, test], deployments: [samu] });
+    api.carte.mockResolvedValue({ statuses: [service, test], palette: ['#111111', '#222222'], deployments: [samu] });
+    api.retirer.mockResolvedValue({ success: true });
     api.affecter.mockResolvedValue({ success: true });
     api.reordonner.mockResolvedValue({ statuses: [test, service] });
     api.supprimer.mockResolvedValue({ success: true });
 });
 
 describe('déploiements (statuts)', () => {
-    it('charge les statuts et les déploiements', async () => {
+    it('charge les statuts, la palette et les SAMU', async () => {
         const m = useDeploiementsStore();
         await m.charger();
+        expect(m.palette).toEqual(['#111111', '#222222']);
         expect(m.statuts).toEqual([service, test]);
         expect(m.deploiements).toEqual([samu]);
     });
@@ -81,5 +85,25 @@ describe('déploiements (statuts)', () => {
         await m.charger();
         await m.affecter(9, 2);
         expect(emettre).toHaveBeenCalledWith('statuts-deploiements-modifies');
+    });
+
+    it('ajoute un SAMU sans statut, et le retire', async () => {
+        const m = useDeploiementsStore();
+        await m.charger();
+        await m.ajouterSamu(12);
+        expect(api.affecter).toHaveBeenLastCalledWith(12, { status_id: null });
+        await m.retirerSamu(12);
+        expect(api.retirer).toHaveBeenCalledWith(12);
+    });
+
+    it('annonce combien de mises en service ont été reprises des événements', async () => {
+        const m = useDeploiementsStore();
+        await m.charger();
+        api.importerMes.mockResolvedValue({ imported: 3 });
+        await m.reprendreMisesEnService();
+        expect(m.information).toContain('3 SAMU');
+        api.importerMes.mockResolvedValue({ imported: 0 });
+        await m.reprendreMisesEnService();
+        expect(m.information).toBe('Aucun SAMU à mettre à jour.');
     });
 });

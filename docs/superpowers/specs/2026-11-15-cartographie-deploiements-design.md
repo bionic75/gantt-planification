@@ -81,3 +81,15 @@ navigateur (confort par utilisateur, absent : calques tous affichés, transparen
 - Emplacement exact du contrôle de calques dans la fenêtre de carte.
 - Texte d'aide à ajouter dans `frontend/pages/aide.html`.
 - Découpage en lots : (1) libellé, (2) statuts et déploiements en administration, (3) calques de la carte.
+
+## Révision du 2026-11-15 (retours à l'essai)
+
+- **Le statut se rattache au SAMU (localisation), pas au déploiement d'affectation** : table `deployment_samus`
+  (`location_id` unique, `status_id`, `date_mise_en_service`). La base de test compte 112 localisations, 14 événements
+  « Mise en service » mais 9 déploiements d'affectation seulement.
+- **Liste des SAMU suivis** : ceux qui ont une ligne saisie, ceux des déploiements d'affectation et ceux qui ont un
+  événement « Mise en service » (date suggérée = première date de ces événements). Ajout de n'importe quelle
+  localisation ; retrait possible pour les SAMU ajoutés à la main. Bouton « Reprendre les mises en service des
+  événements » : « En service » pour les SAMU sans statut dont la mise en service est passée.
+- **Palette restreinte de 15 couleurs**, de la moins à la plus avancée (la dernière est celle de « En service »),
+  imposée par le serveur (`PALETTE_STATUTS`) et proposée par le sélecteur de couleur.

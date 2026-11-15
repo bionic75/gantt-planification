@@ -26,7 +26,7 @@ Protections :
 | `mfaPending` | Connexion en attente de double authentification |
 | `apiKey` | Clé d’API (en-tête X-Api-Key) |
 
-336 routes, par module (`backend/src/modules/<module>`) :
+338 routes, par module (`backend/src/modules/<module>`) :
 
 ## admin
 
@@ -83,7 +83,10 @@ Protections :
 | POST | `/api/affectation/ateliers/simulate` | affectation |
 | PUT | `/api/affectation/colors` | admin |
 | GET | `/api/affectation/config` | deploiements |
+| POST | `/api/affectation/deployment-import-mes` | admin |
 | GET | `/api/affectation/deployment-map` | auth |
+| PUT | `/api/affectation/deployment-samus/:locationId` | admin |
+| DELETE | `/api/affectation/deployment-samus/:locationId` | admin |
 | GET | `/api/affectation/deployment-statuses` | auth |
 | POST | `/api/affectation/deployment-statuses` | admin |
 | PUT | `/api/affectation/deployment-statuses-order` | admin |
@@ -112,7 +115,6 @@ Protections :
 | PUT | `/api/affectation/projects/:id/event-link` | admin |
 | GET | `/api/affectation/projects/:id/events-candidates` | admin |
 | GET | `/api/affectation/projects/:id/history` | admin |
-| PUT | `/api/affectation/projects/:id/status` | admin |
 | GET | `/api/affectation/projects/:id/sync/:stage` | affectation |
 | POST | `/api/affectation/projects/:id/sync/:stage` | admin |
 | GET | `/api/affectation/resources` | affectation |

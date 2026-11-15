@@ -4,7 +4,27 @@ import { prisma } from '../../db/prisma.js';
 import { idParam } from '../../db/values.js';
 import { HttpError, badRequest, notFound } from '../../lib/http-error.js';
 
-const COULEUR = /^#[0-9a-fA-F]{6}$/;
+/**
+ * Couleurs proposées pour les statuts, de la moins avancée à la plus avancée (carte de France : teintes bien
+ * distinctes). La dernière est celle de « En service ».
+ */
+export const PALETTE_STATUTS = [
+    '#9e9e9e',
+    '#90a4ae',
+    '#64b5f6',
+    '#1e88e5',
+    '#1565c0',
+    '#7e57c2',
+    '#ab47bc',
+    '#ec407a',
+    '#ef5350',
+    '#fb8c00',
+    '#fdd835',
+    '#cddc39',
+    '#9ccc65',
+    '#43a047',
+    '#2e7d32'
+];
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** @param {{ id: number; label: string; color: string; position: number; is_service: number }} s */
@@ -17,9 +37,11 @@ export async function listStatuses() {
 
 /** @param {unknown} v */
 function checkColor(v) {
-    const c = String(v ?? '').trim();
-    if (!COULEUR.test(c)) throw badRequest('Couleur invalide (format #rrggbb)');
-    return c.toLowerCase();
+    const c = String(v ?? '')
+        .trim()
+        .toLowerCase();
+    if (!PALETTE_STATUTS.includes(c)) throw badRequest('Couleur hors de la palette proposée');
+    return c;
 }
 
 /** @param {unknown} v @param {number | null} [exceptId] */
@@ -60,11 +82,14 @@ export async function updateStatus(
 export async function deleteStatus(/** @type {unknown} */ id) {
     const old = await getStatus(id);
     if (old.is_service) throw new HttpError(409, 'Le statut « En service » ne peut pas être supprimé');
-    const used = await prisma.affectationProject.findMany({
-        where: { status_id: old.id },
-        select: { samu_name: true }
-    });
-    if (used.length) throw new HttpError(409, `Statut utilisé par : ${used.map(u => u.samu_name).join(', ')}`);
+    const used = await prisma.deploymentSamu.findMany({ where: { status_id: old.id }, select: { location_id: true } });
+    if (used.length) {
+        const lieux = await prisma.location.findMany({
+            where: { id: { in: used.map(u => u.location_id) } },
+            select: { libelle_court: true }
+        });
+        throw new HttpError(409, `Statut utilisé par : ${lieux.map(l => l.libelle_court).join(', ')}`);
+    }
     await prisma.deploymentStatus.delete({ where: { id: old.id } });
 }
 
@@ -80,14 +105,75 @@ export async function reorderStatuses(/** @type {unknown} */ ids) {
     return listStatuses();
 }
 
-/** Statut d'un déploiement ; la date de mise en service n'est prise en compte que pour un statut « En service » */
-export async function setProjectStatus(
-    /** @type {unknown} */ projectId,
+/** Mises en service saisies dans les événements : première date par localisation */
+async function misesEnService() {
+    const type = await prisma.eventType.findUnique({ where: { code: 'mes' } });
+    /** @type {Map<number, string>} */
+    const parLieu = new Map();
+    if (!type) return parLieu;
+    const evenements = await prisma.customEvent.findMany({
+        where: { type_id: type.id, location_id: { not: null } },
+        select: { location_id: true, start_date: true },
+        orderBy: { start_date: 'asc' }
+    });
+    for (const e of evenements)
+        if (e.location_id != null && !parLieu.has(e.location_id)) parLieu.set(e.location_id, e.start_date.slice(0, 10));
+    return parLieu;
+}
+
+/**
+ * SAMU suivis (ligne par localisation) : ceux qui ont un statut ou ont été ajoutés, ceux des déploiements de l'aide à
+ * l'affectation et ceux qui ont un événement « Mise en service », avec les coordonnées de leur localisation
+ */
+export async function deploymentMap() {
+    const [statuses, saisis, projets, mes, locations] = await Promise.all([
+        listStatuses(),
+        prisma.deploymentSamu.findMany(),
+        prisma.affectationProject.findMany({
+            where: { location_id: { not: null } },
+            select: { location_id: true, date_mise_en_service: true }
+        }),
+        misesEnService(),
+        prisma.location.findMany({
+            select: { id: true, libelle_court: true, latitude: true, longitude: true },
+            orderBy: { libelle_court: 'asc' }
+        })
+    ]);
+    const saisiParLieu = new Map(saisis.map(d => [d.location_id, d]));
+    const projetParLieu = new Map(projets.map(p => [/** @type {number} */ (p.location_id), p]));
+    const deployments = locations
+        .filter(l => saisiParLieu.has(l.id) || projetParLieu.has(l.id) || mes.has(l.id))
+        .map(l => {
+            const saisi = saisiParLieu.get(l.id);
+            return {
+                id: l.id,
+                samu_name: l.libelle_court,
+                location_id: l.id,
+                latitude: l.latitude ?? null,
+                longitude: l.longitude ?? null,
+                status_id: saisi?.status_id ?? null,
+                date_mise_en_service: saisi?.date_mise_en_service ?? null,
+                date_suggeree: mes.get(l.id) ?? projetParLieu.get(l.id)?.date_mise_en_service ?? null,
+                derive: projetParLieu.has(l.id) || mes.has(l.id)
+            };
+        });
+    return { statuses, palette: PALETTE_STATUTS, deployments };
+}
+
+async function getLocation(/** @type {unknown} */ rawId) {
+    const id = idParam(rawId);
+    const l = await prisma.location.findUnique({ where: { id } });
+    if (!l) throw notFound('Localisation introuvable');
+    return l;
+}
+
+/** Statut d'un SAMU (ligne créée si besoin) ; la date n'est prise en compte que pour un statut « En service » */
+export async function setSamuStatus(
+    /** @type {unknown} */ locationId,
     /** @type {{ status_id?: unknown; date_mise_en_service?: unknown }} */ body
 ) {
-    const id = idParam(projectId);
-    const project = await prisma.affectationProject.findUnique({ where: { id } });
-    if (!project) throw notFound('Projet introuvable');
+    const loc = await getLocation(locationId);
+    const actuel = await prisma.deploymentSamu.findUnique({ where: { location_id: loc.id } });
     /** @type {{ status_id: number | null; date_mise_en_service?: string | null }} */
     const data = { status_id: null };
     if (body.status_id != null && body.status_id !== '') {
@@ -99,31 +185,40 @@ export async function setProjectStatus(
             if (d !== null && d !== '' && !DATE.test(String(d))) throw badRequest('Date invalide (AAAA-MM-JJ)');
             data.date_mise_en_service = d ? String(d) : null;
         }
+        // « En service » sans date : celle de l'événement « Mise en service » ou du déploiement, si elle existe
+        if (status.is_service && data.date_mise_en_service === undefined && !actuel?.date_mise_en_service) {
+            const m = (await deploymentMap()).deployments.find(x => x.location_id === loc.id);
+            if (m?.date_suggeree) data.date_mise_en_service = m.date_suggeree;
+        }
     }
-    await prisma.affectationProject.update({ where: { id }, data });
+    await prisma.deploymentSamu.upsert({
+        where: { location_id: loc.id },
+        create: { location_id: loc.id, ...data },
+        update: data
+    });
 }
 
-/** Statuts et déploiements avec les coordonnées de leur localisation (carte) */
-export async function deploymentMap() {
-    const [statuses, projects, locations] = await Promise.all([
-        listStatuses(),
-        prisma.affectationProject.findMany({ orderBy: { id: 'asc' } }),
-        prisma.location.findMany({ select: { id: true, latitude: true, longitude: true } })
-    ]);
-    const loc = new Map(locations.map(l => [l.id, l]));
-    return {
-        statuses,
-        deployments: projects.map(p => {
-            const l = p.location_id == null ? null : loc.get(p.location_id);
-            return {
-                id: p.id,
-                samu_name: p.samu_name,
-                location_id: p.location_id,
-                latitude: l?.latitude ?? null,
-                longitude: l?.longitude ?? null,
-                status_id: p.status_id,
-                date_mise_en_service: p.date_mise_en_service
-            };
-        })
-    };
+/** Retire un SAMU ajouté à la liste (ceux des déploiements et des événements y reviennent, sans statut) */
+export async function removeSamu(/** @type {unknown} */ locationId) {
+    const loc = await getLocation(locationId);
+    await prisma.deploymentSamu.deleteMany({ where: { location_id: loc.id } });
+}
+
+/** « En service » pour chaque SAMU sans statut ayant un événement « Mise en service » déjà passé ; renvoie leur nombre */
+export async function importMisesEnService() {
+    const service = await prisma.deploymentStatus.findFirst({ where: { is_service: 1 } });
+    if (!service) throw notFound('Statut « En service » introuvable');
+    const aujourdhui = new Date().toISOString().slice(0, 10);
+    const saisis = new Map((await prisma.deploymentSamu.findMany()).map(d => [d.location_id, d]));
+    let importes = 0;
+    for (const [lieu, date] of await misesEnService()) {
+        if (date > aujourdhui || saisis.get(lieu)?.status_id != null) continue;
+        await prisma.deploymentSamu.upsert({
+            where: { location_id: lieu },
+            create: { location_id: lieu, status_id: service.id, date_mise_en_service: date },
+            update: { status_id: service.id, date_mise_en_service: date }
+        });
+        importes++;
+    }
+    return importes;
 }

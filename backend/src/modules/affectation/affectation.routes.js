@@ -26,7 +26,9 @@ router.post('/affectation/deployment-statuses', requireAdmin, h(statuts.create))
 router.put('/affectation/deployment-statuses-order', requireAdmin, h(statuts.reorder));
 router.put('/affectation/deployment-statuses/:id', requireAdmin, h(statuts.update));
 router.delete('/affectation/deployment-statuses/:id', requireAdmin, h(statuts.remove));
-router.put('/affectation/projects/:id/status', requireAdmin, h(statuts.setProjectStatus));
+router.put('/affectation/deployment-samus/:locationId', requireAdmin, h(statuts.setSamuStatus));
+router.delete('/affectation/deployment-samus/:locationId', requireAdmin, h(statuts.removeSamu));
+router.post('/affectation/deployment-import-mes', requireAdmin, h(statuts.importMes));
 
 // Déploiements
 router.get('/affectation/projects', requireDeploiementsLecture, h(ctrl.listProjects));

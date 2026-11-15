@@ -64,6 +64,15 @@ model AffectationHistory {
   @@map("affectation_history")
 }
 
+model DeploymentSamu {
+  id                   Int     @id @default(autoincrement())
+  location_id          Int     @unique
+  status_id            Int?
+  date_mise_en_service String? @db.LongText
+
+  @@map("deployment_samus")
+}
+
 model DeploymentStatus {
   id         Int    @id @default(autoincrement())
   label      String @db.VarChar(191) @unique
@@ -83,7 +92,6 @@ model AffectationProject {
   date_mise_en_service    String? @db.LongText
   date_mise_en_production String? @db.LongText
   periods                 String @db.LongText    @default("{}")
-  status_id               Int?
   created_by              Int?
   created_at              String? @db.VarChar(32) @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))"))
   updated_at              String? @db.VarChar(32) @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))"))

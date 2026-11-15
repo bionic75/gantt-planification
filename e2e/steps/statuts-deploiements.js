@@ -1,5 +1,5 @@
 // @ts-check
-// Paramétrage des déploiements (onglet Événements / Cartographie) : statuts colorés, statut et date de mise en service
+// Paramétrage des déploiements (onglet Événements / Cartographie) : statuts colorés, SAMU suivis, date de mise en service
 import { expect } from '@playwright/test';
 import { adminApi } from '../support/donnees.js';
 import { Given, Then, When } from '../support/fixtures.js';
@@ -17,46 +17,64 @@ When("j'ajoute le statut de déploiement de test", async ({ monde }) => {
         if (s) await api.delete(`/api/affectation/deployment-statuses/${s.id}`);
     });
     await rubrique(monde).getByLabel('Libellé du nouveau statut').fill(label);
-    await rubrique(monde).getByRole('button', { name: 'Ajouter' }).click();
+    await rubrique(monde).getByRole('button', { name: 'Ajouter', exact: true }).click();
 });
 
 Then('le statut de déploiement de test est listé', async ({ monde }) => {
     await expect(rubrique(monde).getByTestId('deploiements-statuts')).toContainText(monde.d.statutDeploiement);
 });
 
-When('je passe le déploiement de test « En service » le {string}', async ({ monde }, date) => {
-    const nom = monde.d.deploiement.samu_name;
-    const ligne = rubrique(monde).getByTestId('deploiements-tableau').locator('tr', { hasText: nom });
-    await ligne.getByLabel(`Statut de ${nom}`).selectOption({ label: 'En service' });
-    const champ = ligne.getByLabel(`Date de mise en service de ${nom}`);
+/** Ligne du SAMU de test dans le tableau (libellé comparé sans tenir compte de la casse) */
+const ligneSamu = (/** @type {Monde} */ monde) =>
+    rubrique(monde)
+        .getByTestId('deploiements-tableau')
+        .locator('tr', { hasText: new RegExp(monde.d.localisation.court, 'i') });
+
+/** Le SAMU de test, une fois ajouté, doit être retiré en fin de scénario */
+const nettoyerSamu = async (/** @type {Monde} */ monde) => {
+    const api = await adminApi(monde);
+    const id = monde.d.localisation.id;
+    monde.aNettoyer(`SAMU suivi ${id}`, () => api.delete(`/api/affectation/deployment-samus/${id}`));
+};
+
+When("j'ajoute le SAMU de test à la liste des déploiements", async ({ monde }) => {
+    await nettoyerSamu(monde);
+    await rubrique(monde).getByLabel('SAMU à ajouter').selectOption(String(monde.d.localisation.id));
+    await rubrique(monde).getByRole('button', { name: 'Ajouter à la liste' }).click();
+    await expect(ligneSamu(monde)).toHaveCount(1);
+});
+
+When('je passe le SAMU de test « En service » le {string}', async ({ monde }, date) => {
+    const ligne = ligneSamu(monde);
+    await ligne.locator('select').selectOption({ label: 'En service' });
+    const champ = ligne.locator('input[type="date"]');
     await expect(champ).toBeVisible();
     await champ.fill(date);
     await champ.blur();
 });
 
-Then('le déploiement de test est « En service » depuis le {string} sur la carte', async ({ monde }, date) => {
-    const api = await adminApi(monde);
+/** Statut « En service » et ligne de la carte des déploiements pour le SAMU de test */
+const ligneCarte = async (/** @type {Monde} */ monde) => {
+    const carte = await (await adminApi(monde)).ok('GET', '/api/affectation/deployment-map');
+    const service = carte.statuses.find((/** @type {any} */ s) => s.is_service);
+    const d = carte.deployments.find((/** @type {any} */ x) => x.location_id === monde.d.localisation.id);
+    return { service, d };
+};
+
+Then('le SAMU de test est « En service » depuis le {string}', async ({ monde }, date) => {
     await expect
         .poll(async () => {
-            const carte = await api.ok('GET', '/api/affectation/deployment-map');
-            const service = carte.statuses.find((/** @type {any} */ s) => s.is_service);
-            const d = carte.deployments.find((/** @type {any} */ x) => x.id === monde.d.deploiement.id);
+            const { service, d } = await ligneCarte(monde);
             return d && d.status_id === service.id ? d.date_mise_en_service : null;
         })
         .toBe(date);
 });
 
-Then("la rubrique de paramétrage des déploiements n'est pas affichée", async ({ monde }) => {
-    await expect(monde.page.locator('.tab-content.active h2', { hasText: 'Événements / Cartographie' })).toBeVisible();
-    await expect(rubrique(monde)).toHaveCount(0);
-});
-
-Given('le déploiement de test est « En service » depuis le {string}', async ({ monde }, date) => {
+Given('le SAMU de test est « En service » depuis le {string}', async ({ monde }, date) => {
+    await nettoyerSamu(monde);
     const api = await adminApi(monde);
-    const service = (await api.ok('GET', '/api/affectation/deployment-statuses')).statuses.find(
-        (/** @type {any} */ s) => s.is_service
-    );
-    const r = await api.put(`/api/affectation/projects/${monde.d.deploiement.id}/status`, {
+    const { service } = await ligneCarte(monde);
+    const r = await api.put(`/api/affectation/deployment-samus/${monde.d.localisation.id}`, {
         status_id: service.id,
         date_mise_en_service: date
     });
@@ -85,4 +103,9 @@ When("j'affiche le calque « Départements » de la carte", async ({ monde }) =>
     const b = monde.page.locator('#toggleDepartementsMapBtn');
     await expect(b).toContainText('OFF');
     await b.click();
+});
+
+Then("la rubrique de paramétrage des déploiements n'est pas affichée", async ({ monde }) => {
+    await expect(monde.page.locator('.tab-content.active h2', { hasText: 'Événements / Cartographie' })).toBeVisible();
+    await expect(rubrique(monde)).toHaveCount(0);
 });
