@@ -870,9 +870,19 @@ export async function asanaFetchProject(token, gid, { allSubtasks = false } = {}
     const proj = (await asanaApi(token, `/projects/${encodeURIComponent(gid)}?opt_fields=name`)).data;
     const raw = await asanaPaged(token, `/projects/${encodeURIComponent(gid)}/tasks?opt_fields=${ASANA_TASK_FIELDS}`);
     const tasks = raw.map(t => asanaNormTask(t, proj.name));
-    // Sous-tâches : uniquement pour les tâches parentes sans date propre (leurs dates servent de repli), sur plusieurs
-    // niveaux (une sous-tâche sans date porte elle-même des sous-tâches datées : 5 → 5.9 → 5.9.1)
-    const sansDate = x => x.num_subtasks > 0 && !x.start_on && !x.due_on;
+    // Sous-tâches : pour les tâches parentes sans date propre (leurs dates servent de repli), et pour celles dont une
+    // sous-tâche est désignée par une règle de la correspondance (5.9.1 : sous-tâche d'une tâche 5.9 datée), sur
+    // plusieurs niveaux (5 → 5.9 → 5.9.1)
+    const codesRegles = Object.values(asanaStageRules)
+        .filter(r => !r.startsWith('title:'))
+        .flatMap(r => r.split(','));
+    const codeDe = nom => (/^\s*(\d+(?:\.\d+)*)\.?\s/.exec(String(nom || '')) || [])[1] || '';
+    const aCharger = x => {
+        if (!(x.num_subtasks > 0)) return false;
+        if (!x.start_on && !x.due_on) return true;
+        const code = codeDe(x.name);
+        return !!code && codesRegles.some(c => c.startsWith(`${code}.`));
+    };
     const chargerSous = async (t, niveau) => {
         const subs = await asanaPaged(
             token,
@@ -880,10 +890,10 @@ export async function asanaFetchProject(token, gid, { allSubtasks = false } = {}
         );
         for (const st of subs) {
             tasks.push(asanaNormTask(st, proj.name, String(t.name || '').trim()));
-            if (niveau < 4 && sansDate(st)) await chargerSous(st, niveau + 1);
+            if (niveau < 4 && aCharger(st)) await chargerSous(st, niveau + 1);
         }
     };
-    for (const t of raw.filter(sansDate)) await chargerSous(t, 1);
+    for (const t of raw.filter(aCharger)) await chargerSous(t, 1);
     // Projet type : toutes les tâches, à tous les niveaux, dans l'ordre d'Asana (chaque tâche suivie de ses sous-tâches)
     if (allSubtasks) {
         const byGid = new Map(tasks.map(t => [t.gid, t]));
