@@ -262,8 +262,6 @@ Anomalies relevées pendant la migration (comportement conservé, correction à 
   déjà ouverte affiche l'application sans l'ouvrir.
 - CRA : un compte administrateur connecté sous un autre profil voit les actions d'administration du détail (refusées
   par le serveur) ; un compte RH connecté sous le profil expert a la vue RH, sans ses propres CRA.
-- CRA (administration) : la ligne d'un CRA archivé (ou signé) propose « Statut » quel que soit son statut ; le
-  filtre « Année » ne propose que l'année courante et les cinq précédentes.
 - Astreintes HNO : « Générer le planning » enregistre aussitôt le planning du mois (il remplace le planning existant)
   et chaque changement d'expert est enregistré immédiatement ; le bouton « Sauvegarder le planning » n'affiche qu'un
   message. Le planning actuel ne s'affiche qu'au changement de mois (le mois courant présélectionné n'est pas chargé).

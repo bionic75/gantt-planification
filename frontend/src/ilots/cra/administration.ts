@@ -42,10 +42,10 @@ export function periodesLancement(maintenant = new Date()) {
     return periodes;
 }
 
-/** Années des filtres : l'année courante et les cinq précédentes */
+/** Années des filtres : l'année courante et les neuf précédentes */
 export function annees(maintenant = new Date()) {
     const a = maintenant.getFullYear();
-    return Array.from({ length: 6 }, (_, i) => a - i);
+    return Array.from({ length: 10 }, (_, i) => a - i);
 }
 
 /** Date courte (« 05/03/2093 »), « — » si absente */
