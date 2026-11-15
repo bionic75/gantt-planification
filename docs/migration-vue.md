@@ -275,10 +275,6 @@ Anomalies relevées pendant la migration (comportement conservé, correction à 
 - Calendrier mensuel (impression) : les boutons ◀ ▶ sont imprimés.
 - Calendrier des congés et événements : les en-têtes portent les flèches de tri « ▲▼ » des tableaux de l'application
   (sans tri) ; à l'impression, les en-têtes du week-end perdent leur jaune.
-- Recherche avancée : le classement s'intitule « Créneaux par nombre d'experts disponibles ANS » quels que soient les
-  critères ; les en-têtes des tableaux gardent le gris des tableaux de l'application (le bleu et le vert prévus sont
-  masqués) ; à chaque ouverture, experts et localisations sont désélectionnés, les autres critères et les derniers
-  résultats sont conservés.
 - Invitations Outlook : un refus de l'envoi par le serveur n'est pas signalé (affectations conservées) ; après une
   réponse 502 / 504 ou une erreur réseau, les experts sont retirés de l'attente sans message ; la case « Sélectionner /
   Désélectionner tous » ne suit pas les cases des experts.

@@ -26,6 +26,7 @@ import {
     jourCreneau,
     localisationsProposees,
     rechercher,
+    titreClassement,
     trigrammeExpert,
     type ResultatExpert
 } from './recherche';
@@ -45,14 +46,19 @@ const icones = shallowRef<ReturnType<typeof iconesCriteres>>({ disponibilites: {
 
 /** Résultats de la dernière recherche ; null avant toute recherche */
 const resultats = shallowRef<ResultatExpert[] | null>(null);
+/** Disponibilités et affectations de la dernière recherche (titre du classement) */
+const criteresRecherche = shallowRef<{ disponibilites: string[]; affectations: string[] }>({
+    disponibilites: [],
+    affectations: []
+});
 const erreur = ref('');
 
 function proposerIntervalle() {
     ({ debut: debut.value, fin: fin.value } = intervalleParDefaut());
 }
 
-// À chaque ouverture : listes relues (experts et localisations désélectionnés), intervalle du mois courant ; les autres
-// critères et les derniers résultats sont conservés
+// À chaque ouverture : listes relues ; critères (experts, localisations, dates, disponibilités, affectations) et derniers
+// résultats conservés jusqu'à « Réinitialiser » (sélections retirées si l'expert ou la localisation n'existe plus)
 const planification = usePlanificationStore();
 
 // Données de la grille (magasin de la planification), chargées à la première ouverture
@@ -60,11 +66,13 @@ surDemande(async () => {
     await planification.charger();
     const e = planification.etatPlanning;
     etat.value = e;
-    experts.value = [];
-    localisations.value = [];
     optionsLocalisation.value = localisationsProposees(e).map(l => optionLocalisation(l));
+    const idsExperts = new Set(expertsProposes(e).map(o => o.id));
+    experts.value = experts.value.filter(id => idsExperts.has(id));
+    const valeursLocalisation = new Set(optionsLocalisation.value.map(o => o.valeur));
+    localisations.value = localisations.value.filter(v => valeursLocalisation.has(v));
     icones.value = iconesCriteres();
-    proposerIntervalle();
+    if (!debut.value || !fin.value) proposerIntervalle();
     ouverte.value = true;
 });
 
@@ -77,6 +85,7 @@ function lancer() {
         return;
     }
     if (!etat.value) return;
+    criteresRecherche.value = { disponibilites: [...disponibilites.value], affectations: [...affectations.value] };
     resultats.value = rechercher(etat.value, {
         experts: experts.value,
         debut: debut.value,
@@ -312,7 +321,7 @@ const lignesCreneaux = computed(() => {
 
         <div v-if="lignesCreneaux.length" id="searchSlotRanking" class="gp-recherche__classement">
             <h3 class="gp-recherche__titre gp-recherche__titre--classement">
-                📊 Créneaux par nombre d'experts disponibles ANS
+                📊 {{ titreClassement(criteresRecherche.disponibilites, criteresRecherche.affectations) }}
             </h3>
             <div id="searchSlotRankingContent" class="gp-recherche__defilement">
                 <p class="gp-recherche__nombre">{{ creneaux.length }} créneau(x) trouvé(s)</p>
@@ -538,6 +547,13 @@ const lignesCreneaux = computed(() => {
 }
 .gp-recherche__entete--classement {
     background: #27ae60;
+}
+.gp-recherche__table .gp-recherche__entete.gp-recherche__entete th {
+    background-color: #3498db;
+    color: white;
+}
+.gp-recherche__table .gp-recherche__entete--classement.gp-recherche__entete--classement th {
+    background-color: #27ae60;
 }
 .gp-recherche__entete th {
     text-align: center;

@@ -13,6 +13,7 @@ import {
     localisationsProposees,
     rechercher,
     trigrammeExpert,
+    titreClassement,
     type Criteres
 } from './recherche';
 
@@ -208,5 +209,14 @@ describe('tri du classement des créneaux', () => {
         expect(rangs(trierClassement(C, 'nombre', false))).toEqual([1, 2, 3]);
         expect(rangs(trierClassement(C, 'noms', true))).toEqual([1, 3, 2]);
         expect(rangs(trierClassement(C, 'rang', false))).toEqual([3, 2, 1]);
+    });
+});
+
+describe('titreClassement', () => {
+    it('sans critère : titre générique ; sinon rappelle les disponibilités puis les affectations', () => {
+        expect(titreClassement([], [])).toBe("Créneaux par nombre d'experts");
+        expect(titreClassement(['2'], ['3', '5'])).toBe(
+            "Créneaux par nombre d'experts — Disponible pour l'ANS, SAMU (Déploiement), ANS (Déploiement)"
+        );
     });
 });
