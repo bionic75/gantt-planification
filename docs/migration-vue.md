@@ -249,7 +249,6 @@ Anomalies relevées pendant la migration (comportement conservé, correction à 
 - Automatisation n°1 : dans la fenêtre de test, la case « Sélectionner » de l'en-tête est sans effet sur les experts
   cochés (fonction homonyme de l'aide à l'affectation chargée après celle de l'automatisation).
 - Ressources : le bouton « Exporter (Excel) » télécharge un fichier CSV.
-- Ressources : après un ajout, la case « MAD volante », la date de fin et les jours max du formulaire restent remplis.
 - Ressources : le tri de la liste se fait sur le texte affiché des cellules (badges SAMU compris) ; la liste revient à
   l'ordre alphabétique à chaque rechargement, le sens du dernier tri de chaque colonne étant conservé.
 - Ressources (fiche) : le taux enregistré avec la fiche est celui de la période de MAD en cours, ou, si aucune n'est en
