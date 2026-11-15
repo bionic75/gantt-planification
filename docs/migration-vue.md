@@ -248,8 +248,6 @@ Anomalies relevées pendant la migration (comportement conservé, correction à 
 - Reprise des données : le tri « Créé par » se fait sur « nom prénom », la colonne affiche « prénom NOM ».
 - Automatisation n°1 : dans la fenêtre de test, la case « Sélectionner » de l'en-tête est sans effet sur les experts
   cochés (fonction homonyme de l'aide à l'affectation chargée après celle de l'automatisation).
-- Automatisation n°2 : après un envoi de test réussi, les boutons du récapitulatif restent masqués jusqu'au
-  rechargement de la page.
 - Automatisations : la fenêtre de l'historique sert aussi au diagnostic des mois et à l'aperçu du nettoyage ; son
   bouton « Vider l'historique » y reste proposé et vide l'historique de la dernière automatisation consultée (n°1 par
   défaut).
