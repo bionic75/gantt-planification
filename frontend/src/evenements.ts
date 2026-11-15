@@ -27,6 +27,8 @@ export interface EvenementsLiaison {
     'planning-modifie': undefined;
     /** Localisations créées ou modifiées, ou section d'administration ouverte : les listes de localisations sont relues */
     'localisations-modifiees': undefined;
+    /** Statuts de déploiement ou statut d'un déploiement modifiés : la carte relit les siens */
+    'statuts-deploiements-modifies': undefined;
     /** Types d'événements modifiés dans l'administration : les onglets relisent types et événements */
     'types-evenements-modifies': undefined;
     /** Accès aux applications modifiés : la session est relue (menu Applications) */
