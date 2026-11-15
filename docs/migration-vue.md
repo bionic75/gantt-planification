@@ -251,12 +251,6 @@ Anomalies relevées pendant la migration (comportement conservé, correction à 
 - Ressources : le bouton « Exporter (Excel) » télécharge un fichier CSV.
 - Ressources : le tri de la liste se fait sur le texte affiché des cellules (badges SAMU compris) ; la liste revient à
   l'ordre alphabétique à chaque rechargement, le sens du dernier tri de chaque colonne étant conservé.
-- Ressources (fiche) : le taux enregistré avec la fiche est celui de la période de MAD en cours, ou, si aucune n'est en
-  cours ou si son taux vaut 0, celui de la période qui commence le plus tard.
-- Ressources (fiche) : sans historique de taux, une période est créée à l'ouverture de la fiche (taux et date de début
-  de la ressource ; refusée au profil RH, dont la fiche reste alors sans historique).
-- Ressources (fiche) : la suppression d'une période de MAD ne recharge pas la liste des ressources ; l'ajout, la
-  modification et la suppression d'une particularité ne rechargent pas la planification.
 - CRA : pour un CRA en cours, « Télécharger PDF » ouvre une page à imprimer (bouton « Imprimer / Enregistrer PDF »),
   pas un fichier.
 - Calendrier mensuel (impression) : les boutons ◀ ▶ sont imprimés.
@@ -267,6 +261,10 @@ Anomalies relevées pendant la migration (comportement conservé, correction à 
 
 Changements de comportement décidés pendant la migration :
 
+- Ressources (fiche) : le taux enregistré avec la fiche est celui de la période en cours (0 compris), à défaut celui de
+  la période qui commence le plus tard, sans historique le taux actuel ; l'ouverture de la fiche ne crée plus de
+  période de MAD (l'administrateur ajoute la première) ; la suppression d'une période et les changements de
+  particularités rechargent la liste des ressources et la planification.
 - CRA : la vue et les actions du détail suivent le profil actif, comme le serveur : un compte administrateur sous un
   autre profil n'a plus les actions d'administration, un compte RH sous le profil expert voit ses propres CRA.
 - Invitations Outlook : un échec de l'envoi (refus du serveur, réponse 502 / 504, erreur réseau) est signalé et les

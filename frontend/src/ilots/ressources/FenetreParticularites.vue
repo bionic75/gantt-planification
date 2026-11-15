@@ -1,17 +1,21 @@
 <!-- Particularités d'une période de MAD (variations temporaires du taux) : liste, ajout (dates bornées par la période),
-     modification (non contrôlée, comme l'ancien écran), suppression -->
+     modification (contrôlée comme l'ajout), suppression ; liste des ressources et planification rechargées après chaque
+     changement -->
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { apiRessources, type Particularite, type PeriodeMad } from '@/api/ressources';
 import { ErreurApi } from '@/api/client';
 import AppModal from '@/composants/AppModal.vue';
 import { useConfirmation } from '@/composants/confirmation';
+import { emettre } from '@/evenements';
 import { dateFr } from './calculs';
 import { particulariteIncomplete } from './fiche';
+import { useRessourcesStore } from './magasin';
 
 const props = defineProps<{ ressource: number; periode: PeriodeMad | null }>();
 const emit = defineEmits<{ fermer: [] }>();
 const confirmer = useConfirmation();
+const magasin = useRessourcesStore();
 
 const liste = ref<Particularite[]>([]);
 const message = ref('');
@@ -22,6 +26,12 @@ const messageEdition = ref('');
 
 const erreurApi = (e: unknown) =>
     `Erreur: ${e instanceof ErreurApi ? (e.donnees as { error?: string } | null)?.error : (e as Error).message}`;
+
+/** Taux des ressources et planification relus après un changement de particularité */
+async function actualiser() {
+    emettre('ressources-modifiees');
+    await magasin.charger();
+}
 
 async function charger() {
     if (!props.periode) return;
@@ -54,6 +64,7 @@ async function ajouter() {
         });
         ajout.value = { debut: '', fin: '', taux: '', motif: '' };
         await charger();
+        await actualiser();
     } catch (e) {
         message.value = erreurApi(e);
     }
@@ -78,6 +89,7 @@ async function enregistrer() {
         });
         edition.value = null;
         await charger();
+        await actualiser();
     } catch (err) {
         messageEdition.value = erreurApi(err);
     }
@@ -90,6 +102,7 @@ async function supprimer(p: Particularite) {
     try {
         await apiRessources.supprimerParticularite(props.ressource, props.periode.id, p.id);
         await charger();
+        await actualiser();
     } catch (e) {
         message.value = erreurApi(e);
     }

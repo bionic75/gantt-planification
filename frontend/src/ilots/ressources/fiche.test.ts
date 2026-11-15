@@ -86,8 +86,9 @@ describe('fiche', () => {
         ];
         expect(tauxEnregistre(historique, '2026-03-01')).toBe(50);
         expect(tauxEnregistre(historique, '2025-01-01')).toBe(70);
-        expect(tauxEnregistre([{ ...historique[0]!, taux: 0 }, historique[1]!], '2026-03-01')).toBe(70);
+        expect(tauxEnregistre([{ ...historique[0]!, taux: 0 }, historique[1]!], '2026-03-01')).toBe(0);
         expect(tauxEnregistre([], '2026-03-01')).toBe(0);
+        expect(tauxEnregistre([], '2026-03-01', 40)).toBe(40);
     });
 
     it('corps : date de fin de la ressource conservée, contacts nettoyés, astreintes en booléens', () => {
