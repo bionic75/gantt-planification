@@ -39,14 +39,14 @@ const nettoyerSamu = async (/** @type {Monde} */ monde) => {
 
 When("j'ajoute le SAMU de test à la liste des déploiements", async ({ monde }) => {
     await nettoyerSamu(monde);
+    // Choisir un SAMU dans la liste l'ajoute aussitôt
     await rubrique(monde).getByLabel('SAMU à ajouter').selectOption(String(monde.d.localisation.id));
-    await rubrique(monde).getByRole('button', { name: 'Ajouter à la liste' }).click();
     await expect(ligneSamu(monde)).toHaveCount(1);
 });
 
 When('je passe le SAMU de test « En service » le {string}', async ({ monde }, date) => {
     const ligne = ligneSamu(monde);
-    await ligne.locator('select').selectOption({ label: 'En service' });
+    await ligne.getByRole('combobox').selectOption({ label: 'En service' });
     const champ = ligne.locator('input[type="date"]');
     await expect(champ).toBeVisible();
     await champ.fill(date);

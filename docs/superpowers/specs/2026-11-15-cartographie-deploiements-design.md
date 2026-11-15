@@ -93,3 +93,8 @@ navigateur (confort par utilisateur, absent : calques tous affichés, transparen
   événements » : « En service » pour les SAMU sans statut dont la mise en service est passée.
 - **Palette restreinte de 15 couleurs**, de la moins à la plus avancée (la dernière est celle de « En service »),
   imposée par le serveur (`PALETTE_STATUTS`) et proposée par le sélecteur de couleur.
+- **Motif par statut** (`pattern` : plein, diag, diag-inv, points, quadrille, lignes) en plus de la couleur, appliqué aux
+  départements (`<pattern>` SVG) et rappelé dans une légende de la carte.
+- **Interface de la rubrique** : statuts en lignes compactes (poignée de glisser-déposer, pastille couleur + motif,
+  libellé modifiable en place, nombre de SAMU, suppression seulement si le statut n'est pas utilisé) ; SAMU suivis avec
+  recherche, filtres par statut, ajout d'un SAMU par simple choix dans la liste.

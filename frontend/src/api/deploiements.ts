@@ -6,8 +6,12 @@ export interface StatutDeploiement {
     id: number;
     label: string;
     color: string;
+    /** plein, diag, diag-inv, points, quadrille ou lignes */
+    pattern: string;
     position: number;
     is_service: number;
+    /** Nombre de SAMU qui ont ce statut */
+    nb_samu: number;
 }
 
 /**
@@ -28,12 +32,19 @@ export interface DeploiementCarte {
 
 export const apiDeploiements = {
     carte: () =>
-        api.get<{ statuses: StatutDeploiement[]; palette: string[]; deployments: DeploiementCarte[] }>(
-            '/affectation/deployment-map'
+        api.get<{
+            statuses: StatutDeploiement[];
+            palette: string[];
+            patterns: string[];
+            deployments: DeploiementCarte[];
+        }>('/affectation/deployment-map'),
+    statuts: () =>
+        api.get<{ statuses: StatutDeploiement[]; palette: string[]; patterns: string[] }>(
+            '/affectation/deployment-statuses'
         ),
-    statuts: () => api.get<{ statuses: StatutDeploiement[]; palette: string[] }>('/affectation/deployment-statuses'),
-    creer: (d: { label: string; color: string }) => api.post<StatutDeploiement>('/affectation/deployment-statuses', d),
-    modifier: (id: number, d: { label: string; color: string }) =>
+    creer: (d: { label: string; color: string; pattern?: string }) =>
+        api.post<StatutDeploiement>('/affectation/deployment-statuses', d),
+    modifier: (id: number, d: { label: string; color: string; pattern?: string }) =>
         api.put<StatutDeploiement>(`/affectation/deployment-statuses/${id}`, d),
     supprimer: (id: number) => api.delete<{ success: boolean }>(`/affectation/deployment-statuses/${id}`),
     reordonner: (ids: number[]) =>

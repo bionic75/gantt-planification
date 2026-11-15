@@ -38,6 +38,7 @@ export function departementDe(lat: number, lng: number, contours: Contours) {
 
 export interface CouleurDepartement {
     couleur: string;
+    motif: string;
     statut: string;
     samu: string[];
 }
@@ -61,6 +62,6 @@ export function couleursDepartements(
     }
     const res = new Map<string, CouleurDepartement>();
     for (const [code, { statut, samu }] of retenus)
-        res.set(code, { couleur: statut.color, statut: statut.label, samu });
+        res.set(code, { couleur: statut.color, motif: statut.pattern, statut: statut.label, samu });
     return res;
 }

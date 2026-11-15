@@ -26,12 +26,14 @@ const contours: Contours = {
     ]
 };
 // longitude = x, latitude = y
-const statut = (id: number, position: number, couleur = '#111111'): StatutDeploiement => ({
+const statut = (id: number, position: number, couleur = '#111111', pattern = 'plein'): StatutDeploiement => ({
     id,
     label: `S${id}`,
     color: couleur,
+    pattern,
     position,
-    is_service: 0
+    is_service: 0,
+    nb_samu: 0
 });
 const dep = (id: number, lat: number | null, lng: number | null, status_id: number | null): DeploiementCarte => ({
     id,
@@ -72,11 +74,15 @@ describe('couleursDepartements', () => {
     });
     it('colore le département avec la couleur du statut', () => {
         const m = couleursDepartements([dep(1, 5, 5, 1)], statuts, contours);
-        expect(m.get('A')).toEqual({ couleur: '#aa0000', statut: 'S1', samu: ['SAMU 1'] });
+        expect(m.get('A')).toEqual({ couleur: '#aa0000', motif: 'plein', statut: 'S1', samu: ['SAMU 1'] });
     });
     it('garde le statut de plus petite position quand plusieurs déploiements partagent le département', () => {
         const m = couleursDepartements([dep(1, 5, 5, 1), dep(2, 6, 6, 2)], statuts, contours);
-        expect(m.get('A')).toEqual({ couleur: '#00aa00', statut: 'S2', samu: ['SAMU 2'] });
+        expect(m.get('A')).toEqual({ couleur: '#00aa00', motif: 'plein', statut: 'S2', samu: ['SAMU 2'] });
+    });
+    it('reprend le motif du statut', () => {
+        const m = couleursDepartements([dep(1, 5, 5, 3)], [statut(3, 0, '#00aa00', 'points')], contours);
+        expect(m.get('A')?.motif).toBe('points');
     });
     it('liste tous les SAMU de même statut dans le département', () => {
         const m = couleursDepartements([dep(1, 5, 5, 2), dep(2, 6, 6, 2)], statuts, contours);

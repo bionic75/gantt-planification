@@ -5,7 +5,7 @@ import * as svc from './statuts.service.js';
 /** @typedef {import('express').Response} Response */
 
 export const list = async (/** @type {Request} */ _req, /** @type {Response} */ res) =>
-    res.json({ statuses: await svc.listStatuses(), palette: svc.PALETTE_STATUTS });
+    res.json({ statuses: await svc.listStatuses(), palette: svc.PALETTE_STATUTS, patterns: svc.MOTIFS_STATUTS });
 export const map = async (/** @type {Request} */ _req, /** @type {Response} */ res) =>
     res.json(await svc.deploymentMap());
 export const create = async (/** @type {Request} */ req, /** @type {Response} */ res) =>

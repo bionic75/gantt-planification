@@ -20,8 +20,24 @@ vi.mock('@/api/deploiements', () => ({
 vi.mock('@/evenements', () => ({ emettre: vi.fn() }));
 const api = vi.mocked(apiDeploiements);
 
-const service: StatutDeploiement = { id: 1, label: 'En service', color: '#2e7d32', position: 0, is_service: 1 };
-const test: StatutDeploiement = { id: 2, label: 'En test', color: '#f9a825', position: 1, is_service: 0 };
+const service: StatutDeploiement = {
+    id: 1,
+    label: 'En service',
+    color: '#2e7d32',
+    pattern: 'plein',
+    position: 0,
+    is_service: 1,
+    nb_samu: 2
+};
+const test: StatutDeploiement = {
+    id: 2,
+    label: 'En test',
+    color: '#f9a825',
+    pattern: 'diag',
+    position: 1,
+    is_service: 0,
+    nb_samu: 0
+};
 const samu: DeploiementCarte = {
     id: 9,
     samu_name: 'SAMU 75',
@@ -35,7 +51,12 @@ const samu: DeploiementCarte = {
 beforeEach(() => {
     setActivePinia(createPinia());
     vi.resetAllMocks();
-    api.carte.mockResolvedValue({ statuses: [service, test], palette: ['#111111', '#222222'], deployments: [samu] });
+    api.carte.mockResolvedValue({
+        statuses: [service, test],
+        palette: ['#111111', '#222222'],
+        patterns: ['plein', 'diag'],
+        deployments: [samu]
+    });
     api.retirer.mockResolvedValue({ success: true });
     api.affecter.mockResolvedValue({ success: true });
     api.reordonner.mockResolvedValue({ statuses: [test, service] });
@@ -47,6 +68,7 @@ describe('déploiements (statuts)', () => {
         const m = useDeploiementsStore();
         await m.charger();
         expect(m.palette).toEqual(['#111111', '#222222']);
+        expect(m.motifs).toEqual(['plein', 'diag']);
         expect(m.statuts).toEqual([service, test]);
         expect(m.deploiements).toEqual([samu]);
     });
@@ -105,5 +127,29 @@ describe('déploiements (statuts)', () => {
         api.importerMes.mockResolvedValue({ imported: 0 });
         await m.reprendreMisesEnService();
         expect(m.information).toBe('Aucun SAMU à mettre à jour.');
+    });
+
+    it('crée et modifie un statut avec son motif', async () => {
+        api.creer.mockResolvedValue(test);
+        api.modifier.mockResolvedValue(test);
+        const m = useDeploiementsStore();
+        await m.charger();
+        await m.ajouterStatut(' En test ', '#f9a825', 'diag');
+        expect(api.creer).toHaveBeenCalledWith({ label: 'En test', color: '#f9a825', pattern: 'diag' });
+        await m.modifierStatut(2, { label: 'En test', color: '#f9a825', pattern: 'points' });
+        expect(api.modifier).toHaveBeenCalledWith(2, { label: 'En test', color: '#f9a825', pattern: 'points' });
+    });
+
+    it('dépose un statut à une nouvelle place et envoie l’ordre complet', async () => {
+        const trois: StatutDeploiement = { ...test, id: 3, label: 'Troisième', position: 2 };
+        api.carte.mockResolvedValue({ statuses: [service, test, trois], palette: [], patterns: [], deployments: [] });
+        api.reordonner.mockResolvedValue({ statuses: [trois, service, test] });
+        const m = useDeploiementsStore();
+        await m.charger();
+        await m.deposerStatut(3, 0);
+        expect(api.reordonner).toHaveBeenCalledWith([3, 1, 2]);
+        api.reordonner.mockClear();
+        await m.deposerStatut(3, 0);
+        expect(api.reordonner).not.toHaveBeenCalled();
     });
 });

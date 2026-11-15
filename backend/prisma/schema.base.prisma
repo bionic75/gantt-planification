@@ -75,6 +75,7 @@ model DeploymentStatus {
   id         Int    @id @default(autoincrement())
   label      String @unique
   color      String
+  pattern    String @default("plein")
   position   Int    @default(0)
   is_service Int    @default(0)
 

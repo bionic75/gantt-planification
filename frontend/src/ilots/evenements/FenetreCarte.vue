@@ -29,6 +29,7 @@ import {
 import { dateFr } from './calculs';
 import { ecrireEtat, lireEtat, opaciteDepartements, stockageNavigateur } from './calques';
 import { couleursDepartements, type Contours } from './departements';
+import { fondMotif, idMotif, svgMotif } from './motifs';
 import { useEvenementsStore } from './magasin';
 
 const props = defineProps<{ opened: boolean }>();
@@ -84,6 +85,10 @@ const conteneur = ref<HTMLElement | null>(null);
 let carte: L.Map | null = null;
 let calque: L.LayerGroup | null = null;
 let calqueDepartements: L.GeoJSON | null = null;
+/** Rendu SVG des départements : porte les définitions des motifs (<defs>) */
+let renduDepartements: L.SVG | null = null;
+/** Statuts affichés sur la carte (légende) : couleur, motif, libellé et nombre de départements */
+const legende = ref<{ statut: string; couleur: string; motif: string; departements: number }[]>([]);
 
 function creerCarte() {
     if (!conteneur.value) return;
@@ -100,6 +105,7 @@ function detruireCarte() {
     carte = null;
     calque = null;
     calqueDepartements = null;
+    renduDepartements = null;
 }
 
 // ---------- Calque des départements (couleur du statut des déploiements) ----------
@@ -121,6 +127,18 @@ const contoursDepartements = () =>
 function retirerDepartements() {
     calqueDepartements?.remove();
     calqueDepartements = null;
+    legende.value = [];
+}
+
+/** Rendu SVG des départements, avec les définitions de motifs de ces couleurs */
+function renduAvecMotifs(cible: L.Map, definitions: string) {
+    renduDepartements ??= L.svg().addTo(cible);
+    const svg = (renduDepartements as unknown as { _container: SVGSVGElement })._container;
+    svg.querySelector('defs')?.remove();
+    const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+    defs.innerHTML = definitions;
+    svg.prepend(defs);
+    return renduDepartements;
 }
 
 async function dessinerDepartements() {
@@ -133,6 +151,20 @@ async function dessinerDepartements() {
         if (carte !== cible || !departementsVisibles.value) return;
         const couleurs = couleursDepartements(donnees.deployments, donnees.statuses, contours);
         retirerDepartements();
+        const uniques = new Map([...couleurs.values()].map(c => [idMotif(c.couleur, c.motif), c]));
+        const rendu = renduAvecMotifs(cible, [...uniques.values()].map(c => svgMotif(c.couleur, c.motif)).join(''));
+        const parStatut = new Map<string, { statut: string; couleur: string; motif: string; departements: number }>();
+        for (const c of couleurs.values()) {
+            const e = parStatut.get(c.statut) ?? {
+                statut: c.statut,
+                couleur: c.couleur,
+                motif: c.motif,
+                departements: 0
+            };
+            e.departements++;
+            parStatut.set(c.statut, e);
+        }
+        legende.value = [...parStatut.values()];
         calqueDepartements = L.geoJSON(
             {
                 type: 'FeatureCollection',
@@ -140,8 +172,16 @@ async function dessinerDepartements() {
             } as never,
             {
                 style: f => {
-                    const c = couleurs.get((f?.properties as { code: string }).code)?.couleur ?? '#999999';
-                    return { fillColor: c, fillOpacity: opaciteDepartements(transparence.value), color: c, weight: 1 };
+                    const d = couleurs.get((f?.properties as { code: string }).code);
+                    const c = d?.couleur ?? '#999999';
+                    const motif = d?.motif ?? 'plein';
+                    return {
+                        renderer: rendu,
+                        fillColor: motif === 'plein' ? c : `url(#${idMotif(c, motif)})`,
+                        fillOpacity: opaciteDepartements(transparence.value),
+                        color: c,
+                        weight: 1
+                    };
                 },
                 onEachFeature: (f, couche) => {
                     const dep = f.properties as { code: string; nom: string };
@@ -603,6 +643,16 @@ onBeforeUnmount(() => {
                 >
                     🗺️ Départements : {{ departementsVisibles ? 'ON' : 'OFF' }}
                 </button>
+                <span
+                    v-if="departementsVisibles && legende.length"
+                    class="ev-carte__legende"
+                    data-testid="carte-legende"
+                >
+                    <span v-for="l in legende" :key="l.statut" class="ev-carte__legende-item">
+                        <span class="ev-carte__puce" :style="{ background: fondMotif(l.couleur, l.motif) }"></span>
+                        {{ l.statut }} ({{ l.departements }})
+                    </span>
+                </span>
                 <label v-if="departementsVisibles" class="ev-carte__transparence" data-testid="carte-calques">
                     Transparence
                     <input
@@ -867,6 +917,24 @@ onBeforeUnmount(() => {
 .ev-carte__experts--masques,
 .ev-carte__experts--masques:hover {
     background: #90a4ae;
+}
+.ev-carte__legende {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    font-size: 12px;
+    color: #555;
+}
+.ev-carte__legende-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+.ev-carte__puce {
+    width: 14px;
+    height: 14px;
+    border: 1px solid rgba(0, 0, 0, 0.25);
+    border-radius: 3px;
 }
 .ev-carte__transparence {
     display: flex;
