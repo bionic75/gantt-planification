@@ -70,7 +70,7 @@ Then('le SAMU de test est « En service » depuis le {string}', async ({ monde }
         .toBe(date);
 });
 
-Given('le SAMU de test est « En service » depuis le {string}', async ({ monde }, date) => {
+Given('le SAMU de test a le statut « En service » depuis le {string}', async ({ monde }, date) => {
     await nettoyerSamu(monde);
     const api = await adminApi(monde);
     const { service } = await ligneCarte(monde);

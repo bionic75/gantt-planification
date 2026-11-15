@@ -21,7 +21,7 @@ Fonctionnalité: Événements / Cartographie : paramétrage des statuts de dépl
 
   Scénario: La carte colore le département d'un SAMU en service et masque ses calques
     Étant donné qu'une localisation SAMU de test géolocalisée existe
-    Et que le SAMU de test est « En service » depuis le "2031-06-15"
+    Et que le SAMU de test a le statut « En service » depuis le "2031-06-15"
     Quand "Administrateur" ouvre l'application
     Et j'ouvre l'onglet "Événements"
     Et j'ouvre la carte des événements
