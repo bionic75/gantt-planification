@@ -248,10 +248,6 @@ Anomalies relevées pendant la migration (comportement conservé, correction à 
 - Reprise des données : le tri « Créé par » se fait sur « nom prénom », la colonne affiche « prénom NOM ».
 - Automatisation n°1 : dans la fenêtre de test, la case « Sélectionner » de l'en-tête est sans effet sur les experts
   cochés (fonction homonyme de l'aide à l'affectation chargée après celle de l'automatisation).
-- Automatisations : la fenêtre de l'historique sert aussi au diagnostic des mois et à l'aperçu du nettoyage ; son
-  bouton « Vider l'historique » y reste proposé et vide l'historique de la dernière automatisation consultée (n°1 par
-  défaut).
-- Automatisation n°3 : la confirmation du vidage de l'historique Teams parle des « sauvegardes de planning ».
 - Ressources : le bouton « Exporter (Excel) » télécharge un fichier CSV.
 - Ressources : après un ajout, la case « MAD volante », la date de fin et les jours max du formulaire restent remplis.
 - Ressources : le tri de la liste se fait sur le texte affiché des cellules (badges SAMU compris) ; la liste revient à
