@@ -258,10 +258,6 @@ Anomalies relevées pendant la migration (comportement conservé, correction à 
   de la ressource ; refusée au profil RH, dont la fiche reste alors sans historique).
 - Ressources (fiche) : la suppression d'une période de MAD ne recharge pas la liste des ressources ; l'ajout, la
   modification et la suppression d'une particularité ne rechargent pas la planification.
-- CRA : le lien d'une notification (`?tab=cra&cra_id=`) n'ouvre le CRA qu'à la connexion par la mire ; une session
-  déjà ouverte affiche l'application sans l'ouvrir.
-- CRA : un compte administrateur connecté sous un autre profil voit les actions d'administration du détail (refusées
-  par le serveur) ; un compte RH connecté sous le profil expert a la vue RH, sans ses propres CRA.
 - CRA : pour un CRA en cours, « Télécharger PDF » ouvre une page à imprimer (bouton « Imprimer / Enregistrer PDF »),
   pas un fichier.
 - Calendrier mensuel (impression) : les boutons ◀ ▶ sont imprimés.
@@ -272,6 +268,8 @@ Anomalies relevées pendant la migration (comportement conservé, correction à 
 
 Changements de comportement décidés pendant la migration :
 
+- CRA : la vue et les actions du détail suivent le profil actif, comme le serveur : un compte administrateur sous un
+  autre profil n'a plus les actions d'administration, un compte RH sous le profil expert voit ses propres CRA.
 - Invitations Outlook : un échec de l'envoi (refus du serveur, réponse 502 / 504, erreur réseau) est signalé et les
   affectations restent en attente (l'ancien écran les retirait sans message après un 502 / 504) ; la case « Sélectionner
   / Désélectionner tous » suit les cases des experts (cochée, décochée ou indéterminée).
