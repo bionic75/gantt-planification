@@ -88,7 +88,7 @@ function trierPar(colonne: number) {
                         >
                             📤 A diffuser
                         </button>
-                        <template v-else>
+                        <template v-else-if="c.statut === 'diffuse'">
                             {{ dateCourte(c.diffuse_at) }}<br />
                             <button
                                 type="button"
@@ -98,6 +98,7 @@ function trierPar(colonne: number) {
                                 📧 Statut
                             </button>
                         </template>
+                        <template v-else>—</template>
                     </td>
                     <td class="cra-tableau__lignes" title="Lignes renseignées dans le CRA (astreintes, HNO, activités)">
                         {{ c.nb_lignes || 0 }}
