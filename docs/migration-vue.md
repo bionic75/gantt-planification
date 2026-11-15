@@ -262,10 +262,6 @@ Anomalies relevées pendant la migration (comportement conservé, correction à 
   déjà ouverte affiche l'application sans l'ouvrir.
 - CRA : un compte administrateur connecté sous un autre profil voit les actions d'administration du détail (refusées
   par le serveur) ; un compte RH connecté sous le profil expert a la vue RH, sans ses propres CRA.
-- Astreintes HNO : « Générer le planning » enregistre aussitôt le planning du mois (il remplace le planning existant)
-  et chaque changement d'expert est enregistré immédiatement ; le bouton « Sauvegarder le planning » n'affiche qu'un
-  message. Le planning actuel ne s'affiche qu'au changement de mois (le mois courant présélectionné n'est pas chargé).
-  L'export CSV porte le mois choisi au moment de l'export, même s'il diffère du mois généré.
 - CRA : pour un CRA en cours, « Télécharger PDF » ouvre une page à imprimer (bouton « Imprimer / Enregistrer PDF »),
   pas un fichier.
 - Calendrier mensuel (impression) : les boutons ◀ ▶ sont imprimés.
@@ -279,6 +275,9 @@ Anomalies relevées pendant la migration (comportement conservé, correction à 
 
 Changements de comportement décidés pendant la migration :
 
+- Astreintes HNO : « Générer le planning » demande confirmation quand le mois a déjà un planning (il le remplace) ;
+  « Sauvegarder le planning » indique que l'enregistrement est automatique ; le planning actuel du mois courant
+  s'affiche à l'ouverture et après une génération de ce mois ; l'export CSV porte le mois réellement généré.
 - Astreintes HNO : messages (alert) et confirmations (confirm) remplacés par des messages et une fenêtre de la page ;
   revenir sur la rubrique HNO remet à zéro les choix et le planning généré affiché (l'ancien écran remettait à zéro
   les choix mais gardait le tableau généré).
