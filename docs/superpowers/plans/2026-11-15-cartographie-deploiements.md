@@ -35,12 +35,14 @@
 ### Task 1 : Libellé « Événements / Cartographie »
 
 **Files :**
+
 - Modify : `frontend/src/ilots/onglets.ts` (clé `evenements`, `libelle`)
 - Modify : `frontend/src/ilots/evenements/OngletEvenements.vue` (`<h2>`)
 - Modify : `frontend/pages/index.html` (libellé de l'onglet s'il y est écrit en dur), `frontend/pages/aide.html` (mentions « onglet Événements » de la carte)
 - Test : `frontend/src/ilots/onglets.test.ts` (créer si absent)
 
 **Interfaces :**
+
 - Consumes : `libelleOnglet(cle: string): string` existant.
 - Produces : `libelleOnglet('evenements') === 'Événements / Cartographie'`.
 
@@ -55,21 +57,23 @@
 ### Task 2 : Statuts de déploiement — base et API
 
 **Files :**
+
 - Modify : `backend/prisma/schema.base.prisma` (modèle `DeploymentStatus`, champ `status_id Int?` sur `AffectationProject`) + fichiers générés par `npm run db:schemas` + migration `backend/prisma/*/migrations/*_statuts_deploiement/` créée par `npm run db:migration -- statuts_deploiement`
 - Create : `backend/src/modules/affectation/statuts.service.js`, `statuts.controller.js`
 - Modify : `backend/src/modules/affectation/affectation.routes.js`
 - Test : `backend/tests/deploiement-statuts.test.js` (calqué sur `affectation.test.js` pour l'amorçage)
 
 **Interfaces :**
+
 - Produces (modèle) : `DeploymentStatus { id Int; label String @unique; color String; position Int; is_service Int @default(0) }` → table `deployment_statuses`. Migration insère « En service » (`color '#2e7d32'`, `position 0`, `is_service 1`).
 - Produces (service, `statuts.service.js`) :
-  - `listStatuses(): Promise<Array<{id, label, color, position, is_service}>>` trié par `position`
-  - `createStatus({label, color}): Promise<Status>` (position = max + 1)
-  - `updateStatus(id, {label, color}): Promise<Status>` (libellé ignoré si `is_service`)
-  - `deleteStatus(id): Promise<void>` (409 si `is_service` ou utilisé : message avec les `samu_name`)
-  - `reorderStatuses(ids: number[]): Promise<Status[]>` (ids = tous les statuts, sinon 400)
-  - `setProjectStatus(projectId, {status_id: number|null, date_mise_en_service?: string|null}): Promise<void>` (date acceptée seulement si le statut est `is_service`, sinon ignorée ; format AAAA-MM-JJ)
-  - `deploymentMap(): Promise<{statuses: Status[], deployments: Array<{id, samu_name, location_id, latitude, longitude, status_id, date_mise_en_service}>}>` (latitude/longitude de la localisation, `null` si absentes)
+    - `listStatuses(): Promise<Array<{id, label, color, position, is_service}>>` trié par `position`
+    - `createStatus({label, color}): Promise<Status>` (position = max + 1)
+    - `updateStatus(id, {label, color}): Promise<Status>` (libellé ignoré si `is_service`)
+    - `deleteStatus(id): Promise<void>` (409 si `is_service` ou utilisé : message avec les `samu_name`)
+    - `reorderStatuses(ids: number[]): Promise<Status[]>` (ids = tous les statuts, sinon 400)
+    - `setProjectStatus(projectId, {status_id: number|null, date_mise_en_service?: string|null}): Promise<void>` (date acceptée seulement si le statut est `is_service`, sinon ignorée ; format AAAA-MM-JJ)
+    - `deploymentMap(): Promise<{statuses: Status[], deployments: Array<{id, samu_name, location_id, latitude, longitude, status_id, date_mise_en_service}>}>` (latitude/longitude de la localisation, `null` si absentes)
 - Produces (routes) : `GET /affectation/deployment-statuses` et `GET /affectation/deployment-map` (`requireAuth`) ; `POST /affectation/deployment-statuses`, `PUT /affectation/deployment-statuses/:id`, `DELETE /affectation/deployment-statuses/:id`, `PUT /affectation/deployment-statuses-order` (body `{ids}`), `PUT /affectation/projects/:id/status` (`requireAdmin`).
 
 - [ ] **Step 1 : tests** (un `it` par ligne) : liste initiale = [« En service »] ; création trie à la suite ; couleur `rouge` → 400 ; libellé vide ou doublon → 400 ; « En service » non supprimable (409), libellé non modifiable mais couleur oui ; suppression d'un statut utilisé → 409 dont le message contient le `samu_name` ; `reorder` avec ids manquants → 400 puis OK ; `setProjectStatus` sur « En service » avec date → `date_mise_en_service` enregistrée, sur autre statut avec date → date inchangée ; `deploymentMap` renvoie `latitude: null` pour un déploiement sans localisation ; un non-admin reçoit 403 sur chaque écriture, 200 sur les deux lectures.
@@ -83,16 +87,18 @@
 ### Task 3 : Calcul du département et couleurs (logique pure)
 
 **Files :**
+
 - Create : `frontend/public/departements.geojson` (fichier arrondi, voir ci-dessous), `frontend/src/ilots/evenements/departements.ts`, `frontend/src/ilots/evenements/departements.test.ts`
 - Create : `frontend/src/api/deploiements.ts`
 - Modify : `docs/architecture.md` (source et licence des contours)
 
 **Interfaces :**
+
 - Produces (`api/deploiements.ts`) : types `StatutDeploiement {id; label; color; position; is_service}`, `DeploiementCarte {id; samu_name; location_id; latitude: number|null; longitude: number|null; status_id: number|null; date_mise_en_service: string|null}` ; `apiDeploiements.carte(): Promise<{statuses; deployments}>`, `.statuts()`, `.creer(d)`, `.modifier(id, d)`, `.supprimer(id)`, `.reordonner(ids)`, `.affecter(projectId, {status_id, date_mise_en_service?})`, branchés sur les routes de la Task 2 (suivre `api/carte.ts`).
 - Produces (`departements.ts`) :
-  - `interface Contours { features: Array<{properties: {code: string; nom: string}; geometry: {type: 'Polygon'|'MultiPolygon'; coordinates: unknown}}> }`
-  - `departementDe(lat: number, lng: number, contours: Contours): {code: string; nom: string} | null`
-  - `couleursDepartements(deploiements: DeploiementCarte[], statuts: StatutDeploiement[], contours: Contours): Map<string, {couleur: string; statut: string; samu: string[]}>` (clé = code département ; ignore les déploiements sans coordonnées ou sans statut ; plusieurs : statut de plus petite `position`, `samu` = tous les SAMU de ce département ayant ce statut)
+    - `interface Contours { features: Array<{properties: {code: string; nom: string}; geometry: {type: 'Polygon'|'MultiPolygon'; coordinates: unknown}}> }`
+    - `departementDe(lat: number, lng: number, contours: Contours): {code: string; nom: string} | null`
+    - `couleursDepartements(deploiements: DeploiementCarte[], statuts: StatutDeploiement[], contours: Contours): Map<string, {couleur: string; statut: string; samu: string[]}>` (clé = code département ; ignore les déploiements sans coordonnées ou sans statut ; plusieurs : statut de plus petite `position`, `samu` = tous les SAMU de ce département ayant ce statut)
 
 - [ ] **Step 1 :** générer le fichier de contours : `python3 -I` sur `<clone>/departements-version-simplifiee.geojson`, arrondir toutes les coordonnées à 3 décimales, `json.dumps(separators=(',', ':'))`, écrire `frontend/public/departements.geojson` (~225 Ko). Clone : `gh repo clone gregoiredavid/france-geojson <dossier-scratchpad>/france-geojson -- --depth 1`. Servi sous `/vue/departements.geojson` (`base: '/vue/'`).
 - [ ] **Step 2 : tests** `departements.test.ts` avec un `Contours` de trois polygones carrés fabriqués (un Polygon, un MultiPolygon, un Polygon avec trou) : point dedans → code ; point dans le trou → `null` ; point en mer → `null` ; `couleursDepartements` : déploiement sans coordonnées ignoré, sans `status_id` ignoré, deux déploiements du même département → statut de plus petite position, `samu` listant les deux si même statut. Un test de lecture sur le vrai fichier : Paris (48.8566, 2.3522) → code `75`, Marseille (43.2965, 5.3698) → `13`.
@@ -104,11 +110,13 @@
 ### Task 4 : Rubrique « Paramétrage des déploiements » (administrateur)
 
 **Files :**
+
 - Create : `frontend/src/ilots/evenements/ParametrageDeploiements.vue`, `frontend/src/ilots/evenements/magasin-deploiements.ts` (store Pinia `useDeploiementsStore`), `magasin-deploiements.test.ts`
 - Modify : `frontend/src/ilots/evenements/OngletEvenements.vue` (afficher la rubrique sous le formulaire, `v-if="ev.estAdmin"`)
 - Test : `e2e/features/18-statuts-deploiements.feature` + `e2e/steps/statuts-deploiements.js`
 
 **Interfaces :**
+
 - Consumes : `apiDeploiements` (Task 3), `ev.estAdmin`.
 - Produces (store) : état `{statuts: StatutDeploiement[]; deploiements: DeploiementCarte[]; erreur: string}` ; actions `charger()`, `ajouterStatut(label: string, couleur: string)`, `modifierStatut(id, {label, couleur})`, `supprimerStatut(id)`, `deplacerStatut(id, sens: -1|1)`, `affecter(projectId, statusId: number|null, date?: string|null)` ; après chaque écriture `emettre('deploiements-modifies')` (bus `@/evenements`, à déclarer dans `frontend/src/evenements.ts`).
 - Produces (vue) : rubrique repliable « ▶ Paramétrage des déploiements » (même mécanique `ouvert` / `basculer` / flèche ▶▼ que `FormulaireEvenement.vue`), `data-testid="parametrage-deploiements"` ; liste des statuts (pastille de couleur, `<input type="color">`, boutons ▲▼, suppression avec `useConfirmation()`, « En service » sans suppression ni champ libellé) ; ligne d'ajout (libellé + couleur) ; tableau « SAMU / Statut (menu) / Date de mise en service (`<input type="date">` seulement si le statut choisi est `is_service`) ».
@@ -124,16 +132,18 @@
 ### Task 5 : Calques de la carte
 
 **Files :**
+
 - Modify : `frontend/src/ilots/evenements/FenetreCarte.vue` (calques, contrôle, curseur), `frontend/src/ilots/evenements/carte.ts` (état des calques)
 - Create : `frontend/src/ilots/evenements/calques.ts`, `calques.test.ts`
 - Test : `frontend/src/ilots/evenements/carte.test.ts` (existant), scénario e2e dans `e2e/features/18-statuts-deploiements.feature`
 
 **Interfaces :**
+
 - Consumes : `couleursDepartements`, `Contours`, `apiDeploiements.carte()` (Task 3) ; groupes Leaflet actuels : `calque` (lieux) et marqueurs d'experts dans `FenetreCarte.vue`.
 - Produces (`calques.ts`) :
-  - `interface EtatCalques { departements: boolean; evenements: boolean; experts: boolean; transparence: number }` (transparence 0–100, part d'opacité retirée)
-  - `etatInitial(): EtatCalques` → tous `true`, `transparence: 60` ; `lireEtat(stockage: Pick<Storage,'getItem'>): EtatCalques` (valeurs invalides ou accès impossible → `etatInitial()`) ; `ecrireEtat(stockage: Pick<Storage,'setItem'>, e: EtatCalques): void` (ignore les erreurs) ; clé `gp-carte-calques`.
-  - `opaciteDepartements(transparence: number): number` = `(100 - clamp(transparence, 0, 100)) / 100 * 0.8` (0,8 = opacité maximale de remplissage).
+    - `interface EtatCalques { departements: boolean; evenements: boolean; experts: boolean; transparence: number }` (transparence 0–100, part d'opacité retirée)
+    - `etatInitial(): EtatCalques` → tous `true`, `transparence: 60` ; `lireEtat(stockage: Pick<Storage,'getItem'>): EtatCalques` (valeurs invalides ou accès impossible → `etatInitial()`) ; `ecrireEtat(stockage: Pick<Storage,'setItem'>, e: EtatCalques): void` (ignore les erreurs) ; clé `gp-carte-calques`.
+    - `opaciteDepartements(transparence: number): number` = `(100 - clamp(transparence, 0, 100)) / 100 * 0.8` (0,8 = opacité maximale de remplissage).
 - Produces (carte) : trois `L.LayerGroup` (`lieux`, `experts`, `departements`) ajoutés/retirés de la carte selon `EtatCalques` ; calque départements = `L.geoJSON(contoursFiltres)` ne gardant que les départements colorés, `style` `{fillColor: couleur, fillOpacity: opaciteDepartements(t), color: couleur, weight: 1}`, tooltip « <nom> : <statut> (<SAMU, …>) » ; contours chargés par `fetch('/vue/departements.geojson')` à la première activation ; panneau de commandes (3 cases à cocher « Départements », « Événements / déplacements », « Experts métier » + curseur « Transparence des départements » visible quand le calque est coché), `data-testid="carte-calques"`.
 
 - [ ] **Step 1 : tests `calques.test.ts`** : `etatInitial()` ; `lireEtat` sur JSON invalide, valeur absente, `getItem` qui lève → `etatInitial()` ; aller-retour `ecrireEtat`/`lireEtat` ; `opaciteDepartements(0) === 0.8`, `(100) === 0`, `(60) === 0.32`, `(150) === 0` et `(-5) === 0.8`.

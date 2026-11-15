@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { ecrireEtat, etatInitial, lireEtat, opaciteDepartements } from './calques';
+import { describe, expect, it, vi } from 'vitest';
+import { ecrireEtat, etatInitial, lireEtat, opaciteDepartements, stockageNavigateur } from './calques';
 
 const stockage = (valeur: string | null) => ({ getItem: () => valeur });
 
@@ -48,5 +48,18 @@ describe('calques de la carte', () => {
         expect(opaciteDepartements(60)).toBeCloseTo(0.32);
         expect(opaciteDepartements(150)).toBe(0);
         expect(opaciteDepartements(-5)).toBeCloseTo(0.8);
+    });
+
+    it('fonctionne quand l’accès même au stockage du navigateur est refusé', () => {
+        const espion = vi.spyOn(window, 'localStorage', 'get').mockImplementation(() => {
+            throw new DOMException('Accès refusé', 'SecurityError');
+        });
+        try {
+            const s = stockageNavigateur();
+            expect(lireEtat(s)).toEqual(etatInitial());
+            expect(() => ecrireEtat(s, etatInitial())).not.toThrow();
+        } finally {
+            espion.mockRestore();
+        }
     });
 });

@@ -11,14 +11,14 @@ d'événements.
 1. L'onglet « Événements » s'appelle « Événements / Cartographie » partout (barre d'onglets, matrice d'accès de
    l'administration, fenêtre « Mon profil », aide). Simple changement de libellé dans `frontend/src/ilots/onglets.ts`.
 2. Dans cet onglet, une 2ᵉ rubrique repliable « Paramétrage des déploiements », réservée à l'administrateur :
-   - **Statuts** : liste ordonnée (libellé, couleur). Ajout, modification, suppression, réordonnancement. Le statut
-     « En service » est fourni par défaut et ne peut être ni renommé ni supprimé.
-   - **Déploiements** : tableau des déploiements (`AffectationProject`) avec un menu de statut. Pour « En service »
-     seulement, une date de mise en service s'affiche (champ existant `date_mise_en_service`).
+    - **Statuts** : liste ordonnée (libellé, couleur). Ajout, modification, suppression, réordonnancement. Le statut
+      « En service » est fourni par défaut et ne peut être ni renommé ni supprimé.
+    - **Déploiements** : tableau des déploiements (`AffectationProject`) avec un menu de statut. Pour « En service »
+      seulement, une date de mise en service s'affiche (champ existant `date_mise_en_service`).
 3. Sur la carte, trois calques à cocher :
-   - **Départements** : contours colorés selon le statut, curseur de transparence ;
-   - **Événements / déplacements** : les pastilles de lieux actuelles ;
-   - **Experts métier** : les pastilles d'experts actuelles.
+    - **Départements** : contours colorés selon le statut, curseur de transparence ;
+    - **Événements / déplacements** : les pastilles de lieux actuelles ;
+    - **Experts métier** : les pastilles d'experts actuelles.
 
 ## Hors périmètre
 
@@ -43,11 +43,11 @@ d'événements.
 
 ## Approches envisagées
 
-| Approche | Pour | Contre |
-|---|---|---|
-| **A. Contours embarqués, calcul navigateur** (retenue) | Aucun appel externe, département toujours à jour | Calcul refait à l'affichage (négligeable) |
-| B. Département calculé côté serveur et stocké | Résultat figé | Migration sur 3 bases, recalcul si la localisation change |
-| C. Contours depuis un service externe | Rien à embarquer | CSP à élargir, dépendance réseau |
+| Approche                                               | Pour                                             | Contre                                                    |
+| ------------------------------------------------------ | ------------------------------------------------ | --------------------------------------------------------- |
+| **A. Contours embarqués, calcul navigateur** (retenue) | Aucun appel externe, département toujours à jour | Calcul refait à l'affichage (négligeable)                 |
+| B. Département calculé côté serveur et stocké          | Résultat figé                                    | Migration sur 3 bases, recalcul si la localisation change |
+| C. Contours depuis un service externe                  | Rien à embarquer                                 | CSP à élargir, dépendance réseau                          |
 
 Choix de l'utilisateur : A, avec calcul automatique du département (pas de champ saisi).
 

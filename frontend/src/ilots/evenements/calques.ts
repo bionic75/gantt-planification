@@ -8,6 +8,15 @@ export interface EtatCalques {
     transparence: number;
 }
 
+/** Stockage du navigateur, ou un stockage vide quand l'accès est refusé (navigation privée, site bloqué) */
+export function stockageNavigateur(): Pick<Storage, 'getItem' | 'setItem'> {
+    try {
+        return window.localStorage;
+    } catch {
+        return { getItem: () => null, setItem: () => undefined };
+    }
+}
+
 export const CLE_CALQUES = 'gp-carte-calques';
 
 export const etatInitial = (): EtatCalques => ({

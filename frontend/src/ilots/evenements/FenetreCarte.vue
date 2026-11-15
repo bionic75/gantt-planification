@@ -27,7 +27,7 @@ import {
     type PlageLecture
 } from './carte';
 import { dateFr } from './calculs';
-import { ecrireEtat, lireEtat, opaciteDepartements } from './calques';
+import { ecrireEtat, lireEtat, opaciteDepartements, stockageNavigateur } from './calques';
 import { couleursDepartements, type Contours } from './departements';
 import { useEvenementsStore } from './magasin';
 
@@ -44,7 +44,7 @@ const fin = ref('');
 const localisation = ref('');
 const type = ref('');
 const participants = ref<ParticipantCarte[]>([]);
-const etatInitialCalques = lireEtat(window.localStorage);
+const etatInitialCalques = lireEtat(stockageNavigateur());
 const expertsVisibles = ref(etatInitialCalques.experts);
 const lieuxVisibles = ref(etatInitialCalques.evenements);
 const departementsVisibles = ref(etatInitialCalques.departements);
@@ -53,7 +53,7 @@ const transparence = ref(etatInitialCalques.transparence);
 
 /** Mémorise l'état des calques dans le navigateur */
 const memoriserCalques = () =>
-    ecrireEtat(window.localStorage, {
+    ecrireEtat(stockageNavigateur(), {
         departements: departementsVisibles.value,
         evenements: lieuxVisibles.value,
         experts: expertsVisibles.value,
