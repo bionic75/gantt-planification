@@ -10,19 +10,18 @@ Fonctionnalité: Événements / Cartographie : paramétrage des statuts de dépl
     Et j'ajoute le statut de déploiement de test
     Alors le statut de déploiement de test est listé
 
-  Scénario: Un déploiement passe « En service » avec sa date de mise en service
+  Scénario: Un SAMU ajouté à la liste passe « En service » avec sa date de mise en service
     Étant donné qu'une localisation SAMU de test géolocalisée existe
-    Et qu'un déploiement de test a une visite métier du "2031-05-12" au "2031-05-13"
     Quand "Administrateur" ouvre l'application
     Et j'ouvre l'onglet "Événements"
     Et j'ouvre la section "Paramétrage des déploiements"
-    Et je passe le déploiement de test « En service » le "2031-06-15"
-    Alors le déploiement de test est « En service » depuis le "2031-06-15" sur la carte
+    Et j'ajoute le SAMU de test à la liste des déploiements
+    Et je passe le SAMU de test « En service » le "2031-06-15"
+    Alors le SAMU de test est « En service » depuis le "2031-06-15"
 
   Scénario: La carte colore le département d'un SAMU en service et masque ses calques
     Étant donné qu'une localisation SAMU de test géolocalisée existe
-    Et qu'un déploiement de test a une visite métier du "2031-05-12" au "2031-05-13"
-    Et que le déploiement de test est « En service » depuis le "2031-06-15"
+    Et que le SAMU de test est « En service » depuis le "2031-06-15"
     Quand "Administrateur" ouvre l'application
     Et j'ouvre l'onglet "Événements"
     Et j'ouvre la carte des événements

@@ -185,9 +185,24 @@
         "guard": "deploiements"
     },
     {
+        "method": "POST",
+        "path": "/api/affectation/deployment-import-mes",
+        "guard": "admin"
+    },
+    {
         "method": "GET",
         "path": "/api/affectation/deployment-map",
         "guard": "auth"
+    },
+    {
+        "method": "PUT",
+        "path": "/api/affectation/deployment-samus/:locationId",
+        "guard": "admin"
+    },
+    {
+        "method": "DELETE",
+        "path": "/api/affectation/deployment-samus/:locationId",
+        "guard": "admin"
     },
     {
         "method": "GET",
@@ -327,11 +342,6 @@
     {
         "method": "GET",
         "path": "/api/affectation/projects/:id/history",
-        "guard": "admin"
-    },
-    {
-        "method": "PUT",
-        "path": "/api/affectation/projects/:id/status",
         "guard": "admin"
     },
     {
