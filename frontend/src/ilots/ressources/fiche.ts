@@ -98,20 +98,14 @@ export function ficheIncomplete(f: FormulaireFiche): { message: string; contacts
 }
 
 /**
- * Taux enregistré avec la fiche : celui de la période en cours ; à défaut (ou s'il vaut 0, anomalie conservée), celui
- * de la période qui commence le plus tard
+ * Taux enregistré avec la fiche : celui de la période en cours (0 compris) ; à défaut, celui de la période qui commence
+ * le plus tard ; sans historique, le taux actuel de la ressource
  */
-export function tauxEnregistre(historique: PeriodeMad[], aujourdhui: string): number {
-    let taux = 0;
-    for (const p of historique) {
-        if (p.date_debut <= aujourdhui && (!p.date_fin || p.date_fin >= aujourdhui)) {
-            taux = p.taux;
-            break;
-        }
-    }
-    if (taux === 0 && historique.length)
-        taux = [...historique].sort((a, b) => b.date_debut.localeCompare(a.date_debut))[0]!.taux;
-    return taux;
+export function tauxEnregistre(historique: PeriodeMad[], aujourdhui: string, tauxActuel = 0): number {
+    const enCours = historique.find(p => p.date_debut <= aujourdhui && (!p.date_fin || p.date_fin >= aujourdhui));
+    if (enCours) return enCours.taux;
+    if (!historique.length) return tauxActuel;
+    return [...historique].sort((a, b) => b.date_debut.localeCompare(a.date_debut))[0]!.taux;
 }
 
 /** Fiche enregistrée, comme l'ancien écran : champs tels que saisis, date de fin de la ressource conservée */
@@ -156,7 +150,7 @@ export function periodeIncomplete(debut: string, fin: string, taux: string): str
     return null;
 }
 
-/** Particularité ajoutée incomplète ou incohérente : message, ou null (la modification n'est pas contrôlée) */
+/** Particularité (ajoutée ou modifiée) incomplète ou incohérente : message, ou null */
 export function particulariteIncomplete(debut: string, fin: string, taux: string): string | null {
     if (!debut || !fin || taux === '') return 'Veuillez remplir les dates et le taux';
     if (debut > fin) return 'La date de fin doit être postérieure à la date de début';

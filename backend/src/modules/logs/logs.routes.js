@@ -10,6 +10,7 @@ const router = Router();
 router.get('/active-sessions', requireAuth, h(ctrl.activeSessions));
 router.get('/reporting/connections', requireAdmin, h(ctrl.connectionsReport));
 router.get('/logs/actions', requireAdmin, h(ctrl.userActions));
+router.get('/logs/user-export', requireAdmin, h(ctrl.userExport));
 router.post('/logs/add-modification', requireAuth, h(ctrl.addModification));
 router.get('/logs/planning-debug', requireAdmin, h(ctrl.planningDebug));
 router.delete('/logs/raz', requireAdmin, h(ctrl.resetUserLogs));

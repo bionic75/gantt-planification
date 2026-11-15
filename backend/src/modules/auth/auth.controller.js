@@ -6,7 +6,7 @@ import { emailConfig, sendEmail } from '../../lib/mailer.js';
 import { PASSWORD_RULE, passwordStrengthError } from '../../lib/password.js';
 import { rejectRevokedSession } from '../../middlewares/auth.js';
 import { activeSessions, revokeUserSessions } from '../../state/sessions.js';
-import { mfaCodeEmail, passwordResetLinkEmail } from './auth.emails.js';
+import { MFA_ICONES, RESET_ICONES, mfaCodeEmail, passwordResetLinkEmail } from './auth.emails.js';
 import * as auth from './auth.service.js';
 import { consumeMfaAttempt, MAX_CODE_SENDS, startMfaPending } from './mfa-pending.js';
 import * as mfa from './mfa.service.js';
@@ -68,7 +68,7 @@ async function completeLogin(req, res, user, profile) {
             profilePhoto: user.profile_photo || null,
             activeProfile: profile,
             resourceId: user.resource_id,
-            hasReportingAccess: user.has_reporting_access === 1 || user.is_admin === 1,
+            hasReportingAccess: profile === 'admin',
             is_admin: user.is_admin === 1,
             is_expert: user.is_expert === 1,
             is_user: user.is_user === 1,
@@ -237,7 +237,8 @@ export async function forgotPassword(/** @type {Request} */ req, /** @type {Resp
     sendEmail(
         user.email,
         'Réinitialisation de votre mot de passe',
-        passwordResetLinkEmail({ prenom: user.prenom, nom: user.nom, username: user.username, link })
+        passwordResetLinkEmail({ prenom: user.prenom, nom: user.nom, username: user.username, link }),
+        RESET_ICONES
     ).catch(err => console.error(`Erreur envoi lien de réinitialisation (userId ${user.id}):`, err.message));
 }
 
@@ -310,7 +311,8 @@ export async function sendMfaCode(/** @type {Request} */ req, /** @type {Respons
         await sendEmail(
             user.email,
             '🔐 Code de vérification - Planning ANS',
-            mfaCodeEmail({ prenom: user.prenom, code })
+            mfaCodeEmail({ prenom: user.prenom, code }),
+            MFA_ICONES
         );
     } catch (/** @type {any} */ error) {
         console.error('Erreur envoi code MFA:', error);

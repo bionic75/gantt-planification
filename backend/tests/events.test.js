@@ -216,6 +216,66 @@ describe('événements', () => {
         expect((await expert.post('/api/my-custom-events/999999/join')).status).toBe(404);
     });
 
+    it('événement tagué : « Participer » seulement en 2-2, puis 2-3 avec le SAMU-SAS, « Me retirer » → 2-2', async () => {
+        const { user, resource } = await createExpert(admin);
+        const expert = await loginAs(server, user, 'expert');
+        const key = (type, date, period) => `${resource.id}_${type}_${date}_${period}`;
+        const visite = (await types()).find(t => t.code === 'visiteMetier');
+        const loc = await admin.post('/api/locations', {
+            libelle_long: unique('SAMU-SAS 56 '),
+            libelle_court: 'SAMU-SAS 56'
+        });
+        const eventId = await adminCreate({
+            type_id: visite.id,
+            location_id: loc.data.id,
+            startDate: '2025-10-06',
+            endDate: '2025-10-06'
+        });
+        const peut = async () =>
+            (await expert.get('/api/my-custom-events')).data.events.find(e => e.id === eventId).peut_participer;
+
+        // Planification non renseignée (1-1) : « Participer » masqué et inscription refusée
+        expect(await peut()).toBe(0);
+        expect((await expert.post(`/api/my-custom-events/${eventId}/join`)).status).toBe(400);
+
+        const dispo = Object.fromEntries(
+            ['AM', 'PM'].flatMap(p => [
+                [key('available', '2025-10-06', p), '2'],
+                [key('activity', '2025-10-06', p), '2']
+            ])
+        );
+        await admin.post('/api/schedule', dispo);
+        expect(await peut()).toBe(1);
+
+        await expert.post(`/api/my-custom-events/${eventId}/join`);
+        let schedule = (await admin.get('/api/schedule')).data;
+        expect(schedule[key('available', '2025-10-06', 'AM')]).toBe('2');
+        expect(schedule[key('activity', '2025-10-06', 'PM')]).toBe('3');
+        expect(schedule[key('localisation', '2025-10-06', 'AM')]).toBe('🚨 SAMU 56');
+        expect(await peut()).toBe(0);
+
+        const r = await expert.delete(`/api/my-custom-events/${eventId}/join`);
+        expect(r.data.planningReset).toBe(2);
+        schedule = (await admin.get('/api/schedule')).data;
+        expect(schedule[key('activity', '2025-10-06', 'AM')]).toBe('2');
+        expect(schedule[key('localisation', '2025-10-06', 'AM')]).toBeUndefined();
+        expect(await peut()).toBe(1);
+    });
+
+    it('« Me retirer » : l’utilisateur quitte les participants', async () => {
+        const { user } = await createExpert(admin);
+        const expert = await loginAs(server, user, 'expert');
+        const eventId = await adminCreate({ startDate: '2025-09-01', endDate: '2025-09-01' });
+        await expert.post(`/api/my-custom-events/${eventId}/join`);
+        expect((await findEvent(eventId)).participants.map(p => p.user_id)).toEqual([user.id]);
+        const r = await expert.delete(`/api/my-custom-events/${eventId}/join`);
+        expect(r.data).toMatchObject({ success: true, removed: true, desaffectations: 0 });
+        expect((await findEvent(eventId)).participants).toEqual([]);
+        // Déjà retiré : sans effet
+        expect((await expert.delete(`/api/my-custom-events/${eventId}/join`)).data.removed).toBe(false);
+        expect((await expert.delete('/api/my-custom-events/999999/join')).status).toBe(404);
+    });
+
     it('modification : participants remplacés, type conservé sans type fourni', async () => {
         const a = await createUser(admin);
         const b = await createUser(admin);

@@ -16,11 +16,17 @@ import {
     DISPONIBILITES,
     classerCreneaux,
     detailExpert,
+    trierClassement,
+    trierLignesExperts,
+    type ColonneClassement,
+    type ColonneExperts,
+    type LigneExpert,
     expertsProposes,
     intervalleParDefaut,
     jourCreneau,
     localisationsProposees,
     rechercher,
+    titreClassement,
     trigrammeExpert,
     type ResultatExpert
 } from './recherche';
@@ -40,14 +46,19 @@ const icones = shallowRef<ReturnType<typeof iconesCriteres>>({ disponibilites: {
 
 /** Résultats de la dernière recherche ; null avant toute recherche */
 const resultats = shallowRef<ResultatExpert[] | null>(null);
+/** Disponibilités et affectations de la dernière recherche (titre du classement) */
+const criteresRecherche = shallowRef<{ disponibilites: string[]; affectations: string[] }>({
+    disponibilites: [],
+    affectations: []
+});
 const erreur = ref('');
 
 function proposerIntervalle() {
     ({ debut: debut.value, fin: fin.value } = intervalleParDefaut());
 }
 
-// À chaque ouverture : listes relues (experts et localisations désélectionnés), intervalle du mois courant ; les autres
-// critères et les derniers résultats sont conservés
+// À chaque ouverture : listes relues ; critères (experts, localisations, dates, disponibilités, affectations) et derniers
+// résultats conservés jusqu'à « Réinitialiser » (sélections retirées si l'expert ou la localisation n'existe plus)
 const planification = usePlanificationStore();
 
 // Données de la grille (magasin de la planification), chargées à la première ouverture
@@ -55,11 +66,13 @@ surDemande(async () => {
     await planification.charger();
     const e = planification.etatPlanning;
     etat.value = e;
-    experts.value = [];
-    localisations.value = [];
     optionsLocalisation.value = localisationsProposees(e).map(l => optionLocalisation(l));
+    const idsExperts = new Set(expertsProposes(e).map(o => o.id));
+    experts.value = experts.value.filter(id => idsExperts.has(id));
+    const valeursLocalisation = new Set(optionsLocalisation.value.map(o => o.valeur));
+    localisations.value = localisations.value.filter(v => valeursLocalisation.has(v));
     icones.value = iconesCriteres();
-    proposerIntervalle();
+    if (!debut.value || !fin.value) proposerIntervalle();
     ouverte.value = true;
 });
 
@@ -72,6 +85,7 @@ function lancer() {
         return;
     }
     if (!etat.value) return;
+    criteresRecherche.value = { disponibilites: [...disponibilites.value], affectations: [...affectations.value] };
     resultats.value = rechercher(etat.value, {
         experts: experts.value,
         debut: debut.value,
@@ -92,28 +106,59 @@ function reinitialiser() {
     erreur.value = '';
 }
 
-const lignesExperts = computed(() =>
-    (resultats.value ?? []).map(r => ({
+/** Tri du tableau « Résultats par expert » : colonne et sens (premier clic : croissant) */
+const triExperts = ref<{ colonne: ColonneExperts; croissant: boolean } | null>(null);
+function trierExperts(colonne: ColonneExperts) {
+    const t = triExperts.value;
+    triExperts.value = { colonne, croissant: t?.colonne === colonne ? !t.croissant : true };
+}
+const sensTri = (colonne: ColonneExperts) => {
+    const t = triExperts.value;
+    return t?.colonne === colonne ? (t.croissant ? 'ascending' : 'descending') : undefined;
+};
+
+const lignesExperts = computed(() => {
+    const lignes: LigneExpert[] = (resultats.value ?? []).map(r => ({
         id: r.ressource.id,
-        nom: `${r.ressource.nom} ${r.ressource.prenom}`,
+        nom: `${r.ressource.prenom} ${r.ressource.nom}`.trim(),
         nombre: r.correspondances.length,
-        detail: detailExpert(r.correspondances)
-    }))
-);
+        detail: detailExpert(r.correspondances),
+        premiere: r.correspondances.map(c => c.date).sort()[0] ?? ''
+    }));
+    const t = triExperts.value;
+    return t ? trierLignesExperts(lignes, t.colonne, t.croissant) : lignes;
+});
 
 const creneaux = computed(() => classerCreneaux(resultats.value ?? []));
-const lignesCreneaux = computed(() =>
-    creneaux.value.slice(0, CRENEAUX_AFFICHES).map((c, i) => ({
+/** Tri du classement des créneaux : colonne et sens (premier clic : croissant) */
+const triCreneaux = ref<{ colonne: ColonneClassement; croissant: boolean } | null>(null);
+function trierCreneaux(colonne: ColonneClassement) {
+    const t = triCreneaux.value;
+    triCreneaux.value = { colonne, croissant: t?.colonne === colonne ? !t.croissant : true };
+}
+const sensTriCreneaux = (colonne: ColonneClassement) => {
+    const t = triCreneaux.value;
+    return t?.colonne === colonne ? (t.croissant ? 'ascending' : 'descending') : undefined;
+};
+
+const lignesCreneaux = computed(() => {
+    const base = creneaux.value.slice(0, CRENEAUX_AFFICHES).map((c, i) => ({
         cle: `${c.date}_${c.periode}`,
         rang: i + 1,
         couleurRang: COULEURS_RANG[i] ?? '#666',
-        paire: i % 2 === 0,
-        ...jourCreneau(c.date),
-        matin: c.periode === 'AM',
+        date: c.date,
+        periode: c.periode,
         nombre: c.experts.length,
         noms: c.experts.map(trigrammeExpert).join(', ')
-    }))
-);
+    }));
+    const t = triCreneaux.value;
+    return (t ? trierClassement(base, t.colonne, t.croissant) : base).map((l, i) => ({
+        ...l,
+        paire: i % 2 === 0,
+        ...jourCreneau(l.date),
+        matin: l.periode === 'AM'
+    }));
+});
 </script>
 
 <template>
@@ -233,9 +278,33 @@ const lignesCreneaux = computed(() =>
                     <table class="gp-recherche__table">
                         <thead>
                             <tr class="gp-recherche__entete">
-                                <th class="gp-recherche__gauche">Expert</th>
-                                <th>Nb demi-journées</th>
-                                <th class="gp-recherche__gauche">Détails</th>
+                                <th
+                                    class="gp-recherche__gauche gp-recherche__tri"
+                                    tabindex="0"
+                                    :aria-sort="sensTri('nom')"
+                                    @click="trierExperts('nom')"
+                                    @keydown.enter.prevent="trierExperts('nom')"
+                                >
+                                    Expert
+                                </th>
+                                <th
+                                    class="gp-recherche__tri"
+                                    tabindex="0"
+                                    :aria-sort="sensTri('nombre')"
+                                    @click="trierExperts('nombre')"
+                                    @keydown.enter.prevent="trierExperts('nombre')"
+                                >
+                                    Nb demi-journées
+                                </th>
+                                <th
+                                    class="gp-recherche__gauche gp-recherche__tri"
+                                    tabindex="0"
+                                    :aria-sort="sensTri('detail')"
+                                    @click="trierExperts('detail')"
+                                    @keydown.enter.prevent="trierExperts('detail')"
+                                >
+                                    Détails
+                                </th>
                             </tr>
                         </thead>
                         <tbody>
@@ -252,18 +321,58 @@ const lignesCreneaux = computed(() =>
 
         <div v-if="lignesCreneaux.length" id="searchSlotRanking" class="gp-recherche__classement">
             <h3 class="gp-recherche__titre gp-recherche__titre--classement">
-                📊 Créneaux par nombre d'experts disponibles ANS
+                📊 {{ titreClassement(criteresRecherche.disponibilites, criteresRecherche.affectations) }}
             </h3>
             <div id="searchSlotRankingContent" class="gp-recherche__defilement">
                 <p class="gp-recherche__nombre">{{ creneaux.length }} créneau(x) trouvé(s)</p>
                 <table class="gp-recherche__table">
                     <thead>
                         <tr class="gp-recherche__entete gp-recherche__entete--classement">
-                            <th class="gp-recherche__rang">Rang</th>
-                            <th class="gp-recherche__gauche">Date</th>
-                            <th>Période</th>
-                            <th>Nb experts</th>
-                            <th class="gp-recherche__gauche">Experts disponibles</th>
+                            <th
+                                class="gp-recherche__rang gp-recherche__tri"
+                                tabindex="0"
+                                :aria-sort="sensTriCreneaux('rang')"
+                                @click="trierCreneaux('rang')"
+                                @keydown.enter.prevent="trierCreneaux('rang')"
+                            >
+                                Rang
+                            </th>
+                            <th
+                                class="gp-recherche__gauche gp-recherche__tri"
+                                tabindex="0"
+                                :aria-sort="sensTriCreneaux('date')"
+                                @click="trierCreneaux('date')"
+                                @keydown.enter.prevent="trierCreneaux('date')"
+                            >
+                                Date
+                            </th>
+                            <th
+                                class="gp-recherche__tri"
+                                tabindex="0"
+                                :aria-sort="sensTriCreneaux('periode')"
+                                @click="trierCreneaux('periode')"
+                                @keydown.enter.prevent="trierCreneaux('periode')"
+                            >
+                                Période
+                            </th>
+                            <th
+                                class="gp-recherche__tri"
+                                tabindex="0"
+                                :aria-sort="sensTriCreneaux('nombre')"
+                                @click="trierCreneaux('nombre')"
+                                @keydown.enter.prevent="trierCreneaux('nombre')"
+                            >
+                                Nb experts
+                            </th>
+                            <th
+                                class="gp-recherche__gauche gp-recherche__tri"
+                                tabindex="0"
+                                :aria-sort="sensTriCreneaux('noms')"
+                                @click="trierCreneaux('noms')"
+                                @keydown.enter.prevent="trierCreneaux('noms')"
+                            >
+                                Experts disponibles
+                            </th>
                         </tr>
                     </thead>
                     <tbody>
@@ -438,6 +547,13 @@ const lignesCreneaux = computed(() =>
 }
 .gp-recherche__entete--classement {
     background: #27ae60;
+}
+.gp-recherche__table .gp-recherche__entete.gp-recherche__entete th {
+    background-color: #3498db;
+    color: white;
+}
+.gp-recherche__table .gp-recherche__entete--classement.gp-recherche__entete--classement th {
+    background-color: #27ae60;
 }
 .gp-recherche__entete th {
     text-align: center;

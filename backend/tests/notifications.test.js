@@ -207,6 +207,56 @@ describe('notifications des experts', () => {
     });
 });
 
+describe('notifications créées par les enregistrements du planning', () => {
+    /** Notifications créées après la réponse : attente du nombre voulu */
+    const attendre = async (client, n) => {
+        for (let i = 0; i < 50; i++) {
+            const { count } = (await client.get('/api/notifications/count')).data;
+            if (count >= n) return count;
+            await new Promise(r => setTimeout(r, 100));
+        }
+        return (await client.get('/api/notifications/count')).data.count;
+    };
+
+    it("une affectation posée par l'administrateur notifie l'expert, pas sa propre modification", async () => {
+        const { user, resource } = await createExpert(admin);
+        const expert = await loginAs(server, user, 'expert');
+        const r = resource.id;
+        const save = await admin.post('/api/schedule/save', {
+            updates: [
+                { key: `${r}_available_2027-08-02_AM`, value: '2' },
+                { key: `${r}_activity_2027-08-02_AM`, value: '3' },
+                { key: `${r}_localisation_2027-08-02_AM`, value: '🚨 SAMU 13' },
+                // Activité « En attente » (2) : pas une affectation
+                { key: `${r}_activity_2027-08-02_PM`, value: '2' }
+            ]
+        });
+        expect(save.status).toBe(200);
+        expect(await attendre(expert, 1)).toBe(1);
+        const [n] = (await expert.get('/api/notifications/list')).data.notifications;
+        expect(n).toMatchObject({
+            date: '2027-08-02',
+            period: 'Matin',
+            activity_name: '🚨 SAMU (Déploiement) (🚨 SAMU 13)',
+            action_type: 'Nouvelle affectation',
+            localisation: '🚨 SAMU 13'
+        });
+
+        // Même planning renvoyé : aucune cellule modifiée, aucune nouvelle notification
+        await expert.post('/api/notifications/mark-read');
+        await admin.post('/api/schedule/save', {
+            updates: [{ key: `${r}_activity_2027-08-02_AM`, value: '3' }]
+        });
+        await new Promise(res => setTimeout(res, 500));
+        expect((await expert.get('/api/notifications/count')).data).toEqual({ count: 0 });
+
+        // L'expert modifie sa propre ligne : pas de notification pour lui-même
+        await expert.post('/api/schedule/save', { updates: [{ key: `${r}_activity_2027-08-03_AM`, value: '3' }] });
+        await new Promise(res => setTimeout(res, 500));
+        expect((await expert.get('/api/notifications/count')).data).toEqual({ count: 0 });
+    });
+});
+
 describe('Teams', () => {
     it('test du canal et notifications selon la configuration', async () => {
         expect((await admin.post('/api/teams/test', {})).status).toBe(400);

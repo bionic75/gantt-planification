@@ -49,10 +49,10 @@ export function pastille(cra: Cra): { cle: string; libelle: string; icone: strin
     return { cle: cra.statut, ...s };
 }
 
-/** Vue de l'onglet selon le profil actif : administrateur, RH (compte RH hors profil administrateur), expert sinon */
-export function vueCra(s: { activeProfile: string; is_rh: boolean }): 'admin' | 'rh' | 'expert' {
+/** Vue de l'onglet selon le profil actif (comme le serveur) : administrateur, RH, expert sinon */
+export function vueCra(s: { activeProfile: string }): 'admin' | 'rh' | 'expert' {
     if (s.activeProfile === 'admin') return 'admin';
-    return s.is_rh ? 'rh' : 'expert';
+    return s.activeProfile === 'rh' ? 'rh' : 'expert';
 }
 
 /** Administrateur : CRA en cours, hors archivés, diffusés et en attente de diffusion (bloc de l'ancien code) */
@@ -159,15 +159,14 @@ export interface Droits {
     toutAdmin: boolean;
 }
 
-/** Utilisateur connecté (session) : administrateur par son compte ou par son profil actif, comme l'ancien écran */
+/** Utilisateur connecté (session) : administrateur seulement sous le profil administrateur, comme le serveur */
 export interface Utilisateur {
     userId: number;
-    is_admin: boolean;
     activeProfile: string;
 }
 
 export function droits(cra: Cra, u: Utilisateur, config: ConfigCra): Droits {
-    const admin = !!u.is_admin || u.activeProfile === 'admin';
+    const admin = u.activeProfile === 'admin';
     return {
         admin,
         proprietaire: String(cra.user_id) === String(u.userId),

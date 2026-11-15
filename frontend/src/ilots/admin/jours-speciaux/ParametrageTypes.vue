@@ -1,7 +1,7 @@
 <!-- Paramétrage des types d'événements : ajout et modification (libellés, icône, gabarit ou couleurs personnalisées,
      aperçu), modification directe d'un libellé dans le tableau, suppression (événements basculés sur « Autre(s) ») -->
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { apiTypesEvenements, type CorpsType, type TypeAdmin } from '@/api/typesEvenements';
 import AppAlert from '@/composants/AppAlert.vue';
 import AppIcone from '@/composants/AppIcone.vue';
@@ -190,7 +190,8 @@ async function supprimer(t: TypeAdmin) {
     }
 }
 
-// ---------- Ouverture, reprise enregistrée ----------
+// ---------- Ouverture ----------
+// La reprise enregistrée ne réaffiche pas le formulaire : les libellés en cours de saisie sont conservés
 
 /**
  * Formulaire réaffiché avant le chargement des types : affiché dès l'ouverture, une saisie faite pendant le chargement
@@ -201,14 +202,6 @@ async function ouverture() {
     await magasin.charger();
     if (enEdition.value && !typeEdite.value) reinitialiser();
 }
-
-// Reprise enregistrée : types relus (nombre d'événements), formulaire réaffiché
-watch(
-    () => magasin.version,
-    () => {
-        if (magasin.origine === 'reprise') reafficher();
-    }
-);
 </script>
 
 <template>

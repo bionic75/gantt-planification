@@ -90,8 +90,8 @@ export const useAccueilStore = defineStore('accueil', () => {
             .catch(() => null);
         prenom.value = session?.prenom ?? null;
         acces.value = accesAccueil();
-        // Déploiements : réservés aux utilisateurs habilités à l'Aide à l'affectation
-        const habilite = acces.value?.affectation === true;
+        // Déploiements : comptes habilités à l'Aide à l'affectation, Expert métier et Utilisateur
+        const habilite = acces.value?.deploiements === true;
         const [dep, cfg] = habilite
             ? await Promise.allSettled([apiAccueil.deploiements(), apiAccueil.configDeploiements()])
             : [null, null];

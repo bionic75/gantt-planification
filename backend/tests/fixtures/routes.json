@@ -182,7 +182,7 @@
     {
         "method": "GET",
         "path": "/api/affectation/config",
-        "guard": "affectation"
+        "guard": "deploiements"
     },
     {
         "method": "GET",
@@ -222,7 +222,7 @@
     {
         "method": "GET",
         "path": "/api/affectation/projects",
-        "guard": "affectation"
+        "guard": "deploiements"
     },
     {
         "method": "POST",
@@ -1030,6 +1030,11 @@
         "guard": "admin"
     },
     {
+        "method": "GET",
+        "path": "/api/logs/user-export",
+        "guard": "admin"
+    },
+    {
         "method": "PUT",
         "path": "/api/me/samu-assignments",
         "guard": "auth"
@@ -1121,6 +1126,11 @@
     },
     {
         "method": "POST",
+        "path": "/api/my-custom-events/:id/join",
+        "guard": "auth"
+    },
+    {
+        "method": "DELETE",
         "path": "/api/my-custom-events/:id/join",
         "guard": "auth"
     },

@@ -162,8 +162,8 @@ describe('liste des déplacements du reporting', () => {
         expect(ligneReporting(dep(), amoa)).toMatchObject({
             bon: 'BDC-1 - ACME',
             debut: '01/03/2027',
-            createur: 'DURAND Paul',
-            amoa: 'MARTIN Léa'
+            createur: 'Paul DURAND',
+            amoa: 'Léa MARTIN'
         });
         expect(ligneReporting(dep({ amoa_ced_prenom: null }), [])).toMatchObject({ amoa: 'MARTIN' });
         expect(ligneReporting(dep({ amoa_ced_nom: null }), [])).toMatchObject({ amoa: 'AMOA CED #7' });
@@ -193,10 +193,10 @@ describe('liste des déplacements du reporting', () => {
         expect(compteur(liste)).toBe('2 déplacement(s) - Total: 5 UO');
         expect(compteur([])).toBe('0 déplacement(s)');
         expect(samusPresents([...liste, dep({ samu: '' })])).toEqual(['SAMU 13', 'SAMU 75']);
-        expect(amoaPresents(liste, amoa)).toEqual([{ id: 7, libelle: 'MARTIN Léa' }]);
+        expect(amoaPresents(liste, amoa)).toEqual([{ id: 7, libelle: 'Léa MARTIN' }]);
         expect(amoaPresents(liste, [])).toEqual([
-            { id: 9, libelle: 'ABEL Léa' },
-            { id: 7, libelle: 'MARTIN Léa' }
+            { id: 9, libelle: 'Léa ABEL' },
+            { id: 7, libelle: 'Léa MARTIN' }
         ]);
     });
 
@@ -204,10 +204,10 @@ describe('liste des déplacements du reporting', () => {
         const csv = csvReporting([dep(), dep({ bon_commande_intitule: null, bon_commande_titulaire: null })], amoa);
         expect(csv.split('\n')).toEqual([
             '\uFEFFN° de BDC;Titulaire;Date début;Date fin;Créé par;AMOA CED;SAMU;Ville;Nb UO',
-            'BDC-1;ACME;2027-03-01;2027-03-03;DURAND Paul;MARTIN Léa;SAMU 75;PARIS;3',
-            'À affecter;;2027-03-01;2027-03-03;DURAND Paul;MARTIN Léa;SAMU 75;PARIS;3'
+            'BDC-1;ACME;2027-03-01;2027-03-03;Paul DURAND;Léa MARTIN;SAMU 75;PARIS;3',
+            'À affecter;;2027-03-01;2027-03-03;Paul DURAND;Léa MARTIN;SAMU 75;PARIS;3'
         ]);
-        expect(csvReporting([dep({ amoa_ced_nom: null })], []).split('\n')[1]).toContain(';DURAND Paul;;SAMU 75;');
+        expect(csvReporting([dep({ amoa_ced_nom: null })], []).split('\n')[1]).toContain(';Paul DURAND;;SAMU 75;');
         expect(nomFichierCsv(new Date('2027-04-05T10:00:00Z'))).toBe('export_deplacements_2027-04-05.csv');
     });
 });

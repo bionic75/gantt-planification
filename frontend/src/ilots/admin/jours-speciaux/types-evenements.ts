@@ -177,7 +177,11 @@ export const COLONNES: ReadonlyArray<{ k: CleColonne; t: string; v: (e: Evenemen
         { k: 'label', t: 'Libellé', v: (e, s) => libelleDe(e, s.modifications) },
         { k: 'loc', t: 'Localisation', v: e => e.location_court || e.location_long || '' },
         { k: 'parts', t: 'Participants', v: e => (e.participants || []).join(', ') },
-        { k: 'creator', t: 'Créé par', v: e => `${e.creator_nom || ''} ${e.creator_prenom || ''}`.trim() }
+        {
+            k: 'creator',
+            t: 'Créé par',
+            v: e => `${e.creator_prenom || ''} ${(e.creator_nom || '').toUpperCase()}`.trim()
+        }
     ];
 
 /** Événements de l'onglet correspondant à la recherche (tous les champs), triés (puis par identifiant) */
@@ -202,4 +206,27 @@ export function evenementsAffiches(
 export function ongletApresChargement(evenements: EvenementReprise[], onglet: OngletReprise | null): OngletReprise {
     if (onglet && evenements.some(e => (onglet === 'done') === traite(e))) return onglet;
     return evenements.some(e => !traite(e)) ? 'todo' : 'done';
+}
+
+/**
+ * Modifications non enregistrées de la reprise, conservées quand les événements sont relus (type modifié ou supprimé
+ * dans le paramétrage) : celles qui visent un événement disparu, un type supprimé ou une valeur désormais identique à
+ * celle de la base sont écartées.
+ */
+export function modificationsConservees(
+    modifications: Record<number, ModificationReprise>,
+    evenements: EvenementReprise[],
+    idsTypes: Set<number>
+): Record<number, ModificationReprise> {
+    const resultat: Record<number, ModificationReprise> = {};
+    for (const e of evenements) {
+        const m = modifications[e.id];
+        if (!m) continue;
+        const c: ModificationReprise = { ...m };
+        if ('type_id' in c && ((c.type_id != null && !idsTypes.has(c.type_id)) || c.type_id === (e.type_id ?? null)))
+            delete c.type_id;
+        if ('label' in c && c.label === e.label) delete c.label;
+        if (Object.keys(c).length) resultat[e.id] = c;
+    }
+    return resultat;
 }

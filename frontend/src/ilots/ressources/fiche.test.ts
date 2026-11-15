@@ -86,8 +86,9 @@ describe('fiche', () => {
         ];
         expect(tauxEnregistre(historique, '2026-03-01')).toBe(50);
         expect(tauxEnregistre(historique, '2025-01-01')).toBe(70);
-        expect(tauxEnregistre([{ ...historique[0]!, taux: 0 }, historique[1]!], '2026-03-01')).toBe(70);
+        expect(tauxEnregistre([{ ...historique[0]!, taux: 0 }, historique[1]!], '2026-03-01')).toBe(0);
         expect(tauxEnregistre([], '2026-03-01')).toBe(0);
+        expect(tauxEnregistre([], '2026-03-01', 40)).toBe(40);
     });
 
     it('corps : date de fin de la ressource conservée, contacts nettoyés, astreintes en booléens', () => {
@@ -121,7 +122,7 @@ describe('périodes et particularités', () => {
         expect(periodeIncomplete('2026-01-01', '', '0')).toBeNull();
     });
 
-    it('contrôles des particularités ajoutées', () => {
+    it('contrôles des particularités (ajout et modification)', () => {
         expect(particulariteIncomplete('2026-01-01', '', '0')).toBe('Veuillez remplir les dates et le taux');
         expect(particulariteIncomplete('2026-02-01', '2026-01-01', '0')).toBe(
             'La date de fin doit être postérieure à la date de début'

@@ -78,7 +78,7 @@ async function ajouter() {
         afficherSynchronisation();
         apiRessources.journaliser('Modification du planning').catch(() => undefined);
         emettre('ressources-modifiees');
-        f.value = apresAjout(f.value);
+        f.value = apresAjout();
         await magasin.charger();
         principal.value = [];
         secondaire.value = [];

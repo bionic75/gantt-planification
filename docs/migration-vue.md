@@ -248,58 +248,31 @@ Anomalies relevées pendant la migration (comportement conservé, correction à 
 - Reprise des données : le tri « Créé par » se fait sur « nom prénom », la colonne affiche « prénom NOM ».
 - Automatisation n°1 : dans la fenêtre de test, la case « Sélectionner » de l'en-tête est sans effet sur les experts
   cochés (fonction homonyme de l'aide à l'affectation chargée après celle de l'automatisation).
-- Automatisation n°2 : après un envoi de test réussi, les boutons du récapitulatif restent masqués jusqu'au
-  rechargement de la page.
-- Automatisations : la fenêtre de l'historique sert aussi au diagnostic des mois et à l'aperçu du nettoyage ; son
-  bouton « Vider l'historique » y reste proposé et vide l'historique de la dernière automatisation consultée (n°1 par
-  défaut).
-- Automatisation n°3 : la confirmation du vidage de l'historique Teams parle des « sauvegardes de planning ».
 - Ressources : le bouton « Exporter (Excel) » télécharge un fichier CSV.
-- Ressources : après un ajout, la case « MAD volante », la date de fin et les jours max du formulaire restent remplis.
 - Ressources : le tri de la liste se fait sur le texte affiché des cellules (badges SAMU compris) ; la liste revient à
   l'ordre alphabétique à chaque rechargement, le sens du dernier tri de chaque colonne étant conservé.
-- Ressources (fiche) : le taux enregistré avec la fiche est celui de la période de MAD en cours, ou, si aucune n'est en
-  cours ou si son taux vaut 0, celui de la période qui commence le plus tard.
-- Ressources (fiche) : sans historique de taux, une période est créée à l'ouverture de la fiche (taux et date de début
-  de la ressource ; refusée au profil RH, dont la fiche reste alors sans historique).
-- Ressources (fiche) : la suppression d'une période de MAD ne recharge pas la liste des ressources ; l'ajout, la
-  modification et la suppression d'une particularité ne rechargent pas la planification.
-- Ressources (fiche) : la modification d'une particularité n'est pas contrôlée (dates et taux), contrairement à l'ajout.
-- Ressources (consultation RH) : l'historique des taux garde son en-tête « Actions », sans cellules.
-- CRA : le lien d'une notification (`?tab=cra&cra_id=`) n'ouvre le CRA qu'à la connexion par la mire ; une session
-  déjà ouverte affiche l'application sans l'ouvrir.
-- CRA : un compte administrateur connecté sous un autre profil voit les actions d'administration du détail (refusées
-  par le serveur) ; un compte RH connecté sous le profil expert a la vue RH, sans ses propres CRA.
-- CRA (saisie) : les lignes sont repérées par leur rang ; supprimer une ligne placée avant celle en cours de
-  modification fait porter la modification sur la ligne suivante.
-- CRA (administration) : la ligne d'un CRA archivé (ou signé) propose « Statut » quel que soit son statut ; le
-  filtre « Année » ne propose que l'année courante et les cinq précédentes.
-- Astreintes HNO : « Générer le planning » enregistre aussitôt le planning du mois (il remplace le planning existant)
-  et chaque changement d'expert est enregistré immédiatement ; le bouton « Sauvegarder le planning » n'affiche qu'un
-  message. Le planning actuel ne s'affiche qu'au changement de mois (le mois courant présélectionné n'est pas chargé).
-  L'export CSV porte le mois choisi au moment de l'export, même s'il diffère du mois généré.
 - CRA : pour un CRA en cours, « Télécharger PDF » ouvre une page à imprimer (bouton « Imprimer / Enregistrer PDF »),
   pas un fichier.
 - Calendrier mensuel (impression) : les boutons ◀ ▶ sont imprimés.
 - Calendrier des congés et événements : les en-têtes portent les flèches de tri « ▲▼ » des tableaux de l'application
   (sans tri) ; à l'impression, les en-têtes du week-end perdent leur jaune.
-- Recherche avancée : le classement s'intitule « Créneaux par nombre d'experts disponibles ANS » quels que soient les
-  critères ; les en-têtes des tableaux gardent le gris des tableaux de l'application (le bleu et le vert prévus sont
-  masqués) ; à chaque ouverture, experts et localisations sont désélectionnés, les autres critères et les derniers
-  résultats sont conservés.
-- Invitations Outlook : un refus de l'envoi par le serveur n'est pas signalé (affectations conservées) ; après une
-  réponse 502 / 504 ou une erreur réseau, les experts sont retirés de l'attente sans message ; la case « Sélectionner /
-  Désélectionner tous » ne suit pas les cases des experts.
-- Nouvelles affectations : les notifications sont marquées lues deux fois (avant et après l'affichage) ; aucune partie
-  de l'application ne les crée (route `POST /api/notifications/create-batch` jamais appelée) : la pastille ne s'affiche
-  que pour des notifications créées par un autre outil.
-- Grille : à l'ouverture de l'onglet, le mois courant est réaffiché (et, pour un expert, sa ressource seule dans le
-  filtre) ; un clic sur une demi-journée n'est pas signalé en cas d'échec d'enregistrement (trois nouvelles tentatives,
-  sans message ni retour en arrière) ; les congés scolaires viennent des congés enregistrés au chargement, puis des
-  fichiers importés après un import ; une astreinte se terminant à midi pile couvre l'après-midi.
+- Nouvelles affectations : notifications créées par le serveur à l'enregistrement d'une affectation posée par un tiers
+  (grille de planification, aide à l'affectation) ; marquées lues une seule fois, à l'ouverture de la fenêtre.
 
 Changements de comportement décidés pendant la migration :
 
+- Ressources (fiche) : le taux enregistré avec la fiche est celui de la période en cours (0 compris), à défaut celui de
+  la période qui commence le plus tard, sans historique le taux actuel ; l'ouverture de la fiche ne crée plus de
+  période de MAD (l'administrateur ajoute la première) ; la suppression d'une période et les changements de
+  particularités rechargent la liste des ressources et la planification.
+- CRA : la vue et les actions du détail suivent le profil actif, comme le serveur : un compte administrateur sous un
+  autre profil n'a plus les actions d'administration, un compte RH sous le profil expert voit ses propres CRA.
+- Invitations Outlook : un échec de l'envoi (refus du serveur, réponse 502 / 504, erreur réseau) est signalé et les
+  affectations restent en attente (l'ancien écran les retirait sans message après un 502 / 504) ; la case « Sélectionner
+  / Désélectionner tous » suit les cases des experts (cochée, décochée ou indéterminée).
+- Astreintes HNO : « Générer le planning » demande confirmation quand le mois a déjà un planning (il le remplace) ;
+  « Sauvegarder le planning » indique que l'enregistrement est automatique ; le planning actuel du mois courant
+  s'affiche à l'ouverture et après une génération de ce mois ; l'export CSV porte le mois réellement généré.
 - Astreintes HNO : messages (alert) et confirmations (confirm) remplacés par des messages et une fenêtre de la page ;
   revenir sur la rubrique HNO remet à zéro les choix et le planning généré affiché (l'ancien écran remettait à zéro
   les choix mais gardait le tableau généré).

@@ -12,11 +12,10 @@ const notifications = ref<NotificationExpert[]>([]);
 
 surDemande(() => void ouvrir());
 
-/** Notifications marquées lues avant et après l'affichage (comme l'ancien écran) */
+/** Notifications relues puis marquées lues une seule fois, à l'affichage */
 async function ouvrir() {
     try {
         const { notifications: liste } = await apiNotifications.nouvellesAffectations();
-        await marquerLues();
         notifications.value = liste;
         ouverte.value = true;
         await marquerLues();

@@ -1,4 +1,4 @@
-<!-- Liste des comptes : tri par colonne, profils, accès Reporting, validation RH, activation, dernière connexion,
+<!-- Liste des comptes : tri par colonne, profils, validation RH, activation, dernière connexion,
      actions (modifier, mot de passe, TOTP, déconnexion, suppression) ; détails au clic sur le nom -->
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue';
@@ -14,17 +14,17 @@ const store = useUtilisateursStore();
 const confirmer = useConfirmation();
 const tableau = ref<HTMLTableElement | null>(null);
 
-/** Tri courant ; sens mémorisé par colonne, comme l'ancien écran (premier clic : croissant) */
-const tri = ref<ColonneTri | null>(null);
-const croissant = ref<Partial<Record<ColonneTri, boolean>>>({});
+/** Tri courant (conservé dans le magasin) ; sens mémorisé par colonne (premier clic : croissant) */
+const tri = computed(() => store.tri);
+const croissant = computed(() => store.croissant);
 const lignes = computed(() => {
     const base = parNom(store.utilisateurs);
     return tri.value ? trier(base, tri.value, !!croissant.value[tri.value]) : base;
 });
 
 function trierPar(c: ColonneTri) {
-    croissant.value[c] = !croissant.value[c];
-    tri.value = c;
+    store.croissant[c] = !store.croissant[c];
+    store.tri = c;
 }
 
 const COLONNES: Array<{ libelle: string; tri?: ColonneTri; titre?: string; classe?: string }> = [
@@ -35,16 +35,14 @@ const COLONNES: Array<{ libelle: string; tri?: ColonneTri; titre?: string; class
     { libelle: 'Email', tri: 'email' },
     { libelle: 'Téléphone', classe: 'no-sort' },
     { libelle: 'Profil(s)', tri: 'profils' },
-    { libelle: 'Reporting', classe: 'no-sort', titre: "Accès à l'onglet Reporting" },
     { libelle: 'Validation RH', classe: 'no-sort', titre: 'Validation RH' },
     {
         libelle: 'Astreinte HO ANS',
         classe: 'no-sort',
         titre: 'Peut être désigné sur le planning des astreintes HO ANS'
     },
-    // Tri sans effet dans l'ancien écran (colonne mal référencée) : anomalie conservée
-    { libelle: 'Actif' },
-    { libelle: 'Dernière connexion' },
+    { libelle: 'Actif', tri: 'actif' },
+    { libelle: 'Dernière connexion', tri: 'last_login' },
     { libelle: 'Actions', classe: 'no-sort liste__actions-entete' }
 ];
 
@@ -62,15 +60,6 @@ async function basculerActif(u: Utilisateur) {
     } catch {
         /* comme l'ancien écran : sans message */
     }
-}
-
-async function accesReporting(u: Utilisateur, oui: boolean) {
-    try {
-        await apiUtilisateurs.accesReporting(u.id, oui);
-    } catch {
-        store.signaler('error', "Erreur lors de la modification de l'accès au reporting");
-    }
-    await store.apresModification();
 }
 
 async function validationRh(u: Utilisateur, oui: boolean) {
@@ -178,17 +167,6 @@ async function supprimer(u: Utilisateur) {
                             </span>
                             <span v-if="!badges(u).length" class="liste__sans-profil">—</span>
                         </div>
-                    </td>
-                    <td class="liste__centre">
-                        <input
-                            type="checkbox"
-                            class="liste__case"
-                            :checked="u.has_reporting_access === 1 || u.is_admin === 1"
-                            :disabled="u.is_admin === 1"
-                            :title="u.is_admin === 1 ? 'Les admins ont toujours accès' : undefined"
-                            :aria-label="`Accès Reporting de ${nomComplet(u)}`"
-                            @change="accesReporting(u, ($event.target as HTMLInputElement).checked)"
-                        />
                     </td>
                     <td class="liste__centre">
                         <input

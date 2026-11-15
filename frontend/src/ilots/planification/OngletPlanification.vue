@@ -88,6 +88,15 @@ const trier = () => (tri.value = tri.value === 'asc' ? 'desc' : 'asc');
 
 /** Mise en évidence du jour courant à l'ouverture de l'onglet, jusqu'à la première modification */
 const surbrillance = ref(true);
+// Échec d'enregistrement d'une saisie (après les nouvelles tentatives) : message affiché, cellule déjà remise en l'état
+watch(
+    () => p.echec,
+    texte => {
+        if (!texte) return;
+        message.value = texte;
+        p.echec = '';
+    }
+);
 
 function naviguer(sens: number) {
     ({ annee: p.annee, mois: p.mois } = moisVoisin(p.annee, p.mois, sens));
@@ -98,13 +107,16 @@ watch(
     () => (surbrillance.value = false)
 );
 
-/** Ouverture de l'onglet : mois courant ; expert : sa ressource seule dans le filtre */
+/** Ouverture de l'onglet : mois courant et, pour l'expert, sa ressource seule la première fois ; ensuite affichage conservé */
 async function ouvrir() {
     const s = await session.charger();
-    const maintenant = new Date();
-    p.annee = maintenant.getFullYear();
-    p.mois = maintenant.getMonth();
-    if (s.activeProfile === 'expert' && s.resourceId) p.filtreRessources = [String(s.resourceId)];
+    if (!p.affichageInitialise) {
+        p.affichageInitialise = true;
+        const maintenant = new Date();
+        p.annee = maintenant.getFullYear();
+        p.mois = maintenant.getMonth();
+        if (s.activeProfile === 'expert' && s.resourceId) p.filtreRessources = [String(s.resourceId)];
+    }
     await nextTick();
     surbrillance.value = true;
 }

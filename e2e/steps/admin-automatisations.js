@@ -354,8 +354,7 @@ When("je refuse de vider l'historique des notifications Teams", async ({ monde }
             .getByRole('button', { name: /Vider l'historique/ })
             .click()
     );
-    // Libellé de l'ancienne fenêtre partagée (anomalie conservée)
-    expect(texte).toContain("Voulez-vous vraiment supprimer tout l'historique des sauvegardes de planning ?");
+    expect(texte).toContain("Voulez-vous vraiment supprimer tout l'historique des notifications Teams ?");
 });
 
 When("j'efface l'adresse du canal Teams puis j'envoie un test", async ({ monde }) => {

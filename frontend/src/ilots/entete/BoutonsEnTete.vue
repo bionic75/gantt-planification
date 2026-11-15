@@ -59,6 +59,7 @@ onMounted(() => void session.charger().catch(() => {}));
 
 <template>
     <button
+        v-if="!rh"
         id="homeBtn"
         type="button"
         class="gp-entete-bouton gp-entete-bouton--accueil"

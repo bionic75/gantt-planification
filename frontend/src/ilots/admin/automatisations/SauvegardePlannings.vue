@@ -89,8 +89,6 @@ interface Apercu {
     envoi: 'encours' | { sent: number; emailsSent: number; failed: number } | 'erreur' | null;
 }
 const apercu = ref<Apercu | null>(null);
-/** Boutons du récapitulatif masqués après un envoi réussi, jusqu'au rechargement de la page (anomalie conservée) */
-const boutonsMasques = ref(false);
 
 async function tester() {
     resultat.value = { texte: '🔍 Préparation du récapitulatif...', etat: 'encours' };
@@ -114,7 +112,6 @@ async function envoyer() {
     a.envoi = 'encours';
     try {
         a.envoi = await apiAutomatisations.envoyerSauvegarde(a.parametres);
-        boutonsMasques.value = true;
     } catch {
         a.envoi = 'erreur';
     }
@@ -395,9 +392,18 @@ const RECAPITULATIF = (a: Apercu) => [
                 </div>
             </template>
         </template>
-        <template v-if="!boutonsMasques" #footer>
-            <button type="button" class="sauv-apercu__envoyer" @click="envoyer">✅ Confirmer et envoyer</button>
-            <button type="button" class="sauv-apercu__annuler" @click="apercu = null">Annuler</button>
+        <template v-if="apercu && apercu.envoi !== 'encours'" #footer>
+            <button
+                v-if="!apercu.envoi || apercu.envoi === 'erreur'"
+                type="button"
+                class="sauv-apercu__envoyer"
+                @click="envoyer"
+            >
+                ✅ Confirmer et envoyer
+            </button>
+            <button type="button" class="sauv-apercu__annuler" @click="apercu = null">
+                {{ apercu.envoi && apercu.envoi !== 'erreur' ? 'Fermer' : 'Annuler' }}
+            </button>
         </template>
     </AppModal>
 </template>

@@ -1,6 +1,6 @@
 <!-- Fenêtre partagée de l'ancien écran : historique des envois (n°1, n°2 avec téléchargement des fichiers, n°3), diagnostic
-     des mois, aperçu et exécution du nettoyage des données. « Vider l'historique » y reste proposé quel que soit le
-     contenu et vide l'historique de la dernière automatisation consultée (anomalie conservée). -->
+     des mois, aperçu et exécution du nettoyage des données. « Vider l'historique » n'est proposé que dans un historique
+     des envois et vide celui de l'automatisation ouverte. -->
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { apiAutomatisations } from '@/api/automatisations';
@@ -24,12 +24,13 @@ const fermer = () => (magasin.fenetre = null);
 const typeTeams = (t: string | null) => TYPES_ENVOI_TEAMS[t || ''] ?? (t || 'Notification');
 
 async function vider() {
-    const nom = magasin.historiqueCourant === 1 ? 'rappels de disponibilités' : 'sauvegardes de planning';
-    if (!(await confirmer(`Voulez-vous vraiment supprimer tout l'historique des ${nom} ?`, 'Vider'))) return;
     const f = magasin.fenetre;
-    if (!f) return;
+    if (!f || f.contenu.type !== 'envois') return;
+    const n = f.contenu.n;
+    const nom = { 1: 'rappels de disponibilités', 2: 'sauvegardes de planning', 3: 'notifications Teams' }[n];
+    if (!(await confirmer(`Voulez-vous vraiment supprimer tout l'historique des ${nom} ?`, 'Vider'))) return;
     try {
-        await apiAutomatisations.viderEnvois(magasin.historiqueCourant);
+        await apiAutomatisations.viderEnvois(n);
         if (magasin.fenetre === f) magasin.fenetre = { titre: f.titre, contenu: { type: 'vidage', reussi: true } };
     } catch {
         if (magasin.fenetre === f) magasin.fenetre = { titre: f.titre, contenu: { type: 'vidage', reussi: false } };
@@ -320,7 +321,14 @@ async function executerNettoyage() {
             <p v-if="message" :key="message" role="alert" class="historique__erreur">{{ message }}</p>
         </div>
         <template #footer>
-            <button type="button" class="historique__vider" @click="vider">🗑️ Vider l'historique</button>
+            <button
+                v-if="magasin.fenetre?.contenu.type === 'envois'"
+                type="button"
+                class="historique__vider"
+                @click="vider"
+            >
+                🗑️ Vider l'historique
+            </button>
             <button type="button" class="historique__fermer" @click="fermer">Fermer</button>
         </template>
     </AppModal>
