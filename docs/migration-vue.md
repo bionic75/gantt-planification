@@ -267,14 +267,14 @@ Anomalies relevées pendant la migration (comportement conservé, correction à 
 - Calendrier mensuel (impression) : les boutons ◀ ▶ sont imprimés.
 - Calendrier des congés et événements : les en-têtes portent les flèches de tri « ▲▼ » des tableaux de l'application
   (sans tri) ; à l'impression, les en-têtes du week-end perdent leur jaune.
-- Invitations Outlook : un refus de l'envoi par le serveur n'est pas signalé (affectations conservées) ; après une
-  réponse 502 / 504 ou une erreur réseau, les experts sont retirés de l'attente sans message ; la case « Sélectionner /
-  Désélectionner tous » ne suit pas les cases des experts.
 - Nouvelles affectations : notifications créées par le serveur à l'enregistrement d'une affectation posée par un tiers
   (grille de planification, aide à l'affectation) ; marquées lues une seule fois, à l'ouverture de la fenêtre.
 
 Changements de comportement décidés pendant la migration :
 
+- Invitations Outlook : un échec de l'envoi (refus du serveur, réponse 502 / 504, erreur réseau) est signalé et les
+  affectations restent en attente (l'ancien écran les retirait sans message après un 502 / 504) ; la case « Sélectionner
+  / Désélectionner tous » suit les cases des experts (cochée, décochée ou indéterminée).
 - Astreintes HNO : « Générer le planning » demande confirmation quand le mois a déjà un planning (il le remplace) ;
   « Sauvegarder le planning » indique que l'enregistrement est automatique ; le planning actuel du mois courant
   s'affiche à l'ouverture et après une génération de ce mois ; l'export CSV porte le mois réellement généré.
