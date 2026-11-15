@@ -805,6 +805,7 @@ describe('import Asana (fichier CSV)', () => {
             date_debut: '2027-01-11'
         });
         const p = await project(applied.id);
+        expect(p.asana_keys).toEqual(expect.arrayContaining(['cadrage', 'mise_en_service']));
         expect(p).toMatchObject({
             from_asana: true,
             date_mise_en_service: '2027-04-06',
