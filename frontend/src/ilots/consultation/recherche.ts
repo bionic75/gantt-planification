@@ -28,6 +28,15 @@ export const AFFECTATIONS = [
     { valeur: '8', libelle: 'Divers' }
 ];
 
+/** Titre du classement des créneaux : rappelle les disponibilités et affectations de la recherche */
+export function titreClassement(disponibilites: string[], affectations: string[]): string {
+    const libelles = [
+        ...DISPONIBILITES.filter(o => disponibilites.includes(o.valeur)).map(o => o.libelle),
+        ...AFFECTATIONS.filter(o => affectations.includes(o.valeur)).map(o => o.libelle)
+    ];
+    return `Créneaux par nombre d'experts${libelles.length ? ` — ${libelles.join(', ')}` : ''}`;
+}
+
 const nomComplet = (r: RessourcePlanning) => `${r.nom} ${r.prenom}`;
 
 /** Experts proposés : ressources actives, par nom et prénom */
