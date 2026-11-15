@@ -186,6 +186,36 @@
     },
     {
         "method": "GET",
+        "path": "/api/affectation/deployment-map",
+        "guard": "auth"
+    },
+    {
+        "method": "GET",
+        "path": "/api/affectation/deployment-statuses",
+        "guard": "auth"
+    },
+    {
+        "method": "POST",
+        "path": "/api/affectation/deployment-statuses",
+        "guard": "admin"
+    },
+    {
+        "method": "PUT",
+        "path": "/api/affectation/deployment-statuses-order",
+        "guard": "admin"
+    },
+    {
+        "method": "PUT",
+        "path": "/api/affectation/deployment-statuses/:id",
+        "guard": "admin"
+    },
+    {
+        "method": "DELETE",
+        "path": "/api/affectation/deployment-statuses/:id",
+        "guard": "admin"
+    },
+    {
+        "method": "GET",
         "path": "/api/affectation/events",
         "guard": "affectation"
     },
@@ -297,6 +327,11 @@
     {
         "method": "GET",
         "path": "/api/affectation/projects/:id/history",
+        "guard": "admin"
+    },
+    {
+        "method": "PUT",
+        "path": "/api/affectation/projects/:id/status",
         "guard": "admin"
     },
     {
