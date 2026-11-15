@@ -226,7 +226,13 @@ export function asanaComputeTasks(tasks, projectName, formationTarget) {
             .sort();
         return ds.length ? { start: ds[0], end: ds[ds.length - 1] } : null;
     };
-    const byCode = c => tasks.filter(t => t.code === c);
+    // Tâche de ce code ; sans date, ses sous-tâches par numéro (5.9.1, 5.9.2… pour 5.9), reprises avec elle
+    const byCode = c => {
+        const exacte = tasks.filter(t => t.code === c);
+        if (span(exacte)) return exacte;
+        const sous = tasks.filter(t => t.code.startsWith(`${c}.`));
+        return sous.length ? [...exacte, ...sous] : exacte;
+    };
     // Tâches désignées par une règle choisie dans l'administration (null : règle par défaut)
     const ruleTasks = key => {
         const r = asanaStageRules[key];
@@ -864,14 +870,30 @@ export async function asanaFetchProject(token, gid, { allSubtasks = false } = {}
     const proj = (await asanaApi(token, `/projects/${encodeURIComponent(gid)}?opt_fields=name`)).data;
     const raw = await asanaPaged(token, `/projects/${encodeURIComponent(gid)}/tasks?opt_fields=${ASANA_TASK_FIELDS}`);
     const tasks = raw.map(t => asanaNormTask(t, proj.name));
-    // Sous-tâches : uniquement pour les tâches parentes sans date propre (leurs dates servent de repli)
-    for (const t of raw.filter(x => x.num_subtasks > 0 && !x.start_on && !x.due_on)) {
+    // Sous-tâches : pour les tâches parentes sans date propre (leurs dates servent de repli), et pour celles dont une
+    // sous-tâche est désignée par une règle de la correspondance (5.9.1 : sous-tâche d'une tâche 5.9 datée), sur
+    // plusieurs niveaux (5 → 5.9 → 5.9.1)
+    const codesRegles = Object.values(asanaStageRules)
+        .filter(r => !r.startsWith('title:'))
+        .flatMap(r => r.split(','));
+    const codeDe = nom => (/^\s*(\d+(?:\.\d+)*)\.?\s/.exec(String(nom || '')) || [])[1] || '';
+    const aCharger = x => {
+        if (!(x.num_subtasks > 0)) return false;
+        if (!x.start_on && !x.due_on) return true;
+        const code = codeDe(x.name);
+        return !!code && codesRegles.some(c => c.startsWith(`${code}.`));
+    };
+    const chargerSous = async (t, niveau) => {
         const subs = await asanaPaged(
             token,
-            `/tasks/${encodeURIComponent(t.gid)}/subtasks?opt_fields=name,start_on,due_on,custom_fields.name,custom_fields.display_value`
+            `/tasks/${encodeURIComponent(t.gid)}/subtasks?opt_fields=name,num_subtasks,start_on,due_on,custom_fields.name,custom_fields.display_value`
         );
-        subs.forEach(st => tasks.push(asanaNormTask(st, proj.name, String(t.name || '').trim())));
-    }
+        for (const st of subs) {
+            tasks.push(asanaNormTask(st, proj.name, String(t.name || '').trim()));
+            if (niveau < 4 && aCharger(st)) await chargerSous(st, niveau + 1);
+        }
+    };
+    for (const t of raw.filter(aCharger)) await chargerSous(t, 1);
     // Projet type : toutes les tâches, à tous les niveaux, dans l'ordre d'Asana (chaque tâche suivie de ses sous-tâches)
     if (allSubtasks) {
         const byGid = new Map(tasks.map(t => [t.gid, t]));

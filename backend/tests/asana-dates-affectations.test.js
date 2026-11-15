@@ -35,6 +35,13 @@ beforeAll(async () => {
                     { gid: '902', name: '7.1.2. VFT en distanciel', num_subtasks: 1 }
                 ]
             });
+        // Tâche datée portant des sous-tâches datées (règle de la correspondance désignant une sous-tâche)
+        if (url.pathname === '/tasks/910/subtasks')
+            return json({
+                data: [
+                    { gid: '911', name: '8.1.1. Sous-tâche datée', num_subtasks: 0, start_on: '', due_on: '2027-06-02' }
+                ]
+            });
         if (url.pathname === '/tasks/902/subtasks')
             return json({ data: [{ gid: '903', name: '7.1.2.1. Détail distanciel', num_subtasks: 0 }] });
         res.statusCode = 404;
@@ -141,6 +148,25 @@ describe('correspondance : règles de début / fin du cadrage et du déploiement
         const p = await byName();
         await admin.post(`/api/affectation/projects/${p.id}/asana-refresh`);
         expect((await byName()).periods.cadrage[0].end).toBe('2027-02-12');
+        await admin.put('/api/affectation/stage-event-types', { mapping: {}, asanaRules: {} });
+    });
+});
+
+describe('règle désignant une sous-tâche d’une tâche datée', () => {
+    it('les sous-tâches de la tâche parente datée sont lues et donnent la période', async () => {
+        tasks.set('8.1 Parent daté', {
+            gid: '910',
+            name: '8.1 Parent daté',
+            start_on: '2027-06-01',
+            due_on: '2027-06-10',
+            num_subtasks: 1
+        });
+        await admin.put('/api/affectation/stage-event-types', { mapping: {}, asanaRules: { test_prerequis: '8.1.1' } });
+        const p = await byName();
+        const r = await admin.post(`/api/affectation/projects/${p.id}/asana-refresh`);
+        expect(r.status, JSON.stringify(r.data)).toBe(200);
+        expect((await byName()).periods.test_prerequis[0]).toMatchObject({ start: '2027-06-02', end: '2027-06-02' });
+        tasks.delete('8.1 Parent daté');
         await admin.put('/api/affectation/stage-event-types', { mapping: {}, asanaRules: {} });
     });
 });

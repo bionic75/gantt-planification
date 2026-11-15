@@ -41,12 +41,15 @@ const LOGO_ASANA = '/img/asana-logo.png';
 const verrou = !!props.deploiement?.from_asana;
 /** Champs renseignés à l'ouverture et repris d'Asana : seuls ceux-là sont verrouillés (un champ vide reste saisissable) */
 const reprises = new Set<string>();
+/** Rubrique reprise d'Asana : seules celles-là sont verrouillées, pas les dates saisies à la main ensuite */
+const clesAsana = props.deploiement?.asana_keys;
+const reprise = (k: string) => !clesAsana || clesAsana.includes(k);
 if (verrou) {
     for (const [k, v] of Object.entries(f.dates))
-        if (v && definition(config, k).kind !== 'periods') reprises.add(`date:${k}`);
-    for (const [k, v] of Object.entries(f.jalons)) if (v) reprises.add(`jalon:${k}`);
+        if (v && reprise(k) && definition(config, k).kind !== 'periods') reprises.add(`date:${k}`);
+    for (const [k, v] of Object.entries(f.jalons)) if (v && reprise(k)) reprises.add(`jalon:${k}`);
     for (const [k, liste] of Object.entries(f.periodes)) {
-        if (definition(config, k).kind === 'periods') continue;
+        if (definition(config, k).kind === 'periods' || !reprise(k)) continue;
         liste.forEach((l, i) => {
             if (l.start) reprises.add(`${k}:${i}:start`);
             // Phase réduite à un jour (début = fin) : la fin n'est pas reprise d'Asana, elle reste à saisir
