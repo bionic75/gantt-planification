@@ -4,6 +4,8 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import { apiDeploiements } from '@/api/deploiements';
+import { ecouter } from '@/evenements';
 import { apiCarte, type EvenementCarte, type ExpertCarte, type LocalisationCarte } from '@/api/carte';
 import AppModal from '@/composants/AppModal.vue';
 import FenetreMessage from '@/ilots/saisie/FenetreMessage.vue';
@@ -25,6 +27,8 @@ import {
     type PlageLecture
 } from './carte';
 import { dateFr } from './calculs';
+import { ecrireEtat, lireEtat, opaciteDepartements } from './calques';
+import { couleursDepartements, type Contours } from './departements';
 import { useEvenementsStore } from './magasin';
 
 const props = defineProps<{ opened: boolean }>();
@@ -40,7 +44,21 @@ const fin = ref('');
 const localisation = ref('');
 const type = ref('');
 const participants = ref<ParticipantCarte[]>([]);
-const expertsVisibles = ref(true);
+const etatInitialCalques = lireEtat(window.localStorage);
+const expertsVisibles = ref(etatInitialCalques.experts);
+const lieuxVisibles = ref(etatInitialCalques.evenements);
+const departementsVisibles = ref(etatInitialCalques.departements);
+/** Part d'opacité retirée aux départements (0 à 100) */
+const transparence = ref(etatInitialCalques.transparence);
+
+/** Mémorise l'état des calques dans le navigateur */
+const memoriserCalques = () =>
+    ecrireEtat(window.localStorage, {
+        departements: departementsVisibles.value,
+        evenements: lieuxVisibles.value,
+        experts: expertsVisibles.value,
+        transparence: transparence.value
+    });
 
 const localisations = ref<LocalisationCarte[]>([]);
 const optionsLocalisation = computed(() => localisationsGeolocalisees(localisations.value));
@@ -65,6 +83,7 @@ const compteur = computed(() =>
 const conteneur = ref<HTMLElement | null>(null);
 let carte: L.Map | null = null;
 let calque: L.LayerGroup | null = null;
+let calqueDepartements: L.GeoJSON | null = null;
 
 function creerCarte() {
     if (!conteneur.value) return;
@@ -80,7 +99,87 @@ function detruireCarte() {
     carte?.remove();
     carte = null;
     calque = null;
+    calqueDepartements = null;
 }
+
+// ---------- Calque des départements (couleur du statut des déploiements) ----------
+
+let contoursEnCours: Promise<Contours> | null = null;
+/** Contours des départements, chargés une seule fois (fichier de l'application) */
+const contoursDepartements = () =>
+    (contoursEnCours ??= fetch('/vue/departements.geojson')
+        .then(r => {
+            if (!r.ok) throw new Error(`Erreur ${r.status}`);
+            return r.json() as Promise<Contours>;
+        })
+        .catch(e => {
+            contoursEnCours = null;
+            throw e;
+        }));
+
+/** Départements colorés : un par département dont un SAMU a un statut ; sous les pastilles */
+function retirerDepartements() {
+    calqueDepartements?.remove();
+    calqueDepartements = null;
+}
+
+async function dessinerDepartements() {
+    const cible = carte;
+    if (!cible) return;
+    retirerDepartements();
+    if (!departementsVisibles.value) return;
+    try {
+        const [contours, donnees] = await Promise.all([contoursDepartements(), apiDeploiements.carte()]);
+        if (carte !== cible || !departementsVisibles.value) return;
+        const couleurs = couleursDepartements(donnees.deployments, donnees.statuses, contours);
+        retirerDepartements();
+        calqueDepartements = L.geoJSON(
+            {
+                type: 'FeatureCollection',
+                features: contours.features.filter(f => couleurs.has(f.properties.code))
+            } as never,
+            {
+                style: f => {
+                    const c = couleurs.get((f?.properties as { code: string }).code)?.couleur ?? '#999999';
+                    return { fillColor: c, fillOpacity: opaciteDepartements(transparence.value), color: c, weight: 1 };
+                },
+                onEachFeature: (f, couche) => {
+                    const dep = f.properties as { code: string; nom: string };
+                    const c = couleurs.get(dep.code);
+                    if (c) couche.bindTooltip(`${dep.nom} : ${c.statut} (${c.samu.join(', ')})`, { sticky: true });
+                }
+            }
+        ).addTo(cible);
+        calqueDepartements.bringToBack();
+    } catch (e) {
+        console.error('Erreur chargement des départements:', e);
+        message.value = 'Les départements n’ont pas pu être chargés.';
+    }
+}
+
+/** Curseur : opacité mise à jour sans recharger */
+function changerTransparence() {
+    calqueDepartements?.setStyle({ fillOpacity: opaciteDepartements(transparence.value) });
+    memoriserCalques();
+}
+
+function basculerDepartements() {
+    departementsVisibles.value = !departementsVisibles.value;
+    memoriserCalques();
+    void dessinerDepartements();
+}
+
+function basculerLieux() {
+    lieuxVisibles.value = !lieuxVisibles.value;
+    memoriserCalques();
+    redessiner();
+}
+
+// Statuts ou déploiements modifiés pendant que la carte est ouverte
+const arreterEcoute = [
+    ecouter('statuts-deploiements-modifies', () => void dessinerDepartements()),
+    ecouter('deploiements-modifies', () => void dessinerDepartements())
+];
 
 /** Pastilles des experts (sous celles des événements), puis des lieux ; cadrage sauf pendant la lecture */
 function dessiner(liste: EvenementCarte[], options: { cadrer?: boolean; animes?: Set<string> } = {}) {
@@ -102,7 +201,7 @@ function dessiner(liste: EvenementCarte[], options: { cadrer?: boolean; animes?:
                 .addTo(calque);
         }
     }
-    const lieux = grouperParLieu(liste);
+    const lieux = lieuxVisibles.value ? grouperParLieu(liste) : [];
     for (const lieu of lieux) {
         L.marker([lieu.lat, lieu.lng], {
             icon: L.divIcon({
@@ -147,6 +246,7 @@ async function afficher() {
     evenements.value = filtrer(duLieu, { localisation: '', type: type.value, participants: participants.value });
     charge.value = true;
     dessiner(evenements.value, { cadrer: true });
+    void dessinerDepartements();
     setTimeout(() => carte?.invalidateSize(), 50);
 }
 
@@ -183,14 +283,20 @@ function reinitialiserFiltres() {
     if (carte) void afficher();
 }
 
-function basculerExperts() {
-    expertsVisibles.value = !expertsVisibles.value;
+/** Redessine les pastilles (en lecture, seulement les événements déjà commencés) */
+function redessiner() {
     if (charge.value)
         dessiner(
             lecture.value.active && lecture.value.date
                 ? commencesA(evenements.value, lecture.value.date)
                 : evenements.value
         );
+}
+
+function basculerExperts() {
+    expertsVisibles.value = !expertsVisibles.value;
+    memoriserCalques();
+    redessiner();
 }
 
 // ---------- Participants ----------
@@ -368,6 +474,7 @@ function arreter() {
 }
 
 onBeforeUnmount(() => {
+    arreterEcoute.forEach(a => a());
     arreterMinuterie();
     document.removeEventListener('click', clicDocument);
     detruireCarte();
@@ -476,6 +583,39 @@ onBeforeUnmount(() => {
                 >
                     <span :key="String(expertsVisibles)">👤 Experts : {{ expertsVisibles ? 'ON' : 'OFF' }}</span>
                 </button>
+                <button
+                    id="toggleEventsMapBtn"
+                    type="button"
+                    class="ev-carte__experts"
+                    :class="{ 'ev-carte__experts--masques': !lieuxVisibles }"
+                    title="Afficher/masquer les pastilles des événements et déplacements"
+                    @click="basculerLieux"
+                >
+                    📅 Événements : {{ lieuxVisibles ? 'ON' : 'OFF' }}
+                </button>
+                <button
+                    id="toggleDepartementsMapBtn"
+                    type="button"
+                    class="ev-carte__experts"
+                    :class="{ 'ev-carte__experts--masques': !departementsVisibles }"
+                    title="Afficher/masquer les départements colorés selon le statut des déploiements"
+                    @click="basculerDepartements"
+                >
+                    🗺️ Départements : {{ departementsVisibles ? 'ON' : 'OFF' }}
+                </button>
+                <label v-if="departementsVisibles" class="ev-carte__transparence" data-testid="carte-calques">
+                    Transparence
+                    <input
+                        v-model.number="transparence"
+                        type="range"
+                        min="0"
+                        max="100"
+                        step="5"
+                        aria-label="Transparence des départements"
+                        @input="changerTransparence"
+                    />
+                    {{ transparence }} %
+                </label>
             </div>
             <div id="modalMapEventCount" class="ev-carte__compteur">{{ compteur }}</div>
         </div>
@@ -727,6 +867,13 @@ onBeforeUnmount(() => {
 .ev-carte__experts--masques,
 .ev-carte__experts--masques:hover {
     background: #90a4ae;
+}
+.ev-carte__transparence {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #555;
 }
 .ev-carte__compteur {
     font-size: 12px;
