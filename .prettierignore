@@ -1,6 +1,9 @@
 # Pages HTML du frontend : le reformatage peut modifier les espaces entre éléments, donc le rendu
 frontend/pages/*.html
 .github/workflows/deploy-*.yml
+# Contours des départements (données géographiques, voir docs/architecture.md)
+frontend/public/departements.geojson
+
 # Générés (npm run routes)
 docs/api.md
 backend/tests/fixtures/routes.json
