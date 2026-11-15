@@ -21,6 +21,33 @@ const task = (name, start, due, extra = {}) => ({
     ...extra
 });
 
+describe('tâche sans date : sous-tâches numérotées reprises', () => {
+    it('VFT (5.9) : dates des sous-tâches 5.9.1 à 5.9.3 quand la tâche 5.9 est sans date ou absente', () => {
+        const sous = [
+            task('5.9.1 Préparation', '2027-03-01', '2027-03-02'),
+            task('5.9.2 Séance', '2027-03-08', '2027-03-09'),
+            task('5.9.3 Bilan', '2027-03-15', '2027-03-16'),
+            task('Démarrage projet auprès de l’ES', '', '2027-01-04')
+        ];
+        const sans = asanaComputeTasks(sous, '[SAMU 25] SF4');
+        expect(sans.found.vft).toEqual({ start: '2027-03-01', end: '2027-03-16' });
+        const parent = asanaComputeTasks([task('5.9 VFT sur site', '', ''), ...sous], '[SAMU 25] SF4');
+        expect(parent.found.vft).toEqual({ start: '2027-03-01', end: '2027-03-16' });
+    });
+
+    it('tâche 5.9 datée : ses propres dates, sans les sous-tâches', () => {
+        const c = asanaComputeTasks(
+            [
+                task('5.9 VFT sur site', '2027-03-01', '2027-03-03'),
+                task('5.9.1 Préparation', '2027-04-01', '2027-04-02'),
+                task('Démarrage projet auprès de l’ES', '', '2027-01-04')
+            ],
+            '[SAMU 25] SF4'
+        );
+        expect(c.found.vft).toEqual({ start: '2027-03-01', end: '2027-03-03' });
+    });
+});
+
 describe('étapes Réunion de lancement stratégique et Visite OB', () => {
     it('déclarées comme jalons sans ressources expertes, reliées aux événements', () => {
         for (const key of ['reunion_lancement', 'visite_ob']) {
