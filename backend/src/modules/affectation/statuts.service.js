@@ -25,14 +25,42 @@ export const PALETTE_STATUTS = [
     '#43a047',
     '#2e7d32'
 ];
+/** Motifs de remplissage possibles (en plus de la couleur), pour distinguer les statuts sans dépendre de la couleur seule */
+export const MOTIFS_STATUTS = ['plein', 'diag', 'diag-inv', 'points', 'quadrille', 'lignes'];
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** @param {{ id: number; label: string; color: string; position: number; is_service: number }} s */
-const json = s => ({ id: s.id, label: s.label, color: s.color, position: s.position, is_service: s.is_service });
+/** @param {{ id: number; label: string; color: string; pattern: string; position: number; is_service: number }} s @param {number} [nbSamu] */
+const json = (s, nbSamu = 0) => ({
+    id: s.id,
+    label: s.label,
+    color: s.color,
+    pattern: s.pattern,
+    position: s.position,
+    is_service: s.is_service,
+    nb_samu: nbSamu
+});
+
+/** Nombre de SAMU par statut */
+async function usages() {
+    const groupes = await prisma.deploymentSamu.groupBy({ by: ['status_id'], _count: { _all: true } });
+    return new Map(groupes.map(g => [g.status_id, g._count._all]));
+}
 
 export async function listStatuses() {
-    const rows = await prisma.deploymentStatus.findMany({ orderBy: [{ position: 'asc' }, { id: 'asc' }] });
-    return rows.map(json);
+    const [rows, nb] = await Promise.all([
+        prisma.deploymentStatus.findMany({ orderBy: [{ position: 'asc' }, { id: 'asc' }] }),
+        usages()
+    ]);
+    return rows.map(r => json(r, nb.get(r.id) ?? 0));
+}
+
+/** @param {unknown} v @param {string} [parDefaut] */
+function checkPattern(v, parDefaut = 'plein') {
+    if (v === undefined || v === null || v === '') return parDefaut;
+    const m = String(v);
+    if (!MOTIFS_STATUTS.includes(m)) throw badRequest('Motif inconnu');
+    return m;
 }
 
 /** @param {unknown} v */
@@ -53,12 +81,13 @@ async function checkLabel(v, exceptId = null) {
     return label;
 }
 
-export async function createStatus(/** @type {{ label?: unknown; color?: unknown }} */ body) {
+export async function createStatus(/** @type {{ label?: unknown; color?: unknown; pattern?: unknown }} */ body) {
     const label = await checkLabel(body.label);
     const color = checkColor(body.color);
+    const pattern = checkPattern(body.pattern);
     const max = await prisma.deploymentStatus.aggregate({ _max: { position: true } });
     const row = await prisma.deploymentStatus.create({
-        data: { label, color, position: (max._max.position ?? -1) + 1, is_service: 0 }
+        data: { label, color, pattern, position: (max._max.position ?? -1) + 1, is_service: 0 }
     });
     return json(row);
 }
@@ -71,12 +100,14 @@ async function getStatus(/** @type {unknown} */ rawId) {
 
 export async function updateStatus(
     /** @type {unknown} */ id,
-    /** @type {{ label?: unknown; color?: unknown }} */ body
+    /** @type {{ label?: unknown; color?: unknown; pattern?: unknown }} */ body
 ) {
     const old = await getStatus(id);
     const color = checkColor(body.color);
+    const pattern = checkPattern(body.pattern, old.pattern);
     const label = old.is_service ? old.label : await checkLabel(body.label, old.id);
-    return json(await prisma.deploymentStatus.update({ where: { id: old.id }, data: { label, color } }));
+    const row = await prisma.deploymentStatus.update({ where: { id: old.id }, data: { label, color, pattern } });
+    return json(row, (await usages()).get(row.id) ?? 0);
 }
 
 export async function deleteStatus(/** @type {unknown} */ id) {
@@ -157,7 +188,7 @@ export async function deploymentMap() {
                 derive: projetParLieu.has(l.id) || mes.has(l.id)
             };
         });
-    return { statuses, palette: PALETTE_STATUTS, deployments };
+    return { statuses, palette: PALETTE_STATUTS, patterns: MOTIFS_STATUTS, deployments };
 }
 
 async function getLocation(/** @type {unknown} */ rawId) {

@@ -121,6 +121,55 @@ describe('palette et statuts', () => {
     });
 });
 
+describe('motifs et usage', () => {
+    it('la liste annonce les motifs possibles, « plein » par défaut', async () => {
+        const r = (await admin.get('/api/affectation/deployment-statuses')).data;
+        expect(r.patterns).toEqual(['plein', 'diag', 'diag-inv', 'points', 'quadrille', 'lignes']);
+        expect((await statuts())[0].pattern).toBe('plein');
+    });
+
+    it('un statut garde le motif choisi à la création et à la modification', async () => {
+        const r = await admin.post('/api/affectation/deployment-statuses', {
+            label: `Motif ${Date.now()}`,
+            color: palette[2],
+            pattern: 'points'
+        });
+        expect(r.status, JSON.stringify(r.data)).toBe(200);
+        expect(r.data.pattern).toBe('points');
+        const m = await admin.put(`/api/affectation/deployment-statuses/${r.data.id}`, {
+            label: r.data.label,
+            color: palette[2],
+            pattern: 'diag'
+        });
+        expect(m.data.pattern).toBe('diag');
+        const sans = await admin.put(`/api/affectation/deployment-statuses/${r.data.id}`, {
+            label: r.data.label,
+            color: palette[3]
+        });
+        expect(sans.data.pattern).toBe('diag');
+    });
+
+    it('un motif inconnu est refusé', async () => {
+        const r = await admin.post('/api/affectation/deployment-statuses', {
+            label: 'Zébré',
+            color: palette[0],
+            pattern: 'zebre'
+        });
+        expect(r.status).toBe(400);
+    });
+
+    it('le nombre de SAMU par statut est annoncé', async () => {
+        const s = await nouveauStatut();
+        expect((await statuts()).find(x => x.id === s.id).nb_samu).toBe(0);
+        const a = await nouveauSamu();
+        const b = await nouveauSamu();
+        await statutDe(a.id, { status_id: s.id });
+        await statutDe(b.id, { status_id: s.id });
+        expect((await statuts()).find(x => x.id === s.id).nb_samu).toBe(2);
+        expect((await carte()).statuses.find(x => x.id === s.id).nb_samu).toBe(2);
+    });
+});
+
 describe('statut d’un SAMU', () => {
     it('un SAMU ajouté apparaît dans la liste avec ses coordonnées, puis disparaît quand on le retire', async () => {
         const samu = await nouveauSamu();

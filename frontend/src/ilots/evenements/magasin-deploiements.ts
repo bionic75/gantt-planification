@@ -10,6 +10,8 @@ export const useDeploiementsStore = defineStore('deploiements', () => {
     const erreur = ref('');
     /** Couleurs proposées pour les statuts, de la moins à la plus avancée */
     const palette = ref<string[]>([]);
+    /** Motifs de remplissage proposés */
+    const motifs = ref<string[]>([]);
     /** Résultat de la dernière reprise des mises en service */
     const information = ref('');
 
@@ -18,6 +20,7 @@ export const useDeploiementsStore = defineStore('deploiements', () => {
             const r = await apiDeploiements.carte();
             statuts.value = r.statuses ?? [];
             palette.value = r.palette ?? [];
+            motifs.value = r.patterns ?? [];
             deploiements.value = r.deployments ?? [];
         } catch (e) {
             erreur.value = e instanceof Error ? e.message : 'Chargement impossible';
@@ -38,22 +41,34 @@ export const useDeploiementsStore = defineStore('deploiements', () => {
         return true;
     }
 
-    const ajouterStatut = (label: string, couleur: string) =>
-        ecrire(() => apiDeploiements.creer({ label: label.trim(), color: couleur }));
-    const modifierStatut = (id: number, d: { label: string; color: string }) =>
+    const ajouterStatut = (label: string, couleur: string, motif = 'plein') =>
+        ecrire(() => apiDeploiements.creer({ label: label.trim(), color: couleur, pattern: motif }));
+    const modifierStatut = (id: number, d: { label: string; color: string; pattern?: string }) =>
         ecrire(() => apiDeploiements.modifier(id, d));
     const supprimerStatut = (id: number) => ecrire(() => apiDeploiements.supprimer(id));
 
-    /** Un cran vers le haut (-1) ou le bas (1) : l'ordre complet est envoyé */
-    async function deplacerStatut(id: number, sens: -1 | 1) {
-        const ids = statuts.value.map(s => s.id);
-        const i = ids.indexOf(id);
-        const j = i + sens;
-        if (i < 0 || j < 0 || j >= ids.length) return false;
-        [ids[i], ids[j]] = [ids[j]!, ids[i]!];
+    /** Envoie l'ordre complet des statuts ; la liste renvoyée remplace la locale */
+    function reordonner(ids: number[]) {
         return ecrire(async () => {
             statuts.value = (await apiDeploiements.reordonner(ids)).statuses;
         }, false);
+    }
+
+    /** Un cran vers le haut (-1) ou le bas (1) */
+    async function deplacerStatut(id: number, sens: -1 | 1) {
+        const ids = statuts.value.map(s => s.id);
+        const i = ids.indexOf(id);
+        return deposerStatut(id, i + sens);
+    }
+
+    /** Dépose un statut à la place `cible` (indice dans la liste) ; sans effet si la place ne change pas */
+    async function deposerStatut(id: number, cible: number) {
+        const ids = statuts.value.map(s => s.id);
+        const i = ids.indexOf(id);
+        if (i < 0 || cible < 0 || cible >= ids.length || cible === i) return false;
+        ids.splice(i, 1);
+        ids.splice(cible, 0, id);
+        return reordonner(ids);
     }
 
     /** Statut d'un SAMU (localisation) ; la date n'est envoyée que pour un statut « En service » */
@@ -86,12 +101,14 @@ export const useDeploiementsStore = defineStore('deploiements', () => {
         deploiements,
         erreur,
         palette,
+        motifs,
         information,
         charger,
         ajouterStatut,
         modifierStatut,
         supprimerStatut,
         deplacerStatut,
+        deposerStatut,
         affecter,
         ajouterSamu,
         retirerSamu,
