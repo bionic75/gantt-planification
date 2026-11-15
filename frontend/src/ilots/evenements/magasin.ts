@@ -84,10 +84,16 @@ export const useEvenementsStore = defineStore('evenements', () => {
 
     // ── Formulaire ─────────────────────────────────────────────────────────
 
-    function modifier(ev: Evenement) {
-        edition.value = ev;
+    /** Mois de l'événement laissé déplié après le rechargement de la liste */
+    function garderMoisOuvert(ev: Evenement | undefined) {
+        if (!ev) return;
         const [annee, mois] = ev.start_date.split('-').map(Number);
         moisEdite.value = { annee: annee ?? 0, mois: (mois ?? 1) - 1 };
+    }
+
+    function modifier(ev: Evenement) {
+        edition.value = ev;
+        garderMoisOuvert(ev);
         ouvertureFormulaire.value++;
     }
 
@@ -113,6 +119,7 @@ export const useEvenementsStore = defineStore('evenements', () => {
     /** Inscription de l'expert : sa planification est mise à jour par le serveur */
     async function participer(id: number) {
         message.value = null;
+        garderMoisOuvert(evenements.value.find(x => x.id === id));
         try {
             const r = await apiEvenements.participer(id);
             if (r.deploiements?.length) {
@@ -121,7 +128,7 @@ export const useEvenementsStore = defineStore('evenements', () => {
                     type: 'success',
                     texte:
                         `✅ Vous avez été inscrit(e) comme participant à "${r.eventLabel}".\n\n` +
-                        `Vous êtes désormais intervenant(e) de : ${etapes}. Votre planning sera renseigné par la synchronisation du déploiement.`
+                        `Vous êtes désormais intervenant(e) de : ${etapes}. Votre planning est passé en « 2 - 3 » sur le SAMU-SAS concerné.`
                 };
             } else if (r.planningUpdated) {
                 message.value = {
@@ -138,6 +145,27 @@ export const useEvenementsStore = defineStore('evenements', () => {
             await chargerListe();
         } catch (e) {
             message.value = { type: 'error', texte: `Erreur lors de l'inscription : ${(e as Error).message}` };
+        }
+    }
+
+    /** « Me retirer » : l'expert quitte les participants de l'événement */
+    async function quitter(id: number) {
+        message.value = null;
+        garderMoisOuvert(evenements.value.find(x => x.id === id));
+        try {
+            const r = await apiEvenements.quitter(id);
+            message.value = {
+                type: 'success',
+                texte:
+                    `✅ Vous ne participez plus à "${r.eventLabel}".` +
+                    (r.desaffectations
+                        ? "\n\nVous avez aussi été retiré(e) de l'activité de déploiement correspondante ; votre planification est remise en « 2 - Disponible / 2 - En attente d'affectation » sur les jours de l'événement."
+                        : '')
+            };
+            if (r.planningReset) emettre('planning-modifie');
+            await chargerListe();
+        } catch (e) {
+            message.value = { type: 'error', texte: `Erreur lors du retrait : ${(e as Error).message}` };
         }
     }
 
@@ -171,6 +199,7 @@ export const useEvenementsStore = defineStore('evenements', () => {
         enregistrer,
         supprimer,
         participer,
+        quitter,
         localisationCreee
     };
 });

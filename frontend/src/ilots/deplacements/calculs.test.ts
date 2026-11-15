@@ -112,13 +112,13 @@ describe('mes déplacements : liste', () => {
 
     it('ligne : à affecter, dépassement signalé dans le commentaire, commentaire tronqué', () => {
         const sansBon = ligneDeplacement(dep({ bon_commande_id: null, bon_commande_intitule: null }), [], false);
-        expect(sansBon).toMatchObject({ sansBon: true, attention: true, action: '📋 Affecter', amoa: 'MARTIN Léa' });
+        expect(sansBon).toMatchObject({ sansBon: true, attention: true, action: '📋 Affecter', amoa: 'Léa MARTIN' });
         const depasse = ligneDeplacement(dep({ commentaire: 'Mission de suivi du déploiement' }), [], true);
         expect(depasse.commentaire).toBe('⚠️ Dépasse le plafond de la commande | Mission de suivi du déploiement');
         expect(depasse.commentaireCourt).toBe(`${depasse.commentaire.substring(0, 30)}...`);
         expect(depasse).toMatchObject({ attention: true, action: '✏️ Modifier', bon: 'BDC-1 - ACME' });
         const normal = ligneDeplacement(dep({}), [{ id: 2, nom: 'Bernard', prenom: 'Zoé', trigramme: null }], false);
-        expect(normal).toMatchObject({ attention: false, amoa: 'BERNARD Zoé', createur: 'DURAND Paul' });
+        expect(normal).toMatchObject({ attention: false, amoa: 'Zoé BERNARD', createur: 'Paul DURAND' });
     });
 
     it('tri : dates, nombres, texte ; valeurs vides en fin de liste', () => {

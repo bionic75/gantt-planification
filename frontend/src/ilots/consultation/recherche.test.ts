@@ -4,6 +4,8 @@ import { optionLocalisation } from './icones-recherche';
 import {
     classerCreneaux,
     detailExpert,
+    trierClassement,
+    trierLignesExperts,
     expertsProposes,
     intervalleParDefaut,
     joursEntre,
@@ -11,6 +13,7 @@ import {
     localisationsProposees,
     rechercher,
     trigrammeExpert,
+    titreClassement,
     type Criteres
 } from './recherche';
 
@@ -165,5 +168,55 @@ describe('recherche', () => {
 
     it('jour d’un créneau', () => {
         expect(jourCreneau('2031-09-01')).toEqual({ jour: 'lun.', date: '01/09/2031' });
+    });
+});
+
+describe('tri des résultats par expert', () => {
+    const L = [
+        { id: 1, nom: 'Zoé DURAND', nombre: 3, detail: 'x', premiere: '2031-09-02' },
+        { id: 2, nom: 'Paul BERNARD', nombre: 10, detail: 'y', premiere: '2031-09-01' },
+        { id: 3, nom: 'Léa MARTIN', nombre: 3, detail: 'z', premiere: '2031-10-01' }
+    ];
+    const ids = (l: typeof L) => l.map(x => x.id);
+    it('par nom, croissant puis décroissant', () => {
+        expect(ids(trierLignesExperts(L, 'nom', true))).toEqual([3, 2, 1]);
+        expect(ids(trierLignesExperts(L, 'nom', false))).toEqual([1, 2, 3]);
+    });
+    it('par nombre (numérique, égalité : par nom)', () => {
+        expect(ids(trierLignesExperts(L, 'nombre', true))).toEqual([3, 1, 2]);
+        expect(ids(trierLignesExperts(L, 'nombre', false))).toEqual([2, 3, 1]);
+    });
+    it('par détails : première date trouvée', () => {
+        expect(ids(trierLignesExperts(L, 'detail', true))).toEqual([2, 1, 3]);
+        expect(ids(trierLignesExperts(L, 'detail', false))).toEqual([3, 1, 2]);
+    });
+});
+
+describe('tri du classement des créneaux', () => {
+    const C = [
+        { rang: 1, date: '2031-09-02', periode: 'PM' as const, nombre: 5, noms: 'AAA, BBB' },
+        { rang: 2, date: '2031-09-01', periode: 'PM' as const, nombre: 4, noms: 'CCC' },
+        { rang: 3, date: '2031-09-01', periode: 'AM' as const, nombre: 4, noms: 'AAB' }
+    ];
+    const rangs = (l: typeof C) => l.map(x => x.rang);
+    it('par date : chronologique, matin avant après-midi', () => {
+        expect(rangs(trierClassement(C, 'date', true))).toEqual([3, 2, 1]);
+        expect(rangs(trierClassement(C, 'date', false))).toEqual([1, 2, 3]);
+    });
+    it('par période, nombre, experts, rang', () => {
+        expect(rangs(trierClassement(C, 'periode', true))).toEqual([3, 2, 1]);
+        expect(rangs(trierClassement(C, 'nombre', true))).toEqual([2, 3, 1]);
+        expect(rangs(trierClassement(C, 'nombre', false))).toEqual([1, 2, 3]);
+        expect(rangs(trierClassement(C, 'noms', true))).toEqual([1, 3, 2]);
+        expect(rangs(trierClassement(C, 'rang', false))).toEqual([3, 2, 1]);
+    });
+});
+
+describe('titreClassement', () => {
+    it('sans critère : titre générique ; sinon rappelle les disponibilités puis les affectations', () => {
+        expect(titreClassement([], [])).toBe("Créneaux par nombre d'experts");
+        expect(titreClassement(['2'], ['3', '5'])).toBe(
+            "Créneaux par nombre d'experts — Disponible pour l'ANS, SAMU (Déploiement), ANS (Déploiement)"
+        );
     });
 });

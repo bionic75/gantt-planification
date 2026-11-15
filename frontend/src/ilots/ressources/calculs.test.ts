@@ -149,21 +149,8 @@ describe('saisie', () => {
         });
     });
 
-    it('après un ajout : formulaire vidé sauf MAD volante, date de fin et jours max (anomalie conservée)', () => {
-        const f = {
-            ...formulaireVide(),
-            nom: 'A',
-            madVolante: true,
-            dateFinMad: '2027-03-31',
-            joursMaxMad: '15',
-            astreinteHo: true
-        };
-        expect(apresAjout(f)).toEqual({
-            ...formulaireVide(),
-            madVolante: true,
-            dateFinMad: '2027-03-31',
-            joursMaxMad: '15'
-        });
+    it('après un ajout : formulaire entièrement vidé, MAD volante comprise', () => {
+        expect(apresAjout()).toEqual(formulaireVide());
     });
 });
 

@@ -144,6 +144,14 @@ describe('astreintes / HNO', () => {
         expect(astreintesDeLaCellule([astreinte({ resource_id: 2 })], 1, '2027-02-01', 'PM')).toEqual([]);
     });
 
+    it("fin à midi pile : le matin seulement ; après midi, l'après-midi aussi", () => {
+        const midi = astreinte({ date_fin: '2027-02-02', heure_debut: '08:00', heure_fin: '12:00' });
+        expect(astreintesDeLaCellule([midi], 1, '2027-02-02', 'AM')).toHaveLength(1);
+        expect(astreintesDeLaCellule([midi], 1, '2027-02-02', 'PM')).toEqual([]);
+        const apres = astreinte({ date_fin: '2027-02-02', heure_debut: '08:00', heure_fin: '12:30' });
+        expect(astreintesDeLaCellule([apres], 1, '2027-02-02', 'PM')).toHaveLength(1);
+    });
+
     it('pastille ASTR, HNO ou les deux ; aucune pour une activité courante', () => {
         const a = astreintesDeLaCellule([astreinte({})], 1, '2027-02-01', 'PM');
         expect(pastilleAstreinte(a)).toEqual({

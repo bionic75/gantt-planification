@@ -1,6 +1,7 @@
 // @ts-check
 import { badRequest, forbidden } from '../../lib/http-error.js';
 import { logUserAction } from '../../services/action-log.js';
+import { notifierAffectations } from '../notifications/notifications.service.js';
 import * as service from './schedule.service.js';
 
 /** @typedef {import('express').Request} Request */
@@ -26,6 +27,36 @@ export async function get(/** @type {Request} */ req, /** @type {Response} */ re
     res.json(await service.getSchedule());
 }
 
+/** Nom de l'auteur d'une modification (notifications des experts) */
+const auteurDe = (/** @type {Request} */ req) => ({
+    userId: /** @type {number} */ (req.session.userId),
+    name: `${req.session.prenom || 'Admin'} ${req.session.nom || 'Système'}`
+});
+
+/**
+ * Affectations posées par un tiers : les experts concernés sont notifiés (après la réponse). Localisation : celle
+ * enregistrée pour la demi-journée.
+ * @param {Array<{ key: string, value: unknown }>} cells cellules enregistrées
+ * @param {Request} req
+ */
+async function notifierExperts(cells, req) {
+    const affectations = cells.filter(({ key, value }) => service.parseKey(key).type === 'activity' && value !== null);
+    if (!affectations.length) return;
+    const lieux = await service.localisationsDe(affectations.map(({ key }) => key));
+    await notifierAffectations(
+        affectations.map(({ key, value }) => {
+            const { resourceId, dateKey } = service.parseKey(key);
+            return {
+                resourceId: Number(resourceId),
+                dateKey,
+                activity: value,
+                location: lieux.get(`${resourceId}_${dateKey}`) ?? null
+            };
+        }),
+        auteurDe(req)
+    );
+}
+
 /**
  * Enregistre des cellules { clé: valeur }. Les cellules d'une autre ressource sont ignorées pour un expert.
  */
@@ -44,6 +75,13 @@ export async function save(/** @type {Request} */ req, /** @type {Response} */ r
     logUserAction(req, 'Sauvegarde planning', { modificationsCount: entries.length, profile });
     // Historique : « saved » compte toutes les cellules reçues, y compris celles ignorées
     res.json({ success: true, saved: entries.length });
+
+    if (profile !== 'expert') {
+        void notifierExperts(
+            allowed.map(([key, value]) => ({ key, value })),
+            req
+        );
+    }
 }
 
 /**
@@ -70,6 +108,8 @@ export async function saveBatch(/** @type {Request} */ req, /** @type {Response}
     res.json({ success: true, saved: updates.length });
 
     service.logActivityChanges(changed, /** @type {number} */ (req.session.userId), req.session.activeProfile);
+    // Seules les cellules modifiées donnent lieu à une notification (le navigateur envoie le planning complet)
+    void notifierExperts(changed, req);
 }
 
 /** Paramètres d'une remise à zéro mensuelle (month : 0 = janvier) */

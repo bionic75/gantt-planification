@@ -1,6 +1,7 @@
 // @ts-check
 import { formatDateFR } from '../../lib/utils.js';
 import { logUserAction } from '../../services/action-log.js';
+import { samuNumber } from '../../lib/samu.js';
 import * as affectation from '../affectation/affectation.service.js';
 import { sendTeamsNotificationFromServer } from '../notifications/notifications.service.js';
 import { notifyEventCreated } from './events.notifications.js';
@@ -70,7 +71,15 @@ export async function mobileList(/** @type {Request} */ req, /** @type {Response
 /** Tous les profils voient tous les événements ; is_creator sert au contrôle d'accès côté client */
 export async function myList(/** @type {Request} */ req, /** @type {Response} */ res) {
     const isAdmin = req.session.activeProfile === 'admin';
-    res.json({ events: await service.listForUser(userId(req), isAdmin), isAdmin, userId: userId(req) });
+    res.json({
+        events: await service.listForUser(
+            userId(req),
+            isAdmin,
+            req.session.activeProfile === 'expert' ? (req.session.resourceId ?? null) : null
+        ),
+        isAdmin,
+        userId: userId(req)
+    });
 }
 
 /** Création depuis l'administration */
@@ -124,7 +133,9 @@ export async function join(/** @type {Request} */ req, /** @type {Response} */ r
         } catch (e) {
             console.error('Synchro événements → affectations :', /** @type {Error} */ (e).message);
         }
-        if (!deploiements.length) planningUpdates = await service.applyJoinPlanning(joined.event, resourceId);
+        // Événement tagué : planification toujours en « 2 - 3 » avec le SAMU-SAS, même avec un déploiement
+        if (!deploiements.length || (await service.ecritSamu(joined.event)))
+            planningUpdates = await service.applyJoinPlanning(joined.event, resourceId);
     }
     res.json({
         success: true,
@@ -134,6 +145,51 @@ export async function join(/** @type {Request} */ req, /** @type {Response} */ r
         isExpert,
         eventLabel: joined.event.label
     });
+}
+
+/**
+ * « Me retirer » : l'utilisateur quitte les participants. Pour un expert dont l'événement relève d'une activité de
+ * déploiement, il est aussi retiré de l'affectation de cette activité et sa planification est remise en
+ * « 2 - Disponible / 2 - En attente d'affectation » sur les jours de l'événement.
+ */
+export async function leave(/** @type {Request} */ req, /** @type {Response} */ res) {
+    const isExpert = req.session.activeProfile === 'expert';
+    const resourceId = req.session.resourceId;
+    const eventId = Number(req.params.id);
+    const { event, removed } = await service.leaveEvent(req.params.id, userId(req));
+    let desaffectations = 0;
+    let planningReset = 0;
+    if (removed && isExpert && resourceId && Number.isInteger(eventId)) {
+        try {
+            const stages = await affectation.affStagesOfEvent(eventId);
+            const affectes = await affectation.affAssignedAmong(resourceId, stages);
+            if (!affectes.length && (await service.ecritSamu(event))) {
+                const no = samuNumber(await service.localisationSamu(event));
+                planningReset += await affectation.affResetPlanning({
+                    resourceIds: [resourceId],
+                    start: event.start_date,
+                    end: event.end_date,
+                    period: event.period,
+                    samuNo: no
+                });
+            }
+            for (const s of affectes) {
+                const samuNo = samuNumber(s.samu);
+                await affectation.affUnassignResourceFromStage(s.project, s.stage, resourceId);
+                planningReset += await affectation.affResetPlanning({
+                    resourceIds: [resourceId],
+                    start: event.start_date,
+                    end: event.end_date,
+                    period: event.period,
+                    samuNo
+                });
+                desaffectations++;
+            }
+        } catch (e) {
+            console.error('Retrait de participant → affectations :', /** @type {Error} */ (e).message);
+        }
+    }
+    res.json({ success: true, removed: removed > 0, desaffectations, planningReset, eventLabel: event.label });
 }
 
 /** Modification depuis l'administration (le créateur peut être changé) */

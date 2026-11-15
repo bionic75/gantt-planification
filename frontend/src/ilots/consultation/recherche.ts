@@ -28,6 +28,15 @@ export const AFFECTATIONS = [
     { valeur: '8', libelle: 'Divers' }
 ];
 
+/** Titre du classement des créneaux : rappelle les disponibilités et affectations de la recherche */
+export function titreClassement(disponibilites: string[], affectations: string[]): string {
+    const libelles = [
+        ...DISPONIBILITES.filter(o => disponibilites.includes(o.valeur)).map(o => o.libelle),
+        ...AFFECTATIONS.filter(o => affectations.includes(o.valeur)).map(o => o.libelle)
+    ];
+    return `Créneaux par nombre d'experts${libelles.length ? ` — ${libelles.join(', ')}` : ''}`;
+}
+
 const nomComplet = (r: RessourcePlanning) => `${r.nom} ${r.prenom}`;
 
 /** Experts proposés : ressources actives, par nom et prénom */
@@ -153,3 +162,67 @@ export function jourCreneau(date: string): { jour: string; date: string } {
 
 /** Rang des trois premiers créneaux : or, argent, bronze */
 export const COULEURS_RANG = ['#f1c40f', '#95a5a6', '#cd7f32'];
+
+/** Ligne du tableau « Résultats par expert » */
+export interface LigneExpert {
+    id: number;
+    /** « Prénom NOM » */
+    nom: string;
+    nombre: number;
+    detail: string;
+    /** Première date trouvée (AAAA-MM-JJ) : tri de la colonne Détails */
+    premiere: string;
+}
+
+export type ColonneExperts = 'nom' | 'nombre' | 'detail';
+
+const comparer = (a: string, b: string) => a.localeCompare(b, 'fr', { sensitivity: 'base', numeric: true });
+
+/** Lignes triées sur une colonne ; à égalité, par nom (stable) */
+export function trierLignesExperts(lignes: LigneExpert[], colonne: ColonneExperts, croissant: boolean): LigneExpert[] {
+    const sens = croissant ? 1 : -1;
+    const valeur = (a: LigneExpert, b: LigneExpert) =>
+        colonne === 'nombre'
+            ? a.nombre - b.nombre
+            : colonne === 'detail'
+              ? comparer(a.premiere, b.premiere) || a.nombre - b.nombre
+              : comparer(a.nom, b.nom);
+    return [...lignes].sort((a, b) => sens * valeur(a, b) || comparer(a.nom, b.nom));
+}
+
+/** Créneau du classement affiché (rang d'origine conservé quand le tableau est trié) */
+export interface LigneClassement {
+    rang: number;
+    /** AAAA-MM-JJ */
+    date: string;
+    periode: 'AM' | 'PM';
+    nombre: number;
+    noms: string;
+}
+
+export type ColonneClassement = 'rang' | 'date' | 'periode' | 'nombre' | 'noms';
+
+/** Créneaux triés sur une colonne ; à égalité, dans l'ordre du classement (rang) */
+export function trierClassement<T extends LigneClassement>(
+    lignes: T[],
+    colonne: ColonneClassement,
+    croissant: boolean
+): T[] {
+    const sens = croissant ? 1 : -1;
+    const chrono = (a: T, b: T) => comparer(a.date, b.date) || comparer(a.periode, b.periode);
+    const valeur = (a: T, b: T) => {
+        switch (colonne) {
+            case 'date':
+                return chrono(a, b);
+            case 'periode':
+                return comparer(a.periode, b.periode) || comparer(a.date, b.date);
+            case 'nombre':
+                return a.nombre - b.nombre;
+            case 'noms':
+                return comparer(a.noms, b.noms);
+            default:
+                return a.rang - b.rang;
+        }
+    };
+    return [...lignes].sort((a, b) => sens * valeur(a, b) || a.rang - b.rang);
+}

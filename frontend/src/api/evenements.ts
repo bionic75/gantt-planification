@@ -41,6 +41,8 @@ export interface Evenement {
     /** Horodatage UTC « AAAA-MM-JJ HH:MM:SS » */
     created_at: string | null;
     needs_resources: number | null;
+    /** 0 : « Participer » masqué (événement tagué et planification de l’expert pas en 2-2) */
+    peut_participer?: number;
     resources_count: number | null;
     type_id: number | null;
     grist: number | null;
@@ -136,6 +138,11 @@ export const apiEvenements = {
     modifier: (id: number, corps: CorpsEvenement) =>
         api.put(corps.createdBy ? `/custom-events/${id}` : `/my-custom-events/${id}`, corps),
     supprimer: (id: number) => api.delete(`/my-custom-events/${id}`),
+    /** « Me retirer » : l'utilisateur quitte les participants (et l'affectation de l'activité de déploiement) */
+    quitter: (id: number) =>
+        api.delete<{ removed: boolean; desaffectations: number; planningReset: number; eventLabel: string }>(
+            `/my-custom-events/${id}/join`
+        ),
     participer: (id: number) => api.post<Inscription>(`/my-custom-events/${id}/join`),
     creerLocalisation: (corps: {
         libelle_long: string;

@@ -63,12 +63,13 @@
 .gp-ce-table td {
     border: 1px solid #bdc3c7;
 }
-/* Pas de flèches de tri (règle globale des tableaux de l'application) dans le calendrier mensuel ; le calendrier des
-   événements les garde, comme l'ancien écran */
-.gp-cm-table th {
+/* Pas de flèches de tri (règle globale des tableaux de l'application) : ces tableaux ne se trient pas */
+.gp-cm-table th,
+.gp-ce-table th {
     cursor: default !important;
 }
-.gp-cm-table th::after {
+.gp-cm-table th::after,
+.gp-ce-table th::after {
     content: none !important;
 }
 .gp-cm-table th.gp-cm-sem {
@@ -232,6 +233,11 @@
 .gp-ce-table th.gp-ce-jour-nom {
     background-color: #00bcd4;
 }
+/* Week-end : jaune (après la règle des jours, de même spécificité, pour ne pas être écrasé) */
+.gp-ce-table th.gp-ce-jour-nom.gp-ce-jour-nom--weekend {
+    background-color: #ffc107;
+    color: #333;
+}
 .gp-ce-table td.gp-ce-sem {
     width: 38px;
     padding: 4px 2px;
@@ -296,4 +302,15 @@
 }
 .gp-ce-evenement .gp-icone {
     margin-right: 3px;
+}
+
+/* Pas de survol foncé sur les en-têtes (colonnes non triables) */
+.gp-ce-table th.gp-ce-sem:hover {
+    background-color: #546e7a;
+}
+.gp-ce-table th.gp-ce-jour-nom:hover {
+    background-color: #00bcd4;
+}
+.gp-ce-table th.gp-ce-jour-nom.gp-ce-jour-nom--weekend:hover {
+    background-color: #ffc107;
 }

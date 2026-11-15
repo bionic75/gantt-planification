@@ -1,6 +1,6 @@
 // Automatisations : listes des formulaires (comptes avec e-mail, ressources, mois ayant des données) et fenêtre
 // partagée de l'historique des envois, du diagnostic des mois et de l'aperçu du nettoyage (une seule fenêtre dans
-// l'ancien écran : son bouton « Vider l'historique » vide l'historique de la dernière automatisation consultée)
+// l'ancien écran)
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import {
@@ -68,13 +68,10 @@ export const useAutomatisationsStore = defineStore('admin-automatisations', () =
     // ---------- Fenêtre partagée ----------
 
     const fenetre = ref<{ titre: string; contenu: ContenuFenetre } | null>(null);
-    /** Automatisation de « Vider l'historique » : dernière dont l'historique a été ouvert (n°1 par défaut) */
-    const historiqueCourant = ref<1 | 2 | 3>(1);
     /** Message des outils de l'automatisation n°2 (diagnostic, nettoyage), affiché sous leurs boutons */
     const messageOutils = ref<{ texte: string; erreur: boolean } | null>(null);
 
     async function ouvrirEnvois(n: 1 | 2 | 3) {
-        historiqueCourant.value = n;
         const titre = {
             1: '📋 Historique des envois de rappels',
             2: '📋 Historique des sauvegardes de planning',
@@ -128,7 +125,6 @@ export const useAutomatisationsStore = defineStore('admin-automatisations', () =
         preparer,
         chargerInfosHo,
         fenetre,
-        historiqueCourant,
         messageOutils,
         ouvrirEnvois,
         ouvrirDiagnostic,

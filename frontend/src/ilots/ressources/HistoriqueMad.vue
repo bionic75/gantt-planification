@@ -1,6 +1,6 @@
 <!-- Historique des taux de MAD d'une ressource (fiche) : périodes triées par date de début, ajout et modification d'une
-     période, suppression (s'il en reste au moins deux), particularités. Sans historique, une période initiale est créée à
-     l'ouverture (taux et date de début de la ressource), comme l'ancien écran. Consultation : sans ajout ni actions. -->
+     période, suppression (s'il en reste au moins deux), particularités. Sans historique, rien n'est créé à l'ouverture :
+     l'administrateur ajoute la première période. Consultation : sans ajout ni actions. -->
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { apiRessources, type PeriodeMad, type Ressource } from '@/api/ressources';
@@ -28,19 +28,7 @@ const erreurApi = (e: unknown) =>
 async function charger() {
     etat.value = 'chargement';
     try {
-        let periodes = await apiRessources.historiqueMad(props.ressource.id);
-        if (!periodes.length) {
-            // Période initiale créée automatiquement (refusée au profil RH : l'historique reste vide)
-            await apiRessources
-                .ajouterPeriode(props.ressource.id, {
-                    taux: props.ressource.taux,
-                    date_debut: props.ressource.date_debut || new Date().toISOString().split('T')[0]!,
-                    date_fin: null
-                })
-                .catch(() => undefined);
-            periodes = await apiRessources.historiqueMad(props.ressource.id).catch(() => periodes);
-        }
-        historique.value = periodes;
+        historique.value = await apiRessources.historiqueMad(props.ressource.id);
         etat.value = 'charge';
     } catch {
         etat.value = 'erreur';
@@ -85,13 +73,15 @@ async function enregistrer() {
     }
 }
 
-/** Suppression : historique relu, liste non rechargée (comme l'ancien écran) */
+/** Suppression : historique relu, liste des ressources et planification rechargées */
 async function supprimer(p: PeriodeMad) {
     if (!(await confirmer('Confirmer la suppression de cette période de MAD ?', 'Supprimer'))) return;
     message.value = '';
     try {
         await apiRessources.supprimerPeriode(props.ressource.id, p.id);
         await charger();
+        emettre('ressources-modifiees');
+        await magasin.charger();
     } catch (e) {
         message.value = erreurApi(e);
     }
@@ -117,8 +107,7 @@ const texte = (e: Event) => (e.target as HTMLInputElement).value;
                         <th>Date début</th>
                         <th>Date fin</th>
                         <th class="historique__centre">Taux</th>
-                        <!-- Consultation : en-tête conservé, cellules d'actions masquées (comme l'ancien écran) -->
-                        <th class="historique__centre">Actions</th>
+                        <th v-if="!consultation" class="historique__centre">Actions</th>
                     </tr>
                 </thead>
                 <tbody>

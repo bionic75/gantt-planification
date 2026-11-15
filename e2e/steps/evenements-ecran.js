@@ -235,6 +235,16 @@ Then("l'événement de test propose « Participer »", async ({ monde }) => {
     await expect(fiche(monde, await libelleTest(monde)).getByRole('button', { name: /Participer/ })).toBeVisible();
 });
 
+Then("l'événement de test propose « Me retirer »", async ({ monde }) => {
+    await expect(fiche(monde, await libelleTest(monde)).getByRole('button', { name: /Me retirer/ })).toBeVisible();
+});
+
+When("je me retire de l'événement de test", async ({ monde }) => {
+    await fiche(monde, await libelleTest(monde))
+        .getByRole('button', { name: /Me retirer/ })
+        .click();
+});
+
 Given("la planification de l'expert de mai 2031 sera remise à zéro", async ({ monde }) => {
     await nettoyerMoisExpert(monde, 2031, 4);
 });

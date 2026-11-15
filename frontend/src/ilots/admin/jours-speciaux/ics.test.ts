@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { apparence, dateIcs, lireIcs, zones } from './ics';
+import { apparence, dateIcs, lireIcs, zones, zonesDuResume } from './ics';
 
 const ICS = [
     'BEGIN:VCALENDAR',
@@ -49,6 +49,31 @@ describe('fichiers .ics', () => {
         expect(zoneB.map(e => e.start)).toEqual(['2031-12-20']);
         expect(zoneC).toEqual([]);
         expect(total).toBe(2);
+    });
+
+    it('zones citées par un résumé : zone unique, plusieurs zones, toutes zones', () => {
+        expect(zonesDuResume('Vacances de la Toussaint - Zone A')).toEqual(['a']);
+        expect(zonesDuResume('Vacances d’été - Zones A/B/C')).toEqual(['a', 'b', 'c']);
+        expect(zonesDuResume('Pont - zones A, B et C')).toEqual(['a', 'b', 'c']);
+        expect(zonesDuResume('Hiver - Zone A et Zone B')).toEqual(['a', 'b']);
+        expect(zonesDuResume('Printemps - zone B ou C')).toEqual(['b', 'c']);
+        expect(zonesDuResume('Vacances - Zones A-B')).toEqual(['a', 'b']);
+        expect(zonesDuResume('Vacances - toutes zones')).toEqual(['a', 'b', 'c']);
+        expect(zonesDuResume('Zone A (Besançon, Bordeaux)')).toEqual(['a']);
+        expect(zonesDuResume('Vacances scolaires')).toEqual([]);
+    });
+
+    it('un congé commun à plusieurs zones est rattaché à chacune', () => {
+        const ev = [
+            { summary: 'Vacances d’été - Zones A/B/C', start: '2031-07-05', end: '2031-09-01' },
+            { summary: 'Vacances de Noël - Zone C', start: '2031-12-20', end: '2032-01-05' },
+            { summary: 'Hiver - Zones A et B', start: '2032-02-07', end: '2032-02-23' }
+        ];
+        const z = zones(ev);
+        expect(z.zoneA.map(e => e.start)).toEqual(['2031-07-05', '2032-02-07']);
+        expect(z.zoneB.map(e => e.start)).toEqual(['2031-07-05', '2032-02-07']);
+        expect(z.zoneC.map(e => e.start)).toEqual(['2031-07-05', '2031-12-20']);
+        expect(z.total).toBe(6);
     });
 
     it('apparence enregistrée complétée par les valeurs par défaut', () => {

@@ -44,15 +44,11 @@ const participants = computed(() => [
         email: p.email
     }))
 ]);
-/**
- * « Participer » proposé à un expert non participant. Comme l'ancien écran, la comparaison porte sur un champ « id »
- * que les participants n'ont pas (« user_id ») : le bouton reste proposé à un expert déjà participant (anomalie connue).
- */
-const peutParticiper = computed(
-    () =>
-        ev.profil === 'expert' &&
-        !(e.value.participants as Array<{ id?: number }>).some(p => p.id != null && p.id === ev.userId)
-);
+/** L'expert est-il déjà dans les participants de l'événement ? (champ « user_id » des participants) */
+const participe = computed(() => e.value.participants.some(p => p.user_id === ev.userId));
+/** « Participer » proposé à un expert non participant ; « Me retirer » à un expert déjà participant */
+const peutParticiper = computed(() => ev.profil === 'expert' && !participe.value && e.value.peut_participer !== 0);
+const peutSeRetirer = computed(() => ev.profil === 'expert' && participe.value);
 const styleEtiquette = computed(() => ({
     background: c.value.fond,
     color: c.value.texte,
@@ -132,6 +128,15 @@ const styleEtiquette = computed(() => ({
                     @click="ev.participer(e.id)"
                 >
                     <AppIcone name="hand" :scale="0.85" class="ev-fiche__icone" />Participer
+                </button>
+                <button
+                    v-if="peutSeRetirer"
+                    type="button"
+                    class="ev-fiche__participer"
+                    title="Me retirer de la liste des participants"
+                    @click="ev.quitter(e.id)"
+                >
+                    <AppIcone name="hand" :scale="0.85" class="ev-fiche__icone" />Me retirer
                 </button>
                 <button
                     type="button"

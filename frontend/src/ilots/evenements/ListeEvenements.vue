@@ -50,7 +50,7 @@ const nomsParticipants = computed(() => [
 ]);
 
 // ── Dépliage ──────────────────────────────────────────────────────────────
-// Par défaut : année et mois en cours, et mois de l'événement qui vient d'être modifié. Rechargement de la liste ou
+// Par défaut : année et mois en cours, et année et mois de l'événement qui vient d'être modifié ou rejoint. Rechargement de la liste ou
 // changement de filtre : retour à l'état par défaut ; changement de tri : état conservé (comme l'ancien écran).
 const basculements = ref(new Set<string>());
 const maintenant = new Date();
@@ -60,7 +60,7 @@ function ouvertParDefaut(cle: string) {
     const a = maintenant.getFullYear();
     if (cle === cleAnnee(a) || cle === cleMois(a, maintenant.getMonth())) return true;
     const edite = ev.moisEdite;
-    return !!edite && cle === cleMois(edite.annee, edite.mois);
+    return !!edite && (cle === cleAnnee(edite.annee) || cle === cleMois(edite.annee, edite.mois));
 }
 const ouvert = (cle: string) => ouvertParDefaut(cle) !== basculements.value.has(cle);
 function basculer(cle: string) {

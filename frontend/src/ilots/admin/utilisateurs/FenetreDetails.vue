@@ -6,6 +6,7 @@ import {
     apiUtilisateurs,
     type ActionCompte,
     type ConnexionsCompte,
+    type JournalComplet,
     type TypeJournal,
     type Utilisateur
 } from '@/api/utilisateurs';
@@ -64,12 +65,20 @@ const demandes = computed(() =>
     props.utilisateur ? demandesAffectation(props.utilisateur, actions.value, store.ressources) : null
 );
 
-function exporter() {
+async function exporter() {
     const u = props.utilisateur;
     if (!u) return;
+    // Journal complet relu en base : toutes les connexions et toutes les actions du compte, catégorisées
+    let journal: JournalComplet;
+    try {
+        journal = await apiUtilisateurs.journalComplet(u.id);
+    } catch (e) {
+        message.value = { type: 'error', texte: `❌ Export impossible : ${(e as Error).message}` };
+        return;
+    }
     const lien = document.createElement('a');
     lien.href = URL.createObjectURL(
-        new Blob([csvJournaux(u, connexions.value, actions.value)], { type: 'text/csv;charset=utf-8;' })
+        new Blob([csvJournaux(u, journal, actions.value)], { type: 'text/csv;charset=utf-8;' })
     );
     lien.download = nomFichierJournaux(u.username);
     document.body.appendChild(lien);

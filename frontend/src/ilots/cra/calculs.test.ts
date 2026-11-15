@@ -77,8 +77,8 @@ const ligne = (champs: Partial<LigneCra> = {}): LigneCra => ({
     ...champs
 });
 
-const expert = { userId: 10, is_admin: false, activeProfile: 'expert' };
-const admin = { userId: 1, is_admin: true, activeProfile: 'admin' };
+const expert = { userId: 10, activeProfile: 'expert' };
+const admin = { userId: 1, activeProfile: 'admin' };
 const libelles = (c: Cra, u: typeof expert, config = {}) => actions(c, droits(c, u, config)).map(a => a.libelle);
 
 describe('cartes', () => {
@@ -120,10 +120,10 @@ describe('cartes', () => {
         expect(libelleMois(3, 2093)).toBe('mars 2093');
     });
 
-    it('vue selon le profil : un compte RH sous le profil expert a la vue RH, comme l’ancien écran', () => {
-        expect(vueCra({ activeProfile: 'admin', is_rh: true })).toBe('admin');
-        expect(vueCra({ activeProfile: 'expert', is_rh: true })).toBe('rh');
-        expect(vueCra({ activeProfile: 'expert', is_rh: false })).toBe('expert');
+    it('vue selon le profil actif : un compte RH sous le profil expert a la vue expert', () => {
+        expect(vueCra({ activeProfile: 'admin' })).toBe('admin');
+        expect(vueCra({ activeProfile: 'rh' })).toBe('rh');
+        expect(vueCra({ activeProfile: 'expert' })).toBe('expert');
     });
 });
 
@@ -167,9 +167,9 @@ describe('actions proposées', () => {
         expect(libelles(cra({ statut: 'vise_n1' }), admin, config)).toEqual(['🔧 Corriger ce CRA (admin)']);
     });
 
-    it('compte administrateur sous un autre profil : boutons d’administration, comme l’ancien écran', () => {
-        const u = { userId: 10, is_admin: true, activeProfile: 'expert' };
-        expect(libelles(cra({ statut: 'soumis' }), u)).toContain('🔧 Corriger ce CRA (admin)');
+    it('compte administrateur sous un autre profil : pas de boutons d’administration', () => {
+        const u = { userId: 10, activeProfile: 'expert' };
+        expect(libelles(cra({ statut: 'soumis' }), u)).not.toContain('🔧 Corriger ce CRA (admin)');
     });
 
     it('PDF signé enregistré pour un CRA visé N2 ou diffusé', () => {

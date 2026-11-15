@@ -118,6 +118,22 @@ describe('liste', () => {
         expect(trier(liste, 'username', true).map(u => u.id)).toEqual([3, 1, 2]);
         expect(trier(liste, 'username', false).map(u => u.id)).toEqual([2, 1, 3]);
     });
+
+    it('tri par « Actif » et par « Dernière connexion »', () => {
+        const l = [
+            compte({ id: 1, actif: 1, last_login: '2031-05-02T10:00:00Z' }),
+            compte({ id: 2, actif: 0, last_login: null }),
+            compte({ id: 3, actif: 1, last_login: '2031-05-10T08:00:00Z' })
+        ];
+        expect(trier(l, 'actif', true).map(u => u.id)[0]).toBe(2);
+        expect(
+            trier(l, 'actif', false)
+                .map(u => u.id)
+                .slice(-1)
+        ).toEqual([2]);
+        expect(trier(l, 'last_login', true).map(u => u.id)).toEqual([2, 1, 3]);
+        expect(trier(l, 'last_login', false).map(u => u.id)).toEqual([3, 1, 2]);
+    });
 });
 
 describe('détails', () => {
@@ -129,9 +145,10 @@ describe('détails', () => {
         created_at
     });
 
-    it('anomalies conservées : rôles sans RH, connexion RH affichée « Utilisateur »', () => {
-        expect(roles(compte({ is_admin: 1, is_rh: 1 }))).toBe('Administrateur, Utilisateur');
-        expect(profilConnexion('rh')).toBe('Utilisateur');
+    it('rôles avec le profil RH, connexion RH affichée « RH »', () => {
+        expect(roles(compte({ is_admin: 1, is_rh: 1 }))).toBe('Administrateur, Utilisateur, RH');
+        expect(profilConnexion('rh')).toBe('RH');
+        expect(profilConnexion('user')).toBe('Utilisateur');
         expect(activite('3')).toBe('📞 SAMU (Déploiement)');
     });
 
@@ -164,14 +181,42 @@ describe('détails', () => {
         expect(modificationsPlanning(compte({ is_user: 0, is_rh: 1 }), actions, ressources)).toBeNull();
     });
 
-    it('export CSV : sections, « undefined » des connexions regroupées (anomalie conservée), nom de fichier', () => {
+    it('export CSV : connexions datées, actions catégorisées, sections, nom de fichier', () => {
         const csv = csvJournaux(
             compte(),
-            [{ username: 'lea.durand', profile: 'user', nb_connexions: 2, derniere_connexion: '2026-10-30' }],
+            {
+                connexions: [
+                    { login_time: '2026-10-30 09:15:00', profile: 'user' },
+                    { login_time: '2026-10-31 08:00:00', profile: 'rh' }
+                ],
+                actions: [
+                    {
+                        date: '2026-10-30T09:20:00.000Z',
+                        categorie: 'Événements',
+                        profil: 'user',
+                        action: 'Création événement',
+                        details: '{"id":4}'
+                    },
+                    {
+                        date: '2026-10-30 09:30:00',
+                        categorie: 'Astreintes',
+                        profil: 'rh',
+                        action: 'Astreinte',
+                        details: ''
+                    }
+                ]
+            },
             []
         );
         expect(csv.startsWith('\uFEFFExport des logs - Léa DURAND (lea.durand)\n')).toBe(true);
-        expect(csv).toContain('=== LOGS DE CONNEXION ===\nDate/Heure;Type\nundefined;Connexion\n');
+        expect(csv).toContain('=== LOGS DE CONNEXION ===\nDate/Heure;Type\n');
+        expect(csv).not.toContain('undefined');
+        expect(csv).toContain('30/10/2026 10:15:00;Connexion (Utilisateur)');
+        expect(csv).toContain(';Connexion (RH)');
+        expect(csv).toContain('=== ACTIONS PAR CATÉGORIE ===');
+        // Catégories par ordre alphabétique
+        expect(csv.indexOf('Astreintes;')).toBeLessThan(csv.indexOf('Événements;'));
+        expect(csv).toContain('Événements;30/10/2026 10:20:00;Utilisateur;Création événement;');
         expect(csv).toContain('Aucune modification de planning');
         expect(csv).toContain('Aucune demande envoyée');
         expect(nomFichierJournaux('lea.durand', new Date('2026-10-30T12:00:00Z'))).toBe(

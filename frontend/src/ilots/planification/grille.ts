@@ -303,7 +303,9 @@ export function astreintesDeLaCellule(
                 couvre = premier ? hD < 12 : true;
                 if (dernier) couvre = couvre && hF > 0;
             } else {
-                couvre = dernier ? hF > 12 || (hF === 12 && (a.heure_fin.split(':')[1] || '0') > '0') : true;
+                couvre = dernier
+                    ? hF > 12 || (hF === 12 && (parseInt(a.heure_fin.split(':')[1] || '0') || 0) > 0)
+                    : true;
                 if (premier) couvre = couvre && hD < 24;
             }
         }

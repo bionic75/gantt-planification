@@ -65,7 +65,7 @@ async function enregistrer() {
     try {
         await apiRessources.modifier(
             props.ressource.id,
-            corpsFiche(f.value, props.ressource, tauxEnregistre(historique.value, aujourdhui))
+            corpsFiche(f.value, props.ressource, tauxEnregistre(historique.value, aujourdhui, props.ressource.taux))
         );
         try {
             await apiRessources.enregistrerAffectations(props.ressource.id, f.value.principal, f.value.secondaire);

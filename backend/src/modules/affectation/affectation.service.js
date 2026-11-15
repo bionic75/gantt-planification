@@ -7,6 +7,7 @@ import { HttpError } from '../../lib/http-error.js';
 import { samuNumber as affSamuNumber } from '../../lib/samu.js';
 import { logUserAction } from '../../services/action-log.js';
 import { getJsonSetting, setSetting } from '../../services/settings.js';
+import { notifierAffectations } from '../notifications/notifications.service.js';
 
 /** @typedef {import('express').Request} Request */
 /** @typedef {Awaited<ReturnType<typeof prisma.affectationProject.findMany>>[number]} ProjectRow */
@@ -1336,6 +1337,20 @@ export async function affStagesOfEvent(/** @type {number} */ eventId) {
     return out;
 }
 
+/** Retire une ressource de l'affectation d'une activité de déploiement (affectation et journées enregistrées) */
+export async function affUnassignResourceFromStage(
+    /** @type {number} */ projectId,
+    /** @type {string} */ stageKey,
+    /** @type {number} */ resourceId
+) {
+    await prisma.affectationAssignmentDay.deleteMany({
+        where: { project_id: projectId, stage_key: stageKey, resource_id: resourceId }
+    });
+    await prisma.affectationAssignment.deleteMany({
+        where: { project_id: projectId, stage_key: stageKey, resource_id: resourceId }
+    });
+}
+
 /** Parmi des étapes de déploiements, celles où la ressource est affectée */
 export async function affAssignedAmong(
     /** @type {number} */ resourceId,
@@ -1678,15 +1693,23 @@ export async function writeStagePlanning(
     const author = await prisma.user.findUnique({ where: { id: authorUserId }, select: { prenom: true, nom: true } });
     const authorName = author ? `${author.prenom}.${author.nom}` : '';
     let n = 0;
+    /** @type {Array<{ resourceId: number, dateKey: string, activity: unknown, location: string }>} */
+    const posees = [];
     for (const r of c.resources.filter(x => resourceIds.includes(x.id))) {
         for (const key of r.toWrite) {
             await setScheduleCell(r.id, key, 'available', '2');
             await setScheduleCell(r.id, key, 'activity', c.activity);
             await setScheduleCell(r.id, key, 'localisation', c.samuLoc);
             if (authorName) await setScheduleCell(r.id, key, 'author', authorName);
+            posees.push({ resourceId: r.id, dateKey: key, activity: c.activity, location: c.samuLoc });
             n++;
         }
     }
+    // Experts notifiés de leurs nouvelles affectations (sauf l'auteur lui-même)
+    void notifierAffectations(posees, {
+        userId: authorUserId,
+        name: author ? `${author.prenom} ${author.nom}` : 'Admin Système'
+    });
     return n;
 }
 
@@ -1776,6 +1799,8 @@ export async function resolveStageGaps(
     const author = await prisma.user.findUnique({ where: { id: authorUserId }, select: { prenom: true, nom: true } });
     const authorName = author ? `${author.prenom}.${author.nom}` : '';
     const out = { forced: 0, dropped: 0, cleared: 0, added: 0 };
+    /** @type {Array<{ resourceId: number, dateKey: string, activity: unknown, location: string }>} */
+    const posees = [];
     const days = (/** @type {string[]} */ keys) => [...new Set(keys.map(k => k.slice(0, 10)))];
     for (const r of c.resources) {
         if ((choices.force || []).includes(r.id))
@@ -1784,6 +1809,7 @@ export async function resolveStageGaps(
                 await setScheduleCell(r.id, key, 'activity', c.activity);
                 await setScheduleCell(r.id, key, 'localisation', c.samuLoc);
                 if (authorName) await setScheduleCell(r.id, key, 'author', authorName);
+                posees.push({ resourceId: r.id, dateKey: key, activity: c.activity, location: c.samuLoc });
                 out.forced++;
             }
         if ((choices.drop || []).includes(r.id) && r.conflicts.length)
@@ -1795,6 +1821,10 @@ export async function resolveStageGaps(
         c,
         (choices.clear || []).filter(id => !(choices.add || []).includes(id))
     );
+    void notifierAffectations(posees, {
+        userId: authorUserId,
+        name: author ? `${author.prenom} ${author.nom}` : 'Admin Système'
+    });
     return out;
 }
 

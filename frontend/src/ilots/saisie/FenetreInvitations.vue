@@ -29,7 +29,15 @@ const planification = usePlanificationStore();
 const ouverte = ref(false);
 const etat = shallowRef<EtatInvitations>({ sessionId: null, experts: {} });
 const coches = ref<Record<string, boolean>>({});
-const tousCoches = ref(true);
+/** Case « tous » : cochée si tous les experts le sont, indéterminée si certains seulement ; la cocher ou la décocher agit sur tous */
+const tousCoches = computed({
+    get: () => Object.keys(coches.value).length > 0 && Object.values(coches.value).every(Boolean),
+    set: v => (coches.value = Object.fromEntries(Object.keys(coches.value).map(id => [id, v])))
+});
+const quelquesCoches = computed(() => {
+    const valeurs = Object.values(coches.value);
+    return valeurs.some(Boolean) && !valeurs.every(Boolean);
+});
 const erreur = ref('');
 const information = ref('');
 
@@ -47,7 +55,6 @@ surDemande(() => {
     }
     etat.value = e;
     coches.value = Object.fromEntries(Object.keys(e.experts).map(id => [id, true]));
-    tousCoches.value = true;
     erreur.value = '';
     ouverte.value = true;
 });
@@ -73,11 +80,6 @@ const experts = computed(() =>
 
 const sommaire = computed(() => resume(Object.values(etat.value.experts)));
 
-/** « Tout sélectionner » : coche ou décoche chaque expert (la case ne suit pas les cases des experts) */
-function basculerTous() {
-    coches.value = Object.fromEntries(Object.keys(coches.value).map(id => [id, tousCoches.value]));
-}
-
 /** Experts notifiés ou abandonnés : retirés des affectations en attente */
 const retirer = (ids: number[]) => planification.retirerInvitations(ids);
 
@@ -100,13 +102,18 @@ async function envoyer() {
             senderEmail: s ? s.email : null,
             sessionId: etat.value.sessionId
         });
-        if (!r.success) return;
+        if (!r.success) {
+            information.value = "L'envoi des invitations a échoué. Les affectations restent en attente.";
+            return;
+        }
         retirer(ids);
         if (r.batchId) suivreEnvoi(r.batchId, r.enqueued || total, invitations);
     } catch (e) {
-        // Passerelle (502 / 504) ou réseau : envoi probablement pris en charge, experts retirés de l'attente ;
-        // autre refus du serveur : affectations conservées (sans message, comme l'ancien écran)
-        if (!(e instanceof ErreurApi) || e.statut === 502 || e.statut === 504) retirer(ids);
+        // Dans tous les cas les affectations restent en attente (aucune invitation perdue), avec un message
+        const sansReponse = !(e instanceof ErreurApi) || e.statut === 502 || e.statut === 504;
+        information.value = sansReponse
+            ? "Réponse du serveur non reçue : l'envoi n'est peut-être pas parti. Les affectations restent en attente, vous pouvez réessayer."
+            : `L'envoi des invitations a échoué (${e.message}). Les affectations restent en attente.`;
     }
 }
 
@@ -243,7 +250,7 @@ onBeforeUnmount(() => {
                     v-model="tousCoches"
                     type="checkbox"
                     class="gp-invitations__case"
-                    @change="basculerTous"
+                    :indeterminate="quelquesCoches"
                 />
                 <span>Sélectionner/Désélectionner tous</span>
             </label>

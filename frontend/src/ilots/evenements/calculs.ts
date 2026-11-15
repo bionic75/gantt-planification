@@ -85,15 +85,12 @@ export function filtrerListe(events: Evenement[], f: FiltresListe, types: Map<nu
     });
 }
 
-/**
- * Événements exportés : mêmes filtres que la liste, sauf la localisation, comparée comme dans l'ancien code à un champ
- * « location » que l'API ne fournit pas (anomalie connue : avec ce filtre, aucun événement n'est exporté)
- */
+/** Événements exportés : mêmes filtres que la liste (localisation comprise) */
 export function filtrerExport(events: Evenement[], f: FiltresListe, types: Map<number, TypeEvenement>) {
     const q = normaliser(f.participant);
     return events.filter(ev => {
         if (!filtreLibelle(ev, f, types)) return false;
-        if (f.localisation && (ev as { location?: string }).location !== f.localisation) return false;
+        if (f.localisation && String(ev.location_id ?? '') !== f.localisation) return false;
         if (f.debut && ev.start_date < f.debut) return false;
         if (f.fin && ev.end_date > f.fin) return false;
         if (q) {
@@ -293,13 +290,11 @@ const ENTETES = [
     'Date fin',
     'Localisation',
     'Participants internes',
-    'Participants externes',
-    'Description'
+    'Participants externes'
 ];
 
-/** Champs exportés absents de l'API (anomalie connue de l'ancien code : colonnes toujours vides) */
-const absent = (ev: Evenement, champ: 'location' | 'description') =>
-    (ev as unknown as Record<string, string | undefined>)[champ];
+/** Localisation de l'événement (libellé court fourni par l'API) */
+const localisationDe = (ev: Evenement) => ev.location_libelle_court || '';
 
 /** CSV (séparateur « , », valeurs entre guillemets, BOM pour Excel) */
 export function exportCsv(events: Evenement[]) {
@@ -311,10 +306,9 @@ export function exportCsv(events: Evenement[]) {
             ev.label || '',
             ev.start_date || '',
             ev.end_date || '',
-            absent(ev, 'location') || '',
+            localisationDe(ev),
             internes,
-            externes,
-            (absent(ev, 'description') || '').replace(/\n/g, ' ')
+            externes
         ]
             .map(v => `"${String(v).replace(/"/g, '""')}"`)
             .join(',');
@@ -343,7 +337,7 @@ export function exportHtml(events: Evenement[], aujourdhui = new Date()) {
             const badge = aUnType(ev)
                 ? `<span style="background:${cfg.bgColor || '#607d8b'};color:${cfg.textColor || '#fff'};padding:2px 8px;border-radius:4px;font-size:11px;">${echapper(libelleCourt(ev))}</span>`
                 : '';
-            return `<tr><td>${badge}${aUnType(ev) ? ` ${echapper(ev.type_long)}` : ''}</td><td>${echapper(ev.label || '')}</td><td>${ev.start_date || ''}</td><td>${ev.end_date || ''}</td><td>${absent(ev, 'location') || ''}</td><td>${internes}</td><td>${externes}</td><td>${(absent(ev, 'description') || '').replace(/\n/g, '<br>')}</td></tr>`;
+            return `<tr><td>${badge}${aUnType(ev) ? ` ${echapper(ev.type_long)}` : ''}</td><td>${echapper(ev.label || '')}</td><td>${ev.start_date || ''}</td><td>${ev.end_date || ''}</td><td>${echapper(localisationDe(ev))}</td><td>${internes}</td><td>${externes}</td></tr>`;
         })
         .join('');
     return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Événements exportés</title><style>body{font-family:Arial,sans-serif;font-size:12px;padding:20px;}table{border-collapse:collapse;width:100%;}th{background:#1565c0;color:#fff;padding:8px;text-align:left;}td{border:1px solid #ddd;padding:6px;}tr:nth-child(even){background:#f5f5f5;}</style></head><body><h2>Événements — export du ${aujourdhui.toLocaleDateString('fr-FR')}</h2><table><thead><tr>${ENTETES.map(e => `<th>${e}</th>`).join('')}</tr></thead><tbody>${lignes}</tbody></table></body></html>`;

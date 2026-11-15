@@ -1,5 +1,5 @@
 <!-- Rubrique HNO : génération du planning d'astreinte d'un mois (enregistré aussitôt par le serveur, en remplaçant le
-     planning existant), avertissements, répartition, changement d'expert d'un créneau (enregistré aussitôt, règles
+     planning existant après confirmation), avertissements, répartition, changement d'expert d'un créneau (enregistré aussitôt, règles
      FPH contrôlées), export CSV -->
 <script setup lang="ts">
 import { computed, ref } from 'vue';
@@ -7,14 +7,19 @@ import { ErreurApi } from '@/api/client';
 import { apiAstreintesHno, type CreneauPlanningHno, type DisponibiliteHno } from '@/api/astreintes';
 import type { Ressource } from '@/api/ressources';
 import AppAlert from '@/composants/AppAlert.vue';
+import { useConfirmation } from '@/composants/confirmation';
 import { creneau, csvPlanning, expertsDisponibles, moisProposes, nomExpert, refusAttribution } from './hno';
 
 const props = defineProps<{ ressources: Ressource[] }>();
+const emit = defineEmits<{ genere: [mois: string] }>();
+const confirmer = useConfirmation();
 
 const mois = moisProposes();
 /** Mois suivant proposé par défaut */
 const moisChoisi = ref(mois[1]!.valeur);
 const planning = ref<CreneauPlanningHno[] | null>(null);
+/** Mois du planning affiché (nom du fichier exporté), indépendant du mois choisi ensuite dans la liste */
+const moisGenere = ref('');
 const avertissements = ref<string[]>([]);
 const repartition = ref<Array<[string, number]>>([]);
 const disponibilites = ref<DisponibiliteHno[]>([]);
@@ -45,8 +50,22 @@ async function generer() {
         return;
     }
     const [annee, numero] = moisChoisi.value.split('-').map(Number);
+    const choisi = moisChoisi.value;
+    const existant = await apiAstreintesHno.planning(choisi).catch(() => []);
+    if (existant.length) {
+        const libelle = mois.find(m => m.valeur === choisi)?.libelle ?? choisi;
+        if (
+            !(await confirmer(
+                `Un planning existe déjà pour ${libelle}. Le remplacer par un nouveau planning ?`,
+                'Remplacer'
+            ))
+        )
+            return;
+    }
     try {
         const r = await apiAstreintesHno.generer(annee!, numero!);
+        moisGenere.value = choisi;
+        emit('genere', choisi);
         planning.value = r.planning;
         avertissements.value = r.warnings ?? [];
         repartition.value = Object.entries(r.stats ?? {});
@@ -78,9 +97,9 @@ async function attribuer(s: CreneauPlanningHno, liste: HTMLSelectElement) {
     }
 }
 
-/** Le planning est enregistré à la génération et à chaque changement : simple confirmation (ancien écran) */
+/** Le planning est enregistré à la génération et à chaque changement : simple information */
 function sauvegarder() {
-    message.value = { type: 'success', texte: 'Planning sauvegardé avec succès !' };
+    message.value = { type: 'success', texte: 'Le planning est enregistré automatiquement.' };
 }
 
 function exporter() {
@@ -93,7 +112,7 @@ function exporter() {
     lien.href = URL.createObjectURL(
         new Blob([csvPlanning(planning.value, props.ressources)], { type: 'text/csv;charset=utf-8;' })
     );
-    lien.download = `planning_astreinte_${moisChoisi.value}.csv`;
+    lien.download = `planning_astreinte_${moisGenere.value}.csv`;
     lien.click();
 }
 </script>

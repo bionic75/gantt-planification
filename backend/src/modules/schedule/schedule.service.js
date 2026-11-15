@@ -6,7 +6,7 @@ import { prisma } from '../../db/prisma.js';
 import { idParam } from '../../db/values.js';
 
 /** Libellés des activités journalisées dans action_logs */
-const LOGGED_ACTIVITIES = {
+export const LOGGED_ACTIVITIES = {
     3: '🚨 SAMU (Déploiement)',
     4: '🚨 SAMU (Dev. usages)',
     5: 'ANS (Déploiement)',
@@ -14,7 +14,7 @@ const LOGGED_ACTIVITIES = {
     7: 'Qualification',
     8: 'Autre mission'
 };
-const isLoggedActivity = (/** @type {unknown} */ v) => Object.hasOwn(LOGGED_ACTIVITIES, String(v));
+export const isLoggedActivity = (/** @type {unknown} */ v) => Object.hasOwn(LOGGED_ACTIVITIES, String(v));
 
 /**
  * Découpe une clé de cellule
@@ -151,6 +151,25 @@ export async function deleteCells(keys) {
  */
 export function logActivityChanges(updates, userId, profile) {
     writeActivityLogs(updates, userId, profile).catch(err => console.error('❌ Erreur log planning:', err));
+}
+
+/**
+ * Localisations enregistrées des demi-journées désignées par des clés de cellule
+ * @param {string[]} keys
+ * @returns {Promise<Map<string, string>>} « <ressource>_<AAAA-MM-JJ>_<AM|PM> » → localisation
+ */
+export async function localisationsDe(keys) {
+    const parsed = keys.map(parseKey).filter(k => Number.isSafeInteger(Number(k.resourceId)));
+    /** @type {Map<string, string>} */
+    const lieux = new Map();
+    for (const lot of chunks([...new Set(parsed.map(k => Number(k.resourceId)))])) {
+        const rows = await prisma.scheduleData.findMany({
+            where: { resource_id: { in: lot }, type: 'localisation' },
+            select: { resource_id: true, date_key: true, value: true }
+        });
+        for (const r of rows) lieux.set(`${r.resource_id}_${r.date_key}`, r.value);
+    }
+    return lieux;
 }
 
 /** Lignes envoyées par requête (limite du nombre de paramètres SQL, SQLite notamment) */

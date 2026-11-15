@@ -3,6 +3,7 @@
 import { prisma } from '../../db/prisma.js';
 import { containsInsensitive, flag, idParam, toInt } from '../../db/values.js';
 import { badRequest, forbidden, notFound } from '../../lib/http-error.js';
+import { samuNumber } from '../../lib/samu.js';
 
 // Chaque type : libellé long, libellé court (affiché sur le planning et la carte), icône et gabarit de couleurs (fond / texte / bordure).
 // « Autre(s) » (is_other = 1) est le type de repli : ni modifiable ni supprimable.
@@ -491,7 +492,7 @@ export async function mobileList() {
  * @param {number} userId
  * @param {boolean} isAdmin
  */
-export async function listForUser(userId, isAdmin) {
+export async function listForUser(userId, isAdmin, resourceId = null) {
     const events = await allEvents();
     const ids = events.map(e => e.id);
     const [refs, participants, externals] = await Promise.all([
@@ -499,6 +500,12 @@ export async function listForUser(userId, isAdmin) {
         participantsByEvent(ids, participantWithPhoto),
         externalParticipantsByEvent(ids)
     ]);
+    /** @type {Map<number, number>} */
+    const peutParticiperPar = new Map();
+    if (resourceId)
+        for (const e of events)
+            if (TYPES_PARTICIPATION.includes(refs.type(e)?.code ?? ''))
+                peutParticiperPar.set(e.id, (await planningEnAttente(e, resourceId)) ? 1 : 0);
     return events.map(e => {
         const creator = refs.creator(e);
         const loc = refs.location(e);
@@ -512,6 +519,7 @@ export async function listForUser(userId, isAdmin) {
             ...typeFields(refs.type(e)),
             can_edit: 1,
             is_creator: e.created_by === userId || isAdmin ? 1 : 0,
+            peut_participer: peutParticiperPar.get(e.id) ?? 1,
             participants: participants.get(e.id) || [],
             external_participants: externals.get(e.id) || []
         };
@@ -684,7 +692,96 @@ export async function deleteEvent(/** @type {unknown} */ id) {
  * @param {{ start_date: string, end_date: string | null, period: string | null }} event
  * @param {number} resourceId
  */
+/** Types d'événements (visite métier, VFT sur site, test des prérequis, formation utilisateurs, accompagnement) pour lesquels « Participer » dépend de la planification de l'expert */
+export const TYPES_PARTICIPATION = [
+    'visiteMetier',
+    'vftSite',
+    'verifPrereq',
+    'formation',
+    'apd',
+    'mes',
+    'mep',
+    'reunionLancement',
+    'visiteOb'
+];
+
+/** @param {{ start_date: string, end_date: string | null, period: string | null }} event */
+function clesDemiJournees(event) {
+    const out = [];
+    const periods = event.period === 'AM' ? ['AM'] : event.period === 'PM' ? ['PM'] : ['AM', 'PM'];
+    for (
+        let d = new Date(event.start_date);
+        d <= new Date(event.end_date || event.start_date);
+        d.setDate(d.getDate() + 1)
+    )
+        for (const p of periods) out.push(`${d.toISOString().split('T')[0]}_${p}`);
+    return out;
+}
+
+/** L'événement est-il d'un type soumis à la règle de participation ? */
+export async function estEvenementTague(/** @type {{ type_id: number | null }} */ event) {
+    if (!event.type_id) return false;
+    const t = await prisma.eventType.findUnique({ where: { id: event.type_id }, select: { code: true } });
+    return !!t && TYPES_PARTICIPATION.includes(t.code);
+}
+
+/** Planification de l'expert en « 2 - Disponible / 2 - En attente d'affectation » sur toute la période de l'événement */
+export async function planningEnAttente(
+    /** @type {{ start_date: string, end_date: string | null, period: string | null }} */ event,
+    /** @type {number} */ resourceId
+) {
+    const keys = clesDemiJournees(event);
+    const cells = await prisma.scheduleData.findMany({
+        where: { resource_id: resourceId, date_key: { in: keys }, type: { in: ['available', 'activity'] } },
+        select: { date_key: true, type: true, value: true }
+    });
+    return keys.every(k => {
+        const v = (/** @type {string} */ t) => cells.find(c => c.date_key === k && c.type === t)?.value;
+        return v('available') === '2' && v('activity') === '2';
+    });
+}
+
+/** Participation écrite en « 2 - 3 » + SAMU-SAS : événements tagués, et tout événement localisé sur un SAMU-SAS (mise en service, etc.) */
+export async function ecritSamu(/** @type {{ type_id: number | null, location_id: number | null }} */ event) {
+    return (await estEvenementTague(event)) || !!(await localisationSamu(event));
+}
+
+/** Libellé de planification du SAMU-SAS de l'événement (« 🚨 SAMU 56 »), ou vide */
+export async function localisationSamu(/** @type {{ location_id: number | null }} */ event) {
+    if (!event.location_id) return '';
+    const loc = await prisma.location.findUnique({
+        where: { id: event.location_id },
+        select: { libelle_court: true, libelle_long: true }
+    });
+    const no = samuNumber(loc?.libelle_court || loc?.libelle_long);
+    return no ? `🚨 SAMU ${no}` : '';
+}
+
+/** Participation à un événement tagué : « 2 - Disponible / 3 - Déploiement » avec le SAMU-SAS de l'événement */
+async function affecterPlanningTague(
+    /** @type {{ start_date: string, end_date: string | null, period: string | null, location_id: number | null }} */ event,
+    /** @type {number} */ resourceId
+) {
+    const loc = await localisationSamu(event);
+    const set = (/** @type {string} */ date_key, /** @type {string} */ type, /** @type {string} */ value) =>
+        prisma.scheduleData.upsert({
+            where: { resource_id_date_key_type: { resource_id: resourceId, date_key, type } },
+            create: { resource_id: resourceId, date_key, type, value, notification: '1' },
+            update: { value, notification: '1' }
+        });
+    const updates = [];
+    for (const key of clesDemiJournees(event)) {
+        await set(key, 'available', '2');
+        await set(key, 'activity', '3');
+        if (loc) await set(key, 'localisation', loc);
+        const [dateStr, period] = key.split('_');
+        updates.push({ dateStr, period, newAvail: '2', newAct: '3' });
+    }
+    return updates;
+}
+
 export async function applyJoinPlanning(event, resourceId) {
+    if (await ecritSamu(event)) return affecterPlanningTague(event, resourceId);
     /** @type {Array<{ dateStr: string, period: string, newAvail: string, newAct: string }>} */
     const planningUpdates = [];
     const start = new Date(event.start_date);
@@ -729,9 +826,27 @@ export async function applyJoinPlanning(event, resourceId) {
 export async function joinEvent(id, { userId, resourceId, isExpert, skipPlanning = false }) {
     const event = await prisma.customEvent.findUnique({ where: { id: idParam(id) } });
     if (!event) throw notFound('Événement introuvable');
+    if (isExpert && resourceId && (await estEvenementTague(event)) && !(await planningEnAttente(event, resourceId)))
+        throw badRequest(
+            "Votre planification n'est pas en « 2 - En attente d'affectation » sur la période de l'événement"
+        );
     await addParticipants(event.id, [userId]);
     const planningUpdates = isExpert && resourceId && !skipPlanning ? await applyJoinPlanning(event, resourceId) : [];
     return { event, planningUpdates };
+}
+
+/**
+ * Retrait de la liste des participants (l'inverse de joinEvent) ; la planification n'est pas modifiée ici
+ * @param {unknown} id
+ * @param {number} userId
+ */
+export async function leaveEvent(id, userId) {
+    const event = await prisma.customEvent.findUnique({ where: { id: idParam(id) } });
+    if (!event) throw notFound('Événement introuvable');
+    const { count } = await prisma.customEventParticipant.deleteMany({
+        where: { event_id: event.id, user_id: userId }
+    });
+    return { event, removed: count };
 }
 
 // ---------- Notifications ----------

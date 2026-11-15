@@ -300,7 +300,7 @@ Then('la recherche trouve la ressource de test avec {int} demi-journées : {stri
     await expect(resultats).toContainText('1 expert(s) trouvé(s)');
     const r = monde.d.ressource;
     await expect(resultats.locator('tbody tr')).toHaveCount(1);
-    await expect(resultats.locator('tbody tr td')).toHaveText([`${r.nom} ${r.prenom}`, String(n), details]);
+    await expect(resultats.locator('tbody tr td')).toHaveText([`${r.prenom} ${r.nom}`, String(n), details]);
 });
 
 Then(

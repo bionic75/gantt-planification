@@ -3,6 +3,8 @@
 import crypto from 'crypto';
 import { prisma } from '../db/prisma.js';
 import { sqlTimestamp } from '../db/values.js';
+import { tabAccessMerge } from '../modules/admin/admin.service.js';
+import { getJsonSetting } from '../services/settings.js';
 import { activeSessions, touchSession } from '../state/sessions.js';
 
 /** @typedef {import('express').RequestHandler} RequestHandler */
@@ -80,26 +82,20 @@ export function requireAdminOrRh(req, res, next) {
     next();
 }
 
-/** Administrateur, ou utilisateur disposant du droit « reporting » */
+/** Onglet Reporting : administrateur par défaut, autres profils selon la configuration de l'accès aux onglets */
 /** @type {RequestHandler} */
-export function requireReportingAccess(req, res, next) {
+export async function requireReportingAccess(req, res, next) {
     if (rejectUnauthenticated(req, res)) return;
     const userId = /** @type {number} */ (req.session.userId);
-    if (req.session.activeProfile === 'admin') {
-        touchSession(userId);
-        return next();
+    const profil = req.session.activeProfile;
+    let permis = profil === 'admin';
+    if (!permis && profil) {
+        const config = tabAccessMerge(await getJsonSetting('tab_access_config').catch(() => null));
+        permis = config[profil]?.reporting === true;
     }
-    prisma.user
-        .findUnique({ where: { id: userId }, select: { has_reporting_access: true, is_admin: true } })
-        .then(user => {
-            if (!user) return res.status(403).json({ error: 'Accès refusé' });
-            if (user.is_admin === 1 || user.has_reporting_access === 1) {
-                touchSession(userId);
-                return next();
-            }
-            return res.status(403).json({ error: 'Accès au reporting non autorisé' });
-        })
-        .catch(() => res.status(403).json({ error: 'Accès refusé' }));
+    if (!permis) return res.status(403).json({ error: 'Accès au reporting non autorisé' });
+    touchSession(userId);
+    next();
 }
 
 /**
@@ -119,6 +115,21 @@ export function requireAffectationAccess(req, res, next) {
             next();
         })
         .catch(() => res.status(403).json({ error: 'Accès refusé' }));
+}
+
+/**
+ * Lecture des déploiements (frise de l'Accueil) : comptes autorisés sur l'Aide à l'affectation, et profils Expert
+ * métier et Utilisateur (lecture seule)
+ * @type {RequestHandler}
+ */
+export function requireDeploiementsLecture(req, res, next) {
+    if (rejectUnauthenticated(req, res)) return;
+    const profil = req.session.activeProfile;
+    if (profil === 'expert' || profil === 'user') {
+        touchSession(/** @type {number} */ (req.session.userId));
+        return next();
+    }
+    return requireAffectationAccess(req, res, next);
 }
 
 /**

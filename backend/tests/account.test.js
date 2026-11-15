@@ -92,7 +92,20 @@ describe('administration des comptes', () => {
         expect(row).toMatchObject({ has_reporting_access: 1, is_rh: 1, amoa_ced: 1 });
 
         const client = await loginAs(server, user, 'user');
+        // Reporting réservé au profil administrateur : le drapeau individuel ne donne plus accès
+        expect((await client.get('/api/reporting/diagnose/1/2025/1')).status).toBe(403);
+        expect((await admin.get('/api/reporting/diagnose/1/2025/1')).status).not.toBe(403);
+
+        // Onglet Reporting administrable : ouvert au profil Utilisateur par la configuration de l'accès aux onglets
+        const conf = (await admin.get('/api/tab-access')).data.config;
+        expect(conf.admin.reporting).toBe(true);
+        expect(conf.user.reporting).toBe(false);
+        conf.user.reporting = true;
+        expect((await admin.put('/api/tab-access', { config: conf })).status).toBe(200);
         expect((await client.get('/api/reporting/diagnose/1/2025/1')).status).not.toBe(403);
+        conf.user.reporting = false;
+        expect((await admin.put('/api/tab-access', { config: conf })).status).toBe(200);
+        expect((await client.get('/api/reporting/diagnose/1/2025/1')).status).toBe(403);
     });
 
     it('volontariat astreinte : refusé sans ressource rattachée', async () => {
@@ -118,10 +131,13 @@ describe('administration des comptes', () => {
             availableApps: expect.arrayContaining(['affectation'])
         });
         const client = await loginAs(server, user, 'user');
-        expect((await client.get('/api/affectation/config')).status).toBe(200);
+        expect((await client.get('/api/affectation/resources')).status).toBe(200);
 
         expect((await admin.delete(`/api/app-access/affectation/users/${user.id}`)).status).toBe(200);
-        expect((await client.get('/api/affectation/config')).status).toBe(403);
+        expect((await client.get('/api/affectation/resources')).status).toBe(403);
+        // Frise de l'Accueil : lecture des déploiements ouverte aux profils Utilisateur et Expert, sans l'application
+        expect((await client.get('/api/affectation/projects')).status).toBe(200);
+        expect((await client.get('/api/affectation/config')).status).toBe(200);
     });
 });
 

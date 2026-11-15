@@ -1,5 +1,5 @@
 // Gestion des utilisateurs : saisie, contrôles, liste, tri, détails et export des journaux (sans affichage)
-import type { ActionCompte, ConnexionsCompte, RessourceCompte, Utilisateur } from '@/api/utilisateurs';
+import type { ActionCompte, ConnexionsCompte, JournalComplet, RessourceCompte, Utilisateur } from '@/api/utilisateurs';
 
 // ---------- Saisie ----------
 
@@ -136,8 +136,8 @@ export const compteur = (liste: Utilisateur[]) => {
 export const parNom = (liste: Utilisateur[]) =>
     [...liste].sort((a, b) => `${a.nom} ${a.prenom}`.toLowerCase().localeCompare(`${b.nom} ${b.prenom}`.toLowerCase()));
 
-/** Colonnes triables (comme l'ancien écran : « Actif » et « Dernière connexion » sont sans effet) */
-export type ColonneTri = 'nom' | 'prenom' | 'trigramme' | 'username' | 'email' | 'profils';
+/** Colonnes triables */
+export type ColonneTri = 'nom' | 'prenom' | 'trigramme' | 'username' | 'email' | 'profils' | 'actif' | 'last_login';
 
 const texteColonne = (u: Utilisateur, c: ColonneTri) => {
     if (c === 'trigramme') return trigramme(u);
@@ -147,6 +147,9 @@ const texteColonne = (u: Utilisateur, c: ColonneTri) => {
                 .map(b => b.libelle)
                 .join(' ') || '—'
         );
+    if (c === 'actif') return u.actif ? '1' : '0';
+    // Dernière connexion : horodatage (comparé comme un nombre) ; « 0 » sans connexion
+    if (c === 'last_login') return u.last_login ? String(Date.parse(u.last_login) || 0) : '0';
     return u[c] ?? '';
 };
 
@@ -164,22 +167,27 @@ export function trier(liste: Utilisateur[], c: ColonneTri, croissant: boolean): 
 
 // ---------- Détails ----------
 
-/** Rôles affichés dans les détails (le profil RH n'y figure pas : anomalie conservée) */
+/** Rôles affichés dans les détails */
 export const roles = (u: Utilisateur) =>
-    [u.is_admin === 1 && 'Administrateur', u.is_expert === 1 && 'Expert', u.is_user === 1 && 'Utilisateur']
+    [
+        u.is_admin === 1 && 'Administrateur',
+        u.is_expert === 1 && 'Expert',
+        u.is_user === 1 && 'Utilisateur',
+        u.is_rh === 1 && 'RH'
+    ]
         .filter(Boolean)
         .join(', ');
 
-/** Profil d'une connexion (RH affiché « Utilisateur » : anomalie conservée) */
+/** Profil d'une connexion */
 export const profilConnexion = (p: string) =>
-    p === 'admin' ? 'Administrateur' : p === 'expert' ? 'Expert Métier' : 'Utilisateur';
+    p === 'admin' ? 'Administrateur' : p === 'expert' ? 'Expert Métier' : p === 'rh' ? 'RH' : 'Utilisateur';
 
 /** Horodatage UTC sans fuseau (SQLite) : lu comme UTC */
 const enUtc = (s: string) => (s.endsWith('Z') || s.includes('+') ? s : `${s}Z`);
 
 /** Date et heure de connexion à Paris « JJ/MM/AAAA HH:MM », et nombre de connexions */
 export function dateConnexion(c: ConnexionsCompte): string {
-    const brut = c.derniere_connexion || c.login_time;
+    const brut = c.derniere_connexion;
     const date = brut
         ? new Date(enUtc(brut)).toLocaleString('fr-FR', {
               timeZone: 'Europe/Paris',
@@ -302,10 +310,17 @@ const echapper = (v: unknown) => {
     return v.includes(';') || v.includes('"') || v.includes('\n') ? `"${v.replace(/"/g, '""')}"` : v;
 };
 
-/** Contenu de l'export (BOM pour Excel), comme l'ancien écran */
+/** Horodatage de la base (« AAAA-MM-JJ HH:MM:SS » en UTC, ou ISO) affiché à l'heure de Paris */
+function dateHeureCsv(brut: string): string {
+    if (!brut) return '-';
+    const d = new Date(enUtc(brut.replace(' ', 'T')));
+    return isNaN(d.getTime()) ? brut : d.toLocaleString('fr-FR', { timeZone: 'Europe/Paris' });
+}
+
+/** Contenu de l'export (BOM pour Excel) : connexions, actions catégorisées, modifications de planning, demandes */
 export function csvJournaux(
     u: Utilisateur,
-    connexions: ConnexionsCompte[],
+    journal: JournalComplet,
     actions: ActionCompte[],
     maintenant = new Date()
 ): string {
@@ -314,10 +329,22 @@ export function csvJournaux(
     csv += `Date d'export: ${maintenant.toLocaleString('fr-FR')}\n\n`;
 
     csv += '=== LOGS DE CONNEXION ===\nDate/Heure;Type\n';
-    // Champ « login_time » absent des connexions regroupées : « undefined » écrit (anomalie conservée)
+    const connexions = journal.connexions;
     csv += connexions.length
-        ? connexions.map(c => `${String(c.login_time)};Connexion\n`).join('')
+        ? connexions
+              .map(c => `${dateHeureCsv(c.login_time)};Connexion (${echapper(profilConnexion(c.profile))})\n`)
+              .join('')
         : 'Aucune connexion enregistrée\n';
+    csv += '\n';
+
+    // Toutes les actions du compte, regroupées par catégorie (ordre alphabétique), de la plus ancienne à la plus récente
+    csv += '=== ACTIONS PAR CATÉGORIE ===\nCatégorie;Date/Heure;Profil;Action;Détails\n';
+    if (journal.actions.length) {
+        const categories = [...new Set(journal.actions.map(a => a.categorie))].sort((a, b) => a.localeCompare(b, 'fr'));
+        for (const cat of categories)
+            for (const a of journal.actions.filter(x => x.categorie === cat))
+                csv += `${echapper(cat)};${dateHeureCsv(a.date)};${echapper(a.profil ? profilConnexion(a.profil) : '-')};${echapper(a.action)};${echapper(a.details || '-')}\n`;
+    } else csv += 'Aucune action enregistrée\n';
     csv += '\n';
 
     csv += '=== MODIFICATIONS DE PLANNING ===\n';

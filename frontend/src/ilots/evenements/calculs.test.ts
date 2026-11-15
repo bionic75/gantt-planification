@@ -107,8 +107,8 @@ describe('filtres', () => {
         expect(f({ fin: '2030-12-31' })).toEqual([2]);
     });
 
-    it('export : filtre de localisation sur un champ absent de l’API (anomalie conservée)', () => {
-        expect(filtrerExport([a, b], { ...SANS_FILTRE, localisation: '3' }, TYPES)).toEqual([]);
+    it('export : le filtre de localisation s’applique comme dans la liste', () => {
+        expect(filtrerExport([a, b], { ...SANS_FILTRE, localisation: '3' }, TYPES).map(e => e.id)).toEqual([1]);
         expect(filtrerExport([a, b], SANS_FILTRE, TYPES)).toHaveLength(2);
     });
 });
@@ -171,13 +171,15 @@ describe('exports', () => {
     const e = evt({
         label: 'FORMATION "A"',
         participants: [{ user_id: 1, nom: 'Durand', prenom: 'Léa', email: null }],
-        external_participants: [{ nom: '', prenom: '', email: 'x@y.fr' }]
+        external_participants: [{ nom: '', prenom: '', email: 'x@y.fr' }],
+        location_libelle_court: 'SAMU 44'
     });
 
-    it('CSV : en-têtes, valeurs entre guillemets, BOM', () => {
+    it('CSV : en-têtes (sans Description), localisation, valeurs entre guillemets, BOM', () => {
         const csv = exportCsv([e]);
         expect(csv.startsWith('\uFEFFType,Libellé,Date début')).toBe(true);
-        expect(csv).toContain('"FORMATION ""A""","2031-05-12","2031-05-12","","Léa Durand","x@y.fr",""');
+        expect(csv.split('\n')[0]).not.toContain('Description');
+        expect(csv).toContain('"FORMATION ""A""","2031-05-12","2031-05-12","SAMU 44","Léa Durand","x@y.fr"');
     });
 
     it('HTML : page autonome, libellé échappé', () => {
@@ -185,6 +187,8 @@ describe('exports', () => {
         expect(html).toContain('<title>Événements exportés</title>');
         expect(html).toContain('export du 12/05/2031');
         expect(html).toContain('FORMATION &quot;A&quot;');
+        expect(html).toContain('<td>SAMU 44</td>');
+        expect(html).not.toContain('Description');
     });
 });
 

@@ -143,16 +143,8 @@ export const corpsAjout = (f: FormulaireAjout): CorpsRessource => ({
     jours_max_mad: f.joursMaxMad ? parseInt(f.joursMaxMad) : null
 });
 
-/**
- * Formulaire après un ajout réussi, comme l'ancien écran : champs vidés, sauf la case « MAD volante », la date de fin
- * et les jours max (anomalie conservée)
- */
-export const apresAjout = (f: FormulaireAjout): FormulaireAjout => ({
-    ...formulaireVide(),
-    madVolante: f.madVolante,
-    dateFinMad: f.dateFinMad,
-    joursMaxMad: f.joursMaxMad
-});
+/** Formulaire après un ajout réussi : tous les champs vidés, case « MAD volante », date de fin et jours max compris */
+export const apresAjout = (): FormulaireAjout => formulaireVide();
 
 // ---------- Liste ----------
 

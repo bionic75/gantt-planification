@@ -50,8 +50,8 @@ describe('lancement et filtres', () => {
         expect(p[12]).toEqual({ valeur: '11:2026', libelle: 'Novembre 2026' });
     });
 
-    it('années : l’année courante et les cinq précédentes', () => {
-        expect(annees(new Date(2026, 0, 1))).toEqual([2026, 2025, 2024, 2023, 2022, 2021]);
+    it('années : l’année courante et les neuf précédentes', () => {
+        expect(annees(new Date(2026, 0, 1))).toEqual([2026, 2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017]);
     });
 });
 

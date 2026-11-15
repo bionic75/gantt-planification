@@ -2,6 +2,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { apiUtilisateurs, type RessourceCompte, type Utilisateur } from '@/api/utilisateurs';
+import type { ColonneTri } from './calculs';
 import { emettre } from '@/evenements';
 
 /** Message de la section (remplace les alert() de l'ancien écran) */
@@ -15,6 +16,9 @@ export const useUtilisateursStore = defineStore('admin-utilisateurs', () => {
     const ressources = ref<RessourceCompte[]>([]);
     const charge = ref(false);
     const message = ref<Message | null>(null);
+    /** Tri de la liste : conservé tant qu'on ne trie pas une autre colonne (liste relue, écran quitté puis rouvert) */
+    const tri = ref<ColonneTri | null>(null);
+    const croissant = ref<Partial<Record<ColonneTri, boolean>>>({});
 
     async function charger() {
         try {
@@ -45,5 +49,16 @@ export const useUtilisateursStore = defineStore('admin-utilisateurs', () => {
 
     const signaler = (type: Message['type'], texte: string) => (message.value = { type, texte });
 
-    return { utilisateurs, ressources, charge, message, charger, chargerRessources, apresModification, signaler };
+    return {
+        utilisateurs,
+        ressources,
+        charge,
+        message,
+        tri,
+        croissant,
+        charger,
+        chargerRessources,
+        apresModification,
+        signaler
+    };
 });

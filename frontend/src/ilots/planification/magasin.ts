@@ -54,6 +54,10 @@ export const usePlanificationStore = defineStore('planification', () => {
     /** Identifiants des ressources choisies (« » : toutes) */
     const filtreRessources = ref<string[]>([]);
     const filtreFonctions = ref<string[]>([]);
+    /** Mois courant et filtre de l'expert proposés au premier affichage de la session seulement */
+    const affichageInitialise = ref(false);
+    /** Message d'échec d'enregistrement, à afficher puis vider par l'onglet */
+    const echec = ref('');
 
     // Saisie de la session
     const enAttente = ref<Record<string, ExpertEnAttente>>({});
@@ -107,11 +111,10 @@ export const usePlanificationStore = defineStore('planification', () => {
         comptes.value = await apiPlanification.comptes(s.activeProfile === 'admin').catch(() => []);
     }
 
-    async function chargerConges(fichiers = false) {
+    /** Congés scolaires : toujours les périodes des fichiers importés (source gérée par l'administrateur) */
+    async function chargerConges() {
         try {
-            conges.value = fichiers
-                ? (await apiPlanification.congesDesFichiers()).periods || {}
-                : (await apiPlanification.conges()).holidays || {};
+            conges.value = (await apiPlanification.congesDesFichiers()).periods || {};
         } catch {
             // Congés inchangés
         }
@@ -158,7 +161,7 @@ export const usePlanificationStore = defineStore('planification', () => {
         ),
         ecouter(
             'conges-modifies',
-            siCharge(() => void chargerConges(true))
+            siCharge(() => void chargerConges())
         ),
         ecouter(
             'ressources-rechargees',
@@ -191,7 +194,7 @@ export const usePlanificationStore = defineStore('planification', () => {
     });
 
     /** Enregistre les cellules modifiées (nouvelles tentatives en cas d'échec, comme l'ancien écran) */
-    async function enregistrer(changements: Changements, tentative = 0): Promise<void> {
+    async function enregistrer(changements: Changements, precedent: Changements, tentative = 0): Promise<void> {
         const updates = Object.entries(changements).map(([key, value]) => ({ key, value }));
         try {
             await apiPlanification.enregistrer(updates);
@@ -201,11 +204,22 @@ export const usePlanificationStore = defineStore('planification', () => {
             const delai = NOUVELLES_TENTATIVES[tentative];
             if (delai === undefined) {
                 console.error('Erreur enregistrement du planning', e);
+                annuler(changements, precedent);
+                echec.value = "Enregistrement impossible, la modification n'a pas été prise en compte.";
                 return;
             }
             await new Promise(r => setTimeout(r, delai));
-            await enregistrer(changements, tentative + 1);
+            await enregistrer(changements, precedent, tentative + 1);
         }
+    }
+
+    /** Cellules remises à leur valeur d'avant, sauf celles modifiées depuis par une autre saisie */
+    function annuler(changements: Changements, precedent: Changements) {
+        const retour: Changements = {};
+        for (const [cle, valeur] of Object.entries(changements)) {
+            if ((planning.value[cle] ?? null) === valeur) retour[cle] = precedent[cle] ?? null;
+        }
+        planning.value = appliquer(planning.value, retour);
     }
 
     /**
@@ -218,13 +232,16 @@ export const usePlanificationStore = defineStore('planification', () => {
         changements: Changements,
         suivi: Suivi | null
     ) {
+        const precedent: Changements = Object.fromEntries(
+            Object.keys(changements).map(cle => [cle, planning.value[cle] ?? null])
+        );
         planning.value = appliquer(planning.value, changements);
         if (suivi) {
             const e = { ...enAttente.value };
             suivreAffectation(e, initial, planning.value, ressource, comptes.value, date, periode, suivi);
             enAttente.value = e;
         }
-        void enregistrer(changements);
+        void enregistrer(changements, precedent);
     }
 
     /** Experts notifiés ou abandonnés : retirés des affectations en attente */
@@ -283,6 +300,8 @@ export const usePlanificationStore = defineStore('planification', () => {
         mois,
         filtreRessources,
         filtreFonctions,
+        affichageInitialise,
+        echec,
         enAttente,
         modifiees,
         charger,
