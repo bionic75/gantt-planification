@@ -4,11 +4,9 @@ import { computed, ref } from 'vue';
 import type { Evenement } from '@/api/evenements';
 import AppIcone from '@/composants/AppIcone.vue';
 import {
-    aUnType,
     couleurs,
     iconeEvenement,
     libelleAffiche,
-    libelleCourt,
     nomCreateur,
     nomsParticipants,
     periodeAffichee,
@@ -46,7 +44,6 @@ function trier(cle: ColonneTableau) {
 const ariaTri = (cle: ColonneTableau) =>
     colonne.value !== cle ? 'none' : sens.value === 'asc' ? 'ascending' : 'descending';
 const lieu = (e: Evenement) => ev.localisations.find(l => l.id === e.location_id)?.libelle_court || '—';
-const secondaire = (e: Evenement) => (aUnType(e) && e.label && e.label !== libelleCourt(e) ? e.label : '');
 </script>
 
 <template>
@@ -79,7 +76,7 @@ const secondaire = (e: Evenement) => (aUnType(e) && e.label && e.label !== libel
                             }}</span
                         >
                     </td>
-                    <td>{{ secondaire(e) }}</td>
+                    <td>{{ e.label }}</td>
                     <td class="ev-tab__nowrap">{{ periodeAffichee(e).texte }}</td>
                     <td class="ev-tab__num">{{ periodeAffichee(e).jours }}</td>
                     <td class="ev-tab__nowrap">{{ lieu(e) }}</td>
