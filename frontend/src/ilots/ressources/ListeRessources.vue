@@ -325,6 +325,11 @@ const statuts = computed(() =>
     padding: 1px 6px;
     border-radius: 8px;
 }
+/* Icône du rôle (émoji remplacé par une icône bleue ou grise) : blanche sur le fond de la pastille, sinon invisible */
+.liste__badge :deep(.ui-emo) {
+    color: #fff !important;
+    margin: 0 0.1em 0 0;
+}
 .liste__badge--principal {
     background: #1565c0;
 }
