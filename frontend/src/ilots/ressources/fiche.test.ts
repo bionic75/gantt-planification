@@ -121,7 +121,7 @@ describe('périodes et particularités', () => {
         expect(periodeIncomplete('2026-01-01', '', '0')).toBeNull();
     });
 
-    it('contrôles des particularités ajoutées', () => {
+    it('contrôles des particularités (ajout et modification)', () => {
         expect(particulariteIncomplete('2026-01-01', '', '0')).toBe('Veuillez remplir les dates et le taux');
         expect(particulariteIncomplete('2026-02-01', '2026-01-01', '0')).toBe(
             'La date de fin doit être postérieure à la date de début'
