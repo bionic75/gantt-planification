@@ -1,5 +1,6 @@
 // @ts-check
 // Emails des notifications : invitations d'affectation (avec ICS), demandes d'affectation, notifications Teams
+import { gabaritMail, ligneInfo } from '../../lib/email-layout.js';
 import { escapeHtml as e, escapeHtmlLines } from '../../lib/html.js';
 import {
     ACTIVITY_LABELS,
@@ -13,7 +14,7 @@ import {
 } from '../../lib/ics.js';
 
 /**
- * Corps HTML d'une invitation (nouvelle affectation, modification ou annulation)
+ * Corps HTML d'une invitation (nouvelle affectation, modification ou annulation) : gabarit commun du site
  * @param {string} attendeeName
  * @param {string} requesterName
  * @param {{ activity: string, location?: string, slots: Array<{ date: string, period: string }> }} group
@@ -22,53 +23,28 @@ import {
 export function buildInvitationHTML(attendeeName, requesterName, group, type) {
     const isCancel = type === 'cancelled';
     const isModified = type === 'modified';
-    const color = isCancel ? '#D60B51' : isModified ? '#ff9800' : '#1D70B7';
-    const icon = isCancel ? '❌' : isModified ? '🔄' : '📅';
-    const title = isCancel ? 'Affectation annulée' : isModified ? 'Affectation modifiée' : 'Nouvelle affectation';
+    const icone = isCancel ? 'annule-grand' : isModified ? 'modifie-grand' : 'mallette-grand';
+    const titre = isCancel ? 'Affectation annulée' : isModified ? 'Affectation modifiée' : 'Nouvelle affectation';
 
-    const slotsHTML = group.slots
+    const creneaux = group.slots
         .map(s => {
             const [y, m, d] = s.date.split('-');
-            const dateStr = `${d}/${m}/${y}`;
-            const periodStr = s.period === 'AM' ? 'Matin (8h-12h)' : 'Après-midi (14h-18h)';
-            return `<li><strong>${dateStr}</strong> - ${periodStr}</li>`;
+            const periode = s.period === 'AM' ? 'Matin (8h-12h)' : 'Après-midi (14h-18h)';
+            return ligneInfo('calendrier', `<strong>${d}/${m}/${y}</strong> - ${periode}`);
         })
         .join('');
-
-    const locationHTML =
+    const lieu =
         group.location && group.location !== '-'
-            ? `<p><strong>📍 Localisation :</strong> ${e(group.location)}</p>`
+            ? ligneInfo('lieu', `<strong>Localisation :</strong> ${e(group.location)}`)
             : '';
 
-    return `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
-            <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                <h2 style="color: ${color}; border-bottom: 2px solid ${color}; padding-bottom: 10px;">
-                    ${icon} ${e(title)}
-                </h2>
-
-                <p>Bonjour ${e(attendeeName)},</p>
-
-                <p><strong>${e(requesterName)}</strong> ${isCancel ? 'a annulé' : isModified ? 'a modifié' : 'vous a affecté'} :</p>
-
-                <div style="background-color: ${isCancel ? '#fde8e8' : '#e3f2fd'}; padding: 15px; border-left: 4px solid ${color}; border-radius: 4px; margin: 15px 0;">
-                    <p style="margin: 0 0 8px 0;"><strong>Activité :</strong> ${e(group.activity)}</p>
-                    ${locationHTML}
-                    <ul style="margin: 8px 0 0 0; padding-left: 20px;">${slotsHTML}</ul>
-                </div>
-
-                ${!isCancel ? '<p style="font-size: 12px; color: #666;">💡 Cette invitation a été ajoutée à votre calendrier Outlook.</p>' : '<p style="font-size: 12px; color: #666;">Cette occurrence a été retirée de votre calendrier.</p>'}
-
-                <p style="margin-top: 20px;">Cordialement,<br>${e(requesterName)}<br>Système de planification SI-SAMU</p>
-
-                <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
-
-                <p style="color: #7f8c8d; font-size: 11px; text-align: center;">
-                    📅 Domaine des Urgences - Planification des Experts - ANS
-                </p>
-            </div>
-        </div>
-    `;
+    return gabaritMail({
+        icone,
+        titre,
+        corps: `<p style="margin:0;text-align:center;">Bonjour ${e(attendeeName)},<br><strong>${e(requesterName)}</strong> ${isCancel ? 'a annulé' : isModified ? 'a modifié' : 'vous a affecté'} :</p>`,
+        infos: ligneInfo('mallette', `<strong>Activité :</strong> ${e(group.activity)}`) + lieu + creneaux,
+        fin: `<p style="margin:0 0 14px;font-size:13px;color:#6b7a8d;">${isCancel ? 'Cette occurrence a été retirée de votre calendrier.' : 'Cette invitation a été ajoutée à votre calendrier Outlook.'}</p><p style="margin:0;">Cordialement,<br>${e(requesterName)}<br>Système de planification SI-SAMU</p>`
+    });
 }
 
 /** @typedef {{ type: string, to: string, attendeeName: string, subject: string, html: string, icsContent: string, icsMethod: string, icsFilename: string }} AssignmentEmail */
@@ -261,17 +237,17 @@ export function buildAssignmentEmails(assignments, requesterName, senderEmailAdd
  * @param {{ prenom: string, nom: string, creator_prenom: string, creator_nom: string }} notif
  * @param {{ dates?: unknown, activity?: unknown, location?: unknown }} assignmentData
  */
-export const pendingAssignmentEmail = (notif, assignmentData) => `
-                <h2>Nouvelle affectation - Planification GANTT</h2>
-                <p>Bonjour ${e(notif.prenom)} ${e(notif.nom)},</p>
-                <p><strong>${e(notif.creator_prenom)} ${e(notif.creator_nom)}</strong> vous a affecté une nouvelle activité :</p>
-                <ul>
-                    <li><strong>Période :</strong> ${e(assignmentData.dates)}</li>
-                    <li><strong>Activité :</strong> ${e(assignmentData.activity)}</li>
-                    <li><strong>Localisation :</strong> ${e(assignmentData.location)}</li>
-                </ul>
-                <p>Cordialement,<br>Le système de planification</p>
-            `;
+export const pendingAssignmentEmail = (notif, assignmentData) =>
+    gabaritMail({
+        icone: 'mallette-grand',
+        titre: 'Nouvelle affectation',
+        corps: `<p style="margin:0;text-align:center;">Bonjour ${e(notif.prenom)} ${e(notif.nom)},<br><strong>${e(notif.creator_prenom)} ${e(notif.creator_nom)}</strong> vous a affecté une nouvelle activité :</p>`,
+        infos:
+            ligneInfo('calendrier', `<strong>Période :</strong> ${e(assignmentData.dates)}`) +
+            ligneInfo('mallette', `<strong>Activité :</strong> ${e(assignmentData.activity)}`) +
+            ligneInfo('lieu', `<strong>Localisation :</strong> ${e(assignmentData.location)}`),
+        fin: '<p style="margin:0;">Cordialement,<br>Le système de planification</p>'
+    });
 
 /**
  * Demande d'affectation adressée à un expert

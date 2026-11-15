@@ -9,7 +9,24 @@ import { escapeHtml as e } from './html.js';
 export const COULEUR = '#1d70b7';
 const DOSSIER = fileURLToPath(new URL('../../assets/mail/', import.meta.url));
 
-/** @typedef {'cadenas-grand' | 'cle-grand' | 'horloge' | 'bouclier'} IconeMail */
+/** Icônes disponibles (backend/assets/mail) : grandes (titre, blanc sur disque) puis petites (lignes d'information) */
+const ICONES_MAIL = /** @type {const} */ ([
+    'cadenas-grand',
+    'cle-grand',
+    'calendrier-grand',
+    'mallette-grand',
+    'modifie-grand',
+    'annule-grand',
+    'horloge',
+    'bouclier',
+    'calendrier',
+    'evenement',
+    'lieu',
+    'utilisateur',
+    'mallette'
+]);
+
+/** @typedef {typeof ICONES_MAIL[number]} IconeMail */
 
 /**
  * Pièces jointes intégrées (images « cid ») des icônes utilisées
@@ -22,6 +39,19 @@ export const piecesIcones = noms =>
         cid: `${nom}@planification`,
         contentType: 'image/png'
     }));
+
+/**
+ * Pièces jointes des icônes référencées (« cid: ») par un HTML déjà construit, sans doublon
+ * @param {string} html
+ */
+export const piecesDeHtml = html => {
+    const noms = new Set(
+        [...String(html).matchAll(/cid:([a-z-]+)@planification/g)]
+            .map(m => /** @type {IconeMail} */ (m[1]))
+            .filter(nom => ICONES_MAIL.includes(nom))
+    );
+    return piecesIcones([...noms]);
+};
 
 /** @param {IconeMail} nom @param {number} taille */
 const img = (nom, taille) =>
@@ -37,10 +67,10 @@ export const boutonMail = (/** @type {string} */ lien, /** @type {string} */ lib
 
 /**
  * Email complet
- * @param {{ icone: IconeMail, titre: string, corps: string, infos?: string }} p
- *   corps et infos : HTML déjà échappé par l'appelant
+ * @param {{ icone: IconeMail, titre: string, corps: string, infos?: string, fin?: string }} p
+ *   corps, infos et fin (texte après les informations) : HTML déjà échappé par l'appelant
  */
-export const gabaritMail = ({ icone, titre, corps, infos = '' }) => `<!DOCTYPE html>
+export const gabaritMail = ({ icone, titre, corps, infos = '', fin = '' }) => `<!DOCTYPE html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${e(titre)}</title></head>
 <body style="margin:0;padding:0;background:#f5f7fa;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;"><tr><td align="center" style="padding:28px 12px;">
@@ -56,6 +86,7 @@ export const gabaritMail = ({ icone, titre, corps, infos = '' }) => `<!DOCTYPE h
     </td></tr>
     <tr><td style="padding:14px 36px 8px;font-size:15px;line-height:23px;color:#2c3e50;">${corps}</td></tr>
     ${infos ? `<tr><td style="padding:8px 36px 26px;"><table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-top:1px solid #eef1f6;margin-top:6px;">${infos}</table></td></tr>` : ''}
+    ${fin ? `<tr><td style="padding:0 36px 26px;font-size:14px;line-height:21px;color:#2c3e50;">${fin}</td></tr>` : ''}
     <tr><td align="center" style="padding:14px 24px;background:#f6f9fd;border-top:1px solid #eef1f6;font-size:11.5px;color:#8a97a8;">Message automatique — merci de ne pas y répondre.</td></tr>
   </table>
 </td></tr></table>
