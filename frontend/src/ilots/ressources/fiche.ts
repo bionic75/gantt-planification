@@ -156,7 +156,7 @@ export function periodeIncomplete(debut: string, fin: string, taux: string): str
     return null;
 }
 
-/** Particularité ajoutée incomplète ou incohérente : message, ou null (la modification n'est pas contrôlée) */
+/** Particularité (ajoutée ou modifiée) incomplète ou incohérente : message, ou null */
 export function particulariteIncomplete(debut: string, fin: string, taux: string): string | null {
     if (!debut || !fin || taux === '') return 'Veuillez remplir les dates et le taux';
     if (debut > fin) return 'La date de fin doit être postérieure à la date de début';

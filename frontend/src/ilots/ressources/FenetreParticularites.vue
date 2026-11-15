@@ -67,6 +67,8 @@ function modifier(p: Particularite) {
 async function enregistrer() {
     const e = edition.value;
     if (!e || !props.periode) return;
+    messageEdition.value = particulariteIncomplete(e.debut, e.fin, e.taux) ?? '';
+    if (messageEdition.value) return;
     try {
         await apiRessources.modifierParticularite(props.ressource, props.periode.id, e.id, {
             taux: parseFloat(e.taux),
