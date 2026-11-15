@@ -258,7 +258,6 @@ Anomalies relevées pendant la migration (comportement conservé, correction à 
   de la ressource ; refusée au profil RH, dont la fiche reste alors sans historique).
 - Ressources (fiche) : la suppression d'une période de MAD ne recharge pas la liste des ressources ; l'ajout, la
   modification et la suppression d'une particularité ne rechargent pas la planification.
-- Ressources (consultation RH) : l'historique des taux garde son en-tête « Actions », sans cellules.
 - CRA : le lien d'une notification (`?tab=cra&cra_id=`) n'ouvre le CRA qu'à la connexion par la mire ; une session
   déjà ouverte affiche l'application sans l'ouvrir.
 - CRA : un compte administrateur connecté sous un autre profil voit les actions d'administration du détail (refusées
