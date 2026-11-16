@@ -1,13 +1,19 @@
 // @ts-check
 // Aide à l'affectation opérationnelle (déploiements des SAMU) : /api/affectation
 import { Router } from 'express';
-import { requireAdmin, requireAffectationAccess, requireDeploiementsLecture } from '../../middlewares/auth.js';
+import {
+    requireAdmin,
+    requireAffectationAccess,
+    requireAuth,
+    requireDeploiementsLecture
+} from '../../middlewares/auth.js';
 import { sondagePublicLimiters } from '../../middlewares/rate-limit.js';
 import { asyncHandler as h } from '../../middlewares/error-handler.js';
 import * as ctrl from './affectation.controller.js';
 import * as asana from './asana.controller.js';
 import * as ateliers from './ateliers.controller.js';
 import * as sondages from './sondages.controller.js';
+import * as statuts from './statuts.controller.js';
 import * as exp from './export.controller.js';
 
 const router = Router();
@@ -17,6 +23,17 @@ router.get('/affectation/config', requireDeploiementsLecture, h(ctrl.config));
 router.put('/affectation/colors', requireAdmin, h(ctrl.saveColors));
 router.get('/affectation/users', requireAdmin, h(ctrl.users));
 router.get('/affectation/resources', requireAffectationAccess, h(ctrl.resources));
+
+// Statuts de déploiement (couleur, ordre) et carte des déploiements
+router.get('/affectation/deployment-statuses', requireAuth, h(statuts.list));
+router.get('/affectation/deployment-map', requireAuth, h(statuts.map));
+router.post('/affectation/deployment-statuses', requireAdmin, h(statuts.create));
+router.put('/affectation/deployment-statuses-order', requireAdmin, h(statuts.reorder));
+router.put('/affectation/deployment-statuses/:id', requireAdmin, h(statuts.update));
+router.delete('/affectation/deployment-statuses/:id', requireAdmin, h(statuts.remove));
+router.put('/affectation/deployment-samus/:locationId', requireAdmin, h(statuts.setSamuStatus));
+router.delete('/affectation/deployment-samus/:locationId', requireAdmin, h(statuts.removeSamu));
+router.post('/affectation/deployment-import-mes', requireAdmin, h(statuts.importMes));
 
 // Déploiements
 router.get('/affectation/projects', requireDeploiementsLecture, h(ctrl.listProjects));

@@ -26,7 +26,7 @@ Protections :
 | `mfaPending` | Connexion en attente de double authentification |
 | `apiKey` | Clé d’API (en-tête X-Api-Key) |
 
-329 routes, par module (`backend/src/modules/<module>`) :
+338 routes, par module (`backend/src/modules/<module>`) :
 
 ## admin
 
@@ -83,6 +83,15 @@ Protections :
 | POST | `/api/affectation/ateliers/simulate` | affectation |
 | PUT | `/api/affectation/colors` | admin |
 | GET | `/api/affectation/config` | deploiements |
+| POST | `/api/affectation/deployment-import-mes` | admin |
+| GET | `/api/affectation/deployment-map` | auth |
+| PUT | `/api/affectation/deployment-samus/:locationId` | admin |
+| DELETE | `/api/affectation/deployment-samus/:locationId` | admin |
+| GET | `/api/affectation/deployment-statuses` | auth |
+| POST | `/api/affectation/deployment-statuses` | admin |
+| PUT | `/api/affectation/deployment-statuses-order` | admin |
+| PUT | `/api/affectation/deployment-statuses/:id` | admin |
+| DELETE | `/api/affectation/deployment-statuses/:id` | admin |
 | GET | `/api/affectation/events` | affectation |
 | GET | `/api/affectation/export-config` | affectation |
 | PUT | `/api/affectation/export-config` | admin |
