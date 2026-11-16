@@ -10,7 +10,8 @@
     "test:headed": "bddgen && playwright test --headed",
     "test:ui": "bddgen && playwright test --ui",
     "test:auth": "bddgen && playwright test --project=authentification",
-    "seed": "node scripts/seed.mjs",
+    "seed": "node scripts/seed.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "test:complet": "cross-env E2E_TAGS=\"not @manuel\" E2E_WORKERS=1 npm test",
     "report": "playwright show-report",
     "report:monocart": "monocart show-report monocart-report/index.html",
@@ -21,6 +22,8 @@
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",
+    "@types/mailparser": "3.9.0",
+    "@types/node": "22.20.5",
     "allure": "3.20.1",
     "allure-playwright": "3.13.0",
     "cross-env": "^7.0.3",
@@ -28,7 +31,8 @@
     "imapflow": "^2.9.1",
     "mailparser": "^3.12.4",
     "monocart-reporter": "2.14.1",
-    "playwright-bdd": "9.2.1"
+    "playwright-bdd": "9.2.1",
+    "typescript": "6.0.3"
   },
   "engines": {
     "node": ">=22.22.2"
