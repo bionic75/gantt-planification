@@ -17,6 +17,7 @@ sans compilation ([migration-backend-ts.md](migration-backend-ts.md)).
 
 ```
 backend/                 serveur (Node.js, Express, TypeScript exécuté sans compilation, voir migration-backend-ts.md)
+  package.json           paquet du serveur : dépendances (Express, Prisma, Puppeteer…), tests, types, client Prisma
   server.ts              point d'entrée : base, données initiales, application, tâches de fond, écoute HTTP
   src/
     app.ts               application Express : middlewares communs, routes /api, pages, fichiers statiques
@@ -35,19 +36,29 @@ backend/                 serveur (Node.js, Express, TypeScript exécuté sans co
   scripts/               commandes d'exploitation (migrations, adoption, transfert, sauvegarde, inventaire des routes)
   tests/                 tests automatisés du serveur (vitest.config.ts)
 frontend/                interface Vue 3 / TypeScript (voir « Interface Vue ») ; build dans dist/frontend (non versionné)
+  package.json           paquet de l'interface : dépendances (Vue, Vite, Leaflet…), build, tests, types
   pages/                 pages HTML servies par le serveur avec leur point d'entrée (voir « Frontend »)
   img/                   images servies sous /img (favicons, icônes, logos)
   src/                   sources Vue / TypeScript (points d'entrée, composants, styles)
   public/                fichiers servis tels quels sous /vue/ (mode-affichage.js)
-e2e/                     tests de bout en bout (Playwright BDD, voir e2e/README.md)
+e2e/                     tests de bout en bout (Playwright BDD, voir e2e/README.md), paquet indépendant
 docs/                    documentation
 config/, data/           exploitation : configuration (config.json), base SQLite et fichiers (PDF des CRA) ;
                          répertoires montés par Docker (/app/config, /app/data)
 ```
 
 Les commandes se lancent depuis la racine du projet (`npm start`, `npm test`, `npm run db:migrate`…), qui reste le
-répertoire courant du serveur : `.env`, `config/` et `data/` y sont lus. Un seul `package.json` pour le serveur, le
-frontend et les outils.
+répertoire courant du serveur : `.env`, `config/` et `data/` y sont lus.
+
+Paquets npm (_workspaces_) : le `package.json` racine déclare les paquets `backend` et `frontend`, porte les outils
+communs (ESLint, Prettier, TypeScript), la version de l'application et les commandes ; chaque paquet déclare ses
+propres dépendances. Un seul `npm install` (ou `npm ci`) à la racine installe l'ensemble, avec un seul
+`package-lock.json`. Les commandes de la racine délèguent au paquet concerné (`npm test` → `npm run test -w backend`,
+`npm run build:front` → `npm run build -w frontend`…), arguments transmis (filtres relatifs au paquet :
+`npm test -- tests/users.test.ts`) ; les commandes d'exploitation (`npm start`, `db:migrate`,
+`db:adopt`…) s'exécutent depuis la racine. Une dépendance s'ajoute au paquet qui l'utilise :
+`npm install <paquet> -w backend` (ou `-w frontend`). L'image Docker n'installe que les dépendances d'exécution du
+paquet `backend` ; l'interface y est construite à part, avec les dépendances du seul paquet `frontend`.
 
 ## Démarrage du serveur
 

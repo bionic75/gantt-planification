@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { DeploiementCarte, StatutDeploiement } from '@/api/deploiements';
 import { couleursDepartements, departementDe, type Contours } from './departements';
@@ -60,7 +61,9 @@ describe('departementDe', () => {
         expect(departementDe(100, 100, contours)).toBeNull();
     });
     it('lit le vrai fichier : Paris 75, Marseille 13', () => {
-        const reel = JSON.parse(readFileSync('frontend/public/departements.geojson', 'utf8')) as Contours;
+        // Chemin relatif à ce fichier : les tests se lancent depuis la racine ou depuis le paquet frontend
+        const fichier = path.join(import.meta.dirname, '../../../public/departements.geojson');
+        const reel = JSON.parse(readFileSync(fichier, 'utf8')) as Contours;
         expect(departementDe(48.8566, 2.3522, reel)?.code).toBe('75');
         expect(departementDe(43.2965, 5.3698, reel)?.code).toBe('13');
     });

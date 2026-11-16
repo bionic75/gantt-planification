@@ -17,7 +17,7 @@ SQLite (par défaut), PostgreSQL (16 ou plus) et MariaDB (10.10 ou plus).
 Les secrets (`SESSION_SECRET`, `DB_USER`, `DB_PASSWORD`) sont listés dans `.env.example`.
 
 Le client Prisma est généré pour un seul fournisseur. Il est généré à l'installation (`npm install`, script
-`postinstall`) d'après `DB_PROVIDER`. Après un changement de fournisseur : `npm run db:generate`. L'image Docker
+`postinstall` du paquet `backend`, exécuté depuis la racine du projet pour lire son `.env`) d'après `DB_PROVIDER`. Après un changement de fournisseur : `npm run db:generate`. L'image Docker
 reçoit le fournisseur en argument de construction (`docker build --build-arg DB_PROVIDER=postgresql`) ; les
 workflows GitHub le prennent dans la variable du dépôt `DB_PROVIDER`.
 
