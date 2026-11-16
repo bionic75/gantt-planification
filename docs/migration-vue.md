@@ -248,11 +248,13 @@ Anomalies relevées pendant la migration (comportement conservé, correction à 
 - Reprise des données : le tri « Créé par » se fait sur « nom prénom », la colonne affiche « prénom NOM ».
 - Automatisation n°1 : dans la fenêtre de test, la case « Sélectionner » de l'en-tête est sans effet sur les experts
   cochés (fonction homonyme de l'aide à l'affectation chargée après celle de l'automatisation).
-- Ressources : le bouton « Exporter (Excel) » télécharge un fichier CSV.
+- Ressources : le bouton « Exporter (Excel) » télécharge un fichier CSV. **Comportement assumé** (décision du
+  16/11/2026) : le CSV, ouvert par Excel, tient lieu d'export Excel.
 - Ressources : le tri de la liste se fait sur le texte affiché des cellules (badges SAMU compris) ; la liste revient à
   l'ordre alphabétique à chaque rechargement, le sens du dernier tri de chaque colonne étant conservé.
 - CRA : pour un CRA en cours, « Télécharger PDF » ouvre une page à imprimer (bouton « Imprimer / Enregistrer PDF »),
-  pas un fichier.
+  pas un fichier. **Comportement assumé** (décision du 16/11/2026) : la page sert à imprimer ou enregistrer en PDF ;
+  le fichier PDF signé n'existe qu'à partir du visa N2.
 - Calendrier mensuel (impression) : les boutons ◀ ▶ sont imprimés.
 - Calendrier des congés et événements : les en-têtes portent les flèches de tri « ▲▼ » des tableaux de l'application
   (sans tri) ; à l'impression, les en-têtes du week-end perdent leur jaune.

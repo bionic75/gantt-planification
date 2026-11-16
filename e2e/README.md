@@ -31,7 +31,7 @@ Les variables d'environnement du système sont prioritaires sur le fichier.
 
 ## Authentification et codes OTP
 
-1. Le projet Playwright `authentification` (`auth.setup.js`) connecte les 4 profils **l'un après l'autre**,
+1. Le projet Playwright `authentification` (`auth.setup.ts`) connecte les 4 profils **l'un après l'autre**,
    dans l'ordre Administrateur → Expert → Utilisateur → RH, par la mire de connexion, avec le code reçu par e-mail.
    Les sessions sont enregistrées dans `.auth/` puis réutilisées par tous les scénarios (et par les lancements
    suivants tant qu'elles restent valides, `E2E_AUTH_MAX_AGE_HOURS`).
@@ -113,7 +113,7 @@ E2E_TAGS="@cra" npm test                                        # une fonctionna
       profil RH).
     - **Carte** : les lieux de test sont créés aux mêmes coordonnées ; un marqueur s'active au clavier (focus puis
       Entrée), un clic pouvant être intercepté par un autre marqueur.
-    - **Analyse de fichiers** : fichiers produits par les étapes (`steps/analyse.js`) et classeur
+    - **Analyse de fichiers** : fichiers produits par les étapes (`steps/analyse.ts`) et classeur
       `fixtures/analyse/classeur.xlsx` (feuille « Lisez-moi » sans données, puis feuille « Données » : titre, ligne vide,
       intitulés Code / Libellé / Date / Montant, 5 lignes de mars à juin 2031, la dernière avec une heure) ; rien n'est envoyé au serveur.
     - **Bons de commande des déplacements** : une année par fonctionnalité (`35` : 2031, et 2032 pour un déplacement
@@ -155,7 +155,7 @@ E2E_TAGS="@cra" npm test                                        # une fonctionna
 
 ### Instance vierge : `npm run seed`
 
-`scripts/seed.mjs` crée ces préalables sur une instance neuve (CI, poste de développement) : 4 localisations SAMU
+`scripts/seed.ts` crée ces préalables sur une instance neuve (CI, poste de développement) : 4 localisations SAMU
 géolocalisées, la ressource de l'expert (volontaire aux astreintes), les 4 comptes de test (logins et mots de passe de
 `.env`, e-mail `E2E_SHARED_MAILBOX`), les applications de l'administrateur, le SMTP de test et la double
 authentification par e-mail demandée à chaque connexion. Relançable sans effet sur une instance déjà initialisée.
@@ -180,7 +180,7 @@ Le job `e2e` de `.github/workflows/ci.yml` s'exécute à chaque push et pull req
 
 1. Mailpit en conteneur de service (SMTP 1025, API 8025) ;
 2. application de la branche démarrée sur une base SQLite neuve ;
-3. `scripts/seed.mjs` ;
+3. `scripts/seed.ts` ;
 4. scénarios par défaut sans `@internet` (2 workers), puis `@destructif` seul (`E2E_RAPPORT=destructif`) ;
 5. rapport Allure généré à partir des deux exécutions ;
 6. rapports publiés en artefact `e2e-reports` (Playwright, Cucumber HTML / JUnit, Monocart, Allure, journal du
@@ -196,10 +196,19 @@ l'environnement de recette.
 features/        scénarios Gherkin, un fichier par domaine du cahier de tests
 steps/           définitions des étapes (une par domaine) + étapes communes
 support/         configuration, boîte e-mail (IMAP / Mailpit), connexion, verrou OTP, données de test, « monde »
-auth.setup.js    connexions séquentielles des 4 profils
+scripts/seed.ts  jeu de données d'une instance neuve (CI, poste de développement)
+auth.setup.ts    connexions séquentielles des 4 profils
 ```
 
-Contrôles communs à tous les scénarios (`support/monde.js`, `support/fixtures.js`) : erreurs JavaScript, réponses 5xx
+TypeScript : étapes, support, configuration et jeu de données sont en TypeScript `strict`, exécutés sans
+compilation (Playwright et playwright-bdd chargent les fichiers `.ts` ; `node scripts/seed.ts` efface les types,
+Node.js 22.18 ou plus). Syntaxe « effaçable » seulement (ni `enum`, ni `namespace`) et imports avec l'extension
+`.ts`. Vérification : `npm run typecheck` (dans `e2e/`) ou `npm run typecheck:e2e` (à la racine, comme la CI).
+Données partagées entre étapes : `monde.d`, décrites par `support/donnees-scenario.ts` (un champ ajouté par une
+étape y est déclaré ; un nom mal orthographié est une erreur de compilation). Une étape qui lit une donnée posée par
+une étape précédente l'affirme présente (`monde.d.craId!`).
+
+Contrôles communs à tous les scénarios (`support/monde.ts`, `support/fixtures.ts`) : erreurs JavaScript, réponses 5xx
 et violations de la politique de sécurité du contenu sont jointes au rapport (« problemes ») ; une violation de la
 politique, dans la page ou dans une fenêtre qu'elle ouvre (impression), fait échouer le scénario (lots 6.5 et 6.6 de
 la migration : ni script ni style en ligne).

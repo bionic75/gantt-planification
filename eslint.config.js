@@ -72,9 +72,21 @@ export default [
         languageOptions: { sourceType: 'script', globals: globals.browser }
     },
     {
-        // Tests d'interface : fonctions exécutées dans la page (Puppeteer, Playwright)
-        files: ['backend/tests/ui.test.js', 'e2e/**/*.js'],
+        // Tests d'interface : fonctions exécutées dans la page (Puppeteer)
+        files: ['backend/tests/ui.test.js'],
         languageOptions: { globals: globals.browser }
+    },
+    // Tests de bout en bout (e2e/) : TypeScript ; fonctions exécutées dans la page (globales du navigateur)
+    ...tseslint.configs.recommended.map(config => ({ ...config, files: ['e2e/**/*.ts'] })),
+    {
+        files: ['e2e/**/*.ts'],
+        languageOptions: { globals: { ...globals.node, ...globals.browser } },
+        rules: {
+            'no-unused-vars': 'off',
+            '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', caughtErrors: 'none' }],
+            // Réponses de l'API et données de test non typées (corps JSON relus par les étapes)
+            '@typescript-eslint/no-explicit-any': 'off'
+        }
     },
     // Interface Vue (frontend/, docs/migration-vue.md) : TypeScript et composants monofichiers
     ...[...tseslint.configs.recommended, ...pluginVue.configs['flat/recommended']].map(config => ({
