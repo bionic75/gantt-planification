@@ -21,14 +21,18 @@ When("j'ajoute le statut de déploiement de test", async ({ monde }) => {
 });
 
 Then('le statut de déploiement de test est listé', async ({ monde }) => {
-    await expect(rubrique(monde).getByTestId('deploiements-statuts')).toContainText(monde.d.statutDeploiement);
+    // Le libellé d'un statut est dans un champ de saisie : on lit sa valeur
+    await expect(rubrique(monde).getByLabel(`Libellé du statut ${monde.d.statutDeploiement}`)).toHaveValue(
+        monde.d.statutDeploiement
+    );
 });
 
 /** Ligne du SAMU de test dans le tableau (libellé comparé sans tenir compte de la casse) */
 const ligneSamu = (/** @type {Monde} */ monde) =>
     rubrique(monde)
         .getByTestId('deploiements-tableau')
-        .locator('tr', { hasText: new RegExp(monde.d.localisation.court, 'i') });
+        .getByRole('row')
+        .filter({ hasText: new RegExp(monde.d.localisation.court, 'i') });
 
 /** Le SAMU de test, une fois ajouté, doit être retiré en fin de scénario */
 const nettoyerSamu = async (/** @type {Monde} */ monde) => {
