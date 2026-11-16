@@ -1,8 +1,8 @@
 // Emails d'événement et d'affectation : gabarit commun du site (icônes PNG jointes en « cid »)
 import { describe, expect, it } from 'vitest';
 import { piecesDeHtml } from '../src/lib/email-layout.ts';
-import { mobilisationEmail, participantAddedEmail } from '../src/modules/events/events.emails.js';
-import { buildInvitationHTML, pendingAssignmentEmail } from '../src/modules/notifications/notifications.emails.js';
+import { mobilisationEmail, participantAddedEmail } from '../src/modules/events/events.emails.ts';
+import { buildInvitationHTML, pendingAssignmentEmail } from '../src/modules/notifications/notifications.emails.ts';
 
 const evenement = {
     label: 'SAMU 05 - REUNION DE LANCEMENT STRATÉGIQUE',

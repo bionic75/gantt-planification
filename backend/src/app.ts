@@ -11,7 +11,7 @@ import { IMG_DIR } from './lib/paths.ts';
 import { rejectCrossOrigin } from './middlewares/csrf.ts';
 import { errorHandler } from './middlewares/error-handler.ts';
 import { requirePasswordChanged } from './middlewares/password-change.ts';
-import pagesRoutes from './modules/admin/pages.routes.js';
+import pagesRoutes from './modules/admin/pages.routes.ts';
 import apiRoutes from './routes.ts';
 
 /** Valeurs des paramètres sensibles (jetons, clés, mots de passe) masquées dans une URL journalisée */

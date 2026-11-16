@@ -11,7 +11,6 @@ export async function getSetting(key: string) {
  * Paramètre JSON ; null si absent ou invalide. Contenu libre (configuration enregistrée par l'interface) : l'appelant
  * en connaît la forme.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- JSON enregistré, de forme propre à chaque paramètre
 export async function getJsonSetting(key: string): Promise<any> {
     const value = await getSetting(key);
     if (!value) return null;

@@ -63,11 +63,11 @@ export async function listRoutes() {
         reloadEmailConfig: () => {}
     });
 
-    // Module de chaque routeur : src/modules/<module>/<nom>.routes.js
+    // Module de chaque routeur : src/modules/<module>/<nom>.routes.ts (ou .js, migration vers TypeScript en cours)
     const moduleOf = new Map();
     const modulesDir = path.join(ROOT, 'src/modules');
     for (const dir of fs.readdirSync(modulesDir)) {
-        for (const file of fs.readdirSync(path.join(modulesDir, dir)).filter(f => f.endsWith('.routes.js'))) {
+        for (const file of fs.readdirSync(path.join(modulesDir, dir)).filter(f => /\.routes\.(js|ts)$/.test(f))) {
             const { default: router } = await import(pathToFileURL(path.join(modulesDir, dir, file)).href);
             moduleOf.set(router, dir);
         }
