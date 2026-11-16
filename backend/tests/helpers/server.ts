@@ -53,7 +53,7 @@ const databaseOf = (workDir: string) =>
 
 /** Applique les migrations sur la base de test (comme « npm start » avant le serveur) */
 function migrate(workDir: string) {
-    execFileSync(process.execPath, [path.join(ROOT, 'scripts', 'db-migrate.mjs')], {
+    execFileSync(process.execPath, [path.join(ROOT, 'scripts', 'db-migrate.ts')], {
         cwd: ROOT,
         env: definedOnly({
             PATH: process.env.PATH,

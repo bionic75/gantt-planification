@@ -1,12 +1,12 @@
 # Architecture
 
 Application web de planification des ressources : serveur Node.js (Express) et base de données gérée par Prisma,
-interface Vue 3 servie par le même serveur ([migration-vue.md](migration-vue.md)). Le serveur est en cours de migration
-vers TypeScript ([migration-backend-ts.md](migration-backend-ts.md)).
+interface Vue 3 servie par le même serveur ([migration-vue.md](migration-vue.md)). Le serveur est en TypeScript, exécuté
+sans compilation ([migration-backend-ts.md](migration-backend-ts.md)).
 
 | Élément         | Technologie                                                                        |
 | --------------- | ---------------------------------------------------------------------------------- |
-| Serveur         | Node.js 22, Express 4, TypeScript exécuté sans compilation (en cours de migration) |
+| Serveur         | Node.js 22, Express 4, TypeScript exécuté sans compilation                         |
 | Base de données | Prisma 7 : SQLite (défaut), PostgreSQL ou MariaDB ([détails](base-de-donnees.md))  |
 | Interface       | Vue 3 / TypeScript dans `frontend/` (pages, images, sources, build Vite)           |
 | PDF             | Chromium piloté par Puppeteer (CRA, export du planning) ; LibreOffice (PPTX → PDF) |
@@ -16,7 +16,7 @@ vers TypeScript ([migration-backend-ts.md](migration-backend-ts.md)).
 ## Arborescence
 
 ```
-backend/                 serveur (Node.js, Express, TypeScript : migration en cours, voir migration-backend-ts.md)
+backend/                 serveur (Node.js, Express, TypeScript exécuté sans compilation, voir migration-backend-ts.md)
   server.ts              point d'entrée : base, données initiales, application, tâches de fond, écoute HTTP
   src/
     app.ts               application Express : middlewares communs, routes /api, pages, fichiers statiques
@@ -31,7 +31,7 @@ backend/                 serveur (Node.js, Express, TypeScript : migration en co
     state/sessions.ts    suivi en mémoire des utilisateurs connectés
     generated/prisma/    client Prisma généré (non versionné)
   prisma/                schéma source (schema.base.prisma), schémas et migrations par base
-  prisma.config.js       configuration de la CLI Prisma (chemins absolus : commandes lancées depuis la racine)
+  prisma.config.ts       configuration de la CLI Prisma (chemins absolus : commandes lancées depuis la racine)
   scripts/               commandes d'exploitation (migrations, adoption, transfert, sauvegarde, inventaire des routes)
   tests/                 tests automatisés du serveur (vitest.config.ts)
 frontend/                interface Vue 3 / TypeScript (voir « Interface Vue ») ; build dans dist/frontend (non versionné)
@@ -54,9 +54,9 @@ frontend et les outils.
 `backend/server.ts` : connexion à la base, vérification de l'encodage (PostgreSQL) et des migrations appliquées (sinon
 arrêt avec le message « npm run db:migrate »), données initiales (`backend/src/db/seed.ts` : compte `admin`, paramètres,
 types d'événements), configuration SMTP enregistrée, construction de l'application, routes de sauvegarde
-(`backend/scripts/db-dump.js`), démarrage de la file d'emails et des tâches planifiées, écoute sur `PORT`.
+(`backend/scripts/db-dump.ts`), démarrage de la file d'emails et des tâches planifiées, écoute sur `PORT`.
 
-`npm start` et l'image Docker appliquent d'abord les migrations en attente (`backend/scripts/db-migrate.mjs`).
+`npm start` et l'image Docker appliquent d'abord les migrations en attente (`backend/scripts/db-migrate.ts`).
 
 ## Traitement d'une requête
 

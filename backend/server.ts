@@ -4,7 +4,7 @@ import { env } from './src/config/env.ts';
 import { execFileSync } from 'child_process';
 import type { Express } from 'express';
 import fs from 'fs';
-import { registerDumpRoutes } from './scripts/db-dump.js';
+import { registerDumpRoutes } from './scripts/db-dump.ts';
 import { createApp, finalizeApp } from './src/app.ts';
 import { checkEncoding, checkMigrations, connectPrisma, prisma } from './src/db/prisma.ts';
 import { seedDatabase } from './src/db/seed.ts';
@@ -84,7 +84,7 @@ function listen(app: Express, attempt = 1) {
 function appliquerMigrationsEnDeveloppement() {
     if (env.NODE_ENV !== 'development') return;
     try {
-        execFileSync(process.execPath, [new URL('./scripts/db-migrate.mjs', import.meta.url).pathname], {
+        execFileSync(process.execPath, [new URL('./scripts/db-migrate.ts', import.meta.url).pathname], {
             stdio: 'inherit',
             env: process.env
         });
