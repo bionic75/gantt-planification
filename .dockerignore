@@ -3,6 +3,7 @@ data.db-shm
 data.db-wal
 data/
 node_modules/
+**/node_modules/
 .env
 .env.*
 !.env.example
