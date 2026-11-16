@@ -6,10 +6,6 @@ import { enqueueEmail } from '../../services/email-queue.ts';
 import { mobilisationEmail, participantAddedEmail } from './events.emails.ts';
 import { activeUsersWithEmail, notificationContext } from './events.service.ts';
 
-/**
- * @param {{ startDate: string, endDate?: string, label: string, location_id?: unknown, participants?: unknown,
- *   needs_resources?: unknown, notify_user_ids?: unknown }} body
- */
 export async function notifyEventCreated(
     body: {
         startDate: string;

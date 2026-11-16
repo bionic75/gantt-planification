@@ -3,7 +3,7 @@ import cors from 'cors';
 import express, { type Express, type RequestHandler } from 'express';
 import session from 'express-session';
 import helmet from 'helmet';
-import { isRestoreInProgress } from '../scripts/db-dump.js';
+import { isRestoreInProgress } from '../scripts/db-dump.ts';
 import { env } from './config/env.ts';
 import { PrismaSessionStore } from './db/session-store.ts';
 import { envoyerIndex, envoyerMobile, modeFrontend, PORT_HMR } from './lib/frontend.ts';
@@ -36,7 +36,7 @@ function securityHeaders() {
                 scriptSrcAttr: ["'none'"],
                 // Feuilles de l'application seulement (lot 6.6) : ni attribut style ni bloc <style> dans le HTML (styles
                 // posés en JavaScript admis) ; développement : <style> injectés par le serveur Vite ; aide en ligne :
-                // styles en ligne admis par sa route (pages.routes.js)
+                // styles en ligne admis par sa route (pages.routes.ts)
                 styleSrc: ["'self'", ...(modeFrontend() === 'vite' ? ["'unsafe-inline'"] : [])],
                 imgSrc: [
                     "'self'",

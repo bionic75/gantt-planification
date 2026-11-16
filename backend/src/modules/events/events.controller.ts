@@ -1,7 +1,7 @@
 import { formatDateFR } from '../../lib/utils.ts';
 import { logUserAction } from '../../services/action-log.ts';
 import { samuNumber } from '../../lib/samu.ts';
-import * as affectation from '../affectation/affectation.service.js';
+import * as affectation from '../affectation/affectation.service.ts';
 import { sendTeamsNotificationFromServer } from '../notifications/notifications.service.ts';
 import { notifyEventCreated } from './events.notifications.ts';
 import * as duplicates from './events.duplicates.ts';

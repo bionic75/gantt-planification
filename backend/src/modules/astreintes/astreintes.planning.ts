@@ -3,14 +3,6 @@
 
 type Slot = { date: string; type_creneau: string; resource_id: number | null; year: unknown; month: unknown };
 
-/**
- * @param {{
- *   year: any, month: any,
- *   volontaires: Array<{ id: number }>,
- *   disponibilites: Array<{ resource_id: number, date: string }>,
- *   affectations: Array<{ resource_id: number, date_key: string }>
- * }} input
- */
 export function generatePlanning({
     year,
     month,

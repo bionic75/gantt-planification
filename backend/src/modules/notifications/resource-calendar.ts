@@ -100,10 +100,8 @@ function pastille(a: Astreinte | null) {
 }
 
 /**
- * Calendrier du mois : en-tête (nom, mois, trigramme) et tableau des semaines
- * @param {{ ressource: { nom: string, prenom: string | null, trigramme: string | null }, annee: number,
- *   mois: number, cellules: Record<string, string>, astreintes: Astreinte[], aujourdhui: string }} donnees
- *   mois de 0 à 11 ; cellules indexées « <type>_<AAAA-MM-JJ>_<AM|PM> » ; aujourdhui « AAAA-MM-JJ »
+ * Calendrier du mois : en-tête (nom, mois, trigramme) et tableau des semaines.
+ * mois de 0 à 11 ; cellules indexées « <type>_<AAAA-MM-JJ>_<AM|PM> » ; aujourdhui « AAAA-MM-JJ »
  */
 export function calendrierRessource({
     ressource,

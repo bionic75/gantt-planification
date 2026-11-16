@@ -1,7 +1,7 @@
 // Routeur /api : un sous-routeur par domaine fonctionnel.
 import { Router } from 'express';
 import adminRoutes from './modules/admin/admin.routes.ts';
-import affectationRoutes from './modules/affectation/affectation.routes.js';
+import affectationRoutes from './modules/affectation/affectation.routes.ts';
 import astreintesHoRoutes from './modules/astreintes-ho/ho.routes.ts';
 import astreintesRoutes from './modules/astreintes/astreintes.routes.ts';
 import authRoutes from './modules/auth/auth.routes.ts';
