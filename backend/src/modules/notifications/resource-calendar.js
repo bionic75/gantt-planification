@@ -1,8 +1,8 @@
 // @ts-check
 // Calendrier mensuel d'une ressource (demi-journées, pastilles ASTR / HNO) : aperçu avant impression et envoi par
 // e-mail. Construit par le serveur à partir du planning enregistré : la page ne fournit ni contenu ni objet.
-import { prisma } from '../../db/prisma.js';
-import { escapeHtml as echapper } from '../../lib/html.js';
+import { prisma } from '../../db/prisma.ts';
+import { escapeHtml as echapper } from '../../lib/html.ts';
 import { listForPlanning } from '../astreintes/astreintes.service.js';
 
 const MOIS = [

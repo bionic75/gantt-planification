@@ -1,7 +1,7 @@
 // @ts-check
-import { toInt } from '../../db/values.js';
-import { badRequest, forbidden } from '../../lib/http-error.js';
-import { formatDateFR } from '../../lib/utils.js';
+import { toInt } from '../../db/values.ts';
+import { badRequest, forbidden } from '../../lib/http-error.ts';
+import { formatDateFR } from '../../lib/utils.ts';
 import { checkCraLock } from '../cra/cra.service.js';
 import { sendTeamsNotificationFromServer } from '../notifications/notifications.service.js';
 import * as service from './astreintes.service.js';

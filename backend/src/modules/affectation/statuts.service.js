@@ -1,8 +1,8 @@
 // @ts-check
 // Statuts de déploiement (libellé, couleur, ordre) et statut de chaque déploiement
-import { prisma } from '../../db/prisma.js';
-import { idParam } from '../../db/values.js';
-import { HttpError, badRequest, notFound } from '../../lib/http-error.js';
+import { prisma } from '../../db/prisma.ts';
+import { idParam } from '../../db/values.ts';
+import { HttpError, badRequest, notFound } from '../../lib/http-error.ts';
 
 /**
  * Couleurs proposées pour les statuts, de la moins avancée à la plus avancée (carte de France : teintes bien

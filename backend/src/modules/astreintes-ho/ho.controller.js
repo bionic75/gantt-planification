@@ -1,6 +1,6 @@
 // @ts-check
-import { badRequest } from '../../lib/http-error.js';
-import { logUserAction } from '../../services/action-log.js';
+import { badRequest } from '../../lib/http-error.ts';
+import { logUserAction } from '../../services/action-log.ts';
 import { DEFAULT_TEMPLATES, TEMPLATE_FIELDS } from './ho.emails.js';
 import {
     ansUpdateMailInfo,
@@ -58,6 +58,7 @@ export async function save(/** @type {Request} */ req, /** @type {Response} */ r
     const empty = { applied: [], skipped: 0, touchesCurrentWeek: false, currentWeek: '' };
     const result = hoChanges.length ? await service.applyChanges(session, hoChanges) : empty;
     const ansResult = ansChanges.length ? await ans.applyAnsChanges(session, ansChanges) : null;
+    /** @type {{ sent: boolean, reason?: string, recipients?: number, error?: unknown }} */
     let ansMail = { sent: false, reason: 'aucune modification' };
     if (ansResult && ansResult.applied.length) {
         logUserAction(req, 'Astreintes HO ANS : modification du planning', {
@@ -67,6 +68,7 @@ export async function save(/** @type {Request} */ req, /** @type {Response} */ r
         if (ansResult.touchesCurrentWeek)
             ansMail = await notifyAnsUpdate(session.name, ansResult.applied, ansResult.currentWeek);
     }
+    /** @type {{ sent: boolean, reason?: string, recipients?: number, error?: unknown }} */
     let mail = { sent: false, reason: 'aucune modification' };
     if (result.applied.length) {
         logUserAction(req, 'Astreintes HO : modification du planning', {

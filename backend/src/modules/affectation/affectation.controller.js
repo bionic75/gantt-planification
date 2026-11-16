@@ -1,7 +1,7 @@
 // @ts-check
-import { badRequest, notFound } from '../../lib/http-error.js';
-import { samuNumber as affSamuNumber } from '../../lib/samu.js';
-import { logUserAction } from '../../services/action-log.js';
+import { badRequest, notFound } from '../../lib/http-error.ts';
+import { samuNumber as affSamuNumber } from '../../lib/samu.ts';
+import { logUserAction } from '../../services/action-log.ts';
 import { evtResolveType } from '../events/events.service.js';
 import * as svc from './affectation.service.js';
 import {

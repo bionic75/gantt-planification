@@ -1,9 +1,9 @@
 // @ts-check
 // Import des déploiements depuis Asana : fichier CSV exporté, ou API (jeton chiffré, espace de travail, équipe)
-import { badRequest, HttpError, notFound } from '../../lib/http-error.js';
-import { samuNumber as affSamuNumber } from '../../lib/samu.js';
-import { logUserAction } from '../../services/action-log.js';
-import { deleteSettings } from '../../services/settings.js';
+import { badRequest, HttpError, notFound } from '../../lib/http-error.ts';
+import { samuNumber as affSamuNumber } from '../../lib/samu.ts';
+import { logUserAction } from '../../services/action-log.ts';
+import { deleteSettings } from '../../services/settings.ts';
 import * as svc from './affectation.service.js';
 import {
     ASANA_KEYS,
@@ -139,7 +139,9 @@ export async function deleteToken(/** @type {Request} */ req, /** @type {Respons
 
 /** Test du jeton : compte et espaces de travail accessibles */
 export async function test(/** @type {Request} */ req, /** @type {Response} */ res) {
-    const me = (await asanaApi(await asanaToken(), '/users/me?opt_fields=name,email,workspaces.name')).data;
+    const me = /** @type {any} */ (
+        await asanaApi(await asanaToken(), '/users/me?opt_fields=name,email,workspaces.name')
+    ).data;
     res.json({ name: me.name, email: me.email, workspaces: me.workspaces || [] });
 }
 
@@ -254,7 +256,7 @@ export async function refreshAll(/** @type {Request} */ req, /** @type {Response
     const out = { total: deps.length, updated: [], unchanged: [], noMatch: [], errors: [], conflicts: [] };
     for (const dep of deps) {
         try {
-            const r = await asanaRefreshDeployment(req, token, ctx, dep);
+            const r = /** @type {any} */ (await asanaRefreshDeployment(req, token, ctx, dep));
             if (r.conflicts && r.conflicts.length)
                 out.conflicts.push({ id: dep.id, samu: dep.samu_name, asana: r.asana, rows: r.conflicts });
             if (r.unchanged) out.unchanged.push(dep.samu_name);
@@ -393,7 +395,7 @@ export async function tasks(/** @type {Request} */ req, /** @type {Response} */ 
         rule: asanaRuleText(key, modele),
         current: cur(key),
         auto: key === 'date_debut' ? (auto.demarDate ? { date: auto.demarDate } : null) : auto.found[key] || null,
-        sources: c0.sources[key] || [],
+        sources: /** @type {Record<string, any>} */ (c0.sources)[key] || [],
         override: ov[key] || null
     }));
     const taskList = complet.map((/** @type {any} */ t) => ({

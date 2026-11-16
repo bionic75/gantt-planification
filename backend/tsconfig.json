@@ -1,0 +1,25 @@
+{
+    // Serveur en TypeScript, exécuté sans compilation : Node 22 efface les types au chargement des fichiers .ts
+    // (syntaxe effaçable seulement : ni enum, ni namespace, ni propriétés de paramètres ; imports avec l'extension .ts).
+    // Migration progressive (docs/migration-backend-ts.md) : les fichiers .js restants sont vérifiés s'ils portent
+    // // @ts-check. Vérification : npm run typecheck:back (à la racine du projet).
+    "compilerOptions": {
+        "target": "ES2023",
+        // Node 22 : ES2024, assistants d'itérateurs (filter, map… sur un générateur) et opérations d'ensembles
+        "lib": ["ES2024", "ES2025.Iterator", "ES2025.Collection"],
+        "module": "NodeNext",
+        "moduleResolution": "NodeNext",
+        "types": ["node"],
+        "strict": true,
+        "noEmit": true,
+        "allowJs": true,
+        "checkJs": false,
+        "allowImportingTsExtensions": true,
+        "erasableSyntaxOnly": true,
+        "verbatimModuleSyntax": true,
+        "resolveJsonModule": true,
+        "skipLibCheck": true
+    },
+    "include": ["server.ts", "src/**/*.ts", "src/**/*.js", "tests/**/*.ts", "tests/**/*.js", "vitest.config.ts"],
+    "exclude": ["src/generated"]
+}

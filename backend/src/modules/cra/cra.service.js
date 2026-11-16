@@ -1,9 +1,9 @@
 // @ts-check
 // Comptes rendus d'activité (CRA) : données, listes et circuit de validation.
 // Statuts : a_completer → soumis (expert) → vise_n1 → vise_n2 (administrateurs) → diffuse (RH).
-import { prisma } from '../../db/prisma.js';
-import { idParam, sqlTimestamp } from '../../db/values.js';
-import { badRequest, forbidden, HttpError, notFound } from '../../lib/http-error.js';
+import { prisma } from '../../db/prisma.ts';
+import { idParam, sqlTimestamp } from '../../db/values.ts';
+import { badRequest, forbidden, HttpError, notFound } from '../../lib/http-error.ts';
 
 /** @typedef {Awaited<ReturnType<typeof prisma.cra.findUnique>> & {}} Cra */
 /** @typedef {{ userId: number, name: string, email: string, ip?: string, userAgent?: string }} Signer */

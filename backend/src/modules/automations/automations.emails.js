@@ -1,6 +1,6 @@
 // @ts-check
 // Emails des automatisations : rappel de saisie des disponibilités (n°1), sauvegarde du planning (n°2)
-import { escapeHtml as e } from '../../lib/html.js';
+import { escapeHtml as e } from '../../lib/html.ts';
 
 /** Rappel aux experts sans disponibilité saisie pour le mois à venir */
 export const reminderEmail = (

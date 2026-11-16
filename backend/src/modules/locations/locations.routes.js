@@ -1,8 +1,8 @@
 // @ts-check
 // Localisations (SAMU-SAS et autres lieux)
 import { Router } from 'express';
-import { requireAdmin, requireAuth } from '../../middlewares/auth.js';
-import { asyncHandler as h } from '../../middlewares/error-handler.js';
+import { requireAdmin, requireAuth } from '../../middlewares/auth.ts';
+import { asyncHandler as h } from '../../middlewares/error-handler.ts';
 import * as ctrl from './locations.controller.js';
 
 const router = Router();

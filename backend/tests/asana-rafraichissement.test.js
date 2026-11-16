@@ -2,8 +2,8 @@
 // Asana), nouvelles étapes « Réunion de lancement stratégique » et « Visite OB ». L'API Asana est simulée.
 import http from 'node:http';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { ADMIN, startServer } from './helpers/server.js';
-import { loginAs } from './helpers/fixtures.js';
+import { ADMIN, startServer } from './helpers/server.ts';
+import { loginAs } from './helpers/fixtures.ts';
 
 let asana;
 let asanaPort;

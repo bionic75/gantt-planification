@@ -3,8 +3,8 @@
 // Filet de sécurité du découpage du frontend : un script manquant ou chargé dans le mauvais ordre fait échouer ces tests.
 import puppeteer from 'puppeteer';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { ADMIN, BROWSER_PATH, startServer } from './helpers/server.js';
-import { createExpert, createUser, loginAs } from './helpers/fixtures.js';
+import { ADMIN, BROWSER_PATH, startServer } from './helpers/server.ts';
+import { createExpert, createUser, loginAs } from './helpers/fixtures.ts';
 
 const MOBILE_UA =
     'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';

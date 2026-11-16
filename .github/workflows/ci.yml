@@ -34,6 +34,10 @@ jobs:
       - name: Format check
         run: npm run format:check
 
+      # Serveur (backend/) : types TypeScript stricts (exécuté sans compilation, docs/migration-backend-ts.md)
+      - name: Backend type check
+        run: npm run typecheck:back
+
       # Interface Vue (frontend/) : types, tests unitaires, build (servi ensuite par les tests du serveur)
       - name: Frontend type check
         run: npm run typecheck:front
@@ -229,7 +233,7 @@ jobs:
           export SESSION_SECRET="$(openssl rand -hex 32)"
           mkdir -p "$DB_PATH"
           node backend/scripts/db-migrate.mjs
-          nohup node backend/server.js > "$RUNNER_TEMP/app.log" 2>&1 &
+          nohup node backend/server.ts > "$RUNNER_TEMP/app.log" 2>&1 &
           for i in $(seq 1 60); do
             if curl -fs http://localhost:3000/api/version; then exit 0; fi
             sleep 1

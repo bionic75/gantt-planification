@@ -1,7 +1,7 @@
 // @ts-check
-import { prisma } from '../../db/prisma.js';
-import { badRequest } from '../../lib/http-error.js';
-import { logUserAction } from '../../services/action-log.js';
+import { prisma } from '../../db/prisma.ts';
+import { badRequest } from '../../lib/http-error.ts';
+import { logUserAction } from '../../services/action-log.ts';
 import * as svc from './ateliers.service.js';
 
 /** @typedef {import('express').Request} Request */

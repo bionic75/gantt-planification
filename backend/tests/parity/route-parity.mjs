@@ -4,16 +4,16 @@
 // Sont comparés : codes de réponse et messages d'erreur, et contenu des réponses GET (horodatages et
 // empreintes de mots de passe neutralisés).
 //
-// Usage : node tests/parity/route-parity.mjs <entrée de référence> [<entrée comparée = server.js>]
+// Usage : node tests/parity/route-parity.mjs <entrée de référence> [<entrée comparée = server.ts>]
 //   ex. : node tests/parity/route-parity.mjs server.legacy.js
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { ADMIN, startServer } from '../helpers/server.js';
+import { ADMIN, startServer } from '../helpers/server.ts';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const routes = JSON.parse(fs.readFileSync(path.join(ROOT, 'tests/fixtures/routes.json'), 'utf8'));
-const [reference, candidate = 'server.js'] = process.argv.slice(2);
+const [reference, candidate = 'server.ts'] = process.argv.slice(2);
 if (!reference) {
     console.error('Usage : node tests/parity/route-parity.mjs <entrée de référence> [<entrée comparée>]');
     process.exit(2);

@@ -1,9 +1,9 @@
 // @ts-check
 // Événements personnalisés : types (couleurs, type « Autre »), événements, participants internes et externes
-import { prisma } from '../../db/prisma.js';
-import { containsInsensitive, flag, idParam, toInt } from '../../db/values.js';
-import { badRequest, forbidden, notFound } from '../../lib/http-error.js';
-import { samuNumber } from '../../lib/samu.js';
+import { prisma } from '../../db/prisma.ts';
+import { containsInsensitive, flag, idParam, toInt } from '../../db/values.ts';
+import { badRequest, forbidden, notFound } from '../../lib/http-error.ts';
+import { samuNumber } from '../../lib/samu.ts';
 
 // Chaque type : libellé long, libellé court (affiché sur le planning et la carte), icône et gabarit de couleurs (fond / texte / bordure).
 // « Autre(s) » (is_other = 1) est le type de repli : ni modifiable ni supprimable.
@@ -491,6 +491,7 @@ export async function mobileList() {
  * Tous les événements, vus par un utilisateur (is_creator : créateur ou administrateur)
  * @param {number} userId
  * @param {boolean} isAdmin
+ * @param {number | null} [resourceId]
  */
 export async function listForUser(userId, isAdmin, resourceId = null) {
     const events = await allEvents();
@@ -722,7 +723,7 @@ function clesDemiJournees(event) {
 export async function estEvenementTague(/** @type {{ type_id: number | null }} */ event) {
     if (!event.type_id) return false;
     const t = await prisma.eventType.findUnique({ where: { id: event.type_id }, select: { code: true } });
-    return !!t && TYPES_PARTICIPATION.includes(t.code);
+    return !!t && TYPES_PARTICIPATION.includes(/** @type {string} */ (t.code));
 }
 
 /** Planification de l'expert en « 2 - Disponible / 2 - En attente d'affectation » sur toute la période de l'événement */
@@ -780,7 +781,10 @@ async function affecterPlanningTague(
     return updates;
 }
 
-export async function applyJoinPlanning(event, resourceId) {
+export async function applyJoinPlanning(
+    /** @type {{ start_date: string, end_date: string | null, period: string | null, type_id: number | null, location_id: number | null }} */ event,
+    /** @type {number} */ resourceId
+) {
     if (await ecritSamu(event)) return affecterPlanningTague(event, resourceId);
     /** @type {Array<{ dateStr: string, period: string, newAvail: string, newAct: string }>} */
     const planningUpdates = [];

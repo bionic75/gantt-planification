@@ -1,10 +1,10 @@
 // @ts-check
 // CRA des MAD volantes : lignes reprises de la planification (activités, planning d'astreinte)
 // et report vers la planification des corrections faites dans le CRA.
-import { prisma } from '../../db/prisma.js';
-import { idParam } from '../../db/values.js';
-import { forbidden, notFound } from '../../lib/http-error.js';
-import { samuNumber } from '../../lib/samu.js';
+import { prisma } from '../../db/prisma.ts';
+import { idParam } from '../../db/values.ts';
+import { forbidden, notFound } from '../../lib/http-error.ts';
+import { samuNumber } from '../../lib/samu.ts';
 import { monthBounds } from './cra.service.js';
 
 /** Objet des lignes CRA selon le code d'activité de la planification */
@@ -44,7 +44,7 @@ async function plannedHalfDays(resourceId, prefix) {
     for (const r of rows) (byKey[r.date_key] ??= {})[r.type] = r.value;
     return Object.keys(byKey)
         .sort()
-        .map(key => ({ key, ...byKey[key] }))
+        .map(key => /** @type {Record<string, string>} */ ({ key, ...byKey[key] }))
         .filter(c => c.activity && parseInt(c.activity) >= 3 && c.available === '2');
 }
 

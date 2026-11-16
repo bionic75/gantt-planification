@@ -1,5 +1,5 @@
 // Point d'entrée de la page publique d'un sondage de date (frontend/pages/sondage.html, balises injectées par le serveur,
-// backend/src/lib/frontend.js)
+// backend/src/lib/frontend.ts)
 import { createApp } from 'vue';
 // Feuille de la page (ancien bloc <style>), avant celles du composant
 import '@/sondage/sondage.css';

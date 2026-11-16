@@ -42,7 +42,7 @@ Première connexion : compte administrateur `admin` / `admin` (ou `INITIAL_ADMIN
 ## Configuration
 
 Variables d'environnement décrites dans [.env.example](.env.example) et validées au démarrage
-(`backend/src/config/env.js`) : le serveur refuse de démarrer si une variable obligatoire manque. En production :
+(`backend/src/config/env.ts`) : le serveur refuse de démarrer si une variable obligatoire manque. En production :
 `NODE_ENV=production`, `SESSION_SECRET` (32 caractères minimum) et `APP_URL` sont obligatoires.
 
 La configuration SMTP (envoi des emails), la double authentification et les paramètres de l'application se règlent

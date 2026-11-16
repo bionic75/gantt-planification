@@ -1,9 +1,9 @@
 // @ts-check
 // Authentification : connexion, session, profils, mot de passe oublié, double authentification
 import { Router } from 'express';
-import { requireAdmin, requireAuth } from '../../middlewares/auth.js';
-import { asyncHandler as h } from '../../middlewares/error-handler.js';
-import { loginLimiters, passwordResetRequestLimiter, tokenCheckLimiter } from '../../middlewares/rate-limit.js';
+import { requireAdmin, requireAuth } from '../../middlewares/auth.ts';
+import { asyncHandler as h } from '../../middlewares/error-handler.ts';
+import { loginLimiters, passwordResetRequestLimiter, tokenCheckLimiter } from '../../middlewares/rate-limit.ts';
 import * as ctrl from './auth.controller.js';
 import { requireMfaPending } from './mfa-pending.js';
 

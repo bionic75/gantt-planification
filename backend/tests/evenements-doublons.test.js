@@ -1,7 +1,7 @@
 // Événements : recherche de doublons (certains et probables) et fusion
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { ADMIN, startServer } from './helpers/server.js';
-import { createExpert, createUser, loginAs } from './helpers/fixtures.js';
+import { ADMIN, startServer } from './helpers/server.ts';
+import { createExpert, createUser, loginAs } from './helpers/fixtures.ts';
 import { compareEvents, labelSimilarity, normalizeLabel } from '../src/modules/events/events.duplicates.js';
 
 let server;

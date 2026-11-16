@@ -60,7 +60,7 @@ if (!sourceTables.has('_prisma_migrations')) {
     fail("La base source n'est pas gérée par les migrations : adoptez-la d'abord (npm run db:adopt, sur une copie).");
 }
 
-const { prisma } = await import('../src/db/prisma.js');
+const { prisma } = await import('../src/db/prisma.ts');
 const applied = async rows => new Set(rows.map(r => r.migration_name));
 const sourceMigrations = await applied(
     source

@@ -2,8 +2,8 @@
 // Astreintes HO ANS : un ou plusieurs utilisateurs (case « Astreinte HO ANS » cochée) désignés par jour ouvré.
 // Droits : les administrateurs désignent n'importe quels utilisateurs, sur toutes les semaines ; un utilisateur ayant la case
 // cochée ne s'inscrit ou ne se retire que lui-même, de la semaine en cours aux semaines à venir.
-import { prisma } from '../../db/prisma.js';
-import { badRequest, forbidden } from '../../lib/http-error.js';
+import { prisma } from '../../db/prisma.ts';
+import { badRequest, forbidden } from '../../lib/http-error.ts';
 import { isValidDate, isWeekday, parisToday, weekStart } from './ho.dates.js';
 
 /** @typedef {{ user_id: number, nom: string, prenom: string, trigramme: string | null, email: string | null }} AnsUser */

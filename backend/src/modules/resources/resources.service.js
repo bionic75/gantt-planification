@@ -1,9 +1,9 @@
 // @ts-check
 // Accès aux données : ressources, historique des taux MAD, particularités, affectations SAMU
-import { prisma } from '../../db/prisma.js';
-import { flag, idParam, optional, toFloat, toInt } from '../../db/values.js';
-import { badRequest, notFound } from '../../lib/http-error.js';
-import { isEmail, parseEmailLines } from '../../lib/email.js';
+import { prisma } from '../../db/prisma.ts';
+import { flag, idParam, optional, toFloat, toInt } from '../../db/values.ts';
+import { badRequest, notFound } from '../../lib/http-error.ts';
+import { isEmail, parseEmailLines } from '../../lib/email.ts';
 
 export const today = () => new Date().toISOString().split('T')[0];
 const OPEN_END = '9999-12-31';
