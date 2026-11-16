@@ -9,7 +9,7 @@ import tseslint from 'typescript-eslint';
 const LEGACY_CODE = [
     'backend/src/modules/affectation/asana.service.js',
     'backend/src/modules/affectation/export.service.js',
-    'backend/src/modules/poi/poi.external.js',
+    'backend/src/modules/poi/poi.external.ts',
     'backend/src/jobs/**'
 ];
 
@@ -72,7 +72,7 @@ export default [
     },
     {
         // Tests d'interface : fonctions exécutées dans la page (Puppeteer)
-        files: ['backend/tests/ui.test.js'],
+        files: ['backend/tests/ui.test.ts'],
         languageOptions: { globals: globals.browser }
     },
     // Tests de bout en bout (e2e/) : TypeScript ; fonctions exécutées dans la page (globales du navigateur)
@@ -118,7 +118,10 @@ export default [
         rules: {
             // Remplacées par leurs équivalents TypeScript
             'no-unused-vars': 'off',
-            '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', caughtErrors: 'none' }]
+            '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', caughtErrors: 'none' }],
+            // any explicite admis (comme pour e2e/) : données JSON libres (paramètres enregistrés, corps de requête,
+            // réponses de l'API dans les tests), annotations reprises du JSDoc d'origine
+            '@typescript-eslint/no-explicit-any': 'off'
         }
     },
     prettier

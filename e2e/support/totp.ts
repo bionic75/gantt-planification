@@ -1,4 +1,4 @@
-// Code TOTP (RFC 6238, HMAC-SHA1, 6 chiffres, pas de 30 s) : même calcul que backend/src/modules/auth/mfa.service.js
+// Code TOTP (RFC 6238, HMAC-SHA1, 6 chiffres, pas de 30 s) : même calcul que backend/src/modules/auth/mfa.service.ts
 import crypto from 'crypto';
 
 const BASE32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';

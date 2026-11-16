@@ -4,7 +4,6 @@ import crypto from 'crypto';
 /** Réponse de l'API : corps JSON décodé (forme propre à chaque route), sinon texte brut */
 export interface Reponse {
     status: number;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- corps propre à chaque route, vérifié par les tests
     data: any;
     headers: Headers;
 }

@@ -7,7 +7,7 @@ import { HttpError } from '../../lib/http-error.ts';
 import { samuNumber as affSamuNumber } from '../../lib/samu.ts';
 import { logUserAction } from '../../services/action-log.ts';
 import { getJsonSetting, setSetting } from '../../services/settings.ts';
-import { notifierAffectations } from '../notifications/notifications.service.js';
+import { notifierAffectations } from '../notifications/notifications.service.ts';
 
 /** @typedef {import('express').Request} Request */
 /** @typedef {Awaited<ReturnType<typeof prisma.affectationProject.findMany>>[number]} ProjectRow */
