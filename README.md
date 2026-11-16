@@ -24,13 +24,13 @@ Prérequis : Node.js 22.22.2 ou plus. Les PDF utilisent le Chromium télécharg�
 indiqué par `PUPPETEER_EXECUTABLE_PATH`).
 
 ```bash
-npm install            # dépendances et client Prisma (SQLite par défaut)
+npm install            # dépendances des paquets backend et frontend, client Prisma (SQLite par défaut)
 cp .env.example .env   # configuration (facultative en développement)
 npm run dev            # migrations de la base, puis serveur sur http://localhost:3000
 ```
 
 Organisation : serveur dans `backend/` (Express, Prisma, scripts d'exploitation, tests), interface dans `frontend/`
-(Vue 3), tests de bout en bout dans `e2e/` ([architecture](docs/architecture.md#arborescence)). Les commandes se
+(Vue 3), chacun avec son `package.json` (workspaces npm, installés ensemble par `npm install` à la racine), tests de bout en bout dans `e2e/` ([architecture](docs/architecture.md#arborescence)). Les commandes se
 lancent depuis la racine du projet, qui garde `.env`, `config/` et `data/`.
 
 En développement, l'interface Vue (`frontend/`) est compilée à la volée par le serveur. Pour lancer le serveur avec

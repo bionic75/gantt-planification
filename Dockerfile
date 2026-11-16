@@ -2,9 +2,11 @@
 # dans l'image finale, sans les outils de build (dépendances de développement)
 FROM node:22-alpine AS frontend
 WORKDIR /build
+# Paquets npm (workspaces) : manifestes de la racine et des deux paquets, puis dépendances du seul paquet frontend
 COPY package.json package-lock.json ./
-# Sans scripts d'installation : ni client Prisma ni navigateur Puppeteer, inutiles au build
-RUN npm ci --ignore-scripts
+COPY backend/package.json ./backend/
+COPY frontend/package.json ./frontend/
+RUN npm ci --ignore-scripts --workspace frontend
 COPY frontend ./frontend
 RUN npm run build:front
 
@@ -35,8 +37,8 @@ USER node
 COPY --chown=node:node . .
 COPY --from=frontend --chown=node:node /build/dist/frontend ./dist/frontend
 
-# Installation (génère aussi le client Prisma : script postinstall)
-RUN npm ci --omit=dev && npm cache clean --force
+# Dépendances d'exécution du seul paquet backend (génère aussi le client Prisma : script postinstall du paquet)
+RUN npm ci --omit=dev --workspace backend && npm cache clean --force
 
 # Gestionnaires de paquets inutiles à l'exécution (l'application et ses commandes se lancent avec node) : retirés de
 # l'image, avec leurs propres dépendances, signalées par les analyses de vulnérabilités (Trivy)
