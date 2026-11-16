@@ -19,7 +19,8 @@ import {
     periodeAffichee,
     SANS_FILTRE,
     tableauPossible,
-    trierTableau
+    trierTableau,
+    typesAlphabetiques
 } from './calculs';
 
 const evt = (champs: Partial<Evenement>): Evenement => ({
@@ -217,5 +218,36 @@ describe('tableau triable', () => {
         expect(ids('debut', 'desc')).toEqual([3, 1, 2]);
         expect(ids('jours', 'desc')).toEqual([2, 1, 3]);
         expect(ids('lieu', 'asc')).toEqual([2, 3, 1]);
+    });
+});
+
+describe('types du formulaire', () => {
+    it('ordre alphabétique (accents et casse ignorés), « Autre(s) » en dernier', () => {
+        const t = (id: number, label_long: string, is_other = 0) =>
+            ({
+                id,
+                label_long,
+                is_other,
+                code: null,
+                label_short: null,
+                icon: '',
+                bg_color: '',
+                text_color: '',
+                border_color: ''
+            }) as TypeEvenement;
+        const liste = [
+            t(1, 'Webinaire'),
+            t(2, 'Autre(s)', 1),
+            t(3, 'Congrès'),
+            t(4, 'accompagnement terrain'),
+            t(5, 'Exercice')
+        ];
+        expect(typesAlphabetiques(liste).map(x => x.label_long)).toEqual([
+            'accompagnement terrain',
+            'Congrès',
+            'Exercice',
+            'Webinaire',
+            'Autre(s)'
+        ]);
     });
 });
