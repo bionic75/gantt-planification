@@ -1,0 +1,17 @@
+// Planning : /api/schedule
+import { Router } from 'express';
+import { requireAdmin, requireAuth } from '../../middlewares/auth.ts';
+import { asyncHandler as h } from '../../middlewares/error-handler.ts';
+import * as ctrl from './schedule.controller.ts';
+
+const router = Router();
+
+router.get('/schedule', requireAuth, h(ctrl.get));
+// Profil « utilisateur » : planning en lecture seule
+router.post('/schedule', requireAuth, ctrl.rejectReadOnlyProfile, h(ctrl.save));
+router.post('/schedule/save', requireAuth, ctrl.rejectReadOnlyProfile, h(ctrl.saveBatch));
+router.post('/schedule/preview-reset-month', requireAuth, h(ctrl.previewResetMonth));
+router.post('/schedule/reset-month', requireAuth, ctrl.rejectReadOnlyProfile, h(ctrl.resetMonth));
+router.post('/schedule/cleanup-old-format', requireAdmin, h(ctrl.cleanupLegacyFormat));
+
+export default router;

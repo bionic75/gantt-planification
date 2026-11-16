@@ -2,7 +2,7 @@
 // types d'événements, accès initial à l'application d'affectation.
 import { env } from '../config/env.ts';
 import { hashPassword } from '../lib/password.ts';
-import { evtSeedTypes } from '../modules/events/events.service.js';
+import { evtSeedTypes } from '../modules/events/events.service.ts';
 import { prisma } from './prisma.ts';
 
 /** Paramètres créés avec leur valeur par défaut s'ils n'existent pas */

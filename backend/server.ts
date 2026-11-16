@@ -12,7 +12,7 @@ import { startScheduler } from './src/jobs/scheduler.ts';
 import { installerFrontend } from './src/lib/frontend.ts';
 import { emailConfig, loadEmailConfig } from './src/lib/mailer.ts';
 import { requireAdmin } from './src/middlewares/auth.ts';
-import { evtSeedTypes } from './src/modules/events/events.service.js';
+import { evtSeedTypes } from './src/modules/events/events.service.ts';
 import { logUserAction } from './src/services/action-log.ts';
 import { getReusableTransporter, resetReusableTransporter, startEmailQueueWorker } from './src/services/email-queue.ts';
 

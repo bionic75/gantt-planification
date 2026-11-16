@@ -8,7 +8,6 @@ import { sqlTimestamp } from './values.ts';
 const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000;
 const CLEANUP_INTERVAL_MS = 15 * 60 * 1000;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- signature des rappels d'express-session
 type Callback = (err?: any, value?: any) => void;
 
 /** Expiration d'une session : celle de son cookie, sinon 24 h */

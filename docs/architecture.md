@@ -194,8 +194,8 @@ base temporaire) et l'interroge par HTTP ; ils restent valables quelle que soit 
 | `backend/tests/helpers/server.ts`      | démarrage, redémarrage et arrêt d'un serveur de test                              |
 | `backend/tests/helpers/fixtures.ts`    | création de comptes, ressources, experts ; connexion                              |
 | `backend/tests/helpers/smtp-sink.ts`   | serveur SMTP de test (emails reçus inspectables)                                  |
-| `backend/tests/access-control.test.js` | protection de chaque route de l'inventaire (`backend/tests/fixtures/routes.json`) |
-| `backend/tests/ui.test.js`             | interface dans Chromium : connexion, onglets, page mobile, sans erreur JavaScript |
+| `backend/tests/access-control.test.ts` | protection de chaque route de l'inventaire (`backend/tests/fixtures/routes.json`) |
+| `backend/tests/ui.test.ts`             | interface dans Chromium : connexion, onglets, page mobile, sans erreur JavaScript |
 
 Les tests PDF et interface utilisent un Chrome / Chromium / Edge installé (sinon ils sont ignorés ;
 `TEST_BROWSER_PATH` pour en indiquer un). Tests sur PostgreSQL ou MariaDB : [base-de-donnees.md](base-de-donnees.md#tests-et-ci).

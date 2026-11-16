@@ -1,8 +1,8 @@
 // Tâches planifiées (fuseau Europe/Paris)
 import cron from 'node-cron';
-import { runAutomation1, runAutomation2 } from '../modules/automations/automations.jobs.js';
-import { runHoAutomations } from '../modules/astreintes-ho/ho.automation.js';
-import { runAutomation4 } from '../modules/cra/cra.automation.js';
+import { runAutomation1, runAutomation2 } from '../modules/automations/automations.jobs.ts';
+import { runHoAutomations } from '../modules/astreintes-ho/ho.automation.ts';
+import { runAutomation4 } from '../modules/cra/cra.automation.ts';
 
 export function startScheduler() {
     // Toutes les heures : automatisation n°2 (sauvegarde des plannings, fréquence propre à chaque configuration)

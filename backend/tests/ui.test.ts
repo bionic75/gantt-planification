@@ -1,0 +1,253 @@
+// Interface dans un vrai navigateur (Chromium) : connexion par l'écran de connexion, chaque onglet ouvert, page
+// mobile et page d'aide, sans erreur JavaScript ni violation de la politique de contenu (CSP).
+// Filet de sécurité du découpage du frontend : un script manquant ou chargé dans le mauvais ordre fait échouer ces tests.
+import puppeteer, { type Browser } from 'puppeteer';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { ADMIN, BROWSER_PATH, startServer } from './helpers/server.ts';
+import { createExpert, createUser, loginAs } from './helpers/fixtures.ts';
+import type { Client } from './helpers/client.ts';
+import type { TestServer } from './helpers/server.ts';
+
+// Fonctions exécutées dans la page (Chromium) : document du navigateur, absent des types du serveur
+declare const document: any;
+
+const MOBILE_UA =
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
+
+describe.skipIf(!BROWSER_PATH)('interface (navigateur)', { timeout: 120000 }, () => {
+    let server: TestServer;
+    let admin: Client;
+    let browser: Browser;
+
+    beforeAll(async () => {
+        server = await startServer();
+        admin = await loginAs(server, ADMIN, 'admin');
+        // CI : démarrage de Chromium parfois lent (machine chargée par les autres suites) ; mémoire partagée (/dev/shm)
+        // limitée sur les machines Linux de la CI
+        browser = await puppeteer.launch({
+            executablePath: BROWSER_PATH as string,
+            headless: true,
+            args: ['--no-sandbox', '--disable-dev-shm-usage'],
+            timeout: 90000
+        });
+    }, 120000);
+    afterAll(async () => {
+        await browser?.close();
+        await server?.stop();
+    });
+
+    /** Nouvel onglet du navigateur ; problems : erreurs JavaScript non interceptées et violations CSP */
+    async function openPage({ userAgent }: { userAgent?: string } = {}) {
+        const context = await browser.createBrowserContext();
+        const page = await context.newPage();
+        if (userAgent) await page.setUserAgent(userAgent);
+        const problems: string[] = [];
+        page.on('pageerror', (e: any) => problems.push(`JS : ${e.message}`));
+        page.on('console', (m: any) => {
+            if (/Content Security Policy/i.test(m.text())) problems.push(`CSP : ${m.text()}`);
+        });
+        page.on('response', (r: any) => {
+            // Fichiers de l'application introuvables (script ou feuille de style déplacés)
+            if (r.status() === 404 && r.url().startsWith(server.baseUrl)) problems.push(`404 : ${r.url()}`);
+        });
+        return { page, problems, close: () => context.close() };
+    }
+
+    const pause = (ms: any) => new Promise(r => setTimeout(r, ms));
+
+    /** Connexion par le formulaire de l'écran de connexion */
+    async function uiLogin(page: any, { username, password }: any) {
+        await page.goto(server.baseUrl + '/', { waitUntil: 'networkidle2' });
+        // Mire : îlot Vue (frontend/src/connexion), montée par le point d'entrée
+        await page.waitForSelector('#loginUsername', { visible: true });
+        await page.type('#loginUsername', username);
+        await page.type('#loginPassword', password);
+        await page.click('#loginButton');
+    }
+
+    const waitForApp = (page: any) =>
+        page.waitForFunction(() => !document.getElementById('loginPage').classList.contains('active'), {
+            timeout: 20000
+        });
+
+    /** Ouvre chaque onglet visible de l'application ; renvoie les onglets ouverts */
+    async function visitTabs(page: any) {
+        // Barre d'onglets : îlot Vue, affiché une fois la session ouverte
+        await page.waitForFunction(
+            () =>
+                [...document.querySelectorAll('#mainTabsContainer button.tab-btn[data-tab]')].some(
+                    b => b.offsetParent !== null
+                ),
+            { timeout: 20000 }
+        );
+        const tabs = await page.$$eval('#mainTabsContainer button.tab-btn', (buttons: any) =>
+            buttons.filter((b: any) => b.offsetParent !== null).map((b: any) => b.dataset.tab)
+        );
+        for (const tab of tabs) {
+            // Clic par le DOM : une fenêtre ou un bandeau peut recouvrir la barre d'onglets
+            await page.$eval(`#mainTabsContainer button.tab-btn[data-tab="${tab}"]`, (b: any) => b.click());
+            await pause(600);
+        }
+        return tabs;
+    }
+
+    it('administrateur : connexion, tous les onglets', async () => {
+        const { page, problems, close } = await openPage();
+        try {
+            await uiLogin(page, ADMIN);
+            await waitForApp(page);
+            const tabs = await visitTabs(page);
+            expect(tabs).toEqual(expect.arrayContaining(['resources', 'planning', 'admin', 'reporting']));
+            expect(problems).toEqual([]);
+        } finally {
+            await close();
+        }
+    });
+
+    it('expert : connexion, onglets de son profil', async () => {
+        const { user } = await createExpert(admin);
+        const { page, problems, close } = await openPage();
+        try {
+            await uiLogin(page, user);
+            await waitForApp(page);
+            const tabs = await visitTabs(page);
+            expect(tabs).toContain('planning');
+            expect(tabs).not.toContain('admin');
+            expect(problems).toEqual([]);
+        } finally {
+            await close();
+        }
+    });
+
+    it('compte à plusieurs profils : choix du profil après le mot de passe', async () => {
+        const user = await createUser(admin, { is_user: 1, is_rh: 1 });
+        const { page, problems, close } = await openPage();
+        try {
+            await uiLogin(page, user);
+            await page.waitForSelector('#loginProfile', { visible: true });
+            const options = await page.$$eval('#loginProfile option', (o: any) =>
+                o.map((x: any) => x.value).filter(Boolean)
+            );
+            expect(options.sort()).toEqual(['rh', 'user']);
+            await page.select('#loginProfile', 'user');
+            await page.click('#loginButton');
+            await waitForApp(page);
+            expect(problems).toEqual([]);
+        } finally {
+            await close();
+        }
+    });
+
+    it('double authentification : profil unique choisi par le serveur et transmis à la vérification', async () => {
+        const mfaConfig = (enabled: any) => ({
+            config: {
+                enabled,
+                method: 'both',
+                frequency: 'always',
+                profileAdmin: false,
+                profileExpert: false,
+                profileUser: true
+            }
+        });
+        expect((await admin.post('/api/mfa/config', mfaConfig(true))).status).toBe(200);
+        const user = await createUser(admin, { is_user: 1 });
+        const { page, problems, close } = await openPage();
+        try {
+            await uiLogin(page, user);
+            await page.waitForSelector('#loginPage [data-etape="choix-mfa"]', { timeout: 20000 });
+            // Mise en place de l'application d'authentification : le profil choisi par le serveur est transmis
+            const confirmation = page.waitForRequest((r: any) => r.url().endsWith('/api/mfa/totp-confirm'));
+            await page.click('#mfaMethodTotpButton');
+            await page.waitForSelector('#mfaTotpConfirmCode', { visible: true });
+            await page.type('#mfaTotpConfirmCode', '000000');
+            await page.keyboard.press('Enter');
+            expect(JSON.parse((await confirmation).postData() ?? '{}').profile).toBe('user');
+            await page.waitForSelector('#mfaTotpSetupError', { visible: true });
+            expect(problems).toEqual([]);
+        } finally {
+            await close();
+            await admin.post('/api/mfa/config', mfaConfig(false));
+        }
+    });
+
+    it('mot de passe donné par un administrateur : changement obligatoire avant l’application, y compris après rechargement', async () => {
+        const user = await createUser(admin, { is_user: 1 }, { changePassword: false });
+        const { page, problems, close } = await openPage();
+        try {
+            await uiLogin(page, user);
+            await page.waitForSelector('#forcedPasswordModal', { visible: true, timeout: 20000 });
+            expect(await page.$eval('#loginPage', (p: any) => p.classList.contains('active'))).toBe(true);
+
+            // Rechargement : la session est ouverte mais l'application reste bloquée
+            await page.reload({ waitUntil: 'networkidle2' });
+            await page.waitForSelector('#forcedPasswordModal', { visible: true, timeout: 20000 });
+
+            await page.type('#forcedNewPassword', 'Choisi-par-moi-1');
+            await page.type('#forcedConfirmPassword', 'Autre-chose-1');
+            await page.click('#forcedPasswordButton');
+            await page.waitForFunction(() =>
+                /correspondent/.test(document.getElementById('forcedPasswordError').textContent)
+            );
+
+            await page.$eval('#forcedConfirmPassword', (i: any) => (i.value = ''));
+            await page.type('#forcedConfirmPassword', 'Choisi-par-moi-1');
+            await page.click('#forcedPasswordButton');
+            await waitForApp(page);
+            expect(await page.$('#forcedPasswordModal')).toBeNull();
+            expect(problems.filter(p => !p.includes('PASSWORD_CHANGE_REQUIRED'))).toEqual([]);
+        } finally {
+            await close();
+        }
+        expect(
+            (await server.client().login(user.username, 'Choisi-par-moi-1', 'user')).data.user.mustChangePassword
+        ).toBe(false);
+    });
+
+    it('mauvais mot de passe : message d’erreur, profils non révélés', async () => {
+        const user = await createUser(admin, { is_user: 1, is_rh: 1 });
+        const { page, problems, close } = await openPage();
+        try {
+            await uiLogin(page, { username: user.username, password: 'mauvais' });
+            await page.waitForSelector('#loginError', { visible: true });
+            expect(await page.$('#profileSelectGroup')).toBeNull();
+            expect(await page.$eval('#loginError', (e: any) => e.textContent)).toMatch(/Identifiants incorrects/);
+            expect(problems).toEqual([]);
+        } finally {
+            await close();
+        }
+    });
+
+    it('page mobile : connexion d’un expert', async () => {
+        const { user } = await createExpert(admin);
+        const { page, problems, close } = await openPage({ userAgent: MOBILE_UA });
+        try {
+            await page.goto(server.baseUrl + '/mobile', { waitUntil: 'networkidle2' });
+            await page.waitForSelector('#loginUsername', { visible: true });
+            await page.type('#loginUsername', user.username);
+            await page.type('#loginPassword', user.password);
+            await page.click('#loginButton');
+            await page.waitForFunction(() => document.getElementById('loginScreen').classList.contains('hidden'), {
+                timeout: 20000
+            });
+            await pause(800);
+            expect(problems).toEqual([]);
+        } finally {
+            await close();
+        }
+    });
+
+    it("page d'aide et application d'aide à l'affectation", async () => {
+        const { page, problems, close } = await openPage();
+        try {
+            await page.goto(server.baseUrl + '/aide.html', { waitUntil: 'networkidle2' });
+            expect(await page.title()).toMatch(/aide/i);
+            await uiLogin(page, ADMIN);
+            await waitForApp(page);
+            await page.goto(server.baseUrl + '/affectation', { waitUntil: 'networkidle2' });
+            await pause(800);
+            expect(problems).toEqual([]);
+        } finally {
+            await close();
+        }
+    });
+});
