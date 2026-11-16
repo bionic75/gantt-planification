@@ -273,7 +273,6 @@ async function usersById(ids: number[]) {
 
 /**
  * Participants internes (comptes existants) par événement, triés par nom puis prénom
- * @template T
  */
 async function participantsByEvent<T>(
     eventIds: number[],

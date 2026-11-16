@@ -282,7 +282,7 @@ export async function resetAllMfa(req: Request, res: Response) {
     res.json({ success: true });
 }
 
-// ---------- MFA : vérification (connexion en attente, voir mfa-pending.js) ----------
+// ---------- MFA : vérification (connexion en attente, voir mfa-pending.ts) ----------
 
 const pendingOf = (req: Request) => req.mfaPending as NonNullable<Request['mfaPending']>;
 

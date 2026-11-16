@@ -1,7 +1,7 @@
 // Gabarit commun des emails de l'application, aux couleurs du site (mire de connexion) : carte blanche aux coins
 // arrondis, bandeau dégradé bleu → rose, en-tête « Plateforme de Planification », bouton bleu.
 // Les icônes sont celles du site (frontend/src/composants/icones.ts), jointes en PNG (backend/assets/mail, généré par
-// backend/scripts/icones-mail.mjs) et référencées par « cid: » : les clients de messagerie n'affichent pas le SVG.
+// backend/scripts/icones-mail.ts) et référencées par « cid: » : les clients de messagerie n'affichent pas le SVG.
 import { fileURLToPath } from 'node:url';
 import { escapeHtml as e } from './html.ts';
 

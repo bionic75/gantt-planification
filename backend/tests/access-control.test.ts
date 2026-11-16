@@ -2,7 +2,7 @@
 // « npm run routes » à partir des routeurs ; relire la protection des routes ajoutées).
 import fs from 'fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { apiDoc, inventory, listRoutes } from '../scripts/routes.mjs';
+import { apiDoc, inventory, listRoutes } from '../scripts/routes.ts';
 import routes from './fixtures/routes.json' with { type: 'json' };
 import { startServer } from './helpers/server.ts';
 import { isSqlite } from './helpers/test-db.ts';

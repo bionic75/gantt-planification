@@ -106,10 +106,10 @@ Procédure (Docker ; l'image ne contient pas npm : les scripts se lancent avec `
 
 ```bash
 # 1. Vérification sans modification : rapport et script de conversion
-docker compose run --rm <service> node backend/scripts/db-adopt.mjs --dry-run
+docker compose run --rm <service> node backend/scripts/db-adopt.ts --dry-run
 
 # 2. Adoption
-docker compose run --rm <service> node backend/scripts/db-adopt.mjs
+docker compose run --rm <service> node backend/scripts/db-adopt.ts
 
 # 3. Démarrage normal (les migrations suivantes sont appliquées automatiquement)
 docker compose up -d
@@ -129,7 +129,7 @@ manipulation.
 ## Sauvegarde et restauration
 
 **SQLite** : l'administration de l'application propose une sauvegarde complète (`/api/admin/dump`, code dans
-`backend/scripts/db-dump.js`). Le fichier `.gpdump` contient une copie cohérente de la base et les PDF des CRA.
+`backend/scripts/db-dump.ts`). Le fichier `.gpdump` contient une copie cohérente de la base et les PDF des CRA.
 
 - La restauration remplace toutes les données, après une sauvegarde de sécurité dans
   `<DB_PATH>/restore-backups/`. L'historique des migrations (`_prisma_migrations`) du serveur est conservé : la

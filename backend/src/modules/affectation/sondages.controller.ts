@@ -1,0 +1,71 @@
+import { badRequest } from '../../lib/http-error.ts';
+import { logUserAction } from '../../services/action-log.ts';
+import * as svc from './sondages.service.ts';
+
+import type { Request, Response } from 'express';
+
+const origin = (req: Request) => `${req.protocol}://${req.get('host')}`;
+const withUrl = (req: Request, s: any) => (s ? { ...s, url: svc.sondageUrl(s.token, origin(req)) } : null);
+
+export async function list(_req: Request, res: Response) {
+    res.json({ sondages: await svc.list() });
+}
+
+export async function get(req: Request, res: Response) {
+    const sondage = await svc.get(req.params.id, req.params.ligne);
+    res.json({ sondage: withUrl(req, sondage), modele: sondage ? null : await svc.modele(req.params.id) });
+}
+
+export async function save(req: Request, res: Response) {
+    const r = await svc.save(req.params.id, req.params.ligne, req.body || {}, req.session.userId || null);
+    logUserAction(req, r.created ? 'Ateliers métier : sondage créé' : 'Ateliers métier : sondage modifié', {
+        retroplanning: req.params.id,
+        jalon: req.params.ligne
+    });
+    res.json({ success: true, sondage: withUrl(req, await svc.get(req.params.id, req.params.ligne)) });
+}
+
+export async function send(req: Request, res: Response) {
+    try {
+        const r = await svc.send(req.params.id, req.params.ligne, origin(req));
+        logUserAction(req, 'Ateliers métier : sondage envoyé par e-mail', {
+            retroplanning: req.params.id,
+            jalon: req.params.ligne,
+            destinataires: r.sent
+        });
+        res.json({ success: true, ...r, sondage: withUrl(req, await svc.get(req.params.id, req.params.ligne)) });
+    } catch (e: any) {
+        if (e.status) throw e;
+        throw badRequest(`Envoi impossible : ${e.message}`);
+    }
+}
+
+export async function close(req: Request, res: Response) {
+    const r = await svc.close(req.params.id, req.params.ligne, (req.body || {}).option_id);
+    logUserAction(req, 'Ateliers métier : sondage clôturé', {
+        sondage: r.nom,
+        creneau: r.retenu || 'aucun créneau retenu'
+    });
+    res.json({ success: true, sondage: withUrl(req, await svc.get(req.params.id, req.params.ligne)) });
+}
+
+export async function reopen(req: Request, res: Response) {
+    const nom = await svc.reopen(req.params.id, req.params.ligne);
+    logUserAction(req, 'Ateliers métier : sondage rouvert', { sondage: nom });
+    res.json({ success: true, sondage: withUrl(req, await svc.get(req.params.id, req.params.ligne)) });
+}
+
+export async function remove(req: Request, res: Response) {
+    const nom = await svc.remove(req.params.id, req.params.ligne);
+    logUserAction(req, 'Ateliers métier : sondage supprimé', { sondage: nom });
+    res.json({ success: true });
+}
+
+// Accès public par l'adresse unique du sondage
+export async function publicGet(req: Request, res: Response) {
+    res.json(await svc.publicGet(req.params.token, String(req.get('x-reponse-jeton') || '')));
+}
+
+export async function publicRespond(req: Request, res: Response) {
+    res.json({ success: true, ...(await svc.publicRespond(req.params.token, req.body)) });
+}

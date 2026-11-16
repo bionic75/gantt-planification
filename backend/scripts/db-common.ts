@@ -1,0 +1,53 @@
+// Outils partagés par les scripts de base de données (db-migrate, db-adopt)
+import { execFileSync } from 'child_process';
+import dotenv from 'dotenv';
+import fs from 'fs';
+import { createRequire } from 'module';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { resolveDatabaseUrl } from '../src/config/database-url.ts';
+
+dotenv.config({ quiet: true });
+
+/** Dossier backend (prisma/, scripts/, src/) */
+export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+/** Racine du projet : répertoire courant des commandes (.env, ./data, config/) */
+export const PROJECT = path.resolve(ROOT, '..');
+const CONFIG_PRISMA = path.join(ROOT, 'prisma.config.ts');
+export const PROVIDER = process.env.DB_PROVIDER || 'sqlite';
+export const DATABASE_URL = resolveDatabaseUrl({ ...process.env, DB_PROVIDER: PROVIDER });
+export const MIGRATIONS_DIR = path.join(ROOT, 'prisma', PROVIDER, 'migrations');
+export const BASELINE = '00000000000000_init';
+
+const require = createRequire(import.meta.url);
+const PRISMA_CLI = require.resolve('prisma/build/index.js');
+
+/** Exécute la CLI Prisma ; renvoie la sortie standard */
+export function prismaCli(args: string[], { capture = false, env = {} } = {}) {
+    return execFileSync(process.execPath, [PRISMA_CLI, ...args, '--config', CONFIG_PRISMA], {
+        cwd: PROJECT,
+        env: { ...process.env, DB_PROVIDER: PROVIDER, ...env },
+        encoding: 'utf8',
+        stdio: capture ? ['ignore', 'pipe', 'pipe'] : 'inherit',
+        maxBuffer: 64 * 1024 * 1024
+    });
+}
+
+/** Chemin du fichier SQLite */
+export const sqliteFile = () => (DATABASE_URL as string).replace(/^file:/, '');
+
+/** Ouvre la base SQLite (better-sqlite3) ; lignes lues de forme propre à chaque requête (any) */
+export async function openSqlite(file = sqliteFile(), options = {}): Promise<any> {
+    const { default: Database } = await import('better-sqlite3');
+    return new Database(file, options);
+}
+
+/** Tables applicatives d'une base SQLite */
+export function sqliteTables(db: any): string[] {
+    return db
+        .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
+        .all()
+        .map((r: any) => r.name);
+}
+
+export const exists = (file: string) => fs.existsSync(file);

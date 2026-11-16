@@ -26,7 +26,7 @@ declare module 'vitest' {
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 const migrate = (env: Record<string, string>) =>
-    execFileSync(process.execPath, [path.join(ROOT, 'scripts', 'db-migrate.mjs')], {
+    execFileSync(process.execPath, [path.join(ROOT, 'scripts', 'db-migrate.ts')], {
         cwd: ROOT,
         env: { PATH: process.env.PATH, SYSTEMROOT: process.env.SYSTEMROOT, ...env },
         stdio: 'pipe'

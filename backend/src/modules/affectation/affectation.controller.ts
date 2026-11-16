@@ -1,0 +1,559 @@
+import { badRequest, notFound } from '../../lib/http-error.ts';
+import { samuNumber as affSamuNumber } from '../../lib/samu.ts';
+import { logUserAction } from '../../services/action-log.ts';
+import { evtResolveType } from '../events/events.service.ts';
+import * as svc from './affectation.service.ts';
+import {
+    ASANA_ACTIVITIES,
+    ASANA_RULES,
+    asanaLoadTemplate,
+    asanaReloadStageRules,
+    asanaSaveStageRules
+} from './asana.service.ts';
+
+import type { NextFunction, Request, Response } from 'express';
+
+const userId = (req: Request) => req.session.userId as number;
+
+// ---------- Configuration ----------
+
+export async function config(req: Request, res: Response) {
+    res.json({
+        stages: svc.AFF_STAGES.map(s => ({
+            key: s.key,
+            label: s.label,
+            kind: s.kind,
+            resources: !!s.resources,
+            defaultColor: s.color,
+            defaultPattern: s.key === 'gel' ? 'diag' : 'none'
+        })),
+        colors: await svc.affColors(),
+        patterns: await svc.affPatterns(),
+        patternIds: svc.AFF_PATTERNS
+    });
+}
+
+/** Couleurs et motifs des étapes */
+export async function saveColors(req: Request, res: Response) {
+    await svc.saveColors(req.body && typeof req.body === 'object' ? req.body : {});
+    logUserAction(req, 'Couleurs et motifs des étapes de déploiement SAMU', {});
+    res.json({ colors: await svc.affColors(), patterns: await svc.affPatterns() });
+}
+
+export async function users(req: Request, res: Response) {
+    res.json({ users: await svc.listActiveUsers() });
+}
+
+export async function resources(req: Request, res: Response) {
+    res.json({ resources: await svc.listActiveResources(), externals: await svc.listExternalUsers() });
+}
+
+// ---------- Déploiements ----------
+
+export async function listProjects(req: Request, res: Response) {
+    res.json({ projects: await svc.listProjects() });
+}
+
+export async function history(req: Request, res: Response) {
+    res.json({ history: await svc.projectHistory(req.params.id) });
+}
+
+/** Création (id absent) ou modification d'un déploiement, avec historique des changements */
+async function saveProject(req: Request, res: Response, id: number | null) {
+    const r = svc.sanitizeAffProject(req.body);
+    if (r.error) throw badRequest(r.error);
+    const v = r.value as svc.ProjectValues;
+    let before = null;
+    if (id) {
+        const old = await svc.getProject(id);
+        if (old) before = svc.affValuesOfRow(old);
+    }
+    const savedId = await svc.writeProject(id, v, userId(req));
+    if (savedId === null) throw notFound('Projet introuvable');
+    await svc.affReconcileAssignments(savedId, v.periods);
+    const json = await svc.projectJson(savedId);
+    logUserAction(req, id ? 'Modification déploiement SAMU' : 'Création déploiement SAMU', {
+        id: savedId,
+        samu: v.samu_name
+    });
+    const changes = await svc.affDiff(before, v);
+    if (!id || changes.length)
+        await svc.affHist(req, savedId, v.samu_name, id ? 'modification' : 'creation', { changes });
+    res.json(json);
+}
+
+export const createProject = (req: Request, res: Response) => saveProject(req, res, null);
+export const updateProject = (req: Request, res: Response) => saveProject(req, res, Number(req.params.id));
+
+/** Suppression : si des événements sont liés, une validation explicite est exigée (?events=delete | keep) */
+export async function deleteProject(req: Request, res: Response) {
+    const pid = Number(req.params.id);
+    const old = await svc.getProject(pid);
+    if (!old) throw notFound('Projet introuvable');
+    const evs = await svc.affLinkedEvents(old);
+    const mode = String(req.query.events || '');
+    if (evs.length && !['delete', 'keep'].includes(mode)) {
+        const names = await svc.eventParticipantNames(evs.map(e => e.id));
+        return res.status(409).json({
+            code: 'EVENTS_LINKED',
+            error: `${evs.length} événement(s) lié(s) à ce déploiement`,
+            events: evs.map(e => ({
+                id: e.id,
+                label: e.label,
+                start: e.start_date,
+                end: e.end_date,
+                participants: names.filter(n => n.event_id === e.id).map(n => n.name)
+            }))
+        });
+    }
+    let removed = 0;
+    let reset = 0;
+    if (evs.length && mode === 'delete') {
+        for (const e of evs) {
+            reset += await svc.affResetPlanningForEvent(e, req);
+            await svc.deleteEvent(e.id);
+            removed++;
+        }
+    }
+    // L'historique du déploiement est supprimé avec lui : la trace de la suppression est le journal d'actions
+    await svc.deleteProject(pid);
+    logUserAction(req, 'Suppression déploiement SAMU', {
+        id: pid,
+        samu: old.samu_name,
+        dateDebut: svc.affFd(old.date_debut),
+        evenementsSupprimes: removed,
+        evenementsConserves: mode === 'keep' ? evs.length : 0,
+        demiJourneesRemisesEnSituation: reset
+    });
+    res.json({ success: true, eventsRemoved: removed, planningReset: reset });
+}
+
+// ---------- Ressources affectées ----------
+
+/** Ressources d'une étape (dans la limite du nombre prévu), avec historique */
+export async function setAssignments(req: Request, res: Response) {
+    const projectId = Number(req.params.id);
+    const stage = svc.AFF_STAGES.find(s => s.key === req.params.stage && s.resources);
+    if (!stage) throw badRequest('Étape sans ressources à affecter');
+    const { samuName, before, ids } = await svc.setAssignments(projectId, stage, req.body && req.body.resource_ids);
+    logUserAction(req, 'Affectation de ressources (déploiement SAMU)', { projectId, stage: stage.key, resources: ids });
+    const names = await svc.resourceNames([...new Set([...before, ...ids])]);
+    const list = (a: number[]) => a.map(i => names[i] || `#${i}`).join(', ') || '—';
+    if (list(before) !== list(ids)) {
+        await svc.affHist(req, projectId, samuName, 'affectation', {
+            changes: [{ label: `${stage.label} — ressources`, from: list(before), to: list(ids) }]
+        });
+    }
+    res.json({ resource_ids: ids });
+}
+
+export async function availability(req: Request, res: Response) {
+    const row = await svc.getProject(req.params.id);
+    if (!row) throw notFound('Projet introuvable');
+    const r = await svc.affComputeAvailability(row, req.params.stage);
+    res.json({ total: r.total, availability: r.availability, dates: r.dates });
+}
+
+/** Journées d'intervention d'une étape : { days: { AAAA-MM-JJ: [ressources] } }, avec historique */
+export async function setAssignmentDays(req: Request, res: Response) {
+    const projectId = Number(req.params.id);
+    const stage = svc.AFF_STAGES.find(s => s.key === req.params.stage && s.resources);
+    if (!stage) throw badRequest('Étape sans ressources à affecter');
+    const { samuName, before, ids, days } = await svc.setAssignmentDays(projectId, stage, req.body && req.body.days);
+    logUserAction(req, 'Affectation de ressources par journée (déploiement SAMU)', {
+        projectId,
+        stage: stage.key,
+        resources: ids
+    });
+    const names = await svc.resourceNames([...new Set([...before, ...ids])]);
+    const list = (a: number[]) => a.map(i => names[i] || `#${i}`).join(', ') || '—';
+    const perDay = Object.entries(days)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([d, rids]) => `${svc.affFd(d)} : ${list(rids)}`)
+        .join(' ; ');
+    await svc.affHist(req, projectId, samuName, 'affectation', {
+        changes: [{ label: `${stage.label} — ressources par journée`, from: list(before), to: perDay || '—' }]
+    });
+    res.json({ resource_ids: ids, assignment_days: days });
+}
+
+/**
+ * Désaffectation : les ressources retirées sont remises dans la planification en « 2 - Disponible / 2 - En attente
+ * d'affectation » sur la période de l'activité, et retirées des participants des événements de l'activité
+ */
+export async function release(req: Request, res: Response) {
+    const id = Number(req.params.id);
+    const key = req.params.stage;
+    const proj = await svc.getProject(id);
+    if (!proj) throw notFound('Déploiement introuvable');
+    const per = svc.parsePeriods(proj.periods)[key]?.[0];
+    if (!per) throw badRequest('Étape sans période');
+    // Journées retirées de la grille pour des ressources qui restent affectées : planification remise en situation
+    // sur ces seules journées, sans toucher aux événements
+    const dayMap = (req.body || {}).days;
+    if (dayMap && typeof dayMap === 'object' && !Array.isArray(dayMap)) {
+        let planningReset = 0;
+        for (const [rid, list] of Object.entries(dayMap)) {
+            const n = Number(rid);
+            const dates = (Array.isArray(list) ? list : []).filter(
+                d => /^\d{4}-\d{2}-\d{2}$/.test(String(d)) && d >= per.start && d <= per.end
+            );
+            if (!Number.isInteger(n) || n <= 0 || !dates.length) continue;
+            planningReset += await svc.affResetPlanning({
+                resourceIds: [n],
+                start: per.start,
+                end: per.end,
+                period: 'FULL',
+                samuNo: affSamuNumber(proj.samu_name),
+                days: new Set(dates.map(String))
+            });
+        }
+        logUserAction(req, 'Journées retirées de la grille : planification remise en situation', {
+            id,
+            activite: key,
+            demiJournees: planningReset
+        });
+        return res.json({ success: true, planningReset, removedFromEvents: 0 });
+    }
+    const rids = [
+        ...new Set(
+            ((req.body || {}).resource_ids || []).map(Number).filter((n: number) => Number.isInteger(n) && n !== 0)
+        )
+    ];
+    if (!rids.length) return res.json({ success: true, planningReset: 0, removedFromEvents: 0 });
+    const planningReset = await svc.affResetPlanning({
+        resourceIds: rids as number[],
+        start: per.start,
+        end: per.end,
+        period: 'FULL',
+        samuNo: affSamuNumber(proj.samu_name),
+        days: await svc.affPartDays(id, key, per)
+    });
+    const evs = await svc.affStageEvents(
+        proj,
+        key,
+        per,
+        await svc.affEventLinks(id),
+        await svc.affStageTypeMap(),
+        await svc.allEventTypes(),
+        await svc.affProjectLocationId(proj)
+    );
+    const removedFromEvents = evs.length ? await svc.removeResourcesFromEvents(evs, rids as number[]) : 0;
+    logUserAction(req, 'Désaffectation : planification remise en situation', {
+        projectId: id,
+        stage: key,
+        ressources: rids,
+        demiJournees: planningReset,
+        retiresDesEvenements: removedFromEvents
+    });
+    res.json({ success: true, planningReset, removedFromEvents });
+}
+
+// ---------- Activités et événements ----------
+
+/** Activités de la correspondance Asana, dans l'ordre d'affichage ; seules celles avec « type » créent des événements */
+const CORRESPONDANCE_ORDRE = [
+    ['cadrage_debut', 'Cadrage (début)'],
+    ['cadrage_fin', 'Cadrage (fin)'],
+    ['deploiement_debut', 'Déploiement (début)'],
+    ['deploiement_fin', 'Déploiement (fin)'],
+    ['mise_en_service', ''],
+    ['mise_en_production', ''],
+    ['reunion_lancement', ''],
+    ['visite_metier', ''],
+    ['visite_ob', ''],
+    ['test_prerequis', ''],
+    ['vft', ''],
+    ['formation_utilisateurs', ''],
+    ['accompagnement', '']
+];
+
+export async function stageEventTypes(req: Request, res: Response) {
+    res.json({
+        stages: CORRESPONDANCE_ORDRE.map(([key, libelle]) => ({
+            key,
+            label: libelle || svc.AFF_STAGES.find(x => x.key === key)?.label || key,
+            rule: (ASANA_RULES as Record<string, string>)[key] || '',
+            typed: svc.AFF_EVENT_KEYS.includes(key)
+        })),
+        mapping: await svc.affStageTypeMap(),
+        types: await svc.sortedEventTypes(),
+        asanaActivities: ASANA_ACTIVITIES,
+        asanaTemplate: await asanaLoadTemplate(),
+        asanaRules: await asanaReloadStageRules()
+    });
+}
+
+export async function saveStageEventTypes(req: Request, res: Response) {
+    const clean = await svc.saveStageTypeMap((req.body && req.body.mapping) || {});
+    const rules = req.body && req.body.asanaRules ? await asanaSaveStageRules(req.body.asanaRules) : undefined;
+    logUserAction(req, "Correspondance activités / activités Asana / types d'événements", { mapping: clean, rules });
+    res.json({ success: true, mapping: await svc.affStageTypeMap(), asanaRules: await asanaReloadStageRules() });
+}
+
+/** Événements des activités de tous les déploiements (types correspondant aux activités) */
+export async function events(req: Request, res: Response) {
+    res.json(await svc.listStageEvents());
+}
+
+/** Événements du lieu d'un déploiement, répartis par activité (correspondants ou non) */
+export async function eventCandidates(req: Request, res: Response) {
+    const proj = await svc.getProject(req.params.id);
+    if (!proj) throw notFound('Déploiement introuvable');
+    res.json(await svc.eventCandidates(proj));
+}
+
+export async function setEventLink(req: Request, res: Response) {
+    const id = Number(req.params.id);
+    const key = String((req.body || {}).key || '');
+    const eventId = Number((req.body || {}).eventId) || null;
+    if (!svc.AFF_EVENT_KEYS.includes(key)) throw badRequest('Activité inconnue');
+    if (eventId && !(await svc.eventExists(eventId))) throw notFound('Événement introuvable');
+    const ids = Array.isArray(req.body && req.body.eventIds) ? req.body.eventIds : eventId ? [eventId] : [];
+    const known = [];
+    for (const n of svc.affLinkIds(ids)) if (await svc.eventExists(n)) known.push(n);
+    await svc.affSetEventLinks(id, key, known);
+    logUserAction(req, 'Lien déploiement / événement', { id, activite: key, evenements: known });
+    res.json({ success: true });
+}
+
+export async function syncFromEvents(req: Request, res: Response) {
+    const pid = Number((req.body || {}).projectId) || null;
+    const out = await svc.affSyncAllFromEvents(req, pid);
+    if (out.length)
+        logUserAction(req, 'Affectations synchronisées depuis les participants des événements', { modifs: out.length });
+    res.json({ success: true, changes: out });
+}
+
+/** Événement d'une activité : SAMU, type de la correspondance, dates, ressources affectées en participants */
+export async function createEvent(req: Request, res: Response) {
+    const id = Number(req.params.id);
+    const b = req.body || {};
+    const key = String(b.key || '');
+    if (!svc.AFF_EVENT_KEYS.includes(key)) throw badRequest('Activité inconnue');
+    const proj = await svc.getProject(id);
+    if (!proj) throw notFound('Déploiement introuvable');
+    const iso = (v: unknown) => (/^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? String(v) : null);
+    const start = iso(b.start);
+    const end = iso(b.end) || start;
+    if (!start) throw badRequest("Renseignez d'abord la date (ou la période) de cette activité");
+    if ((end as string) < start) throw badRequest('La date de fin précède la date de début');
+    const locId = await svc.affProjectLocationId(proj);
+    if (!locId) {
+        throw badRequest(
+            `Aucune localisation « ${proj.samu_name} » : créez-la dans l'Administration (Localisation) pour rattacher l'événement`
+        );
+    }
+    const ty = await evtResolveType((await svc.affStageTypeMap())[key], {});
+    const label = String(b.label || '').trim() || (ty.type ? ty.type.label_long : svc.stageLabel(key));
+    const grist =
+        ty.type && ty.type.code && ['mes', 'visite', 'congres', 'visiteMetier'].includes(ty.type.code) ? 1 : 0;
+    const eventId = await svc.createActivityEvent({
+        label,
+        start,
+        end: end as string,
+        config: ty.config,
+        createdBy: userId(req),
+        locationId: locId,
+        typeId: ty.typeId,
+        grist
+    });
+    const participants = await svc.stageAssignedUsers(id, key);
+    await svc.addEventParticipants(eventId, participants);
+    await svc.affAddEventLink(id, key, eventId);
+    logUserAction(req, "Création d'un événement depuis un déploiement SAMU", {
+        id,
+        activite: key,
+        evenement: eventId,
+        type: ty.type && ty.type.label_long
+    });
+    res.json({ success: true, eventId, participants: participants.length });
+}
+
+// ---------- Synchronisation d'une étape vers la planification ----------
+
+export async function syncPreview(req: Request, res: Response) {
+    const c = await svc.affSyncCompute(Number(req.params.id), req.params.stage);
+    res.json({
+        samu: c.proj.samu_name,
+        samuLoc: c.samuLoc,
+        locationId: c.locationId,
+        start: c.per.start,
+        end: c.per.end,
+        activity: c.activity,
+        spanStart: c.span.start,
+        spanEnd: c.span.end,
+        resources: c.resources.map(r => ({
+            states: r.states,
+            id: r.id,
+            nom: r.nom,
+            prenom: r.prenom,
+            user_id: r.user_id,
+            toWrite: r.toWrite.length,
+            done: r.done,
+            conflicts: r.conflicts.slice(0, 12),
+            conflictCount: r.conflicts.length,
+            forceableCount: r.conflicts.filter(x => x.forceable).length,
+            extra: r.extra.slice(0, 12),
+            extraCount: r.extra.length,
+            addableCount: r.extra.filter(k => k.slice(0, 10) >= c.per.start && k.slice(0, 10) <= c.per.end).length
+        })),
+        event: c.event
+    });
+}
+
+/** Application, après validation, de la planification et / ou de l'événement d'une étape */
+export async function syncApply(req: Request, res: Response) {
+    const stage = req.params.stage;
+    const c = await svc.affSyncCompute(Number(req.params.id), stage);
+    const body = req.body || {};
+    const result: {
+        planning: number;
+        cleared: number;
+        forced: number;
+        dropped: number;
+        added: number;
+        event: { id: number; created: boolean; participants: number } | null;
+    } = { planning: 0, cleared: 0, forced: 0, dropped: 0, added: 0, event: null };
+    if (body.planning && Array.isArray(body.planning.resource_ids)) {
+        result.planning = await svc.writeStagePlanning(c, body.planning.resource_ids.map(Number), userId(req));
+    }
+    if (body.planning) {
+        const ids = (l: unknown) => (Array.isArray(l) ? l.map(Number) : []);
+        const r = await svc.resolveStageGaps(
+            c,
+            {
+                force: ids(body.planning.force_ids),
+                drop: ids(body.planning.drop_ids),
+                clear: ids(body.planning.clear_ids),
+                add: ids(body.planning.add_ids)
+            },
+            userId(req)
+        );
+        result.cleared = r.cleared;
+        result.forced = r.forced;
+        result.dropped = r.dropped;
+        result.added = r.added;
+    }
+    const ev = body.event;
+    if (ev && ev.apply) {
+        const users = [
+            ...new Set(
+                (Array.isArray(ev.participants) ? ev.participants : [])
+                    .map(Number)
+                    .filter((n: number) => Number.isInteger(n) && n > 0)
+            )
+        ];
+        let eventId;
+        if (c.event.existing) {
+            eventId = c.event.existing.id;
+        } else {
+            const label = String(ev.label || c.event.label).trim();
+            if (!label) throw badRequest('Libellé requis');
+            const start = /^\d{4}-\d{2}-\d{2}$/.test(ev.startDate) ? ev.startDate : c.per.start;
+            const end = /^\d{4}-\d{2}-\d{2}$/.test(ev.endDate) ? ev.endDate : c.per.end;
+            if (end < start) throw badRequest('La date de fin précède la date de début');
+            const ty = await evtResolveType(c.event.typeId, c.event.config);
+            eventId = await svc.createActivityEvent({
+                label,
+                start,
+                end,
+                config: ty.config,
+                createdBy: userId(req),
+                locationId: c.locationId || null,
+                typeId: ty.typeId
+            });
+        }
+        await svc.addEventParticipants(eventId, users as number[]);
+        await svc.affSetEventLink(c.proj.id, stage, eventId); // l'événement est relié à l'activité
+        result.event = { id: eventId, created: !c.event.existing, participants: users.length };
+    }
+    logUserAction(req, 'Synchronisation affectation déploiement SAMU', { projectId: c.proj.id, stage, ...result });
+    const stLabel = svc.stageLabel(stage);
+    const ch = [];
+    if (result.cleared) {
+        ch.push({
+            label: `${stLabel} — planification des experts`,
+            from: `${result.cleared} demi-journée(s) sans journée d'affectation`,
+            to: "remises en « Disponible / En attente d'affectation »"
+        });
+    }
+    if (result.forced) {
+        ch.push({
+            label: `${stLabel} — planification des experts`,
+            from: `${result.forced} demi-journée(s) indisponible(s) ou occupée(s) par une activité ANS`,
+            to: "remplacées par l'affectation au déploiement"
+        });
+    }
+    if (result.dropped) {
+        ch.push({
+            label: `${stLabel} — journées d'intervention`,
+            from: `${result.dropped} journée(s) en conflit avec la planification`,
+            to: 'retirées de la grille'
+        });
+    }
+    if (result.added) {
+        ch.push({
+            label: `${stLabel} — journées d'intervention`,
+            from: "planifiées sans journée d'affectation",
+            to: `${result.added} journée(s) ajoutée(s) à la grille`
+        });
+    }
+    if (result.planning) {
+        ch.push({
+            label: `${stLabel} — planification des experts`,
+            from: '—',
+            to: `${result.planning} demi-journée(s) renseignée(s)`
+        });
+    }
+    if (result.event) {
+        ch.push({
+            label: `${stLabel} — événement`,
+            from: '—',
+            to: `${result.event.created ? 'créé' : 'complété'} (n° ${result.event.id}, ${result.event.participants} participant(s))`
+        });
+    }
+    if (ch.length) await svc.affHist(req, c.proj.id, c.proj.samu_name, 'synchro', { changes: ch });
+    res.json(result);
+}
+
+// ---------- Synchronisation automatique depuis les événements ----------
+
+/**
+ * À chaque création ou modification d'événement, les affectations des déploiements concernés sont complétées ;
+ * à la suppression, la planification posée par l'affectation est remise en situation
+ */
+export async function eventsHook(req: Request, res: Response, next: NextFunction) {
+    if (req.method === 'DELETE') {
+        // Photographie de l'événement avant sa suppression ; remise en situation seulement si la suppression aboutit
+        const m = /\/(\d+)\/?$/.exec(req.originalUrl.split('?')[0]);
+        let snap = null;
+        if (m) {
+            try {
+                snap = await svc.affEventSnapshot(Number(m[1]));
+            } catch {
+                snap = null;
+            }
+        }
+        if (snap) {
+            res.on('finish', () => {
+                if (res.statusCode < 300) {
+                    svc.affResetPlanningForEvent(snap, req).catch(e =>
+                        console.error('Remise en situation du planning :', e.message)
+                    );
+                }
+            });
+        }
+        return next();
+    }
+    if (req.method === 'POST' || req.method === 'PUT') {
+        res.on('finish', () => {
+            if (res.statusCode < 300) {
+                svc.affSyncAllFromEvents(req).catch(e =>
+                    console.error('Synchro événements → affectations :', e.message)
+                );
+            }
+        });
+    }
+    next();
+}
