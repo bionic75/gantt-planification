@@ -99,6 +99,9 @@ describe('emails', () => {
         expect(r.data).toMatchObject({ success: true, enqueued: 2 });
         const invite = await smtp.waitFor(new RegExp(`To: ${escape(user.email)}[\\s\\S]*METHOD:REQUEST`), 15000);
         expect(invite).toContain('Domaines des Urgences - Affectation');
+        // Gabarit du site : icônes jointes en « cid »
+        expect(invite).toMatch(/Content-ID: <mallette-grand@planification>/i);
+        expect(invite).toMatch(/Content-ID: <lieu@planification>/i);
         await smtp.waitFor(new RegExp(`To: ${escape(user.email)}[\\s\\S]*METHOD:CANCEL`), 15000);
 
         let status;
@@ -164,7 +167,8 @@ describe('emails', () => {
             success: true,
             results: [{ success: true, expert: `${user.prenom} ${user.nom}` }]
         });
-        await smtp.waitFor(new RegExp(`To: ${escape(user.email)}[\\s\\S]*Nouvelle affectation`), 15000);
+        const pending = await smtp.waitFor(new RegExp(`To: ${escape(user.email)}[\\s\\S]*Nouvelle affectation`), 15000);
+        expect(pending).toMatch(/Content-ID: <mallette-grand@planification>/i);
         expect((await admin.get(`/api/pending-notifications/${sessionId}`)).data).toEqual([]);
         expect((await admin.delete(`/api/pending-notifications/${sessionId}`)).data).toEqual({
             success: true,
