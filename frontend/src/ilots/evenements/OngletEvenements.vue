@@ -11,6 +11,7 @@ import FenetreCarte from './FenetreCarte.vue';
 import FenetreDoublons from './FenetreDoublons.vue';
 import FormulaireEvenement from './FormulaireEvenement.vue';
 import ListeEvenements from './ListeEvenements.vue';
+import ParametrageDeploiements from './ParametrageDeploiements.vue';
 import { useEvenementsStore } from './magasin';
 
 const ev = useEvenementsStore();
@@ -43,11 +44,12 @@ onBeforeUnmount(arreter);
 </script>
 
 <template>
-    <h2>Événements</h2>
+    <h2>Événements / Cartographie</h2>
     <p class="ev-onglet__intro">Créez des événements qui s'afficheront sur le planning</p>
     <AppAlert v-if="ev.message" :type="ev.message.type" class="ev-onglet__message" :description="ev.message.texte" />
     <AppAlert v-if="erreur" type="error" :description="erreur" />
     <FormulaireEvenement />
+    <ParametrageDeploiements v-if="ev.estAdmin" />
     <div class="ev-onglet__carte">
         <button type="button" class="ev-onglet__bouton-carte" @click="carte = true">
             🗺️ Carte des Événements / Déplacements

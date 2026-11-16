@@ -64,6 +64,26 @@ model AffectationHistory {
   @@map("affectation_history")
 }
 
+model DeploymentSamu {
+  id                   Int     @id @default(autoincrement())
+  location_id          Int     @unique
+  status_id            Int?
+  date_mise_en_service String? @db.LongText
+
+  @@map("deployment_samus")
+}
+
+model DeploymentStatus {
+  id         Int    @id @default(autoincrement())
+  label      String @db.VarChar(191) @unique
+  color      String @db.LongText
+  pattern    String @db.VarChar(191) @default("plein")
+  position   Int    @default(0)
+  is_service Int    @default(0)
+
+  @@map("deployment_statuses")
+}
+
 model AffectationProject {
   id                      Int       @id @default(autoincrement())
   samu_name               String @db.LongText
