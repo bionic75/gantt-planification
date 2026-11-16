@@ -118,21 +118,15 @@ export async function deleteProject(/** @type {Request} */ req, /** @type {Respo
             removed++;
         }
     }
+    // L'historique du déploiement est supprimé avec lui : la trace de la suppression est le journal d'actions
     await svc.deleteProject(pid);
     logUserAction(req, 'Suppression déploiement SAMU', {
         id: pid,
+        samu: old.samu_name,
+        dateDebut: svc.affFd(old.date_debut),
         evenementsSupprimes: removed,
         evenementsConserves: mode === 'keep' ? evs.length : 0,
         demiJourneesRemisesEnSituation: reset
-    });
-    await svc.affHist(req, pid, old.samu_name, 'suppression', {
-        changes: [
-            {
-                label: 'Déploiement',
-                from: `${old.samu_name} (début ${svc.affFd(old.date_debut)})`,
-                to: removed ? `supprimé avec ${removed} événement(s)` : 'supprimé'
-            }
-        ]
     });
     res.json({ success: true, eventsRemoved: removed, planningReset: reset });
 }
