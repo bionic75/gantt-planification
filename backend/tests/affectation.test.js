@@ -139,6 +139,10 @@ describe('déploiements', () => {
         expect(
             (await admin.put('/api/affectation/projects/999999', { samu_name: 'x', date_debut: '2027-01-04' })).status
         ).toBe(404);
+
+        // L'historique est supprimé avec le déploiement : un identifiant réattribué n'en hérite pas
+        expect((await admin.delete(`/api/affectation/projects/${p.id}`)).data).toMatchObject({ success: true });
+        expect((await admin.get(`/api/affectation/projects/${p.id}/history`)).data.history).toEqual([]);
     });
 });
 

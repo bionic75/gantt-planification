@@ -2105,9 +2105,11 @@ export async function deleteProject(/** @type {number} */ id) {
     await prisma.$transaction([
         prisma.affectationProject.deleteMany({ where: { id } }),
         prisma.affectationAssignment.deleteMany({ where: { project_id: id } }),
-        prisma.affectationAssignmentDay.deleteMany({ where: { project_id: id } })
+        prisma.affectationAssignmentDay.deleteMany({ where: { project_id: id } }),
+        // L'historique suit le déploiement : un identifiant réattribué ne doit pas hériter de l'historique d'un autre
+        prisma.affectationHistory.deleteMany({ where: { project_id: id } })
     ]);
-    for (const key of [AFF_EVLINK_KEY, 'asana_task_overrides']) {
+    for (const key of [AFF_EVLINK_KEY, 'asana_task_overrides', 'asana_snapshots']) {
         try {
             await forgetProjectSetting(key, id);
         } catch {
