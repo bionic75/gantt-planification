@@ -1,7 +1,7 @@
 // @ts-check
 // Automatisations n°1 (rappel de saisie des disponibilités) et n°2 (sauvegarde du planning),
 // lancées par les tâches planifiées
-import { createEmailTransporter, emailConfig } from '../../lib/mailer.js';
+import { createEmailTransporter, emailConfig } from '../../lib/mailer.ts';
 import { reminderEmail, scheduledBackupEmail } from './automations.emails.js';
 import * as service from './automations.service.js';
 

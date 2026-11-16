@@ -1,9 +1,9 @@
 // @ts-check
 // Pages servies hors /api (aide personnalisable)
 import { Router } from 'express';
-import { envoyerAide, envoyerSondage } from '../../lib/frontend.js';
-import { asyncHandler as h } from '../../middlewares/error-handler.js';
-import { getSetting } from '../../services/settings.js';
+import { envoyerAide, envoyerSondage } from '../../lib/frontend.ts';
+import { asyncHandler as h } from '../../middlewares/error-handler.ts';
+import { getSetting } from '../../services/settings.ts';
 
 const router = Router();
 

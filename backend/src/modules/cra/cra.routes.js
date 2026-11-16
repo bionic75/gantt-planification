@@ -1,8 +1,8 @@
 // @ts-check
 // Comptes rendus d'activité (CRA) : /api/cra, /api/automation/cra
 import { Router } from 'express';
-import { requireAdmin, requireAdminOrRh, requireAuth } from '../../middlewares/auth.js';
-import { asyncHandler as h } from '../../middlewares/error-handler.js';
+import { requireAdmin, requireAdminOrRh, requireAuth } from '../../middlewares/auth.ts';
+import { asyncHandler as h } from '../../middlewares/error-handler.ts';
 import * as ctrl from './cra.controller.js';
 
 const router = Router();

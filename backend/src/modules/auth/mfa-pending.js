@@ -29,7 +29,8 @@ export function requireMfaPending(req, res, next) {
     const pending = req.session?.mfaPending;
     if (pending && Date.now() > pending.expiresAt) delete req.session.mfaPending;
     if (!req.session?.mfaPending) {
-        return res.status(401).json({ error: 'Session de connexion expirée, veuillez vous reconnecter.' });
+        res.status(401).json({ error: 'Session de connexion expirée, veuillez vous reconnecter.' });
+        return;
     }
     req.mfaPending = req.session.mfaPending;
     next();

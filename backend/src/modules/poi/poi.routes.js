@@ -1,8 +1,8 @@
 // @ts-check
 // Bonnes adresses autour des SAMU-SAS (hébergement, restaurant, bar) : /api/poi
 import { Router } from 'express';
-import { requireAuth } from '../../middlewares/auth.js';
-import { asyncHandler as h } from '../../middlewares/error-handler.js';
+import { requireAuth } from '../../middlewares/auth.ts';
+import { asyncHandler as h } from '../../middlewares/error-handler.ts';
 import * as ctrl from './poi.controller.js';
 
 const router = Router();

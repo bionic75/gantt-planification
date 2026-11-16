@@ -1,9 +1,9 @@
 // @ts-check
 // Accès aux données : comptes utilisateurs, droits applicatifs, préférences
-import { prisma } from '../../db/prisma.js';
-import { containsInsensitive, flag, idParam, isUniqueViolation, optional, toInt } from '../../db/values.js';
-import { badRequest, notFound, unauthorized } from '../../lib/http-error.js';
-import { hashPassword, passwordStrengthError, verifyPassword } from '../../lib/password.js';
+import { prisma } from '../../db/prisma.ts';
+import { containsInsensitive, flag, idParam, isUniqueViolation, optional, toInt } from '../../db/values.ts';
+import { badRequest, notFound, unauthorized } from '../../lib/http-error.ts';
+import { hashPassword, passwordStrengthError, verifyPassword } from '../../lib/password.ts';
 
 const MIN_PASSWORD_LENGTH = 6;
 const DEFAULT_TABS = [

@@ -1,5 +1,5 @@
 // @ts-check
-import { badRequest, forbidden } from '../../lib/http-error.js';
+import { badRequest, forbidden } from '../../lib/http-error.ts';
 import * as service from './deplacements.service.js';
 
 /** @typedef {import('express').Request} Request */

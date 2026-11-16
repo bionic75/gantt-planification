@@ -4,9 +4,9 @@ import fs from 'fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { apiDoc, inventory, listRoutes } from '../scripts/routes.mjs';
 import routes from './fixtures/routes.json' with { type: 'json' };
-import { startServer } from './helpers/server.js';
-import { isSqlite } from './helpers/test-db.js';
-import { createUser, loginAs } from './helpers/fixtures.js';
+import { startServer } from './helpers/server.ts';
+import { isSqlite } from './helpers/test-db.ts';
+import { createUser, loginAs } from './helpers/fixtures.ts';
 
 // Les paramètres de chemin (:id, :userId…) sont remplacés par une valeur quelconque :
 // la protection doit répondre avant toute lecture en base.

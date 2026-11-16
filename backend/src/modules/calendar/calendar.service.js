@@ -1,9 +1,9 @@
 // @ts-check
 // Calendrier : vacances scolaires (par zone) et dates particulières, importées de fichiers ICS
-import { prisma } from '../../db/prisma.js';
-import { idParam } from '../../db/values.js';
-import { badRequest } from '../../lib/http-error.js';
-import { getJsonSetting, setSetting } from '../../services/settings.js';
+import { prisma } from '../../db/prisma.ts';
+import { idParam } from '../../db/values.ts';
+import { badRequest } from '../../lib/http-error.ts';
+import { getJsonSetting, setSetting } from '../../services/settings.ts';
 
 const SCHOOL = 'school-holidays';
 const SPECIAL = 'special-dates';

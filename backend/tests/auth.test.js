@@ -1,7 +1,7 @@
 // Connexion, session et profils
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { ADMIN, DEFAULT_ADMIN, startServer } from './helpers/server.js';
-import { createExpert, createUser, loginAs } from './helpers/fixtures.js';
+import { ADMIN, DEFAULT_ADMIN, startServer } from './helpers/server.ts';
+import { createExpert, createUser, loginAs } from './helpers/fixtures.ts';
 
 let server;
 let admin;

@@ -1,8 +1,8 @@
 // @ts-check
 // Déplacements des AMOA / CED et bons de commande (BDC) : unités d'œuvre (UO) commandées et consommées
-import { prisma } from '../../db/prisma.js';
-import { idParam, toInt } from '../../db/values.js';
-import { badRequest, forbidden, notFound } from '../../lib/http-error.js';
+import { prisma } from '../../db/prisma.ts';
+import { idParam, toInt } from '../../db/values.ts';
+import { badRequest, forbidden, notFound } from '../../lib/http-error.ts';
 
 /** @typedef {{ userId: number, isAdmin: boolean }} Viewer */
 

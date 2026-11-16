@@ -10,7 +10,6 @@ const LEGACY_CODE = [
     'backend/src/modules/affectation/asana.service.js',
     'backend/src/modules/affectation/export.service.js',
     'backend/src/modules/poi/poi.external.js',
-    'backend/src/lib/ics.js',
     'backend/src/jobs/**'
 ];
 
@@ -110,6 +109,17 @@ export default [
         // Tests : composants d'essai déclarés dans le fichier de test
         files: ['frontend/**/*.test.ts'],
         rules: { 'vue/one-component-per-file': 'off' }
+    },
+    // Serveur en TypeScript (backend/, docs/migration-backend-ts.md)
+    ...tseslint.configs.recommended.map(config => ({ ...config, files: ['backend/**/*.ts'] })),
+    {
+        files: ['backend/**/*.ts'],
+        ignores: ['backend/src/generated/**'],
+        rules: {
+            // Remplacées par leurs équivalents TypeScript
+            'no-unused-vars': 'off',
+            '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', caughtErrors: 'none' }]
+        }
     },
     prettier
 ];

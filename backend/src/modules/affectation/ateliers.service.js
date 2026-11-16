@@ -1,12 +1,12 @@
 // @ts-check
 // Planification des ateliers métier : rétroplanning automatisé par SAMU (paramétrage, simulation, enregistrement, diffusion)
-import { prisma } from '../../db/prisma.js';
-import { idParam, sqlTimestamp } from '../../db/values.js';
-import { isEmail } from '../../lib/email.js';
-import { badRequest, notFound } from '../../lib/http-error.js';
-import { emailConfig, sendEmail } from '../../lib/mailer.js';
-import { samuNumber } from '../../lib/samu.js';
-import { getJsonSetting } from '../../services/settings.js';
+import { prisma } from '../../db/prisma.ts';
+import { idParam, sqlTimestamp } from '../../db/values.ts';
+import { isEmail } from '../../lib/email.ts';
+import { badRequest, notFound } from '../../lib/http-error.ts';
+import { emailConfig, sendEmail } from '../../lib/mailer.ts';
+import { samuNumber } from '../../lib/samu.ts';
+import { getJsonSetting } from '../../services/settings.ts';
 import { zoneOfDepartment } from './ateliers.data.js';
 import { removeOfRetroplanning } from './sondages.service.js';
 import {

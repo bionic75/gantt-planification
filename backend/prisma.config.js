@@ -4,7 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { defineConfig } from 'prisma/config';
-import { resolveDatabaseUrl } from './src/config/database-url.js';
+import { resolveDatabaseUrl } from './src/config/database-url.ts';
 
 dotenv.config({ quiet: true });
 const provider = process.env.DB_PROVIDER || 'sqlite';

@@ -1,6 +1,6 @@
 // @ts-check
 // Modèles des emails envoyés aux utilisateurs
-import { escapeHtml as e } from '../../lib/html.js';
+import { escapeHtml as e } from '../../lib/html.ts';
 
 /**
  * @param {{ prenom?: string, nom?: string, username: string, password: string, roles: string, appUrl: string }} p

@@ -1,11 +1,11 @@
 // @ts-check
 import QRCode from 'qrcode';
-import { env } from '../../config/env.js';
-import { badRequest, forbidden, HttpError, notFound, unauthorized } from '../../lib/http-error.js';
-import { emailConfig, sendEmail } from '../../lib/mailer.js';
-import { PASSWORD_RULE, passwordStrengthError } from '../../lib/password.js';
-import { rejectRevokedSession } from '../../middlewares/auth.js';
-import { activeSessions, revokeUserSessions } from '../../state/sessions.js';
+import { env } from '../../config/env.ts';
+import { badRequest, forbidden, HttpError, notFound, unauthorized } from '../../lib/http-error.ts';
+import { emailConfig, sendEmail } from '../../lib/mailer.ts';
+import { PASSWORD_RULE, passwordStrengthError } from '../../lib/password.ts';
+import { rejectRevokedSession } from '../../middlewares/auth.ts';
+import { activeSessions, revokeUserSessions } from '../../state/sessions.ts';
 import { MFA_ICONES, RESET_ICONES, mfaCodeEmail, passwordResetLinkEmail } from './auth.emails.js';
 import * as auth from './auth.service.js';
 import { consumeMfaAttempt, MAX_CODE_SENDS, startMfaPending } from './mfa-pending.js';
@@ -54,7 +54,7 @@ async function completeLogin(req, res, user, profile) {
     const logId = await auth.recordLogin(user, profile);
     if (logId !== null) req.session.logId = logId;
 
-    const availableApps = await auth.getAvailableApps(user.id).catch(() => []);
+    const availableApps = await auth.getAvailableApps(user.id).catch(() => /** @type {string[]} */ ([]));
     const amoaCed = availableApps.includes('deplacements');
     res.json({
         success: true,
@@ -171,7 +171,7 @@ export async function checkSession(/** @type {Request} */ req, /** @type {Respon
         console.error('Erreur récupération données session:', err);
         return null;
     });
-    const availableApps = await auth.getAvailableApps(userId).catch(() => []);
+    const availableApps = await auth.getAvailableApps(userId).catch(() => /** @type {string[]} */ ([]));
     res.json({
         userId,
         username: req.session.username,

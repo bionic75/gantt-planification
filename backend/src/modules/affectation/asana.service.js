@@ -2,12 +2,12 @@
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
-import { env as appEnv } from '../../config/env.js';
-import { prisma } from '../../db/prisma.js';
-import { HttpError } from '../../lib/http-error.js';
-import { samuNumber as affSamuNumber } from '../../lib/samu.js';
-import { logUserAction } from '../../services/action-log.js';
-import { getSetting, setSetting } from '../../services/settings.js';
+import { env as appEnv } from '../../config/env.ts';
+import { prisma } from '../../db/prisma.ts';
+import { HttpError } from '../../lib/http-error.ts';
+import { samuNumber as affSamuNumber } from '../../lib/samu.ts';
+import { logUserAction } from '../../services/action-log.ts';
+import { getSetting, setSetting } from '../../services/settings.ts';
 import {
     AFF_PERIOD_KEYS,
     AFF_STAGES,

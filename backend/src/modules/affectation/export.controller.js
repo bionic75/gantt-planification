@@ -1,8 +1,8 @@
 // @ts-check
 // Export du planning des déploiements (PDF, PowerPoint), modèle PowerPoint et modèle de nom des fichiers
-import { badRequest } from '../../lib/http-error.js';
-import { logUserAction } from '../../services/action-log.js';
-import { deleteSettings, getSetting, setSetting } from '../../services/settings.js';
+import { badRequest } from '../../lib/http-error.ts';
+import { logUserAction } from '../../services/action-log.ts';
+import { deleteSettings, getSetting, setSetting } from '../../services/settings.ts';
 import {
     AFF_NAME_DEFAULT,
     AFF_NAME_KEY,
@@ -121,7 +121,8 @@ export async function exportPptx(/** @type {Request} */ req, /** @type {Response
     if (useTemplate(req)) ({ buf, pages } = await affExportWithTemplate(req, x));
     else {
         const shots = /** @type {string[]} */ (await affRenderPages(x.html, x.wPx, x.hPx, 'pptx', x.wMm, x.hMm));
-        const { default: PptxGenJS } = await import('pptxgenjs');
+        // Export par défaut : la classe (types du paquet lus comme un module CommonJS)
+        const { default: PptxGenJS } = /** @type {any} */ (await import('pptxgenjs'));
         const pptx = new PptxGenJS();
         pptx.defineLayout({ name: 'PAGE', width: x.wMm / 25.4, height: x.hMm / 25.4 });
         pptx.layout = 'PAGE';

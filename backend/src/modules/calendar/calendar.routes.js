@@ -1,8 +1,8 @@
 // @ts-check
 // Calendrier : vacances scolaires et dates particulières (fichiers ICS)
 import { Router } from 'express';
-import { requireAdmin, requireAuth } from '../../middlewares/auth.js';
-import { asyncHandler as h } from '../../middlewares/error-handler.js';
+import { requireAdmin, requireAuth } from '../../middlewares/auth.ts';
+import { asyncHandler as h } from '../../middlewares/error-handler.ts';
 import * as service from './calendar.service.js';
 
 const router = Router();

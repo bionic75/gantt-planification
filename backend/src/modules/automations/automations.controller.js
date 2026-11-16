@@ -1,6 +1,6 @@
 // @ts-check
-import { createEmailTransporter, emailConfig } from '../../lib/mailer.js';
-import { logUserAction } from '../../services/action-log.js';
+import { createEmailTransporter, emailConfig } from '../../lib/mailer.ts';
+import { logUserAction } from '../../services/action-log.ts';
 import { manualBackupEmail, reminderEmail } from './automations.emails.js';
 import * as service from './automations.service.js';
 

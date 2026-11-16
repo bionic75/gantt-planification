@@ -1,9 +1,9 @@
 // Double authentification (MFA) : la connexion en attente est conservée côté serveur,
 // les userId / profile / secret envoyés par le client sont ignorés.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { ADMIN, startServer } from './helpers/server.js';
-import { totp } from './helpers/client.js';
-import { createUser, loginAs } from './helpers/fixtures.js';
+import { ADMIN, startServer } from './helpers/server.ts';
+import { totp } from './helpers/client.ts';
+import { createUser, loginAs } from './helpers/fixtures.ts';
 
 const ATTACKER_SECRET = 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
 

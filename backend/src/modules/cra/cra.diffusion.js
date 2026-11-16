@@ -2,10 +2,10 @@
 // Documents des CRA (PDF de consultation, document signé) et diffusion à la RH
 import fs from 'fs';
 import path from 'path';
-import { idParam } from '../../db/values.js';
-import { HttpError, badRequest, forbidden, notFound } from '../../lib/http-error.js';
-import { puppeteer } from '../../lib/puppeteer.js';
-import { enqueueEmail, newBatchId } from '../../services/email-queue.js';
+import { idParam } from '../../db/values.ts';
+import { HttpError, badRequest, forbidden, notFound } from '../../lib/http-error.ts';
+import { puppeteer } from '../../lib/puppeteer.ts';
+import { enqueueEmail, newBatchId } from '../../services/email-queue.ts';
 import { buildCraDocumentHtml, generateCraPdf, renderPdf, SIGNED_DOCUMENT_MARGIN } from './cra.documents.js';
 import { notifyExpertDiffused } from './cra.notifications.js';
 import * as service from './cra.service.js';

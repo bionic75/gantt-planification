@@ -1,8 +1,8 @@
 // @ts-check
 // Astreintes HO (heures ouvrées) : planning demi-journée par demi-journée, jours ouvrés, avec droits de modification
-import { prisma } from '../../db/prisma.js';
-import { sqlTimestamp } from '../../db/values.js';
-import { badRequest, forbidden } from '../../lib/http-error.js';
+import { prisma } from '../../db/prisma.ts';
+import { sqlTimestamp } from '../../db/values.ts';
+import { badRequest, forbidden } from '../../lib/http-error.ts';
 import {
     addDays,
     isValidDate,

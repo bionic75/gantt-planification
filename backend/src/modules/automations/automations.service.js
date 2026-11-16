@@ -1,10 +1,10 @@
 // @ts-check
 // Automatisations : configuration et journaux, rappel de saisie des disponibilités (n°1),
 // sauvegarde du planning par email (n°2), diagnostic et nettoyage des clés de planification
-import { prisma } from '../../db/prisma.js';
-import { idParam, sqlTimestamp } from '../../db/values.js';
-import { badRequest, notFound } from '../../lib/http-error.js';
-import { getJsonSetting, setSetting } from '../../services/settings.js';
+import { prisma } from '../../db/prisma.ts';
+import { idParam, sqlTimestamp } from '../../db/values.ts';
+import { badRequest, notFound } from '../../lib/http-error.ts';
+import { getJsonSetting, setSetting } from '../../services/settings.ts';
 
 export const MONTH_NAMES = [
     'Janvier',
@@ -171,6 +171,7 @@ export async function resolveRecipients(options) {
     const seen = new Set();
     /** @type {string[]} */
     const emails = [];
+    /** @type {Array<{ name: string, kind: string }>} */
     const people = [];
     const add = (
         /** @type {Array<{ id: number, nom: string, prenom: string, email: string }>} */ users,

@@ -1,8 +1,8 @@
 // @ts-check
 // Notifications : temps réel (SSE), notifications experts, emails d'affectation et invitations, Teams
 import { Router } from 'express';
-import { requireAdmin, requireAuth } from '../../middlewares/auth.js';
-import { asyncHandler as h } from '../../middlewares/error-handler.js';
+import { requireAdmin, requireAuth } from '../../middlewares/auth.ts';
+import { asyncHandler as h } from '../../middlewares/error-handler.ts';
 import * as ctrl from './notifications.controller.js';
 
 const router = Router();

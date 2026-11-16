@@ -1,12 +1,12 @@
 # Architecture
 
 Application web de planification des ressources : serveur Node.js (Express) et base de données gérée par Prisma,
-interface en HTML / JavaScript servie par le même serveur, en cours de migration vers Vue 3
-([migration-vue.md](migration-vue.md)).
+interface Vue 3 servie par le même serveur ([migration-vue.md](migration-vue.md)). Le serveur est en cours de migration
+vers TypeScript ([migration-backend-ts.md](migration-backend-ts.md)).
 
 | Élément         | Technologie                                                                        |
 | --------------- | ---------------------------------------------------------------------------------- |
-| Serveur         | Node.js 22, Express 4, modules ES                                                  |
+| Serveur         | Node.js 22, Express 4, TypeScript exécuté sans compilation (en cours de migration) |
 | Base de données | Prisma 7 : SQLite (défaut), PostgreSQL ou MariaDB ([détails](base-de-donnees.md))  |
 | Interface       | Vue 3 / TypeScript dans `frontend/` (pages, images, sources, build Vite)           |
 | PDF             | Chromium piloté par Puppeteer (CRA, export du planning) ; LibreOffice (PPTX → PDF) |
@@ -16,24 +16,24 @@ interface en HTML / JavaScript servie par le même serveur, en cours de migratio
 ## Arborescence
 
 ```
-backend/                 serveur (Node.js, Express)
-  server.js              point d'entrée : base, données initiales, application, tâches de fond, écoute HTTP
+backend/                 serveur (Node.js, Express, TypeScript : migration en cours, voir migration-backend-ts.md)
+  server.ts              point d'entrée : base, données initiales, application, tâches de fond, écoute HTTP
   src/
-    app.js               application Express : middlewares communs, routes /api, pages, fichiers statiques
-    routes.js            routeur /api : un sous-routeur par module
-    config/              configuration (env.js : variables d'environnement validées au démarrage)
+    app.ts               application Express : middlewares communs, routes /api, pages, fichiers statiques
+    routes.ts            routeur /api : un sous-routeur par module
+    config/              configuration (env.ts : variables d'environnement validées au démarrage)
     db/                  client Prisma, sessions en base, données initiales, conversions de valeurs
     middlewares/         contrôle d'accès, CSRF, limitation des tentatives, gestion des erreurs
     modules/<module>/    fonctionnalités : routes, contrôleurs, services, emails (voir ci-dessous)
     services/            services transverses : paramètres, journal des actions, file d'emails
     lib/                 utilitaires : erreurs HTTP, mots de passe, échappement HTML, emails, ICS, Puppeteer
-    jobs/scheduler.js    tâches planifiées (cron)
-    state/sessions.js    suivi en mémoire des utilisateurs connectés
+    jobs/scheduler.ts    tâches planifiées (cron)
+    state/sessions.ts    suivi en mémoire des utilisateurs connectés
     generated/prisma/    client Prisma généré (non versionné)
   prisma/                schéma source (schema.base.prisma), schémas et migrations par base
   prisma.config.js       configuration de la CLI Prisma (chemins absolus : commandes lancées depuis la racine)
   scripts/               commandes d'exploitation (migrations, adoption, transfert, sauvegarde, inventaire des routes)
-  tests/                 tests automatisés du serveur (vitest.config.js)
+  tests/                 tests automatisés du serveur (vitest.config.ts)
 frontend/                interface Vue 3 / TypeScript (voir « Interface Vue ») ; build dans dist/frontend (non versionné)
   pages/                 pages HTML servies par le serveur avec leur point d'entrée (voir « Frontend »)
   img/                   images servies sous /img (favicons, icônes, logos)
@@ -51,8 +51,8 @@ frontend et les outils.
 
 ## Démarrage du serveur
 
-`backend/server.js` : connexion à la base, vérification de l'encodage (PostgreSQL) et des migrations appliquées (sinon
-arrêt avec le message « npm run db:migrate »), données initiales (`backend/src/db/seed.js` : compte `admin`, paramètres,
+`backend/server.ts` : connexion à la base, vérification de l'encodage (PostgreSQL) et des migrations appliquées (sinon
+arrêt avec le message « npm run db:migrate »), données initiales (`backend/src/db/seed.ts` : compte `admin`, paramètres,
 types d'événements), configuration SMTP enregistrée, construction de l'application, routes de sauvegarde
 (`backend/scripts/db-dump.js`), démarrage de la file d'emails et des tâches planifiées, écoute sur `PORT`.
 
@@ -60,7 +60,7 @@ types d'événements), configuration SMTP enregistrée, construction de l'applic
 
 ## Traitement d'une requête
 
-Ordre des middlewares (`backend/src/app.js`) :
+Ordre des middlewares (`backend/src/app.ts`) :
 
 1. proxy de confiance (`TRUST_PROXY`), en-têtes de sécurité (helmet, CSP) ;
 2. refus des modifications venant d'un autre site (CSRF) ; CORS ouvert pour `/api/public` seulement ;
@@ -93,10 +93,10 @@ Organisation d'un module :
 
 Conventions :
 
-- erreurs métier : `throw badRequest('…')`, `notFound(…)`… (`backend/src/lib/http-error.js`), renvoyées au client avec leur
+- erreurs métier : `throw badRequest('…')`, `notFound(…)`… (`backend/src/lib/http-error.ts`), renvoyées au client avec leur
   statut ; toute autre erreur est journalisée et masquée (500 « Erreur interne du serveur ») ;
 - contrôleurs asynchrones enveloppés par `asyncHandler` (`h(...)` dans les fichiers de routes) ;
-- paramètres de l'application : `getSetting` / `setSetting` (`backend/src/services/settings.js`) ;
+- paramètres de l'application : `getSetting` / `setSetting` (`backend/src/services/settings.ts`) ;
 - dates et heures en chaînes (`AAAA-MM-JJ`, `AAAA-MM-JJ HH:MM:SS` UTC), booléens `0` / `1` (schéma historique) ;
 - vérification de types JSDoc (`// @ts-check`) ; commentaires en français ;
 - après l'ajout ou la modification d'une route : `npm run routes` (inventaire des tests et [api.md](api.md)).
@@ -108,8 +108,8 @@ Conventions :
 | Sauvegarde des plannings par email   | toutes les heures (selon config) | `automations.jobs.js` (automatisation 2) |
 | Rappels de saisie des disponibilités | chaque jour à 8 h (Europe/Paris) | `automations.jobs.js` (automatisation 1) |
 | Relances des CRA                     | chaque jour à 8 h                | `cra.automation.js` (automatisation 4)   |
-| Envoi des emails en file d'attente   | toutes les 1,5 s                 | `backend/src/services/email-queue.js`    |
-| Purge des sessions expirées          | toutes les 15 min                | `backend/src/db/session-store.js`        |
+| Envoi des emails en file d'attente   | toutes les 1,5 s                 | `backend/src/services/email-queue.ts`    |
+| Purge des sessions expirées          | toutes les 15 min                | `backend/src/db/session-store.ts`        |
 
 Les emails sont mis en file (table `email_queue`) puis envoyés en arrière-plan, avec nouvelles tentatives ; l'état
 d'un envoi groupé est consultable (`/api/email-queue/status/:batchId`).
@@ -117,7 +117,7 @@ d'un envoi groupé est consultable (`/api/email-queue/status/:batchId`).
 ## Frontend
 
 Pages de `frontend/pages/` servies par Express, chacune avec son point d'entrée Vue (feuilles de style insérées à la fin
-de `<head>`, script à la fin de `<body>`, `backend/src/lib/frontend.js`) :
+de `<head>`, script à la fin de `<body>`, `backend/src/lib/frontend.ts`) :
 
 | Page           | Rôle                                                                             | Point d'entrée (`frontend/src/`)                                    |
 | -------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
@@ -165,7 +165,7 @@ ses onglets ou une autre application, chacun à son adresse.
 | `frontend/src/outils/`                  | colonnes redimensionnables et masquables, styles en ligne sans `'unsafe-inline'` (`styles-en-ligne.ts` : `data-style`, documents d'impression, feuilles construites), bandeau « Données synchronisées », semaine ISO 8601 et modèles d'événements (règles partagées)                                                                                                                                   |
 | `frontend/src/api/`                     | appels `/api` typés (`client.ts`, un fichier par module : `poi.ts`…) ; une réponse 401 de session fermée signale la session perdue                                                                                                                                                                                                                                                                     |
 | `frontend/src/stores/`                  | magasins Pinia partagés (session…)                                                                                                                                                                                                                                                                                                                                                                     |
-| `backend/src/lib/frontend.js` (serveur) | service de l'interface selon l'environnement et insertion du point d'entrée dans la page                                                                                                                                                                                                                                                                                                               |
+| `backend/src/lib/frontend.ts` (serveur) | service de l'interface selon l'environnement et insertion du point d'entrée dans la page                                                                                                                                                                                                                                                                                                               |
 
 Adresses de la page principale : `/accueil`, `/ressources`, `/evenements`, `/planification`, `/samu-sas`, `/cra` (et
 `/cra/:id`, lien des courriels vers un CRA), `/reporting`, `/administration`, `/astreintes` pour les onglets de la
@@ -191,9 +191,9 @@ base temporaire) et l'interroge par HTTP ; ils restent valables quelle que soit 
 
 | Élément                                | Rôle                                                                              |
 | -------------------------------------- | --------------------------------------------------------------------------------- |
-| `backend/tests/helpers/server.js`      | démarrage, redémarrage et arrêt d'un serveur de test                              |
-| `backend/tests/helpers/fixtures.js`    | création de comptes, ressources, experts ; connexion                              |
-| `backend/tests/helpers/smtp-sink.js`   | serveur SMTP de test (emails reçus inspectables)                                  |
+| `backend/tests/helpers/server.ts`      | démarrage, redémarrage et arrêt d'un serveur de test                              |
+| `backend/tests/helpers/fixtures.ts`    | création de comptes, ressources, experts ; connexion                              |
+| `backend/tests/helpers/smtp-sink.ts`   | serveur SMTP de test (emails reçus inspectables)                                  |
 | `backend/tests/access-control.test.js` | protection de chaque route de l'inventaire (`backend/tests/fixtures/routes.json`) |
 | `backend/tests/ui.test.js`             | interface dans Chromium : connexion, onglets, page mobile, sans erreur JavaScript |
 

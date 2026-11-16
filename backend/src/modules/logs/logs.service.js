@@ -1,9 +1,9 @@
 // @ts-check
 // Journaux : connexions, actions, sessions actives, purge
-import { prisma } from '../../db/prisma.js';
-import { idParam } from '../../db/values.js';
-import { badRequest, notFound } from '../../lib/http-error.js';
-import { activeSessions } from '../../state/sessions.js';
+import { prisma } from '../../db/prisma.ts';
+import { idParam } from '../../db/values.ts';
+import { badRequest, notFound } from '../../lib/http-error.ts';
+import { activeSessions } from '../../state/sessions.ts';
 
 /** Inactivité au-delà de laquelle un utilisateur n'est plus considéré comme connecté */
 const ACTIVE_TIMEOUT_MS = 15 * 60 * 1000;
