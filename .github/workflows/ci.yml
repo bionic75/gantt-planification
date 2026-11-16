@@ -152,7 +152,7 @@ jobs:
           TEST_DB_PROVIDER: mysql
 
   # Tests de bout en bout (Playwright BDD, dossier e2e/) sur l'application de la branche : base SQLite neuve,
-  # jeu de données synthétique (e2e/scripts/seed.mjs), codes de double authentification lus dans Mailpit.
+  # jeu de données synthétique (e2e/scripts/seed.ts), codes de double authentification lus dans Mailpit.
   # Instance jetable : mots de passe propres à ce job, aucun secret du dépôt.
   e2e:
     name: Tests de bout en bout
@@ -210,6 +210,10 @@ jobs:
           npm ci
           npm ci --prefix e2e
 
+      # Étapes, configuration et jeu de données en TypeScript strict (exécutés sans compilation)
+      - name: Type-check e2e
+        run: npm run typecheck:e2e
+
       - name: Install Chromium (Playwright)
         run: npx --prefix e2e playwright install --with-deps chromium
 
@@ -234,7 +238,7 @@ jobs:
           exit 1
 
       - name: Seed test data
-        run: node e2e/scripts/seed.mjs
+        run: node e2e/scripts/seed.ts
 
       # Scénarios à préalable externe (Internet, Asana) ou à paramètre global (inactivité) : exécution planifiée.
       # Les scénarios @anomalie-connue (@fail) passent tant que l'anomalie existe, échouent dès qu'elle est corrigée.
