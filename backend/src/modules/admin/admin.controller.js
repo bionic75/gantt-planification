@@ -1,10 +1,10 @@
 // @ts-check
-import { prisma } from '../../db/prisma.js';
-import { sqlTimestamp, toInt } from '../../db/values.js';
-import { badRequest } from '../../lib/http-error.js';
-import { emailConfig, sendEmail, setEmailConfig } from '../../lib/mailer.js';
-import { logUserAction } from '../../services/action-log.js';
-import { deleteSettings, getAllSettings, getJsonSetting, getSetting, setSetting } from '../../services/settings.js';
+import { prisma } from '../../db/prisma.ts';
+import { sqlTimestamp, toInt } from '../../db/values.ts';
+import { badRequest } from '../../lib/http-error.ts';
+import { emailConfig, sendEmail, setEmailConfig } from '../../lib/mailer.ts';
+import { logUserAction } from '../../services/action-log.ts';
+import { deleteSettings, getAllSettings, getJsonSetting, getSetting, setSetting } from '../../services/settings.ts';
 import { TAB_KEYS, TAB_PROFILES, sanitizeThemeConfig, tabAccessMerge } from './admin.service.js';
 
 /** @typedef {import('express').Request} Request */
@@ -45,7 +45,7 @@ export async function saveEmailConfig(/** @type {Request} */ req, /** @type {Res
 export async function testEmailConfig(/** @type {Request} */ req, /** @type {Response} */ res) {
     try {
         await sendEmail(
-            emailConfig.user,
+            /** @type {string} */ (emailConfig.user),
             'Test de configuration SMTP',
             '<p>Ceci est un email de test. Si vous recevez ce message, votre configuration SMTP est correcte !</p>'
         );

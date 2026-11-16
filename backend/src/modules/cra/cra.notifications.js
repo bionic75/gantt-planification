@@ -1,9 +1,9 @@
 // @ts-check
 // Emails du circuit de validation des CRA (mis en file d'attente)
-import { env } from '../../config/env.js';
-import { escapeHtml as e } from '../../lib/html.js';
-import { emailConfig } from '../../lib/mailer.js';
-import { enqueueEmail, newBatchId } from '../../services/email-queue.js';
+import { env } from '../../config/env.ts';
+import { escapeHtml as e } from '../../lib/html.ts';
+import { emailConfig } from '../../lib/mailer.ts';
+import { enqueueEmail, newBatchId } from '../../services/email-queue.ts';
 import { buildCraEmailHtml } from './cra.documents.js';
 import { getCraConfig, monthName } from './cra.service.js';
 

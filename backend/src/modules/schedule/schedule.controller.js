@@ -1,6 +1,6 @@
 // @ts-check
-import { badRequest, forbidden } from '../../lib/http-error.js';
-import { logUserAction } from '../../services/action-log.js';
+import { badRequest, forbidden } from '../../lib/http-error.ts';
+import { logUserAction } from '../../services/action-log.ts';
 import { notifierAffectations } from '../notifications/notifications.service.js';
 import * as service from './schedule.service.js';
 

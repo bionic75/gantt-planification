@@ -1,6 +1,6 @@
 // @ts-check
-import { forbidden } from '../../lib/http-error.js';
-import { logUserAction } from '../../services/action-log.js';
+import { forbidden } from '../../lib/http-error.ts';
+import { logUserAction } from '../../services/action-log.ts';
 import * as service from './resources.service.js';
 
 /** @typedef {import('express').Request} Request */

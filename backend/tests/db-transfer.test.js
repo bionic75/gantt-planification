@@ -6,9 +6,9 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { promisify } from 'util';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { ADMIN, createWorkDir, startServer } from './helpers/server.js';
-import { loginAs } from './helpers/fixtures.js';
-import { createDatabase, databaseEnv, dropDatabase, isSqlite, newDatabaseName } from './helpers/test-db.js';
+import { ADMIN, createWorkDir, startServer } from './helpers/server.ts';
+import { loginAs } from './helpers/fixtures.ts';
+import { createDatabase, databaseEnv, dropDatabase, isSqlite, newDatabaseName } from './helpers/test-db.ts';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const run = promisify(execFile);

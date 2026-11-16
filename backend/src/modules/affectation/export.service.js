@@ -3,10 +3,10 @@ import { execFile } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { env as appEnv } from '../../config/env.js';
-import { HttpError } from '../../lib/http-error.js';
-import { isolatePage, puppeteer } from '../../lib/puppeteer.js';
-import { getJsonSetting } from '../../services/settings.js';
+import { env as appEnv } from '../../config/env.ts';
+import { HttpError } from '../../lib/http-error.ts';
+import { isolatePage, puppeteer } from '../../lib/puppeteer.ts';
+import { getJsonSetting } from '../../services/settings.ts';
 
 // Le modèle (.pptx) fournit titre, logo, pied de page… ; le planning est inséré en image centrée dans la zone libre de la diapositive « Titre et contenu ».
 export const AFF_TPL_KEY = 'aff_ppt_template';

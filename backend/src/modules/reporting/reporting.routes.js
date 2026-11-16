@@ -1,9 +1,9 @@
 // @ts-check
 // Reporting et exports : disponibilités, astreintes/HNO, carte des événements, exports
 import { Router } from 'express';
-import { requireAuth, requireReportingAccess } from '../../middlewares/auth.js';
-import { asyncHandler as h } from '../../middlewares/error-handler.js';
-import { logUserAction } from '../../services/action-log.js';
+import { requireAuth, requireReportingAccess } from '../../middlewares/auth.ts';
+import { asyncHandler as h } from '../../middlewares/error-handler.ts';
+import { logUserAction } from '../../services/action-log.ts';
 import * as service from './reporting.service.js';
 
 const router = Router();

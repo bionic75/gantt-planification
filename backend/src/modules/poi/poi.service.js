@@ -1,8 +1,8 @@
 // @ts-check
 // Bonnes adresses autour des SAMU-SAS (hébergement, restaurant, bar) : lieux, notes et commentaires
-import { prisma } from '../../db/prisma.js';
-import { idParam, sqlTimestamp } from '../../db/values.js';
-import { badRequest, forbidden, notFound } from '../../lib/http-error.js';
+import { prisma } from '../../db/prisma.ts';
+import { idParam, sqlTimestamp } from '../../db/values.ts';
+import { badRequest, forbidden, notFound } from '../../lib/http-error.ts';
 import { poiClean, poiKm, poiMapResult, poiNominatim, poiRouteCache, poiRouteOne } from './poi.external.js';
 
 export const POI_CATS = ['hebergement', 'restaurant', 'bar'];

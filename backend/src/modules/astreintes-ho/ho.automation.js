@@ -1,9 +1,9 @@
 // @ts-check
 // Automatisations n°5 (construction du planning d'astreinte HO de la semaine S+1) et n°6 (communication du planning,
 // avec renvoi « MAJ » quand la semaine en cours est modifiée) ; n°7 et n°8 : les mêmes pour les astreintes HO ANS
-import { prisma } from '../../db/prisma.js';
-import { env } from '../../config/env.js';
-import { createEmailTransporter, emailConfig } from '../../lib/mailer.js';
+import { prisma } from '../../db/prisma.ts';
+import { env } from '../../config/env.ts';
+import { createEmailTransporter, emailConfig } from '../../lib/mailer.ts';
 import { addLog, getConfig, resolveRecipients } from '../automations/automations.service.js';
 import { backgroundAppUrl } from '../cra/cra.notifications.js';
 import {

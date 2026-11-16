@@ -1,8 +1,8 @@
 // @ts-check
 // Astreintes et HNO : saisie (avec verrou des CRA soumis), disponibilités, indisponibilités et planning d'astreinte
-import { prisma } from '../../db/prisma.js';
-import { idParam, sqlTimestamp, toInt } from '../../db/values.js';
-import { badRequest, forbidden, notFound } from '../../lib/http-error.js';
+import { prisma } from '../../db/prisma.ts';
+import { idParam, sqlTimestamp, toInt } from '../../db/values.ts';
+import { badRequest, forbidden, notFound } from '../../lib/http-error.ts';
 import { checkCraLock, LINE_TYPES } from '../cra/cra.service.js';
 import { generatePlanning } from './astreintes.planning.js';
 

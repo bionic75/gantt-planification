@@ -1,8 +1,8 @@
 // @ts-check
 // Événements : recherche de doublons (certains ou probables) et fusion (on ne conserve qu'une occurrence)
-import { prisma } from '../../db/prisma.js';
-import { badRequest, notFound } from '../../lib/http-error.js';
-import { getJsonSetting, setSetting } from '../../services/settings.js';
+import { prisma } from '../../db/prisma.ts';
+import { badRequest, notFound } from '../../lib/http-error.ts';
+import { getJsonSetting, setSetting } from '../../services/settings.ts';
 
 /** Liens explicites déploiement / activité / événement de l'Aide à l'affectation (voir affectation.service.js) */
 const AFF_EVLINK_KEY = 'aff_event_links';
@@ -52,6 +52,8 @@ const NEIGHBOUR = 0.6;
 /** Écart maximal (en jours) entre deux périodes qui ne se recoupent pas pour des événements identiques */
 const NEAR_DAYS = 14;
 
+/** @typedef {{ type_id: number | null, location_id: number | null, start_date: string, end_date: string, period: string | null, norm: string }} EvenementCompare */
+
 const daysBetween = (/** @type {string} */ from, /** @type {string} */ to) =>
     Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000);
 
@@ -59,8 +61,8 @@ const daysBetween = (/** @type {string} */ from, /** @type {string} */ to) =>
  * Niveau de ressemblance de deux événements : « certain » (même type, même lieu, mêmes dates et période, même libellé),
  * « probable » (même lieu et dates qui se recoupent, avec un libellé très proche ou voisin à type identique, ou même type et
  * mêmes dates), sinon null
- * @param {{ type_id: number | null, location_id: number | null, start_date: string, end_date: string, period: string | null, norm: string }} a
- * @param {typeof a} b
+ * @param {EvenementCompare} a
+ * @param {EvenementCompare} b
  * @returns {{ niveau: 'certain' | 'probable', raison: string } | null}
  */
 export function compareEvents(a, b) {

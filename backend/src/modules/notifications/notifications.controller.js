@@ -1,11 +1,11 @@
 // @ts-check
 import crypto from 'crypto';
-import { piecesDeHtml } from '../../lib/email-layout.js';
-import { badRequest } from '../../lib/http-error.js';
-import { createEmailTransporter, emailConfig, sendEmail } from '../../lib/mailer.js';
-import { logUserAction } from '../../services/action-log.js';
-import { enqueueEmail, getReusableTransporter } from '../../services/email-queue.js';
-import { activeSessions } from '../../state/sessions.js';
+import { piecesDeHtml } from '../../lib/email-layout.ts';
+import { badRequest } from '../../lib/http-error.ts';
+import { createEmailTransporter, emailConfig, sendEmail } from '../../lib/mailer.ts';
+import { logUserAction } from '../../services/action-log.ts';
+import { enqueueEmail, getReusableTransporter } from '../../services/email-queue.ts';
+import { activeSessions } from '../../state/sessions.ts';
 import { getExpertByResource, isEmailOfResource } from '../users/users.service.js';
 import {
     assignmentRequestEmail,

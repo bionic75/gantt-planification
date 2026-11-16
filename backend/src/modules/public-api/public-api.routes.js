@@ -1,8 +1,8 @@
 // @ts-check
 // API publique par clé (événements) et gestion des clés
 import { Router } from 'express';
-import { requireAdmin, requireApiKey } from '../../middlewares/auth.js';
-import { asyncHandler as h } from '../../middlewares/error-handler.js';
+import { requireAdmin, requireApiKey } from '../../middlewares/auth.ts';
+import { asyncHandler as h } from '../../middlewares/error-handler.ts';
 import * as service from './public-api.service.js';
 
 const router = Router();

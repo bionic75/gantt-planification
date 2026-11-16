@@ -1,9 +1,9 @@
 // @ts-check
-import { env } from '../../config/env.js';
-import { badRequest, forbidden } from '../../lib/http-error.js';
-import { sendEmail } from '../../lib/mailer.js';
-import { logUserAction } from '../../services/action-log.js';
-import { activeSessions, revokeUserSessions } from '../../state/sessions.js';
+import { env } from '../../config/env.ts';
+import { badRequest, forbidden } from '../../lib/http-error.ts';
+import { sendEmail } from '../../lib/mailer.ts';
+import { logUserAction } from '../../services/action-log.ts';
+import { activeSessions, revokeUserSessions } from '../../state/sessions.ts';
 import { accountCreatedEmail, passwordResetByAdminEmail } from './users.emails.js';
 import * as service from './users.service.js';
 

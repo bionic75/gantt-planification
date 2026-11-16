@@ -1,7 +1,7 @@
 // Statuts de déploiement (couleur de la palette, ordre, « En service ») et statut de chaque SAMU : /api/affectation
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { ADMIN, startServer } from './helpers/server.js';
-import { createExpert, loginAs } from './helpers/fixtures.js';
+import { ADMIN, startServer } from './helpers/server.ts';
+import { createExpert, loginAs } from './helpers/fixtures.ts';
 
 let server;
 let admin;

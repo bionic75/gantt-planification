@@ -1,8 +1,8 @@
 // @ts-check
-// Modèles des emails d'authentification (gabarit commun : lib/email-layout.js). Chaque modèle expose aussi les
+// Modèles des emails d'authentification (gabarit commun : lib/email-layout.ts). Chaque modèle expose aussi les
 // icônes à joindre au message.
-import { escapeHtml as e } from '../../lib/html.js';
-import { boutonMail, gabaritMail, ligneInfo, piecesIcones } from '../../lib/email-layout.js';
+import { escapeHtml as e } from '../../lib/html.ts';
+import { boutonMail, gabaritMail, ligneInfo, piecesIcones } from '../../lib/email-layout.ts';
 
 /** Icônes jointes aux emails */
 export const MFA_ICONES = piecesIcones(['cadenas-grand', 'horloge', 'bouclier']);

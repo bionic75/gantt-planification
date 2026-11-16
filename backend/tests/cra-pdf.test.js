@@ -1,7 +1,7 @@
 // CRA : génération PDF et diffusion (nécessite un navigateur Chromium, sinon les tests sont ignorés)
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { ADMIN, BROWSER_PATH, startServer } from './helpers/server.js';
-import { createExpert, createUser, loginAs } from './helpers/fixtures.js';
+import { ADMIN, BROWSER_PATH, startServer } from './helpers/server.ts';
+import { createExpert, createUser, loginAs } from './helpers/fixtures.ts';
 
 describe.skipIf(!BROWSER_PATH)('PDF et diffusion des CRA', () => {
     let server;

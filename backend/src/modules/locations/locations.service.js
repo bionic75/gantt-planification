@@ -1,8 +1,8 @@
 // @ts-check
 // Localisations (SAMU-SAS et autres lieux) : libellés et adresses en majuscules
-import { prisma } from '../../db/prisma.js';
-import { idParam, isUniqueViolation, sqlTimestamp } from '../../db/values.js';
-import { badRequest, HttpError, notFound } from '../../lib/http-error.js';
+import { prisma } from '../../db/prisma.ts';
+import { idParam, isUniqueViolation, sqlTimestamp } from '../../db/values.ts';
+import { badRequest, HttpError, notFound } from '../../lib/http-error.ts';
 
 /** Coordonnée saisie : vide ou non numérique → null */
 function coordinate(/** @type {unknown} */ value) {

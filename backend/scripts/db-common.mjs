@@ -5,7 +5,7 @@ import fs from 'fs';
 import { createRequire } from 'module';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { resolveDatabaseUrl } from '../src/config/database-url.js';
+import { resolveDatabaseUrl } from '../src/config/database-url.ts';
 
 dotenv.config({ quiet: true });
 

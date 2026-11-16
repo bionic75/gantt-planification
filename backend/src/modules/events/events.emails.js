@@ -1,8 +1,8 @@
 // @ts-check
-// Emails envoyés à la création d'un événement depuis la planification (gabarit commun : lib/email-layout.js, icônes
+// Emails envoyés à la création d'un événement depuis la planification (gabarit commun : lib/email-layout.ts, icônes
 // jointes par la file d'envoi)
-import { escapeHtml as e } from '../../lib/html.js';
-import { gabaritMail, ligneInfo } from '../../lib/email-layout.js';
+import { escapeHtml as e } from '../../lib/html.ts';
+import { gabaritMail, ligneInfo } from '../../lib/email-layout.ts';
 
 /** @typedef {{ label: string, attendeeName: string, dateRangeLabel: string, locLabel: string, creatorFullName: string }} EventEmail */
 

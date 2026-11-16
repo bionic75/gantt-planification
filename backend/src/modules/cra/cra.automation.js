@@ -1,9 +1,9 @@
 // @ts-check
 // Comptes rendus d'activité (CRA) : automatisation n°4 (création mensuelle des CRA et rappels),
 // lancée par la tâche planifiée ou testée par un administrateur
-import { emailConfig } from '../../lib/mailer.js';
-import { HttpError } from '../../lib/http-error.js';
-import { enqueueEmail, newBatchId } from '../../services/email-queue.js';
+import { emailConfig } from '../../lib/mailer.ts';
+import { HttpError } from '../../lib/http-error.ts';
+import { enqueueEmail, newBatchId } from '../../services/email-queue.ts';
 import { buildCraEmailHtml } from './cra.documents.js';
 import { backgroundAppUrl } from './cra.notifications.js';
 import { countByStatut, ensureMonthlyCra, getCraConfig, listAutomationExperts } from './cra.service.js';

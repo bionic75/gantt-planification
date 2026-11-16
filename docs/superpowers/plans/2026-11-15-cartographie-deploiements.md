@@ -16,7 +16,7 @@
 - Aucun appel réseau nouveau : la CSP n'est pas élargie (contours servis par l'application).
 - Schéma modifié dans `backend/prisma/schema.base.prisma` uniquement, puis `npm run db:schemas` et `npm run db:migration -- statuts_deploiement` (jamais à la main dans `prisma/<fournisseur>/`).
 - Routes documentées : `npm run routes` régénère `backend/tests/fixtures/routes.json` et `docs/api.md`.
-- Contrôles avant chaque commit : `npm run typecheck:front`, `npm run lint` (0 erreur), `npx prettier --write` sur les fichiers touchés ; tests front `npm run test:front`, tests back ciblés `npx vitest run --config backend/vitest.config.js backend/tests/<fichier> --maxWorkers=2`.
+- Contrôles avant chaque commit : `npm run typecheck:front`, `npm run lint` (0 erreur), `npx prettier --write` sur les fichiers touchés ; tests front `npm run test:front`, tests back ciblés `npx vitest run --config backend/vitest.config.ts backend/tests/<fichier> --maxWorkers=2`.
 - Statut « En service » : fourni par défaut (`is_service = 1`), ni renommable ni supprimable. Départements : métropole seule (96). Version par défaut de la transparence : 60 %.
 - Contours : `departements-version-simplifiee.geojson` de `gregoiredavid/france-geojson` (IGN Admin Express 2018), coordonnées arrondies à 3 décimales (~225 Ko).
 - Fin de livraison (hors plan) : numéro de version, fiche `aide.html`, PR ; déploiement seulement après confirmation de la sauvegarde de la base.

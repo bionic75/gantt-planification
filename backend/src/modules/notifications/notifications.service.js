@@ -1,11 +1,11 @@
 // @ts-check
 // Notifications : messages temps réel (SSE), notifications des experts, affectations en attente,
 // suivi des envois groupés, notifications Teams
-import { env } from '../../config/env.js';
-import { prisma } from '../../db/prisma.js';
-import { idParam, sqlTimestamp } from '../../db/values.js';
-import { createEmailTransporter, emailConfig } from '../../lib/mailer.js';
-import { getJsonSetting } from '../../services/settings.js';
+import { env } from '../../config/env.ts';
+import { prisma } from '../../db/prisma.ts';
+import { idParam, sqlTimestamp } from '../../db/values.ts';
+import { createEmailTransporter, emailConfig } from '../../lib/mailer.ts';
+import { getJsonSetting } from '../../services/settings.ts';
 import { teamsCardHtml, teamsMessage } from './notifications.emails.js';
 import { isLoggedActivity, LOGGED_ACTIVITIES } from '../schedule/schedule.service.js';
 

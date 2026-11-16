@@ -51,4 +51,4 @@ EXPOSE 3000
 
 # Migrations en attente appliquées à chaque démarrage, puis lancement du serveur (code du serveur : backend/ ;
 # répertoire courant /app : .env, config/ et data/ restent à la racine)
-CMD ["sh", "-c", "node backend/scripts/db-migrate.mjs && exec node backend/server.js"]
+CMD ["sh", "-c", "node backend/scripts/db-migrate.mjs && exec node backend/server.ts"]

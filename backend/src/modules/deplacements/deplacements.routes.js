@@ -2,8 +2,8 @@
 // Déplacements et bons de commande : réservés aux comptes autorisés sur l'application « Suivi des déplacements »,
 // comme l'écran (menu Applications)
 import { Router } from 'express';
-import { requireAdmin, requireDeplacementsAccess } from '../../middlewares/auth.js';
-import { asyncHandler as h } from '../../middlewares/error-handler.js';
+import { requireAdmin, requireDeplacementsAccess } from '../../middlewares/auth.ts';
+import { asyncHandler as h } from '../../middlewares/error-handler.ts';
 import * as ctrl from './deplacements.controller.js';
 
 const router = Router();

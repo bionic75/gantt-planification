@@ -2,8 +2,8 @@
 // Accès aux données du planning.
 // Une cellule est identifiée par la clé « <resourceId>_<type>_<AAAA-MM-JJ>_<AM|PM> » ;
 // type : available (disponibilité), activity (affectation) ou localisation.
-import { prisma } from '../../db/prisma.js';
-import { idParam } from '../../db/values.js';
+import { prisma } from '../../db/prisma.ts';
+import { idParam } from '../../db/values.ts';
 
 /** Libellés des activités journalisées dans action_logs */
 export const LOGGED_ACTIVITIES = {

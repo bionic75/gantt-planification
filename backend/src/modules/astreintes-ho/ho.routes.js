@@ -1,8 +1,8 @@
 // @ts-check
 // Astreintes HO : planning demi-journée par demi-journée, automatisations n°5 et n°6
 import { Router } from 'express';
-import { requireAdmin, requireAuth } from '../../middlewares/auth.js';
-import { asyncHandler as h } from '../../middlewares/error-handler.js';
+import { requireAdmin, requireAuth } from '../../middlewares/auth.ts';
+import { asyncHandler as h } from '../../middlewares/error-handler.ts';
 import * as ctrl from './ho.controller.js';
 
 const router = Router();

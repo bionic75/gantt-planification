@@ -1,9 +1,9 @@
 // Planification des ateliers métier : rétroplanning automatisé (calcul identique au classeur Excel de référence),
 // paramétrage depuis les déploiements, enregistrement par SAMU, diffusion par e-mail
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { ADMIN, startServer } from './helpers/server.js';
-import { createUser, loginAs } from './helpers/fixtures.js';
-import { startSmtpSink } from './helpers/smtp-sink.js';
+import { ADMIN, startServer } from './helpers/server.ts';
+import { createUser, loginAs } from './helpers/fixtures.ts';
+import { startSmtpSink } from './helpers/smtp-sink.ts';
 
 let server;
 let admin;

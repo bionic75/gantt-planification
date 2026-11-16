@@ -1,5 +1,5 @@
 // @ts-check
-import { logUserAction } from '../../services/action-log.js';
+import { logUserAction } from '../../services/action-log.ts';
 import * as service from './poi.service.js';
 
 /** @typedef {import('express').Request} Request */

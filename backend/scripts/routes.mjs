@@ -51,11 +51,11 @@ function mountPath(layer) {
 
 /** Routes de l'application, triées par chemin puis méthode */
 export async function listRoutes() {
-    const { createApp } = await import(pathToFileURL(path.join(ROOT, 'src/app.js')).href);
+    const { createApp } = await import(pathToFileURL(path.join(ROOT, 'src/app.ts')).href);
     const { registerDumpRoutes } = await import(pathToFileURL(path.join(ROOT, 'scripts/db-dump.js')).href);
-    const { requireAdmin } = await import(pathToFileURL(path.join(ROOT, 'src/middlewares/auth.js')).href);
+    const { requireAdmin } = await import(pathToFileURL(path.join(ROOT, 'src/middlewares/auth.ts')).href);
     const app = createApp();
-    // Comme server.js : routes de sauvegarde / restauration
+    // Comme server.ts : routes de sauvegarde / restauration
     registerDumpRoutes(app, {
         requireAdmin,
         logUserAction: () => {},

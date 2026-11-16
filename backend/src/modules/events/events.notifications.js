@@ -1,9 +1,9 @@
 // @ts-check
 // Notifications à la création d'un événement depuis la planification :
 // participants (email simple), personnes sollicitées (mobilisation, avec invitation ICS)
-import { buildICS, formatDateICS, generateICSUid } from '../../lib/ics.js';
-import { formatDateFR } from '../../lib/utils.js';
-import { enqueueEmail } from '../../services/email-queue.js';
+import { buildICS, formatDateICS, generateICSUid } from '../../lib/ics.ts';
+import { formatDateFR } from '../../lib/utils.ts';
+import { enqueueEmail } from '../../services/email-queue.ts';
 import { mobilisationEmail, participantAddedEmail } from './events.emails.js';
 import { activeUsersWithEmail, notificationContext } from './events.service.js';
 
