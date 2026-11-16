@@ -4,7 +4,7 @@ import type { NextFunction, Request, Response } from 'express';
 import type { SessionData } from 'express-session';
 import { prisma } from '../db/prisma.ts';
 import { sqlTimestamp } from '../db/values.ts';
-import { tabAccessMerge } from '../modules/admin/admin.service.js';
+import { tabAccessMerge } from '../modules/admin/admin.service.ts';
 import { getJsonSetting } from '../services/settings.ts';
 import { activeSessions, touchSession } from '../state/sessions.ts';
 
@@ -82,10 +82,7 @@ export async function requireReportingAccess(req: Request, res: Response, next: 
     const profil = req.session.activeProfile;
     let permis = profil === 'admin';
     if (!permis && profil) {
-        const config = tabAccessMerge(await getJsonSetting('tab_access_config').catch(() => null)) as Record<
-            string,
-            Record<string, unknown> | undefined
-        >;
+        const config = tabAccessMerge(await getJsonSetting('tab_access_config').catch(() => null));
         permis = config[profil]?.reporting === true;
     }
     if (!permis) {

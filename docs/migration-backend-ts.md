@@ -6,14 +6,14 @@ corrigées que sur décision.
 
 ## Principes (décisions du 16/11/2026)
 
-| Sujet                  | Décision                                                                                                                                                                                    |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Exécution              | Node 22 exécute directement les fichiers `.ts` (types effacés au chargement) : pas de compilation, même image Docker                                                                        |
-| Syntaxe                | Effaçable seulement (`erasableSyntaxOnly`) : ni `enum`, ni `namespace`, ni propriétés de paramètres ; imports avec l'extension `.ts`, `import type` pour les types (`verbatimModuleSyntax`) |
-| Rigueur                | `strict` partout, code historique compris ; `any` explicite et commenté là où un typage précis coûterait trop (formats Asana, PowerPoint)                                                   |
-| Tests                  | Chaque fichier de test passe en TypeScript dans le même lot que son module                                                                                                                  |
-| Scripts d'exploitation | Renommés en `.ts` au lot 3 ; documentation et Dockerfile mis à jour                                                                                                                         |
-| Découpage              | Trois lots ; périmètre présenté et validé avant chaque lot                                                                                                                                  |
+| Sujet                  | Décision                                                                                                                                                                                                                                                                                                           |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Exécution              | Node 22 exécute directement les fichiers `.ts` (types effacés au chargement) : pas de compilation, même image Docker                                                                                                                                                                                               |
+| Syntaxe                | Effaçable seulement (`erasableSyntaxOnly`) : ni `enum`, ni `namespace`, ni propriétés de paramètres ; imports avec l'extension `.ts`, `import type` pour les types (`verbatimModuleSyntax`)                                                                                                                        |
+| Rigueur                | `strict` partout, code historique compris ; `any` explicite là où un typage précis coûterait trop : formats Asana et PowerPoint, réponses des services externes, configurations JSON enregistrées, réponses de l'API dans les tests (règle ESLint `no-explicit-any` désactivée pour le serveur, comme pour `e2e/`) |
+| Tests                  | Chaque fichier de test passe en TypeScript dans le même lot que son module                                                                                                                                                                                                                                         |
+| Scripts d'exploitation | Renommés en `.ts` au lot 3 ; documentation et Dockerfile mis à jour                                                                                                                                                                                                                                                |
+| Découpage              | Trois lots ; périmètre présenté et validé avant chaque lot                                                                                                                                                                                                                                                         |
 
 Pendant la migration, fichiers `.js` et `.ts` coexistent : un fichier JavaScript importe un fichier TypeScript (et
 inversement) avec son extension réelle. Les fichiers `.js` marqués `// @ts-check` sont vérifiés avec les mêmes règles.
@@ -29,7 +29,7 @@ inversement) avec son extension réelle. Les fichiers `.js` marqués `// @ts-che
 | Lot | Périmètre                                                                                                                                                                                                                                                  | État    |
 | --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
 | 1   | Socle (`tsconfig`, types des bibliothèques, vérification en CI, ESLint, Vitest) et infrastructure : `server`, `app`, `routes`, `config/`, `db/`, `lib/`, `middlewares/`, `services/`, `state/`, `jobs/` ; aides et configuration des tests, tests associés | Fait    |
-| 2   | Modules sauf l'affectation : admin, auth, astreintes, astreintes-ho, automations, calendar, cra, deplacements, events, locations, logs, notifications, poi, public-api, reporting, resources, schedule, users ; leurs tests                                | À faire |
+| 2   | Modules sauf l'affectation : admin, auth, astreintes, astreintes-ho, automations, calendar, cra, deplacements, events, locations, logs, notifications, poi, public-api, reporting, resources, schedule, users ; leurs tests                                | Fait    |
 | 3   | Affectation (dont `asana.service`, `export.service`), scripts d'exploitation (`backend/scripts`), `prisma.config`, finalisation (`allowJs` retiré, annotations JSDoc devenues inutiles supprimées)                                                         | À faire |
 
 ### Lot 1 : socle et infrastructure
@@ -43,6 +43,16 @@ inversement) avec son extension réelle. Les fichiers `.js` marqués `// @ts-che
 - Modèles Prisma utilisés comme types (ex. `EmailQueue` pour la file d'emails).
 - Modules encore en JavaScript : une vingtaine d'annotations JSDoc corrigées pour que la vérification passe (types de
   tableaux, conversions explicites), sans changement de code exécuté.
+
+### Lot 2 : modules hors affectation
+
+- 74 fichiers de modules et 27 fichiers de tests passés en TypeScript ; annotations JSDoc converties en types
+  TypeScript (paramètres, conversions, définitions de types), puis retirées.
+- Code historique typé à son tour : `cra.documents` (documents et PDF des CRA : types `LigneCra`, `SignatureCra`,
+  `CraDocument`), `poi.external` (géocodage et itinéraires, `// @ts-nocheck` retiré ; réponses des services externes en
+  `any`), `admin.service` (accès aux onglets, thèmes).
+- Tests : serveur, clients et serveur SMTP de test typés (`TestServer`, `Client`, `SmtpSink`) ; réponses JSON de l'API
+  en `any`.
 
 ## Anomalies relevées par le typage
 

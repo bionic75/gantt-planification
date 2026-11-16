@@ -2,7 +2,7 @@
 import { badRequest, notFound } from '../../lib/http-error.ts';
 import { samuNumber as affSamuNumber } from '../../lib/samu.ts';
 import { logUserAction } from '../../services/action-log.ts';
-import { evtResolveType } from '../events/events.service.js';
+import { evtResolveType } from '../events/events.service.ts';
 import * as svc from './affectation.service.js';
 import {
     ASANA_ACTIVITIES,

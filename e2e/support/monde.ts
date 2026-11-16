@@ -17,7 +17,7 @@ export interface Reponse {
 
 /**
  * Délai des appels qui produisent un PDF (Chromium lancé par le serveur à chaque document) : celui que le serveur
- * s'accorde (backend/src/modules/cra/cra.documents.js) ; un runner de CI chargé dépasse les 20 s par défaut
+ * s'accorde (backend/src/modules/cra/cra.documents.ts) ; un runner de CI chargé dépasse les 20 s par défaut
  */
 export const DELAI_PDF = 120_000;
 
