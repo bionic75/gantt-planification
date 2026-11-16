@@ -3,7 +3,7 @@ import { prisma } from '../../db/prisma.ts';
 import { badRequest, notFound } from '../../lib/http-error.ts';
 import { getJsonSetting, setSetting } from '../../services/settings.ts';
 
-/** Liens explicites déploiement / activité / événement de l'Aide à l'affectation (voir affectation.service.js) */
+/** Liens explicites déploiement / activité / événement de l'Aide à l'affectation (voir affectation.service.ts) */
 const AFF_EVLINK_KEY = 'aff_event_links';
 
 /** Minuscules sans accents ni ponctuation, espaces réduits */

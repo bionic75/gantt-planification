@@ -1,4 +1,4 @@
-// Types partagés pour la vérification JSDoc (// @ts-check) dans l'éditeur
+// Types partagés du serveur : données de session et requête Express
 import 'express-session';
 
 declare module 'express-session' {

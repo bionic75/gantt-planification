@@ -1,4 +1,4 @@
-// URL de connexion à la base, partagée par l'application, la CLI Prisma (prisma.config.js) et les scripts
+// URL de connexion à la base, partagée par l'application, la CLI Prisma (prisma.config.ts) et les scripts
 import path from 'path';
 
 /** Fournisseurs pris en charge (nom Prisma) */

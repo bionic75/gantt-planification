@@ -1,0 +1,920 @@
+// Aide à l'affectation (déploiements des SAMU) : déploiements, affectations, disponibilités,
+// synchronisation vers la planification et les événements, suppression, import CSV Asana, configuration
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { ADMIN, startServer } from './helpers/server.ts';
+import { createExpert, createResource, createUser, loginAs } from './helpers/fixtures.ts';
+import type { TestServer } from './helpers/server.ts';
+import type { Client } from './helpers/client.ts';
+
+let server: TestServer;
+let admin: Client;
+let seq = 0;
+
+beforeAll(async () => {
+    server = await startServer();
+    admin = await loginAs(server, ADMIN, 'admin');
+});
+afterAll(() => server?.stop());
+
+// Numéro de SAMU propre à chaque test (lieu « SAMU 7x »)
+async function newSamu() {
+    const no = 70 + ++seq;
+    const loc = await admin.post('/api/locations', {
+        libelle_long: `SAMU TEST ${no} ${Date.now()}`,
+        libelle_court: `SAMU ${no}`
+    });
+    expect(loc.status, JSON.stringify(loc.data)).toBe(200);
+    return { no: String(no), name: `SAMU ${no}`, locationId: loc.data.id };
+}
+
+async function createProject(samu: any, periods = {}) {
+    const r = await admin.post('/api/affectation/projects', {
+        samu_name: samu.name,
+        location_id: samu.locationId,
+        date_debut: '2027-01-04',
+        date_mise_en_service: '2027-04-01',
+        periods: { visite_metier: [{ start: '2027-03-01', end: '2027-03-03', needed: 2 }], ...periods }
+    });
+    expect(r.status, JSON.stringify(r.data)).toBe(200);
+    return r.data;
+}
+
+const project = async (id: any) =>
+    (await admin.get('/api/affectation/projects')).data.projects.find((p: any) => p.id === id);
+const schedule = async () => (await admin.get('/api/schedule')).data;
+const typeByCode = async (code: any) =>
+    (await admin.get('/api/event-types')).data.types.find((t: any) => t.code === code);
+
+async function waitFor(fn: any, timeoutMs = 5000) {
+    const end = Date.now() + timeoutMs;
+    let last;
+    while (Date.now() < end) {
+        last = await fn();
+        if (last) return last;
+        await new Promise(r => setTimeout(r, 100));
+    }
+    return last;
+}
+
+describe('configuration', () => {
+    it('étapes, couleurs et motifs', async () => {
+        const cfg = (await admin.get('/api/affectation/config')).data;
+        expect(cfg.stages.find((s: any) => s.key === 'gel')).toMatchObject({ kind: 'periods', defaultPattern: 'diag' });
+        expect(cfg.patterns.gel).toBe('diag');
+        expect((await admin.put('/api/affectation/colors', { colors: { vft: 'vert' } })).status).toBe(400);
+        expect((await admin.put('/api/affectation/colors', { patterns: { vft: 'pois' } })).status).toBe(400);
+        const r = await admin.put('/api/affectation/colors', { colors: { vft: '#ABCDEF' }, patterns: { vft: 'dots' } });
+        expect(r.data.colors.vft).toBe('#abcdef');
+        expect(r.data.patterns).toMatchObject({ vft: 'dots', gel: 'diag' });
+        const users = (await admin.get('/api/affectation/users')).data.users;
+        expect(users.find((u: any) => u.id === 1)).toMatchObject({ nom: 'Admin' });
+        expect(Array.isArray((await admin.get('/api/affectation/resources')).data.resources)).toBe(true);
+    });
+
+    it("correspondance activités / types d'événements, modèle de nom des exports", async () => {
+        const st = (await admin.get('/api/affectation/stage-event-types')).data;
+        expect(st.stages.map((s: any) => s.key)).toContain('visite_metier');
+        const visite = await typeByCode('visiteMetier');
+        expect(st.mapping.visite_metier).toBe(visite.id);
+        const other = await typeByCode('autre');
+        const saved = await admin.put('/api/affectation/stage-event-types', {
+            mapping: { vft: other.id, mes: 999999 }
+        });
+        expect(saved.data.mapping.vft).toBe(other.id);
+        await admin.put('/api/affectation/stage-event-types', { mapping: {} });
+
+        const name = (await admin.get('/api/affectation/export-config')).data;
+        expect(name.pattern).toBe(name.defaultPattern);
+        expect((await admin.put('/api/affectation/export-config', { pattern: 'Plan_{AAAA}' })).data.pattern).toBe(
+            'Plan_{AAAA}'
+        );
+        expect((await admin.put('/api/affectation/export-config', { pattern: '' })).data.pattern).toBe(
+            name.defaultPattern
+        );
+        expect((await admin.get('/api/affectation/template')).data).toEqual({ exists: false });
+        expect((await admin.post('/api/affectation/export/pdf', { html: '' })).status).toBe(400);
+    });
+});
+
+describe('déploiements', () => {
+    it('validation, création, modification et historique', async () => {
+        expect((await admin.post('/api/affectation/projects', { date_debut: '2027-01-04' })).status).toBe(400);
+        const samu = await newSamu();
+        const early = await admin.post('/api/affectation/projects', {
+            samu_name: samu.name,
+            date_debut: '2027-01-04',
+            date_mise_en_service: '2026-12-01'
+        });
+        expect(early.data.error).toMatch(/ne peut pas précéder le début du projet/);
+        expect(
+            (
+                await admin.post('/api/affectation/projects', {
+                    samu_name: samu.name,
+                    date_debut: '2027-01-04',
+                    periods: { vft: [{ start: '2027-02-01', end: '2027-02-02' }] }
+                })
+            ).status
+        ).toBe(400);
+
+        const p = await createProject(samu);
+        expect(p).toMatchObject({
+            samu_name: samu.name,
+            location_id: samu.locationId,
+            date_mise_en_service: '2027-04-01',
+            periods: { visite_metier: [{ start: '2027-03-01', end: '2027-03-03', needed: 2 }] },
+            assignments: {},
+            from_asana: false
+        });
+        const upd = await admin.put(`/api/affectation/projects/${p.id}`, {
+            samu_name: samu.name,
+            date_debut: '2027-01-04',
+            chef_projet_id: 1,
+            periods: { visite_metier: [{ start: '2027-03-01', end: '2027-03-03', needed: 2 }] }
+        });
+        expect(upd.data).toMatchObject({
+            chef_projet_id: 1,
+            chef_projet_nom: 'Admin Système',
+            date_mise_en_service: null
+        });
+        const hist = (await admin.get(`/api/affectation/projects/${p.id}/history`)).data.history;
+        expect(hist.map((h: any) => h.action)).toEqual(['modification', 'creation']);
+        expect(hist[0].changes).toContainEqual({ label: 'Chef de projet', from: '—', to: 'Système Admin' });
+        expect(hist[0].changes).toContainEqual({ label: 'Mise en service', from: '01/04/2027', to: '—' });
+        expect(
+            (await admin.put('/api/affectation/projects/999999', { samu_name: 'x', date_debut: '2027-01-04' })).status
+        ).toBe(404);
+
+        // L'historique est supprimé avec le déploiement : un identifiant réattribué n'en hérite pas
+        expect((await admin.delete(`/api/affectation/projects/${p.id}`)).data).toMatchObject({ success: true });
+        expect((await admin.get(`/api/affectation/projects/${p.id}/history`)).data.history).toEqual([]);
+    });
+});
+
+describe('ressources affectées', () => {
+    it('affectation, contrôles, disponibilité et ajustement au nombre de ressources', async () => {
+        const samu = await newSamu();
+        const p = await createProject(samu, { vft: [{ start: '2027-03-08', end: '2027-03-08', needed: 1 }] });
+        const a = await createResource(admin);
+        const b = await createResource(admin);
+        const c = await createResource(admin);
+        const put = (stage: any, ids: any) =>
+            admin.put(`/api/affectation/projects/${p.id}/assignments/${stage}`, { resource_ids: ids });
+
+        expect((await put('cadrage', [a.id])).status).toBe(400);
+        expect((await put('accompagnement', [a.id])).status).toBe(400);
+        expect((await put('visite_metier', [a.id, b.id, c.id])).status).toBe(400);
+        expect((await put('visite_metier', [999999])).status).toBe(400);
+
+        // Une ressource déjà affectée à un autre SAMU sur la période n'est pas affectable
+        await admin.post('/api/schedule', {
+            [`${c.id}_activity_2027-03-02_AM`]: '3',
+            [`${c.id}_localisation_2027-03-02_AM`]: '🚨 SAMU 13'
+        });
+        const blocked = await put('visite_metier', [c.id]);
+        expect(blocked.status).toBe(409);
+        expect(blocked.data.error).toMatch(/Déjà affecté\(e\) à un autre SAMU/);
+
+        await admin.post('/api/schedule', {
+            [`${a.id}_available_2027-03-01_AM`]: '2',
+            [`${a.id}_available_2027-03-01_PM`]: '3',
+            [`${a.id}_activity_2027-03-02_AM`]: '5'
+        });
+        const av = (await admin.get(`/api/affectation/projects/${p.id}/availability/visite_metier`)).data;
+        expect(av.total).toBe(6);
+        expect(av.availability[a.id]).toMatchObject({ free: 1, leave: 1, ans: 1, here: 0, other: 0 });
+        expect(av.availability[c.id]).toMatchObject({ other: 1, others: ['SAMU 13'] });
+
+        expect((await put('visite_metier', [a.id, b.id])).data).toEqual({ resource_ids: [a.id, b.id] });
+        expect((await put('vft', [a.id])).data).toEqual({ resource_ids: [a.id] });
+        expect((await project(p.id)).assignments).toEqual({ visite_metier: [a.id, b.id], vft: [a.id] });
+        const hist = (await admin.get(`/api/affectation/projects/${p.id}/history`)).data.history;
+        expect(hist[0]).toMatchObject({ action: 'affectation' });
+
+        // Nombre de ressources réduit et étape supprimée : affectations ajustées
+        await admin.put(`/api/affectation/projects/${p.id}`, {
+            samu_name: samu.name,
+            location_id: samu.locationId,
+            date_debut: '2027-01-04',
+            periods: { visite_metier: [{ start: '2027-03-01', end: '2027-03-03', needed: 1 }] }
+        });
+        expect((await project(p.id)).assignments).toEqual({ visite_metier: [a.id] });
+    });
+});
+
+describe('journées d’intervention par étape', () => {
+    const periods = { vft: [{ start: '2027-03-08', end: '2027-03-12', needed: 2 }] };
+    const days =
+        (id: any, stage = 'vft') =>
+        async (body: any) =>
+            admin.put(`/api/affectation/projects/${id}/assignment-days/${stage}`, body);
+
+    it('une journée par ressource : intervenants de l’étape = réunion des journées ; contrôles', async () => {
+        const samu = await newSamu();
+        const p = await createProject(samu, periods);
+        const [a, b, c] = [await createResource(admin), await createResource(admin), await createResource(admin)];
+        const put = days(p.id);
+        const r = await put({
+            days: {
+                '2027-03-08': [a.id, b.id],
+                '2027-03-09': [a.id],
+                '2027-03-10': [b.id, c.id]
+            }
+        });
+        expect(r.status, JSON.stringify(r.data)).toBe(200);
+        expect(r.data.resource_ids.sort()).toEqual([a.id, b.id, c.id].sort());
+        const proj = await project(p.id);
+        expect(proj.assignments.vft.sort()).toEqual([a.id, b.id, c.id].sort());
+        expect(proj.assignment_days.vft).toEqual({
+            '2027-03-08': [a.id, b.id],
+            '2027-03-09': [a.id],
+            '2027-03-10': [b.id, c.id]
+        });
+        // Contrôles : au plus « ressources nécessaires » par jour ; jours ouvrés de la période seulement
+        expect((await put({ days: { '2027-03-08': [a.id, b.id, c.id] } })).status).toBe(400);
+        expect((await put({ days: { '2027-03-13': [a.id] } })).status).toBe(400); // samedi
+        expect((await put({ days: { '2027-03-15': [a.id] } })).status).toBe(400); // hors période
+        expect((await put({ days: { '2027-03-08': [999999] } })).status).toBe(400);
+        expect((await put({ days: [] })).status).toBe(400);
+        // Un jalon n'a pas de journées
+        expect((await days(p.id, 'cadrage')({ days: {} })).status).toBe(400);
+    });
+
+    it('samedi et dimanche de la période sont affectables ; planification et désaffectation les prennent en compte', async () => {
+        const samu = await newSamu();
+        // Du lundi 8 au dimanche 14 mars 2027
+        const p = await createProject(samu, { vft: [{ start: '2027-03-08', end: '2027-03-14', needed: 2 }] });
+        const a = await createResource(admin);
+        const r = await days(p.id)({ days: { '2027-03-12': [a.id], '2027-03-13': [a.id], '2027-03-14': [a.id] } });
+        expect(r.status, JSON.stringify(r.data)).toBe(200);
+        expect(Object.keys((await project(p.id)).assignment_days.vft)).toEqual([
+            '2027-03-12',
+            '2027-03-13',
+            '2027-03-14'
+        ]);
+        // Hors période : toujours refusé
+        expect((await days(p.id)({ days: { '2027-03-15': [a.id] } })).status).toBe(400);
+        // Disponibilités : tous les jours de l'étape, week-ends compris
+        const av = (await admin.get(`/api/affectation/projects/${p.id}/availability/vft`)).data;
+        expect(av.dates).toHaveLength(7);
+        // Planification : 3 jours × 2 demi-journées, dont les week-ends
+        const sync = (await admin.get(`/api/affectation/projects/${p.id}/sync/vft`)).data;
+        expect(sync.resources[0].toWrite).toBe(6);
+        const applied = await admin.post(`/api/affectation/projects/${p.id}/sync/vft`, {
+            planning: { resource_ids: [a.id] }
+        });
+        expect(applied.data.planning).toBe(6);
+        const sch = await schedule();
+        expect(sch[`${a.id}_activity_2027-03-13_AM`]).toBe('3');
+        expect(sch[`${a.id}_activity_2027-03-14_PM`]).toBe('3');
+        // Les journées de week-end survivent à la modification de la période, tant qu'elles restent dans la période
+        const upd = await admin.put(`/api/affectation/projects/${p.id}`, {
+            samu_name: samu.name,
+            date_debut: '2027-01-04',
+            periods: { vft: [{ start: '2027-03-08', end: '2027-03-13', needed: 2 }] }
+        });
+        expect(Object.keys(upd.data.assignment_days.vft)).toEqual(['2027-03-12', '2027-03-13']);
+        // Désaffectation : le week-end est remis en situation comme les jours ouvrés
+        const release = await admin.post(`/api/affectation/projects/${p.id}/assignments/vft/release`, {
+            resource_ids: [a.id]
+        });
+        expect(release.status).toBe(200);
+        const sch2 = await schedule();
+        expect(sch2[`${a.id}_activity_2027-03-13_AM`]).not.toBe('3');
+    });
+
+    it('sans journée enregistrée : toute l’étape ; l’affectation de l’étape entière efface les journées', async () => {
+        const samu = await newSamu();
+        const p = await createProject(samu, periods);
+        const a = await createResource(admin);
+        await admin.put(`/api/affectation/projects/${p.id}/assignments/vft`, { resource_ids: [a.id] });
+        expect((await project(p.id)).assignment_days.vft).toEqual({
+            '2027-03-08': [a.id],
+            '2027-03-09': [a.id],
+            '2027-03-10': [a.id],
+            '2027-03-11': [a.id],
+            '2027-03-12': [a.id]
+        });
+        await days(p.id)({ days: { '2027-03-09': [a.id] } });
+        expect(Object.keys((await project(p.id)).assignment_days.vft)).toEqual(['2027-03-09']);
+        await admin.put(`/api/affectation/projects/${p.id}/assignments/vft`, { resource_ids: [a.id] });
+        expect(Object.keys((await project(p.id)).assignment_days.vft)).toHaveLength(5);
+    });
+
+    it('la planification ne reçoit que les journées d’intervention ; disponibilités par jour', async () => {
+        const samu = await newSamu();
+        const p = await createProject(samu, periods);
+        const a = await createResource(admin);
+        await days(p.id)({ days: { '2027-03-09': [a.id], '2027-03-11': [a.id] } });
+        const sync = (await admin.get(`/api/affectation/projects/${p.id}/sync/vft`)).data;
+        // 2 journées × 2 demi-journées (et non les 5 jours de l'étape)
+        expect(sync.resources[0].toWrite).toBe(4);
+        const av = (await admin.get(`/api/affectation/projects/${p.id}/availability/vft`)).data;
+        expect(av.dates).toEqual(['2027-03-08', '2027-03-09', '2027-03-10', '2027-03-11', '2027-03-12']);
+        await admin.post('/api/schedule', {
+            [`${a.id}_available_2027-03-10_AM`]: '3',
+            [`${a.id}_activity_2027-03-12_AM`]: '3',
+            [`${a.id}_localisation_2027-03-12_AM`]: '🚨 SAMU 13'
+        });
+        const av2 = (await admin.get(`/api/affectation/projects/${p.id}/availability/vft`)).data.availability[a.id];
+        expect(av2.byDay).toMatchObject({ '2027-03-10': 'leave', '2027-03-12': 'other' });
+    });
+
+    it('journée déjà prise par un autre SAMU : refusée, sauf si elle l’était déjà ici ; adaptation à la période', async () => {
+        const samu = await newSamu();
+        const p = await createProject(samu, periods);
+        const a = await createResource(admin);
+        await admin.post('/api/schedule', {
+            [`${a.id}_activity_2027-03-11_AM`]: '3',
+            [`${a.id}_localisation_2027-03-11_AM`]: '🚨 SAMU 13'
+        });
+        const refused = await days(p.id)({ days: { '2027-03-11': [a.id] } });
+        expect(refused.status).toBe(409);
+        expect(refused.data.error).toMatch(/autre SAMU/);
+        expect((await days(p.id)({ days: { '2027-03-09': [a.id] } })).status).toBe(200);
+        // Période raccourcie : les journées hors période disparaissent, une ressource sans journée n'est plus affectée
+        await days(p.id)({ days: { '2027-03-09': [a.id], '2027-03-12': [a.id] } });
+        const upd = await admin.put(`/api/affectation/projects/${p.id}`, {
+            samu_name: samu.name,
+            date_debut: '2027-01-04',
+            periods: { vft: [{ start: '2027-03-08', end: '2027-03-10', needed: 2 }] }
+        });
+        expect(upd.status, JSON.stringify(upd.data)).toBe(200);
+        expect(Object.keys(upd.data.assignment_days.vft)).toEqual(['2027-03-09']);
+        const upd2 = await admin.put(`/api/affectation/projects/${p.id}`, {
+            samu_name: samu.name,
+            date_debut: '2027-01-04',
+            periods: { vft: [{ start: '2027-03-11', end: '2027-03-12', needed: 2 }] }
+        });
+        expect(upd2.data.assignments.vft ?? []).toEqual([]);
+        expect(upd2.data.assignment_days.vft).toBeUndefined();
+    });
+});
+
+describe('correspondance activité / activité Asana / type d’événement', () => {
+    it('règles Asana par activité : enregistrées, normalisées, rétablies par défaut', async () => {
+        const before = (await admin.get('/api/affectation/stage-event-types')).data;
+        expect(before.asanaRules).toEqual({});
+        expect(before.asanaActivities.map((a: any) => a.value)).toEqual(expect.arrayContaining(['5.1', '5.9', '6.6']));
+        const put = await admin.put('/api/affectation/stage-event-types', {
+            mapping: before.mapping,
+            asanaRules: {
+                vft: '5.4',
+                visite_metier: ' Visite Métier ',
+                accompagnement: '6.6, 6.7',
+                formation_utilisateurs: ''
+            }
+        });
+        expect(put.status).toBe(200);
+        expect(put.data.asanaRules).toEqual({
+            vft: '5.4',
+            visite_metier: 'title:visite metier',
+            accompagnement: '6.6,6.7'
+        });
+        expect((await admin.get('/api/affectation/stage-event-types')).data.asanaRules).toEqual(put.data.asanaRules);
+        expect(before.asanaTemplate).toBeNull();
+        const noTemplate = await admin.put('/api/affectation/asana/template', { gid: '' });
+        expect(noTemplate.data).toEqual({ success: true, template: null });
+        const reset = await admin.put('/api/affectation/stage-event-types', {
+            mapping: before.mapping,
+            asanaRules: {}
+        });
+        expect(reset.data.asanaRules).toEqual({});
+    });
+});
+
+describe('synchronisation vers la planification et les événements', () => {
+    it('« Réunion de lancement stratégique » et « Visite OB » : jalons sans ressources, reliés aux événements', async () => {
+        const types = (await admin.get('/api/event-types')).data.types;
+        expect(types.map((x: any) => x.code)).toEqual(expect.arrayContaining(['reunionLancement', 'visiteOb']));
+        const stages = (await admin.get('/api/affectation/stage-event-types')).data;
+        expect(stages.stages.map((s: any) => s.key)).toEqual(
+            expect.arrayContaining(['reunion_lancement', 'visite_ob'])
+        );
+        expect(stages.mapping.visite_ob).toBe(types.find((x: any) => x.code === 'visiteOb').id);
+        expect(stages.mapping.reunion_lancement).toBe(types.find((x: any) => x.code === 'reunionLancement').id);
+        const config = (await admin.get('/api/affectation/config')).data;
+        for (const key of ['reunion_lancement', 'visite_ob'])
+            expect(config.stages.find((s: any) => s.key === key)).toMatchObject({
+                kind: 'milestone',
+                resources: false
+            });
+
+        // Une date suffit (début = fin), aucun nombre de ressources ; une seule date par jalon
+        const samu = await newSamu();
+        const p = await createProject(samu, {
+            reunion_lancement: [{ start: '2027-02-01' }],
+            visite_ob: [{ start: '2027-03-10', end: '2027-03-12', needed: 3 }]
+        });
+        expect(p.periods.reunion_lancement).toEqual([{ start: '2027-02-01', end: '2027-02-01' }]);
+        expect(p.periods.visite_ob).toEqual([{ start: '2027-03-10', end: '2027-03-10' }]);
+        const two = await admin.post('/api/affectation/projects', {
+            samu_name: samu.name,
+            date_debut: '2027-01-04',
+            periods: { visite_ob: [{ start: '2027-03-10' }, { start: '2027-03-11' }] }
+        });
+        expect(two.status).toBe(400);
+        // Pas d'affectation de ressources expertes sur un jalon
+        const put = await admin.put(`/api/affectation/projects/${p.id}/assignments/visite_ob`, { resource_ids: [1] });
+        expect(put.status).toBe(400);
+    });
+
+    it("demi-journées planifiées sans journée d'affectation : signalées, remises en « Disponible » sur demande", async () => {
+        const samu = await newSamu();
+        const p = await createProject(samu);
+        const { resource } = await createExpert(admin);
+        const url = `/api/affectation/projects/${p.id}`;
+        const put = (days: any) => admin.put(`${url}/assignment-days/visite_metier`, { days });
+        expect((await put({ '2027-03-01': [resource.id], '2027-03-02': [resource.id] })).status).toBe(200);
+        await admin.post(`${url}/sync/visite_metier`, { planning: { resource_ids: [resource.id] } });
+        // La journée du mardi est décochée dans la grille, mais la planification la garde
+        expect((await put({ '2027-03-01': [resource.id] })).status).toBe(200);
+        const preview = (await admin.get(`${url}/sync/visite_metier`)).data.resources[0];
+        expect(preview).toMatchObject({ toWrite: 0, done: 2, extraCount: 2 });
+        expect(preview.extra).toEqual(['2027-03-02_AM', '2027-03-02_PM']);
+
+        const cleared = await admin.post(`${url}/sync/visite_metier`, {
+            planning: { resource_ids: [], clear_ids: [resource.id] }
+        });
+        expect(cleared.data).toMatchObject({ planning: 0, cleared: 2 });
+        const sch = await schedule();
+        expect(sch[`${resource.id}_activity_2027-03-02_AM`]).toBe('2');
+        expect(sch[`${resource.id}_localisation_2027-03-02_AM`]).toBeUndefined();
+        expect(sch[`${resource.id}_activity_2027-03-01_AM`]).toBe('3');
+        expect((await admin.get(`${url}/sync/visite_metier`)).data.resources[0]).toMatchObject({
+            extraCount: 0,
+            done: 2
+        });
+    });
+
+    it('écarts grille / planification : conflits écrasés ou retirés de la grille, demi-journées en trop ajoutées à la grille', async () => {
+        const samu = await newSamu();
+        const p = await createProject(samu);
+        const { resource } = await createExpert(admin);
+        const url = `/api/affectation/projects/${p.id}`;
+        const put = (days: any) => admin.put(`${url}/assignment-days/visite_metier`, { days });
+        const cell = (k: any, v: any) => admin.post('/api/schedule', { [`${resource.id}_${k}`]: v });
+        expect((await put({ '2027-03-01': [resource.id], '2027-03-02': [resource.id] })).status).toBe(200);
+        await cell('available_2027-03-01_AM', '1'); // indisponible : peut être écrasé
+        await cell('available_2027-03-02_AM', '3'); // congés : jamais écrasés
+        const first = (await admin.get(`${url}/sync/visite_metier`)).data.resources[0];
+        expect(first).toMatchObject({ conflictCount: 2, forceableCount: 1 });
+
+        // Écraser : seule l'indisponibilité est remplacée, les congés restent
+        const forced = await admin.post(`${url}/sync/visite_metier`, { planning: { force_ids: [resource.id] } });
+        expect(forced.data).toMatchObject({ forced: 1 });
+        const sch = await schedule();
+        expect(sch[`${resource.id}_activity_2027-03-01_AM`]).toBe('3');
+        expect(sch[`${resource.id}_available_2027-03-02_AM`]).toBe('3');
+
+        // Retirer de la grille la journée en congés : il ne reste que le lundi
+        const dropped = await admin.post(`${url}/sync/visite_metier`, { planning: { drop_ids: [resource.id] } });
+        expect(dropped.data).toMatchObject({ dropped: 1 });
+        expect((await project(p.id)).assignment_days.visite_metier).toEqual({ '2027-03-01': [resource.id] });
+
+        // Demi-journées planifiées sans journée d'affectation : ajoutées à la grille (période de l'étape)
+        await admin.post(`${url}/sync/visite_metier`, { planning: { resource_ids: [resource.id] } });
+        await cell('available_2027-03-03_AM', '2');
+        await cell('activity_2027-03-03_AM', '3');
+        await cell('localisation_2027-03-03_AM', `🚨 SAMU ${samu.no}`);
+        const gap = (await admin.get(`${url}/sync/visite_metier`)).data.resources[0];
+        expect(gap).toMatchObject({ extraCount: 1, addableCount: 1 });
+        const added = await admin.post(`${url}/sync/visite_metier`, { planning: { add_ids: [resource.id] } });
+        expect(added.data).toMatchObject({ added: 1 });
+        expect(Object.keys((await project(p.id)).assignment_days.visite_metier)).toEqual(['2027-03-01', '2027-03-03']);
+    });
+
+    it('aperçu, planification renseignée, événement créé puis repris ; désaffectation et suppression', async () => {
+        const samu = await newSamu();
+        const p = await createProject(samu);
+        const { user, resource } = await createExpert(admin);
+        await admin.put(`/api/affectation/projects/${p.id}/assignments/visite_metier`, { resource_ids: [resource.id] });
+        await admin.post('/api/schedule', { [`${resource.id}_available_2027-03-03_PM`]: '3' });
+
+        const preview = (await admin.get(`/api/affectation/projects/${p.id}/sync/visite_metier`)).data;
+        const visite = await typeByCode('visiteMetier');
+        expect(preview).toMatchObject({
+            samu: samu.name,
+            samuLoc: `🚨 SAMU ${samu.no}`,
+            locationId: samu.locationId,
+            start: '2027-03-01',
+            end: '2027-03-03',
+            activity: '3',
+            event: { label: visite.label_long, typeId: visite.id, existing: null }
+        });
+        expect(preview.resources).toEqual([
+            expect.objectContaining({ id: resource.id, user_id: user.id, toWrite: 5, done: 0, conflictCount: 1 })
+        ]);
+        expect(preview.resources[0].conflicts).toEqual([{ key: '2027-03-03_PM', reason: 'Congés', forceable: false }]);
+
+        const applied = await admin.post(`/api/affectation/projects/${p.id}/sync/visite_metier`, {
+            planning: { resource_ids: [resource.id] },
+            event: { apply: true, participants: [user.id] }
+        });
+        expect(applied.data).toMatchObject({ planning: 5, event: { created: true, participants: 1 } });
+        const eventId = applied.data.event.id;
+        const sch = await schedule();
+        expect(sch[`${resource.id}_activity_2027-03-01_AM`]).toBe('3');
+        expect(sch[`${resource.id}_localisation_2027-03-01_AM`]).toBe(`🚨 SAMU ${samu.no}`);
+
+        const again = (await admin.get(`/api/affectation/projects/${p.id}/sync/visite_metier`)).data;
+        expect(again.resources[0]).toMatchObject({ toWrite: 0, done: 5 });
+        expect(again.event.existing).toMatchObject({ id: eventId, participants: [user.id] });
+
+        const candidates = (await admin.get(`/api/affectation/projects/${p.id}/events-candidates`)).data;
+        expect(candidates.candidates.visite_metier).toMatchObject({ typeId: visite.id, linked: eventId });
+        expect(candidates.candidates.visite_metier.matching).toEqual([
+            expect.objectContaining({ id: eventId, participants: 1, type: visite.label_long })
+        ]);
+        const list = (await admin.get('/api/affectation/events')).data;
+        expect(list.events.find((e: any) => e.id === eventId)).toMatchObject({
+            project_id: p.id,
+            stage: 'visite_metier',
+            planned: { start: '2027-03-01', end: '2027-03-03' },
+            participants: [`${user.prenom} ${user.nom}`]
+        });
+        expect(list.samus).toContain(samu.name);
+
+        // Désaffectation : planification remise en situation, ressource retirée de l'événement
+        const rel = await admin.post(`/api/affectation/projects/${p.id}/assignments/visite_metier/release`, {
+            resource_ids: [resource.id]
+        });
+        expect(rel.data).toEqual({ success: true, planningReset: 5, removedFromEvents: 1 });
+        const after = await schedule();
+        expect(after[`${resource.id}_activity_2027-03-01_AM`]).toBe('2');
+        expect(after).not.toHaveProperty(`${resource.id}_localisation_2027-03-01_AM`);
+
+        // Suppression : validation exigée si des événements sont liés
+        const del = await admin.delete(`/api/affectation/projects/${p.id}`);
+        expect(del.status).toBe(409);
+        expect(del.data).toMatchObject({ code: 'EVENTS_LINKED', events: [expect.objectContaining({ id: eventId })] });
+        const ok = await admin.delete(`/api/affectation/projects/${p.id}?events=delete`);
+        expect(ok.data).toMatchObject({ success: true, eventsRemoved: 1 });
+        expect(await project(p.id)).toBeUndefined();
+        expect((await admin.get('/api/custom-events')).data.events.some((e: any) => e.id === eventId)).toBe(false);
+    });
+
+    it('événement créé depuis un déploiement, lien manuel, affectations complétées depuis les participants', async () => {
+        const samu = await newSamu();
+        const p = await createProject(samu);
+        const { user, resource } = await createExpert(admin);
+        expect((await admin.post(`/api/affectation/projects/${p.id}/event-create`, { key: 'inconnue' })).status).toBe(
+            400
+        );
+        expect((await admin.post(`/api/affectation/projects/${p.id}/event-create`, { key: 'vft' })).status).toBe(400);
+        const created = await admin.post(`/api/affectation/projects/${p.id}/event-create`, {
+            key: 'mise_en_service',
+            start: '2027-04-01'
+        });
+        expect(created.data).toMatchObject({ success: true, participants: 0 });
+        const mes = (await admin.get('/api/custom-events')).data.events.find((e: any) => e.id === created.data.eventId);
+        expect(mes).toMatchObject({ location_id: samu.locationId, start_date: '2027-04-01', grist: 1 });
+
+        expect(
+            (await admin.put(`/api/affectation/projects/${p.id}/event-link`, { key: 'vft', eventId: 999999 })).status
+        ).toBe(404);
+        await admin.put(`/api/affectation/projects/${p.id}/event-link`, { key: 'vft', eventId: created.data.eventId });
+        const cand = (await admin.get(`/api/affectation/projects/${p.id}/events-candidates`)).data.candidates;
+        expect(cand.vft.linked).toBe(created.data.eventId);
+
+        // Un événement du même lieu et du même type, avec un expert en participant, complète les affectations
+        const visite = await typeByCode('visiteMetier');
+        await admin.post('/api/custom-events', {
+            startDate: '2027-03-02',
+            label: 'Visite',
+            type_id: visite.id,
+            location_id: samu.locationId,
+            participants: [user.id]
+        });
+        const assigned = await waitFor(async () => (await project(p.id)).assignments.visite_metier);
+        expect(assigned).toEqual([resource.id]);
+        const sync = await admin.post('/api/affectation/sync-from-events', { projectId: p.id });
+        expect(sync.data).toEqual({ success: true, changes: [] });
+    });
+});
+
+describe('activité découpée en plusieurs parties (événements séparés de plusieurs jours)', () => {
+    it('liaison de n parties, écarts mesurés sur les seuls jours des parties, remise en disponibilité limitée à ces jours', async () => {
+        const samu = await newSamu();
+        const p = await createProject(samu, {
+            formation_utilisateurs: [{ start: '2027-03-01', end: '2027-03-12', needed: 1 }]
+        });
+        const { resource } = await createExpert(admin);
+        const url = `/api/affectation/projects/${p.id}`;
+        expect(
+            (await admin.put(`${url}/assignments/formation_utilisateurs`, { resource_ids: [resource.id] })).status
+        ).toBe(200);
+
+        // Deux parties de la même formation, séparées de plusieurs jours
+        for (const [start, end] of [
+            ['2027-03-01', '2027-03-02'],
+            ['2027-03-10', '2027-03-11']
+        ]) {
+            const r = await admin.post(`${url}/event-create`, { key: 'formation_utilisateurs', start, end });
+            expect(r.status, JSON.stringify(r.data)).toBe(200);
+        }
+        const cand = (await admin.get(`${url}/events-candidates`)).data.candidates.formation_utilisateurs;
+        expect(cand.multi).toBe(true);
+        expect(cand.linkedIds).toHaveLength(2);
+
+        // Les jours qui séparent les parties ne sont pas des écarts
+        const preview = (await admin.get(`${url}/sync/formation_utilisateurs`)).data.resources[0];
+        expect(preview.toWrite).toBe(8);
+        await admin.post(`${url}/sync/formation_utilisateurs`, { planning: { resource_ids: [resource.id] } });
+        const sch = await schedule();
+        expect(sch[`${resource.id}_activity_2027-03-10_AM`]).toBe('3');
+        expect(sch[`${resource.id}_activity_2027-03-05_AM`]).toBeUndefined();
+
+        // Une partie décochée : plus de lien pour elle
+        const one = await admin.put(`${url}/event-link`, {
+            key: 'formation_utilisateurs',
+            eventIds: [cand.linkedIds[0]]
+        });
+        expect(one.status).toBe(200);
+        const after = (await admin.get(`${url}/events-candidates`)).data.candidates.formation_utilisateurs;
+        expect(after.linkedIds).toEqual([cand.linkedIds[0]]);
+
+        // Une activité non découpable ne garde qu'un événement
+        const single = await admin.put(`${url}/event-link`, {
+            key: 'visite_metier',
+            eventIds: [cand.linkedIds[0], cand.linkedIds[1]]
+        });
+        expect(single.status).toBe(200);
+        expect((await admin.get(`${url}/events-candidates`)).data.candidates.visite_metier.multi).toBe(false);
+    });
+    it("un événement lié plus court que l'activité ne masque pas les journées cochées (week-end)", async () => {
+        const samu = await newSamu();
+        const p = await createProject(samu, {
+            accompagnement: [{ start: '2027-03-01', end: '2027-03-07', needed: 1 }]
+        });
+        const { resource } = await createExpert(admin);
+        const url = `/api/affectation/projects/${p.id}`;
+        const days: Record<string, number[]> = {};
+        for (const d of ['01', '05', '06', '07']) days[`2027-03-${d}`] = [resource.id];
+        expect((await admin.put(`${url}/assignment-days/accompagnement`, { days })).status).toBe(200);
+        expect(
+            (await admin.post(`${url}/event-create`, { key: 'accompagnement', start: '2027-03-01', end: '2027-03-05' }))
+                .status
+        ).toBe(200);
+        const pv = (await admin.get(`${url}/sync/accompagnement`)).data.resources[0];
+        expect(pv.toWrite).toBe(8);
+    });
+});
+
+describe('journées retirées de la grille', () => {
+    it("remises en « Disponible / En attente d'affectation » sans toucher aux autres journées ni aux événements", async () => {
+        const samu = await newSamu();
+        const p = await createProject(samu, {
+            accompagnement: [{ start: '2027-03-01', end: '2027-03-07', needed: 2 }]
+        });
+        const { resource } = await createExpert(admin);
+        const url = `/api/affectation/projects/${p.id}`;
+        const days: Record<string, number[]> = {};
+        for (const d of ['01', '02', '03', '04', '05', '06', '07']) days[`2027-03-${d}`] = [resource.id];
+        expect((await admin.put(`${url}/assignment-days/accompagnement`, { days })).status).toBe(200);
+        await admin.post(`${url}/sync/accompagnement`, { planning: { resource_ids: [resource.id] } });
+        const rel = await admin.post(`${url}/assignments/accompagnement/release`, {
+            days: { [resource.id]: ['2027-03-06', '2027-03-07'] }
+        });
+        expect(rel.data).toMatchObject({ planningReset: 4, removedFromEvents: 0 });
+        const sch = await schedule();
+        expect(sch[`${resource.id}_activity_2027-03-06_AM`]).toBe('2');
+        expect(sch[`${resource.id}_localisation_2027-03-07_PM`]).toBeUndefined();
+        expect(sch[`${resource.id}_activity_2027-03-05_AM`]).toBe('3');
+    });
+});
+
+describe('affectations depuis les participants : plafond par jour', () => {
+    it('rotation acceptée sur des jours distincts, ressource en trop ignorée', async () => {
+        const samu = await newSamu();
+        const p = await createProject(samu, { visite_metier: [{ start: '2027-03-01', end: '2027-03-05', needed: 1 }] });
+        const a = await createExpert(admin);
+        const b = await createExpert(admin);
+        const c = await createExpert(admin);
+        const visite = await typeByCode('visiteMetier');
+        const event = (startDate: any, endDate: any, participants: any) =>
+            admin.post('/api/custom-events', {
+                startDate,
+                endDate,
+                label: 'Visite',
+                type_id: visite.id,
+                location_id: samu.locationId,
+                participants
+            });
+        await event('2027-03-01', '2027-03-02', [a.user.id, c.user.id]);
+        await event('2027-03-04', '2027-03-05', [b.user.id]);
+        const proj = await waitFor(async () => {
+            const x = await project(p.id);
+            return x.assignments.visite_metier?.length === 2 ? x : null;
+        });
+        expect(proj.assignments.visite_metier).toEqual([a.resource.id, b.resource.id]);
+        expect(proj.assignment_days.visite_metier).toEqual({
+            '2027-03-01': [a.resource.id],
+            '2027-03-02': [a.resource.id],
+            '2027-03-04': [b.resource.id],
+            '2027-03-05': [b.resource.id]
+        });
+        // Onglet Événements : les jours d'un participant qui ne couvre pas toute l'activité sont indiqués
+        const listed = (await admin.get('/api/affectation/events')).data.events.filter(
+            (e: any) => e.project_id === p.id
+        );
+        const name = (u: any) => `${u.prenom || ''} ${u.nom || ''}`.trim();
+        expect(listed.map((e: any) => e.participants_jours)).toEqual([
+            { [name(a.user)]: '01/03, 02/03' },
+            { [name(b.user)]: '04/03, 05/03' }
+        ]);
+    });
+});
+
+describe("inscription à un événement d'un déploiement", () => {
+    async function visiteEvent(samu: any) {
+        const visite = await typeByCode('visiteMetier');
+        const r = await admin.post('/api/custom-events', {
+            startDate: '2027-03-01',
+            endDate: '2027-03-02',
+            label: 'Visite',
+            type_id: visite.id,
+            location_id: samu.locationId
+        });
+        return r.data.eventId;
+    }
+    const key = (rid: any, type: any, date: string, period: any) => `${rid}_${type}_${date}_${period}`;
+    /** Planification en « 2 - 2 » sur la période de l'événement : condition pour pouvoir participer */
+    const enAttente = (rid: any) =>
+        admin.post(
+            '/api/schedule',
+            Object.fromEntries(
+                ['2027-03-01', '2027-03-02'].flatMap(d =>
+                    ['AM', 'PM'].flatMap(h => [
+                        [key(rid, 'available', d, h), '2'],
+                        [key(rid, 'activity', d, h), '2']
+                    ])
+                )
+            )
+        );
+
+    it("l'expert devient intervenant et sa planification passe en « 2 - 3 » (pas « Divers »)", async () => {
+        const samu = await newSamu();
+        const p = await createProject(samu, { visite_metier: [{ start: '2027-03-01', end: '2027-03-05', needed: 1 }] });
+        const eventId = await visiteEvent(samu);
+        const { user, resource } = await createExpert(admin);
+        const expert = await loginAs(server, user, 'expert');
+        await enAttente(resource.id);
+        const r = await expert.post(`/api/my-custom-events/${eventId}/join`);
+        expect(r.data).toMatchObject({ success: true, planningUpdated: true });
+        expect(r.data.deploiements).toMatchObject([{ project: p.id, stage: 'visite_metier' }]);
+        expect((await project(p.id)).assignments.visite_metier).toEqual([resource.id]);
+        expect((await schedule())[key(resource.id, 'activity', '2027-03-01', 'AM')]).toBe('3');
+    });
+
+    it('étape complète : planification mise à jour comme pour un événement ordinaire', async () => {
+        const samu = await newSamu();
+        const p = await createProject(samu, { visite_metier: [{ start: '2027-03-01', end: '2027-03-05', needed: 1 }] });
+        const eventId = await visiteEvent(samu);
+        const first = await createExpert(admin);
+        const second = await createExpert(admin);
+        const e1 = await loginAs(server, first.user, 'expert');
+        const e2 = await loginAs(server, second.user, 'expert');
+        await enAttente(first.resource.id);
+        await enAttente(second.resource.id);
+        await e1.post(`/api/my-custom-events/${eventId}/join`);
+        const r = await e2.post(`/api/my-custom-events/${eventId}/join`);
+        expect(r.data).toMatchObject({ planningUpdated: true, deploiements: [] });
+        expect((await project(p.id)).assignments.visite_metier).toEqual([first.resource.id]);
+        expect((await schedule())[key(second.resource.id, 'activity', '2027-03-01', 'AM')]).toBe('3');
+    });
+});
+
+describe('import Asana (fichier CSV)', () => {
+    it('aperçu puis création du déploiement', async () => {
+        await admin.post('/api/locations', { libelle_long: `SAMU SAS 4X ${Date.now()}`, libelle_court: 'SAMU-SAS 4X' });
+        const asanaProject = 'Déploiement [SAMU 4X]';
+        const csv = [
+            'Name,Section/Column,Start Date,Due Date,Parent task,Projects',
+            `"Démarrage projet auprès de l'ES",,,2027-01-11,,"${asanaProject}"`,
+            `2.9 Fin du cadrage,,2027-02-01,2027-02-12,,"${asanaProject}"`,
+            `Mise en service du bandeau,,,2027-04-06,,"${asanaProject}"`,
+            `5.1 Visite métier,,2027-03-08,2027-03-09,,"${asanaProject}"`
+        ].join('\n');
+        expect((await admin.post('/api/affectation/import/asana-csv', { csv: 'Name\nx' })).status).toBe(400);
+        const pv = (await admin.post('/api/affectation/import/asana-csv', { csv })).data;
+        expect(pv).toMatchObject({ samuNo: '4X', samuName: 'SAMU-SAS 4X', locationFound: true, existing: null });
+        const status = Object.fromEntries(pv.rows.map((r: any) => [r.key, r.status]));
+        expect(status).toMatchObject({
+            date_debut: 'nouveau',
+            cadrage: 'nouveau',
+            deploiement: 'nouveau',
+            mise_en_service: 'nouveau',
+            visite_metier: 'nouveau',
+            vft: 'absent'
+        });
+        const applied = (
+            await admin.post('/api/affectation/import/asana-csv/apply', {
+                csv,
+                apply: ['date_debut', 'cadrage', 'deploiement', 'mise_en_service', 'visite_metier']
+            })
+        ).data;
+        expect(applied).toMatchObject({
+            success: true,
+            created: true,
+            samu_name: 'SAMU-SAS 4X',
+            date_debut: '2027-01-11'
+        });
+        const p = await project(applied.id);
+        expect(p.asana_keys).toEqual(expect.arrayContaining(['cadrage', 'mise_en_service']));
+        expect(p).toMatchObject({
+            from_asana: true,
+            date_mise_en_service: '2027-04-06',
+            periods: {
+                cadrage: [{ start: '2027-01-11', end: '2027-02-12' }],
+                deploiement: [{ start: '2027-02-13', end: '2027-04-06' }],
+                visite_metier: [{ start: '2027-03-08', end: '2027-03-09', needed: 1 }]
+            }
+        });
+        const again = (await admin.post('/api/affectation/import/asana-csv', { csv })).data;
+        expect(again.existing).toEqual({ id: applied.id, samu_name: 'SAMU-SAS 4X' });
+        expect(again.rows.find((r: any) => r.key === 'cadrage').status).toBe('identique');
+        expect((await admin.get('/api/affectation/asana/config')).data).toMatchObject({ tokenSet: false });
+    });
+});
+
+describe('ressources externes (utilisateurs de l’application)', () => {
+    it('proposées hors experts, comptées dans les besoins par jour, placées sur des journées, participantes des événements', async () => {
+        const samu = await newSamu();
+        const p = await createProject(samu);
+        const { resource, user: expertUser } = await createExpert(admin);
+        const { resource: second } = await createExpert(admin);
+        const ext1 = await createUser(admin, { is_user: 1 });
+        const ext2 = await createUser(admin, { is_user: 1 });
+
+        // Utilisateurs proposés : ceux qui ne sont pas rattachés à un expert listé
+        const res = (await admin.get('/api/affectation/resources')).data;
+        const externalIds = res.externals.map((e: any) => e.id);
+        expect(externalIds).toEqual(expect.arrayContaining([-ext1.id, -ext2.id]));
+        expect(externalIds).not.toContain(-expertUser.id);
+        expect(res.externals.find((e: any) => e.id === -ext1.id)).toMatchObject({ external: true });
+        expect(res.externals.find((e: any) => e.id === -ext2.id).trigramme).toHaveLength(3);
+
+        // visite_metier : 2 ressources au maximum par jour, externes comprises
+        const url = `/api/affectation/projects/${p.id}`;
+        const put = (days: any) => admin.put(`${url}/assignment-days/visite_metier`, { days });
+        const ok = await put({ '2027-03-01': [resource.id, -ext1.id], '2027-03-02': [-ext1.id] });
+        expect(ok.status, JSON.stringify(ok.data)).toBe(200);
+        expect(ok.data.resource_ids).toEqual(expect.arrayContaining([resource.id, -ext1.id]));
+        const full = await put({ '2027-03-01': [resource.id, -ext1.id, second.id] });
+        expect(full.status).toBe(400);
+        expect(full.data.error).toMatch(/2 ressource\(s\) maximum/);
+        // Utilisateur inconnu
+        expect((await put({ '2027-03-01': [-999999] })).status).toBe(400);
+        expect((await put({ '2027-03-01': [0] })).status).toBe(400);
+        expect((await put({ '2027-03-01': [resource.id, -ext1.id], '2027-03-02': [-ext1.id] })).status).toBe(200);
+
+        const proj = await project(p.id);
+        expect(proj.assignments.visite_metier).toEqual(expect.arrayContaining([resource.id, -ext1.id]));
+        expect(proj.assignment_days.visite_metier['2027-03-02']).toEqual([-ext1.id]);
+
+        // Les externes participent à l'événement créé pour l'étape
+        const ev = await admin.post(`${url}/event-create`, {
+            key: 'visite_metier',
+            start: '2027-03-01',
+            end: '2027-03-03'
+        });
+        expect(ev.status, JSON.stringify(ev.data)).toBe(200);
+        expect(ev.data.participants).toBe(2);
+
+        // Désaffectation d'une externe : retirée des participants, pas de planification à remettre
+        const clear = await put({ '2027-03-01': [resource.id] });
+        expect(clear.status).toBe(200);
+        const rel = await admin.post(`${url}/assignments/visite_metier/release`, { resource_ids: [-ext1.id] });
+        expect(rel.data).toMatchObject({ planningReset: 0, removedFromEvents: 1 });
+
+        // Historique : nom de l'externe
+        const hist = (await admin.get(`${url}/history`)).data.history;
+        expect(JSON.stringify(hist)).toContain('(externe)');
+    });
+});
+
+describe("accès à l'application", () => {
+    it("réservé aux comptes autorisés sur « Aide à l'affectation opérationnelle », administrateur compris", async () => {
+        const sansAcces = await createUser(admin, { is_admin: 1 });
+        const autreAdmin = await loginAs(server, sansAcces, 'admin');
+        for (const chemin of ['/api/affectation/config', '/api/affectation/projects', '/api/affectation/events']) {
+            expect((await autreAdmin.get(chemin)).status, chemin).toBe(403);
+        }
+        // Les routes de l'administration de l'application restent réservées à l'administrateur
+        expect((await admin.post(`/api/app-access/affectation/users`, { userId: sansAcces.id })).status).toBe(200);
+        expect((await autreAdmin.get('/api/affectation/events')).status).toBe(200);
+    });
+
+    it("historique et correspondance des activités réservés à l'administrateur, comme l'onglet Administration", async () => {
+        const samu = await newSamu();
+        const p = await createProject(samu);
+        const compte = await createUser(admin, { is_user: 1 });
+        expect((await admin.post(`/api/app-access/affectation/users`, { userId: compte.id })).status).toBe(200);
+        const utilisateur = await loginAs(server, compte, 'user');
+        expect((await utilisateur.get('/api/affectation/projects')).status).toBe(200);
+        for (const chemin of [`/api/affectation/projects/${p.id}/history`, '/api/affectation/stage-event-types']) {
+            expect((await utilisateur.get(chemin)).status, chemin).toBe(403);
+            expect((await admin.get(chemin)).status, chemin).toBe(200);
+        }
+    });
+});

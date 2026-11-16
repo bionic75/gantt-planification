@@ -59,9 +59,9 @@
 **Files :**
 
 - Modify : `backend/prisma/schema.base.prisma` (modèle `DeploymentStatus`, champ `status_id Int?` sur `AffectationProject`) + fichiers générés par `npm run db:schemas` + migration `backend/prisma/*/migrations/*_statuts_deploiement/` créée par `npm run db:migration -- statuts_deploiement`
-- Create : `backend/src/modules/affectation/statuts.service.js`, `statuts.controller.js`
-- Modify : `backend/src/modules/affectation/affectation.routes.js`
-- Test : `backend/tests/deploiement-statuts.test.js` (calqué sur `affectation.test.js` pour l'amorçage)
+- Create : `backend/src/modules/affectation/statuts.service.ts`, `statuts.controller.js`
+- Modify : `backend/src/modules/affectation/affectation.routes.ts`
+- Test : `backend/tests/deploiement-statuts.test.ts` (calqué sur `affectation.test.js` pour l'amorçage)
 
 **Interfaces :**
 

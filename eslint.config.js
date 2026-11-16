@@ -7,8 +7,8 @@ import tseslint from 'typescript-eslint';
 // Code historique repris tel quel (calculs, formats de fichiers, services externes) : les erreurs réelles
 // (variables non définies…) restent bloquantes, les règles de style sont assouplies.
 const LEGACY_CODE = [
-    'backend/src/modules/affectation/asana.service.js',
-    'backend/src/modules/affectation/export.service.js',
+    'backend/src/modules/affectation/asana.service.ts',
+    'backend/src/modules/affectation/export.service.ts',
     'backend/src/modules/poi/poi.external.ts',
     'backend/src/jobs/**'
 ];
@@ -123,6 +123,11 @@ export default [
             // réponses de l'API dans les tests), annotations reprises du JSDoc d'origine
             '@typescript-eslint/no-explicit-any': 'off'
         }
+    },
+    {
+        // Code historique en TypeScript : mêmes assouplissements que ci-dessus pour les règles TypeScript
+        files: LEGACY_CODE,
+        rules: { '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', caughtErrors: 'none' }] }
     },
     prettier
 ];
