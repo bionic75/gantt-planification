@@ -6,7 +6,7 @@ import AppAlert from '@/composants/AppAlert.vue';
 import AppIcone from '@/composants/AppIcone.vue';
 import AppSaisieParticipants, { type Participant } from '@/composants/AppSaisieParticipants.vue';
 import { demandeNouvelEvenement } from '@/ilots/demandes';
-import { COULEURS_PARTICIPANTS, cocheGrist, couleurs, dateFr, libelleModele } from './calculs';
+import { COULEURS_PARTICIPANTS, cocheGrist, couleurs, dateFr, libelleModele, typesAlphabetiques } from './calculs';
 import { useEvenementsStore } from './magasin';
 import NouvelleLocalisation from './NouvelleLocalisation.vue';
 
@@ -34,6 +34,7 @@ const nouvelleLocalisation = ref(false);
 
 const enEdition = computed(() => !!ev.edition);
 const unSeulJour = computed(() => !!debut.value && (!fin.value || fin.value === debut.value));
+const typesTries = computed(() => typesAlphabetiques(ev.types));
 const typeChoisi = computed(() => (typeId.value ? ev.typesParId.get(Number(typeId.value)) : undefined));
 const comptesTries = computed(() =>
     [...ev.comptes].sort((a, b) =>
@@ -251,7 +252,7 @@ const styleType = computed(() =>
                 <label for="myEventTypeId" class="ev-form__libelle">Type *</label>
                 <select id="myEventTypeId" v-model="typeId" class="ev-form__champ" @change="typeChange">
                     <option value="">— Choisir un type —</option>
-                    <option v-for="t in ev.types" :key="t.id" :value="String(t.id)">
+                    <option v-for="t in typesTries" :key="t.id" :value="String(t.id)">
                         {{ t.label_long }}{{ t.label_short ? ` (${t.label_short})` : '' }}
                     </option>
                 </select>
