@@ -1,8 +1,8 @@
 // @ts-check
 // Automatisations : configuration, journaux, rappels (n°1) et sauvegarde des plannings (n°2)
 import { Router } from 'express';
-import { requireAdmin } from '../../middlewares/auth.js';
-import { asyncHandler as h } from '../../middlewares/error-handler.js';
+import { requireAdmin } from '../../middlewares/auth.ts';
+import { asyncHandler as h } from '../../middlewares/error-handler.ts';
 import * as ctrl from './automations.controller.js';
 
 const router = Router();

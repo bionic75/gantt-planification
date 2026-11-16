@@ -1,6 +1,6 @@
 // @ts-check
-import { badRequest } from '../../lib/http-error.js';
-import { logUserAction } from '../../services/action-log.js';
+import { badRequest } from '../../lib/http-error.ts';
+import { logUserAction } from '../../services/action-log.ts';
 import * as svc from './sondages.service.js';
 
 /** @typedef {import('express').Request} Request */

@@ -10,8 +10,8 @@ import { Readable, Transform } from 'stream';
 import { pipeline } from 'stream/promises';
 import zlib from 'zlib';
 import Database from 'better-sqlite3';
-import { env } from '../src/config/env.js';
-import { getSetting } from '../src/services/settings.js';
+import { env } from '../src/config/env.ts';
+import { getSetting } from '../src/services/settings.ts';
 
 const MAGIC = 'GPDUMP01';
 const FORMAT_VERSION = 1;

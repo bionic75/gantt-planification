@@ -1,9 +1,9 @@
 // @ts-check
 // API publique par clé (événements) et gestion des clés
 import crypto from 'crypto';
-import { prisma } from '../../db/prisma.js';
-import { idParam } from '../../db/values.js';
-import { badRequest, notFound } from '../../lib/http-error.js';
+import { prisma } from '../../db/prisma.ts';
+import { idParam } from '../../db/values.ts';
+import { badRequest, notFound } from '../../lib/http-error.ts';
 
 /** Nouvelle clé : seule son empreinte est conservée, la clé n'est montrée qu'une fois */
 export async function createApiKey(/** @type {unknown} */ label, /** @type {number} */ createdBy) {

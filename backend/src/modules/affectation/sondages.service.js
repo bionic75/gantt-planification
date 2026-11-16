@@ -1,12 +1,12 @@
 // @ts-check
 // Sondages de date des jalons d'un rétroplanning d'ateliers métier : conception, envoi par e-mail, réponses publiques
 import { randomBytes } from 'crypto';
-import { env } from '../../config/env.js';
-import { prisma } from '../../db/prisma.js';
-import { idParam, sqlTimestamp } from '../../db/values.js';
-import { isEmail } from '../../lib/email.js';
-import { badRequest, HttpError, notFound } from '../../lib/http-error.js';
-import { sendEmail } from '../../lib/mailer.js';
+import { env } from '../../config/env.ts';
+import { prisma } from '../../db/prisma.ts';
+import { idParam, sqlTimestamp } from '../../db/values.ts';
+import { isEmail } from '../../lib/email.ts';
+import { badRequest, HttpError, notFound } from '../../lib/http-error.ts';
+import { sendEmail } from '../../lib/mailer.ts';
 import { isValidDate } from './ateliers.calc.js';
 
 const MAX_OPTIONS = 60;
@@ -140,6 +140,7 @@ export async function save(retroId, ligne, body, userId) {
     if (closed && closed.statut === 'termine') throw badRequest('Sondage clôturé : rouvrez-le pour le modifier');
     const opts = (Array.isArray(body.options) ? body.options : []).slice(0, MAX_OPTIONS);
     for (const o of opts) if (!isValidDate(String(o.date || ''))) throw badRequest('Date proposée invalide');
+    /** @type {string[]} */
     const invalid = [];
     const dest = [
         ...new Set(

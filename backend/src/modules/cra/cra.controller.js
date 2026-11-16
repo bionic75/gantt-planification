@@ -1,7 +1,7 @@
 // @ts-check
-import { env } from '../../config/env.js';
-import { badRequest, forbidden, notFound } from '../../lib/http-error.js';
-import { logUserAction } from '../../services/action-log.js';
+import { env } from '../../config/env.ts';
+import { badRequest, forbidden, notFound } from '../../lib/http-error.ts';
+import { logUserAction } from '../../services/action-log.ts';
 import { testAutomation4 } from './cra.automation.js';
 import * as collect from './cra.collect.js';
 import * as diffusion from './cra.diffusion.js';

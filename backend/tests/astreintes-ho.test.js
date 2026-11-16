@@ -1,9 +1,9 @@
 // Astreintes HO (heures ouvrées) : déclaration des ressources, planning demi-journée par demi-journée, droits de
 // modification, e-mail de mise à jour, automatisations n°5 et n°6
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { ADMIN, startServer } from './helpers/server.js';
-import { createExpert, createResource, createUser, loginAs } from './helpers/fixtures.js';
-import { startSmtpSink } from './helpers/smtp-sink.js';
+import { ADMIN, startServer } from './helpers/server.ts';
+import { createExpert, createResource, createUser, loginAs } from './helpers/fixtures.ts';
+import { startSmtpSink } from './helpers/smtp-sink.ts';
 
 let server;
 let admin;

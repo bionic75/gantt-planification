@@ -6,9 +6,9 @@ import {
     requireAffectationAccess,
     requireAuth,
     requireDeploiementsLecture
-} from '../../middlewares/auth.js';
-import { sondagePublicLimiters } from '../../middlewares/rate-limit.js';
-import { asyncHandler as h } from '../../middlewares/error-handler.js';
+} from '../../middlewares/auth.ts';
+import { sondagePublicLimiters } from '../../middlewares/rate-limit.ts';
+import { asyncHandler as h } from '../../middlewares/error-handler.ts';
 import * as ctrl from './affectation.controller.js';
 import * as asana from './asana.controller.js';
 import * as ateliers from './ateliers.controller.js';

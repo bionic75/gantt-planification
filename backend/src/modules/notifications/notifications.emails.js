@@ -1,7 +1,7 @@
 // @ts-check
 // Emails des notifications : invitations d'affectation (avec ICS), demandes d'affectation, notifications Teams
-import { gabaritMail, ligneInfo } from '../../lib/email-layout.js';
-import { escapeHtml as e, escapeHtmlLines } from '../../lib/html.js';
+import { gabaritMail, ligneInfo } from '../../lib/email-layout.ts';
+import { escapeHtml as e, escapeHtmlLines } from '../../lib/html.ts';
 import {
     ACTIVITY_LABELS,
     HALF_DAY_HOURS,
@@ -11,7 +11,7 @@ import {
     getCleanActivityLabel,
     getCleanOldActivityLabel,
     groupContiguousAssignments
-} from '../../lib/ics.js';
+} from '../../lib/ics.ts';
 
 /**
  * Corps HTML d'une invitation (nouvelle affectation, modification ou annulation) : gabarit commun du site
@@ -72,7 +72,7 @@ export function buildAssignmentEmails(assignments, requesterName, senderEmailAdd
         const modifiedAssigns = expertAssignments.filter((/** @type {any} */ a) => a.actionType === 'modified');
         const deletedAssigns = expertAssignments.filter((/** @type {any} */ a) => a.actionType === 'deleted');
 
-        for (const group of groupContiguousAssignments(newAssigns)) {
+        for (const group of groupContiguousAssignments(/** @type {any[]} */ (newAssigns))) {
             try {
                 const firstSlot = group.slots[0],
                     lastSlot = group.slots[group.slots.length - 1];

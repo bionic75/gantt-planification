@@ -1,7 +1,7 @@
 // Comptes rendus d'activité (CRA) : emails du circuit de validation, document signé (HTML) et PDF
-import { env as appEnv } from '../../config/env.js';
-import { escapeHtml as e } from '../../lib/html.js';
-import { isolatePage, puppeteer } from '../../lib/puppeteer.js';
+import { env as appEnv } from '../../config/env.ts';
+import { escapeHtml as e } from '../../lib/html.ts';
+import { isolatePage, puppeteer } from '../../lib/puppeteer.ts';
 
 /** action : fragment HTML, dont les données sont échappées par l'appelant */
 export function buildCraEmailHtml({ title, expertNom, moisNom, craUrl, action }) {

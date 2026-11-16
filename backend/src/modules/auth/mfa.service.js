@@ -1,8 +1,8 @@
 // @ts-check
 // Double authentification : configuration, codes par email, TOTP (RFC 6238)
 import crypto from 'crypto';
-import { prisma } from '../../db/prisma.js';
-import { idParam, sqlTimestamp } from '../../db/values.js';
+import { prisma } from '../../db/prisma.ts';
+import { idParam, sqlTimestamp } from '../../db/values.ts';
 
 const BASE32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 const EMAIL_CODE_TTL_MS = 10 * 60 * 1000;

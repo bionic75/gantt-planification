@@ -1,8 +1,8 @@
 // @ts-check
 // Reporting et exports : disponibilités / affectations, astreintes / HNO, carte des événements, exports CSV
-import { prisma } from '../../db/prisma.js';
-import { idParam } from '../../db/values.js';
-import { badRequest } from '../../lib/http-error.js';
+import { prisma } from '../../db/prisma.ts';
+import { idParam } from '../../db/values.ts';
+import { badRequest } from '../../lib/http-error.ts';
 
 const ACTIVITY_LABELS = /** @type {Record<string, string>} */ ({
     1: 'Indisponible',

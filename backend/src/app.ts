@@ -1,0 +1,165 @@
+// Construction de l'application Express (sans démarrage du serveur HTTP)
+import cors from 'cors';
+import express, { type Express, type RequestHandler } from 'express';
+import session from 'express-session';
+import helmet from 'helmet';
+import { isRestoreInProgress } from '../scripts/db-dump.js';
+import { env } from './config/env.ts';
+import { PrismaSessionStore } from './db/session-store.ts';
+import { envoyerIndex, envoyerMobile, modeFrontend, PORT_HMR } from './lib/frontend.ts';
+import { IMG_DIR } from './lib/paths.ts';
+import { rejectCrossOrigin } from './middlewares/csrf.ts';
+import { errorHandler } from './middlewares/error-handler.ts';
+import { requirePasswordChanged } from './middlewares/password-change.ts';
+import pagesRoutes from './modules/admin/pages.routes.js';
+import apiRoutes from './routes.ts';
+
+/** Valeurs des paramètres sensibles (jetons, clés, mots de passe) masquées dans une URL journalisée */
+export function maskSecrets(url: string) {
+    return url.replace(/([?&][^=&]*(?:token|key|password|secret|code)[^=&]*=)[^&]*/gi, '$1***');
+}
+
+/**
+ * En-têtes de sécurité. La politique de contenu (CSP) n'admet que les scripts et feuilles de style servis par
+ * l'application (ni script ni style en ligne, lots 6.5 et 6.6 ; aide en ligne : styles en ligne admis), limite les
+ * ressources externes à OpenStreetMap et interdit l'affichage de l'application dans un cadre d'un autre site.
+ */
+function securityHeaders() {
+    const https = !!env.APP_URL?.startsWith('https:');
+    return helmet({
+        contentSecurityPolicy: {
+            useDefaults: false,
+            directives: {
+                defaultSrc: ["'self'"],
+                // Scripts de l'application seulement (lot 6.5) : ni script en ligne ni attribut onclick
+                scriptSrc: ["'self'"],
+                scriptSrcAttr: ["'none'"],
+                // Feuilles de l'application seulement (lot 6.6) : ni attribut style ni bloc <style> dans le HTML (styles
+                // posés en JavaScript admis) ; développement : <style> injectés par le serveur Vite ; aide en ligne :
+                // styles en ligne admis par sa route (pages.routes.js)
+                styleSrc: ["'self'", ...(modeFrontend() === 'vite' ? ["'unsafe-inline'"] : [])],
+                imgSrc: [
+                    "'self'",
+                    'data:',
+                    'blob:',
+                    'https://*.tile.openstreetmap.org',
+                    'https://cdnjs.cloudflare.com'
+                ],
+                fontSrc: ["'self'", 'data:'],
+                connectSrc: [
+                    "'self'",
+                    'https://nominatim.openstreetmap.org',
+                    // Développement : rechargement à chaud de l'interface Vue (serveur Vite)
+                    ...(modeFrontend() === 'vite' ? [`ws://localhost:${PORT_HMR}`] : [])
+                ],
+                frameSrc: ["'self'", 'blob:', 'data:'],
+                objectSrc: ["'none'"],
+                baseUri: ["'self'"],
+                formAction: ["'self'"],
+                frameAncestors: ["'self'"],
+                ...(https ? { upgradeInsecureRequests: [] } : {})
+            }
+        },
+        // HTTPS uniquement : sinon le navigateur refuserait ensuite l'accès en HTTP (poste de développement)
+        strictTransportSecurity: https ? { maxAge: 180 * 24 * 3600 } : false,
+        // Origine seule envoyée aux autres sites : les tuiles OpenStreetMap exigent un en-tête Referer
+        referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+        // Ressources des CDN chargées sans en-têtes CORP / COEP
+        crossOriginEmbedderPolicy: false,
+        // Liens externes (itinéraire Google Maps…) ouverts dans un nouvel onglet
+        crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' }
+    });
+}
+
+/** Middlewares communs et routes /api des modules */
+export function createApp() {
+    const app = express();
+
+    // Derrière le proxy (OVH, nginx) : IP client réelle et protocole via X-Forwarded-*, des seuls proxys de confiance
+    app.set('trust proxy', env.TRUST_PROXY);
+    app.disable('x-powered-by');
+
+    app.use(securityHeaders());
+    // Modifications refusées si elles viennent d'un autre site (CSRF)
+    app.use(rejectCrossOrigin);
+    // Appels d'autres sites : seulement l'API publique (clé d'API, sans cookie de session)
+    app.use('/api/public', cors());
+
+    // Restauration de la base en cours : seules les routes de dump restent disponibles
+    app.use((req, res, next) => {
+        if (isRestoreInProgress() && !req.path.startsWith('/api/admin/dump')) {
+            res.status(503).json({ error: 'Restauration de la base en cours, réessayez dans quelques instants.' });
+            return;
+        }
+        next();
+    });
+
+    app.use((req, res, next) => {
+        const t0 = Date.now();
+        const { method } = req;
+        const url = maskSecrets(req.originalUrl);
+        console.log(`→ ${method} ${url}`);
+        res.on('finish', () => console.log(`← ${method} ${url} ${res.statusCode} (${Date.now() - t0}ms)`));
+        next();
+    });
+
+    app.use(
+        session({
+            secret: env.SESSION_SECRET,
+            store: new PrismaSessionStore(),
+            resave: false,
+            saveUninitialized: false,
+            cookie: {
+                // Cookie réservé à HTTPS quand la requête est en HTTPS (directement ou via un proxy de confiance)
+                secure: 'auto',
+                httpOnly: true,
+                maxAge: 24 * 60 * 60 * 1000,
+                sameSite: 'lax'
+            },
+            name: 'gantt.sid'
+        })
+    );
+
+    // Corps des requêtes : volumineux (planning complet, modèles, photos) pour un utilisateur connecté seulement
+    const parsers: Record<'small' | 'large', [RequestHandler, RequestHandler]> = {
+        small: [express.json({ limit: '100kb' }), express.urlencoded({ limit: '100kb', extended: true })],
+        large: [express.json({ limit: '50mb' }), express.urlencoded({ limit: '50mb', extended: true })]
+    };
+    app.use((req, res, next) => {
+        const [json, urlencoded] = req.session?.userId ? parsers.large : parsers.small;
+        json(req, res, err => (err ? next(err) : urlencoded(req, res, next)));
+    });
+
+    // Mot de passe donné par un administrateur : à changer avant toute autre action
+    app.use(requirePasswordChanged);
+    app.use('/api', apiRoutes);
+    // Pages hors /api, prioritaires sur les fichiers statiques
+    app.use(pagesRoutes);
+    return app;
+}
+
+/**
+ * Fichiers statiques, page mobile, renvoi de toute autre URL vers l'application, gestion des erreurs.
+ * À appeler après la déclaration de toutes les routes.
+ */
+export function finalizeApp(app: Express) {
+    // Page principale avec le point d'entrée de l'interface Vue (îlots)
+    app.get(['/', '/index.html'], envoyerIndex);
+    // Application mobile avec son point d'entrée (avant les fichiers statiques, qui serviraient la page seule)
+    app.get('/mobile.html', envoyerMobile);
+    // Images (frontend/img) ; les pages sont servies avec leur point d'entrée (src/lib/frontend.ts)
+    app.use('/img', express.static(IMG_DIR, { index: false }));
+
+    app.get('/mobile', (req, res) => {
+        const isMobile = /android|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile/i.test(
+            req.headers['user-agent'] || ''
+        );
+        // Desktop : application principale
+        if (isMobile) envoyerMobile(req, res);
+        else res.redirect('/');
+    });
+
+    app.get('*', envoyerIndex);
+
+    app.use(errorHandler);
+}

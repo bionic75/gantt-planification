@@ -1,8 +1,8 @@
 // @ts-check
 // Utilisateurs : /api/users, /api/user, /api/profile, /api/app-access
 import { Router } from 'express';
-import { requireAdmin, requireAuth, requireDeplacementsAccess } from '../../middlewares/auth.js';
-import { asyncHandler as h } from '../../middlewares/error-handler.js';
+import { requireAdmin, requireAuth, requireDeplacementsAccess } from '../../middlewares/auth.ts';
+import { asyncHandler as h } from '../../middlewares/error-handler.ts';
 import * as ctrl from './users.controller.js';
 
 const router = Router();

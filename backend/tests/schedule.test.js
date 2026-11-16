@@ -1,7 +1,7 @@
 // Planning (clés "<resourceId>_<type>_<date>_<AM|PM>")
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { ADMIN, startServer } from './helpers/server.js';
-import { createExpert, createResource, createUser, loginAs } from './helpers/fixtures.js';
+import { ADMIN, startServer } from './helpers/server.ts';
+import { createExpert, createResource, createUser, loginAs } from './helpers/fixtures.ts';
 
 let server;
 let admin;

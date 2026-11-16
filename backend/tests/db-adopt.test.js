@@ -5,8 +5,8 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { afterAll, describe, expect, it } from 'vitest';
-import { createWorkDir, startServer } from './helpers/server.js';
-import { isSqlite } from './helpers/test-db.js';
+import { createWorkDir, startServer } from './helpers/server.ts';
+import { isSqlite } from './helpers/test-db.ts';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const LEGACY_SCHEMA = fs.readFileSync(path.join(ROOT, 'tests/fixtures/legacy-schema.sql'), 'utf8');

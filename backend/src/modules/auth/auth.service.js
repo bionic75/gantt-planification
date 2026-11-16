@@ -1,8 +1,8 @@
 // @ts-check
 // Accès aux données : comptes pour la connexion, journal des connexions, mot de passe oublié
 import crypto from 'crypto';
-import { prisma } from '../../db/prisma.js';
-import { hashPassword, verifyAgainstDummy, verifyPassword } from '../../lib/password.js';
+import { prisma } from '../../db/prisma.ts';
+import { hashPassword, verifyAgainstDummy, verifyPassword } from '../../lib/password.ts';
 
 /** @typedef {'admin' | 'expert' | 'user' | 'rh'} Profile */
 

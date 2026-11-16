@@ -1,12 +1,12 @@
 // @ts-check
 // Aide à l'affectation : déploiements des SAMU, étapes, disponibilités des ressources,
 // liens avec les événements et la planification
-import { prisma } from '../../db/prisma.js';
-import { idParam, sqlTimestamp } from '../../db/values.js';
-import { HttpError } from '../../lib/http-error.js';
-import { samuNumber as affSamuNumber } from '../../lib/samu.js';
-import { logUserAction } from '../../services/action-log.js';
-import { getJsonSetting, setSetting } from '../../services/settings.js';
+import { prisma } from '../../db/prisma.ts';
+import { idParam, sqlTimestamp } from '../../db/values.ts';
+import { HttpError } from '../../lib/http-error.ts';
+import { samuNumber as affSamuNumber } from '../../lib/samu.ts';
+import { logUserAction } from '../../services/action-log.ts';
+import { getJsonSetting, setSetting } from '../../services/settings.ts';
 import { notifierAffectations } from '../notifications/notifications.service.js';
 
 /** @typedef {import('express').Request} Request */
@@ -285,7 +285,9 @@ export async function affReconcileAssignments(
     const explicit = new Set(dayRows.map(d => `${d.stage_key}|${d.resource_id}`));
     /** @type {Record<string, number>} */
     const counts = {};
+    /** @type {number[]} */
     const toDelete = [];
+    /** @type {number[]} */
     const daysToDelete = [];
     for (const a of rows) {
         const per = periods[a.stage_key] && periods[a.stage_key][0];
@@ -580,6 +582,7 @@ export function affValuesOfRow(/** @type {any} */ r) {
 
 /** Différences entre deux états d'un déploiement (avant : null à la création) */
 export async function affDiff(/** @type {any} */ before, /** @type {any} */ after) {
+    /** @type {Array<{ label: string, from: string, to: string }>} */
     const ch = [];
     const push = (/** @type {string} */ label, /** @type {unknown} */ from, /** @type {unknown} */ to) => {
         if (String(from) !== String(to)) ch.push({ label, from: String(from), to: String(to) });
@@ -1355,11 +1358,14 @@ export async function affUnassignResourceFromStage(
     });
 }
 
-/** Parmi des étapes de déploiements, celles où la ressource est affectée */
-export async function affAssignedAmong(
-    /** @type {number} */ resourceId,
-    /** @type {Array<{ project: number, stage: string }>} */ stages
-) {
+/**
+ * Parmi des étapes de déploiements, celles où la ressource est affectée
+ * @template {{ project: number, stage: string }} T
+ * @param {number} resourceId
+ * @param {T[]} stages
+ * @returns {Promise<T[]>}
+ */
+export async function affAssignedAmong(resourceId, stages) {
     if (!stages.length) return [];
     const rows = await prisma.affectationAssignment.findMany({
         where: { resource_id: resourceId, OR: stages.map(s => ({ project_id: s.project, stage_key: s.stage })) },

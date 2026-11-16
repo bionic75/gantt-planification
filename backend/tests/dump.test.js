@@ -2,9 +2,9 @@
 import { afterAll, beforeAll, expect, it } from 'vitest';
 import path from 'path';
 import Database from 'better-sqlite3';
-import { ADMIN, createWorkDir, startServer } from './helpers/server.js';
-import { createResource, loginAs } from './helpers/fixtures.js';
-import { isSqlite } from './helpers/test-db.js';
+import { ADMIN, createWorkDir, startServer } from './helpers/server.ts';
+import { createResource, loginAs } from './helpers/fixtures.ts';
+import { isSqlite } from './helpers/test-db.ts';
 
 let server;
 let admin;

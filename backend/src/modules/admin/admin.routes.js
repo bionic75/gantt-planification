@@ -1,8 +1,8 @@
 // @ts-check
 // Administration : configuration email, version, paramètres, accès aux onglets, thèmes, aide
 import { Router } from 'express';
-import { requireAdmin, requireAuth } from '../../middlewares/auth.js';
-import { asyncHandler as h } from '../../middlewares/error-handler.js';
+import { requireAdmin, requireAuth } from '../../middlewares/auth.ts';
+import { asyncHandler as h } from '../../middlewares/error-handler.ts';
 import * as ctrl from './admin.controller.js';
 
 const router = Router();

@@ -1,8 +1,8 @@
 // Mot de passe oublié : lien de réinitialisation à usage unique envoyé par email
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { ADMIN, startServer } from './helpers/server.js';
-import { createUser, loginAs } from './helpers/fixtures.js';
-import { startSmtpSink } from './helpers/smtp-sink.js';
+import { ADMIN, startServer } from './helpers/server.ts';
+import { createUser, loginAs } from './helpers/fixtures.ts';
+import { startSmtpSink } from './helpers/smtp-sink.ts';
 
 let server;
 let admin;
