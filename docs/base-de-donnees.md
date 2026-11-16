@@ -169,5 +169,11 @@ Le schéma de départ reproduit la base historique, pour que les réponses de l'
 - **aucune clé étrangère en base** (`relationMode = "prisma"`). Les relations sont déclarées dans le schéma au
   fur et à mesure de la réécriture des modules, avec le comportement à la suppression de l'application
   actuelle. Elles ne modifient pas la base ;
+- sans clé étrangère, les données rattachées à un enregistrement par son identifiant (historique, paramètres JSON
+  indexés par identifiant) sont **supprimées avec lui par l'application** : un identifiant peut être réattribué
+  (SQLite remet le compteur `AUTOINCREMENT` au plus grand identifiant restant quand une migration reconstruit la
+  table). Exemple : la suppression d'un déploiement supprime son historique, ses liens d'événements et ses données
+  Asana ; la migration `20261116120000_historique_orphelin` a supprimé les historiques orphelins existants, y compris
+  ceux hérités par un déploiement créé avec un identifiant réattribué (entrées antérieures à sa création) ;
 - MariaDB/MySQL : les textes sont en `LONGTEXT`, sauf les colonnes indexées (`VARCHAR(191)`) et les horodatages
   (`VARCHAR(32)`). Collation `utf8mb4_uca1400_ai_ci`, substituée par `db:migration` à celle choisie par Prisma.
