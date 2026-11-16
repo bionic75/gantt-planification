@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import { prisma } from '../db/prisma.js';
 import { sqlTimestamp, toInt } from '../db/values.js';
+import { piecesDeHtml } from '../lib/email-layout.js';
 import { createEmailTransporter, emailConfig } from '../lib/mailer.js';
 
 const POLL_INTERVAL_MS = 1500;
@@ -121,6 +122,8 @@ function buildMailOptions(email) {
             contentType: 'image/webp'
         });
     }
+    // Icônes du gabarit commun (images « cid ») référencées par le corps
+    attachments.push(...piecesDeHtml(email.html_body));
     if (email.pdf_attachment) {
         attachments.push({
             filename: email.pdf_filename || 'CRA.pdf',

@@ -1,5 +1,6 @@
 // @ts-check
 import crypto from 'crypto';
+import { piecesDeHtml } from '../../lib/email-layout.js';
 import { badRequest } from '../../lib/http-error.js';
 import { createEmailTransporter, emailConfig, sendEmail } from '../../lib/mailer.js';
 import { logUserAction } from '../../services/action-log.js';
@@ -245,7 +246,7 @@ export async function sendPendingNotifications(/** @type {Request} */ req, /** @
         const expert = `${notif.prenom} ${notif.nom}`;
         const html = pendingAssignmentEmail(/** @type {any} */ (notif), JSON.parse(notif.assignment_data));
         try {
-            await sendEmail(notif.email, 'Nouvelle affectation', html);
+            await sendEmail(notif.email, 'Nouvelle affectation', html, piecesDeHtml(html));
             results.push({ success: true, expert });
         } catch (/** @type {any} */ error) {
             results.push({ success: false, expert, error: error.message });

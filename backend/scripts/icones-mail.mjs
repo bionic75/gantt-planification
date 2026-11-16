@@ -1,4 +1,5 @@
-// Génère les icônes PNG des e-mails (backend/assets/mail) à partir des tracés du site (frontend/src/composants/icones.ts).
+// Génère les icônes PNG des e-mails (backend/assets/mail) à partir des tracés du site (frontend/src/composants/icones.ts
+// et icones-application.ts).
 // Les clients de messagerie n'affichent pas le SVG intégré : les icônes sont jointes en PNG (image « cid »).
 // Usage : node backend/scripts/icones-mail.mjs (CHROME_PATH=chemin d'un Chrome installé si Puppeteer n'a pas son navigateur)
 import { mkdirSync, readFileSync } from 'node:fs';
@@ -7,7 +8,10 @@ import { fileURLToPath } from 'node:url';
 import puppeteer from 'puppeteer';
 
 const racine = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const source = readFileSync(join(racine, 'frontend/src/composants/icones.ts'), 'utf8');
+// Icônes des composants, puis icônes de l'ancien code (calendrier, mallette…)
+const source = ['icones.ts', 'icones-application.ts']
+    .map(f => readFileSync(join(racine, 'frontend/src/composants', f), 'utf8'))
+    .join('\n');
 const sortie = join(racine, 'backend/assets/mail');
 mkdirSync(sortie, { recursive: true });
 
@@ -19,6 +23,7 @@ function traces(nom) {
 }
 
 const BLEU = '#1d70b7';
+const ROSE = '#b0285a';
 const svgIcone = (nom, couleur, fond, taille) => {
     const pad = Math.round(taille * (fond ? 0.26 : 0.06));
     const rond = fond ? `<circle cx="${taille / 2}" cy="${taille / 2}" r="${taille / 2}" fill="${fond}"/>` : '';
@@ -31,7 +36,17 @@ const ICONES = [
     ['cle-grand', 'cle', '#fff', BLEU, 128],
     // Petites icônes des lignes d'information : bleu sans fond
     ['horloge', 'horloge', BLEU, null, 40],
-    ['bouclier', 'bouclier', BLEU, null, 40]
+    ['bouclier', 'bouclier', BLEU, null, 40],
+    // Événements et affectations : calendrier, mallette, modification (flèche circulaire), annulation (rose)
+    ['calendrier-grand', 'calendar', '#fff', BLEU, 128],
+    ['mallette-grand', 'briefcase', '#fff', BLEU, 128],
+    ['modifie-grand', 'refresh', '#fff', BLEU, 128],
+    ['annule-grand', 'x', '#fff', ROSE, 128],
+    ['calendrier', 'calendar', BLEU, null, 40],
+    ['evenement', 'clipboard', BLEU, null, 40],
+    ['lieu', 'pin', BLEU, null, 40],
+    ['utilisateur', 'user', BLEU, null, 40],
+    ['mallette', 'briefcase', BLEU, null, 40]
 ];
 
 const navigateur = await puppeteer.launch(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {});
